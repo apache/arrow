@@ -183,8 +183,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
       final Timestamp result = accessor.getTimestamp(calendar);
 
-      compareOffset(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(), resultWithoutCalendar.getTime(),
-              accessor);
+      assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
+              resultWithoutCalendar.getTime(), accessor);
     });
   }
 
@@ -214,8 +214,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       final Date resultWithoutCalendar = accessor.getDate(null);
       final Date result = accessor.getDate(calendar);
 
-      compareOffset(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(), resultWithoutCalendar.getTime(),
-              accessor);
+      assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
+              resultWithoutCalendar.getTime(), accessor);
     });
   }
 
@@ -245,8 +245,8 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       final Time resultWithoutCalendar = accessor.getTime(null);
       final Time result = accessor.getTime(calendar);
 
-      compareOffset(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(), resultWithoutCalendar.getTime(),
-              accessor);
+      assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
+              resultWithoutCalendar.getTime(), accessor);
     });
   }
 
@@ -268,11 +268,9 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       TimeUnit timeUnit = getTimeUnitForVector(vector);
       long millis = timeUnit.toMillis((Long) object);
 
-      Instant currInstant = Instant.ofEpochMilli(millis);
-      LocalDateTime getTimestampWithoutTZ = LocalDateTime.ofInstant(currInstant,
-              TimeZone.getTimeZone("UTC").toZoneId());
-
-      ZonedDateTime sourceTZDateTime = getTimestampWithoutTZ.atZone(TimeZone.getTimeZone(timeZone).toZoneId());
+      ZonedDateTime sourceTZDateTime = LocalDateTime
+              .ofInstant(Instant.ofEpochMilli(millis), TimeZone.getTimeZone("UTC").toZoneId())
+              .atZone(TimeZone.getTimeZone(timeZone).toZoneId());
       expectedTimestamp = new Timestamp(sourceTZDateTime.toEpochSecond() * 1000);
     }
     return expectedTimestamp;
@@ -322,8 +320,10 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
     }
   }
 
-  private void compareOffset(TimeZone timeZone, TimeZone finalTimeZoneForResultWithoutCalendar, long result,
-                             long resultWithoutCalendar, ArrowFlightJdbcTimeStampVectorAccessor accessor) {
+  private void assertOffsetIsConsistentWithAccessorGetters(TimeZone timeZone,
+                                                           TimeZone finalTimeZoneForResultWithoutCalendar, long result,
+                                                           long resultWithoutCalendar,
+                                                           ArrowFlightJdbcTimeStampVectorAccessor accessor) {
     final TimeZone timeZoneForResult = getTimeZoneForVector(vector) == null ? timeZone :
             finalTimeZoneForResultWithoutCalendar;
 
