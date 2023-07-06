@@ -1353,7 +1353,7 @@ TEST_F(TestUInt32ParquetIO, Parquet_1_0_Compatibility) {
 
 using TestStringParquetIO = TestParquetIO<::arrow::StringType>;
 
-#if defined(_WIN64) || defined(__x86_64__)
+#if defined(_WIN64) || defined(__LP64__)
 TEST_F(TestStringParquetIO, SmallStringWithLargeBinaryVariantSetting) {
   auto values = ArrayFromJSON(::arrow::utf8(), R"(["foo", "", null, "bar"])");
 
@@ -1397,6 +1397,7 @@ TEST_F(TestStringParquetIO, EmptyStringColumnRequiredWrite) {
 
 using TestLargeBinaryParquetIO = TestParquetIO<::arrow::LargeBinaryType>;
 
+#if defined(_WIN64) || defined(__LP64__)
 TEST_F(TestLargeBinaryParquetIO, Basics) {
   const char* json = "[\"foo\", \"\", null, \"\xff\"]";
 
@@ -1447,6 +1448,7 @@ TEST_F(TestLargeStringParquetIO, Basics) {
       ::parquet::ArrowWriterProperties::Builder().store_schema()->build();
   this->RoundTripSingleColumn(large_array, large_array, arrow_properties);
 }
+#endif
 
 using TestNullParquetIO = TestParquetIO<::arrow::NullType>;
 
@@ -3903,7 +3905,7 @@ TEST(TestArrowReaderAdHoc, CorruptedSchema) {
   TryReadDataFile(path, ::arrow::StatusCode::IOError);
 }
 
-#if defined(ARROW_WITH_BROTLI) && (defined(_WIN64) || defined(__x86_64__))
+#if defined(ARROW_WITH_BROTLI) && defined(__LP64__)
 TEST(TestArrowParquet, LargeByteArray) {
   auto path = test::get_data_file("large_string_map.brotli.parquet");
   TryReadDataFile(path, ::arrow::StatusCode::NotImplemented);
