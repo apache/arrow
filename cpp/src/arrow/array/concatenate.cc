@@ -169,9 +169,6 @@ Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offse
   return Status::OK();
 }
 
-// Implement of `arrow::Concatenate`.
-// N.B. The ConcatenateImpl should accept a reference to a vector of ArrayData,
-// instead of a temporary value.
 class ConcatenateImpl {
  public:
   ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
