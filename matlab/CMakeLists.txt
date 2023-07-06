@@ -518,17 +518,21 @@ if(NOT Arrow_FOUND)
     #                                         libarrow.1300.dylib
     #                                         libarrow.1300.0.0.dylib
     # where the version number might change.
-    set(SHARED_LIBRARY_VERSION_REGEX "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}")
-  elseif(UNIX
-         AND NOT CYGWIN)
+    set(SHARED_LIBRARY_VERSION_REGEX
+        "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    )
+  elseif(UNIX AND NOT CYGWIN)
     # Install libarrow.so (symlink) and the real files it points to.
     # On Linux, we need to match these files: libarrow.so
     #                                         libarrow.so.1200
     #                                         libarrow.so.1200.0.0
     # where the version number might change.
-    set(SHARED_LIBRARY_VERSION_REGEX "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)")
+    set(SHARED_LIBRARY_VERSION_REGEX
+        "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)"
+    )
   else()
-    set(SHARED_LIBRARY_VERSION_REGEX ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+    set(SHARED_LIBRARY_VERSION_REGEX
+        ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
 
   # The subfolders cmake and pkgconfig are excluded as they will be empty.
@@ -542,7 +546,6 @@ if(NOT Arrow_FOUND)
           PATTERN "cmake" EXCLUDE
           PATTERN "pkgconfig" EXCLUDE)
 endif()
-
 
 # MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install
 # directory path to the MATLAB Search Path is added to the startup.m file located in the MATLAB
