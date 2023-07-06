@@ -1081,6 +1081,13 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
     this->AssertUnaryOpRaises(Round, values, "out of range");
   }
 
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+    this->SetRoundNdigits(-1);
+    this->SetRoundMode(RoundMode::DOWN);
+    this->AssertUnaryOpRaises(Round, "[-127]", "overflow");
+  }
+
   // A larger than double int64 should be correctly handled
   if constexpr (std::is_same_v<TypeParam, Int64Type>) {
     this->SetRoundNdigits(-2);
@@ -1145,6 +1152,13 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
     this->SetRoundMode(RoundMode::UP);
     auto values = "[1]";
     this->AssertUnaryOpRaises(Round, values, "out of range");
+  }
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+    this->SetRoundNdigits(-1);
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertUnaryOpRaises(Round, "[255]", "overflow");
   }
 
   // A larger than double uint64 should be correctly handled
@@ -1255,6 +1269,12 @@ TYPED_TEST(TestBinaryRoundSigned, Round) {
     this->SetRoundMode(RoundMode::UP);
     this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
   }
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+    this->SetRoundMode(RoundMode::DOWN);
+    this->AssertBinaryOpRaises(RoundBinary, "[-127]", "[-1]", "overflow");
+  }
 }
 
 TYPED_TEST(TestBinaryRoundUnsigned, Round) {
@@ -1307,6 +1327,12 @@ TYPED_TEST(TestBinaryRoundUnsigned, Round) {
   if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
     this->SetRoundMode(RoundMode::UP);
     this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
+  }
+
+  // Overflow is also treated as error
+  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertBinaryOpRaises(RoundBinary, "[255]", "[-1]", "overflow");
   }
 }
 
