@@ -59,12 +59,12 @@ writing code which would break when it is replaced by std::span.)");
   template <
       typename R,
       typename DisableUnlessConstructibleFromDataAndSize =
-          decltype(span<T>(std::data(std::declval<R&>()), std::size(std::declval<R&>()))),
+          decltype(span<T>(std::data(std::declval<R>()), std::size(std::declval<R>()))),
       typename DisableUnlessSimilarTypes = std::enable_if_t<std::is_same_v<
-          std::decay_t<std::remove_pointer_t<decltype(std::data(std::declval<R&>()))>>,
+          std::decay_t<std::remove_pointer_t<decltype(std::data(std::declval<R>()))>>,
           std::decay_t<T>>>>
   // NOLINTNEXTLINE runtime/explicit, non-const reference
-  constexpr span(R& range) : span{std::data(range), std::size(range)} {}
+  constexpr span(R&& range) : span{std::data(range), std::size(range)} {}
 
   constexpr T* begin() const { return data_; }
   constexpr T* end() const { return data_ + size_; }
@@ -78,7 +78,7 @@ writing code which would break when it is replaced by std::span.)");
   constexpr const T& operator[](size_t i) const { return data_[i]; }
 
   constexpr span subspan(size_t offset) const {
-    if (offset > size_) return {};
+    if (offset > size_) return {data_, data_};
     return {data_ + offset, size_ - offset};
   }
 
