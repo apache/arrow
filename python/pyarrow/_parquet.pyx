@@ -1612,11 +1612,10 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
 
     # page index
 
-    if isinstance(write_page_index, bool):
-        if write_page_index:
-            props.enable_write_page_index()
-        else:
-            props.disable_write_page_index()
+    if write_page_index:
+        props.enable_write_page_index()
+    else:
+        props.disable_write_page_index()
 
     properties = props.build()
 
