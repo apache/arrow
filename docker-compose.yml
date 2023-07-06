@@ -314,7 +314,9 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
-      ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
+      # Shrink test runtime by enabling minimal optimizations
+      ARROW_C_FLAGS_DEBUG: "-g1 -Og"
+      ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
