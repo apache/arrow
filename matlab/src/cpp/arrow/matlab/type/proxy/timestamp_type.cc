@@ -39,10 +39,15 @@ namespace arrow::matlab::type::proxy {
         const mda::StringArray timeunit_mda = opts[0]["TimeUnit"];
 
         // extract the time zone
-        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(timezone_mda[0]),
+        const std::u16string& utf16_timezone = timezone_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto timezone,
+                               arrow::util::UTF16StringToUTF8(utf16_timezone),
                                error::UNICODE_CONVERSION_ERROR_ID);
+
         // extract the time unit
-        MATLAB_ASSIGN_OR_ERROR(const auto timeunit, arrow::matlab::type::timeUnitFromString(timeunit_mda[0]),
+        const std::u16string& utf16_timeunit = timeunit_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
+                               arrow::matlab::type::timeUnitFromString(utf16_timeunit),
                                error::UKNOWN_TIME_UNIT_ERROR_ID);
 
         auto type = arrow::timestamp(timeunit, timezone);

@@ -20,7 +20,7 @@
 
 namespace arrow::matlab::type {
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(const std::u16string& unit_str) {
+    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str) {
         if (unit_str == u"Second") {
             return arrow::TimeUnit::type::SECOND;
         } else if (unit_str == u"Millisecond") {
