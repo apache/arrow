@@ -362,21 +362,12 @@ bool Expression::IsSatisfiable() const {
   }
 
   if (call->function_name == "and_kleene" || call->function_name == "and") {
-    bool has_unsatisfiable =
-        std::any_of(call->arguments.begin(), call->arguments.end(),
-                    [](const Expression& arg) { return !arg.IsSatisfiable(); });
-    if (has_unsatisfiable) {
-      return false;
-    }
+    return std::all_of(call->arguments.begin(), call->arguments.end(),
+                       [](const Expression& arg) { return arg.IsSatisfiable(); });
   }
-
   if (call->function_name == "or_kleene" || call->function_name == "or") {
-    bool all_unsatisfiable =
-        std::all_of(call->arguments.begin(), call->arguments.end(),
-                    [](const Expression& arg) { return !arg.IsSatisfiable(); });
-    if (all_unsatisfiable) {
-      return false;
-    }
+    return std::any_of(call->arguments.begin(), call->arguments.end(),
+                       [](const Expression& arg) { return arg.IsSatisfiable(); });
   }
 
   return true;
