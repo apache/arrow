@@ -611,10 +611,9 @@ const std::shared_ptr<Array>& StructArray::field(int i) const {
   return boxed_fields_[i];
 }
 
-const std::shared_ptr<Array>& StructArray::GetFieldByName(const std::string& name) const {
-  static std::shared_ptr<Array> null;
+std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
   int i = struct_type()->GetFieldIndex(name);
-  return i == -1 ? null : field(i);
+  return i == -1 ? nullptr : field(i);
 }
 
 Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {

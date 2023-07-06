@@ -204,11 +204,11 @@ class ARROW_EXPORT BufferBuilder {
   uint8_t* mutable_data() { return data_; }
   template <typename T>
   const T* data_as() const {
-    return reinterpret_cast<const T*>(data());
+    return reinterpret_cast<const T*>(data_);
   }
   template <typename T>
   T* mutable_data_as() {
-    return reinterpret_cast<T*>(mutable_data());
+    return reinterpret_cast<T*>(data_);
   }
 
  private:

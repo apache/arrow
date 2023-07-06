@@ -50,6 +50,7 @@ namespace arrow {
 class ARROW_EXPORT Buffer {
  public:
   Buffer() = delete;
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 
   /// \brief Construct from buffer and size without copying memory
   ///
@@ -144,17 +145,17 @@ class ARROW_EXPORT Buffer {
   /// \param[in] data a string to own
   /// \return a new Buffer instance
   template <typename T>
-  static std::shared_ptr<Buffer> FromVector(std::vector<T> vec) {
+  static std::shared_ptr<Buffer> FromVectorOfTrivial(std::vector<T> vec) {
+    static_assert(std::is_trivial_v<T>);
     auto* data = reinterpret_cast<uint8_t*>(vec.data());
-    auto size = static_cast<int64_t>(vec.size());
+    auto size_in_bytes = static_cast<int64_t>(vec.size() * sizeof(T));
     return std::shared_ptr<Buffer>(
-        new Buffer{data, size},
-        [vec = std::move(
-             vec)  // Keep the vector's buffer alive inside the destructor until after we
-                   // have deleted the Buffer. Note we can't use this trick in FromString
-                   // since std::string's data is inline for short strings so moving
-                   // invalidates pointers into the string's buffer.
-    ](Buffer* buffer) { delete buffer; });
+        new Buffer{data, size_in_bytes},
+        // Keep the vector's buffer alive inside the shared_ptr's destructor until after
+        // we have deleted the Buffer. Note we can't use this trick in FromString since
+        // std::string's data is inline for short strings so moving invalidates pointers
+        // into the string's buffer.
+        [vec = std::move(vec)](Buffer* buffer) { delete buffer; });
   }
 
   /// \brief Create buffer referencing typed memory with some length without
@@ -345,9 +346,6 @@ class ARROW_EXPORT Buffer {
     memory_manager_ = std::move(mm);
     is_cpu_ = memory_manager_->is_cpu();
   }
-
- private:
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
 /// \defgroup buffer-slicing-functions Functions for slicing buffers

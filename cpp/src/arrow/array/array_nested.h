@@ -402,7 +402,7 @@ class ARROW_EXPORT StructArray : public Array {
   const ArrayVector& fields() const;
 
   /// Returns null if name not found
-  const std::shared_ptr<Array>& GetFieldByName(const std::string& name) const;
+  std::shared_ptr<Array> GetFieldByName(const std::string& name) const;
 
   /// \brief Flatten this array as a vector of arrays, one for each field
   ///

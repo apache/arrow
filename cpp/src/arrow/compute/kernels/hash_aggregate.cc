@@ -249,7 +249,7 @@ struct GroupedCountAllImpl : public GroupedAggregator {
     auto* counts = counts_.mutable_data_as<int64_t>();
     const auto* other_counts = other->counts_.data_as<int64_t>();
 
-    auto g = group_id_mapping.buffers[1]->data_as<uint32_t>();
+    auto* g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
     }
@@ -258,7 +258,7 @@ struct GroupedCountAllImpl : public GroupedAggregator {
 
   Status Consume(const ExecSpan& batch) override {
     auto* counts = counts_.mutable_data_as<int64_t>();
-    const auto* g_begin = batch[0].array.buffers[1].data_as<uint32_t>();
+    auto* g_begin = batch[0].array.GetValues<uint32_t>(1);
     for (auto g_itr = g_begin, end = g_itr + batch.length; g_itr != end; g_itr++) {
       counts[*g_itr] += 1;
     }
@@ -296,7 +296,7 @@ struct GroupedCountImpl : public GroupedAggregator {
     auto* counts = counts_.mutable_data_as<int64_t>();
     const auto* other_counts = other->counts_.data_as<int64_t>();
 
-    const auto* g = group_id_mapping.buffers[1]->data_as<uint32_t>();
+    auto* g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
     }
@@ -345,7 +345,7 @@ struct GroupedCountImpl : public GroupedAggregator {
 
   Status Consume(const ExecSpan& batch) override {
     auto* counts = counts_.mutable_data_as<int64_t>();
-    const auto* g_begin = batch[1].array.buffers[1].data_as<uint32_t>();
+    auto* g_begin = batch[1].array.GetValues<uint32_t>(1);
 
     if (options_.mode == CountOptions::ALL) {
       for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
@@ -932,7 +932,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    const auto g = batch[1].array.GetValues<uint32_t>(1);
+    const auto* g = batch[1].array.GetValues<uint32_t>(1);
     if (batch[0].is_scalar() && !batch[0].scalar->is_valid) {
       uint8_t* no_nulls = no_nulls_.mutable_data();
       for (int64_t i = 0; i < batch.length; i++) {

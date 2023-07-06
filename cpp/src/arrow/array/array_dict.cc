@@ -108,7 +108,7 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
 
 const std::shared_ptr<Array>& DictionaryArray::dictionary() const {
   if (!dictionary_) {
-    // FIXME this isn't thread safe
+    // TODO(GH-36503) this isn't thread safe
     dictionary_ = MakeArray(data_->dictionary);
   }
   return dictionary_;
