@@ -517,7 +517,7 @@ cdef class SortingColumn:
     Parameters
     ----------
     column_index : int
-        Index of column data is sorted by.
+        Index of column that data is sorted by.
     descending : bool, default False
         Whether column is sorted in descending order.
     nulls_first : bool, default False
@@ -703,14 +703,6 @@ cdef class SortingColumn:
     def nulls_first(self):
         """Whether null values appear before valid values (bool)."""
         return self.nulls_first
-
-    def to_dict(self):
-        """Convert to dictionary representation."""
-        return {
-            'column_index': self.column_index,
-            'descending': self.descending,
-            'nulls_first': self.nulls_first
-        }
 
 
 cdef class RowGroupMetaData(_Weakrefable):
