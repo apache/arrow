@@ -621,7 +621,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       // num_values_ is reliable and it means number of non-null values.
       s.all_null_value = num_values_ == 0;
     }
-    // FIXME(mwish): distinct count is not encoded for now.
+    // TODO (GH-36505): distinct count is not encoded for now.
     return s;
   }
 
