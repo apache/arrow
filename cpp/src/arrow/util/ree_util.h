@@ -76,6 +76,8 @@ int64_t FindPhysicalIndex(const RunEndCType* run_ends, int64_t run_ends_size, in
 /// \brief Uses binary-search to calculate the range of physical values (and
 /// run-ends) necessary to represent the logical range of values from
 /// offset to length
+///
+/// \return a pair of physical offset and physical length
 template <typename RunEndCType>
 std::pair<int64_t, int64_t> FindPhysicalRange(const RunEndCType* run_ends,
                                               int64_t run_ends_size, int64_t length,
@@ -151,6 +153,10 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// end). This function uses binary-search, so it has a O(log N) cost.
 int64_t FindPhysicalLength(const ArraySpan& span);
 
+/// \brief Find the physical range of physical values referenced by the REE in
+/// the logical range from offset to offset + length
+///
+/// \return a pair of physical offset and physical length
 std::pair<int64_t, int64_t> FindPhysicalRange(const ArraySpan& span, int64_t offset,
                                               int64_t length);
 
