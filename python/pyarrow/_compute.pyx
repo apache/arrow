@@ -1565,7 +1565,7 @@ class MapLookupOptions(_MapLookupOptions):
 
     Parameters
     ----------
-    query_key : Scalar
+    query_key : Scalar or Object can be converted to Scalar
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the Map
@@ -1573,6 +1573,9 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
+        if not isinstance(query_key, lib.Scalar):
+            query_key = lib.scalar(query_key)
+
         self._set_options(query_key, occurrence)
 
 

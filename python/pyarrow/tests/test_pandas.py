@@ -132,7 +132,8 @@ def _check_array_roundtrip(values, expected=None, mask=None,
         if mask is None:
             expected = pd.Series(values)
         else:
-            expected = pd.Series(np.ma.masked_array(values, mask=mask))
+            expected = pd.Series(values).copy()
+            expected[mask.copy()] = None
 
     tm.assert_series_equal(pd.Series(result), expected, check_names=False)
 
@@ -1564,8 +1565,10 @@ class TestConvertStringLikeTypes:
         df = pd.DataFrame({'strings': values * repeats})
         field = pa.field('strings', pa.string())
         schema = pa.schema([field])
+        ex_values = ['foo', None, 'bar', 'mañana', None]
+        expected = pd.DataFrame({'strings': ex_values * repeats})
 
-        _check_pandas_roundtrip(df, expected_schema=schema)
+        _check_pandas_roundtrip(df, expected=expected, expected_schema=schema)
 
     def test_bytes_to_binary(self):
         values = ['qux', b'foo', None, bytearray(b'barz'), 'qux', np.nan]
@@ -1574,7 +1577,7 @@ class TestConvertStringLikeTypes:
         table = pa.Table.from_pandas(df)
         assert table[0].type == pa.binary()
 
-        values2 = [b'qux', b'foo', None, b'barz', b'qux', np.nan]
+        values2 = [b'qux', b'foo', None, b'barz', b'qux', None]
         expected = pd.DataFrame({'strings': values2})
         _check_pandas_roundtrip(df, expected)
 
@@ -2068,7 +2071,7 @@ class TestConvertListTypes:
 
     def test_infer_lists(self):
         data = OrderedDict([
-            ('nan_ints', [[None, 1], [2, 3]]),
+            ('nan_ints', [[np.nan, 1], [2, 3]]),
             ('ints', [[0, 1], [2, 3]]),
             ('strs', [[None, 'b'], ['c', 'd']]),
             ('nested_strs', [[[None, 'b'], ['c', 'd']], None])
@@ -3562,9 +3565,16 @@ def test_to_pandas_split_blocks():
     _check_to_pandas_memory_unchanged(t, split_blocks=True)
 
 
+def _get_mgr(df):
+    if Version(pd.__version__) < Version("1.1.0"):
+        return df._data
+    else:
+        return df._mgr
+
+
 def _check_blocks_created(t, number):
     x = t.to_pandas(split_blocks=True)
-    assert len(x._data.blocks) == number
+    assert len(_get_mgr(x).blocks) == number
 
 
 def test_to_pandas_self_destruct():
@@ -4069,16 +4079,16 @@ def test_convert_to_extension_array(monkeypatch):
     # Int64Dtype is recognized -> convert to extension block by default
     # for a proper roundtrip
     result = table.to_pandas()
-    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
-    assert result._data.blocks[0].values.dtype == np.dtype("int64")
-    assert isinstance(result._data.blocks[1], _int.ExtensionBlock)
+    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
+    assert _get_mgr(result).blocks[0].values.dtype == np.dtype("int64")
+    assert isinstance(_get_mgr(result).blocks[1], _int.ExtensionBlock)
     tm.assert_frame_equal(result, df)
 
     # test with missing values
     df2 = pd.DataFrame({'a': pd.array([1, 2, None], dtype='Int64')})
     table2 = pa.table(df2)
     result = table2.to_pandas()
-    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     tm.assert_frame_equal(result, df2)
 
     # monkeypatch pandas Int64Dtype to *not* have the protocol method
@@ -4090,8 +4100,8 @@ def test_convert_to_extension_array(monkeypatch):
             pd.core.arrays.integer.NumericDtype, "__from_arrow__")
     # Int64Dtype has no __from_arrow__ -> use normal conversion
     result = table.to_pandas()
-    assert len(result._data.blocks) == 1
-    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert len(_get_mgr(result).blocks) == 1
+    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
 
 
 class MyCustomIntegerType(pa.PyExtensionType):
@@ -4117,12 +4127,12 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
     # extension type points to Int64Dtype, which knows how to create a
     # pandas ExtensionArray
     result = arr.to_pandas()
-    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     expected = pd.Series([1, 2, 3, 4], dtype='Int64')
     tm.assert_series_equal(result, expected)
 
     result = table.to_pandas()
-    assert isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     expected = pd.DataFrame({'a': pd.array([1, 2, 3, 4], dtype='Int64')})
     tm.assert_frame_equal(result, expected)
 
@@ -4136,7 +4146,7 @@ def test_conversion_extensiontype_to_extensionarray(monkeypatch):
             pd.core.arrays.integer.NumericDtype, "__from_arrow__")
 
     result = arr.to_pandas()
-    assert not isinstance(result._data.blocks[0], _int.ExtensionBlock)
+    assert not isinstance(_get_mgr(result).blocks[0], _int.ExtensionBlock)
     expected = pd.Series([1, 2, 3, 4])
     tm.assert_series_equal(result, expected)
 
