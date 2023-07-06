@@ -1075,10 +1075,8 @@ void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to
                       *checked_cast<const BaseListScalar&>(*cast_scalar).value);
 }
 
-template <typename ScalarType>
-void CheckInvalidListCast(const ScalarType& scalar,
-                          const std::shared_ptr<DataType>& to_type,
-                          std::string_view expected_message) {
+void CheckInvalidListCast(const Scalar& scalar, const std::shared_ptr<DataType>& to_type,
+                          const std::string& expected_message) {
   EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(StatusCode::Invalid,
                                            ::testing::HasSubstr(expected_message),
                                            scalar.CastTo(to_type));

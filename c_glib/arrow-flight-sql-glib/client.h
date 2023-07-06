@@ -46,6 +46,13 @@ gaflightsql_client_execute(GAFlightSQLClient *client,
                            GAFlightCallOptions *options,
                            GError **error);
 
+GARROW_AVAILABLE_IN_13_0
+gint64
+gaflightsql_client_execute_update(GAFlightSQLClient *client,
+                                  const gchar *query,
+                                  GAFlightCallOptions *options,
+                                  GError **error);
+
 GARROW_AVAILABLE_IN_9_0
 GAFlightStreamReader *
 gaflightsql_client_do_get(GAFlightSQLClient *client,

@@ -52,6 +52,22 @@ const gchar *
 gaflightsql_statement_query_get_query(GAFlightSQLStatementQuery *command);
 
 
+#define GAFLIGHTSQL_TYPE_STATEMENT_UPDATE (gaflightsql_statement_update_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightSQLStatementUpdate,
+                         gaflightsql_statement_update,
+                         GAFLIGHTSQL,
+                         STATEMENT_UPDATE,
+                         GAFlightSQLCommand)
+struct _GAFlightSQLStatementUpdateClass
+{
+  GAFlightSQLCommandClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_13_0
+const gchar *
+gaflightsql_statement_update_get_query(GAFlightSQLStatementUpdate *command);
+
+
 #define GAFLIGHTSQL_TYPE_STATEMENT_QUERY_TICKET         \
   (gaflightsql_statement_query_ticket_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightSQLStatementQueryTicket,
@@ -87,6 +103,8 @@ G_DECLARE_DERIVABLE_TYPE(GAFlightSQLServer,
  *   SQL query.
  * @do_get_statement: A virtual function to implement `DoGetStatement` API
  *   that gets a #GAFlightDataStream containing the query results.
+ * @do_put_command_statement_update: A virtual function to implement
+ *   `DoPutCommandStatementUpdate` API that executes an update SQL statement.
  *
  * Since: 9.0.0
  */
@@ -105,6 +123,11 @@ struct _GAFlightSQLServerClass
     GAFlightServerCallContext *context,
     GAFlightSQLStatementQueryTicket *ticket,
     GError **error);
+  gint64 (*do_put_command_statement_update)(
+    GAFlightSQLServer *server,
+    GAFlightServerCallContext *context,
+    GAFlightSQLStatementUpdate *command,
+    GError **error);
 };
 
 GARROW_AVAILABLE_IN_9_0
@@ -121,6 +144,13 @@ gaflightsql_server_do_get_statement(
   GAFlightSQLServer *server,
   GAFlightServerCallContext *context,
   GAFlightSQLStatementQueryTicket *ticket,
+  GError **error);
+GARROW_AVAILABLE_IN_13_0
+gint64
+gaflightsql_server_do_put_command_statement_update(
+  GAFlightSQLServer *server,
+  GAFlightServerCallContext *context,
+  GAFlightSQLStatementUpdate *command,
   GError **error);
 
 G_END_DECLS

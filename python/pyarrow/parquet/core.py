@@ -748,7 +748,7 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.4"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
     added in later format versions.
@@ -944,7 +944,7 @@ Examples
 
     def __init__(self, where, schema, filesystem=None,
                  flavor=None,
-                 version='2.4',
+                 version='2.6',
                  use_dictionary=True,
                  compression='snappy',
                  write_statistics=True,
@@ -3060,7 +3060,7 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _DNF_filter_doc, "")
 
 
-def write_table(table, where, row_group_size=None, version='2.4',
+def write_table(table, where, row_group_size=None, version='2.6',
                 use_dictionary=True, compression='snappy',
                 write_statistics=True,
                 use_deprecated_int96_timestamps=None,
@@ -3468,7 +3468,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         if len(partition_keys) == 1:
             partition_keys = partition_keys[0]
 
-        for keys, subgroup in data_df.groupby(partition_keys):
+        for keys, subgroup in data_df.groupby(partition_keys, observed=True):
             if not isinstance(keys, tuple):
                 keys = (keys,)
             subdir = '/'.join(

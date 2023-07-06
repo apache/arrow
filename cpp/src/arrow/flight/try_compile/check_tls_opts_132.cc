@@ -31,6 +31,6 @@ static grpc_tls_server_verification_option check(
 }
 
 int main(int argc, const char** argv) {
-  grpc_tls_server_verification_option opt = check(nullptr);
+  [[maybe_unused]] grpc_tls_server_verification_option opt = check(nullptr);
   return 0;
 }
