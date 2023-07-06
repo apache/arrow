@@ -381,9 +381,8 @@ def test_parquet_file_sorting_columns():
 
     # Can retrieve sorting columns from metadata
     metadata = pq.read_metadata(reader)
-    set_sorting_columns = {metadata.row_group(i).sorting_columns
-                           for i in range(metadata.num_row_groups)}
-    assert set_sorting_columns == set([sorting_columns])
+    assert metadata.num_row_groups == 1
+    assert sorting_columns == metadata.row_group(0).sorting_columns
 
 
 def test_field_id_metadata():
