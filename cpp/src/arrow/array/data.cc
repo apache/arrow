@@ -228,13 +228,11 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 namespace {
 
 template <typename offset_type>
-void SetOffsetsForScalar(ArraySpan* span, uint8_t* buffer, offset_type value_size,
-                         int buffer_index = 1) {
-  auto* offsets = reinterpret_cast<offset_type*>(buffer);
+BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
+  auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
   offsets[0] = 0;
   offsets[1] = static_cast<offset_type>(value_size);
-  span->buffers[buffer_index].data = buffer;
-  span->buffers[buffer_index].size = 2 * sizeof(offset_type);
+  return {scratch_space, sizeof(offset_type) * 2};
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -330,7 +328,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   } else if (is_base_binary_like(type_id)) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
 
-    this->buffers[1].data = scalar.scratch_space_;
     const uint8_t* data_buffer = nullptr;
     int64_t data_size = 0;
     if (scalar.is_valid) {
@@ -338,10 +335,11 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      SetOffsetsForScalar(this, scalar.scratch_space_, static_cast<int32_t>(data_size));
+      this->buffers[1] =
+          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(data_size));
     } else {
       // is_large_binary_like
-      SetOffsetsForScalar(this, scalar.scratch_space_, data_size);
+      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
@@ -366,10 +364,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
 
     if (type_id == Type::LIST || type_id == Type::MAP) {
-      SetOffsetsForScalar(this, scalar.scratch_space_,
-                          static_cast<int32_t>(value_length));
+      this->buffers[1] =
+          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
-      SetOffsetsForScalar(this, scalar.scratch_space_, value_length);
+      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -384,25 +382,24 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
   } else if (is_union(type_id)) {
     // Dense union needs scratch space to store both offsets and a type code
     struct UnionScratchSpace {
-      alignas(int64_t) uint8_t type_code;
+      alignas(int64_t) int8_t type_code;
       alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
     };
     static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
-    auto* union_scratch_space =
-        new (checked_cast<const UnionScalar&>(value).scratch_space_) UnionScratchSpace{};
+    auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
+        checked_cast<const UnionScalar&>(value).scratch_space_);
 
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    this->buffers[1].data = &union_scratch_space->type_code;
+    union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
+    this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
     this->buffers[1].size = 1;
-    new (&union_scratch_space->type_code)
-        int8_t{checked_cast<const UnionScalar&>(value).type_code};
 
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
-      SetOffsetsForScalar(this, union_scratch_space->offsets, static_cast<int32_t>(1), 2);
+      this->buffers[2] = OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(1));
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
