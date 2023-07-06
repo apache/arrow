@@ -32,7 +32,7 @@ namespace Apache.Arrow.C
 #else
         private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowSchema*, void> ReleaseSchemaPtr => (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)s_releaseSchema.Pointer;
+        private static unsafe delegate* unmanaged[Cdecl]<CArrowSchema*, void> ReleaseSchemaPtr => (delegate* unmanaged[Cdecl]<CArrowSchema*, void>)s_releaseSchema.Pointer;
 #endif
 
         /// <summary>

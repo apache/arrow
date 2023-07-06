@@ -28,7 +28,7 @@ namespace Apache.Arrow.C
 #else
         private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
-        private static unsafe delegate* unmanaged[Stdcall]<CArrowArray*, void> ReleaseArrayPtr => (delegate* unmanaged[Stdcall]<CArrowArray*, void>)s_releaseArray.Pointer;
+        private static unsafe delegate* unmanaged[Cdecl]<CArrowArray*, void> ReleaseArrayPtr => (delegate* unmanaged[Cdecl]<CArrowArray*, void>)s_releaseArray.Pointer;
 #endif
         /// <summary>
         /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>. Whether or not the

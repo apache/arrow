@@ -37,7 +37,7 @@ namespace Apache.Arrow.C
         ///</summary>
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
-            [Stdcall]
+            [Cdecl]
 #endif
             <CArrowArrayStream*, CArrowSchema*, int> get_schema;
 
@@ -49,7 +49,7 @@ namespace Apache.Arrow.C
         /// </summary>
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
-            [Stdcall]
+            [Cdecl]
 #endif
             <CArrowArrayStream*, CArrowArray*, int> get_next;
 
@@ -64,7 +64,7 @@ namespace Apache.Arrow.C
         ///</summary>
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
-            [Stdcall]
+            [Cdecl]
 #endif
             <CArrowArrayStream*, byte*> get_last_error;
 
@@ -74,7 +74,7 @@ namespace Apache.Arrow.C
         /// </summary>
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
-            [Stdcall]
+            [Cdecl]
 #endif
             <CArrowArrayStream*, void> release;
 

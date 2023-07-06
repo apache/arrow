@@ -40,7 +40,7 @@ namespace Apache.Arrow.C
         public CArrowArray* dictionary;
         internal delegate* unmanaged
 #if !NET5_0_OR_GREATER
-            [Stdcall]
+            [Cdecl]
 #endif
             <CArrowArray*, void> release;
         public void* private_data;
