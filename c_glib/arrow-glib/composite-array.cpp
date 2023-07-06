@@ -57,16 +57,16 @@ G_BEGIN_DECLS
  * #GArrowSparseUnionArray is a class for sparse union array.
  *
  * #GArrowDictionaryArray is a class for dictionary array. It can
- * store data with dictionary and indices. It's space effective than
- * normal array when the array has many same values. You can convert a
- * normal array to a dictionary array by
+ * store data with dictionary and indices. It's more space effective
+ * than normal array when the array has many same values. You can
+ * convert a normal array to a dictionary array by
  * garrow_array_dictionary_encode().
  *
  * #GArrowRunEndEncodedArray is a class for run-end encoded array. It
- * can store data with run-ends and values. It's space effective than
- * normal array when the array has many continuous same values. You
- * can convert a normal array to a run-end encoded array by
- * garrow_array_run_end_encode(). You can convert a run-end encoded
+ * can store data with run-ends and values. It's more space effective
+ * than normal array when the array has many continuous same
+ * values. You can convert a normal array to a run-end encoded array
+ * by garrow_array_run_end_encode(). You can convert a run-end encoded
  * array to a normal array by garrow_run_end_encoded_array_decode().
  */
 
