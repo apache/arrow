@@ -240,9 +240,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::NA:
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
-      return 1;
     case Type::RUN_END_ENCODED:
-      return 0;
+      return 1;
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -271,6 +270,10 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
     static int64_t zero{0};
     span->buffers[i].data = reinterpret_cast<uint8_t*>(&zero);
     span->buffers[i].size = 0;
+  }
+
+  if (!HasValidityBitmap(type->id())) {
+    span->buffers[0] = {};
   }
 
   for (int i = num_buffers; i < 3; ++i) {
