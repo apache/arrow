@@ -46,6 +46,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -212,6 +213,9 @@ using enable_if_integer_value =
 
 template <typename T, typename R = T>
 using enable_if_floating_value = enable_if_t<std::is_floating_point<T>::value, R>;
+
+template <typename T, typename R = T>
+using enable_if_not_floating_value = enable_if_t<!std::is_floating_point<T>::value, R>;
 
 template <typename T, typename R = T>
 using enable_if_decimal_value =
@@ -1334,7 +1338,7 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
 
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
-
+// BEGIN of DispatchBest helpers
 ARROW_EXPORT
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types);
 
@@ -1393,6 +1397,11 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count);
 ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);
 
+ARROW_EXPORT
+void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types);
+
+// END of DispatchBest helpers
+// ----------------------------------------------------------------------
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

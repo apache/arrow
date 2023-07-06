@@ -227,8 +227,21 @@ func (b *MapBuilder) AppendNull() {
 	b.Append(false)
 }
 
+// AppendNulls adds null map entry to the array.
+func (b *MapBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *MapBuilder) AppendEmptyValue() {
 	b.Append(true)
+}
+
+func (b *MapBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 // Reserve enough space for n maps

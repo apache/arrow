@@ -1673,6 +1673,21 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
 
     original_type = obj.type
     name = obj._name
+    dtype = None
+
+    if types_mapper:
+        dtype = types_mapper(original_type)
+    elif original_type.id == _Type_EXTENSION:
+        try:
+            dtype = original_type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+    # Only call __from_arrow__ for Arrow extension types or when explicitly
+    # overridden via types_mapper
+    if hasattr(dtype, '__from_arrow__'):
+        arr = dtype.__from_arrow__(obj)
+        return pandas_api.series(arr, name=name, copy=False)
 
     # ARROW-3789(wesm): Convert date/timestamp types to datetime64[ns]
     c_options.coerce_temporal_nanoseconds = True
@@ -3091,21 +3106,6 @@ cdef class ExtensionArray(Array):
         result.validate()
         return result
 
-    def _to_pandas(self, options, **kwargs):
-        pandas_dtype = None
-        try:
-            pandas_dtype = self.type.to_pandas_dtype()
-        except NotImplementedError:
-            pass
-
-        # pandas ExtensionDtype that implements conversion from pyarrow
-        if hasattr(pandas_dtype, '__from_arrow__'):
-            arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr, copy=False)
-
-        # otherwise convert the storage array with the base implementation
-        return Array._to_pandas(self.storage, options, **kwargs)
-
 
 class FixedShapeTensorArray(ExtensionArray):
     """
@@ -3153,7 +3153,7 @@ class FixedShapeTensorArray(ExtensionArray):
         Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
         if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            np_flat = np.asarray(self.storage.values)
+            np_flat = np.asarray(self.storage.flatten())
             numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
             return numpy_tensor
         else:

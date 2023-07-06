@@ -64,7 +64,7 @@
                     ENUM) ", but got "                                                \
              << _st.ToString();                                                       \
     }                                                                                 \
-    ASSERT_EQ((message), _st.ToString());                                             \
+    ASSERT_EQ((message), _st.ToStringWithoutContextLines());                          \
   } while (false)
 
 #define EXPECT_RAISES_WITH_MESSAGE_THAT(ENUM, matcher, expr)                             \
@@ -73,7 +73,7 @@
     ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);                      \
     EXPECT_TRUE(_st.Is##ENUM()) << "Expected '" ARROW_STRINGIFY(expr) "' to fail with "  \
                                 << ARROW_STRINGIFY(ENUM) ", but got " << _st.ToString(); \
-    EXPECT_THAT(_st.ToString(), (matcher));                                              \
+    EXPECT_THAT(_st.ToStringWithoutContextLines(), (matcher));                           \
   } while (false)
 
 #define EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(code, matcher, expr) \
@@ -81,7 +81,7 @@
     auto _res = (expr);                                               \
     ::arrow::Status _st = ::arrow::internal::GenericToStatus(_res);   \
     EXPECT_EQ(_st.CodeAsString(), Status::CodeAsString(code));        \
-    EXPECT_THAT(_st.ToString(), (matcher));                           \
+    EXPECT_THAT(_st.ToStringWithoutContextLines(), (matcher));        \
   } while (false)
 
 #define ASSERT_OK(expr)                                                              \

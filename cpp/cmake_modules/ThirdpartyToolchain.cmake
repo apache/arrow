@@ -327,14 +327,8 @@ endmacro()
 set(THIRDPARTY_DIR "${arrow_SOURCE_DIR}/thirdparty")
 
 add_library(arrow::flatbuffers INTERFACE IMPORTED)
-if(CMAKE_VERSION VERSION_LESS 3.11)
-  set_target_properties(arrow::flatbuffers
-                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   "${THIRDPARTY_DIR}/flatbuffers/include")
-else()
-  target_include_directories(arrow::flatbuffers
-                             INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
-endif()
+target_include_directories(arrow::flatbuffers
+                           INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
 
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
@@ -404,11 +398,6 @@ endif()
 
 macro(set_urls URLS)
   set(${URLS} ${ARGN})
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    # ExternalProject doesn't support backup URLs;
-    # Feature only available starting in 3.7
-    list(GET ${URLS} 0 ${URLS})
-  endif()
 endmacro()
 
 # Read toolchain versions from cpp/thirdparty/versions.txt
@@ -634,6 +623,7 @@ if(DEFINED ENV{ARROW_GOOGLE_CLOUD_CPP_URL})
 else()
   set_urls(google_cloud_cpp_storage_SOURCE_URL
            "https://github.com/googleapis/google-cloud-cpp/archive/${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
+           "${THIRDPARTY_MIRROR_URL}/google-cloud-cpp-${ARROW_GOOGLE_CLOUD_CPP_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -838,8 +828,27 @@ if(NOT MSVC_TOOLCHAIN)
   string(APPEND EP_C_FLAGS " -fPIC")
 endif()
 
-set(EP_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-set(EP_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+# We pass MSVC runtime related options via
+# CMAKE_${LANG}_FLAGS_${CONFIG} explicitly because external projects
+# may not require CMake 3.15 or later. If an external project doesn't
+# require CMake 3.15 or later, CMAKE_MSVC_RUNTIME_LIBRARY is ignored.
+# If CMAKE_MSVC_RUNTIME_LIBRARY is ignored, an external project may
+# use different MSVC runtime. For example, Apache Arrow C++ uses /MTd
+# (multi threaded debug) but an external project uses /MT (multi
+# threaded release). It causes an link error.
+foreach(CONFIG DEBUG MINSIZEREL RELEASE RELWITHDEBINFO)
+  set(EP_CXX_FLAGS_${CONFIG} "${CMAKE_CXX_FLAGS_${CONFIG}}")
+  set(EP_C_FLAGS_${CONFIG} "${CMAKE_C_FLAGS_${CONFIG}}")
+  if(CONFIG STREQUAL DEBUG)
+    set(EP_MSVC_RUNTIME_LIBRARY MultiThreadedDebugDLL)
+  else()
+    set(EP_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+  endif()
+  string(APPEND EP_CXX_FLAGS_${CONFIG}
+         " ${CMAKE_CXX_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_${EP_MSVC_RUNTIME_LIBRARY}}")
+  string(APPEND EP_C_FLAGS_${CONFIG}
+         " ${CMAKE_C_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY_${EP_MSVC_RUNTIME_LIBRARY}}")
+endforeach()
 if(MSVC_TOOLCHAIN)
   string(REPLACE "/WX" "" EP_CXX_FLAGS_DEBUG "${EP_CXX_FLAGS_DEBUG}")
   string(REPLACE "/WX" "" EP_C_FLAGS_DEBUG "${EP_C_FLAGS_DEBUG}")
@@ -892,15 +901,15 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -DCMAKE_CXX_FLAGS=${EP_CXX_FLAGS}
     -DCMAKE_CXX_FLAGS_DEBUG=${EP_CXX_FLAGS_DEBUG}
-    -DCMAKE_CXX_FLAGS_MISIZEREL=${CMAKE_CXX_FLAGS_MINSIZEREL}
-    -DCMAKE_CXX_FLAGS_RELEASE=${CMAKE_CXX_FLAGS_RELEASE}
-    -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
+    -DCMAKE_CXX_FLAGS_MISIZEREL=${EP_CXX_FLAGS_MINSIZEREL}
+    -DCMAKE_CXX_FLAGS_RELEASE=${EP_CXX_FLAGS_RELEASE}
+    -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${EP_CXX_FLAGS_RELWITHDEBINFO}
     -DCMAKE_CXX_STANDARD=${CMAKE_CXX_STANDARD}
     -DCMAKE_C_FLAGS=${EP_C_FLAGS}
     -DCMAKE_C_FLAGS_DEBUG=${EP_C_FLAGS_DEBUG}
-    -DCMAKE_C_FLAGS_MISIZEREL=${CMAKE_C_FLAGS_MINSIZEREL}
-    -DCMAKE_C_FLAGS_RELEASE=${CMAKE_C_FLAGS_RELEASE}
-    -DCMAKE_C_FLAGS_RELWITHDEBINFO=${CMAKE_C_FLAGS_RELWITHDEBINFO}
+    -DCMAKE_C_FLAGS_MISIZEREL=${EP_C_FLAGS_MINSIZEREL}
+    -DCMAKE_C_FLAGS_RELEASE=${EP_C_FLAGS_RELEASE}
+    -DCMAKE_C_FLAGS_RELWITHDEBINFO=${EP_C_FLAGS_RELWITHDEBINFO}
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
@@ -1053,12 +1062,7 @@ macro(build_boost)
                         URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
   endif()
   add_library(Boost::headers INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(Boost::headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                    "${Boost_INCLUDE_DIR}")
-  else()
-    target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
-  endif()
+  target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
   add_dependencies(Boost::headers boost_ep)
   # If Boost is found but one of system or filesystem components aren't found,
   # Boost::disable_autolinking and Boost::dynamic_linking are already defined.
@@ -1200,34 +1204,13 @@ if(ARROW_USE_BOOST)
     unset(BUILD_SHARED_LIBS_KEEP)
   endif()
 
-  # For CMake < 3.15
-  if(NOT TARGET Boost::headers)
-    add_library(Boost::headers INTERFACE IMPORTED)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(Boost::headers PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                      "${Boost_INCLUDE_DIR}")
-    else()
-      target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
-    endif()
-  endif()
-
   foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
     if(NOT TARGET ${BOOST_LIBRARY})
       continue()
     endif()
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                        Boost::disable_autolinking)
-    else()
-      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
-    endif()
+    target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
     if(ARROW_BOOST_USE_SHARED)
-      if(CMAKE_VERSION VERSION_LESS 3.11)
-        set_target_properties(${BOOST_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                          Boost::dynamic_linking)
-      else()
-        target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
-      endif()
+      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
     endif()
   endforeach()
 
@@ -1251,15 +1234,6 @@ macro(find_curl)
   if(NOT TARGET CURL::libcurl)
     find_package(CURL REQUIRED)
     list(APPEND ARROW_SYSTEM_DEPENDENCIES CURL)
-    if(NOT TARGET CURL::libcurl)
-      # For CMake 3.11 or older
-      add_library(CURL::libcurl UNKNOWN IMPORTED)
-      set_target_properties(CURL::libcurl
-                            PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                       "${CURL_INCLUDE_DIRS}"
-                                       IMPORTED_LOCATION "${CURL_LIBRARIES}"
-                                       INTERFACE_LINK_LIBRARIES OpenSSL::SSL)
-    endif()
   endif()
 endmacro()
 
@@ -1554,10 +1528,6 @@ endif()
 # Thrift
 
 macro(build_thrift)
-  if(CMAKE_VERSION VERSION_LESS 3.10)
-    message(FATAL_ERROR "Building thrift using ExternalProject requires at least CMake 3.10"
-    )
-  endif()
   message(STATUS "Building Apache Thrift from source")
   set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
   set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
@@ -1626,12 +1596,7 @@ macro(build_thrift)
                         PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
   if(ARROW_USE_BOOST)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(thrift::thrift PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                      Boost::headers)
-    else()
-      target_link_libraries(thrift::thrift INTERFACE Boost::headers)
-    endif()
+    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
   endif()
   add_dependencies(toolchain thrift_ep)
   add_dependencies(thrift::thrift thrift_ep)
@@ -1677,52 +1642,29 @@ macro(build_protobuf)
   set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
   set(PROTOBUF_COMPILER "${PROTOBUF_PREFIX}/bin/protoc")
 
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    set(PROTOBUF_CONFIGURE_ARGS
-        "AR=${CMAKE_AR}"
-        "RANLIB=${CMAKE_RANLIB}"
-        "CC=${CMAKE_C_COMPILER}"
-        "CXX=${CMAKE_CXX_COMPILER}"
-        "--disable-shared"
-        "--prefix=${PROTOBUF_PREFIX}"
-        "CFLAGS=${EP_C_FLAGS}"
-        "CXXFLAGS=${EP_CXX_FLAGS}")
-    set(PROTOBUF_BUILD_COMMAND ${MAKE} ${MAKE_BUILD_ARGS})
-    if(CMAKE_OSX_SYSROOT)
-      list(APPEND PROTOBUF_CONFIGURE_ARGS "SDKROOT=${CMAKE_OSX_SYSROOT}")
-      list(APPEND PROTOBUF_BUILD_COMMAND "SDKROOT=${CMAKE_OSX_SYSROOT}")
-    endif()
-    set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS
-        CONFIGURE_COMMAND
-        "./configure"
-        ${PROTOBUF_CONFIGURE_ARGS}
-        BUILD_COMMAND
-        ${PROTOBUF_BUILD_COMMAND})
-  else()
-    # Strip lto flags (which may be added by dh_auto_configure)
-    # See https://github.com/protocolbuffers/protobuf/issues/7092
-    set(PROTOBUF_C_FLAGS ${EP_C_FLAGS})
-    set(PROTOBUF_CXX_FLAGS ${EP_CXX_FLAGS})
-    string(REPLACE "-flto=auto" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
-    string(REPLACE "-ffat-lto-objects" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
-    string(REPLACE "-flto=auto" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
-    string(REPLACE "-ffat-lto-objects" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
-    set(PROTOBUF_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_CXX_FLAGS=${PROTOBUF_CXX_FLAGS}"
-        "-DCMAKE_C_FLAGS=${PROTOBUF_C_FLAGS}"
-        "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
-        -Dprotobuf_BUILD_TESTS=OFF
-        -Dprotobuf_DEBUG_POSTFIX=)
-    if(MSVC AND NOT ARROW_USE_STATIC_CRT)
-      list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
-    endif()
-    if(ZLIB_ROOT)
-      list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
-    endif()
-    set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS}
-                                           SOURCE_SUBDIR "cmake")
+  # Strip lto flags (which may be added by dh_auto_configure)
+  # See https://github.com/protocolbuffers/protobuf/issues/7092
+  set(PROTOBUF_C_FLAGS ${EP_C_FLAGS})
+  set(PROTOBUF_CXX_FLAGS ${EP_CXX_FLAGS})
+  string(REPLACE "-flto=auto" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
+  string(REPLACE "-flto=auto" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
+  set(PROTOBUF_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      "-DCMAKE_CXX_FLAGS=${PROTOBUF_CXX_FLAGS}"
+      "-DCMAKE_C_FLAGS=${PROTOBUF_C_FLAGS}"
+      "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
+      -Dprotobuf_BUILD_TESTS=OFF
+      -Dprotobuf_DEBUG_POSTFIX=)
+  if(MSVC AND NOT ARROW_USE_STATIC_CRT)
+    list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
   endif()
+  if(ZLIB_ROOT)
+    list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
+  endif()
+  set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS} SOURCE_SUBDIR
+                                         "cmake")
 
   externalproject_add(protobuf_ep
                       ${EP_COMMON_OPTIONS} ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
@@ -1783,34 +1725,11 @@ if(ARROW_WITH_PROTOBUF)
   if(TARGET arrow::protobuf::libprotobuf)
     set(ARROW_PROTOBUF_LIBPROTOBUF arrow::protobuf::libprotobuf)
   else()
-    # CMake 3.8 or older don't define the targets
-    if(NOT TARGET protobuf::libprotobuf)
-      add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
-      set_target_properties(protobuf::libprotobuf
-                            PROPERTIES IMPORTED_LOCATION "${PROTOBUF_LIBRARY}"
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       "${PROTOBUF_INCLUDE_DIR}")
-    endif()
     set(ARROW_PROTOBUF_LIBPROTOBUF protobuf::libprotobuf)
   endif()
   if(TARGET arrow::protobuf::libprotoc)
     set(ARROW_PROTOBUF_LIBPROTOC arrow::protobuf::libprotoc)
   else()
-    # CMake 3.8 or older don't define the targets
-    if(NOT TARGET protobuf::libprotoc)
-      if(PROTOBUF_PROTOC_LIBRARY AND NOT Protobuf_PROTOC_LIBRARY)
-        # Old CMake versions have a different casing.
-        set(Protobuf_PROTOC_LIBRARY ${PROTOBUF_PROTOC_LIBRARY})
-      endif()
-      if(NOT Protobuf_PROTOC_LIBRARY)
-        message(FATAL_ERROR "libprotoc was set to ${Protobuf_PROTOC_LIBRARY}")
-      endif()
-      add_library(protobuf::libprotoc UNKNOWN IMPORTED)
-      set_target_properties(protobuf::libprotoc
-                            PROPERTIES IMPORTED_LOCATION "${Protobuf_PROTOC_LIBRARY}"
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       "${PROTOBUF_INCLUDE_DIR}")
-    endif()
     set(ARROW_PROTOBUF_LIBPROTOC protobuf::libprotoc)
   endif()
   if(TARGET arrow::protobuf::protoc)
@@ -2180,10 +2099,6 @@ macro(build_gtest)
     set(_GTEST_MAIN_RUNTIME_LIB
         "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
     )
-    if(CMAKE_VERSION VERSION_LESS 3.9)
-      message(FATAL_ERROR "Building GoogleTest from source on Windows requires at least CMake 3.9"
-      )
-    endif()
     get_property(_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
     if(_GENERATOR_IS_MULTI_CONFIG)
       set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
@@ -2271,9 +2186,6 @@ endif()
 
 macro(build_benchmark)
   message(STATUS "Building benchmark from source")
-  if(CMAKE_VERSION VERSION_LESS 3.6)
-    message(FATAL_ERROR "Building gbenchmark from source requires at least CMake 3.6")
-  endif()
 
   set(GBENCHMARK_CMAKE_CXX_FLAGS "${EP_CXX_FLAGS}")
   if(APPLE AND (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID
@@ -2385,12 +2297,7 @@ if(ARROW_WITH_RAPIDJSON)
   endif()
 
   add_library(rapidjson::rapidjson INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(rapidjson::rapidjson PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                          "${RAPIDJSON_INCLUDE_DIR}")
-  else()
-    target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
-  endif()
+  target_include_directories(rapidjson::rapidjson INTERFACE "${RAPIDJSON_INCLUDE_DIR}")
 endif()
 
 macro(build_xsimd)
@@ -2431,12 +2338,7 @@ if(ARROW_USE_XSIMD)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(arrow::xsimd INTERFACE IMPORTED)
-    if(CMAKE_VERSION VERSION_LESS 3.11)
-      set_target_properties(arrow::xsimd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                    "${XSIMD_INCLUDE_DIR}")
-    else()
-      target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
-    endif()
+    target_include_directories(arrow::xsimd INTERFACE "${XSIMD_INCLUDE_DIR}")
     set(ARROW_XSIMD arrow::xsimd)
   else()
     message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
@@ -2488,9 +2390,6 @@ endif()
 
 macro(build_lz4)
   message(STATUS "Building LZ4 from source")
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    message(FATAL_ERROR "Building LZ4 using ExternalProject requires at least CMake 3.7")
-  endif()
 
   set(LZ4_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/lz4_ep-install")
 
@@ -2531,10 +2430,6 @@ endif()
 
 macro(build_zstd)
   message(STATUS "Building Zstandard from source")
-  if(CMAKE_VERSION VERSION_LESS 3.7)
-    message(FATAL_ERROR "Building Zstandard using ExternalProject requires at least CMake 3.7"
-    )
-  endif()
 
   set(ZSTD_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zstd_ep-install")
 
@@ -4220,9 +4115,8 @@ macro(build_google_cloud_cpp_storage)
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${CRC32C_PREFIX})
   list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
 
-  # JOIN is CMake >=3.12 only
-  string(REPLACE ";" ${EP_LIST_SEPARATOR} GOOGLE_CLOUD_CPP_PREFIX_PATH
-                 "${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST}")
+  string(JOIN ${EP_LIST_SEPARATOR} GOOGLE_CLOUD_CPP_PREFIX_PATH
+         ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST})
 
   set(GOOGLE_CLOUD_CPP_INSTALL_PREFIX
       "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_ep-install")
@@ -4266,11 +4160,22 @@ macro(build_google_cloud_cpp_storage)
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
 
+  # Remove unused directories to save build directory storage.
+  # 141MB -> 79MB
+  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND remove_directory)
+  else()
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND rm -rf)
+  endif()
+  list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND ci)
+
   externalproject_add(google_cloud_cpp_ep
                       ${EP_COMMON_OPTIONS}
                       INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
                       URL ${google_cloud_cpp_storage_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                       CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
                                        ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}
@@ -4295,6 +4200,7 @@ macro(build_google_cloud_cpp_storage)
   set_property(TARGET google-cloud-cpp::common
                PROPERTY INTERFACE_LINK_LIBRARIES
                         absl::base
+                        absl::cord
                         absl::memory
                         absl::optional
                         absl::span
@@ -4360,13 +4266,25 @@ macro(build_google_cloud_cpp_storage)
          absl::bad_variant_access
          absl::base
          absl::civil_time
+         absl::cord
+         absl::cord_internal
+         absl::cordz_functions
+         absl::cordz_info
+         absl::cordz_handle
+         absl::debugging_internal
+         absl::demangle_internal
+         absl::exponential_biased
          absl::int128
          absl::log_severity
+         absl::malloc_internal
          absl::raw_logging_internal
          absl::spinlock_wait
+         absl::stacktrace
+         absl::str_format_internal
          absl::strings
          absl::strings_internal
-         absl::str_format_internal
+         absl::symbolize
+         absl::synchronization
          absl::throw_delegate
          absl::time
          absl::time_zone
@@ -4402,12 +4320,7 @@ endif()
 message(STATUS "Found hdfs.h at: ${HDFS_H_PATH}")
 
 add_library(arrow::hadoop INTERFACE IMPORTED)
-if(CMAKE_VERSION VERSION_LESS 3.11)
-  set_target_properties(arrow::hadoop PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                 "${HADOOP_HOME}/include")
-else()
-  target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
-endif()
+target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 
 # ----------------------------------------------------------------------
 # Apache ORC
@@ -4487,12 +4400,7 @@ macro(build_orc)
     endif()
     list(APPEND ORC_LINK_LIBRARIES ${CMAKE_DL_LIBS})
   endif()
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(orc::liborc PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                 "${ORC_LINK_LIBRARIES}")
-  else()
-    target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
-  endif()
+  target_link_libraries(orc::liborc INTERFACE ${ORC_LINK_LIBRARIES})
 
   add_dependencies(toolchain orc_ep)
   add_dependencies(orc::liborc orc_ep)
@@ -4621,9 +4529,8 @@ macro(build_opentelemetry)
   add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
                    opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
 
-  # JOIN is CMake >=3.12 only
-  string(REPLACE ";" "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
-                 "${OPENTELEMETRY_PREFIX_PATH_LIST}")
+  string(JOIN "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
+         ${OPENTELEMETRY_PREFIX_PATH_LIST})
   list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
 
   if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
@@ -4720,24 +4627,16 @@ endif()
 # ----------------------------------------------------------------------
 # AWS SDK for C++
 
+include(AWSSDKVariables)
+
 macro(build_awssdk)
   message(STATUS "Building AWS C++ SDK from source")
   set(AWSSDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/awssdk_ep-install")
   set(AWSSDK_INCLUDE_DIR "${AWSSDK_PREFIX}/include")
 
-  if(WIN32)
-    # On Windows, need to match build types
-    set(AWSSDK_BUILD_TYPE ${CMAKE_BUILD_TYPE})
-  else()
-    # Otherwise, always build in release mode.
-    # Especially with gcc, debug builds can fail with "asm constraint" errors:
-    # https://github.com/TileDB-Inc/TileDB/issues/1351
-    set(AWSSDK_BUILD_TYPE release)
-  endif()
-
   set(AWSSDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
-      -DCMAKE_BUILD_TYPE=${AWSSDK_BUILD_TYPE}
+      -DCPP_STANDARD=${CMAKE_CXX_STANDARD}
       -DCMAKE_INSTALL_PREFIX=${AWSSDK_PREFIX}
       -DCMAKE_PREFIX_PATH=${AWSSDK_PREFIX}
       -DENABLE_TESTING=OFF
@@ -4759,6 +4658,15 @@ macro(build_awssdk)
       -DBUILD_DEPS=OFF
       -DBUILD_ONLY=config\\$<SEMICOLON>s3\\$<SEMICOLON>transfer\\$<SEMICOLON>identity-management\\$<SEMICOLON>sts
       -DMINIMIZE_SIZE=ON)
+  # Remove unused directories to save build directory storage.
+  # 807MB -> 31MB
+  set(AWSSDK_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+  if(CMAKE_VERSION VERSION_LESS 3.17)
+    list(APPEND AWSSDK_PATCH_COMMAND remove_directory)
+  else()
+    list(APPEND AWSSDK_PATCH_COMMAND rm -rf)
+  endif()
+  list(APPEND AWSSDK_PATCH_COMMAND ${AWSSDK_UNUSED_DIRECTORIES})
 
   if(UNIX)
     # on Linux and macOS curl seems to be required
@@ -4858,16 +4766,33 @@ macro(build_awssdk)
                       BUILD_BYPRODUCTS ${AWS_C_COMMON_STATIC_LIBRARY})
   add_dependencies(AWS::aws-c-common aws_c_common_ep)
 
+  set(AWS_CHECKSUMS_CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS})
+  if(NOT WIN32)
+    # On non-Windows, always build in release mode.
+    # Especially with gcc, debug builds can fail with "asm constraint" errors:
+    # https://github.com/TileDB-Inc/TileDB/issues/1351
+    list(APPEND AWS_CHECKSUMS_CMAKE_ARGS -DCMAKE_BUILD_TYPE=Release)
+  endif()
   externalproject_add(aws_checksums_ep
                       ${EP_COMMON_OPTIONS}
                       URL ${AWS_CHECKSUMS_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWS_CHECKSUMS_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AWSSDK_COMMON_CMAKE_ARGS}
+                      CMAKE_ARGS ${AWS_CHECKSUMS_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CHECKSUMS_STATIC_LIBRARY}
                       DEPENDS aws_c_common_ep)
   add_dependencies(AWS::aws-checksums aws_checksums_ep)
 
   if("s2n-tls" IN_LIST _AWSSDK_LIBS)
+    # Remove unused directories to save build directory storage.
+    # 169MB -> 105MB
+    set(AWS_LC_PATCH_COMMAND ${CMAKE_COMMAND} -E)
+    if(CMAKE_VERSION VERSION_LESS 3.17)
+      list(APPEND AWS_LC_PATCH_COMMAND remove_directory)
+    else()
+      list(APPEND AWS_LC_PATCH_COMMAND rm -rf)
+    endif()
+    list(APPEND AWS_LC_PATCH_COMMAND fuzz)
+
     set(AWS_LC_C_FLAGS ${EP_C_FLAGS})
     string(APPEND AWS_LC_C_FLAGS " -Wno-error=overlength-strings -Wno-error=pedantic")
     # Link time optimization is causing trouble like #34349
@@ -4882,6 +4807,7 @@ macro(build_awssdk)
                         ${EP_COMMON_OPTIONS}
                         URL ${AWS_LC_SOURCE_URL}
                         URL_HASH "SHA256=${ARROW_AWS_LC_BUILD_SHA256_CHECKSUM}"
+                        PATCH_COMMAND ${AWS_LC_PATCH_COMMAND}
                         CMAKE_ARGS ${AWS_LC_CMAKE_ARGS}
                         BUILD_BYPRODUCTS ${AWS_LC_STATIC_LIBRARY})
     add_dependencies(AWS::crypto aws_lc_ep)
@@ -5020,6 +4946,7 @@ macro(build_awssdk)
                       ${EP_COMMON_OPTIONS}
                       URL ${AWSSDK_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_AWSSDK_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${AWSSDK_PATCH_COMMAND}
                       CMAKE_ARGS ${AWSSDK_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AWS_CPP_SDK_COGNITO_IDENTITY_STATIC_LIBRARY}
                                        ${AWS_CPP_SDK_CORE_STATIC_LIBRARY}
@@ -5179,15 +5106,8 @@ endmacro()
 if(ARROW_WITH_UCX)
   resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
-  if(CMAKE_VERSION VERSION_LESS 3.11)
-    set_target_properties(ucx::ucx PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                              "${UCX_INCLUDE_DIRS}")
-    set_property(TARGET ucx::ucx PROPERTY INTERFACE_LINK_LIBRARIES ucx::ucp ucx::uct
-                                          ucx::ucs)
-  else()
-    target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
-    target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
-  endif()
+  target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
+  target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)
 endif()
 
 message(STATUS "All bundled static libraries: ${ARROW_BUNDLED_STATIC_LIBS}")

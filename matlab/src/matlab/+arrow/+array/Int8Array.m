@@ -20,6 +20,10 @@ classdef Int8Array < arrow.array.NumericArray
         NullSubstitutionValue = int8(0);
     end
 
+    properties(SetAccess=private, GetAccess=public)
+        Type = arrow.type.Int8Type
+    end
+
     methods
         function obj = Int8Array(data, varargin)
              obj@arrow.array.NumericArray(data, "int8", ...

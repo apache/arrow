@@ -28,7 +28,7 @@
 ## Components
 /c_glib/ @kou
 # /cpp/
-/cpp/src/arrow/compute @westonpace
+/cpp/src/arrow/acero @westonpace
 /cpp/src/arrow/dataset @westonpace
 /cpp/src/arrow/engine @westonpace
 /cpp/src/arrow/flight/ @lidavidm

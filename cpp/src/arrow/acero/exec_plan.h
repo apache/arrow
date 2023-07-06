@@ -751,6 +751,10 @@ DeclarationToBatchesAsync(Declaration declaration, ExecContext exec_context);
 /// fills up.
 ///
 /// If a custom exec context is provided then the value of `use_threads` will be ignored.
+///
+/// The returned RecordBatchReader can be closed early to cancel the computation of record
+/// batches. In this case, only errors encountered by the computation may be reported. In
+/// particular, no cancellation error may be reported.
 ARROW_ACERO_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     Declaration declaration, bool use_threads = true,
     MemoryPool* memory_pool = default_memory_pool(),
