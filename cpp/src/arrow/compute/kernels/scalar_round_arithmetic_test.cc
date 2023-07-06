@@ -1073,12 +1073,12 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
     }
   }
 
-  // An overly large ndigits would be truncated to type's max digits
+  // An overly large ndigits would cause an error
   if constexpr (std::is_same_v<TypeParam, Int8Type>) {
     this->SetRoundNdigits(-100);
     this->SetRoundMode(RoundMode::UP);
     auto values = "[1]";
-    this->AssertUnaryOp(Round, values, ArrayFromJSON(this->type_singleton(), "[100]"));
+    this->AssertUnaryOpRaises(Round, values, "out of range");
   }
 
   // A larger than double int64 should be correctly handled
@@ -1139,12 +1139,12 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
     }
   }
 
-  // An overly large ndigits would be truncated to type's max digits
+  // An overly large ndigits would cause an error
   if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
     this->SetRoundNdigits(-100);
     this->SetRoundMode(RoundMode::UP);
     auto values = "[1]";
-    this->AssertUnaryOp(Round, values, ArrayFromJSON(this->type_singleton(), "[100]"));
+    this->AssertUnaryOpRaises(Round, values, "out of range");
   }
 
   // A larger than double uint64 should be correctly handled
@@ -1249,6 +1249,12 @@ TYPED_TEST(TestBinaryRoundSigned, Round) {
                            ArrayFromJSON(this->type_singleton(), pair.second));
     }
   }
+
+  // An overly large ndigits would cause an error
+  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
+  }
 }
 
 TYPED_TEST(TestBinaryRoundUnsigned, Round) {
@@ -1295,6 +1301,12 @@ TYPED_TEST(TestBinaryRoundUnsigned, Round) {
       this->AssertBinaryOp(RoundBinary, values, -2,
                            ArrayFromJSON(this->type_singleton(), pair.second));
     }
+  }
+
+  // An overly large ndigits would cause an error
+  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
+    this->SetRoundMode(RoundMode::UP);
+    this->AssertBinaryOpRaises(RoundBinary, "[1]", "[-100]", "out of range");
   }
 }
 

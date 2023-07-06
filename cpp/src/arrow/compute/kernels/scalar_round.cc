@@ -27,6 +27,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
@@ -121,7 +122,7 @@ struct RoundUtil {
   template <typename T>
   static enable_if_integer_value<T> Pow10(int64_t power) {
     DCHECK_GE(power, 0);
-
+    DCHECK_LE(power, std::numeric_limits<T>::digits10);
     static constexpr uint64_t lut[] = {
         Pow10Struct<0>::value,  Pow10Struct<1>::value,  Pow10Struct<2>::value,
         Pow10Struct<3>::value,  Pow10Struct<4>::value,  Pow10Struct<5>::value,
@@ -131,8 +132,7 @@ struct RoundUtil {
         Pow10Struct<15>::value, Pow10Struct<16>::value, Pow10Struct<17>::value,
         Pow10Struct<18>::value, Pow10Struct<19>::value};
 
-    auto digits10 = std::numeric_limits<T>::digits10;
-    return static_cast<T>(lut[std::min(power, static_cast<int64_t>(digits10))]);
+    return static_cast<T>(lut[power]);
   }
 };
 
@@ -433,6 +433,13 @@ struct RoundOptionsWrapper<RoundOptions, CType> : public OptionsWrapper<RoundOpt
   static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
                                                    const KernelInitArgs& args) {
     if (auto options = static_cast<const OptionsType*>(args.options)) {
+      if constexpr (is_integer_value<CType>::value) {
+        if (-options->ndigits > std::numeric_limits<CType>::digits10) {
+          return Status::Invalid("Rounding to ", options->ndigits,
+                                 " digits is out of range for type ",
+                                 args.inputs[0].ToString());
+        }
+      }
       return std::make_unique<RoundOptionsWrapper>(*options);
     }
     return Status::Invalid(
@@ -992,6 +999,13 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
                                       Status* st) const {
     // ndigits >= 0 is a no-op
     if (arg1 >= 0) {
+      return arg0;
+    }
+
+    if (-arg1 > std::numeric_limits<CType>::digits10) {
+      // ndigits is larger than the number of digits CType can hold
+      *st = Status::Invalid("Rounding to ", arg1, " digits is out of range for type ",
+                            out_ty.ToString());
       return arg0;
     }
 

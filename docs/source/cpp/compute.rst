@@ -582,13 +582,11 @@ representation based on the rounding criterion.
   which rounds to the nearest integer. For integer inputs a non-negative 
   ``ndigits`` value is ignored and the input is returned unchanged. For integer
   inputs, if ``-ndigits`` is larger than the maximum number of digits the 
-  input type can hold, it is truncated to the maximum digit. For example, 
-  ``round([123], ndigits=-4, round_mode=DOWN)`` returns [100] for ``int8`` type.
-  For integer inputs, an error is returned on overflow.
+  input type can hold, an error is returned.
 * \(3) Round to a multiple where the ``multiple`` option of
   :struct:`RoundToMultipleOptions` specifies the rounding scale.  The rounding
   multiple has to be a positive value and can be casted to input type.  
-  For example, 100 corresponds to ounding to the nearest multiple of 100 
+  For example, 100 corresponds to rounding to the nearest multiple of 100 
   (zeroing the ones and tens digits). Default value of ``multiple`` is 1 which 
   rounds to the nearest integer.
 
