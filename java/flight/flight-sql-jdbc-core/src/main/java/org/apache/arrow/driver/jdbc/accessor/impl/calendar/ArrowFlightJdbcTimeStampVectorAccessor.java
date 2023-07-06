@@ -17,6 +17,7 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
+import static java.util.Objects.nonNull;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorGetter.Getter;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorGetter.Holder;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorGetter.createGetter;
@@ -26,7 +27,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -92,13 +92,11 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     long value = holder.value;
 
     LocalDateTime localDateTime = this.longToLocalDateTime.fromLong(value);
+    ZoneId defaultTimeZone = TimeZone.getDefault().toZoneId();
+    ZoneId sourceTimeZone = nonNull(this.timeZone) ? this.timeZone.toZoneId() :
+            nonNull(calendar) ? calendar.getTimeZone().toZoneId() : defaultTimeZone;
 
-    ZoneId sourceTimeZone = this.timeZone != null ? this.timeZone.toZoneId() :
-            calendar == null ? TimeZone.getDefault().toZoneId() : calendar.getTimeZone().toZoneId();
-    ZonedDateTime sourceTZDateTime = localDateTime.atZone(sourceTimeZone);
-    localDateTime = sourceTZDateTime.withZoneSameInstant(TimeZone.getDefault().toZoneId()).toLocalDateTime();
-
-    return localDateTime;
+    return localDateTime.atZone(sourceTimeZone).withZoneSameInstant(defaultTimeZone).toLocalDateTime();
   }
 
   @Override

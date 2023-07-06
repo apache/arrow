@@ -38,7 +38,7 @@ public class DateTimeUtils {
   }
 
   /**
-   * Apply calendar timezone to epoch milliseconds
+   * Apply calendar timezone to epoch milliseconds.
    */
   public static long applyCalendarOffset(long milliseconds, Calendar calendar) {
     if (calendar == null) {
