@@ -44,4 +44,8 @@
   <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net5.0'))">
     <Compile Remove="Arrays\HalfFloatArray.cs" />
   </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net5.0'))">
+    <!-- Code targeting .NET 5+ should use [UnmanagedCallersOnly]. -->
+    <Compile Remove="C\NativeDelegate.cs" />
+  </ItemGroup>
 </Project>

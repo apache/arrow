@@ -164,7 +164,7 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.Map:
                         break;
                     case ArrowTypeId.Null:
-                        buffers = new ArrowBuffer[0];
+                        buffers = System.Array.Empty<ArrowBuffer>();
                         break;
                     case ArrowTypeId.Dictionary:
                         DictionaryType dictionaryType = (DictionaryType)type;
