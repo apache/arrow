@@ -169,10 +169,13 @@ Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offse
   return Status::OK();
 }
 
+// Implement of `arrow::Concatenate`.
+// N.B. The ConcatenateImpl should accept a reference to a vector of ArrayData,
+// instead of a temporary value.
 class ConcatenateImpl {
  public:
-  ConcatenateImpl(ArrayDataVector in, MemoryPool* pool)
-      : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
+  ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
+      : in_(in), pool_(pool), out_(std::make_shared<ArrayData>()) {
     out_->type = in_[0]->type;
     for (const auto& in_array : in_) {
       out_->length = SafeSignedAdd(out_->length, in_array->length);
@@ -236,8 +239,7 @@ class ConcatenateImpl {
     RETURN_NOT_OK(ConcatenateOffsets<int32_t>(index_buffers, pool_, &out_->buffers[1],
                                               &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    return ConcatenateImpl(std::move(child_data), pool_)
-        .Concatenate(&out_->child_data[0]);
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const LargeListType&) {
@@ -246,21 +248,18 @@ class ConcatenateImpl {
     RETURN_NOT_OK(ConcatenateOffsets<int64_t>(index_buffers, pool_, &out_->buffers[1],
                                               &value_ranges));
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, value_ranges));
-    return ConcatenateImpl(std::move(child_data), pool_)
-        .Concatenate(&out_->child_data[0]);
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const FixedSizeListType& fixed_size_list) {
     ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(0, fixed_size_list.list_size()));
-    return ConcatenateImpl(std::move(child_data), pool_)
-        .Concatenate(&out_->child_data[0]);
+    return ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[0]);
   }
 
   Status Visit(const StructType& s) {
     for (int i = 0; i < s.num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-      RETURN_NOT_OK(ConcatenateImpl(std::move(child_data), pool_)
-                        .Concatenate(&out_->child_data[i]));
+      RETURN_NOT_OK(ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
     }
     return Status::OK();
   }
@@ -374,8 +373,8 @@ class ConcatenateImpl {
       case UnionMode::SPARSE: {
         for (int i = 0; i < u.num_fields(); i++) {
           ARROW_ASSIGN_OR_RAISE(auto child_data, ChildData(i));
-          RETURN_NOT_OK(ConcatenateImpl(std::move(child_data), pool_)
-                            .Concatenate(&out_->child_data[i]));
+          RETURN_NOT_OK(
+              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
         }
         break;
       }
@@ -385,8 +384,8 @@ class ConcatenateImpl {
           for (size_t j = 0; j < in_.size(); j++) {
             child_data[j] = in_[j]->child_data[i];
           }
-          RETURN_NOT_OK(ConcatenateImpl(std::move(child_data), pool_)
-                            .Concatenate(&out_->child_data[i]));
+          RETURN_NOT_OK(
+              ConcatenateImpl(child_data, pool_).Concatenate(&out_->child_data[i]));
         }
         break;
       }
@@ -470,8 +469,7 @@ class ConcatenateImpl {
       storage_data[i]->type = e.storage_type();
     }
     std::shared_ptr<ArrayData> out_storage;
-    RETURN_NOT_OK(
-        ConcatenateImpl(std::move(storage_data), pool_).Concatenate(&out_storage));
+    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
     out_storage->type = in_[0]->type;
     out_ = std::move(out_storage);
     return Status::OK();
@@ -623,7 +621,7 @@ Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool
   }
 
   std::shared_ptr<ArrayData> out_data;
-  RETURN_NOT_OK(ConcatenateImpl(std::move(data), pool).Concatenate(&out_data));
+  RETURN_NOT_OK(ConcatenateImpl(data, pool).Concatenate(&out_data));
   return MakeArray(std::move(out_data));
 }
 
