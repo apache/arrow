@@ -95,9 +95,9 @@ you made.
 .. note::
 
    If you are working on the Python documentation and are building the documentation
-   with ``pyarrow`` build from source on macOS Monterey, Python section of the
-   documentation might not be included in the ``_build/html``. In this case try
-   installing ``pyarrow`` in editable version first before running the ``make html``
+   with ``pyarrow`` build from source on macOS Monterey, the Python section of the
+   documentation might not be included in the ``_build/html``. In this case, try
+   installing ``pyarrow`` in non-editable mode first before running the ``make html``
    command.
 
    .. code-block:: shell
