@@ -96,7 +96,7 @@ class ARROW_EXPORT Expression {
   /// Return true if this expression could evaluate to true. Will return true for any
   /// unbound or non-boolean Expressions. IsSatisfiable does not (currently) do any
   /// canonicalization or simplification of the expression, so even Expressions
-  /// which are be unsatisfiable may spuriously return `true` here. This function is
+  /// which are unsatisfiable may spuriously return `true` here. This function is
   /// intended for use in predicate pushdown where a filter expression is simplified
   /// by a guarantee, so it assumes that trying to simplify again would be redundant.
   bool IsSatisfiable() const;
