@@ -878,6 +878,7 @@ write_page_index : bool, default False
     Parquet format supports page index that makes filtering when
     reading more efficient. This option enables writing the page
     index to the Parquet file.
+    It will not yet be used when reading using pyarrow.
 """
 
 _parquet_writer_example_doc = """\

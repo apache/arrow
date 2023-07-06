@@ -358,17 +358,18 @@ def test_field_id_metadata():
 
 
 def test_parquet_file_page_index():
-    table = pa.table({'a': [1, 2, 3]})
+    for write_page_index in (False, True):
+        table = pa.table({'a': [1, 2, 3]})
 
-    writer = pa.BufferOutputStream()
-    _write_table(table, writer, write_page_index=True)
-    reader = pa.BufferReader(writer.getvalue())
+        writer = pa.BufferOutputStream()
+        _write_table(table, writer, write_page_index=write_page_index)
+        reader = pa.BufferReader(writer.getvalue())
 
-    # Can retrieve sorting columns from metadata
-    metadata = pq.read_metadata(reader)
-    cc = metadata.row_group(0).column(0)
-    assert cc.has_offset_index is True
-    assert cc.has_column_index is True
+        # Can retrieve sorting columns from metadata
+        metadata = pq.read_metadata(reader)
+        cc = metadata.row_group(0).column(0)
+        assert cc.has_offset_index is write_page_index
+        assert cc.has_column_index is write_page_index
 
 
 @pytest.mark.pandas
