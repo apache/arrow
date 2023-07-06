@@ -92,6 +92,21 @@ format in ``arrow/docs/_build/html``.  In particular, you can point your browser
 at ``arrow/docs/_build/html/index.html`` to read the docs and review any changes
 you made.
 
+.. note::
+
+   If you are working on the Python documentation and are building the documentation
+   with ``pyarrow`` build from source on macOS Monterey, the Python section of the
+   documentation might not be included in the ``_build/html``. In this case, try
+   installing ``pyarrow`` in non-editable mode first before running the ``make html``
+   command.
+
+   .. code-block:: shell
+
+     pushd arrow/docs
+     python -m pip install ../python --quiet
+     make html
+     popd
+
 Building with Docker
 --------------------
 
