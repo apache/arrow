@@ -3761,7 +3761,7 @@ def test_dataset_preserved_partitioning(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
     assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
-    # TODO partitioning attribute not preserved in pickling
+    # TODO(GH-34884) partitioning attribute not preserved in pickling
     # dataset_ = ds.dataset(path)
     # for dataset in [dataset_, pickle.loads(pickle.dumps(dataset_))]:
     #     assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
