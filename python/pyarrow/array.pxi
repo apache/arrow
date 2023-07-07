@@ -725,7 +725,6 @@ cdef class _PandasConvertible(_Weakrefable):
             Cast dates to objects. If False, convert to datetime64 dtype with
             the equivalent time unit (if supported). Note: in pandas version
             < 2.0, only datetime64[ns] conversion is supported.
-            dtype.
         timestamp_as_object : bool, default False
             Cast non-nanosecond timestamps (np.datetime64) to objects. This is
             useful in pandas version 1.x if you have timestamps that don't fit

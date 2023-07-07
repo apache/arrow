@@ -4269,10 +4269,9 @@ def test_array_to_pandas(arr):
     expected = pd.Series(arr)
     tm.assert_series_equal(result, expected)
 
-    # TODO implement proper conversion for chunked array
-    # result = pa.table({"col": arr})["col"].to_pandas()
-    # expected = pd.Series(arr, name="col")
-    # tm.assert_series_equal(result, expected)
+    result = pa.table({"col": arr})["col"].to_pandas()
+    expected = pd.Series(arr, name="col")
+    tm.assert_series_equal(result, expected)
 
 
 def test_roundtrip_empty_table_with_extension_dtype_index():
