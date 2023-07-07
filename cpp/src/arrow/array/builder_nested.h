@@ -43,27 +43,27 @@ namespace arrow {
 // List builder
 
 template <typename TYPE>
-class BaseVarLengthListLikeBuilder : public ArrayBuilder {
+class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
  public:
   using TypeClass = TYPE;
   using offset_type = typename TypeClass::offset_type;
 
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
-  BaseVarLengthListLikeBuilder(MemoryPool* pool,
-                               std::shared_ptr<ArrayBuilder> const& value_builder,
-                               const std::shared_ptr<DataType>& type,
-                               int64_t alignment = kDefaultBufferAlignment)
+  VarLengthListLikeBuilder(MemoryPool* pool,
+                           std::shared_ptr<ArrayBuilder> const& value_builder,
+                           const std::shared_ptr<DataType>& type,
+                           int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
         offsets_builder_(pool, alignment),
         value_builder_(value_builder),
         value_field_(type->field(0)->WithType(NULLPTR)) {}
 
-  BaseVarLengthListLikeBuilder(MemoryPool* pool,
-                               std::shared_ptr<ArrayBuilder> const& value_builder,
-                               int64_t alignment = kDefaultBufferAlignment)
-      : BaseVarLengthListLikeBuilder(pool, value_builder, list(value_builder->type()),
-                                     alignment) {}
+  VarLengthListLikeBuilder(MemoryPool* pool,
+                           std::shared_ptr<ArrayBuilder> const& value_builder,
+                           int64_t alignment = kDefaultBufferAlignment)
+      : VarLengthListLikeBuilder(pool, value_builder, list(value_builder->type()),
+                                 alignment) {}
 
   Status Resize(int64_t capacity) override {
     if (ARROW_PREDICT_FALSE(capacity > maximum_elements())) {
@@ -99,15 +99,19 @@ class BaseVarLengthListLikeBuilder : public ArrayBuilder {
   /// \brief Start a new variable-length list slot
   ///
   /// This function should be called before beginning to append elements to the
-  /// value builder
-  Status Append(bool is_valid = true) {
+  /// value builder. Elements appended to the value builder before this function is
+  /// called, will not be members of any list value.
+  ///
+  /// \param list_length The number of elements in the list (necessary on
+  /// list-view builders)
+  Status Append(bool is_valid, int64_t list_length) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
-    UnsafeAppendDimensions(/*offset=*/value_builder_->length(), /*size=*/0);
+    UnsafeAppendDimensions(/*offset=*/value_builder_->length(), /*size=*/list_length);
     return Status::OK();
   }
 
-  Status AppendNull() final { return Append(false); }
+  Status AppendNull() final { return Append(false, 0); }
 
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -116,7 +120,7 @@ class BaseVarLengthListLikeBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendEmptyValue() final { return Append(true); }
+  Status AppendEmptyValue() final { return Append(true, 0); }
 
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
@@ -211,15 +215,25 @@ class BaseVarLengthListLikeBuilder : public ArrayBuilder {
 };
 
 template <typename TYPE>
-class BaseListBuilder : public BaseVarLengthListLikeBuilder<TYPE> {
+class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
  private:
-  using BASE = BaseVarLengthListLikeBuilder<TYPE>;
+  using BASE = VarLengthListLikeBuilder<TYPE>;
 
  public:
   using TypeClass = TYPE;
   using offset_type = typename BASE::offset_type;
 
   using BASE::BASE;
+
+  /// \brief Start a new variable-length list slot
+  ///
+  /// This function should be called before beginning to append elements to the
+  /// value builder
+  Status Append(bool is_valid = true) {
+    // The value_length parameter to BASE::Append(bool, int64_t) is ignored when
+    // building a list array, so we can pass 0 here.
+    return BASE::Append(is_valid, 0);
+  }
 
   Status AppendNextOffset() {
     ARROW_RETURN_NOT_OK(this->ValidateOverflow(0));
