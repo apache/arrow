@@ -42,6 +42,7 @@ jobs:
             # ensure unlinking OpenSSL to avoid mixing OpenSSL in the
             # default path and OpenSSL installed by autobrew
             brew unlink openssl || :
+            find / -name 'evp.h'
             # install minio for tests
             brew install minio
             brew install sccache
