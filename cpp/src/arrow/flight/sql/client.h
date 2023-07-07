@@ -364,8 +364,8 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   Status Close();
 
  protected:
-  virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(const FlightCallOptions& options,
-      const FlightDescriptor& descriptor,
+  virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor,
       const std::shared_ptr<Schema>& schema) {
     return impl_->DoPut(options, descriptor, schema);
   }
