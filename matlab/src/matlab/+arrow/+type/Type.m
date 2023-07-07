@@ -19,5 +19,6 @@ classdef Type
     properties (Abstract, SetAccess=protected)
         ID(1, 1) arrow.type.ID
     end
+    
 end
 
