@@ -1978,6 +1978,37 @@ cdef class CacheOptions(_Weakrefable):
         self = CacheOptions()
         self.init(options)
         return self
+    
+    @property
+    def hole_size_limit(self):
+        return self.wrapped.hole_size_limit
+
+    @property
+    def range_size_limit(self):
+        return self.wrapped.range_size_limit
+
+    @property
+    def lazy(self):
+        return self.wrapped.lazy
+
+    def equals(self, CacheOptions other):
+        attrs = (self.hole_size_limit, self.range_size_limit, self.lazy)
+        other_attrs = (
+            other.hole_size_limit, other.range_size_limit, other.lazy)
+        return attrs == other_attrs
+
+    @classmethod
+    def _reconstruct(cls, kwargs):
+        return cls(**kwargs)
+
+    def __reduce__(self):
+        kwargs = dict(
+            hole_size_limit=self.hole_size_limit,
+            range_size_limit=self.range_size_limit,
+            lazy=self.lazy,
+        )
+        return type(self)._reconstruct, (kwargs,)
+
 
 cdef class IpcFileWriteOptions(FileWriteOptions):
     cdef:
