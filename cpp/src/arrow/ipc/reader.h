@@ -273,6 +273,8 @@ class ARROW_EXPORT Listener {
   /// \return Status
   ///
   /// \see StreamDecoder
+  ///
+  /// \since 13.0.0
   virtual Status OnRecordBatchWithMetadataDecoded(
       RecordBatchWithMetadata record_batch_with_metadata);
 
@@ -285,6 +287,21 @@ class ARROW_EXPORT Listener {
   ///
   /// \see StreamDecoder
   virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema);
+
+  /// \brief Called when a schema is decoded.
+  ///
+  /// The default implementation just calls OnSchemaDecoded(schema)
+  /// (without filtered_schema) to keep backward compatibility.
+  ///
+  /// \param[in] schema a schema decoded
+  /// \param[in] filtered_schema a filtered schema that only has read fields
+  /// \return Status
+  ///
+  /// \see StreamDecoder
+  ///
+  /// \since 13.0.0
+  virtual Status OnSchemaDecoded(std::shared_ptr<Schema> schema,
+                                 std::shared_ptr<Schema> filtered_schema);
 };
 
 /// \brief Collect schema and record batches decoded by StreamDecoder.
@@ -294,11 +311,13 @@ class ARROW_EXPORT Listener {
 /// \since 0.17.0
 class ARROW_EXPORT CollectListener : public Listener {
  public:
-  CollectListener() : schema_(), record_batches_(), metadatas_() {}
+  CollectListener() : schema_(), filtered_schema_(), record_batches_(), metadatas_() {}
   virtual ~CollectListener() = default;
 
-  Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override {
+  Status OnSchemaDecoded(std::shared_ptr<Schema> schema,
+                         std::shared_ptr<Schema> filtered_schema) override {
     schema_ = std::move(schema);
+    filtered_schema_ = std::move(filtered_schema);
     return Status::OK();
   }
 
@@ -311,6 +330,9 @@ class ARROW_EXPORT CollectListener : public Listener {
 
   /// \return the decoded schema
   std::shared_ptr<Schema> schema() const { return schema_; }
+
+  /// \return the filtered schema
+  std::shared_ptr<Schema> filtered_schema() const { return filtered_schema_; }
 
   /// \return the all decoded record batches
   const std::vector<std::shared_ptr<RecordBatch>>& record_batches() const {
@@ -348,6 +370,7 @@ class ARROW_EXPORT CollectListener : public Listener {
 
  private:
   std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> filtered_schema_;
   std::vector<std::shared_ptr<RecordBatch>> record_batches_;
   std::vector<std::shared_ptr<KeyValueMetadata>> metadatas_;
 };
