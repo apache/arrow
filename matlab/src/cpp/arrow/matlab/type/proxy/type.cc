@@ -26,7 +26,7 @@ namespace arrow::matlab::type::proxy {
 
     }
 
-    std::shared_ptr<arrow::DataType> Type::getType() {
+    std::shared_ptr<arrow::DataType> Type::unwrap() {
         return data_type;
     }
 

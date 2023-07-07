@@ -29,7 +29,7 @@ class Type : public libmexclass::proxy::Proxy {
     
         virtual ~Type() {}
 
-        std::shared_ptr<arrow::DataType> getType();
+        std::shared_ptr<arrow::DataType> unwrap();
 
     protected:
 
