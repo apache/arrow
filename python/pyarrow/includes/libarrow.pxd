@@ -1347,6 +1347,13 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CStatus Write(const uint8_t* data, int64_t nbytes)
         CStatus Flush()
 
+    cdef cppclass CCacheOptions "arrow::io::CacheOptions":
+        int64_t hole_size_limit
+        int64_t range_size_limit
+        c_bool lazy
+        @staticmethod
+        CCacheOptions Make(int64_t hole_size_limit, int64_t range_size_limit, c_bool lazy)
+
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
         pass

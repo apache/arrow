@@ -51,6 +51,7 @@ ARROW_EXPORT int GetIOThreadPoolCapacity();
 /// The current number is returned by GetIOThreadPoolCapacity().
 ARROW_EXPORT Status SetIOThreadPoolCapacity(int threads);
 
+class CacheOptions;
 class FileInterface;
 class Seekable;
 class Writable;
