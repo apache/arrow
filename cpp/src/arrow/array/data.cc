@@ -267,8 +267,8 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
   span->length = 0;
   int num_buffers = GetNumBuffers(*type);
   for (int i = 0; i < num_buffers; ++i) {
-    static int64_t zero{0};
-    span->buffers[i].data = reinterpret_cast<uint8_t*>(&zero);
+    constexpr int64_t kZeroes[] = {0, 0};
+    span->buffers[i].data = const_cast<uint8_t*>(reinterpret_cast<uint8_t const*>(&kZeroes));
     span->buffers[i].size = 0;
   }
 
@@ -307,7 +307,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
   if (type_id == Type::NA) {
     this->null_count = 1;
-  } else if (!HasValidityBitmap()) {
+  } else if (!internal::HasValidityBitmap(type_id)) {
     this->null_count = 0;
   } else {
     // Populate null count and validity bitmap

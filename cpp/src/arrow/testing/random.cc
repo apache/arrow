@@ -945,18 +945,17 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
                        : DenseUnion(child_arrays, length, alignment, memory_pool);
 
       const auto& type_codes = checked_cast<const UnionType&>(*field.type()).type_codes();
-      for (int i = 0; i < field.type()->num_fields(); ++i) {
-        if (type_codes[i] == i) continue;
+      const auto& default_type_codes =
+          checked_cast<const UnionType&>(*array->type()).type_codes();
 
+      if (type_codes != default_type_codes) {
         // map to the type ids specified by the UnionType
         auto* type_ids =
             reinterpret_cast<int8_t*>(array->data()->buffers[1]->mutable_data());
-        for (int64_t j = 0; j != array->length(); ++j) {
-          type_ids[j] = type_codes[type_ids[j]];
+        for (int64_t i = 0; i != array->length(); ++i) {
+          type_ids[i] = type_codes[type_ids[i]];
         }
-        break;
       }
-
       return *array->View(field.type());  // view gets the field names right for us
     }
 
