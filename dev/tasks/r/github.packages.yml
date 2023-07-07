@@ -168,9 +168,9 @@ jobs:
           rig system setup-user-lib
           rig system add-pak
 
-          # ensure removing OpenSSL to avoid mixing OpenSSL in the
+          # ensure unlinking OpenSSL to avoid mixing OpenSSL in the
           # default path and OpenSSL installed by autobrew
-          brew uninstall openssl || :
+          brew unlink openssl || :
       {{ macros.github_setup_local_r_repo(false, true)|indent }}
       - name: Prepare Dependency Installation
 
