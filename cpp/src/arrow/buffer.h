@@ -142,7 +142,7 @@ class ARROW_EXPORT Buffer {
   /// \brief Construct an immutable buffer that takes ownership of the contents
   /// of an std::vector (without copying it).
   ///
-  /// \param[in] data a string to own
+  /// \param[in] vec a vector to own
   /// \return a new Buffer instance
   template <typename T>
   static std::shared_ptr<Buffer> FromVectorOfTrivial(std::vector<T> vec) {
