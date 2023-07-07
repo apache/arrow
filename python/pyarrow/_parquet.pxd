@@ -22,7 +22,7 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
                                         CKeyValueMetadata, CRandomAccessFile, 
-                                        COutputStream, CCacheOptions
+                                        COutputStream, CCacheOptions,
                                         TimeUnit, CRecordBatchReader)
 from pyarrow.lib cimport _Weakrefable
 
