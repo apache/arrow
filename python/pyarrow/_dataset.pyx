@@ -131,10 +131,18 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
 cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
     if segment_encoding == "none":
-        return CSegmentEncodingNone
+        return CSegmentEncoding_None
     elif segment_encoding == "uri":
-        return CSegmentEncodingUri
+        return CSegmentEncoding_Uri
     raise ValueError(f"Unknown segment encoding: {segment_encoding}")
+
+
+cdef str _wrap_segment_encoding(CSegmentEncoding segment_encoding):
+    if segment_encoding == CSegmentEncoding_None:
+        return "none"
+    elif segment_encoding == CSegmentEncoding_Uri:
+        return "uri"
+    raise ValueError("Unknown segment encoding")
 
 
 cdef Expression _true = Expression._scalar(True)
@@ -2339,6 +2347,12 @@ cdef class Partitioning(_Weakrefable):
     cdef inline shared_ptr[CPartitioning] unwrap(self):
         return self.wrapped
 
+    def __eq__(self, other):
+        try:
+            return self.partitioning.Equals(deref((<Partitioning>other).unwrap()))
+        except TypeError:
+            return False
+
     def parse(self, path):
         cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))
@@ -2393,6 +2407,7 @@ cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
 
     return c_dictionaries
 
+
 cdef class KeyValuePartitioning(Partitioning):
 
     cdef:
@@ -2406,6 +2421,15 @@ cdef class KeyValuePartitioning(Partitioning):
         self.keyvalue_partitioning = <CKeyValuePartitioning*> sp.get()
         self.wrapped = sp
         self.partitioning = sp.get()
+
+    def __reduce__(self):
+        dictionaries = self.dictionaries
+        if dictionaries:
+            dictionaries = dict(zip(self.schema.names, dictionaries))
+        segment_encoding = _wrap_segment_encoding(
+            deref(self.keyvalue_partitioning).segment_encoding()
+        )
+        return self.__class__, (self.schema, dictionaries, segment_encoding)
 
     @property
     def dictionaries(self):
@@ -2619,6 +2643,18 @@ cdef class HivePartitioning(KeyValuePartitioning):
     cdef init(self, const shared_ptr[CPartitioning]& sp):
         KeyValuePartitioning.init(self, sp)
         self.hive_partitioning = <CHivePartitioning*> sp.get()
+
+    def __reduce__(self):
+        dictionaries = self.dictionaries
+        if dictionaries:
+            dictionaries = dict(zip(self.schema.names, dictionaries))
+        segment_encoding = _wrap_segment_encoding(
+            deref(self.keyvalue_partitioning).segment_encoding()
+        )
+        null_fallback = frombytes(deref(self.hive_partitioning).null_fallback())
+        return HivePartitioning, (
+            self.schema, dictionaries, null_fallback, segment_encoding
+        )
 
     @staticmethod
     def discover(infer_dictionary=False,
