@@ -1980,15 +1980,16 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
 
     nparr = np.frombuffer(np.random.randint(65, 91, data_size, 'u1'), 'S4')
 
-    fixed_arr = pa.array(nparr, pa.binary(4))
+    fixed_arr = pa.array(nparr, pa.string())
     fixed_table = pa.Table.from_arrays([fixed_arr], names=['fixedsize'])
 
-    csvoption = WriteOptions(include_header=True, batch_size=2048,
-                             delimiter='|', quoting_style='none')
+    write_options = WriteOptions(include_header=True, batch_size=2048,
+                                 delimiter='|', quoting_style='none')
 
-    write_csv(fixed_table, file_name, write_options=csvoption)
+    write_csv(fixed_table, file_name, write_options=write_options)
 
     assert os.path.exists(file_name)
 
-    res_table = read_csv(file_name)
-    assert fixed_table.shape, res_table.shape
+    parse_options = ParseOptions(delimiter="|")
+    res_table = read_csv(file_name, parse_options=parse_options)
+    assert res_table.equals(fixed_table)
