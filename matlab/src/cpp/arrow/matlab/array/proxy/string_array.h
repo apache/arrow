@@ -17,11 +17,23 @@
 
 #pragma once
 
-#include "arrow/buffer.h"
+#include "arrow/matlab/array/proxy/array.h"
 
-#include "MatlabDataArray.hpp"
+#include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::bit {
-    ::matlab::data::TypedArray<bool> unpack(const std::shared_ptr<arrow::Buffer>& packed_buffer, int64_t length);
-    const uint8_t* extract_ptr(const ::matlab::data::TypedArray<bool>& unpacked_validity_bitmap);
+namespace arrow::matlab::array::proxy {
+
+    class StringArray : public arrow::matlab::array::proxy::Array {
+        public:
+            StringArray(const std::shared_ptr<arrow::Array> string_array)
+                : arrow::matlab::array::proxy::Array() {
+                    array = string_array;
+                }
+
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+        protected:
+            void toMATLAB(libmexclass::proxy::method::Context& context) override;
+    };
+
 }
