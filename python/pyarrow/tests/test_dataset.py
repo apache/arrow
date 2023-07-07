@@ -1642,12 +1642,15 @@ def test_fragments_repr(tempdir, dataset):
 
 
 @pytest.mark.parquet
-def test_partitioning_factory(mockfs):
+@pytest.mark.parametrize(
+    "pickled", [lambda x: x, lambda x: pickle.loads(pickle.dumps(x))])
+def test_partitioning_factory(mockfs, pickled):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
 
     options = ds.FileSystemFactoryOptions('subdir')
     partitioning_factory = ds.DirectoryPartitioning.discover(['group', 'key'])
+    partitioning_factory = pickled(partitioning_factory)
     assert isinstance(partitioning_factory, ds.PartitioningFactory)
     options.partitioning_factory = partitioning_factory
 
@@ -1673,13 +1676,16 @@ def test_partitioning_factory(mockfs):
 
 @pytest.mark.parquet
 @pytest.mark.parametrize('infer_dictionary', [False, True])
-def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
+@pytest.mark.parametrize(
+    "pickled", [lambda x: x, lambda x: pickle.loads(pickle.dumps(x))])
+def test_partitioning_factory_dictionary(mockfs, infer_dictionary, pickled):
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
 
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         ['group', 'key'], infer_dictionary=infer_dictionary)
+    options.partitioning_factory = pickled(partitioning_factory)
 
     factory = ds.FileSystemDatasetFactory(
         mockfs, paths_or_selector, format, options)
@@ -1703,7 +1709,9 @@ def test_partitioning_factory_dictionary(mockfs, infer_dictionary):
         assert inferred_schema.field('key').type == pa.string()
 
 
-def test_partitioning_factory_segment_encoding():
+@pytest.mark.parametrize(
+    "pickled", [lambda x: x, lambda x: pickle.loads(pickle.dumps(x))])
+def test_partitioning_factory_segment_encoding(pickled):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -1726,8 +1734,9 @@ def test_partitioning_factory_segment_encoding():
     # Directory
     selector = fs.FileSelector("directory", recursive=True)
     options = ds.FileSystemFactoryOptions("directory")
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         schema=partition_schema)
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
@@ -1736,24 +1745,27 @@ def test_partitioning_factory_segment_encoding():
     })
     assert actual[0][0].as_py() == 1620086400
 
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         ["date", "string"], segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
 
-    options.partitioning = ds.DirectoryPartitioning(
+    partitioning = ds.DirectoryPartitioning(
         string_partition_schema, segment_encoding="none")
+    options.partitioning = pickled(partitioning)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
 
-    options.partitioning_factory = ds.DirectoryPartitioning.discover(
+    partitioning_factory = ds.DirectoryPartitioning.discover(
         schema=partition_schema, segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
@@ -1762,8 +1774,9 @@ def test_partitioning_factory_segment_encoding():
     # Hive
     selector = fs.FileSelector("hive", recursive=True)
     options = ds.FileSystemFactoryOptions("hive")
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema)
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
@@ -1772,8 +1785,9 @@ def test_partitioning_factory_segment_encoding():
     })
     assert actual[0][0].as_py() == 1620086400
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
@@ -1788,15 +1802,18 @@ def test_partitioning_factory_segment_encoding():
         (ds.field("date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("string") == "%24"))
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema, segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
         inferred_schema = factory.inspect()
 
 
-def test_partitioning_factory_hive_segment_encoding_key_encoded():
+@pytest.mark.parametrize(
+    "pickled", [lambda x: x, lambda x: pickle.loads(pickle.dumps(x))])
+def test_partitioning_factory_hive_segment_encoding_key_encoded(pickled):
     mockfs = fs._MockFileSystem()
     format = ds.IpcFileFormat()
     schema = pa.schema([("i64", pa.int64())])
@@ -1825,8 +1842,9 @@ def test_partitioning_factory_hive_segment_encoding_key_encoded():
     # Hive
     selector = fs.FileSelector("hive", recursive=True)
     options = ds.FileSystemFactoryOptions("hive")
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema)
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     inferred_schema = factory.inspect()
     assert inferred_schema == full_schema
@@ -1835,40 +1853,45 @@ def test_partitioning_factory_hive_segment_encoding_key_encoded():
     })
     assert actual[0][0].as_py() == 1620086400
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         segment_encoding="uri")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test'; date") == "2021-05-04 00:00:00") &
         (ds.field("test';[ string'") == "$"))
 
-    options.partitioning = ds.HivePartitioning(
+    partitioning = ds.HivePartitioning(
         string_partition_schema, segment_encoding="uri")
+    options.partitioning = pickled(partitioning)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test'; date") == "2021-05-04 00:00:00") &
         (ds.field("test';[ string'") == "$"))
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test%27%3B%20date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("test%27%3B%5B%20string%27") == "%24"))
 
-    options.partitioning = ds.HivePartitioning(
+    partitioning = ds.HivePartitioning(
         string_partition_schema_en, segment_encoding="none")
+    options.partitioning = pickled(partitioning)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     fragments = list(factory.finish().get_fragments())
     assert fragments[0].partition_expression.equals(
         (ds.field("test%27%3B%20date") == "2021-05-04 00%3A00%3A00") &
         (ds.field("test%27%3B%5B%20string%27") == "%24"))
 
-    options.partitioning_factory = ds.HivePartitioning.discover(
+    partitioning_factory = ds.HivePartitioning.discover(
         schema=partition_schema_en, segment_encoding="none")
+    options.partitioning_factory = pickled(partitioning_factory)
     factory = ds.FileSystemDatasetFactory(mockfs, selector, format, options)
     with pytest.raises(pa.ArrowInvalid,
                        match="Could not cast segments for partition field"):
