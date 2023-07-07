@@ -3271,9 +3271,11 @@ def test_array_invalid_mask_raises():
 
 
 def test_array_from_large_pyints():
-    # infered as uint64
     result = pa.array([int(2 ** 63)])
     assert result.type == pa.uint64()
+
+    with pytest.raises(OverflowError):
+        pa.array([int(2 ** 63), -1])
 
 
 def test_array_protocol():
