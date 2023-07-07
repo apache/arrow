@@ -1991,7 +1991,7 @@ cdef class CacheOptions(_Weakrefable):
     def lazy(self):
         return self.wrapped.lazy
 
-    def equals(self, CacheOptions other):
+    def __eq__(self, CacheOptions other):
         attrs = (self.hole_size_limit, self.range_size_limit, self.lazy)
         other_attrs = (
             other.hole_size_limit, other.range_size_limit, other.lazy)
