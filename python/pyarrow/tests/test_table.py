@@ -2447,3 +2447,16 @@ def test_invalid_non_join_column():
     with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
         t2.join(t1, 'id', join_type='inner')
     assert exp_error_msg in str(excinfo.value)
+
+
+def test_aggregate_hash_functions():
+    table = pa.table({'key': ['a', 'a', 'b', 'b', 'a'], 'value': [11, 112, 0, 1, 2]})
+    res = table.group_by(['key']).aggregate([('value', 'one')])
+    res = table.group_by([]).aggregate([('value', 'distinct')])
+    print(res)
+    
+    
+    
+    
+        
+    
