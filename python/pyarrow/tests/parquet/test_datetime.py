@@ -54,9 +54,7 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
     # so we need to cast the pandas dtype. Pandas v1 will always silently
     # coerce to [ns] due to lack of non-[ns] support.
     s = pd.Series([datetime.datetime(2017, 9, 6)], dtype='datetime64[us]')
-
     s = s.dt.tz_localize('utc')
-
     s.index = s
 
     # Both a column and an index to hit both use cases

@@ -1262,12 +1262,14 @@ def _test_write_to_dataset_with_partitions(base_path,
     import pyarrow.parquet as pq
 
     # ARROW-1400
-    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
-                              'group2': list('eefeffgeee'),
-                              'num': list(range(10)),
-                              'nan': [np.nan] * 10,
-                              'date': np.arange('2017-01-01', '2017-01-11',
-                                                dtype='datetime64[D]')})
+    output_df = pd.DataFrame({
+        'group1': list('aaabbbbccc'),
+        'group2': list('eefeffgeee'),
+        'num': list(range(10)),
+        'nan': [np.nan] * 10,
+        'date': np.arange('2017-01-01', '2017-01-11', dtype='datetime64[D]').astype(
+            'datetime64[ns]')
+    })
     cols = output_df.columns.tolist()
     partition_by = ['group1', 'group2']
     output_table = pa.Table.from_pandas(output_df, schema=schema, safe=False,
@@ -1315,11 +1317,7 @@ def _test_write_to_dataset_with_partitions(base_path,
 
     if schema:
         expected_date_type = schema.field_by_name('date').type.to_pandas_dtype()
-    else:
-        # Arrow to Pandas v2 will convert date32 to [ms]. Pandas v1 will always
-        # silently coerce to [ns] due to non-[ns] support.
-        expected_date_type = 'datetime64[ms]'
-    output_df["date"] = output_df["date"].astype(expected_date_type)
+        output_df["date"] = output_df["date"].astype(expected_date_type)
 
     tm.assert_frame_equal(output_df, input_df)
 
@@ -1332,14 +1330,13 @@ def _test_write_to_dataset_no_partitions(base_path,
     import pyarrow.parquet as pq
 
     # ARROW-1400
-    output_df = pd.DataFrame({'group1': list('aaabbbbccc'),
-                              'group2': list('eefeffgeee'),
-                              'num': list(range(10)),
-                              'date': np.arange('2017-01-01', '2017-01-11',
-                                                dtype='datetime64[D]')})
-    # Arrow to Pandas v2 will convert date32 to [ms]. Pandas v1 will always
-    # silently coerce to [ns] due to non-[ns] support.
-    output_df["date"] = output_df["date"].astype('datetime64[ms]')
+    output_df = pd.DataFrame({
+        'group1': list('aaabbbbccc'),
+        'group2': list('eefeffgeee'),
+        'num': list(range(10)),
+        'date': np.arange('2017-01-01', '2017-01-11', dtype='datetime64[D]').astype(
+            'datetime64[ns]')
+    })
     cols = output_df.columns.tolist()
     output_table = pa.Table.from_pandas(output_df)
 
