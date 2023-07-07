@@ -288,7 +288,7 @@ set_pkg_vars_with_pc () {
 
 # If we don't have pkg-config, we can make some inferences
 set_pkg_vars_without_pc () {
-  LIB_DIR="$1/lib"
+  # LIB_DIR="$1/lib"
   PKG_CFLAGS="-I$1/include $PKG_CFLAGS"
   if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
     PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
