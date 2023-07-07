@@ -19,6 +19,7 @@
 #include "arrow/python/numpy_interop.h"
 
 #include <datetime.h>
+#include <longobject.h>
 
 #include <algorithm>
 #include <limits>
@@ -331,6 +332,7 @@ class TypeInferrer {
         none_count_(0),
         bool_count_(0),
         int_count_(0),
+        uint64_count_(0),
         date_count_(0),
         time_count_(0),
         timestamp_micro_count_(0),
@@ -368,6 +370,13 @@ class TypeInferrer {
       *keep_going = make_unions_;
     } else if (internal::IsPyInteger(obj)) {
       ++int_count_;
+      int overflow = 0;
+      PyLong_AsLongLongAndOverflow(obj, &overflow);
+      if (overflow == 1) {
+        // Value is larger than LLONG_MAX, we care about only this case for the sake of
+        // type inference. Other errors will be caught by the conversion code
+        ++uint64_count_;
+      }
     } else if (PyDateTime_Check(obj)) {
       // infer timezone from the first encountered datetime object
       if (!timestamp_micro_count_) {
@@ -527,7 +536,7 @@ class TypeInferrer {
       // Prioritize floats before integers
       *out = float64();
     } else if (int_count_) {
-      *out = int64();
+      *out = uint64_count_ > 0 ? uint64() : int64();
     } else if (date_count_) {
       *out = date32();
     } else if (time_count_) {
@@ -687,6 +696,7 @@ class TypeInferrer {
   int64_t none_count_;
   int64_t bool_count_;
   int64_t int_count_;
+  int64_t uint64_count_;
   int64_t date_count_;
   int64_t time_count_;
   int64_t timestamp_micro_count_;
