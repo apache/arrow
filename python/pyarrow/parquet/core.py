@@ -3078,6 +3078,8 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 dictionary_pagesize_limit=None,
                 store_schema=True,
                 **kwargs):
+    # Implementor's note: when adding keywords here / updating defaults, also
+    # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
