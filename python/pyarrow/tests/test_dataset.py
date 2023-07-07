@@ -16,13 +16,12 @@
 # under the License.
 
 import contextlib
-import os
-import posixpath
 import datetime
+import os
 import pathlib
 import sys
-import textwrap
 import tempfile
+import textwrap
 import threading
 import time
 from shutil import copytree
@@ -30,17 +29,16 @@ from shutil import copytree
 from urllib.parse import quote
 
 import numpy as np
-import pytest
-
 import pyarrow as pa
 import pyarrow.compute as pc
 import pyarrow.csv
-import pyarrow.json
 import pyarrow.feather
 import pyarrow.fs as fs
-from pyarrow.tests.util import (change_cwd, _filesystem_uri,
-                                FSProtocolClass, ProxyHandler,
-                                _configure_s3_limited_user)
+import pyarrow.json
+import pytest
+from pyarrow.tests.util import (FSProtocolClass, ProxyHandler,
+                                _configure_s3_limited_user, _filesystem_uri,
+                                change_cwd)
 
 try:
     import pandas as pd
@@ -138,7 +136,8 @@ def mockfs():
 
 @pytest.fixture
 def open_logging_fs(monkeypatch):
-    from pyarrow.fs import PyFileSystem, LocalFileSystem
+    from pyarrow.fs import LocalFileSystem, PyFileSystem
+
     from .test_fs import ProxyHandler
 
     localfs = LocalFileSystem()
@@ -791,6 +790,9 @@ def test_parquet_scan_options():
         thrift_container_size_limit=987654,)
     opts6 = ds.ParquetFragmentScanOptions(
         page_checksum_verification=True)
+    
+    cache_opts = ds.CacheOptions(hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
+    opts7 = ds.ParquetFragmentScanOptions(pre_buffer=True, cache_options=cache_opts)
 
     assert opts1.use_buffered_stream is False
     assert opts1.buffer_size == 2**13
@@ -816,12 +818,16 @@ def test_parquet_scan_options():
 
     assert opts6.page_checksum_verification is True
 
+    assert opts7.pre_buffer is True
+    assert opts7.cache_options == cache_opts
+
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
     assert opts5 != opts1
     assert opts6 != opts1
+    assert opts7 != opts1
 
 
 def test_file_format_pickling(pickle_module):
@@ -886,6 +892,33 @@ def test_fragment_scan_options_pickling(pickle_module):
 
     for option in options:
         assert pickle_module.loads(pickle_module.dumps(option)) == option
+
+def test_cache_options():
+    opts1 = ds.CacheOptions()
+    opts2 = ds.CacheOptions(hole_size_limit=1024)
+    opts3 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
+    opts4 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
+
+    assert opts1.hole_size_limit == 8192
+    assert opts1.range_size_limit == 32 * 1024 * 1024
+    assert opts1.lazy is False
+
+    assert opts2.hole_size_limit == 1024
+    assert opts2.range_size_limit == 32 * 1024 * 1024
+    assert opts2.lazy is False
+
+    assert opts3.hole_size_limit == 4096
+    assert opts3.range_size_limit == 8192
+    assert opts3.lazy is False
+
+    assert opts4.hole_size_limit == 4096
+    assert opts4.range_size_limit == 8192
+    assert opts4.lazy is True
+
+    assert opts1 == opts1
+    assert opts1 != opts2
+    assert opts2 != opts3
+    assert opts3 != opts4
 
 
 @pytest.mark.parametrize('paths_or_selector', [
@@ -2653,7 +2686,7 @@ def test_open_dataset_from_uri_s3_fsspec(s3_example_simple):
     table, path, _, _, host, port, access_key, secret_key = s3_example_simple
     s3fs = pytest.importorskip("s3fs")
 
-    from pyarrow.fs import PyFileSystem, FSSpecHandler
+    from pyarrow.fs import FSSpecHandler, PyFileSystem
 
     fs = s3fs.S3FileSystem(
         key=access_key,
