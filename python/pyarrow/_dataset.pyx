@@ -2584,7 +2584,7 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
             CDirectoryPartitioning.MakeFactory(c_field_names, c_options),
             _constructor_directory_partitioning_factory,
             (field_names, infer_dictionary, max_partition_dictionary_size,
-            schema, segment_encoding)
+             schema, segment_encoding)
         )
 
 
@@ -2735,7 +2735,7 @@ cdef class HivePartitioning(KeyValuePartitioning):
             CHivePartitioning.MakeFactory(c_options),
             _constructor_hive_partitioning_factory,
             (infer_dictionary, max_partition_dictionary_size, null_fallback,
-            schema, segment_encoding),
+             schema, segment_encoding),
         )
 
 
