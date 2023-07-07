@@ -365,12 +365,13 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
 
  protected:
   virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(const FlightCallOptions& options,
-                       const FlightDescriptor& descriptor,
-                       const std::shared_ptr<Schema>& schema) {
+      const FlightDescriptor& descriptor,
+      const std::shared_ptr<Schema>& schema) {
     return impl_->DoPut(options, descriptor, schema);
   }
 
-  virtual ::arrow::Result<std::unique_ptr<ResultStream>> DoAction(const FlightCallOptions& options, const Action& action) {
+  virtual ::arrow::Result<std::unique_ptr<ResultStream>> DoAction(
+      const FlightCallOptions& options, const Action& action) {
     return impl_->DoAction(options, action);
   }
 };

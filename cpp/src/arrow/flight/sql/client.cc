@@ -221,7 +221,8 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteUpdate(const FlightCallOptions& o
   if (!metadata) return Status::IOError("Server did not send a response");
 
   flight_sql_pb::DoPutUpdateResult update_result;
-  if (!update_result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
+  if (!update_result.ParseFromArray(metadata->data(),
+                                    static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult");
   }
 
@@ -247,7 +248,8 @@ arrow::Result<int64_t> FlightSqlClient::ExecuteSubstraitUpdate(
   ARROW_RETURN_NOT_OK(result.writer->Close());
 
   flight_sql_pb::DoPutUpdateResult update_result;
-  if (!update_result.ParseFromArray(metadata->data(), static_cast<int>(metadata->size()))) {
+  if (!update_result.ParseFromArray(metadata->data(),
+                                    static_cast<int>(metadata->size()))) {
     return Status::Invalid("Unable to parse DoPutUpdateResult");
   }
 
