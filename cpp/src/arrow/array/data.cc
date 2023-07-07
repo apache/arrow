@@ -268,7 +268,8 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
   int num_buffers = GetNumBuffers(*type);
   for (int i = 0; i < num_buffers; ++i) {
     constexpr int64_t kZeroes[] = {0, 0};
-    span->buffers[i].data = const_cast<uint8_t*>(reinterpret_cast<uint8_t const*>(&kZeroes));
+    span->buffers[i].data =
+        const_cast<uint8_t*>(reinterpret_cast<uint8_t const*>(&kZeroes));
     span->buffers[i].size = 0;
   }
 
