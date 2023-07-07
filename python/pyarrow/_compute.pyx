@@ -2410,7 +2410,7 @@ cdef class Expression(_Weakrefable):
                 "Substrait message contained multiple expressions.  Use pyarrow.substrait.deserialize_expressions instead")
         return next(iter(expressions.values()))
 
-    def to_substrait(self, Schema schema not None, c_bool allow_udfs=False):
+    def to_substrait(self, Schema schema not None, c_bool allow_arrow_extensions=False):
         """
         Serialize the expression using Substrait
 
@@ -2421,7 +2421,7 @@ cdef class Expression(_Weakrefable):
         ----------
         schema : Schema
             The input schema the expression will be bound to
-        allow_udfs : bool, default False
+        allow_arrow_extensions : bool, default False
             If False then only functions that are part of the core Substrait function
             definitions will be allowed.  Set this to True to allow pyarrow-specific functions
             but the result may not be accepted by other compute libraries.
@@ -2431,7 +2431,7 @@ cdef class Expression(_Weakrefable):
         Buffer
             A buffer containing the serialized Protobuf plan.
         """
-        return _pas().serialize_expressions([self], "expression", schema, allow_udfs=allow_udfs)
+        return _pas().serialize_expressions([self], ["expression"], schema, allow_arrow_extensions=allow_arrow_extensions)
 
     @staticmethod
     def _deserialize(Buffer buffer not None):

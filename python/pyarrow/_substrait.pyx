@@ -146,7 +146,6 @@ def run_query(plan, *, table_provider=None, use_threads=True):
         }
         c_conversion_options.named_table_provider = BindFunction[CNamedTableProvider](
             &_create_named_table_provider, named_table_args)
-        c_conversion_options.allow_arrow_extensions = False
 
     with nogil:
         c_res_reader = ExecuteSerializedPlan(
@@ -187,13 +186,13 @@ def _parse_json_plan(plan):
     return pyarrow_wrap_buffer(c_buf_plan)
 
 
-def serialize_expressions(exprs, names, schema, *, allow_udfs=False):
+def serialize_expressions(exprs, names, schema, *, allow_arrow_extensions=False):
     """
     Serialize a collection of expressions into Substrait
 
     Substrait expressions must be bound to a schema.  For example,
-    the Substrait expression ``a_i32 + b_i32`` is different from the
-    Substrait expression ``a_i64 + b_i64``.  Pyarrow expressions are
+    the Substrait expression ``a:i32 + b:i32`` is different from the
+    Substrait expression ``a:i64 + b:i64``.  Pyarrow expressions are
     typically unbound.  For example, both of the above expressions
     would be represented as ``a + b`` in pyarrow.
 
@@ -209,10 +208,11 @@ def serialize_expressions(exprs, names, schema, *, allow_udfs=False):
         Names for the expressions
     schema : Schema
         The schema the expressions will be bound to
-    allow_udfs : bool, default False
+    allow_arrow_extensions : bool, default False
         If False then only functions that are part of the core Substrait function
         definitions will be allowed.  Set this to True to allow pyarrow-specific functions
-        but the result may not be accepted by other compute libraries.
+        and user defined functions but the result may not be accepted by other
+        compute libraries.
 
     Returns
     -------
@@ -226,23 +226,23 @@ def serialize_expressions(exprs, names, schema, *, allow_udfs=False):
         CBoundExpressions c_bound_exprs
         CConversionOptions c_conversion_options
 
-    for i in range(len(exprs)):
-        if not isinstance(exprs[i], Expression):
-            raise TypeError(f"Expected Expression, got '{type(exprs[i])}'")
-        c_named_expr.expression = (<Expression> exprs[i]).unwrap()
-        if i < len(names):
-            if not isinstance(names[i], str):
-                raise TypeError(f"Expected str, got '{type(names[i])}'")
-            c_named_expr.name = tobytes(<str> names[i])
-        else:
-            c_named_expr.name = tobytes("autoname")
+    if len(exprs) != len(names):
+        raise ValueError("exprs and names need to have the same length")
+    for expr, name in zip(exprs, names):
+        if not isinstance(expr, Expression):
+            raise TypeError(f"Expected Expression, got '{type(expr)}' in exprs")
+        if not isinstance(name, str):
+            raise TypeError(f"Expected str, got '{type(name)}' in names")
+        c_named_expr.expression = (<Expression> expr).unwrap()
+        c_named_expr.name = tobytes(<str> name)
         c_bound_exprs.named_expressions.push_back(c_named_expr)
+
     c_bound_exprs.schema = (<Schema> schema).sp_schema
 
-    c_conversion_options.allow_arrow_extensions = allow_udfs
+    c_conversion_options.allow_arrow_extensions = allow_arrow_extensions
 
-    c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
     with nogil:
+        c_res_buffer = SerializeExpressions(c_bound_exprs, c_conversion_options)
         c_buffer = GetResultValue(c_res_buffer)
     return pyarrow_wrap_buffer(c_buffer)
 
@@ -317,8 +317,8 @@ def deserialize_expressions(buf):
         raise TypeError(
             f"Expected 'pyarrow.Buffer' or bytes, got '{type(buf)}'")
 
-    c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
     with nogil:
+        c_res_bound_exprs = DeserializeExpressions(deref(c_buffer))
         c_bound_exprs = GetResultValue(c_res_bound_exprs)
 
     return BoundExpressions.wrap(c_bound_exprs)
