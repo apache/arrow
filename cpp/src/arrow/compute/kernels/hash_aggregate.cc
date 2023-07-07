@@ -915,7 +915,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
     for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
-      mapping->mutable_data_as<uint32_t>()[i] = i;
+      mapping->template mutable_data_as<uint32_t>()[i] = i;
     }
     ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
                                /*null_count=*/0);
@@ -946,7 +946,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
     for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
-      mapping->mutable_data_as<uint32_t>()[i] = i;
+      mapping->template mutable_data_as<uint32_t>()[i] = i;
     }
     ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
                                /*null_count=*/0);
