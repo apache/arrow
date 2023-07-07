@@ -3354,7 +3354,7 @@ def test_expression_serialization():
             assert deserialized.equals(deserialized_again)
 
         # Expressions that have references will be normalized, on serialization,
-        # to numeric referneces
+        # to numeric references
         exprs_with_ref_norm = [pc.field(0) > 5, pc.field(0) == 5,
                                pc.field(0) == 7,
                                pc.field((1, 0)) == 'value',
