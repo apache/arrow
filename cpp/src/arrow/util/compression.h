@@ -111,12 +111,12 @@ class ARROW_EXPORT Decompressor {
 /// \brief Compression codec options
 class ARROW_EXPORT CodecOptions {
  public:
-  explicit CodecOptions(int compression_level = kUseDefaultCompressionLevel) {
-    compression_level_ = compression_level;
-  }
+  explicit CodecOptions(int compression_level = kUseDefaultCompressionLevel)
+      : compression_level(compression_level) {}
+
   virtual ~CodecOptions() = default;
 
-  int compression_level_ = kUseDefaultCompressionLevel;
+  int compression_level;
 };
 
 // ----------------------------------------------------------------------

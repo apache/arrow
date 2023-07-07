@@ -425,7 +425,7 @@ TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
       continue;
     }
     auto codec_options = arrow::util::GZipCodecOptions();
-    codec_options.compression_level_ = combination.level;
+    codec_options.compression_level = combination.level;
     codec_options.gzip_format = combination.format;
     codec_options.window_bits = combination.window_bits;
     const auto expect_success = combination.expect_success;
@@ -459,7 +459,7 @@ TEST(TestCodecMisc, SpecifyCodecOptionsBrotli) {
       continue;
     }
     auto codec_options = arrow::util::BrotliCodecOptions();
-    codec_options.compression_level_ = combination.level;
+    codec_options.compression_level = combination.level;
     codec_options.window_bits = combination.window_bits;
     const auto expect_success = combination.expect_success;
     auto result1 = Codec::Create(compression, codec_options);

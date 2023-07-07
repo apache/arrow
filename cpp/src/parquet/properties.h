@@ -175,7 +175,7 @@ class PARQUET_EXPORT ColumnProperties {
     if (!codec_options_) {
       codec_options_ = std::make_shared<CodecOptions>();
     }
-    codec_options_->compression_level_ = compression_level;
+    codec_options_->compression_level = compression_level;
   }
 
   void set_codec_options(const std::shared_ptr<CodecOptions>& codec_options) {
@@ -196,7 +196,7 @@ class PARQUET_EXPORT ColumnProperties {
 
   size_t max_statistics_size() const { return max_stats_size_; }
 
-  int compression_level() const { return codec_options_->compression_level_; }
+  int compression_level() const { return codec_options_->compression_level; }
 
   const std::shared_ptr<CodecOptions>& codec_options() const { return codec_options_; }
 
@@ -425,7 +425,7 @@ class PARQUET_EXPORT WriterProperties {
       if (!codec_options_[path]) {
         codec_options_[path] = std::make_shared<CodecOptions>();
       }
-      codec_options_[path]->compression_level_ = compression_level;
+      codec_options_[path]->compression_level = compression_level;
       return this;
     }
 

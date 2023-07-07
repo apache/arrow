@@ -151,7 +151,7 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
                                   "' not built");
   }
 
-  auto compression_level = codec_options.compression_level_;
+  auto compression_level = codec_options.compression_level;
   if (compression_level != kUseDefaultCompressionLevel &&
       !SupportsCompressionLevel(codec_type)) {
     return Status::Invalid("Codec '", GetCodecAsString(codec_type),
