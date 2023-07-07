@@ -23,3 +23,9 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [CI] "
+  - package-ecosystem: "nuget"
+    directory: "/csharp/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "MINOR: [C#] "
