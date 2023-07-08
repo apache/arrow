@@ -210,7 +210,7 @@ def test_iter_batches_columns_reader(tempdir, batch_size):
     filename = tempdir / 'pandas_roundtrip.parquet'
     arrow_table = pa.Table.from_pandas(df)
     _write_table(arrow_table, filename, version='2.6',
-                 coerce_timestamps='ms', chunk_size=chunk_size)
+                 chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
     for columns in [df.columns[:10], df.columns[10:]]:
@@ -234,7 +234,7 @@ def test_iter_batches_reader(tempdir, chunk_size):
     assert arrow_table.schema.pandas_metadata is not None
 
     _write_table(arrow_table, filename, version='2.6',
-                 coerce_timestamps='ms', chunk_size=chunk_size)
+                 chunk_size=chunk_size)
 
     file_ = pq.ParquetFile(filename)
 

@@ -253,8 +253,12 @@ cdef class S3FileSystem(FileSystem):
                  allow_bucket_creation=False, allow_bucket_deletion=False,
                  retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
         cdef:
-            CS3Options options
+            optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
+
+        # Need to do this before initializing `options` as the S3Options
+        # constructor has a debug check against use after S3 finalization.
+        ensure_s3_initialized()
 
         if access_key is not None and secret_key is None:
             raise ValueError(
@@ -317,56 +321,60 @@ cdef class S3FileSystem(FileSystem):
             options = CS3Options.Defaults()
 
         if region is not None:
-            options.region = tobytes(region)
+            options.value().region = tobytes(region)
         if request_timeout is not None:
-            options.request_timeout = request_timeout
+            options.value().request_timeout = request_timeout
         if connect_timeout is not None:
-            options.connect_timeout = connect_timeout
+            options.value().connect_timeout = connect_timeout
         if scheme is not None:
-            options.scheme = tobytes(scheme)
+            options.value().scheme = tobytes(scheme)
         if endpoint_override is not None:
-            options.endpoint_override = tobytes(endpoint_override)
+            options.value().endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
-            options.background_writes = background_writes
+            options.value().background_writes = background_writes
         if default_metadata is not None:
             if not isinstance(default_metadata, KeyValueMetadata):
                 default_metadata = KeyValueMetadata(default_metadata)
-            options.default_metadata = pyarrow_unwrap_metadata(
+            options.value().default_metadata = pyarrow_unwrap_metadata(
                 default_metadata)
 
         if proxy_options is not None:
             if isinstance(proxy_options, dict):
-                options.proxy_options.scheme = tobytes(proxy_options["scheme"])
-                options.proxy_options.host = tobytes(proxy_options["host"])
-                options.proxy_options.port = proxy_options["port"]
+                options.value().proxy_options.scheme = tobytes(
+                    proxy_options["scheme"])
+                options.value().proxy_options.host = tobytes(
+                    proxy_options["host"])
+                options.value().proxy_options.port = proxy_options["port"]
                 proxy_username = proxy_options.get("username", None)
                 if proxy_username:
-                    options.proxy_options.username = tobytes(proxy_username)
+                    options.value().proxy_options.username = tobytes(
+                        proxy_username)
                 proxy_password = proxy_options.get("password", None)
                 if proxy_password:
-                    options.proxy_options.password = tobytes(proxy_password)
+                    options.value().proxy_options.password = tobytes(
+                        proxy_password)
             elif isinstance(proxy_options, str):
-                options.proxy_options = GetResultValue(
+                options.value().proxy_options = GetResultValue(
                     CS3ProxyOptions.FromUriString(tobytes(proxy_options)))
             else:
                 raise TypeError(
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
-        options.allow_bucket_creation = allow_bucket_creation
-        options.allow_bucket_deletion = allow_bucket_deletion
+        options.value().allow_bucket_creation = allow_bucket_creation
+        options.value().allow_bucket_deletion = allow_bucket_deletion
 
         if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
-            options.retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
+            options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
                 retry_strategy.max_attempts)
         elif isinstance(retry_strategy, AwsDefaultS3RetryStrategy):
-            options.retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(
+            options.value().retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(
                 retry_strategy.max_attempts)
         else:
             raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
 
         with nogil:
-            wrapped = GetResultValue(CS3FileSystem.Make(options))
+            wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
 
         self.init(<shared_ptr[CFileSystem]> wrapped)
 

@@ -223,8 +223,9 @@ def test_to_numpy_writable():
 
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
-def test_to_numpy_datetime64(unit):
-    arr = pa.array([1, 2, 3], pa.timestamp(unit))
+@pytest.mark.parametrize('tz', [None, "UTC"])
+def test_to_numpy_datetime64(unit, tz):
+    arr = pa.array([1, 2, 3], pa.timestamp(unit, tz=tz))
     expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
@@ -2165,12 +2166,15 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
-def test_array_from_numpy_datetimeD():
+def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
     result = pa.array(arr)
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
+    result = result.to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(result, arr)
+    assert result.dtype == arr.dtype
 
 
 def test_array_from_naive_datetimes():

@@ -80,7 +80,7 @@ public class JniLoader {
 
   private void load(String name) {
     final String libraryToLoad =
-        getNormalizedArch() + File.separator + System.mapLibraryName(name);
+        getNormalizedArch() + "/" + System.mapLibraryName(name);
     try {
       File temp = File.createTempFile("jnilib-", ".tmp", new File(System.getProperty("java.io.tmpdir")));
       temp.deleteOnExit();

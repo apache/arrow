@@ -49,7 +49,8 @@ namespace arrow::matlab::array::proxy {
         const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
 
         // extract the time zone string
-        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(timezone_mda[0]),
+        const std::u16string& u16_timezone = timezone_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(u16_timezone),
                                error::UNICODE_CONVERSION_ERROR_ID);
 
         // extract the time unit

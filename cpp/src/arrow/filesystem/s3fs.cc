@@ -25,6 +25,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <shared_mutex>
 #include <sstream>
 #include <thread>
 #include <unordered_map>
@@ -395,10 +396,15 @@ bool S3Options::Equals(const S3Options& other) const {
 
 namespace {
 
+Status ErrorS3Finalized() { return Status::Invalid("S3 subsystem is finalized"); }
+
 Status CheckS3Initialized() {
   if (!IsS3Initialized()) {
+    if (IsS3Finalized()) {
+      return ErrorS3Finalized();
+    }
     return Status::Invalid(
-        "S3 subsystem not initialized; please call InitializeS3() "
+        "S3 subsystem is not initialized; please call InitializeS3() "
         "before carrying out any S3-related operation");
   }
   return Status::OK();
@@ -697,6 +703,138 @@ void DisableRedirects(Aws::Client::ClientConfiguration* c) {
   DisableRedirectsImpl(&c->followRedirects);
 }
 
+// -----------------------------------------------------------------------
+// S3 client protection against use after finalization
+//
+// Applications are advised to call FinalizeS3() before process end.
+// However, once this is done, AWS APIs cannot reliably be called anymore
+// (even destructors may crash or trigger UB).
+// To prevent such issues, we wrap all S3Client instances in a special
+// structure (S3ClientHolder) that prevents usage of S3Client after
+// S3 was finalized.
+//
+// See: GH-36346, GH-15054.
+
+class S3ClientFinalizer;
+
+class S3ClientLock {
+ public:
+  S3Client* get() { return client_.get(); }
+  S3Client* operator->() { return client_.get(); }
+
+ protected:
+  friend class S3ClientHolder;
+
+  // Locks the finalizer until the S3ClientLock gets out of scope.
+  std::shared_lock<std::shared_mutex> lock_;
+  std::shared_ptr<S3Client> client_;
+};
+
+class S3ClientHolder {
+ public:
+  /// \brief Return a RAII guard guaranteeing a S3Client is safe for use
+  ///
+  /// S3 finalization will be deferred until the returned S3ClientLock
+  /// goes out of scope.
+  /// An error is returned if S3 is already finalized.
+  Result<S3ClientLock> Lock();
+
+  S3ClientHolder(std::weak_ptr<S3ClientFinalizer> finalizer,
+                 std::shared_ptr<S3Client> client)
+      : finalizer_(std::move(finalizer)), client_(std::move(client)) {}
+
+  void Finalize();
+
+ protected:
+  std::mutex mutex_;
+  std::weak_ptr<S3ClientFinalizer> finalizer_;
+  std::shared_ptr<S3Client> client_;
+};
+
+class S3ClientFinalizer : public std::enable_shared_from_this<S3ClientFinalizer> {
+  using ClientHolderList = std::vector<std::weak_ptr<S3ClientHolder>>;
+
+ public:
+  Result<std::shared_ptr<S3ClientHolder>> AddClient(std::shared_ptr<S3Client> client) {
+    std::unique_lock lock(mutex_);
+    if (finalized_) {
+      return ErrorS3Finalized();
+    }
+
+    auto holder = std::make_shared<S3ClientHolder>(shared_from_this(), std::move(client));
+
+    // Remove expired entries before adding new one
+    auto end = std::remove_if(
+        holders_.begin(), holders_.end(),
+        [](std::weak_ptr<S3ClientHolder> holder) { return holder.expired(); });
+    holders_.erase(end, holders_.end());
+    holders_.emplace_back(holder);
+    return holder;
+  }
+
+  void Finalize() {
+    std::unique_lock lock(mutex_);
+    finalized_ = true;
+
+    ClientHolderList finalizing = std::move(holders_);
+    lock.unlock();  // avoid lock ordering issue with S3ClientHolder::Finalize
+
+    // Finalize all client holders, such that no S3Client remains alive
+    // after this.
+    for (auto&& weak_holder : finalizing) {
+      auto holder = weak_holder.lock();
+      if (holder) {
+        holder->Finalize();
+      }
+    }
+  }
+
+  auto LockShared() { return std::shared_lock(mutex_); }
+
+ protected:
+  friend class S3ClientHolder;
+
+  std::shared_mutex mutex_;
+  ClientHolderList holders_;
+  bool finalized_ = false;
+};
+
+Result<S3ClientLock> S3ClientHolder::Lock() {
+  std::lock_guard lock(mutex_);
+  auto finalizer = finalizer_.lock();
+  if (!finalizer) {
+    return ErrorS3Finalized();
+  }
+  S3ClientLock client_lock;
+  // Lock the finalizer before examining it
+  client_lock.lock_ = finalizer->LockShared();
+  if (finalizer->finalized_) {
+    return ErrorS3Finalized();
+  }
+  // (the client can be cleared only if finalizer->finalized_ is true)
+  DCHECK(client_) << "inconsistent S3ClientHolder";
+  client_lock.client_ = client_;
+  return client_lock;
+}
+
+void S3ClientHolder::Finalize() {
+  std::lock_guard lock(mutex_);
+  client_.reset();
+}
+
+std::shared_ptr<S3ClientFinalizer> GetClientFinalizer() {
+  static auto finalizer = std::make_shared<S3ClientFinalizer>();
+  return finalizer;
+}
+
+Result<std::shared_ptr<S3ClientHolder>> GetClientHolder(
+    std::shared_ptr<S3Client> client) {
+  return GetClientFinalizer()->AddClient(std::move(client));
+}
+
+// -----------------------------------------------------------------------
+// S3 client factory: build S3Client from S3Options
+
 class ClientBuilder {
  public:
   explicit ClientBuilder(S3Options options) : options_(std::move(options)) {}
@@ -705,7 +843,7 @@ class ClientBuilder {
 
   Aws::Client::ClientConfiguration* mutable_config() { return &client_config_; }
 
-  Result<std::shared_ptr<S3Client>> BuildClient(
+  Result<std::shared_ptr<S3ClientHolder>> BuildClient(
       std::optional<io::IOContext> io_context = std::nullopt) {
     credentials_provider_ = options_.credentials_provider;
     if (!options_.region.empty()) {
@@ -778,7 +916,7 @@ class ClientBuilder {
         Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
         use_virtual_addressing);
     client->s3_retry_strategy_ = options_.retry_strategy;
-    return client;
+    return GetClientHolder(std::move(client));
   }
 
   const S3Options& options() const { return options_; }
@@ -839,7 +977,8 @@ class RegionResolver {
   }
 
   Result<std::string> ResolveRegionUncached(const std::string& bucket) {
-    return client_->GetBucketRegion(bucket);
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+    return client_lock->GetBucketRegion(bucket);
   }
 
  protected:
@@ -849,13 +988,13 @@ class RegionResolver {
     DCHECK(builder_.options().endpoint_override.empty());
     // On Windows with AWS SDK >= 1.8, it is necessary to disable redirects (ARROW-10085).
     DisableRedirects(builder_.mutable_config());
-    return builder_.BuildClient().Value(&client_);
+    return builder_.BuildClient().Value(&holder_);
   }
 
   static std::shared_ptr<RegionResolver> instance_;
 
   ClientBuilder builder_;
-  std::shared_ptr<S3Client> client_;
+  std::shared_ptr<S3ClientHolder> holder_;
 
   std::mutex cache_mutex_;
   // XXX Should cache size be bounded?  It must be quite unusual to query millions
@@ -999,10 +1138,9 @@ Status SetObjectMetadata(const std::shared_ptr<const KeyValueMetadata>& metadata
 // A RandomAccessFile that reads from a S3 object
 class ObjectInputFile final : public io::RandomAccessFile {
  public:
-  ObjectInputFile(std::shared_ptr<Aws::S3::S3Client> client,
-                  const io::IOContext& io_context, const S3Path& path,
-                  int64_t size = kNoSize)
-      : client_(std::move(client)),
+  ObjectInputFile(std::shared_ptr<S3ClientHolder> holder, const io::IOContext& io_context,
+                  const S3Path& path, int64_t size = kNoSize)
+      : holder_(std::move(holder)),
         io_context_(io_context),
         path_(path),
         content_length_(size) {}
@@ -1019,7 +1157,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
 
-    auto outcome = client_->HeadObject(req);
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+    auto outcome = client_lock->HeadObject(req);
     if (!outcome.IsSuccess()) {
       if (IsNotFound(outcome.GetError())) {
         return PathNotFound(path_);
@@ -1065,7 +1204,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
   Status Close() override {
-    client_ = nullptr;
+    holder_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -1100,8 +1239,10 @@ class ObjectInputFile final : public io::RandomAccessFile {
     }
 
     // Read the desired range of bytes
-    ARROW_ASSIGN_OR_RAISE(S3Model::GetObjectResult result,
-                          GetObjectRange(client_.get(), path_, position, nbytes, out));
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+    ARROW_ASSIGN_OR_RAISE(
+        S3Model::GetObjectResult result,
+        GetObjectRange(client_lock.get(), path_, position, nbytes, out));
 
     auto& stream = result.GetBody();
     stream.ignore(nbytes);
@@ -1140,7 +1281,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
   }
 
  protected:
-  std::shared_ptr<Aws::S3::S3Client> client_;
+  std::shared_ptr<S3ClientHolder> holder_;
   const io::IOContext io_context_;
   S3Path path_;
 
@@ -1165,10 +1306,11 @@ class ObjectOutputStream final : public io::OutputStream {
   struct UploadState;
 
  public:
-  ObjectOutputStream(std::shared_ptr<S3Client> client, const io::IOContext& io_context,
-                     const S3Path& path, const S3Options& options,
+  ObjectOutputStream(std::shared_ptr<S3ClientHolder> holder,
+                     const io::IOContext& io_context, const S3Path& path,
+                     const S3Options& options,
                      const std::shared_ptr<const KeyValueMetadata>& metadata)
-      : client_(std::move(client)),
+      : holder_(std::move(holder)),
         io_context_(io_context),
         path_(path),
         metadata_(metadata),
@@ -1182,6 +1324,8 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status Init() {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     // Initiate the multi-part upload
     S3Model::CreateMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
@@ -1199,7 +1343,7 @@ class ObjectOutputStream final : public io::OutputStream {
       req.SetContentType("application/octet-stream");
     }
 
-    auto outcome = client_->CreateMultipartUpload(req);
+    auto outcome = client_lock->CreateMultipartUpload(req);
     if (!outcome.IsSuccess()) {
       return ErrorToStatus(
           std::forward_as_tuple("When initiating multiple part upload for key '",
@@ -1217,12 +1361,14 @@ class ObjectOutputStream final : public io::OutputStream {
       return Status::OK();
     }
 
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::AbortMultipartUploadRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
     req.SetUploadId(upload_id_);
 
-    auto outcome = client_->AbortMultipartUpload(req);
+    auto outcome = client_lock->AbortMultipartUpload(req);
     if (!outcome.IsSuccess()) {
       return ErrorToStatus(
           std::forward_as_tuple("When aborting multiple part upload for key '", path_.key,
@@ -1230,7 +1376,7 @@ class ObjectOutputStream final : public io::OutputStream {
           "AbortMultipartUpload", outcome.GetError());
     }
     current_part_.reset();
-    client_ = nullptr;
+    holder_ = nullptr;
     closed_ = true;
     return Status::OK();
   }
@@ -1257,6 +1403,8 @@ class ObjectOutputStream final : public io::OutputStream {
 
     // Wait for in-progress uploads to finish (if async writes are enabled)
     return FlushAsync().Then([this]() {
+      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
       // At this point, all part uploads have finished successfully
       DCHECK_GT(part_number_, 1);
       DCHECK_EQ(upload_state_->completed_parts.size(),
@@ -1270,7 +1418,7 @@ class ObjectOutputStream final : public io::OutputStream {
       req.SetUploadId(upload_id_);
       req.SetMultipartUpload(std::move(completed_upload));
 
-      auto outcome = client_->CompleteMultipartUploadWithErrorFixup(std::move(req));
+      auto outcome = client_lock->CompleteMultipartUploadWithErrorFixup(std::move(req));
       if (!outcome.IsSuccess()) {
         return ErrorToStatus(
             std::forward_as_tuple("When completing multiple part upload for key '",
@@ -1278,7 +1426,7 @@ class ObjectOutputStream final : public io::OutputStream {
             "CompleteMultipartUpload", outcome.GetError());
       }
 
-      client_ = nullptr;
+      holder_ = nullptr;
       closed_ = true;
       return Status::OK();
     });
@@ -1379,6 +1527,8 @@ class ObjectOutputStream final : public io::OutputStream {
 
   Status UploadPart(const void* data, int64_t nbytes,
                     std::shared_ptr<Buffer> owned_buffer = nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::UploadPartRequest req;
     req.SetBucket(ToAwsString(path_.bucket));
     req.SetKey(ToAwsString(path_.key));
@@ -1388,7 +1538,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
     if (!background_writes_) {
       req.SetBody(std::make_shared<StringViewStream>(data, nbytes));
-      auto outcome = client_->UploadPart(req);
+      auto outcome = client_lock->UploadPart(req);
       if (!outcome.IsSuccess()) {
         return UploadPartError(req, outcome);
       } else {
@@ -1412,10 +1562,13 @@ class ObjectOutputStream final : public io::OutputStream {
           upload_state_->pending_parts_completed = Future<>::Make();
         }
       }
-      auto client = client_;
-      ARROW_ASSIGN_OR_RAISE(auto fut, SubmitIO(io_context_, [client, req]() {
-                              return client->UploadPart(req);
-                            }));
+      // XXX This callback returns Aws::Utils::Outcome, it cannot easily call
+      // `holder->Lock()` which returns arrow::Result.
+      ARROW_ASSIGN_OR_RAISE(
+          auto fut,
+          SubmitIO(io_context_, [client_lock = std::move(client_lock), req]() mutable {
+            return client_lock->UploadPart(req);
+          }));
       // The closure keeps the buffer and the upload state alive
       auto state = upload_state_;
       auto part_number = part_number_;
@@ -1475,7 +1628,7 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
  protected:
-  std::shared_ptr<S3Client> client_;
+  std::shared_ptr<S3ClientHolder> holder_;
   const io::IOContext io_context_;
   const S3Path path_;
   const std::shared_ptr<const KeyValueMetadata> metadata_;
@@ -1520,7 +1673,7 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
   using ErrorHandler = std::function<Status(const AWSError<S3Errors>& error)>;
   using RecursionHandler = std::function<Result<bool>(int32_t nesting_depth)>;
 
-  std::shared_ptr<Aws::S3::S3Client> client_;
+  std::shared_ptr<S3ClientHolder> holder_;
   io::IOContext io_context_;
   const std::string bucket_;
   const std::string base_dir_;
@@ -1540,11 +1693,11 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
     return self->DoWalk();
   }
 
-  TreeWalker(std::shared_ptr<Aws::S3::S3Client> client, io::IOContext io_context,
+  TreeWalker(std::shared_ptr<S3ClientHolder> holder, io::IOContext io_context,
              std::string bucket, std::string base_dir, int32_t max_keys,
              ResultHandler result_handler, ErrorHandler error_handler,
              RecursionHandler recursion_handler)
-      : client_(std::move(client)),
+      : holder_(std::move(holder)),
         io_context_(io_context),
         bucket_(std::move(bucket)),
         base_dir_(std::move(base_dir)),
@@ -1595,8 +1748,8 @@ struct TreeWalker : public std::enable_shared_from_this<TreeWalker> {
     void SpawnListObjectsV2() {
       auto cb = *this;
       walker->task_group_->Append([cb]() mutable {
-        Result<S3Model::ListObjectsV2Outcome> result =
-            cb.walker->client_->ListObjectsV2(cb.req);
+        ARROW_ASSIGN_OR_RAISE(auto client_lock, cb.walker->holder_->Lock());
+        Result<S3Model::ListObjectsV2Outcome> result = client_lock->ListObjectsV2(cb.req);
         return cb(result);
       });
     }
@@ -1663,7 +1816,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
  public:
   ClientBuilder builder_;
   io::IOContext io_context_;
-  std::shared_ptr<S3Client> client_;
+  std::shared_ptr<S3ClientHolder> holder_;
   std::optional<S3Backend> backend_;
 
   const int32_t kListObjectsMaxKeys = 1000;
@@ -1675,7 +1828,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   explicit Impl(S3Options options, io::IOContext io_context)
       : builder_(std::move(options)), io_context_(io_context) {}
 
-  Status Init() { return builder_.BuildClient(io_context_).Value(&client_); }
+  Status Init() { return builder_.BuildClient(io_context_).Value(&holder_); }
 
   const S3Options& options() const { return builder_.options(); }
 
@@ -1692,10 +1845,12 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   // Tests to see if a bucket exists
   Result<bool> BucketExists(const std::string& bucket) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::HeadBucketRequest req;
     req.SetBucket(ToAwsString(bucket));
 
-    auto outcome = client_->HeadBucket(req);
+    auto outcome = client_lock->HeadBucket(req);
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
         return ErrorToStatus(std::forward_as_tuple(
@@ -1709,11 +1864,13 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   // Create a bucket.  Successful if bucket already exists.
   Status CreateBucket(const std::string& bucket) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     // Check bucket exists first.
     {
       S3Model::HeadBucketRequest req;
       req.SetBucket(ToAwsString(bucket));
-      auto outcome = client_->HeadBucket(req);
+      auto outcome = client_lock->HeadBucket(req);
 
       if (outcome.IsSuccess()) {
         return Status::OK();
@@ -1743,7 +1900,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     req.SetBucket(ToAwsString(bucket));
     req.SetCreateBucketConfiguration(config);
 
-    auto outcome = client_->CreateBucket(req);
+    auto outcome = client_lock->CreateBucket(req);
     if (!outcome.IsSuccess() && !IsAlreadyExists(outcome.GetError())) {
       return ErrorToStatus(std::forward_as_tuple("When creating bucket '", bucket, "': "),
                            "CreateBucket", outcome.GetError());
@@ -1753,13 +1910,15 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   // Create an object with empty contents.  Successful if object already exists.
   Status CreateEmptyObject(const std::string& bucket, const std::string& key) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::PutObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
     req.SetBody(std::make_shared<std::stringstream>(""));
     return OutcomeToStatus(
         std::forward_as_tuple("When creating key '", key, "' in bucket '", bucket, "': "),
-        "PutObject", client_->PutObject(req));
+        "PutObject", client_lock->PutObject(req));
   }
 
   Status CreateEmptyDir(const std::string& bucket, const std::string& key) {
@@ -1768,15 +1927,19 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   }
 
   Status DeleteObject(const std::string& bucket, const std::string& key) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::DeleteObjectRequest req;
     req.SetBucket(ToAwsString(bucket));
     req.SetKey(ToAwsString(key));
     return OutcomeToStatus(
         std::forward_as_tuple("When delete key '", key, "' in bucket '", bucket, "': "),
-        "DeleteObject", client_->DeleteObject(req));
+        "DeleteObject", client_lock->DeleteObject(req));
   }
 
   Status CopyObject(const S3Path& src_path, const S3Path& dest_path) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::CopyObjectRequest req;
     req.SetBucket(ToAwsString(dest_path.bucket));
     req.SetKey(ToAwsString(dest_path.key));
@@ -1787,7 +1950,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         std::forward_as_tuple("When copying key '", src_path.key, "' in bucket '",
                               src_path.bucket, "' to key '", dest_path.key,
                               "' in bucket '", dest_path.bucket, "': "),
-        "CopyObject", client_->CopyObject(req));
+        "CopyObject", client_lock->CopyObject(req));
   }
 
   // On Minio, an empty "directory" doesn't satisfy the same API requests as
@@ -1799,6 +1962,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   Result<bool> IsEmptyDirectory(
       const std::string& bucket, const std::string& key,
       const S3Model::HeadObjectOutcome* previous_outcome = nullptr) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     if (previous_outcome) {
       // Fetch the backend from the previous error
       DCHECK(!previous_outcome->IsSuccess());
@@ -1824,7 +1989,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       req.SetKey(ToAwsString(key));
     }
 
-    auto outcome = client_->HeadObject(req);
+    auto outcome = client_lock->HeadObject(req);
     if (outcome.IsSuccess()) {
       return true;
     }
@@ -1850,12 +2015,14 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   }
 
   Result<bool> IsNonEmptyDirectory(const S3Path& path) {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
     S3Model::ListObjectsV2Request req;
     req.SetBucket(ToAwsString(path.bucket));
     req.SetPrefix(ToAwsString(path.key) + kSep);
     req.SetDelimiter(Aws::String() + kSep);
     req.SetMaxKeys(1);
-    auto outcome = client_->ListObjectsV2(req);
+    auto outcome = client_lock->ListObjectsV2(req);
     if (outcome.IsSuccess()) {
       const S3Model::ListObjectsV2Result& r = outcome.GetResult();
       // In some cases, there may be 0 keys but some prefixes
@@ -1939,6 +2106,8 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   // Workhorse for GetFileInfo(FileSelector...)
   Status Walk(const FileSelector& select, const std::string& bucket,
               const std::string& key, std::vector<FileInfo>* out) {
+    RETURN_NOT_OK(CheckS3Initialized());
+
     FileInfoCollector collector(bucket, key, select);
 
     auto handle_error = [&](const AWSError<S3Errors>& error) -> Status {
@@ -1960,7 +2129,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       return collector.Collect(prefix, result, out);
     };
 
-    RETURN_NOT_OK(TreeWalker::Walk(client_, io_context_, bucket, key, kListObjectsMaxKeys,
+    RETURN_NOT_OK(TreeWalker::Walk(holder_, io_context_, bucket, key, kListObjectsMaxKeys,
                                    handle_results, handle_error, handle_recursion));
 
     // If no contents were found, perhaps it's an empty "directory",
@@ -2009,7 +2178,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       return Status::OK();
     };
 
-    TreeWalker::WalkAsync(client_, io_context_, bucket, key, kListObjectsMaxKeys,
+    TreeWalker::WalkAsync(holder_, io_context_, bucket, key, kListObjectsMaxKeys,
                           handle_results, handle_error, handle_recursion)
         .AddCallback([collector, producer, self](const Status& status) mutable {
           auto st = collector->Finish(self.get());
@@ -2056,7 +2225,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       return true;  // Recurse
     };
 
-    return TreeWalker::WalkAsync(client_, io_context_, bucket, key, kListObjectsMaxKeys,
+    return TreeWalker::WalkAsync(holder_, io_context_, bucket, key, kListObjectsMaxKeys,
                                  handle_results, handle_error, handle_recursion)
         .Then([state]() { return state; });
   }
@@ -2064,10 +2233,12 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   // Delete multiple objects at once
   Future<> DeleteObjectsAsync(const std::string& bucket,
                               const std::vector<std::string>& keys) {
-    struct DeleteCallback {
-      const std::string bucket;
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
-      Status operator()(const S3Model::DeleteObjectsOutcome& outcome) {
+    struct DeleteCallback {
+      std::string bucket;
+
+      Status operator()(const S3Model::DeleteObjectsOutcome& outcome) const {
         if (!outcome.IsSuccess()) {
           return ErrorToStatus("DeleteObjects", outcome.GetError());
         }
@@ -2089,8 +2260,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     };
 
     const auto chunk_size = static_cast<size_t>(kMultipleDeleteMaxKeys);
-    DeleteCallback delete_cb{bucket};
-    auto client = client_;
+    const DeleteCallback delete_cb{bucket};
 
     std::vector<Future<>> futures;
     futures.reserve(keys.size() / chunk_size + 1);
@@ -2103,10 +2273,14 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
       }
       req.SetBucket(ToAwsString(bucket));
       req.SetDelete(std::move(del));
-      ARROW_ASSIGN_OR_RAISE(auto fut, SubmitIO(io_context_, [client, req]() {
-                              return client->DeleteObjects(req);
-                            }));
-      futures.push_back(std::move(fut).Then(delete_cb));
+      ARROW_ASSIGN_OR_RAISE(
+          auto fut,
+          SubmitIO(io_context_,
+                   [holder = holder_, req = std::move(req), delete_cb]() -> Status {
+                     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder->Lock());
+                     return delete_cb(client_lock->DeleteObjects(req));
+                   }));
+      futures.push_back(std::move(fut));
     }
 
     return AllComplete(futures);
@@ -2169,13 +2343,19 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
   }
 
   Result<std::vector<std::string>> ListBuckets() {
-    auto outcome = client_->ListBuckets();
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
+    auto outcome = client_lock->ListBuckets();
     return ProcessListBuckets(outcome);
   }
 
   Future<std::vector<std::string>> ListBucketsAsync(io::IOContext ctx) {
-    auto self = shared_from_this();
-    return DeferNotOk(SubmitIO(ctx, [self]() { return self->client_->ListBuckets(); }))
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
+    return DeferNotOk(SubmitIO(ctx,
+                               [client_lock = std::move(client_lock)]() mutable {
+                                 return client_lock->ListBuckets();
+                               }))
         // TODO(ARROW-12655) Change to Then(Impl::ProcessListBuckets)
         .Then([](const Aws::S3::Model::ListBucketsOutcome& outcome) {
           return Impl::ProcessListBuckets(outcome);
@@ -2188,7 +2368,9 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
     RETURN_NOT_OK(ValidateFilePath(path));
 
-    auto ptr = std::make_shared<ObjectInputFile>(client_, fs->io_context(), path);
+    RETURN_NOT_OK(CheckS3Initialized());
+
+    auto ptr = std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path);
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -2206,8 +2388,10 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(info.path()));
     RETURN_NOT_OK(ValidateFilePath(path));
 
+    RETURN_NOT_OK(CheckS3Initialized());
+
     auto ptr =
-        std::make_shared<ObjectInputFile>(client_, fs->io_context(), path, info.size());
+        std::make_shared<ObjectInputFile>(holder_, fs->io_context(), path, info.size());
     RETURN_NOT_OK(ptr->Init());
     return ptr;
   }
@@ -2250,6 +2434,8 @@ S3Options S3FileSystem::options() const { return impl_->options(); }
 std::string S3FileSystem::region() const { return impl_->region(); }
 
 Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
+  ARROW_ASSIGN_OR_RAISE(auto client_lock, impl_->holder_->Lock());
+
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   FileInfo info;
   info.set_path(s);
@@ -2263,7 +2449,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     S3Model::HeadBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
 
-    auto outcome = impl_->client_->HeadBucket(req);
+    auto outcome = client_lock->HeadBucket(req);
     if (!outcome.IsSuccess()) {
       if (!IsNotFound(outcome.GetError())) {
         const auto msg = "When getting information for bucket '" + path.bucket + "': ";
@@ -2283,7 +2469,7 @@ Result<FileInfo> S3FileSystem::GetFileInfo(const std::string& s) {
     req.SetBucket(ToAwsString(path.bucket));
     req.SetKey(ToAwsString(path.key));
 
-    auto outcome = impl_->client_->HeadObject(req);
+    auto outcome = client_lock->HeadObject(req);
     if (outcome.IsSuccess()) {
       // "File" object found
       FileObjectToInfo(outcome.GetResult(), &info);
@@ -2427,18 +2613,18 @@ Status S3FileSystem::CreateDir(const std::string& s, bool recursive) {
 
 Status S3FileSystem::DeleteDir(const std::string& s) {
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
-
   if (path.empty()) {
     return Status::NotImplemented("Cannot delete all S3 buckets");
   }
   RETURN_NOT_OK(impl_->DeleteDirContentsAsync(path.bucket, path.key).status());
   if (path.key.empty() && options().allow_bucket_deletion) {
     // Delete bucket
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, impl_->holder_->Lock());
     S3Model::DeleteBucketRequest req;
     req.SetBucket(ToAwsString(path.bucket));
     return OutcomeToStatus(
         std::forward_as_tuple("When deleting bucket '", path.bucket, "': "),
-        "DeleteBucket", impl_->client_->DeleteBucket(req));
+        "DeleteBucket", client_lock->DeleteBucket(req));
   } else if (path.key.empty()) {
     return Status::IOError("Would delete bucket '", path.bucket, "'. ",
                            "To delete buckets, enable the allow_bucket_deletion option.");
@@ -2480,6 +2666,8 @@ Status S3FileSystem::DeleteRootDirContents() {
 }
 
 Status S3FileSystem::DeleteFile(const std::string& s) {
+  ARROW_ASSIGN_OR_RAISE(auto client_lock, impl_->holder_->Lock());
+
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
@@ -2488,7 +2676,7 @@ Status S3FileSystem::DeleteFile(const std::string& s) {
   req.SetBucket(ToAwsString(path.bucket));
   req.SetKey(ToAwsString(path.key));
 
-  auto outcome = impl_->client_->HeadObject(req);
+  auto outcome = client_lock->HeadObject(req);
   if (!outcome.IsSuccess()) {
     if (IsNotFound(outcome.GetError())) {
       return PathNotFound(path);
@@ -2562,7 +2750,9 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenOutputStream(
   ARROW_ASSIGN_OR_RAISE(auto path, S3Path::FromString(s));
   RETURN_NOT_OK(ValidateFilePath(path));
 
-  auto ptr = std::make_shared<ObjectOutputStream>(impl_->client_, io_context(), path,
+  RETURN_NOT_OK(CheckS3Initialized());
+
+  auto ptr = std::make_shared<ObjectOutputStream>(impl_->holder_, io_context(), path,
                                                   impl_->options(), metadata);
   RETURN_NOT_OK(ptr->Init());
   return ptr;
@@ -2581,17 +2771,20 @@ Result<std::shared_ptr<io::OutputStream>> S3FileSystem::OpenAppendStream(
 
 namespace {
 
-struct AwsInstance : public ::arrow::internal::Executor::Resource {
+struct AwsInstance {
   AwsInstance() : is_initialized_(false), is_finalized_(false) {}
   ~AwsInstance() { Finalize(/*from_destructor=*/true); }
 
   // Returns true iff the instance was newly initialized with `options`
   Result<bool> EnsureInitialized(const S3GlobalOptions& options) {
-    bool expected = false;
+    // NOTE: The individual accesses are atomic but the entire sequence below is not.
+    // The application should serialize calls to InitializeS3() and FinalizeS3()
+    // (see docstrings).
     if (is_finalized_.load()) {
       return Status::Invalid("Attempt to initialize S3 after it has been finalized");
     }
-    if (is_initialized_.compare_exchange_strong(expected, true)) {
+    if (!is_initialized_.exchange(true)) {
+      // Not already initialized
       DoInitialize(options);
       return true;
     }
@@ -2600,17 +2793,22 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
 
   bool IsInitialized() { return !is_finalized_ && is_initialized_; }
 
+  bool IsFinalized() { return is_finalized_; }
+
   void Finalize(bool from_destructor = false) {
-    bool expected = true;
-    is_finalized_.store(true);
-    if (is_initialized_.compare_exchange_strong(expected, false)) {
+    if (is_finalized_.exchange(true)) {
+      // Already finalized
+      return;
+    }
+    if (is_initialized_.exchange(false)) {
+      // Was initialized
       if (from_destructor) {
         ARROW_LOG(WARNING)
             << " arrow::fs::FinalizeS3 was not called even though S3 was initialized.  "
                "This could lead to a segmentation fault at exit";
-        RegionResolver::ResetDefaultInstance();
-        Aws::ShutdownAPI(aws_options_);
       }
+      GetClientFinalizer()->Finalize();
+      Aws::ShutdownAPI(aws_options_);
     }
   }
 
@@ -2670,21 +2868,13 @@ struct AwsInstance : public ::arrow::internal::Executor::Resource {
   std::atomic<bool> is_finalized_;
 };
 
-std::shared_ptr<AwsInstance> CreateAwsInstance() {
-  auto instance = std::make_shared<AwsInstance>();
-  // Don't let S3 be shutdown until all Arrow threads are done using it
-  arrow::internal::GetCpuThreadPool()->KeepAlive(instance);
-  io::internal::GetIOThreadPool()->KeepAlive(instance);
-  return instance;
-}
-
-AwsInstance& GetAwsInstance() {
-  static auto instance = CreateAwsInstance();
-  return *instance;
+AwsInstance* GetAwsInstance() {
+  static auto instance = std::make_unique<AwsInstance>();
+  return instance.get();
 }
 
 Result<bool> EnsureAwsInstanceInitialized(const S3GlobalOptions& options) {
-  return GetAwsInstance().EnsureInitialized(options);
+  return GetAwsInstance()->EnsureInitialized(options);
 }
 
 }  // namespace
@@ -2705,18 +2895,22 @@ Status EnsureS3Initialized() {
 }
 
 Status FinalizeS3() {
-  GetAwsInstance().Finalize();
+  GetAwsInstance()->Finalize();
   return Status::OK();
 }
 
 Status EnsureS3Finalized() { return FinalizeS3(); }
 
-bool IsS3Initialized() { return GetAwsInstance().IsInitialized(); }
+bool IsS3Initialized() { return GetAwsInstance()->IsInitialized(); }
+
+bool IsS3Finalized() { return GetAwsInstance()->IsFinalized(); }
 
 // -----------------------------------------------------------------------
 // Top-level utility functions
 
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket) {
+  RETURN_NOT_OK(CheckS3Initialized());
+
   if (bucket.empty() || bucket.find_first_of(kSep) != bucket.npos ||
       internal::IsLikelyUri(bucket)) {
     return Status::Invalid("Not a valid bucket name: '", bucket, "'");

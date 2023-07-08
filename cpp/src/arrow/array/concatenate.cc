@@ -172,19 +172,20 @@ Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offse
 class ConcatenateImpl {
  public:
   ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
-      : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
-    out_->type = in[0]->type;
-    for (size_t i = 0; i < in_.size(); ++i) {
-      out_->length = SafeSignedAdd(out_->length, in[i]->length);
+      : in_(in), pool_(pool), out_(std::make_shared<ArrayData>()) {
+    out_->type = in_[0]->type;
+    for (const auto& in_array : in_) {
+      out_->length = SafeSignedAdd(out_->length, in_array->length);
       if (out_->null_count == kUnknownNullCount ||
-          in[i]->null_count == kUnknownNullCount) {
+          in_array->null_count == kUnknownNullCount) {
         out_->null_count = kUnknownNullCount;
         continue;
       }
-      out_->null_count = SafeSignedAdd(out_->null_count.load(), in[i]->null_count.load());
+      out_->null_count =
+          SafeSignedAdd(out_->null_count.load(), in_array->null_count.load());
     }
-    out_->buffers.resize(in[0]->buffers.size());
-    out_->child_data.resize(in[0]->child_data.size());
+    out_->buffers.resize(in_[0]->buffers.size());
+    out_->child_data.resize(in_[0]->child_data.size());
     for (auto& data : out_->child_data) {
       data = std::make_shared<ArrayData>();
     }

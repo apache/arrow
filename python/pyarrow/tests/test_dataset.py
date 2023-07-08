@@ -588,13 +588,13 @@ def test_partitioning():
                   ds.FilenamePartitioning]:
         partitioning = klass(schema)
         assert isinstance(partitioning, ds.Partitioning)
+        assert partitioning == klass(schema)
 
-    partitioning = ds.DirectoryPartitioning(
-        pa.schema([
-            pa.field('group', pa.int64()),
-            pa.field('key', pa.float64())
-        ])
-    )
+    schema = pa.schema([
+        pa.field('group', pa.int64()),
+        pa.field('key', pa.float64())
+    ])
+    partitioning = ds.DirectoryPartitioning(schema)
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/3/3.14/')
@@ -610,13 +610,13 @@ def test_partitioning():
     expected = ds.field('group') == 3
     assert expr.equals(expected)
 
-    partitioning = ds.HivePartitioning(
-        pa.schema([
-            pa.field('alpha', pa.int64()),
-            pa.field('beta', pa.int64())
-        ]),
-        null_fallback='xyz'
-    )
+    assert partitioning != ds.DirectoryPartitioning(schema, segment_encoding="none")
+
+    schema = pa.schema([
+        pa.field('alpha', pa.int64()),
+        pa.field('beta', pa.int64())
+    ])
+    partitioning = ds.HivePartitioning(schema, null_fallback='xyz')
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('/alpha=0/beta=3/')
@@ -636,12 +636,13 @@ def test_partitioning():
         with pytest.raises(pa.ArrowInvalid):
             partitioning.parse(shouldfail)
 
-    partitioning = ds.FilenamePartitioning(
-        pa.schema([
-            pa.field('group', pa.int64()),
-            pa.field('key', pa.float64())
-        ])
-    )
+    assert partitioning != ds.HivePartitioning(schema, null_fallback='other')
+
+    schema = pa.schema([
+        pa.field('group', pa.int64()),
+        pa.field('key', pa.float64())
+    ])
+    partitioning = ds.FilenamePartitioning(schema)
     assert len(partitioning.dictionaries) == 2
     assert all(x is None for x in partitioning.dictionaries)
     expr = partitioning.parse('3_3.14_')
@@ -653,17 +654,19 @@ def test_partitioning():
     with pytest.raises(pa.ArrowInvalid):
         partitioning.parse('prefix_3_aaa_')
 
+    assert partitioning != ds.FilenamePartitioning(schema, segment_encoding="none")
+
+    schema = pa.schema([
+        pa.field('group', pa.int64()),
+        pa.field('key', pa.dictionary(pa.int8(), pa.string()))
+    ])
     partitioning = ds.DirectoryPartitioning(
-        pa.schema([
-            pa.field('group', pa.int64()),
-            pa.field('key', pa.dictionary(pa.int8(), pa.string()))
-        ]),
-        dictionaries={
-            "key": pa.array(["first", "second", "third"]),
-        })
+        schema, dictionaries={"key": pa.array(["first", "second", "third"])}
+    )
     assert partitioning.dictionaries[0] is None
     assert partitioning.dictionaries[1].to_pylist() == [
         "first", "second", "third"]
+    assert partitioning != ds.DirectoryPartitioning(schema, dictionaries=None)
 
     partitioning = ds.FilenamePartitioning(
         pa.schema([
@@ -694,6 +697,24 @@ def test_partitioning():
                                    partitioning=partitioning)
             load_back_table = load_back.to_table()
             assert load_back_table.equals(table)
+
+
+def test_partitioning_pickling():
+    schema = pa.schema([
+        pa.field('i64', pa.int64()),
+        pa.field('f64', pa.float64())
+    ])
+    parts = [
+        ds.DirectoryPartitioning(schema),
+        ds.HivePartitioning(schema),
+        ds.FilenamePartitioning(schema),
+        ds.DirectoryPartitioning(schema, segment_encoding="none"),
+        ds.FilenamePartitioning(schema, segment_encoding="none"),
+        ds.HivePartitioning(schema, segment_encoding="none", null_fallback="xyz"),
+    ]
+
+    for part in parts:
+        assert pickle.loads(pickle.dumps(part)) == part
 
 
 def test_expression_arithmetic_operators():
@@ -3740,6 +3761,10 @@ def test_dataset_preserved_partitioning(tempdir):
     _, path = _create_single_file(tempdir)
     dataset = ds.dataset(path)
     assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
+    # TODO(GH-34884) partitioning attribute not preserved in pickling
+    # dataset_ = ds.dataset(path)
+    # for dataset in [dataset_, pickle.loads(pickle.dumps(dataset_))]:
+    #     assert isinstance(dataset.partitioning, ds.DirectoryPartitioning)
 
     # through discovery, with hive partitioning but not specified
     full_table, path = _create_partitioned_dataset(tempdir)
@@ -4539,7 +4564,9 @@ def test_write_table_partitioned_dict(tempdir):
 @pytest.mark.parquet
 def test_write_dataset_parquet(tempdir):
     table = pa.table([
-        pa.array(range(20)), pa.array(np.random.randn(20)),
+        pa.array(range(20), type="uint32"),
+        pa.array(np.arange("2012-01-01", 20, dtype="datetime64[D]").astype(
+            "datetime64[ns]")),
         pa.array(np.repeat(['a', 'b'], 10))
     ], names=["f1", "f2", "part"])
 
@@ -4551,7 +4578,7 @@ def test_write_dataset_parquet(tempdir):
     file_paths = list(base_dir.rglob("*"))
     expected_paths = [base_dir / "part-0.parquet"]
     assert set(file_paths) == set(expected_paths)
-    # check Table roundtrip
+    # check Table roundtrip with default version
     result = ds.dataset(base_dir, format="parquet").to_table()
     assert result.equals(table)
 
@@ -4559,11 +4586,23 @@ def test_write_dataset_parquet(tempdir):
     for version in ["1.0", "2.4", "2.6"]:
         format = ds.ParquetFileFormat()
         opts = format.make_write_options(version=version)
+        assert "<pyarrow.dataset.ParquetFileWriteOptions" in repr(opts)
         base_dir = tempdir / 'parquet_dataset_version{0}'.format(version)
         ds.write_dataset(table, base_dir, format=format, file_options=opts)
         meta = pq.read_metadata(base_dir / "part-0.parquet")
         expected_version = "1.0" if version == "1.0" else "2.6"
         assert meta.format_version == expected_version
+
+        # ensure version is actually honored based on supported datatypes
+        result = ds.dataset(base_dir, format="parquet").to_table()
+        schema = table.schema
+        if version == "1.0":
+            # uint32 is written as int64
+            schema = schema.set(0, schema.field(0).with_type(pa.int64()))
+        if version in ("1.0", "2.4"):
+            schema = schema.set(1, schema.field(1).with_type(pa.timestamp("us")))
+        expected = table.cast(schema)
+        assert result.equals(expected)
 
 
 def test_write_dataset_csv(tempdir):

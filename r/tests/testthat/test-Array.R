@@ -545,13 +545,13 @@ test_that("StructArray methods", {
 
 test_that("StructArray creation", {
   # from data.frame
-  a <- Structarrow_array(example_data)
+  a <- StructArray$create(example_data)
   expect_identical(names(a), c("int", "dbl", "dbl2", "lgl", "false", "chr", "fct"))
   expect_identical(dim(a), c(10L, 7L))
   expect_r6_class(a, "StructArray")
 
   # from Arrays
-  str_array <- Structarrow_array(a = arrow_array(1:2), b = arrow_array(c("a", "b")))
+  str_array <- StructArray$create(a = arrow_array(1:2), b = arrow_array(c("a", "b")))
   expect_equal(str_array[[1]], arrow_array(1:2))
   expect_equal(str_array[[2]], arrow_array(c("a", "b")))
   expect_r6_class(str_array, "StructArray")
@@ -915,7 +915,7 @@ test_that("is.Array", {
   expect_false(is.Array(a, "utf8"))
   expect_true(is.Array(a$View(float32())), "float32")
   expect_false(is.Array(1))
-  expect_true(is.Array(Chunkedarrow_array(1, 2)))
+  expect_true(is.Array(ChunkedArray$create(1, 2)))
 })
 
 test_that("Array$Take()", {
@@ -944,7 +944,7 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
   )
   expect_as_vector(a[arrow_array(ind - 1, type = int8())], vec[ind])
   expect_as_vector(a[arrow_array(ind - 1, type = uint8())], vec[ind])
-  expect_as_vector(a[Chunkedarrow_array(8, 2, 4, type = uint8())], vec[ind])
+  expect_as_vector(a[ChunkedArray$create(8, 2, 4, type = uint8())], vec[ind])
 
   filt <- seq_along(vec) %in% ind
   expect_as_vector(a[arrow_array(filt)], vec[filt])
@@ -957,7 +957,7 @@ test_that("[ accepts Arrays and otherwise handles bad input", {
 
 test_that("%in% works on dictionary arrays", {
   a1 <- arrow_array(as.factor(c("A", "B", "C")))
-  a2 <- Dictionaryarrow_array(c(0L, 1L, 2L), c(4.5, 3.2, 1.1))
+  a2 <- DictionaryArray$create(c(0L, 1L, 2L), c(4.5, 3.2, 1.1))
   c1 <- arrow_array(c(FALSE, TRUE, FALSE))
   c2 <- arrow_array(c(FALSE, FALSE, FALSE))
   b1 <- arrow_array("B")
@@ -990,12 +990,12 @@ test_that("Array head/tail", {
 })
 
 test_that("Dictionary array: create from arrays, not factor", {
-  a <- Dictionaryarrow_array(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
+  a <- DictionaryArray$create(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
   expect_equal(a$type, dictionary(int32(), float64()))
 })
 
 test_that("Dictionary array: translate to R when dict isn't string", {
-  a <- Dictionaryarrow_array(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
+  a <- DictionaryArray$create(c(2L, 1L, 1L, 2L, 0L), c(4.5, 3.2, 1.1))
   expect_warning(
     expect_identical(
       as.vector(a),

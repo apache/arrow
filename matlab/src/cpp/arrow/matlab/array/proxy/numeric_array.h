@@ -27,21 +27,11 @@
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
+#include "arrow/matlab/bit/unpack.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
-
-namespace {
-const uint8_t* getUnpackedValidityBitmap(const ::matlab::data::TypedArray<bool>& valid_elements) {
-    if (valid_elements.getNumberOfElements() > 0) {
-        const auto valid_elements_iterator(valid_elements.cbegin());
-        return reinterpret_cast<const uint8_t*>(valid_elements_iterator.operator->());
-    } else {
-        return nullptr;
-    }
-}
-} // anonymous namespace
 
 template<typename CType>
 class NumericArray : public arrow::matlab::array::proxy::Array {
@@ -70,7 +60,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
             if (make_deep_copy) {
                 // Get the unpacked validity bitmap (if it exists)
-                auto unpacked_validity_bitmap = getUnpackedValidityBitmap(valid_mda);
+                auto unpacked_validity_bitmap = bit::extract_ptr(valid_mda);
 
                 BuilderType builder;
 

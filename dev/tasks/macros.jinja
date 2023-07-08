@@ -204,7 +204,7 @@ on:
     env:
       ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
     run: |
-      brew update
+      brew update || echo "brew update did not finish successfully"
       brew --version
       brew unlink python@2 || true
       brew config
