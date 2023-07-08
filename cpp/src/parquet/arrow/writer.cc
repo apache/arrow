@@ -274,12 +274,12 @@ class ArrowColumnWriterV2 {
   RowGroupWriter* row_group_writer_;
 };
 
-std::shared_ptr<ChunkedArray> getColumnChunkedArray(const ::arrow::RecordBatch& value,
+std::shared_ptr<ChunkedArray> GetColumnChunkedArray(const ::arrow::RecordBatch& value,
                                                     int column_id) {
   return std::make_shared<::arrow::ChunkedArray>(value.column(column_id));
 }
 
-std::shared_ptr<ChunkedArray> getColumnChunkedArray(const ::arrow::Table& value,
+std::shared_ptr<ChunkedArray> GetColumnChunkedArray(const ::arrow::Table& value,
                                                     int column_id) {
   return value.column(column_id);
 }
@@ -470,7 +470,7 @@ Status FileWriterImpl::WriteBuffered(const T& batch, int64_t max_row_group_lengt
     int column_index_start = 0;
 
     for (int i = 0; i < batch.num_columns(); i++) {
-      std::shared_ptr<ChunkedArray> chunked_array = getColumnChunkedArray(batch, i);
+      std::shared_ptr<ChunkedArray> chunked_array = GetColumnChunkedArray(batch, i);
       ARROW_ASSIGN_OR_RAISE(
           std::unique_ptr<ArrowColumnWriterV2> writer,
           ArrowColumnWriterV2::Make(*chunked_array, offset, size, schema_manifest_,
