@@ -2560,7 +2560,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
       : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
                     pool = ::arrow::default_memory_pool()),
         sink_(pool),
-        length_encoder_(descr, pool),
+        length_encoder_(nullptr, pool),
         encoded_size_{0} {}
 
   std::shared_ptr<Buffer> FlushValues() override;
@@ -2682,7 +2682,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
-        len_decoder_(descr, pool),
+        len_decoder_(nullptr, pool),
         buffered_length_(AllocateBuffer(pool, 0)) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
@@ -3020,7 +3020,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
                                  MemoryPool* pool = ::arrow::default_memory_pool())
       : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY, pool),
         sink_(pool),
-        prefix_length_encoder_(descr, pool),
+        prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(descr, pool),
         last_value_(""),
         empty_(static_cast<uint32_t>(kEmpty.size()),
@@ -3227,8 +3227,8 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
                                      MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
         pool_(pool),
-        prefix_len_decoder_(descr, pool),
-        suffix_decoder_(descr, pool),
+        prefix_len_decoder_(nullptr, pool),
+        suffix_decoder_(nullptr, pool),
         last_value_in_previous_page_(""),
         buffered_prefix_length_(AllocateBuffer(pool, 0)),
         buffered_data_(AllocateBuffer(pool, 0)) {}
