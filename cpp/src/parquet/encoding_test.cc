@@ -1985,7 +1985,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  void InitData(int nvalues, double null_probability) {
+  void InitData(int nvalues, int repeats, double null_probability) {
     constexpr int kMinPrefixLength = 0;
     constexpr int kMaxPrefixLength = 100;
     constexpr int kMaxElementLength = 1000;
@@ -2022,14 +2022,14 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
     draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
   }
 
-  void Execute(int nvalues, double null_probability) {
-    InitData(nvalues, null_probability);
+  void Execute(int nvalues, int repeats, double null_probability) {
+    InitData(nvalues, repeats, null_probability);
     CheckRoundtrip();
   }
 
   void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset,
                      double null_probability) {
-    InitData(nvalues, null_probability);
+    InitData(nvalues, repeats, null_probability);
 
     int64_t size = num_values_ + valid_bits_offset;
     auto rand = ::arrow::random::RandomArrayGenerator(1923);
@@ -2086,7 +2086,8 @@ using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  // TODO: repeats
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/ 0, 0));
   // TODO
 
   //  ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0));
