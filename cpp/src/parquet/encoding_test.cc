@@ -1986,18 +1986,18 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void InitData(int nvalues, double null_probability) {
-    const int seed = 42;
-    auto rand = ::arrow::random::RandomArrayGenerator(seed);
-    const int min_prefix_length = 0;
-    const int max_prefix_length = 100;
-    const int max_element_length = 1000;
-    const double prefixed_probability = 0.5;
+    constexpr int kMinPrefixLength = 0;
+    constexpr int kMaxPrefixLength = 100;
+    constexpr int kMaxElementLength = 1000;
+    constexpr double kPrefixedProbability = 0.5;
+    constexpr int kSeed = 42;
+    auto rand = ::arrow::random::RandomArrayGenerator(kSeed);
 
     const auto prefix_array = std::dynamic_pointer_cast<::arrow::StringArray>(
-        rand.String(nvalues, min_prefix_length, max_prefix_length, null_probability));
+        rand.String(nvalues, kMinPrefixLength, kMaxPrefixLength, null_probability));
     const auto do_prefix = std::dynamic_pointer_cast<::arrow::BooleanArray>(
         rand.Boolean(nvalues,
-                     /*true_probability=*/prefixed_probability,
+                     /*true_probability=*/kPrefixedProbability,
                      /*null_probability=*/0.0));
     ::arrow::StringBuilder builder(::arrow::default_memory_pool());
 
@@ -2007,7 +2007,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
         PARQUET_THROW_NOT_OK(builder.AppendNull());
       } else {
         const std::string element = prefix_array->GetString(i);
-        if (do_prefix->Value(i) && prefix.length() < max_element_length) {
+        if (do_prefix->Value(i) && prefix.length() < kMaxElementLength) {
           prefix = prefix.append(element);
         } else {
           prefix = element;
@@ -2033,7 +2033,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 
     int64_t size = num_values_ + valid_bits_offset;
     auto rand = ::arrow::random::RandomArrayGenerator(1923);
-    const auto array = rand.UInt8(size, 0, 100, null_probability);
+    const auto array = rand.UInt8(size, /*min=*/0, /*max=*/100, null_probability);
     const auto valid_bits = array->null_bitmap_data();
     if (valid_bits) {
       CheckRoundtripSpaced(valid_bits, valid_bits_offset);
@@ -2136,24 +2136,24 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtrip() override {
-    const int64_t size = 50;
-    const int32_t min_length = 0;
-    const int32_t max_length = 10;
-    const int32_t num_unique = 10;
-    const double null_probability = 0.25;
-
-    ::arrow::random::RandomArrayGenerator rag{42};
+    constexpr int64_t kSize = 50;
+    constexpr int32_t kMinLength = 0;
+    constexpr int32_t kMaxLength = 10;
+    constexpr int32_t kNumUnique = 10;
+    constexpr double kNullProbability = 0.25;
+    constexpr int kSeed = 42;
+    ::arrow::random::RandomArrayGenerator rag{kSeed};
     std::shared_ptr<::arrow::Array> values =
-        rag.String(0, min_length, max_length, null_probability);
+        rag.String(0, kMinLength, kMaxLength, kNullProbability);
     CheckDirectPut(values);
 
     for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
       rag = ::arrow::random::RandomArrayGenerator(seed);
-      values = rag.String(size, min_length, max_length, null_probability);
+      values = rag.String(kSize, kMinLength, kMaxLength, kNullProbability);
       CheckDirectPut(values);
 
-      values = rag.BinaryWithRepeats(size, num_unique, min_length, max_length,
-                                     null_probability);
+      values = rag.BinaryWithRepeats(kSize, kNumUnique, kMinLength, kMaxLength,
+                                     kNullProbability);
       CheckDirectPut(values);
     }
   }
@@ -2173,15 +2173,15 @@ TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
 }
 
 TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
-  auto CheckEncode = [](std::shared_ptr<::arrow::Array> values,
-                        std::shared_ptr<Buffer> encoded) {
+  auto CheckEncode = [](const std::shared_ptr<::arrow::Array>& values,
+                        const std::shared_ptr<Buffer>& encoded) {
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
     ASSERT_NO_THROW(encoder->Put(*values));
     auto buf = encoder->FlushValues();
     ASSERT_TRUE(encoded->Equals(*buf));
   };
 
-  auto arrayToI32 = [](const std::shared_ptr<::arrow::Array>& lengths) {
+  auto ArrayToInt32Vector = [](const std::shared_ptr<::arrow::Array>& lengths) {
     std::vector<int32_t> arrays;
     auto data_ptr = checked_cast<::arrow::Int32Array*>(lengths.get());
     for (int i = 0; i < lengths->length(); ++i) {
@@ -2217,25 +2217,25 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     ::arrow::AssertArraysEqual(*values, *upcast_result);
   };
 
-  auto CheckEncodeDecode = [&](std::string_view values,
-                               std::shared_ptr<::arrow::Array> prefix_lengths,
-                               std::shared_ptr<::arrow::Array> suffix_lengths,
-                               std::string_view suffix_data) {
-    auto encoded = ::arrow::ConcatenateBuffers({DeltaEncode(arrayToI32(prefix_lengths)),
-                                                DeltaEncode(arrayToI32(suffix_lengths)),
-                                                std::make_shared<Buffer>(suffix_data)})
-                       .ValueOrDie();
+  auto CheckEncodeDecode =
+      [&](std::string_view values, std::shared_ptr<::arrow::Array> prefix_lengths,
+          std::shared_ptr<::arrow::Array> suffix_lengths, std::string_view suffix_data) {
+        auto encoded =
+            ::arrow::ConcatenateBuffers({DeltaEncode(ArrayToInt32Vector(prefix_lengths)),
+                                         DeltaEncode(ArrayToInt32Vector(suffix_lengths)),
+                                         std::make_shared<Buffer>(suffix_data)})
+                .ValueOrDie();
 
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), encoded);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
-    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
+        CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), encoded);
+        CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
+        CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
+        CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
 
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
-    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
-  };
+        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
+        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
+        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
+        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+      };
 
   {
     auto values = R"(["axis", "axle", "babble", "babyhood"])";
