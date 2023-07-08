@@ -1087,10 +1087,7 @@ TEST(TestFileReader, BufferedReads) {
   }
 }
 
-TEST(TestFileReader, BufferedReadsWithCustomizedBufferSize) {
-  // PARQUET-1636: Buffered reads were broken before introduction of
-  // RandomAccessFile::GetStream
-
+TEST(TestFileReader, BufferedReadsWithColumnSpecificReadProperties) {
   const int num_columns = 10;
   const int num_rows = 1000;
 
@@ -1148,11 +1145,13 @@ TEST(TestFileReader, BufferedReadsWithCustomizedBufferSize) {
   auto row_group = file_reader->RowGroup(0);
   std::vector<std::shared_ptr<DoubleReader>> col_readers;
   for (int col_index = 0; col_index < num_columns; ++col_index) {
-    // Read with different buffer_size, where -1 means using the buffer size 64 in
-    // reader_props.
-    int64_t buffer_size = col_index % 2 == 0 ? -1 : 2 << num_columns;
+    std::optional<ReaderProperties> column_props = std::nullopt;
+    if (col_index % 2 == 0) {
+      column_props = std::make_optional<ReaderProperties>(reader_props);
+      column_props->set_buffer_size(128);
+    }
     col_readers.push_back(std::static_pointer_cast<DoubleReader>(
-        row_group->Column(col_index, buffer_size)));
+        row_group->Column(col_index, column_props)));
   }
 
   for (int row_index = 0; row_index < num_rows; ++row_index) {

@@ -66,7 +66,8 @@ static constexpr int64_t kMaxDictHeaderSize = 100;
 RowGroupReader::RowGroupReader(std::unique_ptr<Contents> contents)
     : contents_(std::move(contents)) {}
 
-std::shared_ptr<ColumnReader> RowGroupReader::Column(int i, int64_t buffer_size) {
+std::shared_ptr<ColumnReader> RowGroupReader::Column(
+    int i, std::optional<ReaderProperties> prop) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
     ss << "Trying to read column index " << i << " but row group metadata has only "
@@ -75,16 +76,17 @@ std::shared_ptr<ColumnReader> RowGroupReader::Column(int i, int64_t buffer_size)
   }
   const ColumnDescriptor* descr = metadata()->schema()->Column(i);
 
-  std::unique_ptr<PageReader> page_reader =
-      contents_->GetColumnPageReader(i, buffer_size);
+  std::unique_ptr<PageReader> page_reader = contents_->GetColumnPageReader(i, prop);
   return ColumnReader::Make(
       descr, std::move(page_reader),
-      const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
+      prop.has_value()
+          ? prop->memory_pool()
+          : const_cast<ReaderProperties*>(contents_->properties())->memory_pool());
 }
 
 std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
-    int i, ExposedEncoding encoding_to_expose, int64_t buffer_size) {
-  std::shared_ptr<ColumnReader> reader = Column(i, buffer_size);
+    int i, ExposedEncoding encoding_to_expose, std::optional<ReaderProperties> prop) {
+  std::shared_ptr<ColumnReader> reader = Column(i, prop);
 
   if (encoding_to_expose == ExposedEncoding::DICTIONARY) {
     // Check the encoding_stats to see if all data pages are dictionary encoded.
@@ -121,15 +123,15 @@ std::shared_ptr<ColumnReader> RowGroupReader::ColumnWithExposeEncoding(
   return reader;
 }
 
-std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(int i,
-                                                                int64_t buffer_size) {
+std::unique_ptr<PageReader> RowGroupReader::GetColumnPageReader(
+    int i, std::optional<ReaderProperties> prop) {
   if (i >= metadata()->num_columns()) {
     std::stringstream ss;
     ss << "Trying to read column index " << i << " but row group metadata has only "
        << metadata()->num_columns() << " columns";
     throw ParquetException(ss.str());
   }
-  return contents_->GetColumnPageReader(i, buffer_size);
+  return contents_->GetColumnPageReader(i, prop);
 }
 
 // Returns the rowgroup metadata
@@ -198,9 +200,12 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
   const ReaderProperties* properties() const override { return &properties_; }
 
-  std::unique_ptr<PageReader> GetColumnPageReader(int i, int64_t buffer_size) override {
+  std::unique_ptr<PageReader> GetColumnPageReader(
+      int i, std::optional<ReaderProperties> prop) override {
     // Read column chunk from the file
     auto col = row_group_metadata_->ColumnChunk(i);
+
+    ReaderProperties& properties = prop.has_value() ? *prop : properties_;
 
     ::arrow::io::ReadRange col_range =
         ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
@@ -212,8 +217,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
       stream = std::make_shared<::arrow::io::BufferReader>(buffer);
     } else {
-      stream =
-          properties_.GetStream(source_, col_range.offset, col_range.length, buffer_size);
+      stream = properties.GetStream(source_, col_range.offset, col_range.length);
     }
 
     std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
@@ -225,7 +229,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     // Column is encrypted only if crypto_metadata exists.
     if (!crypto_metadata) {
-      return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
+      return PageReader::Open(stream, col->num_values(), col->compression(), properties,
                               always_compressed);
     }
 
@@ -247,7 +251,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       data_decryptor = file_decryptor_->GetFooterDecryptorForColumnData();
       CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                         static_cast<int16_t>(i), meta_decryptor, data_decryptor);
-      return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
+      return PageReader::Open(stream, col->num_values(), col->compression(), properties,
                               always_compressed, &ctx);
     }
 
@@ -262,7 +266,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
 
     CryptoContext ctx(col->has_dictionary_page(), row_group_ordinal_,
                       static_cast<int16_t>(i), meta_decryptor, data_decryptor);
-    return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
+    return PageReader::Open(stream, col->num_values(), col->compression(), properties,
                             always_compressed, &ctx);
   }
 
