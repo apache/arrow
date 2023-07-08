@@ -1096,7 +1096,8 @@ def test_empty_take():
     ([1, 2, 3], IntegerType),
     (["cat", "dog", "horse"], LabelType)
 ))
-@pytest.mark.parametrize("into", ("to_numpy", "to_pandas"))
+@pytest.mark.parametrize(
+    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)

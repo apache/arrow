@@ -3251,6 +3251,7 @@ def test_json_format(tempdir, dataset_reader):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
 def test_json_format_options(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
@@ -3271,6 +3272,7 @@ def test_json_format_options(tempdir, dataset_reader):
     assert result.equals(table)
 
 
+@pytest.mark.pandas
 def test_json_fragment_options(tempdir, dataset_reader):
     table = pa.table({'a': pa.array([1, 2, 3], type="int64"),
                       'b': pa.array([.1, .2, .3], type="float64")})
