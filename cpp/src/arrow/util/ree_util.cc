@@ -87,7 +87,7 @@ int64_t FindPhysicalLength(const ArraySpan& span) {
 
 std::pair<int64_t, int64_t> FindPhysicalRange(const ArraySpan& span, int64_t offset,
                                               int64_t length) {
-  auto& run_ends_span = RunEndsArray(span);
+  const auto& run_ends_span = RunEndsArray(span);
   auto type_id = run_ends_span.type->id();
   if (type_id == Type::INT16) {
     auto* run_ends = run_ends_span.GetValues<int16_t>(1);
