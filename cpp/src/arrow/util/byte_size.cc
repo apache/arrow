@@ -296,12 +296,12 @@ struct GetByteRangesArray {
   }
 
   Status Visit(const RunEndEncodedType& type) const {
-    auto physical_range = ree_util::FindPhysicalRange(input, offset, length);
+    auto [phys_offset, phys_length] = ree_util::FindPhysicalRange(input, offset, length);
     for (int i = 0; i < type.num_fields(); i++) {
       GetByteRangesArray child{
           *input.child_data[i],
-          /*offset=*/input.child_data[i]->offset + physical_range.first,
-          /*length=*/physical_range.second,
+          /*offset=*/input.child_data[i]->offset + phys_offset,
+          /*length=*/phys_length,
           range_starts,
           range_offsets,
           range_lengths};
