@@ -1311,10 +1311,10 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
           " has no Substrait mapping.  Arrow extensions are enabled but the call "
           "contains function options and there is no current mechanism to encode those.");
     }
-    SubstraitCall substrait_call(
-        Id{kArrowSimpleExtensionFunctionsUri, call->function_name},
-        call->type.GetSharedPtr(),
-        /*nullable=*/true);
+    Id persistent_id = ext_set->RegisterPlanSpecificId(
+        {kArrowSimpleExtensionFunctionsUri, call->function_name});
+    SubstraitCall substrait_call(persistent_id, call->type.GetSharedPtr(),
+                                 /*nullable=*/true);
     for (int i = 0; i < static_cast<int>(call->arguments.size()); i++) {
       substrait_call.SetValueArg(i, call->arguments[i]);
     }

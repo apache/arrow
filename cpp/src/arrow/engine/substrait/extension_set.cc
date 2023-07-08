@@ -232,6 +232,8 @@ Status ExtensionSet::AddUri(Id id) {
   return Status::OK();
 }
 
+Id ExtensionSet::RegisterPlanSpecificId(Id id) { return plan_specific_ids_->Emplace(id); }
+
 // Creates an extension set from the Substrait plan's top-level extensions block
 Result<ExtensionSet> ExtensionSet::Make(
     std::unordered_map<uint32_t, std::string_view> uris,

@@ -430,6 +430,15 @@ class ARROW_ENGINE_EXPORT ExtensionSet {
   /// \return An anchor that can be used to refer to the function within a plan
   Result<uint32_t> EncodeFunction(Id function_id);
 
+  /// \brief Stores a plan-specific id that is not known to the registry
+  ///
+  /// This is used when converting an Arrow execution plan to a Substrait plan.
+  ///
+  /// If the function is a UDF, something that wasn't known to the registry,
+  /// then we need long term storage of the function name (the ids are just
+  /// views)
+  Id RegisterPlanSpecificId(Id id);
+
   /// \brief Return the number of custom functions in this extension set
   std::size_t num_functions() const { return functions_.size(); }
 
