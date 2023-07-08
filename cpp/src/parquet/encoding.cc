@@ -3009,6 +3009,8 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 // ----------------------------------------------------------------------
 // DeltaByteArrayEncoder
 
+constexpr std::string_view kEmpty = "";
+
 template <typename DType>
 class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  public:
