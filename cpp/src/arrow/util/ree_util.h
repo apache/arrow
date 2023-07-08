@@ -102,8 +102,7 @@ std::pair<int64_t, int64_t> FindPhysicalRange(const RunEndCType* run_ends,
 template <typename RunEndCType>
 int64_t FindPhysicalLength(const RunEndCType* run_ends, int64_t run_ends_size,
                            int64_t length, int64_t offset) {
-  int64_t physical_length;
-  std::tie(std::ignore, physical_length) =
+  auto [_, physical_length] =
       FindPhysicalRange<RunEndCType>(run_ends, run_ends_size, length, offset);
   return physical_length;
 }
