@@ -2018,7 +2018,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 
     std::shared_ptr<::arrow::StringArray> array;
     ASSERT_OK(builder.Finish(&array));
-    num_values_ = array->length() - array->null_count();
+    num_values_ = static_cast<int>(array->length() - array->null_count());
     draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
   }
 
@@ -2133,7 +2133,7 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     ASSERT_OK(result->ValidateFull());
 
     ::arrow::AssertArraysEqual(*array, *result);
-  };
+  }
 
   void CheckRoundtrip() override {
     const int64_t size = 50;

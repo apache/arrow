@@ -2560,7 +2560,7 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
       : EncoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY,
                     pool = ::arrow::default_memory_pool()),
         sink_(pool),
-        length_encoder_(nullptr, pool),
+        length_encoder_(descr, pool),
         encoded_size_{0} {}
 
   std::shared_ptr<Buffer> FlushValues() override;
@@ -2682,7 +2682,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   explicit DeltaLengthByteArrayDecoder(const ColumnDescriptor* descr,
                                        MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_LENGTH_BYTE_ARRAY),
-        len_decoder_(nullptr, pool),
+        len_decoder_(descr, pool),
         buffered_length_(AllocateBuffer(pool, 0)) {}
 
   void SetData(int num_values, const uint8_t* data, int len) override {
@@ -2804,7 +2804,7 @@ class DeltaLengthByteArrayDecoder : public DecoderImpl,
   std::shared_ptr<::arrow::bit_util::BitReader> decoder_;
   DeltaBitPackDecoder<Int32Type> len_decoder_;
   int num_valid_values_{0};
-  uint32_t length_idx_;
+  uint32_t length_idx_{0};
   std::shared_ptr<ResizableBuffer> buffered_length_;
 };
 
@@ -3009,10 +3009,10 @@ class RleBooleanDecoder : public DecoderImpl, virtual public BooleanDecoder {
 // ----------------------------------------------------------------------
 // DeltaByteArrayEncoder
 
-constexpr std::string_view kEmpty = "";
-
 template <typename DType>
 class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+  static constexpr std::string_view kEmpty = "";
+
  public:
   using T = typename DType::c_type;
 
@@ -3020,10 +3020,11 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
                                  MemoryPool* pool = ::arrow::default_memory_pool())
       : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY, pool),
         sink_(pool),
-        prefix_length_encoder_(nullptr, pool),
-        suffix_encoder_(nullptr, pool),
+        prefix_length_encoder_(descr, pool),
+        suffix_encoder_(descr, pool),
         last_value_(""),
-        kEmpty(ByteArray(0, reinterpret_cast<const uint8_t*>(""))) {}
+        empty_(static_cast<uint32_t>(kEmpty.size()),
+               reinterpret_cast<const uint8_t*>(kEmpty.data())) {}
 
   std::shared_ptr<Buffer> FlushValues() override;
 
@@ -3070,8 +3071,9 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
       const int batch_size = std::min(kBatchSize, num_values - i);
 
       for (int j = 0; j < batch_size; ++j) {
-        auto view = visitor[i + j];
-        len = visitor.len(i + j);
+        const int idx = i + j;
+        auto view = visitor[idx];
+        len = visitor.len(idx);
 
         uint32_t k = 0;
         const uint32_t common_length =
@@ -3086,7 +3088,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         last_value_view = view;
         prefix_lengths[j] = k;
         const uint32_t suffix_length = len - k;
-        const uint8_t* suffix_ptr = src[i + j].ptr + k;
+        const uint8_t* suffix_ptr = src[idx].ptr + k;
 
         // Convert to ByteArray, so it can be passed to the suffix_encoder_.
         const ByteArray suffix(suffix_length, suffix_ptr);
@@ -3127,7 +3129,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           last_value_view = view;
           const auto suffix_length = static_cast<uint32_t>(len - j);
           if (suffix_length == 0) {
-            suffix_encoder_.Put(&kEmpty, 1);
+            suffix_encoder_.Put(&empty_, 1);
             return Status::OK();
           }
           const uint8_t* suffix_ptr = src.ptr + j;
@@ -3145,11 +3147,12 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
   DeltaBitPackEncoder<Int32Type> prefix_length_encoder_;
   DeltaLengthByteArrayEncoder<ByteArrayType> suffix_encoder_;
   std::string last_value_;
-  const ByteArray kEmpty;
+  const ByteArray empty_;
 };
 
 struct ByteArrayVisitor {
   const ByteArray* src;
+  // type_length is not used and only here to match the FLBAVisitor
   const uint32_t type_length;
 
   std::string_view operator[](int i) const {
@@ -3224,8 +3227,8 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
                                      MemoryPool* pool = ::arrow::default_memory_pool())
       : DecoderImpl(descr, Encoding::DELTA_BYTE_ARRAY),
         pool_(pool),
-        prefix_len_decoder_(nullptr, pool),
-        suffix_decoder_(nullptr, pool),
+        prefix_len_decoder_(descr, pool),
+        suffix_decoder_(descr, pool),
         last_value_in_previous_page_(""),
         buffered_prefix_length_(AllocateBuffer(pool, 0)),
         buffered_data_(AllocateBuffer(pool, 0)) {}
@@ -3374,7 +3377,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
   // string buffer for last value in previous page
   std::string last_value_in_previous_page_;
   int num_valid_values_{0};
-  uint32_t prefix_len_offset_;
+  uint32_t prefix_len_offset_{0};
   std::shared_ptr<ResizableBuffer> buffered_prefix_length_;
   std::shared_ptr<ResizableBuffer> buffered_data_;
 };
