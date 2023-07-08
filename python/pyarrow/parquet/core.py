@@ -33,7 +33,14 @@ import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
-import pyarrow._parquet as _parquet
+
+try:
+    import pyarrow._parquet as _parquet
+except ImportError as exc:
+    raise ImportError(
+        "The pyarrow installation is not built with support "
+        f"for the Parquet file format ({str(exc)})"
+    ) from None
 
 from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
