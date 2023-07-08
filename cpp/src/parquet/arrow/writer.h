@@ -100,6 +100,11 @@ class PARQUET_EXPORT FileWriter {
   /// the number of row groups, especially when calling `WriteTable`
   /// with small tables.
   ///
+  /// WARNING: If you are writing multiple files in parallel in the same
+  /// executor, deadlock may occur if ArrowWriterProperties::use_threads
+  /// is set to true to write columns in parallel. Please disable use_threads
+  /// option in this case.
+  ///
   /// \param table Arrow table to write.
   /// \param chunk_size maximum number of rows to write per row group.
   /// \param use_buffering Whether to potentially buffer data.
