@@ -712,6 +712,7 @@ void DisableRedirects(Aws::Client::ClientConfiguration* c) {
 // To prevent such issues, we wrap all S3Client instances in a special
 // structure (S3ClientHolder) that prevents usage of S3Client after
 // S3 was finalized.
+// Please make sure you read the comments in S3ClientLock::Move below.
 //
 // See: GH-36346, GH-15054.
 
@@ -722,6 +723,16 @@ class S3ClientLock {
   S3Client* get() { return client_.get(); }
   S3Client* operator->() { return client_.get(); }
 
+  // Move this S3ClientLock into a temporary instance
+  //
+  // It is counter-intuitive, but lock ordering issues can happen even
+  // with a shared mutex locked in shared mode.
+  // The reason is that locking again in shared mode can block while
+  // there are threads waiting to take the lock in exclusive mode.
+  // Therefore, we should avoid to keep the S3ClientLock taken
+  // before is it taken again. This methods helps doing that.
+  //
+  // (see GH-36523)
   S3ClientLock Move() { return std::move(*this); }
 
  protected:
