@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using Apache.Arrow;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -85,6 +84,8 @@ namespace Apache.Arrow
         {
             return Slice(offset, Length - offset);
         }
+
+        public override string ToString() => $"{nameof(ChunkedArray)}: Length={Length}, DataType={DataType.Name}";
 
         // TODO: Flatten for Structs
     }

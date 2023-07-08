@@ -107,6 +107,8 @@ namespace Apache.Arrow
             return new Table(newSchema, newColumns);
         }
 
+        public override string ToString() => $"{nameof(Table)}: {ColumnCount} columns by {RowCount} rows";
+
         // TODO: Flatten for Tables with Lists/Structs?
     }
 }
