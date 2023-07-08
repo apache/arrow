@@ -140,6 +140,7 @@ template <>
 struct EncodingTraits<ByteArrayType> {
   using Encoder = ByteArrayEncoder;
   using Decoder = ByteArrayDecoder;
+  using BuilderType = ::arrow::BinaryBuilder;
 
   /// \brief Internal helper class for decoding BYTE_ARRAY data where we can
   /// overflow the capacity of a single arrow::BinaryArray
@@ -155,9 +156,13 @@ template <>
 struct EncodingTraits<FLBAType> {
   using Encoder = FLBAEncoder;
   using Decoder = FLBADecoder;
+  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
 
+  struct Accumulator {
+    std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder;
+    std::vector<std::shared_ptr<::arrow::Array>> chunks;
+  };
   using ArrowType = ::arrow::FixedSizeBinaryType;
-  using Accumulator = ::arrow::FixedSizeBinaryBuilder;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
 };
 
