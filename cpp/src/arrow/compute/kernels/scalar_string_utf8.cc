@@ -1090,7 +1090,8 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
       // on the resulting slice lengths, so return a worst case estimate.
       return input_ncodeunits;
     }
-    int64_t max_slice_codepoints = (opt.stop - opt.start + opt.step - 1) / opt.step;
+    int64_t stop = std::min(opt.stop, input_ncodeunits);
+    int64_t max_slice_codepoints = (stop - opt.start + opt.step - 1) / opt.step;
     // The maximum UTF8 byte size of a codepoint is 4
     return std::min(input_ncodeunits,
                     4 * ninputs * std::max<int64_t>(0, max_slice_codepoints));
@@ -1214,8 +1215,9 @@ struct SliceCodeunitsTransform : StringSliceTransformBase {
 
     // similar to opt.start
     if (opt.stop >= 0) {
+      int64_t length = std::min(opt.stop, std::numeric_limits<int64_t>::max() - 1) + 1;
       RETURN_IF_UTF8_ERROR(
-          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, opt.stop + 1));
+          arrow::util::UTF8AdvanceCodepoints(begin, end, &end_sliced, length));
     } else {
       RETURN_IF_UTF8_ERROR(arrow::util::UTF8AdvanceCodepointsReverse(
           begin, end, &end_sliced, -opt.stop - 1));

@@ -2140,6 +2140,48 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
 }
 
+// Tests where `start` is positive and `stop` is the max (positive) value
+TYPED_TEST(TestStringKernels, SliceCodeunitsPosMax) {
+  // Test cases used here: https://github.com/apache/arrow/issues/36311
+  SliceOptions options{/*start=*/0};
+  options.step = 1;
+  this->CheckUnary("utf8_slice_codeunits", R"(["AB🎭C🎭ㇱD"])", this->type(),
+                   R"(["AB🎭C🎭ㇱD"])", &options);
+  options.start = 2;
+  options.step = 4;
+  this->CheckUnary("utf8_slice_codeunits", R"(["AB🎭C🎭ㇱD"])", this->type(), R"(["🎭D"])",
+                   &options);
+
+  options.start = 2;
+  options.step = 1;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "õ", "õḍ", "õḍš"])", &options);
+  options.start = 1;
+  options.step = 2;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "ö", "öḍ", "öḍ"])", &options);
+  options.start = 3;
+  options.step = -2;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options);
+}
+
+// Tests where `start` is negative and `stop` is the max (positive) value
+TYPED_TEST(TestStringKernels, SliceCodeunitsNegMax) {
+  SliceOptions options{/*start=*/-2};
+  options.step = 1;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓ö", "öõ", "õḍ", "ḍš"])", &options);
+  options.start = -3;
+  options.step = 2;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓", "𝑓õ", "öḍ", "õš"])", &options);
+  options.start = -3;
+  options.step = -1;
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options);
+}
+
 #endif  // ARROW_WITH_UTF8PROC
 
 TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
