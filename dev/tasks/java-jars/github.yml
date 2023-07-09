@@ -27,7 +27,7 @@ jobs:
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     env:
       # archery uses these environment variables
-      {% if arch == "amd64" %}
+      {% if arch == "x86_64" %}
       ARCH: amd64
       {% else %}
       ARCH: arm64v8
