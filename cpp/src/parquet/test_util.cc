@@ -132,5 +132,33 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
   random_byte_array(n, seed, buf, out, 0, max_size);
 }
 
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out,
+                                int min_size, int max_size) {
+  constexpr double kPrefixedProbability = 0.5;
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> d1(min_size, max_size);
+  std::uniform_int_distribution<int> d2(0, 255);
+  std::uniform_real_distribution<double> d3(0.0, 1.0);
+  for (int i = 0; i < n; ++i) {
+    int len = d1(gen);
+    out[i].len = len;
+    out[i].ptr = buf;
+    int idx = 0;
+
+    bool do_prefix = d3(gen) < kPrefixedProbability && i > 0;
+    if (do_prefix) {
+      std::uniform_int_distribution<int> d4(min_size, len);
+      int prefix_len = d4(gen);
+      for (; idx < prefix_len; ++idx) {
+        buf[idx] = buf[idx - 1];
+      }
+    }
+    for (; idx < len; ++idx) {
+      buf[idx] = static_cast<uint8_t>(d2(gen));
+    }
+    buf += len;
+  }
+}
+
 }  // namespace test
 }  // namespace parquet

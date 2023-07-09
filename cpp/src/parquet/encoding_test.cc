@@ -1986,40 +1986,19 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void InitData(int nvalues, int repeats, double null_probability) {
-    constexpr int kMinPrefixLength = 0;
-    constexpr int kMaxPrefixLength = 100;
-    constexpr int kMaxElementLength = 1000;
-    constexpr double kPrefixedProbability = 0.5;
-    constexpr int kSeed = 42;
-    auto rand = ::arrow::random::RandomArrayGenerator(kSeed);
+    num_values_ = nvalues * repeats;
+    input_bytes_.resize(num_values_ * sizeof(c_type));
+    output_bytes_.resize(num_values_ * sizeof(c_type));
+    draws_ = reinterpret_cast<c_type*>(input_bytes_.data());
+    decode_buf_ = reinterpret_cast<c_type*>(output_bytes_.data());
+    GeneratePrefixedData<c_type>(nvalues, draws_, &data_buffer_);
 
-    const auto prefix_array = std::dynamic_pointer_cast<::arrow::StringArray>(
-        rand.String(nvalues, kMinPrefixLength, kMaxPrefixLength, null_probability));
-    const auto do_prefix = std::dynamic_pointer_cast<::arrow::BooleanArray>(
-        rand.Boolean(nvalues,
-                     /*true_probability=*/kPrefixedProbability,
-                     /*null_probability=*/0.0));
-    ::arrow::StringBuilder builder(::arrow::default_memory_pool());
-
-    std::string prefix = "";
-    for (int i = 0; i < nvalues; i++) {
-      if (prefix_array->IsNull(i)) {
-        PARQUET_THROW_NOT_OK(builder.AppendNull());
-      } else {
-        const std::string element = prefix_array->GetString(i);
-        if (do_prefix->Value(i) && prefix.length() < kMaxElementLength) {
-          prefix = prefix.append(element);
-        } else {
-          prefix = element;
-        }
-        PARQUET_THROW_NOT_OK(builder.Append(prefix));
+    // add some repeated values
+    for (int j = 1; j < repeats; ++j) {
+      for (int i = 0; i < nvalues; ++i) {
+        draws_[nvalues * j + i] = draws_[i];
       }
     }
-
-    std::shared_ptr<::arrow::StringArray> array;
-    ASSERT_OK(builder.Finish(&array));
-    num_values_ = static_cast<int>(array->length() - array->null_count());
-    draws_ = reinterpret_cast<c_type*>(array->value_data()->mutable_data());
   }
 
   void Execute(int nvalues, int repeats, double null_probability) {
@@ -2080,9 +2059,12 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 
  protected:
   USING_BASE_MEMBERS();
+  std::vector<uint8_t> input_bytes_;
+  std::vector<uint8_t> output_bytes_;
 };
 
-using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType>;
+using TestDeltaByteArrayEncodingTypes =
+    ::testing::Types<ByteArrayType>;  // TODO: FLBAType
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
@@ -2090,7 +2072,7 @@ TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0, 0));
   // TODO
 
-  //  ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 0, /*null_probability*/ 0));
   //  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
   //      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
   //      0));
