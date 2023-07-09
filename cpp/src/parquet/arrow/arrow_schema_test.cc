@@ -851,6 +851,8 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        ParquetType::FIXED_LEN_BYTE_ARRAY, 7},
       {"decimal(32, 8)", ::arrow::decimal(32, 8), LogicalType::Decimal(32, 8),
        ParquetType::FIXED_LEN_BYTE_ARRAY, 14},
+      {"float16", ::arrow::float16(), LogicalType::Float16(),
+       ParquetType::FIXED_LEN_BYTE_ARRAY, 2},
       {"time32", ::arrow::time32(::arrow::TimeUnit::MILLI),
        LogicalType::Time(true, LogicalType::TimeUnit::MILLIS), ParquetType::INT32, -1},
       {"time64(microsecond)", ::arrow::time64(::arrow::TimeUnit::MICRO),
@@ -904,22 +906,6 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   ASSERT_OK(ConvertSchema(arrow_fields));
   CheckFlatSchema(parquet_fields);
   // ASSERT_NO_FATAL_FAILURE();
-}
-
-TEST_F(TestConvertArrowSchema, ArrowNonconvertibleFields) {
-  struct FieldConstructionArguments {
-    std::string name;
-    std::shared_ptr<::arrow::DataType> datatype;
-  };
-
-  std::vector<FieldConstructionArguments> cases = {
-      {"float16", ::arrow::float16()},
-  };
-
-  for (const FieldConstructionArguments& c : cases) {
-    auto field = ::arrow::field(c.name, c.datatype);
-    ASSERT_RAISES(NotImplemented, ConvertSchema({field}));
-  }
 }
 
 TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {

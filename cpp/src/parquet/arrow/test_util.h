@@ -201,8 +201,17 @@ template <typename ArrowType>
     size_t size, size_t num_nulls, uint32_t seed, std::shared_ptr<Array>* out) {
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
-  ::arrow::random_real(size, seed, static_cast<c_type>(-1e10), static_cast<c_type>(1e10),
-                       &values);
+  if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
+    std::vector<int16_t> signed_values;
+    constexpr int16_t min = 0xf0e2;  // -1e4
+    constexpr int16_t max = 0x70e2;  // +1e4
+    ::arrow::randint(size, min, max, &signed_values);
+    std::transform(signed_values.begin(), signed_values.end(), std::back_inserter(values),
+                   [](int16_t v) { return static_cast<uint16_t>(v); });
+  } else {
+    ::arrow::random_real(size, seed, static_cast<c_type>(-1e10),
+                         static_cast<c_type>(1e10), &values);
+  }
   std::vector<uint8_t> valid_bytes(size, 1);
 
   for (size_t i = 0; i < num_nulls; i++) {

@@ -39,6 +39,7 @@
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/rle_encoding.h"
 #include "arrow/util/type_traits.h"
@@ -65,6 +66,7 @@ using arrow::Status;
 using arrow::bit_util::BitWriter;
 using arrow::internal::checked_cast;
 using arrow::internal::checked_pointer_cast;
+using arrow::util::Float16;
 using arrow::util::RleEncoder;
 
 namespace bit_util = arrow::bit_util;
@@ -2295,6 +2297,74 @@ struct SerializeFunctor<
   int64_t* scratch;
 };
 
+// ----------------------------------------------------------------------
+// Write Arrow to Float16
+
+// Requires a custom serializer because Float16s in Parquet are stored as a 2-byte
+// (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`. Also, a temporary
+// buffer is needed if there's an endian mismatch.
+template <>
+struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
+  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext* ctx,
+                   FLBA* out) {
+#if ARROW_LITTLE_ENDIAN
+    return SerializeInPlace(array, ctx, out);
+#else
+    return SerializeWithScratch(array, ctx, out);
+#endif
+  }
+
+  Status SerializeInPlace(const ::arrow::HalfFloatArray& array, ArrowWriteContext*,
+                          FLBA* out) {
+    const uint16_t* values = array.raw_values();
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = ToFLBA(&values[i]);
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = array.IsValid(i) ? ToFLBA(&values[i]) : FLBA{};
+      }
+    }
+    return Status::OK();
+  }
+
+  Status SerializeWithScratch(const ::arrow::HalfFloatArray& array,
+                              ArrowWriteContext* ctx, FLBA* out) {
+    AllocateScratch(array, ctx);
+    if (array.null_count() == 0) {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = ToFLBA(array.Value(i));
+      }
+    } else {
+      for (int64_t i = 0; i < array.length(); ++i) {
+        out[i] = array.IsValid(i) ? ToFLBA(array.Value(i)) : FLBA{};
+      }
+    }
+    return Status::OK();
+  }
+
+ private:
+  FLBA ToFLBA(const uint16_t* value_ptr) const {
+    return FLBA{reinterpret_cast<const uint8_t*>(value_ptr)};
+  }
+  FLBA ToFLBA(uint16_t value) {
+    auto* out = reinterpret_cast<uint8_t*>(scratch_++);
+    Float16(value).ToLittleEndian(out);
+    return FLBA{out};
+  }
+
+  void AllocateScratch(const ::arrow::HalfFloatArray& array, ArrowWriteContext* ctx) {
+    int64_t non_null_count = array.length() - array.null_count();
+    int64_t size = non_null_count * sizeof(uint16_t);
+    scratch_buffer_ = AllocateBuffer(ctx->memory_pool, size);
+    scratch_ = reinterpret_cast<uint16_t*>(scratch_buffer_->mutable_data());
+  }
+
+  std::shared_ptr<ResizableBuffer> scratch_buffer_;
+  uint16_t* scratch_;
+};
+
 template <>
 Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const int16_t* def_levels, const int16_t* rep_levels, int64_t num_levels,
@@ -2303,6 +2373,7 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY, FixedSizeBinaryType, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL128, Decimal128Type, FLBAType)
     WRITE_SERIALIZE_CASE(DECIMAL256, Decimal256Type, FLBAType)
+    WRITE_SERIALIZE_CASE(HALF_FLOAT, HalfFloatType, FLBAType)
     default:
       break;
   }
