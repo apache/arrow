@@ -69,20 +69,7 @@ func (l *List) Validate() (err error) {
 		return
 	}
 
-	var (
-		valueType arrow.DataType
-	)
-
-	switch dt := l.Type.(type) {
-	case *arrow.ListType:
-		valueType = dt.Elem()
-	case *arrow.LargeListType:
-		valueType = dt.Elem()
-	case *arrow.FixedSizeListType:
-		valueType = dt.Elem()
-	case *arrow.MapType:
-		valueType = dt.ValueType()
-	}
+	valueType := l.Type.(arrow.ListLikeType).Elem()
 	listType := l.Type
 
 	if !arrow.TypeEqual(l.Value.DataType(), valueType) {

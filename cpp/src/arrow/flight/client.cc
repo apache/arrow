@@ -569,6 +569,30 @@ Status FlightClient::DoAction(const FlightCallOptions& options, const Action& ac
   return DoAction(options, action).Value(results);
 }
 
+arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
+    const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
+  Action action{ActionType::kCancelFlightInfo.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(auto cancel_result, CancelFlightInfoResult::Deserialize(
+                                                std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return std::move(cancel_result);
+}
+
+arrow::Result<FlightEndpoint> FlightClient::RenewFlightEndpoint(
+    const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
+  ARROW_ASSIGN_OR_RAISE(auto body, request.SerializeToString());
+  Action action{ActionType::kRenewFlightEndpoint.type, Buffer::FromString(body)};
+  ARROW_ASSIGN_OR_RAISE(auto stream, DoAction(options, action));
+  ARROW_ASSIGN_OR_RAISE(auto result, stream->Next());
+  ARROW_ASSIGN_OR_RAISE(auto renewed_endpoint,
+                        FlightEndpoint::Deserialize(std::string_view(*result->body)));
+  ARROW_RETURN_NOT_OK(stream->Drain());
+  return std::move(renewed_endpoint);
+}
+
 arrow::Result<std::vector<ActionType>> FlightClient::ListActions(
     const FlightCallOptions& options) {
   std::vector<ActionType> actions;

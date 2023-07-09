@@ -154,7 +154,7 @@ class PARQUET_EXPORT ColumnProperties {
         statistics_enabled_(statistics_enabled),
         max_stats_size_(max_stats_size),
         compression_level_(Codec::UseDefaultCompressionLevel()),
-        page_index_enabled_(DEFAULT_IS_PAGE_INDEX_ENABLED) {}
+        page_index_enabled_(page_index_enabled) {}
 
   void set_encoding(Encoding::type encoding) { encoding_ = encoding; }
 
@@ -214,7 +214,7 @@ class PARQUET_EXPORT WriterProperties {
           write_batch_size_(DEFAULT_WRITE_BATCH_SIZE),
           max_row_group_length_(DEFAULT_MAX_ROW_GROUP_LENGTH),
           pagesize_(kDefaultDataPageSize),
-          version_(ParquetVersion::PARQUET_2_4),
+          version_(ParquetVersion::PARQUET_2_6),
           data_page_version_(ParquetDataPageVersion::V1),
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
@@ -296,7 +296,7 @@ class PARQUET_EXPORT WriterProperties {
     }
 
     /// Specify the Parquet file version.
-    /// Default PARQUET_2_4.
+    /// Default PARQUET_2_6.
     Builder* version(ParquetVersion::type version) {
       version_ = version;
       return this;
@@ -524,8 +524,11 @@ class PARQUET_EXPORT WriterProperties {
 
     /// Enable writing page index in general for all columns. Default disabled.
     ///
-    /// Page index contains statistics for data pages and can be used to skip pages
-    /// when scanning data in ordered and unordered columns.
+    /// Writing statistics to the page index disables the old method of writing
+    /// statistics to each data page header.
+    /// The page index makes filtering more efficient than the page header, as
+    /// it gathers all the statistics for a Parquet file in a single place,
+    /// avoiding scattered I/O.
     ///
     /// Please check the link below for more details:
     /// https://github.com/apache/parquet-format/blob/master/PageIndex.md
@@ -814,11 +817,14 @@ class PARQUET_EXPORT ArrowReaderProperties {
     }
   }
 
-  /// \brief Set the maximum number of rows to read into a chunk or record batch.
+  /// \brief Set the maximum number of rows to read into a record batch.
   ///
   /// Will only be fewer rows when there are no more rows in the file.
+  /// Note that some APIs such as ReadTable may ignore this setting.
   void set_batch_size(int64_t batch_size) { batch_size_ = batch_size; }
-  /// Return the batch size.
+  /// Return the batch size in rows.
+  ///
+  /// Note that some APIs such as ReadTable may ignore this setting.
   int64_t batch_size() const { return batch_size_; }
 
   /// Enable read coalescing (default false).

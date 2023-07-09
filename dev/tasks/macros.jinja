@@ -204,7 +204,7 @@ on:
     env:
       ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
     run: |
-      brew update
+      brew update || echo "brew update did not finish successfully"
       brew --version
       brew unlink python@2 || true
       brew config
@@ -354,6 +354,7 @@ on:
             "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
             "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
             "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
+            "SCCACHE_REGION": '${{ secrets.SCCACHE_REGION }}',
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
           }
  %}
@@ -367,6 +368,7 @@ on:
             "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
             "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
             "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
+            "SCCACHE_REGION": '$(SCCACHE_REGION)',
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
           }
   %}

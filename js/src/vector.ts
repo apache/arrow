@@ -30,7 +30,6 @@ import {
     wrapChunkedCall2,
     wrapChunkedIndexOf,
 } from './util/chunk.js';
-import { BigInt64Array, BigUint64Array } from './util/compat.js';
 
 import { instance as getVisitor } from './visitor/get.js';
 import { instance as setVisitor } from './visitor/set.js';
@@ -96,7 +95,7 @@ export class Vector<T extends DataType = any> {
         this.type = type;
         this.stride = strideForType(type);
         this.numChildren = type.children?.length ?? 0;
-        this.length = this._offsets[this._offsets.length - 1];
+        this.length = this._offsets.at(-1)!;
     }
 
     declare protected _offsets: number[] | Uint32Array;
@@ -149,7 +148,7 @@ export class Vector<T extends DataType = any> {
     }
 
     /**
-     * The Array or TypedAray constructor used for the JS representation
+     * The Array or TypedArray constructor used for the JS representation
      *  of the element's values in {@link Vector.prototype.toArray `toArray()`}.
      */
     public get ArrayType(): T['ArrayType'] { return this.type.ArrayType; }

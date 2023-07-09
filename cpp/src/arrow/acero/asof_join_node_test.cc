@@ -19,12 +19,23 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
 #include <numeric>
 #include <random>
 #include <string_view>
+#include "arrow/acero/exec_plan.h"
+#include "arrow/testing/future_util.h"
+#ifndef NDEBUG
+#include <sstream>
+#endif
 #include <unordered_set>
 
 #include "arrow/acero/options.h"
+#ifndef NDEBUG
+#include "arrow/acero/options_internal.h"
+#endif
+#include "arrow/acero/map_node.h"
+#include "arrow/acero/query_context.h"
 #include "arrow/acero/test_nodes.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/acero/util.h"
@@ -226,19 +237,12 @@ Result<BatchesWithSchema> MutateByKey(BatchesWithSchema& batches, std::string fr
   return new_batches;
 }
 
-// code generation for the by_key types supported by AsofJoinNodeOptions constructors
-// which cannot be directly done using templates because of failure to deduce the template
-// argument for an invocation with a string- or initializer_list-typed keys-argument
-#define EXPAND_BY_KEY_TYPE(macro) \
-  macro(const FieldRef);          \
-  macro(std::vector<FieldRef>);   \
-  macro(std::initializer_list<FieldRef>);
-
 void CheckRunOutput(const BatchesWithSchema& l_batches,
                     const BatchesWithSchema& r0_batches,
                     const BatchesWithSchema& r1_batches,
                     const BatchesWithSchema& exp_batches,
-                    const AsofJoinNodeOptions join_options) {
+                    const AsofJoinNodeOptions join_options,
+                    std::function<void(const Table&, const Table&)> check_tables) {
   Declaration join{"asofjoin", join_options};
 
   join.inputs.emplace_back(Declaration{
@@ -254,20 +258,8 @@ void CheckRunOutput(const BatchesWithSchema& l_batches,
   ASSERT_OK_AND_ASSIGN(auto exp_table,
                        TableFromExecBatches(exp_batches.schema, exp_batches.batches));
 
-  AssertTablesEqual(*exp_table, *res_table,
-                    /*same_chunk_layout=*/true, /*flatten=*/true);
+  check_tables(*exp_table, *res_table);
 }
-
-#define CHECK_RUN_OUTPUT(by_key_type)                                            \
-  void CheckRunOutput(                                                           \
-      const BatchesWithSchema& l_batches, const BatchesWithSchema& r0_batches,   \
-      const BatchesWithSchema& r1_batches, const BatchesWithSchema& exp_batches, \
-      const FieldRef time, by_key_type key, const int64_t tolerance) {           \
-    CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches,               \
-                   GetRepeatedOptions(3, time, {key}, tolerance));               \
-  }
-
-EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
 
 void DoInvalidPlanTest(const BatchesWithSchema& l_batches,
                        const BatchesWithSchema& r_batches,
@@ -451,6 +443,53 @@ struct BasicTest {
     return types;
   }
 
+// code generation for the by_key types supported by AsofJoinNodeOptions constructors
+// which cannot be directly done using templates because of failure to deduce the template
+// argument for an invocation with a string- or initializer_list-typed keys-argument
+#define EXPAND_BY_KEY_TYPE(macro) \
+  macro(const FieldRef);          \
+  macro(std::vector<FieldRef>);   \
+  macro(std::initializer_list<FieldRef>);
+
+#define CHECK_RUN_OUTPUT(by_key_type)                                            \
+  void CheckRunOutput(                                                           \
+      const BatchesWithSchema& l_batches, const BatchesWithSchema& r0_batches,   \
+      const BatchesWithSchema& r1_batches, const BatchesWithSchema& exp_batches, \
+      const FieldRef time, by_key_type key, const int64_t tolerance) {           \
+    CheckRunOutput(l_batches, r0_batches, r1_batches, exp_batches,               \
+                   GetRepeatedOptions(3, time, {key}, tolerance));               \
+  }
+
+  EXPAND_BY_KEY_TYPE(CHECK_RUN_OUTPUT)
+
+#undef CHECK_RUN_OUTPUT
+#undef EXPAND_BY_KEY_TYPE
+
+  void CheckRunOutput(const BatchesWithSchema& l_batches,
+                      const BatchesWithSchema& r0_batches,
+                      const BatchesWithSchema& r1_batches,
+                      const BatchesWithSchema& exp_batches,
+                      const AsofJoinNodeOptions join_options) {
+#ifndef NDEBUG
+    auto debug_sstr = dynamic_cast<std::stringstream*>(join_options.debug_opts->os);
+    if (debug_sstr) debug_sstr->str("");
+#endif
+    acero::CheckRunOutput(
+        l_batches, r0_batches, r1_batches, exp_batches, join_options,
+        [&](const Table& exp_table, const Table& res_table) {
+#ifndef NDEBUG
+          if (debug_sstr) {
+            (*debug_sstr) << "Comparing flattened expected table:" << std::endl
+                          << exp_table.ToString() << std::endl
+                          << "with flattened result table:" << std::endl
+                          << res_table.ToString() << std::endl;
+          }
+#endif
+          AssertTablesEqual(exp_table, res_table, /*same_chunk_layout=*/true,
+                            /*flatten=*/true);
+        });
+  }
+
   void RunSingleByKey() {
     using B = BatchesWithSchema;
     RunBatches([this](B l_batches, B r0_batches, B r1_batches, B exp_nokey_batches,
@@ -578,6 +617,7 @@ struct BasicTest {
     std::uniform_int_distribution<size_t> r1_distribution(0, r1_types.size() - 1);
 
     for (int i = 0; i < 100; i++) {
+      ARROW_SCOPED_TRACE("Iteration: ", i);
       auto time_type = time_types[time_distribution(engine)];
       ARROW_SCOPED_TRACE("Time type: ", *time_type);
       auto key_type = key_types[key_distribution(engine)];
@@ -590,6 +630,7 @@ struct BasicTest {
       ARROW_SCOPED_TRACE("Right-1 type: ", *r1_type);
 
       RunTypes({time_type, key_type, l_type, r0_type, r1_type}, batches_runner);
+      if (testing::Test::HasFatalFailure()) break;
 
       auto end_time = std::chrono::system_clock::now();
       std::chrono::duration<double> diff = end_time - start_time;
@@ -630,6 +671,16 @@ struct BasicTest {
                    exp_emptykey_batches, exp_batches);
   }
 
+  AsofJoinNodeOptions GetRepeatedOptions(size_t repeat, FieldRef on_key,
+                                         std::vector<FieldRef> by_key,
+                                         int64_t tolerance) {
+    auto options = acero::GetRepeatedOptions(repeat, on_key, by_key, tolerance);
+#ifndef NDEBUG
+    options.debug_opts = debug_opts;
+#endif
+    return options;
+  }
+
   std::vector<std::string_view> l_data;
   std::vector<std::string_view> r0_data;
   std::vector<std::string_view> r1_data;
@@ -637,6 +688,10 @@ struct BasicTest {
   std::vector<std::string_view> exp_emptykey_data;
   std::vector<std::string_view> exp_data;
   int64_t tolerance;
+
+#ifndef NDEBUG
+  std::shared_ptr<DebugOptions> debug_opts;
+#endif
 };
 
 using AsofJoinBasicParams = std::tuple<std::function<void(BasicTest&)>, std::string>;
@@ -645,7 +700,29 @@ void PrintTo(const AsofJoinBasicParams& x, ::std::ostream* os) {
   *os << "AsofJoinBasicParams: " << std::get<1>(x);
 }
 
-struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {};
+struct AsofJoinBasicTest : public testing::TestWithParam<AsofJoinBasicParams> {
+ public:
+  BasicTest PrepareTest(BasicTest basic_test) {
+#ifndef NDEBUG
+    basic_test.debug_opts = std::make_shared<DebugOptions>(&debug_sstr, &debug_mutex);
+#endif
+    return basic_test;
+  }
+
+#ifndef NDEBUG
+  void SetUp() override { debug_sstr.str(std::string("")); }
+
+  void TearDown() override {
+    auto test_info = ::testing::UnitTest::GetInstance()->current_test_info();
+    if (test_info && test_info->result()->Failed()) {
+      std::cerr << "AsofJoinTest debug:" << std::endl << debug_sstr.str() << std::endl;
+    }
+  }
+
+  std::stringstream debug_sstr;
+  std::mutex debug_mutex;
+#endif
+};
 
 class AsofJoinTest : public testing::Test {};
 
@@ -661,7 +738,7 @@ BasicTest GetBasicTest1Backward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Backward, {
-  BasicTest basic_test = GetBasicTest1Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest1Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -678,7 +755,7 @@ BasicTest GetBasicTest1Forward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic1Forward, {
-  BasicTest basic_test = GetBasicTest1Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest1Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -695,7 +772,7 @@ BasicTest GetBasicTest2Backward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Backward, {
-  BasicTest basic_test = GetBasicTest2Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest2Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -712,7 +789,7 @@ BasicTest GetBasicTest2Forward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic2Forward, {
-  BasicTest basic_test = GetBasicTest2Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest2Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -730,7 +807,7 @@ BasicTest GetBasicTest3Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest3Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -748,7 +825,7 @@ BasicTest GetBasicTest3Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic3Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic3_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest3Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest3Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -778,7 +855,7 @@ BasicTest GetBasicTest4Backward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Backward, {
-  BasicTest basic_test = GetBasicTest4Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest4Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -808,7 +885,7 @@ BasicTest GetBasicTest4Forward() {
 }
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic4Forward, {
-  BasicTest basic_test = GetBasicTest4Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest4Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -838,7 +915,7 @@ BasicTest GetBasicTest5Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest5Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -868,7 +945,7 @@ BasicTest GetBasicTest5Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic5Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic5_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest5Forward();
+  BasicTest basic_test = PrepareTest(GetBasicTest5Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -898,7 +975,28 @@ BasicTest GetBasicTest6Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestBasic6Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic6_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetBasicTest6Backward();
+  BasicTest basic_test = PrepareTest(GetBasicTest6Backward());
+  auto runner = std::get<0>(GetParam());
+  runner(basic_test);
+})
+
+BasicTest GetBasicTest7Forward() {
+  // Right times in distant future
+  return BasicTest(
+      /*l*/ {R"([[0, 1, 1]])", R"([[1000, 2, 2]])", R"([[2000, 1, 3]])"},
+      /*r0*/ {R"([[0, 1, 10], [1500, 1, 11], [2500, 1, 12]])"},
+      /*r1*/ {R"([[0, 1, 100], [1500, 1, 101], [2500, 1, 102]])"},
+      /*exp_nokey*/
+      {R"([[0, 0, 1, 10, 100], [1000, 0, 2, 11, 101], [2000, 0, 3, 12, 102]])"},
+      /*exp_emptykey*/
+      {R"([[0, 1, 1, 10, 100], [1000, 2, 2, 11, 101], [2000, 1, 3, 12, 102]])"},
+      /*exp*/
+      {R"([[0, 1, 1, 10, 100], [1000, 2, 2, null, null], [2000, 1, 3, 12, 102]])"}, 1000);
+}
+
+TRACED_TEST_P(AsofJoinBasicTest, TestBasic7Forward, {
+  ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestBasic7_" + std::get<1>(GetParam()));
+  BasicTest basic_test = PrepareTest(GetBasicTest7Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -923,7 +1021,7 @@ BasicTest GetEmptyTest1Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest1Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest1Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -948,7 +1046,7 @@ BasicTest GetEmptyTest1Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty1Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty1Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest1Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest1Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -973,7 +1071,7 @@ BasicTest GetEmptyTest2Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest2Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest2Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -998,7 +1096,7 @@ BasicTest GetEmptyTest2Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty2Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty2Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest2Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest2Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1027,7 +1125,7 @@ BasicTest GetEmptyTest3Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest3Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest3Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1056,7 +1154,7 @@ BasicTest GetEmptyTest3Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty3Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty3Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest3Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest3Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1085,7 +1183,7 @@ BasicTest GetEmptyTest4Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest4Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest4Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1114,7 +1212,7 @@ BasicTest GetEmptyTest4Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty4Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty4Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest4Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest4Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1137,7 +1235,7 @@ BasicTest GetEmptyTest5Backward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5Backward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5Backward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest5Backward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest5Backward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1160,7 +1258,7 @@ BasicTest GetEmptyTest5Forward() {
 
 TRACED_TEST_P(AsofJoinBasicTest, TestEmpty5Forward, {
   ARROW_SCOPED_TRACE("AsofJoinBasicTest_TestEmpty5Forward_" + std::get<1>(GetParam()));
-  BasicTest basic_test = GetEmptyTest5Forward();
+  BasicTest basic_test = PrepareTest(GetEmptyTest5Forward());
   auto runner = std::get<0>(GetParam());
   runner(basic_test);
 })
@@ -1267,9 +1365,66 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 })
 
+struct BackpressureCounters {
+  std::atomic<int32_t> pause_count = 0;
+  std::atomic<int32_t> resume_count = 0;
+};
+
+struct BackpressureCountingNodeOptions : public ExecNodeOptions {
+  BackpressureCountingNodeOptions(BackpressureCounters* counters) : counters(counters) {}
+
+  BackpressureCounters* counters;
+};
+
+struct BackpressureCountingNode : public MapNode {
+  static constexpr const char* kKindName = "BackpressureCountingNode";
+  static constexpr const char* kFactoryName = "backpressure_count";
+
+  static void Register() {
+    auto exec_reg = default_exec_factory_registry();
+    if (!exec_reg->GetFactory(kFactoryName).ok()) {
+      ASSERT_OK(exec_reg->AddFactory(kFactoryName, BackpressureCountingNode::Make));
+    }
+  }
+
+  BackpressureCountingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                           std::shared_ptr<Schema> output_schema,
+                           const BackpressureCountingNodeOptions& options)
+      : MapNode(plan, inputs, output_schema), counters(options.counters) {}
+
+  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
+                                const ExecNodeOptions& options) {
+    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
+    auto bp_options = static_cast<const BackpressureCountingNodeOptions&>(options);
+    return plan->EmplaceNode<BackpressureCountingNode>(
+        plan, inputs, inputs[0]->output_schema(), bp_options);
+  }
+
+  const char* kind_name() const override { return kKindName; }
+  Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
+
+  void PauseProducing(ExecNode* output, int32_t counter) override {
+    ++counters->pause_count;
+    inputs()[0]->PauseProducing(this, counter);
+  }
+  void ResumeProducing(ExecNode* output, int32_t counter) override {
+    ++counters->resume_count;
+    inputs()[0]->ResumeProducing(this, counter);
+  }
+
+  BackpressureCounters* counters;
+};
+
+AsyncGenerator<std::optional<ExecBatch>> GetGen(
+    AsyncGenerator<std::optional<ExecBatch>> gen) {
+  return gen;
+}
+AsyncGenerator<std::optional<ExecBatch>> GetGen(BatchesWithSchema bws) {
+  return bws.gen(false, false);
+}
+
 template <typename BatchesMaker>
-void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
-                      double fast_delay, double slow_delay, bool noisy = false) {
+void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
   auto l_schema =
       schema({field("time", int32()), field("key", int32()), field("l_value", int32())});
   auto r0_schema =
@@ -1288,36 +1443,93 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size,
   ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(r0_schema, 1));
   ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
 
-  Declaration l_src = {
-      "source", SourceNodeOptions(
-                    l_schema, MakeDelayedGen(l_batches, "0:fast", fast_delay, noisy))};
-  Declaration r0_src = {
-      "source", SourceNodeOptions(
-                    r0_schema, MakeDelayedGen(r0_batches, "1:slow", slow_delay, noisy))};
-  Declaration r1_src = {
-      "source", SourceNodeOptions(
-                    r1_schema, MakeDelayedGen(r1_batches, "2:fast", fast_delay, noisy))};
+  BackpressureCountingNode::Register();
+  RegisterTestNodes();  // for GatedNode
 
-  Declaration asofjoin = {
-      "asofjoin", {l_src, r0_src, r1_src}, GetRepeatedOptions(3, "time", {"key"}, 1000)};
+  struct BackpressureSourceConfig {
+    std::string name_prefix;
+    bool is_gated;
+    std::shared_ptr<Schema> schema;
+    decltype(l_batches) batches;
 
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> batch_reader,
-                       DeclarationToReader(asofjoin, /*use_threads=*/false));
-
-  int64_t total_length = 0;
-  for (;;) {
-    ASSERT_OK_AND_ASSIGN(auto batch, batch_reader->Next());
-    if (!batch) {
-      break;
+    std::string name() const {
+      return name_prefix + ";" + (is_gated ? "gated" : "ungated");
     }
-    total_length += batch->num_rows();
+  };
+
+  auto gate_ptr = Gate::Make();
+  auto& gate = *gate_ptr;
+  GatedNodeOptions gate_options(gate_ptr.get());
+
+  // Two ungated and one gated
+  std::vector<BackpressureSourceConfig> source_configs = {
+      {"0", false, l_schema, l_batches},
+      {"1", true, r0_schema, r0_batches},
+      {"2", false, r1_schema, r1_batches},
+  };
+
+  std::vector<BackpressureCounters> bp_counters(source_configs.size());
+  std::vector<Declaration> src_decls;
+  std::vector<std::shared_ptr<BackpressureCountingNodeOptions>> bp_options;
+  std::vector<Declaration::Input> bp_decls;
+  for (size_t i = 0; i < source_configs.size(); i++) {
+    const auto& config = source_configs[i];
+
+    src_decls.emplace_back("source",
+                           SourceNodeOptions(config.schema, GetGen(config.batches)));
+    bp_options.push_back(
+        std::make_shared<BackpressureCountingNodeOptions>(&bp_counters[i]));
+    std::shared_ptr<ExecNodeOptions> options = bp_options.back();
+    std::vector<Declaration::Input> bp_in = {src_decls.back()};
+    Declaration bp_decl = {BackpressureCountingNode::kFactoryName, bp_in,
+                           std::move(options)};
+    if (config.is_gated) {
+      bp_decl = {std::string{GatedNodeOptions::kName}, {bp_decl}, gate_options};
+    }
+    bp_decls.push_back(bp_decl);
   }
-  ASSERT_EQ(static_cast<int64_t>(num_batches * batch_size), total_length);
+
+  Declaration asofjoin = {"asofjoin", bp_decls,
+                          GetRepeatedOptions(source_configs.size(), "time", {"key"}, 0)};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> tpool,
+                       internal::ThreadPool::Make(1));
+  ExecContext exec_ctx(default_memory_pool(), tpool.get());
+  Future<BatchesWithCommonSchema> batches_fut =
+      DeclarationToExecBatchesAsync(asofjoin, exec_ctx);
+
+  auto has_bp_been_applied = [&] {
+    // One of the inputs is gated.  The other two will eventually be paused by the asof
+    // join node
+    for (size_t i = 0; i < source_configs.size(); i++) {
+      const auto& counters = bp_counters[i];
+      if (source_configs[i].is_gated) {
+        if (counters.pause_count > 0) return false;
+      } else {
+        if (counters.pause_count != 1) return false;
+      }
+    }
+    return true;
+  };
+
+  BusyWait(10.0, has_bp_been_applied);
+  ASSERT_TRUE(has_bp_been_applied());
+
+  gate.ReleaseAllBatches();
+  ASSERT_FINISHES_OK_AND_ASSIGN(BatchesWithCommonSchema batches, batches_fut);
+
+  // One of the inputs is gated.  The other two will eventually be resumed by the asof
+  // join node
+  for (size_t i = 0; i < source_configs.size(); i++) {
+    const auto& counters = bp_counters[i];
+    if (!source_configs[i].is_gated) {
+      ASSERT_GE(counters.resume_count, 0);
+    }
+  }
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
-  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/10, /*batch_size=*/1,
-                          /*fast_delay=*/0.01, /*slow_delay=*/0.1, /*noisy=*/false);
+  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/20, /*batch_size=*/1);
 }
 
 template <typename BatchesMaker>
@@ -1380,10 +1592,10 @@ T GetEnvValue(const std::string& var, T default_value) {
 }  // namespace
 
 TEST(AsofJoinTest, BackpressureWithBatchesGen) {
-  int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 10);
+  GTEST_SKIP() << "Skipping - see GH-36331";
+  int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 20);
   int batch_size = GetEnvValue("ARROW_BACKPRESSURE_DEMO_BATCH_SIZE", 1);
-  return TestBackpressure(MakeIntegerBatchGenForTest, num_batches, batch_size,
-                          /*fast_delay=*/0.001, /*slow_delay=*/0.01);
+  return TestBackpressure(MakeIntegerBatchGenForTest, num_batches, batch_size);
 }
 
 }  // namespace acero

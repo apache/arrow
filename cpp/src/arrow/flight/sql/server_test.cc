@@ -760,10 +760,26 @@ TEST_F(TestFlightSqlServer, TestCommandGetSqlInfoNoInfo) {
       sql_client->DoGet(call_options, flight_info->endpoints()[0].ticket));
 }
 
+TEST_F(TestFlightSqlServer, CancelFlightInfo) {
+  // Not supported
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
+  CancelFlightInfoRequest request{std::move(flight_info)};
+  ASSERT_RAISES(NotImplemented, sql_client->CancelFlightInfo({}, request));
+}
+
 TEST_F(TestFlightSqlServer, CancelQuery) {
   // Not supported
   ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   ASSERT_RAISES(NotImplemented, sql_client->CancelQuery({}, *flight_info));
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+}
+
+TEST_F(TestFlightSqlServer, RenewFlightEndpoint) {
+  // Not supported
+  ASSERT_OK_AND_ASSIGN(auto flight_info, sql_client->GetSqlInfo({}, {}));
+  auto request = RenewFlightEndpointRequest{flight_info->endpoints()[0]};
+  ASSERT_RAISES(NotImplemented, sql_client->RenewFlightEndpoint({}, request));
 }
 
 TEST_F(TestFlightSqlServer, Transactions) {

@@ -42,6 +42,13 @@ TEST(TestVectorNested, ListFlatten) {
   }
 }
 
+TEST(TestVectorNested, ListFlattenNulls) {
+  const auto ty = list(int32());
+  auto input = ArrayFromJSON(ty, "[null, null]");
+  auto expected = ArrayFromJSON(int32(), "[]");
+  CheckVectorUnary("list_flatten", input, expected);
+}
+
 TEST(TestVectorNested, ListFlattenChunkedArray) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input = ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], []]"});
@@ -74,6 +81,13 @@ TEST(TestVectorNested, ListFlattenFixedSizeList) {
       CheckVectorUnary("list_flatten", input, expected);
     }
   }
+}
+
+TEST(TestVectorNested, ListFlattenFixedSizeListNulls) {
+  const auto ty = fixed_size_list(int32(), 1);
+  auto input = ArrayFromJSON(ty, "[null, null]");
+  auto expected = ArrayFromJSON(int32(), "[]");
+  CheckVectorUnary("list_flatten", input, expected);
 }
 
 TEST(TestVectorNested, ListParentIndices) {

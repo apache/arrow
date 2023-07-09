@@ -126,6 +126,36 @@ gaflightsql_statement_query_get_query(GAFlightSQLStatementQuery *command)
 }
 
 
+G_DEFINE_TYPE(GAFlightSQLStatementUpdate,
+              gaflightsql_statement_update,
+              GAFLIGHTSQL_TYPE_COMMAND)
+
+static void
+gaflightsql_statement_update_init(GAFlightSQLStatementUpdate *object)
+{
+}
+
+static void
+gaflightsql_statement_update_class_init(GAFlightSQLStatementUpdateClass *klass)
+{
+}
+
+/**
+ * gaflightsql_statement_update_get_query:
+ * @command: A #GAFlightSQLStatementUpdate.
+ *
+ * Returns: The query to be executed.
+ *
+ * Since: 13.0.0
+ */
+const gchar *
+gaflightsql_statement_update_get_query(GAFlightSQLStatementUpdate *command)
+{
+  auto statement_update = gaflightsql_statement_update_get_raw(command);
+  return statement_update->query.c_str();
+}
+
+
 G_DEFINE_TYPE(GAFlightSQLStatementQueryTicket,
               gaflightsql_statement_query_ticket,
               GAFLIGHTSQL_TYPE_COMMAND)
@@ -248,6 +278,29 @@ namespace gaflightsql {
                                       "[flight-sql-server][do-get-statement]");
       }
       return std::make_unique<gaflight::DataStream>(gastream);
+    }
+
+    arrow::Result<int64_t>
+    DoPutCommandStatementUpdate(
+      const arrow::flight::ServerCallContext &context,
+      const arrow::flight::sql::StatementUpdate& command) override {
+      auto gacontext = gaflight_server_call_context_new_raw(&context);
+      auto gacommand = gaflightsql_statement_update_new_raw(&command);
+      GError *gerror = nullptr;
+      auto n_changed_records =
+        gaflightsql_server_do_put_command_statement_update(gaserver_,
+                                                           gacontext,
+                                                           gacommand,
+                                                           &gerror);
+      g_object_unref(gacommand);
+      g_object_unref(gacontext);
+      if (gerror) {
+        return garrow_error_to_status(
+          gerror,
+          arrow::StatusCode::UnknownError,
+          "[flight-sql-server][do-put-command-statement-update]");
+      }
+      return n_changed_records;
     }
 
   private:
@@ -381,6 +434,35 @@ gaflightsql_server_do_get_statement(GAFlightSQLServer *server,
   return (*(klass->do_get_statement))(server, context, ticket, error);
 }
 
+/**
+ * gaflightsql_server_do_put_command_statement_update:
+ * @server: A #GAFlightServer.
+ * @context: A #GAFlightServerCallContext.
+ * @command: A #GAFlightSQLStatementUpdate.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The number of changed records.
+ *
+ * Since: 13.0.0
+ */
+gint64
+gaflightsql_server_do_put_command_statement_update(
+  GAFlightSQLServer *server,
+  GAFlightServerCallContext *context,
+  GAFlightSQLStatementUpdate *command,
+  GError **error)
+{
+  auto klass = GAFLIGHTSQL_SERVER_GET_CLASS(server);
+  if (!(klass && klass->do_put_command_statement_update)) {
+    g_set_error(error,
+                GARROW_ERROR,
+                GARROW_ERROR_NOT_IMPLEMENTED,
+                "not implemented");
+    return 0;
+  }
+  return klass->do_put_command_statement_update(server, context, command, error);
+}
+
 
 G_END_DECLS
 
@@ -401,6 +483,25 @@ gaflightsql_statement_query_get_raw(GAFlightSQLStatementQuery *command)
   auto priv = GAFLIGHTSQL_COMMAND_GET_PRIVATE(command);
   return static_cast<const arrow::flight::sql::StatementQuery *>(priv->command);
 }
+
+
+GAFlightSQLStatementUpdate *
+gaflightsql_statement_update_new_raw(
+  const arrow::flight::sql::StatementUpdate *flight_command)
+{
+  return GAFLIGHTSQL_STATEMENT_UPDATE(
+    g_object_new(GAFLIGHTSQL_TYPE_STATEMENT_UPDATE,
+                 "command", flight_command,
+                 nullptr));
+}
+
+const arrow::flight::sql::StatementUpdate *
+gaflightsql_statement_update_get_raw(GAFlightSQLStatementUpdate *command)
+{
+  auto priv = GAFLIGHTSQL_COMMAND_GET_PRIVATE(command);
+  return static_cast<const arrow::flight::sql::StatementUpdate *>(priv->command);
+}
+
 
 GAFlightSQLStatementQueryTicket *
 gaflightsql_statement_query_ticket_new_raw(

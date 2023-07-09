@@ -58,5 +58,10 @@ public interface CompressionCodec {
      * Creates the codec based on the codec type.
      */
     CompressionCodec createCodec(CompressionUtil.CodecType codecType);
+
+    /**
+     * Creates the codec based on the codec type and compression level.
+     */
+    CompressionCodec createCodec(CompressionUtil.CodecType codecType, int compressionLevel);
   }
 }

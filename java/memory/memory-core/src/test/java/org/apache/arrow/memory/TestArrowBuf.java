@@ -20,32 +20,22 @@ package org.apache.arrow.memory;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 
 public class TestArrowBuf {
-
-  private static final int MAX_ALLOCATION = 8 * 1024;
-  private static RootAllocator allocator;
-
-  @BeforeClass
-  public static void beforeClass() {
-    allocator = new RootAllocator(MAX_ALLOCATION);
-  }
-
-  /** Ensure the allocator is closed. */
-  @AfterClass
-  public static void afterClass() {
-    if (allocator != null) {
-      allocator.close();
-    }
-  }
 
   @Test(expected = IndexOutOfBoundsException.class)
   public void testSliceOutOfBoundsLength_RaisesIndexOutOfBoundsException() {
@@ -96,7 +86,8 @@ public class TestArrowBuf {
       expected[i] = (byte) i;
     }
     ByteBuffer data = ByteBuffer.wrap(expected);
-    try (ArrowBuf buf = allocator.buffer(expected.length)) {
+    try (BufferAllocator allocator = new RootAllocator(128);
+         ArrowBuf buf = allocator.buffer(expected.length)) {
       buf.setBytes(0, data, 0, data.capacity());
 
       byte[] actual = new byte[expected.length];
@@ -117,7 +108,8 @@ public class TestArrowBuf {
     int from = 10;
     int to = arrLength;
     byte[] expected = Arrays.copyOfRange(arr, from, to);
-    try (ArrowBuf buf = allocator.buffer(expected.length)) {
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(expected.length)) {
       buf.setBytes(0, data, from, to - from);
 
       byte[] actual = new byte[expected.length];
@@ -138,7 +130,8 @@ public class TestArrowBuf {
     assertFalse(data.hasArray());
     assertFalse(data.isDirect());
     assertEquals(ByteOrder.BIG_ENDIAN, data.order());
-    try (ArrowBuf buf = allocator.buffer(expected.length)) {
+    try (BufferAllocator allocator = new RootAllocator(128);
+        ArrowBuf buf = allocator.buffer(expected.length)) {
       buf.setBytes(0, data);
       byte[] actual = new byte[expected.length];
       buf.getBytes(0, actual);
@@ -146,4 +139,43 @@ public class TestArrowBuf {
     }
   }
 
+  @Test
+  /**
+   * Test that allocation history is not recorded even though
+   * assertions are enabled in tests (GH-34338).
+   */
+  public void testEnabledAssertion() {
+    ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
+    try (BufferAllocator allocator = new RootAllocator(128)) {
+      allocator.buffer(2);
+      Exception e = assertThrows(IllegalStateException.class, () -> allocator.close());
+      assertFalse(e.getMessage().contains("event log for:"));
+    } finally {
+      ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
+    }
+  }
+
+  @Test
+  public void testEnabledHistoricalLog() {
+    ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(Level.TRACE);
+    try {
+      Field fieldDebug = BaseAllocator.class.getField("DEBUG");
+      fieldDebug.setAccessible(true);
+      Field modifiersDebug = Field.class.getDeclaredField("modifiers");
+      modifiersDebug.setAccessible(true);
+      modifiersDebug.setInt(fieldDebug, fieldDebug.getModifiers() & ~Modifier.FINAL);
+      fieldDebug.set(null, true);
+      try (BufferAllocator allocator = new RootAllocator(128)) {
+        allocator.buffer(2);
+        Exception e = assertThrows(IllegalStateException.class, () -> allocator.close());
+        assertTrue(e.getMessage().contains("event log for:")); // JDK8, JDK11
+      } finally {
+        fieldDebug.set(null, false);
+      }
+    } catch (Exception e) {
+      assertTrue(e.toString().contains("java.lang.NoSuchFieldException: modifiers")); // JDK17+
+    } finally {
+      ((Logger) LoggerFactory.getLogger("org.apache.arrow")).setLevel(null);
+    }
+  }
 }

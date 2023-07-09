@@ -49,8 +49,9 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-either.  For example, while ``sort_indices`` requires its first and only
-input to be an array.
+particular input types. For example, while ``array_sort_indices`` requires its 
+first and only input to be an array, the generalized ``sort_indices`` 
+function accepts an array, chunked array, record batch or table.
 
 .. _invoking-compute-functions:
 
@@ -1612,28 +1613,39 @@ Array-wise ("vector") functions
 Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
-Cumulative functions are vector functions that perform a running total on their
-input using a given binary associative operation and output an array containing
-the corresponding intermediate running values. The input is expected to be of
-numeric type. By default these functions do not detect overflow. They are also
-available in an overflow-checking variant, suffixed ``_checked``, which returns
-an ``Invalid`` :class:`Status` when overflow is detected.
+Cumulative functions are vector functions that perform a running accumulation on 
+their input using a given binary associative operation with an identidy element 
+(a monoid) and output an array containing the corresponding intermediate running 
+values. The input is expected to be of numeric type. By default these functions 
+do not detect overflow. They are alsoavailable in an overflow-checking variant, 
+suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
+overflow is detected.
 
 +------------------------+-------+-------------+-------------+--------------------------------+-------+
-| Function name          | Arity | Input types | Output type | Options class                  | Notes |
-+========================+=======+=============+=============+================================+=======+
-| cumulative_sum         | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes |
++=========================+=======+=============+=============+================================+=======+
+| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
 
-* \(1) CumulativeSumOptions has two optional parameters. The first parameter
-  :member:`CumulativeSumOptions::start` is a starting value for the running
-  sum. It has a default value of 0. Specified values of ``start`` must have the
-  same type as the input. The second parameter
-  :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+* \(1) CumulativeOptions has two optional parameters. The first parameter
+  :member:`CumulativeOptions::start` is a starting value for the running
+  accumulation. It has a default value of 0 for `sum`, 1 for `prod`, min of 
+  input type for `max`, and max of input type for `min`. Specified values of 
+  ``start`` must be castable to the input type. The second parameter
+  :member:`CumulativeOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
-  true, each null in the input produces a corresponding null in the output.
+  true, each null in the input produces a corresponding null in the output and
+  doesn't affect the accumulation forward.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1835,3 +1847,28 @@ replaced, based on the remaining inputs.
   results in a corresponding null in the output.
 
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
+
+Pairwise functions
+~~~~~~~~~~~~~~~~~~~~
+Pairwise functions are unary vector functions that perform a binary operation on 
+a pair of elements in the input array, typically on adjacent elements. The n-th
+output is computed by applying the binary operation to the n-th and (n-p)-th inputs, 
+where p is the period. The default period is 1, in which case the binary
+operation is applied to adjacent pairs of inputs. The period can also be
+negative, in which case the n-th output is computed by applying the binary
+operation to the n-th and (n+abs(p))-th inputs.
+
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| Function name          | Arity | Input types          | Output type          | Options class                  | Notes    |
++========================+=======+======================+======================+================================+==========+
+| pairwise_diff          | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(2)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| pairwise_diff_checked  | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(3)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+
+* \(1) Computes the first order difference of an array, It internally calls 
+  the scalar function ``Subtract`` (or the checked variant) to compute 
+  differences, so its behavior and supported types are the same as 
+  ``Subtract``. The period can be specified in :struct:`PairwiseOptions`. 
+* \(2) Wraps around the result when overflow is detected.
+* \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.

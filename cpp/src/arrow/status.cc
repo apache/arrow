@@ -120,6 +120,24 @@ std::string Status::ToString() const {
   return result;
 }
 
+std::string Status::ToStringWithoutContextLines() const {
+  auto message = ToString();
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+  while (true) {
+    auto last_new_line_position = message.rfind("\n");
+    if (last_new_line_position == std::string::npos) {
+      break;
+    }
+    // TODO: We may want to check /:\d+ /
+    if (message.find(":", last_new_line_position) == std::string::npos) {
+      break;
+    }
+    message = message.substr(0, last_new_line_position);
+  }
+#endif
+  return message;
+}
+
 void Status::Abort() const { Abort(std::string()); }
 
 void Status::Abort(const std::string& message) const {

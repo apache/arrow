@@ -108,6 +108,8 @@ garrow_type_from_raw(arrow::Type::type type)
     return GARROW_TYPE_LARGE_LIST;
   case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
     return GARROW_TYPE_MONTH_DAY_NANO_INTERVAL;
+  case arrow::Type::type::RUN_END_ENCODED:
+    return GARROW_TYPE_RUN_END_ENCODED;
   default:
     return GARROW_TYPE_NA;
   }
