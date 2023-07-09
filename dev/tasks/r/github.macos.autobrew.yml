@@ -39,14 +39,17 @@ jobs:
         run: |
           # minio and sccache are pre-installed on the self-hosted 10.13 runner
           if [ {{ '${{ matrix.platform }}' }} != macos-10.13  ]; then
-            # ensure unlinking OpenSSL to avoid mixing OpenSSL in the
-            # default path and OpenSSL installed by autobrew
-            brew unlink openssl || :
-            find / -name 'evp.h'
             # install minio for tests
             brew install minio
             brew install sccache
           fi
+
+          # ensure removing OpenSSL from the default paths to avoid
+          # mixing OpenSSL in the default paths and OpenSSL installed
+          # by autobrew
+          brew unlink openssl || :
+          conda uninstall -y openssl || :
+
           cd arrow/r
           {{ macros.pin_brew_formulae(is_fork)|indent }}
       - uses: r-lib/actions/setup-r@v2
