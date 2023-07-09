@@ -27,7 +27,7 @@ jobs:
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     env:
       # architecture name used for archery build
-      ARCH: ${{ matrix.platform.archery_arch }}
+      ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
     strategy:
       fail-fast: false
       matrix:
