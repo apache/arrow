@@ -26,9 +26,12 @@
 namespace parquet {
 
 class ColumnDescriptor;
+class Decryptor;
 class EncodedStatistics;
+class Encryptor;
 class FileMetaData;
 class InternalFileDecryptor;
+class InternalFileEncryptor;
 struct PageIndexLocation;
 class ReaderProperties;
 class RowGroupMetaData;
@@ -38,10 +41,10 @@ class RowGroupPageIndexReader;
 class PARQUET_EXPORT ColumnIndex {
  public:
   /// \brief Create a ColumnIndex from a serialized thrift message.
-  static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
-                                           const void* serialized_index,
-                                           uint32_t index_len,
-                                           const ReaderProperties& properties);
+  static std::unique_ptr<ColumnIndex> Make(
+      const ColumnDescriptor& descr, const void* serialized_index, uint32_t index_len,
+      const ReaderProperties& properties,
+      const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
 
   virtual ~ColumnIndex() = default;
 
@@ -124,9 +127,10 @@ struct PARQUET_EXPORT PageLocation {
 class PARQUET_EXPORT OffsetIndex {
  public:
   /// \brief Create a OffsetIndex from a serialized thrift message.
-  static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
-                                           uint32_t index_len,
-                                           const ReaderProperties& properties);
+  static std::unique_ptr<OffsetIndex> Make(
+      const void* serialized_index, uint32_t index_len,
+      const ReaderProperties& properties,
+      const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
 
   virtual ~OffsetIndex() = default;
 
@@ -283,7 +287,9 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// not write any data to the sink.
   ///
   /// \param[out] sink output stream to write the serialized message.
-  virtual void WriteTo(::arrow::io::OutputStream* sink) const = 0;
+  /// \param[in] encryptor encryptor to encrypt the serialized column index.
+  virtual void WriteTo(::arrow::io::OutputStream* sink,
+                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const = 0;
 
   /// \brief Create a ColumnIndex directly.
   ///
@@ -322,7 +328,9 @@ class PARQUET_EXPORT OffsetIndexBuilder {
   /// \brief Serialize the offset index thrift message.
   ///
   /// \param[out] sink output stream to write the serialized message.
-  virtual void WriteTo(::arrow::io::OutputStream* sink) const = 0;
+  /// \param[in] encryptor encryptor to encrypt the serialized offset index.
+  virtual void WriteTo(::arrow::io::OutputStream* sink,
+                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const = 0;
 
   /// \brief Create an OffsetIndex directly.
   virtual std::unique_ptr<OffsetIndex> Build() const = 0;
@@ -332,7 +340,8 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 class PARQUET_EXPORT PageIndexBuilder {
  public:
   /// \brief API convenience to create a PageIndexBuilder.
-  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema);
+  static std::unique_ptr<PageIndexBuilder> Make(
+      const SchemaDescriptor* schema, InternalFileEncryptor* file_encryptor = NULLPTR);
 
   virtual ~PageIndexBuilder() = default;
 

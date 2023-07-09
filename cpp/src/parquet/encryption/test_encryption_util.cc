@@ -21,12 +21,14 @@
 
 #include <sstream>
 
-#include <arrow/io/file.h>
-
+#include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
+#include "arrow/util/unreachable.h"
+
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
+#include "parquet/page_index.h"
 #include "parquet/test_util.h"
 
 using ::arrow::io::FileOutputStream;
@@ -206,6 +208,7 @@ void FileEncryptor::EncryptFile(
   WriterProperties::Builder prop_builder;
   prop_builder.compression(parquet::Compression::UNCOMPRESSED);
   prop_builder.encryption(encryption_configurations);
+  prop_builder.enable_write_page_index();
   std::shared_ptr<WriterProperties> writer_properties = prop_builder.build();
 
   PARQUET_ASSIGN_OR_THROW(auto out_file, FileOutputStream::Open(file));
@@ -506,6 +509,179 @@ void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
     }
     // make sure we got the same number of values the metadata says
     ASSERT_EQ(flba_md->num_values(), i);
+  }
+}
+
+void FileDecryptor::DecryptPageIndex(
+    std::string file,
+    std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+  std::string exception_msg;
+  parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
+  if (file_decryption_properties) {
+    reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
+  }
+
+  std::shared_ptr<::arrow::io::RandomAccessFile> source;
+  PARQUET_ASSIGN_OR_THROW(
+      source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
+
+  auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  CheckPageIndex(file_reader.get(), file_decryption_properties.get());
+
+  file_reader->Close();
+  PARQUET_THROW_NOT_OK(source->Close());
+}
+
+void FileDecryptor::CheckPageIndex(parquet::ParquetFileReader* file_reader,
+                                   FileDecryptionProperties* file_decryption_properties) {
+  std::shared_ptr<PageIndexReader> page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(page_index_reader, nullptr);
+
+  const std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
+  const int num_row_groups = file_metadata->num_row_groups();
+  const int num_columns = file_metadata->num_columns();
+  ASSERT_EQ(num_columns, 8);
+
+  // We cannot read page index of encrypted columns in the plaintext mode
+  std::vector<int32_t> need_row_groups(num_row_groups);
+  std::for_each(need_row_groups.begin(), need_row_groups.end(),
+                [i = 0](int32_t& v) mutable { v = i++; });
+  std::vector<int32_t> need_columns;
+  if (file_decryption_properties == nullptr) {
+    need_columns = {0, 1, 2, 3, 6, 7};
+  } else {
+    need_columns = {0, 1, 2, 3, 4, 5, 6, 7};
+  }
+
+  // Provide hint of requested columns to avoid accessing encrypted columns without
+  // decryption properties.
+  page_index_reader->WillNeed(
+      need_row_groups, need_columns,
+      PageIndexSelection{/*column_index=*/true, /*offset_index=*/true});
+
+  // Iterate over all the RowGroups in the file.
+  for (int r = 0; r < num_row_groups; ++r) {
+    auto row_group_page_index_reader = page_index_reader->RowGroup(r);
+    ASSERT_NE(row_group_page_index_reader, nullptr);
+
+    for (int c = 0; c < num_columns; ++c) {
+      // Skip reading encrypted columns without decryption properties.
+      if (file_decryption_properties == nullptr && (c == 4 || c == 5)) {
+        continue;
+      }
+
+      constexpr size_t kExpectedNumPages = 1;
+
+      // Check offset index.
+      auto offset_index = row_group_page_index_reader->GetOffsetIndex(c);
+      ASSERT_NE(offset_index, nullptr);
+      ASSERT_EQ(offset_index->page_locations().size(), kExpectedNumPages);
+      const auto& first_page = offset_index->page_locations()[0];
+      ASSERT_EQ(first_page.first_row_index, 0);
+      ASSERT_GT(first_page.compressed_page_size, 0);
+
+      // Int96 column does not have column index.
+      if (c == 3) {
+        continue;
+      }
+
+      // Check column index
+      auto column_index = row_group_page_index_reader->GetColumnIndex(c);
+      ASSERT_NE(column_index, nullptr);
+      ASSERT_EQ(column_index->null_pages().size(), kExpectedNumPages);
+      ASSERT_EQ(column_index->null_pages()[0], false);
+      ASSERT_EQ(column_index->encoded_min_values().size(), kExpectedNumPages);
+      ASSERT_EQ(column_index->encoded_max_values().size(), kExpectedNumPages);
+      ASSERT_TRUE(column_index->has_null_counts());
+
+      switch (c) {
+        case 0: {
+          auto bool_column_index =
+              std::dynamic_pointer_cast<BoolColumnIndex>(column_index);
+          ASSERT_NE(bool_column_index, nullptr);
+          constexpr int kExpectedNullCount = 0;
+          constexpr bool kExpectedMin = false;
+          constexpr bool kExpectedMax = true;
+          ASSERT_EQ(bool_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_EQ(static_cast<bool>(bool_column_index->min_values()[0]), kExpectedMin);
+          ASSERT_EQ(static_cast<bool>(bool_column_index->max_values()[0]), kExpectedMax);
+        } break;
+        case 1: {
+          auto int32_column_index =
+              std::dynamic_pointer_cast<Int32ColumnIndex>(column_index);
+          ASSERT_NE(int32_column_index, nullptr);
+          constexpr int kExpectedNullCount = 0;
+          constexpr int32_t kExpectedMin = 0;
+          constexpr int32_t kExpectedMax = 49;
+          ASSERT_EQ(int32_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_EQ(int32_column_index->min_values()[0], kExpectedMin);
+          ASSERT_EQ(int32_column_index->max_values()[0], kExpectedMax);
+        } break;
+        case 2: {
+          auto int64_column_index =
+              std::dynamic_pointer_cast<Int64ColumnIndex>(column_index);
+          ASSERT_NE(int64_column_index, nullptr);
+          constexpr int kExpectedNullCount = 0;
+          constexpr int64_t kExpectedMin = 0;
+          constexpr int64_t kExpectedMax = 99000000000000;
+          ASSERT_EQ(int64_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_EQ(int64_column_index->min_values()[0], kExpectedMin);
+          ASSERT_EQ(int64_column_index->max_values()[0], kExpectedMax);
+        } break;
+        case 4: {
+          auto float_column_index =
+              std::dynamic_pointer_cast<FloatColumnIndex>(column_index);
+          ASSERT_NE(float_column_index, nullptr);
+          constexpr int kExpectedNullCount = 0;
+          constexpr float kExpectedMin = 0.0F;
+          constexpr float kExpectedMax = 53.9F;
+          ASSERT_EQ(float_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_FLOAT_EQ(float_column_index->min_values()[0], kExpectedMin);
+          ASSERT_FLOAT_EQ(float_column_index->max_values()[0], kExpectedMax);
+        } break;
+        case 5: {
+          auto double_column_index =
+              std::dynamic_pointer_cast<DoubleColumnIndex>(column_index);
+          ASSERT_NE(double_column_index, nullptr);
+          constexpr int kExpectedNullCount = 0;
+          constexpr double kExpectedMin = 0.0;
+          constexpr double kExpectedMax = 54.4444439;
+          ASSERT_EQ(double_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_DOUBLE_EQ(double_column_index->min_values()[0], kExpectedMin);
+          ASSERT_DOUBLE_EQ(double_column_index->max_values()[0], kExpectedMax);
+        } break;
+        case 6: {
+          auto byte_array_column_index =
+              std::dynamic_pointer_cast<ByteArrayColumnIndex>(column_index);
+          ASSERT_NE(byte_array_column_index, nullptr);
+          constexpr int kExpectedNullCount = 25;
+          const std::string kExpectedMin = "parquet000";
+          const std::string kExpectedMax = "parquet048";
+          ASSERT_EQ(byte_array_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_EQ(ByteArrayToString(byte_array_column_index->min_values()[0]),
+                    kExpectedMin);
+          ASSERT_EQ(ByteArrayToString(byte_array_column_index->max_values()[0]),
+                    kExpectedMax);
+        } break;
+        case 7: {
+          auto flba_column_index =
+              std::dynamic_pointer_cast<FLBAColumnIndex>(column_index);
+          ASSERT_NE(flba_column_index, nullptr);
+          constexpr int kExpectedNullCount = 0;
+          const std::string kExpectedMin = "0 0 0 0 0 0 0 0 0 0 ";
+          const std::string kExpectedMax = "49 49 49 49 49 49 49 49 49 49 ";
+          ASSERT_EQ(flba_column_index->null_counts().at(0), kExpectedNullCount);
+          ASSERT_EQ(
+              FixedLenByteArrayToString(flba_column_index->min_values()[0], kFixedLength),
+              kExpectedMin);
+          ASSERT_EQ(
+              FixedLenByteArrayToString(flba_column_index->max_values()[0], kFixedLength),
+              kExpectedMax);
+        } break;
+        default:
+          ::arrow::Unreachable("Unexpected column index " + std::to_string(c));
+      }
+    }
   }
 }
 
