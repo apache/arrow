@@ -26,18 +26,14 @@ jobs:
     name: Build C++ libraries Ubuntu {{ arch }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     env:
-      # archery uses these environment variables
-      {% if arch == "x86_64" %}
-      ARCH: amd64
-      {% else %}
-      ARCH: arm64v8
-      {% endif %}
+      # architecture name used for archery build
+      ARCH: ${{ matrix.platform.archery_arch }}
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["ubuntu-latest"], arch: "x86_64"}
-          - { runs_on: ["self-hosted", "Linux", "arm64"], arch: "aarch_64" }
+          - { runs_on: ["ubuntu-latest"], arch: "x86_64", archery_arch: "amd64" }
+          - { runs_on: ["self-hosted", "Linux", "arm64"], arch: "aarch_64", archery_arch: "arm64v8" }
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
