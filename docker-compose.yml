@@ -1732,8 +1732,10 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
       <<: [*common, *ccache]
-      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_CUDA: "ON"
+      ARROW_CXX_FLAGS_DEBUG: "-g1"
+      ARROW_C_FLAGS_DEBUG: "-g1"
+      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
