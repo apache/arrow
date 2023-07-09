@@ -186,6 +186,9 @@ jobs:
       - name: Install sccache
         if: startsWith(matrix.platform, 'macos')
         run: brew install sccache
+      - name: Find
+        run: |
+          find / -name 'evp.h' || :
       - name: Build Binary
         id: build
         shell: Rscript {0}

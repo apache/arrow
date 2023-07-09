@@ -35,21 +35,20 @@ jobs:
             - "{{ macros.r_oldrel.ver }}"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
+      - name: Setup hosted
+        if: matrix.platform != 'macos-10.13'
+        run: |
+          # minio and sccache are pre-installed on the self-hosted 10.13 runner.
+          # Install minio for tests.
+          brew install minio
+          brew install sccache
+
+          # Ensure removing OpenSSL from the default paths to avoid
+          # mixing OpenSSL in the default paths and OpenSSL installed
+          # by autobrew.
+          brew unlink openssl || :
       - name: Configure autobrew script
         run: |
-          # minio and sccache are pre-installed on the self-hosted 10.13 runner
-          if [ {{ '${{ matrix.platform }}' }} != macos-10.13  ]; then
-            # install minio for tests
-            brew install minio
-            brew install sccache
-          fi
-
-          # ensure removing OpenSSL from the default paths to avoid
-          # mixing OpenSSL in the default paths and OpenSSL installed
-          # by autobrew
-          brew unlink openssl || :
-          conda uninstall -y openssl || :
-
           cd arrow/r
           {{ macros.pin_brew_formulae(is_fork)|indent }}
       - uses: r-lib/actions/setup-r@v2
@@ -80,7 +79,9 @@ jobs:
           ARROW_R_DEV: true
           FORCE_AUTOBREW: true
         {{ macros.github_set_sccache_envvars()|indent(8)}}
-        run: arrow/ci/scripts/r_test.sh arrow
+        run: |
+          find / -name 'evp.h' || :
+          arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
