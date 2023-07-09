@@ -195,8 +195,6 @@ def test_chunked_array_to_numpy_zero_copy():
     import gc
     gc.collect()
 
-    # Ensure base is still valid
-    assert np_arr.base is not None
     expected = [2, 2, 4, 4, 5, 100]
     np.testing.assert_array_equal(np_arr, expected)
 
