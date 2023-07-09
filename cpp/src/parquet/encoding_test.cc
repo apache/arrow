@@ -2087,7 +2087,7 @@ TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
   // TODO: repeats
-  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/ 0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0, 0));
   // TODO
 
   //  ASSERT_NO_FATAL_FAILURE(this->Execute(250, /*null_probability*/ 0));
@@ -2117,10 +2117,16 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<Type>::Accumulator acc;
-    if (::arrow::is_string(array->type()->id())) {
+    using BuilderType = typename EncodingTraits<Type>::BuilderType;
+    if constexpr (std::is_same_v<Type, ::arrow::StringType>) {
       acc.builder = std::make_unique<::arrow::StringBuilder>();
-    } else {
+    } else if constexpr (std::is_same_v<Type, ::arrow::BinaryType>) {
       acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    } else if constexpr (std::is_same_v<Type, FLBAType>) {
+      acc.builder = std::make_unique<::arrow::FixedSizeBinaryBuilder>(
+          array->type(), default_memory_pool());
+    } else {
+      acc.builder = std::make_unique<BuilderType>();
     }
 
     ASSERT_EQ(num_values,
@@ -2165,9 +2171,7 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-using DeltaByteArrayEncodingDirectPutTypes =
-    ::testing::Types<ByteArrayType>;  // TODO: FLBAType
-TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, DeltaByteArrayEncodingDirectPutTypes);
+TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
   ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
