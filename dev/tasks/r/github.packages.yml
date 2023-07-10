@@ -188,7 +188,7 @@ jobs:
         run: brew install sccache
       - name: Find
         run: |
-          find / -name 'evp.h' || :
+          find / -name 'include/openssl' || :
       - name: Build Binary
         id: build
         shell: Rscript {0}

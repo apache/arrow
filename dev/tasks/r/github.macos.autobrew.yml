@@ -80,7 +80,7 @@ jobs:
           FORCE_AUTOBREW: true
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
-          find / -name 'evp.h' || :
+          find / -name 'include/openssl' || :
           arrow/ci/scripts/r_test.sh arrow
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
