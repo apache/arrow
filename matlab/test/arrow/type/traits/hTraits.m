@@ -14,6 +14,8 @@
 % permissions and limitations under the License.
 
 classdef hTraits < matlab.unittest.TestCase
+% Superclass for tests that validate the behavior of "type trait objects"
+% like arrow.type.traits.StringTraits.
 
     properties (Abstract)
         TraitsConstructor
@@ -38,30 +40,39 @@ classdef hTraits < matlab.unittest.TestCase
     end
 
     methods(Test)
+
         function TestArrayConstructor(testCase)
             testCase.verifyEqual(testCase.Traits.ArrayConstructor, testCase.ArrayConstructor);
         end
+
         function TestArrayClassName(testCase)
             testCase.verifyEqual(testCase.Traits.ArrayClassName, testCase.ArrayClassName);
         end
+
         function TestArrayProxyClassName(testCase)
             testCase.verifyEqual(testCase.Traits.ArrayProxyClassName, testCase.ArrayProxyClassName);
         end
+
         function TestTypeConstructor(testCase)
             testCase.verifyEqual(testCase.Traits.TypeConstructor, testCase.TypeConstructor);
         end
+        
         function TestTypeClassName(testCase)
             testCase.verifyEqual(testCase.Traits.TypeClassName, testCase.TypeClassName);
         end
+
         function TestTypeProxyClassName(testCase)
             testCase.verifyEqual(testCase.Traits.TypeProxyClassName, testCase.TypeProxyClassName);
         end
+
         function TestMatlabConstructor(testCase)
             testCase.verifyEqual(testCase.Traits.MatlabConstructor, testCase.MatlabConstructor);
         end
+
         function TestMatlabClassName(testCase)
             testCase.verifyEqual(testCase.Traits.MatlabClassName, testCase.MatlabClassName);
         end
+        
     end
 
 end

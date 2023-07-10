@@ -13,18 +13,18 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tStringTraits < hTraits
+classdef tInt32Traits < hTraits
 
     properties
-        TraitsConstructor = @arrow.type.traits.StringTraits
-        ArrayConstructor = @arrow.array.StringArray
-        ArrayClassName = "arrow.array.StringArray"
-        ArrayProxyClassName = "arrow.array.proxy.StringArray"
-        TypeConstructor = @arrow.type.StringType
-        TypeClassName = "arrow.type.StringType"
-        TypeProxyClassName = "arrow.type.proxy.StringType"
-        MatlabConstructor = @string
-        MatlabClassName = "string"
+        TraitsConstructor = @arrow.type.traits.Int32Traits
+        ArrayConstructor = @arrow.array.Int32Array
+        ArrayClassName = "arrow.array.Int32Array"
+        ArrayProxyClassName = "arrow.array.proxy.Int32Array"
+        TypeConstructor = @arrow.type.Int32Type
+        TypeClassName = "arrow.type.Int32Type"
+        TypeProxyClassName = "arrow.type.proxy.Int32Type"
+        MatlabConstructor = @uint32
+        MatlabClassName = "uint32"
     end
 
 end
