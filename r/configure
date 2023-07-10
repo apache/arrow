@@ -253,6 +253,10 @@ do_autobrew () {
       cp tools/autobrew .
     fi
   fi
+
+  # Set BREW environment variable for cpp/cmake
+  export BREW=`pwd`/autobrew
+
   if ! . autobrew; then
     echo "Failed to retrieve binary for ${PKG_BREW_NAME}"
   fi
