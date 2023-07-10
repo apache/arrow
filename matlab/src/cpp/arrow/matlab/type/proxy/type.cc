@@ -19,7 +19,7 @@
 
 namespace arrow::matlab::type::proxy {
 
-    Type::Type(std::shared_ptr<arrow::DataType> type) : data_type{type} {
+    Type::Type(std::shared_ptr<arrow::DataType> type) : data_type{std::move(type)} {
         REGISTER_METHOD(Type, typeID);
         REGISTER_METHOD(Type, numFields);
     }

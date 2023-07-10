@@ -20,7 +20,7 @@
 
 namespace arrow::matlab::type::proxy {
 
-    FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type) : Type(type) {
+    FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type) : Type(std::move(type)) {
         REGISTER_METHOD(FixedWidthType, bitWidth);
     }
 

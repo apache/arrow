@@ -22,7 +22,7 @@
 
 namespace arrow::matlab::type::proxy {
 
-    TimestampType::TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type) : FixedWidthType(timestamp_type) {
+    TimestampType::TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type) : FixedWidthType(std::move(timestamp_type)) {
         REGISTER_METHOD(TimestampType, timeUnit);
         REGISTER_METHOD(TimestampType, timeZone);
     }
@@ -51,8 +51,8 @@ namespace arrow::matlab::type::proxy {
                                error::UKNOWN_TIME_UNIT_ERROR_ID);
 
         auto type = arrow::timestamp(timeunit, timezone);
-
-        return std::make_shared<TimestampTypeProxy>(std::static_pointer_cast<arrow::TimestampType>(type));
+        auto time_type = std::static_pointer_cast<arrow::TimestampType>(type);
+        return std::make_shared<TimestampTypeProxy>(std::move(time_type));
     }
 
     void TimestampType::timeZone(libmexclass::proxy::method::Context& context) {

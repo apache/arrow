@@ -40,14 +40,14 @@ class PrimitiveCType : public arrow::matlab::type::proxy::FixedWidthType {
     using ArrowDataType = arrow_type_t<CType>;
     
     public:
-        PrimitiveCType(std::shared_ptr<ArrowDataType> primitive_type) : arrow::matlab::type::proxy::FixedWidthType(primitive_type) {
+        PrimitiveCType(std::shared_ptr<ArrowDataType> primitive_type) : arrow::matlab::type::proxy::FixedWidthType(std::move(primitive_type)) {
         }
 
         ~PrimitiveCType() {}
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             auto data_type = arrow::CTypeTraits<CType>::type_singleton();
-            return std::make_shared<PrimitiveCType>(std::static_pointer_cast<ArrowDataType>(data_type));
+            return std::make_shared<PrimitiveCType>(std::static_pointer_cast<ArrowDataType>(std::move(data_type)));
         }
 };
 
