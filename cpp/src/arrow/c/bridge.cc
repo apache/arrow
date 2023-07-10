@@ -675,46 +675,43 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
+Status ValidateDeviceInfo(const ArrayData& data, DeviceType* device_type, int64_t* device_id) {
+  for (const auto& buf : data.buffers) {
+    if (!buf) {
+      continue;
+    }
+
+    if (*device_type == DeviceType::UNKNOWN) {
+      *device_type = buf->device_type();
+      *device_id = buf->device()->device_id();
+      continue;
+    }
+
+    if (buf->device_type() != *device_type) {
+      return Status::Invalid(
+          "Exporting device array with buffers on more than one device.");
+    }
+
+    if (buf->device()->device_id() != *device_id) {
+      return Status::Invalid(
+          "Exporting device array with buffers on multiple device ids.");
+    }  
+  }
+
+  for (const auto& child : data.child_data) {
+    RETURN_NOT_OK(ValidateDeviceInfo(*child, device_type, device_id));
+  }
+
+  return Status::OK();
+}
+
 Result<std::pair<DeviceType, int64_t>> ValidateDeviceInfo(const ArrayData& data) {
   DeviceType device_type = DeviceType::UNKNOWN;
   int64_t device_id = -1;
-
-  for (const auto& buf : data.buffers) {
-    if (!buf) {
-      // some buffers might be null
-      // for example, the null bitmap is optional if there's no nulls
-      continue;
-    }
-
-    if (device_type == DeviceType::UNKNOWN) {
-      device_type = buf->device_type();
-      device_id = buf->device()->device_id();
-      continue;
-    }
-
-    if (buf->device_type() != device_type) {
-      return Status::Invalid(
-          "Exporting device array with buffers on more than one device.");
-    }
-
-    if (buf->device()->device_id() != device_id) {
-      return Status::Invalid(
-          "Exporting device array with buffers on multiple device ids.");
-    }
-  }
-
-  // recursively check the children
-  auto info = std::make_pair(device_type, device_id);
-  for (const auto& child : data.child_data) {
-    ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*child));
-    if (info != device_info) {
-      return Status::Invalid(
-          "Exporting device array with buffers on more than one device.");
-    }
-  }
-
-  return info;
+  RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
+  return std::make_pair(device_type, device_id);
 }
+
 
 Status ExportDeviceArray(const Array& array, void* sync_event,
                          ReleaseEventFunc sync_release, struct ArrowDeviceArray* out,
