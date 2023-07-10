@@ -38,7 +38,7 @@
 #include "arrow/vendored/datetime.h"
 #include "arrow/vendored/strptime.h"
 
-namespace arrow {  
+namespace arrow {
 
 #define FASTFLOAT_ALLOWS_LEADING_PLUS 1
 
