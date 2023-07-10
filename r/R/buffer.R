@@ -30,7 +30,8 @@
 #' - `$size` : size in memory, in bytes
 #' - `$capacity`: possible capacity, in bytes
 #'
-#' @rdname buffer-class
+#' @rdname Buffer-class
+#' @name Buffer
 #' @examples
 #' my_buffer <- buffer(c(1, 2, 3, 4))
 #' my_buffer$is_mutable

@@ -181,7 +181,7 @@ reference:
     - arrow_array
     - chunked_array
     - record_batch
-    - Table
+    - arrow_table
     - buffer
     - vctrs_extension_array
 
@@ -207,7 +207,7 @@ reference:
 
 - title: Fields and schemas
   contents:
-  - Field
+  - field
   - schema
   - unify_schemas
   - as_schema
@@ -293,12 +293,14 @@ reference:
   desc: >
     R6 classes for Arrow data types.
   contents:
-  - Buffer-class
+  - Buffer
   - Scalar
   - Array
   - ChunkedArray
   - RecordBatch
   - Schema
+  - Field
+  - Table
   - DataType
   - ArrayData
   - DictionaryType

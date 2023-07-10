@@ -233,7 +233,7 @@ print_schema_fields <- function(s) {
 #'
 #' Create a schema or extract one from an object.
 #'
-#' @seealso [Schema] for detailed documentation of the Schema R6 object
+#' @seealso [schema-class] for detailed documentation of the Schema R6 object
 #' @param ... [fields][field], field name/[data type][data-type] pairs (or a list of), or object from which to extract
 #'  a schema
 #' @examples

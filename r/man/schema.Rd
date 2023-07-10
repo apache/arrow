@@ -35,5 +35,5 @@ tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
 schema(tab2)
 }
 \seealso{
-\link{Schema} for detailed documentation of the Schema R6 object
+\linkS4class{schema} for detailed documentation of the Schema R6 object
 }
