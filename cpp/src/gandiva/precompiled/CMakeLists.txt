@@ -31,15 +31,17 @@ set(PRECOMPILED_SRCS
     ../../arrow/util/basic_decimal.cc)
 
 if(MSVC)
-  # clang pretends to be a particular version of MSVC. Thestandard
+  # clang pretends to be a particular version of MSVC. The standard
   # library uses C++14 features, so we have to use that -std version
   # to get the IR compilation to work.
   # See https://cmake.org/cmake/help/latest/variable/MSVC_VERSION.html
   # for MSVC_VERSION and Visual Studio version.
-  if(MSVC_VERSION LESS 1930)
-    set(FMS_COMPATIBILITY 19.20)
-  elseif(MSVC_VERSION LESS 1920)
+  if(MSVC_VERSION LESS 1920)
     set(FMS_COMPATIBILITY 19.10)
+  elseif(MSVC_VERSION LESS 1930)
+    set(FMS_COMPATIBILITY 19.20)
+  elseif(MSVC_VERSION LESS 1940)
+    set(FMS_COMPATIBILITY 19.30)
   else()
     message(FATAL_ERROR "Unsupported MSVC_VERSION=${MSVC_VERSION}")
   endif()
