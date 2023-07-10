@@ -1710,7 +1710,6 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t write_batch_size
         int64_t dictionary_pagesize_limit
         object store_schema
-        object write_page_index
 
     def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
