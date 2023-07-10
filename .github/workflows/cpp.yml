@@ -242,10 +242,14 @@ jobs:
       matrix:
         os:
           - windows-2019
+          - windows-2022
         include:
           - os: windows-2019
             simd-level: AVX2
             title: AMD64 Windows 2019 C++17 AVX2
+          - os: windows-2022
+            simd-level: AVX2
+            title: AMD64 Windows 2022 C++17 AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -315,15 +319,19 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-ccache-windows-${{ env.CACHE_VERSION }}-
+          key: cpp-ccache-${{ matrix.os }}-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-${{ matrix.os }}-${{ env.CACHE_VERSION }}-
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2022-09-13"
       - name: Build
         shell: cmd
         run: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          if "${{ matrix.os }}" == "windows-2019" (
+            call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          ) else (
+            call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          )
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
