@@ -30,6 +30,7 @@ set of technologies that enable big data systems to process and move data fast.
 
 Major components of the project include:
 
+
  - [The Arrow Columnar In-Memory Format](https://arrow.apache.org/docs/dev/format/Columnar.html):
    a standard and efficient in-memory representation of various datatypes, plain or nested
  - [The Arrow IPC Format](https://arrow.apache.org/docs/dev/format/Columnar.html#serialization-and-interprocess-communication-ipc):
