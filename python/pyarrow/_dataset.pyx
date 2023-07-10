@@ -2006,10 +2006,10 @@ cdef class CacheOptions(_Weakrefable):
         return self.wrapped.lazy
 
     def __eq__(self, CacheOptions other):
-        attrs = (self.hole_size_limit, self.range_size_limit, self.lazy)
-        other_attrs = (
-            other.hole_size_limit, other.range_size_limit, other.lazy)
-        return attrs == other_attrs
+        try:
+            return self.unwrap().Equals(other.unwrap())
+        except TypeError:
+            return False
 
     @classmethod
     def _reconstruct(cls, kwargs):

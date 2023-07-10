@@ -53,6 +53,8 @@ struct ARROW_EXPORT CacheOptions {
            prefetch_limit == other.prefetch_limit;
   }
 
+  bool Equals(const CacheOptions& other) const { return *this == other; }
+
   /// \brief Construct CacheOptions from network storage metrics (e.g. S3).
   ///
   /// \param[in] time_to_first_byte_millis Seek-time or Time-To-First-Byte (TTFB) in
