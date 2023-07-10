@@ -34,7 +34,7 @@ RUN vcpkg install \
 
 # Install Java
 ARG java=1.8.0
-RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
+RUN yum install -y java-$java-openjdk-devel rh-maven35-maven && yum clean all
 ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
 
 # Install the gcs testbench
