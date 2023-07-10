@@ -462,7 +462,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def dictionary_page_offset(self):
-        """Offset of dictionary page reglative to column chunk offset (int)."""
+        """Offset of dictionary page relative to column chunk offset (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -470,7 +470,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """Offset of data page reglative to column chunk offset (int)."""
+        """Offset of data page relative to column chunk offset (int)."""
         return self.metadata.data_page_offset()
 
     @property
@@ -495,12 +495,12 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def has_offset_index(self):
-        """Has offset index"""
+        """Whether the column chunk has an offset index"""
         return self.metadata.GetOffsetIndexLocation().has_value()
 
     @property
     def has_column_index(self):
-        """Has column index"""
+        """Whether the column chunk has a column index"""
         return self.metadata.GetColumnIndexLocation().has_value()
 
 

@@ -875,10 +875,12 @@ store_schema : bool, default True
     timezone), or columns with duration type will be restored from the int64
     Parquet column.
 write_page_index : bool, default False
-    Parquet format supports page index that makes filtering when
-    reading more efficient. This option enables writing the page
-    index to the Parquet file.
-    It will not yet be used when reading using pyarrow.
+    Whether to write a page index in general for all columns.
+    Writing statistics to the page index disables the old method of writing
+    statistics to each data page header. The page index makes statistics-based
+    filtering more efficient than the page header, as it gathers all the
+    statistics for a Parquet file in a single place, avoiding scattered I/O.
+    Note that the page index is not yet used on the read size by PyArrow.
 """
 
 _parquet_writer_example_doc = """\
