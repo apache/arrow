@@ -229,8 +229,6 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' Schemas
-#'
 #' Create a schema or extract one from an object.
 #'
 #' @seealso [Schema] for detailed documentation of the Schema R6 object
