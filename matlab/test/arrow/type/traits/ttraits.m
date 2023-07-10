@@ -14,7 +14,7 @@
 % permissions and limitations under the License.
 
 classdef ttraits < matlab.unittest.TestCase
-    % Tests for the traits "gateway" function.
+    % Tests for the traits (i.e. arrow.type.traits.traits) "gateway" function.
 
     methods(Test)
 
