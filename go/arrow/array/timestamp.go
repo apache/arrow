@@ -93,7 +93,7 @@ func (a *Timestamp) ValueStr(i int) string {
 
 	dt := a.DataType().(*arrow.TimestampType)
 	z, _ := dt.GetZone()
-	return a.values[i].ToTime(dt.Unit).In(z).Format("2006-01-02 15:04:05.999999999Z")
+	return a.values[i].ToTime(dt.Unit).In(z).Format("2006-01-02 15:04:05.999999999Z0700")
 }
 
 func (a *Timestamp) GetOneForMarshal(i int) interface{} {
