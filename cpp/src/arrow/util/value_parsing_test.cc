@@ -142,7 +142,6 @@ TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("-Infinity", -std::numeric_limits<double>::infinity());
   AssertConversion<DoubleType>("Infinity", std::numeric_limits<double>::infinity());
 
-
   AssertConversionFails<DoubleType>("");
   AssertConversionFails<DoubleType>("e");
   AssertConversionFails<DoubleType>("1,5");
