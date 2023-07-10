@@ -462,7 +462,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def dictionary_page_offset(self):
-        """Offset of dictionary page reglative to column chunk offset (int)."""
+        """Offset of dictionary page relative to column chunk offset (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -470,7 +470,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """Offset of data page reglative to column chunk offset (int)."""
+        """Offset of data page relative to column chunk offset (int)."""
         return self.metadata.data_page_offset()
 
     @property
@@ -492,6 +492,16 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     def total_uncompressed_size(self):
         """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
+
+    @property
+    def has_offset_index(self):
+        """Whether the column chunk has an offset index"""
+        return self.metadata.GetOffsetIndexLocation().has_value()
+
+    @property
+    def has_column_index(self):
+        """Whether the column chunk has a column index"""
+        return self.metadata.GetColumnIndexLocation().has_value()
 
 
 cdef class RowGroupMetaData(_Weakrefable):
@@ -1455,7 +1465,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         data_page_version=None,
         FileEncryptionProperties encryption_properties=None,
         write_batch_size=None,
-        dictionary_pagesize_limit=None) except *:
+        dictionary_pagesize_limit=None,
+        write_page_index=False) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1599,6 +1610,13 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # a size larger than this then it will be latched to this value.
     props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
 
+    # page index
+
+    if write_page_index:
+        props.enable_write_page_index()
+    else:
+        props.disable_write_page_index()
+
     properties = props.build()
 
     return properties
@@ -1710,7 +1728,8 @@ cdef class ParquetWriter(_Weakrefable):
                   encryption_properties=None,
                   write_batch_size=None,
                   dictionary_pagesize_limit=None,
-                  store_schema=True):
+                  store_schema=True,
+                  write_page_index=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1740,7 +1759,8 @@ cdef class ParquetWriter(_Weakrefable):
             data_page_version=data_page_version,
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
-            dictionary_pagesize_limit=dictionary_pagesize_limit
+            dictionary_pagesize_limit=dictionary_pagesize_limit,
+            write_page_index=write_page_index
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
