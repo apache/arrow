@@ -3971,7 +3971,7 @@ macro(build_grpc)
 endmacro()
 
 if(ARROW_WITH_GRPC)
-  set(ARROW_GRPC_REQUIRED_VERSION "1.17.0")
+  set(ARROW_GRPC_REQUIRED_VERSION "1.30.0")
   if(NOT Protobuf_SOURCE STREQUAL gRPC_SOURCE)
     # ARROW-15495: Protobuf/gRPC must come from the same source
     message(STATUS "Forcing gRPC_SOURCE to Protobuf_SOURCE (${Protobuf_SOURCE})")
@@ -3986,10 +3986,17 @@ if(ARROW_WITH_GRPC)
                      grpc++)
 
   if(GRPC_VENDORED)
+    # Remove "v" from "vX.Y.Z"
+    string(SUBSTRING ${ARROW_GRPC_BUILD_VERSION} 1 -1 ARROW_GRPC_VERSION)
     set(GRPCPP_PP_INCLUDE TRUE)
     # Examples need to link to static Arrow if we're using static gRPC
     set(ARROW_GRPC_USE_SHARED OFF)
   else()
+    if(gRPCAlt_VERSION)
+      set(ARROW_GRPC_VERSION ${gRPCAlt_VERSION})
+    else()
+      set(ARROW_GRPC_VERSION ${gRPC_VERSION})
+    endif()
     # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
     # depending on the gRPC version.
     get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
