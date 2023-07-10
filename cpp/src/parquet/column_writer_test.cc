@@ -162,11 +162,12 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
-  void TestRequiredWithCodecOptions(
-      Encoding::type encoding, Compression::type compression, bool enable_dictionary,
-      bool enable_statistics, int64_t num_rows = SMALL_SIZE,
-      const ::arrow::util::CodecOptions& codec_options = CodecOptions{},
-      bool enable_checksum = false) {
+  void TestRequiredWithCodecOptions(Encoding::type encoding,
+                                    Compression::type compression, bool enable_dictionary,
+                                    bool enable_statistics, int64_t num_rows = SMALL_SIZE,
+                                    const std::shared_ptr<CodecOptions>& codec_options =
+                                        std::make_shared<CodecOptions>(),
+                                    bool enable_checksum = false) {
     this->GenerateData(num_rows);
 
     this->WriteRequiredWithCodecOptions(encoding, compression, enable_dictionary,
@@ -555,7 +556,7 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCodecOptions) {
-  auto codec_options = std::make_shared<::arrow::util::GZipCodecOptions>(10);
+  auto codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
   codec_options->gzip_format = ::arrow::util::GZipFormat::GZIP;
   codec_options->window_bits = 12;
   this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::GZIP, false, false,
