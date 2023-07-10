@@ -50,6 +50,7 @@ def test_type_integers():
         assert str(t) == name
 
 
+@pytest.mark.pandas
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
     if Version(pd.__version__) < Version("2.0.0"):
