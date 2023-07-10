@@ -203,8 +203,8 @@ template <typename ArrowType>
   std::vector<c_type> values;
   if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
     std::vector<int16_t> signed_values;
-    constexpr int16_t min = 0xf0e2;  // -1e4
-    constexpr int16_t max = 0x70e2;  // +1e4
+    constexpr auto min = static_cast<int16_t>(0xf0e2);  // -1e4
+    constexpr auto max = static_cast<int16_t>(0x70e2);  // +1e4
     ::arrow::randint(size, min, max, &signed_values);
     std::transform(signed_values.begin(), signed_values.end(), std::back_inserter(values),
                    [](int16_t v) { return static_cast<uint16_t>(v); });
