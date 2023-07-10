@@ -15,10 +15,13 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+.. _developers:
+
+Development
+===========
+
 .. toctree::
    :maxdepth: 2
-   :caption: Development
-   :hidden:
 
    contributing
    bug_reports

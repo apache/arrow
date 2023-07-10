@@ -94,6 +94,28 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
          API Reference
 
+.. grid:: 1
+   :gutter: 4
+   :padding: 2 2 0 0
+   :class-container: sd-text-center
+
+   .. grid-item-card:: Cookbook
+      :class-card: contrib-card
+      :shadow: md
+
+      Collection of recipes which demonstrate how to
+      solve many common tasks that users might need
+      to perform when working with arrow data
+
+      +++
+
+      .. button-link:: https://arrow.apache.org/cookbook/cpp/
+         :click-parent:
+         :color: secondary
+         :expand:
+
+         C++ Cookbook
+
 .. toctree::
    :maxdepth: 2
    :hidden:
@@ -102,3 +124,4 @@ Welcome to the Apache Arrow C++ implementation documentation!
    user_guide
    Examples <examples/index>
    api
+   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>

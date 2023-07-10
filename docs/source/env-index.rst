@@ -15,33 +15,37 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-Java Implementation
-===================
+.. _env-index:
 
-This is the documentation of the Java API of Apache Arrow. For more details
-on the Arrow format and other language bindings see the :doc:`parent documentation <../index>`.
-
-.. toctree::
-   :maxdepth: 2
-
-   quickstartguide
-   overview
-   install
-   memory
-   vector
-   vector_schema_root
-   table
-   ipc
-   algorithm
-   flight
-   flight_sql
-   flight_sql_jdbc_driver
-   dataset
-   substrait
-   cdata
-   jdbc
-   Reference (javadoc) <reference/index>
+Supported Environments
+----------------------
 
 .. toctree::
+   :maxdepth: 1
 
+   C/GLib <c_glib/index>
+   C++ <cpp/index>
+   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go>
+   Java <java/index>
+   JavaScript <js/index>
+   Julia <https://arrow.apache.org/julia/>
+   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
+   Python <python/index>
+   R <r/index>
+   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
+   Rust <https://docs.rs/crate/arrow/>
+   status
+
+Cookbooks
+---------
+
+.. _toc.cookbook:
+
+.. toctree::
+   :maxdepth: 1
+
+   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
    Java cookbook <https://arrow.apache.org/cookbook/java/>
+   Python cookbook <https://arrow.apache.org/cookbook/py/>
+   R cookbook <https://arrow.apache.org/cookbook/r/>

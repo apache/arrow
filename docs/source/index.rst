@@ -35,72 +35,93 @@ such topics as:
 **To learn how to use Arrow refer to the documentation specific to your
 target environment.**
 
-.. _toc.usage:
+.. grid:: 3
+   :gutter: 4
+   :padding: 2 2 0 0
+   :class-container: sd-text-center
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Supported Environments
+   .. grid-item-card:: Format
+      :img-top: ./images/file-pen.svg
+      :class-card: contrib-card
+      :shadow: md
 
-   C/GLib <c_glib/index>
-   C++ <cpp/index>
-   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://pkg.go.dev/github.com/apache/arrow/go>
-   Java <java/index>
-   JavaScript <js/index>
-   Julia <https://arrow.apache.org/julia/>
-   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
-   Python <python/index>
-   R <r/index>
-   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
-   Rust <https://docs.rs/crate/arrow/>
-   status
+      Read about the Apache Arrow format
+      specifications and protocols.
 
-.. _toc.cookbook:
+      +++
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Cookbooks
+      .. button-ref:: format
+         :ref-type: ref
+         :click-parent:
+         :color: secondary
+         :expand:
 
-   C++ <https://arrow.apache.org/cookbook/cpp/>
-   Java <https://arrow.apache.org/cookbook/java/>
-   Python <https://arrow.apache.org/cookbook/py/>
-   R <https://arrow.apache.org/cookbook/r/>
+         To the specifications
+
+   .. grid-item-card:: Developing
+      :class-card: contrib-card
+      :shadow: md
+
+      Find the documentation on the topic of
+      contributions, reviews, building of the libraries
+      from source, building of the documentation, 
+      continuous integration, benchmarks and the
+      release process.
+
+      +++
+
+      .. button-ref:: developers
+         :ref-type: ref
+         :click-parent:
+         :color: secondary
+         :expand:
+
+         To the documentation 
+   
+   .. grid-item-card:: Supported Environments
+      :img-top: ./developers/images/code-solid.svg
+      :class-card: contrib-card
+      :shadow: md
+
+      Read the documentation for your target
+      environment.
+
+      +++
+
+      .. button-ref:: env-index
+         :ref-type: ref
+         :click-parent:
+         :color: secondary
+         :expand:
+
+         To the projects
 
 .. _toc.columnar:
 
+Apache Arrow Columnar Format
+----------------------------
+
 .. toctree::
    :maxdepth: 2
-   :caption: Specifications and Protocols
 
-   format/Versioning
-   format/Columnar
-   format/CanonicalExtensions
-   format/Flight
-   format/FlightSql
-   format/Integration
-   format/CDataInterface
-   format/CStreamInterface
-   format/CDeviceDataInterface
-   format/ADBC
-   format/Other
-   format/Changing
-   format/Glossary
+   format/index
+
+Development Guide
+-----------------
 
 .. _toc.development:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Development
 
-   developers/contributing
-   developers/bug_reports
-   developers/guide/index
-   developers/overview
-   developers/reviewing
-   developers/cpp/index
-   developers/java/index
-   developers/python
-   developers/continuous_integration/index
-   developers/benchmarks
-   developers/documentation
-   developers/release
+   developers/index
+
+Documentation for supported environments
+----------------------------------------
+
+.. _toc.usage:
+
+.. toctree::
+   :maxdepth: 2
+
+   env-index

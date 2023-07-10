@@ -29,7 +29,6 @@
   --pst-color-h2: var(--color-text-base);
   /* Use softer blue from bootstrap's default info color */
   --pst-color-info: 23, 162, 184;
-  --pst-header-height: 0px;
 }
 
 code {
@@ -50,14 +49,13 @@ code {
 a.navbar-brand img {
   height: auto;
   width: auto;
-  max-height: 15vh;
+  max-height: var(--pst-header-height);
   max-width: 100%;
 }
 
 /* Contibuting landing page overview cards */
 
 .contrib-card {
-  background: #fff;
   border-radius: 0;
   padding: 30px 10px 20px 10px;
   margin: 10px 0px;
@@ -70,17 +68,17 @@ a.navbar-brand img {
 .contrib-card .sd-card-img-top {
   margin: 2px;
   height: 75px;
+  background: none !important;
 }
 
 .contrib-card .sd-card-title {
-  /* color: rgb(var(--pst-color-h1)) !important; */
+  color: var(--pst-color-primary);
   font-size: var(--pst-font-size-h3);
-  /* font-weight: bold; */
   padding: 1rem 0rem 0.5rem 0rem;
 }
 
 .contrib-card .sd-card-footer {
-  border: none;
+  border: none !important;
 }
 
 .contib-card .sd-card-footer p.sd-card-text{

@@ -288,16 +288,34 @@ html_theme = 'pydata_sphinx_theme'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
+
 html_theme_options = {
-    "show_toc_level": 2,
     "use_edit_page_button": True,
+    "logo": {
+      "image_light": "_static/arrow.png",
+      "image_dark": "_static/arrow-dark.png",
+    },
+    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "icon_links": [
+        {
+            "name": "GitHub",
+            "url": "https://github.com/apache/arrow",
+            "icon": "fa-brands fa-square-github",
+        },
+        {
+            "name": "Twitter",
+            "url": "https://twitter.com/ApacheArrow",
+            "icon": "fa-brands fa-square-twitter",
+        },
+    ],
+    "switcher": {
+        # TODO: add versions.json to the arrow-site and change the link
+        "json_url": "https://gist.githubusercontent.com/AlenkaF/9cc5820d3030cefcd2eee48e1ea58dc5/raw/8eb52d2878ab9e689f59fecb66bb20667a3e7d6a/versions.json",
+        "version_match": version,
+    }
 }
 
 html_context = {
-    "switcher_json_url": "/docs/_static/versions.json",
-    "switcher_template_url": "https://arrow.apache.org/docs/{version}",
-    # for local testing
-    # "switcher_template_url": "http://0.0.0.0:8000/docs/{version}",
     "github_user": "apache",
     "github_repo": "arrow",
     "github_version": "main",
@@ -319,7 +337,7 @@ html_title = u'Apache Arrow v{}'.format(version)
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
 #
-html_logo = "_static/arrow.png"
+# html_logo = "_static/arrow.png"
 
 # The name of an image file (relative to this directory) to use as a favicon of
 # the docs.  This file should be a Windows icon file (.ico) being 16x16 or
@@ -354,10 +372,9 @@ html_css_files = ['theme_overrides.css']
 
 # Custom sidebar templates, maps document names to template names.
 #
-html_sidebars = {
+# html_sidebars = {
 #    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
-    '**': ['docs-sidebar.html'],
-}
+# }
 
 # The base URL which points to the root of the HTML documentation,
 # used for canonical url

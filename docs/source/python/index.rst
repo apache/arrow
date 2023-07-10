@@ -62,3 +62,7 @@ files into Arrow structures.
    api
    getting_involved
    benchmarks
+
+.. toctree::
+
+   Python cookbook <https://arrow.apache.org/cookbook/py/>
