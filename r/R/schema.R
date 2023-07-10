@@ -76,7 +76,6 @@
 #'   the metadata is dropped.
 #'
 #' @rdname schema-class
-#' @name Schema
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
