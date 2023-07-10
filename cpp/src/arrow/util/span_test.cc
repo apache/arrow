@@ -88,6 +88,34 @@ TEST(Span, Size) {
   EXPECT_EQ(span(vec).size_bytes(), sizeof(int) * 999);
 }
 
+TEST(Span, Equality) {
+  {
+    // exercise integral branch with memcmp
+    EXPECT_EQ(span<int>(), span<int>());
+
+    int arr[] = {1, 2, 3};
+    EXPECT_EQ(span(arr), span(arr));
+    EXPECT_EQ(span(arr).subspan(1), span(arr).subspan(1));
+
+    std::vector<int> vec{1, 2, 3};
+    EXPECT_EQ(span(vec), span(arr));
+    EXPECT_EQ(span(vec).subspan(1), span(arr).subspan(1));
+  }
+
+  {
+    // exercise non-integral branch with for loop
+    EXPECT_EQ(span<std::string>(), span<std::string>());
+
+    std::string arr[] = {"a", "b", "c"};
+    EXPECT_EQ(span(arr), span(arr));
+    EXPECT_EQ(span(arr).subspan(1), span(arr).subspan(1));
+
+    std::vector<std::string> vec{"a", "b", "c"};
+    EXPECT_EQ(span(vec), span(arr));
+    EXPECT_EQ(span(vec).subspan(1), span(arr).subspan(1));
+  }
+}
+
 TEST(Span, SubSpan) {
   int arr[] = {1, 2, 3};
   span s(arr);
