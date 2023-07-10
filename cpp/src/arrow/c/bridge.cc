@@ -675,7 +675,8 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
-Status ValidateDeviceInfo(const ArrayData& data, DeviceType* device_type, int64_t* device_id) {
+Status ValidateDeviceInfo(const ArrayData& data, DeviceType* device_type,
+                          int64_t* device_id) {
   for (const auto& buf : data.buffers) {
     if (!buf) {
       continue;
@@ -695,7 +696,7 @@ Status ValidateDeviceInfo(const ArrayData& data, DeviceType* device_type, int64_
     if (buf->device()->device_id() != *device_id) {
       return Status::Invalid(
           "Exporting device array with buffers on multiple device ids.");
-    }  
+    }
   }
 
   for (const auto& child : data.child_data) {
@@ -711,7 +712,6 @@ Result<std::pair<DeviceType, int64_t>> ValidateDeviceInfo(const ArrayData& data)
   RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
   return std::make_pair(device_type, device_id);
 }
-
 
 Status ExportDeviceArray(const Array& array, void* sync_event,
                          ReleaseEventFunc sync_release, struct ArrowDeviceArray* out,
