@@ -14,137 +14,292 @@
 % permissions and limitations under the License.
 
 classdef ttraits < matlab.unittest.TestCase
-    % Tests for the traits (i.e. arrow.type.traits.traits) "gateway" function.
+    % Tests for the type traits (i.e. arrow.type.traits.traits)
+    % "gateway" function.
 
     methods(Test)
 
-        function TestUInt8Type(testCase)
+        function TestUInt8(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.UInt8Type();
-            expectedTraits = arrow.type.traits.UInt8Traits();
+            typeID = ID.UInt8;
+            expectedTraits = UInt8Traits();
+
+            actualTraits = traits(typeID);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestUInt16(testCase)
+            import arrow.type.traits.*
+            import arrow.type.*
+
+            type = ID.UInt16;
+            expectedTraits = UInt16Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestUInt16Type(testCase)
+        function TestUInt32(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.UInt16Type();
-            expectedTraits = arrow.type.traits.UInt16Traits();
+            type = ID.UInt32;
+            expectedTraits = UInt32Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestUInt32Type(testCase)
+        function TestUInt64(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.UInt32Type();
-            expectedTraits = arrow.type.traits.UInt32Traits();
+            type = ID.UInt64;
+            expectedTraits = UInt64Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestUInt64Type(testCase)
+        function TestInt8(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.UInt64Type();
-            expectedTraits = arrow.type.traits.UInt64Traits();
+            type = ID.Int8;
+            expectedTraits = Int8Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestInt8Type(testCase)
+        function TestInt16(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.Int8Type();
-            expectedTraits = arrow.type.traits.Int8Traits();
+            type = ID.Int16;
+            expectedTraits = Int16Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestInt16Type(testCase)
+        function TestInt32(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.Int16Type();
-            expectedTraits = arrow.type.traits.Int16Traits();
-
-            actualTraits = traits(type);
-
-            testCase.verifyEqual(actualTraits, expectedTraits);
-        end
-
-        function TestInt32Type(testCase)
-            import arrow.type.traits.*
-
-            type = arrow.type.Int32Type();
-            expectedTraits = arrow.type.traits.Int32Traits();
+            type = ID.Int32;
+            expectedTraits = Int32Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
         
-        function TestInt64Type(testCase)
+        function TestInt64(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.Int64Type();
-            expectedTraits = arrow.type.traits.Int64Traits();
+            type = ID.Int64;
+            expectedTraits = Int64Traits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestStringType(testCase)
+        function TestString(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.StringType();
-            expectedTraits = arrow.type.traits.StringTraits();
+            type = ID.String;
+            expectedTraits = StringTraits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestTimestampType(testCase)
+        function TestTimestamp(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.TimestampType();
-            expectedTraits = arrow.type.traits.TimestampTraits();
+            type = ID.Timestamp;
+            expectedTraits = TimestampTraits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestBooleanType(testCase)
+        function TestBoolean(testCase)
             import arrow.type.traits.*
+            import arrow.type.*
 
-            type = arrow.type.BooleanType();
-            expectedTraits = arrow.type.traits.BooleanTraits();
+            type = ID.Boolean;
+            expectedTraits = BooleanTraits();
 
             actualTraits = traits(type);
 
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
-        function TestErrorIfNotType(testCase)
+        function TestMatlabUInt8(testCase)
             import arrow.type.traits.*
 
-            type = "not-a-type";
+            type = "uint8";
+            expectedTraits = UInt8Traits();
 
-            testCase.verifyError(@() traits(type), "MATLAB:validation:UnableToConvert");
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabUInt16(testCase)
+            import arrow.type.traits.*
+
+            type = "uint16";
+            expectedTraits = UInt16Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabUInt32(testCase)
+            import arrow.type.traits.*
+
+            type = "uint32";
+            expectedTraits = UInt32Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabUInt64(testCase)
+            import arrow.type.traits.*
+
+            type = "uint64";
+            expectedTraits = UInt64Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabInt8(testCase)
+            import arrow.type.traits.*
+
+            type = "int8";
+            expectedTraits = Int8Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabInt16(testCase)
+            import arrow.type.traits.*
+
+            type = "int16";
+            expectedTraits = Int16Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabInt32(testCase)
+            import arrow.type.traits.*
+
+            type = "int32";
+            expectedTraits = Int32Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabInt64(testCase)
+            import arrow.type.traits.*
+
+            type = "int64";
+            expectedTraits = Int64Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabSingle(testCase)
+            import arrow.type.traits.*
+
+            type = "single";
+            expectedTraits = Float32Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabDouble(testCase)
+            import arrow.type.traits.*
+
+            type = "double";
+            expectedTraits = Float64Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabLogical(testCase)
+            import arrow.type.traits.*
+
+            type = "logical";
+            expectedTraits = BooleanTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabString(testCase)
+            import arrow.type.traits.*
+
+            type = "string";
+            expectedTraits = StringTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabDatetime(testCase)
+            import arrow.type.traits.*
+
+            type = "datetime";
+            expectedTraits = TimestampTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestErrorIfUnsupportedMatlabClass(testCase)
+            import arrow.type.traits.*
+
+            type = "not-a-class";
+
+            testCase.verifyError(@() traits(type), "arrow:type:traits:UnsupportedMatlabClass");
         end
 
     end

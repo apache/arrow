@@ -14,41 +14,73 @@
 % permissions and limitations under the License.
 
 function typeTraits = traits(type)
-    arguments
-        type(1,1) arrow.type.Type
-    end
-    
+    % "Gateway" function that links an arrow Type ID enumeration (e.g.
+    % arrow.type.ID.String) or a MATLAB class string (e.g. "datetime")
+    % to associated type and array information.
     import arrow.type.traits.*
-    typeClass = string(class(type));
+    import arrow.type.*
     
-    switch typeClass
-        case "arrow.type.UInt8Type"
-            typeTraits = UInt8Traits();
-        case "arrow.type.UInt16Type"
-            typeTraits = UInt16Traits();
-        case "arrow.type.UInt32Type"
-            typeTraits = UInt32Traits();
-        case "arrow.type.UInt64Type"
-            typeTraits = UInt64Traits();
-        case "arrow.type.Int8Type"
-            typeTraits = Int8Traits();
-        case "arrow.type.Int16Type"
-            typeTraits = Int16Traits();
-        case "arrow.type.Int32Type"
-            typeTraits = Int32Traits();
-        case "arrow.type.Int64Type"
-            typeTraits = Int64Traits();
-        case "arrow.type.Float32Type"
-            typeTraits = Float32Traits();
-        case "arrow.type.Float64Type"
-            typeTraits = Float64Traits();
-        case "arrow.type.BooleanType"
-            typeTraits = BooleanTraits();
-        case "arrow.type.StringType"
-            typeTraits = StringTraits();
-        case "arrow.type.TimestampType"
-            typeTraits = TimestampTraits();
-        otherwise
-            error("arrow:type:traits:UnknownType", "Unknown type: " + typeClass);
+    if isa(type, "arrow.type.ID")
+        switch type
+            case ID.UInt8
+                typeTraits = UInt8Traits();
+            case ID.UInt16
+                typeTraits = UInt16Traits();
+            case ID.UInt32
+                typeTraits = UInt32Traits();
+            case ID.UInt64
+                typeTraits = UInt64Traits();
+            case ID.Int8
+                typeTraits = Int8Traits();
+            case ID.Int16
+                typeTraits = Int16Traits();
+            case ID.Int32
+                typeTraits = Int32Traits();
+            case ID.Int64
+                typeTraits = Int64Traits();
+            case ID.Float32
+                typeTraits = Float32Traits();
+            case ID.Float64
+                typeTraits = Float64Traits();
+            case ID.Boolean
+                typeTraits = BooleanTraits();
+            case ID.String
+                typeTraits = StringTraits();
+            case ID.Timestamp
+                typeTraits = TimestampTraits();
+            otherwise
+                error("arrow:type:traits:UnsupportedArrowTypeID", "Unsupported Arrow type ID: " + type);
+        end
+    elseif isa(type, "string") % MATLAB class string
+        switch type
+            case "uint8"
+                typeTraits = UInt8Traits();
+            case "uint16"
+                typeTraits = UInt16Traits();
+            case "uint32"
+                typeTraits = UInt32Traits();
+            case "uint64"
+                typeTraits = UInt64Traits();
+            case "int8"
+                typeTraits = Int8Traits();
+            case "int16"
+                typeTraits = Int16Traits();
+            case "int32"
+                typeTraits = Int32Traits();
+            case "int64"
+                typeTraits = Int64Traits();
+            case "single"
+                typeTraits = Float32Traits();
+            case "double"
+                typeTraits = Float64Traits();
+            case "logical"
+                typeTraits = BooleanTraits();
+            case "string"
+                typeTraits = StringTraits();
+            case "datetime"
+                typeTraits = TimestampTraits();
+            otherwise
+                error("arrow:type:traits:UnsupportedMatlabClass", "Unsupported MATLAB class: " + type);
+        end
     end
 end
