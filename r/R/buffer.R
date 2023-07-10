@@ -30,8 +30,7 @@
 #' - `$size` : size in memory, in bytes
 #' - `$capacity`: possible capacity, in bytes
 #'
-#' @rdname buffer
-#' @name buffer
+#' @rdname buffer-class
 #' @examples
 #' my_buffer <- buffer(c(1, 2, 3, 4))
 #' my_buffer$is_mutable
@@ -69,8 +68,11 @@ Buffer$create <- function(x) {
   }
 }
 
+#' Create a Buffer
+#' @rdname buffer
 #' @param x R object. Only raw, numeric and integer vectors are currently supported
 #' @return an instance of `Buffer` that borrows memory from `x`
+#' @seealso [Buffer]
 #' @export
 buffer <- Buffer$create
 
