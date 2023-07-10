@@ -28,12 +28,22 @@ jobs:
     env:
       # architecture name used for archery build
       ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
+      ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
+      ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["ubuntu-latest"], arch: "x86_64", archery_arch: "amd64" }
-          - { runs_on: ["self-hosted", "Linux", "arm64"], arch: "aarch_64", archery_arch: "arm64v8" }
+          - runs_on: ["ubuntu-latest"]
+            arch: "x86_64"
+            archery_arch: "amd64"
+            archery_arch_alias: "x86_64"
+            archery_arch_short: "amd64"
+          - runs_on: ["self-hosted", "Linux", "arm64"]
+            arch: "aarch_64"
+            archery_arch: "arm64v8"
+            archery_arch_alias: "aarch64"
+            archery_arch_short: "arm64"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
