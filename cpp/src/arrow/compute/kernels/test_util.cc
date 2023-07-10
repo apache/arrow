@@ -263,23 +263,6 @@ void CheckScalarUnary(std::string func_name, std::shared_ptr<DataType> in_ty,
 
 void CheckVectorUnary(std::string func_name, Datum input, Datum expected,
                       const FunctionOptions* options) {
-  // WTF debug
-  std::cout << "input: ";
-  switch (input.kind()) {
-    case Datum::ARRAY:
-      std::cout << input.make_array()->ToString();
-      break;
-    case Datum::CHUNKED_ARRAY:
-      std::cout << input.chunked_array()->ToString();
-      break;
-    case Datum::SCALAR:
-      std::cout << input.scalar()->ToString();
-      break;
-    default:
-      std::cout << input.ToString();
-      break;
-  }
-  std::cout << std::endl;
   ASSERT_OK_AND_ASSIGN(Datum actual, CallFunction(func_name, {input}, options));
   ValidateOutput(actual);
   AssertDatumsEqual(expected, actual, /*verbose=*/true);

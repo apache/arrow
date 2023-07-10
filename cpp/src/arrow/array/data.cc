@@ -269,8 +269,6 @@ void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
   int num_buffers = GetNumBuffers(*type);
   for (int i = 0; i < num_buffers; ++i) {
     alignas(int64_t) static std::array<uint8_t, sizeof(int64_t) * 2> kZeros{0};
-    // WTF debug
-    DCHECK_EQ(kZeros, (std::array<uint8_t, sizeof(int64_t) * 2>{0}));
     span->buffers[i].data = kZeros.data();
     span->buffers[i].size = 0;
   }
