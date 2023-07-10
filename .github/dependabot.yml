@@ -29,3 +29,13 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [C#] "
+    ignore:
+      - dependency-name: "Microsoft.Extensions.*"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "Microsoft.Bcl.*"
+        update-types:
+          - "version-update:semver-major"
+      - dependency-name: "System.*"
+        update-types:
+          - "version-update:semver-major"
