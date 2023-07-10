@@ -119,10 +119,10 @@ TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("0", 0.0f);
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
-  AssertConversion<FloatType>("+Infinity", std::numeric_limits<float>::infinity());
-  AssertConversion<FloatType>("-Infinity", -std::numeric_limits<float>::infinity());
-  AssertConversion<FloatType>("Infinity", std::numeric_limits<float>::infinity());
-  AssertConversion<FloatType>("NaN", std::numeric_limits<float>::quiet_NaN());
+  AssertConversion<FloatType>("+Infinity", INFINITY);
+  AssertConversion<FloatType>("-Infinity", -INFINITY);
+  AssertConversion<FloatType>("Infinity", INFINITY);
+  AssertConversion<FloatType>("NaN", NAN);
 
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
@@ -139,10 +139,10 @@ TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("0", 0);
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
-  AssertConversion<DoubleType>("+Infinity", std::numeric_limits<double>::infinity());
-  AssertConversion<DoubleType>("-Infinity", -std::numeric_limits<double>::infinity());
-  AssertConversion<DoubleType>("Infinity", std::numeric_limits<double>::infinity());
-  AssertConversion<DoubleType>("NaN", std::numeric_limits<double>::quiet_NaN());
+  AssertConversion<DoubleType>("+Infinity", INFINITY);
+  AssertConversion<DoubleType>("-Infinity", -INFINITY);
+  AssertConversion<DoubleType>("Infinity", INFINITY);
+  AssertConversion<DoubleType>("NaN", NAN);
 
 
   AssertConversionFails<DoubleType>("");
