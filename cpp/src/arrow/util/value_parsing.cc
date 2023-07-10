@@ -22,6 +22,8 @@
 
 #include "arrow/vendored/fast_float/fast_float.h"
 
+#define FASTFLOAT_ALLOWS_LEADING_PLUS 1
+
 namespace arrow {
 namespace internal {
 

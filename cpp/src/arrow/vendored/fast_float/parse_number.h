@@ -1,6 +1,5 @@
 #ifndef FASTFLOAT_PARSE_NUMBER_H
 #define FASTFLOAT_PARSE_NUMBER_H
-#define FASTFLOAT_ALLOWS_LEADING_PLUS 1
 
 #include "ascii_number.h"
 #include "decimal_to_binary.h"
