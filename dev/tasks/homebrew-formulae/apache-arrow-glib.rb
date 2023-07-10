@@ -42,6 +42,7 @@ class ApacheArrowGlib < Formula
   depends_on "meson" => :build
   depends_on "ninja" => :build
   depends_on "pkg-config" => :build
+  depends_on "vala" => :build
   depends_on "apache-arrow"
   depends_on "glib"
 
