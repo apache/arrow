@@ -130,7 +130,8 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
 }
 
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
-  ARROW_CHECK_LE(off, length) << "Slice offset greater than array length";
+  ARROW_CHECK_LE(off, length) << "Slice offset (" << off
+                              << ") greater than array length (" << length << ")";
   len = std::min(length - off, len);
   off += offset;
 
