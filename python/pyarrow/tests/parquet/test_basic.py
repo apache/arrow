@@ -630,7 +630,9 @@ def test_write_error_deletes_incomplete_file(tempdir):
 
     filename = tempdir / 'tmp_file'
     try:
-        _write_table(pdf, filename)
+        # Test relies on writing nanoseconds to raise an error
+        # true for Parquet 2.4
+        _write_table(pdf, filename, version="2.4")
     except pa.ArrowException:
         pass
 

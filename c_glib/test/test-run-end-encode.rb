@@ -15,27 +15,49 @@
 # specific language governing permissions and limitations
 # under the License.
 
-version: 2
-updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "MINOR: [CI] "
-  - package-ecosystem: "nuget"
-    directory: "/csharp/"
-    schedule:
-      interval: "weekly"
-    commit-message:
-      prefix: "MINOR: [C#] "
-    ignore:
-      - dependency-name: "Microsoft.Extensions.*"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "Microsoft.Bcl.*"
-        update-types:
-          - "version-update:semver-major"
-      - dependency-name: "System.*"
-        update-types:
-          - "version-update:semver-major"
+class TestRunEndEncode < Test::Unit::TestCase
+  include Helper::Buildable
+  include Helper::Omittable
+
+  def test_int32
+    array = build_int32_array([1, 3, 1, 1, -1, -1])
+    assert_equal(<<-STRING.chomp, array.run_end_encode.to_s)
+
+-- run_ends:
+  [
+    1,
+    2,
+    4,
+    6
+  ]
+-- values:
+  [
+    1,
+    3,
+    1,
+    -1
+  ]
+    STRING
+    assert_equal(array, array.run_end_encode.decode)
+  end
+
+  def test_string
+    array = build_string_array(["Ruby", "Ruby", "Python", "C++", "C++", "C++"])
+    assert_equal(<<-STRING.chomp, array.run_end_encode.to_s)
+
+-- run_ends:
+  [
+    2,
+    3,
+    6
+  ]
+-- values:
+  [
+    "Ruby",
+    "Python",
+    "C++"
+  ]
+    STRING
+    assert_equal(array, array.run_end_encode.decode)
+  end
+end

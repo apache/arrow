@@ -39,7 +39,11 @@ namespace Apache.Arrow.C
         public long n_children;
         public CArrowSchema** children;
         public CArrowSchema* dictionary;
-        public delegate* unmanaged[Stdcall]<CArrowSchema*, void> release;
+        internal delegate* unmanaged
+#if !NET5_0_OR_GREATER
+            [Cdecl]
+#endif
+            <CArrowSchema*, void> release;
         public void* private_data;
 
         /// <summary>
@@ -52,15 +56,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowSchema*)Marshal.AllocHGlobal(sizeof(CArrowSchema));
 
-            ptr->format = null;
-            ptr->name = null;
-            ptr->metadata = null;
-            ptr->flags = 0;
-            ptr->n_children = 0;
-            ptr->children = null;
-            ptr->dictionary = null;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }

@@ -59,7 +59,6 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/testing/util.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -146,11 +145,6 @@ class ShortRetryStrategy : public S3RetryStrategy {
 
 class AwsTestMixin : public ::testing::Test {
  public:
-  // We set this environment variable to speed up tests by ensuring
-  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
-  // EC2 metadata endpoint
-  AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
-
   void SetUp() override {
 #ifdef AWS_CPP_SDK_S3_NOT_SHARED
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
@@ -169,7 +163,6 @@ class AwsTestMixin : public ::testing::Test {
   }
 
  private:
-  EnvVarGuard ec2_metadata_disabled_guard_;
 #ifdef AWS_CPP_SDK_S3_NOT_SHARED
   Aws::SDKOptions aws_options_;
 #endif

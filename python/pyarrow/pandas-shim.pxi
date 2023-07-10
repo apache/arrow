@@ -37,6 +37,7 @@ cdef class _PandasAPIShim(object):
         object _array_like_types, _is_extension_array_dtype
         bint has_sparse
         bint _pd024
+        bint _is_v1
 
     def __init__(self):
         self._tried_importing_pandas = False
@@ -58,6 +59,7 @@ cdef class _PandasAPIShim(object):
         self._pd = pd
         self._version = pd.__version__
         self._loose_version = Version(pd.__version__)
+        self._is_v1 = False
 
         if self._loose_version < Version('1.0.0'):
             self._have_pandas = False
@@ -72,6 +74,8 @@ cdef class _PandasAPIShim(object):
                     "installed. Therefore, pandas-specific integration is not "
                     "used.".format(self._version), stacklevel=2)
                 return
+        elif self._loose_version < Version('2.0.0'):
+            self._is_v1 = True
 
         self._compat_module = pdcompat
         self._data_frame = pd.DataFrame
@@ -149,6 +153,10 @@ cdef class _PandasAPIShim(object):
     def version(self):
         self._check_import()
         return self._version
+
+    def is_v1(self):
+        self._check_import()
+        return self._is_v1
 
     @property
     def categorical_type(self):

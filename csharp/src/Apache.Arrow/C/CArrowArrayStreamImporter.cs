@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one
+// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -55,6 +55,16 @@ namespace Apache.Arrow.C
             private readonly Schema _schema;
             private bool _disposed;
 
+            internal static string GetLastError(CArrowArrayStream* arrayStream, int errno)
+            {
+                byte* error = arrayStream->get_last_error(arrayStream);
+                if (error == null)
+                {
+                    return $"Array stream operation failed with no message. Error code: {errno}";
+                }
+                return StringUtil.PtrToStringUtf8(error);
+            }
+
             public ImportedArrowArrayStream(CArrowArrayStream* cArrayStream)
             {
                 if (cArrayStream == null)
@@ -70,7 +80,7 @@ namespace Apache.Arrow.C
                 int errno = cArrayStream->get_schema(cArrayStream, &cSchema);
                 if (errno != 0)
                 {
-                    throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
+                    throw new Exception(GetLastError(cArrayStream, errno));
                 }
                 _schema = CArrowSchemaImporter.ImportSchema(&cSchema);
 
@@ -92,6 +102,11 @@ namespace Apache.Arrow.C
                     throw new ObjectDisposedException(typeof(ImportedArrowArrayStream).Name);
                 }
 
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return new(Task.FromCanceled<RecordBatch>(cancellationToken));
+                }
+
                 RecordBatch result = null;
                 CArrowArray cArray = new CArrowArray();
                 fixed (CArrowArrayStream* cArrayStream = &_cArrayStream)
@@ -99,7 +114,7 @@ namespace Apache.Arrow.C
                     int errno = cArrayStream->get_next(cArrayStream, &cArray);
                     if (errno != 0)
                     {
-                        throw new Exception($"Unexpected error recieved from external stream. Errno: {errno}");
+                        return new(Task.FromException<RecordBatch>(new Exception(GetLastError(cArrayStream, errno))));
                     }
                     if (cArray.release != null)
                     {
@@ -115,7 +130,7 @@ namespace Apache.Arrow.C
                 if (!_disposed && _cArrayStream.release != null)
                 {
                     _disposed = true;
-                    fixed (CArrowArrayStream * cArrayStream = &_cArrayStream)
+                    fixed (CArrowArrayStream* cArrayStream = &_cArrayStream)
                     {
                         cArrayStream->release(cArrayStream);
                     }

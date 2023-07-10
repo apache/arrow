@@ -121,6 +121,8 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                     arrowArray = arrow.array.Int64Array(matlabArray);
                 case "logical"
                     arrowArray = arrow.array.BooleanArray(matlabArray);
+                case "string"
+                    arrowArray = arrow.array.StringArray(matlabArray);
                 case "datetime"
                     arrowArray = arrow.array.TimestampArray(matlabArray);
                 otherwise

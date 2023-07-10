@@ -33,7 +33,14 @@ import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
-import pyarrow._parquet as _parquet
+
+try:
+    import pyarrow._parquet as _parquet
+except ImportError as exc:
+    raise ImportError(
+        "The pyarrow installation is not built with support "
+        f"for the Parquet file format ({str(exc)})"
+    ) from None
 
 from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
@@ -748,7 +755,7 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.4"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
     added in later format versions.
@@ -944,7 +951,7 @@ Examples
 
     def __init__(self, where, schema, filesystem=None,
                  flavor=None,
-                 version='2.4',
+                 version='2.6',
                  use_dictionary=True,
                  compression='snappy',
                  write_statistics=True,
@@ -3060,7 +3067,7 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _DNF_filter_doc, "")
 
 
-def write_table(table, where, row_group_size=None, version='2.4',
+def write_table(table, where, row_group_size=None, version='2.6',
                 use_dictionary=True, compression='snappy',
                 write_statistics=True,
                 use_deprecated_int96_timestamps=None,
@@ -3078,6 +3085,8 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 dictionary_pagesize_limit=None,
                 store_schema=True,
                 **kwargs):
+    # Implementor's note: when adding keywords here / updating defaults, also
+    # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
