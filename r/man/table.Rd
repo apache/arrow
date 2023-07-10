@@ -28,5 +28,5 @@ tbl[["cyl"]]
 as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
 }
 \seealso{
-\linkS4class{Table}
+\link{Table}
 }

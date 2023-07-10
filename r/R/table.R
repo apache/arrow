@@ -258,7 +258,7 @@ cbind.Table <- function(...) {
 #' tbl$mpg
 #' tbl[["cyl"]]
 #' as.data.frame(tbl[4:8, c("gear", "hp", "wt")])
-#' @seealso [Table-class]
+#' @seealso [Table]
 #' @export
 arrow_table <- Table$create
 

@@ -22,5 +22,5 @@ Create a Field
 field("x", int32())
 }
 \seealso{
-\linkS4class{Field}
+\link{Field}
 }

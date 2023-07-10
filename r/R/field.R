@@ -73,7 +73,7 @@ Field$import_from_c <- ImportField
 #' @examples
 #' field("x", int32())
 #' @rdname Field
-#' @seealso [Field-class]
+#' @seealso [Field]
 #' @export
 field <- Field$create
 

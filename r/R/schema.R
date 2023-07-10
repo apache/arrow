@@ -75,7 +75,8 @@
 #'   Files with compressed metadata are readable by older versions of arrow, but
 #'   the metadata is dropped.
 #'
-#' @rdname schema-class
+#' @rdname Schema-class
+#' @name Schema-class
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
