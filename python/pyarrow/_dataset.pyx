@@ -1964,6 +1964,20 @@ cdef class FragmentScanOptions(_Weakrefable):
             return False
 
 cdef class CacheOptions(_Weakrefable):
+    """
+    Cache options for a pre-buffered fragment scan.
+    Parameters
+    ----------
+    hole_size_limit : int, default 8Ki
+        The maximum distance in bytes between two consecutive ranges; beyond 
+        this value, ranges are not combined.
+    range_size_limit : int, default 32Mi
+        The maximum size in bytes of a combined range; if combining two 
+        consecutive ranges would produce a range of a size greater than this, 
+        they are not combined
+    lazy : bool, default False
+        A lazy cache does not perform any I/O until requested.
+    """
     def __init__(self, *, hole_size_limit=8192, range_size_limit=32 * 1024 * 1024, bint lazy=False):
         self.wrapped = CCacheOptions.Make(hole_size_limit, range_size_limit, lazy)
 

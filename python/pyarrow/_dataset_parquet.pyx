@@ -693,6 +693,10 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         parallel using a background I/O thread pool.
         Set to False if you want to prioritize minimal memory usage
         over maximum speed.
+    cache_options : pyarrow.dataset.CacheOptions, default None
+        Cache options used when pre_buffer is enabled. The default values should
+        be good for most usecases. You may want to adject these for example if
+        you have exceptionally high latency to the file system. 
     thrift_string_size_limit : int, default None
         If not None, override the maximum total string size allocated
         when decoding Thrift structures. The default limit should be
