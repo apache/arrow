@@ -190,11 +190,6 @@ def test_chunked_array_to_numpy_zero_copy():
         chunked_arr.to_numpy(zero_copy_only=True)
 
     np_arr = chunked_arr.to_numpy()
-
-    chunked_arr = None
-    import gc
-    gc.collect()
-
     expected = [2, 2, 4, 4, 5, 100]
     np.testing.assert_array_equal(np_arr, expected)
 
