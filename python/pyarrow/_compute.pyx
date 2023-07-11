@@ -1201,6 +1201,8 @@ class SliceOptions(_SliceOptions):
     def __init__(self, start, stop=None, step=1):
         if stop is None:
             stop = sys.maxsize
+            if step < 0:
+                stop = -stop
         self._set_options(start, stop, step)
 
 
