@@ -21,7 +21,6 @@
 
 // Pick up ARROW_WITH_OPENTELEMETRY first
 #include "arrow/util/config.h"
-#include "arrow/util/visibility.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
 #ifdef _MSC_VER
@@ -30,14 +29,6 @@
 #endif
 #include <opentelemetry/trace/provider.h>
 #include <opentelemetry/trace/scope.h>
-namespace arrow {
-namespace internal {
-namespace tracing {
-ARROW_EXPORT
-opentelemetry::trace::Tracer* GetTracer();
-}  // namespace tracing
-}  // namespace internal
-}  // namespace arrow
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
@@ -47,12 +38,15 @@ opentelemetry::trace::Tracer* GetTracer();
 #include "arrow/util/async_generator.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/tracing.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 namespace internal {
 namespace tracing {
 
 #ifdef ARROW_WITH_OPENTELEMETRY
+ARROW_EXPORT
+opentelemetry::trace::Tracer* GetTracer();
 
 inline void MarkSpan(const Status& s, opentelemetry::trace::Span* span) {
   if (!s.ok()) {

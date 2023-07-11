@@ -30,7 +30,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/thread_pool.h"
-#include "arrow/util/tracing_internal.h"
+#include "arrow/util/tracing.h"
 
 namespace arrow {
 
@@ -142,16 +142,17 @@ class ARROW_EXPORT AsyncTaskScheduler {
   bool AddAsyncGenerator(std::function<Future<T>()> generator,
                          std::function<Status(const T&)> visitor, std::string_view name);
 
+  template <typename Callable>
   struct SimpleTask : public Task {
-    SimpleTask(FnOnce<Result<Future<>>()> callable, std::string_view name)
+    SimpleTask(Callable callable, std::string_view name)
         : callable(std::move(callable)), name_(name) {}
-    SimpleTask(FnOnce<Result<Future<>>()> callable, std::string name)
+    SimpleTask(Callable callable, std::string name)
         : callable(std::move(callable)), owned_name_(std::move(name)) {
       name_ = *owned_name_;
     }
-    Result<Future<>> operator()() override { return std::move(callable)(); }
+    Result<Future<>> operator()() override { return callable(); }
     std::string_view name() const override { return name_; }
-    FnOnce<Result<Future<>>()> callable;
+    Callable callable;
     std::string_view name_;
     std::optional<std::string> owned_name_;
   };
@@ -165,46 +166,19 @@ class ARROW_EXPORT AsyncTaskScheduler {
   /// future completes.  It is used for debugging and tracing.
   ///
   /// \see AddTask for more details
-  bool AddSimpleTask(FnOnce<Result<Future<>>()> callable, std::string_view name) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // Wrap the task to propagate a parent tracing span to it
-    struct SpanWrapper {
-      Result<Future<>> operator()() {
-        auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
-        return std::move(func)();
-      }
-      FnOnce<Result<Future<>>()> func;
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
-    };
-    SpanWrapper wrapper{std::move(callable),
-                        ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
-    return AddTask(std::make_unique<SimpleTask>(std::move(wrapper), name));
-#else
-    return AddTask(std::make_unique<SimpleTask>(std::move(callable), name));
-#endif
+  template <typename Callable>
+  bool AddSimpleTask(Callable callable, std::string_view name) {
+    return AddTask(std::make_unique<SimpleTask<Callable>>(std::move(callable), name));
   }
 
   /// Add a task with cost 1 to the scheduler
   ///
   /// This is an overload of \see AddSimpleTask that keeps `name` alive
   /// in the task.
-  bool AddSimpleTask(FnOnce<Result<Future<>>()> callable, std::string name) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // Wrap the task to propagate a parent tracing span to it
-    struct SpanWrapper {
-      Result<Future<>> operator()() {
-        auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
-        return std::move(func)();
-      }
-      FnOnce<Result<Future<>>()> func;
-      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
-    };
-    SpanWrapper wrapper{std::move(callable),
-                        ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
-    return AddTask(std::make_unique<SimpleTask>(std::move(wrapper), std::move(name)));
-#else
-    return AddTask(std::make_unique<SimpleTask>(std::move(callable), std::move(name)));
-#endif
+  template <typename Callable>
+  bool AddSimpleTask(Callable callable, std::string name) {
+    return AddTask(
+        std::make_unique<SimpleTask<Callable>>(std::move(callable), std::move(name)));
   }
 
   /// Construct a scheduler
