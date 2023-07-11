@@ -53,6 +53,7 @@ mvn clean \
     source:jar \
     javadoc:jar \
     -Papache-release \
+    -Parrow-jdk11+ \
     -Parrow-c-data \
     -Parrow-jni \
     -Darrow.cpp.build.dir=$dist_dir \
@@ -71,6 +72,27 @@ find ~/.m2/repository/org/apache/arrow \
      -name "*.pom" -o \
      -name "*.xml" -o \
      -name "*.zip" \
+     ")" \
+     -exec echo {} ";" \
+     -exec cp {} $dist_dir ";"
+
+# produce jar with jdk8 classifier
+mvn clean \
+    install \
+    assembly:single \
+    source:jar \
+    javadoc:jar \
+    -Papache-release \
+    -Parrow-jdk8 \
+    -Parrow-c-data \
+    -Parrow-jni \
+    -Darrow.cpp.build.dir=$dist_dir \
+    -Darrow.c.jni.dist.dir=$dist_dir \
+    -DdescriptorId=source-release
+
+find ~/.m2/repository/org/apache/arrow \
+     "(" \
+     -name "*-jdk8*.jar" \
      ")" \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
