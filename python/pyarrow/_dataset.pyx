@@ -1978,8 +1978,16 @@ cdef class CacheOptions(_Weakrefable):
     lazy : bool, default False
         A lazy cache does not perform any I/O until requested.
     """
-    def __init__(self, *, hole_size_limit=8192, range_size_limit=32 * 1024 * 1024, bint lazy=False):
-        self.wrapped = CCacheOptions.Make(hole_size_limit, range_size_limit, lazy)
+    def __init__(self, *, hole_size_limit=None, range_size_limit=None, bint lazy=None, prefetch_limit=None):
+        self.wrapped = CCacheOptions.Defaults()
+        if hole_size_limit is not None:
+            self.hole_size_limit = hole_size_limit
+        if range_size_limit is not None:
+            self.range_size_limit = range_size_limit
+        if lazy is not None:
+            self.lazy = None
+        if prefetch_limit is not None:
+            self.prefetch_limit = prefetch_limit
 
     cdef void init(self, CCacheOptions options):
         self.wrapped = options
@@ -1997,13 +2005,33 @@ cdef class CacheOptions(_Weakrefable):
     def hole_size_limit(self):
         return self.wrapped.hole_size_limit
 
+    @hole_size_limit.setter
+    def hole_size_limit(self, hole_size_limit):
+        return self.wrapped.hole_size_limit = hole_size_limit
+
     @property
     def range_size_limit(self):
         return self.wrapped.range_size_limit
 
+    @range_size_limit.setter
+    def range_size_limit(self, range_size_limit):
+        return self.wrapped.range_size_limit = range_size_limit
+
     @property
     def lazy(self):
         return self.wrapped.lazy
+
+    @lazy.setter
+    def lazy(self, lazy):
+        return self.wrapped.lazy = lazy
+
+    @property
+    def prefetch_limit(self):
+        return self.wrapped.prefetch_limit
+
+    @prefetch_limit.setter
+    def prefetch_limit(self, prefetch_limit):
+        return self.wrapped.prefetch_limit = prefetch_limit
 
     def __eq__(self, CacheOptions other):
         try:

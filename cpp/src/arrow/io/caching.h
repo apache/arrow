@@ -76,8 +76,6 @@ struct ARROW_EXPORT CacheOptions {
 
   static CacheOptions Defaults();
   static CacheOptions LazyDefaults();
-  static CacheOptions Make(int64_t hole_size_limit, int64_t range_size_limit,
-                           bool lazy = false);
 };
 
 namespace internal {

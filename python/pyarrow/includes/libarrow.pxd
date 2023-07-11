@@ -1351,9 +1351,10 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         int64_t hole_size_limit
         int64_t range_size_limit
         c_bool lazy
+        int64_t prefetch_limit
         c_bool Equals(CCacheOptions other)
         @staticmethod
-        CCacheOptions Make(int64_t hole_size_limit, int64_t range_size_limit, c_bool lazy)
+        CCacheOptions Defaults()
 
     cdef cppclass COutputStream" arrow::io::OutputStream"(FileInterface,
                                                           Writable):
