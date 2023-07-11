@@ -289,6 +289,7 @@ html_theme = 'pydata_sphinx_theme'
 #
 
 html_theme_options = {
+    "show_toc_level": 2,
     "use_edit_page_button": True,
     "logo": {
       "image_light": "_static/arrow.png",
