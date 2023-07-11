@@ -104,6 +104,39 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
          permutation_equivalent;
 }
 
+std::string FixedShapeTensorType::ToString() const {
+  std::stringstream ss;
+  ss << "extension<" << this->extension_name()
+     << "[value_type=" << value_type_->ToString()
+     << ", shape=[";
+  std::string separator;
+  for (auto v : shape_) {
+    ss << separator << v;
+    separator = ",";
+  }
+  ss << "]";
+  if (!permutation_.empty()) {
+    ss << ", permutation=[";
+    std::string p_separator;
+    for (auto v : permutation_) {
+      ss << p_separator << v;
+      p_separator = ",";
+    }
+    ss << "]";
+  }
+  if (!dim_names_.empty()) {
+    ss << ", dim_names=[";
+    std::string d_separator;
+    for (std::string v : dim_names_) {
+      ss << d_separator << v;
+      d_separator = ",";
+    }
+    ss << "]";
+  }
+  ss << "]>";
+  return ss.str();
+}
+
 std::string FixedShapeTensorType::Serialize() const {
   rj::Document document;
   document.SetObject();

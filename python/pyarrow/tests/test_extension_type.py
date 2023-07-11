@@ -1356,15 +1356,15 @@ def test_tensor_type_is_picklable(pickle_module):
 @pytest.mark.parametrize(("tensor_type", "text"), [
     (
         pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
-        'fixed_shape_tensor<type: int8, {"shape":[2,2,3]}>'
+        'fixed_shape_tensor[value_type=int8, shape=[2,2,3]]'
     ),
     (
         pa.fixed_shape_tensor(pa.int32(), [2, 2, 3], permutation=[0, 2, 1]),
-        'fixed_shape_tensor<type: int32, {"shape":[2,2,3],"permutation":[0,2,1]}>'
+        'fixed_shape_tensor[value_type=int32, shape=[2,2,3], permutation=[0,2,1]]'
     ),
     (
         pa.fixed_shape_tensor(pa.int64(), [2, 2, 3], dim_names=['C', 'H', 'W']),
-        'fixed_shape_tensor<type: int64, {"shape":[2,2,3],"dim_names":["C","H","W"]}>'
+        'fixed_shape_tensor[value_type=int64, shape=[2,2,3], dim_names=[C,H,W]]'
     )
 ])
 def test_tensor_type_str(tensor_type, text):
