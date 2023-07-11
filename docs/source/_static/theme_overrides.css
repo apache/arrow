@@ -49,7 +49,7 @@ code {
 a.navbar-brand img {
   height: auto;
   width: auto;
-  max-height: var(--pst-header-height);
+  max-height: 15vh;
   max-width: 100%;
 }
 

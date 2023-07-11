@@ -115,7 +115,6 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
     'numpydoc',
-    "sphinxcontrib.jquery",
     'sphinx_design',
     'sphinx_copybutton',
     'sphinx.ext.autodoc',
@@ -290,11 +289,13 @@ html_theme = 'pydata_sphinx_theme'
 #
 
 html_theme_options = {
+    "show_nav_level": 2,
     "use_edit_page_button": True,
     "logo": {
       "image_light": "_static/arrow.png",
       "image_dark": "_static/arrow-dark.png",
     },
+    "navbar_start": [],
     "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
         {
@@ -372,9 +373,9 @@ html_css_files = ['theme_overrides.css']
 
 # Custom sidebar templates, maps document names to template names.
 #
-# html_sidebars = {
-#    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
-# }
+html_sidebars = {
+    '**': ["navbar-logo", "sidebar-nav-bs"]
+}
 
 # The base URL which points to the root of the HTML documentation,
 # used for canonical url
