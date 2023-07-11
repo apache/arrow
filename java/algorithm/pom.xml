@@ -25,8 +25,7 @@
       <groupId>org.apache.arrow</groupId>
       <artifactId>arrow-vector</artifactId>
       <version>${project.version}</version>
-<!--      <classifier>${arrow.vector.classifier}</classifier>-->
-      <classifier>shade-format-flatbuffers</classifier>
+      <classifier>${arrow.vector.classifier}</classifier>
     </dependency>
     <dependency>
       <groupId>org.apache.arrow</groupId>

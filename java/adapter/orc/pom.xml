@@ -109,12 +109,6 @@
             <version>2.8.1</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-format</artifactId>
-            <scope>provided</scope>
-            <version>${project.version}</version>
-        </dependency>
     </dependencies>
 
     <parent>

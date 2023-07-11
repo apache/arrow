@@ -86,13 +86,6 @@
             <scope>test</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.arrow</groupId>
-            <artifactId>arrow-format</artifactId>
-            <scope>test</scope>
-            <version>${project.version}</version>
-        </dependency>
-
     </dependencies>
 
 </project>
