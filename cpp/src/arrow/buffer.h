@@ -49,7 +49,6 @@ namespace arrow {
 /// The following invariant is always true: Size <= Capacity
 class ARROW_EXPORT Buffer {
  public:
-  Buffer() = delete;
   ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 
   /// \brief Construct from buffer and size without copying memory
@@ -140,22 +139,29 @@ class ARROW_EXPORT Buffer {
   static std::shared_ptr<Buffer> FromString(std::string data);
 
   /// \brief Construct an immutable buffer that takes ownership of the contents
-  /// of an std::vector (without copying it).
+  /// of an std::vector (without copying it). Only vectors of TrivialType objects
+  /// (integers, floating point numbers, ...) can be wrapped by this function.
   ///
   /// \param[in] vec a vector to own
   /// \return a new Buffer instance
   template <typename T>
-  static std::shared_ptr<Buffer> FromVectorOfTrivial(std::vector<T> vec) {
-    static_assert(std::is_trivial_v<T>);
+  static std::shared_ptr<Buffer> FromVector(std::vector<T> vec) {
+    static_assert(std::is_trivial_v<T>,
+                  "Buffer::FromVector can only wrap vectors of trivial objects");
+
+    if (vec.empty()) {
+      return std::shared_ptr<Buffer>{new Buffer()};
+    }
+
     auto* data = reinterpret_cast<uint8_t*>(vec.data());
     auto size_in_bytes = static_cast<int64_t>(vec.size() * sizeof(T));
-    return std::shared_ptr<Buffer>(
+    return std::shared_ptr<Buffer>{
         new Buffer{data, size_in_bytes},
         // Keep the vector's buffer alive inside the shared_ptr's destructor until after
         // we have deleted the Buffer. Note we can't use this trick in FromString since
         // std::string's data is inline for short strings so moving invalidates pointers
         // into the string's buffer.
-        [vec = std::move(vec)](Buffer* buffer) { delete buffer; });
+        [vec = std::move(vec)](Buffer* buffer) { delete buffer; }};
   }
 
   /// \brief Create buffer referencing typed memory with some length without
@@ -339,6 +345,8 @@ class ARROW_EXPORT Buffer {
   std::shared_ptr<MemoryManager> memory_manager_;
 
  protected:
+  Buffer();
+
   void CheckMutable() const;
   void CheckCPU() const;
 
