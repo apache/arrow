@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstddef>
+#include <iostream>
 
 #include <gtest/gtest.h>
 
@@ -28,6 +29,13 @@ using testing::ElementsAreArray;
 using testing::PrintToString;
 
 namespace arrow::util {
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const span<T>& span) {
+  // Inefficient but good enough for testing
+  os << PrintToString(std::vector(span.begin(), span.end()));
+  return os;
+}
 
 TEST(Span, Construction) {
   // const spans may be constructed from mutable spans
@@ -89,30 +97,59 @@ TEST(Span, Size) {
 }
 
 TEST(Span, Equality) {
+  auto check_eq = [](auto l, auto r) {
+    ARROW_SCOPED_TRACE("l = ", l, ", r = ", r);
+    EXPECT_TRUE(l == r);
+    EXPECT_FALSE(l != r);
+  };
+  auto check_ne = [](auto l, auto r) {
+    ARROW_SCOPED_TRACE("l = ", l, ", r = ", r);
+    EXPECT_TRUE(l != r);
+    EXPECT_FALSE(l == r);
+  };
+
   {
     // exercise integral branch with memcmp
-    EXPECT_EQ(span<int>(), span<int>());
+    check_eq(span<int>(), span<int>());
 
     int arr[] = {1, 2, 3};
-    EXPECT_EQ(span(arr), span(arr));
-    EXPECT_EQ(span(arr).subspan(1), span(arr).subspan(1));
+    check_eq(span(arr), span(arr));
+    check_eq(span(arr).subspan(1), span(arr).subspan(1));
+    check_ne(span(arr).subspan(1), span(arr).subspan(2));
 
     std::vector<int> vec{1, 2, 3};
-    EXPECT_EQ(span(vec), span(arr));
-    EXPECT_EQ(span(vec).subspan(1), span(arr).subspan(1));
-  }
+    check_eq(span(vec), span(arr));
+    check_eq(span(vec).subspan(1), span(arr).subspan(1));
 
+    vec = {2, 3, 4};
+    check_ne(span(vec), span(arr));
+    check_eq(span(vec).subspan(0, 2), span(arr).subspan(1));
+
+    // 0-sized
+    vec = {};
+    check_ne(span(vec), span(arr));
+    check_eq(span(vec), span(arr).subspan(3));
+  }
   {
     // exercise non-integral branch with for loop
-    EXPECT_EQ(span<std::string>(), span<std::string>());
+    check_eq(span<std::string>(), span<std::string>());
 
     std::string arr[] = {"a", "b", "c"};
-    EXPECT_EQ(span(arr), span(arr));
-    EXPECT_EQ(span(arr).subspan(1), span(arr).subspan(1));
+    check_eq(span(arr), span(arr));
+    check_eq(span(arr).subspan(1), span(arr).subspan(1));
 
     std::vector<std::string> vec{"a", "b", "c"};
-    EXPECT_EQ(span(vec), span(arr));
-    EXPECT_EQ(span(vec).subspan(1), span(arr).subspan(1));
+    check_eq(span(vec), span(arr));
+    check_eq(span(vec).subspan(1), span(arr).subspan(1));
+
+    vec = {"b", "c", "d"};
+    check_ne(span(vec), span(arr));
+    check_eq(span(vec).subspan(0, 2), span(arr).subspan(1));
+
+    // 0-sized
+    vec = {};
+    check_ne(span(vec), span(arr));
+    check_eq(span(vec), span(arr).subspan(3));
   }
 }
 
