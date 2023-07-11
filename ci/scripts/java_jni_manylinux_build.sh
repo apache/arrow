@@ -113,8 +113,8 @@ if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
       ;;
   esac
   # unstable
-  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
-  exclude_tests="${exclude_tests}|arrow-dataset-scanner-test"
+  exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+  exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   # strptime
   exclude_tests="${exclude_tests}|arrow-utility-test"
   ctest \
