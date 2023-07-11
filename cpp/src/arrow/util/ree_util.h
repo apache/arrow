@@ -139,7 +139,8 @@ int64_t FindPhysicalLength(const ArraySpan& span) {
 /// \brief Find the physical index into the values array of the REE ArraySpan
 ///
 /// This function uses binary-search, so it has a O(log N) cost.
-int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_offset);
+ARROW_EXPORT int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i,
+                                       int64_t absolute_offset);
 
 /// \brief Find the physical length of an REE ArraySpan
 ///
@@ -150,14 +151,15 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// Avoid calling this function if the physical length can be estabilished in
 /// some other way (e.g. when iterating over the runs sequentially until the
 /// end). This function uses binary-search, so it has a O(log N) cost.
-int64_t FindPhysicalLength(const ArraySpan& span);
+ARROW_EXPORT int64_t FindPhysicalLength(const ArraySpan& span);
 
 /// \brief Find the physical range of physical values referenced by the REE in
 /// the logical range from offset to offset + length
 ///
 /// \return a pair of physical offset and physical length
-std::pair<int64_t, int64_t> FindPhysicalRange(const ArraySpan& span, int64_t offset,
-                                              int64_t length);
+ARROW_EXPORT std::pair<int64_t, int64_t> FindPhysicalRange(const ArraySpan& span,
+                                                           int64_t offset,
+                                                           int64_t length);
 
 template <typename RunEndCType>
 class RunEndEncodedArraySpan {
