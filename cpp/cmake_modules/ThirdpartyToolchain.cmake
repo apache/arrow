@@ -1224,7 +1224,7 @@ if(ARROW_USE_BOOST)
     target_compile_definitions(Boost::headers INTERFACE "BOOST_USE_WINDOWS_H=1")
   endif()
 
-  message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
+  message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
 endif()
 
 # ----------------------------------------------------------------------
