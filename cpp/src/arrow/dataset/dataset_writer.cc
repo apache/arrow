@@ -289,11 +289,6 @@ class DatasetWriterFileQueue {
   util::AsyncTaskScheduler* file_tasks_ = nullptr;
 };
 
-struct WriteTask {
-  std::string filename;
-  uint64_t num_rows;
-};
-
 class DatasetWriterDirectoryQueue {
  public:
   DatasetWriterDirectoryQueue(util::AsyncTaskScheduler* scheduler, std::string directory,
@@ -329,7 +324,6 @@ class DatasetWriterDirectoryQueue {
 
   Status StartWrite(const std::shared_ptr<RecordBatch>& batch) {
     rows_written_ += batch->num_rows();
-    WriteTask task{current_filename_, static_cast<uint64_t>(batch->num_rows())};
     if (!latest_open_file_) {
       ARROW_RETURN_NOT_OK(OpenFileQueue(current_filename_));
     }
