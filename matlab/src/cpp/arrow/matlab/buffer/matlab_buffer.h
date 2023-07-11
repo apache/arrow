@@ -42,7 +42,7 @@ namespace arrow::matlab::buffer {
                 capacity_ = size_;
                 is_mutable_ = false;
             }
-        private:
-            const mda::Array array;
+    private:
+        const mda::Array array;
     };
 }
