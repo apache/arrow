@@ -1565,7 +1565,7 @@ class MapLookupOptions(_MapLookupOptions):
 
     Parameters
     ----------
-    query_key : Scalar
+    query_key : Scalar or Object can be converted to Scalar
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the Map
@@ -1573,6 +1573,9 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
+        if not isinstance(query_key, lib.Scalar):
+            query_key = lib.scalar(query_key)
+
         self._set_options(query_key, occurrence)
 
 
@@ -1967,6 +1970,25 @@ class CumulativeOptions(_CumulativeOptions):
 
     def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
+
+
+cdef class _PairwiseOptions(FunctionOptions):
+    def _set_options(self, period):
+        self.wrapped.reset(new CPairwiseOptions(period))
+
+
+class PairwiseOptions(_PairwiseOptions):
+    """
+    Options for `pairwise` functions.
+
+    Parameters
+    ----------
+    period : int, default 1
+        Period for applying the period function.
+    """
+
+    def __init__(self, period=1):
+        self._set_options(period)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -2780,6 +2802,9 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
+    Note that currently the size of any input column can not exceed 2 GB
+    for a single segment (all groups combined).
+
     Parameters
     ----------
     func : callable
@@ -2836,6 +2861,15 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
     >>> answer
     <pyarrow.DoubleScalar: 30.0>
+    >>> table = pa.table([pa.array([1, 1, 2, 2]), pa.array([10, 20, 30, 40])], names=['k', 'v'])
+    >>> result = table.group_by('k').aggregate([('v', 'py_compute_median')])
+    >>> result
+    pyarrow.Table
+    k: int64
+    v_py_compute_median: double
+    ----
+    k: [[1,2]]
+    v_py_compute_median: [[15,35]]
     """
     return _register_user_defined_function(get_register_aggregate_function(),
                                            func, function_name, function_doc, in_types,

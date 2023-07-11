@@ -139,7 +139,9 @@ func (t *SerializeTestSuite) unequalNumRows(maxRows int64, rowsPerCol []int64) {
 		t.WriteBatchSubset(int(rowsPerCol[col]), 0, cw, t.DefLevels[:rowsPerCol[col]], nil)
 		cw.Close()
 	}
-	t.Error(rgw.Close())
+	err := rgw.Close()
+	t.Error(err)
+	t.ErrorContains(err, "row mismatch for unbuffered row group")
 }
 
 func (t *SerializeTestSuite) unequalNumRowsBuffered(maxRows int64, rowsPerCol []int64) {
@@ -154,7 +156,9 @@ func (t *SerializeTestSuite) unequalNumRowsBuffered(maxRows int64, rowsPerCol []
 		t.WriteBatchSubset(int(rowsPerCol[col]), 0, cw, t.DefLevels[:rowsPerCol[col]], nil)
 		cw.Close()
 	}
-	t.Error(rgw.Close())
+	err := rgw.Close()
+	t.Error(err)
+	t.ErrorContains(err, "row mismatch for buffered row group")
 }
 
 func (t *SerializeTestSuite) TestZeroRows() {

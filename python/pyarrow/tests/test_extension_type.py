@@ -1096,7 +1096,8 @@ def test_empty_take():
     ([1, 2, 3], IntegerType),
     (["cat", "dog", "horse"], LabelType)
 ))
-@pytest.mark.parametrize("into", ("to_numpy", "to_pandas"))
+@pytest.mark.parametrize(
+    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1221,6 +1222,10 @@ def test_tensor_class_methods():
     expected = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
     result = arr.to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
+    expected = np.array([[[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr[:1].to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
     arr = np.array(

@@ -869,9 +869,8 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
                               /*is_from_converted_type=*/false,
                               /*force_set_converted_type=*/true),
        ParquetType::INT64, -1},
-      // Parquet v1, values converted to microseconds
       {"timestamp(nanosecond)", ::arrow::timestamp(::arrow::TimeUnit::NANO),
-       LogicalType::Timestamp(false, LogicalType::TimeUnit::MICROS,
+       LogicalType::Timestamp(false, LogicalType::TimeUnit::NANOS,
                               /*is_from_converted_type=*/false,
                               /*force_set_converted_type=*/true),
        ParquetType::INT64, -1},
@@ -882,7 +881,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
        -1},
       {"timestamp(nanosecond, UTC)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "UTC"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), ParquetType::INT64,
        -1},
       {"timestamp(millisecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::MILLI, "CET"),
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MILLIS), ParquetType::INT64,
@@ -891,7 +890,7 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
        LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
        -1},
       {"timestamp(nanosecond, CET)", ::arrow::timestamp(::arrow::TimeUnit::NANO, "CET"),
-       LogicalType::Timestamp(true, LogicalType::TimeUnit::MICROS), ParquetType::INT64,
+       LogicalType::Timestamp(true, LogicalType::TimeUnit::NANOS), ParquetType::INT64,
        -1}};
 
   std::vector<std::shared_ptr<Field>> arrow_fields;

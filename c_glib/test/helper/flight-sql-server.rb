@@ -39,5 +39,12 @@ module Helper
       reader = Arrow::TableBatchReader.new(table)
       ArrowFlight::RecordBatchStream.new(reader)
     end
+
+    def virtual_do_do_put_command_statement_update(context, command)
+      unless command.query == "INSERT INTO page_view_table VALUES (100, true)"
+        raise Arrow::Error::Invalid.new("invalid SQL")
+      end
+      1
+    end
   end
 end

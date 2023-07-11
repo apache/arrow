@@ -47,7 +47,7 @@ jobs:
           rm -f /usr/local/bin/idle*
           rm -f /usr/local/bin/pydoc3*
           rm -f /usr/local/bin/python3*
-          brew update
+          brew update || echo "brew update did not finish successfully"
           brew install --overwrite git
           brew bundle --file=arrow/cpp/Brewfile
           brew bundle --file=arrow/c_glib/Brewfile

@@ -59,7 +59,7 @@ def test_pandas_parquet_custom_metadata(tempdir):
     arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
-    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
+    _write_table(arrow_table, filename)
 
     metadata = pq.read_metadata(filename).metadata
     assert b'pandas' in metadata
@@ -113,7 +113,7 @@ def test_pandas_parquet_column_multiindex(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
-    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
+    _write_table(arrow_table, filename)
 
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
@@ -136,7 +136,7 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     # While index_columns should be empty, columns needs to be filled still.
     assert js['columns']
 
-    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
+    _write_table(arrow_table, filename)
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
 
@@ -256,7 +256,7 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
 
     with filename.open('wb') as f:
-        _write_table(arrow_table, f, version="2.4")
+        _write_table(arrow_table, f, version="2.6")
 
     data = io.BytesIO(filename.read_bytes())
 
@@ -344,7 +344,12 @@ def test_index_column_name_duplicate(tempdir, use_legacy_dataset):
         }
     }
     path = str(tempdir / 'data.parquet')
-    dfx = pd.DataFrame(data).set_index('time', drop=False)
+
+    # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+    # so we need to cast the pandas dtype. Pandas v1 will always silently
+    # coerce to [ns] due to lack of non-[ns] support.
+    dfx = pd.DataFrame(data, dtype='datetime64[us]').set_index('time', drop=False)
+
     tdfx = pa.Table.from_pandas(dfx)
     _write_table(tdfx, path)
     arrow_table = _read_table(path, use_legacy_dataset=use_legacy_dataset)

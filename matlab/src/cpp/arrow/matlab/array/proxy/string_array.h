@@ -15,23 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if TlsCredentialsOptions supports
-// set_verify_server_certs. gRPC starting from 1.43 added this boolean
-// flag as opposed to prior versions which used an enum. This is for
-// supporting disabling server validation when using TLS.
+#pragma once
 
-#include <grpc/grpc_security_constants.h>
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/security/tls_credentials_options.h>
+#include "arrow/matlab/array/proxy/array.h"
 
-static void check() {
-  // 1.36 uses an enum; 1.43 uses booleans
-  auto options = std::make_shared<grpc::experimental::TlsChannelCredentialsOptions>();
-  options->set_check_call_host(false);
-  options->set_verify_server_certs(false);
-}
+#include "libmexclass/proxy/Proxy.h"
 
-int main(int argc, const char** argv) {
-  check();
-  return 0;
+namespace arrow::matlab::array::proxy {
+
+    class StringArray : public arrow::matlab::array::proxy::Array {
+        public:
+            StringArray(const std::shared_ptr<arrow::Array> string_array)
+                : arrow::matlab::array::proxy::Array() {
+                    array = string_array;
+                }
+
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+        protected:
+            void toMATLAB(libmexclass::proxy::method::Context& context) override;
+    };
+
 }

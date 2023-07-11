@@ -1847,3 +1847,28 @@ replaced, based on the remaining inputs.
   results in a corresponding null in the output.
 
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
+
+Pairwise functions
+~~~~~~~~~~~~~~~~~~~~
+Pairwise functions are unary vector functions that perform a binary operation on 
+a pair of elements in the input array, typically on adjacent elements. The n-th
+output is computed by applying the binary operation to the n-th and (n-p)-th inputs, 
+where p is the period. The default period is 1, in which case the binary
+operation is applied to adjacent pairs of inputs. The period can also be
+negative, in which case the n-th output is computed by applying the binary
+operation to the n-th and (n+abs(p))-th inputs.
+
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| Function name          | Arity | Input types          | Output type          | Options class                  | Notes    |
++========================+=======+======================+======================+================================+==========+
+| pairwise_diff          | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(2)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| pairwise_diff_checked  | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(3)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+
+* \(1) Computes the first order difference of an array, It internally calls 
+  the scalar function ``Subtract`` (or the checked variant) to compute 
+  differences, so its behavior and supported types are the same as 
+  ``Subtract``. The period can be specified in :struct:`PairwiseOptions`. 
+* \(2) Wraps around the result when overflow is detected.
+* \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.

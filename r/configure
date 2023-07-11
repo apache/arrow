@@ -263,7 +263,6 @@ do_autobrew () {
 # Once libarrow is obtained, this function sets `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS`
 # either from pkg-config or by inferring things about the directory in $1
 set_pkg_vars () {
-  LIB_DIR="$1/lib"
   if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
     set_pkg_vars_with_pc
   else
@@ -281,6 +280,7 @@ set_pkg_vars () {
 
 # If we have pkg-config, it will tell us what libarrow needs
 set_pkg_vars_with_pc () {
+  LIB_DIR="`${PKG_CONFIG} --variable=libdir --silence-errors ${PKG_CONFIG_NAME}`"
   PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
   PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
   PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
@@ -288,6 +288,7 @@ set_pkg_vars_with_pc () {
 
 # If we don't have pkg-config, we can make some inferences
 set_pkg_vars_without_pc () {
+  LIB_DIR="$1/lib"
   PKG_CFLAGS="-I$1/include $PKG_CFLAGS"
   if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
     PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"

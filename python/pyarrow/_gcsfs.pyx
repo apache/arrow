@@ -75,6 +75,11 @@ cdef class GcsFileSystem(FileSystem):
     retry_time_limit : timedelta, default None
         Set the maximum amount of time the GCS client will attempt to retry
         transient errors. Subsecond granularity is ignored.
+    project_id : str, default None
+        The GCP project identifier to use for creating buckets.
+        If not set, the library uses the GOOGLE_CLOUD_PROJECT environment
+        variable. Most I/O operations do not need a project id, only applications
+        that create new buckets need a project id.
     """
 
     cdef:
@@ -86,7 +91,8 @@ cdef class GcsFileSystem(FileSystem):
                  scheme=None,
                  endpoint_override=None,
                  default_metadata=None,
-                 retry_time_limit=None):
+                 retry_time_limit=None,
+                 project_id=None):
         cdef:
             CGcsOptions options
             shared_ptr[CGcsFileSystem] wrapped
@@ -136,6 +142,8 @@ cdef class GcsFileSystem(FileSystem):
         if retry_time_limit is not None:
             time_limit_seconds = retry_time_limit.total_seconds()
             options.retry_limit_seconds = time_limit_seconds
+        if project_id is not None:
+            options.project_id = <c_string>tobytes(project_id)
 
         with nogil:
             wrapped = GetResultValue(CGcsFileSystem.Make(options))
@@ -165,6 +173,9 @@ cdef class GcsFileSystem(FileSystem):
         if opts.retry_limit_seconds.has_value():
             retry_time_limit = timedelta(
                 seconds=opts.retry_limit_seconds.value())
+        project_id = None
+        if opts.project_id.has_value():
+            project_id = frombytes(opts.project_id.value())
         return (
             GcsFileSystem._reconstruct, (dict(
                 access_token=frombytes(opts.credentials.access_token()),
@@ -176,7 +187,8 @@ cdef class GcsFileSystem(FileSystem):
                 default_bucket_location=frombytes(
                     opts.default_bucket_location),
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
-                retry_time_limit=retry_time_limit
+                retry_time_limit=retry_time_limit,
+                project_id=project_id
             ),))
 
     @property
@@ -185,3 +197,11 @@ cdef class GcsFileSystem(FileSystem):
         The GCP location this filesystem will write to.
         """
         return frombytes(self.gcsfs.options().default_bucket_location)
+
+    @property
+    def project_id(self):
+        """
+        The GCP project id this filesystem will use.
+        """
+        if self.gcsfs.options().project_id.has_value():
+            return frombytes(self.gcsfs.options().project_id.value())

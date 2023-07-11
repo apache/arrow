@@ -83,6 +83,7 @@ buckets in.
 \item \code{retry_limit_seconds}: the maximum amount of time to spend retrying if
 the filesystem encounters errors. Default is 15 seconds.
 \item \code{default_metadata}: default metadata to write in new objects.
+\item \code{project_id}: the project to use for creating buckets.
 }
 }
 

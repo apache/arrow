@@ -41,8 +41,6 @@ end
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,
-                                     Arrow::Version::MINOR,
-                                     Arrow::Version::MICRO,
                                    ],
                                    conda: "libarrow",
                                    debian: "libarrow-dev",

@@ -77,7 +77,7 @@ namespace Apache.Arrow.Tests
                 wasCalled = true;
                 cArray->release = null;
             };
-            cArray->release = (delegate* unmanaged[Stdcall]<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate(
+            cArray->release = (delegate* unmanaged<CArrowArray*, void>)Marshal.GetFunctionPointerForDelegate(
                 releaseCallback);
 
             Assert.Throws<InvalidOperationException>(() =>

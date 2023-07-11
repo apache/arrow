@@ -69,13 +69,17 @@ add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
 add_arrow_compute_test(vector_test
                        SOURCES
                        vector_cumulative_ops_test.cc
+                       vector_pairwise_test.cc
                        vector_hash_test.cc
                        vector_nested_test.cc
                        vector_replace_test.cc
-                       vector_selection_test.cc
-                       vector_sort_test.cc
                        vector_run_end_encode_test.cc
                        select_k_test.cc
+                       test_util.cc)
+
+add_arrow_compute_test(vector_sort_test SOURCES vector_sort_test.cc test_util.cc)
+
+add_arrow_compute_test(vector_selection_test SOURCES vector_selection_test.cc
                        test_util.cc)
 
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
