@@ -24,7 +24,7 @@
 namespace arrow::matlab::array::proxy {
 
         BooleanArray::BooleanArray(std::shared_ptr<arrow::BooleanArray> array) 
-            : arrow::matlab::array::proxy::Array(std::move(array)) {}
+            : arrow::matlab::array::proxy::Array{std::move(array)} {}
 
         libmexclass::proxy::MakeResult BooleanArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             ::matlab::data::StructArray opts = constructor_arguments[0];

@@ -20,6 +20,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/bit/unpack.h"
+#include "arrow/matlab/buffer/matlab_buffer.h"
 
 #include "arrow/matlab/type/time_unit.h"
 #include "arrow/util/utf8.h"
@@ -28,15 +29,13 @@
 namespace arrow::matlab::array::proxy {
 
     TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> timestamp_array)
-        : arrow::matlab::array::proxy::Array{std::move(timestamp_array)}
-        , mda_array{} {}
-
-    TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> timestamp_array, ::matlab::data::TypedArray<int64_t> mda_array)
-        : arrow::matlab::array::proxy::Array{std::move(timestamp_array)}
-        , mda_array{mda_array} {}
+        : arrow::matlab::array::proxy::Array{std::move(timestamp_array)} {}
 
     libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
+        using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
+        using TimestampArray = arrow::TimestampArray;
+        using TimestampArrayProxy = arrow::matlab::array::proxy::TimestampArray;
 
         mda::StructArray opts = constructor_arguments[0];
 
@@ -62,21 +61,16 @@ namespace arrow::matlab::array::proxy {
         auto data_type = arrow::timestamp(time_unit, timezone);
         auto array_length = static_cast<int64_t>(timestamp_mda.getNumberOfElements()); // cast size_t to int64_t
 
-         // Get raw pointer of mxArray
-        auto it(timestamp_mda.cbegin());
-        auto dt = it.operator->();
+        auto data_buffer = std::make_shared<MatlabBuffer>(timestamp_mda);
 
-        // Do not make a copy when creating arrow::Buffer
-        auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
-                                                          sizeof(int64_t) * timestamp_mda.getNumberOfElements());            
         // Pack the validity bitmap values.
         MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap, 
                                bit::packValid(validity_bitmap_mda), 
                                error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
         auto array_data = arrow::ArrayData::Make(data_type, array_length, {packed_validity_bitmap, data_buffer});
-        auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(arrow::MakeArray(array_data));
-        return std::make_shared<arrow::matlab::array::proxy::TimestampArray>(std::move(timestamp_array), timestamp_mda);
+        auto timestamp_array = std::static_pointer_cast<TimestampArray>(arrow::MakeArray(array_data));
+        return std::make_shared<TimestampArrayProxy>(std::move(timestamp_array));
     }
 
     void TimestampArray::toMATLAB(libmexclass::proxy::method::Context& context) {
