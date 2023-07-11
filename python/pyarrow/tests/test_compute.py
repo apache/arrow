@@ -537,7 +537,7 @@ def test_trim():
 def test_slice_compatibility():
     arr = pa.array(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])
     for start in range(-6, 6):
-        for stop in range(-6, 6):
+        for stop in itertools.chain(range(-6, 6), [None]):
             for step in [-3, -2, -1, 1, 2, 3]:
                 expected = pa.array([k.as_py()[start:stop:step]
                                      for k in arr])
