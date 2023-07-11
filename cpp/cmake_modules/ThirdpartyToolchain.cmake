@@ -1711,6 +1711,8 @@ if(ARROW_WITH_PROTOBUF)
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
   resolve_dependency(Protobuf
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
@@ -1853,7 +1855,7 @@ macro(build_substrait)
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
-  target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+  target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
