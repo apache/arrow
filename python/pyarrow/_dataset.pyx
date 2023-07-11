@@ -1978,14 +1978,14 @@ cdef class CacheOptions(_Weakrefable):
     lazy : bool, default False
         A lazy cache does not perform any I/O until requested.
     """
-    def __init__(self, *, hole_size_limit=None, range_size_limit=None, bint lazy=None, prefetch_limit=None):
+    def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
         self.wrapped = CCacheOptions.Defaults()
         if hole_size_limit is not None:
             self.hole_size_limit = hole_size_limit
         if range_size_limit is not None:
             self.range_size_limit = range_size_limit
         if lazy is not None:
-            self.lazy = None
+            self.lazy = lazy
         if prefetch_limit is not None:
             self.prefetch_limit = prefetch_limit
 
@@ -2007,7 +2007,7 @@ cdef class CacheOptions(_Weakrefable):
 
     @hole_size_limit.setter
     def hole_size_limit(self, hole_size_limit):
-        return self.wrapped.hole_size_limit = hole_size_limit
+        self.wrapped.hole_size_limit = hole_size_limit
 
     @property
     def range_size_limit(self):
@@ -2015,7 +2015,7 @@ cdef class CacheOptions(_Weakrefable):
 
     @range_size_limit.setter
     def range_size_limit(self, range_size_limit):
-        return self.wrapped.range_size_limit = range_size_limit
+        self.wrapped.range_size_limit = range_size_limit
 
     @property
     def lazy(self):
@@ -2023,7 +2023,7 @@ cdef class CacheOptions(_Weakrefable):
 
     @lazy.setter
     def lazy(self, lazy):
-        return self.wrapped.lazy = lazy
+        self.wrapped.lazy = lazy
 
     @property
     def prefetch_limit(self):
@@ -2031,7 +2031,7 @@ cdef class CacheOptions(_Weakrefable):
 
     @prefetch_limit.setter
     def prefetch_limit(self, prefetch_limit):
-        return self.wrapped.prefetch_limit = prefetch_limit
+        self.wrapped.prefetch_limit = prefetch_limit
 
     def __eq__(self, CacheOptions other):
         try:
