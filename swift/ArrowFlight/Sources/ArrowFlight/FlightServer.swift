@@ -53,7 +53,7 @@ public func streamToArrowSchema(_ schema: Data) throws -> ArrowSchema {
     }
 }
 
-public protocol ArrowFlightServer {
+public protocol ArrowFlightServer : Sendable {
     func listFlights(_ criteria: FlightCriteria, writer: FlightInfoStreamWriter) async throws
     func getFlightInfo(_ request: FlightDescriptor) async throws -> FlightInfo
     func getSchema(_ request: FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult
@@ -62,40 +62,6 @@ public protocol ArrowFlightServer {
     func doGet(_ ticket: FlightTicket, writer: RecordBatchStreamWriter) async throws;
     func doPut(_ reader: RecordBatchStreamReader, writer: PutResultDataStreamWriter) async throws
     func doExchange(_ reader: RecordBatchStreamReader, writer: RecordBatchStreamWriter) async throws
-}
-
-public class DefaultFlightServer: ArrowFlightServer {
-    public func listFlights(_ criteria: FlightCriteria, writer: FlightInfoStreamWriter) async throws {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func getFlightInfo(_ request: FlightDescriptor) async throws -> FlightInfo {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func getSchema(_ request: FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func listActions(_ writer: ActionTypeStreamWriter) async throws {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func doAction(_ action: FlightAction, writer: ResultStreamWriter) async throws {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func doGet(_ ticket: FlightTicket, writer: RecordBatchStreamWriter) async throws {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func doPut(_ reader: RecordBatchStreamReader, writer: PutResultDataStreamWriter) async throws {
-        throw ArrowFlightError.NotImplemented()
-    }
-    
-    public func doExchange(_ reader: RecordBatchStreamReader, writer: RecordBatchStreamWriter) async throws {
-        throw ArrowFlightError.NotImplemented()
-    }
 }
 
 public func MakeFlightServer(_ handler: ArrowFlightServer) -> CallHandlerProvider {

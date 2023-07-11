@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 import XCTest
 import struct Foundation.Data
 import struct Foundation.URL
@@ -50,8 +67,8 @@ func makeRecordBatch() throws -> RecordBatch {
     }
 }
 
-class MyFlightServer : DefaultFlightServer {
-    override func doExchange(_ reader: ArrowFlight.RecordBatchStreamReader, writer: ArrowFlight.RecordBatchStreamWriter) async throws {
+final class MyFlightServer : ArrowFlightServer {
+    func doExchange(_ reader: ArrowFlight.RecordBatchStreamReader, writer: ArrowFlight.RecordBatchStreamWriter) async throws {
         do {
             for try await rb in reader {
                 XCTAssertEqual(rb.schema.fields.count, 3)
@@ -65,7 +82,7 @@ class MyFlightServer : DefaultFlightServer {
         }
     }
     
-    override func doPut(_ reader: ArrowFlight.RecordBatchStreamReader, writer: ArrowFlight.PutResultDataStreamWriter) async throws {
+    func doPut(_ reader: ArrowFlight.RecordBatchStreamReader, writer: ArrowFlight.PutResultDataStreamWriter) async throws {
         for try await rb in reader {
             XCTAssertEqual(rb.schema.fields.count, 3)
             XCTAssertEqual(rb.length, 4)
@@ -73,32 +90,32 @@ class MyFlightServer : DefaultFlightServer {
         }
     }
     
-    override func doGet(_ ticket: ArrowFlight.FlightTicket, writer: ArrowFlight.RecordBatchStreamWriter) async throws {
+    func doGet(_ ticket: ArrowFlight.FlightTicket, writer: ArrowFlight.RecordBatchStreamWriter) async throws {
         try await writer.write(try makeRecordBatch())
     }
     
-    override func getSchema(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult {
+    func getSchema(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightSchemaResult {
         XCTAssertEqual(String(bytes: request.cmd, encoding: .utf8)!, "schema info")
         XCTAssertEqual(request.type, .cmd)
         return try ArrowFlight.FlightSchemaResult(schemaToArrowStream(makeSchema()))
     }
     
-    override func getFlightInfo(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightInfo {
+    func getFlightInfo(_ request: ArrowFlight.FlightDescriptor) async throws -> ArrowFlight.FlightInfo {
         return ArrowFlight.FlightInfo(Data())
     }
     
-    override func listFlights(_ criteria: ArrowFlight.FlightCriteria, writer: ArrowFlight.FlightInfoStreamWriter) async throws {
+    func listFlights(_ criteria: ArrowFlight.FlightCriteria, writer: ArrowFlight.FlightInfoStreamWriter) async throws {
         XCTAssertEqual(String(bytes: criteria.expression, encoding: .utf8), "flight criteria expression")
         let flight_info = try ArrowFlight.FlightInfo(schemaToArrowStream(makeSchema()))
         try await writer.write(flight_info)
     }
     
-    override func listActions(_ writer: ArrowFlight.ActionTypeStreamWriter) async throws {
+    func listActions(_ writer: ArrowFlight.ActionTypeStreamWriter) async throws {
         try await writer.write(FlightActionType("type1", description: "desc1"))
         try await writer.write(FlightActionType("type2", description: "desc2"))
     }
     
-    override func doAction(_ action: FlightAction, writer: ResultStreamWriter) async throws {
+    func doAction(_ action: FlightAction, writer: ResultStreamWriter) async throws {
         XCTAssertEqual(action.type, "test_action")
         XCTAssertEqual(String(bytes: action.body, encoding: .utf8)!, "test_action body")
         try await writer.write(FlightResult("test_action result".data(using: .utf8)!))

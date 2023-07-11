@@ -38,6 +38,71 @@ fileprivate struct _GeneratedWithProtocGenSwiftVersion: SwiftProtobuf.ProtobufAP
 }
 
 ///
+/// The result of a cancel operation.
+///
+/// This is used by CancelFlightInfoResult.status.
+enum Arrow_Flight_Protocol_CancelStatus: SwiftProtobuf.Enum {
+  typealias RawValue = Int
+
+  /// The cancellation status is unknown. Servers should avoid using
+  /// this value (send a NOT_FOUND error if the requested query is
+  /// not known). Clients can retry the request.
+  case unspecified // = 0
+
+  /// The cancellation request is complete. Subsequent requests with
+  /// the same payload may return CANCELLED or a NOT_FOUND error.
+  case cancelled // = 1
+
+  /// The cancellation request is in progress. The client may retry
+  /// the cancellation request.
+  case cancelling // = 2
+
+  /// The query is not cancellable. The client should not retry the
+  /// cancellation request.
+  case notCancellable // = 3
+  case UNRECOGNIZED(Int)
+
+  init() {
+    self = .unspecified
+  }
+
+  init?(rawValue: Int) {
+    switch rawValue {
+    case 0: self = .unspecified
+    case 1: self = .cancelled
+    case 2: self = .cancelling
+    case 3: self = .notCancellable
+    default: self = .UNRECOGNIZED(rawValue)
+    }
+  }
+
+  var rawValue: Int {
+    switch self {
+    case .unspecified: return 0
+    case .cancelled: return 1
+    case .cancelling: return 2
+    case .notCancellable: return 3
+    case .UNRECOGNIZED(let i): return i
+    }
+  }
+
+}
+
+#if swift(>=4.2)
+
+extension Arrow_Flight_Protocol_CancelStatus: CaseIterable {
+  // The compiler won't synthesize support with the UNRECOGNIZED case.
+  static var allCases: [Arrow_Flight_Protocol_CancelStatus] = [
+    .unspecified,
+    .cancelled,
+    .cancelling,
+    .notCancellable,
+  ]
+}
+
+#endif  // swift(>=4.2)
+
+///
 /// The request that a client provides to a server on handshake.
 struct Arrow_Flight_Protocol_HandshakeRequest {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -150,6 +215,56 @@ struct Arrow_Flight_Protocol_Action {
 }
 
 ///
+/// The request of the CancelFlightInfo action.
+///
+/// The request should be stored in Action.body.
+struct Arrow_Flight_Protocol_CancelFlightInfoRequest {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var info: Arrow_Flight_Protocol_FlightInfo {
+    get {return _info ?? Arrow_Flight_Protocol_FlightInfo()}
+    set {_info = newValue}
+  }
+  /// Returns true if `info` has been explicitly set.
+  var hasInfo: Bool {return self._info != nil}
+  /// Clears the value of `info`. Subsequent reads from it will return its default value.
+  mutating func clearInfo() {self._info = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _info: Arrow_Flight_Protocol_FlightInfo? = nil
+}
+
+///
+/// The request of the RenewFlightEndpoint action.
+///
+/// The request should be stored in Action.body.
+struct Arrow_Flight_Protocol_RenewFlightEndpointRequest {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var endpoint: Arrow_Flight_Protocol_FlightEndpoint {
+    get {return _endpoint ?? Arrow_Flight_Protocol_FlightEndpoint()}
+    set {_endpoint = newValue}
+  }
+  /// Returns true if `endpoint` has been explicitly set.
+  var hasEndpoint: Bool {return self._endpoint != nil}
+  /// Clears the value of `endpoint`. Subsequent reads from it will return its default value.
+  mutating func clearEndpoint() {self._endpoint = nil}
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+
+  fileprivate var _endpoint: Arrow_Flight_Protocol_FlightEndpoint? = nil
+}
+
+///
 /// An opaque result returned after executing an action.
 struct Arrow_Flight_Protocol_Result {
   // SwiftProtobuf.Message conformance is added in an extension below. See the
@@ -157,6 +272,22 @@ struct Arrow_Flight_Protocol_Result {
   // methods supported on all messages.
 
   var body: Data = Data()
+
+  var unknownFields = SwiftProtobuf.UnknownStorage()
+
+  init() {}
+}
+
+///
+/// The result of the CancelFlightInfo action.
+///
+/// The result should be stored in Result.body.
+struct Arrow_Flight_Protocol_CancelFlightInfoResult {
+  // SwiftProtobuf.Message conformance is added in an extension below. See the
+  // `Message` and `Message+*Additions` files in the SwiftProtobuf library for
+  // methods supported on all messages.
+
+  var status: Arrow_Flight_Protocol_CancelStatus = .unspecified
 
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
@@ -363,11 +494,25 @@ struct Arrow_Flight_Protocol_FlightEndpoint {
   /// represent redundant and/or load balanced services.
   var location: [Arrow_Flight_Protocol_Location] = []
 
+  ///
+  /// Expiration time of this stream. If present, clients may assume
+  /// they can retry DoGet requests. Otherwise, it is
+  /// application-defined whether DoGet requests may be retried.
+  var expirationTime: SwiftProtobuf.Google_Protobuf_Timestamp {
+    get {return _expirationTime ?? SwiftProtobuf.Google_Protobuf_Timestamp()}
+    set {_expirationTime = newValue}
+  }
+  /// Returns true if `expirationTime` has been explicitly set.
+  var hasExpirationTime: Bool {return self._expirationTime != nil}
+  /// Clears the value of `expirationTime`. Subsequent reads from it will return its default value.
+  mutating func clearExpirationTime() {self._expirationTime = nil}
+
   var unknownFields = SwiftProtobuf.UnknownStorage()
 
   init() {}
 
   fileprivate var _ticket: Arrow_Flight_Protocol_Ticket? = nil
+  fileprivate var _expirationTime: SwiftProtobuf.Google_Protobuf_Timestamp? = nil
 }
 
 ///
@@ -459,6 +604,7 @@ struct Arrow_Flight_Protocol_PutResult {
 }
 
 #if swift(>=5.5) && canImport(_Concurrency)
+extension Arrow_Flight_Protocol_CancelStatus: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_HandshakeRequest: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_HandshakeResponse: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_BasicAuth: @unchecked Sendable {}
@@ -466,7 +612,10 @@ extension Arrow_Flight_Protocol_Empty: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_ActionType: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_Criteria: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_Action: @unchecked Sendable {}
+extension Arrow_Flight_Protocol_CancelFlightInfoRequest: @unchecked Sendable {}
+extension Arrow_Flight_Protocol_RenewFlightEndpointRequest: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_Result: @unchecked Sendable {}
+extension Arrow_Flight_Protocol_CancelFlightInfoResult: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_SchemaResult: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_FlightDescriptor: @unchecked Sendable {}
 extension Arrow_Flight_Protocol_FlightDescriptor.DescriptorType: @unchecked Sendable {}
@@ -481,6 +630,15 @@ extension Arrow_Flight_Protocol_PutResult: @unchecked Sendable {}
 // MARK: - Code below here is support for the SwiftProtobuf runtime.
 
 fileprivate let _protobuf_package = "arrow.flight.protocol"
+
+extension Arrow_Flight_Protocol_CancelStatus: SwiftProtobuf._ProtoNameProviding {
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    0: .same(proto: "CANCEL_STATUS_UNSPECIFIED"),
+    1: .same(proto: "CANCEL_STATUS_CANCELLED"),
+    2: .same(proto: "CANCEL_STATUS_CANCELLING"),
+    3: .same(proto: "CANCEL_STATUS_NOT_CANCELLABLE"),
+  ]
+}
 
 extension Arrow_Flight_Protocol_HandshakeRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".HandshakeRequest"
@@ -723,6 +881,78 @@ extension Arrow_Flight_Protocol_Action: SwiftProtobuf.Message, SwiftProtobuf._Me
   }
 }
 
+extension Arrow_Flight_Protocol_CancelFlightInfoRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".CancelFlightInfoRequest"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "info"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._info) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._info {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Arrow_Flight_Protocol_CancelFlightInfoRequest, rhs: Arrow_Flight_Protocol_CancelFlightInfoRequest) -> Bool {
+    if lhs._info != rhs._info {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arrow_Flight_Protocol_RenewFlightEndpointRequest: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".RenewFlightEndpointRequest"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "endpoint"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularMessageField(value: &self._endpoint) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    // The use of inline closures is to circumvent an issue where the compiler
+    // allocates stack space for every if/case branch local when no optimizations
+    // are enabled. https://github.com/apple/swift-protobuf/issues/1034 and
+    // https://github.com/apple/swift-protobuf/issues/1182
+    try { if let v = self._endpoint {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 1)
+    } }()
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Arrow_Flight_Protocol_RenewFlightEndpointRequest, rhs: Arrow_Flight_Protocol_RenewFlightEndpointRequest) -> Bool {
+    if lhs._endpoint != rhs._endpoint {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
 extension Arrow_Flight_Protocol_Result: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
   static let protoMessageName: String = _protobuf_package + ".Result"
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
@@ -750,6 +980,38 @@ extension Arrow_Flight_Protocol_Result: SwiftProtobuf.Message, SwiftProtobuf._Me
 
   static func ==(lhs: Arrow_Flight_Protocol_Result, rhs: Arrow_Flight_Protocol_Result) -> Bool {
     if lhs.body != rhs.body {return false}
+    if lhs.unknownFields != rhs.unknownFields {return false}
+    return true
+  }
+}
+
+extension Arrow_Flight_Protocol_CancelFlightInfoResult: SwiftProtobuf.Message, SwiftProtobuf._MessageImplementationBase, SwiftProtobuf._ProtoNameProviding {
+  static let protoMessageName: String = _protobuf_package + ".CancelFlightInfoResult"
+  static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
+    1: .same(proto: "status"),
+  ]
+
+  mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
+    while let fieldNumber = try decoder.nextFieldNumber() {
+      // The use of inline closures is to circumvent an issue where the compiler
+      // allocates stack space for every case branch when no optimizations are
+      // enabled. https://github.com/apple/swift-protobuf/issues/1034
+      switch fieldNumber {
+      case 1: try { try decoder.decodeSingularEnumField(value: &self.status) }()
+      default: break
+      }
+    }
+  }
+
+  func traverse<V: SwiftProtobuf.Visitor>(visitor: inout V) throws {
+    if self.status != .unspecified {
+      try visitor.visitSingularEnumField(value: self.status, fieldNumber: 1)
+    }
+    try unknownFields.traverse(visitor: &visitor)
+  }
+
+  static func ==(lhs: Arrow_Flight_Protocol_CancelFlightInfoResult, rhs: Arrow_Flight_Protocol_CancelFlightInfoResult) -> Bool {
+    if lhs.status != rhs.status {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
@@ -910,6 +1172,7 @@ extension Arrow_Flight_Protocol_FlightEndpoint: SwiftProtobuf.Message, SwiftProt
   static let _protobuf_nameMap: SwiftProtobuf._NameMap = [
     1: .same(proto: "ticket"),
     2: .same(proto: "location"),
+    3: .standard(proto: "expiration_time"),
   ]
 
   mutating func decodeMessage<D: SwiftProtobuf.Decoder>(decoder: inout D) throws {
@@ -920,6 +1183,7 @@ extension Arrow_Flight_Protocol_FlightEndpoint: SwiftProtobuf.Message, SwiftProt
       switch fieldNumber {
       case 1: try { try decoder.decodeSingularMessageField(value: &self._ticket) }()
       case 2: try { try decoder.decodeRepeatedMessageField(value: &self.location) }()
+      case 3: try { try decoder.decodeSingularMessageField(value: &self._expirationTime) }()
       default: break
       }
     }
@@ -936,12 +1200,16 @@ extension Arrow_Flight_Protocol_FlightEndpoint: SwiftProtobuf.Message, SwiftProt
     if !self.location.isEmpty {
       try visitor.visitRepeatedMessageField(value: self.location, fieldNumber: 2)
     }
+    try { if let v = self._expirationTime {
+      try visitor.visitSingularMessageField(value: v, fieldNumber: 3)
+    } }()
     try unknownFields.traverse(visitor: &visitor)
   }
 
   static func ==(lhs: Arrow_Flight_Protocol_FlightEndpoint, rhs: Arrow_Flight_Protocol_FlightEndpoint) -> Bool {
     if lhs._ticket != rhs._ticket {return false}
     if lhs.location != rhs.location {return false}
+    if lhs._expirationTime != rhs._expirationTime {return false}
     if lhs.unknownFields != rhs.unknownFields {return false}
     return true
   }
