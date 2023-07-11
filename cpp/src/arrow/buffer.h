@@ -28,7 +28,6 @@
 #include "arrow/device.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/bytes_view.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -167,12 +166,8 @@ class ARROW_EXPORT Buffer {
   /// \brief View buffer contents as a std::string_view
   /// \return std::string_view
   explicit operator std::string_view() const {
-    return std::string_view(reinterpret_cast<const char*>(data_), size_);
+    return {reinterpret_cast<const char*>(data_), static_cast<size_t>(size_)};
   }
-
-  /// \brief View buffer contents as a util::bytes_view
-  /// \return util::bytes_view
-  explicit operator util::bytes_view() const { return util::bytes_view(data_, size_); }
 
   /// \brief Return a pointer to the buffer's data
   ///

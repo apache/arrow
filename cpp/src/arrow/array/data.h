@@ -372,11 +372,6 @@ struct ARROW_EXPORT ArraySpan {
   int64_t offset = 0;
   BufferSpan buffers[3];
 
-  // 16 bytes of scratch space to enable this ArraySpan to be a view onto
-  // scalar values including binary scalars (where we need to create a buffer
-  // that looks like two 32-bit or 64-bit offsets)
-  uint64_t scratch_space[2];
-
   ArraySpan() = default;
 
   explicit ArraySpan(const DataType* type, int64_t length) : type(type), length(length) {}
