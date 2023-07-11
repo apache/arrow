@@ -419,8 +419,8 @@ Extension arrays can be used as columns in  ``pyarrow.Table`` or
    f0: int8
    f1: string
    f2: bool
-   tensors_int: extension<arrow.fixed_shape_tensor<type: int32, {"shape":[2,2]}>>
-   tensors_float: extension<arrow.fixed_shape_tensor<type: float, {"shape":[2,2]}>>
+   tensors_int: extension<arrow.fixed_shape_tensor[value_type=int32, shape=[2,2]]>
+   tensors_float: extension<arrow.fixed_shape_tensor[value_type=float, shape=[2,2]]>
    ----
    f0: [[1,2,3]]
    f1: [["foo","bar",null]]
