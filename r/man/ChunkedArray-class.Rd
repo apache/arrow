@@ -3,16 +3,7 @@
 \docType{class}
 \name{ChunkedArray}
 \alias{ChunkedArray}
-\alias{chunked_array}
 \title{ChunkedArray class}
-\usage{
-chunked_array(..., type = NULL)
-}
-\arguments{
-\item{\dots}{Vectors to coerce}
-
-\item{type}{currently ignored}
-}
 \description{
 A \code{ChunkedArray} is a data structure managing a list of
 primitive Arrow \link[=Array]{Arrays} logically as one large array. Chunked arrays
