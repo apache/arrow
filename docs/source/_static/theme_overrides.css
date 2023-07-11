@@ -29,6 +29,7 @@
   --pst-color-h2: var(--color-text-base);
   /* Use softer blue from bootstrap's default info color */
   --pst-color-info: 23, 162, 184;
+  --pst-header-height: 6rem;
 }
 
 code {
@@ -37,20 +38,6 @@ code {
 
 .footer {
   text-align: center;
-}
-
-/* Ensure the logo is properly displayed */
-
-.navbar-brand {
-  height: auto;
-  width: auto;
-}
-
-a.navbar-brand img {
-  height: auto;
-  width: auto;
-  max-height: 15vh;
-  max-width: 100%;
 }
 
 /* Contibuting landing page overview cards */

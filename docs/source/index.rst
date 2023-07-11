@@ -88,7 +88,7 @@ target environment.**
 
       +++
 
-      .. button-ref:: env-index
+      .. button-ref:: toc.usage
          :ref-type: ref
          :click-parent:
          :color: secondary
@@ -122,6 +122,31 @@ Documentation for supported environments
 .. _toc.usage:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
-   env-index
+   C/GLib <c_glib/index>
+   C++ <cpp/index>
+   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go>
+   Java <java/index>
+   JavaScript <js/index>
+   Julia <https://arrow.apache.org/julia/>
+   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
+   Python <python/index>
+   R <r/index>
+   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
+   Rust <https://docs.rs/crate/arrow/>
+   status
+
+Cookbooks
+---------
+
+.. _toc.cookbook:
+
+.. toctree::
+   :maxdepth: 1
+
+   C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
+   Java cookbook <https://arrow.apache.org/cookbook/java/>
+   Python cookbook <https://arrow.apache.org/cookbook/py/>
+   R cookbook <https://arrow.apache.org/cookbook/r/>
