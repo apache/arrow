@@ -21,8 +21,14 @@ set -ex
 
 arrow_dir=${1}
 build_dir=${2}
+normalized_arch=$(arch)
+case ${normalized_arch} in
+  aarch64)
+    normalized_arch=aarch_64
+    ;;
+esac
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/$(arch)
+dist_dir=${3}/${normalized_arch}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -103,7 +109,7 @@ ninja install
 if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
-  case "$(uname -m)" in
+  case $(arch) in
     aarch64)
       # GCS testbench is crashed on aarch64:
       # ImportError: ../grpc/_cython/cygrpc.cpython-38-aarch64-linux-gnu.so:

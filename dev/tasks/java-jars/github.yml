@@ -211,7 +211,7 @@ jobs:
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.so
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.so
           test -f arrow/java-dist/x86_64/libgandiva_jni.so
-          
+
           test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.so
           test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.so
           test -f arrow/java-dist/aarch_64/libarrow_orc_jni.so
