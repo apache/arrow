@@ -24,17 +24,16 @@
 #include "arrow/matlab/type/time_unit.h"
 #include "arrow/util/utf8.h"
 #include "arrow/type.h"
-#include "arrow/builder.h"
-
 
 namespace arrow::matlab::array::proxy {
 
-    namespace {
-        const uint8_t* getUnpackedValidityBitmap(const ::matlab::data::TypedArray<bool>& valid_elements) {
-            const auto valid_elements_iterator(valid_elements.cbegin());
-            return reinterpret_cast<const uint8_t*>(valid_elements_iterator.operator->());
-        }
-    } // anonymous namespace
+    TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> timestamp_array)
+        : arrow::matlab::array::proxy::Array{std::move(timestamp_array)}
+        , mda_array{} {}
+
+    TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> timestamp_array, ::matlab::data::TypedArray<int64_t> mda_array)
+        : arrow::matlab::array::proxy::Array{std::move(timestamp_array)}
+        , mda_array{mda_array} {}
 
     libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
@@ -49,32 +48,35 @@ namespace arrow::matlab::array::proxy {
         const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
 
         // extract the time zone string
-        const std::u16string& utf16_timezone = timezone_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(utf16_timezone),
+        const std::u16string& u16_timezone = timezone_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto timezone, 
+                               arrow::util::UTF16StringToUTF8(u16_timezone),
                                error::UNICODE_CONVERSION_ERROR_ID);
 
         // extract the time unit
-        const std::u16string& utf16_unit = units_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto time_unit, arrow::matlab::type::timeUnitFromString(utf16_unit),
-                               error::UKNOWN_TIME_UNIT_ERROR_ID);
+        MATLAB_ASSIGN_OR_ERROR(const auto time_unit, 
+                               arrow::matlab::type::timeUnitFromString(units_mda[0]),
+                               error::UKNOWN_TIME_UNIT_ERROR_ID)
 
         // create the timestamp_type
         auto data_type = arrow::timestamp(time_unit, timezone);
-        arrow::TimestampBuilder builder(data_type, arrow::default_memory_pool());
+        auto array_length = static_cast<int64_t>(timestamp_mda.getNumberOfElements()); // cast size_t to int64_t
 
-        // Get raw pointer of mxArray
+         // Get raw pointer of mxArray
         auto it(timestamp_mda.cbegin());
         auto dt = it.operator->();
 
+        // Do not make a copy when creating arrow::Buffer
+        auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
+                                                          sizeof(int64_t) * timestamp_mda.getNumberOfElements());            
         // Pack the validity bitmap values.
-        const uint8_t* valid_mask = getUnpackedValidityBitmap(validity_bitmap_mda);
-        const auto num_elements = timestamp_mda.getNumberOfElements();
-        
-        // Append values
-        MATLAB_ERROR_IF_NOT_OK(builder.AppendValues(dt, num_elements, valid_mask), error::APPEND_VALUES_ERROR_ID);
-        MATLAB_ASSIGN_OR_ERROR(auto timestamp_array, builder.Finish(), error::BUILD_ARRAY_ERROR_ID);
+        MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap, 
+                               bit::packValid(validity_bitmap_mda), 
+                               error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
-        return std::make_shared<arrow::matlab::array::proxy::TimestampArray>(timestamp_array);
+        auto array_data = arrow::ArrayData::Make(data_type, array_length, {packed_validity_bitmap, data_buffer});
+        auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(arrow::MakeArray(array_data));
+        return std::make_shared<arrow::matlab::array::proxy::TimestampArray>(std::move(timestamp_array), timestamp_mda);
     }
 
     void TimestampArray::toMATLAB(libmexclass::proxy::method::Context& context) {

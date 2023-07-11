@@ -15,11 +15,6 @@
 
 classdef NumericArray < arrow.array.Array
     % arrow.array.NumericArray
-    
-    
-    properties (Hidden, SetAccess=protected)
-        MatlabArray = []
-    end
 
     properties(Abstract, Access=protected)
         NullSubstitutionValue;
@@ -38,9 +33,6 @@ classdef NumericArray < arrow.array.Array
             validElements = arrow.args.parseValidElements(data, opts);
             opts = struct(MatlabArray=data, Valid=validElements);
             obj@arrow.array.Array("Name", proxyName, "ConstructorArguments", {opts});
-            obj.MatlabArray = cast(obj.MatlabArray, type);
-            % Store a reference to the array
-            obj.MatlabArray = data;
         end
 
         function matlabArray = toMATLAB(obj)

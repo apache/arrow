@@ -35,15 +35,16 @@ namespace arrow::matlab::array::proxy {
 template<typename CType>
 class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
-        NumericArray(const std::shared_ptr<arrow::Array> numeric_array)
-            : arrow::matlab::array::proxy::Array() {
-                array = numeric_array;
-            }
+        using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
 
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
-            using BuilderType = typename arrow::CTypeTraits<CType>::BuilderType;
+        NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array)
+            : arrow::matlab::array::proxy::Array(std::move(numeric_array)) {}
 
+        NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array, ::matlab::data::TypedArray<CType> array)
+            : arrow::matlab::array::proxy::Array(std::move(numeric_array))
+            , mda_array{array} {}
+
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {            
             ::matlab::data::StructArray opts = constructor_arguments[0];
 
             // Get the mxArray from constructor arguments
@@ -63,7 +64,8 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             // Pack the validity bitmap values.
             MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap, bit::packValid(valid_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
             auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
-            return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
+            auto numeric_array = std::static_pointer_cast<arrow::NumericArray<ArrowType>>(arrow::MakeArray(array_data));
+            return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(std::move(numeric_array), numeric_mda);
         }
 
     protected:
@@ -81,6 +83,9 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             ::matlab::data::TypedArray<CType> result = factory.createArray({num_elements, 1}, data_begin, data_end);
             context.outputs[0] = result;
         }
+
+    private:
+        const ::matlab::data::Array mda_array;
 };
 
 }
