@@ -147,6 +147,7 @@ fi
 echo "=== Checking shared dependencies for libraries ==="
 pushd ${dist_dir}
 archery linking check-dependencies \
+  --allow ld-linux-aarch64 \
   --allow ld-linux-x86-64 \
   --allow libc \
   --allow libdl \
