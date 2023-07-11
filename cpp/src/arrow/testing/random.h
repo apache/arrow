@@ -563,6 +563,13 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   /// For MapType:
   /// - values (int32_t): the number of key-value pairs to generate, which will be
   ///   partitioned among the array values.
+  ///
+  /// For extension types:
+  /// - extension_allow_random_storage (bool): in general an extension array may have
+  ///   invariants on its storage beyond those already imposed by the arrow format,
+  ///   which may result in an invalid array if we just wrap randomly generated
+  ///   storage. Set this flag to explicitly allow wrapping of randomly generated
+  ///   storage.
   std::shared_ptr<arrow::RecordBatch> BatchOf(
       const FieldVector& fields, int64_t size,
       int64_t alignment = kDefaultBufferAlignment,
@@ -575,7 +582,7 @@ class ARROW_TESTING_EXPORT RandomArrayGenerator {
   std::default_random_engine seed_rng_;
 };
 
-/// Generate an array with random data. See RandomArrayGenerator::BatchOf.
+/// Generate a batch with random data. See RandomArrayGenerator::BatchOf.
 ARROW_TESTING_EXPORT
 std::shared_ptr<arrow::RecordBatch> GenerateBatch(
     const FieldVector& fields, int64_t size, SeedType seed,
