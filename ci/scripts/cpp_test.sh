@@ -44,16 +44,6 @@ ctest_options=()
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
-    case "$(uname -m)" in
-      aarch64)
-        # GCS testbench is crashed on aarch64:
-        # ImportError: ../grpc/_cython/cygrpc.cpython-38-aarch64-linux-gnu.so:
-        # undefined symbol: vtable for std::__cxx11::basic_ostringstream<
-        #   char, std::char_traits<char>, std::allocator<char> >
-        exclude_tests="arrow-gcsfs-test"
-        ctest_options+=(--exclude-regex "${exclude_tests}")
-        ;;
-    esac
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)

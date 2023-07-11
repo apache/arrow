@@ -103,6 +103,15 @@ ninja install
 if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
+  case "$(uname -m)" in
+    aarch64)
+      # GCS testbench is crashed on aarch64:
+      # ImportError: ../grpc/_cython/cygrpc.cpython-38-aarch64-linux-gnu.so:
+      # undefined symbol: vtable for std::__cxx11::basic_ostringstream<
+      #   char, std::char_traits<char>, std::allocator<char> >
+      exclude_tests="${exclude_tests}|arrow-gcsfs-test"
+      ;;
+  esac
   # unstable
   exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
   exclude_tests="${exclude_tests}|arrow-dataset-scanner-test"
