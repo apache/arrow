@@ -160,5 +160,17 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* o
   }
 }
 
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> d(0, 255);
+  for (int i = 0; i < n; ++i) {
+    out[i].ptr = buf;
+    for (int j = 0; j < len; ++j) {
+      buf[j] = static_cast<uint8_t>(d(gen));
+    }
+    buf += len;
+  }
+}
+
 }  // namespace test
 }  // namespace parquet

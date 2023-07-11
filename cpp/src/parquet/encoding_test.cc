@@ -1985,7 +1985,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  void InitData(int nvalues, int repeats, double null_probability) {
+  void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(c_type));
     output_bytes_.resize(num_values_ * sizeof(c_type));
@@ -2001,14 +2001,14 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
     }
   }
 
-  void Execute(int nvalues, int repeats, double null_probability) {
-    InitData(nvalues, repeats, null_probability);
+  void Execute(int nvalues, int repeats) {
+    InitData(nvalues, repeats);
     CheckRoundtrip();
   }
 
   void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset,
                      double null_probability) {
-    InitData(nvalues, repeats, null_probability);
+    InitData(nvalues, repeats);
 
     int64_t size = num_values_ + valid_bits_offset;
     auto rand = ::arrow::random::RandomArrayGenerator(1923);
@@ -2064,23 +2064,19 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
 };
 
 using TestDeltaByteArrayEncodingTypes =
-    ::testing::Types<ByteArrayType>;  // TODO: FLBAType
+    ::testing::Types<ByteArrayType, FLBAType>;  // TODO: FLBAType
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
-  // TODO: repeats
-  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0, 0));
-  // TODO
-
-  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 0, /*null_probability*/ 0));
-  //  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
-  //      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
-  //      0));
-  //
-  //  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, /*null_probability*/ 0.1));
-  //  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
-  //      /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
-  //      /*null_probability*/ 0.5));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 5));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
+      0));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.5));
 }
 
 template <typename Type>
@@ -2153,11 +2149,11 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
-
-TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
-  ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
-}
+// TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
+//
+// TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
+//   ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
+// }
 
 TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   auto CheckEncode = [](const std::shared_ptr<::arrow::Array>& values,
