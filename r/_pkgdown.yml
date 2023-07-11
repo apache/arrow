@@ -289,9 +289,9 @@ reference:
   - RecordBatchWriter
   - as_record_batch_reader
 
-- title: Arrow data types, schemas, and containers - R6 classes
+- title: Low-level C++ wrappers
   desc: >
-    R6 classes for Arrow data types.
+    Low-level R6 class representations of Arrow C++ objects intended for advanced users.
   contents:
   - Buffer
   - Scalar
