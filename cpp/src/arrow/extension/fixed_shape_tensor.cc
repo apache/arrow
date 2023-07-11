@@ -107,8 +107,7 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
 std::string FixedShapeTensorType::ToString() const {
   std::stringstream ss;
   ss << "extension<" << this->extension_name()
-     << "[value_type=" << value_type_->ToString()
-     << ", shape=[";
+     << "[value_type=" << value_type_->ToString() << ", shape=[";
   std::string separator;
   for (auto v : shape_) {
     ss << separator << v;
