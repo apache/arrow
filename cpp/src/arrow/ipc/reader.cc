@@ -871,7 +871,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
         num_read_initial_dictionaries_(0),
         dictionary_memo_(),
         schema_(nullptr),
-        out_schema_(nullptr),
+        filtered_schema_(nullptr),
         stats_(),
         swap_endian_(false) {}
 
@@ -900,7 +900,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
 
   Listener* raw_listener() const { return listener_.get(); }
 
-  std::shared_ptr<Schema> schema() const { return out_schema_; }
+  std::shared_ptr<Schema> schema() const { return filtered_schema_; }
 
   ReadStats stats() const { return stats_; }
 
@@ -915,14 +915,14 @@ class StreamDecoderInternal : public MessageDecoderListener {
  private:
   Status OnSchemaMessageDecoded(std::unique_ptr<Message> message) {
     RETURN_NOT_OK(UnpackSchemaMessage(*message, options_, &dictionary_memo_, &schema_,
-                                      &out_schema_, &field_inclusion_mask_,
+                                      &filtered_schema_, &field_inclusion_mask_,
                                       &swap_endian_));
 
     num_required_initial_dictionaries_ = dictionary_memo_.fields().num_dicts();
     num_read_initial_dictionaries_ = 0;
     if (num_required_initial_dictionaries_ == 0) {
       state_ = State::RECORD_BATCHES;
-      RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_));
+      RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_, filtered_schema_));
     } else {
       state_ = State::INITIAL_DICTIONARIES;
     }
@@ -939,7 +939,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
     num_read_initial_dictionaries_++;
     if (num_read_initial_dictionaries_ == num_required_initial_dictionaries_) {
       state_ = State::RECORD_BATCHES;
-      ARROW_RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_));
+      ARROW_RETURN_NOT_OK(listener_->OnSchemaDecoded(schema_, filtered_schema_));
     }
     return Status::OK();
   }
@@ -987,7 +987,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
   int num_read_initial_dictionaries_;
   DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_;
-  std::shared_ptr<Schema> out_schema_;
+  std::shared_ptr<Schema> filtered_schema_;
   ReadStats stats_;
   bool swap_endian_;
 };
@@ -1958,6 +1958,11 @@ Result<std::shared_ptr<RecordBatch>> WholeIpcFileRecordBatchGenerator::ReadRecor
 Status Listener::OnEOS() { return Status::OK(); }
 
 Status Listener::OnSchemaDecoded(std::shared_ptr<Schema> schema) { return Status::OK(); }
+
+Status Listener::OnSchemaDecoded(std::shared_ptr<Schema> schema,
+                                 std::shared_ptr<Schema> filtered_schema) {
+  return OnSchemaDecoded(std::move(schema));
+}
 
 Status Listener::OnRecordBatchDecoded(std::shared_ptr<RecordBatch> record_batch) {
   return Status::NotImplemented("OnRecordBatchDecoded() callback isn't implemented");

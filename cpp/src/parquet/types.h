@@ -488,6 +488,10 @@ PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec);
 
 PARQUET_EXPORT
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options);
+
+PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);
 
 struct ParquetCipher {

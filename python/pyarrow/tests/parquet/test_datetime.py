@@ -50,9 +50,11 @@ pytestmark = pytest.mark.parquet
 @pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_pandas_parquet_datetime_tz(use_legacy_dataset):
-    s = pd.Series([datetime.datetime(2017, 9, 6)])
+    # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+    # so we need to cast the pandas dtype. Pandas v1 will always silently
+    # coerce to [ns] due to lack of non-[ns] support.
+    s = pd.Series([datetime.datetime(2017, 9, 6)], dtype='datetime64[us]')
     s = s.dt.tz_localize('utc')
-
     s.index = s
 
     # Both a column and an index to hit both use cases
@@ -64,7 +66,7 @@ def test_pandas_parquet_datetime_tz(use_legacy_dataset):
 
     arrow_table = pa.Table.from_pandas(df)
 
-    _write_table(arrow_table, f, coerce_timestamps='ms')
+    _write_table(arrow_table, f)
     f.seek(0)
 
     table_read = pq.read_pandas(f, use_legacy_dataset=use_legacy_dataset)
@@ -153,7 +155,7 @@ def test_coerce_timestamps_truncated(tempdir):
     df_ms = table_ms.to_pandas()
 
     arrays_expected = {'datetime64': [dt_ms, dt_ms]}
-    df_expected = pd.DataFrame(arrays_expected)
+    df_expected = pd.DataFrame(arrays_expected, dtype='datetime64[ms]')
     tm.assert_frame_equal(df_expected, df_ms)
 
 

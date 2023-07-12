@@ -28,7 +28,7 @@ classdef ID < uint64
         % Float16 (10) not yet supported
         Float32 (11)
         Float64 (12)
-        % String (13)
+        String  (13)
         % Binary (14)
         % FixedSizeBinary (15)
         % Date32 (16)

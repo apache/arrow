@@ -27,6 +27,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -291,6 +292,20 @@ struct GetByteRangesArray {
       RETURN_NOT_OK(VisitTypeInline(*type.field(i)->type(), &child));
     }
 
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) const {
+    auto [phys_offset, phys_length] = ree_util::FindPhysicalRange(input, offset, length);
+    for (int i = 0; i < type.num_fields(); i++) {
+      GetByteRangesArray child{*input.child_data[i],
+                               /*offset=*/input.child_data[i]->offset + phys_offset,
+                               /*length=*/phys_length,
+                               range_starts,
+                               range_offsets,
+                               range_lengths};
+      RETURN_NOT_OK(VisitTypeInline(*type.field(i)->type(), &child));
+    }
     return Status::OK();
   }
 

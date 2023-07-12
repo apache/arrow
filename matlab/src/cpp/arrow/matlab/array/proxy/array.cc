@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/array/proxy/array.h"
+#include "arrow/util/utf8.h"
 
+#include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/bit/unpack.h"
+#include "arrow/matlab/error/error.h"
 
 namespace arrow::matlab::array::proxy {
 
@@ -36,9 +38,9 @@ namespace arrow::matlab::array::proxy {
 
     void Array::toString(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
-
-        // TODO: handle non-ascii characters
-        auto str_mda = factory.createScalar(array->ToString());
+        const auto str_utf8 = array->ToString();
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
+        auto str_mda = factory.createScalar(str_utf16);
         context.outputs[0] = str_mda;
     }
 

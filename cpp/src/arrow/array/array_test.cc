@@ -59,6 +59,7 @@
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
 #include "arrow/visit_data_inline.h"
@@ -366,13 +367,12 @@ TEST_F(TestArray, BuildLargeInMemoryArray) {
   ASSERT_EQ(length, result->length());
 }
 
-TEST_F(TestArray, TestMakeArrayOfNull) {
+static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseTypes() {
   FieldVector union_fields1({field("a", utf8()), field("b", int32())});
   FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
   std::vector<int8_t> union_type_codes{7, 42};
 
-  std::shared_ptr<DataType> types[] = {
-      // clang-format off
+  return {
       null(),
       boolean(),
       int8(),
@@ -387,7 +387,7 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       utf8(),
       large_utf8(),
       list(utf8()),
-      list(int64()),  // ARROW-9071
+      list(int64()),  // NOTE: Regression case for ARROW-9071/MakeArrayOfNull
       large_list(large_utf8()),
       fixed_size_list(utf8(), 3),
       fixed_size_list(int64(), 4),
@@ -397,13 +397,15 @@ TEST_F(TestArray, TestMakeArrayOfNull) {
       sparse_union(union_fields2, union_type_codes),
       dense_union(union_fields1, union_type_codes),
       dense_union(union_fields2, union_type_codes),
-      smallint(),  // extension type
-      list_extension_type(), // nested extension type
-      // clang-format on
+      smallint(),             // extension type
+      list_extension_type(),  // nested extension type
+      run_end_encoded(int16(), utf8()),
   };
+}
 
+TEST_F(TestArray, TestMakeArrayOfNull) {
   for (int64_t length : {0, 1, 16, 133}) {
-    for (auto type : types) {
+    for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
       ARROW_SCOPED_TRACE("type = ", type->ToString());
       ASSERT_OK_AND_ASSIGN(auto array, MakeArrayOfNull(type, length));
       ASSERT_EQ(array->type(), type);
@@ -716,41 +718,35 @@ void CheckSpanRoundTrip(const Array& array) {
 }
 
 TEST_F(TestArray, TestMakeEmptyArray) {
-  FieldVector union_fields1({field("a", utf8()), field("b", int32())});
-  FieldVector union_fields2({field("a", null()), field("b", list(large_utf8()))});
-  std::vector<int8_t> union_type_codes{7, 42};
-
-  std::shared_ptr<DataType> types[] = {null(),
-                                       boolean(),
-                                       int8(),
-                                       uint16(),
-                                       int32(),
-                                       uint64(),
-                                       float64(),
-                                       binary(),
-                                       large_binary(),
-                                       fixed_size_binary(3),
-                                       decimal(16, 4),
-                                       utf8(),
-                                       large_utf8(),
-                                       list(utf8()),
-                                       list(int64()),
-                                       large_list(large_utf8()),
-                                       fixed_size_list(utf8(), 3),
-                                       fixed_size_list(int64(), 4),
-                                       dictionary(int32(), utf8()),
-                                       struct_({field("a", utf8()), field("b", int32())}),
-                                       sparse_union(union_fields1, union_type_codes),
-                                       sparse_union(union_fields2, union_type_codes),
-                                       dense_union(union_fields1, union_type_codes),
-                                       dense_union(union_fields2, union_type_codes)};
-
-  for (auto type : types) {
+  for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
     ARROW_SCOPED_TRACE("type = ", type->ToString());
     ASSERT_OK_AND_ASSIGN(auto array, MakeEmptyArray(type));
     ASSERT_OK(array->ValidateFull());
     ASSERT_EQ(array->length(), 0);
     CheckSpanRoundTrip(*array);
+  }
+}
+
+TEST_F(TestArray, TestFillFromScalar) {
+  for (auto type : TestArrayUtilitiesAgainstTheseTypes()) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    for (auto seed : {0u, 0xdeadbeef, 42u}) {
+      ARROW_SCOPED_TRACE("seed = ", seed);
+
+      Field field("", type, /*nullable=*/true,
+                  key_value_metadata({{"extension_allow_random_storage", "true"}}));
+      auto array = random::GenerateArray(field, 1, seed);
+
+      ASSERT_OK_AND_ASSIGN(auto scalar, array->GetScalar(0));
+
+      ArraySpan span(*scalar);
+      auto roundtripped_array = span.ToArray();
+      AssertArraysEqual(*array, *roundtripped_array);
+
+      ASSERT_OK(roundtripped_array->ValidateFull());
+      ASSERT_OK_AND_ASSIGN(auto roundtripped_scalar, roundtripped_array->GetScalar(0));
+      AssertScalarsEqual(*scalar, *roundtripped_scalar);
+    }
   }
 }
 
