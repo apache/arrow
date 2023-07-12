@@ -26,6 +26,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/dict_internal.h"
 #include "arrow/array/util.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
@@ -223,31 +224,6 @@ class DictEncodeAction final : public ActionBase {
  private:
   Int32Builder indices_builder_;
   DictionaryEncodeOptions encode_options_;
-};
-
-// ----------------------------------------------------------------------
-// Dictionary decode implementation
-
-class DictionaryDecodeMetaFunction : public MetaFunction {
- public:
-  DictionaryDecodeMetaFunction()
-      : MetaFunction("dictionary_decode", Arity::Unary(), dictionary_decode_doc) {}
-
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
-      return args[0];
-    }
-
-    if (args[0].is_array() || args[0].is_chunked_array()) {
-      DictionaryType* dict_type = checked_cast<DictionaryType*>(args[0].type().get());
-      CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
-      return CallFunction("cast", args, &cast_options, ctx);
-    } else {
-      return Status::TypeError("Expected an Array or a Chunked Array");
-    }
-  }
 };
 
 class HashKernel : public KernelState {
@@ -787,12 +763,36 @@ const FunctionDoc dictionary_encode_doc(
     ("Return a dictionary-encoded version of the input array."), {"array"},
     "DictionaryEncodeOptions");
 
+// ----------------------------------------------------------------------
+// Dictionary decode implementation
+
 const FunctionDoc dictionary_decode_doc{
     "Decodes a DictionaryArray to an Array",
     ("Return a plain-encoded version of the array input\n"
      "This function does nothing if the input is not a dictionary."),
     {"dictionary_array"}};
 
+class DictionaryDecodeMetaFunction : public MetaFunction {
+ public:
+  DictionaryDecodeMetaFunction()
+      : MetaFunction("dictionary_decode", Arity::Unary(), dictionary_decode_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
+      return args[0];
+    }
+
+    if (args[0].is_array() || args[0].is_chunked_array()) {
+      DictionaryType* dict_type = checked_cast<DictionaryType*>(args[0].type().get());
+      CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
+      return CallFunction("cast", args, &cast_options, ctx);
+    } else {
+      return Status::TypeError("Expected an Array or a Chunked Array");
+    }
+  }
+};
 }  // namespace
 
 void RegisterVectorHash(FunctionRegistry* registry) {
