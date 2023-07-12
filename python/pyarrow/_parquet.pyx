@@ -175,17 +175,18 @@ cdef class Statistics(_Weakrefable):
     @property
     def null_count(self):
         """Number of null values in chunk (int)."""
-        return self.statistics.get().null_count()
+        if self.has_null_count:
+            return self.statistics.get().null_count()
+        else:
+            return None
 
     @property
     def distinct_count(self):
-        """
-        Distinct number of values in chunk (int).
-
-        If this is not set, will return 0.
-        """
-        # This seems to be zero if not set. See: ARROW-11793
-        return self.statistics.get().distinct_count()
+        """Distinct number of values in chunk (int)."""
+        if self.has_distinct_count:
+            return self.statistics.get().distinct_count()
+        else:
+            return None
 
     @property
     def num_values(self):

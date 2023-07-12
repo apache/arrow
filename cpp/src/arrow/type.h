@@ -922,7 +922,7 @@ class ARROW_EXPORT BaseListType : public NestedType {
   ~BaseListType() override;
   const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+  const std::shared_ptr<DataType>& value_type() const { return children_[0]->type(); }
 };
 
 /// \brief Concrete type class for list data
