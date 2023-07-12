@@ -18,7 +18,7 @@ package file
 
 import (
 	"encoding/binary"
-	"errors"
+	"fmt"
 	"io"
 
 	"github.com/apache/arrow/go/v13/parquet"
@@ -167,7 +167,15 @@ func (fw *Writer) Close() (err error) {
 		}
 		fw.rowGroupWriter = nil
 		defer func() {
-			err = errors.Join(err, fw.sink.Close())
+			ierr := fw.sink.Close()
+			if err != nil {
+				if ierr != nil {
+					err = fmt.Errorf("error on close:%w, %s", err, ierr)
+				}
+				return
+			}
+
+			err = ierr
 		}()
 
 		fileEncryptProps := fw.props.FileEncryptionProperties()
