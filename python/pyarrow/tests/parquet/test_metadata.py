@@ -161,33 +161,33 @@ def test_parquet_metadata_lifetime(tempdir):
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
-            'FLOAT', -1.1, 4.4, 1, 4, 0
+            'FLOAT', -1.1, 4.4, 1, 4, None
         ),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
-            'DOUBLE', -1.1, 4.4, 1, 4, 0
+            'DOUBLE', -1.1, 4.4, 1, 4, None
         ),
         (
             ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, 0
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, None
         ),
         (
             [True, False, False, True, True], pa.bool_(),
-            'BOOLEAN', False, True, 0, 5, 0
+            'BOOLEAN', False, True, 0, 5, None
         ),
         (
             [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'\x00', b'b', 1, 4, 0
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, None
         ),
     ]
 )
