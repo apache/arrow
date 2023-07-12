@@ -790,8 +790,8 @@ def test_parquet_scan_options():
         thrift_container_size_limit=987654,)
     opts6 = ds.ParquetFragmentScanOptions(
         page_checksum_verification=True)
-    
-    cache_opts = ds.CacheOptions(hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
+    cache_opts = ds.CacheOptions(
+        hole_size_limit=2**10, range_size_limit=8*2**10, lazy=True)
     opts7 = ds.ParquetFragmentScanOptions(pre_buffer=True, cache_options=cache_opts)
 
     assert opts1.use_buffered_stream is False
@@ -893,12 +893,14 @@ def test_fragment_scan_options_pickling(pickle_module):
     for option in options:
         assert pickle_module.loads(pickle_module.dumps(option)) == option
 
+
 def test_cache_options():
     opts1 = ds.CacheOptions()
     opts2 = ds.CacheOptions(hole_size_limit=1024)
     opts3 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
     opts4 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
-    opts5 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True, prefetch_limit=5)
+    opts5 = ds.CacheOptions(hole_size_limit=4096,
+                            range_size_limit=8192, lazy=True, prefetch_limit=5)
 
     assert opts1.hole_size_limit == 8192
     assert opts1.range_size_limit == 32 * 1024 * 1024
@@ -930,14 +932,17 @@ def test_cache_options():
     assert opts2 != opts3
     assert opts3 != opts4
 
+
 def test_cache_options_pickling():
     options = [
         ds.CacheOptions(),
-        ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True, prefetch_limit=5),
+        ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192,
+                        lazy=True, prefetch_limit=5),
     ]
 
     for option in options:
         assert pickle.loads(pickle.dumps(option)) == option
+
 
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),

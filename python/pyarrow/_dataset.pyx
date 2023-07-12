@@ -1982,6 +1982,7 @@ cdef class CacheOptions(_Weakrefable):
         lazy cache to asynchronously read some ranges after reading the target 
         range.
     """
+
     def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
         self.wrapped = CCacheOptions.Defaults()
         if hole_size_limit is not None:
@@ -2004,7 +2005,7 @@ cdef class CacheOptions(_Weakrefable):
         self = CacheOptions()
         self.init(options)
         return self
-    
+
     @property
     def hole_size_limit(self):
         return self.wrapped.hole_size_limit

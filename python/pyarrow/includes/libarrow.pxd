@@ -1353,6 +1353,7 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         c_bool lazy
         int64_t prefetch_limit
         c_bool Equals "operator==" (CCacheOptions other)
+
         @staticmethod
         CCacheOptions Defaults()
 
