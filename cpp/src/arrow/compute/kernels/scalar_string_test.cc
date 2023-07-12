@@ -1394,6 +1394,31 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstring) {
                    &options_empty);
 }
 
+TYPED_TEST(TestBaseBinaryKernels, NotMatchSubstring) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("not_match_substring", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_match_substring", R"(["abc", "acb", "cab", null, "bac", "AB"])",
+                   boolean(), "[false, true, false, null, true, true]", &options);
+
+  MatchSubstringOptions options_repeated{"abab"};
+  this->CheckUnary("not_match_substring", R"(["abab", "ab", "cababc", null, "bac"])",
+                   boolean(), "[false, true, false, null, true]", &options_repeated);
+
+  // ARROW-9460
+  MatchSubstringOptions options_double_char{"aab"};
+  this->CheckUnary("not_match_substring", R"(["aacb", "aab", "ab", "aaab"])", boolean(),
+                   "[true, false, true, false]", &options_double_char);
+  MatchSubstringOptions options_double_char_2{"bbcaa"};
+  this->CheckUnary("not_match_substring", R"(["abcbaabbbcaabccabaab"])", boolean(), "[false]",
+                   &options_double_char_2);
+
+  MatchSubstringOptions options_empty{""};
+  this->CheckUnary("not_match_substring", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_match_substring", R"(["abc", "acb", "cab", null, "bac", "AB", ""])",
+                   boolean(), "[false, false, false, null, false, false, false]",
+                   &options_empty);
+}
+
 #ifdef ARROW_WITH_RE2
 TYPED_TEST(TestStringKernels, MatchSubstringIgnoreCase) {
   MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
@@ -1408,6 +1433,23 @@ TYPED_TEST(TestBaseBinaryKernels, MatchSubstringIgnoreCase) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
                                   ::testing::HasSubstr("ignore_case requires RE2"),
                                   CallFunction("match_substring", {input}, &options));
+}
+#endif
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, NotMatchSubstringIgnoreCase) {
+  MatchSubstringOptions options_insensitive{"aé(", /*ignore_case=*/true};
+  this->CheckUnary("not_match_substring", R"(["abc", "aEb", "baÉ(", "aé(", "ae(", "Aé("])",
+                   boolean(), "[true, true, false, false, true, false]",
+                   &options_insensitive);
+}
+#else
+TYPED_TEST(TestBaseBinaryKernels, NotMatchSubstringIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("not_match_substring", {input}, &options));
 }
 #endif
 
@@ -1576,6 +1618,174 @@ TYPED_TEST(TestBaseBinaryKernels, MatchLikeEscaping) {
   MatchSubstringOptions escape_sequences{"\n\t%"};
   this->CheckUnary("match_like", R"(["\n\tfoo\t", "\n\t", "\n"])", boolean(),
                    "[true, true, false]", &escape_sequences);
+}
+#endif
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchStartsWith) {
+  MatchSubstringOptions options{"abab"};
+  this->CheckUnary("not_starts_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, true, true, false, true, false]", &options);
+  this->CheckUnary("not_starts_with", R"(["ABAB", "BABAB", "ABABC", "bAbAb", "aBaBc"])",
+                   boolean(), "[true, true, true, true, true]", &options);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchEndsWith) {
+  MatchSubstringOptions options{"abab"};
+  this->CheckUnary("not_ends_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, true, true, false, false, true]", &options);
+  this->CheckUnary("not_ends_with", R"(["ABAB", "BABAB", "ABABC", "bAbAb", "aBaBc"])",
+                   boolean(), "[true, true, true, true, true]", &options);
+}
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestBaseBinaryKernels, NotMatchStartsWithIgnoreCase) {
+  MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
+  this->CheckUnary("not_starts_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_starts_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, true, true, false, true, false]", &options);
+  this->CheckUnary("not_starts_with", R"(["ABAB", "$ABAB", "ABAB$", "$AbAb", "aBaB$"])",
+                   boolean(), "[false, true, false, true, false]", &options);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchEndsWithIgnoreCase) {
+  MatchSubstringOptions options{"aBAb", /*ignore_case=*/true};
+  this->CheckUnary("not_ends_with", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_ends_with", R"([null, "", "ab", "abab", "$abab", "abab$"])",
+                   boolean(), "[null, true, true, false, false, true]", &options);
+  this->CheckUnary("not_ends_with", R"(["ABAB", "$ABAB", "ABAB$", "$AbAb", "aBaB$"])",
+                   boolean(), "[false, false, true, false, true]", &options);
+}
+#else
+TYPED_TEST(TestBaseBinaryKernels, NotMatchStartsWithIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("not_starts_with", {input}, &options));
+}
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchEndsWithIgnoreCase) {
+  Datum input = ArrayFromJSON(this->type(), R"(["a"])");
+  MatchSubstringOptions options{"a", /*ignore_case=*/true};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                  ::testing::HasSubstr("ignore_case requires RE2"),
+                                  CallFunction("not_ends_with", {input}, &options));
+}
+#endif
+
+#ifdef ARROW_WITH_RE2
+TYPED_TEST(TestStringKernels, NotMatchSubstringRegex) {
+  MatchSubstringOptions options{"ab"};
+  this->CheckUnary("not_match_substring_regex", "[]", boolean(), "[]", &options);
+  this->CheckUnary("not_match_substring_regex", R"(["abc", "acb", "cab", null, "bac", "AB"])",
+                   boolean(), "[false, true, false, null, true, true]", &options);
+  MatchSubstringOptions options_repeated{"(ab){2}"};
+  this->CheckUnary("not_match_substring_regex", R"(["abab", "ab", "cababc", null, "bac"])",
+                   boolean(), "[false, true, false, null, true]", &options_repeated);
+  MatchSubstringOptions options_digit{"\\d"};
+  this->CheckUnary("not_match_substring_regex", R"(["aacb", "a2ab", "", "24"])", boolean(),
+                   "[true, false, true, false]", &options_digit);
+  MatchSubstringOptions options_star{"a*b"};
+  this->CheckUnary("not_match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[false, false, false, false, false, true]", &options_star);
+  MatchSubstringOptions options_plus{"a+b"};
+  this->CheckUnary("not_match_substring_regex", R"(["aacb", "aab", "dab", "caaab", "b", ""])",
+                   boolean(), "[true, false, false, false, true, true]", &options_plus);
+  MatchSubstringOptions options_insensitive{"ab|é", /*ignore_case=*/true};
+  this->CheckUnary("not_match_substring_regex", R"(["abc", "acb", "É", null, "bac", "AB"])",
+                   boolean(), "[false, true, false, null, true, false]",
+                   &options_insensitive);
+
+  // Unicode character semantics
+  // "\pL" means: unicode category "letter"
+  // (re2 interprets "\w" as ASCII-only: https://github.com/google/re2/wiki/Syntax)
+  MatchSubstringOptions options_unicode{"^\\pL+$"};
+  this->CheckUnary("not_match_substring_regex", R"(["été", "ß", "€", ""])", boolean(),
+                   "[false, false, true, true]", &options_unicode);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchSubstringRegexNoOptions) {
+  Datum input = ArrayFromJSON(this->type(), "[]");
+  ASSERT_RAISES(Invalid, CallFunction("not_match_substring_regex", {input}));
+}
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchSubstringRegexInvalid) {
+  Datum input = ArrayFromJSON(this->type(), "[null]");
+  MatchSubstringOptions options{"invalid["};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression: missing ]"),
+      CallFunction("not_match_substring_regex", {input}, &options));
+}
+
+TYPED_TEST(TestStringKernels, NotMatchLike) {
+  auto inputs = R"(["foo", "bar", "foobar", "barfoo", "o", "\nfoo", "foo\n", null])";
+
+  MatchSubstringOptions prefix_match{"foo%"};
+  this->CheckUnary("not_match_like", "[]", boolean(), "[]", &prefix_match);
+  this->CheckUnary("not_match_like", inputs, boolean(),
+                   "[false, true, true, true, true, true, false, null]", &prefix_match);
+
+  MatchSubstringOptions suffix_match{"%foo"};
+  this->CheckUnary("not_match_like", inputs, boolean(),
+                   "[false, true, true, false, true, false, true, null]", &suffix_match);
+
+  MatchSubstringOptions substring_match{"%foo%"};
+  this->CheckUnary("not_match_like", inputs, boolean(),
+                   "[false, true, false, false, true, false, false, null]",
+                   &substring_match);
+
+  MatchSubstringOptions trivial_match{"%%"};
+  this->CheckUnary("not_match_like", inputs, boolean(),
+                   "[false, false, false, false, false, false, false, null]", &trivial_match);
+
+  MatchSubstringOptions regex_match{"foo%bar"};
+  this->CheckUnary("not_match_like", inputs, boolean(),
+                   "[true, true, false, true, true, true, true, null]",
+                   &regex_match);
+
+  // ignore_case means this still gets mapped to a regex search
+  MatchSubstringOptions insensitive_substring{"%é%", /*ignore_case=*/true};
+  this->CheckUnary("not_match_like", R"(["é", "fooÉbar", "e"])", boolean(),
+                   "[false, false, true]", &insensitive_substring);
+
+  MatchSubstringOptions insensitive_regex{"_é%", /*ignore_case=*/true};
+  this->CheckUnary("not_match_like", R"(["éfoo", "aÉfoo", "e"])", boolean(),
+                   "[true, false, true]", &insensitive_regex);
+}
+
+TYPED_TEST(TestBaseBinaryKernels, NotMatchLikeEscaping) {
+  auto inputs = R"(["%%foo", "_bar", "({", "\\baz"])";
+
+  // N.B. I believe Impala mistakenly optimizes these into substring searches
+  MatchSubstringOptions escape_percent{"\\%%"};
+  this->CheckUnary("not_match_like", inputs, boolean(), "[false, true, true, true]",
+                   &escape_percent);
+
+  MatchSubstringOptions not_substring{"%\\%%"};
+  this->CheckUnary("not_match_like", inputs, boolean(), "[false, true, true, true]",
+                   &not_substring);
+
+  MatchSubstringOptions escape_underscore{"\\____"};
+  this->CheckUnary("not_match_like", inputs, boolean(), "[true, false, true, true]",
+                   &escape_underscore);
+
+  MatchSubstringOptions escape_regex{"(%"};
+  this->CheckUnary("not_match_like", inputs, boolean(), "[true, true, false, true]",
+                   &escape_regex);
+
+  MatchSubstringOptions escape_escape{"\\\\%"};
+  this->CheckUnary("not_match_like", inputs, boolean(), "[true, true, true, false]",
+                   &escape_escape);
+
+  MatchSubstringOptions special_chars{"!@#$^&*()[]{}.?"};
+  this->CheckUnary("not_match_like", R"(["!@#$^&*()[]{}.?"])", boolean(), "[false]",
+                   &special_chars);
+
+  MatchSubstringOptions escape_sequences{"\n\t%"};
+  this->CheckUnary("not_match_like", R"(["\n\tfoo\t", "\n\t", "\n"])", boolean(),
+                   "[false, false, true]", &escape_sequences);
 }
 #endif
 
