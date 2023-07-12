@@ -260,6 +260,92 @@ Result<std::shared_ptr<Array>> FlattenListArray(const ListArrayT& list_array,
   return Concatenate(non_null_fragments, memory_pool);
 }
 
+template <typename ListViewArrayT>
+Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_view_array,
+                                                    MemoryPool* memory_pool) {
+  using offset_type = typename ListViewArrayT::offset_type;
+  const int64_t list_view_array_length = list_view_array.length();
+  std::shared_ptr<arrow::Array> value_array = list_view_array.values();
+
+  if (list_view_array_length == 0) {
+    return SliceArrayWithOffsets(*value_array, 0, 0);
+  }
+
+  // If the list array is *all* nulls, then just return an empty array.
+  if (list_view_array.null_count() == list_view_array.length()) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
+  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0);
+  const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
+  const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
+
+  // If a ListViewArray:
+  //
+  //   1) does not contain nulls
+  //   2) has sorted offsets
+  //   3) has disjoint views which completely cover the values array
+  //
+  // then simply slice its value array with the first offset and end of the last list
+  // view.
+  if (list_view_array.null_count() == 0) {
+    bool sorted_and_disjoint = true;
+    for (int64_t i = 1; sorted_and_disjoint && i < list_view_array_length; ++i) {
+      sorted_and_disjoint &=
+          sizes[i - 1] == 0 || offsets[i] - offsets[i - 1] == sizes[i - 1];
+    }
+
+    if (sorted_and_disjoint) {
+      const auto begin_offset = list_view_array.value_offset(0);
+      const auto end_offset = list_view_array.value_offset(list_view_array_length - 1) +
+                              list_view_array.value_length(list_view_array_length - 1);
+      return SliceArrayWithOffsets(*value_array, begin_offset, end_offset);
+    }
+  }
+
+  std::vector<std::shared_ptr<Array>> non_null_fragments;
+  // Index of first valid, non-empty list-view and last offset
+  // of the current contiguous fragment in values.
+  int64_t first_i = -1;
+  offset_type end_offset = -1;
+  int64_t i = 0;
+  for (; i < list_view_array_length; i++) {
+    if ((validity && !bit_util::GetBit(validity, i)) || sizes[i] == 0) {
+      continue;
+    }
+    first_i = i;
+    end_offset = offsets[i] + sizes[i];
+    break;
+  }
+  i += 1;
+  for (; i < list_view_array_length; i++) {
+    if ((validity && !bit_util::GetBit(validity, i)) || sizes[i] == 0) {
+      continue;
+    }
+    if (offsets[i] == end_offset) {
+      end_offset += sizes[i];
+    } else {
+      non_null_fragments.push_back(
+          SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
+      first_i = i;
+      end_offset = offsets[i] + sizes[i];
+    }
+  }
+  if (first_i >= 0) {
+    non_null_fragments.push_back(
+        SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
+  }
+
+  // Final attempt to avoid invoking Concatenate().
+  if (non_null_fragments.size() == 1) {
+    return non_null_fragments[0];
+  } else if (non_null_fragments.size() == 0) {
+    return MakeEmptyArray(value_array->type(), memory_pool);
+  }
+
+  return Concatenate(non_null_fragments, memory_pool);
+}
+
 std::shared_ptr<Array> BoxOffsets(const std::shared_ptr<DataType>& boxed_type,
                                   const ArrayData& data) {
   const int64_t num_offsets =
@@ -457,6 +543,10 @@ Result<std::shared_ptr<ListViewArray>> ListViewArray::FromArrays(
                                                pool, null_bitmap, null_count);
 }
 
+Result<std::shared_ptr<Array>> ListViewArray::Flatten(MemoryPool* memory_pool) const {
+  return FlattenListViewArray(*this, memory_pool);
+}
+
 std::shared_ptr<Array> ListViewArray::offsets() const {
   return BoxOffsets(int32(), *data_);
 }
@@ -508,6 +598,11 @@ Result<std::shared_ptr<LargeListViewArray>> LargeListViewArray::FromArrays(
   }
   return ListViewArrayFromArrays<LargeListViewType>(
       std::move(type), offsets, sizes, values, pool, null_bitmap, null_count);
+}
+
+Result<std::shared_ptr<Array>> LargeListViewArray::Flatten(
+    MemoryPool* memory_pool) const {
+  return FlattenListViewArray(*this, memory_pool);
 }
 
 std::shared_ptr<Array> LargeListViewArray::offsets() const {

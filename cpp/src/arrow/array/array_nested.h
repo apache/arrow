@@ -306,9 +306,8 @@ class ARROW_EXPORT ListViewArray : public BaseListViewArray<ListViewType> {
   /// Note that it's different from `values()` in that it takes into
   /// consideration this array's offsets (which can be in any order)
   /// and sizes. Nulls are skipped.
-  /// TODO: implement ListViewArray::Flatten
-  // Result<std::shared_ptr<Array>> Flatten(
-  //     MemoryPool* memory_pool = default_memory_pool()) const;
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list-view offsets as an Int32Array
   ///
@@ -381,9 +380,8 @@ class ARROW_EXPORT LargeListViewArray : public BaseListViewArray<LargeListViewTy
   /// Note that it's different from `values()` in that it takes into
   /// consideration this array's offsets (which can be in any order)
   /// and sizes. Nulls are skipped.
-  /// TODO: implement LargeListViewArray::Flatten
-  // Result<std::shared_ptr<Array>> Flatten(
-  //     MemoryPool* memory_pool = default_memory_pool()) const;
+  Result<std::shared_ptr<Array>> Flatten(
+      MemoryPool* memory_pool = default_memory_pool()) const;
 
   /// \brief Return list-view offsets as an Int64Array
   std::shared_ptr<Array> offsets() const;
