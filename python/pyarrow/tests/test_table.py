@@ -2422,3 +2422,27 @@ def test_numpy_asarray(constructor):
     result = np.asarray(table3, dtype="int32")
     np.testing.assert_allclose(result, expected)
     assert result.dtype == "int32"
+
+
+def test_invalid_non_join_column():
+    NUM_ITEMS = 30
+    t1 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'array_column': [[z for z in range(3)] for x in range(NUM_ITEMS)],
+    })
+    t2 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'value': [x for x in range(NUM_ITEMS)]
+    })
+
+    # check as left table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t1.join(t2, 'id', join_type='inner')
+    exp_error_msg = "Data type list<item: int64> is not supported " \
+        + "in join non-key field array_column"
+    assert exp_error_msg in str(excinfo.value)
+
+    # check as right table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t2.join(t1, 'id', join_type='inner')
+    assert exp_error_msg in str(excinfo.value)
