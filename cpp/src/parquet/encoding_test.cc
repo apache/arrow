@@ -1985,13 +1985,13 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
-  void InitData(int nvalues, int repeats) {
+  void InitData(int nvalues, int repeats, double prefixed_probability) {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(c_type));
     output_bytes_.resize(num_values_ * sizeof(c_type));
     draws_ = reinterpret_cast<c_type*>(input_bytes_.data());
     decode_buf_ = reinterpret_cast<c_type*>(output_bytes_.data());
-    GeneratePrefixedData<c_type>(nvalues, draws_, &data_buffer_);
+    GeneratePrefixedData<c_type>(nvalues, draws_, &data_buffer_, prefixed_probability);
 
     // add some repeated values
     for (int j = 1; j < repeats; ++j) {
@@ -2001,14 +2001,14 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
     }
   }
 
-  void Execute(int nvalues, int repeats) {
-    InitData(nvalues, repeats);
+  void Execute(int nvalues, int repeats, double prefixed_probability) {
+    InitData(nvalues, repeats, prefixed_probability);
     CheckRoundtrip();
   }
 
   void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset,
-                     double null_probability) {
-    InitData(nvalues, repeats);
+                     double null_probability, double prefixed_probability) {
+    InitData(nvalues, repeats, prefixed_probability);
 
     int64_t size = num_values_ + valid_bits_offset;
     auto rand = ::arrow::random::RandomArrayGenerator(1923);
@@ -2063,20 +2063,19 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
   std::vector<uint8_t> output_bytes_;
 };
 
-using TestDeltaByteArrayEncodingTypes =
-    ::testing::Types<ByteArrayType, FLBAType>;  // TODO: FLBAType
+using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType>;
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 5));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0, /*prefixed_probability=*/0.1));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 5, 0.2));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 1, 0.3));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
-      0));
+      0, 0.4));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
-      /*null_probability*/ 0.5));
+      /*null_probability*/ 0.5, 0.5));
 }
 
 template <typename Type>
@@ -2096,16 +2095,7 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
 
     typename EncodingTraits<Type>::Accumulator acc;
     using BuilderType = typename EncodingTraits<Type>::BuilderType;
-    if constexpr (std::is_same_v<Type, ::arrow::StringType>) {
-      acc.builder = std::make_unique<::arrow::StringBuilder>();
-    } else if constexpr (std::is_same_v<Type, ::arrow::BinaryType>) {
-      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
-    } else if constexpr (std::is_same_v<Type, FLBAType>) {
-      acc.builder = std::make_unique<::arrow::FixedSizeBinaryBuilder>(
-          array->type(), default_memory_pool());
-    } else {
-      acc.builder = std::make_unique<BuilderType>();
-    }
+    acc.builder = std::make_unique<BuilderType>(array->type(), default_memory_pool());
 
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(array->length()),
@@ -2128,15 +2118,12 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     constexpr double kNullProbability = 0.25;
     constexpr int kSeed = 42;
     ::arrow::random::RandomArrayGenerator rag{kSeed};
-    std::shared_ptr<::arrow::Array> values =
-        rag.String(0, kMinLength, kMaxLength, kNullProbability);
+    std::shared_ptr<::arrow::Array> values = rag.BinaryWithRepeats(
+        /*size=*/0, /*unique=*/0, kMinLength, kMaxLength, kNullProbability);
     CheckDirectPut(values);
 
     for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
       rag = ::arrow::random::RandomArrayGenerator(seed);
-      values = rag.String(kSize, kMinLength, kMaxLength, kNullProbability);
-      CheckDirectPut(values);
-
       values = rag.BinaryWithRepeats(kSize, kNumUnique, kMinLength, kMaxLength,
                                      kNullProbability);
       CheckDirectPut(values);
@@ -2149,11 +2136,13 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 };
 
-// TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
-//
-// TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
-//   ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
-// }
+using TestDeltaByteArrayEncodingTypes2 =
+    ::testing::Types<ByteArrayType>;  // TODO FLBAType
+TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes2);
+
+TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
+  ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
+}
 
 TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   auto CheckEncode = [](const std::shared_ptr<::arrow::Array>& values,
