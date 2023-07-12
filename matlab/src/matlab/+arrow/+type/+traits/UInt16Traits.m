@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt16Traits < arrow.type.traits.Traits
+classdef UInt16Traits < arrow.type.traits.TypeTraits
 
     properties (Constant)
         ArrayConstructor = @arrow.array.UInt16Array

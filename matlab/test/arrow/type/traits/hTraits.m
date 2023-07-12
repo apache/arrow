@@ -14,7 +14,7 @@
 % permissions and limitations under the License.
 
 classdef hTraits < matlab.unittest.TestCase
-% Superclass for tests that validate the behavior of "type trait objects"
+% Superclass for tests that validate the behavior of "type trait" objects
 % like arrow.type.traits.StringTraits.
 
     properties (Abstract)

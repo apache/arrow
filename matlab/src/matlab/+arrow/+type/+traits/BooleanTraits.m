@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef BooleanTraits < arrow.type.traits.Traits
+classdef BooleanTraits < arrow.type.traits.TypeTraits
 
     properties (Constant)
         ArrayConstructor = @arrow.array.BooleanArray

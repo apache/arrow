@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int64Traits < arrow.type.traits.Traits
+classdef Int64Traits < arrow.type.traits.TypeTraits
 
     properties (Constant)
         ArrayConstructor = @arrow.array.Int64Array
