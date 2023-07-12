@@ -68,7 +68,7 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
       ARROW_CHECK_NE(args[0].chunked_array()->chunk(0)->data(), nullptr);
       ARROW_CHECK_NE(args[0].chunked_array()->chunk(0)->data()->dictionary, nullptr);
       TypeHolder to_type(args[0].chunked_array()->chunk(0)->data()->dictionary->type);
-      CastOptions castOption = CastOptions::Safe(to_type);
+      CastOptions cast_option = CastOptions::Safe(to_type);
       return CallFunction("cast", args, &castOption, ctx);
     } else {
       return Status::TypeError("Expected an Array or a Chunked Array");
