@@ -898,28 +898,46 @@ def test_cache_options():
     opts2 = ds.CacheOptions(hole_size_limit=1024)
     opts3 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192)
     opts4 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True)
+    opts5 = ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True, prefetch_limit=5)
 
     assert opts1.hole_size_limit == 8192
     assert opts1.range_size_limit == 32 * 1024 * 1024
     assert opts1.lazy is False
+    assert opts4.prefetch_limit == 0
 
     assert opts2.hole_size_limit == 1024
     assert opts2.range_size_limit == 32 * 1024 * 1024
     assert opts2.lazy is False
+    assert opts4.prefetch_limit == 0
 
     assert opts3.hole_size_limit == 4096
     assert opts3.range_size_limit == 8192
     assert opts3.lazy is False
+    assert opts4.prefetch_limit == 0
 
     assert opts4.hole_size_limit == 4096
     assert opts4.range_size_limit == 8192
     assert opts4.lazy is True
+    assert opts4.prefetch_limit == 0
+
+    assert opts5.hole_size_limit == 4096
+    assert opts5.range_size_limit == 8192
+    assert opts5.lazy is True
+    assert opts5.prefetch_limit == 5
 
     assert opts1 == opts1
     assert opts1 != opts2
     assert opts2 != opts3
     assert opts3 != opts4
 
+def test_cache_options_pickling():
+    options = [
+        ds.CacheOptions(),
+        ds.CacheOptions(hole_size_limit=4096, range_size_limit=8192, lazy=True, prefetch_limit=5),
+    ]
+
+    for option in options:
+        assert pickle.loads(pickle.dumps(option)) == option
 
 @pytest.mark.parametrize('paths_or_selector', [
     fs.FileSelector('subdir', recursive=True),

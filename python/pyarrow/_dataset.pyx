@@ -2052,6 +2052,7 @@ cdef class CacheOptions(_Weakrefable):
             hole_size_limit=self.hole_size_limit,
             range_size_limit=self.range_size_limit,
             lazy=self.lazy,
+            prefetch_limit=self.prefetch_limit,
         )
         return type(self)._reconstruct, (kwargs,)
 
