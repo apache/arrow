@@ -83,6 +83,16 @@ cdef class FragmentScanOptions(_Weakrefable):
     @staticmethod
     cdef wrap(const shared_ptr[CFragmentScanOptions]& sp)
 
+cdef class CacheOptions(_Weakrefable):
+    cdef:
+        CCacheOptions wrapped
+
+    cdef void init(self, CCacheOptions options)
+
+    cdef inline CCacheOptions unwrap(self)
+
+    @staticmethod
+    cdef wrap(const CCacheOptions options)
 
 cdef class FileFormat(_Weakrefable):
 

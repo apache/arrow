@@ -22,6 +22,7 @@ from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
 try:
     from pyarrow._dataset import (  # noqa
+        CacheOptions,
         CsvFileFormat,
         CsvFragmentScanOptions,
         JsonFileFormat,

@@ -42,6 +42,7 @@ from pyarrow._dataset cimport (
     FileWriteOptions,
     Fragment,
     FragmentScanOptions,
+    CacheOptions,
     Partitioning,
     PartitioningFactory,
     WrittenFile
@@ -713,6 +714,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     def __init__(self, *, bint use_buffered_stream=False,
                  buffer_size=8192,
                  bint pre_buffer=True,
+                 cache_options=None,
                  thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
                  decryption_config=None,
@@ -722,6 +724,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.use_buffered_stream = use_buffered_stream
         self.buffer_size = buffer_size
         self.pre_buffer = pre_buffer
+        if cache_options is not None:
+            self.cache_options = cache_options
         if thrift_string_size_limit is not None:
             self.thrift_string_size_limit = thrift_string_size_limit
         if thrift_container_size_limit is not None:
@@ -768,6 +772,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
     @pre_buffer.setter
     def pre_buffer(self, bint pre_buffer):
         self.arrow_reader_properties().set_pre_buffer(pre_buffer)
+
+    @property
+    def cache_options(self):
+        return CacheOptions.wrap(self.arrow_reader_properties().cache_options())
+
+    @cache_options.setter
+    def cache_options(self, CacheOptions options):
+        self.arrow_reader_properties().set_cache_options(options.unwrap())
 
     @property
     def thrift_string_size_limit(self):

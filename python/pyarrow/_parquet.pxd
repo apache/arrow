@@ -21,8 +21,8 @@
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport (CChunkedArray, CScalar, CSchema, CStatus,
                                         CTable, CMemoryPool, CBuffer,
-                                        CKeyValueMetadata,
-                                        CRandomAccessFile, COutputStream,
+                                        CKeyValueMetadata, CRandomAccessFile, 
+                                        COutputStream, CCacheOptions
                                         TimeUnit, CRecordBatchReader)
 from pyarrow.lib cimport _Weakrefable
 
@@ -393,6 +393,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t batch_size()
         void set_pre_buffer(c_bool pre_buffer)
         c_bool pre_buffer() const
+        void set_cache_options(CCacheOptions options)
+        CCacheOptions cache_options() const
         void set_coerce_int96_timestamp_unit(TimeUnit unit)
         TimeUnit coerce_int96_timestamp_unit() const
 

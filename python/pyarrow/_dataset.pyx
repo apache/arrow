@@ -1963,6 +1963,21 @@ cdef class FragmentScanOptions(_Weakrefable):
         except TypeError:
             return False
 
+cdef class CacheOptions(_Weakrefable):
+    def __init__(self, *, hole_size_limit=8192, range_size_limit=32 * 1024 * 1024, bint lazy=False):
+        self.wrapped = CCacheOptions.Make(hole_size_limit, range_size_limit, lazy)
+
+    cdef void init(self, CCacheOptions options):
+        self.wrapped = options
+
+    cdef inline CCacheOptions unwrap(self):
+        return self.wrapped
+
+    @staticmethod
+    cdef wrap(CCacheOptions options):
+        self = CacheOptions()
+        self.init(options)
+        return self
 
 cdef class IpcFileWriteOptions(FileWriteOptions):
     cdef:
