@@ -172,7 +172,6 @@ func (fw *Writer) Close() (err error) {
 
 		fileEncryptProps := fw.props.FileEncryptionProperties()
 		if fileEncryptProps == nil { // non encrypted file
-			var err error
 			if fw.FileMetadata, err = fw.metadata.Finish(); err != nil {
 				return err
 			}
