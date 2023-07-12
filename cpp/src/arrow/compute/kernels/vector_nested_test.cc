@@ -51,10 +51,12 @@ TEST(TestVectorNested, ListFlattenNulls) {
 
 TEST(TestVectorNested, ListFlattenChunkedArray) {
   for (auto ty : {list(int16()), large_list(int16())}) {
+    ARROW_SCOPED_TRACE(ty->ToString());
     auto input = ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], []]"});
     auto expected = ChunkedArrayFromJSON(int16(), {"[0, null, 1]", "[2, 3]"});
     CheckVectorUnary("list_flatten", input, expected);
 
+    ARROW_SCOPED_TRACE("empty");
     input = ChunkedArrayFromJSON(ty, {});
     expected = ChunkedArrayFromJSON(int16(), {});
     CheckVectorUnary("list_flatten", input, expected);

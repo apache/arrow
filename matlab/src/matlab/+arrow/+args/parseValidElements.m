@@ -25,6 +25,12 @@ function validElements = parseValidElements(data, opts)
     else
         validElements = parseInferNulls(data, opts.InferNulls);
     end
+    
+    if ~isempty(validElements) && all(validElements)
+        % Check if validElements contains only true values. 
+        % If so, return an empty logical array.
+        validElements = logical.empty(0, 1);
+    end
 end
 
 function validElements = parseValid(numElements, valid)
@@ -33,12 +39,11 @@ function validElements = parseValid(numElements, valid)
         if ~isscalar(validElements)
             % Verify the logical vector has the correct number of elements
             validateattributes(validElements, "logical", {'numel', numElements});
-        else
-            % TODO: consider making validElements empty if every 
-            % element is Valid.
-
-            % Expand scalar logical inputs to the correct dimensions
-            validElements = repmat(validElements, numElements, 1);
+        elseif validElements == false
+            validElements = false(numElements, 1);
+        else % validElements == true
+            % Return an empty logical to represent all elements are valid. 
+            validElements = logical.empty(0, 1);
         end
     else
         % valid is a list of indices. Verify the indices are numeric, 
@@ -52,12 +57,13 @@ function validElements = parseValid(numElements, valid)
 end
 
 function validElements = parseInferNulls(data, inferNulls)
-    if inferNulls
-        % TODO: consider making validElements empty if everything is valid.
+    if inferNulls && ~(isinteger(data) || islogical(data))
+        % Only call ismissing on data types that have a "missing" value,
+        % i.e. double, single, string, datetime, duration.
         validElements = ~ismissing(data);
         validElements = reshape(validElements, [], 1);
     else
-        % TODO: consider making this an empty array if everything is valid
-        validElements = true([numel(data) 1]);
+        % Return an empty logical to represent all elements are valid. 
+        validElements = logical.empty(0, 1);
     end
 end

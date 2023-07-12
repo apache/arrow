@@ -1201,6 +1201,8 @@ class SliceOptions(_SliceOptions):
     def __init__(self, start, stop=None, step=1):
         if stop is None:
             stop = sys.maxsize
+            if step < 0:
+                stop = -stop
         self._set_options(start, stop, step)
 
 
@@ -1565,7 +1567,7 @@ class MapLookupOptions(_MapLookupOptions):
 
     Parameters
     ----------
-    query_key : Scalar
+    query_key : Scalar or Object can be converted to Scalar
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the Map
@@ -1573,6 +1575,9 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
+        if not isinstance(query_key, lib.Scalar):
+            query_key = lib.scalar(query_key)
+
         self._set_options(query_key, occurrence)
 
 
@@ -1928,32 +1933,64 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeSumOptions(FunctionOptions):
+cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
-        if not isinstance(start, Scalar):
+        if start is None:
+            self.wrapped.reset(new CCumulativeOptions(skip_nulls))
+        elif isinstance(start, Scalar):
+            self.wrapped.reset(new CCumulativeOptions(
+                pyarrow_unwrap_scalar(start), skip_nulls))
+        else:
             try:
                 start = lib.scalar(start)
+                self.wrapped.reset(new CCumulativeOptions(
+                    pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
                     start, "`start` type for CumulativeSumOptions", TypeError)
 
-        self.wrapped.reset(new CCumulativeSumOptions((<Scalar> start).unwrap(), skip_nulls))
 
-
-class CumulativeSumOptions(_CumulativeSumOptions):
+class CumulativeOptions(_CumulativeOptions):
     """
-    Options for `cumulative_sum` function.
+    Options for `cumulative_*` functions.
+
+    - cumulative_sum
+    - cumulative_sum_checked
+    - cumulative_prod
+    - cumulative_prod_checked
+    - cumulative_max
+    - cumulative_min
 
     Parameters
     ----------
-    start : Scalar, default 0.0
-        Starting value for sum computation
+    start : Scalar, default None
+        Starting value for the cumulative operation. If none is given, 
+        a default value depending on the operation and input type is used.
     skip_nulls : bool, default False
         When false, the first encountered null is propagated.
     """
 
-    def __init__(self, start=0.0, *, skip_nulls=False):
+    def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
+
+
+cdef class _PairwiseOptions(FunctionOptions):
+    def _set_options(self, period):
+        self.wrapped.reset(new CPairwiseOptions(period))
+
+
+class PairwiseOptions(_PairwiseOptions):
+    """
+    Options for `pairwise` functions.
+
+    Parameters
+    ----------
+    period : int, default 1
+        Period for applying the period function.
+    """
+
+    def __init__(self, period=1):
+        self._set_options(period)
 
 
 cdef class _ArraySortOptions(FunctionOptions):
@@ -2767,6 +2804,9 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     This is often used with ordered or segmented aggregation where groups
     can be emit before accumulating all of the input data.
 
+    Note that currently the size of any input column can not exceed 2 GB
+    for a single segment (all groups combined).
+
     Parameters
     ----------
     func : callable
@@ -2823,6 +2863,15 @@ def register_aggregate_function(func, function_name, function_doc, in_types, out
     >>> answer = pc.call_function(func_name, [pa.array([20, 40])])
     >>> answer
     <pyarrow.DoubleScalar: 30.0>
+    >>> table = pa.table([pa.array([1, 1, 2, 2]), pa.array([10, 20, 30, 40])], names=['k', 'v'])
+    >>> result = table.group_by('k').aggregate([('v', 'py_compute_median')])
+    >>> result
+    pyarrow.Table
+    k: int64
+    v_py_compute_median: double
+    ----
+    k: [[1,2]]
+    v_py_compute_median: [[15,35]]
     """
     return _register_user_defined_function(get_register_aggregate_function(),
                                            func, function_name, function_doc, in_types,

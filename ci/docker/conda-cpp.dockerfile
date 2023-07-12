@@ -68,7 +68,6 @@ ENV ARROW_ACERO=ON \
     # Blocked on https://issues.apache.org/jira/browse/ARROW-15066
     ARROW_WITH_OPENTELEMETRY=OFF \
     ARROW_WITH_SNAPPY=ON \
-    ARROW_WITH_UCX=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     GTest_SOURCE=BUNDLED \
