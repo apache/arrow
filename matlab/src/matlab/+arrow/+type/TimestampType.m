@@ -13,17 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef TimestampType < arrow.type.PrimitiveType
+classdef TimestampType < arrow.type.FixedWidthType
 %TIMESTAMPTYPE Type class for timestamp data.
 
-    
-    properties(SetAccess=private)
-        TimeZone(1, 1) string
-        TimeUnit(1, 1) arrow.type.TimeUnit
-    end
-
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Timestamp
+    properties(Dependent, SetAccess=private, GetAccess=public)
+        TimeZone
+        TimeUnit
     end
 
     methods
@@ -33,8 +28,17 @@ classdef TimestampType < arrow.type.PrimitiveType
                 opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
                 opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
             end
-            obj.TimeUnit = opts.TimeUnit;
-            obj.TimeZone = opts.TimeZone;
+            args = struct(TimeUnit=string(opts.TimeUnit), TimeZone=opts.TimeZone);
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.TimestampType", "ConstructorArguments", {args});
+        end
+
+        function unit = get.TimeUnit(obj)
+            val = obj.Proxy.timeUnit();
+            unit = arrow.type.TimeUnit(val);
+        end
+
+        function tz = get.TimeZone(obj)
+            tz = obj.Proxy.timeZone();
         end
     end
 end

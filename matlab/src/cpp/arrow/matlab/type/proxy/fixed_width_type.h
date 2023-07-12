@@ -14,14 +14,21 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+#pragma once
 
-#include "arrow/type_fwd.h"
-#include "arrow/result.h"
+#include "arrow/matlab/type/proxy/type.h"
 
-#include <string_view>
+namespace arrow::matlab::type::proxy {
 
-namespace arrow::matlab::type {
+class FixedWidthType : public arrow::matlab::type::proxy::Type {
+    public:
+        FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type);
+    
+        virtual ~FixedWidthType() {}
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
+    protected:
+        void bitWidth(libmexclass::proxy::method::Context& context);
+
+};
 
 }

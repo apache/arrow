@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tBooleanType < hPrimitiveType
+classdef tBooleanType < hFixedWidthType
 % Test class for arrow.type.BooleanType
 
     properties
         ArrowType = arrow.type.BooleanType
         TypeID = arrow.type.ID.Boolean
-        BitWidth = 1;
+        BitWidth = int32(1);
     end
 end

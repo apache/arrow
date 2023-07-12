@@ -49,13 +49,14 @@ namespace arrow::matlab::array::proxy {
         const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
 
         // extract the time zone string
-        const std::u16string& u16_timezone = timezone_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(u16_timezone),
+        const std::u16string& utf16_timezone = timezone_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto timezone, arrow::util::UTF16StringToUTF8(utf16_timezone),
                                error::UNICODE_CONVERSION_ERROR_ID);
 
         // extract the time unit
-        MATLAB_ASSIGN_OR_ERROR(const auto time_unit, arrow::matlab::type::timeUnitFromString(units_mda[0]),
-                               error::UKNOWN_TIME_UNIT_ERROR_ID)
+        const std::u16string& utf16_unit = units_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto time_unit, arrow::matlab::type::timeUnitFromString(utf16_unit),
+                               error::UKNOWN_TIME_UNIT_ERROR_ID);
 
         // create the timestamp_type
         auto data_type = arrow::timestamp(time_unit, timezone);

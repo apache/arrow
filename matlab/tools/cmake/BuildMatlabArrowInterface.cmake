@@ -37,7 +37,8 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_ROOT_INCLUDE_DIR "${CMAKE_SOUR
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error"
-                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type")
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type"
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy")
 
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/array.cc"
@@ -47,7 +48,11 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/pack.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/unpack.cc"
-                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/time_unit.cc")
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/time_unit.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/fixed_width_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/string_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/timestamp_type.cc")
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")

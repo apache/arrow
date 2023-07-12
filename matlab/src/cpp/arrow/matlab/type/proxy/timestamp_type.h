@@ -15,13 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type_fwd.h"
-#include "arrow/result.h"
+#pragma once
 
-#include <string_view>
+#include "arrow/matlab/type/proxy/fixed_width_type.h"
+#include "arrow/type_traits.h"
 
-namespace arrow::matlab::type {
+namespace arrow::matlab::type::proxy {
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
+class TimestampType : public arrow::matlab::type::proxy::FixedWidthType {
+        
+    public:
+        TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type);
+
+        ~TimestampType() {}
+
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+    protected:
+
+        void timeZone(libmexclass::proxy::method::Context& context);
+
+        void timeUnit(libmexclass::proxy::method::Context& context);
+};
 
 }
+

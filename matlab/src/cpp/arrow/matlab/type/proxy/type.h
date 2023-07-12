@@ -15,13 +15,29 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type_fwd.h"
-#include "arrow/result.h"
+#pragma once
 
-#include <string_view>
+#include "arrow/type.h"
 
-namespace arrow::matlab::type {
+#include "libmexclass/proxy/Proxy.h"
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
+namespace arrow::matlab::type::proxy {
+
+class Type : public libmexclass::proxy::Proxy {
+    public:
+        Type(std::shared_ptr<arrow::DataType> type);
+    
+        virtual ~Type() {}
+
+        std::shared_ptr<arrow::DataType> unwrap();
+
+    protected:
+
+        void typeID(libmexclass::proxy::method::Context& context);
+
+        void numFields(libmexclass::proxy::method::Context& context);
+
+        std::shared_ptr<arrow::DataType> data_type;
+};
 
 }

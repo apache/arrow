@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tUInt32Type < hPrimitiveType
+classdef tUInt32Type < hFixedWidthType
 % Test class for arrow.type.UInt32Type
 
     properties
         ArrowType = arrow.type.UInt32Type
         TypeID = arrow.type.ID.UInt32
-        BitWidth = 32;
+        BitWidth = int32(32);
     end
 end

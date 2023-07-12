@@ -25,14 +25,9 @@ classdef tStringType < matlab.unittest.TestCase
             tc.verifyEqual(type.ID, arrow.type.ID.String);
         end
 
-        function NumBuffers(tc)
-            type = arrow.type.StringType;
-            tc.verifyEqual(type.NumBuffers, 3);
-        end
-
         function NumFields(tc)
             type = arrow.type.StringType;
-            tc.verifyEqual(type.NumFields, 0);
+            tc.verifyEqual(type.NumFields, int32(0));
         end
 
     end

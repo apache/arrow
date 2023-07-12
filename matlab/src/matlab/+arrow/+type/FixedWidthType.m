@@ -13,21 +13,20 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef PrimitiveType < arrow.type.Type
-%PRIMITIVETYPE Abstract type class representing primtive data types. 
+classdef (Abstract) FixedWidthType < arrow.type.Type
+%FIXEDWIDTHTYPE Abstract type class representing fixed width data types. 
     
-    properties(Dependent, SetAccess=protected, GetAccess=public)
+    properties(Dependent, SetAccess=private, GetAccess=public)
         BitWidth
     end
 
-    properties(Constant)
-        NumFields = 0
-        NumBuffers = 2
-    end
-
     methods
-        function width = get.BitWidth(obj)
-            width = bitWidth(obj.ID);
+        function obj = FixedWidthType(varargin)
+            obj@arrow.type.Type(varargin{:});
         end
-    end
+
+        function width = get.BitWidth(obj)
+            width = obj.Proxy.bitWidth();
+        end
+    end 
 end

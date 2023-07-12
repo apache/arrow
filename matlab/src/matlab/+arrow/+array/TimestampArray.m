@@ -48,7 +48,7 @@ classdef TimestampArray < arrow.array.Array
             epoch = datetime(1970, 1, 1, TimeZone="UTC");
 
             tz = obj.Type.TimeZone;
-            ticsPerSecond = obj.Type.TimeUnit.TicksPerSecond;
+            ticsPerSecond = ticksPerSecond(obj.Type.TimeUnit);
             
             dates = datetime(time, ConvertFrom="epochtime", Epoch=epoch, ...
                 TimeZone=tz, TicksPerSecond=ticsPerSecond);
@@ -72,7 +72,7 @@ classdef TimestampArray < arrow.array.Array
             %
             % TODO: convertTo may error if the datetime is 2^63-1 before or
             % after the epoch. We should throw a custom error in this case.
-            time(indices) = convertTo(dates(indices), "epochtime", TicksPerSecond=units.TicksPerSecond);
+            time(indices) = convertTo(dates(indices), "epochtime", TicksPerSecond=ticksPerSecond(units));
         end
     end
 end
