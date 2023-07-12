@@ -40,7 +40,7 @@ class ExecContext;
 // ----------------------------------------------------------------------
 // Convenience invocation APIs for a number of kernels
 
-/// \brief decode a dictionary encoded array to normal array
+/// \brief decode a dictionary encoded array to a normal array
 /// \param[in] value dictionary array to decode
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting array
