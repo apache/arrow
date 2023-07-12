@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tStringTraits < hTraits
+classdef tStringTraits < hTypeTraits
 
     properties
         TraitsConstructor = @arrow.type.traits.StringTraits

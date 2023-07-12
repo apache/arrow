@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef hTraits < matlab.unittest.TestCase
+classdef hTypeTraits < matlab.unittest.TestCase
 % Superclass for tests that validate the behavior of "type trait" objects
 % like arrow.type.traits.StringTraits.
 
