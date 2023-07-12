@@ -116,7 +116,7 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
                        int max_size) {
   std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d1(min_size, max_size);
-  std::uniform_int_distribution<int> d2(int{0}, int{255});
+  std::uniform_int_distribution<int> d2(0, 255);
   for (int i = 0; i < n; ++i) {
     int len = d1(gen);
     out[i].len = len;
@@ -136,8 +136,8 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* o
                                 int min_size, int max_size, double prefixed_probability) {
   std::default_random_engine gen(seed);
   std::uniform_int_distribution<int> d1(min_size, max_size);
-  std::uniform_int_distribution<int> d2(int{0}, int{255});
-  std::uniform_real_distribution<double> d3(double{0}, double{1});
+  std::uniform_int_distribution<int> d2(0, 255);
+  std::uniform_real_distribution<double> d3(0, 1);
 
   for (int i = 0; i < n; ++i) {
     int len = d1(gen);
@@ -145,13 +145,13 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* o
     out[i].ptr = buf;
 
     bool do_prefix = d3(gen) < prefixed_probability && i > 0;
-    std::uniform_int_distribution<int> d4(std::min(min_size, len), len);
+    std::uniform_int_distribution<int> d4(min_size, len);
     int prefix_len = do_prefix ? d4(gen) : 0;
     for (int j = 0; j < prefix_len; ++j) {
-      buf[j] = buf[j - 1];
+      buf[j] = out[i - 1].ptr[j];
     }
     for (int j = prefix_len; j < len; ++j) {
-      buf[j] = d2(gen);
+      buf[j] = static_cast<uint8_t>(d2(gen));
     }
     buf += len;
   }
@@ -160,9 +160,9 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* o
 void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out,
                                 double prefixed_probability) {
   std::default_random_engine gen(seed);
-  std::uniform_int_distribution<int> d1(int{0}, int{255});
-  std::uniform_real_distribution<double> d2(double{0}, double{1});
-  std::uniform_int_distribution<int> d3(std::min(2, len), len);
+  std::uniform_int_distribution<int> d1(0, 255);
+  std::uniform_real_distribution<double> d2(0, 1);
+  std::uniform_int_distribution<int> d3(0, len);
 
   for (int i = 0; i < n; ++i) {
     out[i].ptr = buf;
@@ -170,10 +170,10 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLB
     bool do_prefix = d2(gen) < prefixed_probability && i > 0;
     int prefix_len = do_prefix ? d3(gen) : 0;
     for (int j = 0; j < prefix_len; ++j) {
-      buf[j] = buf[j - 1];
+      buf[j] = out[i - 1].ptr[j];
     }
     for (int j = prefix_len; j < len; ++j) {
-      buf[j] = d1(gen);
+      buf[j] = static_cast<uint8_t>(d1(gen));
     }
     buf += len;
   }

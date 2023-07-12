@@ -2127,7 +2127,7 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtripByteArray() {
-    constexpr int64_t kSize = 50;
+    constexpr int64_t kSize = 500;
     constexpr int32_t kMinLength = 0;
     constexpr int32_t kMaxLength = 10;
     constexpr int32_t kNumUnique = 10;
@@ -2135,7 +2135,7 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     constexpr int kSeed = 42;
     ::arrow::random::RandomArrayGenerator rag{kSeed};
     std::shared_ptr<::arrow::Array> values = rag.BinaryWithRepeats(
-        /*size=*/0, /*unique=*/0, kMinLength, kMaxLength, kNullProbability);
+        /*size=*/1, /*unique=*/1, kMinLength, kMaxLength, kNullProbability);
     CheckDirectPut(values);
 
     for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
