@@ -941,8 +941,7 @@ class StreamingReaderImpl : public ReaderMixin,
     START_SPAN(init_span, "arrow::csv::InitAfterFirstBuffer");
 
     // Create a arrow::csv::ReadNextAsync span so that grouping by that name does not ignore
-    // the work performed for this first block. Especially when Fragments consists of small numers of blocks,
-    // this fraction can be very significant (if block size == fragment size, the first block is all of the work!)
+    // the work performed for this first block.
     util::tracing::Span read_span;
     auto scope = START_SCOPED_SPAN(read_span, "arrow::csv::ReadNextAsync");
 
