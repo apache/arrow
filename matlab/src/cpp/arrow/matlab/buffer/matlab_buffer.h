@@ -17,24 +17,32 @@
 
 #pragma once
 
-#include "arrow/array.h"
+#include "arrow/buffer.h"
 
-#include "arrow/matlab/array/proxy/array.h"
+#include "MatlabDataArray.hpp"
 
-#include "libmexclass/proxy/Proxy.h"
+namespace arrow::matlab::buffer {
 
-#include "arrow/type_fwd.h"
+    namespace mda = ::matlab::data;
 
-namespace arrow::matlab::array::proxy {
-
-class TimestampArray : public arrow::matlab::array::proxy::Array {
+    class MatlabBuffer : public arrow::Buffer {
     public:
-        TimestampArray(std::shared_ptr<arrow::TimestampArray> array);
-
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-    protected:
-        void toMATLAB(libmexclass::proxy::method::Context& context) override;
-};
-
+    
+        template<typename CType>
+        MatlabBuffer(const mda::TypedArray<CType> typed_array)  
+            : arrow::Buffer{nullptr, 0}
+            , array{typed_array} {
+                
+                // Get raw pointer of mxArray
+                auto it(typed_array.cbegin());
+                auto dt = it.operator->();
+            
+                data_ = reinterpret_cast<const uint8_t*>(dt);
+                size_ = sizeof(CType) * static_cast<int64_t>(typed_array.getNumberOfElements());
+                capacity_ = size_;
+                is_mutable_ = false;
+            }
+    private:
+        const mda::Array array;
+    };
 }

@@ -27,6 +27,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/bit/unpack.h"
+#include "arrow/matlab/buffer/matlab_buffer.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
@@ -35,14 +36,15 @@ namespace arrow::matlab::array::proxy {
 template<typename CType>
 class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
-        NumericArray(const std::shared_ptr<arrow::Array> numeric_array)
-            : arrow::matlab::array::proxy::Array() {
-                array = numeric_array;
-            }
+        using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
 
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-            using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
-            using BuilderType = typename arrow::CTypeTraits<CType>::BuilderType;
+        NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array)
+            : arrow::matlab::array::proxy::Array{std::move(numeric_array)} {}
+
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {            
+            using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
+            using NumericArray = arrow::NumericArray<ArrowType>;
+            using NumericArrayProxy = typename arrow::matlab::array::proxy::NumericArray<CType>;
 
             ::matlab::data::StructArray opts = constructor_arguments[0];
 
@@ -50,20 +52,16 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             const ::matlab::data::TypedArray<CType> numeric_mda = opts[0]["MatlabArray"];
             const ::matlab::data::TypedArray<bool> valid_mda = opts[0]["Valid"];
             
-            // Get raw pointer of mxArray
-            auto it(numeric_mda.cbegin());
-            auto dt = it.operator->();
+            auto data_buffer = std::make_shared<MatlabBuffer>(numeric_mda);
 
             const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
             const auto length = static_cast<int64_t>(numeric_mda.getNumberOfElements()); // cast size_t to int64_t
 
-            // Do not make a copy when creating arrow::Buffer
-            auto data_buffer = std::make_shared<arrow::Buffer>(reinterpret_cast<const uint8_t*>(dt),
-                                                          sizeof(CType) * numeric_mda.getNumberOfElements());
             // Pack the validity bitmap values.
             MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap, bit::packValid(valid_mda), error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
             auto array_data = arrow::ArrayData::Make(data_type, length, {packed_validity_bitmap, data_buffer});
-            return std::make_shared<arrow::matlab::array::proxy::NumericArray<CType>>(arrow::MakeArray(array_data));
+            auto numeric_array = std::static_pointer_cast<NumericArray>(arrow::MakeArray(array_data));
+            return std::make_shared<NumericArrayProxy>(std::move(numeric_array));
         }
 
     protected:

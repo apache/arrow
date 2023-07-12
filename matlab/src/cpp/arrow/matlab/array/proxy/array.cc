@@ -23,7 +23,7 @@
 
 namespace arrow::matlab::array::proxy {
 
-    Array::Array() {
+    Array::Array(std::shared_ptr<arrow::Array> array) : array{std::move(array)} {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
