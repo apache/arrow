@@ -302,6 +302,19 @@ classdef ttraits < matlab.unittest.TestCase
             testCase.verifyError(@() traits(type), "arrow:type:traits:UnsupportedMatlabClass");
         end
 
+        function TestErrorIfUnsupportedInputType(testCase)
+            import arrow.type.traits.*
+
+            type = 123;
+            testCase.verifyError(@() traits(type), "arrow:type:traits:UnsupportedInputType");
+
+            type = {'double'};
+            testCase.verifyError(@() traits(type), "arrow:type:traits:UnsupportedInputType");
+
+            type = datetime(2023, 1, 1);
+            testCase.verifyError(@() traits(type), "arrow:type:traits:UnsupportedInputType");
+        end
+
     end
 
 end
