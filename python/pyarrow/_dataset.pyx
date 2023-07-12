@@ -1977,6 +1977,10 @@ cdef class CacheOptions(_Weakrefable):
         they are not combined
     lazy : bool, default False
         A lazy cache does not perform any I/O until requested.
+    prefetch_limit : int, default 0
+        The maximum number of ranges to be prefetched. This is only used for 
+        lazy cache to asynchronously read some ranges after reading the target 
+        range.
     """
     def __init__(self, *, hole_size_limit=None, range_size_limit=None, lazy=None, prefetch_limit=None):
         self.wrapped = CCacheOptions.Defaults()
