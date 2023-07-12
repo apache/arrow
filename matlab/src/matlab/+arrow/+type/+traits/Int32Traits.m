@@ -22,8 +22,8 @@ classdef Int32Traits < arrow.type.traits.Traits
         TypeConstructor = @arrow.type.Int32Type;
         TypeClassName = "arrow.type.Int32Type"
         TypeProxyClassName = "arrow.type.proxy.Int32Type"
-        MatlabConstructor = @uint32
-        MatlabClassName = "uint32"
+        MatlabConstructor = @int32
+        MatlabClassName = "int32"
     end
 
 end

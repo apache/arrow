@@ -22,8 +22,8 @@ classdef Int16Traits < arrow.type.traits.Traits
         TypeConstructor = @arrow.type.Int16Type;
         TypeClassName = "arrow.type.Int16Type"
         TypeProxyClassName = "arrow.type.proxy.Int16Type"
-        MatlabConstructor = @uint16
-        MatlabClassName = "uint16"
+        MatlabConstructor = @int16
+        MatlabClassName = "int16"
     end
 
 end
