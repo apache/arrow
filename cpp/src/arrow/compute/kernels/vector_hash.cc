@@ -855,15 +855,5 @@ void RegisterDictionaryDecode(FunctionRegistry* registry) {
 }
 
 }  // namespace internal
-
-Result<Datum> DictionaryDecode(const Datum& value, ExecContext* ctx) {
-  return CallFunction("dictionary_decode", {value}, ctx);
-}
-
-Result<std::shared_ptr<Array>> DictionaryDecode(const Array& value, ExecContext* ctx) {
-  ARROW_ASSIGN_OR_RAISE(Datum result, DictionaryDecode(Datum(value), ctx));
-  return result.make_array();
-}
-
 }  // namespace compute
 }  // namespace arrow
