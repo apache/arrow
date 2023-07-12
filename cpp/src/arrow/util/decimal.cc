@@ -305,11 +305,31 @@ struct Decimal128RealConversion
   }
 
   template <typename Real>
-  static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
+  static Real ToRealPositiveNoSplit(const Decimal128& decimal, int32_t scale) {
     Real x = RealTraits<Real>::two_to_64(static_cast<Real>(decimal.high_bits()));
     x += static_cast<Real>(decimal.low_bits());
     x *= LargePowerOfTen<Real>(-scale);
+
     return x;
+  }
+
+  template <typename Real>
+  static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
+    if (scale <= 0 || (decimal.high_bits() == 0 &&
+                       decimal.low_bits() <= RealTraits<Real>::kMaxPreciseInteger)) {
+      // No need to split the decimal if it is already an integer (scale <= 0) or if it
+      // can be precisely represented by Real
+      return ToRealPositiveNoSplit<Real>(decimal, scale);
+    }
+
+    // Split decimal into whole and fractional parts to avoid precision loss
+    BasicDecimal128 whole_decimal, fraction_decimal;
+    decimal.GetWholeAndFraction(scale, &whole_decimal, &fraction_decimal);
+
+    Real whole = ToRealPositiveNoSplit<Real>(whole_decimal, 0);
+    Real fraction = ToRealPositiveNoSplit<Real>(fraction_decimal, scale);
+
+    return whole + fraction;
   }
 };
 
@@ -967,7 +987,7 @@ struct Decimal256RealConversion
   }
 
   template <typename Real>
-  static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
+  static Real ToRealPositiveNoSplit(const Decimal256& decimal, int32_t scale) {
     DCHECK_GE(decimal, 0);
     Real x = 0;
     const auto parts_le = bit_util::little_endian::Make(decimal.native_endian_array());
@@ -977,6 +997,25 @@ struct Decimal256RealConversion
     x += static_cast<Real>(parts_le[0]);
     x *= LargePowerOfTen<Real>(-scale);
     return x;
+  }
+
+  template <typename Real>
+  static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
+    const auto parts_le = bit_util::little_endian::Make(decimal.native_endian_array());
+    if (scale <= 0 || (parts_le[3] == 0 && parts_le[2] == 0 && parts_le[1] == 0 &&
+                       parts_le[0] < RealTraits<Real>::kMaxPreciseInteger)) {
+      // No need to split the decimal if it is already an integer (scale <= 0) or if it
+      // can be precisely represented by Real
+      return ToRealPositiveNoSplit<Real>(decimal, scale);
+    }
+
+    // Split the decimal into whole and fractional parts to avoid precision loss
+    BasicDecimal256 whole_decimal, fraction_decimal;
+    decimal.GetWholeAndFraction(scale, &whole_decimal, &fraction_decimal);
+
+    Real whole = ToRealPositiveNoSplit<Real>(whole_decimal, 0);
+    Real fraction = ToRealPositiveNoSplit<Real>(fraction_decimal, scale);
+    return whole + fraction;
   }
 };
 

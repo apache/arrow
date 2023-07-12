@@ -1119,6 +1119,23 @@ class TestDecimalToReal : public ::testing::Test {
     // 2**64 + 2**41 (exactly representable in a float)
     CheckDecimalToReal<Decimal, Real>("18446746272732807168", 0, 1.8446746e+19f);
     CheckDecimalToReal<Decimal, Real>("-18446746272732807168", 0, -1.8446746e+19f);
+    // Small number but large scale
+    auto scale = Decimal::kMaxScale - 1;
+    std::string seven = "7.";
+    for (int32_t i = 0; i < scale; ++i) {
+      seven += "0";
+    }
+    CheckDecimalToReal<Decimal, Real>(seven, scale, 7.0f);
+    CheckDecimalToReal<Decimal, Real>("-" + seven, scale, -7.0f);
+
+    // Decimal >= max mantisa integer
+
+    /** The following cases still fail because 9999999 * 1e-1 != 999999.9f
+      CheckDecimalToReal<Decimal, Real>("999999.9", 1, 999999.9);
+      CheckDecimalToReal<Decimal, Real>("-999999.9", 1, -999999.9);
+    */
+    CheckDecimalToReal<Decimal, Real>("9999999.9", 1, 9999999.9);
+    CheckDecimalToReal<Decimal, Real>("-9999999.9", 1, -9999999.9);
   }
 
   // Test conversions with a range of scales
@@ -1209,6 +1226,17 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
                                         9.999999999999998e+47);
   CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", -10,
                                         -9.999999999999998e+47);
+  // Small number but large scale
+  std::string seven = "7.";
+  for (int32_t i = 0; i < TypeParam::kMaxScale - 1; ++i) {
+    seven += "0";
+  }
+  CheckDecimalToReal<TypeParam, double>(seven, TypeParam::kMaxScale - 1, 7.0f);
+  CheckDecimalToReal<TypeParam, double>("-" + seven, TypeParam::kMaxScale - 1, -7.0f);
+
+  // Decimal >= max mantisa integer
+  CheckDecimalToReal<TypeParam, double>("999999999999999.9", 1, 999999999999999.9);
+  CheckDecimalToReal<TypeParam, double>("-999999999999999.9", 1, -999999999999999.9);
 }
 
 #endif  // __MINGW32__
