@@ -16,7 +16,7 @@
 function typeTraits = traits(type)
     % "Gateway" function that links an arrow Type ID enumeration (e.g.
     % arrow.type.ID.String) or a MATLAB class string (e.g. "datetime")
-    % to associated type and array information.
+    % to associated type information.
     import arrow.type.traits.*
     import arrow.type.*
     
@@ -82,5 +82,8 @@ function typeTraits = traits(type)
             otherwise
                 error("arrow:type:traits:UnsupportedMatlabClass", "Unsupported MATLAB class: " + type);
         end
+    else
+        error("arrow:type:traits:UnsupportedInputType", "The input argument to the traits function " + ...
+                                                        "must be a MATLAB class string or an arrow.type.ID enumeration.");
     end
 end
