@@ -470,11 +470,11 @@ const FixedSizeListType* FixedSizeListArray::list_type() const {
   return checked_cast<const FixedSizeListType*>(data_->type.get());
 }
 
-std::shared_ptr<DataType> FixedSizeListArray::value_type() const {
+const std::shared_ptr<DataType>& FixedSizeListArray::value_type() const {
   return list_type()->value_type();
 }
 
-std::shared_ptr<Array> FixedSizeListArray::values() const { return values_; }
+const std::shared_ptr<Array>& FixedSizeListArray::values() const { return values_; }
 
 Result<std::shared_ptr<Array>> FixedSizeListArray::FromArrays(
     const std::shared_ptr<Array>& values, int32_t list_size) {
