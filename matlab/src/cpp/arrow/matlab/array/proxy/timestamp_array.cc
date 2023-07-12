@@ -53,7 +53,7 @@ namespace arrow::matlab::array::proxy {
                                error::UNICODE_CONVERSION_ERROR_ID);
 
         // extract the time unit
-        const std::u16string& u16_timeunit = timezone_mda[0];
+        const std::u16string& u16_timeunit = units_mda[0];
         MATLAB_ASSIGN_OR_ERROR(const auto time_unit, 
                                arrow::matlab::type::timeUnitFromString(u16_timeunit),
                                error::UKNOWN_TIME_UNIT_ERROR_ID)
