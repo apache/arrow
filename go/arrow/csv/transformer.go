@@ -308,6 +308,10 @@ func (w *Writer) transformColToStringArr(typ arrow.DataType, col arrow.Array) []
 				res[i] = arr.ValueStr(i)
 			}
 		}
+	case *arrow.NullType:
+		for i := 0; i < col.Len(); i++ {
+			res[i] = w.nullValue
+		}
 	default:
 		panic(fmt.Errorf("arrow/csv: field has unsupported data type %s", typ.String()))
 	}
