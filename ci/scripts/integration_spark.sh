@@ -45,6 +45,13 @@ export MAVEN_OPTS="${MAVEN_OPTS} -Dorg.slf4j.simpleLogger.log.org.apache.maven.c
 
 pushd ${spark_dir}
 
+  # Due to CVE-2023-34462 we upgraded to a memory netty version which is incompatible
+  # with previous spark versions. Patch the pom to use newer version.
+  sed -i.bak -E -e \
+    "s/^netty\.version>.+<\/netty\.version>/netty\.version>4.1.94.Final<\/netty\.version>/" \
+    pom.xml
+  rm -f pom.xml.bak
+
   if [ "${test_pyarrow_only}" == "true" ]; then
     echo "Building Spark ${SPARK_VERSION} to test pyarrow only"
 
