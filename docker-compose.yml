@@ -1147,7 +1147,6 @@ services:
     command:
       ["pip install -e /arrow/dev/archery && \
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
-        source /opt/rh/rh-maven35/enable && \
         /arrow/ci/scripts/java_build.sh /arrow /build /arrow/java-dist && \
         /arrow/ci/scripts/java_test.sh /arrow /build /arrow/java-dist"]
 
