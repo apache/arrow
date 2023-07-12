@@ -522,8 +522,7 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
 
   std::shared_ptr<ArrayData> data_;
 
-  ReleaseEventFunc sync_release_ = nullptr;
-  void* sync_event_ = nullptr;
+  RawSyncEvent sync_event_;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -548,8 +547,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
   }
   DCHECK_NE(array->private_data, nullptr);
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
-  if (pdata->sync_event_ != nullptr && pdata->sync_release_ != nullptr) {
-    pdata->sync_release_(pdata->sync_event_);
+  if (pdata->sync_event_.sync_event != nullptr && pdata->sync_event_.release_func != nullptr) {  
+    pdata->sync_event_.release_func(pdata->sync_event_.sync_event);
   }
   delete pdata;
 
@@ -591,8 +590,7 @@ struct ArrayExporter {
     // Store owning pointer to ArrayData
     export_.data_ = data;
 
-    export_.sync_event_ = nullptr;
-    export_.sync_release_ = nullptr;
+    export_.sync_event_ = RawSyncEvent();
     return Status::OK();
   }
 
@@ -675,14 +673,14 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
-Status ValidateDeviceInfo(const ArrayData& data, DeviceType* device_type,
+Status ValidateDeviceInfo(const ArrayData& data, std::optional<DeviceType>* device_type,
                           int64_t* device_id) {
   for (const auto& buf : data.buffers) {
     if (!buf) {
       continue;
     }
 
-    if (*device_type == DeviceType::UNKNOWN) {
+    if (*device_type == std::nullopt) {
       *device_type = buf->device_type();
       *device_id = buf->device()->device_id();
       continue;
@@ -706,17 +704,17 @@ Status ValidateDeviceInfo(const ArrayData& data, DeviceType* device_type,
   return Status::OK();
 }
 
-Result<std::pair<DeviceType, int64_t>> ValidateDeviceInfo(const ArrayData& data) {
-  DeviceType device_type = DeviceType::UNKNOWN;
+Result<std::pair<std::optional<DeviceType>, int64_t>> ValidateDeviceInfo(const ArrayData& data) {
+  std::optional<DeviceType> device_type;
   int64_t device_id = -1;
   RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
   return std::make_pair(device_type, device_id);
 }
 
-Status ExportDeviceArray(const Array& array, void* sync_event,
-                         ReleaseEventFunc sync_release, struct ArrowDeviceArray* out,
+Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event, 
+                         struct ArrowDeviceArray* out,
                          struct ArrowSchema* out_schema) {
-  if (sync_event != nullptr && sync_release == nullptr) {
+  if (sync_event.sync_event != nullptr && sync_event.release_func) {
     return Status::Invalid(
         "Must provide a release event function if providing a non-null event");
   }
@@ -727,7 +725,11 @@ Status ExportDeviceArray(const Array& array, void* sync_event,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*array.data()));
-  out->device_type = static_cast<ArrowDeviceType>(device_info.first);
+  if (!device_info.first) {
+    out->device_type = ARROW_DEVICE_CPU;
+  } else {
+    out->device_type = static_cast<ArrowDeviceType>(*device_info.first);
+  }
   out->device_id = device_info.second;
 
   ArrayExporter exporter;
@@ -736,18 +738,17 @@ Status ExportDeviceArray(const Array& array, void* sync_event,
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
   pdata->sync_event_ = sync_event;
-  pdata->sync_release_ = sync_release;
-  out->sync_event = sync_event;
+  out->sync_event = sync_event.sync_event;
 
   guard.Detach();
   return Status::OK();
 }
 
-Status ExportDeviceRecordBatch(const RecordBatch& batch, void* sync_event,
-                               ReleaseEventFunc sync_release,
+Status ExportDeviceRecordBatch(const RecordBatch& batch, 
+                               RawSyncEvent sync_event,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
-  if (sync_event != nullptr && sync_release == nullptr) {
+  if (sync_event.sync_event != nullptr && sync_event.release_func == nullptr) {
     return Status::Invalid(
         "Must provide a release event function if providing a non-null event");
   }
@@ -762,7 +763,11 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, void* sync_event,
   }
 
   ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*array->data()));
-  out->device_type = static_cast<ArrowDeviceType>(device_info.first);
+  if (!device_info.first) {
+    out->device_type = ARROW_DEVICE_CPU;
+  } else {
+    out->device_type = static_cast<ArrowDeviceType>(*device_info.first);
+  }
   out->device_id = device_info.second;
 
   ArrayExporter exporter;
@@ -771,8 +776,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, void* sync_event,
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
   pdata->sync_event_ = sync_event;
-  pdata->sync_release_ = sync_release;
-  out->sync_event = sync_event;
+  out->sync_event = sync_event.sync_event;
 
   guard.Detach();
   return Status::OK();
@@ -1397,17 +1401,17 @@ struct ArrayImporter {
   explicit ArrayImporter(const std::shared_ptr<DataType>& type)
       : type_(type),
         zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)),
-        device_type_(DeviceType::CPU) {}
+        device_type_(DeviceType::kCPU) {}
 
-  Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMgr& mapper) {
+  Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_,
-                          mapper.get_manager(src->device_type, src->device_id));
+                          mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
     import_->sync_event_ = src->sync_event;
     // reset internal state before next import
     memory_mgr_.reset();
-    device_type_ = DeviceType::CPU;
+    device_type_ = DeviceType::kCPU;
     return Status::OK();
   }
 
@@ -1796,7 +1800,7 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  std::shared_ptr<DataType> type,
-                                                 const DeviceMemoryMgr& mapper) {
+                                                 const DeviceMemoryMapper& mapper) {
   ArrayImporter importer(type);
   RETURN_NOT_OK(importer.Import(array, mapper));
   return importer.MakeArray();
@@ -1804,7 +1808,7 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  struct ArrowSchema* type,
-                                                 const DeviceMemoryMgr& mapper) {
+                                                 const DeviceMemoryMapper& mapper) {
   auto maybe_type = ImportType(type);
   if (!maybe_type.ok()) {
     ArrowArrayRelease(&array->array);
@@ -1815,7 +1819,7 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema,
-    const DeviceMemoryMgr& mapper) {
+    const DeviceMemoryMapper& mapper) {
   auto type = struct_(schema->fields());
   ArrayImporter importer(type);
   RETURN_NOT_OK(importer.Import(array, mapper));
@@ -1824,7 +1828,7 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowDeviceArray* array, struct ArrowSchema* schema,
-    const DeviceMemoryMgr& mapper) {
+    const DeviceMemoryMapper& mapper) {
   auto maybe_schema = ImportSchema(schema);
   if (!maybe_schema.ok()) {
     ArrowArrayRelease(&array->array);

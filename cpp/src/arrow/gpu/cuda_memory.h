@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "arrow/buffer.h"
+#include "arrow/c/abi.h"
 #include "arrow/io/concurrency.h"
 #include "arrow/type_fwd.h"
 
@@ -258,6 +259,10 @@ Result<uintptr_t> GetDeviceAddress(const uint8_t* cpu_data,
 /// Low-level: get a CPU address through which the device data be accessed.
 ARROW_EXPORT
 Result<uint8_t*> GetHostAddress(uintptr_t device_ptr);
+
+ARROW_EXPORT
+Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
+                                                           int64_t device_id);
 
 }  // namespace cuda
 }  // namespace arrow

@@ -30,22 +30,21 @@
 namespace arrow {
 
 /// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
-enum class DeviceType : char {
-  UNKNOWN = 0,
-  CPU = 1,
-  CUDA = 2,
-  CUDA_HOST = 3,
-  OPENCL = 4,
-  VULKAN = 7,
-  METAL = 8,
-  VPI = 9,
-  ROCM = 10,
-  ROCM_HOST = 11,
-  EXT_DEV = 12,
-  CUDA_MANAGED = 13,
-  ONEAPI = 14,
-  WEBGPU = 15,
-  HEXAGON = 16,
+enum class DeviceType : char {  
+  kCPU = 1,
+  kCUDA = 2,
+  kCUDA_HOST = 3,
+  kOPENCL = 4,
+  kVULKAN = 7,
+  kMETAL = 8,
+  kVPI = 9,
+  kROCM = 10,
+  kROCM_HOST = 11,
+  kEXT_DEV = 12,
+  kCUDA_MANAGED = 13,
+  kONEAPI = 14,
+  kWEBGPU = 15,
+  kHEXAGON = 16,
 };
 
 class MemoryManager;
@@ -200,7 +199,7 @@ class ARROW_EXPORT CPUDevice : public Device {
   const char* type_name() const override;
   std::string ToString() const override;
   bool Equals(const Device&) const override;
-  DeviceType device_type() const override { return DeviceType::CPU; }
+  DeviceType device_type() const override { return DeviceType::kCPU; }
 
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 
