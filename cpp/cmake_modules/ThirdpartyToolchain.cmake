@@ -1710,6 +1710,14 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
+  # We need to use FORCE_ANY_NEWER_VERSION here to accept Protobuf
+  # newer version such as 23.4. If we don't use it, 23.4 is processed
+  # as an incompatible version with 3.12.0 with protobuf-config.cmake
+  # provided by Protobuf. Because protobuf-config-version.cmake
+  # requires the same major version. In the example, "23" for 23.4 and
+  # "3" for 3.12.0 are different. So 23.4 is rejected with 3.12.0. If
+  # we use FORCE_ANY_NEWER_VERSION here, we can bypass the check and
+  # use 23.4.
   resolve_dependency(Protobuf
                      FORCE_ANY_NEWER_VERSION
                      TRUE
