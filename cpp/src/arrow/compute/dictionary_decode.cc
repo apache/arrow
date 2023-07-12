@@ -61,7 +61,7 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
     if (args[0].is_array() || args[0].is_chunked_array()) {
       DictionaryType* dict_type = checked_cast<DictionaryType>(args[0].type().get());
       CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
-      return CallFunction("cast", args, &cast_option, ctx);
+      return CallFunction("cast", args, &cast_options, ctx);
     } else {
       return Status::TypeError("Expected an Array or a Chunked Array");
     }
