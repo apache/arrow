@@ -1329,6 +1329,31 @@ struct RegexSubstringMatcher {
 };
 #endif
 
+#ifdef ARROW_WITH_RE2
+struct RegexSubstringNotMatcher {
+  const MatchSubstringOptions& options_;
+  const RE2 regex_match_;
+
+  static Result<std::unique_ptr<RegexSubstringNotMatcher>> Make(
+      const MatchSubstringOptions& options, bool is_utf8 = true, bool literal = false) {
+    auto matcher = std::make_unique<RegexSubstringNotMatcher>(options, is_utf8, literal);
+    RETURN_NOT_OK(RegexStatus(matcher->regex_match_));
+    return std::move(matcher);
+  }
+
+  explicit RegexSubstringNotMatcher(const MatchSubstringOptions& options,
+                                 bool is_utf8 = true, bool literal = false)
+      : options_(options),
+        regex_match_(options_.pattern,
+                     MakeRE2Options(is_utf8, options.ignore_case, literal)) {}
+
+  bool NotMatch(std::string_view current) const {
+    auto piece = re2::StringPiece(current.data(), current.length());
+    return !RE2::PartialMatch(piece, regex_match_);
+  }
+};
+#endif 
+
 template <typename Type, typename Matcher>
 struct MatchSubstringImpl {
   using offset_type = typename Type::offset_type;
@@ -1442,6 +1467,123 @@ struct MatchSubstring<Type, PlainEndsWithMatcher> {
     }
     ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
     return MatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
+                                                                matcher.get());
+  }
+};
+
+template <typename Type, typename Matcher>
+struct NotMatchSubstringImpl {
+  using offset_type = typename Type::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out,
+                     const Matcher* matcher) {
+    StringBoolTransform<Type>(
+        ctx, batch,
+        [&matcher](const void* raw_offsets, const uint8_t* data, int64_t length,
+                   int64_t output_offset, uint8_t* output) {
+          const offset_type* offsets = reinterpret_cast<const offset_type*>(raw_offsets);
+          FirstTimeBitmapWriter bitmap_writer(output, output_offset, length);
+          for (int64_t i = 0; i < length; ++i) {
+            const char* current_data = reinterpret_cast<const char*>(data + offsets[i]);
+            int64_t current_length = offsets[i + 1] - offsets[i];
+            if (matcher->NotMatch(std::string_view(current_data, current_length))) {
+              bitmap_writer.Set();
+            }
+            bitmap_writer.Next();
+          }
+          bitmap_writer.Finish();
+        },
+        out);
+    return Status::OK();
+  }
+};
+
+template <typename Type, typename Matcher>
+struct NotMatchSubstring {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher, Matcher::Make(MatchSubstringState::Get(ctx)));
+    return NotMatchSubstringImpl<Type, Matcher>::Exec(ctx, batch, out, matcher.get());
+  }
+};
+
+#ifdef ARROW_WITH_RE2
+template <typename Type>
+struct MatchSubstring<Type, RegexSubstringNotMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    // TODO Cache matcher across invocations (for regex compilation)
+    ARROW_ASSIGN_OR_RAISE(auto matcher,
+                          RegexSubstringNotMatcher::Make(MatchSubstringState::Get(ctx),
+                                                      /*is_utf8=*/Type::is_utf8));
+    return NotMatchSubstringImpl<Type, RegexSubstringNotMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+#endif
+
+template <typename Type>
+struct NotMatchSubstring<Type, PlainSubstringMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher, RegexSubstringNotMatcher::Make(options, /*is_utf8=*/Type::is_utf8,
+                                                    /*literal=*/true));
+      return NotMatchSubstringImpl<Type, RegexSubstringNotMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainSubstringMatcher::Make(options));
+    return NotMatchSubstringImpl<Type, PlainSubstringMatcher>::Exec(ctx, batch, out,
+                                                                 matcher.get());
+  }
+};
+
+template <typename Type>
+struct NotMatchSubstring<Type, PlainStartsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = "^" + RE2::QuoteMeta(options.pattern);
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher,
+          RegexSubstringNotMatcher::Make(converted_options, /*is_utf8=*/Type::is_utf8));
+      return NotMatchSubstringImpl<Type, RegexSubstringNotMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainStartsWithMatcher::Make(options));
+    return NotMatchSubstringImpl<Type, PlainStartsWithMatcher>::Exec(ctx, batch, out,
+                                                                  matcher.get());
+  }
+};
+
+template <typename Type>
+struct NotMatchSubstring<Type, PlainEndsWithMatcher> {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    auto options = MatchSubstringState::Get(ctx);
+    if (options.ignore_case) {
+#ifdef ARROW_WITH_RE2
+      MatchSubstringOptions converted_options = options;
+      converted_options.pattern = RE2::QuoteMeta(options.pattern) + "$";
+      ARROW_ASSIGN_OR_RAISE(
+          auto matcher,
+          RegexSubstringNotMatcher::Make(converted_options, /*is_utf8=*/Type::is_utf8));
+      return NotMatchSubstringImpl<Type, RegexSubstringNotMatcher>::Exec(ctx, batch, out,
+                                                                   matcher.get());
+#else
+      return Status::NotImplemented("ignore_case requires RE2");
+#endif
+    }
+    ARROW_ASSIGN_OR_RAISE(auto matcher, PlainEndsWithMatcher::Make(options));
+    return NotMatchSubstringImpl<Type, PlainEndsWithMatcher>::Exec(ctx, batch, out,
                                                                 matcher.get());
   }
 };
@@ -1651,6 +1793,108 @@ void AddAsciiStringMatchSubstring(FunctionRegistry* registry) {
   {
     auto func =
         std::make_shared<ScalarFunction>("match_like", Arity::Unary(), match_like_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#endif
+}
+
+const FunctionDoc not_match_substring_doc(
+    "Not match strings against literal pattern",
+    ("For each string in `strings`, emit true iff it contains a given pattern.\n"
+     "Null inputs emit null.\n"
+     "The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed."),
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
+
+const FunctionDoc not_starts_with_doc(
+    "Check if strings not start with a literal pattern",
+    ("For each string in `strings`, emit true iff it starts with a given pattern.\n"
+     "The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed.\n"
+     "\n"
+     "Null inputs emit null."),
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
+
+const FunctionDoc not_ends_with_doc(
+    "Check if strings end not with a literal pattern",
+    ("For each string in `strings`, emit true iff it ends with a given pattern.\n"
+     "The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed.\n"
+     "\n"
+     "Null inputs emit null."),
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
+
+#ifdef ARROW_WITH_RE2
+const FunctionDoc not_match_substring_regex_doc(
+    "Not match strings against regex pattern",
+    ("For each string in `strings`, emit true iff it matches a given pattern\n"
+     "at any position. The pattern must be given in MatchSubstringOptions.\n"
+     "If ignore_case is set, only simple case folding is performed.\n"
+     "\n"
+     "Null inputs emit null."),
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
+
+const FunctionDoc not_match_like_doc(
+    "Not match strings against SQL-style LIKE pattern",
+    ("For each string in `strings`, emit true iff it matches a given pattern\n"
+     "at any position. '%' will match any number of characters, '_' will\n"
+     "match exactly one character, and any other character matches itself.\n"
+     "To match a literal '%', '_', or '\\', precede the character with a backslash.\n"
+     "Null inputs emit null.  The pattern must be given in MatchSubstringOptions."),
+    {"strings"}, "MatchSubstringOptions", /*options_required=*/true);
+#endif
+
+void AddAsciiStringNotMatchSubstring(FunctionRegistry* registry) {
+  {
+    auto func = std::make_shared<ScalarFunction>("not_match_substring", Arity::Unary(),
+                                                 not_match_substring_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainSubstringMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func =
+        std::make_shared<ScalarFunction>("not_starts_with", Arity::Unary(), not_starts_with_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec =
+          GenerateVarBinaryToVarBinary<MatchSubstring, PlainStartsWithMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func =
+        std::make_shared<ScalarFunction>("not_ends_with", Arity::Unary(), not_ends_with_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, PlainEndsWithMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+#ifdef ARROW_WITH_RE2
+  {
+    auto func = std::make_shared<ScalarFunction>("not_match_substring_regex", Arity::Unary(),
+                                                 not_match_substring_regex_doc);
+    for (const auto& ty : BaseBinaryTypes()) {
+      auto exec = GenerateVarBinaryToVarBinary<MatchSubstring, RegexSubstringMatcher>(ty);
+      DCHECK_OK(
+          func->AddKernel({ty}, boolean(), std::move(exec), MatchSubstringState::Init));
+    }
+    DCHECK_OK(registry->AddFunction(std::move(func)));
+  }
+  {
+    auto func =
+        std::make_shared<ScalarFunction>("not_match_like", Arity::Unary(), not_match_like_doc);
     for (const auto& ty : BaseBinaryTypes()) {
       auto exec = GenerateVarBinaryToVarBinary<MatchLike>(ty);
       DCHECK_OK(
@@ -3381,6 +3625,7 @@ void RegisterScalarStringAscii(FunctionRegistry* registry) {
   AddAsciiStringTrim(registry);
   AddAsciiStringPad(registry);
   AddAsciiStringMatchSubstring(registry);
+  AddAsciiStringNotMatchSubstring(registry);
   AddAsciiStringFindSubstring(registry);
   AddAsciiStringCountSubstring(registry);
   AddAsciiStringReplaceSubstring(registry);
