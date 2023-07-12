@@ -49,7 +49,7 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> DictionaryDecode(const Array& value,
                                                 ExecContext* ctx = NULLPTR);
 
-/// \brief decode a dictionary encoded array to normal array
+/// \brief decode a dictionary encoded array to a normal array
 /// \param[in] value dictionary array to decode
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
