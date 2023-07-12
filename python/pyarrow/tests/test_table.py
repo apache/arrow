@@ -2427,11 +2427,11 @@ def test_numpy_asarray(constructor):
 def test_invalid_non_join_column():
     NUM_ITEMS = 30
     t1 = pa.Table.from_pydict({
-        'id': [x.to_bytes(4, 'big') for x in range(NUM_ITEMS)],
+        'id': range(NUM_ITEMS),
         'array_column': [[z for z in range(3)] for x in range(NUM_ITEMS)],
     })
     t2 = pa.Table.from_pydict({
-        'id': [x.to_bytes(4, 'big') for x in range(NUM_ITEMS)],
+        'id': range(NUM_ITEMS),
         'value': [x for x in range(NUM_ITEMS)]
     })
 
