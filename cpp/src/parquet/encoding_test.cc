@@ -2110,7 +2110,23 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     ::arrow::AssertArraysEqual(*array, *result);
   }
 
-  void CheckRoundtrip() override {
+  void CheckRoundtripFLBA() {
+    constexpr int64_t kSize = 50;
+    constexpr int kSeed = 42;
+    constexpr int kByteWidth = 4;
+    ::arrow::random::RandomArrayGenerator rag{kSeed};
+    std::shared_ptr<::arrow::Array> values =
+        rag.FixedSizeBinary(/*size=*/0, /*byte_width=*/kByteWidth);
+    CheckDirectPut(values);
+
+    for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+      rag = ::arrow::random::RandomArrayGenerator(seed);
+      values = rag.FixedSizeBinary(kSize + seed, kByteWidth);
+      CheckDirectPut(values);
+    }
+  }
+
+  void CheckRoundtripByteArray() {
     constexpr int64_t kSize = 50;
     constexpr int32_t kMinLength = 0;
     constexpr int32_t kMaxLength = 10;
@@ -2130,15 +2146,22 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     }
   }
 
-  void Execute() { CheckRoundtrip(); }
+  void CheckRoundtrip() override {
+    using ArrowType = typename EncodingTraits<Type>::ArrowType;
+    using IsFixedSizeBinary = ::arrow::is_fixed_size_binary_type<ArrowType>;
+
+    if constexpr (IsFixedSizeBinary::value) {
+      CheckRoundtripFLBA();
+    } else {
+      CheckRoundtripByteArray();
+    }
+  }
 
  protected:
   USING_BASE_MEMBERS();
 };
 
-using TestDeltaByteArrayEncodingTypes2 =
-    ::testing::Types<ByteArrayType>;  // TODO FLBAType
-TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes2);
+TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
   ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
