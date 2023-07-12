@@ -169,12 +169,12 @@ class ARROW_EXPORT AsyncTaskScheduler {
 #ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     struct SpanWrapper {
-        Result<Future<>> operator()() {
-          auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
-          return std::move(func)();
-        }
-        FnOnce<Result<Future<>>()> func;
-        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+      Result<Future<>> operator()() {
+        auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+        return std::move(func)();
+      }
+      FnOnce<Result<Future<>>()> func;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
     };
     SpanWrapper wrapper{std::move(callable),
                         ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
@@ -192,12 +192,12 @@ class ARROW_EXPORT AsyncTaskScheduler {
 #ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     struct SpanWrapper {
-        Result<Future<>> operator()() {
-          auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
-          return std::move(func)();
-        }
-        FnOnce<Result<Future<>>()> func;
-        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
+      Result<Future<>> operator()() {
+        auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+        return std::move(func)();
+      }
+      FnOnce<Result<Future<>>()> func;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> active_span;
     };
     SpanWrapper wrapper{std::move(callable),
                         ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};

@@ -33,11 +33,11 @@
 namespace arrow {
 namespace internal {
 namespace tracing {
-    ARROW_EXPORT
-    opentelemetry::trace::Tracer *GetTracer();
-}
-}
-}
+ARROW_EXPORT
+opentelemetry::trace::Tracer* GetTracer();
+}  // namespace tracing
+}  // namespace internal
+}  // namespace arrow
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif

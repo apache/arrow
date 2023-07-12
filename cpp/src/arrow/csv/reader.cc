@@ -940,8 +940,8 @@ class StreamingReaderImpl : public ReaderMixin,
     util::tracing::Span init_span;
     START_SPAN(init_span, "arrow::csv::InitAfterFirstBuffer");
 
-    // Create a arrow::csv::ReadNextAsync span so that grouping by that name does not ignore
-    // the work performed for this first block.
+    // Create a arrow::csv::ReadNextAsync span so that grouping by that name does not
+    // ignore the work performed for this first block.
     util::tracing::Span read_span;
     auto scope = START_SCOPED_SPAN(read_span, "arrow::csv::ReadNextAsync");
 
@@ -964,23 +964,24 @@ class StreamingReaderImpl : public ReaderMixin,
     auto rb_gen = MakeMappedGenerator(std::move(parsed_block_gen), std::move(decoder_op));
 
     auto self = shared_from_this();
-    auto init_finished =
-        rb_gen().Then([self, rb_gen, max_readahead
+    auto init_finished = rb_gen().Then([self, rb_gen, max_readahead
 #ifdef ARROW_WITH_OPENTELEMETRY
-                       , init_span = std::move(init_span), read_span = std::move(read_span)
+                                        ,
+                                        init_span = std::move(init_span),
+                                        read_span = std::move(read_span)
 #endif
-                               ](const DecodedBlock& first_block) {
-          auto fut =
-              self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
+    ](const DecodedBlock& first_block) {
+      auto fut = self->InitFromBlock(first_block, std::move(rb_gen), max_readahead, 0);
 #ifdef ARROW_WITH_OPENTELEMETRY
-            opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
-                    ::arrow::internal::tracing::UnwrapSpan(read_span.details.get());
-            raw_span->SetAttribute("batch.size_bytes", util::TotalBufferSize(*first_block.record_batch));
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> raw_span =
+          ::arrow::internal::tracing::UnwrapSpan(read_span.details.get());
+      raw_span->SetAttribute("batch.size_bytes",
+                             util::TotalBufferSize(*first_block.record_batch));
 #endif
-          END_SPAN(read_span);
-          END_SPAN(init_span);
-          return fut;
-        });
+      END_SPAN(read_span);
+      END_SPAN(init_span);
+      return fut;
+    });
     return init_finished;
   }
 

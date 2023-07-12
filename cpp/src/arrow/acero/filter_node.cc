@@ -104,7 +104,8 @@ class FilterNode : public MapNode {
       ARROW_ASSIGN_OR_RAISE(value, Filter(value, mask, FilterOptions::Defaults()));
     }
     auto filtered_batch = ExecBatch::Make(std::move(values));
-    ATTRIBUTE_ON_CURRENT_SPAN("output_batch.size_bytes", filtered_batch->TotalBufferSize());
+    ATTRIBUTE_ON_CURRENT_SPAN("output_batch.size_bytes",
+                              filtered_batch->TotalBufferSize());
     return filtered_batch;
   }
 
