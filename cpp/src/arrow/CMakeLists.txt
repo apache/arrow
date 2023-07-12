@@ -392,7 +392,6 @@ list(APPEND
      compute/api_scalar.cc
      compute/api_vector.cc
      compute/cast.cc
-     compute/dictionary_decode.cc
      compute/exec.cc
      compute/expression.cc
      compute/function.cc

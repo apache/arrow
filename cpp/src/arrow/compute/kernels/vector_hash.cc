@@ -225,6 +225,31 @@ class DictEncodeAction final : public ActionBase {
   DictionaryEncodeOptions encode_options_;
 };
 
+// ----------------------------------------------------------------------
+// Dictionary decode implementation
+
+class DictionaryDecodeMetaFunction : public MetaFunction {
+ public:
+  DictionaryDecodeMetaFunction()
+      : MetaFunction("dictionary_decode", Arity::Unary(), dictionary_decode_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
+      return args[0];
+    }
+
+    if (args[0].is_array() || args[0].is_chunked_array()) {
+      DictionaryType* dict_type = checked_cast<DictionaryType*>(args[0].type().get());
+      CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
+      return CallFunction("cast", args, &cast_options, ctx);
+    } else {
+      return Status::TypeError("Expected an Array or a Chunked Array");
+    }
+  }
+};
+
 class HashKernel : public KernelState {
  public:
   HashKernel() : options_(nullptr) {}
@@ -762,6 +787,12 @@ const FunctionDoc dictionary_encode_doc(
     ("Return a dictionary-encoded version of the input array."), {"array"},
     "DictionaryEncodeOptions");
 
+const FunctionDoc dictionary_decode_doc{
+    "Decodes a DictionaryArray to an Array",
+    ("Return a plain-encoded version of the array input\n"
+     "This function does nothing if the input is not a dictionary."),
+    {"dictionary_array"}};
+
 }  // namespace
 
 void RegisterVectorHash(FunctionRegistry* registry) {
@@ -819,6 +850,20 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(dict_encode)));
 }
 
+void RegisterDictionaryDecode(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryDecodeMetaFunction>()));
+}
+
 }  // namespace internal
+
+Result<Datum> DictionaryDecode(const Datum& value, ExecContext* ctx) {
+  return CallFunction("dictionary_decode", {value}, ctx);
+}
+
+Result<std::shared_ptr<Array>> DictionaryDecode(const Array& value, ExecContext* ctx) {
+  ARROW_ASSIGN_OR_RAISE(Datum result, DictionaryDecode(Datum(value), ctx));
+  return result.make_array();
+}
+
 }  // namespace compute
 }  // namespace arrow
