@@ -29,7 +29,7 @@ namespace arrow::matlab::array::proxy {
 
 class TimestampArray : public arrow::matlab::array::proxy::Array {
     public:
-        TimestampArray(std::shared_ptr<arrow::TimestampArray> timestamp_array);
+        TimestampArray(std::shared_ptr<arrow::TimestampArray> array);
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 

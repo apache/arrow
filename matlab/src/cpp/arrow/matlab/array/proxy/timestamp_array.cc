@@ -28,8 +28,8 @@
 
 namespace arrow::matlab::array::proxy {
 
-    TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> timestamp_array)
-        : arrow::matlab::array::proxy::Array{std::move(timestamp_array)} {}
+    TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> array)
+        : arrow::matlab::array::proxy::Array{std::move(array)} {}
 
     libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
