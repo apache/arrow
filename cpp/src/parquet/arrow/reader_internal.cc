@@ -94,8 +94,7 @@ using ParquetType = parquet::Type;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 template <typename ArrowType>
@@ -856,5 +855,4 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

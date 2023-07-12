@@ -37,8 +37,7 @@
 
 namespace parquet {
 class ParquetFileReader;
-namespace encryption {
-namespace test {
+namespace encryption::test {
 
 using ::arrow::internal::TemporaryDir;
 
@@ -122,6 +121,5 @@ class FileDecryptor {
                  FileDecryptionProperties* file_decryption_properties);
 };
 
-}  // namespace test
-}  // namespace encryption
+}  // namespace encryption::test
 }  // namespace parquet

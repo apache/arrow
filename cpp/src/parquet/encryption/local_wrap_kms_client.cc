@@ -25,8 +25,7 @@
 using ::arrow::json::internal::ObjectParser;
 using ::arrow::json::internal::ObjectWriter;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr const char LocalWrapKmsClient::kLocalWrapNoKeyVersion[];
 
@@ -112,5 +111,4 @@ std::string LocalWrapKmsClient::GetKeyFromServer(const std::string& key_identifi
   return master_key;
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

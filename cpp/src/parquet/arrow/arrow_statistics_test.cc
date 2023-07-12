@@ -36,8 +36,7 @@ using arrow::Table;
 
 using arrow::io::BufferReader;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 struct StatisticsTestParam {
   std::shared_ptr<::arrow::Table> table;
@@ -157,5 +156,4 @@ INSTANTIATE_TEST_SUITE_P(
             /*expected_min=*/"z",
             /*expected_max=*/"z"}));
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

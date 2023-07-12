@@ -76,8 +76,7 @@ using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 ::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
@@ -1414,5 +1413,4 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
 }  // namespace internal
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

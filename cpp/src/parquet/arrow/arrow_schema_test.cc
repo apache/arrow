@@ -50,9 +50,7 @@ using parquet::schema::PrimitiveNode;
 
 using ::testing::ElementsAre;
 
-namespace parquet {
-
-namespace arrow {
+namespace parquet::arrow {
 
 const auto BOOL = ::arrow::boolean();
 const auto UINT8 = ::arrow::uint8();
@@ -1776,5 +1774,4 @@ TEST_F(TestLevels, ListErrors) {
   }
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow
