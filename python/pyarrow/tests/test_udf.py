@@ -843,6 +843,13 @@ def test_vector_basic(unary_vector_func_fixture):
     assert result == expected
 
 
+def test_vector_empty(unary_vector_func_fixture):
+    arr = pa.array([1], pa.float64())
+    result = pc.call_function("y=pct_rank(x)", [arr])
+    expected = pa.array(arr.to_pandas().rank(pct=True))
+    assert result == expected
+
+
 def test_vector_struct(struct_vector_func_fixture):
     k = pa.array(
         [1, 1, 2, 2], pa.int64()
