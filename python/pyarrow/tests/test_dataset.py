@@ -589,6 +589,7 @@ def test_partitioning():
         partitioning = klass(schema)
         assert isinstance(partitioning, ds.Partitioning)
         assert partitioning == klass(schema)
+        assert partitioning != "other object"
 
     schema = pa.schema([
         pa.field('group', pa.int64()),
