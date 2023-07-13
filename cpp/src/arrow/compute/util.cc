@@ -56,7 +56,9 @@ void TempVectorStack::release(int id, uint32_t num_bytes) {
   --num_vectors_;
 }
 
-inline uint64_t bit_util::SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
+namespace bit_util {
+
+inline uint64_t SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes) {
   // This will not be correct on big-endian architectures.
 #if !ARROW_LITTLE_ENDIAN
   ARROW_DCHECK(false);
@@ -73,7 +75,7 @@ inline uint64_t bit_util::SafeLoadUpTo8Bytes(const uint8_t* bytes, int num_bytes
   }
 }
 
-inline void bit_util::SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
+inline void SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_t value) {
   // This will not be correct on big-endian architectures.
 #if !ARROW_LITTLE_ENDIAN
   ARROW_DCHECK(false);
@@ -88,8 +90,8 @@ inline void bit_util::SafeStoreUpTo8Bytes(uint8_t* bytes, int num_bytes, uint64_
   }
 }
 
-inline void bit_util::bits_to_indexes_helper(uint64_t word, uint16_t base_index,
-                                             int* num_indexes, uint16_t* indexes) {
+inline void bits_to_indexes_helper(uint64_t word, uint16_t base_index, int* num_indexes,
+                                   uint16_t* indexes) {
   int n = *num_indexes;
   while (word) {
     indexes[n++] = base_index + static_cast<uint16_t>(CountTrailingZeros(word));
@@ -98,9 +100,8 @@ inline void bit_util::bits_to_indexes_helper(uint64_t word, uint16_t base_index,
   *num_indexes = n;
 }
 
-inline void bit_util::bits_filter_indexes_helper(uint64_t word,
-                                                 const uint16_t* input_indexes,
-                                                 int* num_indexes, uint16_t* indexes) {
+inline void bits_filter_indexes_helper(uint64_t word, const uint16_t* input_indexes,
+                                       int* num_indexes, uint16_t* indexes) {
   int n = *num_indexes;
   while (word) {
     indexes[n++] = input_indexes[CountTrailingZeros(word)];
@@ -110,21 +111,21 @@ inline void bit_util::bits_filter_indexes_helper(uint64_t word,
 }
 
 template <int bit_to_search, bool filter_input_indexes>
-void bit_util::bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
-                                        const uint8_t* bits,
-                                        const uint16_t* input_indexes, int* num_indexes,
-                                        uint16_t* indexes, uint16_t base_index) {
+void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
+                              const uint8_t* bits, const uint16_t* input_indexes,
+                              int* num_indexes, uint16_t* indexes,
+                              uint16_t base_index = 0) {
   // 64 bits at a time
   constexpr int unroll = 64;
   int tail = num_bits % unroll;
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     if (filter_input_indexes) {
-      bits_filter_indexes_avx2(bit_to_search, num_bits - tail, bits, input_indexes,
-                               num_indexes, indexes);
+      avx2::bits_filter_indexes_avx2(bit_to_search, num_bits - tail, bits, input_indexes,
+                                     num_indexes, indexes);
     } else {
-      bits_to_indexes_avx2(bit_to_search, num_bits - tail, bits, num_indexes, indexes,
-                           base_index);
+      avx2::bits_to_indexes_avx2(bit_to_search, num_bits - tail, bits, num_indexes,
+                                 indexes, base_index);
     }
   } else {
 #endif
@@ -160,9 +161,9 @@ void bit_util::bits_to_indexes_internal(int64_t hardware_flags, const int num_bi
   }
 }
 
-void bit_util::bits_to_indexes(int bit_to_search, int64_t hardware_flags, int num_bits,
-                               const uint8_t* bits, int* num_indexes, uint16_t* indexes,
-                               int bit_offset) {
+void bits_to_indexes(int bit_to_search, int64_t hardware_flags, int num_bits,
+                     const uint8_t* bits, int* num_indexes, uint16_t* indexes,
+                     int bit_offset) {
   bits += bit_offset / 8;
   bit_offset %= 8;
   *num_indexes = 0;
@@ -193,10 +194,9 @@ void bit_util::bits_to_indexes(int bit_to_search, int64_t hardware_flags, int nu
   *num_indexes += num_indexes_new;
 }
 
-void bit_util::bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
-                                   const int num_bits, const uint8_t* bits,
-                                   const uint16_t* input_indexes, int* num_indexes,
-                                   uint16_t* indexes, int bit_offset) {
+void bits_filter_indexes(int bit_to_search, int64_t hardware_flags, const int num_bits,
+                         const uint8_t* bits, const uint16_t* input_indexes,
+                         int* num_indexes, uint16_t* indexes, int bit_offset) {
   bits += bit_offset / 8;
   bit_offset %= 8;
   if (bit_offset != 0) {
@@ -226,10 +226,9 @@ void bit_util::bits_filter_indexes(int bit_to_search, int64_t hardware_flags,
   }
 }
 
-void bit_util::bits_split_indexes(int64_t hardware_flags, const int num_bits,
-                                  const uint8_t* bits, int* num_indexes_bit0,
-                                  uint16_t* indexes_bit0, uint16_t* indexes_bit1,
-                                  int bit_offset) {
+void bits_split_indexes(int64_t hardware_flags, const int num_bits, const uint8_t* bits,
+                        int* num_indexes_bit0, uint16_t* indexes_bit0,
+                        uint16_t* indexes_bit1, int bit_offset) {
   bits_to_indexes(0, hardware_flags, num_bits, bits, num_indexes_bit0, indexes_bit0,
                   bit_offset);
   int num_indexes_bit1;
@@ -237,8 +236,8 @@ void bit_util::bits_split_indexes(int64_t hardware_flags, const int num_bits,
                   bit_offset);
 }
 
-void bit_util::bits_to_bytes(int64_t hardware_flags, const int num_bits,
-                             const uint8_t* bits, uint8_t* bytes, int bit_offset) {
+void bits_to_bytes(int64_t hardware_flags, const int num_bits, const uint8_t* bits,
+                   uint8_t* bytes, int bit_offset) {
   bits += bit_offset / 8;
   bit_offset %= 8;
   if (bit_offset != 0) {
@@ -258,7 +257,7 @@ void bit_util::bits_to_bytes(int64_t hardware_flags, const int num_bits,
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     // The function call below processes whole 32 bit chunks together.
     num_processed = num_bits - (num_bits % 32);
-    bits_to_bytes_avx2(num_processed, bits, bytes);
+    avx2::bits_to_bytes_avx2(num_processed, bits, bytes);
   }
 #endif
   // Processing 8 bits at a time
@@ -290,8 +289,8 @@ void bit_util::bits_to_bytes(int64_t hardware_flags, const int num_bits,
   }
 }
 
-void bit_util::bytes_to_bits(int64_t hardware_flags, const int num_bits,
-                             const uint8_t* bytes, uint8_t* bits, int bit_offset) {
+void bytes_to_bits(int64_t hardware_flags, const int num_bits, const uint8_t* bytes,
+                   uint8_t* bits, int bit_offset) {
   bits += bit_offset / 8;
   bit_offset %= 8;
   if (bit_offset != 0) {
@@ -314,7 +313,7 @@ void bit_util::bytes_to_bits(int64_t hardware_flags, const int num_bits,
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     // The function call below processes whole 32 bit chunks together.
     num_processed = num_bits - (num_bits % 32);
-    bytes_to_bits_avx2(num_processed, bytes, bits);
+    avx2::bytes_to_bits_avx2(num_processed, bytes, bits);
   }
 #endif
   // Process 8 bits at a time
@@ -338,11 +337,11 @@ void bit_util::bytes_to_bits(int64_t hardware_flags, const int num_bits,
   }
 }
 
-bool bit_util::are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
-                                  uint32_t num_bytes) {
+bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
+                        uint32_t num_bytes) {
 #if defined(ARROW_HAVE_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
-    return are_all_bytes_zero_avx2(bytes, num_bytes);
+    return avx2::are_all_bytes_zero_avx2(bytes, num_bytes);
   }
 #endif
   uint64_t result_or = 0;
@@ -358,6 +357,7 @@ bool bit_util::are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
   return result_or == 0;
 }
 
+}  // namespace bit_util
 }  // namespace util
 
 }  // namespace arrow
