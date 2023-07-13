@@ -484,15 +484,15 @@ Status PythonUdfExec(compute::KernelContext* ctx, const compute::ExecSpan& batch
   return SafeCallIntoPython([&]() -> Status { return udf->Exec(ctx, batch, out); });
 }
 
-template<class Function, class Kernel>
+template <class Function, class Kernel>
 Status RegisterUdf(PyObject* function, compute::KernelInit kernel_init,
                    UdfWrapperCallback cb, const UdfOptions& options,
                    compute::FunctionRegistry* registry) {
   if (!PyCallable_Check(function)) {
     return Status::TypeError("Expected a callable Python object.");
   }
-  auto scalar_func = std::make_shared<Function>(
-      options.func_name, options.arity, options.func_doc);
+  auto scalar_func =
+      std::make_shared<Function>(options.func_name, options.arity, options.func_doc);
   Py_INCREF(function);
   std::vector<compute::InputType> input_types;
   for (const auto& in_dtype : options.input_types) {
@@ -523,17 +523,17 @@ Status RegisterUdf(PyObject* function, compute::KernelInit kernel_init,
 Status RegisterScalarFunction(PyObject* function, UdfWrapperCallback cb,
                               const UdfOptions& options,
                               compute::FunctionRegistry* registry) {
-  return RegisterUdf<compute::ScalarFunction, compute::ScalarKernel>(function,
-                     PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(function)}, cb,
-                     options, registry);
+  return RegisterUdf<compute::ScalarFunction, compute::ScalarKernel>(
+      function, PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(function)}, cb,
+      options, registry);
 }
 
 Status RegisterVectorFunction(PyObject* function, UdfWrapperCallback cb,
                               const UdfOptions& options,
                               compute::FunctionRegistry* registry) {
-  return RegisterUdf<compute::VectorFunction, compute::VectorKernel>(function,
-                           PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(function)},
-                           cb, options, registry);
+  return RegisterUdf<compute::VectorFunction, compute::VectorKernel>(
+      function, PythonUdfKernelInit{std::make_shared<OwnedRefNoGIL>(function)}, cb,
+      options, registry);
 }
 
 Status RegisterTabularFunction(PyObject* function, UdfWrapperCallback cb,

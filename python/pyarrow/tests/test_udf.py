@@ -304,13 +304,13 @@ def unary_vector_func_fixture():
     """
     Reigster a vector function
     """
-    import numpy as np
     def pct_rank(ctx, x):
         return pa.array(x.to_pandas().rank(pct=True))
 
     func_name = "y=pct_rank(x)"
     doc = empty_udf_doc
-    pc.register_vector_function(pct_rank, func_name, doc, {'x': pa.float64()}, pa.float64())
+    pc.register_vector_function(pct_rank, func_name, doc, {
+                                'x': pa.float64()}, pa.float64())
 
     return pct_rank, func_name
 
