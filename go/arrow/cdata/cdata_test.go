@@ -29,6 +29,7 @@ import (
 	"io"
 	"runtime"
 	"runtime/cgo"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -939,4 +940,29 @@ func TestRecordReaderImportError(t *testing.T) {
 		t.Fatalf("Expected error but got nil")
 	}
 	assert.Contains(t, err.Error(), "Expected error message")
+}
+
+func TestConfuseGoGc(t *testing.T) {
+	// Regression test for https://github.com/apache/arrow-adbc/issues/729
+	reclist := arrdata.Records["primitives"]
+
+	var wg sync.WaitGroup
+	concurrency := 32
+	wg.Add(concurrency)
+
+	// XXX: this test is a bit expensive
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			for i := 0; i < 256; i++ {
+				rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+				assert.NoError(t, err)
+				runtime.GC()
+				assert.NoError(t, confuseGoGc(rdr))
+				runtime.GC()
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }
