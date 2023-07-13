@@ -331,7 +331,11 @@ void TestBloomLargeHashHelper(int64_t hardware_flags, int64_t block,
 //
 void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool use_avx2,
                     bool enable_prefetch) {
-  int64_t hardware_flags = use_avx2 ? ::arrow::internal::CpuInfo::AVX2 : 0;
+  int64_t hardware_flags = use_avx2 ? CpuInfo::AVX2 : 0;
+  if (hardware_flags && !CpuInfo::GetInstance()->IsSupported(hardware_flags)) {
+    // What else?
+    return;
+  }
 
   // Largest 63-bit prime
   constexpr uint64_t prime = 0x7FFFFFFFFFFFFFE7ULL;
