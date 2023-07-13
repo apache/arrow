@@ -2547,7 +2547,7 @@ cdef class DictionaryArray(Array):
 
         Returns
         -------
-        dictionary_decode : Array
+        decoded_array : Array
         """
         return _pc().dictionary_decode(self)
 
