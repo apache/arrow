@@ -177,6 +177,10 @@ jobs:
       ARROW_WITH_ZSTD: ON
       GTest_SOURCE: BUNDLED
     steps:
+      - name: CPU Info
+        run: |
+          sysctl -a | grep cpu
+          sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
