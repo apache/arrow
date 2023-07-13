@@ -19,14 +19,14 @@ classdef tStringType < matlab.unittest.TestCase
     methods (Test)
 
         function Basic(tc)
-            type = arrow.type.StringType;
+            type = arrow.type.string;
             className = string(class(type));
             tc.verifyEqual(className, "arrow.type.StringType");
             tc.verifyEqual(type.ID, arrow.type.ID.String);
         end
 
         function NumFields(tc)
-            type = arrow.type.StringType;
+            type = arrow.type.string;
             tc.verifyEqual(type.NumFields, int32(0));
         end
 

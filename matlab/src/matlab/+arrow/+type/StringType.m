@@ -17,8 +17,11 @@ classdef StringType < arrow.type.Type
 %STRINGTYPE Type class for string data.
 
     methods
-        function obj = StringType()
-            obj@arrow.type.Type("Name", "arrow.type.proxy.StringType", "ConstructorArguments", {});
+        function obj = StringType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj@arrow.type.Type(proxy);
         end
    end
 end

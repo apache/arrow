@@ -17,8 +17,11 @@ classdef Int32Type < arrow.type.FixedWidthType
 %INT32TYPE Type class for int32 data.
 
     methods 
-        function obj = Int32Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Int32Type", "ConstructorArguments", {})
+        function obj = Int32Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

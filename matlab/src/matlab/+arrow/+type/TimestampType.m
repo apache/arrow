@@ -22,14 +22,11 @@ classdef TimestampType < arrow.type.FixedWidthType
     end
 
     methods
-        function obj = TimestampType(opts)
-        %TIMESTAMPTYPE Construct an instance of this class
+        function obj = TimestampType(proxy)
             arguments
-                opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
-                opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            args = struct(TimeUnit=string(opts.TimeUnit), TimeZone=opts.TimeZone);
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.TimestampType", "ConstructorArguments", {args});
+            obj@arrow.type.FixedWidthType(proxy);
         end
 
         function unit = get.TimeUnit(obj)
@@ -42,4 +39,3 @@ classdef TimestampType < arrow.type.FixedWidthType
         end
     end
 end
-

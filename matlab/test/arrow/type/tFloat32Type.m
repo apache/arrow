@@ -17,7 +17,7 @@ classdef tFloat32Type < hFixedWidthType
 % Test class for arrow.type.Float32Type
 
     properties
-        ArrowType = arrow.type.Float32Type
+        ArrowType = arrow.type.float32
         TypeID = arrow.type.ID.Float32
         BitWidth = int32(32);
     end

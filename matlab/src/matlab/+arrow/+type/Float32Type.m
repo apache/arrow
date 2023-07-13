@@ -17,8 +17,11 @@ classdef Float32Type < arrow.type.FixedWidthType
 %FLOAT32TYPE Type class for float32 data.
     
     methods 
-        function obj = Float32Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Float32Type", "ConstructorArguments", {})
+        function obj = Float32Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

@@ -17,8 +17,11 @@ classdef Float64Type < arrow.type.FixedWidthType
 %FLOAT64Type Type class for float64 data. 
     
     methods 
-        function obj = Float64Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Float64Type", "ConstructorArguments", {})
+        function obj = Float64Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

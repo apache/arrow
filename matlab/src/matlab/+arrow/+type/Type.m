@@ -26,8 +26,11 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
     end
 
     methods
-        function obj = Type(varargin)
-            obj.Proxy = libmexclass.proxy.Proxy(varargin{:}); 
+        function obj = Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj.Proxy = proxy;
         end
 
         function numFields = get.NumFields(obj)
