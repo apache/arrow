@@ -89,13 +89,13 @@ def get_json(url, headers=None):
                 # Format: '<url>; rel="next"'
                 next_url = link.split(";")[0][1:-1]
                 next_responses = get_json(next_url, headers)
-    ret_val = response.json()
+    responses = response.json()
     if next_responses:
-        if isinstance(ret_val, list):
-            ret_val.extend(next_responses)
+        if isinstance(responses, list):
+            responses.extend(next_responses)
         else:
             raise ValueError('GitHub response was paginated and is not a list')
-    return ret_val
+    return responses
 
 
 def run_cmd(cmd):
