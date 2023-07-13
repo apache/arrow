@@ -30,6 +30,7 @@
 namespace arrow {
 
 using internal::checked_pointer_cast;
+using internal::CpuInfo;
 
 namespace compute {
 
@@ -140,14 +141,19 @@ class TestVectorHash {
     hashes_simd32.resize(num_rows);
     hashes_simd64.resize(num_rows);
 
-    int64_t hardware_flags_scalar = 0LL;
-    int64_t hardware_flags_simd = ::arrow::internal::CpuInfo::AVX2;
+    const int64_t hardware_flags_scalar = 0LL;
+    const int64_t hardware_flags_simd = CpuInfo::AVX2;
+    const bool simd_supported = CpuInfo::GetInstance()->IsSupported(hardware_flags_simd);
 
     constexpr int mini_batch_size = 1024;
     std::vector<uint32_t> temp_buffer;
     temp_buffer.resize(mini_batch_size * 4);
 
     for (bool use_simd : {false, true}) {
+      if (use_simd && !simd_supported) {
+        // XXX what else?
+        continue;
+      }
       if (use_32bit_hash) {
         if (!use_varlen_input) {
           Hashing32::HashFixed(use_simd ? hardware_flags_simd : hardware_flags_scalar,
@@ -183,15 +189,19 @@ class TestVectorHash {
     if (use_32bit_hash) {
       for (int i = 0; i < num_rows; ++i) {
         hashes_scalar64[i] = hashes_scalar32[i];
-        hashes_simd64[i] = hashes_simd32[i];
+        if (simd_supported) {
+          hashes_simd64[i] = hashes_simd32[i];
+        }
       }
     }
 
     // Verify that both scalar and AVX2 implementations give the same hashes
     //
-    for (int i = 0; i < num_rows; ++i) {
-      ASSERT_EQ(hashes_scalar64[i], hashes_simd64[i])
-          << "scalar and simd approaches yielded different hashes";
+    if (simd_supported) {
+      for (int i = 0; i < num_rows; ++i) {
+        ASSERT_EQ(hashes_scalar64[i], hashes_simd64[i])
+            << "scalar and simd approaches yielded different hashes";
+      }
     }
 
     // Verify that the same key appearing multiple times generates the same hash

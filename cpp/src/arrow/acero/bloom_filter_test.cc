@@ -34,6 +34,7 @@ namespace arrow {
 
 using compute::Hashing32;
 using compute::Hashing64;
+using internal::CpuInfo;
 
 namespace acero {
 
@@ -171,8 +172,12 @@ void TestBloomSmallHashHelper(int64_t num_input_hashes, const T* input_hashes,
 // Output FPR and build and probe cost.
 //
 void TestBloomSmall(BloomFilterBuildStrategy strategy, int64_t num_build,
-                    int num_build_copies, bool use_simd, bool enable_prefetch) {
-  int64_t hardware_flags = use_simd ? ::arrow::internal::CpuInfo::AVX2 : 0;
+                    int num_build_copies, bool use_avx2, bool enable_prefetch) {
+  int64_t hardware_flags = use_avx2 ? CpuInfo::AVX2 : 0;
+  if (hardware_flags && !CpuInfo::GetInstance()->IsSupported(hardware_flags)) {
+    // What else?
+    return;
+  }
 
   // Generate input keys
   //
@@ -324,9 +329,9 @@ void TestBloomLargeHashHelper(int64_t hardware_flags, int64_t block,
 // Test with larger size Bloom filters (use large prime with arithmetic
 // sequence modulo 2^64).
 //
-void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool use_simd,
+void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build, bool use_avx2,
                     bool enable_prefetch) {
-  int64_t hardware_flags = use_simd ? ::arrow::internal::CpuInfo::AVX2 : 0;
+  int64_t hardware_flags = use_avx2 ? ::arrow::internal::CpuInfo::AVX2 : 0;
 
   // Largest 63-bit prime
   constexpr uint64_t prime = 0x7FFFFFFFFFFFFFE7ULL;
