@@ -33,15 +33,16 @@ that changing their value later will have an effect.
    undefined behavior if the underlying array is not properly aligned.  On
    most modern CPUs this is not an issue, but some older CPUs may crash or
    suffer poor performance.  For this reason it is recommended that all
-   incoming array buffers are properly aligned.
+   incoming array buffers are properly aligned, but some data sources
+   such as :ref:`Flight <flight-rpc>` may produce unaligned buffers.
 
    The value of this environment variable controls what will happen when
-   Acero detects an unaligned buffer.
+   Acero detects an unaligned buffer:
 
-   - ``warn`` a warning is emitted
-   - ``ignore`` nothing, alignment checking is disabled
-   - ``reallocate`` the buffer is reallocated to a properly aligned address
-   - ``error`` the operation will fail with an error
+   - ``warn``: a warning is emitted
+   - ``ignore``: nothing, alignment checking is disabled
+   - ``reallocate``: the buffer is reallocated to a properly aligned address
+   - ``error``: the operation fails with an error
 
    The default behavior is ``warn``.  On modern hardware it is usually safe
    to change this to ``ignore``.  Changing to ``reallocate`` is the safest
