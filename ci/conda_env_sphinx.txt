@@ -28,5 +28,3 @@ sphinx==6.2
 # Requirement for doctest-cython
 pytest-cython
 pandas
-
-pip:git+https://github.com/pydata/pydata-sphinx-theme.git@main
