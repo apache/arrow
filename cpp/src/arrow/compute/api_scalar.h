@@ -970,24 +970,6 @@ Result<Datum> RoundTemporal(
     const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-/// \brief Compare a numeric array with a scalar.
-///
-/// \param[in] left datum to compare, must be an Array
-/// \param[in] right datum to compare, must be a Scalar of the same type than
-///            left Datum.
-/// \param[in] options compare options
-/// \param[in] ctx the function execution context, optional
-/// \return resulting datum
-///
-/// Note on floating point arrays, this uses ieee-754 compare semantics.
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
-ARROW_EXPORT
-Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
-                      ExecContext* ctx = NULLPTR);
-
 /// \brief Invert the values of a boolean datum
 /// \param[in] value datum to invert
 /// \param[in] ctx the function execution context, optional

@@ -417,12 +417,5 @@ Result<Datum> CumulativeMin(const Datum& values, const CumulativeOptions& option
   return CallFunction("cumulative_min", {Datum(values)}, &options, ctx);
 }
 
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values, ExecContext* ctx) {
-  return SortIndices(values, SortOrder::Ascending, ctx);
-}
-
 }  // namespace compute
 }  // namespace arrow

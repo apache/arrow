@@ -91,14 +91,6 @@ Status ArrayBuilder::Resize(int64_t capacity) {
   return null_bitmap_builder_.Resize(capacity);
 }
 
-Status ArrayBuilder::Advance(int64_t elements) {
-  if (length_ + elements > capacity_) {
-    return Status::Invalid("Builder must be expanded");
-  }
-  length_ += elements;
-  return null_bitmap_builder_.Advance(elements);
-}
-
 namespace {
 
 template <typename ConstIterator>

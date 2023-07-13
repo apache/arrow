@@ -381,27 +381,6 @@ TEST(FlightTypes, LocationConstruction) {
   ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
 }
 
-ARROW_SUPPRESS_DEPRECATION_WARNING
-TEST(FlightTypes, DeprecatedLocationConstruction) {
-  Location location;
-  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
-  ASSERT_RAISES(Invalid,
-                Location::ForGrpcTcp("This is not a hostname", 12345, &location));
-  ASSERT_RAISES(Invalid,
-                Location::ForGrpcTls("This is not a hostname", 12345, &location));
-  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
-
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_EQ(location.ToString(), "s3://test");
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 12345, &location));
-  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
-  ASSERT_OK(Location::ForGrpcTls("localhost", 12345, &location));
-  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location));
-  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
-}
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
-
 // ----------------------------------------------------------------------
 // Cookie authentication/middleware
 

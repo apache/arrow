@@ -1246,27 +1246,6 @@ Result<std::shared_ptr<TableReader>> TableReader::Make(
                          parse_options, convert_options);
 }
 
-Result<std::shared_ptr<TableReader>> TableReader::Make(
-    MemoryPool* pool, io::IOContext io_context, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
-  return MakeTableReader(pool, io_context, std::move(input), read_options, parse_options,
-                         convert_options);
-}
-
-Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
-    MemoryPool* pool, std::shared_ptr<io::InputStream> input,
-    const ReadOptions& read_options, const ParseOptions& parse_options,
-    const ConvertOptions& convert_options) {
-  auto io_context = io::IOContext(pool);
-  auto cpu_executor = arrow::internal::GetCpuThreadPool();
-  auto reader_fut = MakeStreamingReader(io_context, std::move(input), cpu_executor,
-                                        read_options, parse_options, convert_options);
-  auto reader_result = reader_fut.result();
-  ARROW_ASSIGN_OR_RAISE(auto reader, reader_result);
-  return reader;
-}
-
 Result<std::shared_ptr<StreamingReader>> StreamingReader::Make(
     io::IOContext io_context, std::shared_ptr<io::InputStream> input,
     const ReadOptions& read_options, const ParseOptions& parse_options,

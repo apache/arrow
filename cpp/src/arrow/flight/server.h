@@ -53,17 +53,9 @@ class ARROW_FLIGHT_EXPORT FlightDataStream {
   /// \brief Compute FlightPayload containing serialized RecordBatch schema
   virtual arrow::Result<FlightPayload> GetSchemaPayload() = 0;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchemaPayload(FlightPayload* payload) {
-    return GetSchemaPayload().Value(payload);
-  }
-
   // When the stream is completed, the last payload written will have null
   // metadata
   virtual arrow::Result<FlightPayload> Next() = 0;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(FlightPayload* payload) { return Next().Value(payload); }
 
   virtual Status Close();
 };
