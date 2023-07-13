@@ -29,5 +29,4 @@ sphinx==6.2
 pytest-cython
 pandas
 
-pip:
-git+https://github.com/pydata/pydata-sphinx-theme.git@main
+pip:git+https://github.com/pydata/pydata-sphinx-theme.git@main
