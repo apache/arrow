@@ -16,22 +16,24 @@
 // under the License.
 
 #include "gandiva/encrypt_utils.h"
+#include <string.h>
 
 #include <stdexcept>
 
 namespace gandiva {
 GANDIVA_EXPORT
-int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
-                    unsigned char* cipher) {
+int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key, 
+                    int32_t key_len, unsigned char* cipher) {
   int32_t cipher_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* en_ctx = EVP_CIPHER_CTX_new();
+  const EVP_CIPHER* cipher_algo = get_cipher_algo(key_len);
 
   if (!en_ctx) {
     throw std::runtime_error("could not create a new evp cipher ctx for encryption");
   }
 
-  if (!EVP_EncryptInit_ex(en_ctx, EVP_aes_128_ecb(), nullptr,
+  if (!EVP_EncryptInit_ex(en_ctx, cipher_algo, nullptr,
                           reinterpret_cast<const unsigned char*>(key), nullptr)) {
     throw std::runtime_error("could not initialize evp cipher ctx for encryption");
   }
@@ -55,17 +57,18 @@ int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* ke
 }
 
 GANDIVA_EXPORT
-int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                    unsigned char* plaintext) {
+int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key, 
+                    int32_t key_len, unsigned char* plaintext) {
   int32_t plaintext_len = 0;
   int32_t len = 0;
   EVP_CIPHER_CTX* de_ctx = EVP_CIPHER_CTX_new();
+  const EVP_CIPHER* cipher_algo = get_cipher_algo(key_len);
 
   if (!de_ctx) {
     throw std::runtime_error("could not create a new evp cipher ctx for decryption");
   }
 
-  if (!EVP_DecryptInit_ex(de_ctx, EVP_aes_128_ecb(), nullptr,
+  if (!EVP_DecryptInit_ex(de_ctx, cipher_algo, nullptr,
                           reinterpret_cast<const unsigned char*>(key), nullptr)) {
     throw std::runtime_error("could not initialize evp cipher ctx for decryption");
   }
@@ -86,5 +89,18 @@ int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* 
 
   EVP_CIPHER_CTX_free(de_ctx);
   return plaintext_len;
+}
+
+const EVP_CIPHER* get_cipher_algo(int32_t key_length){
+  switch (key_length) {
+    case 16:
+      return EVP_aes_128_ecb();
+    case 24:
+      return EVP_aes_192_ecb();
+    case 32:
+      return EVP_aes_256_ecb();
+    default:
+      throw std::runtime_error("unsupported key length");
+  }
 }
 }  // namespace gandiva
