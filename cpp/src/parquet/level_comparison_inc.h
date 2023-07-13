@@ -24,8 +24,7 @@
 #ifndef PARQUET_IMPL_NAMESPACE
 #error "PARQUET_IMPL_NAMESPACE must be defined"
 #endif
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 namespace PARQUET_IMPL_NAMESPACE {
 /// Builds a bitmap by applying predicate to the level vector provided.
 ///
@@ -61,5 +60,4 @@ inline uint64_t GreaterThanBitmapImpl(const int16_t* levels, int64_t num_levels,
 }
 
 }  // namespace PARQUET_IMPL_NAMESPACE
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

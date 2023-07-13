@@ -30,8 +30,7 @@
 #include "parquet/exception.h"
 #include "parquet/level_comparison.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 #ifndef PARQUET_IMPL_NAMESPACE
 #error "PARQUET_IMPL_NAMESPACE must be defined"
 #endif
@@ -353,5 +352,4 @@ void DefLevelsToBitmapSimd(const int16_t* def_levels, int64_t num_def_levels,
 }
 
 }  // namespace PARQUET_IMPL_NAMESPACE
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal
