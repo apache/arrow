@@ -1129,11 +1129,6 @@ class TestDecimalToReal : public ::testing::Test {
     CheckDecimalToReal<Decimal, Real>("-" + seven, scale, -7.0f);
 
     // Decimal >= max mantisa integer
-
-    /** The following cases still fail because 9999999 * 1e-1 != 999999.9f
-      CheckDecimalToReal<Decimal, Real>("999999.9", 1, 999999.9);
-      CheckDecimalToReal<Decimal, Real>("-999999.9", 1, -999999.9);
-    */
     CheckDecimalToReal<Decimal, Real>("9999999.9", 1, 9999999.9);
     CheckDecimalToReal<Decimal, Real>("-9999999.9", 1, -9999999.9);
   }
