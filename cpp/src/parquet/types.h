@@ -30,13 +30,11 @@
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class Codec;
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 namespace parquet {
 

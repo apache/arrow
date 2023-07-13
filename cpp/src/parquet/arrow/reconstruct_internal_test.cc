@@ -65,8 +65,7 @@ using testing::Eq;
 using testing::NotNull;
 using testing::SizeIs;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 using parquet::schema::GroupNode;
 using parquet::schema::NodePtr;
@@ -1637,5 +1636,4 @@ TEST_F(TestReconstructColumn, ListList6) {
 
 // TODO legacy-list-in-struct etc.?
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

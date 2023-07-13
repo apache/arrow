@@ -23,8 +23,7 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 struct PARQUET_EXPORT LevelInfo {
   LevelInfo()
@@ -196,5 +195,4 @@ void PARQUET_EXPORT DefRepLevelsToBitmap(const int16_t* def_levels,
 // (i.e. it isn't hidden by runtime dispatch).
 uint64_t PARQUET_EXPORT TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t selection);
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal
