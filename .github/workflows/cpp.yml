@@ -67,7 +67,8 @@ jobs:
             image: conda-cpp
             llvm: "14"
             runs-on: ubuntu-latest
-            title: AMD64 Conda C++
+            simd-level: AVX2
+            title: AMD64 Conda C++ AVX2
             ubuntu: "22.04"
           - arch: amd64
             clang-tools: "14"
@@ -85,6 +86,7 @@ jobs:
             ubuntu: "20.04"
     env:
       ARCH: ${{ matrix.arch }}
+      ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
@@ -220,7 +222,7 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 ${{ matrix.name }} C++17
+    name: AMD64 ${{ matrix.name }} C++17 ${{ matrix.simd-level }}
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -232,6 +234,7 @@ jobs:
         include:
           - os: windows-2019
             name: Windows 2019
+            simd-level: AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -246,6 +249,7 @@ jobs:
       ARROW_MIMALLOC: ON
       ARROW_ORC: ON
       ARROW_PARQUET: ON
+      ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
