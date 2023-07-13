@@ -45,4 +45,5 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
           propgrp = matlab.mixin.util.PropertyGroup(proplist);
         end
     end
+    
 end
