@@ -84,13 +84,11 @@ def get_json(url, headers=None):
     next_responses = None
     if "link" in response.headers:
         links = response.headers['link'].split(', ')
-        next_url = None
         for link in links:
             if 'rel="next"' in link:
                 # Format: '<url>; rel="next"'
                 next_url = link.split(";")[0][1:-1]
-        if next_url:
-            next_responses = get_json(next_url, headers)
+                next_responses = get_json(next_url, headers)
     ret_val = response.json()
     if next_responses:
         if isinstance(ret_val, list):
