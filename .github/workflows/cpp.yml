@@ -54,7 +54,7 @@ env:
 
 jobs:
   docker:
-    name: ${{ matrix.title }}
+    name: ${{ matrix.title }} ${{ matrix.simd-level }}
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
@@ -68,7 +68,7 @@ jobs:
             llvm: "14"
             runs-on: ubuntu-latest
             simd-level: AVX2
-            title: AMD64 Conda C++ AVX2
+            title: AMD64 Conda C++
             ubuntu: "22.04"
           - arch: amd64
             clang-tools: "14"
