@@ -1758,15 +1758,12 @@ def test_logical():
 def test_dictionary_decode():
     array = pa.array(["a", "a", "b", "c", "b"])
     dictionary_array = array.dictionary_encode()
-    dictionary_array_decode = dictionary_array.dictionary_decode()
+    dictionary_array_decode = pc.dictionary_decode(dictionary_array)
 
     assert array != dictionary_array
 
     assert array == dictionary_array_decode
-    assert array == pc.dictionary_decode(dictionary_array)
-
-    with pytest.raises(TypeError):
-        pc.dictionary_decode(array)
+    assert array == pc.dictionary_decode(array)
 
 
 def test_cast():
