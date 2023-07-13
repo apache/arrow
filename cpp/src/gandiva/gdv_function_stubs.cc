@@ -306,8 +306,6 @@ CAST_NUMERIC_FROM_VARBINARY(double, arrow::DoubleType, FLOAT8)
 #undef GDV_FN_CAST_VARCHAR_INTEGER
 #undef GDV_FN_CAST_VARCHAR_REAL
 
-static constexpr int64_t kAesBlockSize = 16;  // bytes
-
 GANDIVA_EXPORT
 const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_len,
                                const char* key_data, int32_t key_data_len,
@@ -318,6 +316,15 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
+  int64_t kAesBlockSize = 0;
+  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
+    kAesBlockSize = static_cast<int64_t>(key_data_len);
+  } else {
+    gdv_fn_context_set_error_msg(context, "invalid key length");
+    *out_len = 0;
+    return nullptr;
+  }
+   
   *out_len =
       static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -329,7 +336,7 @@ const char* gdv_fn_aes_encrypt(int64_t context, const char* data, int32_t data_l
   }
 
   try {
-    *out_len = gandiva::aes_encrypt(data, data_len, key_data,
+    *out_len = gandiva::aes_encrypt(data, data_len, key_data, key_data_len,
                                     reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
@@ -349,6 +356,15 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
     return "";
   }
 
+  int64_t kAesBlockSize = 0;
+  if (key_data_len == 16 || key_data_len == 24 || key_data_len == 32) {
+    kAesBlockSize = static_cast<int64_t>(key_data_len);
+  } else {
+    gdv_fn_context_set_error_msg(context, "invalid key length");
+    *out_len = 0;
+    return nullptr;
+  }
+
   *out_len =
       static_cast<int32_t>(arrow::bit_util::RoundUpToPowerOf2(data_len, kAesBlockSize));
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
@@ -360,13 +376,13 @@ const char* gdv_fn_aes_decrypt(int64_t context, const char* data, int32_t data_l
   }
 
   try {
-    *out_len = gandiva::aes_decrypt(data, data_len, key_data,
+    *out_len = gandiva::aes_decrypt(data, data_len, key_data, key_data_len,
                                     reinterpret_cast<unsigned char*>(ret));
   } catch (const std::runtime_error& e) {
     gdv_fn_context_set_error_msg(context, e.what());
     return nullptr;
   }
-
+  ret[*out_len] = '\0';
   return ret;
 }
 

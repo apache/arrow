@@ -28,13 +28,15 @@ namespace gandiva {
  **/
 GANDIVA_EXPORT
 int32_t aes_encrypt(const char* plaintext, int32_t plaintext_len, const char* key,
-                    unsigned char* cipher);
+                    int32_t key_len, unsigned char* cipher);
 
 /**
  * Decrypt data using aes algorithm
  **/
 GANDIVA_EXPORT
 int32_t aes_decrypt(const char* ciphertext, int32_t ciphertext_len, const char* key,
-                    unsigned char* plaintext);
+                    int32_t key_len, unsigned char* plaintext);
+
+const EVP_CIPHER* get_cipher_algo(int32_t key_length);
 
 }  // namespace gandiva
