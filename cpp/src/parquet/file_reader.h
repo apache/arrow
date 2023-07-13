@@ -45,7 +45,7 @@ class PARQUET_EXPORT RowGroupReader {
   struct Contents {
     virtual ~Contents() {}
     virtual std::unique_ptr<PageReader> GetColumnPageReader(
-        int i, std::optional<ReaderProperties> prop = std::nullopt) = 0;
+        int i, std::optional<ColumnReaderProperties> prop = std::nullopt) = 0;
     virtual const RowGroupMetaData* metadata() const = 0;
     virtual const ReaderProperties* properties() const = 0;
   };
@@ -58,7 +58,7 @@ class PARQUET_EXPORT RowGroupReader {
   // Construct a ColumnReader for the indicated row group-relative
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(
-      int i, std::optional<ReaderProperties> prop = std::nullopt);
+      int i, std::optional<ColumnReaderProperties> prop = std::nullopt);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //
@@ -73,10 +73,10 @@ class PARQUET_EXPORT RowGroupReader {
   // \note API EXPERIMENTAL
   std::shared_ptr<ColumnReader> ColumnWithExposeEncoding(
       int i, ExposedEncoding encoding_to_expose,
-      std::optional<ReaderProperties> prop = std::nullopt);
+      std::optional<ColumnReaderProperties> prop = std::nullopt);
 
   std::unique_ptr<PageReader> GetColumnPageReader(
-      int i, std::optional<ReaderProperties> prop = std::nullopt);
+      int i, std::optional<ColumnReaderProperties> prop = std::nullopt);
 
  private:
   // Holds a pointer to an instance of Contents implementation

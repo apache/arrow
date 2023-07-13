@@ -1087,7 +1087,7 @@ TEST(TestFileReader, BufferedReads) {
   }
 }
 
-TEST(TestFileReader, BufferedReadsWithColumnSpecificReadProperties) {
+TEST(TestFileReader, BufferedReadsWithColumnReadProperties) {
   const int num_columns = 10;
   const int num_rows = 1000;
 
@@ -1145,10 +1145,11 @@ TEST(TestFileReader, BufferedReadsWithColumnSpecificReadProperties) {
   auto row_group = file_reader->RowGroup(0);
   std::vector<std::shared_ptr<DoubleReader>> col_readers;
   for (int col_index = 0; col_index < num_columns; ++col_index) {
-    std::optional<ReaderProperties> column_props = std::nullopt;
+    std::optional<ColumnReaderProperties> column_props = std::nullopt;
     if (col_index % 2 == 0) {
-      column_props = std::make_optional<ReaderProperties>(reader_props);
+      ColumnReaderProperties prop;
       column_props->set_buffer_size(128);
+      column_props = std::make_optional<ColumnReaderProperties>(prop);
     }
     col_readers.push_back(std::static_pointer_cast<DoubleReader>(
         row_group->Column(col_index, column_props)));

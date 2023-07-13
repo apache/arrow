@@ -20,6 +20,7 @@
 #include <string>
 
 #include "arrow/buffer.h"
+#include "arrow/io/buffered.h"
 #include "arrow/io/memory.h"
 
 #include "parquet/file_reader.h"
@@ -117,6 +118,37 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
          " from file but only got 9");
     ASSERT_EQ(ex_what, e.what());
   }
+}
+
+TEST(TestReaderProperties, GetStreamCustomizedBufferSize) {
+  std::string data = "shorter than expected";
+  auto buf = std::make_shared<Buffer>(data);
+  auto reader = std::make_shared<::arrow::io::BufferReader>(buf);
+
+  ReaderProperties props;
+  props.enable_buffered_stream();
+  props.set_buffer_size(8);
+
+  try {
+    // Set buffer_size as 0 will not use buffered stream, although buffered stream
+    // is enabled above.
+    ARROW_UNUSED(props.GetStream(reader, /*start=*/12, /*num_bytes=*/15,
+                                 /*buffer_size=*/std::make_optional<int64_t>(0)));
+    FAIL() << "No exception raised";
+  } catch (const ParquetException& e) {
+    std::string ex_what =
+        ("Tried reading 15 bytes starting at position 12"
+         " from file but only got 9");
+    ASSERT_EQ(ex_what, e.what());
+  }
+
+  // Honor the customized buffer_size 16 over the default 8 set in props.
+  std::shared_ptr<ArrowInputStream> input_stream =
+      props.GetStream(reader, /*start=*/0, /*num_bytes=*/16,
+                      /*buffer_size=*/std::make_optional<int64_t>(16));
+  ::arrow::io::BufferedInputStream* buffered_input_stream =
+      static_cast<::arrow::io::BufferedInputStream*>(input_stream.get());
+  ASSERT_EQ(buffered_input_stream->buffer_size(), 16);
 }
 
 }  // namespace test

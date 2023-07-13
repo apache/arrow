@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -56,6 +57,15 @@ constexpr int32_t kDefaultThriftStringSizeLimit = 100 * 1000 * 1000;
 // kDefaultStringSizeLimit.
 constexpr int32_t kDefaultThriftContainerSizeLimit = 1000 * 1000;
 
+class PARQUET_EXPORT ColumnReaderProperties {
+ public:
+  void set_buffer_size(int64_t buffer_size) { buffer_size_ = buffer_size; }
+  int64_t buffer_size() const { return buffer_size_; }
+
+ private:
+  int64_t buffer_size_ = kDefaultBufferSize;
+};
+
 class PARQUET_EXPORT ReaderProperties {
  public:
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
@@ -63,8 +73,9 @@ class PARQUET_EXPORT ReaderProperties {
 
   MemoryPool* memory_pool() const { return pool_; }
 
-  std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
-                                              int64_t start, int64_t num_bytes);
+  std::shared_ptr<ArrowInputStream> GetStream(
+      std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes,
+      std::optional<int64_t> buffer_size = std::nullopt);
 
   /// Buffered stream reading allows the user to control the memory usage of
   /// parquet readers. This ensure that all `RandomAccessFile::ReadAt` calls are
