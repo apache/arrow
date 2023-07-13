@@ -29,6 +29,7 @@
 #include "arrow/io/caching.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/int_util_overflow.h"
@@ -179,7 +180,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
                      std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
                      int64_t source_size, FileMetaData* file_metadata,
                      int row_group_number, const ReaderProperties& props,
-                     std::vector<bool> prebuffered_column_chunks,
+                     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
         cached_source_(std::move(cached_source)),
@@ -187,7 +188,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         file_metadata_(file_metadata),
         properties_(props),
         row_group_ordinal_(row_group_number),
-        prebuffered_column_chunks_(std::move(prebuffered_column_chunks)),
+        prebuffered_column_chunks_bitmap_(std::move(prebuffered_column_chunks_bitmap)),
         file_decryptor_(file_decryptor) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
@@ -203,8 +204,8 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     ::arrow::io::ReadRange col_range =
         ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
     std::shared_ptr<ArrowInputStream> stream;
-    if (cached_source_ && !prebuffered_column_chunks_.empty() &&
-        prebuffered_column_chunks_[i]) {
+    if (cached_source_ && prebuffered_column_chunks_bitmap_ != nullptr &&
+        ::arrow::bit_util::GetBit(prebuffered_column_chunks_bitmap_->mutable_data(), i)) {
       // PARQUET-1698: if read coalescing is enabled, read from pre-buffered
       // segments.
       PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
@@ -272,7 +273,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
   int row_group_ordinal_;
-  const std::vector<bool> prebuffered_column_chunks_;
+  std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
@@ -302,17 +303,17 @@ class SerializedFile : public ParquetFileReader::Contents {
   }
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
-    std::vector<bool> prebuffered_column_chunks;
+    std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;
     // Avoid updating the map as this function can be called concurrently. The map can
     // only be updated within Prebuffer().
     auto prebuffered_column_chunks_iter = prebuffered_column_chunks_.find(i);
     if (prebuffered_column_chunks_iter != prebuffered_column_chunks_.end()) {
-      prebuffered_column_chunks = prebuffered_column_chunks_iter->second;
+      prebuffered_column_chunks_bitmap = prebuffered_column_chunks_iter->second;
     }
 
     std::unique_ptr<SerializedRowGroup> contents = std::make_unique<SerializedRowGroup>(
         source_, cached_source_, source_size_, file_metadata_.get(), i, properties_,
-        std::move(prebuffered_column_chunks), file_decryptor_);
+        std::move(prebuffered_column_chunks_bitmap), file_decryptor_);
     return std::make_shared<RowGroupReader>(std::move(contents));
   }
 
@@ -366,10 +367,13 @@ class SerializedFile : public ParquetFileReader::Contents {
     std::vector<::arrow::io::ReadRange> ranges;
     prebuffered_column_chunks_.clear();
     for (int row : row_groups) {
-      std::vector<bool>& prebuffered = prebuffered_column_chunks_[row];
-      prebuffered.resize(file_metadata_->num_columns(), false);
+      std::shared_ptr<Buffer>& col_bitmap = prebuffered_column_chunks_[row];
+      int num_cols = file_metadata_->num_columns();
+      PARQUET_THROW_NOT_OK(
+          AllocateBitmap(num_cols, properties_.memory_pool()).Value(&col_bitmap));
+      ::arrow::bit_util::ClearBitmap(col_bitmap->mutable_data(), 0, num_cols);
       for (int col : column_indices) {
-        prebuffered[col] = true;
+        ::arrow::bit_util::SetBit(col_bitmap->mutable_data(), col);
         ranges.push_back(
             ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col));
       }
@@ -579,8 +583,9 @@ class SerializedFile : public ParquetFileReader::Contents {
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
   std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
-  // Maps a row group to its column chunks that are cached via Prebuffer().
-  std::unordered_map<int, std::vector<bool>> prebuffered_column_chunks_;
+  // Maps a row group to a bitmap (stored in the Buffer) that marks its column chunks
+  // cached via Prebuffer().
+  std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
   // \return The true length of the metadata in bytes

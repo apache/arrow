@@ -2415,7 +2415,7 @@ TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
 
   // Pre-buffer 3 columns in the 2nd row group.
   const std::vector<int> row_groups = {1};
-  const std::vector<int> column_indices = {0, 1, 4};
+  const std::vector<int> column_indices = {0, 3};
   reader->parquet_reader()->PreBuffer(row_groups, column_indices,
                                       ::arrow::io::IOContext(),
                                       ::arrow::io::CacheOptions::Defaults());
