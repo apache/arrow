@@ -2542,14 +2542,8 @@ cdef class DictionaryArray(Array):
     def dictionary_decode(self):
         """
         Decodes the DictionaryArray to an Array.
-
-        See :func:`pyarrow.compute.dictionary_decode` for usage.
-
-        Returns
-        -------
-        decoded_array : Array
         """
-        return _pc().dictionary_decode(self)
+        return self.dictionary.take(self.indices)
 
     @property
     def dictionary(self):
