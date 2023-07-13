@@ -734,7 +734,7 @@ void SleepFor(double seconds) {
   auto start_time = std::chrono::steady_clock::now();
   auto end_time = start_time + secs_left;
   while (std::chrono::steady_clock::now() < end_time) {
-    bool run_task = arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+    bool run_task = arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
     if (!run_task) {
       // all executors are empty, just sleep for the rest of the time
       std::this_thread::sleep_for(end_time - std::chrono::steady_clock::now());
@@ -1152,7 +1152,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     unlocked_future_.MarkFinished();
 #ifndef ARROW_ENABLE_THREADING
     while (num_finished_ != num_running_) {
-      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
     }
 #endif
 

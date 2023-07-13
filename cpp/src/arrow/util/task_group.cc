@@ -138,7 +138,7 @@ class ThreadedTaskGroup : public TaskGroup {
     }
 #else
     while (!finished_ && nremaining_.load() != 0) {
-      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
     }
     finished_ = true;
 #endif

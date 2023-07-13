@@ -159,7 +159,7 @@ class ConcreteFutureImpl : public FutureImpl {
       if (IsFutureFinished(state_)) {
         return;
       }
-      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
     }
 #endif
   }
@@ -179,7 +179,7 @@ class ConcreteFutureImpl : public FutureImpl {
       if (IsFutureFinished(state_)) {
         return true;
       }
-      arrow::internal::SerialExecutor::RunTasksOnAllExecutors(true);
+      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
     }
     return IsFutureFinished(state_);
 #endif

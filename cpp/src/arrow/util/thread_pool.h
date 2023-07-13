@@ -383,10 +383,10 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   }
 
 #ifndef ARROW_ENABLE_THREADING
-  // run loop until everything is done (or one go round loop if once_only=True)
+  // run a pending task from loop
   // returns true if any tasks were run in the last go round the loop (i.e. if it
   // returns false, all executors are waiting)
-  static bool RunTasksOnAllExecutors(bool once_only = false);
+  static bool RunTasksOnAllExecutors();
   static SerialExecutor* GetCurrentExecutor();
 
   virtual bool IsCurrentExecutor();

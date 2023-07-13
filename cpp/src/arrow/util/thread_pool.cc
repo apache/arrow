@@ -284,7 +284,7 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
          it != globalState->all_executors.end(); ++it) {
       if (globalState->last_called_executor != NULL) {
         // always rerun loop if we have a last_called_executor, otherwise
-        // we drop out before everything is
+        // we may drop out before every executor has been checked
         keep_going = true;
         if (globalState->all_executors.count(globalState->last_called_executor) == 0 ||
             globalState->last_called_executor == *it) {
@@ -297,8 +297,12 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
         continue;
       }
       SerialExecutor* exe = *it;
-      // don't make reentrant calls inside a serialexecutor
-      // or more than the number of concurrent tasks set on a threadpool
+      // don't make more reentrant calls inside an
+      // executor than the number of concurrent tasks set on a threadpool, or
+      // 1 in the case of a serialexecutor -
+      // this is because users will expect a serial executor not to be able to
+      // run the next task until the current one is finished (and a threadpool
+      // only to be able to run a certain number of tasks concurrently)
       if (exe->state_->tasks_running >= exe->state_->max_tasks_running) {
         continue;
       }
@@ -365,7 +369,7 @@ void SerialExecutor::RunLoop() {
     }
     // now wait for anything on other executors (unless we're finished in which case it
     // will drop out of the outer loop
-    RunTasksOnAllExecutors(true);
+    RunTasksOnAllExecutors();
   }
 }
 #endif  // ARROW_ENABLE_THREADING
@@ -744,7 +748,7 @@ Status ThreadPool::Shutdown(bool wait) {
 // needed
 void ThreadPool::WaitForIdle() {
   while (!state_->task_queue.empty()) {
-    RunTasksOnAllExecutors(true);
+    RunTasksOnAllExecutors();
   }
 }
 
