@@ -2817,27 +2817,19 @@ TEST_F(TestProjector, TestAesEncryptDecrypt) {
   std::shared_ptr<Projector> projector_en;
   ASSERT_OK(Projector::Make(schema, {encrypt_expr}, TestConfiguration(), &projector_en));
 
-  int num_records = 4;
+  int num_records = 3;
 
+  const char* key_16_bytes = "12345678abcdefgh";
+  const char* key_24_bytes = "12345678abcdefgh12345678";
   const char* key_32_bytes = "12345678abcdefgh12345678abcdefgh";
-  const char* key_64_bytes =
-      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  const char* key_128_bytes =
-      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
-      "345678abcdefgh12345678abcdefgh12345678abcdefgh";
-  const char* key_256_bytes =
-      "12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12"
-      "345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh1234"
-      "5678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh12345678abcdefgh123456"
-      "78abcdefgh";
 
-  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted", "hyah\n"},
-                                       {true, true, true, true});
+  auto array_data = MakeArrowArrayUtf8({"abc", "some words", "to be encrypted"},
+                                       {true, true, true});
   auto array_key =
-      MakeArrowArrayUtf8({key_32_bytes, key_64_bytes, key_128_bytes, key_256_bytes},
-                         {true, true, true, true});
+      MakeArrowArrayUtf8({key_16_bytes, key_24_bytes, key_32_bytes},
+                         {true, true, true});
 
-  auto array_holder_en = MakeArrowArrayUtf8({"", "", "", ""}, {true, true, true, true});
+  auto array_holder_en = MakeArrowArrayUtf8({"", "", ""}, {true, true, true});
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array_data, array_key});
 
