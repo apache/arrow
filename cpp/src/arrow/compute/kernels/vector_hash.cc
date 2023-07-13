@@ -764,7 +764,8 @@ const FunctionDoc dictionary_encode_doc(
     "DictionaryEncodeOptions");
 
 // ----------------------------------------------------------------------
-// This function does not use any hashing utilities but is kept in this file to be near dictionary_encode
+// This function does not use any hashing utilities
+// but is kept in this file to be near dictionary_encode
 // Dictionary decode implementation
 
 const FunctionDoc dictionary_decode_doc{
