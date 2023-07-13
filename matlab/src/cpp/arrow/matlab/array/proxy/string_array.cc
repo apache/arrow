@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/string_array.h"
+#include "arrow/matlab/type/proxy/string_type.h"
 
 #include "arrow/array/builder_binary.h"
 
@@ -79,6 +80,13 @@ namespace arrow::matlab::array::proxy {
             mda::ArrayFactory factory;
             auto array_mda = factory.createArray({array_length, 1}, strings.begin(), strings.end());
             context.outputs[0] = array_mda;
+        }
+
+        std::shared_ptr<type::proxy::Type> StringArray::typeProxy() {
+            using StringTypeProxy = type::proxy::StringType;
+
+            auto type = std::static_pointer_cast<arrow::StringType>(array->type());
+            return std::make_shared<StringTypeProxy>(std::move(type));
         }
 
 }
