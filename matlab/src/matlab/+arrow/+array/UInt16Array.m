@@ -20,10 +20,6 @@ classdef UInt16Array < arrow.array.NumericArray
         NullSubstitutionValue = uint16(0)
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.UInt16Type
-    end
-
     methods
         function obj = UInt16Array(data, varargin)
             obj@arrow.array.NumericArray(data, "uint16", ...

@@ -20,10 +20,6 @@ classdef Int16Array < arrow.array.NumericArray
         NullSubstitutionValue = int16(0)
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.Int16Type
-    end
-
     methods
         function obj = Int16Array(data, varargin)
             obj@arrow.array.NumericArray(data, "int16", ...

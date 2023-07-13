@@ -26,7 +26,7 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         Valid % Validity bitmap
     end
 
-    properties(Abstract, SetAccess=private, GetAccess=public)
+    properties(Dependent, SetAccess=private, GetAccess=public)
         Type(1, 1) arrow.type.Type
     end
     
@@ -45,6 +45,13 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
+        end
+
+        function type = get.Type(obj)
+            [proxyID, typeID] = obj.Proxy.type();
+            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=proxyID);
+            type = traits.TypeConstructor(proxy);
         end
     end
 

@@ -24,6 +24,6 @@ classdef tUInt64Array < hNumericArray
         MaxValue = intmax("uint64")
         MinValue = intmin("uint64")
         NullSubstitutionValue = uint64(0)
-        ArrowType = arrow.type.UInt64Type
+        ArrowType = arrow.type.uint64
     end
 end

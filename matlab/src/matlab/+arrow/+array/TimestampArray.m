@@ -20,10 +20,6 @@ classdef TimestampArray < arrow.array.Array
         NullSubstitutionValue = NaT;
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.TimestampType % temporarily default value
-    end
-
     methods
         function obj = TimestampArray(data, opts)
             arguments
@@ -39,7 +35,6 @@ classdef TimestampArray < arrow.array.Array
 
             args = struct(MatlabArray=ptime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));
             obj@arrow.array.Array("Name", "arrow.array.proxy.TimestampArray", "ConstructorArguments", {args});
-            obj.Type = arrow.type.TimestampType(TimeUnit=opts.TimeUnit, TimeZone=timezone);
         end
 
         function dates = toMATLAB(obj)
