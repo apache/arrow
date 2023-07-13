@@ -241,6 +241,7 @@ struct Scope {
 #define MARK_SPAN(target_span, status)
 #define EVENT(target_span, ...)
 #define EVENT_ON_CURRENT_SPAN(...)
+#define ATTRIBUTE_ON_CURRENT_SPAN(...)
 #define END_SPAN(target_span)
 #define END_SPAN_ON_FUTURE_COMPLETION(target_span, target_future)
 #define PROPAGATE_SPAN_TO_GENERATOR(generator)
