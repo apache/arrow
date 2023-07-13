@@ -21,19 +21,7 @@
 /* Customizing with theme CSS variables */
 
 :root {
-  --pst-color-active-navigation: 215, 70, 51;
-  --pst-color-link-hover: 215, 70, 51;
-  --pst-color-headerlink: 215, 70, 51;
-  /* Use normal text color (like h3, ..) instead of primary color */
-  --pst-color-h1: var(--color-text-base);
-  --pst-color-h2: var(--color-text-base);
-  /* Use softer blue from bootstrap's default info color */
-  --pst-color-info: 23, 162, 184;
   --pst-header-height: 6rem;
-}
-
-code {
-  color: rgb(215, 70, 51);
 }
 
 .footer {

@@ -53,7 +53,7 @@ target environment.**
       .. button-ref:: format
          :ref-type: ref
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          To the specifications
@@ -73,7 +73,7 @@ target environment.**
       .. button-ref:: developers
          :ref-type: ref
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          To the documentation 
@@ -91,7 +91,7 @@ target environment.**
       .. button-ref:: toc.usage
          :ref-type: ref
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          To the projects

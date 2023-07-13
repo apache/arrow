@@ -15,8 +15,12 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+
+Python
+======
+
 PyArrow - Apache Arrow Python bindings
-======================================
+--------------------------------------
 
 This is the documentation of the Python API of Apache Arrow.
 

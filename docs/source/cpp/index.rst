@@ -37,7 +37,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
       .. button-link:: getting_started.html
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          Getting started
@@ -53,7 +53,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
       .. button-link:: user_guide.html
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          User Guide
@@ -74,7 +74,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
       .. button-link:: examples/index.html
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          Examples
@@ -89,7 +89,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
       .. button-link:: api.html
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          API Reference
@@ -111,7 +111,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
       .. button-link:: https://arrow.apache.org/cookbook/cpp/
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          C++ Cookbook

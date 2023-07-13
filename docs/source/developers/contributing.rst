@@ -57,7 +57,7 @@ All participation in the Apache Arrow project is governed by the ASF's
 
       .. button-link:: https://arrow.apache.org/community/
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          Apache Arrow Community
@@ -76,7 +76,7 @@ All participation in the Apache Arrow project is governed by the ASF's
       .. button-ref:: bug-reports
          :ref-type: ref
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          Bugs and Features
@@ -136,7 +136,7 @@ All participation in the Apache Arrow project is governed by the ASF's
       .. button-ref:: guide-introduction
          :ref-type: ref
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          New Contributor's guide
@@ -154,7 +154,7 @@ All participation in the Apache Arrow project is governed by the ASF's
       .. button-ref:: contrib-overview
          :ref-type: ref
          :click-parent:
-         :color: secondary
+         :color: primary
          :expand:
 
          Contributing overview
