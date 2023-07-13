@@ -452,16 +452,22 @@ void test_stream_schema_fallible(struct ArrowArrayStream* stream) {
 int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed) {
   struct ArrowSchema schema;
   // Try to confuse the Go GC by putting what looks like a Go pointer here.
-  schema.name = (char*)(0xc000000000L + (rand_r(&seed) % 0x2000));
-  schema.format = (char*)(0xc000000000L + (rand_r(&seed) % 0x2000));
+#ifdef _WIN32
+  // Thread-safe on Windows with the multithread CRT
+#define DORAND rand()
+#else
+#define DORAND rand_r(&seed)
+#endif
+  schema.name = (char*)(0xc000000000L + (DORAND % 0x2000));
+  schema.format = (char*)(0xc000000000L + (DORAND % 0x2000));
   int rc = stream->get_schema(stream, &schema);
   if (rc != 0) return rc;
   schema.release(&schema);
 
   while (1) {
     struct ArrowArray array;
-    array.release = (void*)(0xc000000000L + (rand_r(&seed) % 0x2000));
-    array.private_data = (void*)(0xc000000000L + (rand_r(&seed) % 0x2000));
+    array.release = (void*)(0xc000000000L + (DORAND % 0x2000));
+    array.private_data = (void*)(0xc000000000L + (DORAND % 0x2000));
     int rc = stream->get_next(stream, &array);
     if (rc != 0) return rc;
 
@@ -472,4 +478,5 @@ int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed) {
     array.release(&array);
   }
   return 0;
+#undef DORAND
 }
