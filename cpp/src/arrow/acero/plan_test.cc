@@ -35,11 +35,15 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
+
+// TODO: remove after debug
+#include "arrow/api.h"
 
 using testing::Contains;
 using testing::ElementsAre;
@@ -1438,6 +1442,38 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
   };
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
+}
+
+TEST(ExecPlanExecution, ScalarSourceScalarDistinctAggSink) {
+  //////
+  BatchesWithSchema scalar_data;
+  scalar_data.batches = {
+      ExecBatchFromJSON({int32(), boolean(), arrow::timestamp(arrow::TimeUnit::SECOND), arrow::time32(arrow::TimeUnit::SECOND)}, {ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::ARRAY, ArgShape::ARRAY},
+                        "[[5, false, 1609459200, 1672444800], [5, false, 1609545600, 1679884800], [5, false, 1609632000, 1672444800]]"),
+      ExecBatchFromJSON({int32(), boolean(), arrow::timestamp(arrow::TimeUnit::SECOND), arrow::time32(arrow::TimeUnit::SECOND)}, "[[5, true, 1609545600, 1679884800], [6, false, 1609459200, 1690406400], [7, true, 1609459200, 1704067200]]")
+  };
+  scalar_data.schema = schema({field("a", int32()), field("b", boolean()), 
+  field("c", arrow::timestamp(arrow::TimeUnit::SECOND)), field("d", arrow::time32(arrow::TimeUnit::SECOND))});
+  std::cout << "Data OK" << std::endl;
+  // index can't be tested as it's order-dependent
+  // mode/quantile can't be tested as they're technically vector kernels
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{scalar_data.schema,
+                                    scalar_data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{
+                         /*aggregates=*/{{"distinct", nullptr, "d", "distinct(b)"}}}}});
+
+  // auto exp_batches = {
+  //     ExecBatchFromJSON(
+  //         {boolean(), boolean(), int64(), int64(), float64(), int64(), float64(), int64(),
+  //          float64(), float64()},
+  //         {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+  //          ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
+  //          ArgShape::ARRAY, ArgShape::SCALAR},
+  //         R"([[false, true, 6, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
+  // };
+  ASSERT_OK_AND_ASSIGN(auto res, DeclarationToTable(std::move(plan)));
+  std::cout << res->ToString() << std::endl;
 }
 
 TEST(ExecPlanExecution, ScalarSourceStandaloneNullaryScalarAggSink) {
