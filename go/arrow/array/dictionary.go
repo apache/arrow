@@ -393,9 +393,7 @@ func createMemoTable(mem memory.Allocator, dt arrow.DataType) (ret hashing.MemoT
 	case arrow.FLOAT64:
 		ret = hashing.NewFloat64MemoTable(0)
 	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
-		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary))
 	case arrow.STRING:
-		ret = hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String))
 	case arrow.NULL:
 	default:
 		err = fmt.Errorf("unimplemented dictionary value type, %s", dt)
@@ -541,6 +539,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.STRING:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.String)),
+			dt:         dt,
+		}
 		ret := &BinaryDictionaryBuilder{bldr}
 		if init != nil {
 			if err = ret.InsertStringDictValues(init.(*String)); err != nil {
@@ -549,6 +553,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.BINARY:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)),
+			dt:         dt,
+		}
 		ret := &BinaryDictionaryBuilder{bldr}
 		if init != nil {
 			if err = ret.InsertDictValues(init.(*Binary)); err != nil {
@@ -557,6 +567,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.FIXED_SIZE_BINARY:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)),
+			dt:         dt,
+		}
 		ret := &FixedSizeBinaryDictionaryBuilder{
 			bldr, dt.ValueType.(*arrow.FixedSizeBinaryType).ByteWidth,
 		}
@@ -615,6 +631,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.INTERVAL_DAY_TIME:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)),
+			dt:         dt,
+		}
 		ret := &DayTimeDictionaryBuilder{bldr}
 		if init != nil {
 			if err = ret.InsertDictValues(init.(*DayTimeInterval)); err != nil {
@@ -623,6 +645,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.DECIMAL128:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)),
+			dt:         dt,
+		}
 		ret := &Decimal128DictionaryBuilder{bldr}
 		if init != nil {
 			if err = ret.InsertDictValues(init.(*Decimal128)); err != nil {
@@ -631,6 +659,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 		}
 		return ret
 	case arrow.DECIMAL256:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)),
+			dt:         dt,
+		}
 		ret := &Decimal256DictionaryBuilder{bldr}
 		if init != nil {
 			if err = ret.InsertDictValues(init.(*Decimal256)); err != nil {
@@ -658,6 +692,12 @@ func NewDictionaryBuilderWithDict(mem memory.Allocator, dt *arrow.DictionaryType
 	case arrow.LARGE_BINARY:
 	case arrow.LARGE_LIST:
 	case arrow.INTERVAL_MONTH_DAY_NANO:
+		bldr := binaryDictionaryBuilder{
+			builder:    builder{refCount: 1, mem: mem},
+			idxBuilder: idxbldr,
+			memoTable:  hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)),
+			dt:         dt,
+		}
 		ret := &MonthDayNanoDictionaryBuilder{bldr}
 		if init != nil {
 			if err = ret.InsertDictValues(init.(*MonthDayNanoInterval)); err != nil {
@@ -682,9 +722,6 @@ func (b *dictionaryBuilder) Release() {
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
 		b.idxBuilder.Release()
 		b.idxBuilder.Builder = nil
-		if binmemo, ok := b.memoTable.(*hashing.BinaryMemoTable); ok {
-			binmemo.Release()
-		}
 		b.memoTable = nil
 	}
 }
@@ -847,6 +884,39 @@ func (b *dictionaryBuilder) appendValue(val interface{}) error {
 	b.idxBuilder.Append(idx)
 	b.length += 1
 	return err
+}
+
+func getByteValFn(arr arrow.Array) func(i int) []byte {
+	switch typedarr := arr.(type) {
+	case *Binary:
+		return func(i int) []byte { return typedarr.Value(i) }
+	case *FixedSizeBinary:
+		return func(i int) []byte { return typedarr.Value(i) }
+	case *String:
+		return func(i int) []byte { return []byte(typedarr.Value(i)) }
+	case *Decimal128:
+		return func(i int) []byte {
+			val := typedarr.Value(i)
+			return (*(*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&val)))[:]
+		}
+	case *Decimal256:
+		return func(i int) []byte {
+			val := typedarr.Value(i)
+			return (*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&val)))[:]
+		}
+	case *DayTimeInterval:
+		return func(i int) []byte {
+			val := typedarr.Value(i)
+			return (*(*[arrow.DayTimeIntervalSizeBytes]byte)(unsafe.Pointer(&val)))[:]
+		}
+	case *MonthDayNanoInterval:
+		return func(i int) []byte {
+			val := typedarr.Value(i)
+			return (*(*[arrow.MonthDayNanoIntervalSizeBytes]byte)(unsafe.Pointer(&val)))[:]
+		}
+	}
+
+	panic("arrow/array: invalid dictionary value type")
 }
 
 func getvalFn(arr arrow.Array) func(i int) interface{} {
@@ -1277,7 +1347,7 @@ func (b *Float64DictionaryBuilder) InsertDictValues(arr *Float64) (err error) {
 }
 
 type BinaryDictionaryBuilder struct {
-	dictionaryBuilder
+	binaryDictionaryBuilder
 }
 
 func (b *BinaryDictionaryBuilder) Append(v []byte) error {
@@ -1287,7 +1357,7 @@ func (b *BinaryDictionaryBuilder) Append(v []byte) error {
 	}
 	return b.appendValue(v)
 }
-func (b *BinaryDictionaryBuilder) AppendString(v string) error { return b.appendValue(v) }
+func (b *BinaryDictionaryBuilder) AppendString(v string) error { return b.appendValue([]byte(v)) }
 func (b *BinaryDictionaryBuilder) InsertDictValues(arr *Binary) (err error) {
 	if !arrow.TypeEqual(arr.DataType(), b.dt.ValueType) {
 		return fmt.Errorf("dictionary insert type mismatch: cannot insert values of type %T to dictionary type %T", arr.DataType(), b.dt.ValueType)
@@ -1306,7 +1376,7 @@ func (b *BinaryDictionaryBuilder) InsertStringDictValues(arr *String) (err error
 	}
 
 	for i := 0; i < arr.Len(); i++ {
-		if err = b.insertDictValue(arr.Value(i)); err != nil {
+		if err = b.insertDictValue([]byte(arr.Value(i))); err != nil {
 			break
 		}
 	}
@@ -1337,11 +1407,7 @@ func (b *BinaryDictionaryBuilder) GetValueIndex(i int) int {
 }
 
 func (b *BinaryDictionaryBuilder) Value(i int) []byte {
-	switch mt := b.memoTable.(type) {
-	case *hashing.BinaryMemoTable:
-		return mt.Value(i)
-	}
-	return nil
+	return b.memoTable.Value(i)
 }
 
 func (b *BinaryDictionaryBuilder) ValueStr(i int) string {
@@ -1349,7 +1415,7 @@ func (b *BinaryDictionaryBuilder) ValueStr(i int) string {
 }
 
 type FixedSizeBinaryDictionaryBuilder struct {
-	dictionaryBuilder
+	binaryDictionaryBuilder
 	byteWidth int
 }
 
@@ -1372,7 +1438,7 @@ func (b *FixedSizeBinaryDictionaryBuilder) InsertDictValues(arr *FixedSizeBinary
 }
 
 type Decimal128DictionaryBuilder struct {
-	dictionaryBuilder
+	binaryDictionaryBuilder
 }
 
 func (b *Decimal128DictionaryBuilder) Append(v decimal128.Num) error {
@@ -1390,7 +1456,7 @@ func (b *Decimal128DictionaryBuilder) InsertDictValues(arr *Decimal128) (err err
 }
 
 type Decimal256DictionaryBuilder struct {
-	dictionaryBuilder
+	binaryDictionaryBuilder
 }
 
 func (b *Decimal256DictionaryBuilder) Append(v decimal256.Num) error {
@@ -1408,7 +1474,7 @@ func (b *Decimal256DictionaryBuilder) InsertDictValues(arr *Decimal256) (err err
 }
 
 type MonthDayNanoDictionaryBuilder struct {
-	dictionaryBuilder
+	binaryDictionaryBuilder
 }
 
 func (b *MonthDayNanoDictionaryBuilder) Append(v arrow.MonthDayNanoInterval) error {
@@ -1426,7 +1492,7 @@ func (b *MonthDayNanoDictionaryBuilder) InsertDictValues(arr *MonthDayNanoInterv
 }
 
 type DayTimeDictionaryBuilder struct {
-	dictionaryBuilder
+	binaryDictionaryBuilder
 }
 
 func (b *DayTimeDictionaryBuilder) Append(v arrow.DayTimeInterval) error {
@@ -1533,22 +1599,34 @@ type unifier struct {
 // This will only work for non-nested types currently. a nested valueType or dictionary type
 // will result in an error.
 func NewDictionaryUnifier(alloc memory.Allocator, valueType arrow.DataType) (DictionaryUnifier, error) {
-	memoTable, err := createMemoTable(alloc, valueType)
-	if err != nil {
-		return nil, err
+	switch valueType.ID() {
+	case arrow.BINARY, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256, arrow.INTERVAL_DAY_TIME, arrow.INTERVAL_MONTH_DAY_NANO:
+		return &binaryUnifier{
+			mem:             alloc,
+			valueType:       valueType,
+			binaryMemoTable: hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(alloc, arrow.BinaryTypes.Binary)),
+		}, nil
+	case arrow.STRING:
+		return &binaryUnifier{
+			mem:             alloc,
+			valueType:       valueType,
+			binaryMemoTable: hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(alloc, arrow.BinaryTypes.String)),
+		}, nil
+	default:
+		memoTable, err := createMemoTable(alloc, valueType)
+		if err != nil {
+			return nil, err
+		}
+
+		return &unifier{
+			mem:       alloc,
+			valueType: valueType,
+			memoTable: memoTable,
+		}, nil
 	}
-	return &unifier{
-		mem:       alloc,
-		valueType: valueType,
-		memoTable: memoTable,
-	}, nil
 }
 
-func (u *unifier) Release() {
-	if bin, ok := u.memoTable.(*hashing.BinaryMemoTable); ok {
-		bin.Release()
-	}
-}
+func (u *unifier) Release() {}
 
 func (u *unifier) Unify(dict arrow.Array) (err error) {
 	if !arrow.TypeEqual(u.valueType, dict.DataType()) {
@@ -1655,6 +1733,126 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 	}
 
 	u.memoTable.Reset()
+
+	defer dictData.Release()
+	return MakeFromData(dictData), nil
+}
+
+type binaryUnifier struct {
+	mem             memory.Allocator
+	valueType       arrow.DataType
+	binaryMemoTable *hashing.BinaryMemoTable
+}
+
+func (u *binaryUnifier) Release() {
+	u.binaryMemoTable.Release()
+}
+
+func (u *binaryUnifier) Unify(dict arrow.Array) (err error) {
+	if !arrow.TypeEqual(u.valueType, dict.DataType()) {
+		return fmt.Errorf("dictionary type different from unifier: %s, expected: %s", dict.DataType(), u.valueType)
+	}
+
+	valFn := getByteValFn(dict)
+	for i := 0; i < dict.Len(); i++ {
+		if dict.IsNull(i) {
+			u.binaryMemoTable.GetOrInsertNull()
+			continue
+		}
+
+		if _, _, err = u.binaryMemoTable.GetOrInsert(valFn(i)); err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (u *binaryUnifier) UnifyAndTranspose(dict arrow.Array) (transposed *memory.Buffer, err error) {
+	if !arrow.TypeEqual(u.valueType, dict.DataType()) {
+		return nil, fmt.Errorf("dictionary type different from unifier: %s, expected: %s", dict.DataType(), u.valueType)
+	}
+
+	transposed = memory.NewResizableBuffer(u.mem)
+	transposed.Resize(arrow.Int32Traits.BytesRequired(dict.Len()))
+
+	newIdxes := arrow.Int32Traits.CastFromBytes(transposed.Bytes())
+	valFn := getByteValFn(dict)
+	for i := 0; i < dict.Len(); i++ {
+		if dict.IsNull(i) {
+			idx, _ := u.binaryMemoTable.GetOrInsertNull()
+			newIdxes[i] = int32(idx)
+			continue
+		}
+
+		idx, _, err := u.binaryMemoTable.GetOrInsert(valFn(i))
+		if err != nil {
+			transposed.Release()
+			return nil, err
+		}
+		newIdxes[i] = int32(idx)
+	}
+	return
+}
+
+func (u *binaryUnifier) GetResult() (outType arrow.DataType, outDict arrow.Array, err error) {
+	dictLen := u.binaryMemoTable.Size()
+	var indexType arrow.DataType
+	switch {
+	case dictLen <= math.MaxInt8:
+		indexType = arrow.PrimitiveTypes.Int8
+	case dictLen <= math.MaxInt16:
+		indexType = arrow.PrimitiveTypes.Int16
+	case dictLen <= math.MaxInt32:
+		indexType = arrow.PrimitiveTypes.Int32
+	default:
+		indexType = arrow.PrimitiveTypes.Int64
+	}
+	outType = &arrow.DictionaryType{IndexType: indexType, ValueType: u.valueType}
+
+	dictData, err := GetBinaryDictArrayData(u.mem, u.valueType, u.binaryMemoTable, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	u.binaryMemoTable.Reset()
+
+	defer dictData.Release()
+	outDict = MakeFromData(dictData)
+	return
+}
+
+func (u *binaryUnifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array, error) {
+	dictLen := u.binaryMemoTable.Size()
+	var toobig bool
+	switch indexType.ID() {
+	case arrow.UINT8:
+		toobig = dictLen > math.MaxUint8
+	case arrow.INT8:
+		toobig = dictLen > math.MaxInt8
+	case arrow.UINT16:
+		toobig = dictLen > math.MaxUint16
+	case arrow.INT16:
+		toobig = dictLen > math.MaxInt16
+	case arrow.UINT32:
+		toobig = uint(dictLen) > math.MaxUint32
+	case arrow.INT32:
+		toobig = dictLen > math.MaxInt32
+	case arrow.UINT64:
+		toobig = uint64(dictLen) > uint64(math.MaxUint64)
+	case arrow.INT64:
+	default:
+		return nil, fmt.Errorf("arrow/array: invalid dictionary index type: %s, must be integral", indexType)
+	}
+	if toobig {
+		return nil, errors.New("arrow/array: cannot combine dictionaries. unified dictionary requires a larger index type")
+	}
+
+	dictData, err := GetBinaryDictArrayData(u.mem, u.valueType, u.binaryMemoTable, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	u.binaryMemoTable.Reset()
 
 	defer dictData.Release()
 	return MakeFromData(dictData), nil

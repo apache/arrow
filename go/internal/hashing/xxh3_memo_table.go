@@ -22,7 +22,6 @@ package hashing
 import (
 	"bytes"
 	"math"
-	"reflect"
 	"unsafe"
 )
 
@@ -167,53 +166,15 @@ func (s *BinaryMemoTable) Size() int {
 	return sz
 }
 
-// helper function to easily return a byte slice for any given value
-// regardless of the type if it's a []byte, string, or fulfills the
-// ByteSlice interface.
-func (BinaryMemoTable) valAsByteSlice(val interface{}) []byte {
-	switch v := val.(type) {
-	case []byte:
-		return v
-	case ByteSlice:
-		return v.Bytes()
-	case string:
-		var out []byte
-		h := (*reflect.StringHeader)(unsafe.Pointer(&v))
-		s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-		s.Data = h.Data
-		s.Len = h.Len
-		s.Cap = h.Len
-		return out
-	default:
-		panic("invalid type for binarymemotable")
-	}
-}
-
 // helper function to get the hash value regardless of the underlying binary type
-func (BinaryMemoTable) getHash(val interface{}) uint64 {
-	switch v := val.(type) {
-	case string:
-		return hashString(v, 0)
-	case []byte:
-		return Hash(v, 0)
-	case ByteSlice:
-		return Hash(v.Bytes(), 0)
-	default:
-		panic("invalid type for binarymemotable")
-	}
+func (BinaryMemoTable) getHash(val []byte) uint64 {
+	return Hash(val, 0)
 }
 
 // helper function to append the given value to the builder regardless
 // of the underlying binary type.
-func (b *BinaryMemoTable) appendVal(val interface{}) {
-	switch v := val.(type) {
-	case string:
-		b.builder.AppendString(v)
-	case []byte:
-		b.builder.Append(v)
-	case ByteSlice:
-		b.builder.Append(v.Bytes())
-	}
+func (b *BinaryMemoTable) appendVal(val []byte) {
+	b.builder.Append(val)
 }
 
 func (b *BinaryMemoTable) lookup(h uint64, val []byte) (*entryInt32, bool) {
@@ -224,8 +185,8 @@ func (b *BinaryMemoTable) lookup(h uint64, val []byte) (*entryInt32, bool) {
 
 // Get returns the index of the specified value in the table or KeyNotFound,
 // and a boolean indicating whether it was found in the table.
-func (b *BinaryMemoTable) Get(val interface{}) (int, bool) {
-	if p, ok := b.lookup(b.getHash(val), b.valAsByteSlice(val)); ok {
+func (b *BinaryMemoTable) Get(val []byte) (int, bool) {
+	if p, ok := b.lookup(b.getHash(val), val); ok {
 		return int(p.payload.val), ok
 	}
 	return KeyNotFound, false
@@ -234,9 +195,9 @@ func (b *BinaryMemoTable) Get(val interface{}) (int, bool) {
 // GetOrInsert returns the index of the given value in the table, if not found
 // it is inserted into the table. The return value 'found' indicates whether the value
 // was found in the table (true) or inserted (false) along with any possible error.
-func (b *BinaryMemoTable) GetOrInsert(val interface{}) (idx int, found bool, err error) {
+func (b *BinaryMemoTable) GetOrInsert(val []byte) (idx int, found bool, err error) {
 	h := b.getHash(val)
-	p, found := b.lookup(h, b.valAsByteSlice(val))
+	p, found := b.lookup(h, val)
 	if found {
 		idx = int(p.payload.val)
 	} else {
@@ -338,13 +299,13 @@ func (b *BinaryMemoTable) CopyLargeOffsetsSubset(start int, out []int64) {
 
 // CopyValues copies the raw binary data bytes out, out should be a []byte
 // with at least ValuesSize bytes allocated to copy into.
-func (b *BinaryMemoTable) CopyValues(out interface{}) {
+func (b *BinaryMemoTable) CopyValues(out []byte) {
 	b.CopyValuesSubset(0, out)
 }
 
 // CopyValuesSubset copies the raw binary data bytes out starting with the value
 // at the index start, out should be a []byte with at least ValuesSize bytes allocated
-func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
+func (b *BinaryMemoTable) CopyValuesSubset(start int, out []byte) {
 	if b.builder.Len() <= start {
 		return
 	}
@@ -355,8 +316,7 @@ func (b *BinaryMemoTable) CopyValuesSubset(start int, out interface{}) {
 		length = b.builder.DataLen() - int(offset-first)
 	)
 
-	outval := out.([]byte)
-	copy(outval, b.builder.Value(start)[0:length])
+	copy(out, b.builder.Value(start)[0:length])
 }
 
 func (b *BinaryMemoTable) WriteOut(out []byte) {

@@ -1062,7 +1062,6 @@ func ExampleSparseUnionBuilder() {
 	defer out.Release()
 
 	fmt.Println(out)
-
 	// Output:
 	// {[{c=foo} {c=bar}]}
 }

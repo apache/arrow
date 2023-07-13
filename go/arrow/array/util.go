@@ -253,6 +253,55 @@ func TableFromJSON(mem memory.Allocator, sc *arrow.Schema, recJSON []string, opt
 	return NewTableFromRecords(sc, batches), nil
 }
 
+func GetBinaryDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable *hashing.BinaryMemoTable, startOffset int) (*Data, error) {
+	dictLen := memoTable.Size() - startOffset
+	buffers := []*memory.Buffer{nil, nil}
+
+	buffers[1] = memory.NewResizableBuffer(mem)
+	defer buffers[1].Release()
+
+	switch valueType.ID() {
+	case arrow.BINARY, arrow.STRING:
+		buffers = append(buffers, memory.NewResizableBuffer(mem))
+		defer buffers[2].Release()
+
+		buffers[1].Resize(arrow.Int32Traits.BytesRequired(dictLen + 1))
+		offsets := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
+		memoTable.CopyOffsetsSubset(startOffset, offsets)
+
+		valuesz := offsets[len(offsets)-1] - offsets[0]
+		buffers[2].Resize(int(valuesz))
+		memoTable.CopyValuesSubset(startOffset, buffers[2].Bytes())
+	case arrow.LARGE_BINARY, arrow.LARGE_STRING:
+		buffers = append(buffers, memory.NewResizableBuffer(mem))
+		defer buffers[2].Release()
+
+		buffers[1].Resize(arrow.Int64Traits.BytesRequired(dictLen + 1))
+		offsets := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
+		memoTable.CopyLargeOffsetsSubset(startOffset, offsets)
+
+		valuesz := offsets[len(offsets)-1] - offsets[0]
+		buffers[2].Resize(int(valuesz))
+		memoTable.CopyValuesSubset(startOffset, buffers[2].Bytes())
+	default: // fixed size
+		bw := int(bitutil.BytesForBits(int64(valueType.(arrow.FixedWidthDataType).BitWidth())))
+		buffers[1].Resize(dictLen * bw)
+		memoTable.CopyFixedWidthValues(startOffset, bw, buffers[1].Bytes())
+	}
+
+	var nullcount int
+	if idx, ok := memoTable.GetNull(); ok && idx >= startOffset {
+		buffers[0] = memory.NewResizableBuffer(mem)
+		defer buffers[0].Release()
+		nullcount = 1
+		buffers[0].Resize(int(bitutil.BytesForBits(int64(dictLen))))
+		memory.Set(buffers[0].Bytes(), 0xFF)
+		bitutil.ClearBit(buffers[0].Bytes(), idx)
+	}
+
+	return NewData(valueType, dictLen, buffers, nil, nullcount, 0), nil
+}
+
 func GetDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable hashing.MemoTable, startOffset int) (*Data, error) {
 	dictLen := memoTable.Size() - startOffset
 	buffers := []*memory.Buffer{nil, nil}
@@ -265,35 +314,6 @@ func GetDictArrayData(mem memory.Allocator, valueType arrow.DataType, memoTable 
 		nbytes := tbl.TypeTraits().BytesRequired(dictLen)
 		buffers[1].Resize(nbytes)
 		tbl.WriteOutSubset(startOffset, buffers[1].Bytes())
-	case *hashing.BinaryMemoTable:
-		switch valueType.ID() {
-		case arrow.BINARY, arrow.STRING:
-			buffers = append(buffers, memory.NewResizableBuffer(mem))
-			defer buffers[2].Release()
-
-			buffers[1].Resize(arrow.Int32Traits.BytesRequired(dictLen + 1))
-			offsets := arrow.Int32Traits.CastFromBytes(buffers[1].Bytes())
-			tbl.CopyOffsetsSubset(startOffset, offsets)
-
-			valuesz := offsets[len(offsets)-1] - offsets[0]
-			buffers[2].Resize(int(valuesz))
-			tbl.CopyValuesSubset(startOffset, buffers[2].Bytes())
-		case arrow.LARGE_BINARY, arrow.LARGE_STRING:
-			buffers = append(buffers, memory.NewResizableBuffer(mem))
-			defer buffers[2].Release()
-
-			buffers[1].Resize(arrow.Int64Traits.BytesRequired(dictLen + 1))
-			offsets := arrow.Int64Traits.CastFromBytes(buffers[1].Bytes())
-			tbl.CopyLargeOffsetsSubset(startOffset, offsets)
-
-			valuesz := offsets[len(offsets)-1] - offsets[0]
-			buffers[2].Resize(int(valuesz))
-			tbl.CopyValuesSubset(startOffset, buffers[2].Bytes())
-		default: // fixed size
-			bw := int(bitutil.BytesForBits(int64(valueType.(arrow.FixedWidthDataType).BitWidth())))
-			buffers[1].Resize(dictLen * bw)
-			tbl.CopyFixedWidthValues(startOffset, bw, buffers[1].Bytes())
-		}
 	default:
 		return nil, fmt.Errorf("arrow/array: dictionary unifier unimplemented type: %s", valueType)
 	}
