@@ -21,11 +21,16 @@ package cdata
 
 // #include <stdlib.h>
 // #include <stdint.h>
+// #include <string.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
 //
 // void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out);
-// struct ArrowArray* get_test_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
+// struct ArrowArray* get_test_arr() {
+//   struct ArrowArray* array = (struct ArrowArray*)malloc(sizeof(struct ArrowArray));
+//   memset(array, 0, sizeof(*array));
+//   return array;
+// }
 // struct ArrowArrayStream* get_test_stream() {
 //	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
 //	memset(out, 0, sizeof(struct ArrowArrayStream));
@@ -56,11 +61,13 @@ package cdata
 // struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n);
 // int test_exported_stream(struct ArrowArrayStream* stream);
 // void test_stream_schema_fallible(struct ArrowArrayStream* stream);
+// int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed);
 import "C"
 import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"unsafe"
 
 	"github.com/apache/arrow/go/v13/arrow"
@@ -349,4 +356,15 @@ func fallibleSchemaTest() error {
 		return err
 	}
 	return nil
+}
+
+func confuseGoGc(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rc := C.confuse_go_gc(out, C.uint(rand.Int()))
+	C.free(unsafe.Pointer(out))
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
 }
