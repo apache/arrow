@@ -20,7 +20,7 @@ import Foundation
 public class ArrowColumn {
     public let field: ArrowField
     fileprivate let dataHolder: ChunkedArrayHolder
-    public var type: ArrowType.Info {get{return self.dataHolder.type}}
+    public var type: ArrowType {get{return self.dataHolder.type}}
     public var length: UInt {get{return self.dataHolder.length}}
     public var nullCount: UInt {get{return self.dataHolder.nullCount}}
 
@@ -79,6 +79,8 @@ public class ArrowTable {
         let schemaBuilder = ArrowSchema.Builder()
         var columns = [ArrowColumn]()
         
+        public init() {}
+        
         @discardableResult
         public func addColumn<T>(_ fieldName: String, arrowArray: ArrowArray<T>) throws -> Builder {
             return self.addColumn(fieldName, chunked: try ChunkedArray([arrowArray]))
@@ -121,10 +123,10 @@ public class ArrowTable {
 }
 
 public class RecordBatch {
-    let schema: ArrowSchema
-    var columnCount: UInt {get{return UInt(self.columns.count)}}
-    let columns: [ArrowArrayHolder]
-    let length: UInt
+    public let schema: ArrowSchema
+    public var columnCount: UInt {get{return UInt(self.columns.count)}}
+    public let columns: [ArrowArrayHolder]
+    public let length: UInt
     public init(_ schema: ArrowSchema, columns: [ArrowArrayHolder]) {
         self.schema = schema
         self.columns = columns
@@ -134,6 +136,8 @@ public class RecordBatch {
     public class Builder {
         let schemaBuilder = ArrowSchema.Builder()
         var columns = [ArrowArrayHolder]()
+        
+        public init() {}
         
         @discardableResult
         public func addColumn(_ fieldName: String, arrowArray: ArrowArrayHolder) -> Builder {

@@ -316,8 +316,8 @@ ensure_group_vars <- function(x) {
     if (length(gv)) {
       # Add them back
       x$selected_columns <- c(
-        x$selected_columns,
-        make_field_refs(gv)
+        make_field_refs(gv),
+        x$selected_columns
       )
     }
   }

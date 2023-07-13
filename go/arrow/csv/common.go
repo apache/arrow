@@ -217,14 +217,15 @@ func validate(schema *arrow.Schema) {
 		case *arrow.BooleanType:
 		case *arrow.Int8Type, *arrow.Int16Type, *arrow.Int32Type, *arrow.Int64Type:
 		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float32Type, *arrow.Float64Type:
-		case *arrow.StringType:
+		case *arrow.Float16Type, *arrow.Float32Type, *arrow.Float64Type:
+		case *arrow.StringType, *arrow.LargeStringType:
 		case *arrow.TimestampType:
 		case *arrow.Date32Type, *arrow.Date64Type:
 		case *arrow.Decimal128Type, *arrow.Decimal256Type:
-		case *arrow.ListType:
-		case *arrow.BinaryType:
+		case *arrow.ListType, *arrow.LargeListType, *arrow.FixedSizeListType:
+		case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.FixedSizeBinaryType:
 		case arrow.ExtensionType:
+		case *arrow.NullType:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}

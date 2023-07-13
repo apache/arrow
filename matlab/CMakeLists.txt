@@ -484,26 +484,9 @@ if(APPLE)
   # at runtime.
   set_target_properties(mexcall PROPERTIES INSTALL_RPATH "@loader_path")
 
-  if(NOT Arrow_FOUND)
-    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-    # install libarrow.dylib (symlink) and the real files it points to.
-    #
-    # The subfolders cmake and pkgconfig are excluded as they will be empty.
-    # Note: The following CMake Issue suggests enabling an option to exclude all
-    # folders that would be empty after installation:
-    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-            FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\\..*dylib"
-            PATTERN "cmake" EXCLUDE
-            PATTERN "pkgconfig" EXCLUDE)
-
-    # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
-    # at runtime.
-    set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
-  endif()
+  # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
+  # at runtime.
+  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
 endif()
 
 # On Linux, use the RUNPATH values below for runtime dependency resolution. This enables
@@ -520,26 +503,48 @@ if(UNIX
   # at runtime.
   set_target_properties(mexcall PROPERTIES INSTALL_RPATH $ORIGIN)
 
-  if(NOT Arrow_FOUND)
-    # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
-    # to be copied to CMAKE_PACKAGED_INSTALL_DIR. The DIRECTORY install command is used to
-    # install libarrow.so (symlink) and the real files it points to.
-    #
-    # The subfolders cmake and pkgconfig are excluded as they will be empty.
-    # Note: The following CMake Issue suggests enabling an option to exclude all
-    # folders that would be empty after installation:
-    # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
-    install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
-            DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-            FILES_MATCHING
-            REGEX "${ARROW_SHARED_LIB_FILENAME}\\.so.*"
-            PATTERN "cmake" EXCLUDE
-            PATTERN "pkgconfig" EXCLUDE)
+  # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
+  # at runtime.
+  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH $ORIGIN)
+endif()
 
-    # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
-    # at runtime.
-    set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH $ORIGIN)
+if(NOT Arrow_FOUND)
+  # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
+  # to be copied to CMAKE_PACKAGED_INSTALL_DIR.
+
+  if(APPLE)
+    # Install libarrow.dylib (symlink) and the real files it points to.
+    # on macOS, we need to match these files: libarrow.dylib
+    #                                         libarrow.1300.dylib
+    #                                         libarrow.1300.0.0.dylib
+    # where the version number might change.
+    set(SHARED_LIBRARY_VERSION_REGEX
+        "${ARROW_SHARED_LIB_FILENAME}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)${CMAKE_SHARED_LIBRARY_SUFFIX}"
+    )
+  elseif(UNIX AND NOT CYGWIN)
+    # Install libarrow.so (symlink) and the real files it points to.
+    # On Linux, we need to match these files: libarrow.so
+    #                                         libarrow.so.1200
+    #                                         libarrow.so.1200.0.0
+    # where the version number might change.
+    set(SHARED_LIBRARY_VERSION_REGEX
+        "${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX}(([.][0-9]+)?([.][0-9]+)?([.][0-9]+)?)"
+    )
+  else()
+    set(SHARED_LIBRARY_VERSION_REGEX
+        ${ARROW_SHARED_LIB_FILENAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
   endif()
+
+  # The subfolders cmake and pkgconfig are excluded as they will be empty.
+  # Note: The following CMake Issue suggests enabling an option to exclude all
+  # folders that would be empty after installation:
+  # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+  install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
+          DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
+          FILES_MATCHING
+          REGEX ${SHARED_LIBRARY_VERSION_REGEX}
+          PATTERN "cmake" EXCLUDE
+          PATTERN "pkgconfig" EXCLUDE)
 endif()
 
 # MATLAB_ADD_INSTALL_DIR_TO_STARTUP_FILE toggles whether an addpath command to add the install

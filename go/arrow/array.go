@@ -17,10 +17,10 @@
 package arrow
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // ArrayData is the underlying memory and metadata of an Arrow array, corresponding
@@ -32,21 +32,21 @@ import (
 // which allows for manipulating the internal data and casting. For example,
 // one could cast the raw bytes from int64 to float64 like so:
 //
-// 		arrdata := GetMyInt64Data().Data()
-//		newdata := array.NewData(arrow.PrimitiveTypes.Float64, arrdata.Len(),
-// 				arrdata.Buffers(), nil, arrdata.NullN(), arrdata.Offset())
-//		defer newdata.Release()
-//		float64arr := array.NewFloat64Data(newdata)
-//		defer float64arr.Release()
+//	arrdata := GetMyInt64Data().Data()
+//	newdata := array.NewData(arrow.PrimitiveTypes.Float64, arrdata.Len(),
+//			arrdata.Buffers(), nil, arrdata.NullN(), arrdata.Offset())
+//	defer newdata.Release()
+//	float64arr := array.NewFloat64Data(newdata)
+//	defer float64arr.Release()
 //
 // This is also useful in an analytics setting where memory may be reused. For
 // example, if we had a group of operations all returning float64 such as:
 //
-//		Log(Sqrt(Expr(arr)))
+//	Log(Sqrt(Expr(arr)))
 //
 // The low-level implementations could have signatures such as:
 //
-// 		func Log(values arrow.ArrayData) arrow.ArrayData
+//	func Log(values arrow.ArrayData) arrow.ArrayData
 //
 // Another example would be a function that consumes one or more memory buffers
 // in an input array and replaces them with newly-allocated data, changing the

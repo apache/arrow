@@ -867,6 +867,31 @@ def test_generic_ext_type_equality():
     assert not period_type == period_type3
 
 
+def test_generic_ext_type_pickling(registered_period_type):
+    # GH-36038
+    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+        period_type, _ = registered_period_type
+        ser = pickle.dumps(period_type, protocol=proto)
+        period_type_pickled = pickle.loads(ser)
+        assert period_type == period_type_pickled
+
+
+def test_generic_ext_array_pickling(registered_period_type):
+    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+        period_type, _ = registered_period_type
+        storage = pa.array([1, 2, 3, 4], pa.int64())
+        arr = pa.ExtensionArray.from_storage(period_type, storage)
+        ser = pickle.dumps(arr, protocol=proto)
+        del storage, arr
+        arr = pickle.loads(ser)
+        arr.validate()
+        assert isinstance(arr, pa.ExtensionArray)
+        assert arr.type == period_type
+        assert arr.type.storage_type == pa.int64()
+        assert arr.storage.type == pa.int64()
+        assert arr.storage.to_pylist() == [1, 2, 3, 4]
+
+
 def test_generic_ext_type_register(registered_period_type):
     # test that trying to register other type does not segfault
     with pytest.raises(TypeError):
@@ -1071,7 +1096,8 @@ def test_empty_take():
     ([1, 2, 3], IntegerType),
     (["cat", "dog", "horse"], LabelType)
 ))
-@pytest.mark.parametrize("into", ("to_numpy", "to_pandas"))
+@pytest.mark.parametrize(
+    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1198,6 +1224,10 @@ def test_tensor_class_methods():
     result = arr.to_numpy_ndarray()
     np.testing.assert_array_equal(result, expected)
 
+    expected = np.array([[[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr[:1].to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
     arr = np.array(
         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
         dtype=np.float32, order="C")
@@ -1306,3 +1336,19 @@ def test_extension_to_pandas_storage_type(registered_period_type):
         # Check the usage of types_mapper
         result = table.to_pandas(types_mapper=pd.ArrowDtype)
         assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+
+
+def test_tensor_type_is_picklable():
+    # GH-35599
+
+    expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
+    result = pickle.loads(pickle.dumps(expected_type))
+
+    assert result == expected_type
+
+    arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    expected_arr = pa.ExtensionArray.from_storage(expected_type, storage)
+    result = pickle.loads(pickle.dumps(expected_arr))
+
+    assert result == expected_arr

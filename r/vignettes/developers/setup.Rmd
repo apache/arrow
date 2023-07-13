@@ -87,7 +87,7 @@ If you need to alter both libarrow and the R package code, or if you can't get a
 
 There are five major steps to the process.
 
-### Step 1 - Install dependencies {.tabset}
+### Step 1 - Install dependencies
 
 When building libarrow, by default, system dependencies will be used if suitable versions are found.  If system dependencies are not present, libarrow will build them during its own build process. The only dependencies that you need to install _outside_ of the build process are [cmake](https://cmake.org/) (for configuring the build) and [openssl](https://www.openssl.org/) if you are building with S3 support.
 
@@ -209,7 +209,7 @@ cmake \
   -DARROW_EXTRA_ERROR_CONTEXT=ON \
   -DARROW_FILESYSTEM=ON \
   -DARROW_MIMALLOC=ON \
-  -DARROW_JSON=OFF \
+  -DARROW_JSON=ON \
   -DARROW_PARQUET=ON \
   -DARROW_WITH_SNAPPY=OFF \
   -DARROW_WITH_ZLIB=ON \

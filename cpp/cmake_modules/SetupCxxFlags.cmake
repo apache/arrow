@@ -404,6 +404,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "13.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                        VERSION_GREATER "13.0")
+    # -Wself-move added in GCC 13 warns when a value is moved to itself
+    # See https://gcc.gnu.org/gcc-13/changes.html
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-self-move")
+  endif()
+
   # Disabling semantic interposition allows faster calling conventions
   # when calling global functions internally, and can also help inlining.
   # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
@@ -623,29 +630,45 @@ if(NOT MSVC)
   if(CMAKE_CXX_FLAGS_RELEASE MATCHES "-O3")
     string(APPEND CXX_RELEASE_FLAGS " -O2")
   endif()
+  set(C_RELWITHDEBINFO_FLAGS "")
+  if(CMAKE_C_FLAGS_RELWITHDEBINFO MATCHES "-O3")
+    string(APPEND C_RELWITHDEBINFO_FLAGS " -O2")
+  endif()
+  set(CXX_RELWITHDEBINFO_FLAGS "")
+  if(CMAKE_CXX_FLAGS_RELWITHDEBINFO MATCHES "-O3")
+    string(APPEND CXX_RELWITHDEBINFO_FLAGS " -O2")
+  endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     string(APPEND C_RELEASE_FLAGS " -ftree-vectorize")
     string(APPEND CXX_RELEASE_FLAGS " -ftree-vectorize")
+    string(APPEND C_RELWITHDEBINFO_FLAGS " -ftree-vectorize")
+    string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ftree-vectorize")
+  endif()
+  set(C_DEBUG_FLAGS "")
+  set(CXX_DEBUG_FLAGS "")
+  if(NOT MSVC)
+    if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+      string(APPEND C_DEBUG_FLAGS " -O0")
+    endif()
+    if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
+      string(APPEND CXX_DEBUG_FLAGS " -O0")
+    endif()
+    if(ARROW_GGDB_DEBUG)
+      string(APPEND C_DEBUG_FLAGS " -ggdb")
+      string(APPEND CXX_DEBUG_FLAGS " -ggdb")
+      string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
+      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
+    endif()
   endif()
 
-  set(DEBUG_FLAGS "")
-  if(MSVC)
-    string(APPEND DEBUG_FLAGS " /Od")
-  else()
-    string(APPEND DEBUG_FLAGS " -O0")
-  endif()
-  if(ARROW_GGDB_DEBUG)
-    string(APPEND DEBUG_FLAGS " -ggdb")
-  endif()
-
-  string(APPEND CMAKE_C_FLAGS_RELEASE "${C_RELEASE_FLAGS}")
-  string(APPEND CMAKE_CXX_FLAGS_RELEASE "${CXX_RELEASE_FLAGS}")
-  string(APPEND CMAKE_C_FLAGS_DEBUG "${DEBUG_FLAGS}")
-  string(APPEND CMAKE_CXX_FLAGS_DEBUG "${DEBUG_FLAGS}")
-  # We must put release flags after debug flags to use optimization
-  # flags in release flags. RelWithDebInfo must enable optimization.
-  string(APPEND CMAKE_C_FLAGS_RELWITHDEBINFO "${DEBUG_FLAGS} ${C_RELEASE_FLAGS}")
-  string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO "${DEBUG_FLAGS} ${CXX_RELEASE_FLAGS}")
+  string(APPEND CMAKE_C_FLAGS_RELEASE "${C_RELEASE_FLAGS} ${ARROW_C_FLAGS_RELEASE}")
+  string(APPEND CMAKE_CXX_FLAGS_RELEASE "${CXX_RELEASE_FLAGS} ${ARROW_CXX_FLAGS_RELEASE}")
+  string(APPEND CMAKE_C_FLAGS_DEBUG "${C_DEBUG_FLAGS} ${ARROW_C_FLAGS_DEBUG}")
+  string(APPEND CMAKE_CXX_FLAGS_DEBUG "${CXX_DEBUG_FLAGS} ${ARROW_CXX_FLAGS_DEBUG}")
+  string(APPEND CMAKE_C_FLAGS_RELWITHDEBINFO
+         "${C_RELWITHDEBINFO_FLAGS} ${ARROW_C_FLAGS_RELWITHDEBINFO}")
+  string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO
+         "${CXX_RELWITHDEBINFO_FLAGS} ${ARROW_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")

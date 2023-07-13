@@ -17,11 +17,11 @@
 
 import Foundation
 public class ArrowField {
-    let type: ArrowType.Info
+    let type: ArrowType
     let name: String
     let isNullable: Bool
     
-    init(_ name: String, type: ArrowType.Info, isNullable: Bool) {
+    init(_ name: String, type: ArrowType, isNullable: Bool) {
         self.name = name
         self.type = type
         self.isNullable = isNullable
@@ -52,6 +52,8 @@ public class ArrowSchema {
     public class Builder {
         private var fields: [ArrowField] = []
         
+        public init() {}
+        
         @discardableResult
         public func addField(_ field: ArrowField) -> Builder {
             fields.append(field)
@@ -59,7 +61,7 @@ public class ArrowSchema {
         }
 
         @discardableResult
-        public func addField(_ name: String, type: ArrowType.Info, isNullable: Bool) -> Builder {
+        public func addField(_ name: String, type: ArrowType, isNullable: Bool) -> Builder {
             fields.append(ArrowField(name, type: type, isNullable: isNullable))
             return self
         }

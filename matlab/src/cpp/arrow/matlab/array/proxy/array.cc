@@ -15,13 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/array/proxy/array.h"
+#include "arrow/util/utf8.h"
 
-#include "arrow/matlab/bit/bit_unpack_arrow_buffer.h"
+#include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/bit/unpack.h"
+#include "arrow/matlab/error/error.h"
 
 namespace arrow::matlab::array::proxy {
 
-    Array::Array(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    Array::Array(std::shared_ptr<arrow::Array> array) : array{std::move(array)} {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
@@ -30,11 +32,15 @@ namespace arrow::matlab::array::proxy {
         REGISTER_METHOD(Array, valid);
     }
 
+    std::shared_ptr<arrow::Array> Array::getArray() {
+        return array;
+    }
+
     void Array::toString(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
-
-        // TODO: handle non-ascii characters
-        auto str_mda = factory.createScalar(array->ToString());
+        const auto str_utf8 = array->ToString();
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
+        auto str_mda = factory.createScalar(str_utf16);
         context.outputs[0] = str_mda;
     }
 
@@ -46,7 +52,7 @@ namespace arrow::matlab::array::proxy {
 
     void Array::valid(libmexclass::proxy::method::Context& context) {
         auto array_length = static_cast<size_t>(array->length());
-        
+
         // If the Arrow array has no null values, then return a MATLAB
         // logical array that is all "true" for the validity bitmap.
         if (array->null_count() == 0) {
@@ -60,8 +66,7 @@ namespace arrow::matlab::array::proxy {
         }
 
         auto validity_bitmap = array->null_bitmap();
-        auto valid_elements_mda = arrow::matlab::bit::bitUnpackArrowBuffer(validity_bitmap, array_length);
+        auto valid_elements_mda = bit::unpack(validity_bitmap, array_length);
         context.outputs[0] = valid_elements_mda;
     }
-
 }

@@ -246,10 +246,10 @@ struct GroupedCountAllImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedCountAllImpl*>(&raw_other);
 
-    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.data());
+    auto* counts = counts_.mutable_data_as<int64_t>();
+    const auto* other_counts = other->counts_.data_as<int64_t>();
 
-    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    auto* g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
     }
@@ -257,8 +257,8 @@ struct GroupedCountAllImpl : public GroupedAggregator {
   }
 
   Status Consume(const ExecSpan& batch) override {
-    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto g_begin = batch[0].array.GetValues<uint32_t>(1);
+    auto* counts = counts_.mutable_data_as<int64_t>();
+    auto* g_begin = batch[0].array.GetValues<uint32_t>(1);
     for (auto g_itr = g_begin, end = g_itr + batch.length; g_itr != end; g_itr++) {
       counts[*g_itr] += 1;
     }
@@ -293,10 +293,10 @@ struct GroupedCountImpl : public GroupedAggregator {
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedCountImpl*>(&raw_other);
 
-    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto other_counts = reinterpret_cast<const int64_t*>(other->counts_.mutable_data());
+    auto* counts = counts_.mutable_data_as<int64_t>();
+    const auto* other_counts = other->counts_.data_as<int64_t>();
 
-    auto g = group_id_mapping.GetValues<uint32_t>(1);
+    auto* g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
       counts[*g] += other_counts[other_g];
     }
@@ -344,8 +344,8 @@ struct GroupedCountImpl : public GroupedAggregator {
   };
 
   Status Consume(const ExecSpan& batch) override {
-    auto counts = reinterpret_cast<int64_t*>(counts_.mutable_data());
-    auto g_begin = batch[1].array.GetValues<uint32_t>(1);
+    auto* counts = counts_.mutable_data_as<int64_t>();
+    auto* g_begin = batch[1].array.GetValues<uint32_t>(1);
 
     if (options_.mode == CountOptions::ALL) {
       for (int64_t i = 0; i < batch.length; ++i, ++g_begin) {
@@ -491,7 +491,7 @@ struct GroupedReducingAggregator : public GroupedAggregator {
 
     const CType* other_reduced = other->reduced_.data();
     const int64_t* other_counts = other->counts_.data();
-    const uint8_t* other_no_nulls = no_nulls_.mutable_data();
+    const uint8_t* other_no_nulls = other->no_nulls_.data();
 
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
@@ -682,7 +682,7 @@ struct GroupedSumNullImpl final : public GroupedNullImpl {
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
   void output_empty(const std::shared_ptr<Buffer>& data) override {
-    std::fill_n(reinterpret_cast<int64_t*>(data->mutable_data()), num_groups_, 0);
+    std::fill_n(data->mutable_data_as<int64_t>(), num_groups_, 0);
   }
 };
 
@@ -722,7 +722,7 @@ struct GroupedProductNullImpl final : public GroupedNullImpl {
   std::shared_ptr<DataType> out_type() const override { return int64(); }
 
   void output_empty(const std::shared_ptr<Buffer>& data) override {
-    std::fill_n(reinterpret_cast<int64_t*>(data->mutable_data()), num_groups_, 1);
+    std::fill_n(data->mutable_data_as<int64_t>(), num_groups_, 1);
   }
 };
 
@@ -785,7 +785,7 @@ struct GroupedMeanImpl : public GroupedReducingAggregator<Type, GroupedMeanImpl<
     const CType* reduced = reduced_->data();
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
                           AllocateBuffer(num_groups * sizeof(MeanType), pool));
-    MeanType* means = reinterpret_cast<MeanType*>(values->mutable_data());
+    auto* means = values->mutable_data_as<MeanType>();
     for (int64_t i = 0; i < num_groups; ++i) {
       if (counts[i] >= options.min_count) {
         ARROW_ASSIGN_OR_RAISE(means[i], DoMean(reduced[i], counts[i]));
@@ -814,7 +814,7 @@ struct GroupedMeanNullImpl final : public GroupedNullImpl {
   std::shared_ptr<DataType> out_type() const override { return float64(); }
 
   void output_empty(const std::shared_ptr<Buffer>& data) override {
-    std::fill_n(reinterpret_cast<double*>(data->mutable_data()), num_groups_, 0);
+    std::fill_n(data->mutable_data_as<double>(), num_groups_, 0);
   }
 };
 
@@ -915,7 +915,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
     for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
-      reinterpret_cast<uint32_t*>(mapping->mutable_data())[i] = i;
+      mapping->template mutable_data_as<uint32_t>()[i] = i;
     }
     ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
                                /*null_count=*/0);
@@ -932,7 +932,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     // for int32: -2^62 <= sum < 2^62
     constexpr int64_t max_length = 1ULL << (63 - sizeof(CType) * 8);
 
-    const auto g = batch[1].array.GetValues<uint32_t>(1);
+    const auto* g = batch[1].array.GetValues<uint32_t>(1);
     if (batch[0].is_scalar() && !batch[0].scalar->is_valid) {
       uint8_t* no_nulls = no_nulls_.mutable_data();
       for (int64_t i = 0; i < batch.length; i++) {
@@ -946,7 +946,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(auto mapping,
                           AllocateBuffer(num_groups_ * sizeof(uint32_t), pool_));
     for (uint32_t i = 0; static_cast<int64_t>(i) < num_groups_; i++) {
-      reinterpret_cast<uint32_t*>(mapping->mutable_data())[i] = i;
+      mapping->template mutable_data_as<uint32_t>()[i] = i;
     }
     ArrayData group_id_mapping(uint32(), num_groups_, {nullptr, std::move(mapping)},
                                /*null_count=*/0);
@@ -1049,7 +1049,7 @@ struct GroupedVarStdImpl : public GroupedAggregator {
                           AllocateBuffer(num_groups_ * sizeof(double), pool_));
     int64_t null_count = 0;
 
-    double* results = reinterpret_cast<double*>(values->mutable_data());
+    auto* results = values->mutable_data_as<double>();
     const int64_t* counts = counts_.data();
     const double* m2s = m2s_.data();
     for (int64_t i = 0; i < num_groups_; ++i) {
@@ -1223,7 +1223,7 @@ struct GroupedTDigestImpl : public GroupedAggregator {
                           AllocateBuffer(num_values * sizeof(double), pool_));
     int64_t null_count = 0;
 
-    double* results = reinterpret_cast<double*>(values->mutable_data());
+    auto* results = values->mutable_data_as<double>();
     for (int64_t i = 0; static_cast<size_t>(i) < tdigests_.size(); ++i) {
       if (!tdigests_[i].is_empty() && counts[i] >= options_.min_count &&
           (options_.skip_nulls || bit_util::GetBit(no_nulls_.data(), i))) {
@@ -1567,7 +1567,7 @@ struct GroupedMinMaxImpl<Type,
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
         AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
-    offset_type* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    auto* offsets = raw_offsets->mutable_data_as<offset_type>();
     offsets[0] = 0;
     offsets++;
     const uint8_t* null_bitmap = array->buffers[0]->data();
@@ -2100,7 +2100,7 @@ struct GroupedFirstLastImpl<Type,
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
         AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
-    offset_type* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    auto* offsets = raw_offsets->mutable_data_as<offset_type>();
     offsets[0] = 0;
     offsets++;
     const uint8_t* null_bitmap = array->buffers[0]->data();
@@ -2464,9 +2464,9 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> remapped_g,
                           AllocateBuffer(uniques.length * sizeof(uint32_t), pool_));
 
-    const auto* g_mapping = group_id_mapping.GetValues<uint32_t>(1);
-    const auto* other_g = uniques[1].array()->GetValues<uint32_t>(1);
-    auto* g = reinterpret_cast<uint32_t*>(remapped_g->mutable_data());
+    const auto* g_mapping = group_id_mapping.buffers[1]->data_as<uint32_t>();
+    const auto* other_g = uniques[1].array()->buffers[1]->data_as<uint32_t>();
+    auto* g = remapped_g->mutable_data_as<uint32_t>();
 
     for (int64_t i = 0; i < uniques.length; i++) {
       g[i] = g_mapping[other_g[i]];
@@ -2480,7 +2480,7 @@ struct GroupedCountDistinctImpl : public GroupedAggregator {
   Result<Datum> Finalize() override {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> values,
                           AllocateBuffer(num_groups_ * sizeof(int64_t), pool_));
-    int64_t* counts = reinterpret_cast<int64_t*>(values->mutable_data());
+    auto* counts = values->mutable_data_as<int64_t>();
     std::fill(counts, counts + num_groups_, 0);
 
     ARROW_ASSIGN_OR_RAISE(auto uniques, grouper_->GetUniques());
@@ -2524,9 +2524,9 @@ struct GroupedDistinctImpl : public GroupedCountDistinctImpl {
                                               static_cast<uint32_t>(num_groups_), ctx_));
     ARROW_ASSIGN_OR_RAISE(
         auto list, grouper_->ApplyGroupings(*groupings, *uniques[0].make_array(), ctx_));
-    auto values = list->values();
+    const auto& values = list->values();
     DCHECK_EQ(values->offset(), 0);
-    int32_t* offsets = reinterpret_cast<int32_t*>(list->value_offsets()->mutable_data());
+    auto* offsets = list->value_offsets()->mutable_data_as<int32_t>();
     if (options_.mode == CountOptions::ALL ||
         (options_.mode == CountOptions::ONLY_VALID && values->null_count() == 0)) {
       return list;
@@ -2754,7 +2754,7 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
         AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
-    auto* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    auto* offsets = raw_offsets->mutable_data_as<offset_type>();
     offsets[0] = 0;
     offsets++;
     const uint8_t* null_bitmap = array->buffers[0]->data();
@@ -2952,7 +2952,7 @@ struct GroupedListImpl final : public GroupedAggregator {
       RETURN_NOT_OK(groups_.Append(g[other_raw_groups[other_g]]));
     }
 
-    const uint8_t* values = reinterpret_cast<const uint8_t*>(other->values_.data());
+    const auto* values = reinterpret_cast<const uint8_t*>(other->values_.data());
     RETURN_NOT_OK(GetSet::AppendBuffers(&values_, values, 0, other->num_args_));
 
     if (other->has_nulls_) {
@@ -3093,7 +3093,7 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
         AllocateBuffer((1 + values.size()) * sizeof(offset_type), ctx_->memory_pool()));
-    auto* offsets = reinterpret_cast<offset_type*>(raw_offsets->mutable_data());
+    auto* offsets = raw_offsets->mutable_data_as<offset_type>();
     offsets[0] = 0;
     offsets++;
     const uint8_t* null_bitmap = array->buffers[0]->data();

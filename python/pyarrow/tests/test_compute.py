@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from collections import namedtuple
 import datetime
+import decimal
 from functools import lru_cache, partial
 import inspect
 import itertools
+import math
 import os
 import pickle
 import pytest
@@ -36,6 +39,8 @@ except ImportError:
 import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.lib import ArrowNotImplementedError
+from pyarrow.tests import util
+
 
 all_array_types = [
     ('bool', [True, False, False, True, True]),
@@ -150,8 +155,9 @@ def test_option_class_equality():
         pc.ModeOptions(),
         pc.NullOptions(),
         pc.PadOptions(5),
+        pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
-        pc.CumulativeSumOptions(start=0, skip_nulls=False),
+        pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
         pc.RankOptions(sort_keys="ascending",
@@ -180,17 +186,19 @@ def test_option_class_equality():
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
     ]
-    # TODO: We should test on windows once ARROW-13168 is resolved.
-    # Timezone database is not available on Windows yet
-    if sys.platform != 'win32':
+    # Timezone database might not be installed on Windows
+    if sys.platform != "win32" or util.windows_has_tzdata():
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database is not available on Windows yet
-        if cls not in classes and sys.platform != 'win32' and \
-                cls != pc.AssumeTimezoneOptions:
+        # Timezone database might not be installed on Windows
+        if (
+            cls not in classes
+            and (sys.platform != "win32" or util.windows_has_tzdata())
+            and cls != pc.AssumeTimezoneOptions
+        ):
             try:
                 options.append(cls())
             except TypeError:
@@ -529,7 +537,7 @@ def test_trim():
 def test_slice_compatibility():
     arr = pa.array(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])
     for start in range(-6, 6):
-        for stop in range(-6, 6):
+        for stop in itertools.chain(range(-6, 6), [None]):
             for step in [-3, -2, -1, 1, 2, 3]:
                 expected = pa.array([k.as_py()[start:stop:step]
                                      for k in arr])
@@ -1818,6 +1826,188 @@ def test_fsl_to_fsl_cast(value_type):
         fsl.cast(cast_type)
 
 
+DecimalTypeTraits = namedtuple('DecimalTypeTraits',
+                               ('name', 'factory', 'max_precision'))
+
+FloatToDecimalCase = namedtuple('FloatToDecimalCase',
+                                ('precision', 'scale', 'float_val'))
+
+decimal_type_traits = [DecimalTypeTraits('decimal128', pa.decimal128, 38),
+                       DecimalTypeTraits('decimal256', pa.decimal256, 76)]
+
+
+def largest_scaled_float_not_above(val, scale):
+    """
+    Find the largest float f such as `f * 10**scale <= val`
+    """
+    assert val >= 0
+    assert scale >= 0
+    float_val = float(val) / 10**scale
+    if float_val * 10**scale > val:
+        # Take the float just below... it *should* satisfy
+        float_val = np.nextafter(float_val, 0.0)
+        if float_val * 10**scale > val:
+            float_val = np.nextafter(float_val, 0.0)
+    assert float_val * 10**scale <= val
+    return float_val
+
+
+def scaled_float(int_val, scale):
+    """
+    Return a float representation (possibly approximate) of `int_val**-scale`
+    """
+    assert isinstance(int_val, int)
+    unscaled = decimal.Decimal(int_val)
+    scaled = unscaled.scaleb(-scale)
+    float_val = float(scaled)
+    return float_val
+
+
+def integral_float_to_decimal_cast_cases(float_ty, max_precision):
+    """
+    Return FloatToDecimalCase instances with integral values.
+    """
+    mantissa_digits = 16
+    for precision in range(1, max_precision, 3):
+        for scale in range(0, precision, 2):
+            yield FloatToDecimalCase(precision, scale, 0.0)
+            yield FloatToDecimalCase(precision, scale, 1.0)
+            epsilon = 10**max(precision - mantissa_digits, scale)
+            abs_maxval = largest_scaled_float_not_above(
+                10**precision - epsilon, scale)
+            yield FloatToDecimalCase(precision, scale, abs_maxval)
+
+
+def real_float_to_decimal_cast_cases(float_ty, max_precision):
+    """
+    Return FloatToDecimalCase instances with real values.
+    """
+    mantissa_digits = 16
+    for precision in range(1, max_precision, 3):
+        for scale in range(0, precision, 2):
+            epsilon = 2 * 10**max(precision - mantissa_digits, 0)
+            abs_minval = largest_scaled_float_not_above(epsilon, scale)
+            abs_maxval = largest_scaled_float_not_above(
+                10**precision - epsilon, scale)
+            yield FloatToDecimalCase(precision, scale, abs_minval)
+            yield FloatToDecimalCase(precision, scale, abs_maxval)
+
+
+def random_float_to_decimal_cast_cases(float_ty, max_precision):
+    """
+    Return random-generated FloatToDecimalCase instances.
+    """
+    r = random.Random(42)
+    for precision in range(1, max_precision, 6):
+        for scale in range(0, precision, 4):
+            for i in range(20):
+                unscaled = r.randrange(0, 10**precision)
+                float_val = scaled_float(unscaled, scale)
+                assert float_val * 10**scale < 10**precision
+                yield FloatToDecimalCase(precision, scale, float_val)
+
+
+def check_cast_float_to_decimal(float_ty, float_val, decimal_ty, decimal_ctx,
+                                max_precision):
+    # Use the Python decimal module to build the expected result
+    # using the right precision
+    decimal_ctx.prec = decimal_ty.precision
+    decimal_ctx.rounding = decimal.ROUND_HALF_EVEN
+    expected = decimal_ctx.create_decimal_from_float(float_val)
+    # Round `expected` to `scale` digits after the decimal point
+    expected = expected.quantize(decimal.Decimal(1).scaleb(-decimal_ty.scale))
+    s = pa.scalar(float_val, type=float_ty)
+    actual = pc.cast(s, decimal_ty).as_py()
+    if actual != expected:
+        # Allow the last digit to vary. The tolerance is higher for
+        # very high precisions as rounding errors can accumulate in
+        # the iterative algorithm (GH-35576).
+        diff_digits = abs(actual - expected) * 10**decimal_ty.scale
+        limit = 2 if decimal_ty.precision < max_precision - 1 else 4
+        assert diff_digits <= limit, (
+            f"float_val = {float_val!r}, precision={decimal_ty.precision}, "
+            f"expected = {expected!r}, actual = {actual!r}, "
+            f"diff_digits = {diff_digits!r}")
+
+
+# Cannot test float32 as case generators above assume float64
+@pytest.mark.parametrize('float_ty', [pa.float64()], ids=str)
+@pytest.mark.parametrize('decimal_ty', decimal_type_traits,
+                         ids=lambda v: v.name)
+@pytest.mark.parametrize('case_generator',
+                         [integral_float_to_decimal_cast_cases,
+                          real_float_to_decimal_cast_cases,
+                          random_float_to_decimal_cast_cases],
+                         ids=['integrals', 'reals', 'random'])
+def test_cast_float_to_decimal(float_ty, decimal_ty, case_generator):
+    with decimal.localcontext() as ctx:
+        for case in case_generator(float_ty, decimal_ty.max_precision):
+            check_cast_float_to_decimal(
+                float_ty, case.float_val,
+                decimal_ty.factory(case.precision, case.scale),
+                ctx, decimal_ty.max_precision)
+
+
+@pytest.mark.parametrize('float_ty', [pa.float32(), pa.float64()], ids=str)
+@pytest.mark.parametrize('decimal_traits', decimal_type_traits,
+                         ids=lambda v: v.name)
+def test_cast_float_to_decimal_random(float_ty, decimal_traits):
+    """
+    Test float-to-decimal conversion against exactly generated values.
+    """
+    r = random.Random(43)
+    np_float_ty = {
+        pa.float32(): np.float32,
+        pa.float64(): np.float64,
+    }[float_ty]
+    mantissa_bits = {
+        pa.float32(): 24,
+        pa.float64(): 53,
+    }[float_ty]
+    float_exp_min, float_exp_max = {
+        pa.float32(): (-126, 127),
+        pa.float64(): (-1022, 1023),
+    }[float_ty]
+    mantissa_digits = math.floor(math.log10(2**mantissa_bits))
+    max_precision = decimal_traits.max_precision
+
+    with decimal.localcontext() as ctx:
+        precision = mantissa_digits
+        ctx.prec = precision
+        # The scale must be chosen so as
+        # 1) it's within bounds for the decimal type
+        # 2) the floating point exponent is within bounds
+        min_scale = max(-max_precision,
+                        precision + math.ceil(math.log10(2**float_exp_min)))
+        max_scale = min(max_precision,
+                        math.floor(math.log10(2**float_exp_max)))
+        for scale in range(min_scale, max_scale):
+            decimal_ty = decimal_traits.factory(precision, scale)
+            # We want to random-generate a float from its mantissa bits
+            # and exponent, and compute the expected value in the
+            # decimal domain. The float exponent has to ensure the
+            # expected value doesn't overflow and doesn't lose precision.
+            float_exp = (-mantissa_bits +
+                         math.floor(math.log2(10**(precision - scale))))
+            assert float_exp_min <= float_exp <= float_exp_max
+            for i in range(5):
+                mantissa = r.randrange(0, 2**mantissa_bits)
+                float_val = np.ldexp(np_float_ty(mantissa), float_exp)
+                assert isinstance(float_val, np_float_ty)
+                # Make sure we compute the exact expected value and
+                # round by half-to-even when converting to the expected precision.
+                if float_exp >= 0:
+                    expected = decimal.Decimal(mantissa) * 2**float_exp
+                else:
+                    expected = decimal.Decimal(mantissa) / 2**-float_exp
+                expected_as_int = round(expected.scaleb(scale))
+                actual = pc.cast(
+                    pa.scalar(float_val, type=float_ty), decimal_ty).as_py()
+                actual_as_int = round(actual.scaleb(scale))
+                # We allow for a minor rounding error between expected and actual
+                assert abs(actual_as_int - expected_as_int) <= 1
+
+
 def test_strptime():
     arr = pa.array(["5/1/2020", None, "12/13/1900"])
 
@@ -1846,17 +2036,18 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_strftime():
     times = ["2018-03-10 09:00", "2038-01-31 12:23", None]
     timezones = ["CET", "UTC", "Europe/Ljubljana"]
 
-    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H",
-               "%I", "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%c", "%x",
-               "%X", "%%", "%G", "%V", "%u"]
+    formats = ["%a", "%A", "%w", "%d", "%b", "%B", "%m", "%y", "%Y", "%H", "%I",
+               "%p", "%M", "%z", "%Z", "%j", "%U", "%W", "%%", "%G", "%V", "%u"]
+    if sys.platform != "win32":
+        # Locale-dependent formats don't match on Windows
+        formats.extend(["%c", "%x", "%X"])
 
     for timezone in timezones:
         ts = pd.to_datetime(times).tz_localize(timezone)
@@ -2029,18 +2220,16 @@ def test_extract_datetime_components():
     _check_datetime_components(timestamps)
 
     # Test timezone aware timestamp array
-    if sys.platform == 'win32':
-        # TODO: We should test on windows once ARROW-13168 is resolved.
-        pytest.skip('Timezone database is not available on Windows yet')
+    if sys.platform == "win32" and not util.windows_has_tzdata():
+        pytest.skip('Timezone database is not installed on Windows')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
 
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
 @pytest.mark.pandas
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_assume_timezone():
     ts_type = pa.timestamp("ns")
     timestamps = pd.to_datetime(["1970-01-01T00:00:59.123456789",
@@ -2235,9 +2424,8 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# TODO: We should test on windows once ARROW-13168 is resolved.
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Timezone database is not available on Windows yet")
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
 @pytest.mark.pandas
@@ -2660,7 +2848,7 @@ def test_min_max_element_wise():
 def test_cumulative_sum(start, skip_nulls):
     # Exact tests (e.g., integral types)
     start_int = int(start)
-    starts = [start_int, pa.scalar(start_int, type=pa.int8()),
+    starts = [None, start_int, pa.scalar(start_int, type=pa.int8()),
               pa.scalar(start_int, type=pa.int64())]
     for strt in starts:
         arrays = [
@@ -2678,10 +2866,11 @@ def test_cumulative_sum(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_sum(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.add(expected_arrays[i], strt)
+            expected = pc.add(expected_arrays[i], strt if strt is not None
+                              else 0)
             assert result.equals(expected)
 
-    starts = [start, pa.scalar(start, type=pa.float32()),
+    starts = [None, start, pa.scalar(start, type=pa.float32()),
               pa.scalar(start, type=pa.float64())]
     for strt in starts:
         arrays = [
@@ -2698,13 +2887,182 @@ def test_cumulative_sum(start, skip_nulls):
         for i, arr in enumerate(arrays):
             result = pc.cumulative_sum(arr, start=strt, skip_nulls=skip_nulls)
             # Add `start` offset to expected array before comparing
-            expected = pc.add(expected_arrays[i], strt)
+            expected = pc.add(expected_arrays[i], strt if strt is not None
+                              else 0)
             np.testing.assert_array_almost_equal(result.to_numpy(
                 zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
 
     for strt in ['a', pa.scalar('arrow'), 1.1]:
         with pytest.raises(pa.ArrowInvalid):
             pc.cumulative_sum([1, 2, 3], start=strt)
+
+
+@pytest.mark.parametrize('start', (1.25, 10.5, -10.5))
+@pytest.mark.parametrize('skip_nulls', (True, False))
+def test_cumulative_prod(start, skip_nulls):
+    # Exact tests (e.g., integral types)
+    start_int = int(start)
+    starts = [None, start_int, pa.scalar(start_int, type=pa.int8()),
+              pa.scalar(start_int, type=pa.int64())]
+    for strt in starts:
+        arrays = [
+            pa.array([1, 2, 3]),
+            pa.array([1, None, 20, 5]),
+            pa.chunked_array([[1, None], [20, 5]])
+        ]
+        expected_arrays = [
+            pa.array([1, 2, 6]),
+            pa.array([1, None, 20, 100])
+            if skip_nulls else pa.array([1, None, None, None]),
+            pa.chunked_array([[1, None, 20, 100]])
+            if skip_nulls else pa.chunked_array([[1, None, None, None]])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_prod(arr, start=strt, skip_nulls=skip_nulls)
+            # Multiply `start` offset to expected array before comparing
+            expected = pc.multiply(expected_arrays[i], strt if strt is not None
+                                   else 1)
+            assert result.equals(expected)
+
+    starts = [None, start, pa.scalar(start, type=pa.float32()),
+              pa.scalar(start, type=pa.float64())]
+    for strt in starts:
+        arrays = [
+            pa.array([1.5, 2.5, 3.5]),
+            pa.array([1, np.nan, 2, -3, 4, 5]),
+            pa.array([1, np.nan, None, 3, None, 5])
+        ]
+        expected_arrays = [
+            np.array([1.5, 3.75, 13.125]),
+            np.array([1, np.nan, np.nan, np.nan, np.nan, np.nan]),
+            np.array([1, np.nan, None, np.nan, None, np.nan])
+            if skip_nulls else np.array([1, np.nan, None, None, None, None])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_prod(arr, start=strt, skip_nulls=skip_nulls)
+            # Multiply `start` offset to expected array before comparing
+            expected = pc.multiply(expected_arrays[i], strt if strt is not None
+                                   else 1)
+            np.testing.assert_array_almost_equal(result.to_numpy(
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+
+    for strt in ['a', pa.scalar('arrow'), 1.1]:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.cumulative_prod([1, 2, 3], start=strt)
+
+
+@pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
+@pytest.mark.parametrize('skip_nulls', (True, False))
+def test_cumulative_max(start, skip_nulls):
+    # Exact tests (e.g., integral types)
+    start_int = int(start)
+    starts = [None, start_int, pa.scalar(start_int, type=pa.int8()),
+              pa.scalar(start_int, type=pa.int64())]
+    for strt in starts:
+        arrays = [
+            pa.array([2, 1, 3, 5, 4, 6]),
+            pa.array([2, 1, None, 5, 4, None]),
+            pa.chunked_array([[2, 1, None], [5, 4, None]])
+        ]
+        expected_arrays = [
+            pa.array([2, 2, 3, 5, 5, 6]),
+            pa.array([2, 2, None, 5, 5, None])
+            if skip_nulls else pa.array([2, 2, None, None, None, None]),
+            pa.chunked_array([[2, 2, None, 5, 5, None]])
+            if skip_nulls else
+            pa.chunked_array([[2, 2, None, None, None, None]])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
+            # Max `start` offset with expected array before comparing
+            expected = pc.max_element_wise(
+                expected_arrays[i], strt if strt is not None else int(-1e9),
+                skip_nulls=False)
+            assert result.equals(expected)
+
+    starts = [None, start, pa.scalar(start, type=pa.float32()),
+              pa.scalar(start, type=pa.float64())]
+    for strt in starts:
+        arrays = [
+            pa.array([2.5, 1.3, 3.7, 5.1, 4.9, 6.2]),
+            pa.array([2.5, 1.3, 3.7, np.nan, 4.9, 6.2]),
+            pa.array([2.5, 1.3, None, np.nan, 4.9, None])
+        ]
+        expected_arrays = [
+            np.array([2.5, 2.5, 3.7, 5.1, 5.1, 6.2]),
+            np.array([2.5, 2.5, 3.7, 3.7, 4.9, 6.2]),
+            np.array([2.5, 2.5, None, 2.5, 4.9, None])
+            if skip_nulls else np.array([2.5, 2.5, None, None, None, None])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_max(arr, start=strt, skip_nulls=skip_nulls)
+            # Max `start` offset with expected array before comparing
+            expected = pc.max_element_wise(
+                expected_arrays[i], strt if strt is not None else -1e9,
+                skip_nulls=False)
+            np.testing.assert_array_almost_equal(result.to_numpy(
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+
+    for strt in ['a', pa.scalar('arrow'), 1.1]:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.cumulative_max([1, 2, 3], start=strt)
+
+
+@pytest.mark.parametrize('start', (0.5, 3.5, 6.5))
+@pytest.mark.parametrize('skip_nulls', (True, False))
+def test_cumulative_min(start, skip_nulls):
+    # Exact tests (e.g., integral types)
+    start_int = int(start)
+    starts = [None, start_int, pa.scalar(start_int, type=pa.int8()),
+              pa.scalar(start_int, type=pa.int64())]
+    for strt in starts:
+        arrays = [
+            pa.array([5, 6, 4, 2, 3, 1]),
+            pa.array([5, 6, None, 2, 3, None]),
+            pa.chunked_array([[5, 6, None], [2, 3, None]])
+        ]
+        expected_arrays = [
+            pa.array([5, 5, 4, 2, 2, 1]),
+            pa.array([5, 5, None, 2, 2, None])
+            if skip_nulls else pa.array([5, 5, None, None, None, None]),
+            pa.chunked_array([[5, 5, None, 2, 2, None]])
+            if skip_nulls else
+            pa.chunked_array([[5, 5, None, None, None, None]])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
+            # Min `start` offset with expected array before comparing
+            expected = pc.min_element_wise(
+                expected_arrays[i], strt if strt is not None else int(1e9),
+                skip_nulls=False)
+            assert result.equals(expected)
+
+    starts = [None, start, pa.scalar(start, type=pa.float32()),
+              pa.scalar(start, type=pa.float64())]
+    for strt in starts:
+        arrays = [
+            pa.array([5.5, 6.3, 4.7, 2.1, 3.9, 1.2]),
+            pa.array([5.5, 6.3, 4.7, np.nan, 3.9, 1.2]),
+            pa.array([5.5, 6.3, None, np.nan, 3.9, None])
+        ]
+        expected_arrays = [
+            np.array([5.5, 5.5, 4.7, 2.1, 2.1, 1.2]),
+            np.array([5.5, 5.5, 4.7, 4.7, 3.9, 1.2]),
+            np.array([5.5, 5.5, None, 5.5, 3.9, None])
+            if skip_nulls else np.array([5.5, 5.5, None, None, None, None])
+        ]
+        for i, arr in enumerate(arrays):
+            result = pc.cumulative_min(arr, start=strt, skip_nulls=skip_nulls)
+            # Min `start` offset with expected array before comparing
+            expected = pc.min_element_wise(
+                expected_arrays[i], strt if strt is not None else 1e9,
+                skip_nulls=False)
+            np.testing.assert_array_almost_equal(result.to_numpy(
+                zero_copy_only=False), expected.to_numpy(zero_copy_only=False))
+
+    for strt in ['a', pa.scalar('arrow'), 1.1]:
+        with pytest.raises(pa.ArrowInvalid):
+            pc.cumulative_max([1, 2, 3], start=strt)
 
 
 def test_make_struct():
@@ -2735,6 +3093,7 @@ def test_map_lookup():
     result_all = pa.array([[1], None, None, [5, 7], None],
                           type=pa.list_(pa.int32()))
 
+    assert pc.map_lookup(arr, 'one', 'first') == result_first
     assert pc.map_lookup(arr, pa.scalar(
         'one', type=pa.utf8()), 'first') == result_first
     assert pc.map_lookup(arr, pa.scalar(
@@ -3124,3 +3483,33 @@ def test_run_end_encode():
     check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
     check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
     check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))
+
+
+def test_pairwise_diff():
+    arr = pa.array([1, 2, 3, None, 4, 5])
+    expected = pa.array([None, 1, 1, None, None, 1])
+    result = pa.compute.pairwise_diff(arr, period=1)
+    assert result.equals(expected)
+
+    arr = pa.array([1, 2, 3, None, 4, 5])
+    expected = pa.array([None, None, 2, None, 1, None])
+    result = pa.compute.pairwise_diff(arr, period=2)
+    assert result.equals(expected)
+
+    # negative period
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.int8())
+    expected = pa.array([-1, -1, None, None, -1, None], type=pa.int8())
+    result = pa.compute.pairwise_diff(arr, period=-1)
+    assert result.equals(expected)
+
+    # wrap around overflow
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
+    expected = pa.array([255, 255, None, None, 255, None], type=pa.uint8())
+    result = pa.compute.pairwise_diff(arr, period=-1)
+    assert result.equals(expected)
+
+    # fail on overflow
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
+    with pytest.raises(pa.ArrowInvalid,
+                       match="overflow"):
+        pa.compute.pairwise_diff_checked(arr, period=-1)

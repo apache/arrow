@@ -25,9 +25,11 @@ namespace arrow::matlab::array::proxy {
 
 class Array : public libmexclass::proxy::Proxy {
     public:
-        Array(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+        Array(std::shared_ptr<arrow::Array> array);
     
         virtual ~Array() {}
+
+        std::shared_ptr<arrow::Array> getArray();
 
     protected:
 

@@ -18,6 +18,7 @@
 package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -27,6 +28,7 @@ import java.math.BigInteger;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.util.TransferPair;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -343,6 +345,15 @@ public class TestDecimalVector {
                                                       new BigDecimal("2982346298346289346293467923465345.63")};
       verifyWritingArrowBufWithBigEndianBytes(decimalVector, buf, expectedValues, 15);
     }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    final DecimalVector fromVector = new DecimalVector("decimal", allocator, 10, scale);
+    final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
+    final DecimalVector toVector = (DecimalVector) transferPair.getTo();
+    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    assertSame(fromVector.getField(), toVector.getField());
   }
 
   private void verifyWritingArrowBufWithBigEndianBytes(DecimalVector decimalVector,

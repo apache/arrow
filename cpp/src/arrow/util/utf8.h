@@ -36,6 +36,12 @@ ARROW_EXPORT Result<std::wstring> UTF8ToWideString(std::string_view source);
 // Similarly, convert a wstring to a UTF8 string.
 ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source);
 
+// Convert UTF8 string to a UTF16 string.
+ARROW_EXPORT Result<std::u16string> UTF8StringToUTF16(std::string_view source);
+
+// Convert UTF16 string to a UTF8 string.
+ARROW_EXPORT Result<std::string> UTF16StringToUTF8(std::u16string_view source);
+
 // This function needs to be called before doing UTF8 validation.
 ARROW_EXPORT void InitializeUTF8();
 

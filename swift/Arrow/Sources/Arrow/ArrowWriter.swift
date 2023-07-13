@@ -53,9 +53,26 @@ public class ArrowWriter {
         }
     }
 
+    public class Info {
+        public let type: org_apache_arrow_flatbuf_MessageHeader
+        public let schema: ArrowSchema
+        public let batches: [RecordBatch]
+        public init(_ type: org_apache_arrow_flatbuf_MessageHeader, schema: ArrowSchema, batches: [RecordBatch]) {
+            self.type = type
+            self.schema = schema
+            self.batches = batches
+        }
+
+        public convenience init(_ type: org_apache_arrow_flatbuf_MessageHeader, schema: ArrowSchema) {
+            self.init(type, schema: schema, batches: [RecordBatch]())
+        }
+    }
+    
+    public init() {}
+    
     private func writeField(_ fbb: inout FlatBufferBuilder, field: ArrowField) -> Result<Offset, ArrowError> {
         let nameOffset = fbb.create(string: field.name)
-        let fieldTypeOffsetResult = toFBType(&fbb, infoType: field.type)
+        let fieldTypeOffsetResult = toFBType(&fbb, arrowType: field.type)
         let startOffset = org_apache_arrow_flatbuf_Field.startField(&fbb)
         org_apache_arrow_flatbuf_Field.add(name: nameOffset, &fbb)
         org_apache_arrow_flatbuf_Field.add(nullable: field.isNullable, &fbb)
@@ -205,9 +222,9 @@ public class ArrowWriter {
         return .success(fbb.data)
     }
 
-    private func writeStream(_ writer: inout DataWriter, schema: ArrowSchema, batches: [RecordBatch]) -> Result<Bool, ArrowError> {
+    private func writeStream(_ writer: inout DataWriter, info: ArrowWriter.Info) -> Result<Bool, ArrowError> {
         var fbb: FlatBufferBuilder = FlatBufferBuilder()
-        switch writeSchema(&fbb, schema: schema) {
+        switch writeSchema(&fbb, schema: info.schema) {
         case .success(let schemaOffset):
             fbb.finish(offset: schemaOffset)
             writer.append(fbb.data)
@@ -215,9 +232,9 @@ public class ArrowWriter {
             return .failure(error)
         }
         
-        switch writeRecordBatches(&writer, batches: batches) {
+        switch writeRecordBatches(&writer, batches: info.batches) {
         case .success(let rbBlocks):
-            switch writeFooter(schema: schema, rbBlocks: rbBlocks) {
+            switch writeFooter(schema: info.schema, rbBlocks: rbBlocks) {
             case .success(let footerData):
                 fbb.finish(offset: Offset(offset: fbb.buffer.size))
                 let footerOffset = writer.count
@@ -237,9 +254,9 @@ public class ArrowWriter {
         return .success(true)
     }
 
-    public func toStream(_ schema: ArrowSchema, batches: [RecordBatch]) -> Result<Data, ArrowError> {
+    public func toStream(_ info: ArrowWriter.Info) -> Result<Data, ArrowError> {
         var writer: any DataWriter = InMemDataWriter()
-        switch writeStream(&writer, schema: schema, batches: batches) {
+        switch writeStream(&writer, info: info) {
         case .success(_):
             return .success((writer as! InMemDataWriter).data)
         case .failure(let error):
@@ -247,7 +264,7 @@ public class ArrowWriter {
         }
     }
 
-    public func toFile(_ fileName: URL, schema: ArrowSchema, batches: [RecordBatch]) -> Result<Bool, ArrowError> {
+    public func toFile(_ fileName: URL, info: ArrowWriter.Info) -> Result<Bool, ArrowError> {
         do {
             try Data().write(to: fileName)
         } catch {
@@ -262,7 +279,7 @@ public class ArrowWriter {
 
         var writer: any DataWriter = FileDataWriter(fileHandle)
         writer.append(FILEMARKER.data(using: .utf8)!)
-        switch writeStream(&writer, schema: schema, batches: batches) {
+        switch writeStream(&writer, info: info) {
         case .success(_):
             writer.append(FILEMARKER.data(using: .utf8)!)
         case .failure(let error):

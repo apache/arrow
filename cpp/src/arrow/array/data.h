@@ -360,6 +360,15 @@ struct ARROW_EXPORT BufferSpan {
   int64_t size = 0;
   // Pointer back to buffer that owns this memory
   const std::shared_ptr<Buffer>* owner = NULLPTR;
+
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data);
+  }
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(data);
+  }
 };
 
 /// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
@@ -371,11 +380,6 @@ struct ARROW_EXPORT ArraySpan {
   mutable int64_t null_count = kUnknownNullCount;
   int64_t offset = 0;
   BufferSpan buffers[3];
-
-  // 16 bytes of scratch space to enable this ArraySpan to be a view onto
-  // scalar values including binary scalars (where we need to create a buffer
-  // that looks like two 32-bit or 64-bit offsets)
-  uint64_t scratch_space[2];
 
   ArraySpan() = default;
 

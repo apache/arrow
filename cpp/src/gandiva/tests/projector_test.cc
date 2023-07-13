@@ -3202,7 +3202,8 @@ TEST_F(TestProjector, TestSubstringIndex) {
 
   auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array1, array2, array3});
 
-  auto out_1 = MakeArrowArrayUtf8({"www||mysql", "com", "DCGS;JO!L"}, {true, true, true});
+  auto out_1 =
+      MakeArrowArrayUtf8({"www||mysql", "mysql||com", "JO!L"}, {true, true, true});
 
   arrow::ArrayVector outputs;
 

@@ -408,8 +408,7 @@ tasks:
     ci: github
     template: python-wheels/github.clean.yml
 
-{% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
-                                               ("3.8", "cp38", "cp38"),
+{% for python_version, python_tag, abi_tag in [("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311")] %}
@@ -502,9 +501,10 @@ tasks:
 
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
+                  "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
-                  "ubuntu-kinetic"] %}
+                  "ubuntu-lunar"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github
@@ -600,7 +600,7 @@ tasks:
 
 {% for target in ["almalinux-9",
                   "almalinux-8",
-                  "amazon-linux-2",
+                  "amazon-linux-2023",
                   "centos-9-stream",
                   "centos-8-stream",
                   "centos-7"] %}
@@ -642,7 +642,6 @@ tasks:
     {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
-      - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -1122,7 +1121,7 @@ tasks:
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
-{% for debian_version in ["10", "11"] %}
+{% for debian_version in ["11"] %}
   test-debian-{{ debian_version }}-cpp-amd64:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1152,12 +1151,12 @@ tasks:
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
-  test-ubuntu-20.04-cpp-{{ cpp_standard }}:
+  test-ubuntu-22.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       flags: "-e CMAKE_CXX_STANDARD={{ cpp_standard }}"
       image: ubuntu-cpp
 {% endfor %}
@@ -1183,7 +1182,7 @@ tasks:
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
-{% for python_version in ["3.7", "3.8", "3.9", "3.10", "3.11"] %}
+{% for python_version in ["3.8", "3.9", "3.10", "3.11"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1227,6 +1226,14 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
+      image: ubuntu-python
+
+  test-ubuntu-22.04-python-3:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
       image: ubuntu-python
 
   test-fedora-35-python-3:
@@ -1518,9 +1525,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.7", "v3.1.2", "false", "latest"),
-                                                                           ("3.8", "v3.2.0", "false", "1.23"),
-                                                                           ("3.9", "master", "false", "latest")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.1.2", "false", "latest"),
+                                                                           ("3.9", "v3.2.0", "false", "1.23"),
+                                                                           ("3.10", "master", "false", "latest")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml

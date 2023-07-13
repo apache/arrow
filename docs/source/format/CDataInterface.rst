@@ -246,6 +246,7 @@ Examples
   has format string ``+us:4,5``; its two children have names ``ints`` and
   ``floats``, and format strings ``i`` and ``f`` respectively.
 
+.. _c-data-interface-struct-defs:
 
 Structure definitions
 =====================
@@ -531,6 +532,7 @@ parameterized extension types).
 The ``ArrowArray`` structure exported from an extension array simply points
 to the storage data of the extension array.
 
+.. _c-data-interface-semantics:
 
 Semantics
 =========
@@ -703,6 +705,8 @@ C producer examples
 Exporting a simple ``int32`` array
 ----------------------------------
 
+.. _c-data-interface-export-int32-schema:
+
 Export a non-nullable ``int32`` type with empty metadata.  In this case,
 all ``ArrowSchema`` members point to statically-allocated data, so the
 release callback is trivial.
@@ -779,6 +783,7 @@ Export the array type as a ``ArrowSchema`` with C-malloc()ed children:
          if (child->release != NULL) {
             child->release(child);
          }
+         free(child);
       }
       free(schema->children);
       // Mark released
@@ -853,6 +858,7 @@ transferring ownership to the consumer:
          if (child->release != NULL) {
             child->release(child);
          }
+         free(child);
       }
       free(array->children);
       // Free buffers

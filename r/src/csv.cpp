@@ -78,6 +78,36 @@ SEXP csv___ReadOptions__column_names(
 }
 
 // [[arrow::export]]
+SEXP csv___ReadOptions__block_size(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->block_size);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__skip_rows(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->skip_rows);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__autogenerate_column_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->autogenerate_column_names);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__use_threads(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->use_threads);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__skip_rows_after_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->skip_rows_after_names);
+}
+
+// [[arrow::export]]
 std::shared_ptr<arrow::csv::ConvertOptions> csv___ConvertOptions__initialize(
     cpp11::list options) {
   auto res = std::make_shared<arrow::csv::ConvertOptions>(

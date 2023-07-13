@@ -922,7 +922,7 @@ class ARROW_EXPORT BaseListType : public NestedType {
   ~BaseListType() override;
   const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+  const std::shared_ptr<DataType>& value_type() const { return children_[0]->type(); }
 };
 
 /// \brief Concrete type class for list data
@@ -1821,6 +1821,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     if (IsName()) return false;
     if (IsFieldPath()) return std::get<FieldPath>(impl_).indices().size() > 1;
     return true;
+  }
+
+  /// \brief Return true if this ref is a name or a nested sequence of only names
+  ///
+  /// Useful for determining if iteration is possible without recursion or inner loops
+  bool IsNameSequence() const {
+    if (IsName()) return true;
+    if (const auto* nested = nested_refs()) {
+      for (const auto& ref : *nested) {
+        if (!ref.IsName()) return false;
+      }
+      return !nested->empty();
+    }
+    return false;
   }
 
   const FieldPath* field_path() const {

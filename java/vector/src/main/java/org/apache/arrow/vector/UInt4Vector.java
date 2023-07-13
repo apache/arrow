@@ -49,7 +49,6 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
   public static final int MAX_UINT4 = 0XFFFFFFFF;
 
   public static final byte TYPE_WIDTH = 4;
-  private final FieldReader reader;
 
   public UInt4Vector(String name, BufferAllocator allocator) {
     this(name, FieldType.nullable(MinorType.UINT4.getType()), allocator);
@@ -59,14 +58,18 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
     this(new Field(name, fieldType, null), allocator);
   }
 
+  /**
+   * Constructor for UInt4Vector.
+   * @param field Field type
+   * @param allocator Allocator type
+   */
   public UInt4Vector(Field field, BufferAllocator allocator) {
     super(field, allocator, TYPE_WIDTH);
-    reader = new UInt4ReaderImpl(UInt4Vector.this);
   }
 
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new UInt4ReaderImpl(UInt4Vector.this);
   }
 
   @Override
@@ -281,6 +284,19 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
     return new TransferImpl(ref, allocator);
   }
 
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    return new TransferImpl(field, allocator);
+  }
+
   @Override
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((UInt4Vector) to);
@@ -311,6 +327,10 @@ public final class UInt4Vector extends BaseFixedWidthVector implements BaseIntVe
 
     public TransferImpl(String ref, BufferAllocator allocator) {
       to = new UInt4Vector(ref, field.getFieldType(), allocator);
+    }
+
+    public TransferImpl(Field field, BufferAllocator allocator) {
+      to = new UInt4Vector(field, allocator);
     }
 
     public TransferImpl(UInt4Vector to) {

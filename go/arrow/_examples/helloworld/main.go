@@ -17,16 +17,36 @@
 package main
 
 import (
+	"os"
+
+	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/math"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func main() {
-	fb := array.NewFloat64Builder(memory.DefaultAllocator)
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "intField", Type: arrow.PrimitiveTypes.Int64, Nullable: false},
+		{Name: "stringField", Type: arrow.BinaryTypes.String, Nullable: false},
+		{Name: "floatField", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+	}, nil)
 
-	fb.AppendValues([]float64{1, 3, 5, 7, 9, 11}, nil)
+	builder := array.NewRecordBuilder(memory.DefaultAllocator, schema)
+	defer builder.Release()
 
-	vec := fb.NewFloat64Array()
-	math.Float64.Sum(vec)
+	builder.Field(0).(*array.Int64Builder).AppendValues([]int64{1, 2, 3, 4, 5}, nil)
+	builder.Field(1).(*array.StringBuilder).AppendValues([]string{"a", "b", "c", "d", "e"}, nil)
+	builder.Field(2).(*array.Float64Builder).AppendValues([]float64{1, 0, 3, 0, 5}, []bool{true, false, true, false, true})
+
+	rec := builder.NewRecord()
+	defer rec.Release()
+
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec})
+	defer tbl.Release()
+
+	sum := math.Float64.Sum(tbl.Column(2).Data().Chunk(0).(*array.Float64))
+	if sum != 9 {
+		defer os.Exit(1)
+	}
 }

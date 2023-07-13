@@ -456,6 +456,7 @@ if(ARROW_COMPUTE)
        compute/kernels/scalar_validity.cc
        compute/kernels/vector_array_sort.cc
        compute/kernels/vector_cumulative_ops.cc
+       compute/kernels/vector_pairwise.cc
        compute/kernels/vector_nested.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
@@ -480,6 +481,12 @@ if(ARROW_FILESYSTEM)
        filesystem/path_util.cc
        filesystem/util_internal.cc)
 
+  if(ARROW_AZURE)
+    list(APPEND ARROW_SRCS filesystem/azurefs.cc)
+    set_source_files_properties(filesystem/azurefs.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+                                           SKIP_UNITY_BUILD_INCLUSION ON)
+  endif()
   if(ARROW_GCS)
     list(APPEND ARROW_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
