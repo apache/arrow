@@ -278,15 +278,17 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.null_count = C.int64_t(arr.NullN())
 	carr.offset = C.int64_t(arr.Data().Offset())
 	buffers := arr.Data().Buffers()
-	cbuf := []unsafe.Pointer{}
-	for _, b := range buffers {
+	cbufs := allocateBufferPtrArr(len(buffers))
+	for i, b := range buffers {
 		if b != nil {
-			cbuf = append(cbuf, C.CBytes(b.Bytes()))
+			cbufs[i] = (*C.void)(C.CBytes(b.Bytes()))
+		} else {
+			cbufs[i] = nil
 		}
 	}
-	carr.n_buffers = C.int64_t(len(cbuf))
-	if len(cbuf) > 0 {
-		carr.buffers = &cbuf[0]
+	carr.n_buffers = C.int64_t(len(cbufs))
+	if len(cbufs) > 0 {
+		carr.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cbufs[0]))
 	}
 	carr.release = (*[0]byte)(C.release_test_arr)
 

@@ -161,6 +161,7 @@ func exportStream(rdr array.RecordReader, out *CArrowArrayStream) {
 	out.get_next = (*[0]byte)(C.streamGetNextTrampoline)
 	out.get_last_error = (*[0]byte)(C.streamGetError)
 	out.release = (*[0]byte)(C.streamRelease)
+	rdr.Retain()
 	h := cgo.NewHandle(cRecordReader{rdr: rdr, err: nil})
 	out.private_data = createHandle(h)
 }
