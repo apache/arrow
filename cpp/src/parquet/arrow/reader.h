@@ -141,7 +141,16 @@ class PARQUET_EXPORT FileReader {
 
   /// \brief Read column as a whole into a chunked array.
   ///
-  /// The indicated column index is relative to the schema
+  /// The index i refers the index of the top level schema field, which may
+  /// be nested or flat - e.g.
+  ///
+  /// 0 foo.bar
+  ///   foo.bar.baz
+  ///   foo.qux
+  /// 1 foo2
+  /// 2 foo3
+  ///
+  /// i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
   virtual ::arrow::Status ReadColumn(int i,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
