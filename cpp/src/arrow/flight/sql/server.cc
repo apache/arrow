@@ -272,7 +272,7 @@ arrow::Result<ActionCancelQueryRequest> ParseActionCancelQueryRequest(
 
 arrow::Result<ActionCloseSessionRequest> ParseActionCloseSessionRequest(
     const google::protobuf::Any& any) {
-  pb::sql::ActionCloseSessionRequest command;
+  pb::ActionCloseSessionRequest command;
   if (!any.UnpackTo(&command)) {
     return Status::Invalid("Unable to unpack ActionCloseSessionRequest");
   }
@@ -373,7 +373,7 @@ arrow::Result<ActionEndTransactionRequest> ParseActionEndTransactionRequest(
 
 arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsRequest(
     const google::protobuf::Any& any) {
-  pb::sql::ActionSetSessionOptionsRequest command;
+  pb::ActionSetSessionOptionsRequest command;
   if (!any.UnpackTo(&command)) {
     return Status::Invalid("Unable to unpack ActionSetSessionOptionsRequest");
   }
@@ -381,31 +381,31 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
   ActionSetSessionOptionsRequest result;
   if (command.session_options_size() > 0) {
     result.session_options.reserve(command.session_options_size());
-    for (const pb::sql::SessionOption& in_opt : command.session_options()) {
+    for (const pb::SessionOption& in_opt : command.session_options()) {
       const std::string& name = in_opt.option_name();
       SessionOptionValue val;
       switch (in_opt.option_value_case()) {
-        case pb::sql::SessionOption::OPTION_VALUE_NOT_SET:
+        case pb::SessionOption::OPTION_VALUE_NOT_SET:
           return Status::Invalid("Unset SessionOptionValue for name '" + name + "'");
-        case pb::sql::SessionOption::kStringValue:
+        case pb::SessionOption::kStringValue:
           val = in_opt.string_value();
           break;
-        case pb::sql::SessionOption::kBoolValue:
+        case pb::SessionOption::kBoolValue:
           val = in_opt.bool_value();
           break;
-        case pb::sql::SessionOption::kInt32Value:
+        case pb::SessionOption::kInt32Value:
           val = in_opt.int32_value();
           break;
-        case pb::sql::SessionOption::kInt64Value:
+        case pb::SessionOption::kInt64Value:
           val = in_opt.int64_value();
           break;
-        case pb::sql::SessionOption::kFloatValue:
+        case pb::SessionOption::kFloatValue:
           val = in_opt.float_value();
           break;
-        case pb::sql::SessionOption::kDoubleValue:
+        case pb::SessionOption::kDoubleValue:
           val = in_opt.double_value();
           break;
-        case pb::sql::SessionOption::kStringListValue:
+        case pb::SessionOption::kStringListValue:
           val.emplace<std::vector<std::string>>();
           std::get<std::vector<std::string>>(val)
               .reserve(in_opt.string_list_value().values_size());
@@ -422,7 +422,7 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
 
 arrow::Result<ActionGetSessionOptionsRequest> ParseActionGetSessionOptionsRequest(
     const google::protobuf::Any& any) {
-  pb::sql::ActionGetSessionOptionsRequest command;
+  pb::ActionGetSessionOptionsRequest command;
   if (!any.UnpackTo(&command)) {
     return Status::Invalid("Unable to unpack ActionGetSessionOptionsRequest");
   }
@@ -514,24 +514,24 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
 }
 
 arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
-  pb::sql::ActionSetSessionOptionsResult pb_result;
+  pb::ActionSetSessionOptionsResult pb_result;
   for (const SetSessionOptionResult res : result.results) {
     switch (res) {
       case SetSessionOptionResult::kUnspecified:
         pb_result.add_results(
-            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED);
+            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED);
         break;
       case SetSessionOptionResult::kOk:
         pb_result.add_results(
-            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK);
+            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK);
         break;
       case SetSessionOptionResult::kInvalidResult:
         pb_result.add_results(
-            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE);
+            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE);
         break;
       case SetSessionOptionResult::kError:
         pb_result.add_results(
-            pb::sql::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR);
+            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR);
         break;
     }
   }
@@ -539,9 +539,9 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
 }
 
 arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
-  pb::sql::ActionGetSessionOptionsResult pb_result;
+  pb::ActionGetSessionOptionsResult pb_result;
   for (const SessionOption& in_opt : result.session_options) {
-    pb::sql::SessionOption* opt = pb_result.add_session_options();
+    pb::SessionOption* opt = pb_result.add_session_options();
     const std::string& name = in_opt.option_name;
     opt->set_option_name(name);
 
@@ -568,7 +568,7 @@ arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
         opt->set_double_value(std::get<double>(value));
         break;
       case SessionOptionValueType::kStringList:
-        pb::sql::SessionOption::StringListValue* string_list_value =
+        pb::SessionOption::StringListValue* string_list_value =
             opt->mutable_string_list_value();
         for (const std::string& s : std::get<std::vector<std::string>>(value))
           string_list_value->add_values(s);
@@ -580,19 +580,19 @@ arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
 }
 
 arrow::Result<Result> PackActionResult(CloseSessionResult result) {
-  pb::sql::ActionCloseSessionResult pb_result;
+  pb::ActionCloseSessionResult pb_result;
   switch (result) {
     case CloseSessionResult::kUnspecified:
-      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED);
+      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_UNSPECIFIED);
       break;
     case CloseSessionResult::kClosed:
-      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_CLOSED);
+      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSED);
       break;
     case CloseSessionResult::kClosing:
-      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_CLOSING);
+      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_CLOSING);
       break;
     case CloseSessionResult::kNotClosable:
-      pb_result.set_result(pb::sql::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE);
+      pb_result.set_result(pb::ActionCloseSessionResult::CLOSE_RESULT_NOT_CLOSEABLE);
       break;
   }
   return PackActionResult(pb_result);

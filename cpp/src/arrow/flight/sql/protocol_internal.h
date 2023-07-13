@@ -24,3 +24,4 @@
 #include "arrow/flight/sql/visibility.h"
 
 #include "arrow/flight/sql/FlightSql.pb.h"  // IWYU pragma: export
+#include "arrow/flight/Flight.pb.h"

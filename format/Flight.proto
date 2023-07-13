@@ -525,3 +525,95 @@ message FlightData {
 message PutResult {
   bytes app_metadata = 1;
 }
+
+/*
+ * Request message for the "Close Session" action.
+ */
+message ActionCloseSessionRequest {
+  option (experimental) = true;
+}
+
+/*
+ * The result of closing a session.
+ *
+ * The result should be wrapped in a google.protobuf.Any message.
+ */
+message ActionCloseSessionResult {
+  option (experimental) = true;
+
+  enum CloseSessionResult {
+    // The session close status is unknown. Servers should avoid using
+    // this value (send a NOT_FOUND error if the requested query is
+    // not known). Clients can retry the request.
+    CLOSE_RESULT_UNSPECIFIED = 0;
+    // The session close request is complete. Subsequent requests with
+    // a NOT_FOUND error.
+    CLOSE_RESULT_CLOSED = 1;
+    // The session close request is in progress. The client may retry
+    // the close request.
+    CLOSE_RESULT_CLOSING = 2;
+    // The session is not closeable. The client should not retry the
+    // close request.
+    CLOSE_RESULT_NOT_CLOSEABLE = 3;
+  }
+
+  CloseSessionResult result = 1;
+}
+
+message SessionOption {
+  option (experimental) = true;
+
+  message StringListValue {
+    repeated string values = 1;
+  }
+
+  string option_name = 1;
+  oneof option_value {
+    string string_value = 2;
+    bool bool_value = 3;
+    sfixed32 int32_value = 4;
+    sfixed64 int64_value = 5;
+    float float_value = 6;
+    double double_value = 7;
+    StringListValue string_list_value = 8;
+  }
+}
+
+message ActionSetSessionOptionsRequest {
+  option (experimental) = true;
+
+  repeated SessionOption session_options = 1;
+}
+
+message ActionSetSessionOptionsResult {
+  option (experimental) = true;
+
+  enum SetSessionOptionResult {
+    // The status of setting the option is unknown. Servers should avoid using
+    // this value (send a NOT_FOUND error if the requested query is
+    // not known). Clients can retry the request.
+    SET_SESSION_OPTION_RESULT_UNSPECIFIED = 0;
+    // The session option setting completed successfully.
+    SET_SESSION_OPTION_RESULT_OK = 1;
+    // The session cannot be set to the given value.
+    SET_SESSION_OPTION_RESULT_INVALID_VALUE = 2;
+    // The session cannot be set.
+    SET_SESSION_OPTION_RESULT_ERROR = 3;
+  }
+
+  repeated SetSessionOptionResult results = 1;
+}
+
+message ActionGetSessionOptionsRequest {
+    option (experimental) = true;
+}
+
+message ActionGetSessionOptionsResult {
+    option (experimental) = true;
+
+    repeated SessionOption session_options = 1;
+}
+
+extend google.protobuf.MessageOptions {
+  bool experimental = 1000;
+}
