@@ -19,6 +19,7 @@ classdef tInt8Type < hFixedWidthType
     properties
         ArrowType = arrow.type.int8
         TypeID = arrow.type.ID.Int8
-        BitWidth = int32(8);
+        BitWidth = int32(8)
+        ClassName = "arrow.type.Int8Type"
     end
 end

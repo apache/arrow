@@ -19,6 +19,7 @@ classdef tFloat32Type < hFixedWidthType
     properties
         ArrowType = arrow.type.float32
         TypeID = arrow.type.ID.Float32
-        BitWidth = int32(32);
+        BitWidth = int32(32)
+        ClassName = "arrow.type.Float32Type"
     end
 end

@@ -21,6 +21,8 @@ classdef StringType < arrow.type.Type
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy
             end
+            expectedProxyName = arrow.type.traits.StringTraits.TypeProxyClassName;
+            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
             obj@arrow.type.Type(proxy);
         end
    end

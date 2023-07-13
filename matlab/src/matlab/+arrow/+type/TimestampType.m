@@ -26,6 +26,8 @@ classdef TimestampType < arrow.type.FixedWidthType
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy
             end
+            expectedProxyName = arrow.type.traits.TimestampTraits.TypeProxyClassName;
+            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
             obj@arrow.type.FixedWidthType(proxy);
         end
 

@@ -21,6 +21,8 @@ classdef Float64Type < arrow.type.FixedWidthType
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy
             end
+            expectedProxyName = arrow.type.traits.Float64Traits.TypeProxyClassName;
+            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
             obj@arrow.type.FixedWidthType(proxy);
         end
     end

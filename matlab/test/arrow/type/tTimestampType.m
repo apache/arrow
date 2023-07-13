@@ -19,10 +19,17 @@ classdef tTimestampType < hFixedWidthType
     properties
         ArrowType = arrow.type.timestamp
         TypeID = arrow.type.ID.Timestamp
-        BitWidth = int32(64);
+        BitWidth = int32(64)
+        ClassName = "arrow.type.TimestampType"
     end
 
     methods(Test)
+        function TestClass(testCase)
+        % Verify ArrowType is an object of the expected class type.
+            name = string(class(testCase.ArrowType));
+            testCase.verifyEqual(name, testCase.ClassName);
+        end
+
         function DefaultTimeUnit(testCase)
         % Verify the default TimeUnit is Microsecond
             type = arrow.type.timestamp;

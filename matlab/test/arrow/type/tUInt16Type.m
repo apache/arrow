@@ -19,6 +19,7 @@ classdef tUInt16Type < hFixedWidthType
     properties
         ArrowType = arrow.type.uint16
         TypeID = arrow.type.ID.UInt16
-        BitWidth = int32(16);
+        BitWidth = int32(16)
+        ClassName = "arrow.type.UInt16Type"
     end
 end

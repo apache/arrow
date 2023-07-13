@@ -18,9 +18,11 @@ classdef BooleanType < arrow.type.FixedWidthType
     
     methods 
         function obj = BooleanType(proxy)
-             arguments
+            arguments
                 proxy(1, 1) libmexclass.proxy.Proxy
             end
+            expectedProxyName = arrow.type.traits.BooleanTraits.TypeProxyClassName;
+            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
             obj@arrow.type.FixedWidthType(proxy);
         end
     end

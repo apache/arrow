@@ -19,6 +19,7 @@ classdef tBooleanType < hFixedWidthType
     properties
         ArrowType = arrow.type.boolean
         TypeID = arrow.type.ID.Boolean
-        BitWidth = int32(1);
+        BitWidth = int32(1)
+        ClassName = "arrow.type.BooleanType"
     end
 end

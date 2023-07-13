@@ -19,6 +19,8 @@ classdef tFloat64Type < hFixedWidthType
     properties
         ArrowType = arrow.type.float64
         TypeID = arrow.type.ID.Float64
-        BitWidth = int32(64);
+        BitWidth = int32(64)
+        ClassName = "arrow.type.Float64Type"
+
     end
 end
