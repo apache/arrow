@@ -169,6 +169,7 @@ ARROW_EXPORT bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* byte
                                      uint32_t num_bytes);
 
 #if defined(ARROW_HAVE_AVX2)
+
 namespace avx2 {
 ARROW_EXPORT void bits_filter_indexes_avx2(int bit_to_search, const int num_bits,
                                            const uint8_t* bits,
@@ -186,8 +187,7 @@ ARROW_EXPORT bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_byt
 
 #endif
 
-};  // namespace bit_util
-
+}  // namespace bit_util
 }  // namespace util
 
 namespace compute {

@@ -22,9 +22,8 @@
 #include "arrow/util/logging.h"
 
 #if defined(ARROW_HAVE_AVX2)
-namespace arrow {
-namespace util {
-namespace avx2 {
+
+namespace arrow::util::avx2 {
 
 template <int bit_to_search>
 void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits, int* num_indexes,
@@ -212,7 +211,6 @@ bool are_all_bytes_zero_avx2(const uint8_t* bytes, uint32_t num_bytes) {
   return result_or32 == 0;
 }
 
-}  // namespace avx2
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util::avx2
+
 #endif  // ARROW_HAVE_AVX2
