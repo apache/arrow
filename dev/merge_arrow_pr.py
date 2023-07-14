@@ -78,7 +78,24 @@ def get_json(url, headers=None):
     response = requests.get(url, headers=headers)
     if response.status_code != 200:
         raise ValueError(response.json())
-    return response.json()
+    # GitHub returns a link header with the next, previous, last
+    # page if there is pagination on the response. See:
+    # https://docs.github.com/en/rest/guides/using-pagination-in-the-rest-api#using-link-headers
+    next_responses = None
+    if "link" in response.headers:
+        links = response.headers['link'].split(', ')
+        for link in links:
+            if 'rel="next"' in link:
+                # Format: '<url>; rel="next"'
+                next_url = link.split(";")[0][1:-1]
+                next_responses = get_json(next_url, headers)
+    responses = response.json()
+    if next_responses:
+        if isinstance(responses, list):
+            responses.extend(next_responses)
+        else:
+            raise ValueError('GitHub response was paginated and is not a list')
+    return responses
 
 
 def run_cmd(cmd):
