@@ -2451,27 +2451,22 @@ def test_invalid_non_join_column():
 
 def test_aggregate_hash_functions():
     table = pa.table({'key': ['a', 'a', 'b', 'b', 'a'], 'value': [11, 112, 0, 1, 2]})
-    
+
     aggregates = [(["value"], "hash_list", None, "value_list")]
     keys = []
-    
+
     with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
         res = table.group_by(keys).aggregate([(['value'], 'hash_list')])
-    assert "The provided function (hash_list) is a hash aggregate function." in str(excinfo.value)
-    
+    assert "The provided function (hash_list) is a hash aggregate function." in str(
+        excinfo.value)
+
+
 def test_scalar_aggregate_distinct_functions():
     table = pa.table({'key': ['a', 'a', 'b', 'b', 'a'], 'value': [11, 11, 10, 12, 12]})
-    
+
     aggregates = [(["value"], "distinct", None, "value_distinct")]
     keys = []
-    
+
     func = pc.get_function("distinct")
     print(func)
     res = table.group_by(keys).aggregate([(['value'], 'distinct')])
-    
-    
-    
-    
-    
-        
-    

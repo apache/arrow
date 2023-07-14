@@ -18,18 +18,22 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
 
 #include <memory>
 
 // TODO: remove after debug
-#include<iostream>
+#include <iostream>
 
 namespace arrow {
 namespace compute {
@@ -165,24 +169,16 @@ Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
 
 /// TODO: also check whether can we take a vector of arrays and concatenate them
 /// at the end and find the unique. This could reduce the complicated logic in the merge
-/// function. 
+/// function.
 struct DistinctImpl : public ScalarAggregator {
-  explicit DistinctImpl() = default ;
-
-  Status Consume(KernelContext*, const ExecSpan& batch) override {
-    
+  Status Consume(KernelContext* ctx, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      std::cout << "Array" << std::endl;
       const ArraySpan& input = batch[0].array;
       ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(input.ToArray()))
-      std::cout << "unique array " << unique_array->ToString() << std::endl;
       this->array = std::move(unique_array);
-      std::cout << "this array " << this->array->ToString() << std::endl;
     } else {
-      std::cout << "Scalar" << std::endl;
-      const Scalar& input = *batch[0].scalar;
-      std::cout << input.ToString() << std::endl;
-      return Status::NotImplemented("Scalar support not implemented");
+      /// TODO: complete this feature
+      return Status::NotImplemented("Distinct aggregate doesn't support scalar values");
     }
     return Status::OK();
   }
@@ -191,31 +187,27 @@ struct DistinctImpl : public ScalarAggregator {
     const auto& other_state = checked_cast<const DistinctImpl&>(src);
     auto this_array = this->array;
     auto other_array = other_state.array;
-    if(other_array && this_array) {
-      ARROW_ASSIGN_OR_RAISE(auto merged_array, arrow::Concatenate({this_array, other_array},ctx->memory_pool()));
+    if (other_array && this_array) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto merged_array,
+          arrow::Concatenate({this_array, other_array}, ctx->memory_pool()));
       this->array = std::move(merged_array);
-      std::cout << "Merge Array(other_array && this_array): " << this->array->ToString() << std::endl;
-    } else if(other_array) {
-      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(other_array))
+    } else {
+      auto target_array = other_array ? other_array : this_array;
+      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(target_array));
       this->array = std::move(unique_array);
-      std::cout << "Merge Array(other_array): " << this->array->ToString() << std::endl;
-    } else if(this_array) {
-      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(this_array))
-      this->array = std::move(unique_array);
-      std::cout << "Merge Array(this_array): " << this->array->ToString() << std::endl;
     }
     return Status::OK();
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    std::cout << "Finalize" << std::endl;
     const auto& state = checked_cast<const DistinctImpl&>(*ctx->state());
-    //std::cout << "Finalize Array: " << state.array->ToString() << std::endl;
-    if(state.array) {
+    if (state.array) {
       *out = Datum(state.array);
     }
     return Status::OK();
   }
+
   std::shared_ptr<Array> array;
 };
 
@@ -224,51 +216,77 @@ Result<std::unique_ptr<KernelState>> DistinctInit(KernelContext*,
   return std::make_unique<DistinctImpl>();
 }
 
+namespace {
+Result<TypeHolder> DistinctType(KernelContext*, const std::vector<TypeHolder>& types) {
+  auto ty = types.front().GetSharedPtr();
+  return TypeHolder(std::move(ty));
+}
+}  // namespace
 
-void AddDistinctKernel(InputType type, OutputType out_type, ScalarAggregateFunction* func) {
-  AddAggKernel(KernelSignature::Make({type}, out_type),
-               DistinctInit, func);
-  
+void AddDistinctKernel(InputType type, ScalarAggregateFunction* func) {
+  auto sig = KernelSignature::Make({type}, DistinctType);
+  AddAggKernel(std::move(sig), DistinctInit, func);
 }
 
+void AddDistinctKernel(const std::vector<std::shared_ptr<DataType>> types,
+                       ScalarAggregateFunction* func) {
+  for (const auto& type : types) {
+    auto sig = KernelSignature::Make({InputType(type)}, DistinctType);
+    AddAggKernel(std::move(sig), DistinctInit, func);
+  }
+}
+
+// void AddDistinctKernels(ScalarAggregateFunction* func) {
+//   // Boolean
+//   AddDistinctKernel(boolean(), func);
+//   // Number
+//   AddDistinctKernel(int8(), func);
+//   AddDistinctKernel(int16(), func);
+//   AddDistinctKernel(int32(), func);
+//   AddDistinctKernel(int64(), func);
+//   AddDistinctKernel(uint8(), func);
+//   AddDistinctKernel(uint16(), func);
+//   AddDistinctKernel(uint32(), func);
+//   AddDistinctKernel(uint64(), func);
+//   AddDistinctKernel(float16(), func);
+//   AddDistinctKernel(float32(), func);
+//   AddDistinctKernel(float64(), func);
+//   // Date
+//   AddDistinctKernel(date32(), func);
+//   AddDistinctKernel(date64(), func);
+//   // Time
+//   AddDistinctKernel(match::SameTypeId(Type::TIME32), func);
+//   AddDistinctKernel(match::SameTypeId(Type::TIME64), func);
+//   // // Timestamp
+//   AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), func);
+//   // Duration
+//   AddDistinctKernel(match::SameTypeId(Type::DURATION), func);
+//   // // Interval
+//   AddDistinctKernel(month_interval(), func);
+//   AddDistinctKernel(day_time_interval(), func);
+//   AddDistinctKernel(month_day_nano_interval(), func);
+//   // Binary & String
+//   AddDistinctKernel(match::BinaryLike(), func);
+//   AddDistinctKernel(match::LargeBinaryLike(), func);
+//   // Fixed binary & Decimal
+//   AddDistinctKernel(match::FixedSizeBinaryLike(), func);
+// }
+
 void AddDistinctKernels(ScalarAggregateFunction* func) {
-  // Boolean
-  AddDistinctKernel(boolean(), boolean(), func);
-  // Number
-  AddDistinctKernel(int8(), int8(), func);
-  AddDistinctKernel(int16(), int16(), func);
-  AddDistinctKernel(int32(), int32(), func);
-  AddDistinctKernel(int64(), int64(), func);
-  AddDistinctKernel(uint8(), uint8(), func);
-  AddDistinctKernel(uint16(), uint16(), func);
-  AddDistinctKernel(uint32(), uint32(), func);
-  AddDistinctKernel(uint64(), uint64(), func);
-  AddDistinctKernel(float16(), float16(), func);
-  AddDistinctKernel(float32(), float32(), func);
-  AddDistinctKernel(float64(), float64(), func);
-  // Date
-  AddDistinctKernel(date32(), date32(), func);
-  AddDistinctKernel(date64(), date64(), func);
-  // Time
-  // AddDistinctKernel(match::SameTypeId(Type::TIME32), arrow::time32(arrow::TimeUnit::SECOND), func);
-  // AddDistinctKernel(match::SameTypeId(Type::TIME32), arrow::time32(arrow::TimeUnit::MILLI), func);
-  // AddDistinctKernel(match::SameTypeId(Type::TIME64), arrow::time64(arrow::TimeUnit::SECOND), func);
-  // AddDistinctKernel(match::SameTypeId(Type::TIME64), arrow::time64(arrow::TimeUnit::MILLI), func);
-  // // Timestamp & Duration
-  AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), arrow::timestamp(arrow::TimeUnit::SECOND), func);
-  AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), arrow::timestamp(arrow::TimeUnit::MILLI), func);
-  AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), arrow::timestamp(arrow::TimeUnit::MICRO), func);
-  AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), arrow::timestamp(arrow::TimeUnit::NANO), func);
-  // AddDistinctKernel(match::SameTypeId(Type::DURATION), match::SameTypeId(Type::DURATION), func);
-  // // Interval
-  // AddDistinctKernel(month_interval(), month_interval(), func);
-  // AddDistinctKernel(day_time_interval(), day_time_interval(), func);
-  // AddDistinctKernel(month_day_nano_interval(), month_day_nano_interval(), func);
-  // // Binary & String
-  // AddDistinctKernel(match::BinaryLike(), match::BinaryLike(), func);
-  // AddDistinctKernel(match::LargeBinaryLike(), match::LargeBinaryLike(), func);
-  // // Fixed binary & Decimal
-  // AddDistinctKernel(match::FixedSizeBinaryLike(), match::FixedSizeBinaryLike(), func);
+  AddDistinctKernel({null(), boolean()}, func);
+  AddDistinctKernel(NumericTypes(), func);
+  AddDistinctKernel(TemporalTypes(), func);
+  AddDistinctKernel(BaseBinaryTypes(), func);
+  AddDistinctKernel(match::SameTypeId(Type::TIME32), func);
+  AddDistinctKernel(match::SameTypeId(Type::TIME64), func);
+  AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), func);
+  AddDistinctKernel(match::SameTypeId(Type::DURATION), func);
+  AddDistinctKernel(Type::FIXED_SIZE_BINARY, func);
+  AddDistinctKernel(Type::INTERVAL_MONTHS, func);
+  AddDistinctKernel(Type::INTERVAL_DAY_TIME, func);
+  AddDistinctKernel(Type::INTERVAL_MONTH_DAY_NANO, func);
+  AddDistinctKernel(Type::DECIMAL128, func);
+  AddDistinctKernel(Type::DECIMAL256, func);
 }
 
 // ----------------------------------------------------------------------
@@ -1133,9 +1151,8 @@ const FunctionDoc index_doc{"Find the index of the first occurrence of a given v
                             {"array"},
                             "IndexOptions",
                             /*options_required=*/true};
-const FunctionDoc distinct_doc{"Select unique values",
-                                     ("All unique values are returned"),
-                                     {"array"}};
+const FunctionDoc distinct_doc{
+    "Select unique values", ("All unique values are returned"), {"array"}};
 
 }  // namespace
 
@@ -1308,7 +1325,8 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
                      int64(), func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
   // distinct
-  func = std::make_shared<ScalarAggregateFunction>("distinct", Arity::Unary(), distinct_doc);
+  func =
+      std::make_shared<ScalarAggregateFunction>("distinct", Arity::Unary(), distinct_doc);
 
   AddDistinctKernels(func.get());
   DCHECK_OK(registry->AddFunction(std::move(func)));
