@@ -528,6 +528,8 @@ message PutResult {
 
 /*
  * Request message for the "Close Session" action.
+ *
+ * The exiting session is referenced via a cookie header.
  */
 message ActionCloseSessionRequest {
   option (experimental) = true;
@@ -560,29 +562,28 @@ message ActionCloseSessionResult {
   CloseSessionResult result = 1;
 }
 
-message SessionOption {
+message SessionOptionValue {
   option (experimental) = true;
 
   message StringListValue {
     repeated string values = 1;
   }
 
-  string option_name = 1;
   oneof option_value {
-    string string_value = 2;
-    bool bool_value = 3;
-    sfixed32 int32_value = 4;
-    sfixed64 int64_value = 5;
-    float float_value = 6;
-    double double_value = 7;
-    StringListValue string_list_value = 8;
+    string string_value = 1;
+    bool bool_value = 2;
+    sfixed32 int32_value = 3;
+    sfixed64 int64_value = 4;
+    float float_value = 5;
+    double double_value = 6;
+    StringListValue string_list_value = 7;
   }
 }
 
 message ActionSetSessionOptionsRequest {
   option (experimental) = true;
 
-  repeated SessionOption session_options = 1;
+  map<string, SessionOptionValue> session_options = 1;
 }
 
 message ActionSetSessionOptionsResult {
@@ -601,7 +602,7 @@ message ActionSetSessionOptionsResult {
     SET_SESSION_OPTION_RESULT_ERROR = 3;
   }
 
-  repeated SetSessionOptionResult results = 1;
+  map<string, SetSessionOptionResult> results = 1;
 }
 
 message ActionGetSessionOptionsRequest {
@@ -611,7 +612,7 @@ message ActionGetSessionOptionsRequest {
 message ActionGetSessionOptionsResult {
     option (experimental) = true;
 
-    repeated SessionOption session_options = 1;
+    map<string, SessionOptionValue> session_options = 1;
 }
 
 extend google.protobuf.MessageOptions {
