@@ -769,6 +769,34 @@ func TestExportRecordReaderStream(t *testing.T) {
 	assert.EqualValues(t, len(reclist), i)
 }
 
+func TestExportRecordReaderStreamLifetime(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "strings", Type: arrow.BinaryTypes.String, Nullable: false},
+	}, nil)
+
+	bldr := array.NewBuilder(mem, &arrow.StringType{})
+	defer bldr.Release()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, 0)
+	defer rec.Release()
+
+	rdr, _ := array.NewRecordReader(schema, []arrow.Record{rec})
+	defer rdr.Release()
+
+	out := createTestStreamObj()
+	ExportRecordReader(rdr, out)
+
+	// C Stream is holding on to memory
+	assert.NotEqual(t, 0, mem.CurrentAlloc())
+	releaseStream(out)
+}
+
 func TestEmptyListExport(t *testing.T) {
 	bldr := array.NewBuilder(memory.DefaultAllocator, arrow.LargeListOf(arrow.PrimitiveTypes.Int32))
 	defer bldr.Release()
