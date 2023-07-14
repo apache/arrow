@@ -1189,7 +1189,7 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
                                                  void>> {
   explicit ArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc) {
     builder = acc->builder.get();
-    chunks = acc->chunks;
+    chunks = &acc->chunks;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
                                                  builder->value_data_length(),
                                                  &chunk_space_remaining))) {
@@ -1200,7 +1200,7 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
   Status PushChunk() {
     std::shared_ptr<::arrow::Array> result;
     RETURN_NOT_OK(builder->Finish(&result));
-    chunks.push_back(std::move(result));
+    chunks->push_back(std::move(result));
     chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
   }
@@ -1220,7 +1220,7 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
   Status AppendNull() { return builder->AppendNull(); }
 
   typename EncodingTraits<DType>::BuilderType* builder;
-  std::vector<std::shared_ptr<::arrow::Array>> chunks;
+  std::vector<std::shared_ptr<::arrow::Array>>* chunks;
   int64_t chunk_space_remaining;
 };
 
@@ -3020,6 +3020,8 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
                                  MemoryPool* pool = ::arrow::default_memory_pool())
       : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY, pool),
         sink_(pool),
+        // Prefix lengths are encoded using DeltaBitPackEncoder that can be left
+        // uninitialized.
         prefix_length_encoder_(nullptr, pool),
         suffix_encoder_(descr, pool),
         last_value_(""),
@@ -3059,36 +3061,36 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
     if (num_values == 0) {
       return;
     }
-    uint32_t len = descr_->type_length();
+    uint32_t flba_len = descr_->type_length();
 
     std::string_view last_value_view = last_value_;
     constexpr int kBatchSize = 256;
     std::array<int32_t, kBatchSize> prefix_lengths;
     std::array<ByteArray, kBatchSize> suffixes;
-    auto visitor = VisitorType{src, len};
+    auto visitor = VisitorType{src, flba_len};
 
     for (int i = 0; i < num_values; i += kBatchSize) {
       const int batch_size = std::min(kBatchSize, num_values - i);
 
       for (int j = 0; j < batch_size; ++j) {
         const int idx = i + j;
-        auto view = visitor[idx];
-        len = visitor.len(idx);
+        const auto view = visitor[idx];
+        const uint32_t len = static_cast<uint32_t>(view.length());
 
-        uint32_t k = 0;
-        const uint32_t common_length =
+        uint32_t common_prefix_length = 0;
+        const uint32_t maximum_common_prefix_length =
             std::min(len, static_cast<uint32_t>(last_value_view.length()));
-        while (k < common_length) {
-          if (last_value_view[k] != view[k]) {
+        while (common_prefix_length < maximum_common_prefix_length) {
+          if (last_value_view[common_prefix_length] != view[common_prefix_length]) {
             break;
           }
-          k++;
+          common_prefix_length++;
         }
 
         last_value_view = view;
-        prefix_lengths[j] = k;
-        const uint32_t suffix_length = len - k;
-        const uint8_t* suffix_ptr = src[idx].ptr + k;
+        prefix_lengths[j] = common_prefix_length;
+        const uint32_t suffix_length = len - common_prefix_length;
+        const uint8_t* suffix_ptr = src[idx].ptr + common_prefix_length;
 
         // Convert to ByteArray, so it can be passed to the suffix_encoder_.
         const ByteArray suffix(suffix_length, suffix_ptr);
@@ -3114,25 +3116,25 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           // Convert to ByteArray, so it can be passed to the suffix_encoder_.
           const ByteArray src{view};
 
-          uint32_t j = 0;
+          uint32_t common_prefix_length = 0;
           const uint32_t len = src.len;
-          const uint32_t common_length = std::min(previous_len, len);
-          while (j < common_length) {
-            if (last_value_view[j] != view[j]) {
+          const uint32_t maximum_common_prefix_length = std::min(previous_len, len);
+          while (common_prefix_length < maximum_common_prefix_length) {
+            if (last_value_view[common_prefix_length] != view[common_prefix_length]) {
               break;
             }
-            j++;
+            common_prefix_length++;
           }
           previous_len = len;
-          prefix_length_encoder_.Put({static_cast<int32_t>(j)}, 1);
+          prefix_length_encoder_.Put({static_cast<int32_t>(common_prefix_length)}, 1);
 
           last_value_view = view;
-          const auto suffix_length = static_cast<uint32_t>(len - j);
+          const auto suffix_length = static_cast<uint32_t>(len - common_prefix_length);
           if (suffix_length == 0) {
             suffix_encoder_.Put(&empty_, 1);
             return Status::OK();
           }
-          const uint8_t* suffix_ptr = src.ptr + j;
+          const uint8_t* suffix_ptr = src.ptr + common_prefix_length;
           // Convert to ByteArray, so it can be passed to the suffix_encoder_.
           const ByteArray suffix(suffix_length, suffix_ptr);
           suffix_encoder_.Put(&suffix, 1);
