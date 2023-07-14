@@ -224,9 +224,11 @@ class NumPyConverter {
 
   // NumPy ascii string arrays
   Status Visit(const BinaryType& type);
+  Status Visit(const LargeBinaryType& type);
 
   // NumPy unicode arrays
   Status Visit(const StringType& type);
+  Status Visit(const LargeStringType& type);
 
   Status Visit(const StructType& type);
 
@@ -590,6 +592,41 @@ Status NumPyConverter::Visit(const BinaryType& type) {
   return Status::OK();
 }
 
+Status NumPyConverter::Visit(const LargeBinaryType& type) {
+  ::arrow::LargeBinaryBuilder builder(pool_);
+
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+
+  auto AppendNotNull = [&builder, this](const uint8_t* data) {
+    // This is annoying. NumPy allows strings to have nul-terminators, so
+    // we must check for them here
+    const size_t item_size =
+        strnlen(reinterpret_cast<const char*>(data), static_cast<size_t>(itemsize_));
+    return builder.Append(data, static_cast<int32_t>(item_size));
+  };
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+      } else {
+        RETURN_NOT_OK(AppendNotNull(data));
+      }
+      data += stride_;
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      RETURN_NOT_OK(AppendNotNull(data));
+      data += stride_;
+    }
+  }
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  return PushArray(result->data());
+}
+
 Status NumPyConverter::Visit(const FixedSizeBinaryType& type) {
   auto byte_width = type.byte_width();
 
@@ -631,6 +668,33 @@ constexpr int kNumPyUnicodeSize = 4;
 
 Status AppendUTF32(const char* data, int itemsize, int byteorder,
                    ::arrow::internal::ChunkedStringBuilder* builder) {
+  // The binary \x00\x00\x00\x00 indicates a nul terminator in NumPy unicode,
+  // so we need to detect that here to truncate if necessary. Yep.
+  int actual_length = 0;
+  for (; actual_length < itemsize / kNumPyUnicodeSize; ++actual_length) {
+    const char* code_point = data + actual_length * kNumPyUnicodeSize;
+    if ((*code_point == '\0') && (*(code_point + 1) == '\0') &&
+        (*(code_point + 2) == '\0') && (*(code_point + 3) == '\0')) {
+      break;
+    }
+  }
+
+  OwnedRef unicode_obj(PyUnicode_DecodeUTF32(data, actual_length * kNumPyUnicodeSize,
+                                             nullptr, &byteorder));
+  RETURN_IF_PYERROR();
+  OwnedRef utf8_obj(PyUnicode_AsUTF8String(unicode_obj.obj()));
+  if (utf8_obj.obj() == NULL) {
+    PyErr_Clear();
+    return Status::Invalid("failed converting UTF32 to UTF8");
+  }
+
+  const int32_t length = static_cast<int32_t>(PyBytes_GET_SIZE(utf8_obj.obj()));
+  return builder->Append(
+      reinterpret_cast<const uint8_t*>(PyBytes_AS_STRING(utf8_obj.obj())), length);
+}
+
+Status AppendUTF32(const char* data, int itemsize, int byteorder,
+                   ::arrow::LargeStringBuilder* builder) {
   // The binary \x00\x00\x00\x00 indicates a nul terminator in NumPy unicode,
   // so we need to detect that here to truncate if necessary. Yep.
   int actual_length = 0;
@@ -740,6 +804,89 @@ Status NumPyConverter::Visit(const StringType& type) {
   for (auto arr : result) {
     RETURN_NOT_OK(PushArray(arr->data()));
   }
+  return Status::OK();
+}
+
+Status NumPyConverter::Visit(const LargeStringType& type) {
+  util::InitializeUTF8();
+
+  ::arrow::LargeStringBuilder builder(pool_);
+
+  auto data = reinterpret_cast<const uint8_t*>(PyArray_DATA(arr_));
+
+  char numpy_byteorder = dtype_->byteorder;
+
+  // For Python C API, -1 is little-endian, 1 is big-endian
+#if ARROW_LITTLE_ENDIAN
+  // Yield little-endian from both '|' (native) and '<'
+  int byteorder = numpy_byteorder == '>' ? 1 : -1;
+#else
+  // Yield big-endian from both '|' (native) and '>'
+  int byteorder = numpy_byteorder == '<' ? -1 : 1;
+#endif
+
+  PyAcquireGIL gil_lock;
+
+  const bool is_binary_type = dtype_->type_num == NPY_STRING;
+  const bool is_unicode_type = dtype_->type_num == NPY_UNICODE;
+
+  if (!is_binary_type && !is_unicode_type) {
+    const bool is_float_type = dtype_->kind == 'f';
+    if (from_pandas_ && is_float_type) {
+      // in case of from_pandas=True, accept an all-NaN float array as input
+      RETURN_NOT_OK(NumPyNullsConverter::Convert(pool_, arr_, from_pandas_, &null_bitmap_,
+                                                 &null_count_));
+      if (null_count_ == length_) {
+        auto arr = std::make_shared<NullArray>(length_);
+        compute::ExecContext context(pool_);
+        ARROW_ASSIGN_OR_RAISE(
+            std::shared_ptr<Array> out,
+            compute::Cast(*arr, arrow::utf8(), cast_options_, &context));
+        out_arrays_.emplace_back(out);
+        return Status::OK();
+      }
+    }
+    std::string dtype_string;
+    RETURN_NOT_OK(internal::PyObject_StdStringStr(reinterpret_cast<PyObject*>(dtype_),
+                                                  &dtype_string));
+    return Status::TypeError("Expected a string or bytes dtype, got ", dtype_string);
+  }
+
+  auto AppendNonNullValue = [&](const uint8_t* data) {
+    if (is_binary_type) {
+      if (ARROW_PREDICT_TRUE(util::ValidateUTF8(data, itemsize_))) {
+        return builder.Append(data, itemsize_);
+      } else {
+        return Status::Invalid("Encountered non-UTF8 binary value: ",
+                               HexEncode(data, itemsize_));
+      }
+    } else {
+      // is_unicode_type case
+      return AppendUTF32(reinterpret_cast<const char*>(data), itemsize_, byteorder,
+                         &builder);
+    }
+  };
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder.AppendNull());
+      } else {
+        RETURN_NOT_OK(AppendNonNullValue(data));
+      }
+      data += stride_;
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      RETURN_NOT_OK(AppendNonNullValue(data));
+      data += stride_;
+    }
+  }
+
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(builder.Finish(&result));
+  RETURN_NOT_OK(PushArray(result->data()));
   return Status::OK();
 }
 

@@ -3096,6 +3096,40 @@ def test_numpy_binary_overflow_to_chunked():
                 value_index += 1
 
 
+@pytest.mark.slow
+@pytest.mark.large_memory
+def test_numpy_large_binary():
+    # 2^31 + 1 bytes
+    values = [b'x']
+    unicode_values = ['x']
+
+    # Make 10 unique 1MB strings then repeat then 2048 times
+    unique_strings = {
+        i: b'x' * ((1 << 20) - 1) + str(i % 10).encode('utf8')
+        for i in range(10)
+    }
+    unicode_unique_strings = {i: x.decode('utf8')
+                              for i, x in unique_strings.items()}
+    values += [unique_strings[i % 10] for i in range(1 << 11)]
+    unicode_values += [unicode_unique_strings[i % 10]
+                       for i in range(1 << 11)]
+
+    for case, ex_type, in [(values, pa.large_binary()),
+                           (unicode_values, pa.large_utf8())]:
+        arr = np.array(case)
+        arrow_arr = pa.array(arr, type=ex_type)
+        arr = None
+
+        assert isinstance(arrow_arr, pa.Array)
+        assert arrow_arr.type == ex_type
+
+        value_index = 0
+        for i in range(len(arrow_arr)):
+            val = arrow_arr[i]
+            assert val.as_py() == case[value_index]
+            value_index += 1
+
+
 @pytest.mark.large_memory
 def test_list_child_overflow_to_chunked():
     kilobyte_string = 'x' * 1024
