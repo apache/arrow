@@ -230,12 +230,12 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionCloseSessionRequest {};
 
 /// \brief A request to set a set of session options by key/value.
 struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsRequest {
-  std::vector<SessionOption> session_options;
+  std::map<std::string, SessionOptionValue> session_options;
 };
 
 /// \brief The result(s) of setting session option(s).
 struct ARROW_FLIGHT_SQL_EXPORT ActionSetSessionOptionsResult {
-  std::vector<SetSessionOptionResult> results;
+  std::map<std::string, SetSessionOptionResult> results;
 };
 
 /// \brief A request to get current session options.
@@ -243,7 +243,7 @@ struct ARROW_FLIGHT_SQL_EXPORT ActionGetSessionOptionsRequest {};
 
 /// \brief The current session options.
 struct ARROW_FLIGHT_SQL_EXPORT ActionGetSessionOptionsResult {
-  std::vector<SessionOption> session_options;
+  std::map<std::string, SessionOptionValue> session_options;
 };
 
 /// @}

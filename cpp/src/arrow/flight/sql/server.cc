@@ -515,65 +515,65 @@ arrow::Result<Result> PackActionResult(ActionCreatePreparedStatementResult resul
 
 arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   pb::ActionSetSessionOptionsResult pb_result;
-  for (const SetSessionOptionResult res : result.results) {
+  auto* pb_results_map = pb_result.mutable_results();
+  for (const auto& [opt_name, res] : result.results) {
+    int val;
     switch (res) {
       case SetSessionOptionResult::kUnspecified:
-        pb_result.add_results(
-            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED);
+        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED;
         break;
       case SetSessionOptionResult::kOk:
-        pb_result.add_results(
-            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK);
+        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_OK;
         break;
       case SetSessionOptionResult::kInvalidResult:
-        pb_result.add_results(
-            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE);
+        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_INVALID_VALUE;
         break;
       case SetSessionOptionResult::kError:
-        pb_result.add_results(
-            pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR);
+        val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR;
         break;
     }
+    pb_results_map[opt_name] = res_value;
   }
   return PackActionResult(pb_result);
 }
 
+// FIXME
 arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
   pb::ActionGetSessionOptionsResult pb_result;
-  for (const SessionOption& in_opt : result.session_options) {
-    pb::SessionOption* opt = pb_result.add_session_options();
-    const std::string& name = in_opt.option_name;
-    opt->set_option_name(name);
+  auth* pb_results = pb_result.mutable_session_options();
+  for (const auto& [name, value] : result.session_options) {
+    pb::SessionOptionValue pb_opt_val;
 
-    const SessionOptionValue& value = in_opt.option_value;
     if (value.index() == std::variant_npos)
       return Status::Invalid("Undefined SessionOptionValue type ");
+
     switch ((SessionOptionValueType)(value.index())) {
       case SessionOptionValueType::kString:
-        opt->set_string_value(std::get<std::string>(value));
+        pb_opt_val->set_string_value(std::get<std::string>(value));
         break;
       case SessionOptionValueType::kBool:
-        opt->set_bool_value(std::get<bool>(value));
+        pb_opt_val->set_bool_value(std::get<bool>(value));
         break;
       case SessionOptionValueType::kInt32:
-        opt->set_int32_value(std::get<int32_t>(value));
+        pb_opt_val->set_int32_value(std::get<int32_t>(value));
         break;
       case SessionOptionValueType::kInt64:
-        opt->set_int64_value(std::get<int64_t>(value));
+        pb_opt_val->set_int64_value(std::get<int64_t>(value));
         break;
       case SessionOptionValueType::kFloat:
-        opt->set_float_value(std::get<float>(value));
+        pb_opt_val->set_float_value(std::get<float>(value));
         break;
       case SessionOptionValueType::kDouble:
-        opt->set_double_value(std::get<double>(value));
+        pb_opt_val->set_double_value(std::get<double>(value));
         break;
       case SessionOptionValueType::kStringList:
         pb::SessionOption::StringListValue* string_list_value =
-            opt->mutable_string_list_value();
+            pb_opt_val->mutable_string_list_value();
         for (const std::string& s : std::get<std::vector<std::string>>(value))
           string_list_value->add_values(s);
         break;
     }
+    (*pb_results)[name] = std::move(opt);
   }
 
   return PackActionResult(pb_result);
