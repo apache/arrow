@@ -122,19 +122,6 @@ class FifoQueue : public ThrottledAsyncTaskScheduler::Queue {
   std::list<std::unique_ptr<Task>> tasks_;
 };
 
-#ifdef ARROW_WITH_OPENTELEMETRY
-::arrow::internal::tracing::Scope TraceTaskSubmitted(AsyncTaskScheduler::Task* task,
-                                                     const util::tracing::Span& parent) {
-  return START_SCOPED_SPAN_WITH_PARENT_SV(
-      task->span, parent, task->name(),
-      {{"task.cost", task->cost()}, {"span.type", "AsyncTask"}});
-}
-
-void TraceTaskFinished(AsyncTaskScheduler::Task* task) { END_SPAN(task->span); }
-
-void TraceSchedulerAbort(const Status& error) { EVENT_ON_CURRENT_SPAN(error.ToString()); }
-#endif
-
 class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
  public:
   using Task = AsyncTaskScheduler::Task;
@@ -209,9 +196,6 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // Capture `task` to keep it alive until finished
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
-#ifdef ARROW_WITH_OPENTELEMETRY
-      //TraceTaskFinished(task_inner2.get());
-#endif
             OnTaskFinished(st);
           };
         })) {
@@ -235,7 +219,8 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (!IsAborted()) {
       maybe_error_ = st;
 #ifdef ARROW_WITH_OPENTELEMETRY
-      TraceSchedulerAbort(st);
+      EVENT(span(), "Task aborted",
+            {{"Error", st.ToString()}});
 #endif
       // Add one more "task" to represent running the abort callback.  This
       // will prevent any other task finishing and marking the scheduler finished
@@ -257,12 +242,6 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
       AbortUnlocked(stop_token_.Poll(), std::move(lk));
       return;
     }
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // It's important that the task's span be active while we run the submit function.
-    // Normally the submit function should transfer the span to the thread task as the
-    // active span.
-//    auto scope = TraceTaskSubmitted(task.get(), span_);
-#endif
     running_tasks_++;
     lk.unlock();
     return DoSubmitTask(std::move(task));
