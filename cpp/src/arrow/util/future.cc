@@ -155,11 +155,20 @@ class ConcreteFutureImpl : public FutureImpl {
 
     cv_.wait(lock, [this] { return IsFutureFinished(state_); });
 #else
+    auto last_processed_time = std::chrono::steady_clock::now();
     while (true) {
       if (IsFutureFinished(state_)) {
         return;
       }
-      arrow::internal::SerialExecutor::RunTasksOnAllExecutors();
+      if(arrow::internal::SerialExecutor::RunTasksOnAllExecutors()==false)
+      {
+        auto this_time=std::chrono::steady_clock::now();
+        if(this_time-last_processed_time < std::chrono::seconds(10))
+        {
+          ARROW_LOG(WARNING) << "Waiting for future, but no executors have had any tasks pending for last 10 seconds";
+          last_processed_time=std::chrono::steady_clock::now();
+        }
+      }
     }
 #endif
   }
