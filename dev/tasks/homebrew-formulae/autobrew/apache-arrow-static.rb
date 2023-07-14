@@ -25,7 +25,7 @@ class ApacheArrowStatic < Formula
   # Uncomment and update to test on a release candidate
   # mirror "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-8.0.0-rc1/apache-arrow-8.0.0.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
-  head "https://github.com/apache/arrow.git"
+  head "https://github.com/apache/arrow.git", branch: "main"
 
   bottle do
     sha256 cellar: :any, arm64_big_sur: "ef89d21a110b89840cc6148add685d407e75bd633bc8f79625eb33d00e3694b4"
