@@ -149,18 +149,21 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
 #ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     struct WrapperTask : public Task {
-        WrapperTask(std::unique_ptr<Task> target, opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span)
-                : target(std::move(target)), parent_span(std::move(parent_span)) {}
-        Result<Future<>> operator()() override {
-          auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(parent_span);
-          return (*target)();
-        }
-        int cost() const override { return target->cost(); }
-        std::string_view name() const override { return target->name(); }
-        std::unique_ptr<Task> target;
-        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
+      WrapperTask(
+          std::unique_ptr<Task> target,
+          opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span)
+          : target(std::move(target)), parent_span(std::move(parent_span)) {}
+      Result<Future<>> operator()() override {
+        auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(parent_span);
+        return (*target)();
+      }
+      int cost() const override { return target->cost(); }
+      std::string_view name() const override { return target->name(); }
+      std::unique_ptr<Task> target;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
     };
-    task = std::make_unique<WrapperTask>(std::move(task), arrow::internal::tracing::GetTracer()->GetCurrentSpan());
+    task = std::make_unique<WrapperTask>(
+        std::move(task), arrow::internal::tracing::GetTracer()->GetCurrentSpan());
 #endif
     SubmitTaskUnlocked(std::move(task), std::move(lk));
     return true;
@@ -219,8 +222,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (!IsAborted()) {
       maybe_error_ = st;
 #ifdef ARROW_WITH_OPENTELEMETRY
-      EVENT(span(), "Task aborted",
-            {{"Error", st.ToString()}});
+      EVENT(span(), "Task aborted", {{"Error", st.ToString()}});
 #endif
       // Add one more "task" to represent running the abort callback.  This
       // will prevent any other task finishing and marking the scheduler finished
@@ -283,18 +285,21 @@ class ThrottledAsyncTaskSchedulerImpl
 #ifdef ARROW_WITH_OPENTELEMETRY
     // Wrap the task to propagate a parent tracing span to it
     struct WrapperTask : public Task {
-        WrapperTask(std::unique_ptr<Task> target, opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span)
-                : target(std::move(target)), parent_span(std::move(parent_span)) {}
-        Result<Future<>> operator()() override {
-          auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(parent_span);
-          return (*target)();
-        }
-        int cost() const override { return target->cost(); }
-        std::string_view name() const override { return target->name(); }
-        std::unique_ptr<Task> target;
-        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
+      WrapperTask(
+          std::unique_ptr<Task> target,
+          opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span)
+          : target(std::move(target)), parent_span(std::move(parent_span)) {}
+      Result<Future<>> operator()() override {
+        auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(parent_span);
+        return (*target)();
+      }
+      int cost() const override { return target->cost(); }
+      std::string_view name() const override { return target->name(); }
+      std::unique_ptr<Task> target;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
     };
-    task = std::make_unique<WrapperTask>(std::move(task), arrow::internal::tracing::GetTracer()->GetCurrentSpan());
+    task = std::make_unique<WrapperTask>(
+        std::move(task), arrow::internal::tracing::GetTracer()->GetCurrentSpan());
 #endif
     std::unique_lock lk(mutex_);
     // If the queue isn't empty then don't even try and acquire the throttle
