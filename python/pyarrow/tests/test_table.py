@@ -2424,6 +2424,7 @@ def test_numpy_asarray(constructor):
     assert result.dtype == "int32"
 
 
+@pytest.mark.acero
 def test_invalid_non_join_column():
     NUM_ITEMS = 30
     t1 = pa.Table.from_pydict({
