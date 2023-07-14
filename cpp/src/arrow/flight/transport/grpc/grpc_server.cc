@@ -25,7 +25,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/config.h"
 #include <grpcpp/grpcpp.h>
 
 #include "arrow/buffer.h"

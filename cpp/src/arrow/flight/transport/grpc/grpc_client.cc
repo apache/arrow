@@ -25,7 +25,6 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/config.h"
 #include <grpcpp/grpcpp.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
 #include <grpcpp/security/tls_credentials_options.h>
