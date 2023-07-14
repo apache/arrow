@@ -449,6 +449,7 @@ struct TypeTraits<ListType> {
   using OffsetBuilderType = Int32Builder;
   using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
+  using LargeType = LargeListType;
 };
 
 template <>
@@ -473,6 +474,7 @@ struct TypeTraits<ListViewType> {
   using OffsetBuilderType = Int32Builder;
   using OffsetScalarType = Int32Scalar;
   constexpr static bool is_parameter_free = false;
+  using LargeType = LargeListViewType;
 };
 
 template <>
