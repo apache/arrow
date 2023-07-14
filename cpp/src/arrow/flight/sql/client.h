@@ -356,12 +356,12 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] session_options    The session options to set.
   ::arrow::Result<std::vector<SetSessionOptionResult>> SetSessionOptions(
       const FlightCallOptions& options,
-      const std::vector<SessionOption>& session_options);
+      const std::map<std::string, SessionOptionValue>& session_options);
 
   /// \brief Gets current session options.
   ///
   /// \param[in] options            RPC-layer hints for this call.
-  ::arrow::Result<std::vector<SessionOption>> GetSessionOptions(
+  ::arrow::Result<std::map<std::string, SessionOptionValue>> GetSessionOptions(
       const FlightCallOptions& options);
 
   /// \brief Explicitly closes the session if applicable.

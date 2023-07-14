@@ -800,42 +800,42 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
 
 ::arrow::Result<std::vector<SetSessionOptionResult>> FlightSqlClient::SetSessionOptions(
     const FlightCallOptions& options,
-    const std::vector<SessionOption>& session_options) {
+    const std::map<std::string, SessionOptionValue>& session_options) {
   pb::ActionSetSessionOptionsRequest request;
-  for (const SessionOption& in_opt : session_options) {
-    pb::SessionOption* opt = request.add_session_options();
-    const std::string& name = in_opt.option_name;
-    opt->set_option_name(name);
+  auto* options_map = request->mutable_session_options();
 
-    const SessionOptionValue& value = in_opt.option_value;
+  for (const auto & [name, value] : session_options) {
     if (value.index() == std::variant_npos)
       return Status::Invalid("Undefined SessionOptionValue type ");
+
+    pb:SessionOptionValue pb_val;
     switch (static_cast<SessionOptionValueType>(value.index())) {
       case SessionOptionValueType::kString:
-        opt->set_string_value(std::get<std::string>(value));
+        pb_val->set_string_value(std::get<std::string>(value));
         break;
       case SessionOptionValueType::kBool:
-        opt->set_bool_value(std::get<bool>(value));
+        pb_val->set_bool_value(std::get<bool>(value));
         break;
       case SessionOptionValueType::kInt32:
-        opt->set_int32_value(std::get<int32_t>(value));
+        pb_val->set_int32_value(std::get<int32_t>(value));
         break;
       case SessionOptionValueType::kInt64:
-        opt->set_int64_value(std::get<int64_t>(value));
+        pb_val->set_int64_value(std::get<int64_t>(value));
         break;
       case SessionOptionValueType::kFloat:
-        opt->set_float_value(std::get<float>(value));
+        pb_val->set_float_value(std::get<float>(value));
         break;
       case SessionOptionValueType::kDouble:
-        opt->set_double_value(std::get<double>(value));
+        pb_val->set_double_value(std::get<double>(value));
         break;
       case SessionOptionValueType::kStringList:
         pb::SessionOption::StringListValue* string_list_value =
-            opt->mutable_string_list_value();
+            pb_val->mutable_string_list_value();
         for (const std::string& s : std::get<std::vector<std::string>>(value))
           string_list_value->add_values(s);
         break;
     }
+    (*options_map)[in_opt.option_name] = std::move(pb_value);
   }
 
   std::unique_ptr<ResultStream> results;
@@ -868,7 +868,7 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   return result;
 }
 
-::arrow::Result<std::vector<SessionOption>> FlightSqlClient::GetSessionOptions (
+::arrow::Result<std::map<std::string, SessionOptionValue>> FlightSqlClient::GetSessionOptions (
     const FlightCallOptions& options) {
   pb::ActionGetSessionOptionsRequest request;
 
@@ -880,42 +880,42 @@ Status FlightSqlClient::Rollback(const FlightCallOptions& options,
   ARROW_RETURN_NOT_OK(ReadResult(results.get(), &pb_result));
   ARROW_RETURN_NOT_OK(DrainResultStream(results.get()));
 
-  std::vector<SessionOption> result;
+  std::map<string, SessionOptionValue> result;
   if (pb_result.session_options_size() > 0) {
     result.reserve(pb_result.session_options_size());
-    for (const pb::SessionOption& in_opt : pb_result.session_options()) {
-      const std::string& name = in_opt.option_name();
+    for (auto& [pb_opt_name, pb_opt_val] : pb_result.session_options()) {
       SessionOptionValue val;
-      switch (in_opt.option_value_case()) {
+      switch (pb_value.option_value_case()) {
         case pb::SessionOption::OPTION_VALUE_NOT_SET:
-          return Status::Invalid("Unset option_value for name '" + name + "'");
+          return Status::Invalid("Unset option_value for name '" + pb_opt_name + "'");
         case pb::SessionOption::kStringValue:
-          val = in_opt.string_value();
+          val = pb_opt_val.string_value();
           break;
         case pb::SessionOption::kBoolValue:
-          val = in_opt.bool_value();
+          val = pb_opt_val.bool_value();
           break;
         case pb::SessionOption::kInt32Value:
-          val = in_opt.int32_value();
+          val = pb_opt_val.int32_value();
           break;
         case pb::SessionOption::kInt64Value:
-          val = in_opt.int64_value();
+          val = pb_opt_val.int64_value();
           break;
         case pb::SessionOption::kFloatValue:
-          val = in_opt.float_value();
+          val = pb_opt_val.float_value();
           break;
         case pb::SessionOption::kDoubleValue:
-          val = in_opt.double_value();
+          val = pb_opt_val.double_value();
           break;
         case pb::SessionOption::kStringListValue:
           val.emplace<std::vector<std::string>>();
+          // ???
           std::get<std::vector<std::string>>(val)
-              .reserve(in_opt.string_list_value().values_size());
-          for (const std::string& s : in_opt.string_list_value().values())
+              .reserve(pb_opt_val.string_list_value().values_size());
+          for (const std::string& s : pb_opt_val.string_list_value().values())
             std::get<std::vector<std::string>>(val).push_back(s);
           break;
       }
-      result.emplace_back(name, std::move(val));
+      result[pb_opt_name] = std::move(val);
     }
   }
 
