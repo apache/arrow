@@ -156,9 +156,9 @@ nostd::shared_ptr<sdktrace::TracerProvider> InitializeSdkTracerProvider() {
   auto exporter = InitializeExporter();
   if (exporter) {
     sdktrace::BatchSpanProcessorOptions options;
-    options.max_queue_size = 16384;
+    options.max_queue_size = 65536;
     options.schedule_delay_millis = std::chrono::milliseconds(500);
-    options.max_export_batch_size = 16384;
+    options.max_export_batch_size = 65536;
     auto processor =
         std::make_unique<ThreadIdSpanProcessor>(std::move(exporter), options);
     return std::make_shared<sdktrace::TracerProvider>(std::move(processor));
