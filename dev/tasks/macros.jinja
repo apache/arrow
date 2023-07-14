@@ -141,6 +141,7 @@ on:
     shell: bash
     run: |
       PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
+      gem install --user-install faraday -v 1.10.3
       gem install --user-install gemfury
       fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
