@@ -46,11 +46,7 @@
 #error "gRPC headers should not be in public API"
 #endif
 
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
 
 // Include before test_util.h (boost), contains Windows fixes
 #include "arrow/flight/platform.h"

@@ -36,13 +36,8 @@
 #include <google/protobuf/wire_format_lite.h>
 
 #include <grpc/byte_buffer_reader.h>
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
-#else
-#include <grpc++/grpc++.h>
-#include <grpc++/impl/codegen/proto_utils.h>
-#endif
 
 #if defined(_MSC_VER)
 #pragma warning(pop)

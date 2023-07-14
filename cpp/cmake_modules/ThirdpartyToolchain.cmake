@@ -3998,7 +3998,6 @@ if(ARROW_WITH_GRPC)
   if(GRPC_VENDORED)
     # Remove "v" from "vX.Y.Z"
     string(SUBSTRING ${ARROW_GRPC_BUILD_VERSION} 1 -1 ARROW_GRPC_VERSION)
-    set(GRPCPP_PP_INCLUDE TRUE)
     # Examples need to link to static Arrow if we're using static gRPC
     set(ARROW_GRPC_USE_SHARED OFF)
   else()
@@ -4006,18 +4005,6 @@ if(ARROW_WITH_GRPC)
       set(ARROW_GRPC_VERSION ${gRPCAlt_VERSION})
     else()
       set(ARROW_GRPC_VERSION ${gRPC_VERSION})
-    endif()
-    # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
-    # depending on the gRPC version.
-    get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
-    if(GRPC_INCLUDE_DIR MATCHES "^\\$<"
-       OR # generator expression
-          EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
-      set(GRPCPP_PP_INCLUDE TRUE)
-    elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
-      set(GRPCPP_PP_INCLUDE FALSE)
-    else()
-      message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
     endif()
     if(ARROW_USE_ASAN)
       # Disable ASAN in system gRPC.
