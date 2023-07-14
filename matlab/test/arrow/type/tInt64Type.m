@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tInt64Type < hPrimitiveType
+classdef tInt64Type < hFixedWidthType
 % Test class for arrow.type.Int64Type
 
     properties
         ArrowType = arrow.type.Int64Type
         TypeID = arrow.type.ID.Int64
-        BitWidth = 64;
+        BitWidth = int32(64);
     end
 end

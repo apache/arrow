@@ -13,11 +13,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int32Type < arrow.type.PrimitiveType
+classdef Int32Type < arrow.type.FixedWidthType
 %INT32TYPE Type class for int32 data.
 
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Int32
+    methods 
+        function obj = Int32Type()
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Int32Type", "ConstructorArguments", {})
+        end
     end
 end
 

@@ -13,10 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt16Type < arrow.type.PrimitiveType
+classdef UInt16Type < arrow.type.FixedWidthType
 %UINT16TYPE Type class for uint16 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.UInt16
+    methods 
+        function obj = UInt16Type()
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt16Type", "ConstructorArguments", {})
+        end
     end
 end

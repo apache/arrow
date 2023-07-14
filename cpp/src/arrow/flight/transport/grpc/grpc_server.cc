@@ -25,12 +25,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/config.h"
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"

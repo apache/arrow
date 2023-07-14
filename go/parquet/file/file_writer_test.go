@@ -18,6 +18,7 @@ package file_test
 
 import (
 	"bytes"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -139,7 +140,9 @@ func (t *SerializeTestSuite) unequalNumRows(maxRows int64, rowsPerCol []int64) {
 		t.WriteBatchSubset(int(rowsPerCol[col]), 0, cw, t.DefLevels[:rowsPerCol[col]], nil)
 		cw.Close()
 	}
-	t.Error(rgw.Close())
+	err := rgw.Close()
+	t.Error(err)
+	t.ErrorContains(err, "row mismatch for unbuffered row group")
 }
 
 func (t *SerializeTestSuite) unequalNumRowsBuffered(maxRows int64, rowsPerCol []int64) {
@@ -154,7 +157,9 @@ func (t *SerializeTestSuite) unequalNumRowsBuffered(maxRows int64, rowsPerCol []
 		t.WriteBatchSubset(int(rowsPerCol[col]), 0, cw, t.DefLevels[:rowsPerCol[col]], nil)
 		cw.Close()
 	}
-	t.Error(rgw.Close())
+	err := rgw.Close()
+	t.Error(err)
+	t.ErrorContains(err, "row mismatch for buffered row group")
 }
 
 func (t *SerializeTestSuite) TestZeroRows() {
@@ -390,4 +395,26 @@ func TestSerialize(t *testing.T) {
 			suite.Run(t, createSerializeTestSuite(tt.typ))
 		})
 	}
+}
+
+type errCloseWriter struct {
+	sink *encoding.BufferWriter
+}
+
+func (c *errCloseWriter) Write(p []byte) (n int, err error) {
+	return c.sink.Write(p)
+}
+func (c *errCloseWriter) Close() error {
+	return fmt.Errorf("error during close")
+}
+func (c *errCloseWriter) Bytes() []byte {
+	return c.sink.Bytes()
+}
+
+func TestCloseError(t *testing.T) {
+	fields := schema.FieldList{schema.NewInt32Node("col", parquet.Repetitions.Required, 1)}
+	sc, _ := schema.NewGroupNode("schema", parquet.Repetitions.Required, fields, 0)
+	sink := &errCloseWriter{sink: encoding.NewBufferWriter(0, memory.DefaultAllocator)}
+	writer := file.NewParquetWriter(sink, sc)
+	assert.Error(t, writer.Close())
 }

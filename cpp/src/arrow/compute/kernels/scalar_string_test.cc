@@ -2091,6 +2091,14 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsPosPos) {
   options_step_neg.stop = 0;
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{1, max, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "ö", "öḍ", "öḍ"])", &options_max_step);
+  SliceOptions options_max_step_neg{1, max, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
@@ -2107,6 +2115,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
                    this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "ḍö"])",
                    &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_min_step{2, min, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_min_step);
+  SliceOptions options_min_step_neg{2, min, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ𝑓", "õ𝑓", "õ𝑓"])",
+                   &options_min_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
@@ -2123,6 +2140,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
                    this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "šõ"])",
                    &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_min_step{-2, min, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_min_step);
+  SliceOptions options_min_step_neg{-2, min, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "𝑓", "ö", "õ𝑓", "ḍö"])",
+                   &options_min_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
@@ -2138,6 +2164,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
   options_step_neg.stop = 0;
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{-3, max, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓", "𝑓õ", "öḍ", "õš"])",
+                   &options_max_step);
+  SliceOptions options_max_step_neg{-3, max, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
 #endif  // ARROW_WITH_UTF8PROC

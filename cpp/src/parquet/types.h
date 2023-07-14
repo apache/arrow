@@ -30,13 +30,11 @@
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class Codec;
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 namespace parquet {
 
@@ -486,6 +484,10 @@ bool IsCodecSupported(Compression::type codec);
 
 PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec);
+
+PARQUET_EXPORT
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options);
 
 PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);

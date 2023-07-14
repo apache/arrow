@@ -15,23 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if TlsCredentialsOptions supports
-// set_verify_server_certs. gRPC starting from 1.43 added this boolean
-// flag as opposed to prior versions which used an enum. This is for
-// supporting disabling server validation when using TLS.
+#include "arrow/filesystem/azurefs.h"
 
-#include <grpc/grpc_security_constants.h>
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/security/tls_credentials_options.h>
+#include <gmock/gmock-matchers.h>
+#include <gmock/gmock-more-matchers.h>
+#include <gtest/gtest.h>
 
-static void check() {
-  // 1.36 uses an enum; 1.43 uses booleans
-  auto options = std::make_shared<grpc::experimental::TlsChannelCredentialsOptions>();
-  options->set_check_call_host(false);
-  options->set_verify_server_certs(false);
+#include <string>
+
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
+
+namespace arrow {
+namespace fs {
+namespace {
+
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::NotNull;
+
+// Placeholder test for file structure
+// TODO: GH-18014 Remove once a proper test is added
+TEST(AzureFileSystem, OptionsCompare) {
+  AzureOptions options;
+  EXPECT_TRUE(options.Equals(options));
 }
 
-int main(int argc, const char** argv) {
-  check();
-  return 0;
-}
+}  // namespace
+}  // namespace fs
+}  // namespace arrow

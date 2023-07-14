@@ -18,10 +18,10 @@
 #include "arrow/type_fwd.h"
 #include "arrow/result.h"
 
-#include <string>
+#include <string_view>
 
 namespace arrow::matlab::type {
 
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(const std::u16string& unit_str);
+    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
 
 }

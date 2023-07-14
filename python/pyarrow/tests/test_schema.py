@@ -25,6 +25,12 @@ import numpy as np
 import pyarrow as pa
 
 import pyarrow.tests.util as test_util
+from pyarrow.vendored.version import Version
+
+try:
+    import pandas as pd
+except ImportError:
+    pass
 
 
 def test_schema_constructor_errors():
@@ -44,8 +50,11 @@ def test_type_integers():
         assert str(t) == name
 
 
+@pytest.mark.pandas
 def test_type_to_pandas_dtype():
-    M8_ns = np.dtype('datetime64[ns]')
+    M8 = np.dtype('datetime64[ms]')
+    if Version(pd.__version__) < Version("2.0.0"):
+        M8 = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
         (pa.bool_(), np.bool_),
@@ -60,9 +69,9 @@ def test_type_to_pandas_dtype():
         (pa.float16(), np.float16),
         (pa.float32(), np.float32),
         (pa.float64(), np.float64),
-        (pa.date32(), M8_ns),
-        (pa.date64(), M8_ns),
-        (pa.timestamp('ms'), M8_ns),
+        (pa.date32(), M8),
+        (pa.date64(), M8),
+        (pa.timestamp('ms'), M8),
         (pa.binary(), np.object_),
         (pa.binary(12), np.object_),
         (pa.string(), np.object_),

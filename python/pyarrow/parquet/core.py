@@ -33,7 +33,14 @@ import warnings
 
 import pyarrow as pa
 import pyarrow.lib as lib
-import pyarrow._parquet as _parquet
+
+try:
+    import pyarrow._parquet as _parquet
+except ImportError as exc:
+    raise ImportError(
+        "The pyarrow installation is not built with support "
+        f"for the Parquet file format ({str(exc)})"
+    ) from None
 
 from pyarrow._parquet import (ParquetReader, Statistics,  # noqa
                               FileMetaData, RowGroupMetaData,
@@ -748,7 +755,7 @@ def _sanitize_table(table, new_schema, flavor):
         return table
 
 
-_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.4"
+_parquet_writer_arg_docs = """version : {"1.0", "2.4", "2.6"}, default "2.6"
     Determine which Parquet logical types are available for use, whether the
     reduced set from the Parquet 1.x.x format or the expanded logical types
     added in later format versions.
@@ -867,6 +874,13 @@ store_schema : bool, default True
     it will restore the timezone (Parquet only stores the UTC values without
     timezone), or columns with duration type will be restored from the int64
     Parquet column.
+write_page_index : bool, default False
+    Whether to write a page index in general for all columns.
+    Writing statistics to the page index disables the old method of writing
+    statistics to each data page header. The page index makes statistics-based
+    filtering more efficient than the page header, as it gathers all the
+    statistics for a Parquet file in a single place, avoiding scattered I/O.
+    Note that the page index is not yet used on the read size by PyArrow.
 """
 
 _parquet_writer_example_doc = """\
@@ -944,7 +958,7 @@ Examples
 
     def __init__(self, where, schema, filesystem=None,
                  flavor=None,
-                 version='2.4',
+                 version='2.6',
                  use_dictionary=True,
                  compression='snappy',
                  write_statistics=True,
@@ -959,6 +973,7 @@ Examples
                  write_batch_size=None,
                  dictionary_pagesize_limit=None,
                  store_schema=True,
+                 write_page_index=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1015,6 +1030,7 @@ Examples
             write_batch_size=write_batch_size,
             dictionary_pagesize_limit=dictionary_pagesize_limit,
             store_schema=store_schema,
+            write_page_index=write_page_index,
             **options)
         self.is_open = True
 
@@ -3060,7 +3076,7 @@ read_pandas.__doc__ = _read_table_docstring.format(
     _DNF_filter_doc, "")
 
 
-def write_table(table, where, row_group_size=None, version='2.4',
+def write_table(table, where, row_group_size=None, version='2.6',
                 use_dictionary=True, compression='snappy',
                 write_statistics=True,
                 use_deprecated_int96_timestamps=None,
@@ -3077,7 +3093,10 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 write_batch_size=None,
                 dictionary_pagesize_limit=None,
                 store_schema=True,
+                write_page_index=False,
                 **kwargs):
+    # Implementor's note: when adding keywords here / updating defaults, also
+    # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
     row_group_size = kwargs.pop('chunk_size', row_group_size)
     use_int96 = use_deprecated_int96_timestamps
     try:
@@ -3102,6 +3121,7 @@ def write_table(table, where, row_group_size=None, version='2.4',
                 write_batch_size=write_batch_size,
                 dictionary_pagesize_limit=dictionary_pagesize_limit,
                 store_schema=store_schema,
+                write_page_index=write_page_index,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
@@ -3468,7 +3488,7 @@ def write_to_dataset(table, root_path, partition_cols=None,
         if len(partition_keys) == 1:
             partition_keys = partition_keys[0]
 
-        for keys, subgroup in data_df.groupby(partition_keys):
+        for keys, subgroup in data_df.groupby(partition_keys, observed=True):
             if not isinstance(keys, tuple):
                 keys = (keys,)
             subdir = '/'.join(

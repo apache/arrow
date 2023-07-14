@@ -13,13 +13,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tTimestampType < hPrimitiveType
+classdef tTimestampType < hFixedWidthType
 % Test class for arrow.type.TimestampType
 
     properties
         ArrowType = arrow.type.TimestampType
         TypeID = arrow.type.ID.Timestamp
-        BitWidth = 64;
+        BitWidth = int32(64);
     end
 
     methods(Test)

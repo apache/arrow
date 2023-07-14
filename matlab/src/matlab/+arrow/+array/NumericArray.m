@@ -15,35 +15,26 @@
 
 classdef NumericArray < arrow.array.Array
     % arrow.array.NumericArray
-    
-    
-    properties (Hidden, SetAccess=protected)
-        MatlabArray = []
-    end
 
     properties(Abstract, Access=protected)
         NullSubstitutionValue;
     end
 
     methods
-        function obj = NumericArray(data, type, proxyName, opts, nullOpts)
+        function obj = NumericArray(data, type, proxyName, opts)
             arguments
                 data
                 type(1, 1) string
                 proxyName(1, 1) string
-                opts.DeepCopy(1, 1) logical = false
-                nullOpts.InferNulls(1, 1) logical = true
-                nullOpts.Valid
+                opts.InferNulls(1, 1) logical = true
+                opts.Valid
             end
             arrow.args.validateTypeAndShape(data, type);
-            validElements = arrow.args.parseValidElements(data, nullOpts);
-            opts = struct(MatlabArray=data, Valid=validElements, DeepCopy=opts.DeepCopy);
+            validElements = arrow.args.parseValidElements(data, opts);
+            opts = struct(MatlabArray=data, Valid=validElements);
             obj@arrow.array.Array("Name", proxyName, "ConstructorArguments", {opts});
-            obj.MatlabArray = cast(obj.MatlabArray, type);
-            % Store a reference to the array if not doing a deep copy
-            if ~opts.DeepCopy, obj.MatlabArray = data; end
         end
-        
+
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
             matlabArray(~obj.Valid) = obj.NullSubstitutionValue;

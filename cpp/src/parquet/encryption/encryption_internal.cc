@@ -31,8 +31,7 @@
 
 using parquet::ParquetException;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr int kGcmMode = 0;
 constexpr int kCtrMode = 1;
@@ -649,5 +648,4 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD) {
 
 void RandBytes(unsigned char* buf, int num) { RAND_bytes(buf, num); }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

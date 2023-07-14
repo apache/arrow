@@ -3,20 +3,7 @@
 \docType{class}
 \name{RecordBatch}
 \alias{RecordBatch}
-\alias{record_batch}
 \title{RecordBatch class}
-\usage{
-record_batch(..., schema = NULL)
-}
-\arguments{
-\item{...}{A \code{data.frame} or a named set of Arrays or vectors. If given a
-mixture of data.frames and vectors, the inputs will be autospliced together
-(see examples). Alternatively, you can provide a single Arrow IPC
-\code{InputStream}, \code{Message}, \code{Buffer}, or R \code{raw} object containing a \code{Buffer}.}
-
-\item{schema}{a \link{Schema}, or \code{NULL} (the default) to infer the schema from
-the data in \code{...}. When providing an Arrow IPC buffer, \code{schema} is required.}
-}
 \description{
 A record batch is a collection of equal-length arrays matching
 a particular \link{Schema}. It is a table-like data structure that is semantically
@@ -80,12 +67,3 @@ All list elements are coerced to string. See \code{schema()} for more informatio
 }
 }
 
-\examples{
-batch <- record_batch(name = rownames(mtcars), mtcars)
-dim(batch)
-dim(head(batch))
-names(batch)
-batch$mpg
-batch[["cyl"]]
-as.data.frame(batch[4:8, c("gear", "hp", "wt")])
-}

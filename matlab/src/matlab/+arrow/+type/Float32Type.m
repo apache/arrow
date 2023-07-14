@@ -13,10 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Float32Type < arrow.type.PrimitiveType
+classdef Float32Type < arrow.type.FixedWidthType
 %FLOAT32TYPE Type class for float32 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Float32
+    methods 
+        function obj = Float32Type()
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Float32Type", "ConstructorArguments", {})
+        end
     end
 end

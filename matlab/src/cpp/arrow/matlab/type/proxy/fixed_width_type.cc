@@ -15,15 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
 
-#include <cstdint>
-#include <string_view>
+#include "arrow/matlab/type/proxy/fixed_width_type.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::matlab::type::proxy {
 
-using bytes_view = std::basic_string_view<uint8_t>;
+    FixedWidthType::FixedWidthType(std::shared_ptr<arrow::FixedWidthType> type) : Type(std::move(type)) {
+        REGISTER_METHOD(FixedWidthType, bitWidth);
+    }
 
-}  // namespace util
-}  // namespace arrow
+    void FixedWidthType::bitWidth(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+         mda::ArrayFactory factory;
+     
+         auto bit_width_mda = factory.createScalar(data_type->bit_width());
+         context.outputs[0] = bit_width_mda;
+    }
+}

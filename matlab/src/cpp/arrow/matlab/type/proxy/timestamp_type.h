@@ -15,24 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if TlsCredentialsOptions exists in
-// the grpc::experimental namespace. gRPC starting from 1.36
-// puts it here. This is for supporting disabling server
-// validation when using TLS.
+#pragma once
 
-#include <grpc/grpc_security_constants.h>
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/security/tls_credentials_options.h>
+#include "arrow/matlab/type/proxy/fixed_width_type.h"
+#include "arrow/type_traits.h"
 
-static void check() {
-  // In 1.34, there's no parameterless constructor; in 1.36, there's
-  // only a parameterless constructor
-  auto options = std::make_shared<grpc::experimental::TlsChannelCredentialsOptions>();
-  options->set_server_verification_option(
-      grpc_tls_server_verification_option::GRPC_TLS_SERVER_VERIFICATION);
+namespace arrow::matlab::type::proxy {
+
+class TimestampType : public arrow::matlab::type::proxy::FixedWidthType {
+        
+    public:
+        TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type);
+
+        ~TimestampType() {}
+
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+    protected:
+
+        void timeZone(libmexclass::proxy::method::Context& context);
+
+        void timeUnit(libmexclass::proxy::method::Context& context);
+};
+
 }
 
-int main(int argc, const char** argv) {
-  check();
-  return 0;
-}

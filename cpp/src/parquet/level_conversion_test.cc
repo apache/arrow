@@ -31,8 +31,7 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/ubsan.h"
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 
 using ::arrow::internal::Bitmap;
 using ::testing::ElementsAreArray;
@@ -357,5 +356,4 @@ TEST(TestOnlyExtractBitsSoftware, BasicTest) {
   check(0xFECBDA9876543210ULL, 0xF00FF00FF00FF00FULL, 0xFBD87430ULL);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

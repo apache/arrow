@@ -73,8 +73,7 @@ using parquet::ParquetFileWriter;
 using parquet::ParquetVersion;
 using parquet::schema::GroupNode;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 namespace {
 
@@ -600,5 +599,4 @@ Status WriteTable(const ::arrow::Table& table, ::arrow::MemoryPool* pool,
   return writer->Close();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

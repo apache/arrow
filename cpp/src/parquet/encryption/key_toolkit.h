@@ -26,8 +26,7 @@
 #include "parquet/encryption/two_level_cache_with_expiration.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 static constexpr uint64_t kCacheCleanPeriodForKeyRotation = 60 * 60;  // 1 hour
 
@@ -104,5 +103,4 @@ class PARQUET_EXPORT KeyWithMasterId {
   const std::string master_id_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

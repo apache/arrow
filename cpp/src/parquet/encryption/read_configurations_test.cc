@@ -81,9 +81,7 @@
 
  */
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using parquet::test::ParquetTestException;
 
@@ -272,6 +270,4 @@ INSTANTIATE_TEST_SUITE_P(
             5, "encrypt_columns_and_footer_disable_aad_storage.parquet.encrypted"),
         std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted")));
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

@@ -12,33 +12,28 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef TimeUnit
+classdef TimeUnit < int16
 % Enumeration class representing Time Units.
 
     enumeration
-        Second
-        Millisecond
-        Microsecond
-        Nanosecond
+        Second       (0)
+        Millisecond  (1)
+        Microsecond  (2)
+        Nanosecond   (3)
     end
 
-    properties (Dependent)
-        TicksPerSecond
-    end
-
-
-    methods
-        function ticksPerSecond = get.TicksPerSecond(obj)
+    methods (Hidden)
+        function ticks = ticksPerSecond(obj)
             import arrow.type.TimeUnit
             switch obj
                 case TimeUnit.Second
-                    ticksPerSecond = 1;
+                    ticks = 1;
                 case TimeUnit.Millisecond
-                    ticksPerSecond = 1e3;
+                    ticks = 1e3;
                 case TimeUnit.Microsecond
-                    ticksPerSecond = 1e6;
+                    ticks = 1e6;
                 case TimeUnit.Nanosecond
-                    ticksPerSecond = 1e9;
+                    ticks = 1e9;
             end
         end
     end

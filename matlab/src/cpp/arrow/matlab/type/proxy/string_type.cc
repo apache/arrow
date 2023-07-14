@@ -15,22 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if TlsCredentialsOptions exists in
-// the grpc_impl::experimental namespace. gRPC versions 1.27-1.31
-// put it here. This is for supporting disabling server
-// validation when using TLS.
+#include "arrow/matlab/type/proxy/string_type.h"
 
-#include <grpc/grpc_security_constants.h>
-#include <grpcpp/grpcpp.h>
-#include <grpcpp/security/tls_credentials_options.h>
+namespace arrow::matlab::type::proxy {
 
-static grpc_tls_server_verification_option check(
-    const grpc_impl::experimental::TlsCredentialsOptions* options) {
-  grpc_tls_server_verification_option server_opt = options->server_verification_option();
-  return server_opt;
-}
+    StringType::StringType(std::shared_ptr<arrow::StringType> string_type) : Type(std::move(string_type)) {}
 
-int main(int argc, const char** argv) {
-  grpc_tls_server_verification_option opt = check(nullptr);
-  return 0;
+    libmexclass::proxy::MakeResult StringType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        auto string_type = std::static_pointer_cast<arrow::StringType>(arrow::utf8());
+        return std::make_shared<StringType>(std::move(string_type));
+    }
 }

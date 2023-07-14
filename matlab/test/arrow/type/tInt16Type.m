@@ -13,12 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tInt16Type < hPrimitiveType
+classdef tInt16Type < hFixedWidthType
 % Test class for arrow.type.Int16Type
 
     properties
         ArrowType = arrow.type.Int16Type
         TypeID = arrow.type.ID.Int16
-        BitWidth = 16;
+        BitWidth = int32(16);
     end
 end

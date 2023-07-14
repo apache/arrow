@@ -13,10 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt8Type < arrow.type.PrimitiveType
+classdef UInt8Type < arrow.type.FixedWidthType
 %UINT8TYPE Type class for uint8 data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.UInt8
+    methods 
+        function obj = UInt8Type()
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt8Type", "ConstructorArguments", {})
+        end
     end
 end

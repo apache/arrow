@@ -13,10 +13,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Float64Type < arrow.type.PrimitiveType
+classdef Float64Type < arrow.type.FixedWidthType
 %FLOAT64Type Type class for float64 data. 
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Float64
+    methods 
+        function obj = Float64Type()
+            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Float64Type", "ConstructorArguments", {})
+        end
     end
 end

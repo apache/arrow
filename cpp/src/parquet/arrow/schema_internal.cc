@@ -23,9 +23,7 @@ using ArrowType = ::arrow::DataType;
 using ArrowTypeId = ::arrow::Type;
 using ParquetType = parquet::Type;
 
-namespace parquet {
-
-namespace arrow {
+namespace parquet::arrow {
 
 using ::arrow::Result;
 using ::arrow::Status;
@@ -218,5 +216,4 @@ Result<std::shared_ptr<ArrowType>> GetArrowType(
                       primitive.type_length(), int96_arrow_time_unit);
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow
