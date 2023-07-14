@@ -23,6 +23,9 @@
 #include "arrow/vendored/fast_float/fast_float.h"
 
 namespace arrow {
+
+#define FASTFLOAT_ALLOWS_LEADING_PLUS 1
+
 namespace internal {
 
 bool StringToFloat(const char* s, size_t length, char decimal_point, float* out) {
