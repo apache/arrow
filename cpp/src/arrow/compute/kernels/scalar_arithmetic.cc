@@ -652,6 +652,17 @@ struct ArithmeticFunction : ScalarFunction {
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 
+Status CheckArithmeticTypes(const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right) {
+  // Check if both types are arithmetic
+  if (!is_arithmetic(left->id())) {
+    return Status::Invalid("Unsupported type for arithmetic operation: ", left->ToString());
+  }
+  if (!is_arithmetic(right->id())) {
+    return Status::Invalid("Unsupported type for arithmetic operation: ", right->ToString());
+  }
+  return Status::OK();
+}
+
   Status CheckDecimals(std::vector<TypeHolder>* types) const {
     if (!HasDecimal(*types)) return Status::OK();
 

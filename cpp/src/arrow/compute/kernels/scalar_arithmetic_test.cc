@@ -2180,6 +2180,30 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
   }
 }
 
+TEST_F(TestArithmeticFunction, CheckArithmeticTypes) {
+  // Test with arithmetic types
+  this->AssertBinopRaises(CheckArithmeticTypes, std::numeric_limits<int8_t>::max(), true,
+                          "Unsupported type for arithmetic operation: BOOL");
+  this->AssertBinopRaises(CheckArithmeticTypes, 3.14, "test-string",
+                          "Unsupported type for arithmetic operation: STRING");
+  this->AssertBinopRaises(CheckArithmeticTypes, 42.5f, std::numeric_limits<double>::max(),
+                          "Unsupported type for arithmetic operation: DECIMAL");
+  this->AssertBinopRaises(CheckArithmeticTypes, 18723, 123456789,
+                          "Unsupported type for arithmetic operation: TIME64");
+
+  // Test with non-arithmetic types
+  this->AssertBinopRaises(CheckArithmeticTypes, "test_string", 42,
+                          "Unsupported type for arithmetic operation: STRING");
+  this->AssertBinopRaises(CheckArithmeticTypes, false, 3.14f,
+                          "Unsupported type for arithmetic operation: BOOL");
+  this->AssertBinopRaises(CheckArithmeticTypes, std::vector<int32_t>{1, 2, 3}, 42,
+                          "Unsupported type for arithmetic operation: LIST");
+
+  // Test decimal with string 
+  this->AssertBinopRaises(CheckArithmeticTypes, 3.14, "test-string",
+                          "Unsupported type for arithmetic operation: STRING");
+}
+
 TEST_F(TestBinaryArithmeticDecimal, Atan2) {
   // Decimal arguments promoted to double, sanity check here
   const auto func = "atan2";

@@ -1034,6 +1034,35 @@ constexpr bool is_primitive(Type::type type_id) {
   return false;
 }
 
+inline bool is_arithmetic(Type::type type_id) {
+    bool result = false;
+    switch (type_id) {
+        case Type::INT8:
+        case Type::INT16:
+        case Type::INT32:
+        case Type::INT64:
+        case Type::UINT8:
+        case Type::UINT16:
+        case Type::UINT32:
+        case Type::UINT64:
+        case Type::FLOAT16:
+        case Type::FLOAT32:
+        case Type::FLOAT64:
+        case Type::DECIMAL:
+        case Type::DATE32:
+        case Type::DATE64:
+        case Type::TIMESTAMP:
+        case Type::TIME32:
+        case Type::TIME64:
+        case Type::INTERVAL:
+            result = true;
+            break;
+        default:
+            result = false;
+    }
+    return result;
+}
+
 /// \brief Check for a base-binary-like type
 ///
 /// This predicate doesn't match fixed-size binary types and will otherwise
