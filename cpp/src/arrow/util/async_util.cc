@@ -159,6 +159,22 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (IsAborted()) {
       return false;
     }
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // Wrap the task to propagate a parent tracing span to it
+    struct WrapperTask : public Task {
+        WrapperTask(std::unique_ptr<Task> target, opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span)
+                : target(std::move(target)), parent_span(std::move(parent_span)) {}
+        Result<Future<>> operator()() override {
+          auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(parent_span);
+          return (*target)();
+        }
+        int cost() const override { return target->cost(); }
+        std::string_view name() const override { return target->name(); }
+        std::unique_ptr<Task> target;
+        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
+    };
+    task = std::make_unique<WrapperTask>(std::move(task), arrow::internal::tracing::GetTracer()->GetCurrentSpan());
+#endif
     SubmitTaskUnlocked(std::move(task), std::move(lk));
     return true;
   }
@@ -194,7 +210,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
           return [this, task_inner2 = std::move(task_inner)](const Status& st) {
 #ifdef ARROW_WITH_OPENTELEMETRY
-      TraceTaskFinished(task_inner2.get());
+      //TraceTaskFinished(task_inner2.get());
 #endif
             OnTaskFinished(st);
           };
@@ -245,7 +261,7 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     // It's important that the task's span be active while we run the submit function.
     // Normally the submit function should transfer the span to the thread task as the
     // active span.
-    auto scope = TraceTaskSubmitted(task.get(), span_);
+//    auto scope = TraceTaskSubmitted(task.get(), span_);
 #endif
     running_tasks_++;
     lk.unlock();
@@ -285,6 +301,22 @@ class ThrottledAsyncTaskSchedulerImpl
   }
 
   bool AddTask(std::unique_ptr<Task> task) override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // Wrap the task to propagate a parent tracing span to it
+    struct WrapperTask : public Task {
+        WrapperTask(std::unique_ptr<Task> target, opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span)
+                : target(std::move(target)), parent_span(std::move(parent_span)) {}
+        Result<Future<>> operator()() override {
+          auto scope = arrow::internal::tracing::GetTracer()->WithActiveSpan(parent_span);
+          return (*target)();
+        }
+        int cost() const override { return target->cost(); }
+        std::string_view name() const override { return target->name(); }
+        std::unique_ptr<Task> target;
+        opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> parent_span;
+    };
+    task = std::make_unique<WrapperTask>(std::move(task), arrow::internal::tracing::GetTracer()->GetCurrentSpan());
+#endif
     std::unique_lock lk(mutex_);
     // If the queue isn't empty then don't even try and acquire the throttle
     // We can safely assume it is either blocked or in the middle of trying to
