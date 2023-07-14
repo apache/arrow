@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -137,23 +138,26 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
   virtual Status AppendValues(const offset_type* offsets, const offset_type* sizes,
                               int64_t length, const uint8_t* valid_bytes) = 0;
 
-  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
-                          int64_t length) override {
+ private:
+  /// \tparam T The DataType of array
+  template <typename T>
+  Status AppendArraySliceImpl(const ArraySpan& array, int64_t offset, int64_t length) {
+    static_assert(
+        std::is_same<typename TYPE::offset_type, typename T::offset_type>::value,
+        "VarLengthListLikeBuilder::AppendArraySlice expects a list or list-view "
+        "with the same offset bit-width");
     const offset_type* offsets = array.GetValues<offset_type>(1);
     [[maybe_unused]] const offset_type* sizes = NULLPTR;
-    if constexpr (is_list_view(TYPE::type_id)) {
+    if constexpr (is_list_view(T::type_id)) {
       sizes = array.GetValues<offset_type>(2);
     }
-    const bool all_valid = !array.MayHaveLogicalNulls();
     const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
     ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t row = offset; row < offset + length; row++) {
-      const bool is_valid =
-          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
-          array.IsValid(row);
+      const bool is_valid = !validity || bit_util::GetBit(validity, array.offset + row);
       int64_t size = 0;
       if (is_valid) {
-        if constexpr (is_list_view(TYPE::type_id)) {
+        if constexpr (is_list_view(T::type_id)) {
           size = sizes[row];
         } else {
           size = offsets[row + 1] - offsets[row];
@@ -161,12 +165,37 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
       }
       UnsafeAppendToBitmap(is_valid);
       UnsafeAppendDimensions(/*offset=*/value_builder_->length(), size);
-      if (is_valid) {
+      if (is_valid && size > 0) {
         ARROW_RETURN_NOT_OK(
             value_builder_->AppendArraySlice(array.child_data[0], offsets[row], size));
       }
     }
     return Status::OK();
+  }
+
+ public:
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
+                          int64_t length) override {
+    const auto array_type_id = array.type->id();
+    if constexpr (TYPE::type_id == Type::LIST) {
+      if (array_type_id == Type::LIST_VIEW) {
+        return AppendArraySliceImpl<ListViewType>(array, offset, length);
+      }
+    } else if constexpr (TYPE::type_id == Type::LIST_VIEW) {
+      if (array_type_id == Type::LIST) {
+        return AppendArraySliceImpl<ListType>(array, offset, length);
+      }
+    } else if constexpr (TYPE::type_id == Type::LARGE_LIST) {
+      if (array_type_id == Type::LARGE_LIST_VIEW) {
+        return AppendArraySliceImpl<LargeListViewType>(array, offset, length);
+      }
+    } else if constexpr (TYPE::type_id == Type::LARGE_LIST_VIEW) {
+      if (array_type_id == Type::LARGE_LIST) {
+        return AppendArraySliceImpl<LargeListType>(array, offset, length);
+      }
+    }
+    assert(TYPE::type_id == array_type_id);
+    return AppendArraySliceImpl<TYPE>(array, offset, length);
   }
 
   Status ValidateOverflow(int64_t new_elements) const {

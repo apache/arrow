@@ -330,10 +330,30 @@ struct DerefConstIterator {
   pointer operator->() const { return &(**it); }
 };
 
+/// If A and B are equivalent types, a builder of type A can receive
+/// scalar values of type B and a builder of type B can receive
+/// scalar values of type A.
+///
+/// \param a Type A.
+/// \param b Type B.
+bool AreScalarTypesEquivalent(const DataType& a, const DataType& b) {
+  if (a.Equals(b)) {
+    return true;
+  }
+  if ((a.id() == Type::LIST && b.id() == Type::LIST_VIEW) ||
+      (a.id() == Type::LIST_VIEW && b.id() == Type::LIST) ||
+      (a.id() == Type::LARGE_LIST && b.id() == Type::LARGE_LIST_VIEW) ||
+      (a.id() == Type::LARGE_LIST_VIEW && b.id() == Type::LARGE_LIST)) {
+    return checked_cast<const BaseListType&>(a).value_type()->Equals(
+        *checked_cast<const BaseListType&>(b).value_type());
+  }
+  return false;
+}
+
 }  // namespace
 
 Status ArrayBuilder::AppendScalar(const Scalar& scalar, int64_t n_repeats) {
-  if (!scalar.type->Equals(type())) {
+  if (!AreScalarTypesEquivalent(*scalar.type, *type())) {
     return Status::Invalid("Cannot append scalar of type ", scalar.type->ToString(),
                            " to builder for type ", type()->ToString());
   }
@@ -344,7 +364,7 @@ Status ArrayBuilder::AppendScalars(const ScalarVector& scalars) {
   if (scalars.empty()) return Status::OK();
   const auto ty = type();
   for (const auto& scalar : scalars) {
-    if (!scalar->type->Equals(ty)) {
+    if (ARROW_PREDICT_FALSE(!AreScalarTypesEquivalent(*scalar->type, *ty))) {
       return Status::Invalid("Cannot append scalar of type ", scalar->type->ToString(),
                              " to builder for type ", type()->ToString());
     }
