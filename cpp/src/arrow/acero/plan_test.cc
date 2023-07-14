@@ -1474,7 +1474,11 @@ GetDistinctBatch() {
        "[[48615], [48675], [48735]]"},
       {arrow::int32(), arrow::duration(arrow::TimeUnit::SECOND),
        "[[1, 20], [2, 40], [3, 20]]", "[[4, 60], [5, 40], [6, 30]]",
-       "[[20], [30], [40], [60]]"}};
+       "[[20], [30], [40], [60]]"},
+      {arrow::int32(), arrow::utf8(),
+       std::string(R"([[1, "abcd"], [2, "efgh"], [3, "abcd"]])"),
+       std::string(R"([[4, "efgh"], [5, "hijk"], [6, "abcd"]])"),
+       std::string(R"([["abcd"], ["efgh"], ["hijk"]])")}};
 }
 
 // Order of parameters: Key Type, Value Type, Batch 1, Batch 2, Output
@@ -1498,7 +1502,11 @@ GetDistinctBatchScalar() {
        "[[48615], [48675], [48735]]"},
       {arrow::int32(), arrow::duration(arrow::TimeUnit::SECOND),
        "[[1, 20], [2, 40], [3, 20]]", "[[4, 60], [5, 40], [6, 30]]",
-       "[[20], [30], [40], [60]]"}};
+       "[[20], [30], [40], [60]]"},
+      {arrow::int32(), arrow::utf8(),
+       std::string(R"([[1, "abcd"], [2, "efgh"], [3, "abcd"]])"),
+       std::string(R"([[4, "efgh"], [5, "hijk"], [6, "abcd"]])"),
+       std::string(R"([["abcd"], ["efgh"], ["hijk"]])")}};
 }
 
 INSTANTIATE_TEST_SUITE_P(ScalarAggregatorArrayTest, ScalarAggregateDistinctTest,
