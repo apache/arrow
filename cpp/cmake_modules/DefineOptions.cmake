@@ -387,6 +387,7 @@ takes precedence over ccache if a storage backend is configured" ON)
 (This is a deprecated option. Use CMake presets instead.)"
                 OFF
                 DEPENDS
+                ARROW_ACERO
                 ARROW_CSV
                 ARROW_DATASET
                 ARROW_FILESYSTEM
