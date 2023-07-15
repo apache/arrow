@@ -529,20 +529,18 @@ readr_to_csv_write_options <- function(include_header = TRUE,
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
 CsvWriteOptions$create <- function(include_header = TRUE,
                                    batch_size = 1024L,
-                                   delimiter = ",",
                                    null_string = "",
+                                   delimiter = ",",
                                    eol = "\n") {
   assert_that(is.logical(include_header))
 
   assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
 
   assert_that(is.character(delimiter))
-
   assert_that(is.character(null_string))
   assert_that(!is.na(null_string))
   assert_that(length(null_string) == 1)
   assert_that(!grepl('"', null_string), msg = "na argument must not contain quote characters.")
-
   assert_that(is.character(eol))
 
   csv___WriteOptions__initialize(

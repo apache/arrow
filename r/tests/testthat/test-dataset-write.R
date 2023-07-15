@@ -910,23 +910,3 @@ test_that("Writing a flat file dataset without a delimiter throws an error.", {
     "A delimiter must be given for a txt format."
   )
 })
-
-test_that("Writing a csv or tsv dataset with a delimiter throws an error.", {
-  df <- tibble(
-    int = 1:10,
-    dbl = as.numeric(1:10),
-    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
-    chr = letters[1:10],
-  )
-
-  dst_dir <- make_temp_dir()
-  expect_error(
-    write_dataset(df, dst_dir, format = "csv", delimiter = ","),
-    "Do not set a delimiter for csv or tsv formats."
-  )
-
-  expect_error(
-    write_dataset(df, dst_dir, format = "tsv", delimiter = "\t"),
-    "Do not set a delimiter for csv or tsv formats."
-  )
-})

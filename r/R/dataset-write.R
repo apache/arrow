@@ -180,10 +180,6 @@ write_dataset <- function(dataset,
   path_and_fs <- get_path_and_filesystem(path)
 
   dots <- list(...)
-  if (format %in% c("csv", "tsv") && any(c("delimiter", "delim") %in% names(dots))) {
-    stop("Do not set a delimiter for csv or tsv formats.")
-  }
-
   if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
     stop("A delimiter must be given for a txt format.")
   }
