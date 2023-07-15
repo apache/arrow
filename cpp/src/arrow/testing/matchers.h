@@ -264,7 +264,7 @@ class ErrorMatcher {
         } else if (status.ok()) {
           *listener << "whose non-error doesn't match";
         } else {
-          *listener << "whose error (" << status.message() << ") doesn't match";
+          *listener << "whose error doesn't match";
         }
 
         testing::internal::PrintIfNotEmpty(value_listener.str(), listener->stream());
