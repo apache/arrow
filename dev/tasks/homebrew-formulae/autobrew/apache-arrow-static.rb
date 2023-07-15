@@ -39,7 +39,6 @@ class ApacheArrowStatic < Formula
   depends_on "brotli"
   depends_on "lz4"
   depends_on "openssl@3"
-  depends_on "curl"
   depends_on "snappy"
   depends_on "thrift"
   depends_on "zstd"
