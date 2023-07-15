@@ -138,7 +138,7 @@ on:
       sudo apt install -y ruby-full
   - name: Set up Ruby by GitHub Actions
     if: !(runner.os == 'Linux' && runner.arch != 'X64')
-    use: ruby/setup-ruby@1
+    uses: ruby/setup-ruby@1
     with:
       ruby-version: "ruby"
   - name: Upload package to Gemfury
