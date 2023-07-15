@@ -91,7 +91,7 @@ class ApacheArrow < Formula
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
 
-    system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
+    system "cmake", "-S", "cpp", "-B", "build", *std_cmake_args, *args
     system "cmake", "--build", "build"
     system "cmake", "--install", "build"
   end
