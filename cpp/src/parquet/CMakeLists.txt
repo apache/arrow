@@ -406,6 +406,7 @@ add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
+add_parquet_benchmark(page_index_benchmark)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
 if(ARROW_WITH_BROTLI)

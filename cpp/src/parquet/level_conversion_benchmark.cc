@@ -29,7 +29,7 @@ constexpr int16_t kMissingDefLevel = 0;
 // Definition Level indicating the values has an entry in the leaf element.
 constexpr int16_t kPresentDefLevel = 2;
 
-// A repition level that indicates a repeated element.
+// A repetition level that indicates a repeated element.
 constexpr int16_t kHasRepeatedElements = 1;
 
 std::vector<uint8_t> RunDefinitionLevelsToBitmap(const std::vector<int16_t>& def_levels,
