@@ -136,11 +136,15 @@ on:
     run: |
       sudo apt update
       sudo apt install -y ruby-full
+  - name: Set up Ruby by GitHub Actions
+    if: !(runner.os == 'Linux' && runner.arch != 'X64')
+    use: ruby/setup-ruby@1
+    with:
+      ruby-version: "ruby"
   - name: Upload package to Gemfury
     shell: bash
     run: |
       PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
-      gem install --user-install faraday -v 1.10.3
       gem install --user-install gemfury
       fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
