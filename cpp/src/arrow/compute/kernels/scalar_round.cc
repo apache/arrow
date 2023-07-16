@@ -125,7 +125,7 @@ struct RoundUtil {
         10000000000000000ULL,
         100000000000000000ULL,
         1000000000000000000ULL
-        // clang-format on 
+        // clang-format on
     };
 
     return static_cast<T>(lut[power]);
