@@ -35,6 +35,7 @@ class ApacheArrow < Formula
   depends_on "aws-sdk-cpp"
   depends_on "brotli"
   depends_on "lz4"
+  depends_on "openssl@1.1"
   depends_on "snappy"
   depends_on "thrift"
   depends_on "zstd"
