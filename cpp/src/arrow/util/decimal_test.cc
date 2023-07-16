@@ -1131,6 +1131,9 @@ class TestDecimalToReal : public ::testing::Test {
 
   // Test precision of conversions to float values
   void TestPrecision() {
+    static_assert(std::is_same_v<Real, float>,
+                  "double is tested in TestDecimalToRealDouble::Precision, not here");
+
     // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
     CheckDecimalToReal<Decimal, Real>("9223373136366403584", 0, 9.223373e+18f);
     CheckDecimalToReal<Decimal, Real>("-9223373136366403584", 0, -9.223373e+18f);
@@ -1257,9 +1260,7 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
   // Integers are always exact
   auto scale = TypeParam::kMaxScale - 1;
   std::string seven = "7.";
-  for (int32_t i = 0; i < scale; ++i) {
-    seven += "0";
-  }
+  seven.append(scale, '0');
   CheckDecimalToReal<TypeParam, double>(seven, scale, 7.0);
   CheckDecimalToReal<TypeParam, double>("-" + seven, scale, -7.0);
 
