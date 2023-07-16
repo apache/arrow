@@ -70,7 +70,7 @@ class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
   }
 
   bool HasList(const DataType& type) {
-    if (is_list_like(type.id()) && type.id() != Type::FIXED_SIZE_LIST) {
+    if (is_var_length_list(type.id())) {
       return true;
     }
     for (const auto& child : type.fields()) {

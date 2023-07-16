@@ -2171,6 +2171,7 @@ PREDEFINED             = __attribute__(x)= \
                          PARQUET_EXPORT= \
                          GANDIVA_EXPORT= \
                          ARROW_EXPORT= \
+                         ARROW_ACERO_EXPORT= \
                          ARROW_DS_EXPORT= \
                          ARROW_ENGINE_EXPORT= \
                          ARROW_FLIGHT_EXPORT= \

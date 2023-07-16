@@ -22,3 +22,5 @@ build/
 
 # MEX files
 *.mex*
+# MATLAB autosave files
+*.asv

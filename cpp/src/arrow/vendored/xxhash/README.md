@@ -17,6 +17,5 @@
   under the License.
 -->
 
-The files in this directory are vendored from xxHash git tag v0.8.0
+The files in this directory are vendored from xxHash git tag v0.8.1
 (https://github.com/Cyan4973/xxHash).
-Includes https://github.com/Cyan4973/xxHash/pull/502 for Solaris compatibility

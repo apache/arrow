@@ -130,7 +130,8 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
 }
 
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
-  ARROW_CHECK_LE(off, length) << "Slice offset greater than array length";
+  ARROW_CHECK_LE(off, length) << "Slice offset (" << off
+                              << ") greater than array length (" << length << ")";
   len = std::min(length - off, len);
   off += offset;
 
@@ -228,12 +229,11 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 namespace {
 
 template <typename offset_type>
-void SetOffsetsForScalar(ArraySpan* span, offset_type* buffer, int64_t value_size,
-                         int buffer_index = 1) {
-  buffer[0] = 0;
-  buffer[1] = static_cast<offset_type>(value_size);
-  span->buffers[buffer_index].data = reinterpret_cast<uint8_t*>(buffer);
-  span->buffers[buffer_index].size = 2 * sizeof(offset_type);
+BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
+  auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
+  offsets[0] = 0;
+  offsets[1] = static_cast<offset_type>(value_size);
+  return {scratch_space, sizeof(offset_type) * 2};
 }
 
 int GetNumBuffers(const DataType& type) {
@@ -241,9 +241,8 @@ int GetNumBuffers(const DataType& type) {
     case Type::NA:
     case Type::STRUCT:
     case Type::FIXED_SIZE_LIST:
-      return 1;
     case Type::RUN_END_ENCODED:
-      return 0;
+      return 1;
     case Type::BINARY:
     case Type::LARGE_BINARY:
     case Type::STRING:
@@ -265,14 +264,17 @@ int GetNumBuffers(const DataType& type) {
 namespace internal {
 
 void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
-  memset(span->scratch_space, 0x00, sizeof(span->scratch_space));
-
   span->type = type;
   span->length = 0;
   int num_buffers = GetNumBuffers(*type);
   for (int i = 0; i < num_buffers; ++i) {
-    span->buffers[i].data = reinterpret_cast<uint8_t*>(span->scratch_space);
+    alignas(int64_t) static std::array<uint8_t, sizeof(int64_t) * 2> kZeros{0};
+    span->buffers[i].data = kZeros.data();
     span->buffers[i].size = 0;
+  }
+
+  if (!HasValidityBitmap(type->id())) {
+    span->buffers[0] = {};
   }
 
   for (int i = num_buffers; i < 3; ++i) {
@@ -304,9 +306,13 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
   Type::type type_id = value.type->id();
 
-  // Populate null count and validity bitmap (only for non-union/null types)
-  this->null_count = value.is_valid ? 0 : 1;
-  if (!is_union(type_id) && type_id != Type::NA) {
+  if (type_id == Type::NA) {
+    this->null_count = 1;
+  } else if (!internal::HasValidityBitmap(type_id)) {
+    this->null_count = 0;
+  } else {
+    // Populate null count and validity bitmap
+    this->null_count = value.is_valid ? 0 : 1;
     this->buffers[0].data = value.is_valid ? &kTrueBit : &kFalseBit;
     this->buffers[0].size = 1;
   }
@@ -329,7 +335,7 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
   } else if (is_base_binary_like(type_id)) {
     const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
+
     const uint8_t* data_buffer = nullptr;
     int64_t data_size = 0;
     if (scalar.is_valid) {
@@ -337,12 +343,11 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       data_size = scalar.value->size();
     }
     if (is_binary_like(type_id)) {
-      SetOffsetsForScalar<int32_t>(this, reinterpret_cast<int32_t*>(this->scratch_space),
-                                   data_size);
+      this->buffers[1] =
+          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(data_size));
     } else {
       // is_large_binary_like
-      SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
-                                   data_size);
+      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, data_size);
     }
     this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
     this->buffers[2].size = data_size;
@@ -367,11 +372,10 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
     }
 
     if (type_id == Type::LIST || type_id == Type::MAP) {
-      SetOffsetsForScalar<int32_t>(this, reinterpret_cast<int32_t*>(this->scratch_space),
-                                   value_length);
+      this->buffers[1] =
+          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
     } else if (type_id == Type::LARGE_LIST) {
-      SetOffsetsForScalar<int64_t>(this, reinterpret_cast<int64_t*>(this->scratch_space),
-                                   value_length);
+      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
     } else {
       // FIXED_SIZE_LIST: does not have a second buffer
       this->buffers[1] = {};
@@ -384,26 +388,31 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
       this->child_data[i].FillFromScalar(*scalar.value[i]);
     }
   } else if (is_union(type_id)) {
+    // Dense union needs scratch space to store both offsets and a type code
+    struct UnionScratchSpace {
+      alignas(int64_t) int8_t type_code;
+      alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
+    };
+    static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
+    auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
+        &checked_cast<const UnionScalar&>(value).scratch_space_);
+
     // First buffer is kept null since unions have no validity vector
     this->buffers[0] = {};
 
-    this->buffers[1].data = reinterpret_cast<uint8_t*>(this->scratch_space);
+    union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
+    this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
     this->buffers[1].size = 1;
-    int8_t* type_codes = reinterpret_cast<int8_t*>(this->scratch_space);
-    type_codes[0] = checked_cast<const UnionScalar&>(value).type_code;
 
     this->child_data.resize(this->type->num_fields());
     if (type_id == Type::DENSE_UNION) {
       const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
-      // Has offset; start 4 bytes in so it's aligned to a 32-bit boundaries
-      SetOffsetsForScalar<int32_t>(this,
-                                   reinterpret_cast<int32_t*>(this->scratch_space) + 1, 1,
-                                   /*buffer_index=*/2);
+      this->buffers[2] =
+          OffsetsForScalar(union_scratch_space->offsets, static_cast<int32_t>(1));
       // We can't "see" the other arrays in the union, but we put the "active"
       // union array in the right place and fill zero-length arrays for the
       // others
-      const std::vector<int>& child_ids =
-          checked_cast<const UnionType*>(this->type)->child_ids();
+      const auto& child_ids = checked_cast<const UnionType*>(this->type)->child_ids();
       DCHECK_GE(scalar.type_code, 0);
       DCHECK_LT(scalar.type_code, static_cast<int>(child_ids.size()));
       for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {
@@ -429,6 +438,32 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
 
     // Restore the extension type
     this->type = value.type.get();
+  } else if (type_id == Type::RUN_END_ENCODED) {
+    const auto& scalar = checked_cast<const RunEndEncodedScalar&>(value);
+    this->child_data.resize(2);
+
+    auto set_run_end = [&](auto run_end) {
+      auto& e = this->child_data[0];
+      e.type = scalar.run_end_type().get();
+      e.length = 1;
+      e.null_count = 0;
+      e.buffers[1].data = scalar.scratch_space_;
+      e.buffers[1].size = sizeof(run_end);
+      reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
+    };
+
+    switch (scalar.run_end_type()->id()) {
+      case Type::INT16:
+        set_run_end(static_cast<int16_t>(1));
+        break;
+      case Type::INT32:
+        set_run_end(static_cast<int32_t>(1));
+        break;
+      default:
+        DCHECK_EQ(scalar.run_end_type()->id(), Type::INT64);
+        set_run_end(static_cast<int64_t>(1));
+    }
+    this->child_data[1].FillFromScalar(*scalar.value);
   } else {
     DCHECK_EQ(Type::NA, type_id) << "should be unreachable: " << *value.type;
   }

@@ -151,8 +151,11 @@ Glossary
 
    IPC message
    message
-       The IPC representation of a particular in-memory structure,
-       like a record batch or schema.
+       The IPC representation of a particular in-memory structure, like a :term:`record
+       batch` or :term:`schema`. Will always be one of the members of ``MessageHeader``
+       in the `Flatbuffers protocol file
+       <https://github.com/apache/arrow/blob/main/format/Message.fbs>`_.
+
 
    IPC streaming format
    streaming format

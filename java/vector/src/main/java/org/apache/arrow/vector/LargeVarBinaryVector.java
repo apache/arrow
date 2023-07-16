@@ -34,7 +34,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * The size of the underlying buffer can be over 2GB.
  */
 public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
-  private final FieldReader reader;
 
   /**
    * Instantiate a LargeVarBinaryVector. This doesn't allocate any memory for
@@ -68,17 +67,11 @@ public final class LargeVarBinaryVector extends BaseLargeVariableWidthVector {
    */
   public LargeVarBinaryVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new LargeVarBinaryReaderImpl(LargeVarBinaryVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new LargeVarBinaryReaderImpl(LargeVarBinaryVector.this);
   }
 
   /**

@@ -24,6 +24,7 @@ import itertools
 import pickle
 import pytest
 import struct
+import subprocess
 import sys
 import weakref
 
@@ -38,7 +39,17 @@ import pyarrow.tests.strategies as past
 
 
 def test_total_bytes_allocated():
+    code = """if 1:
+    import pyarrow as pa
+
     assert pa.total_allocated_bytes() == 0
+    """
+    res = subprocess.run([sys.executable, "-c", code],
+                         universal_newlines=True, stderr=subprocess.PIPE)
+    if res.returncode != 0:
+        print(res.stderr, file=sys.stderr)
+        res.check_returncode()  # fail
+    assert len(res.stderr.splitlines()) == 0
 
 
 def test_weakref():
@@ -168,6 +179,21 @@ def test_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
+def test_chunked_array_to_numpy_zero_copy():
+    elements = [[2, 2, 4], [4, 5, 100]]
+
+    chunked_arr = pa.chunked_array(elements)
+
+    msg = "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"
+
+    with pytest.raises(ValueError, match=msg):
+        chunked_arr.to_numpy(zero_copy_only=True)
+
+    np_arr = chunked_arr.to_numpy()
+    expected = [2, 2, 4, 4, 5, 100]
+    np.testing.assert_array_equal(np_arr, expected)
+
+
 def test_to_numpy_unsupported_types():
     # ARROW-2871: Some primitive types are not yet supported in to_numpy
     bool_arr = pa.array([True, False, True])
@@ -212,8 +238,9 @@ def test_to_numpy_writable():
 
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
-def test_to_numpy_datetime64(unit):
-    arr = pa.array([1, 2, 3], pa.timestamp(unit))
+@pytest.mark.parametrize('tz', [None, "UTC"])
+def test_to_numpy_datetime64(unit, tz):
+    arr = pa.array([1, 2, 3], pa.timestamp(unit, tz=tz))
     expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
@@ -1414,16 +1441,19 @@ def test_chunked_array_data_warns():
 
 
 def test_cast_integers_unsafe():
-    # We let NumPy do the unsafe casting
+    # We let NumPy do the unsafe casting.
+    # Note that NEP50 in the NumPy spec no longer allows
+    # the np.array() constructor to pass the dtype directly
+    # if it results in an unsafe cast.
     unsafe_cases = [
         (np.array([50000], dtype='i4'), 'int32',
-         np.array([50000], dtype='i2'), pa.int16()),
+         np.array([50000]).astype(dtype='i2'), pa.int16()),
         (np.array([70000], dtype='i4'), 'int32',
-         np.array([70000], dtype='u2'), pa.uint16()),
+         np.array([70000]).astype(dtype='u2'), pa.uint16()),
         (np.array([-1], dtype='i4'), 'int32',
-         np.array([-1], dtype='u2'), pa.uint16()),
+         np.array([-1]).astype(dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
-         np.array([50000], dtype='i2'), pa.int16())
+         np.array([50000]).astype(dtype='i2'), pa.int16())
     ]
 
     for case in unsafe_cases:
@@ -2151,12 +2181,15 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
-def test_array_from_numpy_datetimeD():
+def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
     result = pa.array(arr)
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
+    result = result.to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(result, arr)
+    assert result.dtype == arr.dtype
 
 
 def test_array_from_naive_datetimes():
@@ -3342,6 +3375,16 @@ def test_to_pandas_timezone():
     arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None
+
+
+@pytest.mark.pandas
+def test_to_pandas_float16_list():
+    # https://github.com/apache/arrow/issues/36168
+    expected = [[np.float16(1)], [np.float16(2)], [np.float16(3)]]
+    arr = pa.array(expected)
+    result = arr.to_pandas()
+    assert result[0].dtype == "float16"
+    assert result.tolist() == expected
 
 
 def test_array_sort():

@@ -76,8 +76,7 @@ using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 ::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
@@ -842,7 +841,15 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     auto storage_field = arrow_field->WithType(
         checked_cast<const ExtensionType&>(*arrow_field->type()).storage_type());
     RETURN_NOT_OK(GetReader(field, storage_field, ctx, out));
-    *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
+    if (*out) {
+      auto storage_type = (*out)->field()->type();
+      if (!storage_type->Equals(storage_field->type())) {
+        return Status::Invalid(
+            "Due to column pruning only part of an extension's storage type was loaded.  "
+            "An extension type cannot be created without all of its fields");
+      }
+      *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
+    }
     return Status::OK();
   }
 
@@ -1406,5 +1413,4 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
 }  // namespace internal
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

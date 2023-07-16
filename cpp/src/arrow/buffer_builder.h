@@ -118,6 +118,11 @@ class ARROW_EXPORT BufferBuilder {
     return Status::OK();
   }
 
+  /// \brief Append the given data to the buffer
+  ///
+  /// The buffer is automatically expanded if necessary.
+  Status Append(std::string_view v) { return Append(v.data(), v.size()); }
+
   /// \brief Append copies of a value to the buffer
   ///
   /// The buffer is automatically expanded if necessary.
@@ -138,6 +143,7 @@ class ARROW_EXPORT BufferBuilder {
     memcpy(data_ + size_, data, static_cast<size_t>(length));
     size_ += length;
   }
+  void UnsafeAppend(std::string_view v) { UnsafeAppend(v.data(), v.size()); }
 
   void UnsafeAppend(const int64_t num_copies, uint8_t value) {
     memset(data_ + size_, value, static_cast<size_t>(num_copies));
@@ -196,6 +202,14 @@ class ARROW_EXPORT BufferBuilder {
   int64_t length() const { return size_; }
   const uint8_t* data() const { return data_; }
   uint8_t* mutable_data() { return data_; }
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data_);
+  }
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(data_);
+  }
 
  private:
   std::shared_ptr<ResizableBuffer> buffer_;

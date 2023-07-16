@@ -26,6 +26,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
@@ -639,6 +640,11 @@ struct ArithmeticFunction : ScalarFunction {
         if (TypeHolder type = CommonNumeric(*types)) {
           ReplaceTypes(type, types);
         }
+      }
+
+      if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
+          name_ == "divide_checked") {
+        PromoteIntegerForDurationArithmetic(types);
       }
     }
 

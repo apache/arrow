@@ -24,8 +24,7 @@ namespace arrow {
 class DataType;
 }
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 using ::arrow::Result;
 
@@ -47,5 +46,4 @@ Result<std::shared_ptr<::arrow::DataType>> GetArrowType(
     const schema::PrimitiveNode& primitive,
     ::arrow::TimeUnit::type int96_arrow_time_unit = ::arrow::TimeUnit::NANO);
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

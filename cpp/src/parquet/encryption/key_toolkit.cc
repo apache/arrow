@@ -27,8 +27,7 @@
 #include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_toolkit_internal.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 std::shared_ptr<KmsClient> KeyToolkit::GetKmsClient(
     const KmsConnectionConfig& kms_connection_config, double cache_entry_lifetime_ms) {
@@ -119,5 +118,4 @@ void KeyToolkit::RemoveCacheEntriesForAllTokens() {
   kek_read_cache_per_token().Clear();
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

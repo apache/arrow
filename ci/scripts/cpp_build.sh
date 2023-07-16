@@ -40,9 +40,22 @@ elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
 fi
 
+if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+  case "$(uname)" in
+    Linux|Darwin|MINGW*)
+      if [ "${ARROW_GDB:-OFF}" != "ON" ]; then
+        : ${ARROW_C_FLAGS_DEBUG:=-g1}
+        : ${ARROW_CXX_FLAGS_DEBUG:=-g1}
+      fi
+      ;;
+    *)
+      ;;
+  esac
+fi
+
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics before build\n==="
-    ccache -s
+    ccache -sv 2>/dev/null || ccache -s
 fi
 
 if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
@@ -70,7 +83,8 @@ pushd ${build_dir}
 
 cmake \
   -Dabsl_SOURCE=${absl_SOURCE:-} \
-  -DARROW_ACERO=${ARROW_ACERO:-ON} \
+  -DARROW_ACERO=${ARROW_ACERO:-OFF} \
+  -DARROW_AZURE=${ARROW_AZURE:-OFF} \
   -DARROW_BOOST_USE_SHARED=${ARROW_BOOST_USE_SHARED:-ON} \
   -DARROW_BUILD_BENCHMARKS_REFERENCE=${ARROW_BUILD_BENCHMARKS:-OFF} \
   -DARROW_BUILD_BENCHMARKS=${ARROW_BUILD_BENCHMARKS:-OFF} \
@@ -84,6 +98,12 @@ cmake \
   -DARROW_CSV=${ARROW_CSV:-ON} \
   -DARROW_CUDA=${ARROW_CUDA:-OFF} \
   -DARROW_CXXFLAGS=${ARROW_CXXFLAGS:-} \
+  -DARROW_CXX_FLAGS_DEBUG="${ARROW_CXX_FLAGS_DEBUG:-}" \
+  -DARROW_CXX_FLAGS_RELEASE="${ARROW_CXX_FLAGS_RELEASE:-}" \
+  -DARROW_CXX_FLAGS_RELWITHDEBINFO="${ARROW_CXX_FLAGS_RELWITHDEBINFO:-}" \
+  -DARROW_C_FLAGS_DEBUG="${ARROW_C_FLAGS_DEBUG:-}" \
+  -DARROW_C_FLAGS_RELEASE="${ARROW_C_FLAGS_RELEASE:-}" \
+  -DARROW_C_FLAGS_RELWITHDEBINFO="${ARROW_C_FLAGS_RELWITHDEBINFO:-}" \
   -DARROW_DATASET=${ARROW_DATASET:-ON} \
   -DARROW_DEPENDENCY_SOURCE=${ARROW_DEPENDENCY_SOURCE:-AUTO} \
   -DARROW_ENABLE_TIMING_TESTS=${ARROW_ENABLE_TIMING_TESTS:-ON} \
@@ -175,7 +195,7 @@ fi
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
     echo -e "===\n=== ccache statistics after build\n==="
-    ccache -s
+    ccache -sv 2>/dev/null || ccache -s
 fi
 
 if command -v sccache &> /dev/null; then

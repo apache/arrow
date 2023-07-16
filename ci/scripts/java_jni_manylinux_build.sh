@@ -21,8 +21,14 @@ set -ex
 
 arrow_dir=${1}
 build_dir=${2}
+normalized_arch=$(arch)
+case ${normalized_arch} in
+  aarch64)
+    normalized_arch=aarch_64
+    ;;
+esac
 # The directory where the final binaries will be stored when scripts finish
-dist_dir=${3}/$(arch)
+dist_dir=${3}/${normalized_arch}
 
 echo "=== Clear output directories and leftovers ==="
 # Clear output directories and leftovers
@@ -56,7 +62,7 @@ export ARROW_ORC
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -72,6 +78,7 @@ cmake \
   -DARROW_BUILD_TESTS=ON \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_SUBSTRAIT=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_SOURCE="VCPKG" \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_GANDIVA_PC_CXX_FLAGS=${GANDIVA_CXX_FLAGS} \
@@ -102,9 +109,18 @@ ninja install
 if [ "${ARROW_BUILD_TESTS}" = "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
+  case $(arch) in
+    aarch64)
+      # GCS testbench is crashed on aarch64:
+      # ImportError: ../grpc/_cython/cygrpc.cpython-38-aarch64-linux-gnu.so:
+      # undefined symbol: vtable for std::__cxx11::basic_ostringstream<
+      #   char, std::char_traits<char>, std::allocator<char> >
+      exclude_tests="${exclude_tests}|arrow-gcsfs-test"
+      ;;
+  esac
   # unstable
-  exclude_tests="${exclude_tests}|arrow-compute-hash-join-node-test"
-  exclude_tests="${exclude_tests}|arrow-dataset-scanner-test"
+  exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+  exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   # strptime
   exclude_tests="${exclude_tests}|arrow-utility-test"
   ctest \
@@ -130,13 +146,14 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics after build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 
 echo "=== Checking shared dependencies for libraries ==="
 pushd ${dist_dir}
 archery linking check-dependencies \
+  --allow ld-linux-aarch64 \
   --allow ld-linux-x86-64 \
   --allow libc \
   --allow libdl \

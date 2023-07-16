@@ -29,6 +29,7 @@ import (
 	"io"
 	"runtime"
 	"runtime/cgo"
+	"sync"
 	"testing"
 	"time"
 	"unsafe"
@@ -122,6 +123,7 @@ func TestPrimitiveSchemas(t *testing.T) {
 		{&arrow.Decimal128Type{Precision: 16, Scale: 4}, "d:16,4"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: 0}, "d:15,0"},
 		{&arrow.Decimal128Type{Precision: 15, Scale: -4}, "d:15,-4"},
+		{&arrow.Decimal256Type{Precision: 15, Scale: -4}, "d:15,-4,256"},
 	}
 
 	for _, tt := range tests {
@@ -134,6 +136,31 @@ func TestPrimitiveSchemas(t *testing.T) {
 			assert.True(t, arrow.TypeEqual(tt.typ, f.Type))
 
 			assert.True(t, schemaIsReleased(&sc))
+		})
+	}
+}
+
+func TestDecimalSchemaErrors(t *testing.T) {
+	tests := []struct {
+		fmt          string
+		errorMessage string
+	}{
+		{"d:", "invalid decimal spec 'd:': wrong number of properties"},
+		{"d:1", "invalid decimal spec 'd:1': wrong number of properties"},
+		{"d:1,2,3,4", "invalid decimal spec 'd:1,2,3,4': wrong number of properties"},
+		{"d:a,2,3", "could not parse decimal precision in 'd:a,2,3':"},
+		{"d:1,a,3", "could not parse decimal scale in 'd:1,a,3':"},
+		{"d:1,2,a", "could not parse decimal bitwidth in 'd:1,2,a':"},
+		{"d:1,2,384", "only decimal128 and decimal256 are supported, got 'd:1,2,384'"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fmt, func(t *testing.T) {
+			sc := testPrimitive(tt.fmt)
+
+			_, err := ImportCArrowField(&sc)
+			assert.Error(t, err)
+			assert.Contains(t, err.Error(), tt.errorMessage)
 		})
 	}
 }
@@ -461,7 +488,7 @@ func TestPrimitiveArrs(t *testing.T) {
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
-			assert.True(t, array.ArrayEqual(arr, imported))
+			assert.True(t, array.Equal(arr, imported))
 			assert.True(t, isReleased(carr))
 
 			imported.Release()
@@ -481,7 +508,7 @@ func TestPrimitiveSliced(t *testing.T) {
 
 	imported, err := ImportCArrayWithType(carr, arr.DataType())
 	assert.NoError(t, err)
-	assert.True(t, array.ArrayEqual(sl, imported))
+	assert.True(t, array.Equal(sl, imported))
 	assert.True(t, array.SliceEqual(arr, 1, 2, imported, 0, int64(imported.Len())))
 	assert.True(t, isReleased(carr))
 
@@ -647,7 +674,7 @@ func TestNestedArrays(t *testing.T) {
 
 			imported, err := ImportCArrayWithType(carr, arr.DataType())
 			assert.NoError(t, err)
-			assert.True(t, array.ArrayEqual(arr, imported))
+			assert.True(t, array.Equal(arr, imported))
 			assert.True(t, isReleased(carr))
 
 			imported.Release()
@@ -740,6 +767,34 @@ func TestExportRecordReaderStream(t *testing.T) {
 		i++
 	}
 	assert.EqualValues(t, len(reclist), i)
+}
+
+func TestExportRecordReaderStreamLifetime(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "strings", Type: arrow.BinaryTypes.String, Nullable: false},
+	}, nil)
+
+	bldr := array.NewBuilder(mem, &arrow.StringType{})
+	defer bldr.Release()
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+
+	rec := array.NewRecord(schema, []arrow.Array{arr}, 0)
+	defer rec.Release()
+
+	rdr, _ := array.NewRecordReader(schema, []arrow.Record{rec})
+	defer rdr.Release()
+
+	out := createTestStreamObj()
+	ExportRecordReader(rdr, out)
+
+	// C Stream is holding on to memory
+	assert.NotEqual(t, 0, mem.CurrentAlloc())
+	releaseStream(out)
 }
 
 func TestEmptyListExport(t *testing.T) {
@@ -897,4 +952,45 @@ func TestRecordReaderError(t *testing.T) {
 		t.Fatalf("Expected error but got none")
 	}
 	assert.Contains(t, err.Error(), "Expected error message")
+}
+
+func TestRecordReaderImportError(t *testing.T) {
+	// Regression test for apache/arrow#35974
+
+	err := fallibleSchemaTestDeprecated()
+	if err == nil {
+		t.Fatalf("Expected error but got nil")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+
+	err = fallibleSchemaTest()
+	if err == nil {
+		t.Fatalf("Expected error but got nil")
+	}
+	assert.Contains(t, err.Error(), "Expected error message")
+}
+
+func TestConfuseGoGc(t *testing.T) {
+	// Regression test for https://github.com/apache/arrow-adbc/issues/729
+	reclist := arrdata.Records["primitives"]
+
+	var wg sync.WaitGroup
+	concurrency := 32
+	wg.Add(concurrency)
+
+	// XXX: this test is a bit expensive
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			for i := 0; i < 256; i++ {
+				rdr, err := array.NewRecordReader(reclist[0].Schema(), reclist)
+				assert.NoError(t, err)
+				runtime.GC()
+				assert.NoError(t, confuseGoGc(rdr))
+				runtime.GC()
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }

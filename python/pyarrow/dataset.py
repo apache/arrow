@@ -20,39 +20,45 @@
 import pyarrow as pa
 from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
-from pyarrow._dataset import (  # noqa
-    CsvFileFormat,
-    CsvFragmentScanOptions,
-    JsonFileFormat,
-    JsonFragmentScanOptions,
-    Dataset,
-    DatasetFactory,
-    DirectoryPartitioning,
-    FeatherFileFormat,
-    FilenamePartitioning,
-    FileFormat,
-    FileFragment,
-    FileSystemDataset,
-    FileSystemDatasetFactory,
-    FileSystemFactoryOptions,
-    FileWriteOptions,
-    Fragment,
-    FragmentScanOptions,
-    HivePartitioning,
-    IpcFileFormat,
-    IpcFileWriteOptions,
-    InMemoryDataset,
-    Partitioning,
-    PartitioningFactory,
-    Scanner,
-    TaggedRecordBatch,
-    UnionDataset,
-    UnionDatasetFactory,
-    WrittenFile,
-    get_partition_keys,
-    get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
-    _filesystemdataset_write,
-)
+try:
+    from pyarrow._dataset import (  # noqa
+        CsvFileFormat,
+        CsvFragmentScanOptions,
+        JsonFileFormat,
+        JsonFragmentScanOptions,
+        Dataset,
+        DatasetFactory,
+        DirectoryPartitioning,
+        FeatherFileFormat,
+        FilenamePartitioning,
+        FileFormat,
+        FileFragment,
+        FileSystemDataset,
+        FileSystemDatasetFactory,
+        FileSystemFactoryOptions,
+        FileWriteOptions,
+        Fragment,
+        FragmentScanOptions,
+        HivePartitioning,
+        IpcFileFormat,
+        IpcFileWriteOptions,
+        InMemoryDataset,
+        Partitioning,
+        PartitioningFactory,
+        Scanner,
+        TaggedRecordBatch,
+        UnionDataset,
+        UnionDatasetFactory,
+        WrittenFile,
+        get_partition_keys,
+        get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
+        _filesystemdataset_write,
+    )
+except ImportError as exc:
+    raise ImportError(
+        f"The pyarrow installation is not built with support for 'dataset' ({str(exc)})"
+    ) from None
+
 # keep Expression functionality exposed here for backwards compatibility
 from pyarrow.compute import Expression, scalar, field  # noqa
 

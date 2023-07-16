@@ -49,6 +49,7 @@ APT_INSTALL="apt install -y -V --no-install-recommends"
 
 apt update
 ${APT_INSTALL} \
+  base-files \
   ca-certificates \
   curl \
   lsb-release
@@ -65,17 +66,17 @@ esac
 
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
-  debian-bookworm)
+  debian-bullseye)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
-      /etc/apt/sources.list.d/debian.sources
+      /etc/apt/sources.list
     ;;
   debian-*)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
-      /etc/apt/sources.list
+      /etc/apt/sources.list.d/debian.sources
     ;;
 esac
 

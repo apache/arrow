@@ -673,54 +673,7 @@ def get_datetimetz_type(values, dtype, type_):
     return values, type_
 
 # ----------------------------------------------------------------------
-# Converting pandas.DataFrame to a dict containing only NumPy arrays or other
-# objects friendly to pyarrow.serialize
-
-
-def dataframe_to_serialized_dict(frame):
-    block_manager = frame._data
-
-    blocks = []
-    axes = [ax for ax in block_manager.axes]
-
-    for block in block_manager.blocks:
-        values = block.values
-        block_data = {}
-
-        if _pandas_api.is_datetimetz(values.dtype):
-            block_data['timezone'] = pa.lib.tzinfo_to_string(values.tz)
-            if hasattr(values, 'values'):
-                values = values.values
-        elif _pandas_api.is_categorical(values):
-            block_data.update(dictionary=values.categories,
-                              ordered=values.ordered)
-            values = values.codes
-        block_data.update(
-            placement=block.mgr_locs.as_array,
-            block=values
-        )
-
-        # If we are dealing with an object array, pickle it instead.
-        if values.dtype == np.dtype(object):
-            block_data['object'] = None
-            block_data['block'] = builtin_pickle.dumps(
-                values, protocol=builtin_pickle.HIGHEST_PROTOCOL)
-
-        blocks.append(block_data)
-
-    return {
-        'blocks': blocks,
-        'axes': axes
-    }
-
-
-def serialized_dict_to_dataframe(data):
-    import pandas.core.internals as _int
-    reconstructed_blocks = [_reconstruct_block(block)
-                            for block in data['blocks']]
-
-    block_mgr = _int.BlockManager(reconstructed_blocks, data['axes'])
-    return _pandas_api.data_frame(block_mgr)
+# Converting pyarrow.Table efficiently to pandas.DataFrame
 
 
 def _reconstruct_block(item, columns=None, extension_columns=None):
@@ -761,7 +714,8 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
             ordered=item['ordered'])
         block = _int.make_block(cat, placement=placement)
     elif 'timezone' in item:
-        dtype = make_datetimetz(item['timezone'])
+        unit, _ = np.datetime_data(block_arr.dtype)
+        dtype = make_datetimetz(unit, item['timezone'])
         block = _int.make_block(block_arr, placement=placement,
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
@@ -785,13 +739,11 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
     return block
 
 
-def make_datetimetz(tz):
+def make_datetimetz(unit, tz):
+    if _pandas_api.is_v1():
+        unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
     tz = pa.lib.string_to_tzinfo(tz)
-    return _pandas_api.datetimetz_type('ns', tz=tz)
-
-
-# ----------------------------------------------------------------------
-# Converting pyarrow.Table efficiently to pandas.DataFrame
+    return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
 def table_to_blockmanager(options, table, categories=None,

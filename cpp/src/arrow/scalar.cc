@@ -29,6 +29,7 @@
 #include "arrow/compare.h"
 #include "arrow/pretty_print.h"
 #include "arrow/type.h"
+#include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/formatting.h"
@@ -151,19 +152,49 @@ struct ScalarHashImpl {
 
   Status ArrayHash(const Array& a) { return ArrayHash(*a.data()); }
 
-  Status ArrayHash(const ArrayData& a) {
-    RETURN_NOT_OK(StdHash(a.length) & StdHash(a.GetNullCount()));
-    if (a.GetNullCount() != 0 && a.buffers[0] != nullptr) {
+  Status ArrayHash(const ArraySpan& a, int64_t offset, int64_t length) {
+    // Calculate null count within the range
+    const auto* validity = a.buffers[0].data;
+    int64_t null_count = 0;
+    if (validity != NULLPTR) {
+      if (offset == a.offset && length == a.length) {
+        null_count = a.GetNullCount();
+      } else {
+        null_count = length - internal::CountSetBits(validity, offset, length);
+      }
+    }
+
+    RETURN_NOT_OK(StdHash(length) & StdHash(null_count));
+    if (null_count != 0) {
       // We can't visit values without unboxing the whole array, so only hash
       // the null bitmap for now. Only hash the null bitmap if the null count
       // is not 0 to ensure hash consistency.
-      RETURN_NOT_OK(BufferHash(*a.buffers[0]));
+      hash_ = internal::ComputeBitmapHash(validity, /*seed=*/hash_,
+                                          /*bits_offset=*/offset, /*num_bits=*/length);
     }
-    for (const auto& child : a.child_data) {
-      RETURN_NOT_OK(ArrayHash(*child));
+
+    // Hash the relevant child arrays for each type taking offset and length
+    // from the parent array into account if necessary.
+    switch (a.type->id()) {
+      case Type::STRUCT:
+        for (const auto& child : a.child_data) {
+          RETURN_NOT_OK(ArrayHash(child, offset, length));
+        }
+        break;
+        // TODO(GH-35830): Investigate what should be the correct behavior for
+        // each nested type.
+      default:
+        // By default, just hash the arrays without considering
+        // the offset and length of the parent.
+        for (const auto& child : a.child_data) {
+          RETURN_NOT_OK(ArrayHash(child));
+        }
+        break;
     }
     return Status::OK();
   }
+
+  Status ArrayHash(const ArraySpan& a) { return ArrayHash(a, a.offset, a.length); }
 
   explicit ScalarHashImpl(const Scalar& scalar) : hash_(scalar.type->Hash()) {
     AccumulateHashFrom(scalar);
@@ -1096,6 +1127,32 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+// casts between variable-length and fixed-length list types
+template <typename ToScalar>
+enable_if_list_type<typename ToScalar::TypeClass, Status> CastImpl(
+    const BaseListScalar& from, ToScalar* to) {
+  if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
+    if (from.value->length() >
+        std::numeric_limits<typename ToScalar::TypeClass::offset_type>::max()) {
+      return Status::Invalid(from.type->ToString(), " too large to cast to ",
+                             to->type->ToString());
+    }
+  }
+
+  if constexpr (is_fixed_size_list_type<typename ToScalar::TypeClass>::value) {
+    const auto& fixed_size_list_type = checked_cast<const FixedSizeListType&>(*to->type);
+    if (from.value->length() != fixed_size_list_type.list_size()) {
+      return Status::Invalid("Cannot cast ", from.type->ToString(), " of length ",
+                             from.value->length(), " to fixed size list of length ",
+                             fixed_size_list_type.list_size());
+    }
+  }
+
+  DCHECK_EQ(from.is_valid, to->is_valid);
+  to->value = from.value;
+  return Status::OK();
+}
+
 // list based types (list, large list and map (fixed sized list too)) to string
 Status CastImpl(const BaseListScalar& from, StringScalar* to) {
   std::stringstream ss;
@@ -1152,10 +1209,25 @@ struct FromTypeVisitor : CastImplVisitor {
 
   // identity cast only for parameter free types
   template <typename T1 = ToType>
-  typename std::enable_if<TypeTraits<T1>::is_parameter_free, Status>::type Visit(
+  typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
       const ToType&) {
     checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
+  }
+
+  Status CastFromListLike(const BaseListType& base_list_type) {
+    return CastImpl(checked_cast<const BaseListScalar&>(from_),
+                    checked_cast<ToScalar*>(out_));
+  }
+
+  Status Visit(const ListType& list_type) { return CastFromListLike(list_type); }
+
+  Status Visit(const LargeListType& large_list_type) {
+    return CastFromListLike(large_list_type);
+  }
+
+  Status Visit(const FixedSizeListType& fixed_size_list_type) {
+    return CastFromListLike(fixed_size_list_type);
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }

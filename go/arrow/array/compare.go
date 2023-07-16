@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -36,7 +37,7 @@ func RecordEqual(left, right arrow.Record) bool {
 	for i := range left.Columns() {
 		lc := left.Column(i)
 		rc := right.Column(i)
-		if !ArrayEqual(lc, rc) {
+		if !Equal(lc, rc) {
 			return false
 		}
 	}
@@ -195,15 +196,6 @@ func TableApproxEqual(left, right arrow.Table, opts ...EqualOption) bool {
 	return true
 }
 
-// ArrayEqual reports whether the two provided arrays are equal.
-//
-// Deprecated: This currently just delegates to calling Equal. This will be
-// removed in v9 so please update any calling code to just call array.Equal
-// directly instead.
-func ArrayEqual(left, right arrow.Array) bool {
-	return Equal(left, right)
-}
-
 // Equal reports whether the two provided arrays are equal.
 func Equal(left, right arrow.Array) bool {
 	switch {
@@ -341,14 +333,6 @@ func Equal(left, right arrow.Array) bool {
 	}
 }
 
-// ArraySliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
-//
-// Deprecated: Renamed to just array.SliceEqual, this currently will just delegate to the renamed
-// function and will be removed in v9. Please update any calling code.
-func ArraySliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
-	return SliceEqual(left, lbeg, lend, right, rbeg, rend)
-}
-
 // SliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
 func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
 	l := NewSlice(left, lbeg, lend)
@@ -357,14 +341,6 @@ func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, ren
 	defer r.Release()
 
 	return Equal(l, r)
-}
-
-// ArraySliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
-//
-// Deprecated: renamed to just SliceApproxEqual and will be removed in v9. Please update
-// calling code to just call array.SliceApproxEqual.
-func ArraySliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
-	return SliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
 }
 
 // SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
@@ -385,8 +361,9 @@ func sliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbe
 const defaultAbsoluteTolerance = 1e-5
 
 type equalOption struct {
-	atol   float64 // absolute tolerance
-	nansEq bool    // whether NaNs are considered equal.
+	atol             float64 // absolute tolerance
+	nansEq           bool    // whether NaNs are considered equal.
+	unorderedMapKeys bool    // whether maps are allowed to have different entries order
 }
 
 func (eq equalOption) f16(f1, f2 float16.Num) bool {
@@ -450,17 +427,15 @@ func WithAbsTolerance(atol float64) EqualOption {
 	}
 }
 
-// ArrayApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
-//
-// Deprecated: renamed to just ApproxEqual, this alias will be removed in v9. Please update
-// calling code to just call array.ApproxEqual
-func ArrayApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
-	return ApproxEqual(left, right, opts...)
+// WithUnorderedMapKeys configures the comparison functions so that Map with different entries order are considered equal.
+func WithUnorderedMapKeys(v bool) EqualOption {
+	return func(o *equalOption) {
+		o.unorderedMapKeys = v
+	}
 }
 
 // ApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
+// For non-floating point arrays, it is equivalent to Equal.
 func ApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
 	opt := newEqualOption(opts...)
 	return arrayApproxEqual(left, right, opt)
@@ -581,6 +556,9 @@ func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 		return arrayEqualDuration(l, r)
 	case *Map:
 		r := right.(*Map)
+		if opt.unorderedMapKeys {
+			return arrayApproxEqualMap(l, r, opt)
+		}
 		return arrayApproxEqualList(l.List, r.List, opt)
 	case *Dictionary:
 		r := right.(*Dictionary)
@@ -724,11 +702,91 @@ func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) 
 }
 
 func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !arrayApproxEqual(lf, rf, opt) {
+	return bitutils.VisitSetBitRuns(
+		left.NullBitmapBytes(),
+		int64(left.Offset()), int64(left.Len()),
+		approxEqualStructRun(left, right, opt),
+	) == nil
+}
+
+func approxEqualStructRun(left, right *Struct, opt equalOption) bitutils.VisitFn {
+	return func(pos int64, length int64) error {
+		for i := range left.fields {
+			if !sliceApproxEqual(left.fields[i], pos, pos+length, right.fields[i], pos, pos+length, opt) {
+				return arrow.ErrInvalid
+			}
+		}
+		return nil
+	}
+}
+
+// arrayApproxEqualMap doesn't care about the order of keys (in Go map traversal order is undefined)
+func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !arrayApproxEqualSingleMapEntry(left.newListValue(i).(*Struct), right.newListValue(i).(*Struct), opt) {
 			return false
 		}
 	}
 	return true
+}
+
+// arrayApproxEqualSingleMapEntry is a helper function that checks if a single entry pair is approx equal.
+// Basically, it doesn't care about key order.
+// structs passed will be released
+func arrayApproxEqualSingleMapEntry(left, right *Struct, opt equalOption) bool {
+	defer left.Release()
+	defer right.Release()
+
+	// we don't compare the validity bitmap, but we want other checks from baseArrayEqual
+	switch {
+	case left.Len() != right.Len():
+		return false
+	case left.NullN() != right.NullN():
+		return false
+	case !arrow.TypeEqual(left.DataType(), right.DataType()): // We do not check for metadata as in the C++ implementation.
+		return false
+	case left.NullN() == left.Len():
+		return true
+	}
+
+	used := make(map[int]bool, right.Len())
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+
+		found := false
+		lBeg, lEnd := int64(i), int64(i+1)
+		for j := 0; j < right.Len(); j++ {
+			if used[j] {
+				continue
+			}
+			if right.IsNull(j) {
+				used[j] = true
+				continue
+			}
+
+			rBeg, rEnd := int64(j), int64(j+1)
+
+			// check keys (field 0)
+			if !sliceApproxEqual(left.Field(0), lBeg, lEnd, right.Field(0), rBeg, rEnd, opt) {
+				continue
+			}
+
+			// only now check the values
+			if sliceApproxEqual(left.Field(1), lBeg, lEnd, right.Field(1), rBeg, rEnd, opt) {
+				found = true
+				used[j] = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return len(used) == right.Len()
 }

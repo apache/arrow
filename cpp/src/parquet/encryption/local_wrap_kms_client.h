@@ -25,8 +25,7 @@
 #include "parquet/encryption/kms_client.h"
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 /// This class supports local wrapping mode, master keys will be fetched from the KMS
 /// server and used to encrypt other keys (data encryption keys or key encryption keys).
@@ -92,5 +91,4 @@ class PARQUET_EXPORT LocalWrapKmsClient : public KmsClient {
   ::arrow::util::ConcurrentMap<std::string, std::string> master_key_cache_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

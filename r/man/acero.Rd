@@ -2,6 +2,9 @@
 % Please edit documentation in R/dplyr-funcs-doc.R
 \name{acero}
 \alias{acero}
+\alias{arrow-functions}
+\alias{arrow-verbs}
+\alias{arrow-dplyr}
 \title{Functions available in Arrow dplyr queries}
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of

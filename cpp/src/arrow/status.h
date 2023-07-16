@@ -314,6 +314,12 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
   /// The string "OK" is returned for success.
   std::string ToString() const;
 
+  /// \brief Return a string representation of this status without
+  /// context lines suitable for printing.
+  ///
+  /// The string "OK" is returned for success.
+  std::string ToStringWithoutContextLines() const;
+
   /// \brief Return a string representation of the status code, without the message
   /// text or POSIX code information.
   std::string CodeAsString() const;

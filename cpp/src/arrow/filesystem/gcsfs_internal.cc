@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/filesystem/gcsfs_internal.h"
+#include "arrow/filesystem/gcsfs.h"
 
 #include <absl/time/time.h>  // NOLINT
 #include <google/cloud/storage/client.h>
@@ -304,6 +305,45 @@ std::int64_t Depth(std::string_view path) {
   // directory.
   bool has_trailing_slash = !path.empty() && path.back() == '/';
   return std::count(path.begin(), path.end(), fs::internal::kSep) - has_trailing_slash;
+}
+
+// Change the default upload buffer size. In general, sending larger buffers is more
+// efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
+// output (when using `operator<<`), keeping a larger buffer in memory before uploading
+// makes sense.  With unformatted output (the only choice given gcs::io::OutputStream's
+// API) it is better to let the caller provide as large a buffer as they want. The GCS C++
+// client library will upload this buffer with zero copies if possible.
+auto constexpr kUploadBufferSize = 256 * 1024;
+
+google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
+  auto options = google::cloud::Options{};
+  std::string scheme = o.scheme;
+  if (scheme.empty()) scheme = "https";
+  if (scheme == "https") {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        google::cloud::MakeGoogleDefaultCredentials());
+  } else {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        google::cloud::MakeInsecureCredentials());
+  }
+  options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
+  if (!o.endpoint_override.empty()) {
+    options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
+  }
+  if (o.credentials.holder() && o.credentials.holder()->credentials) {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        o.credentials.holder()->credentials);
+  }
+  if (o.retry_limit_seconds.has_value()) {
+    options.set<gcs::RetryPolicyOption>(
+        gcs::LimitedTimeRetryPolicy(
+            std::chrono::milliseconds(static_cast<int>(*o.retry_limit_seconds * 1000)))
+            .clone());
+  }
+  if (o.project_id.has_value()) {
+    options.set<gcs::ProjectIdOption>(*o.project_id);
+  }
+  return options;
 }
 
 }  // namespace internal

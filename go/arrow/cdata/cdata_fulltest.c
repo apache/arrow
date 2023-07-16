@@ -18,6 +18,7 @@
 // +build test
 
 #include <assert.h>
+#include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -403,6 +404,7 @@ void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out) 
 int test_exported_stream(struct ArrowArrayStream* stream) {
   while (1) {
     struct ArrowArray array;
+    memset(&array, 0, sizeof(array));
     // Garbage - implementation should not try to call it, though!
     array.release = (void*)0xDEADBEEF;
     int rc = stream->get_next(stream, &array);
@@ -414,4 +416,67 @@ int test_exported_stream(struct ArrowArrayStream* stream) {
     }
   }
   return 0;
+}
+
+struct FallibleStream {
+  // empty structs are a GNU extension
+  int dummy;
+};
+
+const char* FallibleGetLastError(struct ArrowArrayStream* stream) {
+  return "Expected error message";
+}
+
+int FallibleGetSchema(struct ArrowArrayStream* stream, struct ArrowSchema* schema) {
+  return EINVAL;
+}
+
+int FallibleGetNext(struct ArrowArrayStream* stream, struct ArrowArray* array) {
+  return EINVAL;
+}
+
+void FallibleRelease(struct ArrowArrayStream* stream) {
+  memset(stream, 0, sizeof(*stream));
+}
+
+static struct FallibleStream kFallibleStream;
+
+void test_stream_schema_fallible(struct ArrowArrayStream* stream) {
+  stream->get_last_error = FallibleGetLastError;
+  stream->get_schema = FallibleGetSchema;
+  stream->get_next = FallibleGetNext;
+  stream->private_data = &kFallibleStream;
+  stream->release = FallibleRelease;
+}
+
+int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed) {
+  struct ArrowSchema schema;
+  // Try to confuse the Go GC by putting what looks like a Go pointer here.
+#ifdef _WIN32
+  // Thread-safe on Windows with the multithread CRT
+#define DORAND rand()
+#else
+#define DORAND rand_r(&seed)
+#endif
+  schema.name = (char*)(0xc000000000L + (DORAND % 0x2000));
+  schema.format = (char*)(0xc000000000L + (DORAND % 0x2000));
+  int rc = stream->get_schema(stream, &schema);
+  if (rc != 0) return rc;
+  schema.release(&schema);
+
+  while (1) {
+    struct ArrowArray array;
+    array.release = (void*)(0xc000000000L + (DORAND % 0x2000));
+    array.private_data = (void*)(0xc000000000L + (DORAND % 0x2000));
+    int rc = stream->get_next(stream, &array);
+    if (rc != 0) return rc;
+
+    if (array.release == NULL) {
+      stream->release(stream);
+      break;
+    }
+    array.release(&array);
+  }
+  return 0;
+#undef DORAND
 }
