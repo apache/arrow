@@ -1050,6 +1050,24 @@ void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real ex
       << "Decimal value: " << decimal_value << " Scale: " << scale;
 }
 
+template <typename Decimal, typename Real>
+void CheckDecimalToRealWithinByOneULP(const std::string& decimal_value, int32_t scale,
+                                      Real expected) {
+  Decimal dec(decimal_value);
+  auto result = dec.template ToReal<Real>(scale);
+  ASSERT_TRUE(result == expected || result == std::nextafter(expected, expected + 1) ||
+              result == std::nextafter(expected, expected - 1))
+      << "Decimal value: " << decimal_value << " Scale: " << scale;
+}
+
+template <typename Decimal, typename Real>
+void CheckDecimalToRealWithinByEpsilon(const std::string& decimal_value, int32_t scale,
+                                       Real epsilon, Real expected) {
+  Decimal dec(decimal_value);
+  ASSERT_TRUE(std::abs(dec.template ToReal<Real>(scale) - expected) <= epsilon)
+      << "Decimal value: " << decimal_value << " Scale: " << scale;
+}
+
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               float expected) {
@@ -1119,7 +1137,8 @@ class TestDecimalToReal : public ::testing::Test {
     // 2**64 + 2**41 (exactly representable in a float)
     CheckDecimalToReal<Decimal, Real>("18446746272732807168", 0, 1.8446746e+19f);
     CheckDecimalToReal<Decimal, Real>("-18446746272732807168", 0, -1.8446746e+19f);
-    // Small number but large scale
+
+    // Integers are always exact
     auto scale = Decimal::kMaxScale - 1;
     std::string seven = "7.";
     for (int32_t i = 0; i < scale; ++i) {
@@ -1128,9 +1147,26 @@ class TestDecimalToReal : public ::testing::Test {
     CheckDecimalToReal<Decimal, Real>(seven, scale, 7.0f);
     CheckDecimalToReal<Decimal, Real>("-" + seven, scale, -7.0f);
 
-    // Decimal >= max mantisa integer
-    CheckDecimalToReal<Decimal, Real>("9999999.9", 1, 9999999.9);
-    CheckDecimalToReal<Decimal, Real>("-9999999.9", 1, -9999999.9);
+    CheckDecimalToReal<Decimal, Real>("99999999999999999999.0000000000000000", 16,
+                                      99999999999999999999.0f);
+    CheckDecimalToReal<Decimal, Real>("-99999999999999999999.0000000000000000", 16,
+                                      -99999999999999999999.0f);
+
+    // Small fractions are within one ULP
+    CheckDecimalToRealWithinByOneULP<Decimal, Real>("9999999.9", 1, 9999999.9f);
+    CheckDecimalToRealWithinByOneULP<Decimal, Real>("-9999999.9", 1, -9999999.9f);
+    CheckDecimalToRealWithinByOneULP<Decimal, Real>("9999999.999999", 6, 9999999.999999f);
+    CheckDecimalToRealWithinByOneULP<Decimal, Real>("-9999999.999999", 6,
+                                                    -9999999.999999f);
+
+    // Large fractions are within 2^-23
+    constexpr Real epsilon = 1.1920928955078125e-07f;  // 2^-23
+    CheckDecimalToRealWithinByEpsilon<Decimal, Real>(
+        "112334829348925.99070703983306884765625", 23, epsilon,
+        112334829348925.99070703983306884765625f);
+    CheckDecimalToRealWithinByEpsilon<Decimal, Real>(
+        "1.987748987892758765582589910934859345", 36, epsilon,
+        1.987748987892758765582589910934859345f);
   }
 
   // Test conversions with a range of scales
@@ -1221,17 +1257,36 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
                                         9.999999999999998e+47);
   CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", -10,
                                         -9.999999999999998e+47);
-  // Small number but large scale
+  // Integers are always exact
+  auto scale = TypeParam::kMaxScale - 1;
   std::string seven = "7.";
-  for (int32_t i = 0; i < TypeParam::kMaxScale - 1; ++i) {
+  for (int32_t i = 0; i < scale; ++i) {
     seven += "0";
   }
-  CheckDecimalToReal<TypeParam, double>(seven, TypeParam::kMaxScale - 1, 7.0f);
-  CheckDecimalToReal<TypeParam, double>("-" + seven, TypeParam::kMaxScale - 1, -7.0f);
+  CheckDecimalToReal<TypeParam, double>(seven, scale, 7.0);
+  CheckDecimalToReal<TypeParam, double>("-" + seven, scale, -7.0);
 
-  // Decimal >= max mantisa integer
-  CheckDecimalToReal<TypeParam, double>("999999999999999.9", 1, 999999999999999.9);
-  CheckDecimalToReal<TypeParam, double>("-999999999999999.9", 1, -999999999999999.9);
+  CheckDecimalToReal<TypeParam, double>("99999999999999999999.0000000000000000", 16,
+                                        99999999999999999999.0);
+  CheckDecimalToReal<TypeParam, double>("-99999999999999999999.0000000000000000", 16,
+                                        -99999999999999999999.0);
+
+  // Small fractions are within one ULP
+  CheckDecimalToRealWithinByOneULP<TypeParam, double>("9999999.9", 1, 9999999.9);
+  CheckDecimalToRealWithinByOneULP<TypeParam, double>("-9999999.9", 1, -9999999.9);
+  CheckDecimalToRealWithinByOneULP<TypeParam, double>("9999999.999999999999999", 15,
+                                                      9999999.999999999999999);
+  CheckDecimalToRealWithinByOneULP<TypeParam, double>("-9999999.999999999999999", 15,
+                                                      -9999999.999999999999999);
+
+  // Large fractions are within 2^-52
+  constexpr double epsilon = 2.220446049250313080847263336181640625e-16;  // 2^-52
+  CheckDecimalToRealWithinByEpsilon<TypeParam, double>(
+      "112334829348925.99070703983306884765625", 23, epsilon,
+      112334829348925.99070703983306884765625);
+  CheckDecimalToRealWithinByEpsilon<TypeParam, double>(
+      "1.987748987892758765582589910934859345", 36, epsilon,
+      1.987748987892758765582589910934859345);
 }
 
 #endif  // __MINGW32__

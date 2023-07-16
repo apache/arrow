@@ -313,6 +313,13 @@ struct Decimal128RealConversion
     return x;
   }
 
+  /// An appoximate conversion from Decimal128 to Real that guarantees:
+  /// 1. If the decimal is an integer, the conversion is exact.
+  /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
+  ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact value
+  /// 3. Otherwise, the conversion is within 2^(-RealTraits<Real>::kMantissaDigits+1)
+  ///    (e.g. 2^-23 for float and 2^-52 for double) of the exact value
+  /// Here "exact" means the closest representable value by Real.
   template <typename Real>
   static Real ToRealPositive(const Decimal128& decimal, int32_t scale) {
     if (scale <= 0 || (decimal.high_bits() == 0 &&
@@ -999,6 +1006,13 @@ struct Decimal256RealConversion
     return x;
   }
 
+  /// An appoximate conversion from Decimal128 to Real that guarantees:
+  /// 1. If the decimal is an integer, the conversion is exact.
+  /// 2. If the number of fractional digits is <= RealTraits<Real>::kMantissaDigits (e.g.
+  ///    8 for float and 16 for double), the conversion is within 1 ULP of the exact value
+  /// 3. Otherwise, the conversion is within 2^(-RealTraits<Real>::kMantissaDigits+1)
+  ///    (e.g. 2^-23 for float and 2^-52 for double) of the exact value
+  /// Here "exact" means the closest representable value by Real.
   template <typename Real>
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
     const auto parts_le = bit_util::little_endian::Make(decimal.native_endian_array());
