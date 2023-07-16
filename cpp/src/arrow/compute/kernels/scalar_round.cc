@@ -84,25 +84,6 @@ bool IsPositive(const Scalar& scalar) {
   return visitor.result;
 }
 
-// N.B. take care not to conflict with type_traits.h as that can cause surprises in a
-// unity build
-
-// A constexpr helper struct to compute powers of 10 at compile time
-// Can use a consteval function once we force C++20
-template <int Exp>
-struct Pow10Struct {
- private:
-  static constexpr uint64_t half_pow = Pow10Struct<Exp / 2>::value;
-
- public:
-  static constexpr uint64_t value = half_pow * half_pow * (Exp % 2 ? 10 : 1);
-};
-
-template <>
-struct Pow10Struct<0> {
-  static constexpr uint64_t value = 1;
-};
-
 struct RoundUtil {
   // Calculate powers of ten with arbitrary integer exponent
   template <typename T>
@@ -124,13 +105,28 @@ struct RoundUtil {
     DCHECK_GE(power, 0);
     DCHECK_LE(power, std::numeric_limits<T>::digits10);
     static constexpr uint64_t lut[] = {
-        Pow10Struct<0>::value,  Pow10Struct<1>::value,  Pow10Struct<2>::value,
-        Pow10Struct<3>::value,  Pow10Struct<4>::value,  Pow10Struct<5>::value,
-        Pow10Struct<6>::value,  Pow10Struct<7>::value,  Pow10Struct<8>::value,
-        Pow10Struct<9>::value,  Pow10Struct<10>::value, Pow10Struct<11>::value,
-        Pow10Struct<12>::value, Pow10Struct<13>::value, Pow10Struct<14>::value,
-        Pow10Struct<15>::value, Pow10Struct<16>::value, Pow10Struct<17>::value,
-        Pow10Struct<18>::value, Pow10Struct<19>::value};
+        // clang-format off
+        1ULL,
+        10ULL,
+        100ULL,
+        1000ULL,
+        10000ULL,
+        100000ULL,
+        1000000ULL,
+        10000000ULL,
+        100000000ULL,
+        1000000000ULL,
+        10000000000ULL,
+        100000000000ULL,
+        1000000000000ULL,
+        10000000000000ULL,
+        100000000000000ULL,
+        1000000000000000ULL,
+        10000000000000000ULL,
+        100000000000000000ULL,
+        1000000000000000000ULL
+        // clang-format on 
+    };
 
     return static_cast<T>(lut[power]);
   }
