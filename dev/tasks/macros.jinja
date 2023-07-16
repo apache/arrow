@@ -139,7 +139,7 @@ on:
   - name: Set up Ruby by GitHub Actions
     if: |
       !(runner.os == 'Linux' && runner.arch != 'X64')
-    uses: ruby/setup-ruby@1
+    uses: ruby/setup-ruby@v1
     with:
       ruby-version: "ruby"
   - name: Upload package to Gemfury
