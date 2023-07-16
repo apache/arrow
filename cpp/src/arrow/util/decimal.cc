@@ -309,7 +309,6 @@ struct Decimal128RealConversion
     Real x = RealTraits<Real>::two_to_64(static_cast<Real>(decimal.high_bits()));
     x += static_cast<Real>(decimal.low_bits());
     x *= LargePowerOfTen<Real>(-scale);
-
     return x;
   }
 

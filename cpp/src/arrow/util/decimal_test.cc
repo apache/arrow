@@ -1051,8 +1051,8 @@ void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real ex
 }
 
 template <typename Decimal, typename Real>
-void CheckDecimalToRealWithinByOneULP(const std::string& decimal_value, int32_t scale,
-                                      Real expected) {
+void CheckDecimalToRealWithinOneULP(const std::string& decimal_value, int32_t scale,
+                                    Real expected) {
   Decimal dec(decimal_value);
   auto result = dec.template ToReal<Real>(scale);
   ASSERT_TRUE(result == expected || result == std::nextafter(expected, expected + 1) ||
@@ -1061,8 +1061,8 @@ void CheckDecimalToRealWithinByOneULP(const std::string& decimal_value, int32_t 
 }
 
 template <typename Decimal, typename Real>
-void CheckDecimalToRealWithinByEpsilon(const std::string& decimal_value, int32_t scale,
-                                       Real epsilon, Real expected) {
+void CheckDecimalToRealWithinEpsilon(const std::string& decimal_value, int32_t scale,
+                                     Real epsilon, Real expected) {
   Decimal dec(decimal_value);
   ASSERT_TRUE(std::abs(dec.template ToReal<Real>(scale) - expected) <= epsilon)
       << "Decimal value: " << decimal_value << " Scale: " << scale;
@@ -1153,18 +1153,17 @@ class TestDecimalToReal : public ::testing::Test {
                                       -99999999999999999999.0f);
 
     // Small fractions are within one ULP
-    CheckDecimalToRealWithinByOneULP<Decimal, Real>("9999999.9", 1, 9999999.9f);
-    CheckDecimalToRealWithinByOneULP<Decimal, Real>("-9999999.9", 1, -9999999.9f);
-    CheckDecimalToRealWithinByOneULP<Decimal, Real>("9999999.999999", 6, 9999999.999999f);
-    CheckDecimalToRealWithinByOneULP<Decimal, Real>("-9999999.999999", 6,
-                                                    -9999999.999999f);
+    CheckDecimalToRealWithinOneULP<Decimal, Real>("9999999.9", 1, 9999999.9f);
+    CheckDecimalToRealWithinOneULP<Decimal, Real>("-9999999.9", 1, -9999999.9f);
+    CheckDecimalToRealWithinOneULP<Decimal, Real>("9999999.999999", 6, 9999999.999999f);
+    CheckDecimalToRealWithinOneULP<Decimal, Real>("-9999999.999999", 6, -9999999.999999f);
 
     // Large fractions are within 2^-23
     constexpr Real epsilon = 1.1920928955078125e-07f;  // 2^-23
-    CheckDecimalToRealWithinByEpsilon<Decimal, Real>(
+    CheckDecimalToRealWithinEpsilon<Decimal, Real>(
         "112334829348925.99070703983306884765625", 23, epsilon,
         112334829348925.99070703983306884765625f);
-    CheckDecimalToRealWithinByEpsilon<Decimal, Real>(
+    CheckDecimalToRealWithinEpsilon<Decimal, Real>(
         "1.987748987892758765582589910934859345", 36, epsilon,
         1.987748987892758765582589910934859345f);
   }
@@ -1272,19 +1271,19 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
                                         -99999999999999999999.0);
 
   // Small fractions are within one ULP
-  CheckDecimalToRealWithinByOneULP<TypeParam, double>("9999999.9", 1, 9999999.9);
-  CheckDecimalToRealWithinByOneULP<TypeParam, double>("-9999999.9", 1, -9999999.9);
-  CheckDecimalToRealWithinByOneULP<TypeParam, double>("9999999.999999999999999", 15,
-                                                      9999999.999999999999999);
-  CheckDecimalToRealWithinByOneULP<TypeParam, double>("-9999999.999999999999999", 15,
-                                                      -9999999.999999999999999);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("9999999.9", 1, 9999999.9);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("-9999999.9", 1, -9999999.9);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("9999999.999999999999999", 15,
+                                                    9999999.999999999999999);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("-9999999.999999999999999", 15,
+                                                    -9999999.999999999999999);
 
   // Large fractions are within 2^-52
   constexpr double epsilon = 2.220446049250313080847263336181640625e-16;  // 2^-52
-  CheckDecimalToRealWithinByEpsilon<TypeParam, double>(
+  CheckDecimalToRealWithinEpsilon<TypeParam, double>(
       "112334829348925.99070703983306884765625", 23, epsilon,
       112334829348925.99070703983306884765625);
-  CheckDecimalToRealWithinByEpsilon<TypeParam, double>(
+  CheckDecimalToRealWithinEpsilon<TypeParam, double>(
       "1.987748987892758765582589910934859345", 36, epsilon,
       1.987748987892758765582589910934859345);
 }
