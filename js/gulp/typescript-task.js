@@ -44,7 +44,7 @@ export default typescriptTask;
 export function compileBinFiles(target, format) {
     const out = targetDir(target, format);
     const tsconfigPath = path.join(`tsconfig`, `tsconfig.${tsconfigName('bin', 'cjs')}.json`);
-    return compileTypescript(path.join(out, 'bin'), tsconfigPath, { target });
+    return compileTypescript(out, tsconfigPath, { target });
 }
 
 function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
