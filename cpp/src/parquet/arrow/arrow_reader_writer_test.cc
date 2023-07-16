@@ -2413,7 +2413,7 @@ TEST(TestArrowReadWrite, CoalescedReadsAndNonCoalescedReads) {
 
   ASSERT_EQ(2, reader->num_row_groups());
 
-  // Pre-buffer 3 columns in the 2nd row group.
+  // Pre-buffer column 0 and column 3 in the 2nd row group.
   const std::vector<int> row_groups = {1};
   const std::vector<int> column_indices = {0, 3};
   reader->parquet_reader()->PreBuffer(row_groups, column_indices,

@@ -273,7 +273,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
   int row_group_ordinal_;
-  std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap_;
+  const std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
@@ -304,8 +304,8 @@ class SerializedFile : public ParquetFileReader::Contents {
 
   std::shared_ptr<RowGroupReader> GetRowGroup(int i) override {
     std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap;
-    // Avoid updating the map as this function can be called concurrently. The map can
-    // only be updated within Prebuffer().
+    // Avoid updating the bitmap as this function can be called concurrently. The bitmap
+    // can only be updated within Prebuffer().
     auto prebuffered_column_chunks_iter = prebuffered_column_chunks_.find(i);
     if (prebuffered_column_chunks_iter != prebuffered_column_chunks_.end()) {
       prebuffered_column_chunks_bitmap = prebuffered_column_chunks_iter->second;
@@ -371,7 +371,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       int num_cols = file_metadata_->num_columns();
       PARQUET_THROW_NOT_OK(
           AllocateBitmap(num_cols, properties_.memory_pool()).Value(&col_bitmap));
-      ::arrow::bit_util::ClearBitmap(col_bitmap->mutable_data(), 0, num_cols);
+      memset(col_bitmap->mutable_data(), 0, col_bitmap->size());
       for (int col : column_indices) {
         ::arrow::bit_util::SetBit(col_bitmap->mutable_data(), col);
         ranges.push_back(
@@ -583,8 +583,8 @@ class SerializedFile : public ParquetFileReader::Contents {
   ReaderProperties properties_;
   std::shared_ptr<PageIndexReader> page_index_reader_;
   std::unique_ptr<BloomFilterReader> bloom_filter_reader_;
-  // Maps a row group to a bitmap (stored in the Buffer) that marks its column chunks
-  // cached via Prebuffer().
+  // Maps row group ordinal and prebuffer status of its column chunks in the form of a
+  // bitmap buffer.
   std::unordered_map<int, std::shared_ptr<Buffer>> prebuffered_column_chunks_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 
