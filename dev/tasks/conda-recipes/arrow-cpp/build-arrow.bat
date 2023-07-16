@@ -1,16 +1,12 @@
 @echo on
 
-mkdir "%SRC_DIR%"\cpp\build
-pushd "%SRC_DIR%"\cpp\build
+mkdir cpp\build
+pushd cpp\build
 
 :: Enable CUDA support
 if "%cuda_compiler_version%"=="None" (
     set "EXTRA_CMAKE_ARGS=-DARROW_CUDA=OFF"
 ) else (
-    REM this should move to nvcc-feedstock
-    set "CUDA_PATH=%CUDA_PATH:\=/%"
-    set "CUDA_HOME=%CUDA_HOME:\=/%"
-
     set "EXTRA_CMAKE_ARGS=-DARROW_CUDA=ON"
 )
 
@@ -70,3 +66,6 @@ cmake --build . --target install --config Release
 if %ERRORLEVEL% neq 0 exit 1
 
 popd
+
+:: clean up between builds (and to save space)
+rmdir /s /q cpp\build

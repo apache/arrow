@@ -21,8 +21,9 @@ build:
   # for cuda support, building with one version is enough to be compatible with
   # all later versions, since arrow is only using libcuda, and not libcudart.
   skip: true  # [cuda_compiler_version not in ("None", cuda_compiler_version_min)]
+  # arrow promises API- & ABI-compatibility along SemVer, see #1096
   run_exports:
-    - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
+    - {{ pin_subpackage("libarrow", max_pin="x") }}
 
 outputs:
   - name: apache-arrow-proc
@@ -61,8 +62,15 @@ outputs:
       string: h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
       run_exports:
         - {{ pin_subpackage("libarrow", max_pin="x.x.x") }}
+      ignore_run_exports_from:
+        - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
+        # arrow only uses headers, apparently
+        - gflags
+        # shared lib linked on unix, not on win
+        - glog                                   # [win]
       ignore_run_exports:
-        - cudatoolkit
+        # we don't need all of brotli's run-exports
+        - libbrotlicommon
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
       missing_dso_whitelist:
         - '*/libcuda.so.*'    # [linux]
@@ -94,7 +102,6 @@ outputs:
         - boost-cpp >=1.70
         - brotli
         - bzip2
-        - c-ares
         # not yet: https://github.com/conda-forge/cpp-opentelemetry-sdk-feedstock/issues/38
         # - cpp-opentelemetry-sdk
         # - proto-opentelemetry-proto =={{ cpp_opentelemetry_sdk }}
@@ -104,12 +111,6 @@ outputs:
         # arrow uses a customized jemalloc, see #944
         # - jemalloc
         - libabseil
-        # since libgoogle-cloud is static on windows, see
-        # https://github.com/conda-forge/google-cloud-cpp-feedstock/pull/108,
-        # its dependencies leak into the build here
-        - libcrc32c  # [win]
-        - libcurl    # [win]
-        - libevent
         - libgrpc
         - libprotobuf
         - libutf8proc
@@ -126,11 +127,20 @@ outputs:
         - xsimd
         - zlib
         - zstd
+        - __cuda >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
+        # since libgoogle-cloud is static on windows, see
+        # https://github.com/conda-forge/google-cloud-cpp-feedstock/pull/108,
+        # its host deps (which aren't yet covered above) leak into the build here
+        - libcrc32c  # [win]
+        - libcurl    # [win]
+        # same for libgrpc (before 1.55.0, which is coupled with libprotobuf 4.23.x)
+        - c-ares     # [win and libprotobuf == "3.21"]
       run_constrained:
         - apache-arrow-proc =*={{ build_ext }}
-        - cudatoolkit >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
         # make sure we don't co-install with old version of old package name
         - arrow-cpp ={{ version }}
+        # old parquet lib output, now part of this feedstock
+        - parquet-cpp <0.0a0
 
     test:
       commands:
@@ -188,6 +198,8 @@ outputs:
     requirements:
       host:
         - {{ pin_subpackage('libarrow', exact=True) }}
+        # avoid wrappers for different builds colliding due to identical hashes
+        - libprotobuf
       run:
         - {{ pin_subpackage('libarrow', exact=True) }}
     test:
@@ -200,8 +212,8 @@ outputs:
     version: {{ version }}
     build:
       string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
-      ignore_run_exports:
-        - cudatoolkit
+      ignore_run_exports_from:
+        - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
       rpaths:
         - lib/
@@ -218,29 +230,28 @@ outputs:
         - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
         - python                                 # [build_platform != target_platform]
         - cross-python_{{ target_platform }}     # [build_platform != target_platform]
-        - cython                                 # [build_platform != target_platform]
+        - cython <3                              # [build_platform != target_platform]
         - numpy                                  # [build_platform != target_platform]
         - cmake
         - ninja
       host:
-        - {{ pin_subpackage('libarrow', exact=True) }}
+        # we're building for two protobuf versions, cannot pin exactly
+        # - {{ pin_subpackage('libarrow', exact=True) }}
+        - libarrow ={{ version }}=*_{{ PKG_BUILDNUM }}_{{ build_ext }}
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
-        - cython
-        - gflags  # [unix]
+        - cython <3
         - numpy
         - python
         - setuptools
         - setuptools_scm
       run:
-        - {{ pin_subpackage('libarrow', exact=True) }}
+        # - {{ pin_subpackage('libarrow', exact=True) }}
+        - libarrow ={{ version }}=*_{{ PKG_BUILDNUM }}_{{ build_ext }}
         - {{ pin_compatible('numpy') }}
-        # empty parquet-cpp metapackage, force old versions to be uninstalled
-        - parquet-cpp 1.5.1.*
         - python
       run_constrained:
         - apache-arrow-proc =*={{ build_ext }}
-        - cudatoolkit >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
 
     test:
       files:
@@ -292,8 +303,8 @@ outputs:
     version: {{ version }}
     build:
       string: py{{ CONDA_PY }}h{{ PKG_HASH }}_{{ PKG_BUILDNUM }}_{{ build_ext }}
-      ignore_run_exports:
-        - cudatoolkit
+      ignore_run_exports_from:
+        - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
       track_features: {{ "[arrow-cuda]" if cuda_enabled else "" }}
     requirements:
       build:
@@ -303,7 +314,7 @@ outputs:
         - {{ compiler("cuda") }}                 # [cuda_compiler_version != "None"]
         - python                                 # [build_platform != target_platform]
         - cross-python_{{ target_platform }}     # [build_platform != target_platform]
-        - cython                                 # [build_platform != target_platform]
+        - cython <3                              # [build_platform != target_platform]
         - numpy                                  # [build_platform != target_platform]
         - cmake
         - ninja
@@ -312,7 +323,7 @@ outputs:
         - {{ pin_subpackage('pyarrow', exact=True) }}
         - clangdev {{ llvm_version }}
         - llvmdev {{ llvm_version }}
-        - cython
+        - cython <3
         - numpy
         - python
         - setuptools
@@ -322,27 +333,36 @@ outputs:
         - python
       run_constrained:
         - apache-arrow-proc =*={{ build_ext }}
-        - cudatoolkit >={{ cuda_compiler_version_min }}  # [cuda_compiler_version != "None"]
 
+    # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
+    {% if linux64 or py == 311 %}
+    # {% if not (aarch64 or ppc64le) or py in (310, 311) %}
+    # only run the full test suite for one python version when in emulation (each run takes ~45min);
+    # there's essentially zero divergence in behaviour across python versions anyway, and otherwise
+    # CUDA builds for aarch/ppc consistently run out of disk space on azure for some reason
     test:
       requires:
+        # vary protobuf version in test suite (historically, test failures only have a very
+        # weak dependency on python version, so we don't lose coverage by doing half & half)
+        - libprotobuf <4         # [py % 2 == 0]
         # test_cpp_extension_in_python requires a compiler
         - {{ compiler("cxx") }}  # [linux]
-        - pytest
+        # temporary pin due to missing fixture
+        - pytest <7.4.0
         - pytest-lazy-fixture
         - backports.zoneinfo     # [py<39]
         - cffi
         - cloudpickle
-        - cython
+        - cython <3
         - fastparquet
         - fsspec
         - hypothesis
         - pandas
         - scipy
-        # not all OSes/arches available in conda-forge
-        - pytorch *           # [unix and not ppc64le]
-        # not yet rebuilt for libabseil 20230125
-        # - tensorflow          # [unix and x86_64 and py<311]
+        # these are generally (far) behind on migrating abseil/grpc/protobuf,
+        # and using them as test dependencies blocks the migrator unnecessarily
+        # - pytorch
+        # - tensorflow
         # we're not building java bindings
         # - jpype1
         # doesn't get picked up correctly
@@ -363,6 +383,8 @@ outputs:
         # skip tests that raise SIGINT and crash the test suite
         {% set tests_to_skip = tests_to_skip + " or (test_csv and test_cancellation)" %}  # [linux]
         {% set tests_to_skip = tests_to_skip + " or (test_flight and test_interrupt)" %}  # [linux]
+        # tests that may crash the agent due to out-of-bound memory writes or other risky stuff
+        {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool" %}            # [aarch64 or ppc64le]
         # cannot pass -D_LIBCPP_DISABLE_AVAILABILITY to test suite for our older macos sdk
         {% set tests_to_skip = tests_to_skip + " or test_cpp_extension_in_python" %}      # [osx]
         # skip tests that make invalid(-for-conda) assumptions about the compilers setup
@@ -385,10 +407,12 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or (test_memory and test_env_var)" %}    # [unix]
         # test is broken; header is in $PREFIX, not $SP_DIR
         {% set tests_to_skip = tests_to_skip + " or (test_misc and test_get_include)" %}  # [unix]
+        # flaky tests that fail occasionally
+        {% set tests_to_skip = tests_to_skip + " or test_total_bytes_allocated " %}       # [linux]
+        {% set tests_to_skip = tests_to_skip + " or test_feather_format " %}              # [linux]
         # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
-
-        # crossbow CI: reduce to one python version, except on (unemulated) linux, where it's fast enough
-        - pytest -v -rfEs -k "not ({{ tests_to_skip }})"  # [linux64 or (py==310 and build_platform==target_platform)]
+        - pytest -rfEs -k "not ({{ tests_to_skip }})"
+    {% endif %}
 
     about:
       home: http://github.com/apache/arrow

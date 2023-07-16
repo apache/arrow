@@ -30,18 +30,6 @@ fi
 # Enable CUDA support
 if [[ ! -z "${cuda_compiler_version+x}" && "${cuda_compiler_version}" != "None" ]]
 then
-    if [[ -z "${CUDA_HOME+x}" ]]
-    then
-        echo "cuda_compiler_version=${cuda_compiler_version} CUDA_HOME=$CUDA_HOME"
-        CUDA_GDB_EXECUTABLE=$(which cuda-gdb || exit 0)
-        if [[ -n "$CUDA_GDB_EXECUTABLE" ]]
-        then
-            CUDA_HOME=$(dirname $(dirname $CUDA_GDB_EXECUTABLE))
-        else
-            echo "Cannot determine CUDA_HOME: cuda-gdb not in PATH"
-            return 1
-        fi
-    fi
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_CUDA=ON -DCUDA_TOOLKIT_ROOT_DIR=${CUDA_HOME} -DCMAKE_LIBRARY_PATH=${CONDA_BUILD_SYSROOT}/lib"
 else
     EXTRA_CMAKE_ARGS=" ${EXTRA_CMAKE_ARGS} -DARROW_CUDA=OFF"
@@ -56,7 +44,7 @@ if [[ "${build_platform}" != "${target_platform}" ]]; then
     EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DCLANG_EXECUTABLE=${BUILD_PREFIX}/bin/${CONDA_TOOLCHAIN_HOST}-clang"
     EXTRA_CMAKE_ARGS="${EXTRA_CMAKE_ARGS} -DLLVM_LINK_EXECUTABLE=${BUILD_PREFIX}/bin/llvm-link"
     sed -ie "s;protoc-gen-grpc.*$;protoc-gen-grpc=${BUILD_PREFIX}/bin/grpc_cpp_plugin\";g" ../src/arrow/flight/CMakeLists.txt
-    sed -ie 's;"--with-jemalloc-prefix\=je_arrow_";"--with-jemalloc-prefix\=je_arrow_" "--with-lg-page\=14";g' ../cmake_modules/ThirdpartyToolchain.cmake
+    sed -ie 's;"--with-jemalloc-prefix\=je_arrow_";"--with-jemalloc-prefix\=je_arrow_" "--with-lg-page\=16";g' ../cmake_modules/ThirdpartyToolchain.cmake
 fi
 
 # disable -fno-plt, which causes problems with GCC on PPC
@@ -65,9 +53,9 @@ if [[ "$target_platform" == "linux-ppc64le" ]]; then
   CXXFLAGS="$(echo $CXXFLAGS | sed 's/-fno-plt //g')"
 fi
 
-# Limit number of threads used to avoid hardware oversubscription
 if [[ "${target_platform}" == "linux-aarch64" ]] || [[ "${target_platform}" == "linux-ppc64le" ]]; then
-     export CMAKE_BUILD_PARALLEL_LEVEL=3
+    # Limit number of threads used to avoid hardware oversubscription
+    export CMAKE_BUILD_PARALLEL_LEVEL=3
 fi
 
 # reusable variable for dependencies we cannot yet unvendor
@@ -75,7 +63,7 @@ export READ_RECIPE_META_YAML_WHY_NOT=OFF
 
 # for available switches see
 # https://github.com/apache/arrow/blame/apache-arrow-12.0.0/cpp/cmake_modules/DefineOptions.cmake
-# placeholder in ARROW_GDB_INSTALL_DIR must match what's used for replacement in activate.sh
+# placeholder in ARROW_GDB_INSTALL_DIR must match _la_placeholder in activate.sh
 cmake -GNinja \
     -DARROW_ACERO=ON \
     -DARROW_BOOST_USE_SHARED=ON \
@@ -131,3 +119,6 @@ cmake -GNinja \
 cmake --build . --target install --config Release
 
 popd
+
+# clean up between builds (and to save space)
+rm -rf cpp/build
