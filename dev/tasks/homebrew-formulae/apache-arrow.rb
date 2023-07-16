@@ -36,7 +36,7 @@ class ApacheArrow < Formula
 
   depends_on "boost" => :build
   depends_on "cmake" => :build
-  depends_on "llvm@15" => :build
+  depends_on "llvm" => :build
   depends_on "aws-sdk-cpp"
   depends_on "brotli"
   depends_on "bzip2"
@@ -91,7 +91,7 @@ class ApacheArrow < Formula
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
 
-    system "cmake", "-S", "cpp", "-B", "build", *std_cmake_args, *args
+    system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
     system "cmake", "--install", "build"
   end
