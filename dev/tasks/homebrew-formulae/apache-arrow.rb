@@ -60,17 +60,20 @@ class ApacheArrow < Formula
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
+    ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
+
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
+    # -DCMAKE_INSTALL_RPATH=#{rpath}
     args = %W[
-      -DCMAKE_INSTALL_RPATH=#{rpath}
+      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
       -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
       -DARROW_FLIGHT=ON
-      -DARROW_FLIGHT_SQL=ON
+      -DARROW_FLIGHT_SQL=OFF
       -DARROW_GANDIVA=ON
       -DARROW_GCS=ON
       -DARROW_HDFS=ON
