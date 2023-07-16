@@ -294,28 +294,17 @@ write_delim_dataset <- function(dataset,
                                 max_rows_per_file = 0L,
                                 min_rows_per_group = 0L,
                                 max_rows_per_group = bitwShiftL(1, 20),
-                                delimiter = ",",
-                                ...) {
-  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
-    max_rows_per_group <- max_rows_per_file
-  }
-
-  write_dataset(
-    dataset = dataset,
-    path = path,
-    format = "txt",
-    partitioning = partitioning,
-    basename_template = basename_template,
-    hive_style = hive_style,
-    existing_data_behavior = existing_data_behavior,
-    max_partitions = max_partitions,
-    max_open_files = max_open_files,
-    max_rows_per_file = max_rows_per_file,
-    min_rows_per_group = min_rows_per_group,
-    max_rows_per_group = max_rows_per_group,
-    delimiter = delimiter,
-    ...
-  )
+                                col_names = TRUE,
+                                delim = ",",
+                                na = "",
+                                eol = "\n") {
+  mc <- match.call()
+  mc$format <- "txt"
+  mc$include_header <- col_names
+  mc$delimiter <- delim
+  mc$null_string <- na
+  mc[[1]] <- get("write_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
 }
 
 #' @rdname write_delim_dataset
@@ -331,26 +320,17 @@ write_csv_dataset <- function(dataset,
                               max_rows_per_file = 0L,
                               min_rows_per_group = 0L,
                               max_rows_per_group = bitwShiftL(1, 20),
-                              ...) {
-  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
-    max_rows_per_group <- max_rows_per_file
-  }
-
-  write_dataset(
-    dataset = dataset,
-    path = path,
-    format = "csv",
-    partitioning = partitioning,
-    basename_template = basename_template,
-    hive_style = hive_style,
-    existing_data_behavior = existing_data_behavior,
-    max_partitions = max_partitions,
-    max_open_files = max_open_files,
-    max_rows_per_file = max_rows_per_file,
-    min_rows_per_group = min_rows_per_group,
-    max_rows_per_group = max_rows_per_group,
-    ...
-  )
+                              col_names = TRUE,
+                              delim = ",",
+                              na = "",
+                              eol = "\n") {
+  mc <- match.call()
+  mc$format <- "csv"
+  mc$include_header <- col_names
+  mc$delimiter <- delim
+  mc$null_string <- na
+  mc[[1]] <- get("write_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
 }
 
 #' @rdname write_delim_dataset
@@ -366,26 +346,17 @@ write_tsv_dataset <- function(dataset,
                               max_rows_per_file = 0L,
                               min_rows_per_group = 0L,
                               max_rows_per_group = bitwShiftL(1, 20),
-                              ...) {
-  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
-    max_rows_per_group <- max_rows_per_file
-  }
-
-  write_dataset(
-    dataset = dataset,
-    path = path,
-    format = "tsv",
-    partitioning = partitioning,
-    basename_template = basename_template,
-    hive_style = hive_style,
-    existing_data_behavior = existing_data_behavior,
-    max_partitions = max_partitions,
-    max_open_files = max_open_files,
-    max_rows_per_file = max_rows_per_file,
-    min_rows_per_group = min_rows_per_group,
-    max_rows_per_group = max_rows_per_group,
-    ...
-  )
+                              col_names = TRUE,
+                              delim = "\t",
+                              na = "",
+                              eol = "\n") {
+  mc <- match.call()
+  mc$format <- "tsv"
+  mc$include_header <- col_names
+  mc$delimiter <- delim
+  mc$null_string <- na
+  mc[[1]] <- get("write_dataset", envir = asNamespace("arrow"))
+  eval.parent(mc)
 }
 
 validate_positive_int_value <- function(value, msg) {

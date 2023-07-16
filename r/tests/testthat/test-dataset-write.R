@@ -910,3 +910,36 @@ test_that("Writing a flat file dataset without a delimiter throws an error.", {
     "A delimiter must be given for a txt format."
   )
 })
+
+test_that("readr::write_csv() options for flat files.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "csv", col_names = FALSE)
+  expect_true(dir.exists(dst_dir))
+
+  header <- readLines(file(paste0(dst_dir, "/part-0.csv")), n = 1L)
+  expect_equal(header, "1,1,true,\"a\"")
+
+  df2 <- tibble(x = "")
+  dst_dir <- make_temp_dir()
+  write_dataset(df2, dst_dir, format = "csv", eol = "\r\n")
+  expect_true(dir.exists(dst_dir))
+
+  header <- readBin(con <- file(paste0(dst_dir, "/part-0.csv"), "rb"), "raw", n = 5)
+  close(con)
+
+  # 0d and 0a are the character codes of CRLF (https://www.asciitable.com)
+  expect_equal(as.character(header[4:5]), c("0d", "0a"))
+
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(df, dst_dir, format = "csv", col_names = FALSE, delim = ";"),
+    "Can't write dataset with both Arrow options and readr options."
+  )
+})

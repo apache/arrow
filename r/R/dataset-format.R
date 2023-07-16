@@ -688,6 +688,9 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         is_arrow_opt <- !is.na(pmatch(names(args), arrow_opts))
         is_readr_opt <- !is.na(pmatch(names(args), readr_opts))
         is_readr_only_opt <- !is.na(pmatch(names(args), readr_only_opts))
+        if (any(is_arrow_opt) && any(is_readr_only_opt)) {
+          stop("Can't write dataset with both Arrow options and readr options.")
+        }
 
         # These option names aren't mutually exclusive, so only use readr path
         # if we have at least one readr-specific option.

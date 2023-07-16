@@ -510,13 +510,13 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   options
 }
 
-readr_to_csv_write_options <- function(include_header = TRUE,
+readr_to_csv_write_options <- function(col_names = TRUE,
                                        batch_size = 1024L,
                                        delim = ",",
                                        na = "",
                                        eol = "\n") {
   CsvWriteOptions$create(
-    include_header = include_header,
+    include_header = col_names,
     batch_size = batch_size,
     delimiter = delim,
     null_string = na,
@@ -801,7 +801,7 @@ write_csv_arrow <- function(x,
 
   if (is.null(write_options)) {
     write_options <- readr_to_csv_write_options(
-      include_header = include_header,
+      col_names = include_header,
       batch_size = batch_size,
       na = na
     )
