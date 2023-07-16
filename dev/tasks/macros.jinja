@@ -137,8 +137,7 @@ on:
       sudo apt update
       sudo apt install -y ruby-full
   - name: Set up Ruby by GitHub Actions
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+    if: runner.arch == 'X64' && runner.os != 'macOS'
     uses: ruby/setup-ruby@v1
     with:
       ruby-version: "ruby"
