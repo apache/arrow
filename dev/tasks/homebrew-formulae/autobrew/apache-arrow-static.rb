@@ -38,7 +38,6 @@ class ApacheArrowStatic < Formula
   depends_on "aws-sdk-cpp-static"
   depends_on "brotli"
   depends_on "lz4"
-  depends_on "openssl@3"
   depends_on "snappy"
   depends_on "thrift"
   depends_on "zstd"
