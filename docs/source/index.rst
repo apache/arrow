@@ -88,7 +88,7 @@ Supported environments
 
       .. button-ref:: c-glib
          :ref-type: ref
-         :color: primary
+         :color: info
          :shadow:
 
          C/GLib
@@ -97,7 +97,7 @@ Supported environments
 
       .. button-ref:: cpp
          :ref-type: ref
-         :color: primary
+         :color: info
          :expand:
 
          C++
@@ -105,7 +105,7 @@ Supported environments
    .. grid-item::
 
       .. button-link:: https://github.com/apache/arrow/blob/main/csharp/README.md
-         :color: primary
+         :color: info
          :expand:
 
          C#
@@ -113,7 +113,7 @@ Supported environments
    .. grid-item::
 
       .. button-link:: https://pkg.go.dev/github.com/apache/arrow/go
-         :color: primary
+         :color: info
          :expand:
 
          Go
@@ -122,7 +122,7 @@ Supported environments
 
       .. button-ref:: java
          :ref-type: ref
-         :color: primary
+         :color: info
          :expand:
 
          Java
@@ -131,7 +131,7 @@ Supported environments
 
       .. button-ref:: js
          :ref-type: ref
-         :color: primary
+         :color: info
          :expand:
 
          JavaScript
@@ -139,7 +139,7 @@ Supported environments
    .. grid-item::
 
       .. button-link:: https://arrow.apache.org/julia/
-         :color: primary
+         :color: info
          :expand:
 
          Julia
@@ -148,7 +148,7 @@ Supported environments
 
       .. button-link:: https://github.com/apache/arrow/blob/main/matlab/README.md
          :ref-type: ref
-         :color: primary
+         :color: info
          :expand:
 
          Matlab
@@ -157,7 +157,7 @@ Supported environments
 
       .. button-ref:: python
          :ref-type: ref
-         :color: primary
+         :color: info
          :expand:
 
          Python
@@ -166,7 +166,7 @@ Supported environments
 
       .. button-ref:: r
          :ref-type: ref
-         :color: primary
+         :color: info
          :expand:
 
          R
@@ -174,7 +174,7 @@ Supported environments
    .. grid-item::
 
       .. button-link:: https://github.com/apache/arrow/blob/main/ruby/README.md
-         :color: primary
+         :color: info
          :expand:
 
          Ruby
@@ -182,7 +182,7 @@ Supported environments
    .. grid-item::
 
       .. button-link:: https://docs.rs/crate/arrow/
-         :color: primary
+         :color: info
          :expand:
 
          Rust
@@ -233,6 +233,7 @@ Apache Arrow Columnar Format
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    format/index
 
@@ -243,6 +244,7 @@ Development Guide
 
 .. toctree::
    :maxdepth: 2
+   :hidden:
 
    developers/index
 
@@ -253,6 +255,7 @@ Documentation for supported environments
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
 
    C/GLib <c_glib/index>
    C++ <cpp/index>
@@ -275,6 +278,7 @@ Cookbooks
 
 .. toctree::
    :maxdepth: 1
+   :hidden:
 
    C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
    Java cookbook <https://arrow.apache.org/cookbook/java/>
