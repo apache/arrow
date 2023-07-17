@@ -145,7 +145,8 @@ on:
     shell: bash
     run: |
       PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
-      gem install --user-install gemfury
+      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
+      gem install --user-install gemfury -v 0.12.0
       fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
         --as=${CROSSBOW_GEMFURY_ORG} \
