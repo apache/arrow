@@ -138,6 +138,9 @@ if(ARROW_PACKAGE_PREFIX)
   if(NOT ENV{Boost_ROOT})
     set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
+  if(NOT DEFINED OPENSSL_ROOT_DIR)
+    set(OPENSSL_ROOT_DIR ${ARROW_PACKAGE_PREFIX})
+  endif()
 endif()
 
 # For each dependency, set dependency source to global default, if unset
