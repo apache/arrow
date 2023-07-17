@@ -45,11 +45,11 @@ jobs:
               "per_page": 100,
               "issue_number": context.payload.issue.number,
             });
-            console.log(typeof(current_labels));
-            console.log(current_labels);
-            
+
+            let current_label_names = current_labels.data.map(label => label.name);
+
             // keep non-component labels
-            let non_component_labels = current_labels.filter(
+            let non_component_labels = current_label_names.filter(
               label => !label.startsWith("Component: ")
             );
 
