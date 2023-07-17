@@ -161,7 +161,7 @@ namespace Apache.Arrow.C
 
             public static void Free(void** ptr)
             {
-                GCHandle gch = GCHandle.FromIntPtr((IntPtr)ptr);
+                GCHandle gch = GCHandle.FromIntPtr((IntPtr)(*ptr));
                 if (!gch.IsAllocated)
                 {
                     return;
