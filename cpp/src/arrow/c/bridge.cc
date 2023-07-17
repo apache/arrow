@@ -674,7 +674,8 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
-Status ValidateDeviceInfo(const ArrayData& data, std::optional<DeviceAllocationType>* device_type,
+Status ValidateDeviceInfo(const ArrayData& data,
+                          std::optional<DeviceAllocationType>* device_type,
                           int64_t* device_id) {
   for (const auto& buf : data.buffers) {
     if (!buf) {
@@ -1388,7 +1389,8 @@ class ImportedBuffer : public Buffer {
       : Buffer(data, size), import_(std::move(import)) {}
 
   ImportedBuffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
-                 DeviceAllocationType device_type, std::shared_ptr<ImportedArrayData> import)
+                 DeviceAllocationType device_type,
+                 std::shared_ptr<ImportedArrayData> import)
       : Buffer(data, size, mm, nullptr, device_type), import_(std::move(import)) {}
 
   ~ImportedBuffer() override {}

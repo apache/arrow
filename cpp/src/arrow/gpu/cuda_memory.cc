@@ -488,17 +488,16 @@ Result<uint8_t*> GetHostAddress(uintptr_t device_ptr) {
 Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
                                                            int64_t device_id) {
   switch (device_type) {
-  case ARROW_DEVICE_CPU:
-    return default_cpu_memory_manager();
-  case ARROW_DEVICE_CUDA:
-  case ARROW_DEVICE_CUDA_HOST:
-  case ARROW_DEVICE_CUDA_MANAGED:
-    {
+    case ARROW_DEVICE_CPU:
+      return default_cpu_memory_manager();
+    case ARROW_DEVICE_CUDA:
+    case ARROW_DEVICE_CUDA_HOST:
+    case ARROW_DEVICE_CUDA_MANAGED: {
       ARROW_ASSIGN_OR_RAISE(auto device, arrow::cuda::CudaDevice::Make(device_id));
       return device->default_memory_manager();
     }
-  default:
-    return Status::NotImplemented("memory manager not implemented for device");
+    default:
+      return Status::NotImplemented("memory manager not implemented for device");
   }
 }
 

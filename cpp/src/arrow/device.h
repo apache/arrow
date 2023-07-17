@@ -30,7 +30,7 @@
 namespace arrow {
 
 /// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
-enum class DeviceAllocationType : char {  
+enum class DeviceAllocationType : char {
   kCPU = 1,
   kCUDA = 2,
   kCUDA_HOST = 3,
