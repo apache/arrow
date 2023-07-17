@@ -2854,7 +2854,7 @@ def register_vector_function(func, function_name, function_doc, in_types, out_ty
     >>> func_name = "pct_rank_func"
     >>> in_types = {"array": pa.int64()}
     >>> out_type = pa.float64()
-    >>> pc.register_vector_function(add_constant, func_name, func_doc,
+    >>> pc.register_vector_function(rank_pct, func_name, func_doc,
     ...                   in_types, out_type)
     >>>
     >>> answer = pc.call_function(func_name, [pa.array([20, 30, 40])])

@@ -305,7 +305,8 @@ def unary_vector_func_fixture():
     Reigster a vector function
     """
     def pct_rank(ctx, x):
-        return pa.array(x.to_pandas().rank(pct=True))
+        # copy here to get around pandas 1.0 issue
+        return pa.array(x.to_pandas().copy().rank(pct=True))
 
     func_name = "y=pct_rank(x)"
     doc = empty_udf_doc
@@ -836,20 +837,23 @@ def test_hash_agg_random(sum_agg_func_fixture):
     assert result.sort_by('id') == expected.sort_by('id')
 
 
+@pytest.mark.pandas
 def test_vector_basic(unary_vector_func_fixture):
     arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     result = pc.call_function("y=pct_rank(x)", [arr])
-    expected = pa.array(arr.to_pandas().rank(pct=True))
+    expected = unary_vector_func_fixture(None, arr)
     assert result == expected
 
 
+@pytest.mark.pandas
 def test_vector_empty(unary_vector_func_fixture):
     arr = pa.array([1], pa.float64())
     result = pc.call_function("y=pct_rank(x)", [arr])
-    expected = pa.array(arr.to_pandas().rank(pct=True))
+    expected = unary_vector_func_fixture(None, arr)
     assert result == expected
 
 
+@pytest.mark.pandas
 def test_vector_struct(struct_vector_func_fixture):
     k = pa.array(
         [1, 1, 2, 2], pa.int64()
