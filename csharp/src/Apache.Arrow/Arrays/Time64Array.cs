@@ -25,7 +25,7 @@ namespace Apache.Arrow
     /// </summary>
     public class Time64Array : PrimitiveArray<long>
     {
-        private const long TicksPerMicrosecond = 1000;
+        private const long TicksPerMicrosecond = 10;
         private const long NanosecondsPerTick = 100;
 
         /// <summary>

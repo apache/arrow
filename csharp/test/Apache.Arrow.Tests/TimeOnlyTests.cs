@@ -93,7 +93,7 @@ namespace Apache.Arrow.Tests
             public void AppendTimeGivesSameTime(TimeOnly time, TimeUnit timeUnit)
             {
                 // Arrange
-                var builder = new Time64Array.Builder();
+                var builder = new Time64Array.Builder(timeUnit);
                 var expectedTime = time;
                 long expectedNanoseconds = time.Ticks * TimeSpan.NanosecondsPerTick;
 
