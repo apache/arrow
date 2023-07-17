@@ -14,7 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-#ifndef FASTFLOAT_ALLOWS_LEADING_PLUS
 #define FASTFLOAT_ALLOWS_LEADING_PLUS 1
 
 #include "arrow/util/value_parsing.h"
@@ -25,9 +24,6 @@
 #include "arrow/vendored/fast_float/fast_float.h"
 
 namespace arrow {
-
-#define FASTFLOAT_ALLOWS_LEADING_PLUS 1
-
 namespace internal {
 
 bool StringToFloat(const char* s, size_t length, char decimal_point, float* out) {
@@ -114,5 +110,3 @@ std::shared_ptr<TimestampParser> TimestampParser::MakeISO8601() {
 }
 
 }  // namespace arrow
-
-#endif
