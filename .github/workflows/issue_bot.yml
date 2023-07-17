@@ -49,7 +49,7 @@ jobs:
             // keep non-component labels
             let non_component_labels = current_labels.filter(
               label => !label.stratsWith("Component: ")
-            )
+            );
 
             let component_labels = split_body[1]
               .split(',')
