@@ -17,8 +17,12 @@ classdef UInt16Type < arrow.type.FixedWidthType
 %UINT16TYPE Type class for uint16 data.
     
     methods 
-        function obj = UInt16Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt16Type", "ConstructorArguments", {})
+        function obj = UInt16Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.UInt16Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

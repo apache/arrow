@@ -17,8 +17,12 @@ classdef UInt32Type < arrow.type.FixedWidthType
 %UINT32TYPE Type class for uint32 data.
     
     methods 
-        function obj = UInt32Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt32Type", "ConstructorArguments", {})
+        function obj = UInt32Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.UInt32Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

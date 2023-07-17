@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/timestamp_array.h"
+#include "arrow/matlab/type/proxy/timestamp_type.h"
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
@@ -87,5 +88,12 @@ namespace arrow::matlab::array::proxy {
         // Constructs a TypedArray from the raw values. Makes a copy.
         mda::TypedArray<int64_t> result = factory.createArray({num_elements, 1}, data_begin, data_end);
         context.outputs[0] = result;
+    }
+
+    std::shared_ptr<type::proxy::Type> TimestampArray::typeProxy() {
+        using TimestampProxyType = type::proxy::TimestampType;
+        auto type = std::static_pointer_cast<arrow::TimestampType>(array->type());
+        return std::make_shared<TimestampProxyType>(std::move(type));
+
     }
 }

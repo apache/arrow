@@ -17,8 +17,12 @@ classdef UInt64Type < arrow.type.FixedWidthType
 %UINT64TYPE Type class for uint64 data.
     
     methods 
-        function obj = UInt64Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt64Type", "ConstructorArguments", {})
+        function obj = UInt64Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.UInt64Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end
