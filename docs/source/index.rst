@@ -228,17 +228,11 @@ Cookbooks
 
 .. _toc.columnar:
 
-Apache Arrow Columnar Format
-----------------------------
-
 .. toctree::
    :maxdepth: 2
    :hidden:
 
    format/index
-
-Development Guide
------------------
 
 .. _toc.development:
 
@@ -247,9 +241,6 @@ Development Guide
    :hidden:
 
    developers/index
-
-Documentation for supported environments
-----------------------------------------
 
 .. _toc.usage:
 
@@ -270,9 +261,6 @@ Documentation for supported environments
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
    status
-
-Cookbooks
----------
 
 .. _toc.cookbook:
 
