@@ -62,15 +62,15 @@ class ApacheArrow < Formula
 
     env.O2
 
+    # -DCMAKE_INSTALL_RPATH=#{rpath}
     args = %W[
-      -DCMAKE_INSTALL_RPATH=#{rpath}
       -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
       -DARROW_FLIGHT=ON
-      -DARROW_FLIGHT_SQL=ON
+      -DARROW_FLIGHT_SQL=OFF
       -DARROW_GANDIVA=ON
       -DARROW_GCS=ON
       -DARROW_HDFS=ON
