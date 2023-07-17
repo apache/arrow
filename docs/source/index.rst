@@ -15,6 +15,8 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
+:html_theme.sidebar_secondary.remove:
+
 Apache Arrow
 ============
 
@@ -35,13 +37,12 @@ such topics as:
 **To learn how to use Arrow refer to the documentation specific to your
 target environment.**
 
-.. grid:: 3
+.. grid:: 2
    :gutter: 4
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
    .. grid-item-card:: Format
-      :img-top: ./images/file-pen.svg
       :class-card: contrib-card
       :shadow: md
 
@@ -77,24 +78,153 @@ target environment.**
          :expand:
 
          To the documentation 
-   
-   .. grid-item-card:: Supported Environments
-      :img-top: ./developers/images/code-solid.svg
-      :class-card: contrib-card
-      :shadow: md
 
-      Read the documentation for your target
-      environment.
+Supported environments
+----------------------
 
-      +++
+.. grid:: auto
 
-      .. button-ref:: toc.usage
+   .. grid-item::
+
+      .. button-ref:: c-glib
          :ref-type: ref
-         :click-parent:
+         :color: primary
+         :shadow:
+
+         C/GLib
+
+   .. grid-item::
+
+      .. button-ref:: cpp
+         :ref-type: ref
          :color: primary
          :expand:
 
-         To the projects
+         C++
+
+   .. grid-item::
+
+      .. button-link:: https://github.com/apache/arrow/blob/main/csharp/README.md
+         :color: primary
+         :expand:
+
+         C#
+   
+   .. grid-item::
+
+      .. button-link:: https://pkg.go.dev/github.com/apache/arrow/go
+         :color: primary
+         :expand:
+
+         Go
+
+   .. grid-item::
+
+      .. button-ref:: java
+         :ref-type: ref
+         :color: primary
+         :expand:
+
+         Java
+
+   .. grid-item::
+
+      .. button-ref:: js
+         :ref-type: ref
+         :color: primary
+         :expand:
+
+         JavaScript
+
+   .. grid-item::
+
+      .. button-link:: https://arrow.apache.org/julia/
+         :color: primary
+         :expand:
+
+         Julia
+
+   .. grid-item::
+
+      .. button-link:: https://github.com/apache/arrow/blob/main/matlab/README.md
+         :ref-type: ref
+         :color: primary
+         :expand:
+
+         Matlab
+
+   .. grid-item::
+
+      .. button-ref:: python
+         :ref-type: ref
+         :color: primary
+         :expand:
+
+         Python
+
+   .. grid-item::
+
+      .. button-ref:: r
+         :ref-type: ref
+         :color: primary
+         :expand:
+
+         R
+
+   .. grid-item::
+
+      .. button-link:: https://github.com/apache/arrow/blob/main/ruby/README.md
+         :color: primary
+         :expand:
+
+         Ruby
+
+   .. grid-item::
+
+      .. button-link:: https://docs.rs/crate/arrow/
+         :color: primary
+         :expand:
+
+         Rust
+
+`Implementation Status for all of the languages <status>`_
+
+Cookbooks
+---------
+
+.. grid::
+
+   .. grid-item::
+
+      .. button-link:: https://arrow.apache.org/cookbook/cpp/
+         :color: primary
+         :expand:
+
+         C++ cookbook
+
+   .. grid-item::
+
+      .. button-link:: https://arrow.apache.org/cookbook/java/
+         :color: primary
+         :expand:
+
+         Java cookbook
+
+   .. grid-item::
+
+      .. button-link:: https://arrow.apache.org/cookbook/py/
+         :color: primary
+         :expand:
+
+         Python cookbook
+
+   .. grid-item::
+
+      .. button-link:: https://arrow.apache.org/cookbook/r/
+         :color: primary
+         :expand:
+
+         R cookbook
 
 .. _toc.columnar:
 
