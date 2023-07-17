@@ -24,7 +24,7 @@
 #include "arrow/type_traits.h"
 
 #include "arrow/matlab/array/proxy/array.h"
-#include "arrow/matlab/type/proxy/primitive_ctype.h"
+#include "arrow/matlab/type/proxy/traits.h"
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
@@ -68,7 +68,8 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
     protected:
         void toMATLAB(libmexclass::proxy::method::Context& context) override {
-            using NumericArray = typename arrow::TypeTraits<ArrowType>::ArrayType;
+           using CType = typename arrow::TypeTraits<ArrowType>::CType;
+           using NumericArray = arrow::NumericArray<ArrowType>;
 
             const auto num_elements = static_cast<size_t>(array->length());
             const auto numeric_array = std::static_pointer_cast<NumericArray>(array);
@@ -83,11 +84,13 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
         }
 
         std::shared_ptr<type::proxy::Type> typeProxy() override {
-          using ArrowTypeProxy = type::proxy::PrimitiveCType<CType>;
+          using TypeProxy = typename type::proxy::Traits<ArrowType>::TypeProxy;
           auto type = std::static_pointer_cast<ArrowType>(array->type());
-          return std::make_shared<ArrowTypeProxy>(std::move(type));
+          return std::make_shared<TypeProxy>(std::move(type));
         }
-
 };
+
+    template<>
+    libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
 }

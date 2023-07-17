@@ -15,23 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type_fwd.h"
-#include "arrow/matlab/type/primitive_ctype.h"
-#include "arrow/matlab/type/timestamp_type.h"
-#include "arrow/matlab/type/string_type.h"
+#pragma once
 
-#include <string_view>
+#include "arrow/type_fwd.h"
+
+#include "arrow/matlab/type/proxy/primitive_ctype.h"
+#include "arrow/matlab/type/proxy/timestamp_type.h"
+#include "arrow/matlab/type/proxy/string_type.h"
 
 namespace arrow::matlab::type::proxy {
-    
-     // A type traits class mapping Arrow types to MATLAB types.
+
     template <typename ArrowType>
     struct Traits;
 
     template <>
     struct Traits<arrow::FloatType> {
         using TypeProxy = PrimitiveCType<float>;
-
     };
 
     template <>
@@ -80,7 +79,7 @@ namespace arrow::matlab::type::proxy {
     };
 
     template <>
-    struct Traits<arrow::String> {
+    struct Traits<arrow::StringType> {
         using TypeProxy = StringType;
     };
 

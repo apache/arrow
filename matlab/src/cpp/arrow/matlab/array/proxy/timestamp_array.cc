@@ -15,28 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/array/proxy/timestamp_array.h"
-#include "arrow/matlab/type/proxy/timestamp_type.h"
-
-#include "arrow/matlab/error/error.h"
-#include "arrow/matlab/bit/pack.h"
-#include "arrow/matlab/bit/unpack.h"
-#include "arrow/matlab/buffer/matlab_buffer.h"
+#include "arrow/matlab/array/proxy/numeric_array.h"
 
 #include "arrow/matlab/type/time_unit.h"
 #include "arrow/util/utf8.h"
-#include "arrow/type.h"
 
 namespace arrow::matlab::array::proxy {
 
-    TimestampArray::TimestampArray(std::shared_ptr<arrow::TimestampArray> array)
-        : arrow::matlab::array::proxy::Array{std::move(array)} {}
-
-    libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    // Specialization of NumericArray::Make for arrow::TimestampType.
+    template <>
+    libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
         using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
         using TimestampArray = arrow::TimestampArray;
-        using TimestampArrayProxy = arrow::matlab::array::proxy::TimestampArray;
+        using TimestampArrayProxy = arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>;
 
         mda::StructArray opts = constructor_arguments[0];
 
@@ -73,27 +65,5 @@ namespace arrow::matlab::array::proxy {
         auto array_data = arrow::ArrayData::Make(data_type, array_length, {packed_validity_bitmap, data_buffer});
         auto timestamp_array = std::static_pointer_cast<TimestampArray>(arrow::MakeArray(array_data));
         return std::make_shared<TimestampArrayProxy>(std::move(timestamp_array));
-    }
-
-    void TimestampArray::toMATLAB(libmexclass::proxy::method::Context& context) {
-        namespace mda = ::matlab::data;
-
-        const auto num_elements = static_cast<size_t>(array->length());
-        const auto timestamp_array = std::static_pointer_cast<arrow::TimestampArray>(array);
-        const int64_t* const data_begin = timestamp_array->raw_values();
-        const int64_t* const data_end = data_begin + num_elements;
-
-        mda::ArrayFactory factory;
-
-        // Constructs a TypedArray from the raw values. Makes a copy.
-        mda::TypedArray<int64_t> result = factory.createArray({num_elements, 1}, data_begin, data_end);
-        context.outputs[0] = result;
-    }
-
-    std::shared_ptr<type::proxy::Type> TimestampArray::typeProxy() {
-        using TimestampProxyType = type::proxy::TimestampType;
-        auto type = std::static_pointer_cast<arrow::TimestampType>(array->type());
-        return std::make_shared<TimestampProxyType>(std::move(type));
-
     }
 }
