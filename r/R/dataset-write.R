@@ -274,12 +274,14 @@ write_dataset <- function(dataset,
 #' group and when this number of rows is exceeded, it is split and the next set
 #' of rows is written to the next group. This value must be set such that it is
 #' greater than `min_rows_per_group`. Default is 1024 * 1024.
-#' @param delimiter Delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
+#' @param col_names whether to write an initial header line with column names
+#' @param delim delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
 #' `write_csv_dataset()`, and `"\t` for `write_tsv_dataset()`. Cannot be changed for `write_csv_dataset()`
 #' and `write_tsv_dataset()`.
-#' @param ... additional format-specific arguments. For available CSV
-#' options, see [CsvWriteOptions].
-#' @return The input `dataset`, invisibly
+#' @param na a character vector of strings to interpret as missing values. Quotes are not allowed in this string.
+#' The default is an empty string `""`.
+#' @param eol the end of line character to use for ending rows. The default is `"\n"`.
+#' @return The input `dataset`, invisibly.
 #'
 #' @seealso [write_dataset()]
 #' @export
