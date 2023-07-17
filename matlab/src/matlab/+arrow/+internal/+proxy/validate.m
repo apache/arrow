@@ -22,7 +22,7 @@ function validate(proxy, expectedName)
     end
 
     if proxy.Name ~= expectedName
-        errid = "arrow:matlab:ProxyNameMismatch";
+        errid = "arrow:proxy:ProxyNameMismatch";
         msg = "Proxy class name is " + proxyName + ", but expected " + expectedProxyName;
         error(errid, msg);
     end
