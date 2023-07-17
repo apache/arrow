@@ -65,8 +65,7 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
       std::make_unique<ColumnDescriptor>(type, /*def_level=*/1, /*rep_level=*/0);
   auto descr = descr_ptr.get();
 
-  const size_t num_pages = state.range(0);
-
+  const int num_pages = state.range(0);
   auto builder = ColumnIndexBuilder::Make(descr);
 
   const size_t values_per_page = 100;
