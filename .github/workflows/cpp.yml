@@ -54,7 +54,7 @@ env:
 
 jobs:
   docker:
-    name: ${{ matrix.title }} ${{ matrix.simd-level }}
+    name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
@@ -68,7 +68,7 @@ jobs:
             llvm: "14"
             runs-on: ubuntu-latest
             simd-level: AVX2
-            title: AMD64 Conda C++
+            title: AMD64 Conda C++ AVX2
             ubuntu: "22.04"
           - arch: amd64
             clang-tools: "14"
@@ -226,7 +226,7 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 ${{ matrix.name }} C++17 ${{ matrix.simd-level }}
+    name: ${{ matrix.title }}
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -237,8 +237,8 @@ jobs:
           - windows-2019
         include:
           - os: windows-2019
-            name: Windows 2019
             simd-level: AVX2
+            title: AMD64 Windows 2019 C++17 AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
