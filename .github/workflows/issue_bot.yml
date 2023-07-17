@@ -39,6 +39,18 @@ jobs:
             let split_body = context.payload.issue.body.split('### Component(s)');
             if (split_body.length != 2) throw new Error('No components found!');
 
+            let current_labels = await github.rest.issues.listLabelsOnIssue({
+              "owner": context.repo.owner,
+              "repo": context.repo.repo,
+              "per_page": 100,
+              "issue_number": context.payload.issue.number
+            });
+
+            // keep non-component labels
+            let non_component_labels = current_labels.filter(
+              label => !label.stratsWith("Component: ")
+            )
+
             let component_labels = split_body[1]
               .split(',')
               .map(component => component.trim())
@@ -61,5 +73,5 @@ jobs:
               "owner": context.repo.owner,
               "repo": context.repo.repo,
               "issue_number": context.payload.issue.number,
-              "labels": component_labels,
+              "labels": component_labels.concat(non_component_labels),
             });
