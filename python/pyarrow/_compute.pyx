@@ -2861,9 +2861,9 @@ def register_vector_function(func, function_name, function_doc, in_types, out_ty
     >>> answer
     <pyarrow.lib.DoubleArray object at ...>
     [
-        0.3333333333333333,
-        0.6666666666666666,
-        1
+      0.3333333333333333,
+      0.6666666666666666,
+      1
     ]
     """
     return _register_user_defined_function(get_register_vector_function(),

@@ -841,7 +841,7 @@ def test_hash_agg_random(sum_agg_func_fixture):
 def test_vector_basic(unary_vector_func_fixture):
     arr = pa.array([10.0, 20.0, 30.0, 40.0, 50.0], pa.float64())
     result = pc.call_function("y=pct_rank(x)", [arr])
-    expected = unary_vector_func_fixture(None, arr)
+    expected = unary_vector_func_fixture[0](None, arr)
     assert result == expected
 
 
@@ -849,7 +849,7 @@ def test_vector_basic(unary_vector_func_fixture):
 def test_vector_empty(unary_vector_func_fixture):
     arr = pa.array([1], pa.float64())
     result = pc.call_function("y=pct_rank(x)", [arr])
-    expected = unary_vector_func_fixture(None, arr)
+    expected = unary_vector_func_fixture[0](None, arr)
     assert result == expected
 
 
