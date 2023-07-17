@@ -15,7 +15,7 @@
 
 function uint8Type = uint8()
 %UINT8 Creates an arrow.type.UInt8Type object
-    proxy = arrow.private.proxy.create("arrow.type.proxy.UInt8Type");
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt8Type");
     uint8Type = arrow.type.UInt8Type(proxy);
 end
 

@@ -19,10 +19,9 @@ classdef StringType < arrow.type.Type
     methods
         function obj = StringType(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.StringType")}
             end
-            expectedProxyName = arrow.type.traits.StringTraits.TypeProxyClassName;
-            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
+            import arrow.internal.proxy.validate
             obj@arrow.type.Type(proxy);
         end
    end

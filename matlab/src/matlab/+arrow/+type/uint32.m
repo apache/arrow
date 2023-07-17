@@ -15,7 +15,7 @@
 
 function uint32Type = uint32()
 %UINT32 Creates an arrow.type.UInt32Type object
-    proxy = arrow.private.proxy.create("arrow.type.proxy.UInt32Type");
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt32Type");
     uint32Type = arrow.type.UInt32Type(proxy);
 end
 

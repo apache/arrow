@@ -20,6 +20,6 @@ function timestampType = timestamp(opts)
         opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
     end
     args = struct(TimeUnit=string(opts.TimeUnit), TimeZone=opts.TimeZone);
-    proxy = arrow.private.proxy.create("arrow.type.proxy.TimestampType", args);
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.TimestampType", args);
     timestampType = arrow.type.TimestampType(proxy);
 end

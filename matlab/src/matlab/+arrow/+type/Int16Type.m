@@ -19,10 +19,9 @@ classdef Int16Type < arrow.type.FixedWidthType
     methods 
         function obj = Int16Type(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int16Type")}
             end
-            expectedProxyName = arrow.type.traits.Int16Traits.TypeProxyClassName;
-            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
+            import arrow.internal.proxy.validate
             obj@arrow.type.FixedWidthType(proxy);
         end
     end

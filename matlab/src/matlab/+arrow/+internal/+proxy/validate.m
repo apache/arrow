@@ -13,18 +13,17 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function validateName(proxyName, expectedProxyName)
-%VALIDATENAME Throws an arrow:matlab:ProxyNameMismatch error if
-% proxyName and expectedProxyName are not equal.
+function validate(proxy, expectedName)
+%VALIDATE Throws an arrow:matlab:ProxyNameMismatch error if
+% proxy.Name and expectedName are not equal.
     arguments
-        proxyName(1, 1) string
-        expectedProxyName(1, 1) string
+        proxy(1, 1) libmexclass.proxy.Proxy
+        expectedName(1, 1) string
     end
 
-    if proxyName ~= expectedProxyName
+    if proxy.Name ~= expectedName
         errid = "arrow:matlab:ProxyNameMismatch";
         msg = "Proxy class name is " + proxyName + ", but expected " + expectedProxyName;
         error(errid, msg);
     end
 end
-

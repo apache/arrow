@@ -19,10 +19,9 @@ classdef Int32Type < arrow.type.FixedWidthType
     methods 
         function obj = Int32Type(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int32Type")}
             end
-            expectedProxyName = arrow.type.traits.Int32Traits.TypeProxyClassName;
-            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
+            import arrow.internal.proxy.validate
             obj@arrow.type.FixedWidthType(proxy);
         end
     end

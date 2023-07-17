@@ -19,10 +19,9 @@ classdef Float64Type < arrow.type.FixedWidthType
     methods 
         function obj = Float64Type(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Float64Type")}
             end
-            expectedProxyName = arrow.type.traits.Float64Traits.TypeProxyClassName;
-            arrow.private.proxy.validateName(proxy.Name, expectedProxyName);
+            import arrow.internal.proxy.validate
             obj@arrow.type.FixedWidthType(proxy);
         end
     end

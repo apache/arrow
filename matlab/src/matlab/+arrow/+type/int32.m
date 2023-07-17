@@ -15,6 +15,6 @@
 
 function int32Type = int32()
 %INT32 Creates an arrow.type.Int32Type object
-    proxy = arrow.private.proxy.create("arrow.type.proxy.Int32Type");
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.Int32Type");
     int32Type = arrow.type.Int32Type(proxy);
 end

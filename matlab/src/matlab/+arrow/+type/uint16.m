@@ -15,7 +15,7 @@
 
 function uint16Type = uint16()
 %UINT16 Creates an arrow.type.Int16Type object
-    proxy = arrow.private.proxy.create("arrow.type.proxy.UInt16Type");
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt16Type");
     uint16Type = arrow.type.UInt16Type(proxy);
 end
 

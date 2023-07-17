@@ -15,7 +15,7 @@
 
 function int64Type = int64()
 %INT64 Creates an arrow.type.Int64Type object
-    proxy = arrow.private.proxy.create("arrow.type.proxy.Int64Type");
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.Int64Type");
     int64Type = arrow.type.Int64Type(proxy);
 end
 
