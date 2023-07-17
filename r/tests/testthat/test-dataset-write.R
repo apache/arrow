@@ -813,7 +813,7 @@ test_that("write_dataset() errors on data.frame with NULL names", {
   expect_error(write_dataset(df, tempfile()), "Input data frame columns must be named")
 })
 
-test_that("Writing a dataset to text files.", {
+test_that("Writing a dataset to text files with wrapper functions.", {
   df <- tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
@@ -911,7 +911,7 @@ test_that("Writing a flat file dataset without a delimiter throws an error.", {
   )
 })
 
-test_that("readr::write_csv() options for flat files.", {
+test_that("Dataset can write flat files using readr::write_csv() options.", {
   df <- tibble(
     int = 1:10,
     dbl = as.numeric(1:10),
@@ -934,12 +934,73 @@ test_that("readr::write_csv() options for flat files.", {
   header <- readBin(con <- file(paste0(dst_dir, "/part-0.csv"), "rb"), "raw", n = 5)
   close(con)
 
-  # 0d and 0a are the character codes of CRLF (https://www.asciitable.com)
+  # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
   expect_equal(as.character(header[4:5]), c("0d", "0a"))
 
   dst_dir <- make_temp_dir()
   expect_error(
-    write_dataset(df, dst_dir, format = "csv", col_names = FALSE, delim = ";"),
+    write_dataset(df, dst_dir, format = "csv", include_header = FALSE, delim = ";"),
     "Can't write dataset with both Arrow options and readr options."
   )
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "csv", quote = "AllValid")
+  ds <- open_dataset(dst_dir, format = "csv")
+  expect_equal(df, ds |> collect())
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "csv", quote = "foobar"),
+    "quoting_style must be 1 of 'Needed', 'AllValid' or 'None'"
+  )
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "tsv", delimiter = ";"),
+    "Can't set a delimiter for the tsv format."
+  )
+})
+
+test_that("Dataset write wrappers can write flat files using readr::write_csv() options.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir, col_names = FALSE)
+
+  header <- readLines(file(paste0(dst_dir, "/part-0.csv")), n = 1L)
+  expect_equal(header, "1,1,true,\"a\"")
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir, col_names = FALSE)
+
+  header <- readLines(file(paste0(dst_dir, "/part-0.tsv")), n = 1L)
+  expect_equal(header, "1\t1\ttrue\t\"a\"")
+
+  df2 <- tibble(x = "")
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df2, dst_dir, eol = "\r\n")
+  header <- readBin(con <- file(paste0(dst_dir, "/part-0.csv"), "rb"), "raw", n = 5)
+  close(con)
+  # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
+  expect_equal(as.character(header[4:5]), c("0d", "0a"))
+
+  df2 <- tibble(x = "")
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df2, dst_dir, eol = "\r\n")
+  header <- readBin(con <- file(paste0(dst_dir, "/part-0.tsv"), "rb"), "raw", n = 5)
+  close(con)
+  # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
+  expect_equal(as.character(header[4:5]), c("0d", "0a"))
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir, quote = "AllValid", delim = ";")
+  ds <- open_dataset(dst_dir, format = "csv", delim = ";")
+  expect_equal(df, ds |> collect())
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir, quote = "AllValid", eol = "\r\n")
+  ds <- open_dataset(dst_dir, format = "tsv")
+  expect_equal(df, ds |> collect())
 })

@@ -35,6 +35,8 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
   res->null_string = cpp11::as_cpp<std::string>(options["null_string"]);
   res->io_context = MainRThread::GetInstance().CancellableIOContext();
   res->eol = cpp11::as_cpp<std::string>(options["eol"]);
+  res->quoting_style =
+      cpp11::as_cpp<enum arrow::csv::QuotingStyle>(options["quoting_style"]);
   return res;
 }
 

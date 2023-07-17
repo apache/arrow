@@ -183,6 +183,9 @@ write_dataset <- function(dataset,
   if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
     stop("A delimiter must be given for a txt format.")
   }
+  if (format == "tsv" && any(c("delimiter", "delim") %in% names(dots))) {
+    stop("Can't set a delimiter for the tsv format.")
+  }
 
   output_schema <- final_node$schema
   # This is a workaround because CsvFileFormat$create defaults the delimiter to ","
@@ -234,54 +237,61 @@ write_dataset <- function(dataset,
 #' `data.frame`. If an `arrow_dplyr_query`, the query will be evaluated and
 #' the result will be written. This means that you can `select()`, `filter()`, `mutate()`,
 #' etc. to transform the data before it is written if you need to.
-#' @param path string path, URI, or `SubTreeFileSystem` referencing a directory
+#' @param path String path, URI, or `SubTreeFileSystem` referencing a directory
 #' to write to (directory will be created if it does not exist)
 #' @param partitioning `Partitioning` or a character vector of columns to
 #' use as partition keys (to be written as path segments). Default is to
 #' use the current `group_by()` columns.
-#' @param basename_template string template for the names of files to be written.
+#' @param basename_template String template for the names of files to be written.
 #' Must contain `"{i}"`, which will be replaced with an autoincremented
 #' integer to generate basenames of datafiles. For example, `"part-{i}.csv"`
 #' will yield `"part-0.csv", ...`.
 #' If not specified, it defaults to `"part-{i}.csv"`.
-#' @param hive_style logical: write partition segments as Hive-style
+#' @param hive_style Write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
 #' @param existing_data_behavior The behavior to use when there is already data
 #' in the destination directory.  Must be one of "overwrite", "error", or
 #' "delete_matching".
-#' - "overwrite" (the default) then any new files created will overwrite
+#' - `overwrite` (the default) then any new files created will overwrite
 #'   existing files
-#' - "error" then the operation will fail if the destination directory is not
+#' - `error` then the operation will fail if the destination directory is not
 #'   empty
-#' - "delete_matching" then the writer will delete any existing partitions
+#' - `delete_matching` then the writer will delete any existing partitions
 #'   if data is going to be written to those partitions and will leave alone
 #'   partitions which data is not written to.
-#' @param max_partitions maximum number of partitions any batch may be
+#' @param max_partitions Maximum number of partitions any batch may be
 #' written into. Default is 1024L.
-#' @param max_open_files maximum number of files that can be left opened
+#' @param max_open_files Maximum number of files that can be left opened
 #' during a write operation. If greater than 0 then this will limit the
 #' maximum number of files that can be left open. If an attempt is made to open
 #' too many files then the least recently used file will be closed.
 #' If this setting is set too low you may end up fragmenting your data
 #' into many small files. The default is 900 which also allows some # of files to be
 #' open by the scanner before hitting the default Linux limit of 1024.
-#' @param max_rows_per_file maximum number of rows per file.
+#' @param max_rows_per_file Maximum number of rows per file.
 #' If greater than 0 then this will limit how many rows are placed in any single file.
 #' Default is 0L.
-#' @param min_rows_per_group write the row groups to the disk when this number of
+#' @param min_rows_per_group Write the row groups to the disk when this number of
 #' rows have accumulated. Default is 0L.
-#' @param max_rows_per_group maximum rows allowed in a single
+#' @param max_rows_per_group Maximum rows allowed in a single
 #' group and when this number of rows is exceeded, it is split and the next set
 #' of rows is written to the next group. This value must be set such that it is
 #' greater than `min_rows_per_group`. Default is 1024 * 1024.
-#' @param col_names whether to write an initial header line with column names.
-#' @param batch_size maximum number of rows processed at a time. Default is 1024.
-#' @param delim delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
-#' `write_csv_dataset()`, and `"\t` for `write_tsv_dataset()`. Cannot be changed for `write_csv_dataset()`
-#' and `write_tsv_dataset()`.
+#' @param col_names Whether to write an initial header line with column names.
+#' @param batch_size Maximum number of rows processed at a time. Default is 1024L.
+#' @param delim Delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
+#' `write_csv_dataset()`, and `"\t` for `write_tsv_dataset()`. Cannot be changed for `write_tsv_dataset()`.
 #' @param na a character vector of strings to interpret as missing values. Quotes are not allowed in this string.
 #' The default is an empty string `""`.
 #' @param eol the end of line character to use for ending rows. The default is `"\n"`.
+#' @param quote How to handle fields which contain characters that need to be quoted.
+#' - `Needed` - Only enclose values in quotes which need them, because their CSV rendering can
+#'  contain quotes itself (e.g. strings or binary values) (the default)
+#' - `AllValid` -   Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
+#' interpret all values as strings if schema is inferred.
+#' - `None` -   Do not enclose any values in quotes. Prevents values from containing quotes ("),
+#' cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
+#' contain these characters, an error is caused when attempting to write.
 #' @return The input `dataset`, invisibly.
 #'
 #' @seealso [write_dataset()]
@@ -301,14 +311,31 @@ write_delim_dataset <- function(dataset,
                                 batch_size = 1024L,
                                 delim = ",",
                                 na = "",
-                                eol = "\n") {
-  mc <- match.call()
-  mc$format <- "txt"
-  mc$include_header <- col_names
-  mc$delimiter <- delim
-  mc$null_string <- na
-  mc[[1]] <- get("write_dataset", envir = asNamespace("arrow"))
-  eval.parent(mc)
+                                eol = "\n",
+                                quote = "Needed") {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "txt",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    include_header = col_names,
+    batch_size = batch_size,
+    delimiter = delim,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
+  )
 }
 
 #' @rdname write_delim_dataset
@@ -328,14 +355,31 @@ write_csv_dataset <- function(dataset,
                               batch_size = 1024L,
                               delim = ",",
                               na = "",
-                              eol = "\n") {
-  mc <- match.call()
-  mc$format <- "csv"
-  mc$include_header <- col_names
-  mc$delimiter <- delim
-  mc$null_string <- na
-  mc[[1]] <- get("write_dataset", envir = asNamespace("arrow"))
-  eval.parent(mc)
+                              eol = "\n",
+                              quote = "Needed") {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "csv",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    include_header = col_names,
+    batch_size = batch_size,
+    delimiter = delim,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
+  )
 }
 
 #' @rdname write_delim_dataset
@@ -353,16 +397,31 @@ write_tsv_dataset <- function(dataset,
                               max_rows_per_group = bitwShiftL(1, 20),
                               col_names = TRUE,
                               batch_size = 1024L,
-                              delim = "\t",
                               na = "",
-                              eol = "\n") {
-  mc <- match.call()
-  mc$format <- "tsv"
-  mc$include_header <- col_names
-  mc$delimiter <- delim
-  mc$null_string <- na
-  mc[[1]] <- get("write_dataset", envir = asNamespace("arrow"))
-  eval.parent(mc)
+                              eol = "\n",
+                              quote = "Needed") {
+  if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
+    max_rows_per_group <- max_rows_per_file
+  }
+  write_dataset(
+    dataset = dataset,
+    path = path,
+    format = "tsv",
+    partitioning = partitioning,
+    basename_template = basename_template,
+    hive_style = hive_style,
+    existing_data_behavior = existing_data_behavior,
+    max_partitions = max_partitions,
+    max_open_files = max_open_files,
+    max_rows_per_file = max_rows_per_file,
+    min_rows_per_group = min_rows_per_group,
+    max_rows_per_group = max_rows_per_group,
+    include_header = col_names,
+    batch_size = batch_size,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
+  )
 }
 
 validate_positive_int_value <- function(value, msg) {

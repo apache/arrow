@@ -684,11 +684,14 @@ FileWriteOptions <- R6Class("FileWriteOptions",
         arrow_opts <- names(formals(CsvWriteOptions$create))
         readr_opts <- names(formals(readr_to_csv_write_options))
         readr_only_opts <- setdiff(readr_opts, arrow_opts)
+        arrow_only_opts <- setdiff(arrow_opts, readr_opts)
 
-        is_arrow_opt <- !is.na(pmatch(names(args), arrow_opts))
-        is_readr_opt <- !is.na(pmatch(names(args), readr_opts))
-        is_readr_only_opt <- !is.na(pmatch(names(args), readr_only_opts))
-        if (any(is_arrow_opt) && any(is_readr_only_opt)) {
+        is_arrow_opt <- !is.na(match(names(args), arrow_opts))
+        is_readr_opt <- !is.na(match(names(args), readr_opts))
+        is_arrow_only_opt <- !is.na(match(names(args), arrow_only_opts))
+        is_readr_only_opt <- !is.na(match(names(args), readr_only_opts))
+
+        if (any(is_arrow_only_opt) && any(is_readr_only_opt)) {
           stop("Can't write dataset with both Arrow options and readr options.")
         }
 
