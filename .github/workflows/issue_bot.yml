@@ -43,12 +43,14 @@ jobs:
               "owner": context.repo.owner,
               "repo": context.repo.repo,
               "per_page": 100,
-              "issue_number": context.payload.issue.number
+              "issue_number": context.payload.issue.number,
             });
-
+            console.log(typeof(current_labels));
+            console.log(current_labels);
+            
             // keep non-component labels
             let non_component_labels = current_labels.filter(
-              label => !label.stratsWith("Component: ")
+              label => !label.startsWith("Component: ")
             );
 
             let component_labels = split_body[1]
