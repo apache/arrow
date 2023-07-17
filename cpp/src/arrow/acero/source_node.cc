@@ -133,7 +133,7 @@ struct SourceNode : ExecNode, public TracedNode {
     plan_->query_context()->ScheduleTask(
         [this, morsel_length, use_legacy_batching, initial_batch_index, morsel,
          has_ordering = !ordering_.is_unordered()]() {
-          util::tracing::Span span;
+          arrow::util::tracing::Span span;
           START_SPAN(span, "SourceNode::ProcessMorsel");
           int64_t offset = 0;
           int batch_index = initial_batch_index;
@@ -187,7 +187,7 @@ struct SourceNode : ExecNode, public TracedNode {
     options.should_schedule = ShouldSchedule::IfDifferentExecutor;
     ARROW_ASSIGN_OR_RAISE(Future<> scan_task, plan_->query_context()->BeginExternalTask(
                                                   "SourceNode::DatasetScan"));
-    util::tracing::Span span;
+    arrow::util::tracing::Span span;
     START_SPAN(span, "SourceNode::DatasetScan");
 
     if (!scan_task.is_valid()) {

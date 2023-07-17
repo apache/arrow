@@ -219,7 +219,7 @@ struct FunctionExecutorImpl : public FunctionExecutor {
   }
 
   Result<Datum> Execute(const std::vector<Datum>& args, int64_t passed_length) override {
-    util::tracing::Span span;
+    arrow::util::tracing::Span span;
 
     auto func_kind = func.kind();
     const auto& func_name = func.name();

@@ -514,7 +514,7 @@ Status DecompressBuffers(Compression::type compression, const IpcReadOptions& op
 
   return ::arrow::internal::OptionalParallelFor(
       options.use_threads, static_cast<int>(buffers.size()), [&](int i) {
-        ::arrow::util::tracing::Span span;
+        util::tracing::Span span;
         START_SPAN(span, "arrow::ipc::DecompressBuffer",
                    {{"buffer_index", i},
                     {"ipc.compression.codec", codec.get()->name().c_str()},

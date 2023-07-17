@@ -79,7 +79,7 @@ class ProjectNode : public MapNode {
 
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override {
     std::vector<Datum> values{exprs_.size()};
-    util::tracing::Span span;
+    arrow::util::tracing::Span span;
     START_COMPUTE_SPAN(span, "Project",
                        {{"project.length", batch.length},
                         {"input_batch.size_bytes", batch.TotalBufferSize()}});
