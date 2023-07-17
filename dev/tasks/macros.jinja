@@ -148,7 +148,8 @@ on:
       # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
       gem install --user-install gemfury -v 0.12.0
   - name: Instal gemfury client
-    if: !{{ runner.os == 'Linux' && runner.arch != 'X64'}}
+    if: |
+      !(runner.os == 'Linux' && runner.arch != 'X64')
     run: |
       # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
       gem install gemfury -v 0.12.0
