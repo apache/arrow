@@ -1141,9 +1141,7 @@ class TestDecimalToReal : public ::testing::Test {
     // Integers are always exact
     auto scale = Decimal::kMaxScale - 1;
     std::string seven = "7.";
-    for (int32_t i = 0; i < scale; ++i) {
-      seven += "0";
-    }
+    seven.append(scale, '0');  // pad with trailing zeros
     CheckDecimalToReal<Decimal, Real>(seven, scale, 7.0f);
     CheckDecimalToReal<Decimal, Real>("-" + seven, scale, -7.0f);
 
