@@ -1016,7 +1016,7 @@ struct Decimal256RealConversion
   /// Here "exact value" means the closest representable value by Real.
   template <typename Real>
   static Real ToRealPositive(const Decimal256& decimal, int32_t scale) {
-    const auto parts_le = bit_util::little_endian::Make(decimal.native_endian_array());
+    const auto parts_le = decimal.little_endian_array();
     if (scale <= 0 || (parts_le[3] == 0 && parts_le[2] == 0 && parts_le[1] == 0 &&
                        parts_le[0] < RealTraits<Real>::kMaxPreciseInteger)) {
       // No need to split the decimal if it is already an integer (scale <= 0) or if it
