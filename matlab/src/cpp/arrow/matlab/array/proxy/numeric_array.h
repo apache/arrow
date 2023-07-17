@@ -35,18 +35,18 @@
 
 namespace arrow::matlab::array::proxy {
 
-template<typename CType>
+template<typename ArrowType>
 class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
-        using ArrowType = typename arrow::CTypeTraits<CType>::ArrowType;
 
         NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array)
             : arrow::matlab::array::proxy::Array{std::move(numeric_array)} {}
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {            
             using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
+            using CType = typename arrow::TypeTraits<ArrowType>::CType;
             using NumericArray = arrow::NumericArray<ArrowType>;
-            using NumericArrayProxy = typename arrow::matlab::array::proxy::NumericArray<CType>;
+            using NumericArrayProxy = typename proxy::NumericArray<ArrowType>;
 
             ::matlab::data::StructArray opts = constructor_arguments[0];
 
@@ -68,10 +68,10 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
 
     protected:
         void toMATLAB(libmexclass::proxy::method::Context& context) override {
-            using ArrowArrayType = typename arrow::CTypeTraits<CType>::ArrayType;
+            using NumericArray = typename arrow::TypeTraits<ArrowType>::ArrayType;
 
             const auto num_elements = static_cast<size_t>(array->length());
-            const auto numeric_array = std::static_pointer_cast<ArrowArrayType>(array);
+            const auto numeric_array = std::static_pointer_cast<NumericArray>(array);
             const CType* const data_begin = numeric_array->raw_values();
             const CType* const data_end = data_begin + num_elements;
 
