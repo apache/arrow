@@ -144,7 +144,7 @@ on:
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
+      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir'))/bin:$PATH
       # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
       gem install --user-install gemfury -v 0.12.0
       fury push \
