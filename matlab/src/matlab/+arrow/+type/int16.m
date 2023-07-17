@@ -13,8 +13,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function int16Type = int16()
+function type = int16()
 %INT16 Creates an arrow.type.Int16Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.Int16Type");
-    int16Type = arrow.type.Int16Type(proxy);
+    type = arrow.type.Int16Type(proxy);
 end

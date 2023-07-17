@@ -13,9 +13,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function uint16Type = uint16()
+function type = uint16()
 %UINT16 Creates an arrow.type.Int16Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt16Type");
-    uint16Type = arrow.type.UInt16Type(proxy);
+    type = arrow.type.UInt16Type(proxy);
 end
 

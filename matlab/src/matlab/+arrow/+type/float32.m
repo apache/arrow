@@ -13,8 +13,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function float32Type = float32()
+function type = float32()
 %FLOAT64 Creates an arrow.type.Float32Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.Float32Type");
-    float32Type = arrow.type.Float32Type(proxy);
+    type = arrow.type.Float32Type(proxy);
 end

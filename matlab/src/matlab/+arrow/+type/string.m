@@ -13,9 +13,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function stringType = string()
+function type = string()
 %STRING Creates an arrow.type.StringType object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.StringType");
-    stringType = arrow.type.StringType(proxy);
+    type = arrow.type.StringType(proxy);
 end
 

@@ -13,7 +13,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function timestampType = timestamp(opts)
+function type = timestamp(opts)
 %TIMESTAMP Creates an arrow.type.TimestampType object
     arguments
         opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
@@ -21,5 +21,5 @@ function timestampType = timestamp(opts)
     end
     args = struct(TimeUnit=string(opts.TimeUnit), TimeZone=opts.TimeZone);
     proxy = arrow.internal.proxy.create("arrow.type.proxy.TimestampType", args);
-    timestampType = arrow.type.TimestampType(proxy);
+    type = arrow.type.TimestampType(proxy);
 end

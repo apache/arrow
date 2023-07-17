@@ -13,8 +13,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function uint64Type = uint64()
+function type = uint64()
 %UINT64 Creates an arrow.type.UInt64Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt64Type");
-    uint64Type = arrow.type.UInt64Type(proxy);
+    type = arrow.type.UInt64Type(proxy);
 end

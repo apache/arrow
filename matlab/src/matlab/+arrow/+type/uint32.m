@@ -13,9 +13,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function uint32Type = uint32()
+function type = uint32()
 %UINT32 Creates an arrow.type.UInt32Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt32Type");
-    uint32Type = arrow.type.UInt32Type(proxy);
+    type = arrow.type.UInt32Type(proxy);
 end
 

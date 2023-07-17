@@ -13,9 +13,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function uint8Type = uint8()
+function type = uint8()
 %UINT8 Creates an arrow.type.UInt8Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.UInt8Type");
-    uint8Type = arrow.type.UInt8Type(proxy);
+    type = arrow.type.UInt8Type(proxy);
 end
 

@@ -13,8 +13,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function int8Type = int8()
+function type = int8()
 %INT8 Creates an arrow.type.Int8Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.Int8Type");
-    int8Type = arrow.type.Int8Type(proxy);
+    type = arrow.type.Int8Type(proxy);
 end

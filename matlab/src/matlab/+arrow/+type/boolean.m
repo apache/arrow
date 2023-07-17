@@ -12,9 +12,9 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function booleanType = boolean()
+function type = boolean()
 %BOOLEAN Creates an arrow.type.BooleanType object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.BooleanType");
-    booleanType = arrow.type.BooleanType(proxy);
+    type = arrow.type.BooleanType(proxy);
 end
 

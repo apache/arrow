@@ -13,9 +13,9 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function int64Type = int64()
+function type = int64()
 %INT64 Creates an arrow.type.Int64Type object
     proxy = arrow.internal.proxy.create("arrow.type.proxy.Int64Type");
-    int64Type = arrow.type.Int64Type(proxy);
+    type = arrow.type.Int64Type(proxy);
 end
 
