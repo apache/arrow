@@ -274,7 +274,8 @@ write_dataset <- function(dataset,
 #' group and when this number of rows is exceeded, it is split and the next set
 #' of rows is written to the next group. This value must be set such that it is
 #' greater than `min_rows_per_group`. Default is 1024 * 1024.
-#' @param col_names whether to write an initial header line with column names
+#' @param col_names whether to write an initial header line with column names.
+#' @param batch_size maximum number of rows processed at a time. Default is 1024.
 #' @param delim delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
 #' `write_csv_dataset()`, and `"\t` for `write_tsv_dataset()`. Cannot be changed for `write_csv_dataset()`
 #' and `write_tsv_dataset()`.
@@ -297,6 +298,7 @@ write_delim_dataset <- function(dataset,
                                 min_rows_per_group = 0L,
                                 max_rows_per_group = bitwShiftL(1, 20),
                                 col_names = TRUE,
+                                batch_size = 1024L,
                                 delim = ",",
                                 na = "",
                                 eol = "\n") {
@@ -323,6 +325,7 @@ write_csv_dataset <- function(dataset,
                               min_rows_per_group = 0L,
                               max_rows_per_group = bitwShiftL(1, 20),
                               col_names = TRUE,
+                              batch_size = 1024L,
                               delim = ",",
                               na = "",
                               eol = "\n") {
@@ -349,6 +352,7 @@ write_tsv_dataset <- function(dataset,
                               min_rows_per_group = 0L,
                               max_rows_per_group = bitwShiftL(1, 20),
                               col_names = TRUE,
+                              batch_size = 1024L,
                               delim = "\t",
                               na = "",
                               eol = "\n") {
