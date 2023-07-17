@@ -547,7 +547,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
   }
   DCHECK_NE(array->private_data, nullptr);
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
-  if (pdata->sync_event_.sync_event != nullptr && pdata->sync_event_.release_func != nullptr) {  
+  if (pdata->sync_event_.sync_event != nullptr &&
+      pdata->sync_event_.release_func != nullptr) {
     pdata->sync_event_.release_func(pdata->sync_event_.sync_event);
   }
   delete pdata;
@@ -673,7 +674,7 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
-Status ValidateDeviceInfo(const ArrayData& data, std::optional<DeviceType>* device_type,
+Status ValidateDeviceInfo(const ArrayData& data, std::optional<DeviceAllocationType>* device_type,
                           int64_t* device_id) {
   for (const auto& buf : data.buffers) {
     if (!buf) {
@@ -704,16 +705,16 @@ Status ValidateDeviceInfo(const ArrayData& data, std::optional<DeviceType>* devi
   return Status::OK();
 }
 
-Result<std::pair<std::optional<DeviceType>, int64_t>> ValidateDeviceInfo(const ArrayData& data) {
-  std::optional<DeviceType> device_type;
+Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceInfo(
+    const ArrayData& data) {
+  std::optional<DeviceAllocationType> device_type;
   int64_t device_id = -1;
   RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
   return std::make_pair(device_type, device_id);
 }
 
-Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event, 
-                         struct ArrowDeviceArray* out,
-                         struct ArrowSchema* out_schema) {
+Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
+                         struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
   if (sync_event.sync_event != nullptr && sync_event.release_func) {
     return Status::Invalid(
         "Must provide a release event function if providing a non-null event");
@@ -744,8 +745,7 @@ Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
   return Status::OK();
 }
 
-Status ExportDeviceRecordBatch(const RecordBatch& batch, 
-                               RawSyncEvent sync_event,
+Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
   if (sync_event.sync_event != nullptr && sync_event.release_func == nullptr) {
@@ -1388,7 +1388,7 @@ class ImportedBuffer : public Buffer {
       : Buffer(data, size), import_(std::move(import)) {}
 
   ImportedBuffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
-                 DeviceType device_type, std::shared_ptr<ImportedArrayData> import)
+                 DeviceAllocationType device_type, std::shared_ptr<ImportedArrayData> import)
       : Buffer(data, size, mm, nullptr, device_type), import_(std::move(import)) {}
 
   ~ImportedBuffer() override {}
@@ -1401,17 +1401,16 @@ struct ArrayImporter {
   explicit ArrayImporter(const std::shared_ptr<DataType>& type)
       : type_(type),
         zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)),
-        device_type_(DeviceType::kCPU) {}
+        device_type_(DeviceAllocationType::kCPU) {}
 
   Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
-    ARROW_ASSIGN_OR_RAISE(memory_mgr_,
-                          mapper(src->device_type, src->device_id));
-    device_type_ = static_cast<DeviceType>(src->device_type);
+    ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
+    device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
     import_->sync_event_ = src->sync_event;
     // reset internal state before next import
     memory_mgr_.reset();
-    device_type_ = DeviceType::kCPU;
+    device_type_ = DeviceAllocationType::kCPU;
     return Status::OK();
   }
 
@@ -1758,7 +1757,7 @@ struct ArrayImporter {
   std::shared_ptr<Buffer> zero_size_buffer_;
 
   std::shared_ptr<MemoryManager> memory_mgr_;
-  DeviceType device_type_;
+  DeviceAllocationType device_type_;
 };
 
 }  // namespace

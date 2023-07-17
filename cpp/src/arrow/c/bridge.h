@@ -198,7 +198,7 @@ struct RawSyncEvent {
 /// \param[out] out C struct to export the array to
 /// \param[out] out_schema optional C struct to export the array type to
 ARROW_EXPORT
-Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event, 
+Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
                          struct ArrowDeviceArray* out,
                          struct ArrowSchema* out_schema = NULLPTR);
 
@@ -216,16 +216,16 @@ Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
 /// non-null. If the sync_event is null, then the sync_release parameter is ignored.
 ///
 /// \param[in] batch Record batch to export
-/// \param[in] sync_event A struct containing what is needed for syncing if necessary 
-/// \param[out] out C struct where to export the record batch 
+/// \param[in] sync_event A struct containing what is needed for syncing if necessary
+/// \param[out] out C struct where to export the record batch
 /// \param[out] out_schema optional C struct where to export the record batch schema
 ARROW_EXPORT
 Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema = NULLPTR);
 
-using DeviceMemoryMapper = std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
-
+using DeviceMemoryMapper =
+    std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
 
 // ARROW_EXPORT
 // Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
@@ -239,8 +239,8 @@ using DeviceMemoryMapper = std::function<Result<std::shared_ptr<MemoryManager>>(
 ///
 /// \param[in,out] array C data interface struct holding the array data
 /// \param[in] type type of the imported array
-/// \param[in] mapper An object with a `get_manager` method to map a device type to a
-/// memory manager \return Imported array object
+/// \param[in] mapper A function to map device + id to memory manager
+/// \return Imported array object
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  std::shared_ptr<DataType> type,
@@ -255,8 +255,8 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 ///
 /// \param[in,out] array C data interface struct holding the array data
 /// \param[in,out] type C data interface struct holding the array type
-/// \param[in] mapper An object with a `get_manager` method to map a device type to a
-/// memory manager \return Imported array object
+/// \param[in] mapper A function to map device + id to memory manager
+/// \return Imported array object
 ARROW_EXPORT
 Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
                                                  struct ArrowSchema* type,
@@ -272,8 +272,8 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 ///
 /// \param[in,out] array C data interface struct holding the record batch data
 /// \param[in] schema schema of the imported record batch
-/// \param[in] mapper An object with a `get_manager` method to map a device type to a
-/// memory manager \return Imported record batch object
+/// \param[in] mapper A function to map device + id to memory manager
+/// \return Imported record batch object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
     struct ArrowArray* array, std::shared_ptr<Schema> schema,
@@ -291,11 +291,12 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 ///
 /// \param[in,out] array C data interface struct holding the record batch data
 /// \param[in,out] schema C data interface struct holding the record batch schema
-/// \param[in] mapper An object with a `get_manager` method to map a device type to a
-/// memory manager \return Imported record batch object
+/// \param[in] mapper A function to map device + id to memory manager
+/// \return Imported record batch object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
-    struct ArrowArray* array, struct ArrowSchema* schema, const DeviceMemoryMapper& mapper);
+    struct ArrowArray* array, struct ArrowSchema* schema,
+    const DeviceMemoryMapper& mapper);
 
 /// @}
 

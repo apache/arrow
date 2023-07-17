@@ -41,7 +41,7 @@ using internal::checked_cast;
 using internal::checked_pointer_cast;
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
-static const DeviceType kMyDeviceType = DeviceType::kEXT_DEV;
+static const DeviceAllocationType kMyDeviceType = DeviceAllocationType::kEXT_DEV;
 
 static const int kMyDeviceAllowCopy = 1;
 static const int kMyDeviceAllowView = 2;
@@ -71,7 +71,7 @@ class MyDevice : public Device {
     return checked_cast<const MyDevice&>(other).value_ == value_;
   }
 
-  DeviceType device_type() const override { return kMyDeviceType; }
+  DeviceAllocationType device_type() const override { return kMyDeviceType; }
 
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 
@@ -259,7 +259,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
-  ASSERT_EQ(buffer->device_type(), DeviceType::kCPU);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -267,7 +267,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), cpu_src_->address());
-  ASSERT_EQ(buffer->device_type(), DeviceType::kCPU);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -297,7 +297,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
-  ASSERT_EQ(buffer->device_type(), DeviceType::kCPU);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -305,7 +305,7 @@ TEST_F(TestDevice, Copy) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_NE(buffer->address(), my_copy_src_->address());
-  ASSERT_EQ(buffer->device_type(), DeviceType::kCPU);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -341,7 +341,7 @@ TEST_F(TestDevice, View) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_EQ(buffer->address(), cpu_src_->address());
-  ASSERT_EQ(buffer->device_type(), DeviceType::kCPU);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 
@@ -361,7 +361,7 @@ TEST_F(TestDevice, View) {
   ASSERT_EQ(buffer->device(), cpu_device_);
   ASSERT_TRUE(buffer->is_cpu());
   ASSERT_EQ(buffer->address(), my_copy_src_->address());
-  ASSERT_EQ(buffer->device_type(), DeviceType::kCPU);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCPU);
   ASSERT_NE(buffer->data(), nullptr);
   AssertBufferEqual(*buffer, "some data");
 

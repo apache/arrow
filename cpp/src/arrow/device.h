@@ -30,7 +30,7 @@
 namespace arrow {
 
 /// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
-enum class DeviceType : char {  
+enum class DeviceAllocationType : char {  
   kCPU = 1,
   kCUDA = 2,
   kCUDA_HOST = 3,
@@ -95,8 +95,8 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// MemoryManager instances with non-default parameters.
   virtual std::shared_ptr<MemoryManager> default_memory_manager() = 0;
 
-  /// \brief Return the DeviceType of this device
-  virtual DeviceType device_type() const = 0;
+  /// \brief Return the DeviceAllocationType of this device
+  virtual DeviceAllocationType device_type() const = 0;
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Device);
@@ -199,7 +199,7 @@ class ARROW_EXPORT CPUDevice : public Device {
   const char* type_name() const override;
   std::string ToString() const override;
   bool Equals(const Device&) const override;
-  DeviceType device_type() const override { return DeviceType::kCPU; }
+  DeviceAllocationType device_type() const override { return DeviceAllocationType::kCPU; }
 
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 

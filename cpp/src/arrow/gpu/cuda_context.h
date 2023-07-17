@@ -92,7 +92,7 @@ class ARROW_EXPORT CudaDevice : public Device {
   std::string ToString() const override;
   bool Equals(const Device&) const override;
   std::shared_ptr<MemoryManager> default_memory_manager() override;
-  DeviceType device_type() const override { return DeviceType::kCUDA; }
+  DeviceAllocationType device_type() const override { return DeviceAllocationType::kCUDA; }
   int64_t device_id() const override { return device_number(); }
 
   /// \brief Return a CudaDevice instance for a particular device
