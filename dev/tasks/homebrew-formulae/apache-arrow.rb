@@ -60,7 +60,7 @@ class ApacheArrow < Formula
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
-    env.O2
+    ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
 
     # -DCMAKE_INSTALL_RPATH=#{rpath}
     args = %W[
