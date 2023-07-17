@@ -570,7 +570,7 @@ representation based on the rounding criterion.
 | trunc             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 
-* \(1)  By default rounding functions displace a value to the nearest 
+* \(1)  By default rounding functions change a value to the nearest 
   integer using HALF_TO_EVEN to resolve ties.  Options are available to control 
   the rounding criterion.  Both ``round`` and ``round_to_multiple`` have the 
   ``round_mode`` option to set the rounding mode.
