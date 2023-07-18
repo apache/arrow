@@ -556,7 +556,7 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
   } else {
     num_values = num_levels;
   }
-  // Create repitition levels
+  // Create repetition levels
   if (max_rep_level > 0 && num_levels != 0) {
     rep_levels.resize(num_levels);
     // Using a different seed so that def_levels and rep_levels are different.

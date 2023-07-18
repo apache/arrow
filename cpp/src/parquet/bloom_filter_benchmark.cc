@@ -18,13 +18,13 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/util/logging.h"
+#include "parquet/benchmark_util.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/properties.h"
 
 #include <random>
 
-namespace parquet {
-namespace benchmark {
+namespace parquet::benchmark {
 
 constexpr static uint32_t kNumBloomFilterInserts = 16 * 1024;
 // The sample string length for FLBA and ByteArray benchmarks
@@ -40,63 +40,11 @@ std::unique_ptr<BloomFilter> CreateBloomFilter(uint32_t num_values) {
   return bloom_filter;
 }
 
-void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* heap) {
-  // Character set used to generate random string
-  const std::string charset =
-      "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-  std::default_random_engine gen(seed);
-  std::uniform_int_distribution<uint32_t> dist(0, static_cast<int>(charset.size() - 1));
-
-  for (uint32_t i = 0; i < length; i++) {
-    heap->push_back(charset[dist(gen)]);
-  }
-}
-
-template <typename T>
-void GenerateBenchmarkData(uint32_t size, uint32_t seed, T* data,
-                           [[maybe_unused]] std::vector<uint8_t>* heap = nullptr) {
-  if constexpr (std::is_integral_v<T>) {
-    std::default_random_engine gen(seed);
-    std::uniform_int_distribution<T> d(std::numeric_limits<T>::min(),
-                                       std::numeric_limits<T>::max());
-    for (uint32_t i = 0; i < size; ++i) {
-      data[i] = d(gen);
-    }
-  } else if constexpr (std::is_floating_point_v<T>) {
-    std::default_random_engine gen(seed);
-    std::uniform_real_distribution<T> d(std::numeric_limits<T>::lowest(),
-                                        std::numeric_limits<T>::max());
-    for (uint32_t i = 0; i < size; ++i) {
-      data[i] = d(gen);
-    }
-  } else if constexpr (std::is_same_v<FLBA, T>) {
-    GenerateRandomString(kDataStringLength * size, seed, heap);
-    for (uint32_t i = 0; i < size; ++i) {
-      data[i].ptr = heap->data() + i * kDataStringLength;
-    }
-  } else if constexpr (std::is_same_v<ByteArray, T>) {
-    GenerateRandomString(kDataStringLength * size, seed, heap);
-    for (uint32_t i = 0; i < size; ++i) {
-      data[i].ptr = heap->data() + i * kDataStringLength;
-      data[i].len = kDataStringLength;
-    }
-  } else if constexpr (std::is_same_v<Int96, T>) {
-    std::default_random_engine gen(seed);
-    std::uniform_int_distribution<int> d(std::numeric_limits<int>::min(),
-                                         std::numeric_limits<int>::max());
-    for (uint32_t i = 0; i < size; ++i) {
-      data[i].value[0] = d(gen);
-      data[i].value[1] = d(gen);
-      data[i].value[2] = d(gen);
-    }
-  }
-}
-
 std::vector<uint64_t> GetHashValues(uint32_t num_values, uint32_t seed) {
   // Generate sample data values
   std::vector<int64_t> values(num_values);
-  GenerateBenchmarkData(num_values, seed, values.data());
+  std::vector<uint8_t> heap;
+  GenerateBenchmarkData(num_values, seed, values.data(), &heap, kDataStringLength);
   // Create a temp filter to compute hash values
   auto filter = CreateBloomFilter(/*num_values=*/8);
   std::vector<uint64_t> hashes(num_values);
@@ -109,7 +57,8 @@ static void BM_ComputeHash(::benchmark::State& state) {
   using T = typename DType::c_type;
   std::vector<T> values(kNumBloomFilterInserts);
   std::vector<uint8_t> heap;
-  GenerateBenchmarkData(kNumBloomFilterInserts, /*seed=*/0, values.data(), &heap);
+  GenerateBenchmarkData(kNumBloomFilterInserts, /*seed=*/0, values.data(), &heap,
+                        kDataStringLength);
   auto filter = CreateBloomFilter(kNumBloomFilterInserts);
   for (auto _ : state) {
     uint64_t total = 0;
@@ -136,7 +85,8 @@ static void BM_BatchComputeHash(::benchmark::State& state) {
   using T = typename DType::c_type;
   std::vector<T> values(kNumBloomFilterInserts);
   std::vector<uint8_t> heap;
-  GenerateBenchmarkData(kNumBloomFilterInserts, /*seed=*/0, values.data(), &heap);
+  GenerateBenchmarkData(kNumBloomFilterInserts, /*seed=*/0, values.data(), &heap,
+                        kDataStringLength);
   auto filter = CreateBloomFilter(kNumBloomFilterInserts);
   std::vector<uint64_t> hashes(kNumBloomFilterInserts);
   for (auto _ : state) {
@@ -231,5 +181,4 @@ BENCHMARK(BM_BatchInsertHash);
 BENCHMARK(BM_FindExistingHash);
 BENCHMARK(BM_FindNonExistingHash);
 
-}  // namespace benchmark
-}  // namespace parquet
+}  // namespace parquet::benchmark

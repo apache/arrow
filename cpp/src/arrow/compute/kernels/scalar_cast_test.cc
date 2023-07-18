@@ -1025,7 +1025,8 @@ TEST(Cast, DecimalToFloating) {
     }
   }
 
-  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
+  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal() in
+  // decimal_test.cc
 }
 
 TEST(Cast, DecimalToString) {
