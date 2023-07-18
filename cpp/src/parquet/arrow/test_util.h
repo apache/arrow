@@ -65,12 +65,44 @@ struct Decimal256WithPrecisionAndScale {
   static constexpr int32_t scale = PRECISION - 1;
 };
 
+inline std::vector<uint16_t> RandomHalfFloatValues(size_t size, uint16_t min,
+                                                   uint16_t max) {
+  auto to_signed = [](uint16_t in) -> int16_t {
+    // Clamp magnitude to exclude representations of NaN/infinity. Within this range,
+    // binary float16s have the same ordering as int16s after conversion.
+    int16_t out = static_cast<int16_t>(std::max(in & 0x7fff, 0x7bff));
+    // Negate if sign bit is set
+    return (in & 0x8000) != 0 ? -out : out;
+  };
+  auto to_unsigned = [](int16_t in) -> uint16_t {
+    uint16_t out = static_cast<uint16_t>(std::abs(in));
+    // Set sign bit if negative
+    return in < 0 ? (out | 0x8000) : out;
+  };
+
+  const auto signed_min = to_signed(min);
+  const auto signed_max = to_signed(max);
+  std::vector<int16_t> signed_values;
+  ::arrow::randint(size, signed_min, signed_max, &signed_values);
+
+  std::vector<uint16_t> values(signed_values.size());
+  std::transform(signed_values.begin(), signed_values.end(), values.begin(), to_unsigned);
+  return values;
+}
+
 template <class ArrowType>
 ::arrow::enable_if_floating_point<ArrowType, Status> NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
-  ::arrow::random_real(size, 0, static_cast<c_type>(0), static_cast<c_type>(1), &values);
+  if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
+    constexpr uint16_t min = 0x0000;  // 0.0
+    constexpr uint16_t max = 0x3c00;  // 1.0
+    values = RandomHalfFloatValues(size, min, max);
+  } else {
+    ::arrow::random_real(size, 0, static_cast<c_type>(0), static_cast<c_type>(1),
+                         &values);
+  }
   ::arrow::NumericBuilder<ArrowType> builder;
   RETURN_NOT_OK(builder.AppendValues(values.data(), values.size()));
   return builder.Finish(out);
@@ -202,12 +234,9 @@ template <typename ArrowType>
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
   if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
-    std::vector<int16_t> signed_values;
-    constexpr auto min = static_cast<int16_t>(0xf0e2);  // -1e4
-    constexpr auto max = static_cast<int16_t>(0x70e2);  // +1e4
-    ::arrow::randint(size, min, max, &signed_values);
-    std::transform(signed_values.begin(), signed_values.end(), std::back_inserter(values),
-                   [](int16_t v) { return static_cast<uint16_t>(v); });
+    constexpr uint16_t min = 0xf0e2;  // -1e4
+    constexpr uint16_t max = 0x70e2;  // +1e4
+    values = RandomHalfFloatValues(size, min, max);
   } else {
     ::arrow::random_real(size, seed, static_cast<c_type>(-1e10),
                          static_cast<c_type>(1e10), &values);
