@@ -61,7 +61,6 @@
 #include "arrow/util/pcg_random.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
-#include "gmock/gmock.h"
 
 namespace arrow {
 
