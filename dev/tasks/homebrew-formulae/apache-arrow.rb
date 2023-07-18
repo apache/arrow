@@ -44,7 +44,7 @@ class ApacheArrow < Formula
   depends_on "grpc"
   depends_on "lz4"
   # depends_on "mimalloc"
-  depends_on "openssl@3"
+  depends_on "openssl@1.1"
   depends_on "protobuf"
   depends_on "rapidjson"
   depends_on "re2"
