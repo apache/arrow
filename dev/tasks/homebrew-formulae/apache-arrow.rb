@@ -64,6 +64,7 @@ class ApacheArrow < Formula
 
     # -DCMAKE_INSTALL_RPATH=#{rpath}
     args = %W[
+      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
       -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
