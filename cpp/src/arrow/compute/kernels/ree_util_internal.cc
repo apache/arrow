@@ -60,6 +60,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
 Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
     int64_t null_count, MemoryPool* pool, int64_t data_buffer_size) {
+  DCHECK(!has_validity_buffer || null_count != 0);
   std::vector<std::shared_ptr<Buffer>> values_data_buffers;
   std::shared_ptr<Buffer> validity_buffer = NULLPTR;
   if (has_validity_buffer) {
@@ -79,7 +80,10 @@ Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
   } else {
     values_data_buffers = {std::move(validity_buffer), std::move(values_buffer)};
   }
-  return ArrayData::Make(value_type, length, std::move(values_data_buffers), null_count);
+  auto data =
+      ArrayData::Make(value_type, length, std::move(values_data_buffers), null_count);
+  DCHECK(!has_validity_buffer || data->buffers[0] != NULLPTR);
+  return {std::move(data)};
 }
 
 Result<std::shared_ptr<ArrayData>> PreallocateREEArray(

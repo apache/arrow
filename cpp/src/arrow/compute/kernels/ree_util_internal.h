@@ -333,12 +333,27 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
     const std::shared_ptr<DataType>& run_end_type, int64_t physical_length,
     MemoryPool* pool);
 
+/// \brief Preallocate the physical values array for a run-end encoded array
+///
+/// data_buffer_size is passed here pre-calculated so this function doesn't have
+/// to be template-specialized for each type.
+///
+/// \pre has_validity_buffer implies null_count != 0
+/// \post data.buffer[0] != NULLPTR if has_validity_buffer is true
+///
+/// \param has_validity_buffer a validity buffer must be allocated
+/// \param length the length of the values array
+/// \param null_count the number of nulls expected to be written to the values array
+/// \param data_buffer_size the size of the data buffer for string and binary types
 Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
     int64_t null_count, MemoryPool* pool, int64_t data_buffer_size);
 
 /// \brief Preallocate the ArrayData for the run-end encoded version
 /// of the flat input array
+///
+/// \pre has_validity_buffer implies physical_null_count != 0
+/// \post data.child_data[1].buffer[0] != NULLPTR if has_validity_buffer is true
 ///
 /// \param data_buffer_size the size of the data buffer for string and binary types
 Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
