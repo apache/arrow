@@ -18,10 +18,12 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <algorithm>
+#include <cmath>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <mutex>
-#include <stack>
+#include <numeric>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -38,9 +40,10 @@
 #include "arrow/io/caching.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/io/type_fwd.h"
-#include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/table.h"
-#include "arrow/type_fwd.h"
+#include "arrow/type.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/bit_util.h"
@@ -48,13 +51,17 @@
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/file_reader.h"
+#include "parquet/metadata.h"
 #include "parquet/properties.h"
+#include "parquet/schema.h"
 #include "parquet/statistics.h"
 
 namespace arrow {

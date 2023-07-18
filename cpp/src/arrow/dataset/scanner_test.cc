@@ -810,49 +810,6 @@ TEST(TestNewScanner, OutOfOrderFragmentCompletion) {
   ASSERT_EQ(3, batches.size());
 }
 
-// TEST(TestNewScanner, OutOfOrderScanTaskCompletion) {
-//   constexpr int kNumFragments = 1;
-//   constexpr int kNumScanTasksPerFragment = 4;
-//   constexpr int kNumBatchesPerScanTask = 1;
-
-//   internal::Initialize();
-//   std::shared_ptr<MockDataset> test_dataset =
-//       MakeTestDataset(kNumFragments, kNumScanTasksPerFragment, kNumBatchesPerScanTask);
-
-//   ScanV2Options options(test_dataset);
-//   options.columns = ScanV2Options::AllColumns(*test_dataset->schema());
-
-//   // Begin scan
-//   acero::Declaration scan_decl = acero::Declaration("scan2", std::move(options));
-//   Future<RecordBatchVector> batches_fut =
-//       acero::DeclarationToBatchesAsync(std::move(scan_decl));
-
-//   // Start scanning on all fragments
-//   for (int i = 0; i < kNumFragments; i++) {
-//     test_dataset->fragments_[i]->FinishInspection();
-//     test_dataset->fragments_[i]->FinishScanBegin();
-//   }
-
-//   // Let scan tasks get started
-//   SleepABit();
-//   // A fragment in the middle finishes
-//   test_dataset->fragments_[1]->fragment_scanner_->scan_tasks_[0].Finish(0);
-
-//   SleepABit();
-
-//   // A fragment at the end finishes
-//   test_dataset->fragments_[2]->fragment_scanner_->scan_tasks_[0].Finish(0);
-
-//   SleepABit();
-
-//   // Now the first fragment finishes
-//   test_dataset->fragments_[0]->fragment_scanner_->scan_tasks_[0].Finish(0);
-
-//   // The scan should finish cleanly
-//   ASSERT_FINISHES_OK_AND_ASSIGN(RecordBatchVector batches, batches_fut);
-//   ASSERT_EQ(3, batches.size());
-// }
-
 TEST(TestNewScanner, NestedRead) {
   // This tests the case where the file format does not support
   // handling nested reads (e.g. JSON) and so the scanner must

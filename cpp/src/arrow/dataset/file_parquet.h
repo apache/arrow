@@ -26,20 +26,20 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/expression.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/io/caching.h"
+#include "arrow/filesystem/type_fwd.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/future.h"
 
 namespace parquet {
-class ParquetFileReader;
 class Statistics;
-class ColumnChunkMetaData;
-class RowGroupMetaData;
 class FileMetaData;
-class FileDecryptionProperties;
-class FileEncryptionProperties;
 
 class ReaderProperties;
 class ArrowReaderProperties;

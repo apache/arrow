@@ -16,7 +16,6 @@
 // under the License.
 
 #include <functional>
-#include <future>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -43,7 +42,6 @@
 #include "arrow/util/unreachable.h"
 
 using namespace std::string_view_literals;  // NOLINT
-using namespace std::placeholders;          // NOLINT
 
 namespace arrow {
 
