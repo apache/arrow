@@ -39,6 +39,7 @@ void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* 
 template <typename T>
 void GenerateBenchmarkDataIntegerImpl(uint32_t size, uint32_t seed, T* data,
                                       std::vector<uint8_t>* heap, uint32_t) {
+  static_assert(std::is_integral_v<T>);
   heap->clear();
   std::default_random_engine gen(seed);
   std::uniform_int_distribution<T> d(std::numeric_limits<T>::min(),
@@ -51,6 +52,7 @@ void GenerateBenchmarkDataIntegerImpl(uint32_t size, uint32_t seed, T* data,
 template <typename T>
 void GenerateBenchmarkDataFloatImpl(uint32_t size, uint32_t seed, T* data,
                                     std::vector<uint8_t>* heap, uint32_t) {
+  static_assert(std::is_floating_point_v<T>);
   heap->clear();
   std::default_random_engine gen(seed);
   std::uniform_real_distribution<T> d(std::numeric_limits<T>::lowest(),
@@ -65,25 +67,25 @@ void GenerateBenchmarkDataFloatImpl(uint32_t size, uint32_t seed, T* data,
 template <>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, int32_t* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length) {
-  GenerateBenchmarkDataIntegerImpl(size, seed, data, heap, data_string_length);
+  GenerateBenchmarkDataIntegerImpl<int32_t>(size, seed, data, heap, data_string_length);
 }
 
 template <>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, int64_t* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length) {
-  GenerateBenchmarkDataIntegerImpl(size, seed, data, heap, data_string_length);
+  GenerateBenchmarkDataIntegerImpl<int64_t>(size, seed, data, heap, data_string_length);
 }
 
 template <>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, float* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length) {
-  GenerateBenchmarkDataFloatImpl(size, seed, data, heap, data_string_length);
+  GenerateBenchmarkDataFloatImpl<float>(size, seed, data, heap, data_string_length);
 }
 
 template <>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, double* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length) {
-  GenerateBenchmarkDataFloatImpl(size, seed, data, heap, data_string_length);
+  GenerateBenchmarkDataFloatImpl<double>(size, seed, data, heap, data_string_length);
 }
 
 template <>

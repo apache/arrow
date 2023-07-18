@@ -31,7 +31,7 @@ namespace parquet::benchmark {
 
 void BM_ReadOffsetIndex(::benchmark::State& state) {
   auto builder = OffsetIndexBuilder::Make();
-  const int num_pages = state.range(0);
+  const int num_pages = static_cast<int>(state.range(0));
   constexpr int64_t page_size = 1024;
   constexpr int64_t first_row_index = 10000;
   for (int i = 0; i < num_pages; ++i) {
@@ -44,7 +44,8 @@ void BM_ReadOffsetIndex(::benchmark::State& state) {
   auto buffer = sink->Finish().ValueOrDie();
   ReaderProperties properties;
   for (auto _ : state) {
-    auto offset_index = OffsetIndex::Make(buffer->data() + 0, buffer->size(), properties);
+    auto offset_index = OffsetIndex::Make(
+        buffer->data() + 0, static_cast<uint32_t>(buffer->size()), properties);
     ::benchmark::DoNotOptimize(offset_index);
   }
   state.counters["num_pages"] = num_pages;
@@ -65,7 +66,7 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
       std::make_unique<ColumnDescriptor>(type, /*def_level=*/1, /*rep_level=*/0);
   auto descr = descr_ptr.get();
 
-  const int num_pages = state.range(0);
+  const int num_pages = static_cast<int>(state.range(0));
   auto builder = ColumnIndexBuilder::Make(descr);
 
   const size_t values_per_page = 100;
@@ -86,8 +87,8 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
   auto buffer = sink->Finish().ValueOrDie();
   ReaderProperties properties;
   for (auto _ : state) {
-    auto column_index =
-        ColumnIndex::Make(*descr, buffer->data() + 0, buffer->size(), properties);
+    auto column_index = ColumnIndex::Make(*descr, buffer->data() + 0,
+                                          static_cast<int>(buffer->size()), properties);
     ::benchmark::DoNotOptimize(column_index);
   }
   state.counters["num_pages"] = num_pages;
