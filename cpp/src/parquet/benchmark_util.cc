@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "benchmark_util.h"
+#include "parquet/benchmark_util.h"
 
 #include <random>
 
