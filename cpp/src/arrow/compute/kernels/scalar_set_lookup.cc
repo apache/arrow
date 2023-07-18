@@ -380,6 +380,120 @@ Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 }
 
 // ----------------------------------------------------------------------
+// In writes the results into a preallocated boolean data bitmap
+struct InVisitor {
+  KernelContext* ctx;
+  const ArraySpan& data;
+  ArraySpan* out;
+  uint8_t* out_boolean_bitmap;
+  uint8_t* out_null_bitmap;
+
+  InVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
+      : ctx(ctx),
+        data(data),
+        out(out),
+        out_boolean_bitmap(out->buffers[1].data),
+        out_null_bitmap(out->buffers[0].data) {}
+
+  Status Visit(const DataType& type) {
+    DCHECK_EQ(type.id(), Type::NA);
+    // skip_nulls is ignored in sql-compatible In
+    bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, false);
+    bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, true);
+
+    return Status::OK();
+  }
+
+  template <typename Type>
+  Status ProcessIsIn(const SetLookupState<Type>& state, const ArraySpan& input) {
+    using T = typename GetViewType<Type>::T;
+    FirstTimeBitmapWriter writer_boolean(out_boolean_bitmap, out->offset, out->length);
+    FirstTimeBitmapWriter writer_null(out_null_bitmap, out->offset, out->length);
+    bool value_set_has_null = state.null_index != -1;
+    VisitArraySpanInline<Type>(
+        input,
+        [&](T v) {
+          if (state.lookup_table->Get(v) != -1) {
+            writer_boolean.Set();
+            writer_null.Clear();
+          } else if (value_set_has_null) {
+            writer_boolean.Clear();
+            writer_null.Set();
+          } else {
+            writer_boolean.Clear();
+            writer_null.Clear();
+          }
+          writer_boolean.Next();
+          writer_null.Next();
+        },
+        [&]() {
+          writer_boolean.Clear();
+          writer_null.Set();
+          writer_boolean.Next();
+          writer_null.Next();
+        });
+    writer_boolean.Finish();
+    writer_null.Finish();
+    return Status::OK();
+  }
+
+  template <typename Type>
+  Status ProcessIsIn() {
+    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
+
+    if (!data.type->Equals(state.value_set_type)) {
+      auto materialized_input = data.ToArrayData();
+      auto cast_result = Cast(*materialized_input, state.value_set_type,
+                              CastOptions::Safe(), ctx->exec_context());
+      if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
+        if (cast_result.status().IsNotImplemented()) {
+          return Status::TypeError("Array type doesn't match type of values set: ",
+                                   *data.type, " vs ", *state.value_set_type);
+        }
+        return cast_result.status();
+      }
+      auto casted_input = *cast_result;
+      return ProcessIsIn(state, *casted_input.array());
+    }
+    return ProcessIsIn(state, data);
+  }
+
+  template <typename Type>
+  enable_if_boolean<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<BooleanType>();
+  }
+
+  template <typename Type>
+  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
+                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
+              Status>
+  Visit(const Type&) {
+    return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
+  }
+
+  template <typename Type>
+  enable_if_base_binary<Type, Status> Visit(const Type&) {
+    return ProcessIsIn<typename Type::PhysicalType>();
+  }
+
+  // Handle Decimal128Type, FixedSizeBinaryType
+  Status Visit(const FixedSizeBinaryType& type) {
+    return ProcessIsIn<FixedSizeBinaryType>();
+  }
+
+  Status Visit(const MonthDayNanoIntervalType& type) {
+    return ProcessIsIn<MonthDayNanoIntervalType>();
+  }
+
+  Status Execute() {
+    const auto& state = checked_cast<const SetLookupStateBase&>(*ctx->state());
+    return VisitTypeInline(*state.value_set_type, this);
+  }
+};
+
+Status ExecIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return InVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
+}
 
 // IsIn writes the results into a preallocated boolean data bitmap
 struct IsInVisitor {
@@ -516,6 +630,28 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
+const FunctionDoc in_doc{
+    "Find each element in a set of values in sql-compatible way",
+    ("For each element in `values`, return true if it is found in a given\n"
+     "set of values. null in `values` will directly return null.\n"
+     "each elelement of `values` that isn't contained in the set of values\n"
+     "will return null if the the set of values contains null and return\n"
+     "false if the the set of values doesn't contains null.\n"
+     "The set of values to look for must be given in SetLookupOptions.\n"
+     "the parameter skip_nulls in SetLookupOptions is ignored in this Function"),
+    {"values"},
+    "SetLookupOptions",
+    /*options_required=*/true};
+
+const FunctionDoc in_meta_doc{
+    "Find each element in a set of values in sql-compatible way",
+    ("For each element in `values`, return true if it is found in `value_set`,\n"
+     "null in `values` will directly return null.\n"
+     "each elelement of `values` that isn't contained in `value_set`\n"
+     "will return null if the `value_set` contains null and return\n"
+     "false if the `value_set` doesn't contains null."),
+    {"values", "value_set"}};
+
 const FunctionDoc is_in_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in a given\n"
@@ -549,6 +685,20 @@ const FunctionDoc index_in_meta_doc{
     ("For each element in `values`, return its index in the `value_set`,\n"
      "or null if it is not found there."),
     {"values", "value_set"}};
+
+class InMetaBinary : public MetaFunction {
+ public:
+  InMetaBinary() : MetaFunction("in_meta_binary", Arity::Binary(), in_meta_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    if (options != nullptr) {
+      return Status::Invalid("Unexpected options for 'in_meta_binary' function");
+    }
+    return In(args[0], args[1], ctx);
+  }
+};
 
 // Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
@@ -593,6 +743,23 @@ struct SetLookupFunction : ScalarFunction {
 }  // namespace
 
 void RegisterScalarSetLookup(FunctionRegistry* registry) {
+  // In writes its boolean output into preallocated memory
+  {
+    ScalarKernel in_base;
+    in_base.init = InitSetLookup;
+    in_base.exec = ExecIn;
+    in_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
+    auto in = std::make_shared<SetLookupFunction>("in", Arity::Unary(), in_doc);
+
+    AddBasicSetLookupKernels(in_base, /*output_type=*/boolean(), in.get());
+
+    in_base.signature = KernelSignature::Make({null()}, boolean());
+    DCHECK_OK(in->AddKernel(in_base));
+    DCHECK_OK(registry->AddFunction(in));
+
+    DCHECK_OK(registry->AddFunction(std::make_shared<InMetaBinary>()));
+  }
+
   // IsIn writes its boolean output into preallocated memory
   {
     ScalarKernel isin_base;

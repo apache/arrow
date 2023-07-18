@@ -745,6 +745,15 @@ Result<Datum> MinElementWise(const std::vector<Datum>& args,
 // ----------------------------------------------------------------------
 // Set-related operations
 
+Result<Datum> In(const Datum& values, const SetLookupOptions& options,
+                   ExecContext* ctx) {
+  return CallFunction("in", {values}, &options, ctx);
+}
+
+Result<Datum> In(const Datum& values, const Datum& value_set, ExecContext* ctx) {
+  return In(values, SetLookupOptions{value_set}, ctx);
+}
+
 Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
                    ExecContext* ctx) {
   return CallFunction("is_in", {values}, &options, ctx);
