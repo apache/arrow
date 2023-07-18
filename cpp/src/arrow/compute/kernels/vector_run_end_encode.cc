@@ -179,7 +179,9 @@ class RunEndEncodeImpl {
       ARROW_ASSIGN_OR_RAISE(
           auto output_array_data,
           ree_util::PreallocateREEArray(std::move(ree_type), has_validity_buffer,
-                                        input_length, 0, 0, ctx_->memory_pool(), 0));
+                                        /*logical_length=*/input_length,
+                                        /*physical_length=*/0, ctx_->memory_pool(),
+                                        /*data_buffer_size=*/0));
       output_->value = std::move(output_array_data);
       return Status::OK();
     }
@@ -196,17 +198,26 @@ class RunEndEncodeImpl {
         /*output_run_ends=*/NULLPTR);
     std::tie(num_valid_runs, num_output_runs, data_buffer_size) =
         counting_loop.CountNumberOfRuns();
+    const int64_t physical_null_count = num_output_runs - num_valid_runs;
+    DCHECK(!has_validity_buffer || physical_null_count > 0)
+        << "has_validity_buffer is expected to imply physical_null_count > 0";
 
     ARROW_ASSIGN_OR_RAISE(
         auto output_array_data,
         ree_util::PreallocateREEArray(
-            std::move(ree_type), has_validity_buffer, input_length, num_output_runs,
-            num_output_runs - num_valid_runs, ctx_->memory_pool(), data_buffer_size));
+            std::move(ree_type), has_validity_buffer, /*logical_length=*/input_length,
+            /*physical_length=*/num_output_runs, ctx_->memory_pool(), data_buffer_size));
 
     // Initialize the output pointers
     auto* output_run_ends =
         output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
     auto* output_values_array_data = output_array_data->child_data[1].get();
+    // Set the null_count on the physical array
+    DCHECK(!has_validity_buffer || output_values_array_data->buffers[0])
+        << "has_validity_buffer implies a validity buffer is allocated";
+    DCHECK(output_values_array_data->null_count == kUnknownNullCount ||
+           physical_null_count == 0);
+    output_values_array_data->null_count = physical_null_count;
 
     // Second pass: write the runs
     RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
@@ -398,10 +409,10 @@ class RunEndDecodeImpl {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto output_array_data,
-                          ree_util::PreallocateValuesArray(
-                              ree_type->value_type(), has_validity_buffer, length,
-                              kUnknownNullCount, ctx_->memory_pool(), data_buffer_size));
+    ARROW_ASSIGN_OR_RAISE(
+        auto output_array_data,
+        ree_util::PreallocateValuesArray(ree_type->value_type(), has_validity_buffer,
+                                         length, ctx_->memory_pool(), data_buffer_size));
 
     int64_t output_null_count = 0;
     if (length > 0) {
@@ -409,6 +420,8 @@ class RunEndDecodeImpl {
           input_array_, output_array_data.get());
       output_null_count = length - loop.ExpandAllRuns();
     }
+    DCHECK(output_array_data->null_count == kUnknownNullCount ||
+           output_array_data->null_count == 0);
     output_array_data->null_count = output_null_count;
 
     output_->value = std::move(output_array_data);
