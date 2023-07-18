@@ -300,6 +300,7 @@ def _sort_source(table_or_dataset, sort_keys, output_type=Table, **kwargs):
 
 
 def _group_by(table, aggregates, keys):
+
     decl = Declaration.from_sequence([
         Declaration("table_source", TableSourceNodeOptions(table)),
         Declaration("aggregate", AggregateNodeOptions(aggregates, keys=keys))
