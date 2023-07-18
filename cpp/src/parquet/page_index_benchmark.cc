@@ -29,6 +29,11 @@
 
 namespace parquet::benchmark {
 
+void PageIndexSetArgs(::benchmark::internal::Benchmark* bench) {
+  bench->ArgNames({"num_pages"});
+  bench->Range(8, 1024);
+}
+
 void BM_ReadOffsetIndex(::benchmark::State& state) {
   auto builder = OffsetIndexBuilder::Make();
   const int num_pages = static_cast<int>(state.range(0));
@@ -48,12 +53,11 @@ void BM_ReadOffsetIndex(::benchmark::State& state) {
         buffer->data() + 0, static_cast<uint32_t>(buffer->size()), properties);
     ::benchmark::DoNotOptimize(offset_index);
   }
-  state.counters["num_pages"] = num_pages;
   state.SetBytesProcessed(state.iterations() * buffer->size());
   state.SetItemsProcessed(state.iterations() * num_pages);
 }
 
-BENCHMARK(BM_ReadOffsetIndex)->Range(8, 1024);
+BENCHMARK(BM_ReadOffsetIndex)->Apply(PageIndexSetArgs);
 
 // The sample string length for FLBA and ByteArray benchmarks
 constexpr static uint32_t kDataStringLength = 8;
@@ -91,14 +95,13 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
                                           static_cast<int>(buffer->size()), properties);
     ::benchmark::DoNotOptimize(column_index);
   }
-  state.counters["num_pages"] = num_pages;
   state.SetBytesProcessed(state.iterations() * buffer->size());
   state.SetItemsProcessed(state.iterations() * num_pages);
 }
 
-BENCHMARK_TEMPLATE(BM_ReadColumnIndex, Int64Type)->Range(8, 1024);
-BENCHMARK_TEMPLATE(BM_ReadColumnIndex, DoubleType)->Range(8, 1024);
-BENCHMARK_TEMPLATE(BM_ReadColumnIndex, FLBAType)->Range(8, 1024);
-BENCHMARK_TEMPLATE(BM_ReadColumnIndex, ByteArrayType)->Range(8, 1024);
+BENCHMARK_TEMPLATE(BM_ReadColumnIndex, Int64Type)->Apply(PageIndexSetArgs);
+BENCHMARK_TEMPLATE(BM_ReadColumnIndex, DoubleType)->Apply(PageIndexSetArgs);
+BENCHMARK_TEMPLATE(BM_ReadColumnIndex, FLBAType)->Apply(PageIndexSetArgs);
+BENCHMARK_TEMPLATE(BM_ReadColumnIndex, ByteArrayType)->Apply(PageIndexSetArgs);
 
 }  // namespace parquet::benchmark
