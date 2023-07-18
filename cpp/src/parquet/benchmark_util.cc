@@ -21,6 +21,8 @@
 
 namespace parquet::benchmark {
 
+namespace {
+
 void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* heap) {
   // Character set used to generate random string
   const std::string charset =
@@ -30,11 +32,9 @@ void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* 
   std::uniform_int_distribution<uint32_t> dist(0, static_cast<int>(charset.size() - 1));
 
   for (uint32_t i = 0; i < length; i++) {
-    heap->push_back(charset[dist(gen)]);
+    heap->emplace_back(charset[dist(gen)]);
   }
 }
-
-namespace {
 
 template <typename T>
 void GenerateBenchmarkDataIntegerImpl(uint32_t size, uint32_t seed, T* data,

@@ -25,8 +25,6 @@
 
 namespace parquet::benchmark {
 
-void GenerateRandomString(uint32_t length, uint32_t seed, std::vector<uint8_t>* heap);
-
 template <typename T>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, T* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length);
