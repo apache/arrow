@@ -380,40 +380,38 @@ arrow::Result<ActionSetSessionOptionsRequest> ParseActionSetSessionOptionsReques
 
   ActionSetSessionOptionsRequest result;
   if (command.session_options_size() > 0) {
-    result.session_options.reserve(command.session_options_size());
-    for (const pb::SessionOption& in_opt : command.session_options()) {
-      const std::string& name = in_opt.option_name();
+    for (const auto & [name, pb_val] : command.session_options()) {
       SessionOptionValue val;
-      switch (in_opt.option_value_case()) {
-        case pb::SessionOption::OPTION_VALUE_NOT_SET:
+      switch (pb_val.option_value_case()) {
+        case pb::SessionOptionValue::OPTION_VALUE_NOT_SET:
           return Status::Invalid("Unset SessionOptionValue for name '" + name + "'");
-        case pb::SessionOption::kStringValue:
-          val = in_opt.string_value();
+        case pb::SessionOptionValue::kStringValue:
+          val = pb_val.string_value();
           break;
-        case pb::SessionOption::kBoolValue:
-          val = in_opt.bool_value();
+        case pb::SessionOptionValue::kBoolValue:
+          val = pb_val.bool_value();
           break;
-        case pb::SessionOption::kInt32Value:
-          val = in_opt.int32_value();
+        case pb::SessionOptionValue::kInt32Value:
+          val = pb_val.int32_value();
           break;
-        case pb::SessionOption::kInt64Value:
-          val = in_opt.int64_value();
+        case pb::SessionOptionValue::kInt64Value:
+          val = pb_val.int64_value();
           break;
-        case pb::SessionOption::kFloatValue:
-          val = in_opt.float_value();
+        case pb::SessionOptionValue::kFloatValue:
+          val = pb_val.float_value();
           break;
-        case pb::SessionOption::kDoubleValue:
-          val = in_opt.double_value();
+        case pb::SessionOptionValue::kDoubleValue:
+          val = pb_val.double_value();
           break;
-        case pb::SessionOption::kStringListValue:
+        case pb::SessionOptionValue::kStringListValue:
           val.emplace<std::vector<std::string>>();
           std::get<std::vector<std::string>>(val)
-              .reserve(in_opt.string_list_value().values_size());
-          for (const std::string& s : in_opt.string_list_value().values())
+              .reserve(pb_val.string_list_value().values_size());
+          for (const std::string& s : pb_val.string_list_value().values())
             std::get<std::vector<std::string>>(val).push_back(s);
           break;
       }
-      result.session_options.emplace_back(name, std::move(val));
+      result.session_options[name] = std::move(val);
     }
   }
 
@@ -517,7 +515,7 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   pb::ActionSetSessionOptionsResult pb_result;
   auto* pb_results_map = pb_result.mutable_results();
   for (const auto& [opt_name, res] : result.results) {
-    int val;
+    pb::ActionSetSessionOptionsResult_SetSessionOptionResult val;
     switch (res) {
       case SetSessionOptionResult::kUnspecified:
         val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_UNSPECIFIED;
@@ -532,7 +530,7 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
         val = pb::ActionSetSessionOptionsResult::SET_SESSION_OPTION_RESULT_ERROR;
         break;
     }
-    pb_results_map[opt_name] = res_value;
+    (*pb_results_map)[opt_name] = val;
   }
   return PackActionResult(pb_result);
 }
@@ -540,7 +538,7 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
 // FIXME
 arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
   pb::ActionGetSessionOptionsResult pb_result;
-  auth* pb_results = pb_result.mutable_session_options();
+  auto* pb_results = pb_result.mutable_session_options();
   for (const auto& [name, value] : result.session_options) {
     pb::SessionOptionValue pb_opt_val;
 
@@ -549,31 +547,31 @@ arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
 
     switch ((SessionOptionValueType)(value.index())) {
       case SessionOptionValueType::kString:
-        pb_opt_val->set_string_value(std::get<std::string>(value));
+        pb_opt_val.set_string_value(std::get<std::string>(value));
         break;
       case SessionOptionValueType::kBool:
-        pb_opt_val->set_bool_value(std::get<bool>(value));
+        pb_opt_val.set_bool_value(std::get<bool>(value));
         break;
       case SessionOptionValueType::kInt32:
-        pb_opt_val->set_int32_value(std::get<int32_t>(value));
+        pb_opt_val.set_int32_value(std::get<int32_t>(value));
         break;
       case SessionOptionValueType::kInt64:
-        pb_opt_val->set_int64_value(std::get<int64_t>(value));
+        pb_opt_val.set_int64_value(std::get<int64_t>(value));
         break;
       case SessionOptionValueType::kFloat:
-        pb_opt_val->set_float_value(std::get<float>(value));
+        pb_opt_val.set_float_value(std::get<float>(value));
         break;
       case SessionOptionValueType::kDouble:
-        pb_opt_val->set_double_value(std::get<double>(value));
+        pb_opt_val.set_double_value(std::get<double>(value));
         break;
       case SessionOptionValueType::kStringList:
-        pb::SessionOption::StringListValue* string_list_value =
-            pb_opt_val->mutable_string_list_value();
+        pb::SessionOptionValue::StringListValue* string_list_value =
+            pb_opt_val.mutable_string_list_value();
         for (const std::string& s : std::get<std::vector<std::string>>(value))
           string_list_value->add_values(s);
         break;
     }
-    (*pb_results)[name] = std::move(opt);
+    (*pb_results)[name] = std::move(pb_opt_val);
   }
 
   return PackActionResult(pb_result);

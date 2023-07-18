@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <map>
 #include <string>
 
 #include "arrow/flight/client.h"
@@ -354,7 +355,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   ///
   /// \param[in] options            RPC-layer hints for this call.
   /// \param[in] session_options    The session options to set.
-  ::arrow::Result<std::vector<SetSessionOptionResult>> SetSessionOptions(
+  ::arrow::Result<std::map<std::string, SetSessionOptionResult>> SetSessionOptions(
       const FlightCallOptions& options,
       const std::map<std::string, SessionOptionValue>& session_options);
 
