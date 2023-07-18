@@ -21,9 +21,16 @@ classdef hFixedWidthType < matlab.unittest.TestCase
         ArrowType
         TypeID
         BitWidth
+        ClassName
     end
 
     methods(Test)
+        function TestClass(testCase)
+        % Verify ArrowType is an object of the expected class type.
+            name = string(class(testCase.ArrowType));
+            testCase.verifyEqual(name, testCase.ClassName);
+        end
+
         function TestTypeID(testCase)
         % Verify ID is set to the appropriate arrow.type.ID value.
             arrowType = testCase.ArrowType;

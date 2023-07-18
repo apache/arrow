@@ -17,8 +17,12 @@ classdef Int16Type < arrow.type.FixedWidthType
 %INT16TYPE Type class for int8 data. 
     
     methods 
-        function obj = Int16Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Int16Type", "ConstructorArguments", {})
+        function obj = Int16Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int16Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

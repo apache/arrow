@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/boolean_array.h"
+#include "arrow/matlab/type/proxy/primitive_ctype.h"
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
@@ -54,4 +55,10 @@ namespace arrow::matlab::array::proxy {
             context.outputs[0] = logical_array_mda;
         }
 
+        std::shared_ptr<type::proxy::Type> BooleanArray::typeProxy() {
+            using BooleanTypeProxy = type::proxy::PrimitiveCType<bool>;
+
+            auto type = std::static_pointer_cast<arrow::BooleanType>(array->type());
+            return std::make_shared<BooleanTypeProxy>(std::move(type));
+        }
 }

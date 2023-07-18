@@ -24,6 +24,8 @@
 #include "arrow/type_traits.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/type/proxy/primitive_ctype.h"
+
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/bit/unpack.h"
@@ -79,6 +81,13 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             ::matlab::data::TypedArray<CType> result = factory.createArray({num_elements, 1}, data_begin, data_end);
             context.outputs[0] = result;
         }
+
+        std::shared_ptr<type::proxy::Type> typeProxy() override {
+          using ArrowTypeProxy = type::proxy::PrimitiveCType<CType>;
+          auto type = std::static_pointer_cast<ArrowType>(array->type());
+          return std::make_shared<ArrowTypeProxy>(std::move(type));
+        }
+
 };
 
 }

@@ -20,10 +20,6 @@ classdef StringArray < arrow.array.Array
         NullSubstitionValue = string(missing);
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.StringType
-    end
-
     methods
         function obj = StringArray(data, opts)
             arguments
