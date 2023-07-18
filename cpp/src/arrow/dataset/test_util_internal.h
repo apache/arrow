@@ -1078,6 +1078,11 @@ class FileFormatFixtureMixinV2 : public ::testing::Test {
     SetScanProjectionAllColumns();
   }
 
+  void SetDatasetSchema(std::shared_ptr<Schema> schema) {
+    dataset_schema_ = std::move(schema);
+    SetScanProjectionAllColumns();
+  }
+
   void CheckDatasetSchemaSet() {
     DCHECK_NE(dataset_schema_, nullptr)
         << "call SetDatasetSchema before calling this method";
@@ -1286,6 +1291,14 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
                                     GetParam().num_batches);
   }
 
+  Result<std::shared_ptr<RecordBatchReader>> ReaderFromBatches(
+      std::vector<std::shared_ptr<RecordBatch>> batches) {
+    std::shared_ptr<Schema> schema = batches[0]->schema();
+    Iterator<std::shared_ptr<RecordBatch>> batch_it =
+        MakeVectorIterator(std::move(batches));
+    return RecordBatchReader::MakeFromIterator(std::move(batch_it), schema);
+  }
+
   // Scan the fragment through the scanner.
   Result<std::unique_ptr<RecordBatchReader>> Scan(std::shared_ptr<Fragment> fragment,
                                                   bool add_filter_fields = true) {
@@ -1415,10 +1428,6 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     auto b = field("B", struct_({e, d}));
     this->SetDatasetSchema({a, b, c});
 
-    // Only F
-    this->SetScanProjection({{1, 1, 0}});
-    auto expected_schema = schema({f});
-
     auto CheckProjection = [&](std::vector<FieldPath> projection,
                                std::shared_ptr<Schema> expected_schema) {
       this->SetScanProjection(projection);
@@ -1439,6 +1448,42 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     CheckProjection({{0}, {1, 1, 0}, {0}}, schema({a, f, a}));
     // // A and F and E
     CheckProjection({{0}, {1, 1, 0}, {1, 0}}, schema({a, f, e}));
+  }
+
+  // Some formats support filtering out entire row groups based
+  // on row group statistics.  This test case generates row groups
+  // that should be easily excluded and then makes sure the group
+  // is not included in the results.
+  void TestStatisticsFiltering() {
+    auto test_schema = schema({field("i32", int32()), field("f64", float64()),
+                               field("struct", struct_({field("nested_i32", int32())}))});
+    auto positive_values = RecordBatchFromJSON(test_schema, R"([
+      [1, 1.0, { "nested_i32": 1 }],
+      [2, 2.0, { "nested_i32": 2 }],
+      [3, 3.0, { "nested_i32": 3 }]
+    ])");
+    auto negative_values = RecordBatchFromJSON(test_schema, R"([
+      [-1, -1.0, { "nested_i32": -1 }],
+      [-2, -2.0, { "nested_i32": -2 }]
+    ])");
+    this->SetDatasetSchema(test_schema);
+    this->SetScanProjection({});
+
+    auto CheckFilter = [&](compute::Expression filter, int32_t num_expected_rows) {
+      this->SetScanFilter(std::move(filter));
+
+      ASSERT_OK_AND_ASSIGN(auto reader,
+                           this->ReaderFromBatches({positive_values, negative_values}));
+      auto source = this->MakeBufferSource(reader.get());
+      auto fragment = this->MakeFragment(*source);
+      ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table, ScanToTable(fragment));
+      ASSERT_EQ(table->num_rows(), num_expected_rows);
+    };
+
+    CheckFilter(greater(field_ref("i32"), literal(0)), 3);
+    CheckFilter(less(field_ref("i32"), literal(0)), 2);
+    CheckFilter(greater(field_ref({2, 0}), literal(0)), 3);
+    CheckFilter(less(field_ref({2, 0}), literal(0)), 2);
   }
 
   void TestScanWithPushdownNulls() {

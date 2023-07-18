@@ -605,7 +605,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
                              filter_minus_part, std::move(extracted.known_values)));
 
       return fragment_
-          ->BeginScan(task_launcher->scan_request(), *inspected_fragment,
+          ->BeginScan(task_launcher->scan_request(), inspected_fragment.get(),
                       node_->plan_->query_context()->exec_context())
           .Then([this, task_launcher = std::move(task_launcher)](
                     const std::shared_ptr<FragmentScanner>& fragment_scanner) mutable {

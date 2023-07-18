@@ -58,8 +58,7 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
 
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
       const FileSource& file_source, const FragmentScanRequest& request,
-      const InspectedFragment& inspected_fragment,
-      const FragmentScanOptions* format_options,
+      InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const override;
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
@@ -67,7 +66,8 @@ class ARROW_DS_EXPORT CsvFileFormat : public FileFormat {
       const std::shared_ptr<FileFragment>& file) const override;
 
   Future<std::shared_ptr<InspectedFragment>> InspectFragment(
-      const FileSource& source, const FragmentScanOptions* format_options,
+      const FileFragment& fragment, const FileSource& source,
+      const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const override;
 
   Future<std::optional<int64_t>> CountRows(

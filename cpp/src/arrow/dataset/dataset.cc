@@ -68,7 +68,7 @@ Future<std::shared_ptr<InspectedFragment>> Fragment::InspectFragmentImpl(
 }
 
 Future<std::shared_ptr<FragmentScanner>> Fragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
     compute::ExecContext* exec_context) {
   return Status::NotImplemented("New scan method");
 }
@@ -202,7 +202,7 @@ class InMemoryFragment::Scanner : public FragmentScanner {
 };
 
 Future<std::shared_ptr<FragmentScanner>> InMemoryFragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
     compute::ExecContext* exec_context) {
   return Future<std::shared_ptr<FragmentScanner>>::MakeFinished(
       std::make_shared<InMemoryFragment::Scanner>(record_batches_));

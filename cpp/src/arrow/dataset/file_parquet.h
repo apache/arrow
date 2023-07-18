@@ -96,13 +96,13 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
   Future<std::shared_ptr<InspectedFragment>> InspectFragment(
-      const FileSource& source, const FragmentScanOptions* format_options,
+      const FileFragment& fragment, const FileSource& source,
+      const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const override;
 
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
       const FileSource& source, const FragmentScanRequest& request,
-      const InspectedFragment& inspected_fragment,
-      const FragmentScanOptions* format_options,
+      InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const override;
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
@@ -182,7 +182,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
   static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
-      const Field& field, const parquet::Statistics& statistics);
+      const compute::Expression& field_expr, const std::shared_ptr<DataType>& field_type,
+      const parquet::Statistics& statistics);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,

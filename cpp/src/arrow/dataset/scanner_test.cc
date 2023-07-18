@@ -300,7 +300,7 @@ struct MockFragment : public Fragment {
   }
 
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
       compute::ExecContext* exec_context) override {
     has_started_ = true;
     seen_request_ = request;

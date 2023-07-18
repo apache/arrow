@@ -401,8 +401,8 @@ Future<std::optional<int64_t>> JsonFileFormat::CountRows(
 }
 
 Future<std::shared_ptr<InspectedFragment>> JsonFileFormat::InspectFragment(
-    const FileSource& source, const FragmentScanOptions* format_options,
-    compute::ExecContext* exec_context) const {
+    const FileFragment& fragment, const FileSource& source,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
   auto json_options = static_cast<const JsonFragmentScanOptions*>(format_options);
   auto* executor = source.filesystem() ? source.filesystem()->io_context().executor()
                                        : exec_context->executor();
@@ -414,11 +414,11 @@ Future<std::shared_ptr<InspectedFragment>> JsonFileFormat::InspectFragment(
 
 Future<std::shared_ptr<FragmentScanner>> JsonFileFormat::BeginScan(
     const FileSource& file_source, const FragmentScanRequest& scan_request,
-    const InspectedFragment& inspected, const FragmentScanOptions* format_options,
+    InspectedFragment* inspected, const FragmentScanOptions* format_options,
     compute::ExecContext* exec_context) const {
   return JsonFragmentScanner::Make(
       scan_request, static_cast<const JsonFragmentScanOptions&>(*format_options),
-      static_cast<const JsonInspectedFragment&>(inspected), exec_context->executor());
+      static_cast<const JsonInspectedFragment&>(*inspected), exec_context->executor());
 }
 
 }  // namespace dataset

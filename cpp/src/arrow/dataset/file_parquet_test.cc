@@ -721,13 +721,14 @@ INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
 
 TEST(TestParquetStatistics, NullMax) {
   auto field = ::arrow::field("x", float32());
+  auto field_ref = compute::field_ref("x");
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
   auto reader =
       parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
   auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
-  auto stat_expression =
-      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  auto stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(
+      field_ref, float32(), *statistics);
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
 }
 
@@ -747,6 +748,7 @@ TEST_P(TestParquetFileFormatScanNode, ScanSomeColumns) { TestScanSomeColumns(); 
 TEST_P(TestParquetFileFormatScanNode, ScanSomeNestedColumns) {
   TestScanSomeNestedColumns();
 }
+TEST_P(TestParquetFileFormatScanNode, StatisticsFiltering) { TestStatisticsFiltering(); }
 TEST_P(TestParquetFileFormatScanNode, ScanWithInvalidOptions) {
   TestInvalidFormatScanOptions();
 }

@@ -216,7 +216,7 @@ class ARROW_DS_EXPORT Fragment : public std::enable_shared_from_this<Fragment> {
 
   /// \brief Start a scan operation
   virtual Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
       compute::ExecContext* exec_context);
 
   /// \brief Count the number of rows in this fragment matching the filter using metadata
@@ -292,7 +292,7 @@ class ARROW_DS_EXPORT InMemoryFragment : public Fragment {
       const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) override;
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
       compute::ExecContext* exec_context) override;
 
   std::string type_name() const override { return "in-memory"; }

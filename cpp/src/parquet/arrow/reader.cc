@@ -16,7 +16,6 @@
 // under the License.
 
 #include "parquet/arrow/reader.h"
-#include <sys/types.h>
 
 #include <algorithm>
 #include <cstring>

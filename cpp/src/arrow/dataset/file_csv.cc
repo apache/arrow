@@ -401,11 +401,11 @@ Future<std::optional<int64_t>> CsvFileFormat::CountRows(
 
 Future<std::shared_ptr<FragmentScanner>> CsvFileFormat::BeginScan(
     const FileSource& file_source, const FragmentScanRequest& request,
-    const InspectedFragment& inspected_fragment,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+    InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
   auto csv_options = static_cast<const CsvFragmentScanOptions*>(format_options);
-  auto csv_fragment = static_cast<const CsvInspectedFragment&>(inspected_fragment);
-  return CsvFileScanner::Make(*csv_options, request, csv_fragment,
+  auto* csv_fragment = static_cast<CsvInspectedFragment*>(inspected_fragment);
+  return CsvFileScanner::Make(*csv_options, request, *csv_fragment,
                               exec_context->executor());
 }
 
@@ -432,8 +432,8 @@ Result<std::shared_ptr<InspectedFragment>> DoInspectFragment(
 }
 
 Future<std::shared_ptr<InspectedFragment>> CsvFileFormat::InspectFragment(
-    const FileSource& source, const FragmentScanOptions* format_options,
-    compute::ExecContext* exec_context) const {
+    const FileFragment& fragment, const FileSource& source,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
   ARROW_ASSIGN_OR_RAISE(
       const auto* csv_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(format_options, kCsvTypeName));

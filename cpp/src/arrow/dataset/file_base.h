@@ -165,7 +165,8 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
 
   /// \brief Learn what we need about the file before we start scanning it
   virtual Future<std::shared_ptr<InspectedFragment>> InspectFragment(
-      const FileSource& source, const FragmentScanOptions* format_options,
+      const FileFragment& fragment, const FileSource& source,
+      const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const;
 
   virtual Result<RecordBatchGenerator> ScanBatchesAsync(
@@ -182,8 +183,7 @@ class ARROW_DS_EXPORT FileFormat : public std::enable_shared_from_this<FileForma
   // `format_options` parameter should be preferred over `request.format_scan_options`
   virtual Future<std::shared_ptr<FragmentScanner>> BeginScan(
       const FileSource& source, const FragmentScanRequest& request,
-      const InspectedFragment& inspected_fragment,
-      const FragmentScanOptions* format_options,
+      InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
       compute::ExecContext* exec_context) const;
 
   /// \brief Open a fragment
@@ -226,7 +226,7 @@ class ARROW_DS_EXPORT FileFragment : public Fragment,
       compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
   Future<std::shared_ptr<FragmentScanner>> BeginScan(
-      const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+      const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
       compute::ExecContext* exec_context) override;
   Future<std::shared_ptr<InspectedFragment>> InspectFragmentImpl(
       const FragmentScanOptions* format_options,
