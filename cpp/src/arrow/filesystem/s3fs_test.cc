@@ -66,6 +66,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -75,6 +76,7 @@ using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::ToChars;
 using ::arrow::internal::UriEscape;
+using ::arrow::internal::Zip;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -791,27 +793,35 @@ TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
   // and paging is required.
   constexpr int32_t kNumDirs = 4;
   constexpr int32_t kNumFilesPerDir = 512;
+  FileInfoVector expected_infos;
 
   ASSERT_OK(fs_->CreateDir("stress"));
   for (int32_t i = 0; i < kNumDirs; i++) {
-    ASSERT_OK(fs_->CreateDir("stress/" + ToChars(i)));
+    const std::string dir_path = "stress/" + ToChars(i);
+    ASSERT_OK(fs_->CreateDir(dir_path));
+    expected_infos.emplace_back(dir_path, FileType::Directory);
+
     std::vector<Future<>> tasks;
     for (int32_t j = 0; j < kNumFilesPerDir; j++) {
       // Create the files in parallel in hopes of speeding up this process as much as
       // possible
-      ASSERT_OK_AND_ASSIGN(
-          Future<> task,
-          ::arrow::internal::GetCpuThreadPool()->Submit([fs = fs_, i, j]() -> Status {
-            ARROW_ASSIGN_OR_RAISE(
-                std::shared_ptr<io::OutputStream> out_str,
-                fs->OpenOutputStream("stress/" + ToChars(i) + "/" + ToChars(j)));
-            ARROW_RETURN_NOT_OK(out_str->Write(ToChars(j)));
-            return out_str->Close();
-          }));
+      const std::string file_name = ToChars(j);
+      const std::string file_path = dir_path + "/" + file_name;
+      expected_infos.emplace_back(file_path, FileType::File);
+      ASSERT_OK_AND_ASSIGN(Future<> task,
+                           ::arrow::internal::GetCpuThreadPool()->Submit(
+                               [fs = fs_, file_name, file_path]() -> Status {
+                                 ARROW_ASSIGN_OR_RAISE(
+                                     std::shared_ptr<io::OutputStream> out_str,
+                                     fs->OpenOutputStream(file_path));
+                                 ARROW_RETURN_NOT_OK(out_str->Write(file_name));
+                                 return out_str->Close();
+                               }));
       tasks.push_back(std::move(task));
     }
     ASSERT_FINISHES_OK(AllFinished(tasks));
   }
+  SortInfos(&expected_infos);
 
   FileSelector select;
   FileInfoVector infos;
@@ -822,8 +832,12 @@ TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
   constexpr int32_t kNumTasks = 32;
   for (int i = 0; i < kNumTasks; i++) {
     CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+    SortInfos(&infos);
     // One info for each directory and one info for each file
-    ASSERT_EQ(infos.size(), kNumDirs + kNumDirs * kNumFilesPerDir);
+    ASSERT_EQ(infos.size(), expected_infos.size());
+    for (const auto&& [info, expected] : Zip(infos, expected_infos)) {
+      AssertFileInfo(info, expected.path(), expected.type());
+    }
   }
 
   ASSERT_OK(fs_->DeleteDirContents("stress"));
