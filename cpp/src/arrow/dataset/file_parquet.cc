@@ -50,14 +50,12 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
-#include "metadata.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
 #include "parquet/file_reader.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
-#include "schema.h"
 
 namespace arrow {
 
