@@ -1695,6 +1695,7 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDuration) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
+  // div(duration, integer)
   for (auto u : TimeUnit::values()) {
     for (auto numeric : NumericTypes()) {
       if (!is_integer(numeric->id())) continue;
@@ -1718,6 +1719,13 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
                                       CallFunction("divide_checked", {durations, zeros}));
     }
   }
+
+  // div(duration, duration) -> float64
+  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, 3, 4]");
+  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, 300, 20, 1]");
+  auto expected = ArrayFromJSON(float64(), "[0.25, 6.666666666666667, 150, 4000]");
+  CheckScalarBinary("divide", left, right, expected);
+  CheckScalarBinary("divide_checked", left, right, expected);
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
