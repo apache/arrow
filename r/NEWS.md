@@ -17,8 +17,6 @@
   under the License.
 -->
 
-# arrow 12.0.1.9000
-
 # arrow 12.0.1.1
 
 * Update a package version reference to be text only instead of numeric due to CRAN update requiring this (#36353, #36364)
