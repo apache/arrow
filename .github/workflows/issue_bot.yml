@@ -21,6 +21,7 @@ on:
   issues:
     types:
       - opened
+      - edited
 
 permissions:
   contents: read
@@ -56,7 +57,7 @@ jobs:
           
             if (component_labels.length == 0) throw new Error('No components found!');
 
-            await github.rest.issues.addLabels({
+            await github.rest.issues.setLabels({
               "owner": context.repo.owner,
               "repo": context.repo.repo,
               "issue_number": context.payload.issue.number,

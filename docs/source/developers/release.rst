@@ -497,8 +497,8 @@ Be sure to go through on the following checklist:
    Our CI systems give us some coverage for the things that CRAN checks, but
    there are a couple of final tests we should do to confirm that the release
    binaries will work and that everything runs on the same infrastructure that
-   CRAN has, which is difficult/impossible to emulate fully on Travis or with
-   Docker. For a precise list of checks, see the
+   CRAN has, which is difficult/impossible to emulate fully with Docker. For a
+   precise list of checks, see the
    `packaging checklist <https://github.com/apache/arrow/blob/main/r/PACKAGING.md>`_.
 
    Once all checks are clean, we submit to CRAN, which has a web form for
