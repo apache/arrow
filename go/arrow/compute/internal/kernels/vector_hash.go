@@ -113,7 +113,42 @@ func (rhs *regularHashState) GetDictionary() (arrow.ArrayData, error) {
 	return array.GetDictArrayData(rhs.mem, rhs.typ, rhs.memoTable, 0)
 }
 
-func doAppendBinary[OffsetT int32 | int64](action Action, memo hashing.MemoTable, arr *exec.ArraySpan) error {
+type binaryHashState struct {
+	mem       memory.Allocator
+	typ       arrow.DataType
+	memoTable *hashing.BinaryMemoTable
+	action    Action
+
+	doAppend func(Action, *hashing.BinaryMemoTable, *exec.ArraySpan) error
+}
+
+func (rhs *binaryHashState) Allocator() memory.Allocator { return rhs.mem }
+
+func (rhs *binaryHashState) ValueType() arrow.DataType { return rhs.typ }
+
+func (rhs *binaryHashState) Reset() error {
+	rhs.memoTable.Reset()
+	return rhs.action.Reset()
+}
+
+func (rhs *binaryHashState) Append(_ *exec.KernelCtx, arr *exec.ArraySpan) error {
+	if err := rhs.action.Reserve(int(arr.Len)); err != nil {
+		return err
+	}
+
+	return rhs.doAppend(rhs.action, rhs.memoTable, arr)
+}
+
+func (rhs *binaryHashState) Flush(out *exec.ExecResult) error { return rhs.action.Flush(out) }
+func (rhs *binaryHashState) FlushFinal(out *exec.ExecResult) error {
+	return rhs.action.FlushFinal(out)
+}
+
+func (rhs *binaryHashState) GetDictionary() (arrow.ArrayData, error) {
+	return array.GetBinaryDictArrayData(rhs.mem, rhs.typ, rhs.memoTable, 0)
+}
+
+func doAppendBinary[OffsetT int32 | int64](action Action, memo *hashing.BinaryMemoTable, arr *exec.ArraySpan) error {
 	var (
 		bitmap            = arr.Buffers[0].Buf
 		offsets           = exec.GetSpanOffsets[OffsetT](arr, 1)
@@ -339,6 +374,20 @@ func nullHashInit(actionInit initAction) exec.KernelInitFn {
 	}
 }
 
+func newBinaryMemoTable(mem memory.Allocator, dt arrow.Type) (*hashing.BinaryMemoTable, error) {
+	switch dt {
+	case arrow.BINARY, arrow.STRING, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128,
+		arrow.DECIMAL256, arrow.INTERVAL_MONTH_DAY_NANO:
+		return hashing.NewBinaryMemoTable(0, 0,
+			array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)), nil
+	case arrow.LARGE_BINARY, arrow.LARGE_STRING:
+		return hashing.NewBinaryMemoTable(0, 0,
+			array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)), nil
+	default:
+		return nil, fmt.Errorf("%w: unsupported type %s", arrow.ErrNotImplemented, dt)
+	}
+}
+
 func newMemoTable(mem memory.Allocator, dt arrow.Type) (hashing.MemoTable, error) {
 	switch dt {
 	case arrow.INT8, arrow.UINT8:
@@ -352,15 +401,28 @@ func newMemoTable(mem memory.Allocator, dt arrow.Type) (hashing.MemoTable, error
 		arrow.DATE64, arrow.TIME64, arrow.TIMESTAMP,
 		arrow.DURATION, arrow.INTERVAL_DAY_TIME:
 		return hashing.NewUint64MemoTable(0), nil
-	case arrow.BINARY, arrow.STRING, arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128,
-		arrow.DECIMAL256, arrow.INTERVAL_MONTH_DAY_NANO:
-		return hashing.NewBinaryMemoTable(0, 0,
-			array.NewBinaryBuilder(mem, arrow.BinaryTypes.Binary)), nil
-	case arrow.LARGE_BINARY, arrow.LARGE_STRING:
-		return hashing.NewBinaryMemoTable(0, 0,
-			array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)), nil
 	default:
 		return nil, fmt.Errorf("%w: unsupported type %s", arrow.ErrNotImplemented, dt)
+	}
+}
+
+func binaryHashInit(dt arrow.DataType, actionInit initAction, appendFn func(Action, *hashing.BinaryMemoTable, *exec.ArraySpan) error) exec.KernelInitFn {
+	return func(ctx *exec.KernelCtx, args exec.KernelInitArgs) (exec.KernelState, error) {
+		mem := exec.GetAllocator(ctx.Ctx)
+		memoTable, err := newBinaryMemoTable(mem, dt.ID())
+		if err != nil {
+			return nil, err
+		}
+
+		ret := &binaryHashState{
+			mem:       mem,
+			typ:       args.Inputs[0],
+			memoTable: memoTable,
+			action:    actionInit(args.Inputs[0], args.Options, mem),
+			doAppend:  appendFn,
+		}
+		ret.Reset()
+		return ret, nil
 	}
 }
 
@@ -433,9 +495,9 @@ func getHashInit(typeID arrow.Type, actionInit initAction) exec.KernelInitFn {
 		arrow.DURATION, arrow.INTERVAL_DAY_TIME:
 		return regularHashInit(arrow.PrimitiveTypes.Uint64, actionInit, doAppendNumeric[uint64])
 	case arrow.BINARY, arrow.STRING:
-		return regularHashInit(arrow.BinaryTypes.Binary, actionInit, doAppendBinary[int32])
+		return binaryHashInit(arrow.BinaryTypes.Binary, actionInit, doAppendBinary[int32])
 	case arrow.LARGE_BINARY, arrow.LARGE_STRING:
-		return regularHashInit(arrow.BinaryTypes.LargeBinary, actionInit, doAppendBinary[int64])
+		return binaryHashInit(arrow.BinaryTypes.LargeBinary, actionInit, doAppendBinary[int64])
 	case arrow.FIXED_SIZE_BINARY, arrow.DECIMAL128, arrow.DECIMAL256:
 		return regularHashInit(arrow.BinaryTypes.Binary, actionInit, doAppendFixedSize)
 	case arrow.INTERVAL_MONTH_DAY_NANO:
