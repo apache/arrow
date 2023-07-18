@@ -62,6 +62,8 @@ class ApacheArrow < Formula
 
     ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
 
+    # link against system libc++ instead of llvm provided libc++
+    ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     # -DCMAKE_INSTALL_RPATH=#{rpath}
     args = %W[
       -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
