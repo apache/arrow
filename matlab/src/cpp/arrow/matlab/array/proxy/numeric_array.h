@@ -90,7 +90,4 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
         }
 };
 
-    template<>
-    libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
 }
