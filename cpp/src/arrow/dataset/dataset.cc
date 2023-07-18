@@ -193,7 +193,7 @@ class InMemoryFragment::Scanner : public FragmentScanner {
   int NumScanTasks() override { return 1; }
 
   int NumBatchesInScanTask(int task_number) override {
-    DCHECK_LE(batches_.size(), std::numeric_limits<int32_t>::max());
+    DCHECK_LE(batches_.size(), static_cast<int64_t>(std::numeric_limits<int32_t>::max()));
     return static_cast<int>(batches_.size());
   }
 

@@ -265,6 +265,9 @@ class PARQUET_EXPORT FileReader {
   ///
   /// \param i the index of the row group to read
   /// \param cpu_executor an executor to use to run CPU tasks
+  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
+  ///                             data for the given batch size.  If true, smaller
+  ///                             batches will be returned instead.
   virtual AsyncBatchGenerator ReadRowGroupAsync(int i,
                                                 ::arrow::internal::Executor* cpu_executor,
                                                 bool allow_sliced_batches = false) = 0;
@@ -276,6 +279,9 @@ class PARQUET_EXPORT FileReader {
   /// \param i the index of the row group to read
   /// \param column_indices leaf-indices of the columns to read
   /// \param cpu_executor an executor to use to run CPU tasks
+  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
+  ///                             data for the given batch size.  If true, smaller
+  ///                             batches will be returned instead.
   virtual AsyncBatchGenerator ReadRowGroupAsync(int i,
                                                 const std::vector<int>& column_indices,
                                                 ::arrow::internal::Executor* cpu_executor,
@@ -287,6 +293,9 @@ class PARQUET_EXPORT FileReader {
   ///
   /// \param row_groups indices of the row groups to read
   /// \param cpu_executor an executor to use to run CPU tasks
+  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
+  ///                             data for the given batch size.  If true, smaller
+  ///                             batches will be returned instead.
   virtual AsyncBatchGenerator ReadRowGroupsAsync(
       const std::vector<int>& row_groups, ::arrow::internal::Executor* cpu_executor,
       bool allow_sliced_batches = false) = 0;
@@ -308,15 +317,17 @@ class PARQUET_EXPORT FileReader {
   /// smaller.  This can happen, for example, when there is not enough data or when a
   /// string column is too large to fit into a single batch.  The parameter
   /// `allow_sliced_batches` can be set to false to disallow this later case.  This can be
-  /// useful when you need to know exactly how many batches you will get from a scan
-  /// before you start.
+  /// useful when you need to know exactly how many batches you will get from the
+  /// operation before you start.
   ///
   /// The I/O executor is obtained from the I/O context in the reader properties.
   ///
   /// \param row_groups indices of the row groups to read
   /// \param column_indices indices of the columns to read
   /// \param cpu_executor an executor to use to run CPU tasks
-  /// \param allow_sliced_batches indicates whether or not we can slice large batches
+  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
+  ///                             data for the given batch size.  If false, smaller
+  ///                             batches will be returned instead.
   virtual AsyncBatchGenerator ReadRowGroupsAsync(
       const std::vector<int>& row_groups, const std::vector<int>& column_indices,
       ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches = false) = 0;

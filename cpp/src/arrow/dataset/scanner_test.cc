@@ -686,7 +686,7 @@ void CheckScannerBackpressure(std::shared_ptr<MockDataset> dataset, ScanV2Option
 
   int total_scan_tasks = 0;
   for (const auto& frag : dataset->fragments_) {
-    total_scan_tasks += frag->fragment_scanner_->scan_tasks_.size();
+    total_scan_tasks += static_cast<int>(frag->fragment_scanner_->scan_tasks_.size());
     frag->FinishInspection();
     frag->FinishScanBegin();
   }
