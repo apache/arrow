@@ -467,7 +467,7 @@ struct RealTraits<double> {
   // ceil(log10(2 ^ kMantissaBits))
   static constexpr int kMantissaDigits = 16;
   // Integers between zero and kMaxPreciseInteger can be precisely represented
-  static constexpr uint64_t kMaxPreciseInteger = 1ULL << kMantissaBits;
+  static constexpr uint64_t kMaxPreciseInteger = (1ULL << kMantissaBits) - 1;
 };
 
 template <typename DecimalType>
