@@ -1629,6 +1629,7 @@ do not detect overflow. They are alsoavailable in an overflow-checking variant,
 suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
 overflow is detected.
 
+<<<<<<< HEAD
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 | Function name           | Arity | Input types | Output type | Options class                  | Notes     |
 +=========================+=======+=============+=============+================================+===========+
@@ -1646,6 +1647,23 @@ overflow is detected.
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 | cumulative_mean         | Unary | Numeric     | Float64     | :struct:`CumulativeOptions`    | \(1) \(2) |
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+=======
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes |
++=========================+=======+=============+=============+================================+=======+
+| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+>>>>>>> 9b9f7a317 (Fix table format)
 
 * \(1) CumulativeOptions has two optional parameters. The first parameter
   :member:`CumulativeOptions::start` is a starting value for the running
