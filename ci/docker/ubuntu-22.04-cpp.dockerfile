@@ -164,6 +164,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # - libgtest-dev only provide sources
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

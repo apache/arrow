@@ -301,6 +301,9 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ARROW_COMPUTE
                 ARROW_IPC)
 
+  define_option(ARROW_AZURE
+                "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
+
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
   define_option(ARROW_COMPUTE "Build all Arrow Compute kernels" OFF)

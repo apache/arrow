@@ -13,29 +13,30 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef TimestampType < arrow.type.PrimitiveType
+classdef TimestampType < arrow.type.FixedWidthType
 %TIMESTAMPTYPE Type class for timestamp data.
 
-    
-    properties(SetAccess=private)
-        TimeZone(1, 1) string
-        TimeUnit(1, 1) arrow.type.TimeUnit
-    end
-
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Timestamp
+    properties(Dependent, SetAccess=private, GetAccess=public)
+        TimeZone
+        TimeUnit
     end
 
     methods
-        function obj = TimestampType(opts)
-        %TIMESTAMPTYPE Construct an instance of this class
+        function obj = TimestampType(proxy)
             arguments
-                opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
-                opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.TimestampType")}
             end
-            obj.TimeUnit = opts.TimeUnit;
-            obj.TimeZone = opts.TimeZone;
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
+        end
+
+        function unit = get.TimeUnit(obj)
+            val = obj.Proxy.timeUnit();
+            unit = arrow.type.TimeUnit(val);
+        end
+
+        function tz = get.TimeZone(obj)
+            tz = obj.Proxy.timeZone();
         end
     end
 end
-

@@ -23,20 +23,21 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
+#include "arrow/type_fwd.h"
+
 namespace arrow::matlab::array::proxy {
 
 class TimestampArray : public arrow::matlab::array::proxy::Array {
     public:
-        TimestampArray(const std::shared_ptr<arrow::Array> timestamp_array)
-            : arrow::matlab::array::proxy::Array() {
-                array = timestamp_array;
-        }
+        TimestampArray(std::shared_ptr<arrow::TimestampArray> array);
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
     protected:
-
         void toMATLAB(libmexclass::proxy::method::Context& context) override;
+
+        std::shared_ptr<type::proxy::Type> typeProxy() override;
+
 };
 
 }

@@ -13,17 +13,24 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef hPrimitiveType < matlab.unittest.TestCase
+classdef hFixedWidthType < matlab.unittest.TestCase
 % Test class that defines shared unit tests for classes that inherit from
-% arrow.type.PrimitiveType
+% arrow.type.FixedWidthType
 
     properties(Abstract)
         ArrowType
         TypeID
         BitWidth
+        ClassName
     end
 
     methods(Test)
+        function TestClass(testCase)
+        % Verify ArrowType is an object of the expected class type.
+            name = string(class(testCase.ArrowType));
+            testCase.verifyEqual(name, testCase.ClassName);
+        end
+
         function TestTypeID(testCase)
         % Verify ID is set to the appropriate arrow.type.ID value.
             arrowType = testCase.ArrowType;
@@ -39,13 +46,7 @@ classdef hPrimitiveType < matlab.unittest.TestCase
         function TestNumFields(testCase)
         % Verify NumFields is set to 0 for primitive types.
             arrowType = testCase.ArrowType;
-            testCase.verifyEqual(arrowType.NumFields, 0);
-        end
-
-        function TestNumBuffers(testCase)
-        % Verify NumBuffers is set to 2 for primitive types.
-            arrowType = testCase.ArrowType;
-            testCase.verifyEqual(arrowType.NumBuffers, 2);
+            testCase.verifyEqual(arrowType.NumFields, int32(0));
         end
     end
 end

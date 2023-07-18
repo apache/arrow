@@ -43,14 +43,6 @@ classdef hNumericArray < matlab.unittest.TestCase
             tc.verifyEqual(className, tc.ArrowArrayClassName);
         end
 
-        function ShallowCopyTest(tc)
-        % NumericArrays stores a shallow copy of the array keep the
-        % memory alive.
-            A = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([1, 2, 3]));
-            tc.verifyEqual(A.MatlabArray, tc.MatlabArrayFcn([1, 2, 3]));
-            tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn([1 2 3]'));
-        end
-
         function ToMATLAB(tc)
             % Create array from a scalar
             A1 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn(100));
@@ -154,7 +146,7 @@ classdef hNumericArray < matlab.unittest.TestCase
         % Verify the array has the expected arrow.type.Type object
             data = tc.MatlabArrayFcn([1 2 3 4]);
             arrowArray = tc.ArrowArrayConstructor(data);
-            tc.verifyEqual(arrowArray.Type, tc.ArrowType);
+            tc.verifyEqual(arrowArray.Type.ID, tc.ArrowType.ID);
         end
     end
 end

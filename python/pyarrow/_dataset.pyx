@@ -2348,10 +2348,9 @@ cdef class Partitioning(_Weakrefable):
         return self.wrapped
 
     def __eq__(self, other):
-        try:
+        if isinstance(other, Partitioning):
             return self.partitioning.Equals(deref((<Partitioning>other).unwrap()))
-        except TypeError:
-            return False
+        return False
 
     def parse(self, path):
         cdef CResult[CExpression] result

@@ -31,8 +31,7 @@
 #include "parquet/level_conversion_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
 
-namespace parquet {
-namespace internal {
+namespace parquet::internal {
 namespace {
 
 using ::arrow::internal::CpuInfo;
@@ -179,5 +178,4 @@ void DefRepLevelsToBitmap(const int16_t* def_levels, const int16_t* rep_levels,
                                   output, /*offsets=*/nullptr);
 }
 
-}  // namespace internal
-}  // namespace parquet
+}  // namespace parquet::internal

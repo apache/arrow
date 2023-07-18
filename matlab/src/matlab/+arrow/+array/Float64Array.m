@@ -20,10 +20,6 @@ classdef Float64Array < arrow.array.NumericArray
         NullSubstitutionValue = NaN;
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.Float64Type
-    end
-
     methods
         function obj = Float64Array(data, varargin)
             obj@arrow.array.NumericArray(data, "double", ...

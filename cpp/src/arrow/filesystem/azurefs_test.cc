@@ -15,15 +15,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/filesystem/azurefs.h"
 
-#include <cstdint>
-#include <string_view>
+#include <gmock/gmock-matchers.h>
+#include <gmock/gmock-more-matchers.h>
+#include <gtest/gtest.h>
+
+#include <string>
+
+#include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 
 namespace arrow {
-namespace util {
+namespace fs {
+namespace {
 
-using bytes_view = std::basic_string_view<uint8_t>;
+using ::testing::IsEmpty;
+using ::testing::Not;
+using ::testing::NotNull;
 
-}  // namespace util
+// Placeholder test for file structure
+// TODO: GH-18014 Remove once a proper test is added
+TEST(AzureFileSystem, OptionsCompare) {
+  AzureOptions options;
+  EXPECT_TRUE(options.Equals(options));
+}
+
+}  // namespace
+}  // namespace fs
 }  // namespace arrow

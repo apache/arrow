@@ -13,21 +13,17 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef PrimitiveType < arrow.type.Type
-%PRIMITIVETYPE Abstract type class representing primtive data types. 
-    
-    properties(Dependent, SetAccess=protected, GetAccess=public)
-        BitWidth
+classdef StringTraits < arrow.type.traits.TypeTraits
+
+    properties (Constant)
+        ArrayConstructor = @arrow.array.StringArray
+        ArrayClassName = "arrow.array.StringArray"
+        ArrayProxyClassName = "arrow.array.proxy.StringArray"
+        TypeConstructor = @arrow.type.StringType;
+        TypeClassName = "arrow.type.StringType"
+        TypeProxyClassName = "arrow.type.proxy.StringType"
+        MatlabConstructor = @string
+        MatlabClassName = "string"
     end
 
-    properties(Constant)
-        NumFields = 0
-        NumBuffers = 2
-    end
-
-    methods
-        function width = get.BitWidth(obj)
-            width = bitWidth(obj.ID);
-        end
-    end
 end

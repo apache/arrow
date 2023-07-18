@@ -37,9 +37,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/test_util.h"
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 class TestEncryptionKeyManagement : public ::testing::Test {
  protected:
@@ -387,6 +385,4 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   }
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test
