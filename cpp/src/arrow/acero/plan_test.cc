@@ -17,7 +17,6 @@
 
 #include <gmock/gmock-matchers.h>
 
-#include <algorithm>
 #include <functional>
 #include <memory>
 
@@ -42,9 +41,6 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
-
-// TODO: remove after debug
-#include "arrow/api.h"
 
 using testing::Contains;
 using testing::ElementsAre;

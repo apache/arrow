@@ -32,9 +32,6 @@
 
 #include <memory>
 
-// TODO: remove after debug
-#include <iostream>
-
 namespace arrow {
 namespace compute {
 namespace internal {
