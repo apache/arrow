@@ -1466,3 +1466,33 @@ test_that("str_remove and str_remove_all", {
     df
   )
 })
+
+test_that("GH-36720: stringr modifier functions can be called with namespace prefix", {
+  df <- tibble(x = c("Foo", "bar"))
+  compare_dplyr_binding(
+    .input %>%
+      transmute(x = str_replace_all(x, stringr::regex("^f", ignore_case = TRUE), "baz")) %>%
+      collect(),
+    df
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(str_detect(x, stringr::fixed("f", ignore_case = TRUE), negate = TRUE)) %>%
+      collect(),
+    df
+  )
+
+  x <- Expression$field_ref("x")
+
+  expect_error(
+    call_binding("str_detect", x, stringr::boundary(type = "character")),
+    "Pattern modifier `boundary()` not supported in Arrow",
+    fixed = TRUE
+  )
+  expect_error(
+    call_binding("str_replace_all", x, stringr::coll("o", locale = "en"), "ó"),
+    "Pattern modifier `coll()` not supported in Arrow",
+    fixed = TRUE
+  )
+})
