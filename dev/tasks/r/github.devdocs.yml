@@ -40,7 +40,7 @@ jobs:
       - uses: r-lib/actions/setup-pandoc@v2
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: rmarkdown, knitr, sessioninfo
+          packages: "rmarkdown, knitr, sessioninfo"
         shell: Rscript {0}
       - name: Session info
         run: |
