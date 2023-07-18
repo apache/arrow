@@ -179,7 +179,7 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 /// array. It's the responsibility of the release function for the array
 /// to release the event. Both can be null if no sync'ing is necessary.
 struct RawSyncEvent {
-  void* sync_event = nullptr;
+  void* sync_event = NULL;
   std::function<void(void*)> release_func;
 };
 
