@@ -743,7 +743,10 @@ class TestParquetFileFormatScanNode
 
 TEST_P(TestParquetFileFormatScanNode, Inspect) { TestInspect(); }
 TEST_P(TestParquetFileFormatScanNode, Scan) { TestScan(); }
-TEST_P(TestParquetFileFormatScanNode, ScanSomeColumn) { TestScanSomeColumns(); }
+TEST_P(TestParquetFileFormatScanNode, ScanSomeColumns) { TestScanSomeColumns(); }
+TEST_P(TestParquetFileFormatScanNode, ScanSomeNestedColumns) {
+  TestScanSomeNestedColumns();
+}
 TEST_P(TestParquetFileFormatScanNode, ScanWithInvalidOptions) {
   TestInvalidFormatScanOptions();
 }

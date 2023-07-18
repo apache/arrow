@@ -1301,6 +1301,18 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     return reader;
   }
 
+  Result<std::shared_ptr<Table>> ScanToTable(std::shared_ptr<Fragment> fragment,
+                                             bool add_filter_fields = true) {
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<RecordBatchReader> scanner,
+                          this->Scan(fragment, /*add_filter_fields=*/false));
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    for (auto maybe_batch : *scanner) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+      batches.push_back(batch);
+    }
+    return Table::FromRecordBatches(batches);
+  }
+
   // Return a batch iterator which scans the fragment through the scanner.
   //
   // For interface compatibility with `FileFormatScanMixin`
@@ -1345,7 +1357,8 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
   // We create test data with 4 columns
   // We ask for only one of them (f64)
   // We set a row filter that relies on a different column (i32)
-  //   This row filter matches all rows
+  //   This row filter matches all rows (note, this row filter is just
+  //   noise. Mainly making sure we aren't loading "materialized refs")
   // We expect to get back all rows and only the one column we asked for
   void TestScanSomeColumns() {
     auto f32 = field("f32", float32());
@@ -1382,60 +1395,50 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     ASSERT_EQ(row_count, expected_rows());
   }
 
-  // Given a nested column (e.g. a struct column) we should be able to ask for only parts
-  // of the nested structure.  Some formats (columnar ones) support this in the reader. In
-  // other formats (e.g. JSON) we are forced to load the entire structure into memory and
-  // then discard the not-needed parts
-  void TestScanProjectedNested() {
-    // "struct1": {
-    //   "f32",
-    //   "i32"
-    // }
-    // "struct2": {
-    //   "f64",
-    //   "i64",
-    //   "struct1": {
-    //     "f32",
-    //     "i32"
-    //   }
-    // }
-    auto f32 = field("f32", float32());
-    auto f64 = field("f64", float64());
-    auto i32 = field("i32", int32());
-    auto i64 = field("i64", int64());
-    auto struct1 = field("struct1", struct_({f32, i32}));
-    auto struct2 = field("struct2", struct_({f64, i64, struct1}));
-    this->SetDatasetSchema({struct1, struct2, f32, f64, i32, i64});
-    this->SetScanProjectionRefs(
-        {".struct1.f32", ".struct2.struct1", ".struct2.struct1.f32"});
-    this->SetScanFilter(greater_equal(field_ref(FieldRef("struct2", "i64")), literal(0)));
+  // For file formats that support nested columns we need to test various
+  // scanning scenarios where only part of a nested column is asked for.
+  //
+  // The schema is:
+  //
+  // A   B   C
+  //     |
+  //  E - - D
+  //        |
+  //     F - - G
+  void TestScanSomeNestedColumns() {
+    auto a = field("A", float32());
+    auto c = field("C", float32());
+    auto e = field("E", float32());
+    auto f = field("F", float32());
+    auto g = field("G", float32());
+    auto d = field("D", struct_({f, g}));
+    auto b = field("B", struct_({e, d}));
+    this->SetDatasetSchema({a, b, c});
 
-    std::shared_ptr<Schema> physical_schema;
-    // Some formats, like Parquet, let you pluck only a part of a complex type
-    physical_schema = schema(
-        {field("struct1", struct_({f32})), field("struct2", struct_({i64, struct1}))});
-    std::shared_ptr<Schema> expected_schema = schema({
-        field(".struct1.f32", float32()),
-        field(".struct2.struct1", struct1->type()),
-        field(".struct2.struct1.f32", float32()),
-    });
+    // Only F
+    this->SetScanProjection({{1, 1, 0}});
+    auto expected_schema = schema({f});
 
-    {
+    auto CheckProjection = [&](std::vector<FieldPath> projection,
+                               std::shared_ptr<Schema> expected_schema) {
+      this->SetScanProjection(projection);
       auto reader = this->GetRandomData(dataset_schema_);
       auto source = this->MakeBufferSource(reader.get());
       auto fragment = this->MakeFragment(*source);
+      ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table, ScanToTable(fragment));
+      AssertSchemaEqual(*table->schema(), *expected_schema, /*check_metadata=*/false);
+    };
 
-      int64_t row_count = 0;
-      ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                           this->Scan(fragment));
-      for (auto maybe_batch : *scanner) {
-        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        row_count += batch->num_rows();
-        AssertSchemaEqual(*batch->schema(), *expected_schema,
-                          /*check_metadata=*/false);
-      }
-      ASSERT_EQ(row_count, expected_rows());
-    }
+    // Only F
+    CheckProjection({{1, 1, 0}}, schema({f}));
+    // A and F
+    CheckProjection({{0}, {1, 1, 0}}, schema({a, f}));
+    // Different order
+    CheckProjection({{1, 1, 0}, {0}}, schema({f, a}));
+    // Duplicates
+    CheckProjection({{0}, {1, 1, 0}, {0}}, schema({a, f, a}));
+    // // A and F and E
+    CheckProjection({{0}, {1, 1, 0}, {1, 0}}, schema({a, f, e}));
   }
 
   void TestScanWithPushdownNulls() {

@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/file_parquet.h"
 
+#include <algorithm>
 #include <limits>
 #include <memory>
 #include <mutex>
@@ -37,6 +38,7 @@
 #include "arrow/io/interfaces.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/table.h"
+#include "arrow/util/async_generator.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
@@ -68,19 +70,20 @@ using parquet::arrow::StatisticsAsScalars;
 
 namespace {
 
-std::vector<std::string> ColumnNamesFromMetadata(
-    const parquet::FileMetaData& file_metadata) {
-  std::vector<std::string> names(file_metadata.num_columns());
-  for (int i = 0; i < file_metadata.num_columns(); i++) {
-    names[i] = file_metadata.schema()->Column(i)->name();
+Result<std::vector<std::string>> ColumnNamesFromManifest(const SchemaManifest& manifest) {
+  std::vector<std::string> names;
+  names.reserve(manifest.schema_fields.size());
+  for (const auto& schema_field : manifest.schema_fields) {
+    names.push_back(schema_field.field->name());
   }
   return names;
 }
 
 class ParquetInspectedFragment : public InspectedFragment {
  public:
-  explicit ParquetInspectedFragment(std::shared_ptr<parquet::FileMetaData> file_metadata)
-      : InspectedFragment(ColumnNamesFromMetadata(*file_metadata)),
+  explicit ParquetInspectedFragment(std::shared_ptr<parquet::FileMetaData> file_metadata,
+                                    std::vector<std::string> column_names)
+      : InspectedFragment(std::move(column_names)),
         file_metadata(std::move(file_metadata)) {}
 
   std::shared_ptr<parquet::FileMetaData> file_metadata;
@@ -352,8 +355,25 @@ class ParquetFragmentScanner : public FragmentScanner {
         exec_context_(exec_context) {}
 
   AsyncGenerator<std::shared_ptr<RecordBatch>> RunScanTask(int task_number) override {
-    // TODO(weston) limit columns to read
-    return file_reader_->ReadRowGroupAsync(task_number, exec_context_->executor());
+    AsyncGenerator<std::shared_ptr<RecordBatch>> row_group_batches =
+        file_reader_->ReadRowGroupAsync(task_number, desired_columns_,
+                                        exec_context_->executor());
+    return MakeMappedGenerator(
+        row_group_batches,
+        [this](const std::shared_ptr<RecordBatch>& batch) { return Reshape(batch); });
+  }
+
+  Result<std::shared_ptr<RecordBatch>> Reshape(
+      const std::shared_ptr<RecordBatch>& batch) {
+    std::vector<std::shared_ptr<Array>> arrays;
+    std::vector<std::shared_ptr<Field>> fields;
+    for (const auto& path : selection_paths_) {
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> path_arr, path.Get(*batch));
+      fields.push_back(field("", path_arr->type()));
+      arrays.push_back(std::move(path_arr));
+    }
+    return RecordBatch::Make(schema(std::move(fields)), batch->num_rows(),
+                             std::move(arrays));
   }
 
   int NumScanTasks() override { return file_metadata_->num_row_groups(); }
@@ -478,6 +498,145 @@ class ParquetFragmentScanner : public FragmentScanner {
     return Status::OK();
   }
 
+  Result<const SchemaField*> ResolvePath(const FieldPath& path,
+                                         const SchemaManifest& manifest) {
+    const SchemaField* itr;
+    DCHECK_LT(path[0], static_cast<int32_t>(manifest.schema_fields.size()));
+    itr = &manifest.schema_fields[path[0]];
+    for (std::size_t i = 1; i < path.indices().size(); i++) {
+      // This should be guaranteed by evolution but maybe we should be more flexible
+      // to account for bugs in the evolution strategy?
+      DCHECK(!itr->is_leaf());
+      DCHECK_LT(path[i], static_cast<int32_t>(itr->children.size()));
+      itr = &itr->children[path[i]];
+    }
+    return itr;
+  }
+
+  void AddColumnIndices(const SchemaField& field, std::vector<int32_t>* indices) {
+    if (field.is_leaf()) {
+      indices->push_back(field.column_index);
+    }
+    for (const auto& child : field.children) {
+      AddColumnIndices(child, indices);
+    }
+  }
+
+  using SchemaFieldToPathMap = std::unordered_multimap<const SchemaField*, FieldPath*>;
+  // This struct is a recursive helper.  See the comment on CalculateProjection for
+  // details.  In here we walk through the file schema and calculate the expected output
+  // schema for a given set of column indices
+  struct PartialSchemaResolver {
+    bool Resolve(const std::vector<int32_t>& column_indices,
+                 SchemaFieldToPathMap* node_to_paths, const SchemaField& field) {
+      bool field_is_included = false;
+      if (field.is_leaf()) {
+        if (field.column_index == next_included_index) {
+          field_is_included = true;
+          next_included_index_index++;
+          if (next_included_index_index < column_indices.size()) {
+            next_included_index = column_indices[next_included_index_index];
+          } else {
+            next_included_index = -1;
+          }
+        }
+      }
+      int num_included_children = 0;
+      for (const auto& child : field.children) {
+        current_path.push_back(num_included_children);
+        if (Resolve(column_indices, node_to_paths, child)) {
+          num_included_children++;
+          field_is_included = true;
+        }
+        current_path.pop_back();
+      }
+      auto found_paths = node_to_paths->equal_range(&field);
+      for (auto& item = found_paths.first; item != found_paths.second; item++) {
+        *item->second = FieldPath(current_path);
+      }
+      return field_is_included;
+    }
+
+    Status Resolve(const std::vector<int32_t>& column_indices,
+                   SchemaFieldToPathMap* node_to_paths, const SchemaManifest& manifest) {
+      next_included_index_index = 0;
+      next_included_index = column_indices[next_included_index_index];
+      int num_included_fields = 0;
+      for (const auto& schema_field : manifest.schema_fields) {
+        current_path.push_back(num_included_fields);
+        const SchemaField* field = &schema_field;
+        if (Resolve(column_indices, node_to_paths, *field)) {
+          num_included_fields++;
+        }
+        current_path.pop_back();
+      }
+      return Status::OK();
+    }
+
+    std::size_t next_included_index_index = 0;
+    int next_included_index = -1;
+    std::vector<int32_t> current_path;
+  };
+
+  // We are given `selection`, which is a vector of paths into the file schema.
+  //
+  // The parquet reader needs a vector of leaf indices.  For non-nested fields this
+  // is easy.  For nested fields it is a bit more complex.  Consider the schema:
+  //
+  // A   B   C
+  //     |
+  //  E - - D
+  //        |
+  //     F - - G
+  //
+  // A and C are top-level flat fields.  B and D are nested structs.  The leaf indices
+  // are A(0), E(1), F(2), G(3), and C(4).
+  //
+  // If the user asks for field F we must include 2 in the indices we send to the file
+  // reader. A more challenging task is that we must also figure out the path to F in
+  // the batches the file reader will be returning.
+  //
+  // For example, if F is the only selection then {2} will be the only index we send to
+  // the file reader and returned batches will have a schema that includes B, D, and F.
+  // The path to F in those batches will be 0,0,0.  If the user asks for A, E, and F then
+  // the returned schema will include A, B, E, D, and F.  The path to F in those batches
+  // will be 1,1,0.
+  //
+  // If the user asks for a non-leaf field then we must make sure to add all leaf indices
+  // under that field.  In the above example, if the user asks for D then we must add both
+  // F(2) and G(3) to the column indices we send to the parquet reader.
+  Status CalculateProjection(const parquet::FileMetaData& metadata,
+                             const FragmentSelection& selection,
+                             const SchemaManifest& manifest) {
+    if (selection.columns().empty()) {
+      return Status::OK();
+    }
+    selection_paths_.resize(selection.columns().size());
+    // A map from each node to the paths we need to fill in for that node
+    // (these will be items in selection_paths_)
+    std::unordered_multimap<const SchemaField*, FieldPath*> node_to_paths;
+    for (std::size_t column_idx = 0; column_idx < selection.columns().size();
+         column_idx++) {
+      const FragmentSelectionColumn& selected_column = selection.columns()[column_idx];
+      ARROW_ASSIGN_OR_RAISE(const SchemaField* selected_field,
+                            ResolvePath(selected_column.path, manifest));
+      AddColumnIndices(*selected_field, &desired_columns_);
+      node_to_paths.insert({selected_field, &selection_paths_[column_idx]});
+    }
+
+    // Sort the leaf indices and remove duplicates
+    std::sort(desired_columns_.begin(), desired_columns_.end());
+    desired_columns_.erase(std::unique(desired_columns_.begin(), desired_columns_.end()),
+                           desired_columns_.end());
+
+    // Now we calculate the expected output schema and use that to calculate the expected
+    // output paths.  A node is included in this schema if there is at least one leaf
+    // under that node.
+    return PartialSchemaResolver().Resolve(desired_columns_, &node_to_paths, manifest);
+    // As we return we can expect that both desired_columns_ and selection_paths_
+    // are properly initialized
+  }
+
   Future<> Initialize(std::shared_ptr<io::RandomAccessFile> file,
                       const FragmentScanRequest& request) {
     parquet::ReaderProperties properties = MakeParquetReaderProperties();
@@ -485,8 +644,8 @@ class ParquetFragmentScanner : public FragmentScanner {
     auto reader_fut = parquet::ParquetFileReader::OpenAsync(
         std::move(file), std::move(properties), file_metadata_);
     return reader_fut.Then(
-        [this, reader_fut](
-            const std::unique_ptr<parquet::ParquetFileReader>&) mutable -> Status {
+        [this, reader_fut,
+         request](const std::unique_ptr<parquet::ParquetFileReader>&) mutable -> Status {
           ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
                                 reader_fut.MoveResult());
           std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
@@ -500,6 +659,8 @@ class ParquetFragmentScanner : public FragmentScanner {
           RETURN_NOT_OK(parquet::arrow::FileReader::Make(
               exec_context_->memory_pool(), std::move(reader),
               std::move(arrow_properties), &file_reader_));
+          RETURN_NOT_OK(CalculateProjection(*file_metadata_, *request.fragment_selection,
+                                            file_reader_->manifest()));
           return Status::OK();
         },
         [this](const Status& status) -> Status {
@@ -533,6 +694,7 @@ class ParquetFragmentScanner : public FragmentScanner {
 
   // These are set during Initialize
   std::vector<int> desired_columns_;
+  std::vector<FieldPath> selection_paths_;
   std::unique_ptr<parquet::arrow::FileReader> file_reader_;
   int32_t batch_size_;
 };
@@ -648,10 +810,17 @@ Future<std::shared_ptr<InspectedFragment>> ParquetFileFormat::InspectFragment(
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   auto reader_fut =
       parquet::ParquetFileReader::OpenAsync(std::move(input), std::move(properties));
-  return reader_fut.Then([](const std::unique_ptr<parquet::ParquetFileReader>& reader)
-                             -> std::shared_ptr<InspectedFragment> {
+  return reader_fut.Then([this](const std::unique_ptr<parquet::ParquetFileReader>& reader)
+                             -> Result<std::shared_ptr<InspectedFragment>> {
     std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-    return std::make_shared<ParquetInspectedFragment>(std::move(metadata));
+    parquet::ArrowReaderProperties arrow_reader_props =
+        MakeArrowReaderProperties(reader_options, *metadata);
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<SchemaManifest> manifest,
+                          GetSchemaManifest(*metadata, arrow_reader_props));
+    ARROW_ASSIGN_OR_RAISE(std::vector<std::string> column_names,
+                          ColumnNamesFromManifest(*manifest));
+    return std::make_shared<ParquetInspectedFragment>(std::move(metadata),
+                                                      std::move(column_names));
   });
 }
 
