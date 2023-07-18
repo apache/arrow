@@ -39,7 +39,7 @@ class ApacheArrow < Formula
   depends_on "llvm" => :build
   depends_on "aws-sdk-cpp"
   depends_on "brotli"
-  depends_on "bzip2"
+  # depends_on "bzip2"
   depends_on "glog"
   depends_on "grpc"
   depends_on "lz4"
