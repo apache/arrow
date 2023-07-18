@@ -2294,36 +2294,39 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
     return DeleteObjectsAsync(bucket, keys).status();
   }
 
-  Future<> EnsureNotFileAsync(const std::string& bucket, const std::string& key) {
+  // Check to make sure the given path is not a file
+  //
+  // Returns true if the path seems to be a directory, false if it is a file
+  Future<bool> EnsureIsDirAsync(const std::string& bucket, const std::string& key) {
     if (key.empty()) {
       // There is no way for a bucket to be a file
-      return Future<>::MakeFinished();
+      return Future<bool>::MakeFinished(true);
     }
     auto self = shared_from_this();
-    return DeferNotOk(SubmitIO(io_context_, [self, bucket, key]() mutable -> Status {
-      S3Model::HeadObjectRequest req;
-      req.SetBucket(ToAwsString(bucket));
-      req.SetKey(ToAwsString(key));
+    return DeferNotOk(
+        SubmitIO(io_context_, [self, bucket, key]() mutable -> Result<bool> {
+          S3Model::HeadObjectRequest req;
+          req.SetBucket(ToAwsString(bucket));
+          req.SetKey(ToAwsString(key));
 
-      ARROW_ASSIGN_OR_RAISE(auto client_lock, self->holder_->Lock());
-      auto outcome = client_lock.Move()->HeadObject(req);
-      if (outcome.IsSuccess()) {
-        const auto& result = outcome.GetResult();
-        if (result.GetContentLength() > 0 || key[key.size() - 1] != '/') {
-          return Status::IOError("Cannot delete directory contents at ", bucket, kSep,
-                                 key, " because it is a file");
-        }
-        return Status::OK();
-      }
-      if (IsNotFound(outcome.GetError())) {
-        // Might be ok, let DeleteDirContentsAsync worry about this
-        return Status::OK();
-      } else {
-        return ErrorToStatus(std::forward_as_tuple("When getting information for key '",
-                                                   key, "' in bucket '", bucket, "': "),
-                             "HeadObject", outcome.GetError());
-      }
-    }));
+          ARROW_ASSIGN_OR_RAISE(auto client_lock, self->holder_->Lock());
+          auto outcome = client_lock.Move()->HeadObject(req);
+          if (outcome.IsSuccess()) {
+            const auto& result = outcome.GetResult();
+            // A directory should be empty and have a trailing slash.  Anything else
+            // we can consider a file
+            return result.GetContentLength() <= 0 && key[key.size() - 1] == '/';
+          }
+          if (IsNotFound(outcome.GetError())) {
+            // If we can't find it then it isn't a file.
+            return true;
+          } else {
+            return ErrorToStatus(
+                std::forward_as_tuple("When getting information for key '", key,
+                                      "' in bucket '", bucket, "': "),
+                "HeadObject", outcome.GetError());
+          }
+        }));
   }
 
   // Some operations require running multiple S3 calls, either in parallel or serially. We
@@ -2344,7 +2347,7 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         [](const Status& st) {
           // No need for special abort logic.
         },
-        StopToken::Unstoppable());
+        io_context_.stop_token());
     // Keep self alive until all tasks finish
     return scheduler_fut.Then([self]() { return Status::OK(); });
   }
@@ -2386,9 +2389,14 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
 
   Future<> DeleteDirContentsAsync(const std::string& bucket, const std::string& key) {
     auto self = shared_from_this();
-    return EnsureNotFileAsync(bucket, key).Then([self, bucket, key] {
-      return self->DoDeleteDirContentsAsync(bucket, key);
-    });
+    return EnsureIsDirAsync(bucket, key)
+        .Then([self, bucket, key](bool is_dir) -> Future<> {
+          if (!is_dir) {
+            return Status::IOError("Cannot delete directory contents at ", bucket, kSep,
+                                   key, " because it is a file");
+          }
+          return self->DoDeleteDirContentsAsync(bucket, key);
+        });
   }
 
   FileInfoGenerator GetFileInfoGenerator(const FileSelector& select) {
@@ -2414,8 +2422,12 @@ class S3FileSystem::Impl : public std::enable_shared_from_this<S3FileSystem::Imp
         });
 
     // Mark the generator done once all tasks are finished
-    scheduler_fut.AddCallback(
-        [sink = generator.producer()](const Status& st) mutable { sink.Close(); });
+    scheduler_fut.AddCallback([sink = generator.producer()](const Status& st) mutable {
+      if (!st.ok()) {
+        sink.Push(st);
+      }
+      sink.Close();
+    });
 
     return generator;
   }

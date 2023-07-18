@@ -454,15 +454,18 @@ class TestS3FS : public S3TestMixin {
     }
   }
 
-  void MakeFileSystem() {
+  Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
+      io::IOContext io_context = io::default_io_context()) {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_->connect_string();
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     }
-    ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
+    return S3FileSystem::Make(options_, io_context);
   }
+
+  void MakeFileSystem() { ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem()); }
 
   template <typename Matcher>
   void AssertMetadataRoundtrip(const std::string& path,
@@ -827,6 +830,22 @@ TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
 
   CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
   ASSERT_EQ(infos.size(), 0);
+}
+
+TEST_F(TestS3FS, GetFileInfoGeneratorCancelled) {
+  FileSelector select;
+  FileInfoVector infos;
+  select.base_dir = "bucket";
+  select.recursive = true;
+
+  StopSource stop_source;
+  io::IOContext cancellable_context(stop_source.token());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<S3FileSystem> cancellable_fs,
+                       MakeNewFileSystem(cancellable_context));
+  stop_source.RequestStop();
+  FileInfoGenerator generator = cancellable_fs->GetFileInfoGenerator(select);
+  auto file_infos = CollectAsyncGenerator(std::move(generator));
+  ASSERT_FINISHES_AND_RAISES(Cancelled, file_infos);
 }
 
 TEST_F(TestS3FS, CreateDir) {
