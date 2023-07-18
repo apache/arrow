@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "parquet/encoding.h"
+#include "parquet/types.h"
 
 namespace parquet::benchmark {
 

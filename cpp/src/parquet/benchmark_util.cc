@@ -105,6 +105,7 @@ void GenerateBenchmarkData(uint32_t size, uint32_t seed, Int96* data,
 template <>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, FLBA* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length) {
+  heap->clear();
   GenerateRandomString(data_string_length * size, seed, heap);
   for (uint32_t i = 0; i < size; ++i) {
     data[i].ptr = heap->data() + i * data_string_length;
@@ -114,6 +115,7 @@ void GenerateBenchmarkData(uint32_t size, uint32_t seed, FLBA* data,
 template <>
 void GenerateBenchmarkData(uint32_t size, uint32_t seed, ByteArray* data,
                            std::vector<uint8_t>* heap, uint32_t data_string_length) {
+  heap->clear();
   GenerateRandomString(data_string_length * size, seed, heap);
   for (uint32_t i = 0; i < size; ++i) {
     data[i].ptr = heap->data() + i * data_string_length;
