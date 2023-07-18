@@ -254,7 +254,7 @@ struct RunEndEncodeExec {
       return RunEndEncodeNullArray(TypeTraits<RunEndType>::type_singleton(), ctx,
                                    input_array, result);
     } else {
-      const bool has_validity_buffer = input_array.MayHaveNulls();
+      const bool has_validity_buffer = input_array.GetNullCount() > 0;
       if (has_validity_buffer) {
         return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
             .Exec();
@@ -435,7 +435,7 @@ struct RunEndDecodeExec {
       return RunEndDecodeNullREEArray(ctx, input_array, result);
     } else {
       const bool has_validity_buffer =
-          arrow::ree_util::ValuesArray(input_array).MayHaveNulls();
+          arrow::ree_util::ValuesArray(input_array).GetNullCount() > 0;
       if (has_validity_buffer) {
         return RunEndDecodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
             .Exec();
