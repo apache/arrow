@@ -1094,7 +1094,7 @@ Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
 ///  In is sql-compatible, null in `values` will directly output null,
 ///  each elelement of `values` that isn't contained in `value_set`
 ///  will output null if the `value_set` contains null and output
-///  false if the `value_set` doesn't contains null.
+///  false if the `value_set` doesn't contain null.
 ///
 /// In ignore the parameter skip_nulls in SetLookupOptions.
 ///
@@ -1103,14 +1103,13 @@ Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
 /// \param[in] ctx the function execution context, optional
 /// \return the resulting datum
 ///
-/// \since 1.2.0.1
+/// \since 12.0.1
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> In(const Datum& values, const SetLookupOptions& options,
-                   ExecContext* ctx = NULLPTR);
+                 ExecContext* ctx = NULLPTR);
 ARROW_EXPORT
-Result<Datum> In(const Datum& values, const Datum& value_set,
-                   ExecContext* ctx = NULLPTR);
+Result<Datum> In(const Datum& values, const Datum& value_set, ExecContext* ctx = NULLPTR);
 
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`
