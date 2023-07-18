@@ -43,7 +43,7 @@ class ApacheArrow < Formula
   depends_on "glog"
   depends_on "grpc"
   depends_on "lz4"
-  depends_on "mimalloc"
+  # depends_on "mimalloc"
   depends_on "openssl@3"
   depends_on "protobuf"
   depends_on "rapidjson"
