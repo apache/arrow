@@ -71,12 +71,15 @@ get_stringr_pattern_options <- function(pattern) {
 
 # Ensure that e.g. stringr::regex and regex both work within patterns
 clean_pattern_namespace <- function(pattern) {
-  function_called <- pattern[1]
-  modifier_funcs <- c("fixed", "regex", "coll", "boundary")
+  if (is_call(pattern)) {
+    function_called <- pattern[1]
+    modifier_funcs <- c("fixed", "regex", "coll", "boundary")
 
-  if (call_ns(function_called) == "stringr" && call_name(function_called) %in% modifier_funcs) {
-    pattern[1] <- call2(call_name(function_called))
+    if (isTRUE(call_ns(function_called) == "stringr") && call_name(function_called) %in% modifier_funcs) {
+      pattern[1] <- call2(call_name(function_called))
+    }
   }
+
   pattern
 }
 
