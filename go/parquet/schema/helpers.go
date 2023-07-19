@@ -33,23 +33,7 @@ import (
 // <list-repetition> can only be optional or required.
 // <element-repetition> can only be optional or required.
 func ListOf(n Node, rep parquet.Repetition, fieldID int32) (*GroupNode, error) {
-	if rep == parquet.Repetitions.Repeated || n.RepetitionType() == parquet.Repetitions.Repeated {
-		return nil, xerrors.New("parquet: listof repetition and element repetition must not be repeated.")
-	}
-	listName := n.Name()
-
-	switch n := n.(type) {
-	case *PrimitiveNode:
-		n.name = "element"
-	case *GroupNode:
-		n.name = "element"
-	}
-
-	list, err := NewGroupNode("list" /* name */, parquet.Repetitions.Repeated, FieldList{n}, -1 /* fieldID */)
-	if err != nil {
-		return nil, err
-	}
-	return NewGroupNodeLogical(listName, rep, FieldList{list}, ListLogicalType{}, fieldID)
+	return ListOfWithName(n.Name(), n, rep, fieldID)
 }
 
 // ListOf is a convenience helper function to create a properly structured
@@ -68,7 +52,7 @@ func ListOfWithName(listName string, element Node, rep parquet.Repetition, field
 		return nil, xerrors.Errorf("parquet: listof repetition must not be repeated, got :%s", rep)
 	}
 
-	if rep == parquet.Repetitions.Repeated || element.RepetitionType() == parquet.Repetitions.Repeated {
+	if element.RepetitionType() == parquet.Repetitions.Repeated {
 		return nil, xerrors.Errorf("parquet: element repetition must not be repeated, got: %s", element.RepetitionType())
 	}
 
