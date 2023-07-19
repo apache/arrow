@@ -41,8 +41,20 @@ func iterateFields(f []interface{}) []arrow.Field {
 	for _, field := range f {
 		n.name = field.(map[string]interface{})["name"].(string)
 		n.ofType = field.(map[string]interface{})["type"]
-
-		// field is of type "schemaNode"
+		switch n.ofType.(type) {
+		case string:
+			switch n.ofType.(string) {
+			// field is of type "enum" - get list of symbols
+			case "enum":
+				for _, symbol := range field.(map[string]interface{})["symbols"].([]interface{}) {
+					n.symbols = append(n.symbols, symbol.(string))
+				}
+			// field is of type "fixed" - get byte width of values
+			case "fixed":
+				n.size = int(field.(map[string]interface{})["size"].(float64))
+			}
+		}
+		// field is of type "record"
 		if nf, f := field.(map[string]interface{})["fields"]; f {
 			switch nf.(type) {
 			// primitive & complex types
@@ -65,139 +77,63 @@ func iterateFields(f []interface{}) []arrow.Field {
 func traverseNodes(node schemaNode) arrow.Field {
 	switch node.ofType.(type) {
 	case string:
-		// primitive type
+		// Avro primitive type
 		if len(node.fields) == 0 {
-			return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string))}
+			fmt.Printf("P %v:%v\n", node.name, node.ofType.(string))
+			switch node.ofType.(string) {
+			case "boolean", "int", "long", "float", "double", "bytes", "string":
+				return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string))}
+			case "fixed":
+				return arrow.Field{Name: node.name, Type: &arrow.FixedSizeBinaryType{ByteWidth: node.size}}
+			case "enum":
+				symbols := make(map[string]string)
+				for index, symbol := range node.symbols {
+					k := strconv.FormatInt(int64(index), 10)
+					symbols[k] = symbol
+				}
+				var dt arrow.DictionaryType = arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: arrow.BinaryTypes.String, Ordered: false}
+				sl := len(symbols)
+				switch {
+				case sl <= math.MaxUint8:
+					dt.IndexType = arrow.PrimitiveTypes.Uint8
+				case sl > math.MaxUint8 && sl <= math.MaxUint16:
+					dt.IndexType = arrow.PrimitiveTypes.Uint16
+				case sl > math.MaxUint16 && sl <= math.MaxUint32:
+					dt.IndexType = arrow.PrimitiveTypes.Uint32
+				}
+				return arrow.Field{Name: node.name, Type: &dt, Nullable: true, Metadata: arrow.MetadataFrom(symbols)}
+			// custom types
+			default:
+				return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string))}
+			}
 		} else {
-			// avro "schemaNode" type, node has "fields" array
-			if node.ofType.(string) == "schemaNode" {
+			// avro "record" type, node has "fields" array
+			if node.ofType.(string) == "record" {
 				var n schemaNode
 				n.name = node.name
 				n.ofType = node.ofType
 				if len(node.fields) > 0 {
 					n.fields = append(n.fields, node.fields...)
 				}
-				return arrow.Field{Name: node.name, Type: arrow.StructOf(iterateFields(n.fields)...)}
+				f := iterateFields(n.fields)
+				return arrow.Field{Name: node.name, Type: arrow.StructOf(f...)}
 			}
 		}
-	// complex types
+	// Avro complex types
 	case map[string]interface{}:
-		var n schemaNode
-		n.name = node.name
-		n.ofType = node.ofType.(map[string]interface{})["type"]
-
-		// Avro "array" field type = Arrow List type
-		if i, ok := node.ofType.(map[string]interface{})["items"]; ok {
-			return arrow.Field{Name: node.name, Type: arrow.ListOf(AvroPrimitiveToArrowType(i.(string)))}
-		}
-
-		// Avro "enum" field type = Arrow dictionary type
-		if i, ok := node.ofType.(map[string]interface{})["symbols"]; ok {
-			symbols := make(map[string]string)
-			for index, symbol := range i.([]string) {
-				k := strconv.FormatInt(int64(index), 10)
-				symbols[k] = symbol
-			}
-			var dt arrow.DictionaryType = arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: arrow.BinaryTypes.String, Ordered: false}
-			sl := len(symbols)
-			switch {
-			case sl <= math.MaxUint8:
-				dt.IndexType = arrow.PrimitiveTypes.Uint8
-			case sl > math.MaxUint8 && sl <= math.MaxUint16:
-				dt.IndexType = arrow.PrimitiveTypes.Uint16
-			case sl > math.MaxUint16 && sl <= math.MaxUint32:
-				dt.IndexType = arrow.PrimitiveTypes.Uint32
-			}
-			return arrow.Field{Name: node.name, Type: &dt, Nullable: true, Metadata: arrow.MetadataFrom(symbols)}
-		}
-
-		// Avro logical types
-		if i, ok := node.ofType.(map[string]interface{})["logicalType"]; ok {
-			switch i.(string) {
-			// decimal type's underlying type either "fixed" or "bytes"
-			// scale, a JSON integer representing the scale (optional). If not specified the scale is 0.
-			// precision, a JSON integer representing the (maximum) precision of decimals stored in this type (required).
-			// Precision must be a positive integer greater than zero. If the underlying type is a fixed, then the precision is limited by its size.
-			// An array of length n can store at most floor(log10(28 × n - 1 - 1)) base-10 digits of precision.
-			// Scale must be zero or a positive integer less than or equal to the precision.
-			case "decimal":
-
-			// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
-			case "uuid":
-				return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.String}
-
-			// The date logical type represents a date within the calendar, with no reference to a particular time zone or time of day.
-			// A date logical type annotates an Avro int, where the int stores the number of days from the unix epoch, 1 January 1970 (ISO calendar)
-			case "date":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Date32}
-
-			// The time-millis logical type represents a time of day, with no reference to a particular calendar, time zone or date, with a precision of one millisecond.
-			// A time-millis logical type annotates an Avro int, where the int stores the number of milliseconds after midnight, 00:00:00.000.
-			case "time-millis":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Time32ms}
-
-			// The time-micros logical type represents a time of day, with no reference to a particular calendar, time zone or date, with a precision of one microsecond.
-			// A time-micros logical type annotates an Avro long, where the long stores the number of microseconds after midnight, 00:00:00.000000.
-			case "time-micros":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Time64us}
-
-			// The timestamp-micros logical type represents an instant on the global timeline, independent of a particular time zone or calendar,
-			// with a precision of one microsecond.
-			// A timestamp-micros logical type annotates an Avro long, where the long stores the number of microseconds from
-			// the unix epoch, 1 January 1970 00:00:00.000000 UTC.
-			case "timestamp-micros":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_us}
-
-			// The local-timestamp-millis logical type represents a timestamp in a local timezone, regardless of what specific time zone is considered local,
-			// with a precision of one millisecond.
-			// A local-timestamp-millis logical type annotates an Avro long, where the long stores the number of milliseconds, from 1 January 1970 00:00:00.000.
-			case "local-timestamp-millis":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_ms}
-
-			// The local-timestamp-micros logical type represents a timestamp in a local timezone, regardless of what specific time zone is considered local,
-			// with a precision of one microsecond.
-			// A local-timestamp-micros logical type annotates an Avro long, where the long stores the number of microseconds, from 1 January 1970 00:00:00.000000.
-			case "local-timestamp-micros":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_us}
-
-			// The duration logical type represents an amount of time defined by a number of months, days and milliseconds.
-			// This is not equivalent to a number of milliseconds, because, depending on the moment in time from which the duration is measured,
-			// the number of days in the month and number of milliseconds in a day may differ.
-			// Other standard periods such as years, quarters, hours and minutes can be expressed through these basic periods.
-			// A duration logical type annotates Avro fixed type of size 12, which stores three little-endian unsigned integers
-			// that represent durations at different granularities of time.
-			// The first stores a number in months, the second stores a number in days, and the third stores a number in milliseconds.
-			case "duration":
-				return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.MonthDayNanoInterval}
-			}
-		}
-
-		// Avro "fixed" field type = Arrow FixedSize Primitive BinaryType
-		if i, ok := node.ofType.(map[string]interface{})["size"]; ok {
-			return arrow.Field{Name: node.name, Type: &arrow.FixedSizeBinaryType{ByteWidth: i.(int)}}
-		}
-		// Avro "map" field type = Arrow Map type
-		if i, ok := node.ofType.(map[string]interface{})["values"]; ok {
-			return arrow.Field{Name: node.name, Type: arrow.MapOf(arrow.BinaryTypes.String, AvroPrimitiveToArrowType(i.(string)))}
-		}
-		// Avro "schemaNode" field type = Arrow Struct type
-		if _, f := node.ofType.(map[string]interface{})["fields"]; f {
-			for _, field := range node.ofType.(map[string]interface{})["fields"].([]interface{}) {
-				n.fields = append(n.fields, field.(map[string]interface{}))
-			}
-		}
-		s := iterateFields(n.fields)
-		return arrow.Field{Name: n.name, Type: arrow.StructOf(s...)}
-
+		return avroComplexToArrowField(node)
 	// Avro union types
 	case []interface{}:
 		var unionTypes []string
 		for _, ft := range node.ofType.([]interface{}) {
 			switch ft.(type) {
+			// primitive types
 			case string:
 				if ft != "null" {
 					unionTypes = append(unionTypes, ft.(string))
 				}
+				continue
+			// complex types
 			case map[string]interface{}:
 				var n schemaNode
 				n.name = node.name
@@ -211,16 +147,127 @@ func traverseNodes(node schemaNode) arrow.Field {
 				return arrow.Field{Name: node.name, Type: arrow.StructOf(f...)}
 			}
 		}
-		// Supported Avro union type is null + one other type
+		// Supported Avro union type is null + one other type.
+		// TODO: Complex AVRO union to Arrow Dense || Sparse Union.
 		if len(unionTypes) == 1 {
 			return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(unionTypes[0])}
 		} else {
-			// BYTE_ARRAY is the catchall if union type is anything beyond null + one other type
-			// TODO: Complex AVRO union to Arrow Dense || Sparse Union
+			// Arrow Binary is the catchall if union type is anything beyond null + one other type.
 			return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.Binary}
 		}
 	}
 	return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.Binary}
+}
+
+func avroComplexToArrowField(node schemaNode) arrow.Field {
+	var n schemaNode
+	n.name = node.name
+	n.ofType = node.ofType.(map[string]interface{})["type"]
+	// Avro "array" field type
+	if i, ok := node.ofType.(map[string]interface{})["items"]; ok {
+		return arrow.Field{Name: node.name, Type: arrow.ListOf(AvroPrimitiveToArrowType(i.(string)))}
+	}
+	// Avro "enum" field type = Arrow dictionary type
+	if i, ok := node.ofType.(map[string]interface{})["symbols"]; ok {
+		symbols := make(map[string]string)
+		for index, symbol := range i.([]interface{}) {
+			k := strconv.FormatInt(int64(index), 10)
+			symbols[k] = symbol.(string)
+		}
+		var dt arrow.DictionaryType = arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint64, ValueType: arrow.BinaryTypes.String, Ordered: false}
+		sl := len(symbols)
+		switch {
+		case sl <= math.MaxUint8:
+			dt.IndexType = arrow.PrimitiveTypes.Uint8
+		case sl > math.MaxUint8 && sl <= math.MaxUint16:
+			dt.IndexType = arrow.PrimitiveTypes.Uint16
+		case sl > math.MaxUint16 && sl <= math.MaxUint32:
+			dt.IndexType = arrow.PrimitiveTypes.Uint32
+		}
+		return arrow.Field{Name: node.name, Type: &dt, Nullable: true, Metadata: arrow.MetadataFrom(symbols)}
+	}
+	// Avro "fixed" field type = Arrow FixedSize Primitive BinaryType
+	if i, ok := node.ofType.(map[string]interface{})["size"]; ok {
+		return arrow.Field{Name: node.name, Type: &arrow.FixedSizeBinaryType{ByteWidth: int(i.(float64))}}
+	}
+	// Avro "map" field type
+	if i, ok := node.ofType.(map[string]interface{})["values"]; ok {
+		return arrow.Field{Name: node.name, Type: arrow.MapOf(arrow.BinaryTypes.String, AvroPrimitiveToArrowType(i.(string)))}
+	}
+	// Avro logical types
+	if i, ok := node.ofType.(map[string]interface{})["logicalType"]; ok {
+		switch i.(string) {
+		// decimal type's underlying type either "fixed" or "bytes"
+		// scale, a JSON integer representing the scale (optional). If not specified the scale is 0.
+		// precision, a JSON integer representing the (maximum) precision of decimals stored in this type (required).
+		// Precision must be a positive integer greater than zero. If the underlying type is a fixed, then the precision is limited by its size.
+		// An array of length n can store at most floor(log10(28 × n - 1 - 1)) base-10 digits of precision.
+		// Scale must be zero or a positive integer less than or equal to the precision.
+		case "decimal":
+
+		// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
+		case "uuid":
+			return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.String}
+
+		// The date logical type represents a date within the calendar, with no reference to a particular time zone or time of day.
+		// A date logical type annotates an Avro int, where the int stores the number of days from the unix epoch, 1 January 1970 (ISO calendar)
+		case "date":
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Date32}
+
+		// The time-millis logical type represents a time of day, with no reference to a particular calendar, time zone or date,
+		// with a precision of one millisecond.
+		// A time-millis logical type annotates an Avro int, where the int stores the number of milliseconds after midnight, 00:00:00.000.
+		case "time-millis":
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Time32ms}
+
+		// The time-micros logical type represents a time of day, with no reference to a particular calendar, time zone or date,
+		// with a precision of one microsecond.
+		// A time-micros logical type annotates an Avro long, where the long stores the number of microseconds after midnight, 00:00:00.000000.
+		case "time-micros":
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Time64us}
+
+		// The timestamp-micros logical type represents an instant on the global timeline, independent of a particular time zone or calendar,
+		// with a precision of one microsecond.
+		// A timestamp-micros logical type annotates an Avro long, where the long stores the number of microseconds from
+		// the unix epoch, 1 January 1970 00:00:00.000000 UTC.
+		case "timestamp-micros":
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_us}
+
+		// The local-timestamp-millis logical type represents a timestamp in a local timezone, regardless of what specific time zone is considered local,
+		// with a precision of one millisecond.
+		// A local-timestamp-millis logical type annotates an Avro long, where the long stores the number of milliseconds,
+		// from 1 January 1970 00:00:00.000.
+		case "local-timestamp-millis":
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_ms}
+
+		// The local-timestamp-micros logical type represents a timestamp in a local timezone, regardless of what specific time zone is considered local,
+		// with a precision of one microsecond.
+		// A local-timestamp-micros logical type annotates an Avro long, where the long stores the number of microseconds,
+		// from 1 January 1970 00:00:00.000000.
+		case "local-timestamp-micros":
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_us}
+
+		// The duration logical type represents an amount of time defined by a number of months, days and milliseconds.
+		// This is not equivalent to a number of milliseconds, because, depending on the moment in time from which the duration is measured,
+		// the number of days in the month and number of milliseconds in a day may differ.
+		// Other standard periods such as years, quarters, hours and minutes can be expressed through these basic periods.
+		// A duration logical type annotates Avro fixed type of size 12, which stores three little-endian unsigned integers
+		// that represent durations at different granularities of time.
+		// The first stores a number in months, the second stores a number in days, and the third stores a number in milliseconds.
+		case "duration":
+			// Placeholder - maybe change to struct or FixedWidth bytes
+			return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.MonthDayNanoInterval}
+		}
+	}
+	// Avro "record" field type
+	if _, f := node.ofType.(map[string]interface{})["fields"]; f {
+		for _, field := range node.ofType.(map[string]interface{})["fields"].([]interface{}) {
+			n.fields = append(n.fields, field.(map[string]interface{}))
+		}
+		s := iterateFields(n.fields)
+		return arrow.Field{Name: n.name, Type: arrow.StructOf(s...)}
+	}
+	return arrow.Field{}
 }
 
 // AvroPrimitiveToArrowType returns the Arrow DataType equivalent to a
