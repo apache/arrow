@@ -415,20 +415,20 @@ struct InVisitor {
         [&](T v) {
           if (state.lookup_table->Get(v) != -1) {
             writer_boolean.Set();
-            writer_null.Clear();
+            writer_null.Set();
           } else if (value_set_has_null) {
             writer_boolean.Clear();
-            writer_null.Set();
+            writer_null.Clear();
           } else {
             writer_boolean.Clear();
-            writer_null.Clear();
+            writer_null.Set();
           }
           writer_boolean.Next();
           writer_null.Next();
         },
         [&]() {
           writer_boolean.Clear();
-          writer_null.Set();
+          writer_null.Clear();
           writer_boolean.Next();
           writer_null.Next();
         });
