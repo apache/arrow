@@ -198,7 +198,7 @@ class RunEndEncodeImpl {
         /*output_run_ends=*/NULLPTR);
     std::tie(num_valid_runs, num_output_runs, data_buffer_size) =
         counting_loop.CountNumberOfRuns();
-    const int64_t physical_null_count = num_output_runs - num_valid_runs;
+    const auto physical_null_count = num_output_runs - num_valid_runs;
     DCHECK(!has_validity_buffer || physical_null_count > 0)
         << "has_validity_buffer is expected to imply physical_null_count > 0";
 
@@ -213,10 +213,6 @@ class RunEndEncodeImpl {
         output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
     auto* output_values_array_data = output_array_data->child_data[1].get();
     // Set the null_count on the physical array
-    DCHECK(!has_validity_buffer || output_values_array_data->buffers[0])
-        << "has_validity_buffer implies a validity buffer is allocated";
-    DCHECK(output_values_array_data->null_count == kUnknownNullCount ||
-           physical_null_count == 0);
     output_values_array_data->null_count = physical_null_count;
 
     // Second pass: write the runs
@@ -420,8 +416,6 @@ class RunEndDecodeImpl {
           input_array_, output_array_data.get());
       output_null_count = length - loop.ExpandAllRuns();
     }
-    DCHECK(output_array_data->null_count == kUnknownNullCount ||
-           output_array_data->null_count == 0);
     output_array_data->null_count = output_null_count;
 
     output_->value = std::move(output_array_data);

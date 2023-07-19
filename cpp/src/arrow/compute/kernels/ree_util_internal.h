@@ -338,7 +338,10 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
 /// data_buffer_size is passed here pre-calculated so this function doesn't have
 /// to be template-specialized for each type.
 ///
-/// \post data.buffer[0] != NULLPTR if has_validity_buffer is true
+/// The null_count is left as kUnknownNullCount (or 0 if length is 0) and, if
+/// after writing the values, the caller knows the null count, it can be set.
+///
+/// \post if has_validity_buffer and length > 0, then data.buffer[0] != NULLPTR
 ///
 /// \param has_validity_buffer a validity buffer must be allocated
 /// \param length the length of the values array
@@ -350,7 +353,13 @@ Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
 /// \brief Preallocate the ArrayData for the run-end encoded version
 /// of the flat input array
 ///
-/// \post data.child_data[1].buffer[0] != NULLPTR if has_validity_buffer is true
+/// The top-level null_count is set to 0 (REEs keep all the data in child
+/// arrays). The null_count of the values array (child_data[1]) is left as
+/// kUnknownNullCount (or 0 if physical_length is 0) and, if after writing
+/// the values, the caller knows the null count, it can be set.
+///
+/// \post if has_validity_buffer and physical_length > 0, then
+/// data.child_data[1].buffer[0] != NULLPTR
 ///
 /// \param data_buffer_size the size of the data buffer for string and binary types
 Result<std::shared_ptr<ArrayData>> PreallocateREEArray(

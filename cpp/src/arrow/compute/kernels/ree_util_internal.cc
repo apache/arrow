@@ -79,8 +79,10 @@ Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
   } else {
     values_data_buffers = {std::move(validity_buffer), std::move(values_buffer)};
   }
-  return ArrayData::Make(value_type, length, std::move(values_data_buffers),
-                         kUnknownNullCount);
+  auto data = ArrayData::Make(value_type, length, std::move(values_data_buffers),
+                              kUnknownNullCount);
+  DCHECK(!(has_validity_buffer && length > 0) || data->buffers[0]);
+  return data;
 }
 
 Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
