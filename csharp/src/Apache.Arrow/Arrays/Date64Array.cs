@@ -69,6 +69,13 @@ namespace Apache.Arrow
                 long days = millis / MillisecondsPerDay;
                 return (millis < 0 ? days - 1 : days) * MillisecondsPerDay;
             }
+
+#if NET6_0_OR_GREATER
+            protected override long Convert(DateOnly date)
+            {
+                return ((long)date.DayNumber - _epochDayNumber) * MillisecondsPerDay;
+            }
+#endif
         }
 
         public Date64Array(ArrayData data)
@@ -113,5 +120,21 @@ namespace Apache.Arrow
                 ? DateTimeOffset.FromUnixTimeMilliseconds(value.Value)
                 : default(DateTimeOffset?);
         }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Get the date at the specified index
+        /// </summary>
+        /// <param name="index">Index at which to get the date.</param>
+        /// <returns>Returns a <see cref="DateOnly" />, or <c>null</c> if there is no object at that index.
+        /// </returns>
+        public DateOnly? GetDateOnly(int index)
+        {
+            long? value = GetValue(index);
+            return value.HasValue
+                ? DateOnly.FromDateTime(DateTimeOffset.FromUnixTimeMilliseconds(value.Value).UtcDateTime)
+                : default(DateOnly?);
+        }
+#endif
     }
 }
