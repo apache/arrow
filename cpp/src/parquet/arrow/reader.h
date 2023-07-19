@@ -313,6 +313,14 @@ class PARQUET_EXPORT FileReader {
   /// useful when you need to know exactly how many batches you will get from the
   /// operation before you start.
   ///
+  /// Note: When reading multiple row groups there is no guarantee you will get one
+  /// record batch per row group.  Data from multiple row groups could get combined into
+  /// a single batch.
+  ///
+  /// Note: If a row group has 0 rows it will effectively be ignored.  If you are only
+  /// reading empty row groups then the returned generated will immediately finish.  This
+  /// method should never generate an empty record batch.
+  ///
   /// The I/O executor is obtained from the I/O context in the reader properties.
   ///
   /// \param row_groups indices of the row groups to read

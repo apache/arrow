@@ -43,7 +43,11 @@ namespace arrow {
 
 using ::arrow::Array;
 using ::arrow::ChunkedArray;
+using ::arrow::Field;
+using ::arrow::RecordBatch;
+using ::arrow::Schema;
 using ::arrow::Status;
+using ::arrow::Table;
 
 template <int32_t PRECISION>
 struct DecimalWithPrecisionAndScale {

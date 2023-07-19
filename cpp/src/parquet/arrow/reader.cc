@@ -1307,9 +1307,9 @@ class AsyncBatchGeneratorImpl {
     state_->rows_remaining -= rows_in_batch;
 
     // We read the columns in parallel.  Each reader returns a chunked array.  This is
-    // probably because we might need to chunk a column if that column is too large.  We
-    // do provide a batch size but perhaps that column has massive strings or something
-    // like that.
+    // because we might need to chunk a column if that column is too large.  We
+    // do provide a batch size but even for a small batch size it is possible that a
+    // column has extremely large strings which don't fit in a single batch.
     Future<std::vector<std::shared_ptr<ChunkedArray>>> chunked_arrays_fut =
         ::arrow::internal::OptionalParallelForAsync(
             state_->use_threads, state_->column_readers,
@@ -1348,10 +1348,9 @@ class AsyncBatchGeneratorImpl {
               first = std::move(next_batch);
             }
           }
-          if (!first) {
-            // TODO(weston): Test this case
-            return Status::Invalid("Unexpected empty row group");
-          }
+          // If there were no rows of data we should have been exhausted.  Otherwise we
+          // should have gotten at least one batch.
+          DCHECK(!!first);
           return first;
         });
   }
