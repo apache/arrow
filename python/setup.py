@@ -40,7 +40,7 @@ import Cython
 # Check if we're running 64-bit Python
 is_64_bit = sys.maxsize > 2**32
 
-if Cython.__version__ < '0.29.31'
+if Cython.__version__ < '0.29.31':
     raise Exception(
         'Please update your Cython version. Supported Cython >= 0.29.31')
 
