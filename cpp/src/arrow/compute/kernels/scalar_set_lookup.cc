@@ -399,7 +399,7 @@ struct InVisitor {
     DCHECK_EQ(type.id(), Type::NA);
     // skip_nulls is ignored in sql-compatible In
     bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, false);
-    bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, true);
+    bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, false);
 
     return Status::OK();
   }
