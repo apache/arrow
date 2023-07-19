@@ -233,6 +233,26 @@ class TestListArray : public ::testing::Test {
                                                  expected->null_bitmap()));
   }
 
+  void TestFromArraysWithSlicedNullBitmap() {
+    std::vector<offset_type> offsets = {-1, -1, 0, 1, 1, 3};
+    std::vector<bool> offsets_w_nulls_is_valid = {true, true, true, false, true, true};
+
+    std::shared_ptr<Array> offsets_w_nulls;
+    ArrayFromVector<OffsetType, offset_type>(offsets_w_nulls_is_valid, offsets,
+                                             &offsets_w_nulls);
+
+    auto type = std::make_shared<T>(int32());
+    auto expected = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[0], null, [0, null]]"));
+    auto values = expected->values();
+
+    // Apply an offset to the offsets array with nulls (GH-36776)
+    auto sliced_offsets = offsets_w_nulls->Slice(2, 4);
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         ArrayType::FromArrays(*sliced_offsets, *values, pool_));
+    AssertArraysEqual(*result, *expected);
+  }
+
   void TestFromArrays() {
     std::shared_ptr<Array> offsets1, offsets2, offsets3, offsets4, offsets5, values;
 
@@ -586,6 +606,7 @@ TYPED_TEST(TestListArray, FromArrays) { this->TestFromArrays(); }
 
 TYPED_TEST(TestListArray, FromArraysWithNullBitMap) {
   this->TestFromArraysWithNullBitMap();
+  this->TestFromArraysWithSlicedNullBitmap();
 }
 
 TYPED_TEST(TestListArray, AppendNull) { this->TestAppendNull(); }
