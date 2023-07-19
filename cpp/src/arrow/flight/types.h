@@ -311,12 +311,6 @@ struct ARROW_FLIGHT_EXPORT BasicAuth {
   static arrow::Result<BasicAuth> Deserialize(std::string_view serialized);
   /// \brief Serialize this message to its wire-format representation.
   arrow::Result<std::string> SerializeToString() const;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized, BasicAuth* out);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Serialize(const BasicAuth& basic_auth, std::string* out);
 };
 
 /// \brief A request to retrieve or generate a dataset
@@ -349,17 +343,11 @@ struct ARROW_FLIGHT_EXPORT FlightDescriptor {
   /// services) that may want to return Flight types.
   arrow::Result<std::string> SerializeToString() const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status SerializeToString(std::string* out) const;
-
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<FlightDescriptor> Deserialize(std::string_view serialized);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized, FlightDescriptor* out);
 
   // Convenience factory functions
 
@@ -400,17 +388,11 @@ struct ARROW_FLIGHT_EXPORT Ticket {
   /// services) that may want to return Flight types.
   arrow::Result<std::string> SerializeToString() const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status SerializeToString(std::string* out) const;
-
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<Ticket> Deserialize(std::string_view serialized);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized, Ticket* out);
 };
 
 class FlightClient;
@@ -434,18 +416,12 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \brief Initialize a location by parsing a URI string
   static arrow::Result<Location> Parse(const std::string& uri_string);
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Parse(const std::string& uri_string, Location* location);
-
   /// \brief Initialize a location for a non-TLS, gRPC-based Flight
   /// service from a host and port
   /// \param[in] host The hostname to connect to
   /// \param[in] port The port
   /// \return Arrow result with the resulting location
   static arrow::Result<Location> ForGrpcTcp(const std::string& host, const int port);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status ForGrpcTcp(const std::string& host, const int port, Location* location);
 
   /// \brief Initialize a location for a TLS-enabled, gRPC-based Flight
   /// service from a host and port
@@ -454,17 +430,11 @@ struct ARROW_FLIGHT_EXPORT Location {
   /// \return Arrow result with the resulting location
   static arrow::Result<Location> ForGrpcTls(const std::string& host, const int port);
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status ForGrpcTls(const std::string& host, const int port, Location* location);
-
   /// \brief Initialize a location for a domain socket-based Flight
   /// service
   /// \param[in] path The path to the domain socket
   /// \return Arrow result with the resulting location
   static arrow::Result<Location> ForGrpcUnix(const std::string& path);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status ForGrpcUnix(const std::string& path, Location* location);
 
   /// \brief Initialize a location based on a URI scheme
   static arrow::Result<Location> ForScheme(const std::string& scheme,
@@ -576,10 +546,6 @@ struct ARROW_FLIGHT_EXPORT SchemaResult {
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                   std::shared_ptr<Schema>* out) const;
-
   const std::string& serialized_schema() const { return raw_schema_; }
 
   std::string ToString() const;
@@ -633,10 +599,6 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   arrow::Result<std::shared_ptr<Schema>> GetSchema(
       ipc::DictionaryMemo* dictionary_memo) const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status GetSchema(ipc::DictionaryMemo* dictionary_memo,
-                   std::shared_ptr<Schema>* out) const;
-
   const std::string& serialized_schema() const { return data_.schema; }
 
   /// The descriptor associated with this flight, may not be set
@@ -661,19 +623,12 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   /// services) that may want to return Flight types.
   arrow::Result<std::string> SerializeToString() const;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status SerializeToString(std::string* out) const;
-
   /// \brief Parse the wire-format representation of this type.
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
   static arrow::Result<std::unique_ptr<FlightInfo>> Deserialize(
       std::string_view serialized);
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  static Status Deserialize(const std::string& serialized,
-                            std::unique_ptr<FlightInfo>* out);
 
   std::string ToString() const;
 
@@ -727,9 +682,6 @@ class ARROW_FLIGHT_EXPORT FlightListing {
   /// \return Arrow result with a single FlightInfo. Set to \a nullptr if there
   /// are none left.
   virtual arrow::Result<std::unique_ptr<FlightInfo>> Next() = 0;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(std::unique_ptr<FlightInfo>* info);
 };
 
 /// \brief An iterator to Result instances returned by DoAction.
@@ -740,9 +692,6 @@ class ARROW_FLIGHT_EXPORT ResultStream {
   /// \brief Retrieve the next Result from the iterator.
   /// \return Arrow result with a single Result. Set to \a nullptr if there are none left.
   virtual arrow::Result<std::unique_ptr<Result>> Next() = 0;
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(std::unique_ptr<Result>* info);
 
   /// \brief Read and drop the remaining messages to get the error (if any) from a server.
   /// \return Status OK if this is no error from a server, any other status if a
@@ -770,20 +719,11 @@ class ARROW_FLIGHT_EXPORT MetadataRecordBatchReader {
   /// nullptr.
   virtual arrow::Result<FlightStreamChunk> Next() = 0;
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use Result-returning overload instead.")
-  Status Next(FlightStreamChunk* next);
-
   /// \brief Consume entire stream as a vector of record batches
   virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches();
 
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToRecordBatches instead.")
-  Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches);
-
   /// \brief Consume entire stream as a Table
   virtual arrow::Result<std::shared_ptr<Table>> ToTable();
-
-  ARROW_DEPRECATED("Deprecated in 8.0.0. Use ToTable instead.")
-  Status ReadAll(std::shared_ptr<Table>* table);
 };
 
 /// \brief Convert a MetadataRecordBatchReader to a regular RecordBatchReader.
