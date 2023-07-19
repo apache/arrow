@@ -64,36 +64,34 @@ Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_bu
 
   DCHECK_GT(offsets.null_count(), 0);
   const int64_t num_offsets = offsets.length();
-  {
-    if (!offsets.IsValid(num_offsets - 1)) {
-      return Status::Invalid("Last list offset should be non-null");
-    }
 
-    ARROW_ASSIGN_OR_RAISE(auto clean_offsets,
-                          AllocateBuffer(num_offsets * sizeof(offset_type), pool));
-
-    // Copy valid bits, ignoring the final offset (since for a length N list array,
-    // we have N + 1 offsets)
-    ARROW_ASSIGN_OR_RAISE(auto clean_validity_buffer,
-                          CopyBitmap(pool, offsets.null_bitmap()->data(),
-                                     offsets.offset(), num_offsets - 1));
-
-    const offset_type* raw_offsets =
-        checked_cast<const OffsetArrayType&>(offsets).raw_values();
-    auto clean_raw_offsets =
-        reinterpret_cast<offset_type*>(clean_offsets->mutable_data());
-
-    // Must work backwards so we can tell how many values were in the last non-null value
-    offset_type current_offset = raw_offsets[num_offsets - 1];
-    for (int64_t i = num_offsets - 1; i >= 0; --i) {
-      if (offsets.IsValid(i)) {
-        current_offset = raw_offsets[i];
-      }
-      clean_raw_offsets[i] = current_offset;
-    }
-
-    return BufferVector({std::move(clean_validity_buffer), std::move(clean_offsets)});
+  if (!offsets.IsValid(num_offsets - 1)) {
+    return Status::Invalid("Last list offset should be non-null");
   }
+
+  ARROW_ASSIGN_OR_RAISE(auto clean_offsets,
+                        AllocateBuffer(num_offsets * sizeof(offset_type), pool));
+
+  // Copy valid bits, ignoring the final offset (since for a length N list array,
+  // we have N + 1 offsets)
+  ARROW_ASSIGN_OR_RAISE(
+      auto clean_validity_buffer,
+      CopyBitmap(pool, offsets.null_bitmap()->data(), offsets.offset(), num_offsets - 1));
+
+  const offset_type* raw_offsets =
+      checked_cast<const OffsetArrayType&>(offsets).raw_values();
+  auto clean_raw_offsets = reinterpret_cast<offset_type*>(clean_offsets->mutable_data());
+
+  // Must work backwards so we can tell how many values were in the last non-null value
+  offset_type current_offset = raw_offsets[num_offsets - 1];
+  for (int64_t i = num_offsets - 1; i >= 0; --i) {
+    if (offsets.IsValid(i)) {
+      current_offset = raw_offsets[i];
+    }
+    clean_raw_offsets[i] = current_offset;
+  }
+
+  return BufferVector({std::move(clean_validity_buffer), std::move(clean_offsets)});
 }
 
 template <typename TYPE>
