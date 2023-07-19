@@ -128,8 +128,9 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
   ARROW_ASSIGN_OR_RAISE(auto buffers, CleanListOffsets<TYPE>(null_bitmap, offsets, pool));
   int64_t null_count_ = null_bitmap ? null_count : offsets.null_count();
 
+  const int64_t offset = offsets.null_count() > 0 ? 0 : offsets.offset();
   std::shared_ptr<arrow::ArrayData> internal_data = ArrayData::Make(
-      type, offsets.length() - 1, std::move(buffers), null_count_, offsets.offset());
+      type, offsets.length() - 1, std::move(buffers), null_count_, offset);
   internal_data->child_data.push_back(values.data());
   return std::make_shared<ArrayType>(internal_data);
 }
