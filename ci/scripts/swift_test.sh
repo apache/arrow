@@ -30,3 +30,8 @@ source_dir=${1}/swift/Arrow
 pushd ${source_dir}
 swift test
 popd
+
+source_dir=${1}/swift/ArrowFlight
+pushd ${source_dir}
+swift test
+popd
