@@ -33,8 +33,6 @@ namespace Apache.Arrow
 
         public IReadOnlyDictionary<string, string> Metadata { get; }
 
-        public override string ToString() => $"{nameof(Field)}: Name={Name}, Data type={DataType.Name}, IsNullable={IsNullable}, Num metadata={Metadata?.Count}";
-
         public Field(string name, IArrowType dataType, bool nullable,
             IEnumerable<KeyValuePair<string, string>> metadata = default)
             : this(name, dataType, nullable)
@@ -63,5 +61,7 @@ namespace Apache.Arrow
             DataType = dataType ?? NullType.Default;
             IsNullable = nullable;
         }
+
+        public override string ToString() => $"{nameof(Field)}: Name={Name}, DataType={DataType.Name}, IsNullable={IsNullable}, Metadata count={Metadata?.Count ?? 0}";
     }
 }

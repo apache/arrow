@@ -94,6 +94,6 @@ namespace Apache.Arrow
             return new RecordBatch(Schema, arrays, Length);
         }
 
-        public override string ToString() => $"{nameof(RecordBatch)}: Length={Length}, ColumnCount={ColumnCount}";
+        public override string ToString() => $"{nameof(RecordBatch)}: {ColumnCount} columns by {Length} rows";
     }
 }
