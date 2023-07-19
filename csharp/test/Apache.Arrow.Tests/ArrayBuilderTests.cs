@@ -40,8 +40,8 @@ namespace Apache.Arrow.Tests
             Test<Half, HalfFloatArray, HalfFloatArray.Builder>();
             Test<float, FloatArray, FloatArray.Builder>();
             Test<double, DoubleArray, DoubleArray.Builder>();
-            Test<int, Time32Array, Time32Array.Builder>();
-            Test<long, Time64Array, Time64Array.Builder>();
+            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
 
             static void Test<T, TArray, TBuilder>()
                 where T : struct, INumber<T>
@@ -64,8 +64,8 @@ namespace Apache.Arrow.Tests
             Test<Half, HalfFloatArray, HalfFloatArray.Builder>();
             Test<float, FloatArray, FloatArray.Builder>();
             Test<double, DoubleArray, DoubleArray.Builder>();
-            Test<int, Time32Array, Time32Array.Builder>();
-            Test<long, Time64Array, Time64Array.Builder>();
+            TestArrayBuilder<Time32Array, Time32Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x9);
+            TestArrayBuilder<Time64Array, Time64Array.Builder>(x => x.Append(123).AppendNull().AppendNull().Append(127), 4, 2, 0x9);
 
             static void Test<T, TArray, TBuilder>()
                 where T : struct, INumber<T>

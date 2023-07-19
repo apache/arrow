@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="!$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net6.0'))">
+    <Compile Remove="TimeOnlyTests.cs" />
+  </ItemGroup>
+  
 </Project>

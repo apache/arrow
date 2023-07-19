@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
 using System.IO;
 
 namespace Apache.Arrow
@@ -27,14 +28,19 @@ namespace Apache.Arrow
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time32Array"/> objects.
         /// </summary>
-        public class Builder : PrimitiveArrayBuilder<int, Time32Array, Builder>
+        public class Builder : TimeArrayBuilder<int, Time32Array, Builder>
         {
-            protected override Time32Array Build(
-                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
-                int length, int nullCount, int offset) =>
-                new Time32Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
-            
-            protected Time32Type DataType { get; }
+            private class TimeBuilder : PrimitiveArrayBuilder<int, Time32Array, TimeBuilder>
+            {
+                public Time32Type DataType { get; }
+
+                public TimeBuilder(Time32Type dataType) => DataType = dataType;
+
+                protected override Time32Array Build(
+                    ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                    int length, int nullCount, int offset) =>
+                    new Time32Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+            }
 
             public Builder()
                 : this(Time32Type.Default) { }
@@ -46,10 +52,22 @@ namespace Apache.Arrow
             /// Construct a new instance of the <see cref="Builder"/> class.
             /// </summary>
             public Builder(Time32Type type)
-                : base()
+                : base(new TimeBuilder(type))
             {
-                DataType = type;
             }
+
+#if NET6_0_OR_GREATER
+            protected override int Convert(TimeOnly time)
+            {
+                var unit = ((TimeBuilder)InnerBuilder).DataType.Unit;
+                return unit switch
+                {
+                    TimeUnit.Second => (int)(time.Ticks / TimeSpan.TicksPerSecond),
+                    TimeUnit.Millisecond => (int)(time.Ticks / TimeSpan.TicksPerMillisecond),
+                    _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                };
+            }
+#endif
         }
 
         public Time32Array(
@@ -113,5 +131,30 @@ namespace Apache.Arrow
                 _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
             };
         }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Get the time at the specified index as <see cref="TimeOnly"/>
+        /// </summary>
+        /// <param name="index">Index at which to get the time.</param>
+        /// <returns>Returns a <see cref="TimeOnly" />, or <c>null</c> if there is no object at that index.
+        /// </returns>
+        public TimeOnly? GetTime(int index)
+        {
+            int? value = GetValue(index);
+            if (value == null)
+            {
+                return null;
+            }
+
+            var unit = ((Time32Type)Data.DataType).Unit;
+            return unit switch
+            {
+                TimeUnit.Second => new TimeOnly(value.Value * TimeSpan.TicksPerSecond),
+                TimeUnit.Millisecond => new TimeOnly(value.Value * TimeSpan.TicksPerMillisecond),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+            };
+        }
+#endif
     }
 }
