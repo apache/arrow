@@ -1046,42 +1046,51 @@ using ToDoubleTestParam = ToRealTestParam<double>;
 template <typename Decimal, typename Real>
 void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real expected) {
   Decimal dec(decimal_value);
-  ASSERT_EQ(dec.template ToReal<Real>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_EQ(actual, expected) << "Decimal value: " << decimal_value
+                              << ", scale: " << scale << ", expected: " << expected
+                              << ", actual: " << actual;
 }
 
 template <typename Decimal, typename Real>
 void CheckDecimalToRealWithinOneULP(const std::string& decimal_value, int32_t scale,
                                     Real expected) {
   Decimal dec(decimal_value);
-  auto result = dec.template ToReal<Real>(scale);
-  ASSERT_TRUE(result == expected || result == std::nextafter(expected, expected + 1) ||
-              result == std::nextafter(expected, expected - 1))
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_TRUE(actual == expected || actual == std::nextafter(expected, expected + 1) ||
+              actual == std::nextafter(expected, expected - 1))
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal, typename Real>
 void CheckDecimalToRealWithinEpsilon(const std::string& decimal_value, int32_t scale,
                                      Real epsilon, Real expected) {
   Decimal dec(decimal_value);
-  ASSERT_TRUE(std::abs(dec.template ToReal<Real>(scale) - expected) <= epsilon)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_TRUE(std::abs(actual - expected) <= epsilon)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               float expected) {
   Decimal dec(decimal_value);
-  ASSERT_FLOAT_EQ(dec.template ToReal<float>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  float actual = dec.template ToReal<float>(scale);
+  ASSERT_FLOAT_EQ(actual, expected)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               double expected) {
   Decimal dec(decimal_value);
-  ASSERT_DOUBLE_EQ(dec.template ToReal<double>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  double actual = dec.template ToReal<double>(scale);
+  ASSERT_DOUBLE_EQ(actual, expected)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 // Common tests for Decimal128::ToReal<T> and Decimal256::ToReal<T>
