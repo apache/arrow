@@ -949,12 +949,13 @@ TEST_F(TestReadingDataFiles, ByteArrayDecimal) {
 
 class TestMultiRowGroupStreamReader : public ::testing::Test {
  public:
-  TestMultiRowGroupStreamReader() { createTestFile(); }
+  TestMultiRowGroupStreamReader() {}
 
  protected:
   const char* GetDataFile() const { return "stream_reader_multirowgroup_test.parquet"; }
 
   void SetUp() {
+    CreateTestFile();
     PARQUET_ASSIGN_OR_THROW(auto infile, ::arrow::io::ReadableFile::Open(GetDataFile()));
     auto file_reader = parquet::ParquetFileReader::Open(infile);
     reader_ = StreamReader{std::move(file_reader)};
@@ -983,8 +984,8 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
     StreamWriter os{std::move(file_writer)};
 
     int nrows = 0;
-    for (auto group = 0; group < num_row_groups; ++group) {
-      for (auto i = 0; i < num_rows_per_group; ++i) {
+    for (auto group = 0; group < kNumGroups; ++group) {
+      for (auto i = 0; i < kNumRowsPerGroup; ++i) {
         os << static_cast<uint16_t>(group);
         os << static_cast<uint64_t>(nrows);
         os << EndRow;
@@ -992,6 +993,16 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
       }
       os.EndRowGroup();
     }
+  }
+
+  void ReadRowAndAssertPosition(uint64_t expected_row_num) {
+    const uint16_t expected_group_num = expected_row_num / kNumRowsPerGroup;
+    ASSERT_FALSE(reader_.eof());
+    uint16_t group_num = 0;
+    uint64_t row_num = 0;
+    reader_ >> group_num >> row_num >> EndRow;
+    ASSERT_EQ(group_num, expected_group_num);
+    ASSERT_EQ(row_num, expected_row_num);
   }
 
   StreamReader reader_;
@@ -1005,50 +1016,27 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
 
   auto retval = reader_.SkipRows(current_row);
   ASSERT_EQ(retval, current_row);
+  ReadRowAndAssertPosition(current_row);
+  // reading the row advances by 1
+  current_row += 1;  // row=34
 
-  // there are 50 total rows, so definitely not EOF
-  ASSERT_FALSE(reader_.eof());
-
-  // make sure we skipped to where we expected
-  uint16_t current_row_group = 0;
-  uint64_t current_global_row = 0;
-  reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, current_row / kNumRowsPerGroup);
-
-  reader_ >> current_global_row;
-  EXPECT_EQ(current_global_row, current_row);
-  reader_.EndRow();
-
-  // skip a few more rows but stay inside of this row group
+  // skip a few more but stay inside the row group
   retval = reader_.SkipRows(4);
-  ASSERT_GE(retval, 0);
+  current_row += 4;  // row=38
+  ASSERT_EQ(retval, 4);
+  ReadRowAndAssertPosition(current_row);
+  current_row += 1;  // row=39
 
-  // we read row 38 (were at 34, then skipped 4 => 38)
-  current_row = 38;
-  reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, current_row / kNumRowsPerGroup);
-
-  reader_ >> current_global_row;
-  EXPECT_EQ(current_global_row, current_row);
-  reader_.EndRow();
-
-  // skip to the exact start of the next row group 4
-  // read 38 (were at 39, then skip 1 => 40)
+  // skip one more row to get to a group boundary
   retval = reader_.SkipRows(1);
-  ASSERT_GE(retval, 0);
-
-  current_row = 40;
-  reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, 4);
-
-  reader_ >> current_global_row;
-  EXPECT_EQ(current_global_row, 40);
-  reader_.EndRow();
+  current_row += 1;  // row=40
+  ASSERT_EQ(retval, 1);
+  ReadRowAndAssertPosition(current_row);
+  current_row += 1;  // row=41
 
   // finally, skip off the end of the file
   retval = reader_.SkipRows(10);
-  ASSERT_GE(retval, 0);
-
+  ASSERT_EQ(retval, 9);  // requested to skip 10 but only 9 rows left in file
   EXPECT_TRUE(reader_.eof());
 }
 
