@@ -996,7 +996,7 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
   }
 
   void ReadRowAndAssertPosition(uint64_t expected_row_num) {
-    const uint16_t expected_group_num = expected_row_num / kNumRowsPerGroup;
+    const uint16_t expected_group_num = ((uint16_t)expected_row_num) / kNumRowsPerGroup;
     ASSERT_FALSE(reader_.eof());
     uint16_t group_num = 0;
     uint64_t row_num = 0;
