@@ -77,7 +77,7 @@ final class MyFlightServer : ArrowFlightServer {
             
             let rb = try makeRecordBatch()
             try await writer.write(rb)
-        }catch {
+        } catch {
             print("Unknown error: \(error)")
         }
     }
@@ -142,13 +142,13 @@ struct FlightServerImpl {
             print("server started on port \(server!.channel.localAddress!.port!)")
 
             // Wait on the server's `onClose` future to stop the program from exiting.
-        }catch {
+        } catch {
             print("Unknown server error: \(error)")
         }
     }
 }
 
-public class FlightClientImpl {
+public class FlightClientTester {
     var client: FlightClient?
     var group: MultiThreadedEventLoopGroup?
     var channel: GRPCChannel?
@@ -248,10 +248,21 @@ public class FlightClientImpl {
     }
 }
 
-var serverup = false
+actor FlightServerData {
+    public var serverup = false
+    func SetServerUp(_ serverUp: Bool) {
+        self.serverup = serverUp
+    }
+    
+    func IsServerUp() -> Bool {
+        return serverup
+    }
+}
+
 final class FlightTest: XCTestCase {
+    let serverData = FlightServerData()
+    
     func testFlightServer() async throws {
-                
         let basicTask = Task {
             try await FlightServerImpl.run()
             defer {
@@ -259,7 +270,7 @@ final class FlightTest: XCTestCase {
                 try! FlightServerImpl.group?.syncShutdownGracefully()
             }
             
-            serverup = true
+            await serverData.SetServerUp(true)
             try await FlightServerImpl.server?.onClose.get()
             return "done"
         }
@@ -269,11 +280,11 @@ final class FlightTest: XCTestCase {
                 _ = FlightServerImpl.server?.close()
             }
             
-            while !serverup {
+            while await !serverData.IsServerUp() {
                 try await Task.sleep(nanoseconds: 1_000_000)
             }
             
-            let clientImpl = try await FlightClientImpl()
+            let clientImpl = try await FlightClientTester()
             try await clientImpl.listActionTest()
             try await clientImpl.listFlightsTest()
             try await clientImpl.doActionTest()

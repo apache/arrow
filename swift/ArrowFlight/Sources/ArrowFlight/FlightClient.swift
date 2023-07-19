@@ -35,7 +35,7 @@ public class FlightClient {
         }
     }
     
-    public func listFlights(_ criteria :FlightCriteria, closure: (FlightInfo) throws -> Void ) async throws {
+    public func listFlights(_ criteria :FlightCriteria, closure: (FlightInfo) throws -> Void) async throws {
         let listFlights = client.makeListFlightsCall(criteria.toProtocol())
         for try await data in listFlights.responseStream {
             try closure(FlightInfo(data));

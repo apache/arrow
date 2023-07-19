@@ -44,12 +44,12 @@ public class RecordBatchStreamReader: AsyncSequence, AsyncIteratorProtocol {
         }
          
         while true {
-            let flight_data = try await self.streamIterator.next()
-            if flight_data == nil {
+            let flightData = try await self.streamIterator.next()
+            if flightData == nil {
                 return nil
             }
             
-            let data = (flight_data as! Arrow_Flight_Protocol_FlightData).dataBody
+            let data = (flightData as! Arrow_Flight_Protocol_FlightData).dataBody
             switch reader.fromStream(data) {
             case .success(let rbResult):
                 batches = rbResult.batches
