@@ -631,12 +631,12 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
 }
 
 const FunctionDoc in_doc{
-    "Find each element in a set of values in sql-compatible way",
+    "Find each element in a set of values in a sql-compatible way",
     ("For each element in `values`, return true if it is found in a given\n"
      "set of values. null in `values` will directly return null.\n"
      "each elelement of `values` that isn't contained in the set of values\n"
      "will return null if the the set of values contains null and return\n"
-     "false if the the set of values doesn't contains null.\n"
+     "false if the the set of values doesn't contain null.\n"
      "The set of values to look for must be given in SetLookupOptions.\n"
      "the parameter skip_nulls in SetLookupOptions is ignored in this Function"),
     {"values"},
@@ -644,11 +644,11 @@ const FunctionDoc in_doc{
     /*options_required=*/true};
 
 const FunctionDoc in_meta_doc{
-    "Find each element in a set of values in sql-compatible way",
+    "Find each element in a set of values in a sql-compatible way",
     ("For each element in `values`, return true if it is found in `value_set`,\n"
      "null in `values` will directly return null.\n"
      "each elelement of `values` that isn't contained in `value_set`\n"
-     "will return null if the `value_set` contains null and return\n"
+     "will return null if the `value_set` contain null and return\n"
      "false if the `value_set` doesn't contains null."),
     {"values", "value_set"}};
 
