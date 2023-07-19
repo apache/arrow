@@ -205,7 +205,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
         ComputeColumnChunkRange(file_metadata_, source_size_, row_group_ordinal_, i);
     std::shared_ptr<ArrowInputStream> stream;
     if (cached_source_ && prebuffered_column_chunks_bitmap_ != nullptr &&
-        ::arrow::bit_util::GetBit(prebuffered_column_chunks_bitmap_->mutable_data(), i)) {
+        ::arrow::bit_util::GetBit(prebuffered_column_chunks_bitmap_->data(), i)) {
       // PARQUET-1698: if read coalescing is enabled, read from pre-buffered
       // segments.
       PARQUET_ASSIGN_OR_THROW(auto buffer, cached_source_->Read(col_range));
@@ -370,8 +370,7 @@ class SerializedFile : public ParquetFileReader::Contents {
       std::shared_ptr<Buffer>& col_bitmap = prebuffered_column_chunks_[row];
       int num_cols = file_metadata_->num_columns();
       PARQUET_THROW_NOT_OK(
-          AllocateBitmap(num_cols, properties_.memory_pool()).Value(&col_bitmap));
-      memset(col_bitmap->mutable_data(), 0, col_bitmap->size());
+          AllocateEmptyBitmap(num_cols, properties_.memory_pool()).Value(&col_bitmap));
       for (int col : column_indices) {
         ::arrow::bit_util::SetBit(col_bitmap->mutable_data(), col);
         ranges.push_back(
