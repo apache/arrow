@@ -683,13 +683,5 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
 
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
-ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
-                                             ExecContext* ctx = NULLPTR);
-
 }  // namespace compute
 }  // namespace arrow

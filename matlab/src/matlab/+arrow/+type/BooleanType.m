@@ -17,8 +17,12 @@ classdef BooleanType < arrow.type.FixedWidthType
 %BOOLEANTYPE Type class for boolean data.
     
     methods 
-        function obj = BooleanType()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.BooleanType", "ConstructorArguments", {})
+        function obj = BooleanType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.BooleanType")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

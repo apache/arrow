@@ -17,8 +17,12 @@ classdef UInt8Type < arrow.type.FixedWidthType
 %UINT8TYPE Type class for uint8 data.
     
     methods 
-        function obj = UInt8Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.UInt8Type", "ConstructorArguments", {})
+        function obj = UInt8Type(proxy)
+           arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.UInt8Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end
