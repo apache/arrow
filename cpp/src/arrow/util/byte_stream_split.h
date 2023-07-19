@@ -39,9 +39,9 @@ void ByteStreamSplitDecodeSse2(const uint8_t* data, int64_t num_values, int64_t 
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   constexpr size_t kNumStreamsLog2 = (kNumStreams == 8U ? 3U : 2U);
+  constexpr int64_t kBlockSize = sizeof(__m128i) * kNumStreams;
 
   const int64_t size = num_values * sizeof(T);
-  constexpr int64_t kBlockSize = sizeof(__m128i) * kNumStreams;
   const int64_t num_blocks = size / kBlockSize;
   uint8_t* output_data = reinterpret_cast<uint8_t*>(out);
 
@@ -92,11 +92,12 @@ void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const size_t num_value
                                uint8_t* output_buffer_raw) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
+  constexpr size_t kBlockSize = sizeof(__m128i) * kNumStreams;
+
   __m128i stage[3][kNumStreams];
   __m128i final_result[kNumStreams];
 
   const size_t size = num_values * sizeof(T);
-  constexpr size_t kBlockSize = sizeof(__m128i) * kNumStreams;
   const size_t num_blocks = size / kBlockSize;
   const __m128i* raw_values_sse = reinterpret_cast<const __m128i*>(raw_values);
   __m128i* output_buffer_streams[kNumStreams];
@@ -143,7 +144,7 @@ void ByteStreamSplitEncodeSse2(const uint8_t* raw_values, const size_t num_value
             _mm_unpackhi_epi8(stage[stage_lvl][i * 2], stage[stage_lvl][i * 2 + 1]);
       }
     }
-    if (kNumStreams == 8U) {
+    if constexpr (kNumStreams == 8U) {
       // This is the path for double.
       __m128i tmp[8];
       for (size_t i = 0; i < 4; ++i) {
@@ -181,9 +182,9 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   constexpr size_t kNumStreamsLog2 = (kNumStreams == 8U ? 3U : 2U);
+  constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
 
   const int64_t size = num_values * sizeof(T);
-  constexpr int64_t kBlockSize = sizeof(__m256i) * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
     return ByteStreamSplitDecodeSse2(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
@@ -220,7 +221,7 @@ void ByteStreamSplitDecodeAvx2(const uint8_t* data, int64_t num_values, int64_t 
       }
     }
 
-    if (kNumStreams == 8U) {
+    if constexpr (kNumStreams == 8U) {
       // path for double, 128i index:
       //   {0x00, 0x08}, {0x01, 0x09}, {0x02, 0x0A}, {0x03, 0x0B},
       //   {0x04, 0x0C}, {0x05, 0x0D}, {0x06, 0x0E}, {0x07, 0x0F},
@@ -266,11 +267,12 @@ void ByteStreamSplitEncodeAvx2(const uint8_t* raw_values, const size_t num_value
                                uint8_t* output_buffer_raw) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
-  if (kNumStreams == 8U)  // Back to SSE, currently no path for double.
+  constexpr size_t kBlockSize = sizeof(__m256i) * kNumStreams;
+
+  if constexpr (kNumStreams == 8U)  // Back to SSE, currently no path for double.
     return ByteStreamSplitEncodeSse2<T>(raw_values, num_values, output_buffer_raw);
 
   const size_t size = num_values * sizeof(T);
-  constexpr size_t kBlockSize = sizeof(__m256i) * kNumStreams;
   if (size < kBlockSize)  // Back to SSE for small size
     return ByteStreamSplitEncodeSse2<T>(raw_values, num_values, output_buffer_raw);
   const size_t num_blocks = size / kBlockSize;
@@ -339,9 +341,9 @@ void ByteStreamSplitDecodeAvx512(const uint8_t* data, int64_t num_values, int64_
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
   constexpr size_t kNumStreamsLog2 = (kNumStreams == 8U ? 3U : 2U);
+  constexpr int64_t kBlockSize = sizeof(__m512i) * kNumStreams;
 
   const int64_t size = num_values * sizeof(T);
-  constexpr int64_t kBlockSize = sizeof(__m512i) * kNumStreams;
   if (size < kBlockSize)  // Back to AVX2 for small size
     return ByteStreamSplitDecodeAvx2(data, num_values, stride, out);
   const int64_t num_blocks = size / kBlockSize;
@@ -379,7 +381,7 @@ void ByteStreamSplitDecodeAvx512(const uint8_t* data, int64_t num_values, int64_
       }
     }
 
-    if (kNumStreams == 8U) {
+    if constexpr (kNumStreams == 8U) {
       // path for double, 128i index:
       // {0x00, 0x04, 0x08, 0x0C}, {0x10, 0x14, 0x18, 0x1C},
       // {0x01, 0x05, 0x09, 0x0D}, {0x11, 0x15, 0x19, 0x1D},
@@ -442,8 +444,10 @@ void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_val
                                  uint8_t* output_buffer_raw) {
   constexpr size_t kNumStreams = sizeof(T);
   static_assert(kNumStreams == 4U || kNumStreams == 8U, "Invalid number of streams.");
-  const size_t size = num_values * sizeof(T);
   constexpr size_t kBlockSize = sizeof(__m512i) * kNumStreams;
+
+  const size_t size = num_values * sizeof(T);
+
   if (size < kBlockSize)  // Back to AVX2 for small size
     return ByteStreamSplitEncodeAvx2<T>(raw_values, num_values, output_buffer_raw);
 
@@ -469,7 +473,7 @@ void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_val
   __m512i unpack[KNumUnpack + 1][kNumStreams];
   __m512i permutex[kNumStreams];
   __m512i permutex_mask;
-  if (kNumStreams == 8U) {
+  if constexpr (kNumStreams == 8U) {
     // use _mm512_set_epi32, no _mm512_set_epi16 for some old gcc version.
     permutex_mask = _mm512_set_epi32(0x001F0017, 0x000F0007, 0x001E0016, 0x000E0006,
                                      0x001D0015, 0x000D0005, 0x001C0014, 0x000C0004,
@@ -494,7 +498,7 @@ void ByteStreamSplitEncodeAvx512(const uint8_t* raw_values, const size_t num_val
       }
     }
 
-    if (kNumStreams == 8U) {
+    if constexpr (kNumStreams == 8U) {
       // path for double
       // 1. unpack to epi16 block
       // 2. permutexvar_epi16 to 128i block
