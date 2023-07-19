@@ -1068,7 +1068,7 @@ void CheckDecimalToRealWithinEpsilon(const std::string& decimal_value, int32_t s
                                      Real epsilon, Real expected) {
   Decimal dec(decimal_value);
   Real actual = dec.template ToReal<Real>(scale);
-  ASSERT_TRUE(std::abs(actual - expected) <= epsilon)
+  ASSERT_LE(std::abs(actual - expected), epsilon)
       << "Decimal value: " << decimal_value << ", scale: " << scale
       << ", expected: " << expected << ", actual: " << actual;
 }
