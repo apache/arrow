@@ -437,7 +437,11 @@ cdef class MessageReader(_Weakrefable):
 
     def __iter__(self):
         while True:
-            yield self.read_next_message()
+            try:
+                yield self.read_next_message()
+            except StopIteration:
+                # For Cython >= 3.0.0
+                return
 
     def read_next_message(self):
         """
@@ -660,6 +664,7 @@ cdef class RecordBatchReader(_Weakrefable):
             try:
                 yield self.read_next_batch()
             except StopIteration:
+                # For Cython >= 3.0.0
                 return
 
     @property
