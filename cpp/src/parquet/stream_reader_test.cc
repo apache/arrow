@@ -974,7 +974,7 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
         schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
   }
 
-  void createTestFile() {
+  void CreateTestFile() {
     PARQUET_ASSIGN_OR_THROW(auto outfile,
                             ::arrow::io::FileOutputStream::Open(GetDataFile()));
 
@@ -995,8 +995,8 @@ class TestMultiRowGroupStreamReader : public ::testing::Test {
   }
 
   StreamReader reader_;
-  static constexpr int num_row_groups = 5;
-  static constexpr int num_rows_per_group = 10;
+  static constexpr int kNumGroups = 5;
+  static constexpr int kNumRowsPerGroup = 10;
 };
 
 TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
@@ -1004,7 +1004,7 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   auto current_row = 33;
 
   auto retval = reader_.SkipRows(current_row);
-  ASSERT_GE(retval, 0);
+  ASSERT_EQ(retval, current_row);
 
   // there are 50 total rows, so definitely not EOF
   ASSERT_FALSE(reader_.eof());
@@ -1013,7 +1013,7 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   uint16_t current_row_group = 0;
   uint64_t current_global_row = 0;
   reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, current_row / 10);
+  EXPECT_EQ(current_row_group, current_row / kNumRowsPerGroup);
 
   reader_ >> current_global_row;
   EXPECT_EQ(current_global_row, current_row);
@@ -1023,10 +1023,10 @@ TEST_F(TestMultiRowGroupStreamReader, SkipRows) {
   retval = reader_.SkipRows(4);
   ASSERT_GE(retval, 0);
 
-  // we read row 33 (were at 34, then skipped 4 => 38)
+  // we read row 38 (were at 34, then skipped 4 => 38)
   current_row = 38;
   reader_ >> current_row_group;
-  EXPECT_EQ(current_row_group, current_row / 10);
+  EXPECT_EQ(current_row_group, current_row / kNumRowsPerGroup);
 
   reader_ >> current_global_row;
   EXPECT_EQ(current_global_row, current_row);
