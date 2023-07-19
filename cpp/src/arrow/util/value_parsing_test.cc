@@ -119,6 +119,9 @@ TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("0", 0.0f);
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
+  AssertConversion<FloatType>("+Infinity", std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("-Infinity", -std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("Infinity", std::numeric_limits<float>::infinity());
 
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
@@ -135,6 +138,9 @@ TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("0", 0);
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
+  AssertConversion<DoubleType>("+Infinity", std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("-Infinity", -std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("Infinity", std::numeric_limits<double>::infinity());
 
   AssertConversionFails<DoubleType>("");
   AssertConversionFails<DoubleType>("e");
