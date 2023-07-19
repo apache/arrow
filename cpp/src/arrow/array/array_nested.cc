@@ -75,9 +75,9 @@ Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_bu
 
     // Copy valid bits, ignoring the final offset (since for a length N list array,
     // we have N + 1 offsets)
-    ARROW_ASSIGN_OR_RAISE(
-        auto clean_validity_buffer,
-        offsets.null_bitmap()->CopySlice(0, bit_util::BytesForBits(num_offsets - 1)));
+    ARROW_ASSIGN_OR_RAISE(auto clean_validity_buffer,
+                          CopyBitmap(pool, offsets.null_bitmap()->data(),
+                                     offsets.offset(), num_offsets - 1));
 
     const offset_type* raw_offsets = typed_offsets.raw_values();
     auto clean_raw_offsets =
