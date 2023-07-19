@@ -75,7 +75,7 @@ class ARROW_EXPORT Buffer {
         size_(size),
         capacity_(size),
         parent_(std::move(parent)) {
-    // will set device_type from the memory manager
+    // SetMemoryManager will also set device_type_
     SetMemoryManager(std::move(mm));
     // if a device type is specified, use that instead. for example:
     // CUDA_HOST. The CudaMemoryManager will set device_type_ to CUDA,
