@@ -52,6 +52,9 @@ using internal::CopyBitmap;
 
 namespace {
 
+/// \brief Clean offsets when their null_count is greater than 0
+///
+/// \pre offsets.null_count() > 0
 template <typename TYPE>
 Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_buffer,
                                       const Array& offsets, MemoryPool* pool) {
@@ -59,13 +62,9 @@ Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_bu
   using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
   using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
 
-  const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
+  DCHECK_GT(offsets.null_count(), 0);
   const int64_t num_offsets = offsets.length();
-
-  DCHECK(validity_buffer == nullptr || offsets.null_count() == 0)
-      << "When a validity_buffer is passed, offsets must have no nulls";
-
-  if (offsets.null_count() > 0) {
+  {
     if (!offsets.IsValid(num_offsets - 1)) {
       return Status::Invalid("Last list offset should be non-null");
     }
@@ -79,7 +78,8 @@ Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_bu
                           CopyBitmap(pool, offsets.null_bitmap()->data(),
                                      offsets.offset(), num_offsets - 1));
 
-    const offset_type* raw_offsets = typed_offsets.raw_values();
+    const offset_type* raw_offsets =
+        checked_cast<const OffsetArrayType&>(offsets).raw_values();
     auto clean_raw_offsets =
         reinterpret_cast<offset_type*>(clean_offsets->mutable_data());
 
@@ -94,8 +94,6 @@ Result<BufferVector> CleanListOffsets(const std::shared_ptr<Buffer>& validity_bu
 
     return BufferVector({std::move(clean_validity_buffer), std::move(clean_offsets)});
   }
-
-  return BufferVector({validity_buffer, typed_offsets.values()});
 }
 
 template <typename TYPE>
@@ -124,15 +122,21 @@ Result<std::shared_ptr<typename TypeTraits<TYPE>::ArrayType>> ListArrayFromArray
     return Status::NotImplemented("Null bitmap with offsets slice not supported.");
   }
 
-  std::shared_ptr<Buffer> offset_buf, validity_buf;
-  ARROW_ASSIGN_OR_RAISE(auto buffers, CleanListOffsets<TYPE>(null_bitmap, offsets, pool));
-  int64_t null_count_ = null_bitmap ? null_count : offsets.null_count();
+  // Clean the offsets if they contain nulls.
+  if (offsets.null_count() > 0) {
+    ARROW_ASSIGN_OR_RAISE(auto buffers,
+                          CleanListOffsets<TYPE>(null_bitmap, offsets, pool));
+    auto data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+                                {values.data()}, offsets.null_count(), /*offset=*/0);
+    return std::make_shared<ArrayType>(std::move(data));
+  }
 
-  const int64_t offset = offsets.null_count() > 0 ? 0 : offsets.offset();
-  std::shared_ptr<arrow::ArrayData> internal_data = ArrayData::Make(
-      type, offsets.length() - 1, std::move(buffers), null_count_, offset);
-  internal_data->child_data.push_back(values.data());
-  return std::make_shared<ArrayType>(internal_data);
+  using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
+  const auto& typed_offsets = checked_cast<const OffsetArrayType&>(offsets);
+  auto buffers = BufferVector({std::move(null_bitmap), typed_offsets.values()});
+  auto data = ArrayData::Make(type, offsets.length() - 1, std::move(buffers),
+                              {values.data()}, null_count, offsets.offset());
+  return std::make_shared<ArrayType>(std::move(data));
 }
 
 static std::shared_ptr<Array> SliceArrayWithOffsets(const Array& array, int64_t begin,
@@ -375,10 +379,18 @@ Result<std::shared_ptr<Array>> MapArray::FromArraysInternal(
     return Status::Invalid("Map key and item arrays must be equal length");
   }
 
-  ARROW_ASSIGN_OR_RAISE(auto buffers, CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
+  if (offsets->null_count() > 0) {
+    ARROW_ASSIGN_OR_RAISE(auto buffers,
+                          CleanListOffsets<MapType>(NULLPTR, *offsets, pool));
+    return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers),
+                                      keys, items, offsets->null_count(), 0);
+  }
 
+  using OffsetArrayType = typename TypeTraits<OffsetArrowType>::ArrayType;
+  const auto& typed_offsets = checked_cast<const OffsetArrayType&>(*offsets);
+  auto buffers = BufferVector({nullptr, typed_offsets.values()});
   return std::make_shared<MapArray>(type, offsets->length() - 1, std::move(buffers), keys,
-                                    items, offsets->null_count(), offsets->offset());
+                                    items, /*null_count=*/0, offsets->offset());
 }
 
 Result<std::shared_ptr<Array>> MapArray::FromArrays(const std::shared_ptr<Array>& offsets,
