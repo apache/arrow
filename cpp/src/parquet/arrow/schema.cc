@@ -63,9 +63,7 @@ using parquet::LogicalType;
 
 using parquet::internal::LevelInfo;
 
-namespace parquet {
-
-namespace arrow {
+namespace parquet::arrow {
 
 // ----------------------------------------------------------------------
 // Parquet to Arrow schema conversion
@@ -1106,5 +1104,4 @@ Status SchemaManifest::Make(const SchemaDescriptor* schema,
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

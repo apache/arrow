@@ -67,7 +67,8 @@ jobs:
             image: conda-cpp
             llvm: "14"
             runs-on: ubuntu-latest
-            title: AMD64 Conda C++
+            simd-level: AVX2
+            title: AMD64 Conda C++ AVX2
             ubuntu: "22.04"
           - arch: amd64
             clang-tools: "14"
@@ -85,6 +86,7 @@ jobs:
             ubuntu: "20.04"
     env:
       ARCH: ${{ matrix.arch }}
+      ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       CLANG_TOOLS: ${{ matrix.clang-tools }}
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
@@ -151,6 +153,7 @@ jobs:
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 75
     env:
+      ARROW_AZURE: ON
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
@@ -174,6 +177,10 @@ jobs:
       ARROW_WITH_ZSTD: ON
       GTest_SOURCE: BUNDLED
     steps:
+      - name: CPU Info
+        run: |
+          sysctl -a | grep cpu
+          sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
         uses: actions/checkout@v3
         with:
@@ -219,7 +226,7 @@ jobs:
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   windows:
-    name: AMD64 ${{ matrix.name }} C++17
+    name: ${{ matrix.title }}
     runs-on: ${{ matrix.os }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -230,7 +237,8 @@ jobs:
           - windows-2019
         include:
           - os: windows-2019
-            name: Windows 2019
+            simd-level: AVX2
+            title: AMD64 Windows 2019 C++17 AVX2
     env:
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
@@ -245,6 +253,7 @@ jobs:
       ARROW_MIMALLOC: ON
       ARROW_ORC: ON
       ARROW_PARQUET: ON
+      ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
@@ -364,6 +373,7 @@ jobs:
       CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
         -DBoost_NO_BOOST_CMAKE=ON
+        -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON

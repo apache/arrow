@@ -179,9 +179,9 @@ reference:
   contents:
     - scalar
     - arrow_array
-    - ChunkedArray
-    - RecordBatch
-    - Table
+    - chunked_array
+    - record_batch
+    - arrow_table
     - buffer
     - vctrs_extension_array
 
@@ -207,7 +207,7 @@ reference:
 
 - title: Fields and schemas
   contents:
-  - Field
+  - field
   - schema
   - unify_schemas
   - as_schema
@@ -289,13 +289,18 @@ reference:
   - RecordBatchWriter
   - as_record_batch_reader
 
-- title: Arrow data types, schemas, and containers - R6 classes
+- title: Low-level C++ wrappers
   desc: >
-    R6 classes for Arrow data types.
+    Low-level R6 class representations of Arrow C++ objects intended for advanced users.
   contents:
+  - Buffer
   - Scalar
   - Array
+  - ChunkedArray
+  - RecordBatch
   - Schema
+  - Field
+  - Table
   - DataType
   - ArrayData
   - DictionaryType

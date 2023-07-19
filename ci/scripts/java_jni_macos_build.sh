@@ -99,6 +99,7 @@ if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
   # unstable
+  exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
   exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   ctest \
     --exclude-regex "${exclude_tests}" \

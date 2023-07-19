@@ -13,12 +13,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tInt8Type < hPrimitiveType
+classdef tInt8Type < hFixedWidthType
 % Test class for arrow.type.Int8Type
 
     properties
-        ArrowType = arrow.type.Int8Type
+        ArrowType = arrow.type.int8
         TypeID = arrow.type.ID.Int8
-        BitWidth = 8;
+        BitWidth = int32(8)
+        ClassName = "arrow.type.Int8Type"
     end
 end

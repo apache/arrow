@@ -225,6 +225,7 @@ func validate(schema *arrow.Schema) {
 		case *arrow.ListType, *arrow.LargeListType, *arrow.FixedSizeListType:
 		case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.FixedSizeBinaryType:
 		case arrow.ExtensionType:
+		case *arrow.NullType:
 		default:
 			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}

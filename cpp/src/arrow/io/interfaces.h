@@ -96,10 +96,6 @@ struct ARROW_EXPORT IOContext {
   StopToken stop_token_;
 };
 
-struct ARROW_DEPRECATED("renamed to IOContext in 4.0.0") AsyncContext : public IOContext {
-  using IOContext::IOContext;
-};
-
 class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;

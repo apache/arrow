@@ -90,7 +90,10 @@ func (a *Timestamp) ValueStr(i int) string {
 	if a.IsNull(i) {
 		return NullValueStr
 	}
-	return a.values[i].ToTime(a.DataType().(*arrow.TimestampType).Unit).Format("2006-01-02 15:04:05.999999999")
+
+	dt := a.DataType().(*arrow.TimestampType)
+	z, _ := dt.GetZone()
+	return a.values[i].ToTime(dt.Unit).In(z).Format("2006-01-02 15:04:05.999999999Z0700")
 }
 
 func (a *Timestamp) GetOneForMarshal(i int) interface{} {
@@ -289,7 +292,13 @@ func (b *TimestampBuilder) AppendValueFromString(s string) error {
 		b.AppendNull()
 		return nil
 	}
-	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
+
+	loc, err := b.dtype.GetZone()
+	if err != nil {
+		return err
+	}
+
+	v, _, err := arrow.TimestampFromStringInLocation(s, b.dtype.Unit, loc)
 	if err != nil {
 		b.AppendNull()
 		return err

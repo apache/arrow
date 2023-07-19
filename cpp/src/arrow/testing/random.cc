@@ -33,6 +33,7 @@
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer.h"
+#include "arrow/extension_type.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
@@ -935,14 +936,27 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     case Type::type::SPARSE_UNION:
     case Type::type::DENSE_UNION: {
       ArrayVector child_arrays(field.type()->num_fields());
-      for (int i = 0; i < field.type()->num_fields(); i++) {
+      for (int i = 0; i < field.type()->num_fields(); ++i) {
         const auto& child_field = field.type()->field(i);
         child_arrays[i] = ArrayOf(*child_field, length, alignment, memory_pool);
       }
       auto array = field.type()->id() == Type::type::SPARSE_UNION
                        ? SparseUnion(child_arrays, length, alignment, memory_pool)
                        : DenseUnion(child_arrays, length, alignment, memory_pool);
-      return *array->View(field.type());
+
+      const auto& type_codes = checked_cast<const UnionType&>(*field.type()).type_codes();
+      const auto& default_type_codes =
+          checked_cast<const UnionType&>(*array->type()).type_codes();
+
+      if (type_codes != default_type_codes) {
+        // map to the type ids specified by the UnionType
+        auto* type_ids =
+            reinterpret_cast<int8_t*>(array->data()->buffers[1]->mutable_data());
+        for (int64_t i = 0; i != array->length(); ++i) {
+          type_ids[i] = type_codes[type_ids[i]];
+        }
+      }
+      return *array->View(field.type());  // view gets the field names right for us
     }
 
     case Type::type::DICTIONARY: {
@@ -982,8 +996,15 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
     case Type::type::EXTENSION:
-      // Could be supported by generating the storage type (though any extension
-      // invariants wouldn't be preserved)
+      if (GetMetadata<bool>(field.metadata().get(), "extension_allow_random_storage",
+                            false)) {
+        const auto& ext_type = checked_cast<const ExtensionType&>(*field.type());
+        auto storage = ArrayOf(*field.WithType(ext_type.storage_type()), length,
+                               alignment, memory_pool);
+        return ExtensionType::WrapArray(field.type(), storage);
+      }
+      // We don't have explicit permission to generate random storage; bail rather than
+      // silently risk breaking extension invariants
       break;
 
     case Type::type::FIXED_SIZE_LIST: {

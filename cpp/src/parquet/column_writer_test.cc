@@ -118,8 +118,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, column_properties.compression(), Codec::UseDefaultCompressionLevel(),
-        metadata_.get(), /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
+        sink_, column_properties.compression(), metadata_.get(),
+        /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ false,
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);
     std::shared_ptr<ColumnWriter> writer =
@@ -159,6 +159,20 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     this->WriteRequiredWithSettingsSpaced(encoding, compression, enable_dictionary,
                                           enable_statistics, num_rows, compression_level,
                                           enable_checksum);
+    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
+  }
+
+  void TestRequiredWithCodecOptions(Encoding::type encoding,
+                                    Compression::type compression, bool enable_dictionary,
+                                    bool enable_statistics, int64_t num_rows = SMALL_SIZE,
+                                    const std::shared_ptr<CodecOptions>& codec_options =
+                                        std::make_shared<CodecOptions>(),
+                                    bool enable_checksum = false) {
+    this->GenerateData(num_rows);
+
+    this->WriteRequiredWithCodecOptions(encoding, compression, enable_dictionary,
+                                        enable_statistics, codec_options, num_rows,
+                                        enable_checksum);
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
@@ -238,7 +252,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                  bool enable_checksum) {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
-    column_properties.set_compression_level(compression_level);
+    column_properties.set_codec_options(
+        std::make_shared<CodecOptions>(compression_level));
     std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
         num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
@@ -256,11 +271,28 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
-    column_properties.set_compression_level(compression_level);
+    column_properties.set_codec_options(
+        std::make_shared<CodecOptions>(compression_level));
     std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
         num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
     writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
                              this->values_ptr_);
+    // The behaviour should be independent from the number of Close() calls
+    writer->Close();
+    writer->Close();
+  }
+
+  void WriteRequiredWithCodecOptions(Encoding::type encoding,
+                                     Compression::type compression,
+                                     bool enable_dictionary, bool enable_statistics,
+                                     const std::shared_ptr<CodecOptions>& codec_options,
+                                     int64_t num_rows, bool enable_checksum) {
+    ColumnProperties column_properties(encoding, compression, enable_dictionary,
+                                       enable_statistics);
+    column_properties.set_codec_options(codec_options);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
+        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
     writer->Close();
@@ -521,6 +553,14 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCompressionAndLevel) {
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, true,
                                  LARGE_SIZE);
+}
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCodecOptions) {
+  auto codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
+  codec_options->gzip_format = ::arrow::util::GZipFormat::GZIP;
+  codec_options->window_bits = 12;
+  this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::GZIP, false, false,
+                                     LARGE_SIZE, codec_options);
 }
 #endif
 
@@ -818,8 +858,7 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(sink, Compression::UNCOMPRESSED,
-                       Codec::UseDefaultCompressionLevel(), metadata.get());
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
@@ -1350,7 +1389,7 @@ class ColumnWriterTestSizeEstimated : public ::testing::Test {
                                                  schema_descriptor_->Column(0));
 
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, compression, Codec::UseDefaultCompressionLevel(), metadata_.get(),
+        sink_, compression, metadata_.get(),
         /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ buffered,
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR,

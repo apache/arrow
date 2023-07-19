@@ -348,17 +348,9 @@ Result<RecordBatchVector> RecordBatchReader::ToRecordBatches() {
   return batches;
 }
 
-Status RecordBatchReader::ReadAll(RecordBatchVector* batches) {
-  return ToRecordBatches().Value(batches);
-}
-
 Result<std::shared_ptr<Table>> RecordBatchReader::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
   return Table::FromRecordBatches(schema(), std::move(batches));
-}
-
-Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
-  return ToTable().Value(table);
 }
 
 class SimpleRecordBatchReader : public RecordBatchReader {

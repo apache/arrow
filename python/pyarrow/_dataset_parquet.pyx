@@ -811,7 +811,7 @@ cdef class ParquetFactoryOptions(_Weakrefable):
         c_factory = self.options.partitioning.factory()
         if c_factory.get() == nullptr:
             return None
-        return PartitioningFactory.wrap(c_factory)
+        return PartitioningFactory.wrap(c_factory, None, None)
 
     @partitioning_factory.setter
     def partitioning_factory(self, PartitioningFactory value):

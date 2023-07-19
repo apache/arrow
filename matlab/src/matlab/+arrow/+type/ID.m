@@ -35,24 +35,4 @@ classdef ID < uint64
         % Date64 (17)
         Timestamp (18)
     end
-
-    methods
-        function bitWidth = bitWidth(obj)
-            import arrow.type.ID
-            switch obj
-                case ID.Boolean
-                    bitWidth = 1;
-                case {ID.UInt8, ID.Int8}
-                    bitWidth = 8;
-                case {ID.UInt16, ID.Int16}
-                    bitWidth = 16;
-                case {ID.UInt32, ID.Int32, ID.Float32}
-                    bitWidth = 32;
-                case {ID.UInt64, ID.Int64, ID.Float64, ID.Timestamp}
-                    bitWidth = 64;
-                otherwise
-                    bitWidth = NaN;
-            end
-        end
-    end
 end

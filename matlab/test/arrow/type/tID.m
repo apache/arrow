@@ -26,22 +26,6 @@ classdef tID < matlab.unittest.TestCase
     end
 
     methods (Test)
-        function bitWidth(testCase)
-            import arrow.type.ID
-
-            typeIDs = [ID.Boolean, ID.UInt8, ID.Int8, ID.UInt16, ...
-                       ID.Int16, ID.UInt32, ID.Int32, ID.UInt64, ...
-                       ID.Int64, ID.Float32, ID.Float64];
-
-            expectedWidths = [1, 8, 8, 16, 16, 32, 32, 64, 64, 32, 64];
-
-            for ii = 1:numel(typeIDs)
-                actualWidth = bitWidth(typeIDs(ii)); 
-                expectedWidth = expectedWidths(ii);
-                testCase.verifyEqual(actualWidth, expectedWidth);
-            end
-        end
-
         function CastToUInt64(testCase)
             import arrow.type.ID
 

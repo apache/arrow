@@ -13,19 +13,26 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tTimestampType < hPrimitiveType
+classdef tTimestampType < hFixedWidthType
 % Test class for arrow.type.TimestampType
 
     properties
-        ArrowType = arrow.type.TimestampType
+        ArrowType = arrow.type.timestamp
         TypeID = arrow.type.ID.Timestamp
-        BitWidth = 64;
+        BitWidth = int32(64)
+        ClassName = "arrow.type.TimestampType"
     end
 
     methods(Test)
+        function TestClass(testCase)
+        % Verify ArrowType is an object of the expected class type.
+            name = string(class(testCase.ArrowType));
+            testCase.verifyEqual(name, testCase.ClassName);
+        end
+
         function DefaultTimeUnit(testCase)
         % Verify the default TimeUnit is Microsecond
-            type = arrow.type.TimestampType;
+            type = arrow.type.timestamp;
             actualUnit = type.TimeUnit;
             expectedUnit = arrow.type.TimeUnit.Microsecond; 
             testCase.verifyEqual(actualUnit, expectedUnit);
@@ -33,7 +40,7 @@ classdef tTimestampType < hPrimitiveType
 
         function DefaultTimeZone(testCase)
         % Verify the default TimeZone is ""
-            type = arrow.type.TimestampType;
+            type = arrow.type.timestamp;
             actualTimezone = type.TimeZone;
             expectedTimezone = "";
             testCase.verifyEqual(actualTimezone, expectedTimezone);
@@ -46,7 +53,7 @@ classdef tTimestampType < hPrimitiveType
                             TimeUnit.Microsecond, TimeUnit.Nanosecond];
 
             for unit = expectedUnit
-                type = TimestampType(TimeUnit=unit);
+                type = timestamp(TimeUnit=unit);
                 testCase.verifyEqual(type.TimeUnit, unit);
             end
         end
@@ -60,42 +67,42 @@ classdef tTimestampType < hPrimitiveType
                             TimeUnit.Microsecond, TimeUnit.Nanosecond];
             
             for ii = 1:numel(unitString)
-                type = TimestampType(TimeUnit=unitString(ii));
+                type = timestamp(TimeUnit=unitString(ii));
                 testCase.verifyEqual(type.TimeUnit, expectedUnit(ii));
             end
         end
 
         function SupplyTimeZone(testCase)
         % Supply the TimeZone. 
-            type = arrow.type.TimestampType(TimeZone="America/New_York");
+            type = arrow.type.timestamp(TimeZone="America/New_York");
             testCase.verifyEqual(type.TimeZone, "America/New_York");
         end
 
         function ErrorIfMissingStringTimeZone(testCase)
-            fcn = @() arrow.type.TimestampType(TimeZone=string(missing));
+            fcn = @() arrow.type.timestamp(TimeZone=string(missing));
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonmissing");
         end
 
         function ErrorIfTimeZoneIsNonScalar(testCase)
-            fcn = @() arrow.type.TimestampType(TimeZone=["a", "b"]);
+            fcn = @() arrow.type.timestamp(TimeZone=["a", "b"]);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
 
-              fcn = @() arrow.type.TimestampType(TimeZone=strings(0, 0));
+              fcn = @() arrow.type.timestamp(TimeZone=strings(0, 0));
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
         function ErrorIfAmbiguousTimeUnit(testCase)
-            fcn = @() arrow.type.TimestampType(TimeUnit="mi");
+            fcn = @() arrow.type.timestamp(TimeUnit="mi");
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
         function ErrorIfTimeUnitIsNonScalar(testCase)
             units = [arrow.type.TimeUnit.Second; arrow.type.TimeUnit.Millisecond];
-            fcn = @() arrow.type.TimestampType(TimeZone=units);
+            fcn = @() arrow.type.timestamp(TimeZone=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
 
             units = ["second" "millisecond"];
-            fcn = @() arrow.type.TimestampType(TimeZone=units);
+            fcn = @() arrow.type.timestamp(TimeZone=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
     end

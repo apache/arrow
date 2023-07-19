@@ -537,7 +537,7 @@ def test_trim():
 def test_slice_compatibility():
     arr = pa.array(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])
     for start in range(-6, 6):
-        for stop in range(-6, 6):
+        for stop in itertools.chain(range(-6, 6), [None]):
             for step in [-3, -2, -1, 1, 2, 3]:
                 expected = pa.array([k.as_py()[start:stop:step]
                                      for k in arr])
@@ -1754,6 +1754,17 @@ def test_logical():
     assert pc.xor(a, b) == pa.array([False, True, False, None])
 
     assert pc.invert(a) == pa.array([False, True, True, None])
+
+
+def test_dictionary_decode():
+    array = pa.array(["a", "a", "b", "c", "b"])
+    dictionary_array = array.dictionary_encode()
+    dictionary_array_decode = pc.dictionary_decode(dictionary_array)
+
+    assert array != dictionary_array
+
+    assert array == dictionary_array_decode
+    assert array == pc.dictionary_decode(array)
 
 
 def test_cast():

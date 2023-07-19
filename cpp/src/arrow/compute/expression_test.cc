@@ -31,7 +31,9 @@
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 
+using testing::Eq;
 using testing::HasSubstr;
 using testing::UnorderedElementsAreArray;
 
@@ -78,27 +80,11 @@ Expression add(Expression l, Expression r) {
   return call("add", {std::move(l), std::move(r)});
 }
 
-template <typename Actual, typename Expected>
-void ExpectResultsEqual(Actual&& actual, Expected&& expected) {
-  using MaybeActual = typename EnsureResult<typename std::decay<Actual>::type>::type;
-  using MaybeExpected = typename EnsureResult<typename std::decay<Expected>::type>::type;
-
-  MaybeActual maybe_actual(std::forward<Actual>(actual));
-  MaybeExpected maybe_expected(std::forward<Expected>(expected));
-
-  if (maybe_expected.ok()) {
-    EXPECT_EQ(maybe_actual, maybe_expected);
-  } else {
-    EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(
-        expected.status().code(), HasSubstr(expected.status().message()), maybe_actual);
-  }
-}
-
 const auto no_change = std::nullopt;
 
 TEST(ExpressionUtils, Comparison) {
-  auto Expect = [](Result<std::string> expected, Datum l, Datum r) {
-    ExpectResultsEqual(Comparison::Execute(l, r).Map(Comparison::GetName), expected);
+  auto cmp_name = [](Datum l, Datum r) {
+    return Comparison::Execute(l, r).Map(Comparison::GetName);
   };
 
   Datum zero(0), one(1), two(2), null(std::make_shared<Int32Scalar>());
@@ -106,27 +92,28 @@ TEST(ExpressionUtils, Comparison) {
   Datum dict_str(DictionaryScalar::Make(std::make_shared<Int32Scalar>(0),
                                         ArrayFromJSON(utf8(), R"(["a", "b", "c"])")));
 
-  Status not_impl = Status::NotImplemented("no kernel matching input types");
+  auto RaisesNotImpl =
+      Raises(StatusCode::NotImplemented, HasSubstr("no kernel matching input types"));
 
-  Expect("equal", one, one);
-  Expect("less", one, two);
-  Expect("greater", one, zero);
+  EXPECT_THAT(cmp_name(one, one), ResultWith(Eq("equal")));
+  EXPECT_THAT(cmp_name(one, two), ResultWith(Eq("less")));
+  EXPECT_THAT(cmp_name(one, zero), ResultWith(Eq("greater")));
 
-  Expect("na", one, null);
-  Expect("na", null, one);
+  EXPECT_THAT(cmp_name(one, null), ResultWith(Eq("na")));
+  EXPECT_THAT(cmp_name(null, one), ResultWith(Eq("na")));
 
   // strings and ints are not comparable without explicit casts
-  Expect(not_impl, str, one);
-  Expect(not_impl, one, str);
-  Expect(not_impl, str, null);  // not even null ints
+  EXPECT_THAT(cmp_name(str, one), RaisesNotImpl);
+  EXPECT_THAT(cmp_name(one, str), RaisesNotImpl);
+  EXPECT_THAT(cmp_name(str, null), RaisesNotImpl);  // not even null ints
 
   // string -> binary implicit cast allowed
-  Expect("equal", str, bin);
-  Expect("equal", bin, str);
+  EXPECT_THAT(cmp_name(str, bin), ResultWith(Eq("equal")));
+  EXPECT_THAT(cmp_name(bin, str), ResultWith(Eq("equal")));
 
   // dict_str -> string, implicit casts allowed
-  Expect("less", dict_str, str);
-  Expect("less", dict_str, bin);
+  EXPECT_THAT(cmp_name(dict_str, str), ResultWith(Eq("less")));
+  EXPECT_THAT(cmp_name(dict_str, bin), ResultWith(Eq("less")));
 }
 
 TEST(ExpressionUtils, StripOrderPreservingCasts) {

@@ -131,7 +131,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
   /// \return The returned RecordBatchReader
-  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
+  virtual arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
       const FlightCallOptions& options, const Ticket& ticket);
 
   /// \brief Request a list of tables.
@@ -364,25 +364,15 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   Status Close();
 
  protected:
-  virtual Status DoPut(const FlightCallOptions& options,
-                       const FlightDescriptor& descriptor,
-                       const std::shared_ptr<Schema>& schema,
-                       std::unique_ptr<FlightStreamWriter>* writer,
-                       std::unique_ptr<FlightMetadataReader>* reader) {
-    ARROW_ASSIGN_OR_RAISE(auto result, impl_->DoPut(options, descriptor, schema));
-    *writer = std::move(result.writer);
-    *reader = std::move(result.reader);
-    return Status::OK();
+  virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor,
+      const std::shared_ptr<Schema>& schema) {
+    return impl_->DoPut(options, descriptor, schema);
   }
 
-  virtual Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                       std::unique_ptr<FlightStreamReader>* stream) {
-    return impl_->DoGet(options, ticket).Value(stream);
-  }
-
-  virtual Status DoAction(const FlightCallOptions& options, const Action& action,
-                          std::unique_ptr<ResultStream>* results) {
-    return impl_->DoAction(options, action).Value(results);
+  virtual ::arrow::Result<std::unique_ptr<ResultStream>> DoAction(
+      const FlightCallOptions& options, const Action& action) {
+    return impl_->DoAction(options, action);
   }
 };
 

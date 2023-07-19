@@ -2,7 +2,7 @@
 % Please edit documentation in R/schema.R
 \name{schema}
 \alias{schema}
-\title{Schemas}
+\title{Create a schema or extract one from an object.}
 \usage{
 schema(...)
 }

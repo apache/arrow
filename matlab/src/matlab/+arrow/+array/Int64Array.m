@@ -20,10 +20,6 @@ classdef Int64Array < arrow.array.NumericArray
         NullSubstitutionValue = int64(0);
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.Int64Type
-    end
-
     methods
         function obj = Int64Array(data, varargin)
           obj@arrow.array.NumericArray(data, "int64", ...
