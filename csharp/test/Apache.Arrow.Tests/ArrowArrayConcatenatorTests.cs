@@ -83,7 +83,7 @@ namespace Apache.Arrow.Tests
                             new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                             new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
                         },
-                        new byte[] { 0, 1 },
+                        new[] { 0, 1 },
                         UnionMode.Sparse
                     ),
                     new UnionType(
@@ -91,7 +91,7 @@ namespace Apache.Arrow.Tests
                             new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                             new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
                         },
-                        new byte[] { 0, 1 },
+                        new[] { 0, 1 },
                         UnionMode.Dense
                     ),
                 };

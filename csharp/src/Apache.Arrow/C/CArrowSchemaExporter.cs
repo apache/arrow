@@ -133,10 +133,10 @@ namespace Apache.Arrow.C
                 UnionMode.Dense => "+ud:",
                 _ => throw new InvalidDataException($"Unsupported time unit for export: {unionType.Mode}"),
             });
-            for (int i = 0; i < unionType.TypeCodes.Count; i++)
+            for (int i = 0; i < unionType.TypeIds.Length; i++)
             {
                 if (i > 0) { builder.Append(','); }
-                builder.Append(unionType.TypeCodes[i]);
+                builder.Append(unionType.TypeIds[i]);
             }
             return builder.ToString();
         }

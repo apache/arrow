@@ -245,28 +245,27 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
-            if (field.DataType.TypeId == ArrowTypeId.Null)
+            int buffers;
+            switch (field.DataType.TypeId)
             {
-                return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
+                case ArrowTypeId.Null:
+                    return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
+                case ArrowTypeId.Union:
+                    buffers = ((UnionType)field.DataType).Mode == Types.UnionMode.Dense ? 2 : 1;
+                    break;
+                case ArrowTypeId.Struct:
+                    buffers = 1;
+                    break;
+                default:
+                    buffers = 2;
+                    break;
             }
 
-            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
+            ArrowBuffer[] arrowBuff = new ArrowBuffer[buffers];
+            for (int i = 0; i < buffers; i++)
             {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-
-            ArrowBuffer[] arrowBuff;
-            if (field.DataType.TypeId == ArrowTypeId.Struct)
-            {
-                arrowBuff = new[] { nullArrowBuffer };
-            }
-            else
-            {
-                ArrowBuffer valueArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
+                arrowBuff[i] = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
                 recordBatchEnumerator.MoveNextBuffer();
-
-                arrowBuff = new[] { nullArrowBuffer, valueArrowBuffer };
             }
 
             ArrayData[] children = GetChildren(ref recordBatchEnumerator, field, bodyData, bufferCreator);

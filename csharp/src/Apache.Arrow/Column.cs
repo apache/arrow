@@ -27,7 +27,7 @@ namespace Apache.Arrow
         public Field Field { get;  }
         public ChunkedArray Data { get; }
 
-        public Column(Field field, IList<Array> arrays)
+        public Column(Field field, IList<IArrowArray> arrays)
         {
             Data = new ChunkedArray(arrays);
             Field = field;

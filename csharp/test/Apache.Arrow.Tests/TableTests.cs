@@ -30,7 +30,7 @@ namespace Apache.Arrow.Tests
             Field field = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
             Schema s0 = new Schema.Builder().Field(field).Build();
 
-            Column column = new Column(field, new List<Array> { intArray, intArrayCopy });
+            Column column = new Column(field, new List<IArrowArray> { intArray, intArrayCopy });
             Table table = new Table(s0, new List<Column> { column });
             return table;
         }
@@ -60,7 +60,7 @@ namespace Apache.Arrow.Tests
 
             Table table1 = Table.TableFromRecordBatches(recordBatch1.Schema, recordBatches);
             Assert.Equal(20, table1.RowCount);
-            Assert.Equal(23, table1.ColumnCount);
+            Assert.Equal(25, table1.ColumnCount);
 
             FixedSizeBinaryType type = new FixedSizeBinaryType(17);
             Field newField1 = new Field(type.Name, type, false);

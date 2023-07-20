@@ -15,7 +15,6 @@
 
 using System;
 using System.Collections.Generic;
-using Apache.Arrow;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow
@@ -25,7 +24,7 @@ namespace Apache.Arrow
     /// </summary>
     public class ChunkedArray
     {
-        private IList<Array> Arrays { get; }
+        private IList<IArrowArray> Arrays { get; }
         public IArrowType DataType { get; }
         public long Length { get; }
         public long NullCount { get; }
@@ -35,9 +34,9 @@ namespace Apache.Arrow
             get => Arrays.Count;
         }
 
-        public Array Array(int index) => Arrays[index];
+        public IArrowArray Array(int index) => Arrays[index];
 
-        public ChunkedArray(IList<Array> arrays)
+        public ChunkedArray(IList<IArrowArray> arrays)
         {
             Arrays = arrays ?? throw new ArgumentNullException(nameof(arrays));
             if (arrays.Count < 1)
@@ -45,7 +44,7 @@ namespace Apache.Arrow
                 throw new ArgumentException($"Count must be at least 1. Got {arrays.Count} instead");
             }
             DataType = arrays[0].Data.DataType;
-            foreach (Array array in arrays)
+            foreach (IArrowArray array in arrays)
             {
                 Length += array.Length;
                 NullCount += array.NullCount;
@@ -69,10 +68,10 @@ namespace Apache.Arrow
                 curArrayIndex++;
             }
 
-            IList<Array> newArrays = new List<Array>();
+            IList<IArrowArray> newArrays = new List<IArrowArray>();
             while (curArrayIndex < numArrays && length > 0)
             {
-                newArrays.Add(Arrays[curArrayIndex].Slice((int)offset,
+                newArrays.Add(ArrowArrayFactory.Slice(Arrays[curArrayIndex], (int)offset,
                               length > Arrays[curArrayIndex].Length ? Arrays[curArrayIndex].Length : (int)length));
                 length -= Arrays[curArrayIndex].Length - offset;
                 offset = 0;

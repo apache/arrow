@@ -31,14 +31,14 @@ namespace Apache.Arrow.Types
 
         public UnionMode Mode { get; }
 
-        public List<byte> TypeCodes { get; }
+        public int[] TypeIds { get; }
 
         public UnionType(
-            IEnumerable<Field> fields, IEnumerable<byte> typeCodes,
+            IEnumerable<Field> fields, IEnumerable<int> typeIds,
             UnionMode mode = UnionMode.Sparse)
             : base(fields.ToArray())
         {
-            TypeCodes = typeCodes.ToList();
+            TypeIds = typeIds.ToArray();
             Mode = mode;
         }
 

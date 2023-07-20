@@ -112,10 +112,9 @@ namespace Apache.Arrow.Ipc
 
             public void Visit(UnionType type)
             {
-                Flatbuf.Union.StartUnion(Builder);
                 Result = FieldType.Build(
                     Flatbuf.Type.Union,
-                    Flatbuf.Union.CreateUnion(Builder, ToFlatBuffer(type.Mode)));
+                    Flatbuf.Union.CreateUnion(Builder, ToFlatBuffer(type.Mode), Flatbuf.Union.CreateTypeIdsVector(Builder, type.TypeIds)));
             }
 
             public void Visit(StringType type)
@@ -281,7 +280,7 @@ namespace Apache.Arrow.Ipc
             {
                 Types.UnionMode.Dense => Flatbuf.UnionMode.Dense,
                 Types.UnionMode.Sparse => Flatbuf.UnionMode.Sparse,
-                _ => throw new ArgumentException(nameof(mode), $"unsupported union mode <{mode}>")
+                _ => throw new ArgumentException($"unsupported union mode <{mode}>", nameof(mode)),
             };
         }
     }

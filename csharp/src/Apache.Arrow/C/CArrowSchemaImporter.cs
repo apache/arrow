@@ -230,24 +230,24 @@ namespace Apache.Arrow.C
                 if (format.StartsWith("+ud:") || format.StartsWith("+us:"))
                 {
                     UnionMode unionMode = format[2] == 'd' ? UnionMode.Dense : UnionMode.Sparse;
-                    List<byte> typeCodes = new List<byte>();
+                    List<int> typeIds = new List<int>();
                     int pos = 4;
                     do
                     {
                         int next = format.IndexOf(',', pos);
                         if (next < 0) { next = format.Length; }
 
-                        byte code;
-                        if (!byte.TryParse(format.Substring(pos, next - pos), out code))
+                        int code;
+                        if (!int.TryParse(format.Substring(pos, next - pos), out code))
                         {
                             throw new InvalidDataException($"Invalid type code for union import: {format.Substring(pos, next - pos)}");
                         }
-                        typeCodes.Add(code);
+                        typeIds.Add(code);
 
                         pos = next + 1;
                     } while (pos < format.Length);
 
-                    return new UnionType(ParseChildren("union"), typeCodes, unionMode);
+                    return new UnionType(ParseChildren("union"), typeIds, unionMode);
                 }
 
                 return format switch

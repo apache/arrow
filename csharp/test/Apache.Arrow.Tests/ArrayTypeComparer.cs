@@ -111,10 +111,10 @@ namespace Apache.Arrow.Tests
 
             Assert.Equal(expectedType.Mode, actualType.Mode);
 
-            Assert.Equal(expectedType.TypeCodes.Count, actualType.TypeCodes.Count);
-            for (int i = 0; i < expectedType.TypeCodes.Count; i++)
+            Assert.Equal(expectedType.TypeIds.Length, actualType.TypeIds.Length);
+            for (int i = 0; i < expectedType.TypeIds.Length; i++)
             {
-                Assert.Equal(expectedType.TypeCodes[i], actualType.TypeCodes[i]);
+                Assert.Equal(expectedType.TypeIds[i], actualType.TypeIds[i]);
             }
 
             CompareNested(expectedType, actualType);
