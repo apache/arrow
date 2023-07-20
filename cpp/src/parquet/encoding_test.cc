@@ -1984,8 +1984,9 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
  public:
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
+  static constexpr double prefixed_probability = 0.5;
 
-  void InitData(int nvalues, int repeats, double prefixed_probability) {
+  void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(c_type));
     output_bytes_.resize(num_values_ * sizeof(c_type));
@@ -1998,24 +1999,6 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
       for (int i = 0; i < nvalues; ++i) {
         draws_[nvalues * j + i] = draws_[i];
       }
-    }
-  }
-
-  void Execute(int nvalues, int repeats, double prefixed_probability) {
-    InitData(nvalues, repeats, prefixed_probability);
-    CheckRoundtrip();
-  }
-
-  void ExecuteSpaced(int nvalues, int repeats, int64_t valid_bits_offset,
-                     double null_probability, double prefixed_probability) {
-    InitData(nvalues, repeats, prefixed_probability);
-
-    int64_t size = num_values_ + valid_bits_offset;
-    auto rand = ::arrow::random::RandomArrayGenerator(1923);
-    const auto array = rand.UInt8(size, /*min=*/0, /*max=*/100, null_probability);
-    const auto valid_bits = array->null_bitmap_data();
-    if (valid_bits) {
-      CheckRoundtripSpaced(valid_bits, valid_bits_offset);
     }
   }
 
@@ -2067,15 +2050,15 @@ using TestDeltaByteArrayEncodingTypes = ::testing::Types<ByteArrayType, FLBAType
 TYPED_TEST_SUITE(TestDeltaByteArrayEncoding, TestDeltaByteArrayEncodingTypes);
 
 TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
-  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0, /*prefixed_probability=*/0.1));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 5, 0.2));
-  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 1, 0.3));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, /*repeats=*/0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(250, 5));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 1));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64, /*null_probability*/
-      0, 0.4));
+      0));
   ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
       /*nvalues*/ 1234, /*repeats*/ 10, /*valid_bits_offset*/ 64,
-      /*null_probability*/ 0.5, 0.5));
+      /*null_probability*/ 0.5));
 }
 
 template <typename Type>
@@ -2120,7 +2103,6 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     CheckDirectPut(values);
 
     for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-      rag = ::arrow::random::RandomArrayGenerator(seed);
       values = rag.FixedSizeBinary(kSize + seed, kByteWidth);
       CheckDirectPut(values);
     }
@@ -2138,8 +2120,7 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
         /*size=*/1, /*unique=*/1, kMinLength, kMaxLength, kNullProbability);
     CheckDirectPut(values);
 
-    for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-      rag = ::arrow::random::RandomArrayGenerator(seed);
+    for (int i = 0; i < 10; ++i) {
       values = rag.BinaryWithRepeats(kSize, kNumUnique, kMinLength, kMaxLength,
                                      kNullProbability);
       CheckDirectPut(values);
@@ -2177,12 +2158,12 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   };
 
   auto ArrayToInt32Vector = [](const std::shared_ptr<::arrow::Array>& lengths) {
-    std::vector<int32_t> arrays;
+    std::vector<int32_t> vector;
     auto data_ptr = checked_cast<::arrow::Int32Array*>(lengths.get());
     for (int i = 0; i < lengths->length(); ++i) {
-      arrays.push_back(data_ptr->GetView(i));
+      vector.push_back(data_ptr->GetView(i));
     }
-    return arrays;
+    return vector;
   };
 
   auto CheckDecode = [](std::shared_ptr<Buffer> buf,

@@ -791,13 +791,7 @@ inline void GenerateData<ByteArray>(int num_values, ByteArray* out,
 
 template <typename T>
 inline void GeneratePrefixedData(int num_values, T* out, std::vector<uint8_t>* heap,
-                                 double prefixed_probability) {
-  // seed the prng so failure is deterministic
-  int max_byte_array_len = 12;
-  heap->resize(num_values * max_byte_array_len);
-  prefixed_random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len,
-                             prefixed_probability);
-}
+                                 double prefixed_probability);
 
 template <>
 inline void GeneratePrefixedData(int num_values, ByteArray* out,

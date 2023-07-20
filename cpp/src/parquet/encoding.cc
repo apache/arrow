@@ -1215,7 +1215,7 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
 
   void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
 
-  virtual Status Append(const uint8_t* data, int32_t length);
+  Status Append(const uint8_t* data, int32_t length);
 
   Status AppendNull() { return builder->AppendNull(); }
 
@@ -1226,12 +1226,14 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
 
 template <>
 Status ArrowBinaryHelper<ByteArrayType>::Append(const uint8_t* data, int32_t length) {
+  DCHECK(CanFit(length));
   chunk_space_remaining -= length;
   return builder->Append(data, length);
 }
 
 template <>
 Status ArrowBinaryHelper<FLBAType>::Append(const uint8_t* data, int32_t length) {
+  DCHECK(CanFit(length));
   chunk_space_remaining -= length;
   return builder->Append(data);
 }
