@@ -48,7 +48,8 @@ namespace Apache.Arrow
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>
         {
             public ArrayData Result { get; private set; }
             private readonly IReadOnlyList<ArrayData> _arrayDataList;
@@ -103,6 +104,19 @@ namespace Apache.Arrow
             public void Visit(StructType type)
             {
                 CheckData(type, 1);
+                List<ArrayData> children = new List<ArrayData>(type.Fields.Count);
+
+                for (int i = 0; i < type.Fields.Count; i++)
+                {
+                    children.Add(Concatenate(SelectChildren(i), _allocator));
+                }
+
+                Result = new ArrayData(type, _arrayDataList[0].Length, _arrayDataList[0].NullCount, 0, _arrayDataList[0].Buffers, children);
+            }
+
+            public void Visit(UnionType type)
+            {
+                CheckData(type, type.Mode == UnionMode.Sparse ? 1 : 2);
                 List<ArrayData> children = new List<ArrayData>(type.Fields.Count);
 
                 for (int i = 0; i < type.Fields.Count; i++)

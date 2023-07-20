@@ -145,6 +145,24 @@ namespace Apache.Arrow.Tests
                 }
             }
 
+            public void Visit(UnionArray array)
+            {
+                Assert.IsAssignableFrom<UnionArray>(_expectedArray);
+                UnionArray expectedArray = (UnionArray)_expectedArray;
+
+                Assert.Equal(expectedArray.Mode, array.Mode);
+                Assert.Equal(expectedArray.Length, array.Length);
+                Assert.Equal(expectedArray.NullCount, array.NullCount);
+                Assert.Equal(expectedArray.Offset, array.Offset);
+                Assert.Equal(expectedArray.Data.Children.Length, array.Data.Children.Length);
+                Assert.Equal(expectedArray.Fields.Count, array.Fields.Count);
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(new ArrayComparer(expectedArray.Fields[i], _strictCompare));
+                }
+            }
+
             public void Visit(DictionaryArray array)
             {
                 Assert.IsAssignableFrom<DictionaryArray>(_expectedArray);

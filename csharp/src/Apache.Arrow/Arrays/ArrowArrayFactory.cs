@@ -62,7 +62,7 @@ namespace Apache.Arrow
                 case ArrowTypeId.Struct:
                     return new StructArray(data);
                 case ArrowTypeId.Union:
-                    return new UnionArray(data);
+                    return UnionArray.Create(data);
                 case ArrowTypeId.Date64:
                     return new Date64Array(data);
                 case ArrowTypeId.Date32:

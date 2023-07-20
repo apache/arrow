@@ -54,6 +54,7 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
+            IArrowArrayVisitor<UnionArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
             IArrowArrayVisitor<DictionaryArray>,
@@ -141,6 +142,22 @@ namespace Apache.Arrow.Ipc
             public void Visit(StructArray array)
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
+
+                for (int i = 0; i < array.Fields.Count; i++)
+                {
+                    array.Fields[i].Accept(this);
+                }
+            }
+
+            public void Visit(UnionArray array)
+            {
+                _buffers.Add(CreateBuffer(array.TypeBuffer));
+
+                ArrowBuffer? offsets = (array as DenseUnionArray)?.ValueOffsetBuffer;
+                if (offsets != null)
+                {
+                    _buffers.Add(CreateBuffer(offsets.Value));
+                }
 
                 for (int i = 0; i < array.Fields.Count; i++)
                 {

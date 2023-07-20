@@ -275,6 +275,7 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; }
@@ -482,6 +483,11 @@ namespace Apache.Arrow.IntegrationTest
             }
 
             public void Visit(StructType type)
+            {
+                throw new NotImplementedException();
+            }
+
+            public void Visit(UnionType type)
             {
                 throw new NotImplementedException();
             }

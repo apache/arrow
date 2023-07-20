@@ -76,6 +76,22 @@ namespace Apache.Arrow.Tests
                         new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                         new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
                     }),
+                    new UnionType(
+                        new List<Field>{
+                            new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
+                            new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
+                        },
+                        new byte[] { 0, 1 },
+                        UnionMode.Sparse
+                    ),
+                    new UnionType(
+                        new List<Field>{
+                            new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
+                            new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
+                        },
+                        new byte[] { 0, 1 },
+                        UnionMode.Dense
+                    ),
                 };
 
             foreach (IArrowType type in targetTypes)
@@ -117,7 +133,8 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>
         {
 
             private List<List<int?>> _baseData;
@@ -354,6 +371,10 @@ namespace Apache.Arrow.Tests
                 ExpectedArray = new StructArray(type, 3, new List<Array> { resultStringArray, resultInt32Array }, nullBitmapBuffer, 1);
             }
 
+            public void Visit(UnionType type)
+            {
+                throw new NotImplementedException();
+            }
 
             public void Visit(IArrowType type)
             {

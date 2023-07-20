@@ -123,6 +123,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
             IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
@@ -285,6 +286,11 @@ namespace Apache.Arrow.Tests
                 }
 
                 Array = new StructArray(type, Length, childArrays, nullBitmap.Build());
+            }
+
+            public void Visit(UnionType type)
+            {
+                throw new NotImplementedException();
             }
 
             public void Visit(DictionaryType type)

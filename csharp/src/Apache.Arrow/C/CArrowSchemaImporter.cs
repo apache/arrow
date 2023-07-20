@@ -180,21 +180,7 @@ namespace Apache.Arrow.C
                 }
                 else if (format == "+s")
                 {
-                    var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
-
-                    for (int i = 0; i < _cSchema->n_children; i++)
-                    {
-                        if (_cSchema->GetChild(i) == null)
-                        {
-                            throw new InvalidDataException("Expected struct type child to be non-null.");
-                        }
-                        child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
-                    }
-
-
-                    List<Field> childFields = child_schemas.Select(schema => schema.GetAsField()).ToList();
-
-                    return new StructType(childFields);
+                    return new StructType(ParseChildren("struct"));
                 }
                 // TODO: Map type and large list type
 
@@ -238,6 +224,30 @@ namespace Apache.Arrow.C
                 {
                     int width = Int32.Parse(format.Substring(2));
                     return new FixedSizeBinaryType(width);
+                }
+
+                // Unions
+                if (format.StartsWith("+ud:") || format.StartsWith("+us:"))
+                {
+                    UnionMode unionMode = format[2] == 'd' ? UnionMode.Dense : UnionMode.Sparse;
+                    List<byte> typeCodes = new List<byte>();
+                    int pos = 4;
+                    do
+                    {
+                        int next = format.IndexOf(',', pos);
+                        if (next < 0) { next = format.Length; }
+
+                        byte code;
+                        if (!byte.TryParse(format.Substring(pos, next - pos), out code))
+                        {
+                            throw new InvalidDataException($"Invalid type code for union import: {format.Substring(pos, next - pos)}");
+                        }
+                        typeCodes.Add(code);
+
+                        pos = next + 1;
+                    } while (pos < format.Length);
+
+                    return new UnionType(ParseChildren("union"), typeCodes, unionMode);
                 }
 
                 return format switch
@@ -297,6 +307,22 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentException("Imported type is not a struct type, so it cannot be converted to a schema.");
                 }
+            }
+
+            private List<Field> ParseChildren(string typeName)
+            {
+                var child_schemas = new ImportedArrowSchema[_cSchema->n_children];
+
+                for (int i = 0; i < _cSchema->n_children; i++)
+                {
+                    if (_cSchema->GetChild(i) == null)
+                    {
+                        throw new InvalidDataException($"Expected {typeName} type child to be non-null.");
+                    }
+                    child_schemas[i] = new ImportedArrowSchema(_cSchema->GetChild(i), isRoot: false);
+                }
+
+                return child_schemas.Select(schema => schema.GetAsField()).ToList();
             }
 
             private unsafe static IReadOnlyDictionary<string, string> GetMetadata(byte* metadata)
