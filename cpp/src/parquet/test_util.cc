@@ -135,9 +135,9 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
 void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out,
                                 int min_size, int max_size, double prefixed_probability) {
   std::default_random_engine gen(seed);
-  std::uniform_int_distribution<int> d1(min_size, max_size);
-  std::uniform_int_distribution<int> d2(0, 255);
-  std::uniform_real_distribution<double> d3(0, 1);
+  std::uniform_int_distribution<int> dist_size(min_size, max_size);
+  std::uniform_int_distribution<int> dist_byte(0, 255);
+  std::uniform_real_distribution<double> dist_has_prefix(0, 1);
 
   for (int i = 0; i < n; ++i) {
     int len = d1(gen);

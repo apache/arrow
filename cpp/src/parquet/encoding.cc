@@ -3022,7 +3022,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
         sink_(pool),
         // Prefix lengths are encoded using DeltaBitPackEncoder that can be left
         // uninitialized.
-        prefix_length_encoder_(nullptr, pool),
+        prefix_length_encoder_(/*descr=*/nullptr, pool),
         suffix_encoder_(descr, pool),
         last_value_(""),
         empty_(static_cast<uint32_t>(kEmpty.size()),
@@ -3043,7 +3043,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
   void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
                  int64_t valid_bits_offset) override {
-    if (valid_bits != NULLPTR) {
+    if (valid_bits != nullptr) {
       PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateBuffer(num_values * sizeof(T),
                                                                    this->memory_pool()));
       T* data = reinterpret_cast<T*>(buffer->mutable_data());
