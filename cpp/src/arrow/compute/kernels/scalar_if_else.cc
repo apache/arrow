@@ -1028,7 +1028,7 @@ struct NestedIfElseExec {
   //  AAA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const ArraySpan& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendArraySlice(left, i, length);
@@ -1041,7 +1041,7 @@ struct NestedIfElseExec {
   // ASA
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const ArraySpan& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendScalar(left, length);
@@ -1054,7 +1054,7 @@ struct NestedIfElseExec {
   // AAS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const ArraySpan& left,
                      const Scalar& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendArraySlice(left, i, length);
@@ -1067,7 +1067,7 @@ struct NestedIfElseExec {
   // ASS
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
-    return RunLoop(
+    return RunLoopOfNestedIfElseExec(
         ctx, cond, out,
         [&](ArrayBuilder* builder, int64_t i, int64_t length) {
           return builder->AppendScalar(left, length);
@@ -1078,8 +1078,9 @@ struct NestedIfElseExec {
   }
 
   template <typename HandleLeft, typename HandleRight>
-  static Status RunLoop(KernelContext* ctx, const ArraySpan& cond, ExecResult* out,
-                        HandleLeft&& handle_left, HandleRight&& handle_right) {
+  static Status RunLoopOfNestedIfElseExec(KernelContext* ctx, const ArraySpan& cond,
+                                          ExecResult* out, HandleLeft&& handle_left,
+                                          HandleRight&& handle_right) {
     std::unique_ptr<ArrayBuilder> raw_builder;
     RETURN_NOT_OK(MakeBuilderExactIndex(ctx->memory_pool(), out->type()->GetSharedPtr(),
                                         &raw_builder));
