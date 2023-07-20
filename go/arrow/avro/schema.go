@@ -22,8 +22,8 @@ type schemaNode struct {
 }
 
 // ArrowSchemaFromAvro returns a new Arrow schema from an Avro schema JSON.
-// Assumes that Avro schema comes from OCF or Schema Registry and that the
-// top-level object's []fields contains the fields to convert.
+// If the top level is of record type, set includeTopLevel to either make
+// its fields top level fields in the resulting schema or nested in a single field.
 func ArrowSchemaFromAvro(avroSchema []byte, includeTopLevel bool) (*arrow.Schema, error) {
 	var m map[string]interface{}
 	var node schemaNode
