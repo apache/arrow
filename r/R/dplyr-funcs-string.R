@@ -56,13 +56,31 @@ get_stringr_pattern_options <- function(pattern) {
       )
     }
   }
+
   ensure_opts <- function(opts) {
     if (is.character(opts)) {
       opts <- list(pattern = opts, fixed = FALSE, ignore_case = FALSE)
     }
     opts
   }
+
+  pattern <- clean_pattern_namespace(pattern)
+
   ensure_opts(eval(pattern))
+}
+
+# Ensure that e.g. stringr::regex and regex both work within patterns
+clean_pattern_namespace <- function(pattern) {
+  modifier_funcs <- c("fixed", "regex", "coll", "boundary")
+  if (is_call(pattern, modifier_funcs, ns = "stringr")) {
+    function_called <- call_name(pattern[1])
+
+    if (function_called %in% modifier_funcs) {
+      pattern[1] <- call2(function_called)
+    }
+  }
+
+  pattern
 }
 
 #' Does this string contain regex metacharacters?
