@@ -3020,8 +3020,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
                                  MemoryPool* pool = ::arrow::default_memory_pool())
       : EncoderImpl(descr, Encoding::DELTA_BYTE_ARRAY, pool),
         sink_(pool),
-        // Prefix lengths are encoded using DeltaBitPackEncoder that can be left
-        // uninitialized.
         prefix_length_encoder_(/*descr=*/nullptr, pool),
         suffix_encoder_(descr, pool),
         last_value_(""),
