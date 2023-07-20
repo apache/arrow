@@ -22,7 +22,7 @@ namespace Apache.Arrow
 {
     public abstract class UnionArray : IArrowArray
     {
-        private IReadOnlyList<IArrowArray> _fields;
+        protected IReadOnlyList<IArrowArray> _fields;
 
         public IReadOnlyList<IArrowArray> Fields =>
             LazyInitializer.EnsureInitialized(ref _fields, () => InitializeFields());

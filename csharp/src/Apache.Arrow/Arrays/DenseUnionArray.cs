@@ -15,6 +15,8 @@
 
 using Apache.Arrow.Types;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow
 {
@@ -23,6 +25,22 @@ namespace Apache.Arrow
         public ArrowBuffer ValueOffsetBuffer => Data.Buffers[1];
 
         public ReadOnlySpan<int> ValueOffsets => ValueOffsetBuffer.Span.CastTo<int>();
+
+        public DenseUnionArray(
+            IArrowType dataType,
+            int length,
+            IEnumerable<IArrowArray> children,
+            ArrowBuffer typeIds,
+            ArrowBuffer valuesOffsetBuffer,
+            int nullCount = 0,
+            int offset = 0)
+            : base(new ArrayData(
+                dataType, length, nullCount, offset, new[] { typeIds, valuesOffsetBuffer },
+                children.Select(child => child.Data)))
+        {
+            _fields = children.ToArray();
+            ValidateMode(UnionMode.Sparse, Type.Mode);
+        }
 
         public DenseUnionArray(ArrayData data) 
             : base(data)

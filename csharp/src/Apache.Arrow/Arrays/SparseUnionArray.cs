@@ -14,11 +14,28 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Apache.Arrow
 {
     public class SparseUnionArray : UnionArray
     {
+        public SparseUnionArray(
+            IArrowType dataType,
+            int length,
+            IEnumerable<IArrowArray> children,
+            ArrowBuffer typeIds,
+            int nullCount = 0,
+            int offset = 0)
+            : base(new ArrayData(
+                dataType, length, nullCount, offset, new[] { typeIds },
+                children.Select(child => child.Data)))
+        {
+            _fields = children.ToArray();
+            ValidateMode(UnionMode.Sparse, Type.Mode);
+        }
+
         public SparseUnionArray(ArrayData data) 
             : base(data)
         {
