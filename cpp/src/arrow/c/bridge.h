@@ -227,9 +227,6 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event
 using DeviceMemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
 
-// ARROW_EXPORT
-// Result<std::shared_ptr<MemoryManager>> DefaultMemoryMapper(ArrowDeviceType device_type,
-//                                                            int64_t device_id);
 
 /// \brief EXPERIMENTAL: Import C++ device array from the C data interface.
 ///
@@ -276,7 +273,7 @@ Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
 /// \return Imported record batch object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
-    struct ArrowArray* array, std::shared_ptr<Schema> schema,
+    struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema,
     const DeviceMemoryMapper& mapper);
 
 /// \brief EXPERIMENTAL: Import C++ record batch with buffers on a device and its schema
@@ -295,7 +292,7 @@ Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
 /// \return Imported record batch object
 ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
-    struct ArrowArray* array, struct ArrowSchema* schema,
+    struct ArrowDeviceArray* array, struct ArrowSchema* schema,
     const DeviceMemoryMapper& mapper);
 
 /// @}
