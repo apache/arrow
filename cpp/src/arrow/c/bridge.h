@@ -227,7 +227,6 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event
 using DeviceMemoryMapper =
     std::function<Result<std::shared_ptr<MemoryManager>>(ArrowDeviceType, int64_t)>;
 
-
 /// \brief EXPERIMENTAL: Import C++ device array from the C data interface.
 ///
 /// The ArrowArray struct has its contents moved (as per the C data interface

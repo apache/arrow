@@ -78,7 +78,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
 
   /// \brief A device ID to identify this device if there are multiple of this type.
   ///
-  /// If there is no "device_id" equivalent (such as for the main CPU device on 
+  /// If there is no "device_id" equivalent (such as for the main CPU device on
   /// non-numa systems) returns -1.
   virtual int64_t device_id() const { return -1; }
 
