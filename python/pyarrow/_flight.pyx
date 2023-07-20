@@ -982,11 +982,10 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
     cdef shared_ptr[CMetadataRecordBatchReader] reader
 
     def __iter__(self):
-        while True:
-            try:
-                yield self.read_chunk()
-            except StopIteration:
-                return
+        return self
+
+    def __next__(self):
+        return self.read_chunk()
 
     @property
     def schema(self):

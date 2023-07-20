@@ -791,9 +791,12 @@ cdef class MapScalar(ListScalar):
         """
         Iterate over this element's values.
         """
+        return self
+
+    def __next__(self):
         arr = self.values
-        if array is None:
-            return
+        if arr is None:
+            raise StopIteration
         for k, v in zip(arr.field('key'), arr.field('value')):
             yield (k.as_py(), v.as_py())
 
