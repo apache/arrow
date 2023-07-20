@@ -66,7 +66,8 @@ get_stringr_pattern_options <- function(pattern) {
 
   pattern <- clean_pattern_namespace(pattern)
 
-  ensure_opts(eval(pattern))
+  ensure_opts(eval_tidy(pattern, env = caller_env(2)))
+
 }
 
 # Ensure that e.g. stringr::regex and regex both work within patterns
