@@ -41,7 +41,6 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           packages: "rmarkdown, knitr, sessioninfo"
-        shell: Rscript {0}
       - name: Session info
         run: |
           options(width = 100)
