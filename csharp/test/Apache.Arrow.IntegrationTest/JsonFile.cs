@@ -68,6 +68,10 @@ namespace Apache.Arrow.IntegrationTest
         // FixedSizeBinary fields
         public int ByteWidth { get; set; }
 
+        // union fields
+        public string Mode { get; set; }
+        public int[] TypeIds { get; set; }
+
         [JsonExtensionData]
         public Dictionary<string, JsonElement> ExtensionData { get; set; }
     }

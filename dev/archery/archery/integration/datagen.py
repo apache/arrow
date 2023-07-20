@@ -1713,7 +1713,6 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),
 
         generate_unions_case()
-        .skip_category('C#')
         .skip_category('JS'),
 
         generate_custom_metadata_case()
