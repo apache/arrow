@@ -30,6 +30,7 @@ jobs:
       - name: Install apache-arrow
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
+        run: |
           brew install sccache
           # for testing
           brew install minio
