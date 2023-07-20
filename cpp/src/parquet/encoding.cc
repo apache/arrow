@@ -1207,11 +1207,7 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
 
   bool CanFit(int64_t length) const { return length <= chunk_space_remaining; }
 
-  void UnsafeAppend(const uint8_t* data, int32_t length) {
-    DCHECK(CanFit(length));
-    chunk_space_remaining -= length;
-    builder->UnsafeAppend(data, length);
-  }
+  void UnsafeAppend(const uint8_t* data, int32_t length);
 
   void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
 
@@ -1236,6 +1232,13 @@ Status ArrowBinaryHelper<FLBAType>::Append(const uint8_t* data, int32_t length) 
   DCHECK(CanFit(length));
   chunk_space_remaining -= length;
   return builder->Append(data);
+}
+
+template <>
+void ArrowBinaryHelper<ByteArrayType>::UnsafeAppend(const uint8_t* data, int32_t length) {
+  DCHECK(CanFit(length));
+  chunk_space_remaining -= length;
+  builder->UnsafeAppend(data, length);
 }
 
 template <>
