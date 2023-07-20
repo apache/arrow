@@ -576,6 +576,19 @@ class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
   Occurrence occurrence;
 };
 
+/// Options for adjoin_as_list function
+class ARROW_EXPORT AdjoinAsListOptions : public FunctionOptions {
+ public:
+  explicit AdjoinAsListOptions(Type::type list_type);
+  AdjoinAsListOptions();
+
+  constexpr static char const kTypeName[] = "AdjoinAsListOptions";
+  static AdjoinAsListOptions Defaults() { return AdjoinAsListOptions(); }
+
+  // The list type to convert to
+  Type::type list_type;
+};
+
 /// @}
 
 /// \brief Get the absolute value of a value.
@@ -586,10 +599,9 @@ class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
 /// \param[in] options arithmetic options (overflow handling), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the elementwise absolute value
-ARROW_EXPORT
-Result<Datum> AbsoluteValue(const Datum& arg,
-                            ArithmeticOptions options = ArithmeticOptions(),
-                            ExecContext* ctx = NULLPTR);
+ARROW_EXPORT Result<Datum> AbsoluteValue(const Datum& arg,
+                                         ArithmeticOptions options = ArithmeticOptions(),
+                                         ExecContext* ctx = NULLPTR);
 
 /// \brief Add two values together. Array values must be the same length. If
 /// either addend is null the result will be null.

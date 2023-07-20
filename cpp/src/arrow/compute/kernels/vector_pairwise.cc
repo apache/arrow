@@ -105,7 +105,7 @@ Status PairwiseExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) 
   out->value = std::move(out_data);
 
   return PairwiseExecImpl(ctx, batch[0].array, state.scalar_exec, state.periods,
-                          out->array_data_mutable());
+                          out->array_data_mutable()->get());
 }
 
 const FunctionDoc pairwise_diff_doc(

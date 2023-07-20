@@ -356,8 +356,8 @@ struct ARROW_EXPORT ExecResult {
   const std::shared_ptr<ArrayData>& array_data() const {
     return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
-  ArrayData* array_data_mutable() {
-    return std::get<std::shared_ptr<ArrayData>>(this->value).get();
+  std::shared_ptr<ArrayData>* array_data_mutable() {
+    return &std::get<std::shared_ptr<ArrayData>>(this->value);
   }
 
   bool is_array_data() const { return this->value.index() == 1; }

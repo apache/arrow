@@ -24,6 +24,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/exec.h"
+#include "arrow/compute/function.h"
 #include "arrow/compute/function_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/status.h"
@@ -311,6 +312,8 @@ namespace internal {
 namespace {
 using ::arrow::internal::CoercedDataMember;
 using ::arrow::internal::DataMember;
+static auto kAdjoinAsListOptionsType = GetFunctionOptionsType<AdjoinAsListOptions>(
+    DataMember("list_type", &AdjoinAsListOptions::list_type));
 static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
     DataMember("check_overflow", &ArithmeticOptions::check_overflow));
 static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
@@ -407,6 +410,12 @@ static auto kRandomOptionsType = GetFunctionOptionsType<RandomOptions>(
 
 }  // namespace
 }  // namespace internal
+
+AdjoinAsListOptions::AdjoinAsListOptions(Type::type list_type)
+    : FunctionOptions(internal::kAdjoinAsListOptionsType), list_type(list_type) {}
+AdjoinAsListOptions::AdjoinAsListOptions()
+    : FunctionOptions(internal::kAdjoinAsListOptionsType), list_type(Type::LIST) {}
+constexpr char AdjoinAsListOptions::kTypeName[];
 
 ArithmeticOptions::ArithmeticOptions(bool check_overflow)
     : FunctionOptions(internal::kArithmeticOptionsType), check_overflow(check_overflow) {}

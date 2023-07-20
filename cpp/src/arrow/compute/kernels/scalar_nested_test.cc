@@ -24,7 +24,10 @@
 #include "arrow/result.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/type.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
+#include "gmock/gmock.h"
 
 namespace arrow {
 namespace compute {
@@ -960,5 +963,102 @@ TEST(MakeStruct, ChunkedArrayDifferentChunking) {
   ASSERT_RAISES(Invalid, MakeStructor({i32->Slice(1), str}, field_names));
 }
 
+template <typename ArrowListType>
+class TestAdjoinAsList : public ::testing ::Test {
+ protected:
+  std::shared_ptr<DataType> MakeListType(const std::shared_ptr<DataType>& value_type,
+                                         int batch_size) const {
+    if constexpr (std::is_same_v<ArrowListType, FixedSizeListType>) {
+      return std::make_shared<ArrowListType>(value_type, batch_size);
+    } else {
+      return std::make_shared<ArrowListType>(value_type);
+    }
+  }
+
+  const AdjoinAsListOptions& Options() {
+    static AdjoinAsListOptions options(ArrowListType::type_id);
+    return options;
+  }
+};
+
+TEST(TestAdjoinAsList, ErrorHandling) {
+  AdjoinAsListOptions options;
+  // Different types
+  ASSERT_RAISES(NotImplemented, CallFunction("adjoin_as_list",
+                                             {ArrayFromJSON(int32(), "[1]"),
+                                              ArrayFromJSON(int64(), R"([1])")},
+                                             &options));
+
+  // Different lengths
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid, "Invalid: Array arguments must all be the same length",
+      CallFunction("adjoin_as_list",
+                   {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[1, 2]")},
+                   &options));
+
+  // Options with non-list type
+  AdjoinAsListOptions wrong_options(Int32Type::type_id);
+  ASSERT_RAISES_WITH_MESSAGE(
+      Invalid,
+      "Invalid: AdjoinAsList requires list_type to be LIST, LARGE_LIST or "
+      "FIXED_SIZE_LIST",
+      CallFunction("adjoin_as_list",
+                   {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[1]")},
+                   &wrong_options));
+}
+
+TYPED_TEST_SUITE(TestAdjoinAsList, ListArrowTypes);
+
+TYPED_TEST(TestAdjoinAsList, NumericTypes) {
+  for (const auto& ty : NumericTypes()) {
+    CheckScalar(
+        "adjoin_as_list",
+        {ArrayFromJSON(ty, "[1, null, 3, null]"), ArrayFromJSON(ty, "[4, 5, 6, null]"),
+         ArrayFromJSON(ty, "[null, 7, 8, 9]")},
+        ArrayFromJSON(this->MakeListType(ty, 3),
+                      "[[1, 4, null], [null, 5, 7], [3, 6, 8], [null, null, 9]]"),
+        &this->Options());
+  }
+}
+
+TYPED_TEST(TestAdjoinAsList, BinaryTypes) {
+  for (const auto& tys : {StringTypes(), BinaryTypes()}) {
+    for (const auto& ty : tys) {
+      AdjoinAsListOptions options;
+      CheckScalar(
+          "adjoin_as_list",
+          {ArrayFromJSON(ty, R"(["abc", null, "de", "f"])"),
+           ArrayFromJSON(ty, R"(["apple", "banana", null, "pear"])"),
+           ArrayFromJSON(ty, R"([null, null, null, null])")},
+          ArrayFromJSON(
+              this->MakeListType(ty, 3),
+              R"([["abc", "apple", null], [null, "banana", null], ["de", null, null], ["f", "pear", null]])"),
+          &this->Options());
+    }
+  }
+
+  CheckScalar(
+      "adjoin_as_list",
+      {ArrayFromJSON(fixed_size_binary(3), R"([null, "abc", "def", "ghi"])"),
+       ArrayFromJSON(fixed_size_binary(3), R"(["app", "ban", "pea", null])")},
+      ArrayFromJSON(this->MakeListType(fixed_size_binary(3), 2),
+                    R"( [[null, "app"], ["abc", "ban"], ["def", "pea"], ["ghi", null]])"),
+      &this->Options());
+}
+
+TYPED_TEST(TestAdjoinAsList, DecimalTypes) {
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    AdjoinAsListOptions options;
+    CheckScalar(
+        "adjoin_as_list",
+        {ArrayFromJSON(ty, R"(["1.23", null, "4.56", "7.89"])"),
+         ArrayFromJSON(ty, R"(["0.12", "3.45", null, "6.78"])"),
+         ArrayFromJSON(ty, R"([null, null, null, null])")},
+        ArrayFromJSON(
+            this->MakeListType(ty, 3),
+            R"([["1.23", "0.12", null], [null, "3.45", null], ["4.56", null, null], ["7.89", "6.78", null]])"),
+        &this->Options());
+  }
+}
 }  // namespace compute
 }  // namespace arrow
