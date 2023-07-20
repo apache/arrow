@@ -229,7 +229,7 @@ on:
         # Sometimes crossbow gives a remote URL with .git and sometimes not.
         # Make sure there's only one
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
-	cat ${formula}
+        cat ${formula}
         cp ${formula} $(brew --repository homebrew/core)/Formula/
       done
 {% endmacro %}
