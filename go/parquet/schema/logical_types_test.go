@@ -93,6 +93,7 @@ func TestConvertedTypeCompatibility(t *testing.T) {
 		{"time_micro", schema.NewTimeLogicalType(true /* adjutedToUTC */, schema.TimeUnitMicros), schema.ConvertedTypes.TimeMicros},
 		{"timestamp_milli", schema.NewTimestampLogicalType(true /* adjutedToUTC */, schema.TimeUnitMillis), schema.ConvertedTypes.TimestampMillis},
 		{"timestamp_micro", schema.NewTimestampLogicalType(true /* adjutedToUTC */, schema.TimeUnitMicros), schema.ConvertedTypes.TimestampMicros},
+		{"timestamp_milli_opts", schema.NewTimestampLogicalTypeWithOpts(schema.WithTSIsAdjustedToUTC(), schema.WithTSTimeUnitType(schema.TimeUnitMillis)), schema.ConvertedTypes.TimestampMillis},
 		{"uint8", schema.NewIntLogicalType(8 /* bitWidth */, false /* signed */), schema.ConvertedTypes.Uint8},
 		{"uint16", schema.NewIntLogicalType(16 /* bitWidth */, false /* signed */), schema.ConvertedTypes.Uint16},
 		{"uint32", schema.NewIntLogicalType(32 /* bitWidth */, false /* signed */), schema.ConvertedTypes.Uint32},
