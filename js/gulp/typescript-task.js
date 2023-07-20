@@ -44,10 +44,11 @@ export default typescriptTask;
 export function compileBinFiles(target, format) {
     const out = targetDir(target, format);
     const tsconfigPath = path.join(`tsconfig`, `tsconfig.${tsconfigName('bin', 'cjs')}.json`);
-    return compileTypescript(out, tsconfigPath, { target });
+    const tsconfigOverrides = format === 'esm' ? { target, module: 'ES2015' } : { target };
+    return compileTypescript(out, tsconfigPath, tsconfigOverrides, false);
 }
 
-function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
+function compileTypescript(out, tsconfigPath, tsconfigOverrides, writeSourcemaps = true) {
     const tsProject = ts.createProject(tsconfigPath, { typescript: tsc, ...tsconfigOverrides });
     const { stream: { js, dts } } = observableFromStreams(
         tsProject.src(), sourcemaps.init(),
@@ -56,7 +57,15 @@ function compileTypescript(out, tsconfigPath, tsconfigOverrides) {
     const writeSources = observableFromStreams(tsProject.src(), gulp.dest(path.join(out, 'src')));
     const writeDTypes = observableFromStreams(dts, sourcemaps.write('./', { includeContent: false, sourceRoot: './src' }), gulp.dest(out));
     const mapFile = tsProject.options.module === tsc.ModuleKind.ES2015 ? esmMapFile : cjsMapFile;
-    const writeJS = observableFromStreams(js, sourcemaps.write('./', { mapFile, includeContent: false, sourceRoot: './src' }), gulp.dest(out));
+    const writeJSArgs = writeSourcemaps ? [
+        js,
+        sourcemaps.write('./', { mapFile, includeContent: false, sourceRoot: './src' }),
+        gulp.dest(out)
+      ] : [
+        js,
+        gulp.dest(out)
+      ];
+    const writeJS = observableFromStreams(...writeJSArgs);
     return ObservableForkJoin([writeSources, writeDTypes, writeJS]);
 }
 
