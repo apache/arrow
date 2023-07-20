@@ -793,7 +793,7 @@ cdef class MapScalar(ListScalar):
         """
         arr = self.values
         if array is None:
-            raise StopIteration
+            return
         for k, v in zip(arr.field('key'), arr.field('value')):
             yield (k.as_py(), v.as_py())
 

@@ -983,7 +983,10 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
 
     def __iter__(self):
         while True:
-            yield self.read_chunk()
+            try:
+                yield self.read_chunk()
+            except StopIteration:
+                return
 
     @property
     def schema(self):
