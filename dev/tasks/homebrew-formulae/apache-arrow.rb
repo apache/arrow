@@ -39,12 +39,12 @@ class ApacheArrow < Formula
   depends_on "llvm" => :build
   depends_on "aws-sdk-cpp"
   depends_on "brotli"
-  # depends_on "bzip2"
+  depends_on "bzip2"
   depends_on "glog"
   depends_on "grpc"
   depends_on "lz4"
-  # depends_on "mimalloc"
-  depends_on "openssl@1.1"
+  depends_on "mimalloc"
+  depends_on "openssl@3"
   depends_on "protobuf"
   depends_on "rapidjson"
   depends_on "re2"
@@ -64,16 +64,15 @@ class ApacheArrow < Formula
 
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
-    # -DCMAKE_INSTALL_RPATH=#{rpath}
     args = %W[
-      -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=TRUE
+      -DCMAKE_INSTALL_RPATH=#{rpath}
       -DARROW_ACERO=ON
       -DARROW_COMPUTE=ON
       -DARROW_CSV=ON
       -DARROW_DATASET=ON
       -DARROW_FILESYSTEM=ON
       -DARROW_FLIGHT=ON
-      -DARROW_FLIGHT_SQL=OFF
+      -DARROW_FLIGHT_SQL=ON
       -DARROW_GANDIVA=ON
       -DARROW_GCS=ON
       -DARROW_HDFS=ON
