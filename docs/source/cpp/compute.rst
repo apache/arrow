@@ -1621,7 +1621,7 @@ do not detect overflow. They are alsoavailable in an overflow-checking variant,
 suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
 overflow is detected.
 
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
 | Function name           | Arity | Input types | Output type | Options class                  | Notes |
 +=========================+=======+=============+=============+================================+=======+
 | cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
