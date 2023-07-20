@@ -496,32 +496,4 @@ TEST_F(TestRecordBatchReader, ToTable) {
   ASSERT_EQ(table->column(0)->chunks().size(), 0);
 }
 
-ARROW_SUPPRESS_DEPRECATION_WARNING
-TEST_F(TestRecordBatchReader, DeprecatedReadAllToRecordBatches) {
-  RecordBatchVector batches;
-  ASSERT_OK(reader_->ReadAll(&batches));
-  ASSERT_EQ(batches.size(), batches_.size());
-  for (size_t index = 0; index < batches.size(); index++) {
-    AssertBatchesEqual(*batches[index], *batches_[index]);
-  }
-
-  ASSERT_OK(reader_->ReadAll(&batches));
-  ASSERT_EQ(batches.size(), 0);
-}
-
-TEST_F(TestRecordBatchReader, DeprecatedReadAllToTable) {
-  std::shared_ptr<Table> table;
-
-  ASSERT_OK(reader_->ReadAll(&table));
-  const auto& chunks = table->column(0)->chunks();
-  ASSERT_EQ(chunks.size(), batches_.size());
-  for (size_t index = 0; index < batches_.size(); index++) {
-    AssertArraysEqual(*chunks[index], *batches_[index]->column(0));
-  }
-
-  ASSERT_OK(reader_->ReadAll(&table));
-  ASSERT_EQ(table->column(0)->chunks().size(), 0);
-}
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
-
 }  // namespace arrow

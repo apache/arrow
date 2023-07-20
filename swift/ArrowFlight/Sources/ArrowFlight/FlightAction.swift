@@ -15,29 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+import Foundation
 
-#include "arrow/array.h"
-
-#include "arrow/matlab/array/proxy/array.h"
-
-#include "libmexclass/proxy/Proxy.h"
-
-#include "arrow/type_fwd.h"
-
-namespace arrow::matlab::array::proxy {
-
-class TimestampArray : public arrow::matlab::array::proxy::Array {
-    public:
-        TimestampArray(std::shared_ptr<arrow::TimestampArray> array);
-
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-    protected:
-        void toMATLAB(libmexclass::proxy::method::Context& context) override;
-
-        std::shared_ptr<type::proxy::Type> typeProxy() override;
-
-};
-
+public class FlightAction {
+    public let type: String
+    public let body: Data
+    init(_ action: Arrow_Flight_Protocol_Action) {
+        self.type = action.type
+        self.body = action.body
+    }
+    
+    public init(_ type: String, body: Data = Data()) {
+        self.type = type;
+        self.body = body;
+    }
+    
+    func toProtocol() -> Arrow_Flight_Protocol_Action {
+        var flight_action = Arrow_Flight_Protocol_Action()
+        flight_action.type = self.type
+        flight_action.body = self.body
+        return flight_action
+    }
 }

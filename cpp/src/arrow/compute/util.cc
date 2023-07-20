@@ -118,7 +118,7 @@ void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
   // 64 bits at a time
   constexpr int unroll = 64;
   int tail = num_bits % unroll;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     if (filter_input_indexes) {
       avx2::bits_filter_indexes_avx2(bit_to_search, num_bits - tail, bits, input_indexes,
@@ -141,7 +141,7 @@ void bits_to_indexes_internal(int64_t hardware_flags, const int num_bits,
         bits_to_indexes_helper(word, i * 64 + base_index, num_indexes, indexes);
       }
     }
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   }
 #endif
   // Optionally process the last partial word with masking out bits outside range
@@ -253,7 +253,7 @@ void bits_to_bytes(int64_t hardware_flags, const int num_bits, const uint8_t* bi
   }
 
   int num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     // The function call below processes whole 32 bit chunks together.
     num_processed = num_bits - (num_bits % 32);
@@ -309,7 +309,7 @@ void bytes_to_bits(int64_t hardware_flags, const int num_bits, const uint8_t* by
   }
 
   int num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     // The function call below processes whole 32 bit chunks together.
     num_processed = num_bits - (num_bits % 32);
@@ -339,7 +339,7 @@ void bytes_to_bits(int64_t hardware_flags, const int num_bits, const uint8_t* by
 
 bool are_all_bytes_zero(int64_t hardware_flags, const uint8_t* bytes,
                         uint32_t num_bytes) {
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     return avx2::are_all_bytes_zero_avx2(bytes, num_bytes);
   }
