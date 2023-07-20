@@ -58,6 +58,7 @@ get_stringr_pattern_options <- function(pattern) {
   }
 
   ensure_opts <- function(opts) {
+
     if (is.character(opts)) {
       opts <- list(pattern = opts, fixed = FALSE, ignore_case = FALSE)
     }
@@ -77,6 +78,7 @@ clean_pattern_namespace <- function(pattern) {
   }
 
   pattern
+
 
 }
 
