@@ -26,6 +26,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
@@ -1731,6 +1732,12 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
   CheckScalarBinary("divide_checked", left, right, expected_left_to_right);
   CheckScalarBinary("divide", right, left, expected_right_to_left);
   CheckScalarBinary("divide_checked", right, left, expected_right_to_left);
+
+  // Check dispatching
+  CheckDispatchBest("divide", {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::MILLI), duration(TimeUnit::MILLI)});
+  CheckDispatchBest("divide", {duration(TimeUnit::NANO), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::NANO), duration(TimeUnit::NANO)});
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
