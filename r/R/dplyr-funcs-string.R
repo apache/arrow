@@ -58,6 +58,7 @@ get_stringr_pattern_options <- function(pattern) {
   }
 
   ensure_opts <- function(opts) {
+
     if (is.character(opts)) {
       opts <- list(pattern = opts, fixed = FALSE, ignore_case = FALSE)
     }
@@ -66,7 +67,7 @@ get_stringr_pattern_options <- function(pattern) {
 
   pattern <- clean_pattern_namespace(pattern)
 
-  ensure_opts(eval_tidy(pattern, env = caller_env(2)))
+  ensure_opts(eval_tidy(pattern, env = new_environment(as.list(rlang::current_env()), parent = caller_env())))
 
 }
 
@@ -82,6 +83,7 @@ clean_pattern_namespace <- function(pattern) {
   }
 
   pattern
+
 }
 
 #' Does this string contain regex metacharacters?
