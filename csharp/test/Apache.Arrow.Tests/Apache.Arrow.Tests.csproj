@@ -2,10 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net7.0</TargetFrameworks>
-    <!-- Unloading the AppDomain causes net472 tests to hang on completion when Python has been used
     <TargetFrameworks>net7.0;net472</TargetFrameworks>
-    -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
