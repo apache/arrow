@@ -26,6 +26,7 @@ namespace Apache.Arrow.Tests
     {
         // TODO: Test various builder invariants (Append, AppendRange, Clear, Resize, Reserve, etc)
 
+#if NET5_0_OR_GREATER
         [Fact]
         public void PrimitiveArrayBuildersProduceExpectedArray()
         {
@@ -73,6 +74,7 @@ namespace Apache.Arrow.Tests
                 where TBuilder : PrimitiveArrayBuilder<T, TArray, TBuilder>, new() =>
                 TestArrayBuilder<TArray, TBuilder>(x => x.Append(T.CreateChecked(123)).AppendNull().AppendNull().Append(T.CreateChecked(127)), 4, 2, 0x09);
         }
+#endif
 
         [Fact]
         public void BooleanArrayBuilderProducersExpectedArray()

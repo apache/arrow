@@ -74,7 +74,9 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<UInt16Array>,
             IArrowArrayVisitor<UInt32Array>,
             IArrowArrayVisitor<UInt64Array>,
+#if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -112,7 +114,9 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt16Array array) => CompareArrays(array);
             public void Visit(UInt32Array array) => CompareArrays(array);
             public void Visit(UInt64Array array) => CompareArrays(array);
+#if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => CompareArrays(array);
+#endif
             public void Visit(FloatArray array) => CompareArrays(array);
             public void Visit(DoubleArray array) => CompareArrays(array);
             public void Visit(BooleanArray array) => CompareArrays(array);

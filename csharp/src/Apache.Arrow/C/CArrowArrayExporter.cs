@@ -26,9 +26,9 @@ namespace Apache.Arrow.C
 #if NET5_0_OR_GREATER
         private static unsafe delegate* unmanaged<CArrowArray*, void> ReleaseArrayPtr => &ReleaseArray;
 #else
-        private unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
+        internal unsafe delegate void ReleaseArrowArray(CArrowArray* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowArray> s_releaseArray = new NativeDelegate<ReleaseArrowArray>(ReleaseArray);
-        private static unsafe delegate* unmanaged[Cdecl]<CArrowArray*, void> ReleaseArrayPtr => (delegate* unmanaged[Cdecl]<CArrowArray*, void>)s_releaseArray.Pointer;
+        private static IntPtr ReleaseArrayPtr => s_releaseArray.Pointer;
 #endif
         /// <summary>
         /// Export an <see cref="IArrowArray"/> to a <see cref="CArrowArray"/>. Whether or not the
@@ -93,7 +93,7 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(cArray));
             }
-            if (cArray->release != null)
+            if (cArray->release != default)
             {
                 throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArray));
             }
@@ -191,7 +191,7 @@ namespace Apache.Arrow.C
         private unsafe static void ReleaseArray(CArrowArray* cArray)
         {
             Dispose(&cArray->private_data);
-            cArray->release = null;
+            cArray->release = default;
         }
 
         private unsafe static void* FromDisposable(IDisposable disposable)

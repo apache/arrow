@@ -93,6 +93,7 @@ namespace Apache.Arrow.Tests
             }
         }
 
+#if NET5_0_OR_GREATER
         [Fact]
         public void SliceArray()
         {
@@ -145,6 +146,7 @@ namespace Apache.Arrow.Tests
                 where TBuilder : PrimitiveArrayBuilder<T, TArray, TBuilder>, new() =>
                 TestSlice<TArray, TBuilder>(x => x.AppendNull().Append(T.CreateChecked(10)).Append(T.CreateChecked(20)).AppendNull().Append(T.CreateChecked(30)));
         }
+#endif
 
         [Fact]
         public void SliceBooleanArray()
@@ -198,7 +200,9 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<Date64Array>,
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
+#if NET5_0_OR_GREATER
             IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -240,7 +244,9 @@ namespace Apache.Arrow.Tests
             public void Visit(Time32Array array) => ValidateArrays(array);
             public void Visit(Time64Array array) => ValidateArrays(array);
 
+#if NET5_0_OR_GREATER
             public void Visit(HalfFloatArray array) => ValidateArrays(array);
+#endif
             public void Visit(FloatArray array) => ValidateArrays(array);
             public void Visit(DoubleArray array) => ValidateArrays(array);
             public void Visit(StringArray array) => ValidateArrays(array);

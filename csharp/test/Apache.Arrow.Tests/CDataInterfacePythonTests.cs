@@ -28,31 +28,39 @@ using Xunit;
 
 namespace Apache.Arrow.Tests
 {
-    public class CDataSchemaPythonTest
+    public class CDataSchemaPythonTest : IClassFixture<CDataSchemaPythonTest.PythonNet>
     {
-        public CDataSchemaPythonTest()
+        class PythonNet : IDisposable
         {
-            bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
-            bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
-            bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
-            // We only skip if this is not in CI
-            if (inCIJob && !inVerificationJob && !pythonSet)
+            public PythonNet()
             {
-                throw new Exception("PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+                bool inCIJob = Environment.GetEnvironmentVariable("GITHUB_ACTIONS") == "true";
+                bool inVerificationJob = Environment.GetEnvironmentVariable("TEST_CSHARP") == "1";
+                bool pythonSet = Environment.GetEnvironmentVariable("PYTHONNET_PYDLL") != null;
+                // We only skip if this is not in CI
+                if (inCIJob && !inVerificationJob && !pythonSet)
+                {
+                    throw new Exception("PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+                }
+                else
+                {
+                    Skip.If(!pythonSet, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
+                }
+
+
+                PythonEngine.Initialize();
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+                    PythonEngine.PythonPath.IndexOf("dlls", StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    dynamic sys = Py.Import("sys");
+                    sys.path.append(Path.Combine(Path.GetDirectoryName(Environment.GetEnvironmentVariable("PYTHONNET_PYDLL")), "DLLs"));
+                }
             }
-            else
+
+            public void Dispose()
             {
-                Skip.If(!pythonSet, "PYTHONNET_PYDLL not set; skipping C Data Interface tests.");
-            }
-
-
-            PythonEngine.Initialize();
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
-                !PythonEngine.PythonPath.Contains("dlls", StringComparison.OrdinalIgnoreCase))
-            {
-                dynamic sys = Py.Import("sys");
-                sys.path.append(Path.Combine(Path.GetDirectoryName(Environment.GetEnvironmentVariable("PYTHONNET_PYDLL")), "DLLs"));
+                PythonEngine.Shutdown();
             }
         }
 
@@ -360,7 +368,7 @@ namespace Apache.Arrow.Tests
                 }
 
                 // Python should have called release once `exportedPyType` went out-of-scope.
-                Assert.True(cSchema->release == null);
+                Assert.True(cSchema->release == default);
                 Assert.True(cSchema->format == null);
                 Assert.Equal(0, cSchema->flags);
                 Assert.Equal(0, cSchema->n_children);
@@ -395,7 +403,7 @@ namespace Apache.Arrow.Tests
 
                 // Python should have called release once `exportedPyField` went out-of-scope.
                 Assert.True(cSchema->name == null);
-                Assert.True(cSchema->release == null);
+                Assert.True(cSchema->release == default);
                 Assert.True(cSchema->format == null);
 
                 // Since we allocated, we are responsible for freeing the pointer.
