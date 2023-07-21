@@ -741,7 +741,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
         )
-        return type(self)._reconstruct, (kwargs,)
+        return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 
 
 cdef class ParquetFactoryOptions(_Weakrefable):
