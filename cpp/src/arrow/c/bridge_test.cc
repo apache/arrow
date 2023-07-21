@@ -1180,7 +1180,7 @@ class MyDevice : public Device {
   const char* type_name() const override { return kMyDeviceTypeName; }
   std::string ToString() const override { return kMyDeviceTypeName; }
   bool Equals(const Device& other) const override {
-    if (other.type_name() != kMyDeviceTypeName) {
+    if (other.type_name() != kMyDeviceTypeName || other.device_type() != device_type()) {
       return false;
     }
     return checked_cast<const MyDevice&>(other).value_ == value_;
