@@ -46,7 +46,7 @@ namespace garrow {
     if (status.ok()) {
       return TRUE;
     } else {
-      std::string context = std::move(context_func());
+      std::string context = context_func();
       g_set_error(error,
                   GARROW_ERROR,
                   garrow_error_from_status(status),

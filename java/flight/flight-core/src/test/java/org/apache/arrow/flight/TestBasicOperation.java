@@ -56,6 +56,8 @@ import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import com.google.common.base.Charsets;
 import com.google.protobuf.ByteString;
@@ -285,6 +287,7 @@ public class TestBasicOperation {
 
   /** Ensure the client is configured to accept large messages. */
   @Test
+  @DisabledOnOs(value = {OS.WINDOWS}, disabledReason = "https://github.com/apache/arrow/issues/33237: flaky test")
   public void getStreamLargeBatch() throws Exception {
     test(c -> {
       try (final FlightStream stream = c.getStream(new Ticket(Producer.TICKET_LARGE_BATCH))) {

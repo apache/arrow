@@ -36,7 +36,8 @@ Result<std::shared_ptr<Buffer>> AllocateValuesBuffer(int64_t length, const DataT
                                                      MemoryPool* pool,
                                                      int64_t data_buffer_size) {
   if (type.bit_width() == 1) {
-    return AllocateBitmap(length, pool);
+    // Make sure the bitmap is initialized (avoids Valgrind errors).
+    return AllocateEmptyBitmap(length, pool);
   } else if (is_fixed_width(type.id())) {
     return AllocateBuffer(length * type.byte_width(), pool);
   } else {
@@ -62,7 +63,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
   std::vector<std::shared_ptr<Buffer>> values_data_buffers;
   std::shared_ptr<Buffer> validity_buffer = NULLPTR;
   if (has_validity_buffer) {
-    ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateBitmap(length, pool));
+    ARROW_ASSIGN_OR_RAISE(validity_buffer, AllocateEmptyBitmap(length, pool));
   }
   ARROW_ASSIGN_OR_RAISE(auto values_buffer, AllocateValuesBuffer(length, *value_type,
                                                                  pool, data_buffer_size));

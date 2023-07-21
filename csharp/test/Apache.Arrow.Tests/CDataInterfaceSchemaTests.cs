@@ -105,7 +105,7 @@ namespace Apache.Arrow.Tests
                 wasCalled = true;
                 cSchema->release = null;
             };
-            cSchema->release = (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)Marshal.GetFunctionPointerForDelegate(
+            cSchema->release = (delegate* unmanaged<CArrowSchema*, void>)Marshal.GetFunctionPointerForDelegate(
                 releaseCallback);
 
             Assert.Throws<NullReferenceException>(() =>

@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Types;
+using System;
 using System.IO;
 
 namespace Apache.Arrow
@@ -24,17 +25,25 @@ namespace Apache.Arrow
     /// </summary>
     public class Time64Array : PrimitiveArray<long>
     {
+        private const long TicksPerMicrosecond = 10;
+        private const long NanosecondsPerTick = 100;
+
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Time64Array"/> objects.
         /// </summary>
-        public class Builder : PrimitiveArrayBuilder<long, Time64Array, Builder>
+        public class Builder : TimeArrayBuilder<long, Time64Array, Builder>
         {
-            protected override Time64Array Build(
-                ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
-                int length, int nullCount, int offset) =>
-                new Time64Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+            private class TimeBuilder : PrimitiveArrayBuilder<long, Time64Array, TimeBuilder>
+            {
+                public Time64Type DataType { get; }
 
-            protected Time64Type DataType { get; }
+                public TimeBuilder(Time64Type dataType) => DataType = dataType;
+
+                protected override Time64Array Build(
+                    ArrowBuffer valueBuffer, ArrowBuffer nullBitmapBuffer,
+                    int length, int nullCount, int offset) =>
+                    new Time64Array(DataType, valueBuffer, nullBitmapBuffer, length, nullCount, offset);
+            }
 
             public Builder()
                 : this(Time64Type.Default) { }
@@ -46,10 +55,22 @@ namespace Apache.Arrow
             /// Construct a new instance of the <see cref="Builder"/> class.
             /// </summary>
             public Builder(Time64Type type)
-                : base()
+                : base(new TimeBuilder(type))
             {
-                DataType = type;
             }
+
+#if NET6_0_OR_GREATER
+            protected override long Convert(TimeOnly time)
+            {
+                var unit = ((TimeBuilder)InnerBuilder).DataType.Unit;
+                return unit switch
+                {
+                    TimeUnit.Microsecond => (long)(time.Ticks / TicksPerMicrosecond),
+                    TimeUnit.Nanosecond => (long)(time.Ticks * NanosecondsPerTick),
+                    _ => throw new InvalidDataException($"Unsupported time unit for Time32Type: {unit}")
+                };
+            }
+#endif
         }
 
         public Time64Array(
@@ -113,5 +134,33 @@ namespace Apache.Arrow
                 _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
             };
         }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Get the time at the specified index as <see cref="TimeOnly"/>
+        /// </summary>
+        /// <remarks>
+        /// This may cause truncation of nanosecond values, as the resolution of TimeOnly is in 100-ns increments.
+        /// </remarks>
+        /// <param name="index">Index at which to get the time.</param>
+        /// <returns>Returns a <see cref="TimeOnly" />, or <c>null</c> if there is no object at that index.
+        /// </returns>
+        public TimeOnly? GetTime(int index)
+        {
+            long? value = GetValue(index);
+            if (value == null)
+            {
+                return null;
+            }
+
+            var unit = ((Time64Type)Data.DataType).Unit;
+            return unit switch
+            {
+                TimeUnit.Microsecond => new TimeOnly(value.Value * TicksPerMicrosecond),
+                TimeUnit.Nanosecond => new TimeOnly(value.Value / NanosecondsPerTick),
+                _ => throw new InvalidDataException($"Unsupported time unit for Time64Type: {unit}")
+            };
+        }
+#endif
     }
 }

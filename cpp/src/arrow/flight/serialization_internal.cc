@@ -75,6 +75,20 @@ Status ToProto(const Result& result, pb::Result* pb_result) {
   return Status::OK();
 }
 
+// CancelFlightInfoResult
+
+Status FromProto(const pb::CancelFlightInfoResult& pb_result,
+                 CancelFlightInfoResult* result) {
+  result->status = static_cast<CancelStatus>(pb_result.status());
+  return Status::OK();
+}
+
+Status ToProto(const CancelFlightInfoResult& result,
+               pb::CancelFlightInfoResult* pb_result) {
+  pb_result->set_status(static_cast<protocol::CancelStatus>(result.status));
+  return Status::OK();
+}
+
 // Criteria
 
 Status FromProto(const pb::Criteria& pb_criteria, Criteria* criteria) {
@@ -138,6 +152,15 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
   for (int i = 0; i < pb_endpoint.location_size(); ++i) {
     RETURN_NOT_OK(FromProto(pb_endpoint.location(i), &endpoint->locations[i]));
   }
+  if (pb_endpoint.has_expiration_time()) {
+    const auto& pb_expiration_time = pb_endpoint.expiration_time();
+    const auto seconds = std::chrono::seconds{pb_expiration_time.seconds()};
+    const auto nanoseconds = std::chrono::nanoseconds{pb_expiration_time.nanos()};
+    const auto duration =
+        std::chrono::duration_cast<Timestamp::duration>(seconds + nanoseconds);
+    const Timestamp expiration_time(duration);
+    endpoint->expiration_time = expiration_time;
+  }
   return Status::OK();
 }
 
@@ -147,6 +170,29 @@ Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint) 
   for (const Location& location : endpoint.locations) {
     RETURN_NOT_OK(ToProto(location, pb_endpoint->add_location()));
   }
+  if (endpoint.expiration_time) {
+    const auto expiration_time = endpoint.expiration_time.value();
+    const auto since_epoch = expiration_time.time_since_epoch();
+    const auto since_epoch_ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(since_epoch).count();
+    auto pb_expiration_time = pb_endpoint->mutable_expiration_time();
+    pb_expiration_time->set_seconds(since_epoch_ns / std::nano::den);
+    pb_expiration_time->set_nanos(since_epoch_ns % std::nano::den);
+  }
+  return Status::OK();
+}
+
+// RenewFlightEndpointRequest
+
+Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
+                 RenewFlightEndpointRequest* request) {
+  RETURN_NOT_OK(FromProto(pb_request.endpoint(), &request->endpoint));
+  return Status::OK();
+}
+
+Status ToProto(const RenewFlightEndpointRequest& request,
+               pb::RenewFlightEndpointRequest* pb_request) {
+  RETURN_NOT_OK(ToProto(request.endpoint, pb_request->mutable_endpoint()));
   return Status::OK();
 }
 
@@ -238,6 +284,22 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   pb_info->set_total_records(info.total_records());
   pb_info->set_total_bytes(info.total_bytes());
   pb_info->set_ordered(info.ordered());
+  return Status::OK();
+}
+
+// CancelFlightInfoRequest
+
+Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
+                 CancelFlightInfoRequest* request) {
+  FlightInfo::Data data;
+  RETURN_NOT_OK(FromProto(pb_request.info(), &data));
+  request->info = std::make_unique<FlightInfo>(std::move(data));
+  return Status::OK();
+}
+
+Status ToProto(const CancelFlightInfoRequest& request,
+               pb::CancelFlightInfoRequest* pb_request) {
+  RETURN_NOT_OK(ToProto(*request.info, pb_request->mutable_info()));
   return Status::OK();
 }
 

@@ -105,7 +105,7 @@ func (fw *FileWriter) NewRowGroup() {
 
 // NewBufferedRowGroup starts a new memory Buffered Row Group to allow writing columns / records
 // without immediately flushing them to disk. This allows using WriteBuffered to write records
-// and decide where to break your rowgroup based on the TotalBytesWritten rather than on the max
+// and decide where to break your row group based on the TotalBytesWritten rather than on the max
 // row group len. If using Records, this should be paired with WriteBuffered, while
 // Write will always write a new record as a row group in and of itself.
 func (fw *FileWriter) NewBufferedRowGroup() {
@@ -134,6 +134,19 @@ func (fw *FileWriter) RowGroupTotalBytesWritten() int64 {
 	return 0
 }
 
+// WriteBuffered will either append to an existing row group or create a new one
+// based on the record length and max row group length.
+//
+// Additionally, it allows to manually break your row group by
+// checking RowGroupTotalBytesWritten and calling NewBufferedRowGroup,
+// while Write will always create at least 1 row group for the record.
+//
+// Performance-wise WriteBuffered might be more favorable than Write if you're dealing with:
+// * a loose memory environment (meaning you have a lot of memory to utilize)
+// * records that have only a small (~<1K?) amount of rows
+//
+// More memory is utilized compared to Write as the whole row group data is kept in memory before it's written
+// since Parquet files must have an entire column written before writing the next column.
 func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
 		return fmt.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)
@@ -181,7 +194,13 @@ func (fw *FileWriter) WriteBuffered(rec arrow.Record) error {
 }
 
 // Write an arrow Record Batch to the file, respecting the MaxRowGroupLength in the writer
-// properties to determine whether or not a new row group is created while writing.
+// properties to determine whether the record is broken up into more than one row group.
+// At the very least a single row group is created per record,
+// so calling Write always results in a new row group added.
+//
+// Performance-wise Write might be more favorable than WriteBuffered if you're dealing with:
+// * a highly-restricted memory environment
+// * very large records with lots of rows (potentially close to the max row group length)
 func (fw *FileWriter) Write(rec arrow.Record) error {
 	if !rec.Schema().Equal(fw.schema) {
 		return fmt.Errorf("record schema does not match writer's. \nrecord: %s\nwriter: %s", rec.Schema(), fw.schema)

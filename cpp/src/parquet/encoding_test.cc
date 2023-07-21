@@ -48,9 +48,7 @@ using arrow::internal::checked_cast;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-
-namespace test {
+namespace parquet::test {
 
 TEST(VectorBooleanTest, TestEncodeBoolDecode) {
   // PARQUET-454
@@ -1910,5 +1908,4 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
   CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
 }
 
-}  // namespace test
-}  // namespace parquet
+}  // namespace parquet::test

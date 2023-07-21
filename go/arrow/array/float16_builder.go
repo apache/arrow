@@ -28,7 +28,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/float16"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type Float16Builder struct {
@@ -78,9 +78,21 @@ func (b *Float16Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Float16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Float16Builder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.UnsafeAppend(float16.Num{})
+}
+
+func (b *Float16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {

@@ -24,6 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/float16"
 )
 
@@ -127,6 +128,50 @@ func TestDecimal128Traits(t *testing.T) {
 
 	v2 := make([]decimal128.Num, N)
 	arrow.Decimal128Traits.Copy(v2, v1)
+
+	if !reflect.DeepEqual(v1, v2) {
+		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)
+	}
+}
+
+func TestDecimal256Traits(t *testing.T) {
+	const N = 10
+	nbytes := arrow.Decimal256Traits.BytesRequired(N)
+	b1 := arrow.Decimal256Traits.CastToBytes([]decimal256.Num{
+		decimal256.New(0, 0, 0, 10),
+		decimal256.New(1, 1, 1, 10),
+		decimal256.New(2, 2, 2, 10),
+		decimal256.New(3, 3, 3, 10),
+		decimal256.New(4, 4, 4, 10),
+		decimal256.New(5, 5, 5, 10),
+		decimal256.New(6, 6, 6, 10),
+		decimal256.New(7, 7, 7, 10),
+		decimal256.New(8, 8, 8, 10),
+		decimal256.New(9, 9, 9, 10),
+	})
+
+	b2 := make([]byte, nbytes)
+	for i := 0; i < N; i++ {
+		beg := i * arrow.Decimal256SizeBytes
+		end := (i + 1) * arrow.Decimal256SizeBytes
+		arrow.Decimal256Traits.PutValue(b2[beg:end], decimal256.New(uint64(i), uint64(i), uint64(i), 10))
+	}
+
+	if !reflect.DeepEqual(b1, b2) {
+		v1 := arrow.Decimal256Traits.CastFromBytes(b1)
+		v2 := arrow.Decimal256Traits.CastFromBytes(b2)
+		t.Fatalf("invalid values:\nb1=%v\nb2=%v\nv1=%v\nv2=%v\n", b1, b2, v1, v2)
+	}
+
+	v1 := arrow.Decimal256Traits.CastFromBytes(b1)
+	for i, v := range v1 {
+		if got, want := v, decimal256.New(uint64(i), uint64(i), uint64(i), 10); got != want {
+			t.Fatalf("invalid value[%d]. got=%v, want=%v", i, got, want)
+		}
+	}
+
+	v2 := make([]decimal256.Num, N)
+	arrow.Decimal256Traits.Copy(v2, v1)
 
 	if !reflect.DeepEqual(v1, v2) {
 		t.Fatalf("invalid values:\nv1=%v\nv2=%v\n", v1, v2)

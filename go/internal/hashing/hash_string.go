@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build go1.20
+//go:build go1.20 || tinygo
 
 package hashing
 
@@ -22,5 +22,5 @@ import "unsafe"
 
 func hashString(val string, alg uint64) uint64 {
 	buf := unsafe.Slice(unsafe.StringData(val), len(val))
-	return hash(buf, alg)
+	return Hash(buf, alg)
 }

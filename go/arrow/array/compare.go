@@ -22,6 +22,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
@@ -36,7 +37,7 @@ func RecordEqual(left, right arrow.Record) bool {
 	for i := range left.Columns() {
 		lc := left.Column(i)
 		rc := right.Column(i)
-		if !ArrayEqual(lc, rc) {
+		if !Equal(lc, rc) {
 			return false
 		}
 	}
@@ -195,15 +196,6 @@ func TableApproxEqual(left, right arrow.Table, opts ...EqualOption) bool {
 	return true
 }
 
-// ArrayEqual reports whether the two provided arrays are equal.
-//
-// Deprecated: This currently just delegates to calling Equal. This will be
-// removed in v9 so please update any calling code to just call array.Equal
-// directly instead.
-func ArrayEqual(left, right arrow.Array) bool {
-	return Equal(left, right)
-}
-
 // Equal reports whether the two provided arrays are equal.
 func Equal(left, right arrow.Array) bool {
 	switch {
@@ -341,14 +333,6 @@ func Equal(left, right arrow.Array) bool {
 	}
 }
 
-// ArraySliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
-//
-// Deprecated: Renamed to just array.SliceEqual, this currently will just delegate to the renamed
-// function and will be removed in v9. Please update any calling code.
-func ArraySliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
-	return SliceEqual(left, lbeg, lend, right, rbeg, rend)
-}
-
 // SliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
 func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
 	l := NewSlice(left, lbeg, lend)
@@ -357,14 +341,6 @@ func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, ren
 	defer r.Release()
 
 	return Equal(l, r)
-}
-
-// ArraySliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
-//
-// Deprecated: renamed to just SliceApproxEqual and will be removed in v9. Please update
-// calling code to just call array.SliceApproxEqual.
-func ArraySliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
-	return SliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
 }
 
 // SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
@@ -458,17 +434,8 @@ func WithUnorderedMapKeys(v bool) EqualOption {
 	}
 }
 
-// ArrayApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
-//
-// Deprecated: renamed to just ApproxEqual, this alias will be removed in v9. Please update
-// calling code to just call array.ApproxEqual
-func ArrayApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
-	return ApproxEqual(left, right, opts...)
-}
-
 // ApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
+// For non-floating point arrays, it is equivalent to Equal.
 func ApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
 	opt := newEqualOption(opts...)
 	return arrayApproxEqual(left, right, opt)
@@ -735,13 +702,22 @@ func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) 
 }
 
 func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !arrayApproxEqual(lf, rf, opt) {
-			return false
+	return bitutils.VisitSetBitRuns(
+		left.NullBitmapBytes(),
+		int64(left.Offset()), int64(left.Len()),
+		approxEqualStructRun(left, right, opt),
+	) == nil
+}
+
+func approxEqualStructRun(left, right *Struct, opt equalOption) bitutils.VisitFn {
+	return func(pos int64, length int64) error {
+		for i := range left.fields {
+			if !sliceApproxEqual(left.fields[i], pos, pos+length, right.fields[i], pos, pos+length, opt) {
+				return arrow.ErrInvalid
+			}
 		}
+		return nil
 	}
-	return true
 }
 
 // arrayApproxEqualMap doesn't care about the order of keys (in Go map traversal order is undefined)

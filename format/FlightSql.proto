@@ -1804,8 +1804,12 @@ message DoPutUpdateResult {
  * data.
  *
  * This command is idempotent.
+ *
+ * This command is deprecated since 13.0.0. Use the "CancelFlightInfo"
+ * action with DoAction instead.
  */
 message ActionCancelQueryRequest {
+  option deprecated = true;
   option (experimental) = true;
 
   // The result of the GetFlightInfo RPC that initiated the query.
@@ -1819,8 +1823,12 @@ message ActionCancelQueryRequest {
  * The result of cancelling a query.
  *
  * The result should be wrapped in a google.protobuf.Any message.
+ *
+ * This command is deprecated since 13.0.0. Use the "CancelFlightInfo"
+ * action with DoAction instead.
  */
 message ActionCancelQueryResult {
+  option deprecated = true;
   option (experimental) = true;
 
   enum CancelResult {

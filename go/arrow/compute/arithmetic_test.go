@@ -2621,7 +2621,7 @@ func (us *UnaryArithmeticSigned[T]) TestAbsoluteValue() {
 				fn(`[]`, `[]`)
 				// scalar/arrays with nulls
 				fn(`[null]`, `[null]`)
-				fn(`[1, null -10]`, `[1, null, 10]`)
+				fn(`[1, null, -10]`, `[1, null, 10]`)
 				us.assertUnaryOpScalars(compute.AbsoluteValue, us.makeNullScalar(), us.makeNullScalar())
 				// scalar/arrays with zeros
 				fn(`[0, -0]`, `[0, 0]`)
@@ -2663,7 +2663,7 @@ func (us *UnaryArithmeticSigned[T]) TestNegate() {
 				fn(`[]`, `[]`)
 				// scalar/arrays with nulls
 				fn(`[null]`, `[null]`)
-				fn(`[1, null -10]`, `[-1, null, 10]`)
+				fn(`[1, null, -10]`, `[-1, null, 10]`)
 				// ordinary scalars/arrays (positive inputs)
 				fn(`[1, 10, 127]`, `[-1, -10, -127]`)
 				us.assertUnaryOpVals(compute.Negate, 1, -1)
@@ -2781,7 +2781,7 @@ func (us *UnaryArithmeticFloating[T]) TestNegate() {
 				fn(`[]`, `[]`)
 				// scalar/arrays with nulls
 				fn(`[null]`, `[null]`)
-				fn(`[1.5, null -10.25]`, `[-1.5, null, 10.25]`)
+				fn(`[1.5, null, -10.25]`, `[-1.5, null, 10.25]`)
 				// ordinary scalars/arrays (positive inputs)
 				fn(`[0.5, 10.123, 127.321]`, `[-0.5, -10.123, -127.321]`)
 				us.assertUnaryOpVals(compute.Negate, 1.25, -1.25)

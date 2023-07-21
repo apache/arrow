@@ -19,6 +19,7 @@ package org.apache.arrow.vector;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.stream.IntStream;
@@ -539,5 +540,14 @@ public class TestBitVector {
       assertFalse(hashCodes[0] == hashCodes[2]);
       assertFalse(hashCodes[1] == hashCodes[2]);
     }
+  }
+
+  @Test
+  public void testGetTransferPairWithField() {
+    final BitVector fromVector = new BitVector(EMPTY_SCHEMA_PATH, allocator);
+    final TransferPair transferPair = fromVector.getTransferPair(fromVector.getField(), allocator);
+    final BitVector toVector = (BitVector) transferPair.getTo();
+    // Field inside a new vector created by reusing a field should be the same in memory as the original field.
+    assertSame(fromVector.getField(), toVector.getField());
   }
 }

@@ -516,16 +516,20 @@ class FileFormatFixtureMixin : public ::testing::Test {
     SetProjection(opts_.get(), std::move(projection));
   }
 
+  void Project(std::vector<compute::Expression> exprs, std::vector<std::string> names) {
+    ASSERT_OK_AND_ASSIGN(auto projection,
+                         ProjectionDescr::FromExpressions(
+                             std::move(exprs), std::move(names), *opts_->dataset_schema));
+    SetProjection(opts_.get(), std::move(projection));
+  }
+
   void ProjectNested(std::vector<std::string> names) {
     std::vector<compute::Expression> exprs;
     for (const auto& name : names) {
       ASSERT_OK_AND_ASSIGN(auto ref, FieldRef::FromDotPath(name));
       exprs.push_back(field_ref(ref));
     }
-    ASSERT_OK_AND_ASSIGN(
-        auto descr, ProjectionDescr::FromExpressions(std::move(exprs), std::move(names),
-                                                     *opts_->dataset_schema));
-    SetProjection(opts_.get(), std::move(descr));
+    Project(std::move(exprs), std::move(names));
   }
 
   // Shared test cases

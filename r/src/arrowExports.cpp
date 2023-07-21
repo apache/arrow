@@ -1084,12 +1084,12 @@ extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP fil
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, cpp11::strings metadata, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
-	arrow::r::Input<cpp11::strings>::type metadata(metadata_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::Schema>&>::type schema(schema_sexp);
 	arrow::r::Input<const std::shared_ptr<ds::FileWriteOptions>&>::type file_write_options(file_write_options_sexp);
 	arrow::r::Input<const std::shared_ptr<fs::FileSystem>&>::type filesystem(filesystem_sexp);
 	arrow::r::Input<std::string>::type base_dir(base_dir_sexp);
@@ -1101,12 +1101,12 @@ BEGIN_CPP11
 	arrow::r::Input<uint64_t>::type max_rows_per_file(max_rows_per_file_sexp);
 	arrow::r::Input<uint64_t>::type min_rows_per_group(min_rows_per_group_sexp);
 	arrow::r::Input<uint64_t>::type max_rows_per_group(max_rows_per_group_sexp);
-	ExecPlan_Write(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group);
+	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP metadata_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
 	Rf_error("Cannot call ExecPlan_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1411,6 +1411,46 @@ extern "C" SEXP _arrow_csv___ReadOptions__column_names(SEXP options_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
 	return cpp11::as_sexp(csv___ReadOptions__column_names(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__block_size(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__block_size(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__block_size(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__skip_rows(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__skip_rows(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__skip_rows(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__autogenerate_column_names(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__autogenerate_column_names(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__autogenerate_column_names(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__use_threads(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__use_threads(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__use_threads(options));
+END_CPP11
+}
+// csv.cpp
+SEXP csv___ReadOptions__skip_rows_after_names(const std::shared_ptr<arrow::csv::ReadOptions>& options);
+extern "C" SEXP _arrow_csv___ReadOptions__skip_rows_after_names(SEXP options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::csv::ReadOptions>&>::type options(options_sexp);
+	return cpp11::as_sexp(csv___ReadOptions__skip_rows_after_names(options));
 END_CPP11
 }
 // csv.cpp
@@ -1921,6 +1961,22 @@ extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SE
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::JsonFileFormat> dataset___JsonFileFormat__Make(const std::shared_ptr<arrow::json::ParseOptions>& parse_options, const std::shared_ptr<arrow::json::ReadOptions>& read_options);
+extern "C" SEXP _arrow_dataset___JsonFileFormat__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
+	return cpp11::as_sexp(dataset___JsonFileFormat__Make(parse_options, read_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___JsonFileFormat__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+	Rf_error("Cannot call dataset___JsonFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::string dataset___FragmentScanOptions__type_name(const std::shared_ptr<ds::FragmentScanOptions>& fragment_scan_options);
 extern "C" SEXP _arrow_dataset___FragmentScanOptions__type_name(SEXP fragment_scan_options_sexp){
 BEGIN_CPP11
@@ -1947,6 +2003,22 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___CsvFragmentScanOptions__Make(SEXP convert_options_sexp, SEXP read_options_sexp){
 	Rf_error("Cannot call dataset___CsvFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(const std::shared_ptr<arrow::json::ParseOptions>& parse_options, const std::shared_ptr<arrow::json::ReadOptions>& read_options);
+extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
+	return cpp11::as_sexp(dataset___JsonFragmentScanOptions__Make(parse_options, read_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+	Rf_error("Cannot call dataset___JsonFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4804,6 +4876,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> MakeSafeRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_MakeSafeRecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(MakeSafeRecordBatchReader(reader));
+END_CPP11
+}
+// recordbatchreader.cpp
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -5649,6 +5729,11 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__column_names", (DL_FUNC) &_arrow_csv___ReadOptions__column_names, 1}, 
+		{ "_arrow_csv___ReadOptions__block_size", (DL_FUNC) &_arrow_csv___ReadOptions__block_size, 1}, 
+		{ "_arrow_csv___ReadOptions__skip_rows", (DL_FUNC) &_arrow_csv___ReadOptions__skip_rows, 1}, 
+		{ "_arrow_csv___ReadOptions__autogenerate_column_names", (DL_FUNC) &_arrow_csv___ReadOptions__autogenerate_column_names, 1}, 
+		{ "_arrow_csv___ReadOptions__use_threads", (DL_FUNC) &_arrow_csv___ReadOptions__use_threads, 1}, 
+		{ "_arrow_csv___ReadOptions__skip_rows_after_names", (DL_FUNC) &_arrow_csv___ReadOptions__skip_rows_after_names, 1}, 
 		{ "_arrow_csv___ConvertOptions__initialize", (DL_FUNC) &_arrow_csv___ConvertOptions__initialize, 1}, 
 		{ "_arrow_csv___TableReader__Make", (DL_FUNC) &_arrow_csv___TableReader__Make, 4}, 
 		{ "_arrow_csv___TableReader__Read", (DL_FUNC) &_arrow_csv___TableReader__Read, 1}, 
@@ -5685,8 +5770,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___CsvFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___CsvFileWriteOptions__update, 2}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 3}, 
+		{ "_arrow_dataset___JsonFileFormat__Make", (DL_FUNC) &_arrow_dataset___JsonFileFormat__Make, 2}, 
 		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
 		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
+		{ "_arrow_dataset___JsonFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___JsonFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___ParquetFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___ParquetFragmentScanOptions__Make, 3}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 2}, 
@@ -5963,6 +6050,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 
+		{ "_arrow_MakeSafeRecordBatchReader", (DL_FUNC) &_arrow_MakeSafeRecordBatchReader, 1}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 

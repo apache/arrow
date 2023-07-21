@@ -24,7 +24,7 @@ import (
 	"unsafe"
 
 	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type BinaryLike interface {

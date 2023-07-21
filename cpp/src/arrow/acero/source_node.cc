@@ -259,8 +259,26 @@ struct SourceNode : ExecNode, public TracedNode {
         return;
       }
       to_finish = backpressure_future_;
+      backpressure_future_ = Future<>::MakeFinished();
     }
     to_finish.MarkFinished();
+  }
+
+  Status StopProducing() override {
+    // GH-35837: ensure node is not paused
+    Future<> to_finish;
+    {
+      std::lock_guard<std::mutex> lg(mutex_);
+      if (!backpressure_future_.is_finished()) {
+        to_finish = backpressure_future_;
+        backpressure_future_ = Future<>::MakeFinished();
+      }
+    }
+    if (to_finish.is_valid()) {
+      to_finish.MarkFinished();
+    }
+    // only then stop
+    return ExecNode::StopProducing();
   }
 
   Status StopProducingImpl() override {

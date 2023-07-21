@@ -39,6 +39,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -48,18 +49,20 @@ namespace compute {
 namespace internal {
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
-                               VectorKernel base_kernel, InputType selection_type,
-                               const std::vector<SelectionKernelData>& kernels,
+                               VectorKernel base_kernel,
+                               std::vector<SelectionKernelData>&& kernels,
                                const FunctionOptions* default_options,
                                FunctionRegistry* registry) {
   auto func = std::make_shared<VectorFunction>(name, Arity::Binary(), std::move(doc),
                                                default_options);
-  for (auto& kernel_data : kernels) {
-    base_kernel.signature =
-        KernelSignature::Make({std::move(kernel_data.input), selection_type}, FirstType);
+  for (auto&& kernel_data : kernels) {
+    base_kernel.signature = KernelSignature::Make(
+        {std::move(kernel_data.value_type), std::move(kernel_data.selection_type)},
+        OutputType(FirstType));
     base_kernel.exec = kernel_data.exec;
     DCHECK_OK(func->AddKernel(base_kernel));
   }
+  kernels.clear();
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
@@ -82,6 +85,92 @@ Status PreallocatePrimitiveArrayData(KernelContext* ctx, int64_t length, int bit
 
 namespace {
 
+/// \brief Iterate over a REE filter, emitting ranges of a plain values array that
+/// would pass the filter.
+///
+/// Differently from REExREE, and REExPlain filtering, PlainxREE filtering
+/// does not produce a REE output, but rather a plain output array. As such it's
+/// much simpler.
+///
+/// \param filter_may_have_nulls Only pass false if you know the filter has no nulls.
+template <typename FilterRunEndType>
+void VisitPlainxREEFilterOutputSegmentsImpl(
+    const ArraySpan& filter, bool filter_may_have_nulls,
+    FilterOptions::NullSelectionBehavior null_selection,
+    const EmitREEFilterSegment& emit_segment) {
+  using FilterRunEndCType = typename FilterRunEndType::c_type;
+  const ArraySpan& filter_values = arrow::ree_util::ValuesArray(filter);
+  const int64_t filter_values_offset = filter_values.offset;
+  const uint8_t* filter_is_valid = filter_values.buffers[0].data;
+  const uint8_t* filter_selection = filter_values.buffers[1].data;
+  filter_may_have_nulls = filter_may_have_nulls && filter_is_valid != nullptr &&
+                          filter_values.null_count != 0;
+
+  const arrow::ree_util::RunEndEncodedArraySpan<FilterRunEndCType> filter_span(filter);
+  auto it = filter_span.begin();
+  if (filter_may_have_nulls) {
+    if (null_selection == FilterOptions::EMIT_NULL) {
+      while (!it.is_end(filter_span)) {
+        const int64_t i = filter_values_offset + it.index_into_array();
+        const bool valid = bit_util::GetBit(filter_is_valid, i);
+        const bool emit = !valid || bit_util::GetBit(filter_selection, i);
+        if (ARROW_PREDICT_FALSE(
+                emit && !emit_segment(it.logical_position(), it.run_length(), valid))) {
+          break;
+        }
+        ++it;
+      }
+    } else {  // DROP nulls
+      while (!it.is_end(filter_span)) {
+        const int64_t i = filter_values_offset + it.index_into_array();
+        const bool emit =
+            bit_util::GetBit(filter_is_valid, i) && bit_util::GetBit(filter_selection, i);
+        if (ARROW_PREDICT_FALSE(
+                emit && !emit_segment(it.logical_position(), it.run_length(), true))) {
+          break;
+        }
+        ++it;
+      }
+    }
+  } else {
+    while (!it.is_end(filter_span)) {
+      const int64_t i = filter_values_offset + it.index_into_array();
+      const bool emit = bit_util::GetBit(filter_selection, i);
+      if (ARROW_PREDICT_FALSE(
+              emit && !emit_segment(it.logical_position(), it.run_length(), true))) {
+        break;
+      }
+      ++it;
+    }
+  }
+}
+
+}  // namespace
+
+void VisitPlainxREEFilterOutputSegments(
+    const ArraySpan& filter, bool filter_may_have_nulls,
+    FilterOptions::NullSelectionBehavior null_selection,
+    const EmitREEFilterSegment& emit_segment) {
+  if (filter.length == 0) {
+    return;
+  }
+  const auto& ree_type = checked_cast<const RunEndEncodedType&>(*filter.type);
+  switch (ree_type.run_end_type()->id()) {
+    case Type::INT16:
+      return VisitPlainxREEFilterOutputSegmentsImpl<Int16Type>(
+          filter, filter_may_have_nulls, null_selection, emit_segment);
+    case Type::INT32:
+      return VisitPlainxREEFilterOutputSegmentsImpl<Int32Type>(
+          filter, filter_may_have_nulls, null_selection, emit_segment);
+    default:
+      DCHECK(ree_type.run_end_type()->id() == Type::INT64);
+      return VisitPlainxREEFilterOutputSegmentsImpl<Int64Type>(
+          filter, filter_may_have_nulls, null_selection, emit_segment);
+  }
+}
+
+namespace {
+
 using FilterState = OptionsWrapper<FilterOptions>;
 using TakeState = OptionsWrapper<TakeOptions>;
 
@@ -91,9 +180,9 @@ using TakeState = OptionsWrapper<TakeOptions>;
 
 // Use CRTP to dispatch to type-specific processing of take indices for each
 // unsigned integer type.
-template <typename Impl, typename Type>
+template <typename Impl, typename ArrowType>
 struct Selection {
-  using ValuesArrayType = typename TypeTraits<Type>::ArrayType;
+  using ValuesArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
   // Forwards the generic value visitors to the VisitFilter template
   struct FilterAdapter {
@@ -199,27 +288,11 @@ struct Selection {
   // nulls coming from the filter when using FilterOptions::EMIT_NULL
   template <typename ValidVisitor, typename NullVisitor>
   Status VisitFilter(ValidVisitor&& visit_valid, NullVisitor&& visit_null) {
-    auto null_selection = FilterState::Get(ctx).null_selection_behavior;
+    const bool is_ree_filter = selection.type->id() == Type::RUN_END_ENCODED;
+    const auto null_selection = FilterState::Get(ctx).null_selection_behavior;
 
-    const uint8_t* filter_data = selection.buffers[1].data;
-
-    const uint8_t* filter_is_valid = selection.buffers[0].data;
-    const int64_t filter_offset = selection.offset;
     arrow::internal::OptionalBitIndexer values_is_valid(values.buffers[0].data,
                                                         values.offset);
-
-    // We use 3 block counters for fast scanning of the filter
-    //
-    // * values_valid_counter: for values null/not-null
-    // * filter_valid_counter: for filter null/not-null
-    // * filter_counter: for filter true/false
-    arrow::internal::OptionalBitBlockCounter values_valid_counter(
-        values.buffers[0].data, values.offset, values.length);
-    arrow::internal::OptionalBitBlockCounter filter_valid_counter(
-        filter_is_valid, filter_offset, selection.length);
-    arrow::internal::BitBlockCounter filter_counter(filter_data, filter_offset,
-                                                    selection.length);
-    int64_t in_position = 0;
 
     auto AppendNotNull = [&](int64_t index) -> Status {
       validity_builder.UnsafeAppend(true);
@@ -239,6 +312,41 @@ struct Selection {
       }
     };
 
+    if (is_ree_filter) {
+      Status status;
+      VisitPlainxREEFilterOutputSegments(
+          selection, /*filter_may_have_nulls=*/true, null_selection,
+          [&](int64_t position, int64_t segment_length, bool filter_valid) {
+            if (filter_valid) {
+              for (int64_t i = 0; i < segment_length; ++i) {
+                status = AppendMaybeNull(position + i);
+              }
+            } else {
+              for (int64_t i = 0; i < segment_length; ++i) {
+                status = AppendNull();
+              }
+            }
+            return status.ok();
+          });
+      return status;
+    }
+
+    const uint8_t* filter_data = selection.buffers[1].data;
+    const uint8_t* filter_is_valid = selection.buffers[0].data;
+    const int64_t filter_offset = selection.offset;
+    // We use 3 block counters for fast scanning of the filter
+    //
+    // * values_valid_counter: for values null/not-null
+    // * filter_valid_counter: for filter null/not-null
+    // * filter_counter: for filter true/false
+    arrow::internal::OptionalBitBlockCounter values_valid_counter(
+        values.buffers[0].data, values.offset, values.length);
+    arrow::internal::OptionalBitBlockCounter filter_valid_counter(
+        filter_is_valid, filter_offset, selection.length);
+    arrow::internal::BitBlockCounter filter_counter(filter_data, filter_offset,
+                                                    selection.length);
+
+    int64_t in_position = 0;
     while (in_position < selection.length) {
       arrow::internal::BitBlockCount filter_valid_block = filter_valid_counter.NextWord();
       arrow::internal::BitBlockCount values_valid_block = values_valid_counter.NextWord();

@@ -76,8 +76,7 @@ using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 ::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
@@ -258,16 +257,6 @@ class FileReaderImpl : public FileReader {
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out) override {
     return FromParquetSchema(reader_->metadata()->schema(), reader_properties_,
                              reader_->metadata()->key_value_metadata(), out);
-  }
-
-  Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    auto included_leaves = VectorToSharedSet(Iota(reader_->metadata()->num_columns()));
-    std::vector<int> row_groups = Iota(reader_->metadata()->num_row_groups());
-
-    std::unique_ptr<ColumnReaderImpl> reader;
-    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, &reader));
-
-    return ReadColumn(i, row_groups, reader.get(), out);
   }
 
   Status ReadColumn(int i, const std::vector<int>& row_groups, ColumnReader* reader,
@@ -1414,5 +1403,4 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
 }  // namespace internal
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

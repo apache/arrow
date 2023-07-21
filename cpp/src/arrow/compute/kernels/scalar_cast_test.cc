@@ -1006,12 +1006,12 @@ TEST(Cast, FloatingToDecimal) {
 
     CheckCast(ArrayFromJSON(float32(), "[1.8446746e+15, -1.8446746e+15]"),
               ArrayFromJSON(decimal_type(20, 4),
-                            R"(["1844674627273280.7168", "-1844674627273280.7168"])"));
+                            R"(["1844674629206016.0000", "-1844674629206016.0000"])"));
 
     CheckCast(
         ArrayFromJSON(float64(), "[1.8446744073709556e+15, -1.8446744073709556e+15]"),
         ArrayFromJSON(decimal_type(20, 4),
-                      R"(["1844674407370955.5712", "-1844674407370955.5712"])"));
+                      R"(["1844674407370955.5000", "-1844674407370955.5000"])"));
 
     // Edge cases are tested for Decimal128::FromReal() and Decimal256::FromReal
   }
@@ -1025,7 +1025,8 @@ TEST(Cast, DecimalToFloating) {
     }
   }
 
-  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal()
+  // Edge cases are tested for Decimal128::ToReal() and Decimal256::ToReal() in
+  // decimal_test.cc
 }
 
 TEST(Cast, DecimalToString) {

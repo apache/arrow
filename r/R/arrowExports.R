@@ -468,8 +468,8 @@ ExecNode_Scan <- function(plan, dataset, filter, projection) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
-ExecPlan_Write <- function(plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, metadata, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -566,6 +566,26 @@ csv___ParseOptions__initialize <- function(options) {
 
 csv___ReadOptions__column_names <- function(options) {
   .Call(`_arrow_csv___ReadOptions__column_names`, options)
+}
+
+csv___ReadOptions__block_size <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__block_size`, options)
+}
+
+csv___ReadOptions__skip_rows <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__skip_rows`, options)
+}
+
+csv___ReadOptions__autogenerate_column_names <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__autogenerate_column_names`, options)
+}
+
+csv___ReadOptions__use_threads <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__use_threads`, options)
+}
+
+csv___ReadOptions__skip_rows_after_names <- function(options) {
+  .Call(`_arrow_csv___ReadOptions__skip_rows_after_names`, options)
 }
 
 csv___ConvertOptions__initialize <- function(options) {
@@ -712,12 +732,20 @@ dataset___CsvFileFormat__Make <- function(parse_options, convert_options, read_o
   .Call(`_arrow_dataset___CsvFileFormat__Make`, parse_options, convert_options, read_options)
 }
 
+dataset___JsonFileFormat__Make <- function(parse_options, read_options) {
+  .Call(`_arrow_dataset___JsonFileFormat__Make`, parse_options, read_options)
+}
+
 dataset___FragmentScanOptions__type_name <- function(fragment_scan_options) {
   .Call(`_arrow_dataset___FragmentScanOptions__type_name`, fragment_scan_options)
 }
 
 dataset___CsvFragmentScanOptions__Make <- function(convert_options, read_options) {
   .Call(`_arrow_dataset___CsvFragmentScanOptions__Make`, convert_options, read_options)
+}
+
+dataset___JsonFragmentScanOptions__Make <- function(parse_options, read_options) {
+  .Call(`_arrow_dataset___JsonFragmentScanOptions__Make`, parse_options, read_options)
 }
 
 dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer) {
@@ -1822,6 +1850,10 @@ Table__from_RecordBatchReader <- function(reader) {
 
 RecordBatchReader__Head <- function(reader, num_rows) {
   .Call(`_arrow_RecordBatchReader__Head`, reader, num_rows)
+}
+
+MakeSafeRecordBatchReader <- function(reader) {
+  .Call(`_arrow_MakeSafeRecordBatchReader`, reader)
 }
 
 ipc___RecordBatchStreamReader__Open <- function(stream) {

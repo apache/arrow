@@ -28,12 +28,13 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/float16"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/apache/arrow/go/v13/internal/hashing"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/goccy/go-json"
 )
 
 // Dictionary represents the type for dictionary-encoded data with a data
@@ -45,12 +46,12 @@ import (
 //
 // For example, the array:
 //
-//      ["foo", "bar", "foo", "bar", "foo", "bar"]
+//	["foo", "bar", "foo", "bar", "foo", "bar"]
 //
 // with dictionary ["bar", "foo"], would have the representation of:
 //
-//      indices: [1, 0, 1, 0, 1, 0]
-//      dictionary: ["bar", "foo"]
+//	indices: [1, 0, 1, 0, 1, 0]
+//	dictionary: ["bar", "foo"]
 //
 // The indices in principle may be any integer type.
 type Dictionary struct {
@@ -250,7 +251,7 @@ func (d *Dictionary) CanCompareIndices(other *Dictionary) bool {
 	}
 
 	minlen := int64(min(d.data.dictionary.length, other.data.dictionary.length))
-	return ArraySliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
+	return SliceEqual(d.Dictionary(), 0, minlen, other.Dictionary(), 0, minlen)
 }
 
 func (d *Dictionary) ValueStr(i int) string {
@@ -305,7 +306,7 @@ func (d *Dictionary) MarshalJSON() ([]byte, error) {
 }
 
 func arrayEqualDict(l, r *Dictionary) bool {
-	return ArrayEqual(l.Dictionary(), r.Dictionary()) && ArrayEqual(l.indices, r.indices)
+	return Equal(l.Dictionary(), r.Dictionary()) && Equal(l.indices, r.indices)
 }
 
 func arrayApproxEqualDict(l, r *Dictionary, opt equalOption) bool {
@@ -694,9 +695,21 @@ func (b *dictionaryBuilder) AppendNull() {
 	b.idxBuilder.AppendNull()
 }
 
+func (b *dictionaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *dictionaryBuilder) AppendEmptyValue() {
 	b.length += 1
 	b.idxBuilder.AppendEmptyValue()
+}
+
+func (b *dictionaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *dictionaryBuilder) Reserve(n int) {
@@ -715,6 +728,8 @@ func (b *dictionaryBuilder) ResetFull() {
 }
 
 func (b *dictionaryBuilder) Cap() int { return b.idxBuilder.Cap() }
+
+func (b *dictionaryBuilder) IsNull(i int) bool { return b.idxBuilder.IsNull(i) }
 
 func (b *dictionaryBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -882,6 +897,11 @@ func getvalFn(arr arrow.Array) func(i int) interface{} {
 		return func(i int) interface{} {
 			val := typedarr.Value(i)
 			return (*(*[arrow.Decimal128SizeBytes]byte)(unsafe.Pointer(&val)))[:]
+		}
+	case *Decimal256:
+		return func(i int) interface{} {
+			val := typedarr.Value(i)
+			return (*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&val)))[:]
 		}
 	case *DayTimeInterval:
 		return func(i int) interface{} {
@@ -1373,7 +1393,7 @@ type Decimal256DictionaryBuilder struct {
 	dictionaryBuilder
 }
 
-func (b *Decimal256DictionaryBuilder) Append(v decimal128.Num) error {
+func (b *Decimal256DictionaryBuilder) Append(v decimal256.Num) error {
 	return b.appendValue((*(*[arrow.Decimal256SizeBytes]byte)(unsafe.Pointer(&v)))[:])
 }
 func (b *Decimal256DictionaryBuilder) InsertDictValues(arr *Decimal256) (err error) {

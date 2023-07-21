@@ -21,9 +21,32 @@
 
 ## Status
 
+> **Warning** The MATLAB interface is under active development and should be considered experimental.
+
 This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
-The current code only supports reading/writing numeric types from/to Feather v1 files.
+Currently, the MATLAB interface supports:
+
+1. Creating a subset of Arrow `Array` types (e.g. numeric and boolean) from MATLAB data
+2. Reading and writing numeric types from/to Feather v1 files.
+
+Supported `arrow.array.Array` types are included in the table below.
+
+**NOTE**: All Arrow `Array` classes are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
+
+| MATLAB Array Type | Arrow Array Type |
+| ----------------- | ---------------- |
+| `single`          | `Float32Array`   |
+| `double`          | `Float64Array`   |
+| `uint8`           | `UInt8Array`     |
+| `uint16`          | `UInt16Array`    |
+| `uint32`          | `UInt32Array`    |
+| `uint64`          | `UInt64Array`    |
+| `int8`            | `Int8Array`      |
+| `int16`           | `Int16Array`     |
+| `int32`           | `Int32Array`     |
+| `int64`           | `Int64Array`     |
+| `logical`         | `BooleanArray`   |
 
 ## Prerequisites
 
@@ -53,9 +76,11 @@ $ cd arrow/matlab
 To build the MATLAB interface, use [CMake](https://cmake.org/cmake/help/latest/):
 
 ```console
-$ cmake -S . -B build 
+$ cmake -S . -B build -D MATLAB_ARROW_INTERFACE=ON
 $ cmake --build build --config Release
 ```
+
+**NOTE:** To build the experimental MATLAB interface code, `-D MATLAB_ARROW_INTERFACE=ON` must be specified as shown above.
 
 ## Install
 
@@ -75,10 +100,10 @@ There are two kinds of tests for the MATLAB Interface: MATLAB and C++.
 
 ### MATLAB
 
-To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call the [`runtests`](https://mathworks.com/help/matlab/ref/runtests.html) command on the `test` directory:
+To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call the [`runtests`](https://mathworks.com/help/matlab/ref/runtests.html) command on the `test` directory with `IncludeSubFolders=true`:
 
 ``` matlab
->> runtests test;
+>> runtests("test", IncludeSubFolders=true);
 ```
 
 ### C++
@@ -86,7 +111,7 @@ To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call t
 To enable the C++ tests, set the `MATLAB_BUILD_TESTS` flag to `ON` at build time: 
 
 ```console
-$ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
+$ cmake -S . -B build -D MATLAB_ARROW_INTERFACE=ON -D MATLAB_BUILD_TESTS=ON
 $ cmake --build build --config Release
 ```
 
@@ -100,7 +125,89 @@ $ ctest --test-dir build
 
 Included below are some example code snippets that illustrate how to use the MATLAB interface.
 
-### Write a MATLAB table to a Feather v1 file
+### Arrow `Array` classes (i.e. `arrow.array.<Array>`)
+
+#### Create an Arrow `Float64Array` from a MATLAB `double` array
+
+```matlab
+>> matlabArray = double([1, 2, 3])
+
+matlabArray =
+
+     1     2     3
+
+>> arrowArray = arrow.array.Float64Array(matlabArray)
+
+arrowArray = 
+
+[
+  1,
+  2,
+  3
+]
+```
+
+#### Create a MATLAB `logical` array from an Arrow `BooleanArray`
+
+```matlab
+>> arrowArray = arrow.array.BooleanArray([true, false, true])
+
+arrowArray = 
+
+[
+  true,
+  false,
+  true
+]
+
+>> matlabArray = toMATLAB(arrowArray)
+
+matlabArray =
+
+  3×1 logical array
+
+   1
+   0
+   1
+```
+
+#### Specify `Null` Values when constructing an `arrow.array.Int8Array`
+
+```matlab
+>> matlabArray = int8([122, -1, 456, -10, 789])
+
+matlabArray =
+
+  1×5 int8 row vector
+
+    122     -1    127    -10    127
+
+% Treat all negative array elements as Null
+>> validElements = matlabArray > 0
+
+validElements =
+
+  1×5 logical array
+
+   1   0   1   0   1
+
+% Specify which values are Null/Valid by supplying a logical validity "mask"
+>> arrowArray = arrow.array.Int8Array(matlabArray, Valid=validElements)
+
+arrowArray = 
+
+[
+  122,
+  null,
+  127,
+  null,
+  127
+]
+```
+
+### Feather V1
+
+#### Write a MATLAB table to a Feather v1 file
 
 ``` matlab
 >> t = array2table(rand(10, 10));
@@ -108,7 +215,7 @@ Included below are some example code snippets that illustrate how to use the MAT
 >> featherwrite(filename,t);
 ```
 
-### Read a Feather v1 file into a MATLAB table
+#### Read a Feather v1 file into a MATLAB table
 
 ``` matlab
 >> filename = 'table.feather';
