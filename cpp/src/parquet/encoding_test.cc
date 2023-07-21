@@ -1705,11 +1705,13 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
 
+  virtual Encoding::type GetEncoding() { return Encoding::DELTA_LENGTH_BYTE_ARRAY; }
+
   virtual void CheckRoundtrip() {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+    auto encoding = GetEncoding();
+    auto encoder = MakeTypedEncoder<Type>(encoding,
                                           /*use_dictionary=*/false, descr_.get());
-    auto decoder =
-        MakeTypedDecoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(encoding, descr_.get());
 
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
@@ -1722,10 +1724,10 @@ class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+    auto encoding = GetEncoding();
+    auto encoder = MakeTypedEncoder<Type>(encoding,
                                           /*use_dictionary=*/false, descr_.get());
-    auto decoder =
-        MakeTypedDecoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(encoding, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
       if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -1980,7 +1982,7 @@ TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
 // DELTA_BYTE_ARRAY encode/decode tests.
 
 template <typename Type>
-class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
+class TestDeltaByteArrayEncoding : public TestDeltaLengthByteArrayEncoding<Type> {
  public:
   using c_type = typename Type::c_type;
   static constexpr int TYPE = Type::type_num;
@@ -2002,43 +2004,7 @@ class TestDeltaByteArrayEncoding : public TestEncodingBase<Type> {
     }
   }
 
-  void CheckRoundtrip() override {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
-                                          /*use_dictionary=*/false, descr_.get());
-    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
-
-    encoder->Put(draws_, num_values_);
-    encode_buffer_ = encoder->FlushValues();
-
-    decoder->SetData(num_values_, encode_buffer_->data(),
-                     static_cast<int>(encode_buffer_->size()));
-    int values_decoded = decoder->Decode(decode_buf_, num_values_);
-    ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
-  }
-
-  void CheckRoundtripSpaced(const uint8_t* valid_bits,
-                            int64_t valid_bits_offset) override {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY,
-                                          /*use_dictionary=*/false, descr_.get());
-    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY, descr_.get());
-    int null_count = 0;
-    for (auto i = 0; i < num_values_; i++) {
-      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-        null_count++;
-      }
-    }
-
-    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
-    encode_buffer_ = encoder->FlushValues();
-    decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
-                     static_cast<int>(encode_buffer_->size()));
-    auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
-                                                valid_bits, valid_bits_offset);
-    ASSERT_EQ(num_values_, values_decoded);
-    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
-                                                        valid_bits, valid_bits_offset));
-  }
+  Encoding::type GetEncoding() override { return Encoding::DELTA_BYTE_ARRAY; }
 
  protected:
   USING_BASE_MEMBERS();
