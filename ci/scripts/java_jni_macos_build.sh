@@ -56,7 +56,7 @@ export ARROW_ORC
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics before build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 export ARROW_TEST_DATA="${arrow_dir}/testing/data"
@@ -72,9 +72,11 @@ cmake \
   -DARROW_BUILD_TESTS=${ARROW_BUILD_TESTS} \
   -DARROW_CSV=${ARROW_DATASET} \
   -DARROW_DATASET=${ARROW_DATASET} \
+  -DARROW_SUBSTRAIT=${ARROW_DATASET} \
   -DARROW_DEPENDENCY_USE_SHARED=OFF \
   -DARROW_GANDIVA=${ARROW_GANDIVA} \
   -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
+  -DARROW_JSON=${ARROW_DATASET} \
   -DARROW_ORC=${ARROW_ORC} \
   -DARROW_PARQUET=${ARROW_PARQUET} \
   -DARROW_S3=${ARROW_S3} \
@@ -97,6 +99,7 @@ if [ "${ARROW_BUILD_TESTS}" == "ON" ]; then
   # MinIO is required
   exclude_tests="arrow-s3fs-test"
   # unstable
+  exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
   exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
   ctest \
     --exclude-regex "${exclude_tests}" \
@@ -117,7 +120,7 @@ ${arrow_dir}/ci/scripts/java_jni_build.sh \
 
 if [ "${ARROW_USE_CCACHE}" == "ON" ]; then
   echo "=== ccache statistics after build ==="
-  ccache -s
+  ccache -sv 2>/dev/null || ccache -s
 fi
 
 

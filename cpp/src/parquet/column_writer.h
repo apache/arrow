@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/util/compression.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -35,6 +36,7 @@ class BitWriter;
 
 namespace util {
 class RleEncoder;
+class CodecOptions;
 }  // namespace util
 
 }  // namespace arrow
@@ -85,6 +87,22 @@ class PARQUET_EXPORT PageWriter {
  public:
   virtual ~PageWriter() {}
 
+  static std::unique_ptr<PageWriter> Open(
+      std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
+      ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal = -1,
+      int16_t column_chunk_ordinal = -1,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      bool buffered_row_group = false,
+      std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
+      std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
+      bool page_write_checksum_enabled = false,
+      // column_index_builder MUST outlive the PageWriter
+      ColumnIndexBuilder* column_index_builder = NULLPTR,
+      // offset_index_builder MUST outlive the PageWriter
+      OffsetIndexBuilder* offset_index_builder = NULLPTR,
+      const CodecOptions& codec_options = CodecOptions{});
+
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Use CodecOptions-taking overload instead.")
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
       int compression_level, ColumnChunkMetaDataBuilder* metadata,

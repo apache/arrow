@@ -168,7 +168,7 @@ constexpr int64_t kUnsequencedIndex = -1;
 /// than is desirable for this class. Microbenchmarks would help determine for
 /// sure. See ARROW-8928.
 
-/// \addtogroup execnode-components
+/// \addtogroup acero-internals
 /// @{
 
 struct ARROW_EXPORT ExecBatch {
@@ -265,6 +265,13 @@ inline bool operator!=(const ExecBatch& l, const ExecBatch& r) { return !l.Equal
 
 ARROW_EXPORT void PrintTo(const ExecBatch&, std::ostream*);
 
+/// @}
+
+/// \defgroup compute-internals Utilities for calling functions, useful for those
+/// extending the function registry
+///
+/// @{
+
 struct ExecValue {
   ArraySpan array = {};
   const Scalar* scalar = NULLPTR;
@@ -349,6 +356,9 @@ struct ARROW_EXPORT ExecResult {
   const std::shared_ptr<ArrayData>& array_data() const {
     return std::get<std::shared_ptr<ArrayData>>(this->value);
   }
+  ArrayData* array_data_mutable() {
+    return std::get<std::shared_ptr<ArrayData>>(this->value).get();
+  }
 
   bool is_array_data() const { return this->value.index() == 1; }
 };
@@ -413,8 +423,6 @@ struct ARROW_EXPORT ExecSpan {
   int64_t length = 0;
   std::vector<ExecValue> values;
 };
-
-/// @}
 
 /// \defgroup compute-call-function One-shot calls to compute functions
 ///

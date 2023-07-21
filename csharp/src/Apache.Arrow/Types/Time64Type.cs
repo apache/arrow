@@ -24,7 +24,7 @@ namespace Apache.Arrow.Types
         public override string Name => "time64";
         public override int BitWidth => 64;
 
-        public Time64Type(TimeUnit unit = TimeUnit.Millisecond)
+        public Time64Type(TimeUnit unit = TimeUnit.Nanosecond)
             : base(unit) { }
 
         public override void Accept(IArrowTypeVisitor visitor) => Accept(this, visitor);

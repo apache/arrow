@@ -65,7 +65,8 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
-            IArrowTypeVisitor<FixedSizeBinaryType>
+            IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<NullType>
         {
             private FlatBufferBuilder Builder { get; }
 
@@ -216,6 +217,14 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.FixedSizeBinary,
                     Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
+            }
+
+            public void Visit(NullType type)
+            {
+                Flatbuf.Null.StartNull(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.Null,
+                    Flatbuf.Null.EndNull(Builder));
             }
 
             public void Visit(IArrowType type)

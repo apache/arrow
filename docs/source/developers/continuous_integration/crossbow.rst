@@ -47,7 +47,7 @@ Executors
 Individual jobs are executed on public CI services, currently:
 
 - Linux: GitHub Actions, Travis CI, Azure Pipelines
-- macOS: GitHub Actions, Travis CI, Azure Pipelines
+- macOS: GitHub Actions, Azure Pipelines
 - Windows: GitHub Actions, Azure Pipelines
 
 Queue
@@ -59,7 +59,7 @@ queue for the tasks. Anyone can host a ``queue`` repository (usually
 named ``<ghuser>/crossbow``).
 
 A job is a git commit on a particular git branch, containing the required
-configuration files to run the requested builds (like ``.travis.yml``, 
+configuration files to run the requested builds (like ``.travis.yml``,
 ``azure-pipelines.yml``, or ``crossbow.yml`` for `GitHub Actions`_ ).
 
 Scheduler
@@ -118,8 +118,8 @@ to step 3:
    ``https://travis-ci.com/<ghuser>/<ghrepo>/settings``
 
    - Confirm the `auto cancellation`_ feature is turned off for branch builds. This should be the default setting.
-   
-7. Install Python (minimum supported version is 3.7):
+
+7. Install Python (minimum supported version is 3.8):
 
    | Miniconda is preferred, see installation instructions:
    | https://conda.io/docs/user-guide/install/index.html

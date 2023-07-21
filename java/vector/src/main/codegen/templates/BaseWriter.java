@@ -106,6 +106,7 @@ public interface BaseWriter extends AutoCloseable, Positionable {
     void copyReader(FieldReader reader);
     StructWriter rootAsStruct();
     ListWriter rootAsList();
+    MapWriter rootAsMap(boolean keysSorted);
 
     void setPosition(int index);
     void setValueCount(int count);

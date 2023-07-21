@@ -29,7 +29,7 @@ type typeEqualsConfig struct {
 type TypeEqualOption func(*typeEqualsConfig)
 
 // CheckMetadata is an option for TypeEqual that allows checking for metadata
-// equality besides type equality. It only makes sense for STRUCT type.
+// equality besides type equality. It only makes sense for types with metadata.
 func CheckMetadata() TypeEqualOption {
 	return func(cfg *typeEqualsConfig) {
 		cfg.metadata = true
@@ -58,18 +58,40 @@ func TypeEqual(left, right DataType, opts ...TypeEqualOption) bool {
 		if !TypeEqual(l.Elem(), right.(*ListType).Elem(), opts...) {
 			return false
 		}
-		if cfg.metadata {
-			return l.elem.Metadata.Equal(right.(*ListType).elem.Metadata)
+		if cfg.metadata && !l.elem.Metadata.Equal(right.(*ListType).elem.Metadata) {
+			return false
 		}
 		return l.elem.Nullable == right.(*ListType).elem.Nullable
 	case *FixedSizeListType:
 		if !TypeEqual(l.Elem(), right.(*FixedSizeListType).Elem(), opts...) {
 			return false
 		}
-		if cfg.metadata {
-			return l.elem.Metadata.Equal(right.(*FixedSizeListType).elem.Metadata)
+		if cfg.metadata && !l.elem.Metadata.Equal(right.(*FixedSizeListType).elem.Metadata) {
+			return false
 		}
 		return l.n == right.(*FixedSizeListType).n && l.elem.Nullable == right.(*FixedSizeListType).elem.Nullable
+	case *MapType:
+		if !TypeEqual(l.KeyType(), right.(*MapType).KeyType(), opts...) {
+			return false
+		}
+		if !TypeEqual(l.ItemType(), right.(*MapType).ItemType(), opts...) {
+			return false
+		}
+		if l.KeyField().Nullable != right.(*MapType).KeyField().Nullable {
+			return false
+		}
+		if l.ItemField().Nullable != right.(*MapType).ItemField().Nullable {
+			return false
+		}
+		if cfg.metadata {
+			if !l.KeyField().Metadata.Equal(right.(*MapType).KeyField().Metadata) {
+				return false
+			}
+			if !l.ItemField().Metadata.Equal(right.(*MapType).ItemField().Metadata) {
+				return false
+			}
+		}
+		return true
 	case *StructType:
 		r := right.(*StructType)
 		switch {

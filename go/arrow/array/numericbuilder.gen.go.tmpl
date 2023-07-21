@@ -20,8 +20,8 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"	
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 {{range .In}}
@@ -79,8 +79,20 @@ func (b *{{.Name}}Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *{{.Name}}Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *{{.Name}}Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *{{.Name}}Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *{{.Name}}Builder) UnsafeAppend(v {{or .QualifiedType .Type}}) {
@@ -147,6 +159,10 @@ func (b *{{.Name}}Builder) Resize(n int) {
 	}
 }
 
+func (b *{{.Name}}Builder) Value(i int) {{or .QualifiedType .Type}} {
+	return b.rawData[i]
+}
+
 // NewArray creates a {{.Name}} array from the memory buffers used by the builder and resets the {{.Name}}Builder
 // so it can be used to build a new array.
 func (b *{{.Name}}Builder) NewArray() arrow.Array {
@@ -202,7 +218,7 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       b.AppendNull()
       return err
     }
-    b.Append(arrow.Date64FromTime(tm))  
+    b.Append(arrow.Date64FromTime(tm))
   {{else if or (eq .Name "Time32") -}}
   	val, err := arrow.Time32FromString(s, b.dtype.Unit)
     if err != nil {
@@ -217,13 +233,6 @@ func (b *{{.Name}}Builder) AppendValueFromString(s string) error {
       return err
     }
     b.Append(val)
-  {{else if or (eq .Name "Timestamp") -}}
-  	v, err := arrow.TimestampFromString(s, b.dtype.Unit)
-    if err != nil {
-      b.AppendNull()
-      return err
-    }
-    b.Append(v)
   {{else if (eq .Name "Duration") -}}
 	dur, err := time.ParseDuration(s)
 	if err != nil {
@@ -289,14 +298,9 @@ func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 		b.Append({{.QualifiedType}}(n))
 	case float64:
 		b.Append({{.QualifiedType}}(v))
-{{else if or (eq .Name "Time32") (eq .Name "Time64") (eq .Name "Timestamp") -}}
+{{else if or (eq .Name "Time32") (eq .Name "Time64") -}}
 	case string:
-{{if (eq .Name "Timestamp") -}}
-		loc, _ := b.dtype.GetZone()
-		tm, _, err := arrow.TimestampFromStringInLocation(v, b.dtype.Unit, loc)
-{{else -}}
 		tm, err := {{.QualifiedType}}FromString(v, b.dtype.Unit)
-{{end}}
 		if err != nil {
 			return &json.UnmarshalTypeError{
 				Value: v,
@@ -347,7 +351,7 @@ func (b *{{.Name}}Builder) UnmarshalOne(dec *json.Decoder) error {
 					break
 				}
 			}
-		
+
 			return &json.UnmarshalTypeError{
 				Value: v,
 				Type: reflect.TypeOf({{.QualifiedType}}(0)),

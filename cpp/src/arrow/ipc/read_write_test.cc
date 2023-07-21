@@ -2082,29 +2082,28 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
-  auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
+  auto Read = [](std::shared_ptr<Buffer> stream) -> Status {
     io::BufferReader reader(stream);
-    ASSERT_OK_AND_ASSIGN(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
+    ARROW_ASSIGN_OR_RAISE(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;
-    Status s = ipc_reader->ReadNext(&batch);
-    ASSERT_TRUE(s.IsInvalid());
-    ASSERT_EQ(ex_error, s.message().substr(0, ex_error.size()));
+    return ipc_reader->ReadNext(&batch);
   };
 
   // Stream terminates before reading all dictionaries
   std::shared_ptr<Buffer> truncated_stream;
   SpliceMessages(buffer, {0, 1}, &truncated_stream);
-  std::string ex_message =
-      ("IPC stream ended without reading the expected number (3)"
-       " of dictionaries");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream ended without "
+                             "reading the expected number (3) of dictionaries",
+                             Read(truncated_stream));
 
   // One of the dictionaries is missing, then we see a record batch
   SpliceMessages(buffer, {0, 1, 2, 4}, &truncated_stream);
-  ex_message =
-      ("IPC stream did not have the expected number (3) of dictionaries "
-       "at the start of the stream");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream did not have "
+                             "the expected number (3) of dictionaries "
+                             "at the start of the stream",
+                             Read(truncated_stream));
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {

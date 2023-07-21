@@ -78,7 +78,7 @@ in your own GitHub account.
 
 2. Press Fork in the top right corner.
 
-   .. figure:: /developers/images/github_fork.jpeg
+   .. figure:: ../../images/github_fork.jpeg
       :scale: 50 %
       :alt: Fork the Apache Arrow repository on GitHub.
 

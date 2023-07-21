@@ -232,12 +232,6 @@ namespace Apache.Arrow.Ipc
             IBufferCreator bufferCreator)
         {
 
-            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
-            {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-
             int fieldLength = (int)fieldNode.Length;
             int fieldNullCount = (int)fieldNode.NullCount;
 
@@ -249,6 +243,17 @@ namespace Apache.Arrow.Ipc
             if (fieldNullCount < 0)
             {
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
+            }
+
+            if (field.DataType.TypeId == ArrowTypeId.Null)
+            {
+                return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
+            }
+
+            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
             }
 
             ArrowBuffer[] arrowBuff;

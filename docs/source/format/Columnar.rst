@@ -622,7 +622,7 @@ will have the following layout: ::
 
     * Children arrays:
       * Field-0 array (f: Float32):
-        * Length: 2, Null count: 1
+        * Length: 3, Null count: 1
         * Validity bitmap buffer: 00000101
 
         * Value Buffer:
@@ -1345,4 +1345,4 @@ the Arrow spec.
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
-.. _Parquet: https://parquet.apache.org/documentation/latest/
+.. _Parquet: https://parquet.apache.org/docs/

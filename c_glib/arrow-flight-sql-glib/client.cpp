@@ -209,6 +209,38 @@ gaflightsql_client_execute(GAFlightSQLClient *client,
 }
 
 /**
+ * gaflightsql_client_execute_update:
+ * @client: A #GAFlightSQLClient.
+ * @query: A query to be executed in the UTF-8 format.
+ * @options: (nullable): A #GAFlightCallOptions.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: The number of changed records.
+ *
+ * Since: 13.0.0
+ */
+gint64
+gaflightsql_client_execute_update(GAFlightSQLClient *client,
+                                  const gchar *query,
+                                  GAFlightCallOptions *options,
+                                  GError **error)
+{
+  auto flight_sql_client = gaflightsql_client_get_raw(client);
+  arrow::flight::FlightCallOptions flight_default_options;
+  auto flight_options = &flight_default_options;
+  if (options) {
+    flight_options = gaflight_call_options_get_raw(options);
+  }
+  auto result = flight_sql_client->ExecuteUpdate(*flight_options, query);
+  if (!garrow::check(error,
+                     result,
+                     "[flight-sql-client][execute-update]")) {
+    return 0;
+  }
+  return *result;
+}
+
+/**
  * gaflightsql_client_do_get:
  * @client: A #GAFlightClient.
  * @ticket: A #GAFlightTicket.

@@ -25,6 +25,8 @@ namespace Apache.Arrow
         {
             switch (data.DataType.TypeId)
             {
+                case ArrowTypeId.Null:
+                    return new NullArray(data);
                 case ArrowTypeId.Boolean:
                     return new BooleanArray(data);
                 case ArrowTypeId.UInt8:

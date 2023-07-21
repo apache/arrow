@@ -17,7 +17,6 @@
 package array_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -27,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/apache/arrow/go/v13/internal/types"
 )
 
@@ -640,13 +640,13 @@ func TestEdits_UnifiedDiff(t *testing.T) {
 			dataType: arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32),
 			baseJSON: `[
 			[{"key": "foo", "value": 2}, {"key": "bar", "value": 3}, {"key": "baz", "value": 1}],
-			[{"key": "quux", "value": 13}]
+			[{"key": "quux", "value": 13}],
 			[]
 		]`,
 			targetJSON: `[
 			[{"key": "foo", "value": 2}, {"key": "bar", "value": 3}, {"key": "baz", "value": 1}],
 			[{"key": "ytho", "value": 11}],
-			[{"key": "quux", "value": 13}]
+			[{"key": "quux", "value": 13}],
 			[]
 		]`,
 			want: `@@ -1, +1 @@

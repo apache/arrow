@@ -17,7 +17,7 @@
 
 #' @include arrow-datum.R
 
-#' @title Arrow Arrays
+#' @title Array Classes
 #' @description An `Array` is an immutable data array with some logical type
 #' and some length. Most logical types are contained in the base
 #' `Array` class; there are also subclasses for `DictionaryArray`, `ListArray`,
@@ -83,8 +83,7 @@
 #' - `$Validate()` : Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
-#' @rdname array
-#' @name array
+#' @rdname array-class
 #' @examples
 #' my_array <- Array$create(1:10)
 #' my_array$type
@@ -394,7 +393,7 @@ c.Array <- function(...) {
   ))
 }
 
-#' @rdname array
+#' @rdname array-class
 #' @usage NULL
 #' @format NULL
 #' @export
@@ -426,7 +425,7 @@ DictionaryArray$create <- function(x, dict = NULL) {
   DictionaryArray__FromArrays(type, x, dict)
 }
 
-#' @rdname array
+#' @rdname array-class
 #' @usage NULL
 #' @format NULL
 #' @export
@@ -477,7 +476,7 @@ as.data.frame.StructArray <- function(x, row.names = NULL, optional = FALSE, ...
   as.data.frame(collect.StructArray(x), row.names = row.names, optional = optional, ...)
 }
 
-#' @rdname array
+#' @rdname array-class
 #' @usage NULL
 #' @format NULL
 #' @export
@@ -494,7 +493,7 @@ ListArray <- R6Class("ListArray",
   )
 )
 
-#' @rdname array
+#' @rdname array-class
 #' @usage NULL
 #' @format NULL
 #' @export
@@ -511,7 +510,7 @@ LargeListArray <- R6Class("LargeListArray",
   )
 )
 
-#' @rdname array
+#' @rdname array-class
 #' @usage NULL
 #' @format NULL
 #' @export
@@ -536,7 +535,7 @@ is.Array <- function(x, type = NULL) { # nolint
   is_it
 }
 
-#' @rdname array
+#' @rdname array-class
 #' @usage NULL
 #' @format NULL
 #' @export
@@ -549,3 +548,18 @@ MapArray <- R6Class("MapArray",
     items_nested = function() MapArray__items_nested(self)
   )
 )
+
+#' Create an Arrow Array
+#'
+#' @param x An R object representable as an Arrow array, e.g. a vector, list, or `data.frame`.
+#' @param type An optional [data type][data-type] for `x`. If omitted, the type will be inferred from the data.
+#' @rdname arrow_array
+#' @examples
+#' my_array <- arrow_array(1:10)
+#'
+#' # Compare 2 arrays
+#' na_array <- arrow_array(c(1:5, NA))
+#' na_array2 <- na_array
+#' na_array2 == na_array # element-wise comparison
+#' @export
+arrow_array <- Array$create

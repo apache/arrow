@@ -142,7 +142,7 @@ namespace Apache.Arrow
             int len = ValueBuffer.Length;
             ValueBuffer.Append(span);
             int additionalBitsCount = ValueBuffer.Length - len;
-            ValidityBuffer.Reserve(additionalBitsCount).AppendRange(Enumerable.Repeat(true, additionalBitsCount));
+            ValidityBuffer.AppendRange(true, additionalBitsCount);
             return Instance;
         }
 
@@ -151,7 +151,7 @@ namespace Apache.Arrow
             int len = ValueBuffer.Length;
             ValueBuffer.AppendRange(values);
             var additionalBitsCount = ValueBuffer.Length - len;
-            ValidityBuffer.Reserve(additionalBitsCount).AppendRange(Enumerable.Repeat(true, additionalBitsCount));
+            ValidityBuffer.AppendRange(true, additionalBitsCount);
             return Instance;
         }
 

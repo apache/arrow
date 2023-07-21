@@ -28,7 +28,6 @@
 #include "arrow/device.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/bytes_view.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -50,6 +49,8 @@ namespace arrow {
 /// The following invariant is always true: Size <= Capacity
 class ARROW_EXPORT Buffer {
  public:
+  ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
+
   /// \brief Construct from buffer and size without copying memory
   ///
   /// \param[in] data a memory buffer
@@ -137,6 +138,32 @@ class ARROW_EXPORT Buffer {
   /// \return a new Buffer instance
   static std::shared_ptr<Buffer> FromString(std::string data);
 
+  /// \brief Construct an immutable buffer that takes ownership of the contents
+  /// of an std::vector (without copying it). Only vectors of TrivialType objects
+  /// (integers, floating point numbers, ...) can be wrapped by this function.
+  ///
+  /// \param[in] vec a vector to own
+  /// \return a new Buffer instance
+  template <typename T>
+  static std::shared_ptr<Buffer> FromVector(std::vector<T> vec) {
+    static_assert(std::is_trivial_v<T>,
+                  "Buffer::FromVector can only wrap vectors of trivial objects");
+
+    if (vec.empty()) {
+      return std::shared_ptr<Buffer>{new Buffer()};
+    }
+
+    auto* data = reinterpret_cast<uint8_t*>(vec.data());
+    auto size_in_bytes = static_cast<int64_t>(vec.size() * sizeof(T));
+    return std::shared_ptr<Buffer>{
+        new Buffer{data, size_in_bytes},
+        // Keep the vector's buffer alive inside the shared_ptr's destructor until after
+        // we have deleted the Buffer. Note we can't use this trick in FromString since
+        // std::string's data is inline for short strings so moving invalidates pointers
+        // into the string's buffer.
+        [vec = std::move(vec)](Buffer* buffer) { delete buffer; }};
+  }
+
   /// \brief Create buffer referencing typed memory with some length without
   /// copying
   /// \param[in] data the typed memory as C array
@@ -167,12 +194,8 @@ class ARROW_EXPORT Buffer {
   /// \brief View buffer contents as a std::string_view
   /// \return std::string_view
   explicit operator std::string_view() const {
-    return std::string_view(reinterpret_cast<const char*>(data_), size_);
+    return {reinterpret_cast<const char*>(data_), static_cast<size_t>(size_)};
   }
-
-  /// \brief View buffer contents as a util::bytes_view
-  /// \return util::bytes_view
-  explicit operator util::bytes_view() const { return util::bytes_view(data_, size_); }
 
   /// \brief Return a pointer to the buffer's data
   ///
@@ -185,6 +208,15 @@ class ARROW_EXPORT Buffer {
     CheckCPU();
 #endif
     return ARROW_PREDICT_TRUE(is_cpu_) ? data_ : NULLPTR;
+  }
+
+  /// \brief Return a pointer to the buffer's data cast to a specific type
+  ///
+  /// The buffer has to be a CPU buffer (`is_cpu()` is true).
+  /// Otherwise, an assertion may be thrown or a null pointer may be returned.
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data());
   }
 
   /// \brief Return a writable pointer to the buffer's data
@@ -202,6 +234,16 @@ class ARROW_EXPORT Buffer {
 #endif
     return ARROW_PREDICT_TRUE(is_cpu_ && is_mutable_) ? const_cast<uint8_t*>(data_)
                                                       : NULLPTR;
+  }
+
+  /// \brief Return a writable pointer to the buffer's data cast to a specific type
+  ///
+  /// The buffer has to be a mutable CPU buffer (`is_cpu()` and `is_mutable()`
+  /// are true).  Otherwise, an assertion may be thrown or a null pointer may
+  /// be returned.
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(mutable_data());
   }
 
   /// \brief Return the device address of the buffer's data
@@ -303,6 +345,8 @@ class ARROW_EXPORT Buffer {
   std::shared_ptr<MemoryManager> memory_manager_;
 
  protected:
+  Buffer();
+
   void CheckMutable() const;
   void CheckCPU() const;
 
@@ -310,10 +354,6 @@ class ARROW_EXPORT Buffer {
     memory_manager_ = std::move(mm);
     is_cpu_ = memory_manager_->is_cpu();
   }
-
- private:
-  Buffer() = delete;
-  ARROW_DISALLOW_COPY_AND_ASSIGN(Buffer);
 };
 
 /// \defgroup buffer-slicing-functions Functions for slicing buffers

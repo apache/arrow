@@ -34,9 +34,9 @@ except ImportError:
 pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
 
-def mock_scalar_udf_context(batch_length=10):
-    from pyarrow._compute import _get_scalar_udf_context
-    return _get_scalar_udf_context(pa.default_memory_pool(), batch_length)
+def mock_udf_context(batch_length=10):
+    from pyarrow._compute import _get_udf_context
+    return _get_udf_context(pa.default_memory_pool(), batch_length)
 
 
 def _write_dummy_data_to_disk(tmpdir, file_name, table):
@@ -442,7 +442,7 @@ def test_udf_via_substrait(unary_func_fixture, use_threads):
 
     function, name = unary_func_fixture
     expected_tb = test_table.add_column(1, 'y', function(
-        mock_scalar_udf_context(10), test_table['x']))
+        mock_udf_context(10), test_table['x']))
     assert res_tb == expected_tb
 
 
@@ -605,3 +605,321 @@ def test_output_field_names(use_threads):
     expected = pa.Table.from_pydict({"out": [1, 2, 3]})
 
     assert res_tb == expected
+
+
+def test_scalar_aggregate_udf_basic(varargs_agg_func_fixture):
+
+    test_table = pa.Table.from_pydict(
+        {"k": [1, 1, 2, 2], "v1": [1, 2, 3, 4],
+         "v2": [1.0, 1.0, 1.0, 1.0]}
+    )
+
+    def table_provider(names, _):
+        return test_table
+
+    substrait_query = b"""
+{
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "urn:arrow:substrait_simple_extension_function"
+    },
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "sum_mean"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "extensionSingle": {
+            "common": {
+              "emit": {
+                "outputMapping": [
+                  0,
+                  1
+                ]
+              }
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "k",
+                    "v1",
+                    "v2",
+                  ],
+                  "struct": {
+                    "types": [
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    ],
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["t1"]
+                }
+              }
+            },
+            "detail": {
+              "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
+              "segmentKeys": [
+                {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              ],
+              "measures": [
+                {
+                  "measure": {
+                    "functionReference": 1,
+                    "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                    "outputType": {
+                      "fp64": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    },
+                    "arguments": [
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 1
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      },
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 2
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "names": [
+          "k",
+          "v_avg"
+        ]
+      }
+    }
+  ],
+}
+"""
+    buf = pa._substrait._parse_json_plan(substrait_query)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=False)
+    res_tb = reader.read_all()
+
+    expected_tb = pa.Table.from_pydict({
+        'k': [1, 2],
+        'v_avg': [2.5, 4.5]
+    })
+
+    assert res_tb == expected_tb
+
+
+def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
+
+    test_table = pa.Table.from_pydict(
+        {"t": [1, 1, 1, 1, 2, 2, 2, 2],
+         "k": [1, 0, 0, 1, 0, 1, 0, 1],
+         "v1": [1, 2, 3, 4, 5, 6, 7, 8],
+         "v2": [1.0, 1.0, 1.0, 1.0, 2.0, 3.0, 4.0, 5.0]}
+    )
+
+    def table_provider(names, _):
+        return test_table
+
+    substrait_query = b"""
+{
+  "extensionUris": [
+    {
+      "extensionUriAnchor": 1,
+      "uri": "urn:arrow:substrait_simple_extension_function"
+    },
+  ],
+  "extensions": [
+    {
+      "extensionFunction": {
+        "extensionUriReference": 1,
+        "functionAnchor": 1,
+        "name": "sum_mean"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "root": {
+        "input": {
+          "extensionSingle": {
+            "common": {
+              "emit": {
+                "outputMapping": [
+                  0,
+                  1,
+                  2
+                ]
+              }
+            },
+            "input": {
+              "read": {
+                "baseSchema": {
+                  "names": [
+                    "t",
+                    "k",
+                    "v1",
+                    "v2",
+                  ],
+                  "struct": {
+                    "types": [
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_REQUIRED"
+                        }
+                      },
+                      {
+                        "i64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    ],
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["t1"]
+                }
+              }
+            },
+            "detail": {
+              "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
+              "groupingKeys": [
+                {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {}
+                }
+              ],
+              "segmentKeys": [
+                {
+                  "directReference": {
+                    "structField": {}
+                  },
+                  "rootReference": {}
+                }
+              ],
+              "measures": [
+                {
+                  "measure": {
+                    "functionReference": 1,
+                    "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                    "outputType": {
+                      "fp64": {
+                        "nullability": "NULLABILITY_NULLABLE"
+                      }
+                    },
+                    "arguments": [
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 2
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      },
+                      {
+                        "value": {
+                          "selection": {
+                            "directReference": {
+                              "structField": {
+                                "field": 3
+                              }
+                            },
+                            "rootReference": {}
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "names": [
+          "t",
+          "k",
+          "v_avg"
+        ]
+      }
+    }
+  ],
+}
+"""
+    buf = pa._substrait._parse_json_plan(substrait_query)
+    reader = pa.substrait.run_query(
+        buf, table_provider=table_provider, use_threads=False)
+    res_tb = reader.read_all()
+
+    expected_tb = pa.Table.from_pydict({
+        't': [1, 1, 2, 2],
+        'k': [1, 0, 0, 1],
+        'v_avg': [3.5, 3.5, 9.0, 11.0]
+    })
+
+    # Ordering of k is deterministic because this is running with serial execution
+    assert res_tb == expected_tb

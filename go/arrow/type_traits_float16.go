@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow/float16"
 	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v13/arrow/float16"
 )
 
 // Float16 traits
@@ -48,26 +48,14 @@ func (float16Traits) PutValue(b []byte, v float16.Num) {
 func (float16Traits) CastFromBytes(b []byte) []float16.Num {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []float16.Num
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / Float16SizeBytes
-	s.Cap = h.Cap / Float16SizeBytes
-
-	return res
+	return unsafe.Slice((*float16.Num)(unsafe.Pointer(h.Data)), cap(b)/Float16SizeBytes)[:len(b)/Float16SizeBytes]
 }
 
 // CastToBytes reinterprets the slice b to a slice of bytes.
 func (float16Traits) CastToBytes(b []float16.Num) []byte {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len * Float16SizeBytes
-	s.Cap = h.Cap * Float16SizeBytes
-
-	return res
+	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Float16SizeBytes)[:len(b)*Float16SizeBytes]
 }
 
 // Copy copies src to dst.

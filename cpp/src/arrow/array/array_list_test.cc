@@ -436,6 +436,15 @@ class TestListArray : public ::testing::Test {
     EXPECT_TRUE(flattened->Equals(ArrayFromJSON(int32(), "[1, 2, 3, 4, 5, 6]")));
   }
 
+  void TestFlattenNulls() {
+    ASSERT_OK(builder_->AppendNulls(2));
+    Done();
+    ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+    ASSERT_OK(flattened->ValidateFull());
+    ASSERT_EQ(0, flattened->length());
+    AssertTypeEqual(*flattened->type(), *value_type_);
+  }
+
   void TestFlattenSliced() {
     auto type = std::make_shared<T>(int32());
     auto list_array = std::dynamic_pointer_cast<ArrayType>(
@@ -594,6 +603,7 @@ TYPED_TEST(TestListArray, BuilderPreserveFieldName) {
 }
 
 TYPED_TEST(TestListArray, FlattenSimple) { this->TestFlattenSimple(); }
+TYPED_TEST(TestListArray, FlattenNulls) { this->TestFlattenNulls(); }
 TYPED_TEST(TestListArray, FlattenZeroLength) { this->TestFlattenZeroLength(); }
 TYPED_TEST(TestListArray, TestFlattenNonEmptyBackingNulls) {
   this->TestFlattenNonEmptyBackingNulls();
@@ -1265,6 +1275,16 @@ TEST_F(TestFixedSizeListArray, NotEnoughValues) {
 
 TEST_F(TestFixedSizeListArray, FlattenZeroLength) {
   Done();
+  ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
+  ASSERT_OK(flattened->ValidateFull());
+  ASSERT_EQ(0, flattened->length());
+  AssertTypeEqual(*flattened->type(), *value_type_);
+}
+
+TEST_F(TestFixedSizeListArray, FlattenNulls) {
+  ASSERT_OK(builder_->AppendNulls(2));
+  Done();
+  ASSERT_EQ(result_->data()->GetNullCount(), 2);
   ASSERT_OK_AND_ASSIGN(auto flattened, result_->Flatten());
   ASSERT_OK(flattened->ValidateFull());
   ASSERT_EQ(0, flattened->length());

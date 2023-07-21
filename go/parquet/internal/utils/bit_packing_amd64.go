@@ -14,17 +14,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package utils
 
 import (
-	"io"
-
 	"golang.org/x/sys/cpu"
 )
-
-var unpack32 func(io.Reader, []uint32, int) int
 
 func init() {
 	if cpu.X86.HasAVX2 {

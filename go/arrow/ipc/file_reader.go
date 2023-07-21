@@ -589,18 +589,13 @@ func (ctx *arrayLoaderContext) loadMap(dt *arrow.MapType) arrow.ArrayData {
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)
 
-	sub := ctx.loadChild(dt.ValueType())
+	sub := ctx.loadChild(dt.Elem())
 	defer sub.Release()
 
 	return array.NewData(dt, int(field.Length()), buffers, []arrow.ArrayData{sub}, int(field.NullCount()), 0)
 }
 
-type listLike interface {
-	arrow.DataType
-	Elem() arrow.DataType
-}
-
-func (ctx *arrayLoaderContext) loadList(dt listLike) arrow.ArrayData {
+func (ctx *arrayLoaderContext) loadList(dt arrow.ListLikeType) arrow.ArrayData {
 	field, buffers := ctx.loadCommon(dt.ID(), 2)
 	buffers = append(buffers, ctx.buffer())
 	defer releaseBuffers(buffers)

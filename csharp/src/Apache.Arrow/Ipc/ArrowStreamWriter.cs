@@ -56,7 +56,8 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
-            IArrowArrayVisitor<DictionaryArray>
+            IArrowArrayVisitor<DictionaryArray>,
+            IArrowArrayVisitor<NullArray>
         {
             public readonly struct Buffer
             {
@@ -154,6 +155,11 @@ namespace Apache.Arrow.Ipc
 
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.IndicesBuffer));
+            }
+
+            public void Visit(NullArray array)
+            {
+                // There are no buffers for a NullArray
             }
 
             private void CreateBuffers(BooleanArray array)

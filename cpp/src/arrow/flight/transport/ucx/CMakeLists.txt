@@ -33,7 +33,7 @@ add_arrow_lib(arrow_flight_transport_ucx
               SOURCES
               ${ARROW_FLIGHT_TRANSPORT_UCX_SRCS}
               PRECOMPILED_HEADERS
-              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/transport/ucx/pch.h>"
+              "$<$<COMPILE_LANGUAGE:CXX>:arrow/flight/pch.h>"
               DEPENDENCIES
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt

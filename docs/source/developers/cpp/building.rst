@@ -41,9 +41,9 @@ Building requires:
 
 * A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
   sufficient. For Windows, at least Visual Studio VS2017 is required.
-* CMake 3.5 or higher
+* CMake 3.16 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
-* At least 1GB of RAM for a minimal build, 4GB for a minimal  
+* At least 1GB of RAM for a minimal build, 4GB for a minimal
   debug build with tests and 8GB for a full build using
   :ref:`docker <docker-builds>`.
 
@@ -254,6 +254,34 @@ Several build types are possible:
 * ``Release``: applies compiler optimizations and removes debug information
   from the binary.
 
+.. note::
+
+   These build types provide suitable optimization/debug flags by
+   default but you can change them by specifying
+   ``-DARROW_C_FLAGS_${BUILD_TYPE}=...`` and/or
+   ``-DARROW_CXX_FLAGS_${BUILD_TYPE}=...``. ``${BUILD_TYPE}`` is upper
+   case of build type. For example, ``DEBUG``
+   (``-DARROW_C_FLAGS_DEBUG=...`` / ``-DARROW_CXX_FLAGS_DEBUG=...``) for the
+   ``Debug`` build type and ``RELWITHDEBINFO``
+   (``-DARROW_C_FLAGS_RELWITHDEBINFO=...`` /
+   ``-DARROW_CXX_FLAGS_RELWITHDEBINFO=...``) for the ``RelWithDebInfo``
+   build type.
+
+   For example, you can use ``-O3`` as an optimization flag for the ``Release``
+   build type by passing ``-DARROW_CXX_FLAGS_RELEASE=-O3`` .
+   You can use ``-g3`` as a debug flag for the ``Debug`` build type
+   by passing ``-DARROW_CXX_FLAGS_DEBUG=-g3`` .
+
+   You can also use the standard ``CMAKE_C_FLAGS_${BUILD_TYPE}``
+   and ``CMAKE_CXX_FLAGS_${BUILD_TYPE}`` variables but
+   the ``ARROW_C_FLAGS_${BUILD_TYPE}`` and
+   ``ARROW_CXX_FLAGS_${BUILD_TYPE}`` variables are
+   recommended. The ``CMAKE_C_FLAGS_${BUILD_TYPE}`` and
+   ``CMAKE_CXX_FLAGS_${BUILD_TYPE}`` variables replace all default
+   flags provided by CMake, while ``ARROW_C_FLAGS_${BUILD_TYPE}`` and
+   ``ARROW_CXX_FLAGS_${BUILD_TYPE}`` just append the
+   flags specified, which allows selectively overriding some of the defaults.
+
 You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
 :ref:`cpp-extra-debugging`.
 
@@ -372,7 +400,7 @@ build times if they are not required for your application:
    options should be sufficient. However, if you wish to build any tests/benchmarks
    then ``ARROW_JSON`` is also required (it will be enabled automatically).
    If extended format support is desired then adding ``ARROW_PARQUET``, ``ARROW_CSV``,
-    ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
+   ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
 
 .. note::
    In general, it's a good idea to enable ``ARROW_COMPUTE`` if you anticipate using
@@ -418,12 +446,7 @@ several times with different options if you want to exercise all of them.
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While we support CMake 3.5 and higher, some features require a newer version of
-CMake:
-
-* Building the benchmarks requires 3.6 or higher
-* Building zstd from source requires 3.7 or higher
-* Building Gandiva JNI bindings requires 3.11 or higher
+We support CMake 3.16 and higher.
 
 LLVM and Clang Tools
 ~~~~~~~~~~~~~~~~~~~~

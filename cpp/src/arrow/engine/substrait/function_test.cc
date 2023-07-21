@@ -574,6 +574,8 @@ struct AggregateTestCase {
   std::shared_ptr<DataType> output_type;
   // The aggregation takes zero columns as input
   bool nullary = false;
+  // Whether the aggregation is ordered (i.e., processing rows in order)
+  bool ordered = false;
 };
 
 std::shared_ptr<Table> GetInputTableForAggregateCase(const AggregateTestCase& test_case) {
@@ -601,6 +603,7 @@ std::shared_ptr<Table> GetOutputTableForAggregateCase(
 std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
     const AggregateTestCase& test_case, std::shared_ptr<Table>* output_table,
     bool with_keys) {
+  static ExecContext ctx_for_ordered;
   std::shared_ptr<Table> input_table = GetInputTableForAggregateCase(test_case);
   std::vector<int> key_idxs = {};
   if (with_keys) {
@@ -627,9 +630,17 @@ std::shared_ptr<acero::ExecPlan> PlanFromAggregateCase(
   conversion_options.named_table_provider = std::move(table_provider);
 
   EXPECT_OK_AND_ASSIGN(
-      std::shared_ptr<acero::ExecPlan> plan,
-      DeserializePlan(*substrait, std::move(consumer), default_extension_id_registry(),
-                      /*ext_set_out=*/nullptr, conversion_options));
+      auto declarations,
+      DeserializePlans(
+          *substrait, [consumer = std::move(consumer)] { return std::move(consumer); },
+          default_extension_id_registry(), /*ext_set_out=*/nullptr, conversion_options));
+  std::shared_ptr<acero::ExecPlan> plan;
+  if (test_case.ordered) {
+    EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make(&ctx_for_ordered));
+  } else {
+    EXPECT_OK_AND_ASSIGN(plan, acero::ExecPlan::Make());
+  }
+  ARROW_EXPECT_OK(declarations[0].AddToPlan(plan.get()));
   return plan;
 }
 
@@ -721,6 +732,38 @@ TEST(FunctionMapping, AggregateCases) {
        "[2, 1]",
        int64(),
        /*nullary=*/true},
+      {{kArrowSimpleExtensionFunctionsUri, "first"},
+       {"[1, 2, 30]"},
+       {int32()},
+       "[1]",
+       "[1, 30]",
+       int32(),
+       false,
+       true},
+      {{kArrowSimpleExtensionFunctionsUri, "first"},
+       {"[null, \"a\", \"b\"]"},
+       {utf8()},
+       "[\"a\"]",
+       "[\"a\", \"b\"]",
+       utf8(),
+       false,
+       true},
+      {{kArrowSimpleExtensionFunctionsUri, "last"},
+       {"[1, 2, 30]"},
+       {int32()},
+       "[30]",
+       "[2, 30]",
+       int32(),
+       false,
+       true},
+      {{kArrowSimpleExtensionFunctionsUri, "last"},
+       {"[\"a\", \"b\", null]"},
+       {utf8()},
+       "[\"b\"]",
+       "[\"b\", null]",
+       utf8(),
+       false,
+       true},
       {{kSubstraitArithmeticFunctionsUri, "variance"},
        "[1, 2, 3]",
        float64(),

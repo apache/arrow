@@ -556,7 +556,7 @@ static inline int MakePages(const ColumnDescriptor* d, int num_pages, int levels
   } else {
     num_values = num_levels;
   }
-  // Create repitition levels
+  // Create repetition levels
   if (max_rep_level > 0 && num_levels != 0) {
     rep_levels.resize(num_levels);
     // Using a different seed so that def_levels and rep_levels are different.
@@ -742,6 +742,54 @@ inline void PrimitiveTypedTest<BooleanType>::GenerateData(int64_t num_values,
   values_ptr_ = reinterpret_cast<bool*>(bool_buffer_.data());
 
   std::fill(def_levels_.begin(), def_levels_.end(), 1);
+}
+
+// ----------------------------------------------------------------------
+// test data generation
+
+template <typename T>
+inline void GenerateData(int num_values, T* out, std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  random_numbers(num_values, 0, std::numeric_limits<T>::min(),
+                 std::numeric_limits<T>::max(), out);
+}
+
+template <typename T>
+inline void GenerateBoundData(int num_values, T* out, T min, T max,
+                              std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  random_numbers(num_values, 0, min, max, out);
+}
+
+template <>
+inline void GenerateData<bool>(int num_values, bool* out, std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  random_bools(num_values, 0.5, 0, out);
+}
+
+template <>
+inline void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
+                       std::numeric_limits<int32_t>::max(), out);
+}
+
+template <>
+inline void GenerateData<ByteArray>(int num_values, ByteArray* out,
+                                    std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  int max_byte_array_len = 12;
+  heap->resize(num_values * max_byte_array_len);
+  random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
+}
+
+static constexpr int kGenerateDataFLBALength = 8;
+
+template <>
+inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
+  // seed the prng so failure is deterministic
+  heap->resize(num_values * kGenerateDataFLBALength);
+  random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
 }
 
 }  // namespace test

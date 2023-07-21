@@ -26,7 +26,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/apache/arrow/go/v13/internal/hashing"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 func min(a, b int) int {
@@ -82,15 +82,16 @@ func WithUseNumber() FromJSONOption {
 // using the json.Marshal function
 //
 // The JSON provided must be formatted in one of two ways:
-//		Default: the top level of the json must be a list which matches the type specified exactly
-//		Example: `[1, 2, 3, 4, 5]` for any integer type or `[[...], null, [], .....]` for a List type
-//					Struct arrays are represented a list of objects: `[{"foo": 1, "bar": "moo"}, {"foo": 5, "bar": "baz"}]`
 //
-//		Using WithMultipleDocs:
-//			If the JSON provided is multiple newline separated json documents, then use this option
-// 			and each json document will be treated as a single row of the array. This is most useful for record batches
-// 			and interacting with other processes that use json. For example:
-//				`{"col1": 1, "col2": "row1", "col3": ...}\n{"col1": 2, "col2": "row2", "col3": ...}\n.....`
+//	Default: the top level of the json must be a list which matches the type specified exactly
+//	Example: `[1, 2, 3, 4, 5]` for any integer type or `[[...], null, [], .....]` for a List type
+//				Struct arrays are represented a list of objects: `[{"foo": 1, "bar": "moo"}, {"foo": 5, "bar": "baz"}]`
+//
+//	Using WithMultipleDocs:
+//		If the JSON provided is multiple newline separated json documents, then use this option
+//		and each json document will be treated as a single row of the array. This is most useful for record batches
+//		and interacting with other processes that use json. For example:
+//			`{"col1": 1, "col2": "row1", "col3": ...}\n{"col1": 2, "col2": "row2", "col3": ...}\n.....`
 //
 // Duration values get formated upon marshalling as a string consisting of their numeric
 // value followed by the unit suffix such as "10s" for a value of 10 and unit of Seconds.
@@ -100,23 +101,25 @@ func WithUseNumber() FromJSONOption {
 // to the same values which are output.
 //
 // Interval types are marshalled / unmarshalled as follows:
-//  MonthInterval is marshalled as an object with the format:
-//	 { "months": #}
-//  DayTimeInterval is marshalled using Go's regular marshalling of structs:
-//	 { "days": #, "milliseconds": # }
-//  MonthDayNanoInterval values are marshalled the same as DayTime using Go's struct marshalling:
-//   { "months": #, "days": #, "nanoseconds": # }
+//
+//	 MonthInterval is marshalled as an object with the format:
+//		 { "months": #}
+//	 DayTimeInterval is marshalled using Go's regular marshalling of structs:
+//		 { "days": #, "milliseconds": # }
+//	 MonthDayNanoInterval values are marshalled the same as DayTime using Go's struct marshalling:
+//	  { "months": #, "days": #, "nanoseconds": # }
 //
 // Times use a format of HH:MM or HH:MM:SS[.zzz] where the fractions of a second cannot
 // exceed the precision allowed by the time unit, otherwise unmarshalling will error.
 //
-// Dates use YYYY-MM-DD format
+// # Dates use YYYY-MM-DD format
 //
 // Timestamps use RFC3339Nano format except without a timezone, all of the following are valid:
-//	YYYY-MM-DD
-//	YYYY-MM-DD[T]HH
-//	YYYY-MM-DD[T]HH:MM
-//  YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzzzz]
+//
+//		YYYY-MM-DD
+//		YYYY-MM-DD[T]HH
+//		YYYY-MM-DD[T]HH:MM
+//	 YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzzzz]
 //
 // The fractions of a second cannot exceed the precision allowed by the timeunit of the datatype.
 //

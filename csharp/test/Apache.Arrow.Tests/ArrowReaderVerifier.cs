@@ -90,7 +90,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
-            IArrowArrayVisitor<DictionaryArray>
+            IArrowArrayVisitor<DictionaryArray>,
+            IArrowArrayVisitor<NullArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -152,6 +153,14 @@ namespace Apache.Arrow.Tests
                 var dictionaryComparer = new ArrayComparer(expectedArray.Dictionary, _strictCompare);
                 array.Indices.Accept(indicesComparer);
                 array.Dictionary.Accept(dictionaryComparer);
+            }
+
+            public void Visit(NullArray array)
+            {
+                Assert.IsAssignableFrom<NullArray>(_expectedArray);
+                Assert.Equal(_expectedArray.Length, array.Length);
+                Assert.Equal(_expectedArray.NullCount, array.NullCount);
+                Assert.Equal(_expectedArray.Offset, array.Offset);
             }
 
             public void Visit(IArrowArray array) => throw new NotImplementedException();
@@ -284,7 +293,16 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);
 
                 CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
-                Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+
+                if (_strictCompare)
+                {
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+                }
+                else
+                {
+                    int offsetsLength = (expectedArray.Length + 1) * 4;
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.Slice(0, offsetsLength).SequenceEqual(actualArray.ValueOffsetsBuffer.Span.Slice(0, offsetsLength)));
+                }
 
                 actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
             }

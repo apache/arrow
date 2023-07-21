@@ -17,7 +17,6 @@
 package arrjson
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
@@ -25,6 +24,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/arrio"
 	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 const (

@@ -21,7 +21,7 @@
 
 jobs:
   test:
-    name: Docs Preview 
+    name: Docs Preview
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
     steps:
@@ -55,7 +55,7 @@ jobs:
           {%- raw %}
           AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }} 
+          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }}
           BUCKET: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET }}
           {% endraw %}
         run: |

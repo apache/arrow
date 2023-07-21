@@ -52,6 +52,46 @@ using arrow::internal::MapVector;
 namespace acero {
 namespace {
 
+Status HandleUnalignedBuffers(ExecBatch* batch, UnalignedBufferHandling handling) {
+  if (handling == UnalignedBufferHandling::kIgnore) {
+    return Status::OK();
+  }
+  for (auto& value : batch->values) {
+    if (value.is_array()) {
+      switch (handling) {
+        case UnalignedBufferHandling::kIgnore:
+          // Should be impossible to get here
+          return Status::OK();
+        case UnalignedBufferHandling::kError:
+          if (!arrow::util::CheckAlignment(*value.array(),
+                                           arrow::util::kValueAlignment)) {
+            return Status::Invalid(
+                "An input buffer was poorly aligned and UnalignedBufferHandling is set "
+                "to kError");
+          }
+          break;
+        case UnalignedBufferHandling::kWarn:
+          if (!arrow::util::CheckAlignment(*value.array(),
+                                           arrow::util::kValueAlignment)) {
+            ARROW_LOG(WARNING)
+                << "An input buffer was poorly aligned.  This could lead to crashes or "
+                   "poor performance on some hardware.  Please ensure that all Acero "
+                   "sources generate aligned buffers, or change the unaligned buffer "
+                   "handling configuration to silence this warning.";
+          }
+          break;
+        case UnalignedBufferHandling::kReallocate: {
+          ARROW_ASSIGN_OR_RAISE(value, arrow::util::EnsureAlignment(
+                                           value.array(), arrow::util::kValueAlignment,
+                                           default_memory_pool()));
+          break;
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
 struct SourceNode : ExecNode, public TracedNode {
   SourceNode(ExecPlan* plan, std::shared_ptr<Schema> output_schema,
              AsyncGenerator<std::optional<ExecBatch>> generator,
@@ -104,13 +144,11 @@ struct SourceNode : ExecNode, public TracedNode {
               batch_size = morsel_length;
             }
             ExecBatch batch = morsel.Slice(offset, batch_size);
-            for (auto& value : batch.values) {
-              if (value.is_array()) {
-                ARROW_ASSIGN_OR_RAISE(value, arrow::util::EnsureAlignment(
-                                                 value.make_array(), ipc::kArrowAlignment,
-                                                 default_memory_pool()));
-              }
-            }
+            UnalignedBufferHandling unaligned_buffer_handling =
+                plan_->query_context()->options().unaligned_buffer_handling.value_or(
+                    GetDefaultUnalignedBufferHandling());
+            ARROW_RETURN_NOT_OK(
+                HandleUnalignedBuffers(&batch, unaligned_buffer_handling));
             if (has_ordering) {
               batch.index = batch_index;
             }
@@ -221,8 +259,26 @@ struct SourceNode : ExecNode, public TracedNode {
         return;
       }
       to_finish = backpressure_future_;
+      backpressure_future_ = Future<>::MakeFinished();
     }
     to_finish.MarkFinished();
+  }
+
+  Status StopProducing() override {
+    // GH-35837: ensure node is not paused
+    Future<> to_finish;
+    {
+      std::lock_guard<std::mutex> lg(mutex_);
+      if (!backpressure_future_.is_finished()) {
+        to_finish = backpressure_future_;
+        backpressure_future_ = Future<>::MakeFinished();
+      }
+    }
+    if (to_finish.is_valid()) {
+      to_finish.MarkFinished();
+    }
+    // only then stop
+    return ExecNode::StopProducing();
   }
 
   Status StopProducingImpl() override {

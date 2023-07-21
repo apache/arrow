@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 // Useful operations to implement kernels handling run-end encoded arrays
 
 #include <algorithm>
@@ -79,6 +81,18 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
       *out = (reinterpret_cast<const ValueRepr*>(input_values_))[read_offset];
     }
     return valid;
+  }
+
+  /// Pre-conditions guaranteed by the callers:
+  /// - i and j are valid indices into the values buffer
+  /// - the values in i and j are valid
+  bool CompareValuesAt(int64_t i, int64_t j) const {
+    if constexpr (std::is_same_v<ArrowType, BooleanType>) {
+      return bit_util::GetBit(input_values_, i) == bit_util::GetBit(input_values_, j);
+    } else {
+      return (reinterpret_cast<const ValueRepr*>(input_values_))[i] ==
+             (reinterpret_cast<const ValueRepr*>(input_values_))[j];
+    }
   }
 
   /// \brief Ensure padding is zeroed in validity bitmap.
@@ -162,6 +176,11 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
     }
     *out = input_values_ + (read_offset * byte_width_);
     return valid;
+  }
+
+  bool CompareValuesAt(int64_t i, int64_t j) const {
+    return 0 == memcmp(input_values_ + (i * byte_width_),
+                       input_values_ + (j * byte_width_), byte_width_);
   }
 
   /// \brief Ensure padding is zeroed in validity bitmap.
@@ -249,6 +268,14 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
                               offset1 - offset0);
     }
     return valid;
+  }
+
+  bool CompareValuesAt(int64_t i, int64_t j) const {
+    const offset_type len_i = input_offsets_[i + 1] - input_offsets_[i];
+    const offset_type len_j = input_offsets_[j + 1] - input_offsets_[j];
+    return len_i == len_j &&
+           memcmp(input_values_ + input_offsets_[i], input_values_ + input_offsets_[j],
+                  static_cast<size_t>(len_i));
   }
 
   /// \brief Ensure padding is zeroed in validity bitmap.

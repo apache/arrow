@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <utility>
 
+#include "arrow/memory_pool_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
@@ -42,6 +43,8 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
   std::memcpy(new_buffer->mutable_data(), data() + start, static_cast<size_t>(nbytes));
   return std::move(new_buffer);
 }
+
+Buffer::Buffer() : Buffer(memory_pool::internal::kZeroSizeArea, 0) {}
 
 namespace {
 
@@ -147,11 +150,12 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
 
 class StlStringBuffer : public Buffer {
  public:
-  explicit StlStringBuffer(std::string data)
-      : Buffer(nullptr, 0), input_(std::move(data)) {
-    data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
-    size_ = static_cast<int64_t>(input_.size());
-    capacity_ = size_;
+  explicit StlStringBuffer(std::string data) : input_(std::move(data)) {
+    if (!input_.empty()) {
+      data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
+      size_ = static_cast<int64_t>(input_.size());
+      capacity_ = size_;
+    }
   }
 
  private:

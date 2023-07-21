@@ -167,8 +167,10 @@ TYPED_TEST_P(ReeUtilTest, MergedRunsInterator) {
                        RunEndEncodedArray::Make(2050, right_run_ends, right_child));
   left_array = left_array->Slice(left_parent_offset);
   right_array = right_array->Slice(right_parent_offset);
-  const RunEndEncodedArraySpan<TypeParam> left_ree_span(*left_array->data());
-  const RunEndEncodedArraySpan<TypeParam> right_ree_span(*right_array->data());
+  ArraySpan left_array_span(*left_array->data());
+  ArraySpan right_array_span(*right_array->data());
+  const RunEndEncodedArraySpan<TypeParam> left_ree_span(left_array_span);
+  const RunEndEncodedArraySpan<TypeParam> right_ree_span(right_array_span);
 
   {
     ARROW_SCOPED_TRACE("iterate over merged(left, right)");

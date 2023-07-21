@@ -66,7 +66,6 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  dict_encoding_stats.clear();
   col1_builder->Finish(nrows / 2, /*dictionary_page_offset=*/0, 0, 10, 512, 600,
                        /*has_dictionary=*/false, false, dict_encoding_stats,
                        data_encoding_stats);
@@ -78,6 +77,13 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
 
   // Return the metadata accessor
   return f_builder->Finish();
+}
+
+void AssertEncodings(const ColumnChunkMetaData& data,
+                     const std::set<parquet::Encoding::type>& expected) {
+  std::set<parquet::Encoding::type> encodings(data.encodings().begin(),
+                                              data.encodings().end());
+  ASSERT_EQ(encodings, expected);
 }
 
 TEST(Metadata, TestBuildAccess) {
@@ -160,8 +166,18 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
     ASSERT_EQ(nrows / 2, rg1_column1->num_values());
     ASSERT_EQ(nrows / 2, rg1_column2->num_values());
-    ASSERT_EQ(3, rg1_column1->encodings().size());
-    ASSERT_EQ(3, rg1_column2->encodings().size());
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg1_column1, encodings);
+    }
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg1_column2, encodings);
+    }
     ASSERT_EQ(512, rg1_column1->total_compressed_size());
     ASSERT_EQ(512, rg1_column2->total_compressed_size());
     ASSERT_EQ(600, rg1_column1->total_uncompressed_size());
@@ -197,8 +213,17 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows / 2, rg2_column2->num_values());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
-    ASSERT_EQ(2, rg2_column1->encodings().size());
-    ASSERT_EQ(3, rg2_column2->encodings().size());
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg2_column1, encodings);
+    }
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg2_column2, encodings);
+    }
     ASSERT_EQ(512, rg2_column1->total_compressed_size());
     ASSERT_EQ(512, rg2_column2->total_compressed_size());
     ASSERT_EQ(600, rg2_column1->total_uncompressed_size());
@@ -209,7 +234,7 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(10, rg2_column1->data_page_offset());
     ASSERT_EQ(26, rg2_column2->data_page_offset());
     ASSERT_EQ(2, rg2_column1->encoding_stats().size());
-    ASSERT_EQ(2, rg2_column2->encoding_stats().size());
+    ASSERT_EQ(3, rg2_column2->encoding_stats().size());
 
     // Test FileMetaData::set_file_path
     ASSERT_TRUE(rg2_column1->file_path().empty());

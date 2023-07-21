@@ -79,6 +79,8 @@ file_template <- "# Licensed to the Apache Software Foundation (ASF) under one
 %s
 #'
 #' @name acero
+#'
+#' @aliases arrow-functions arrow-verbs arrow-dplyr
 NULL"
 
 library(dplyr)

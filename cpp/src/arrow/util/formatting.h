@@ -135,8 +135,12 @@ void FormatOneDigit(Int value, char** cursor) {
   FormatOneChar(static_cast<char>('0' + value), cursor);
 }
 
+// GH-35662: I don't know why but the following combination causes SEGV:
+// * template implementation without inline
+// * MinGW
+// * Release build
 template <typename Int>
-void FormatTwoDigits(Int value, char** cursor) {
+inline void FormatTwoDigits(Int value, char** cursor) {
   assert(value >= 0 && value <= 99);
   auto digit_pair = &digit_pairs[value * 2];
   FormatOneChar(digit_pair[1], cursor);

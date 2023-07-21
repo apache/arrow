@@ -42,99 +42,162 @@ using std::string_view;
 
 namespace compute {
 
+namespace {
+
+template <typename T>
+Result<std::shared_ptr<Array>> REEncode(const T& array) {
+  ARROW_ASSIGN_OR_RAISE(auto datum, RunEndEncode(array));
+  return datum.make_array();
+}
+
+Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_type,
+                                           const std::string& json) {
+  auto ree_type_ptr = checked_cast<const RunEndEncodedType*>(ree_type.get());
+  auto array = ArrayFromJSON(ree_type_ptr->value_type(), json);
+  ARROW_ASSIGN_OR_RAISE(
+      auto datum, RunEndEncode(array, RunEndEncodeOptions{ree_type_ptr->run_end_type()}));
+  return datum.make_array();
+}
+
+Result<std::shared_ptr<Array>> FilterFromJSON(
+    const std::shared_ptr<DataType>& filter_type, const std::string& json) {
+  if (filter_type->id() == Type::RUN_END_ENCODED) {
+    return REEFromJSON(filter_type, json);
+  } else {
+    return ArrayFromJSON(filter_type, json);
+  }
+}
+
+Result<std::shared_ptr<Array>> REEncode(const std::shared_ptr<Array>& array) {
+  ARROW_ASSIGN_OR_RAISE(auto datum, RunEndEncode(array));
+  return datum.make_array();
+}
+
+void CheckTakeIndicesCase(const BooleanArray& filter,
+                          const std::shared_ptr<Array>& expected_indices,
+                          FilterOptions::NullSelectionBehavior null_selection) {
+  ASSERT_OK_AND_ASSIGN(auto indices,
+                       internal::GetTakeIndices(*filter.data(), null_selection));
+  auto indices_array = MakeArray(indices);
+  ValidateOutput(indices);
+  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+
+  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter));
+  ASSERT_OK_AND_ASSIGN(auto indices_from_ree,
+                       internal::GetTakeIndices(*ree_filter->data(), null_selection));
+  auto indices_from_ree_array = MakeArray(indices);
+  ValidateOutput(indices_from_ree);
+  AssertArraysEqual(*expected_indices, *indices_from_ree_array, /*verbose=*/true);
+}
+
+void CheckTakeIndicesCase(const std::string& filter_json, const std::string& indices_json,
+                          FilterOptions::NullSelectionBehavior null_selection,
+                          const std::shared_ptr<DataType>& indices_type = uint16()) {
+  auto filter = ArrayFromJSON(boolean(), filter_json);
+  auto expected_indices = ArrayFromJSON(indices_type, indices_json);
+  const auto& boolean_filter = checked_cast<const BooleanArray&>(*filter);
+  CheckTakeIndicesCase(boolean_filter, expected_indices, null_selection);
+}
+
+}  // namespace
+
 // ----------------------------------------------------------------------
 
 TEST(GetTakeIndices, Basics) {
-  auto CheckCase = [&](const std::string& filter_json, const std::string& indices_json,
-                       FilterOptions::NullSelectionBehavior null_selection,
-                       const std::shared_ptr<DataType>& indices_type = uint16()) {
-    auto filter = ArrayFromJSON(boolean(), filter_json);
-    auto expected_indices = ArrayFromJSON(indices_type, indices_json);
-    ASSERT_OK_AND_ASSIGN(auto indices,
-                         internal::GetTakeIndices(*filter->data(), null_selection));
-    auto indices_array = MakeArray(indices);
-    ValidateOutput(indices);
-    AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
-  };
-
   // Drop null cases
-  CheckCase("[]", "[]", FilterOptions::DROP);
-  CheckCase("[null]", "[]", FilterOptions::DROP);
-  CheckCase("[null, false, true, true, false, true]", "[2, 3, 5]", FilterOptions::DROP);
+  CheckTakeIndicesCase("[]", "[]", FilterOptions::DROP);
+  CheckTakeIndicesCase("[null]", "[]", FilterOptions::DROP);
+  CheckTakeIndicesCase("[null, false, true, true, false, true]", "[2, 3, 5]",
+                       FilterOptions::DROP);
 
   // Emit null cases
-  CheckCase("[]", "[]", FilterOptions::EMIT_NULL);
-  CheckCase("[null]", "[null]", FilterOptions::EMIT_NULL);
-  CheckCase("[null, false, true, true]", "[null, 2, 3]", FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase("[]", "[]", FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase("[null]", "[null]", FilterOptions::EMIT_NULL);
+  CheckTakeIndicesCase("[null, false, true, true]", "[null, 2, 3]",
+                       FilterOptions::EMIT_NULL);
 }
 
 TEST(GetTakeIndices, NullValidityBuffer) {
   BooleanArray filter(1, *AllocateEmptyBitmap(1), /*null_bitmap=*/nullptr);
   auto expected_indices = ArrayFromJSON(uint16(), "[]");
 
-  ASSERT_OK_AND_ASSIGN(auto indices,
-                       internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
-  auto indices_array = MakeArray(indices);
-  ValidateOutput(indices);
-  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
-
-  ASSERT_OK_AND_ASSIGN(
-      indices, internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
-  indices_array = MakeArray(indices);
-  ValidateOutput(indices);
-  AssertArraysEqual(*expected_indices, *indices_array, /*verbose=*/true);
+  CheckTakeIndicesCase(filter, expected_indices, FilterOptions::DROP);
+  CheckTakeIndicesCase(filter, expected_indices, FilterOptions::EMIT_NULL);
 }
 
 template <typename IndexArrayType>
 void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   const auto& filter = checked_cast<const BooleanArray&>(untyped_filter);
+  ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(*filter.data()));
+
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ArrayData> drop_indices,
                        internal::GetTakeIndices(*filter.data(), FilterOptions::DROP));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> drop_indices_from_ree,
+      internal::GetTakeIndices(*ree_filter->data(), FilterOptions::DROP));
   // Verify DROP indices
   {
     IndexArrayType indices(drop_indices);
+    IndexArrayType indices_from_ree(drop_indices);
     ValidateOutput(indices);
+    ValidateOutput(indices_from_ree);
 
     int64_t out_position = 0;
     for (int64_t i = 0; i < filter.length(); ++i) {
       if (filter.IsValid(i)) {
         if (filter.Value(i)) {
           ASSERT_EQ(indices.Value(out_position), i);
+          ASSERT_EQ(indices_from_ree.Value(out_position), i);
           ++out_position;
         }
       }
     }
     ASSERT_EQ(out_position, indices.length());
+    ASSERT_EQ(out_position, indices_from_ree.length());
+
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::DROP));
+    ASSERT_EQ(out_position,
+              internal::GetFilterOutputSize(*ree_filter->data(), FilterOptions::DROP));
   }
 
   ASSERT_OK_AND_ASSIGN(
       std::shared_ptr<ArrayData> emit_indices,
       internal::GetTakeIndices(*filter.data(), FilterOptions::EMIT_NULL));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<ArrayData> emit_indices_from_ree,
+      internal::GetTakeIndices(*ree_filter->data(), FilterOptions::EMIT_NULL));
   // Verify EMIT_NULL indices
   {
     IndexArrayType indices(emit_indices);
+    IndexArrayType indices_from_ree(emit_indices);
     ValidateOutput(indices);
+    ValidateOutput(indices_from_ree);
 
     int64_t out_position = 0;
     for (int64_t i = 0; i < filter.length(); ++i) {
       if (filter.IsValid(i)) {
         if (filter.Value(i)) {
           ASSERT_EQ(indices.Value(out_position), i);
+          ASSERT_EQ(indices_from_ree.Value(out_position), i);
           ++out_position;
         }
       } else {
         ASSERT_TRUE(indices.IsNull(out_position));
+        ASSERT_TRUE(indices_from_ree.IsNull(out_position));
         ++out_position;
       }
     }
 
     ASSERT_EQ(out_position, indices.length());
+    ASSERT_EQ(out_position, indices_from_ree.length());
+
     // Check that the end length agrees with the output of GetFilterOutputSize
     ASSERT_EQ(out_position,
               internal::GetFilterOutputSize(*filter.data(), FilterOptions::EMIT_NULL));
+    ASSERT_EQ(out_position, internal::GetFilterOutputSize(*ree_filter->data(),
+                                                          FilterOptions::EMIT_NULL));
   }
 }
 
@@ -163,15 +226,25 @@ TEST(GetTakeIndices, RandomlyGenerated) {
 // Filter tests
 
 std::shared_ptr<Array> CoalesceNullToFalse(std::shared_ptr<Array> filter) {
-  if (filter->null_count() == 0) {
+  const bool is_ree = filter->type_id() == Type::RUN_END_ENCODED;
+  // Work directly on run values array in case of REE
+  const ArrayData& data = is_ree ? *filter->data()->child_data[1] : *filter->data();
+  if (data.GetNullCount() == 0) {
     return filter;
   }
-  const auto& data = *filter->data();
   auto is_true = std::make_shared<BooleanArray>(data.length, data.buffers[1], nullptr, 0,
                                                 data.offset);
   auto is_valid = std::make_shared<BooleanArray>(data.length, data.buffers[0], nullptr, 0,
                                                  data.offset);
   EXPECT_OK_AND_ASSIGN(Datum out_datum, And(is_true, is_valid));
+  if (is_ree) {
+    const auto& ree_filter = checked_cast<const RunEndEncodedArray&>(*filter);
+    EXPECT_OK_AND_ASSIGN(
+        auto new_ree_filter,
+        RunEndEncodedArray::Make(ree_filter.length(), ree_filter.run_ends(),
+                                 /*values=*/out_datum.make_array(), ree_filter.offset()));
+    return new_ree_filter;
+  }
   return out_datum.make_array();
 }
 
@@ -218,23 +291,30 @@ class TestFilterKernel : public ::testing::Test {
     // add N(=2) dummy values at the start and end of `filter`.
     ARROW_SCOPED_TRACE("for sliced values and filter");
     ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(values->type(), 3));
-    auto filter_filler = ArrayFromJSON(boolean(), "[true, false]");
-    ASSERT_OK_AND_ASSIGN(auto values_sliced,
+    ASSERT_OK_AND_ASSIGN(auto filter_filler,
+                         FilterFromJSON(filter->type(), "[true, false]"));
+    ASSERT_OK_AND_ASSIGN(auto values_with_filler,
                          Concatenate({values_filler, values, values_filler}));
-    ASSERT_OK_AND_ASSIGN(auto filter_sliced,
+    ASSERT_OK_AND_ASSIGN(auto filter_with_filler,
                          Concatenate({filter_filler, filter, filter_filler}));
-    values_sliced = values_sliced->Slice(3, values->length());
-    filter_sliced = filter_sliced->Slice(2, filter->length());
+    auto values_sliced = values_with_filler->Slice(3, values->length());
+    auto filter_sliced = filter_with_filler->Slice(2, filter->length());
     DoAssertFilter(values_sliced, filter_sliced, expected);
   }
 
   void AssertFilter(const std::shared_ptr<DataType>& type, const std::string& values,
                     const std::string& filter, const std::string& expected) {
-    AssertFilter(ArrayFromJSON(type, values), ArrayFromJSON(boolean(), filter),
-                 ArrayFromJSON(type, expected));
+    auto values_array = ArrayFromJSON(type, values);
+    auto filter_array = ArrayFromJSON(boolean(), filter);
+    auto expected_array = ArrayFromJSON(type, expected);
+    AssertFilter(values_array, filter_array, expected_array);
+
+    ASSERT_OK_AND_ASSIGN(auto ree_filter, REEncode(filter_array));
+    ARROW_SCOPED_TRACE("for plain values and REE filter");
+    AssertFilter(values_array, ree_filter, expected_array);
   }
 
-  FilterOptions emit_null_, drop_;
+  const FilterOptions emit_null_, drop_;
 };
 
 void ValidateFilter(const std::shared_ptr<Array>& values,

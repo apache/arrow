@@ -17,7 +17,7 @@
 
 import { encodeUtf8 } from '../util/utf8.js';
 import { TypedArray, TypedArrayConstructor, BigIntArrayConstructor } from '../interfaces.js';
-import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer, BigInt64Array, BigUint64Array } from './compat.js';
+import { isPromise, isIterable, isAsyncIterable, isIteratorResult, isFlatbuffersByteBuffer } from './compat.js';
 import { ByteBuffer } from 'flatbuffers';
 
 /** @ignore */
@@ -63,7 +63,7 @@ export function joinUint8Arrays(chunks: Uint8Array[], size?: number | null): [Ui
     // streaming, where we may be reading partial byte ranges out of the same underlying ArrayBuffer
     const result = collapseContiguousByteRanges(chunks);
     const byteLength = result.reduce((x, b) => x + b.byteLength, 0);
-    let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | void;
+    let source: Uint8Array, sliced: Uint8Array, buffer: Uint8Array | undefined;
     let offset = 0, index = -1;
     const length = Math.min(size || Number.POSITIVE_INFINITY, byteLength);
     for (const n = result.length; ++index < n;) {

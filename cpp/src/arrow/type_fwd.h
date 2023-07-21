@@ -45,6 +45,7 @@ class Future;
 
 namespace util {
 class Codec;
+class CodecOptions;
 }  // namespace util
 
 class Buffer;
@@ -68,6 +69,7 @@ using FieldVector = std::vector<std::shared_ptr<Field>>;
 
 class Array;
 struct ArrayData;
+struct ArraySpan;
 class ArrayBuilder;
 struct Scalar;
 
