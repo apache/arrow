@@ -202,7 +202,7 @@ plot_comparison <- function(plot_df, alpha = 0.7) {
   
   ## Some height adjustments
   g_heights <- 6
-  g_widths <- 14
+  g_widths <- 16
 
   if (length(x_facets) > 0) {
     g_heights <- g_heights*(n_distinct(plot_df[, x_facets, drop = TRUE])/1.25)
