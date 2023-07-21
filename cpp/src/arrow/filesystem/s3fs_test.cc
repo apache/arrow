@@ -297,6 +297,13 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Invalid option
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
+
+  // Endpoint from environment variable
+  {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
