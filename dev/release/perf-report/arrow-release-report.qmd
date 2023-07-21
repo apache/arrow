@@ -149,8 +149,16 @@ names(change_cols) <- c(glue("{contender_git_commit_short} (contender) faster"),
 
 
 plot_comparison <- function(plot_df, alpha = 0.7) {
+
+  ## Can be a uri as well
+  plot_df <- plot_df %>% 
+    mutate(dataset = case_when(
+      is.na(dataset) ~ dataset_uri,
+      TRUE ~ dataset
+    ))
+
   tag_names <- unlist(plot_df$tags_used)
-  x_facets <- c("compression", "format", "file_type", "use_legacy_dataset", "dataset_uri")
+  x_facets <- c("compression", "format", "file_type", "use_legacy_dataset")
   # TODO: add others?
   x_facets <- x_facets[x_facets %in% tag_names]
 
