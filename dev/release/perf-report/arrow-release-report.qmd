@@ -29,8 +29,8 @@ Sys.unsetenv("CONBENCH_EMAIL")
 Sys.unsetenv("CONBENCH_URL")
 Sys.unsetenv("CONBENCH_PASSWORD")
 
-baseline_git_commit <- Sys.getenv("BASELINE_GIT_COMMIT", "9736dde84bb2e6996d1d12f6a044c33398e3c3a3") 
-contender_git_commit <-  Sys.getenv("CONTENDER_GIT_COMMIT", "6af660f48472b8b45a5e01b7136b9b040b185eb1")
+baseline_git_commit <- Sys.getenv("BASELINE_GIT_COMMIT", "6af660f48472b8b45a5e01b7136b9b040b185eb1") 
+contender_git_commit <-  Sys.getenv("CONTENDER_GIT_COMMIT", "ac2d207611ce25c91fb9fc90d5eaff2933609660")
 hardware_name <- "ursa-i9-9960x"
 
 library(dplyr)
@@ -130,7 +130,8 @@ hardware_summary %>%
     commit.sha = "Commit SHA",
     commit.timestamp = "Time of Commit",
     hardware.cpu_model_name = "Hardware"
-  )
+  ) %>% 
+  opt_table_font(font = google_font("Roboto Mono"))
 ```
 
 
@@ -204,7 +205,7 @@ plot_comparison <- function(plot_df, alpha = 0.7) {
   g_widths <- 14
 
   if (length(x_facets) > 0) {
-    g_heights <- g_heights*(n_distinct(plot_df[, x_facets, drop = TRUE])/2)
+    g_heights <- g_heights*(n_distinct(plot_df[, x_facets, drop = TRUE])/1.25)
   }
   girafe(
     ggobj = p,
@@ -331,7 +332,7 @@ plots  <- map_chr(names(conbench_list[[lang]]), \(bm_name) {
 cat(plots, sep = "\n")
 ```
 
-
+### tpch 
 ```{r plot-tpch}
 #| echo: FALSE
 #| results: 'asis'
@@ -357,7 +358,7 @@ tpch_p <- tpch_data %>%
   facet_grid(rows = vars(format), cols = vars(scale_factor), labeller = label_both) +
   scale_fill_manual(values = change_cols) +
   scale_colour_manual(values = change_cols) +
-  ggtitle("TPCH") +
+  # ggtitle("TPCH") +
   scale_x_continuous(expand = expansion(mult = 0.6)) +
   guides(colour = "none") +
   ylab("Dataset") +
