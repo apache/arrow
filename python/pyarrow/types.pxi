@@ -40,10 +40,21 @@ cdef dict _pandas_type_map = {
     _Type_HALF_FLOAT: np.float16,
     _Type_FLOAT: np.float32,
     _Type_DOUBLE: np.float64,
-    _Type_DATE32: np.dtype('datetime64[ns]'),
-    _Type_DATE64: np.dtype('datetime64[ns]'),
-    _Type_TIMESTAMP: np.dtype('datetime64[ns]'),
-    _Type_DURATION: np.dtype('timedelta64[ns]'),
+    # Pandas does not support [D]ay, so default to [ms] for date32
+    _Type_DATE32: np.dtype('datetime64[ms]'),
+    _Type_DATE64: np.dtype('datetime64[ms]'),
+    _Type_TIMESTAMP: {
+        's': np.dtype('datetime64[s]'),
+        'ms': np.dtype('datetime64[ms]'),
+        'us': np.dtype('datetime64[us]'),
+        'ns': np.dtype('datetime64[ns]'),
+    },
+    _Type_DURATION: {
+        's': np.dtype('timedelta64[s]'),
+        'ms': np.dtype('timedelta64[ms]'),
+        'us': np.dtype('timedelta64[us]'),
+        'ns': np.dtype('timedelta64[ns]'),
+    },
     _Type_BINARY: np.object_,
     _Type_FIXED_SIZE_BINARY: np.object_,
     _Type_STRING: np.object_,
@@ -113,6 +124,44 @@ cdef void* _as_c_pointer(v, allow_null=False) except *:
 def _is_primitive(Type type):
     # This is simply a redirect, the official API is in pyarrow.types.
     return is_primitive(type)
+
+
+def _get_pandas_type(arrow_type, coerce_to_ns=False):
+    cdef Type type_id = arrow_type.id
+    if type_id not in _pandas_type_map:
+        return None
+    if coerce_to_ns:
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+        if type_id == _Type_DURATION:
+            return np.dtype('timedelta64[ns]')
+        return np.dtype('datetime64[ns]')
+    pandas_type = _pandas_type_map[type_id]
+    if isinstance(pandas_type, dict):
+        unit = getattr(arrow_type, 'unit', None)
+        pandas_type = pandas_type.get(unit, None)
+    return pandas_type
+
+
+def _get_pandas_tz_type(arrow_type, coerce_to_ns=False):
+    from pyarrow.pandas_compat import make_datetimetz
+    unit = 'ns' if coerce_to_ns else arrow_type.unit
+    return make_datetimetz(unit, arrow_type.tz)
+
+
+def _to_pandas_dtype(arrow_type, options=None):
+    coerce_to_ns = (options and options.get('coerce_temporal_nanoseconds', False)) or (
+        _pandas_api.is_v1() and arrow_type.id in
+        [_Type_DATE32, _Type_DATE64, _Type_TIMESTAMP, _Type_DURATION])
+
+    if getattr(arrow_type, 'tz', None):
+        dtype = _get_pandas_tz_type(arrow_type, coerce_to_ns)
+    else:
+        dtype = _get_pandas_type(arrow_type, coerce_to_ns)
+
+    if not dtype:
+        raise NotImplementedError(str(arrow_type))
+
+    return dtype
 
 
 # Workaround for Cython parsing bug
@@ -274,11 +323,7 @@ cdef class DataType(_Weakrefable):
         >>> pa.int64().to_pandas_dtype()
         <class 'numpy.int64'>
         """
-        cdef Type type_id = self.type.id()
-        if type_id in _pandas_type_map:
-            return _pandas_type_map[type_id]
-        else:
-            raise NotImplementedError(str(self))
+        return _to_pandas_dtype(self)
 
     def _export_to_c(self, out_ptr):
         """
@@ -1005,24 +1050,6 @@ cdef class TimestampType(DataType):
         else:
             return None
 
-    def to_pandas_dtype(self):
-        """
-        Return the equivalent NumPy / Pandas dtype.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> t = pa.timestamp('s', tz='UTC')
-        >>> t.to_pandas_dtype()
-        datetime64[ns, UTC]
-        """
-        if self.tz is None:
-            return _pandas_type_map[_Type_TIMESTAMP]
-        else:
-            # Return DatetimeTZ
-            from pyarrow.pandas_compat import make_datetimetz
-            return make_datetimetz(self.tz)
-
     def __reduce__(self):
         return timestamp, (self.unit, self.tz)
 
@@ -1486,6 +1513,9 @@ cdef class ExtensionType(BaseExtensionType):
         return value of ``__arrow_ext_serialize__``).
         """
         return NotImplementedError
+
+    def __reduce__(self):
+        return self.__arrow_ext_deserialize__, (self.storage_type, self.__arrow_ext_serialize__())
 
     def __arrow_ext_class__(self):
         """Return an extension array class to be used for building or

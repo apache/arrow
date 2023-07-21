@@ -374,12 +374,6 @@ Python executable which you are using.
    :ref:`here <cpp-build-dependency-management>`)
    to explicitly tell CMake not to use conda.
 
-.. note::
-
-   With older versions of CMake (<3.15) you might need to pass ``-DPYTHON_EXECUTABLE``
-   instead of ``-DPython3_EXECUTABLE``. See `cmake documentation <https://cmake.org/cmake/help/latest/module/FindPython3.html#artifacts-specification>`_
-   for more details.
-
 For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is

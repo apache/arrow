@@ -352,4 +352,6 @@
 #' * [`starts_with()`][tidyselect::starts_with()]
 #'
 #' @name acero
+#'
+#' @aliases arrow-functions arrow-verbs arrow-dplyr
 NULL

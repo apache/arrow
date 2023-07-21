@@ -696,7 +696,7 @@ readr_to_csv_convert_options <- function(na,
     }))
     # To "guess" types, omit them from col_types
     col_types <- keep(col_types, ~ !is.null(.x))
-    col_types <- schema(!!!col_types)
+    col_types <- schema(col_types)
   }
 
   if (!is.null(col_types)) {

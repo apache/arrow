@@ -178,27 +178,42 @@ TEST(FlightTypes, FlightDescriptor) {
 TEST(FlightTypes, FlightEndpoint) {
   ASSERT_OK_AND_ASSIGN(auto location1, Location::ForGrpcTcp("localhost", 1024));
   ASSERT_OK_AND_ASSIGN(auto location2, Location::ForGrpcTls("localhost", 1024));
+  // 2023-06-19 03:14:06.004330100
+  // We must use microsecond resolution here for portability.
+  // std::chrono::system_clock::time_point may not provide nanosecond
+  // resolution on some platforms such as Windows.
+  const auto expiration_time_duration =
+      std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
+  Timestamp expiration_time(
+      std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
   std::vector<FlightEndpoint> values = {
-      {{""}, {}},
-      {{"foo"}, {}},
-      {{"bar"}, {}},
-      {{"foo"}, {location1}},
-      {{"bar"}, {location1}},
-      {{"foo"}, {location2}},
-      {{"foo"}, {location1, location2}},
+      {{""}, {}, std::nullopt},
+      {{"foo"}, {}, std::nullopt},
+      {{"bar"}, {}, std::nullopt},
+      {{"foo"}, {}, expiration_time},
+      {{"foo"}, {location1}, std::nullopt},
+      {{"bar"}, {location1}, std::nullopt},
+      {{"foo"}, {location2}, std::nullopt},
+      {{"foo"}, {location1, location2}, std::nullopt},
   };
   std::vector<std::string> reprs = {
-      "<FlightEndpoint ticket=<Ticket ticket=''> locations=[]>",
-      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>",
-      "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[]>",
+      "<FlightEndpoint ticket=<Ticket ticket=''> locations=[] "
+      "expiration_time=null>",
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
+      "expiration_time=null>",
+      "<FlightEndpoint ticket=<Ticket ticket='bar'> locations=[] "
+      "expiration_time=null>",
+      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
+      "expiration_time=2023-06-19 03:14:06.004339000>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tcp://localhost:1024]>",
+      "[grpc+tcp://localhost:1024] expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='bar'> locations="
-      "[grpc+tcp://localhost:1024]>",
+      "[grpc+tcp://localhost:1024] expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tls://localhost:1024]>",
+      "[grpc+tls://localhost:1024] expiration_time=null>",
       "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tcp://localhost:1024, grpc+tls://localhost:1024]>",
+      "[grpc+tcp://localhost:1024, grpc+tls://localhost:1024] "
+      "expiration_time=null>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightEndpoint>(values, reprs));
@@ -210,8 +225,8 @@ TEST(FlightTypes, FlightInfo) {
   Schema schema2({});
   auto desc1 = FlightDescriptor::Command("foo");
   auto desc2 = FlightDescriptor::Command("bar");
-  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}};
-  auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}};
+  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt};
+  auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}, std::nullopt};
   std::vector<FlightInfo> values = {
       MakeFlightInfo(schema1, desc1, {}, -1, -1, false),
       MakeFlightInfo(schema1, desc2, {}, -1, -1, true),
@@ -227,13 +242,13 @@ TEST(FlightTypes, FlightInfo) {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
       "endpoints=[] total_records=-1 total_bytes=-1 ordered=false>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
-      "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>] "
-      "total_records=-1 total_bytes=42 ordered=true>",
+      "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
+      "expiration_time=null>] total_records=-1 total_bytes=42 ordered=true>",
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='bar'> "
-      "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[]>, "
-      "<FlightEndpoint ticket=<Ticket ticket='foo'> locations="
-      "[grpc+tcp://localhost:1234]>] total_records=64 total_bytes=-1 "
-      "ordered=false>",
+      "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
+      "expiration_time=null>, <FlightEndpoint ticket=<Ticket ticket='foo'> "
+      "locations=[grpc+tcp://localhost:1234] expiration_time=null>] "
+      "total_records=64 total_bytes=-1 ordered=false>",
   };
 
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));
@@ -365,27 +380,6 @@ TEST(FlightTypes, LocationConstruction) {
   ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcUnix("/tmp/test.sock"));
   ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
 }
-
-ARROW_SUPPRESS_DEPRECATION_WARNING
-TEST(FlightTypes, DeprecatedLocationConstruction) {
-  Location location;
-  ASSERT_RAISES(Invalid, Location::Parse("This is not an URI", &location));
-  ASSERT_RAISES(Invalid,
-                Location::ForGrpcTcp("This is not a hostname", 12345, &location));
-  ASSERT_RAISES(Invalid,
-                Location::ForGrpcTls("This is not a hostname", 12345, &location));
-  ASSERT_RAISES(Invalid, Location::ForGrpcUnix("This is not a filename", &location));
-
-  ASSERT_OK(Location::Parse("s3://test", &location));
-  ASSERT_EQ(location.ToString(), "s3://test");
-  ASSERT_OK(Location::ForGrpcTcp("localhost", 12345, &location));
-  ASSERT_EQ(location.ToString(), "grpc+tcp://localhost:12345");
-  ASSERT_OK(Location::ForGrpcTls("localhost", 12345, &location));
-  ASSERT_EQ(location.ToString(), "grpc+tls://localhost:12345");
-  ASSERT_OK(Location::ForGrpcUnix("/tmp/test.sock", &location));
-  ASSERT_EQ(location.ToString(), "grpc+unix:///tmp/test.sock");
-}
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 // ----------------------------------------------------------------------
 // Cookie authentication/middleware

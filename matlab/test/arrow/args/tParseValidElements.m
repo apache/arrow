@@ -25,11 +25,6 @@ classdef tParseValidElements < matlab.unittest.TestCase
             validElements = parseValidElements(data, InferNulls=true);
             expectedValidElements = [true; false; true; false; true];
             testCase.verifyEqual(validElements, expectedValidElements);
-
-            data = [1 2 3];
-            validElements = parseValidElements(data, InferNulls=true);
-            expectedValidElements = [true; true; true];
-            testCase.verifyEqual(validElements, expectedValidElements);
         end
 
         function InferNullsFalse(testCase)
@@ -37,16 +32,17 @@ classdef tParseValidElements < matlab.unittest.TestCase
             % provided - including values for which that ismissing returns true.
             data = [1 NaN 3 NaN 5];
             validElements = parseValidElements(data, InferNulls=false);
-            expectedValidElements = [true; true; true; true; true];
+            expectedValidElements = logical.empty(0, 1);
             testCase.verifyEqual(validElements, expectedValidElements);
         end
 
         function LogicalValid(testCase)
             data = [1 2 3]; 
 
-            % Supply a scalar true value for Valid 
+            % Verify an empty logical array is returned when a scalar true
+            % value is supplied for Valid.
             validElements = parseValidElements(data, Valid=true);
-            expectedValidElements = [true; true; true];
+            expectedValidElements = logical.empty(0, 1);
             testCase.verifyEqual(validElements, expectedValidElements);
 
             % Supply a scalar false value for Valid
@@ -135,7 +131,7 @@ classdef tParseValidElements < matlab.unittest.TestCase
 
             data = [1 NaN 3];
             validElements = parseValidElements(data, InferNulls=true, Valid=true);
-            expectedValidElements = [true; true; true];
+            expectedValidElements = logical.empty(0, 1);
             testCase.verifyEqual(validElements, expectedValidElements);
 
             validElements = parseValidElements(data, InferNulls=false, Valid=[true; false; false]);
@@ -148,6 +144,37 @@ classdef tParseValidElements < matlab.unittest.TestCase
 
             validElements = parseValidElements(data, InferNulls=false, Valid=1);
             expectedValidElements = [true; false; false];
+            testCase.verifyEqual(validElements, expectedValidElements);
+        end
+
+        function AllElementsAreValid(testCase)
+        % Verify parseValidElements returns a 0x1 logical array when all
+        % elements in the array are Valid.
+
+            expectedValidElements = logical.empty(0, 1);
+            validElements = parseValidElements([1 2 3], InferNulls=true);
+            testCase.verifyEqual(validElements, expectedValidElements);
+
+            validElements = parseValidElements([1 NaN 3], InferNulls=false);
+            testCase.verifyEqual(validElements, expectedValidElements);
+
+            validElements = parseValidElements([1 NaN 3], Valid=[1 2 3]);
+            testCase.verifyEqual(validElements, expectedValidElements);
+
+            validElements = parseValidElements([1 NaN 3], Valid=true);
+            testCase.verifyEqual(validElements, expectedValidElements);
+
+            validElements = parseValidElements([1 NaN 3], Valid=[true; true; true]);
+            testCase.verifyEqual(validElements, expectedValidElements);
+
+            % Pass a logical data array to parseValidElements and
+            % InferNulls=true
+            validElements = parseValidElements([true false true], InferNulls=true);
+            testCase.verifyEqual(validElements, expectedValidElements);
+
+            % Pass an integer data array to parseValidElements and
+            % InferNulls=true
+            validElements = parseValidElements(uint8([0 1 2 3]), InferNulls=true);
             testCase.verifyEqual(validElements, expectedValidElements);
         end
     end

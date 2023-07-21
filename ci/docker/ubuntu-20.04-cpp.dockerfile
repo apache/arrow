@@ -108,6 +108,7 @@ RUN apt-get update -y -q && \
         python3-dev \
         python3-pip \
         python3-rados \
+        python3-venv \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
@@ -140,6 +141,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

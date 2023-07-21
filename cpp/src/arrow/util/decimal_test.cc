@@ -1046,24 +1046,51 @@ using ToDoubleTestParam = ToRealTestParam<double>;
 template <typename Decimal, typename Real>
 void CheckDecimalToReal(const std::string& decimal_value, int32_t scale, Real expected) {
   Decimal dec(decimal_value);
-  ASSERT_EQ(dec.template ToReal<Real>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_EQ(actual, expected) << "Decimal value: " << decimal_value
+                              << ", scale: " << scale << ", expected: " << expected
+                              << ", actual: " << actual;
+}
+
+template <typename Decimal, typename Real>
+void CheckDecimalToRealWithinOneULP(const std::string& decimal_value, int32_t scale,
+                                    Real expected) {
+  Decimal dec(decimal_value);
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_TRUE(actual == expected || actual == std::nextafter(expected, expected + 1) ||
+              actual == std::nextafter(expected, expected - 1))
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
+}
+
+template <typename Decimal, typename Real>
+void CheckDecimalToRealWithinEpsilon(const std::string& decimal_value, int32_t scale,
+                                     Real epsilon, Real expected) {
+  Decimal dec(decimal_value);
+  Real actual = dec.template ToReal<Real>(scale);
+  ASSERT_LE(std::abs(actual - expected), epsilon)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               float expected) {
   Decimal dec(decimal_value);
-  ASSERT_FLOAT_EQ(dec.template ToReal<float>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  float actual = dec.template ToReal<float>(scale);
+  ASSERT_FLOAT_EQ(actual, expected)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 template <typename Decimal>
 void CheckDecimalToRealApprox(const std::string& decimal_value, int32_t scale,
                               double expected) {
   Decimal dec(decimal_value);
-  ASSERT_DOUBLE_EQ(dec.template ToReal<double>(scale), expected)
-      << "Decimal value: " << decimal_value << " Scale: " << scale;
+  double actual = dec.template ToReal<double>(scale);
+  ASSERT_DOUBLE_EQ(actual, expected)
+      << "Decimal value: " << decimal_value << ", scale: " << scale
+      << ", expected: " << expected << ", actual: " << actual;
 }
 
 // Common tests for Decimal128::ToReal<T> and Decimal256::ToReal<T>
@@ -1110,59 +1137,79 @@ class TestDecimalToReal : public ::testing::Test {
       }
     }
   }
-
-  // Test precision of conversions to float values
-  void TestPrecision() {
-    // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
-    CheckDecimalToReal<Decimal, Real>("9223373136366403584", 0, 9.223373e+18f);
-    CheckDecimalToReal<Decimal, Real>("-9223373136366403584", 0, -9.223373e+18f);
-    // 2**64 + 2**41 (exactly representable in a float)
-    CheckDecimalToReal<Decimal, Real>("18446746272732807168", 0, 1.8446746e+19f);
-    CheckDecimalToReal<Decimal, Real>("-18446746272732807168", 0, -1.8446746e+19f);
-  }
-
-  // Test conversions with a range of scales
-  void TestLargeValues(int32_t max_scale) {
-    // Note that exact comparisons would succeed on some platforms (Linux, macOS).
-    // Nevertheless, power-of-ten factors are not all exactly representable
-    // in binary floating point.
-    for (int32_t scale = -max_scale; scale <= max_scale; scale++) {
-#ifdef _WIN32
-      // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
-      if (scale == 45) continue;
-#endif
-      CheckDecimalToRealApprox<Decimal>("1", scale, Pow10(-scale));
-    }
-    for (int32_t scale = -max_scale; scale <= max_scale - 2; scale++) {
-#ifdef _WIN32
-      // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
-      if (scale == 45) continue;
-#endif
-      const Real factor = static_cast<Real>(123);
-      CheckDecimalToRealApprox<Decimal>("123", scale, factor * Pow10(-scale));
-    }
-  }
 };
 
 TYPED_TEST_SUITE(TestDecimalToReal, RealTypes);
-
 TYPED_TEST(TestDecimalToReal, TestSuccess) { this->TestSuccess(); }
 
-// Custom test for Decimal128::ToReal<float>
-class TestDecimal128ToRealFloat : public TestDecimalToReal<std::pair<Decimal128, float>> {
-};
-TEST_F(TestDecimal128ToRealFloat, LargeValues) { TestLargeValues(/*max_scale=*/38); }
-TEST_F(TestDecimal128ToRealFloat, Precision) { this->TestPrecision(); }
-// Custom test for Decimal256::ToReal<float>
-class TestDecimal256ToRealFloat : public TestDecimalToReal<std::pair<Decimal256, float>> {
-};
-TEST_F(TestDecimal256ToRealFloat, LargeValues) { TestLargeValues(/*max_scale=*/76); }
-TEST_F(TestDecimal256ToRealFloat, Precision) { this->TestPrecision(); }
+// Custom test for Decimal::ToReal<float>
+template <typename DecimalType>
+class TestDecimalToRealFloat : public TestDecimalToReal<std::pair<DecimalType, float>> {};
+TYPED_TEST_SUITE(TestDecimalToRealFloat, DecimalTypes);
+
+TYPED_TEST(TestDecimalToRealFloat, LargeValues) {
+  auto max_scale = TypeParam::kMaxScale;
+  // Note that exact comparisons would succeed on some platforms (Linux, macOS).
+  // Nevertheless, power-of-ten factors are not all exactly representable
+  // in binary floating point.
+  for (int32_t scale = -max_scale; scale <= max_scale; scale++) {
+#ifdef _WIN32
+    // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
+    if (scale == 45) continue;
+#endif
+    CheckDecimalToRealApprox<TypeParam>("1", scale, this->Pow10(-scale));
+  }
+  for (int32_t scale = -max_scale; scale <= max_scale - 2; scale++) {
+#ifdef _WIN32
+    // MSVC gives pow(10.f, -45.f) == 0 even though 1e-45f is nonzero
+    if (scale == 45) continue;
+#endif
+    const auto factor = static_cast<float>(123);
+    CheckDecimalToRealApprox<TypeParam>("123", scale, factor * this->Pow10(-scale));
+  }
+}
+
+TYPED_TEST(TestDecimalToRealFloat, Precision) {
+  // 2**63 + 2**40 (exactly representable in a float's 24 bits of precision)
+  CheckDecimalToReal<TypeParam, float>("9223373136366403584", 0, 9.223373e+18f);
+  CheckDecimalToReal<TypeParam, float>("-9223373136366403584", 0, -9.223373e+18f);
+  // 2**64 + 2**41 (exactly representable in a float)
+  CheckDecimalToReal<TypeParam, float>("18446746272732807168", 0, 1.8446746e+19f);
+  CheckDecimalToReal<TypeParam, float>("-18446746272732807168", 0, -1.8446746e+19f);
+
+  // Integers are always exact
+  auto scale = TypeParam::kMaxScale - 1;
+  std::string seven = "7.";
+  seven.append(scale, '0');  // pad with trailing zeros
+  CheckDecimalToReal<TypeParam, float>(seven, scale, 7.0f);
+  CheckDecimalToReal<TypeParam, float>("-" + seven, scale, -7.0f);
+
+  CheckDecimalToReal<TypeParam, float>("99999999999999999999.0000000000000000", 16,
+                                       99999999999999999999.0f);
+  CheckDecimalToReal<TypeParam, float>("-99999999999999999999.0000000000000000", 16,
+                                       -99999999999999999999.0f);
+
+  // Small fractions are within one ULP
+  CheckDecimalToRealWithinOneULP<TypeParam, float>("9999999.9", 1, 9999999.9f);
+  CheckDecimalToRealWithinOneULP<TypeParam, float>("-9999999.9", 1, -9999999.9f);
+  CheckDecimalToRealWithinOneULP<TypeParam, float>("9999999.999999", 6, 9999999.999999f);
+  CheckDecimalToRealWithinOneULP<TypeParam, float>("-9999999.999999", 6,
+                                                   -9999999.999999f);
+
+  // Large fractions are within 2^-23
+  constexpr float epsilon = 1.1920928955078125e-07f;  // 2^-23
+  CheckDecimalToRealWithinEpsilon<TypeParam, float>(
+      "112334829348925.99070703983306884765625", 23, epsilon,
+      112334829348925.99070703983306884765625f);
+  CheckDecimalToRealWithinEpsilon<TypeParam, float>(
+      "1.987748987892758765582589910934859345", 36, epsilon,
+      1.987748987892758765582589910934859345f);
+}
 
 // ToReal<double> tests are disabled on MinGW because of precision issues in results
 #ifndef __MINGW32__
 
-// Custom test for Decimal128::ToReal<double>
+// Custom test for Decimal::ToReal<double>
 template <typename DecimalType>
 class TestDecimalToRealDouble : public TestDecimalToReal<std::pair<DecimalType, double>> {
 };
@@ -1209,6 +1256,34 @@ TYPED_TEST(TestDecimalToRealDouble, Precision) {
                                         9.999999999999998e+47);
   CheckDecimalToReal<TypeParam, double>("-99999999999999978859343891977453174784", -10,
                                         -9.999999999999998e+47);
+  // Integers are always exact
+  auto scale = TypeParam::kMaxScale - 1;
+  std::string seven = "7.";
+  seven.append(scale, '0');
+  CheckDecimalToReal<TypeParam, double>(seven, scale, 7.0);
+  CheckDecimalToReal<TypeParam, double>("-" + seven, scale, -7.0);
+
+  CheckDecimalToReal<TypeParam, double>("99999999999999999999.0000000000000000", 16,
+                                        99999999999999999999.0);
+  CheckDecimalToReal<TypeParam, double>("-99999999999999999999.0000000000000000", 16,
+                                        -99999999999999999999.0);
+
+  // Small fractions are within one ULP
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("9999999.9", 1, 9999999.9);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("-9999999.9", 1, -9999999.9);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("9999999.999999999999999", 15,
+                                                    9999999.999999999999999);
+  CheckDecimalToRealWithinOneULP<TypeParam, double>("-9999999.999999999999999", 15,
+                                                    -9999999.999999999999999);
+
+  // Large fractions are within 2^-52
+  constexpr double epsilon = 2.220446049250313080847263336181640625e-16;  // 2^-52
+  CheckDecimalToRealWithinEpsilon<TypeParam, double>(
+      "112334829348925.99070703983306884765625", 23, epsilon,
+      112334829348925.99070703983306884765625);
+  CheckDecimalToRealWithinEpsilon<TypeParam, double>(
+      "1.987748987892758765582589910934859345", 36, epsilon,
+      1.987748987892758765582589910934859345);
 }
 
 #endif  // __MINGW32__

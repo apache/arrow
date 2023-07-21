@@ -53,4 +53,18 @@ class TestFlightSQLClient < Test::Unit::TestCase
       end
     end
   end
+
+  sub_test_case("#execute_update") do
+    def test_success
+      insert_sql = "INSERT INTO page_view_table VALUES (100, true)"
+      n_changed_records = @sql_client.execute_update(insert_sql)
+      assert_equal(1, n_changed_records)
+    end
+
+    def test_error
+      assert_raise(Arrow::Error::Invalid) do
+        @sql_client.execute_update("INSERT")
+      end
+    end
+  end
 end

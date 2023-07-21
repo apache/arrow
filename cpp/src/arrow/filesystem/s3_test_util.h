@@ -26,6 +26,7 @@
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/status.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 
@@ -76,6 +77,13 @@ class MinioTestEnvironment : public ::testing::Environment {
 
 class S3Environment : public ::testing::Environment {
  public:
+  // We set this environment variable to speed up tests by ensuring
+  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
+  // EC2 metadata endpoint.
+  // This must be done before spawning any Minio child process to avoid any race
+  // condition accessing environment variables.
+  S3Environment() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
+
   void SetUp() override {
     // Change this to increase logging during tests
     S3GlobalOptions options;
@@ -84,6 +92,9 @@ class S3Environment : public ::testing::Environment {
   }
 
   void TearDown() override { ASSERT_OK(FinalizeS3()); }
+
+ private:
+  EnvVarGuard ec2_metadata_disabled_guard_;
 };
 
 }  // namespace fs

@@ -37,9 +37,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-import org.apache.arrow.dataset.CsvWriteSupport;
 import org.apache.arrow.dataset.OrcWriteSupport;
 import org.apache.arrow.dataset.ParquetWriteSupport;
+import org.apache.arrow.dataset.TextBasedWriteSupport;
 import org.apache.arrow.dataset.jni.NativeDataset;
 import org.apache.arrow.dataset.jni.NativeInstanceReleasedException;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
@@ -407,8 +407,8 @@ public class TestFileSystemDataset extends TestNativeDataset {
 
   @Test
   public void testBaseCsvRead() throws Exception {
-    CsvWriteSupport writeSupport = CsvWriteSupport.writeTempFile(
-            TMP.newFolder(), "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
+    TextBasedWriteSupport writeSupport = TextBasedWriteSupport.writeTempFile(
+            TMP.newFolder(), ".csv", "Name,Language", "Juno,Java", "Peter,Python", "Celin,C++");
     String expectedJsonUnordered = "[[\"Juno\", \"Java\"], [\"Peter\", \"Python\"], [\"Celin\", \"C++\"]]";
     ScanOptions options = new ScanOptions(100);
     try (
@@ -422,6 +422,34 @@ public class TestFileSystemDataset extends TestNativeDataset {
       assertEquals(1, datum.size());
       assertEquals(2, schema.getFields().size());
       assertEquals("Name", schema.getFields().get(0).getName());
+
+      checkParquetReadResult(schema, expectedJsonUnordered, datum);
+
+      AutoCloseables.close(datum);
+    }
+  }
+
+  @Test
+  public void testBaseJsonRead() throws Exception {
+    TextBasedWriteSupport writeSupport = TextBasedWriteSupport.writeTempFile(
+        TMP.newFolder(), ".json",
+        "{\"Type\": \"Compiled\", \"Language\": \"Java\"}",
+                "{\"Type\": \"Interpreted\", \"Language\": \"Python\"}");
+    String expectedJsonUnordered = "[[\"Compiled\", \"Java\"], " +
+                                   "[\"Interpreted\", \"Python\"]]";
+    ScanOptions options = new ScanOptions(100);
+    try (
+        FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
+            FileFormat.JSON, writeSupport.getOutputURI())
+    ) {
+      List<ArrowRecordBatch> datum = collectResultFromFactory(factory, options);
+      Schema schema = inferResultSchemaFromFactory(factory, options);
+
+      assertScanBatchesProduced(factory, options);
+      assertEquals(1, datum.size());
+      assertEquals(2, schema.getFields().size());
+      assertEquals("Type", schema.getFields().get(0).getName());
+      assertEquals("Language", schema.getFields().get(1).getName());
 
       checkParquetReadResult(schema, expectedJsonUnordered, datum);
 

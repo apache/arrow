@@ -21,7 +21,8 @@ classdef tBooleanArray < matlab.unittest.TestCase
         ArrowArrayConstructor = @arrow.array.BooleanArray
         MatlabArrayFcn = @logical
         MatlabConversionFcn = @logical
-        NullSubstitutionValue(1, 1) = false
+        NullSubstitutionValue = false
+        ArrowType = arrow.type.boolean
     end
 
     methods(TestClassSetup)
@@ -120,6 +121,15 @@ classdef tBooleanArray < matlab.unittest.TestCase
             tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
             tc.verifyEqual(toMATLAB(arrowArray), expectedData);
             tc.verifyEqual(arrowArray.Valid, [true; true; false]);
+
+
+            % Make sure the optimization where the valid-bitmap is stored as
+            % a nullptr works as expected.
+            expectedData = data;
+            arrowArray = tc.ArrowArrayConstructor(data, Valid=[1, 2, 3]);
+            tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
+            tc.verifyEqual(toMATLAB(arrowArray), expectedData);
+            tc.verifyEqual(arrowArray.Valid, [true; true; true]);
         end
 
         function ErrorIfNonVector(tc)
@@ -139,6 +149,13 @@ classdef tBooleanArray < matlab.unittest.TestCase
             data = tc.MatlabArrayFcn(sparse([true false true]));
             fcn = @() tc.ArrowArrayConstructor(data);
             tc.verifyError(fcn, "MATLAB:expectedNonsparse");
+        end
+
+        function TestArrowType(tc)
+        % Verify the array has the expected arrow.type.Type object
+            data = tc.MatlabArrayFcn([true false]);
+            arrowArray = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(arrowArray.Type.ID, tc.ArrowType.ID);
         end
     end
 end

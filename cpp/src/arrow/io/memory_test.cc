@@ -845,6 +845,54 @@ TEST(RangeReadCache, Lazy) {
   ASSERT_EQ(3, file->read_count());
 }
 
+TEST(RangeReadCache, LazyWithPrefetching) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  CacheOptions options = CacheOptions::LazyDefaults();
+  options.hole_size_limit = 1;
+  options.range_size_limit = 3;
+  options.prefetch_limit = 2;
+  internal::ReadRangeCache cache(file, {}, options);
+
+  ASSERT_OK(cache.Cache({{1, 1}, {3, 1}, {5, 2}, {8, 2}, {20, 2}, {25, 0}}));
+
+  // Lazy cache doesn't fetch ranges until requested
+  ASSERT_EQ(0, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({8, 2}));
+  AssertBufferEqual(*buf, "ij");
+  // Read {8, 2} and prefetch {20, 2}
+  ASSERT_EQ(2, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({20, 2}));
+  AssertBufferEqual(*buf, "uv");
+  // Read count remains 2 as the range {20, 2} has already been prefetched
+  ASSERT_EQ(2, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 1}));
+  AssertBufferEqual(*buf, "b");
+  // Read {1, 3} and prefetch {5, 2}
+  ASSERT_EQ(4, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 1}));
+  AssertBufferEqual(*buf, "d");
+  // Already prefetched
+  ASSERT_EQ(4, file->read_count());
+
+  // Requested ranges are still cached
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({5, 1}));
+  AssertBufferEqual(*buf, "f");
+  // Already prefetched
+  ASSERT_EQ(4, file->read_count());
+
+  // Non-cached ranges
+  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
+}
+
 TEST(CacheOptions, Basics) {
   auto check = [](const CacheOptions actual, const double expected_hole_size_limit_MiB,
                   const double expected_range_size_limit_MiB) -> void {

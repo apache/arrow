@@ -83,10 +83,22 @@ func (b *FixedSizeBinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *FixedSizeBinaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *FixedSizeBinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.values.Advance(b.dtype.ByteWidth)
 	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *FixedSizeBinaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *FixedSizeBinaryBuilder) UnsafeAppend(v []byte) {

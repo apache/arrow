@@ -292,3 +292,19 @@ test_that("schema name assignment", {
   expect_identical(names(schm2), c("col1", "col2"))
   expect_identical(names(schm2$r_metadata$columns), c("col1", "col2"))
 })
+
+test_that("schema extraction", {
+  skip_if_not_available("dataset")
+  tbl <- arrow_table(example_data)
+  expect_equal(schema(tbl), tbl$schema)
+
+  ds <- InMemoryDataset$create(example_data)
+  expect_equal(schema(ds), ds$schema)
+
+  rdr <- RecordBatchReader$create(record_batch(example_data))
+  expect_equal(schema(rdr), rdr$schema)
+
+  adq <- as_adq(example_data)
+  expect_equal(schema(adq), adq$.data$schema)
+
+})

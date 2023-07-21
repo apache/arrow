@@ -1961,6 +1961,22 @@ extern "C" SEXP _arrow_dataset___CsvFileFormat__Make(SEXP parse_options_sexp, SE
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::JsonFileFormat> dataset___JsonFileFormat__Make(const std::shared_ptr<arrow::json::ParseOptions>& parse_options, const std::shared_ptr<arrow::json::ReadOptions>& read_options);
+extern "C" SEXP _arrow_dataset___JsonFileFormat__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
+	return cpp11::as_sexp(dataset___JsonFileFormat__Make(parse_options, read_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___JsonFileFormat__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+	Rf_error("Cannot call dataset___JsonFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
 std::string dataset___FragmentScanOptions__type_name(const std::shared_ptr<ds::FragmentScanOptions>& fragment_scan_options);
 extern "C" SEXP _arrow_dataset___FragmentScanOptions__type_name(SEXP fragment_scan_options_sexp){
 BEGIN_CPP11
@@ -1987,6 +2003,22 @@ END_CPP11
 #else
 extern "C" SEXP _arrow_dataset___CsvFragmentScanOptions__Make(SEXP convert_options_sexp, SEXP read_options_sexp){
 	Rf_error("Cannot call dataset___CsvFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// dataset.cpp
+#if defined(ARROW_R_WITH_DATASET)
+std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(const std::shared_ptr<arrow::json::ParseOptions>& parse_options, const std::shared_ptr<arrow::json::ReadOptions>& read_options);
+extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::json::ParseOptions>&>::type parse_options(parse_options_sexp);
+	arrow::r::Input<const std::shared_ptr<arrow::json::ReadOptions>&>::type read_options(read_options_sexp);
+	return cpp11::as_sexp(dataset___JsonFragmentScanOptions__Make(parse_options, read_options));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_options_sexp, SEXP read_options_sexp){
+	Rf_error("Cannot call dataset___JsonFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
 
@@ -4844,6 +4876,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // recordbatchreader.cpp
+std::shared_ptr<arrow::RecordBatchReader> MakeSafeRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& reader);
+extern "C" SEXP _arrow_MakeSafeRecordBatchReader(SEXP reader_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::RecordBatchReader>&>::type reader(reader_sexp);
+	return cpp11::as_sexp(MakeSafeRecordBatchReader(reader));
+END_CPP11
+}
+// recordbatchreader.cpp
 std::shared_ptr<arrow::ipc::RecordBatchStreamReader> ipc___RecordBatchStreamReader__Open(const std::shared_ptr<arrow::io::InputStream>& stream);
 extern "C" SEXP _arrow_ipc___RecordBatchStreamReader__Open(SEXP stream_sexp){
 BEGIN_CPP11
@@ -5730,8 +5770,10 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___CsvFileWriteOptions__update", (DL_FUNC) &_arrow_dataset___CsvFileWriteOptions__update, 2}, 
 		{ "_arrow_dataset___IpcFileFormat__Make", (DL_FUNC) &_arrow_dataset___IpcFileFormat__Make, 0}, 
 		{ "_arrow_dataset___CsvFileFormat__Make", (DL_FUNC) &_arrow_dataset___CsvFileFormat__Make, 3}, 
+		{ "_arrow_dataset___JsonFileFormat__Make", (DL_FUNC) &_arrow_dataset___JsonFileFormat__Make, 2}, 
 		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
 		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
+		{ "_arrow_dataset___JsonFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___JsonFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___ParquetFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___ParquetFragmentScanOptions__Make, 3}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 2}, 
@@ -6008,6 +6050,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_RecordBatchReader__from_Table", (DL_FUNC) &_arrow_RecordBatchReader__from_Table, 1}, 
 		{ "_arrow_Table__from_RecordBatchReader", (DL_FUNC) &_arrow_Table__from_RecordBatchReader, 1}, 
 		{ "_arrow_RecordBatchReader__Head", (DL_FUNC) &_arrow_RecordBatchReader__Head, 2}, 
+		{ "_arrow_MakeSafeRecordBatchReader", (DL_FUNC) &_arrow_MakeSafeRecordBatchReader, 1}, 
 		{ "_arrow_ipc___RecordBatchStreamReader__Open", (DL_FUNC) &_arrow_ipc___RecordBatchStreamReader__Open, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__schema", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__schema, 1}, 
 		{ "_arrow_ipc___RecordBatchFileReader__num_record_batches", (DL_FUNC) &_arrow_ipc___RecordBatchFileReader__num_record_batches, 1}, 

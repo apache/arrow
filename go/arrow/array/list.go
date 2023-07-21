@@ -428,8 +428,20 @@ func (b *baseListBuilder) AppendNull() {
 	b.appendNextOffset()
 }
 
+func (b *baseListBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *baseListBuilder) AppendEmptyValue() {
 	b.Append(true)
+}
+
+func (b *baseListBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {

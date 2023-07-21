@@ -133,7 +133,7 @@ func TestStringsJSON(t *testing.T) {
 			assert.NoError(t, err)
 			defer arr.Release()
 
-			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+			assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 			data, err := json.Marshal(arr)
 			assert.NoError(t, err)
@@ -154,7 +154,7 @@ func TestStringsJSON(t *testing.T) {
 			assert.NoError(t, err)
 			defer arr.Release()
 
-			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+			assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 			data, err := json.Marshal(arr)
 			assert.NoError(t, err)
@@ -276,7 +276,7 @@ func TestDurationsJSON(t *testing.T) {
 		assert.NoError(t, err)
 		defer arr.Release()
 
-		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+		assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 	}
 }
 
@@ -303,7 +303,7 @@ func TestTimestampsJSON(t *testing.T) {
 		assert.NoError(t, err)
 		defer arr.Release()
 
-		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+		assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 	}
 }
 
@@ -323,7 +323,7 @@ func TestDateJSON(t *testing.T) {
 		assert.NoError(t, err)
 		defer arr.Release()
 
-		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+		assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 		data, err := json.Marshal(arr)
 		assert.NoError(t, err)
@@ -344,7 +344,7 @@ func TestDateJSON(t *testing.T) {
 		assert.NoError(t, err)
 		defer arr.Release()
 
-		assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+		assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 		data, err := json.Marshal(arr)
 		assert.NoError(t, err)
@@ -389,7 +389,7 @@ func TestTimeJSON(t *testing.T) {
 			assert.NoError(t, err)
 			defer arr.Release()
 
-			assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+			assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 			data, err := json.Marshal(arr)
 			assert.NoError(t, err)
@@ -411,7 +411,7 @@ func TestDecimal128JSON(t *testing.T) {
 	assert.NoError(t, err)
 	defer arr.Release()
 
-	assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+	assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 	data, err := json.Marshal(arr)
 	assert.NoError(t, err)
@@ -431,7 +431,7 @@ func TestDecimal256JSON(t *testing.T) {
 	assert.NoError(t, err)
 	defer arr.Release()
 
-	assert.Truef(t, array.ArrayEqual(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
+	assert.Truef(t, array.Equal(expected, arr), "expected: %s\ngot: %s\n", expected, arr)
 
 	data, err := json.Marshal(arr)
 	assert.NoError(t, err)

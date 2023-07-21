@@ -334,15 +334,17 @@ struct ARROW_EXPORT S3GlobalOptions {
   int num_event_loop_threads = 1;
 };
 
-/// Initialize the S3 APIs.  It is required to call this function at least once
-/// before using S3FileSystem.
+/// \brief Initialize the S3 APIs.
+///
+/// It is required to call this function at least once before using S3FileSystem.
 ///
 /// Once this function is called you MUST call FinalizeS3 before the end of the
 /// application in order to avoid a segmentation fault at shutdown.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
-/// Ensure the S3 APIs are initialized, but only if not already done.
+/// \brief Ensure the S3 APIs are initialized, but only if not already done.
+///
 /// If necessary, this will call InitializeS3() with some default options.
 ARROW_EXPORT
 Status EnsureS3Initialized();
@@ -351,11 +353,25 @@ Status EnsureS3Initialized();
 ARROW_EXPORT
 bool IsS3Initialized();
 
-/// Shutdown the S3 APIs.
+/// Whether S3 was finalized.
+ARROW_EXPORT
+bool IsS3Finalized();
+
+/// \brief Shutdown the S3 APIs.
+///
+/// This can wait for some S3 concurrent calls to finish so as to avoid
+/// race conditions.
+/// After this function has been called, all S3 calls will fail with an error.
+///
+/// Calls to InitializeS3() and FinalizeS3() should be serialized by the
+/// application (this also applies to EnsureS3Initialized() and
+/// EnsureS3Finalized()).
 ARROW_EXPORT
 Status FinalizeS3();
 
-/// Ensure the S3 APIs are shutdown, but only if not already done.
+/// \brief Ensure the S3 APIs are shutdown, but only if not already done.
+///
+/// If necessary, this will call FinalizeS3().
 ARROW_EXPORT
 Status EnsureS3Finalized();
 

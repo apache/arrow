@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <type_traits>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
@@ -49,15 +50,12 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
     }
 
     const auto& start = options->start;
-    if (!start || !start->is_valid) {
-      return Status::Invalid("Cumulative `start` option must be non-null and valid");
-    }
 
-    // Ensure `start` option matches input type
-    if (!start->type->Equals(*args.inputs[0])) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto casted_start,
-          Cast(Datum(start), args.inputs[0], CastOptions::Safe(), ctx->exec_context()));
+    // Ensure `start` option, if given, matches input type
+    if (start.has_value() && !start.value()->type->Equals(*args.inputs[0])) {
+      ARROW_ASSIGN_OR_RAISE(auto casted_start,
+                            Cast(Datum(start.value()), args.inputs[0],
+                                 CastOptions::Safe(), ctx->exec_context()));
       auto new_options = OptionsType(casted_start.scalar(), options->skip_nulls);
       return std::make_unique<State>(new_options);
     }
@@ -66,10 +64,11 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
 };
 
 // The driver kernel for all cumulative compute functions. Op is a compute kernel
-// representing any binary associative operation (add, product, min, max, etc.) and
-// OptionsType the options type corresponding to Op. ArgType and OutType are the input
-// and output types, which will normally be the same (e.g. the cumulative sum of an array
-// of Int64Type will result in an array of Int64Type).
+// representing any binary associative operation with an identity element (add, product,
+// min, max, etc.), i.e. ones that form a monoid, and OptionsType the options type
+// corresponding to Op. ArgType and OutType are the input and output types, which will
+// normally be the same (e.g. the cumulative sum of an array of Int64Type will result in
+// an array of Int64Type).
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct Accumulator {
   using OutValue = typename GetOutputType<OutType>::T;
@@ -118,10 +117,15 @@ struct Accumulator {
 
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeKernel {
+  using OutValue = typename GetOutputType<OutType>::T;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
     Accumulator<OutType, ArgType, Op, OptionsType> accumulator(ctx);
-    accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start));
+    if (options.start.has_value()) {
+      accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start.value()));
+    } else {
+      accumulator.current_value = Identity<Op>::template value<OutValue>;
+    }
     accumulator.skip_nulls = options.skip_nulls;
 
     RETURN_NOT_OK(accumulator.builder.Reserve(batch.length));
@@ -136,10 +140,15 @@ struct CumulativeKernel {
 
 template <typename OutType, typename ArgType, typename Op, typename OptionsType>
 struct CumulativeKernelChunked {
+  using OutValue = typename GetOutputType<OutType>::T;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
     Accumulator<OutType, ArgType, Op, OptionsType> accumulator(ctx);
-    accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start));
+    if (options.start.has_value()) {
+      accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start.value()));
+    } else {
+      accumulator.current_value = Identity<Op>::template value<OutValue>;
+    }
     accumulator.skip_nulls = options.skip_nulls;
 
     const ChunkedArray& chunked_input = *batch[0].chunked_array();
@@ -160,18 +169,54 @@ const FunctionDoc cumulative_sum_doc{
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative sum computed over `values`. Results will wrap around on\n"
      "integer overflow. Use function \"cumulative_sum_checked\" if you want\n"
-     "overflow to return an error."),
+     "overflow to return an error. The default start is 0."),
     {"values"},
-    "CumulativeSumOptions"};
+    "CumulativeOptions"};
 
 const FunctionDoc cumulative_sum_checked_doc{
     "Compute the cumulative sum over a numeric input",
     ("`values` must be numeric. Return an array/chunked array which is the\n"
      "cumulative sum computed over `values`. This function returns an error\n"
      "on overflow. For a variant that doesn't fail on overflow, use\n"
-     "function \"cumulative_sum\"."),
+     "function \"cumulative_sum\". The default start is 0."),
     {"values"},
-    "CumulativeSumOptions"};
+    "CumulativeOptions"};
+
+const FunctionDoc cumulative_prod_doc{
+    "Compute the cumulative product over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative product computed over `values`. Results will wrap around on\n"
+     "integer overflow. Use function \"cumulative_prod_checked\" if you want\n"
+     "overflow to return an error. The default start is 1."),
+    {"values"},
+    "CumulativeOptions"};
+
+const FunctionDoc cumulative_prod_checked_doc{
+    "Compute the cumulative product over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative product computed over `values`. This function returns an error\n"
+     "on overflow. For a variant that doesn't fail on overflow, use\n"
+     "function \"cumulative_prod\". The default start is 1."),
+    {"values"},
+    "CumulativeOptions"};
+
+const FunctionDoc cumulative_max_doc{
+    "Compute the cumulative max over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative max computed over `values`. The default start is the minimum\n"
+     "value of input type (so that any other value will replace the\n"
+     "start as the new maximum)."),
+    {"values"},
+    "CumulativeOptions"};
+
+const FunctionDoc cumulative_min_doc{
+    "Compute the cumulative min over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative min computed over `values`. The default start is the maximum\n"
+     "value of input type (so that any other value will replace the\n"
+     "start as the new minimum)."),
+    {"values"},
+    "CumulativeOptions"};
 }  // namespace
 
 template <typename Op, typename OptionsType>
@@ -203,10 +248,20 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
 }
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  MakeVectorCumulativeFunction<Add, CumulativeSumOptions>(registry, "cumulative_sum",
-                                                          cumulative_sum_doc);
-  MakeVectorCumulativeFunction<AddChecked, CumulativeSumOptions>(
+  MakeVectorCumulativeFunction<Add, CumulativeOptions>(registry, "cumulative_sum",
+                                                       cumulative_sum_doc);
+  MakeVectorCumulativeFunction<AddChecked, CumulativeOptions>(
       registry, "cumulative_sum_checked", cumulative_sum_checked_doc);
+
+  MakeVectorCumulativeFunction<Multiply, CumulativeOptions>(registry, "cumulative_prod",
+                                                            cumulative_prod_doc);
+  MakeVectorCumulativeFunction<MultiplyChecked, CumulativeOptions>(
+      registry, "cumulative_prod_checked", cumulative_prod_checked_doc);
+
+  MakeVectorCumulativeFunction<Min, CumulativeOptions>(registry, "cumulative_min",
+                                                       cumulative_min_doc);
+  MakeVectorCumulativeFunction<Max, CumulativeOptions>(registry, "cumulative_max",
+                                                       cumulative_max_doc);
 }
 
 }  // namespace internal

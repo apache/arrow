@@ -176,7 +176,8 @@ std::shared_ptr<RecordBatch> RecordBatch::Make(
     std::shared_ptr<Schema> schema, int64_t num_rows,
     std::vector<std::shared_ptr<Array>> columns) {
   DCHECK_EQ(schema->num_fields(), static_cast<int>(columns.size()));
-  return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows, columns);
+  return std::make_shared<SimpleRecordBatch>(std::move(schema), num_rows,
+                                             std::move(columns));
 }
 
 std::shared_ptr<RecordBatch> RecordBatch::Make(
@@ -194,7 +195,7 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::MakeEmpty(
     ARROW_ASSIGN_OR_RAISE(empty_batch[i],
                           MakeEmptyArray(schema->field(i)->type(), memory_pool));
   }
-  return RecordBatch::Make(schema, 0, empty_batch);
+  return RecordBatch::Make(std::move(schema), 0, std::move(empty_batch));
 }
 
 Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
@@ -347,17 +348,9 @@ Result<RecordBatchVector> RecordBatchReader::ToRecordBatches() {
   return batches;
 }
 
-Status RecordBatchReader::ReadAll(RecordBatchVector* batches) {
-  return ToRecordBatches().Value(batches);
-}
-
 Result<std::shared_ptr<Table>> RecordBatchReader::ToTable() {
   ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
   return Table::FromRecordBatches(schema(), std::move(batches));
-}
-
-Status RecordBatchReader::ReadAll(std::shared_ptr<Table>* table) {
-  return ToTable().Value(table);
 }
 
 class SimpleRecordBatchReader : public RecordBatchReader {
@@ -391,7 +384,7 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::Make(
     schema = batches[0]->schema();
   }
 
-  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
+  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema));
 }
 
 Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
@@ -400,7 +393,7 @@ Result<std::shared_ptr<RecordBatchReader>> RecordBatchReader::MakeFromIterator(
     return Status::Invalid("Schema cannot be nullptr");
   }
 
-  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), schema);
+  return std::make_shared<SimpleRecordBatchReader>(std::move(batches), std::move(schema));
 }
 
 RecordBatchReader::~RecordBatchReader() {

@@ -170,8 +170,20 @@ func (b *Decimal128Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Decimal128Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Decimal128Builder) AppendEmptyValue() {
 	b.Append(decimal128.Num{})
+}
+
+func (b *Decimal128Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Decimal128Builder) UnsafeAppendBoolToBitmap(isValid bool) {

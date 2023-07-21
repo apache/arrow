@@ -60,6 +60,16 @@ func (m *FlightServiceClientMock) AuthenticateBasicToken(_ context.Context, user
 	return args.Get(0).(context.Context), args.Error(1)
 }
 
+func (m *FlightServiceClientMock) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(flight.CancelFlightInfoResult), args.Error(1)
+}
+
+func (m *FlightServiceClientMock) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	args := m.Called(request, opts)
+	return args.Get(0).(*flight.FlightEndpoint), args.Error(1)
+}
+
 func (m *FlightServiceClientMock) Close() error {
 	return m.Called().Error(0)
 }
@@ -600,6 +610,44 @@ func (s *FlightSqlClientSuite) TestGetSqlInfo() {
 	info, err := s.sqlClient.GetSqlInfo(context.TODO(), sqlInfo, s.callOpts...)
 	s.NoError(err)
 	s.Equal(&emptyFlightInfo, info)
+}
+
+func (s *FlightSqlClientSuite) TestCancelFlightInfo() {
+	query := "SELECT * FROM data"
+	cmd := &pb.CommandStatementQuery{Query: query}
+	desc := getDesc(cmd)
+	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&emptyFlightInfo, nil)
+	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
+	s.NoError(err)
+	s.Equal(&emptyFlightInfo, info)
+	request := flight.CancelFlightInfoRequest{Info: info}
+	mockedCancelResult := flight.CancelFlightInfoResult{
+		Status: flight.CancelStatusCancelled,
+	}
+	s.mockClient.On("CancelFlightInfo", &request, s.callOpts).Return(mockedCancelResult, nil)
+	cancelResult, err := s.sqlClient.CancelFlightInfo(context.TODO(), &request, s.callOpts...)
+	s.NoError(err)
+	s.Equal(mockedCancelResult, cancelResult)
+}
+
+func (s *FlightSqlClientSuite) TestRenewFlightEndpoint() {
+	query := "SELECT * FROM data"
+	cmd := &pb.CommandStatementQuery{Query: query}
+	desc := getDesc(cmd)
+	var mockedEndpoint flight.FlightEndpoint
+	mockedInfo := flight.FlightInfo{
+		Endpoint: []*flight.FlightEndpoint{&mockedEndpoint},
+	}
+	s.mockClient.On("GetFlightInfo", desc.Type, desc.Cmd, s.callOpts).Return(&mockedInfo, nil)
+	info, err := s.sqlClient.Execute(context.Background(), query, s.callOpts...)
+	s.NoError(err)
+	s.Equal(&mockedInfo, info)
+	request := flight.RenewFlightEndpointRequest{Endpoint: info.Endpoint[0]}
+	var mockedRenewedEndpoint flight.FlightEndpoint
+	s.mockClient.On("RenewFlightEndpoint", &request, s.callOpts).Return(&mockedRenewedEndpoint, nil)
+	renewedEndpoint, err := s.sqlClient.RenewFlightEndpoint(context.TODO(), &request, s.callOpts...)
+	s.NoError(err)
+	s.Equal(&mockedRenewedEndpoint, renewedEndpoint)
 }
 
 func TestFlightSqlClient(t *testing.T) {

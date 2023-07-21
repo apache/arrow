@@ -389,9 +389,81 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
       continue;
     }
     const auto level = combination.level;
+    const auto codec_options = arrow::util::CodecOptions(level);
     const auto expect_success = combination.expect_success;
-    auto result1 = Codec::Create(compression, level);
-    auto result2 = Codec::Create(compression, level);
+    auto result1 = Codec::Create(compression, codec_options);
+    auto result2 = Codec::Create(compression, codec_options);
+    ASSERT_EQ(expect_success, result1.ok());
+    ASSERT_EQ(expect_success, result2.ok());
+    if (expect_success) {
+      CheckCodecRoundtrip(*result1, *result2, data);
+    }
+  }
+}
+
+TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
+  // for now only GZIP & Brotli codec options supported, since it has specific parameters
+  // to be customized, other codecs could directly go with CodecOptions, could add more
+  // specific codec options if needed.
+  struct CombinationOption {
+    int level;
+    GZipFormat format;
+    int window_bits;
+    bool expect_success;
+  };
+  constexpr CombinationOption combinations[] = {{2, GZipFormat::ZLIB, 12, true},
+                                                {9, GZipFormat::GZIP, 9, true},
+                                                {9, GZipFormat::GZIP, 20, false},
+                                                {5, GZipFormat::DEFLATE, -12, false},
+                                                {-992, GZipFormat::GZIP, 15, false}};
+
+  std::vector<uint8_t> data = MakeRandomData(2000);
+  for (const auto& combination : combinations) {
+    const auto compression = Compression::GZIP;
+    if (!Codec::IsAvailable(compression)) {
+      // Support for this codec hasn't been built
+      continue;
+    }
+    auto codec_options = arrow::util::GZipCodecOptions();
+    codec_options.compression_level = combination.level;
+    codec_options.gzip_format = combination.format;
+    codec_options.window_bits = combination.window_bits;
+    const auto expect_success = combination.expect_success;
+    auto result1 = Codec::Create(compression, codec_options);
+    auto result2 = Codec::Create(compression, codec_options);
+    ASSERT_EQ(expect_success, result1.ok());
+    ASSERT_EQ(expect_success, result2.ok());
+    if (expect_success) {
+      CheckCodecRoundtrip(*result1, *result2, data);
+    }
+  }
+}
+
+TEST(TestCodecMisc, SpecifyCodecOptionsBrotli) {
+  // for now only GZIP & Brotli codec options supported, since it has specific parameters
+  // to be customized, other codecs could directly go with CodecOptions, could add more
+  // specific codec options if needed.
+  struct CombinationOption {
+    int level;
+    int window_bits;
+    bool expect_success;
+  };
+  constexpr CombinationOption combinations[] = {
+      {8, 22, true}, {11, 10, true}, {1, 24, true}, {5, -12, false}, {-992, 25, false}};
+
+  std::vector<uint8_t> data = MakeRandomData(2000);
+  for (const auto& combination : combinations) {
+    const auto compression = Compression::BROTLI;
+    if (!Codec::IsAvailable(compression)) {
+      // Support for this codec hasn't been built
+      continue;
+    }
+    auto codec_options = arrow::util::BrotliCodecOptions();
+    codec_options.compression_level = combination.level;
+    codec_options.window_bits = combination.window_bits;
+    const auto expect_success = combination.expect_success;
+    auto result1 = Codec::Create(compression, codec_options);
+    auto result2 = Codec::Create(compression, codec_options);
     ASSERT_EQ(expect_success, result1.ok());
     ASSERT_EQ(expect_success, result2.ok());
     if (expect_success) {

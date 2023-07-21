@@ -1852,6 +1852,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_dictionary);
   TEST_PREDICATE(all_types, is_fixed_size_binary);
   TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_var_length_list);
   TEST_PREDICATE(all_types, is_list_like);
   TEST_PREDICATE(all_types, is_nested);
   TEST_PREDICATE(all_types, is_union);

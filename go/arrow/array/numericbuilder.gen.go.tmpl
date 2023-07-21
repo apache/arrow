@@ -79,8 +79,20 @@ func (b *{{.Name}}Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *{{.Name}}Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *{{.Name}}Builder) AppendEmptyValue() {
 	b.Append(0)
+}
+
+func (b *{{.Name}}Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *{{.Name}}Builder) UnsafeAppend(v {{or .QualifiedType .Type}}) {

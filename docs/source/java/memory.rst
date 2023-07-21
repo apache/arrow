@@ -140,12 +140,10 @@ Applications should generally:
 Debugging Memory Leaks/Allocation
 ---------------------------------
 
-In ``DEBUG`` mode, the allocator and
-supporting classes will record additional debug tracking information to
-better track down memory leaks and issues. To enable DEBUG mode, either
-enable Java assertions with ``-ea`` or pass the following system
-property to the VM when starting
-``-Darrow.memory.debug.allocator=true``. 
+In ``DEBUG`` mode, the allocator and supporting classes will record additional
+debug tracking information to better track down memory leaks and issues. To
+enable DEBUG mode pass the following system property to the VM when starting
+``-Darrow.memory.debug.allocator=true``.
 
 When DEBUG is enabled, a log will be kept of allocations. Configure SLF4J to see these logs (e.g. via Logback/Apache Log4j).
 Consider the following example to see how it helps us with the tracking of allocators:

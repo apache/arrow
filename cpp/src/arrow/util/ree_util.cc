@@ -85,6 +85,26 @@ int64_t FindPhysicalLength(const ArraySpan& span) {
   return internal::FindPhysicalLength<int64_t>(span);
 }
 
+std::pair<int64_t, int64_t> FindPhysicalRange(const ArraySpan& span, int64_t offset,
+                                              int64_t length) {
+  const auto& run_ends_span = RunEndsArray(span);
+  auto type_id = run_ends_span.type->id();
+  if (type_id == Type::INT16) {
+    auto* run_ends = run_ends_span.GetValues<int16_t>(1);
+    return internal::FindPhysicalRange<int16_t>(run_ends, run_ends_span.length, length,
+                                                offset);
+  }
+  if (type_id == Type::INT32) {
+    auto* run_ends = run_ends_span.GetValues<int32_t>(1);
+    return internal::FindPhysicalRange<int32_t>(run_ends, run_ends_span.length, length,
+                                                offset);
+  }
+  DCHECK_EQ(type_id, Type::INT64);
+  auto* run_ends = run_ends_span.GetValues<int64_t>(1);
+  return internal::FindPhysicalRange<int64_t>(run_ends, run_ends_span.length, length,
+                                              offset);
+}
+
 namespace {
 
 template <typename RunEndCType>

@@ -18,6 +18,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using Apache.Arrow.Types;
 
 namespace Apache.Arrow.C
@@ -111,7 +113,7 @@ namespace Apache.Arrow.C
                     throw new ArgumentException("Passed null pointer for cSchema.");
                 }
                 _cSchema = cSchema;
-                if (_cSchema->release == null)
+                if (_cSchema->release == default)
                 {
                     throw new ArgumentException("Tried to import a schema that has already been released.");
                 }
@@ -126,9 +128,13 @@ namespace Apache.Arrow.C
             public void Dispose()
             {
                 // We only call release on a root-level schema, not child ones.
-                if (_isRoot && _cSchema->release != null)
+                if (_isRoot && _cSchema->release != default)
                 {
+#if NET5_0_OR_GREATER
                     _cSchema->release(_cSchema);
+#else
+                    Marshal.GetDelegateForFunctionPointer<CArrowSchemaExporter.ReleaseArrowSchema>(_cSchema->release)(_cSchema);
+#endif
                 }
             }
 
@@ -281,7 +287,7 @@ namespace Apache.Arrow.C
 
                 bool nullable = _cSchema->GetFlag(CArrowSchema.ArrowFlagNullable);
 
-                return new Field(fieldName, GetAsType(), nullable);
+                return new Field(fieldName, GetAsType(), nullable, GetMetadata(_cSchema->metadata));
             }
 
             public Schema GetAsSchema()
@@ -289,12 +295,49 @@ namespace Apache.Arrow.C
                 ArrowType fullType = GetAsType();
                 if (fullType is StructType structType)
                 {
-                    return new Schema(structType.Fields, default);
+                    return new Schema(structType.Fields, GetMetadata(_cSchema->metadata));
                 }
                 else
                 {
                     throw new ArgumentException("Imported type is not a struct type, so it cannot be converted to a schema.");
                 }
+            }
+
+            private unsafe static IReadOnlyDictionary<string, string> GetMetadata(byte* metadata)
+            {
+                if (metadata == null)
+                {
+                    return null;
+                }
+
+                IntPtr ptr = (IntPtr)metadata;
+                int count = Marshal.ReadInt32(ptr);
+                if (count <= 0)
+                {
+                    return null;
+                }
+                ptr += 4;
+
+                Dictionary<string, string> result = new Dictionary<string, string>(count);
+                for (int i = 0; i < count; i++)
+                {
+                    result[ReadMetadataString(ref ptr)] = ReadMetadataString(ref ptr);
+                }
+                return result;
+            }
+
+            private unsafe static string ReadMetadataString(ref IntPtr ptr)
+            {
+                int length = Marshal.ReadInt32(ptr);
+                if (length < 0)
+                {
+                    throw new InvalidOperationException("unexpected negative length for metadata string");
+                }
+
+                ptr += 4;
+                string result = Encoding.UTF8.GetString((byte*)ptr, length);
+                ptr += length;
+                return result;
             }
         }
     }

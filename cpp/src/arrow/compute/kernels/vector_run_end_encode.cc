@@ -28,6 +28,7 @@
 namespace arrow {
 namespace compute {
 namespace internal {
+namespace {
 
 struct RunEndEncondingState : public KernelState {
   explicit RunEndEncondingState(std::shared_ptr<DataType> run_end_type)
@@ -525,6 +526,8 @@ static const FunctionDoc run_end_encode_doc(
 static const FunctionDoc run_end_decode_doc(
     "Decode run-end encoded array",
     ("Return a decoded version of a run-end encoded input array."), {"array"});
+
+}  // namespace
 
 void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_encode", Arity::Unary(),

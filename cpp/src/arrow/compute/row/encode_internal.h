@@ -187,7 +187,7 @@ class EncoderBinary {
   template <bool is_row_fixed_length>
   static void DecodeImp(uint32_t start_row, uint32_t num_rows, uint32_t offset_within_row,
                         const RowTableImpl& rows, KeyColumnArray* col);
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   static void DecodeHelper_avx2(bool is_row_fixed_length, uint32_t start_row,
                                 uint32_t num_rows, uint32_t offset_within_row,
                                 const RowTableImpl& rows, KeyColumnArray* col);
@@ -213,7 +213,7 @@ class EncoderBinaryPair {
   static void DecodeImp(uint32_t num_rows_to_skip, uint32_t start_row, uint32_t num_rows,
                         uint32_t offset_within_row, const RowTableImpl& rows,
                         KeyColumnArray* col1, KeyColumnArray* col2);
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   static uint32_t DecodeHelper_avx2(bool is_row_fixed_length, uint32_t col_width,
                                     uint32_t start_row, uint32_t num_rows,
                                     uint32_t offset_within_row, const RowTableImpl& rows,
@@ -300,7 +300,7 @@ class EncoderVarBinary {
   template <bool first_varbinary_col>
   static void DecodeImp(uint32_t start_row, uint32_t num_rows, uint32_t varbinary_col_id,
                         const RowTableImpl& rows, KeyColumnArray* col);
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   static void DecodeHelper_avx2(uint32_t start_row, uint32_t num_rows,
                                 uint32_t varbinary_col_id, const RowTableImpl& rows,
                                 KeyColumnArray* col);

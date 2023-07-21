@@ -22,9 +22,13 @@
 
 #include <memory>
 
+#include "arrow/acero/test_util_internal.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/result.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 
@@ -161,6 +165,50 @@ void TestVarStdMultiBatch(const std::string& var_std_func_name) {
 TEST(GroupByConvenienceFunc, VarianceMultiBatch) { TestVarStdMultiBatch("variance"); }
 
 TEST(GroupByConvenienceFunc, StdDevMultiBatch) { TestVarStdMultiBatch("stddev"); }
+
+TEST(GroupByNode, NoSkipNulls) {
+  constexpr int kNumBatches = 128;
+
+  std::shared_ptr<Schema> in_schema =
+      schema({field("key", int32()), field("value", int32())});
+
+  // This regresses GH-36053.  Some groups have nulls and other groups do not.  The
+  // "does this group have nulls" field needs to merge correctly between different
+  // aggregate states.  We use 128 batches to encourage multiple thread states to
+  // be used.
+  ExecBatch nulls_batch =
+      ExecBatchFromJSON({int32(), int32()}, "[[1, null], [1, null], [1, null]]");
+  ExecBatch no_nulls_batch =
+      ExecBatchFromJSON({int32(), int32()}, "[[2, 1], [2, 1], [2, 1]]");
+
+  std::vector<ExecBatch> batches;
+  batches.reserve(kNumBatches);
+  for (int i = 0; i < kNumBatches; i += 2) {
+    batches.push_back(nulls_batch);
+    batches.push_back(no_nulls_batch);
+  }
+
+  std::vector<Aggregate> aggregates = {Aggregate(
+      "hash_sum", std::make_shared<compute::ScalarAggregateOptions>(/*skip_nulls=*/false),
+      FieldRef("value"))};
+  std::vector<FieldRef> keys = {"key"};
+
+  Declaration plan = Declaration::Sequence(
+      {{"exec_batch_source", ExecBatchSourceNodeOptions(in_schema, std::move(batches))},
+       {"aggregate", AggregateNodeOptions(aggregates, keys)}});
+
+  ASSERT_OK_AND_ASSIGN(BatchesWithCommonSchema out_batches,
+                       DeclarationToExecBatches(plan));
+
+  std::shared_ptr<Schema> out_schema =
+      schema({field("key", int32()), field("sum_value", int64())});
+  int32_t expected_sum = static_cast<int32_t>(no_nulls_batch.length) *
+                         static_cast<int32_t>(bit_util::CeilDiv(kNumBatches, 2));
+  ExecBatch expected_batch = ExecBatchFromJSON(
+      {int32(), int64()}, "[[1, null], [2, " + internal::ToChars(expected_sum) + "]]");
+
+  AssertExecBatchesEqualIgnoringOrder(out_schema, {expected_batch}, out_batches.batches);
+}
 
 }  // namespace acero
 }  // namespace arrow

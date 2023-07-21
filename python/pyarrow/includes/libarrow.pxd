@@ -2400,11 +2400,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         int64_t pivot
         CNullPlacement null_placement
 
-    cdef cppclass CCumulativeSumOptions \
-            "arrow::compute::CumulativeSumOptions"(CFunctionOptions):
-        CCumulativeSumOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
-        shared_ptr[CScalar] start
+    cdef cppclass CCumulativeOptions \
+            "arrow::compute::CumulativeOptions"(CFunctionOptions):
+        CCumulativeOptions(c_bool skip_nulls)
+        CCumulativeOptions(shared_ptr[CScalar] start, c_bool skip_nulls)
+        optional[shared_ptr[CScalar]] start
         c_bool skip_nulls
+
+    cdef cppclass CPairwiseOptions \
+            "arrow::compute::PairwiseOptions"(CFunctionOptions):
+        CPairwiseOptions(int64_t period)
+        int64_t period
 
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):

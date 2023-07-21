@@ -118,6 +118,12 @@ func (b *NullBuilder) AppendNull() {
 	b.builder.nulls++
 }
 
+func (b *NullBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *NullBuilder) AppendValueFromString(s string) error {
 	if s == NullValueStr {
 		b.AppendNull()
@@ -127,6 +133,8 @@ func (b *NullBuilder) AppendValueFromString(s string) error {
 }
 
 func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }
+
+func (b *NullBuilder) AppendEmptyValues(n int) { b.AppendNulls(n) }
 
 func (*NullBuilder) Reserve(size int) {}
 func (*NullBuilder) Resize(size int)  {}

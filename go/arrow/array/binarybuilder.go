@@ -125,10 +125,22 @@ func (b *BinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BinaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *BinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.appendNextOffset()
 	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *BinaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values

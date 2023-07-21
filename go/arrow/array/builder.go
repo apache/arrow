@@ -58,8 +58,14 @@ type Builder interface {
 	// AppendNull adds a new null value to the array being built.
 	AppendNull()
 
+	// AppendNulls adds new n null values to the array being built.
+	AppendNulls(n int)
+
 	// AppendEmptyValue adds a new zero value of the appropriate type
 	AppendEmptyValue()
+
+	// AppendEmptyValues adds new n zero values of the appropriate type
+	AppendEmptyValues(n int)
 
 	// AppendValueFromString adds a new value from a string. Inverse of array.ValueStr(i int) string
 	AppendValueFromString(string) error

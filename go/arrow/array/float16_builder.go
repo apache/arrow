@@ -78,9 +78,21 @@ func (b *Float16Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Float16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Float16Builder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.UnsafeAppend(float16.Num{})
+}
+
+func (b *Float16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {

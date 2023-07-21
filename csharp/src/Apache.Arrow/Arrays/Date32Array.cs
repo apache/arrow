@@ -25,6 +25,9 @@ namespace Apache.Arrow
     public class Date32Array : PrimitiveArray<int>
     {
         private static readonly DateTime _epochDate = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Unspecified);
+#if NET6_0_OR_GREATER
+        private static readonly int _epochDayNumber = new DateOnly(1970, 1, 1).DayNumber;
+#endif
 
         /// <summary>
         /// The <see cref="Builder"/> class can be used to fluently build <see cref="Date32Array"/> objects.
@@ -57,6 +60,13 @@ namespace Apache.Arrow
                 // DateTimeOffset.Date property.
                 return (int)(dateTimeOffset.UtcDateTime.Date - _epochDate).TotalDays;
             }
+
+#if NET6_0_OR_GREATER
+            protected override int Convert(DateOnly date)
+            {
+                return (int)(date.DayNumber - _epochDayNumber);
+            }
+#endif
         }
 
         public Date32Array(
@@ -108,5 +118,21 @@ namespace Apache.Arrow
                 ? new DateTimeOffset(_epochDate.AddDays(value.Value), TimeSpan.Zero)
                 : default(DateTimeOffset?);
         }
+
+#if NET6_0_OR_GREATER
+        /// <summary>
+        /// Get the date at the specified index
+        /// </summary>
+        /// <param name="index">Index at which to get the date.</param>
+        /// <returns>Returns a <see cref="DateOnly" />, or <c>null</c> if there is no object at that index.
+        /// </returns>
+        public DateOnly? GetDateOnly(int index)
+        {
+            int? value = GetValue(index);
+            return value.HasValue
+                ? DateOnly.FromDayNumber(_epochDayNumber + value.Value)
+                : default(DateOnly?);
+        }
+#endif
     }
 }

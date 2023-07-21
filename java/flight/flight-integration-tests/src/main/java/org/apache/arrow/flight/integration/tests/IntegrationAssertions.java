@@ -88,6 +88,12 @@ final class IntegrationAssertions {
     }
   }
 
+  static void assertNotNull(Object actual) {
+    if (actual == null) {
+      throw new AssertionError("Expected: (not null)\n\nbut got: null\n");
+    }
+  }
+
   /**
    * Convert a throwable into a FlightRuntimeException with error details, for debugging.
    */
