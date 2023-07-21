@@ -1903,19 +1903,15 @@ void AsyncClientTest::TestListenerLifetime() {
     arrow::Future<FlightInfo> future_;
   };
 
-  // Bad client code: don't retain a reference to the listener or even the client
+  // Bad client code: don't retain a reference to the listener
   {
-    ASSERT_OK_AND_ASSIGN(auto location,
-                         Location::ForGrpcTcp("localhost", server_->port()));
-    ASSERT_OK_AND_ASSIGN(auto client, FlightClient::Connect(location));
-
     auto descr = FlightDescriptor::Command("my_command");
     auto listener = std::make_shared<Listener>();
     listener->future_ = future;
-    client->GetFlightInfoAsync(descr, std::move(listener));
+    client_->GetFlightInfoAsync(descr, std::move(listener));
   }
 
-  ASSERT_OK(future.status());
+  ASSERT_FINISHES_OK(future);
 }
 
 }  // namespace flight

@@ -599,11 +599,12 @@ class GrpcGarbageBin {
 
   void Dispose(std::unique_ptr<internal::AsyncRpc> trash) {
     std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
+    if (!running_) return;
     garbage_bin_.push_back(std::move(trash));
     grpc_destructor_cv_.notify_all();
   }
 
-  ~GrpcGarbageBin() {
+  void Stop() {
     {
       std::unique_lock<std::mutex> guard(grpc_destructor_mutex_);
       running_ = false;
@@ -837,7 +838,11 @@ class GrpcClientImpl : public internal::ClientTransport {
 
   Status Close() override {
 #ifdef GRPC_ENABLE_ASYNC
-    garbage_bin_.reset();
+    // XXX: if there are async RPCs running when the client is
+    // stopped, then when they go to use the garbage bin, they'll
+    // instead synchronously dispose of resources from the callback
+    // thread, and will likely crash.
+    garbage_bin_->Stop();
 #endif
     // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
     // gRPC does not offer a real Close(). We could reset() the gRPC
