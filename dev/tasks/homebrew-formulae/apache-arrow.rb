@@ -60,7 +60,7 @@ class ApacheArrow < Formula
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
-    ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
+    # ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
 
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
