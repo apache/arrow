@@ -3,6 +3,9 @@
 
   <PropertyGroup>
     <TargetFrameworks>net7.0</TargetFrameworks>
+    <!-- TODO: CI can't run with net472 on non-Windows platforms
+    <TargetFrameworks>net7.0;net472</TargetFrameworks>
+    -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
@@ -19,6 +22,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Apache.Arrow\Apache.Arrow.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible($(TargetFramework), 'net5.0'))">
+    <Compile Remove="Extensions\Net472Extensions.cs" />
   </ItemGroup>
 
 </Project>

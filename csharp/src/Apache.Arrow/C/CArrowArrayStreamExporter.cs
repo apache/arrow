@@ -29,22 +29,18 @@ namespace Apache.Arrow.C
         private static unsafe delegate* unmanaged<CArrowArrayStream*, byte*> GetLastErrorPtr => &GetLastError;
         private static unsafe delegate* unmanaged<CArrowArrayStream*, void> ReleasePtr => &Release;
 #else
-        private unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
+        internal unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
         private static unsafe NativeDelegate<GetSchemaArrayStream> s_getSchemaArrayStream = new NativeDelegate<GetSchemaArrayStream>(GetSchema);
-        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowSchema*, int> GetSchemaPtr =>
-            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowSchema*, int>)s_getSchemaArrayStream.Pointer;
-        private unsafe delegate int GetNextArrayStream(CArrowArrayStream* cArrayStream, CArrowArray* cArray);
+        private static unsafe IntPtr GetSchemaPtr => s_getSchemaArrayStream.Pointer;
+        internal unsafe delegate int GetNextArrayStream(CArrowArrayStream* cArrayStream, CArrowArray* cArray);
         private static unsafe NativeDelegate<GetNextArrayStream> s_getNextArrayStream = new NativeDelegate<GetNextArrayStream>(GetNext);
-        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowArray*, int> GetNextPtr =>
-            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowArray*, int>)s_getNextArrayStream.Pointer;
-        private unsafe delegate byte* GetLastErrorArrayStream(CArrowArrayStream* cArrayStream);
+        private static unsafe IntPtr GetNextPtr => s_getNextArrayStream.Pointer;
+        internal unsafe delegate byte* GetLastErrorArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<GetLastErrorArrayStream> s_getLastErrorArrayStream = new NativeDelegate<GetLastErrorArrayStream>(GetLastError);
-        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, byte*> GetLastErrorPtr =>
-            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, byte*>)s_getLastErrorArrayStream.Pointer;
-        private unsafe delegate void ReleaseArrayStream(CArrowArrayStream* cArrayStream);
+        private static unsafe IntPtr GetLastErrorPtr => s_getLastErrorArrayStream.Pointer;
+        internal unsafe delegate void ReleaseArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<ReleaseArrayStream> s_releaseArrayStream = new NativeDelegate<ReleaseArrayStream>(Release);
-        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, void> ReleasePtr =>
-            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, void>)s_releaseArrayStream.Pointer;
+        private static unsafe IntPtr ReleasePtr => s_releaseArrayStream.Pointer;
 #endif
 
         /// <summary>
@@ -103,7 +99,7 @@ namespace Apache.Arrow.C
             ExportedArrayStream arrayStream = null;
             try
             {
-                cArray->release = null;
+                cArray->release = default;
                 arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
                 RecordBatch recordBatch = arrayStream.ArrowArrayStream.ReadNextRecordBatchAsync().Result;
                 if (recordBatch != null)
@@ -140,7 +136,7 @@ namespace Apache.Arrow.C
         private unsafe static void Release(CArrowArrayStream* cArrayStream)
         {
             ExportedArrayStream.Free(&cArrayStream->private_data);
-            cArrayStream->release = null;
+            cArrayStream->release = default;
         }
 
         sealed unsafe class ExportedArrayStream : IDisposable
