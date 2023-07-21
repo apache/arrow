@@ -38,11 +38,11 @@ namespace Apache.Arrow.C
         public byte** buffers;
         public CArrowArray** children;
         public CArrowArray* dictionary;
-        internal delegate* unmanaged
-#if !NET5_0_OR_GREATER
-            [Cdecl]
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged<CArrowArray*, void> release;
+#else
+        internal IntPtr release;
 #endif
-            <CArrowArray*, void> release;
         public void* private_data;
 
         /// <summary>
@@ -68,10 +68,14 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowArray* array)
         {
-            if (array->release != null)
+            if (array->release != default)
             {
                 // Call release if not already called.
+#if NET5_0_OR_GREATER
                 array->release(array);
+#else
+                Marshal.GetDelegateForFunctionPointer<CArrowArrayExporter.ReleaseArrowArray>(array->release)(array);
+#endif
             }
             Marshal.FreeHGlobal((IntPtr)array);
         }

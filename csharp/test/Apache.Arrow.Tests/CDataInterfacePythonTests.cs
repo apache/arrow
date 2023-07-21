@@ -49,7 +49,7 @@ namespace Apache.Arrow.Tests
             PythonEngine.Initialize();
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
-                !PythonEngine.PythonPath.Contains("dlls", StringComparison.OrdinalIgnoreCase))
+                PythonEngine.PythonPath.IndexOf("dlls", StringComparison.OrdinalIgnoreCase) < 0)
             {
                 dynamic sys = Py.Import("sys");
                 sys.path.append(Path.Combine(Path.GetDirectoryName(Environment.GetEnvironmentVariable("PYTHONNET_PYDLL")), "DLLs"));
@@ -360,7 +360,7 @@ namespace Apache.Arrow.Tests
                 }
 
                 // Python should have called release once `exportedPyType` went out-of-scope.
-                Assert.True(cSchema->release == null);
+                Assert.True(cSchema->release == default);
                 Assert.True(cSchema->format == null);
                 Assert.Equal(0, cSchema->flags);
                 Assert.Equal(0, cSchema->n_children);
@@ -395,7 +395,7 @@ namespace Apache.Arrow.Tests
 
                 // Python should have called release once `exportedPyField` went out-of-scope.
                 Assert.True(cSchema->name == null);
-                Assert.True(cSchema->release == null);
+                Assert.True(cSchema->release == default);
                 Assert.True(cSchema->format == null);
 
                 // Since we allocated, we are responsible for freeing the pointer.
