@@ -31,7 +31,7 @@ For a high-level overview of the release process see the
 - [ ] Ensure the contents of the README are accurate and up to date.
 - [ ] Run `urlchecker::url_check()` on the R directory at the release candidate.
   commit. Ignore any errors with badges as they will be removed in the CRAN release branch.
-- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later).
+- [ ] [Polish NEWS](https://style.tidyverse.org/news.html#news-release) but do **not** update version numbers (this is done automatically later). You can find commits by, for example, `git log --oneline aa057d0..HEAD | grep "\[R\]"`
 - [ ] Run preliminary reverse dependency checks using `archery docker run r-revdepcheck`.
 - [ ] For major releases, prepare tweet thread highlighting new features.
 
