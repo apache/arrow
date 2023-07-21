@@ -340,4 +340,10 @@ func (s *{{.Name}}MemoTable) GetOrInsert(val interface{}) (idx int, found bool, 
   }
   return
 }
+
+
+// GetOrInsertBytes is unimplemented
+func (s *{{.Name}}MemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+    panic("unimplemented")
+}
 {{end}}
