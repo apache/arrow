@@ -134,7 +134,7 @@ public class FixedBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder {
             return Double(0) as! T
         }
         
-        throw ArrowError.unknownType
+        throw ArrowError.unknownType("Unable to determine default value")
     }
 }
 
@@ -276,24 +276,19 @@ public class VariableBufferBuilder<T>: BaseBufferBuilder<T>, ArrowBufferBuilder 
     }
 }
 
-public class Date32BufferBuilder: ArrowBufferBuilder {
-    public typealias ItemType = Date
+public class AbstractWrapperBufferBuilder<T, U>: ArrowBufferBuilder {
+    public typealias ItemType = T
     public var capacity: UInt {get{return self.bufferBuilder.capacity}}
     public var length: UInt {get{return self.bufferBuilder.length}}
     public var nullCount : UInt {get{return self.bufferBuilder.nullCount}}
     public var offset: UInt {get{return self.bufferBuilder.offset}}
-    private let bufferBuilder: FixedBufferBuilder<Int32>
+    let bufferBuilder: FixedBufferBuilder<U>
     public required init() throws {
         self.bufferBuilder = try FixedBufferBuilder()
     }
 
     public func append(_ newValue: ItemType?) {
-        if let val = newValue {
-            let daysSinceEpoch = Int32(val.timeIntervalSince1970 / 86400)
-            self.bufferBuilder.append(daysSinceEpoch)
-        } else {
-            self.bufferBuilder.append(nil)
-        }
+        fatalError("Method is not implemented")
     }
 
     public func isNull(_ index: UInt) -> Bool {
@@ -309,35 +304,25 @@ public class Date32BufferBuilder: ArrowBufferBuilder {
     }
 }
 
-public class Date64BufferBuilder: ArrowBufferBuilder {
-    public typealias ItemType = Date
-    public var capacity: UInt {get{return self.bufferBuilder.capacity}}
-    public var length: UInt {get{return self.bufferBuilder.length}}
-    public var nullCount : UInt {get{return self.bufferBuilder.nullCount}}
-    public var offset: UInt {get{return self.bufferBuilder.offset}}
-    private let bufferBuilder: FixedBufferBuilder<Int64>
-    public required init() throws {
-        self.bufferBuilder = try FixedBufferBuilder()
-    }
 
-    public func append(_ newValue: ItemType?) {
+public class Date32BufferBuilder: AbstractWrapperBufferBuilder<Date,Int32> {
+    public override func append(_ newValue: ItemType?) {
+        if let val = newValue {
+            let daysSinceEpoch = Int32(val.timeIntervalSince1970 / 86400)
+            self.bufferBuilder.append(daysSinceEpoch)
+        } else {
+            self.bufferBuilder.append(nil)
+        }
+    }
+}
+
+public class Date64BufferBuilder: AbstractWrapperBufferBuilder<Date,Int64> {
+    public override func append(_ newValue: ItemType?) {
         if let val = newValue {
             let daysSinceEpoch = Int64(val.timeIntervalSince1970 * 1000)
             self.bufferBuilder.append(daysSinceEpoch)
         } else {
             self.bufferBuilder.append(nil)
         }
-    }
-
-    public func isNull(_ index: UInt) -> Bool {
-        return self.bufferBuilder.isNull(index)
-    }
-    
-    public func resize(_ length: UInt) {
-        self.bufferBuilder.resize(length)
-    }
-    
-    public func finish() -> [ArrowBuffer] {
-        return self.bufferBuilder.finish()
     }
 }

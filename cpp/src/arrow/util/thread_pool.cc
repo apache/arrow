@@ -268,7 +268,7 @@ void SerialExecutor::RunLoop() {
   state_->current_thread = {};
 }
 #else   // ARROW_ENABLE_THREADING
-bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
+bool SerialExecutor::RunTasksOnAllExecutors() {
   auto globalState = GetSerialExecutorGlobalState();
   // if the previously called executor was deleted, ignore last_called_executor
   if (globalState->last_called_executor != NULL &&
@@ -296,7 +296,7 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
         // so that we do things nicely in turn
         continue;
       }
-      SerialExecutor* exe = *it;
+      auto exe = *it;
       // don't make more reentrant calls inside an
       // executor than the number of concurrent tasks set on a threadpool, or
       // 1 in the case of a serialexecutor -
@@ -323,13 +323,9 @@ bool SerialExecutor::RunTasksOnAllExecutors(bool once_only) {
         exe->state_->tasks_running -= 1;
         globalState->current_executor = old_exe;
 
-        if (once_only) {
-          globalState->last_called_executor = exe;
-          keep_going = false;
-          break;
-        } else {
-          keep_going = true;
-        }
+        globalState->last_called_executor = exe;
+        keep_going = false;
+        break;
       }
     }
   }

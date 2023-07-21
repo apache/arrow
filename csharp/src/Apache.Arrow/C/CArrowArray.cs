@@ -38,7 +38,11 @@ namespace Apache.Arrow.C
         public byte** buffers;
         public CArrowArray** children;
         public CArrowArray* dictionary;
-        public delegate* unmanaged[Stdcall]<CArrowArray*, void> release;
+        internal delegate* unmanaged
+#if !NET5_0_OR_GREATER
+            [Cdecl]
+#endif
+            <CArrowArray*, void> release;
         public void* private_data;
 
         /// <summary>
@@ -51,16 +55,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowArray*)Marshal.AllocHGlobal(sizeof(CArrowArray));
 
-            ptr->length = 0;
-            ptr->n_buffers = 0;
-            ptr->offset = 0;
-            ptr->buffers = null;
-            ptr->n_children = 0;
-            ptr->children = null;
-            ptr->dictionary = null;
-            ptr->null_count = 0;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }

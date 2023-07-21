@@ -441,6 +441,78 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
   )
 })
 
+test_that("Can mutate with .by argument as long as there are no aggregations", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(int = int + 6L, .by = chr) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(int = int + 6L, .by = starts_with("chr")) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(new_col = int + 6L, .by = c(chr, int)) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(new_col = int + 6L, .by = c("chr", "int")) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean` in `mutate()` to test that
+      # `all_funs()` does not incorrectly identify it as an aggregate function
+      mutate(mean = mean + 6L, .by = chr) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(int, chr) %>%
+      mutate(avg_int = mean(int), .by = chr) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
+      # `all_funs()` detects `mean()` despite the collision with a column name
+      mutate(avg_int = mean(mean), .by = chr) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+})
+
+test_that("Can't supply .by after group_by", {
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(int = int + 6L, .by = chr) %>%
+      collect(),
+    "Can't supply `\\.by` when `\\.data` is grouped data"
+  )
+})
+
 test_that("handle bad expressions", {
   # TODO: search for functions other than mean() (see above test)
   # that need to be forced to fail because they error ambiguously

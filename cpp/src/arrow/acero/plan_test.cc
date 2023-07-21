@@ -768,6 +768,23 @@ TEST(ExecPlanExecution, DeclarationToReader) {
                                   reader->Next());
 }
 
+TEST(ExecPlanExecution, DeclarationToReaderWithEarlyClose) {
+  auto random_data = MakeRandomBatches(schema({field("a", int8())}), /*num_batches=*/100);
+  auto plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions(random_data.schema, random_data.gen(false, false))}});
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> reader,
+                       DeclarationToReader(plan, /*use_threads=*/false));
+
+  // read only a few batches
+  for (size_t i = 0; i < 10; i++) {
+    ASSERT_OK(reader->Next());
+  }
+  // then close
+  ASSERT_OK(reader->Close());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("already closed reader"),
+                                  reader->Next());
+}
+
 TEST(ExecPlanExecution, ConsumingSinkNames) {
   struct SchemaKeepingConsumer : public SinkNodeConsumer {
     std::shared_ptr<Schema> schema_;

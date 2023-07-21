@@ -4,6 +4,7 @@
 \alias{FragmentScanOptions}
 \alias{CsvFragmentScanOptions}
 \alias{ParquetFragmentScanOptions}
+\alias{JsonFragmentScanOptions}
 \title{Format-specific scan options}
 \description{
 A \code{FragmentScanOptions} holds options specific to a \code{FileFormat} and a scan

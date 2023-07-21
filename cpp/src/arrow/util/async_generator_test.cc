@@ -1482,6 +1482,10 @@ TEST(TestAsyncUtil, ReadaheadMove) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   std::atomic<int32_t> counter(0);
   auto gating_task = GatingTask::Make();
@@ -1490,7 +1494,6 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
   // should all pass
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
-#ifdef ARROW_ENABLE_THREADING
     return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
       gating_task->Task()();
       if (count == 0) {
@@ -1498,16 +1501,6 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
       }
       return TestInt(count);
     }));
-#else
-    // if threading is disabled, we can't call Task() as we do below because it will
-    // never return and will block everything
-    if (count == 0) {
-      return gating_task->AsyncTask().Then(
-          []() { return Future<TestInt>::MakeFinished(Status::Invalid("X")); });
-    } else {
-      return gating_task->AsyncTask().Then([count]() { return TestInt(count); });
-    }
-#endif
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();
@@ -1527,6 +1520,9 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   // If a failure causes an early end then we should not emit that failure
   // until all in-flight futures have completed.  This is to prevent tasks from
@@ -1537,7 +1533,6 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
 
-#ifdef ARROW_ENABLE_THREADING
     return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
       if (count == 0) {
         failure_gating_task->Task()();
@@ -1547,16 +1542,6 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
       // These are our in-flight tasks
       return TestInt(0);
     }));
-#else
-    // if threading is disabled, we can't call Task() as we do below because it will
-    // never return and will block everything
-    if (count == 0) {
-      return failure_gating_task->AsyncTask().Then(
-          []() { return Future<TestInt>::MakeFinished(Status::Invalid("X")); });
-    } else {
-      return in_flight_gating_task->AsyncTask().Then([]() { return TestInt(0); });
-    }
-#endif
   };
   auto readahead = MakeReadaheadGenerator<TestInt>(source, 10);
   auto should_be_invalid = readahead();

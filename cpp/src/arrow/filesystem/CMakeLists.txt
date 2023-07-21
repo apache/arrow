@@ -47,6 +47,15 @@ if(ARROW_GCS)
                  Boost::system)
 endif()
 
+if(ARROW_AZURE)
+  add_arrow_test(azurefs_test
+                 EXTRA_LABELS
+                 filesystem
+                 EXTRA_LINK_LIBS
+                 Boost::filesystem
+                 Boost::system)
+endif()
+
 if(ARROW_S3)
   add_arrow_test(s3fs_test
                  SOURCES

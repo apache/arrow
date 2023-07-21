@@ -181,7 +181,7 @@ class ConcreteFutureImpl : public FutureImpl {
     return IsFutureFinished(state_);
 #else
     auto start = std::chrono::steady_clock::now();
-    std::chrono::duration<double> fsec = std::chrono::duration<double>(seconds);
+    auto fsec = std::chrono::duration<double>(seconds);
     while (std::chrono::steady_clock::now() - start < fsec) {
       // run one task then check time
       if (IsFutureFinished(state_)) {

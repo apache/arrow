@@ -109,8 +109,8 @@ namespace Apache.Arrow.Tests
             TestNumberSlice<double, DoubleArray, DoubleArray.Builder>();
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).Append(new DateTime(2019, 1, 3)));
-            TestNumberSlice<int, Time32Array, Time32Array.Builder>();
-            TestNumberSlice<long, Time64Array, Time64Array.Builder>();
+            TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).Append(30));
+            TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).Append(30));
             TestSlice<StringArray, StringArray.Builder>(x => x.Append("10").Append("20").Append("30"));
 
             static void TestNumberSlice<T, TArray, TBuilder>()
@@ -136,8 +136,8 @@ namespace Apache.Arrow.Tests
             TestNumberSlice<double, DoubleArray, DoubleArray.Builder>();
             TestSlice<Date32Array, Date32Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
             TestSlice<Date64Array, Date64Array.Builder>(x => x.Append(new DateTime(2019, 1, 1)).Append(new DateTime(2019, 1, 2)).AppendNull().Append(new DateTime(2019, 1, 3)));
-            TestNumberSlice<int, Time32Array, Time32Array.Builder>();
-            TestNumberSlice<long, Time64Array, Time64Array.Builder>();
+            TestSlice<Time32Array, Time32Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
+            TestSlice<Time64Array, Time64Array.Builder>(x => x.Append(10).Append(20).AppendNull().Append(30));
 
             static void TestNumberSlice<T, TArray, TBuilder>()
                 where T : struct, INumber<T>

@@ -24,10 +24,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/goccy/go-json"
-
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/google/uuid"
 	"golang.org/x/xerrors"
 )

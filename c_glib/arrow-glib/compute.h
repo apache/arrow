@@ -386,6 +386,9 @@ garrow_execute_plan_build_hash_join_node(GArrowExecutePlan *plan,
                                          GArrowExecuteNode *right,
                                          GArrowHashJoinNodeOptions *options,
                                          GError **error);
+GARROW_AVAILABLE_IN_13_0
+GList *
+garrow_execute_plan_get_nodes(GArrowExecutePlan *plan);
 GARROW_AVAILABLE_IN_6_0
 gboolean
 garrow_execute_plan_validate(GArrowExecutePlan *plan,
@@ -1082,5 +1085,33 @@ garrow_record_batch_filter(GArrowRecordBatch *record_batch,
                            GArrowBooleanArray *filter,
                            GArrowFilterOptions *options,
                            GError **error);
+
+#define GARROW_TYPE_RUN_END_ENCODE_OPTIONS      \
+  (garrow_run_end_encode_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRunEndEncodeOptions,
+                         garrow_run_end_encode_options,
+                         GARROW,
+                         RUN_END_ENCODE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRunEndEncodeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_13_0
+GArrowRunEndEncodeOptions *
+garrow_run_end_encode_options_new(GArrowDataType *run_end_data_type);
+
+
+GARROW_AVAILABLE_IN_13_0
+GArrowRunEndEncodedArray *
+garrow_array_run_end_encode(GArrowArray *array,
+                            GArrowRunEndEncodeOptions *options,
+                            GError **error);
+GARROW_AVAILABLE_IN_13_0
+GArrowArray *
+garrow_run_end_encoded_array_decode(GArrowRunEndEncodedArray *array,
+                                    GError **error);
+
 
 G_END_DECLS

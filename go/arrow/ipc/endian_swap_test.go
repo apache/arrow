@@ -56,6 +56,7 @@ func TestSwapEndianPrimitiveArrayData(t *testing.T) {
 		{arrow.PrimitiveTypes.Int32, 2, "01234567", "32107654"},
 		{arrow.PrimitiveTypes.Uint64, 1, "01234567", "76543210"},
 		{&arrow.Decimal128Type{Precision: 38, Scale: 10}, 1, "0123456789abcdef", "fedcba9876543210"},
+		{&arrow.Decimal256Type{Precision: 72, Scale: 10}, 1, "0123456789abcdef0123456789abcdef", "fedcba9876543210fedcba9876543210"},
 		{arrow.PrimitiveTypes.Float32, 2, "01200560", "02100650"},
 		{arrow.PrimitiveTypes.Float64, 1, "01200560", "06500210"},
 	}

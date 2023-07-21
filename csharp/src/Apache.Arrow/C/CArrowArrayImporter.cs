@@ -42,6 +42,9 @@ namespace Apache.Arrow.C
         /// IArrowArray importedArray = CArrowArrayImporter.ImportArray(importedPtr);
         /// </code>
         /// </examples>
+        /// <param name="ptr">The pointer to the array being imported</param>
+        /// <param name="type">The type of the array being imported</param>
+        /// <returns>The imported C# array</returns>
         public static unsafe IArrowArray ImportArray(CArrowArray* ptr, IArrowType type)
         {
             ImportedArrowArray importedArray = null;
@@ -74,6 +77,9 @@ namespace Apache.Arrow.C
         /// RecordBatch batch = CArrowArrayImporter.ImportRecordBatch(importedPtr, schema);
         /// </code>
         /// </examples>
+        /// <param name="ptr">The pointer to the record batch being imported</param>
+        /// <param name="schema">The schema type of the record batch being imported</param>
+        /// <returns>The imported C# record batch</returns>
         public static unsafe RecordBatch ImportRecordBatch(CArrowArray* ptr, Schema schema)
         {
             ImportedArrowArray importedArray = null;
@@ -90,7 +96,7 @@ namespace Apache.Arrow.C
 
         private sealed unsafe class ImportedArrowArray : ImportedAllocationOwner
         {
-            private readonly CArrowArray* _cArray;
+            private readonly CArrowArray _cArray;
 
             public ImportedArrowArray(CArrowArray* cArray)
             {
@@ -98,34 +104,41 @@ namespace Apache.Arrow.C
                 {
                     throw new ArgumentNullException(nameof(cArray));
                 }
-                _cArray = cArray;
-                if (_cArray->release == null)
+                if (cArray->release == null)
                 {
                     throw new ArgumentException("Tried to import an array that has already been released.", nameof(cArray));
                 }
+                _cArray = *cArray;
+                cArray->release = null;
             }
 
             protected override void FinalRelease()
             {
-                if (_cArray->release != null)
+                if (_cArray.release != null)
                 {
-                    _cArray->release(_cArray);
+                    fixed (CArrowArray* cArray = &_cArray)
+                    {
+                        cArray->release(cArray);
+                    }
                 }
             }
 
             public IArrowArray GetAsArray(IArrowType type)
             {
-                return ArrowArrayFactory.BuildArray(GetAsArrayData(_cArray, type));
+                fixed (CArrowArray* cArray = &_cArray)
+                {
+                    return ArrowArrayFactory.BuildArray(GetAsArrayData(cArray, type));
+                }
             }
 
             public RecordBatch GetAsRecordBatch(Schema schema)
             {
                 IArrowArray[] arrays = new IArrowArray[schema.FieldsList.Count];
-                for (int i = 0; i < _cArray->n_children; i++)
+                for (int i = 0; i < _cArray.n_children; i++)
                 {
-                    arrays[i] = ArrowArrayFactory.BuildArray(GetAsArrayData(_cArray->children[i], schema.FieldsList[i].DataType));
+                    arrays[i] = ArrowArrayFactory.BuildArray(GetAsArrayData(_cArray.children[i], schema.FieldsList[i].DataType));
                 }
-                return new RecordBatch(schema, arrays, checked((int)_cArray->length));
+                return new RecordBatch(schema, arrays, checked((int)_cArray.length));
             }
 
             private ArrayData GetAsArrayData(CArrowArray* cArray, IArrowType type)
@@ -151,7 +164,7 @@ namespace Apache.Arrow.C
                     case ArrowTypeId.Map:
                         break;
                     case ArrowTypeId.Null:
-                        buffers = new ArrowBuffer[0];
+                        buffers = System.Array.Empty<ArrowBuffer>();
                         break;
                     case ArrowTypeId.Dictionary:
                         DictionaryType dictionaryType = (DictionaryType)type;

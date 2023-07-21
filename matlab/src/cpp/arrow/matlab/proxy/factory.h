@@ -26,7 +26,7 @@ using namespace libmexclass::proxy;
 class Factory : public libmexclass::proxy::Factory {
     public:
         Factory() { }
-        virtual std::shared_ptr<Proxy> make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments);
+        virtual libmexclass::proxy::MakeResult make_proxy(const ClassName& class_name, const FunctionArguments& constructor_arguments);
 };
 
 }

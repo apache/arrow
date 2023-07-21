@@ -15,6 +15,7 @@
 
 
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Ipc;
 
@@ -22,14 +23,29 @@ namespace Apache.Arrow.C
 {
     public static class CArrowArrayStreamExporter
     {
+#if NET5_0_OR_GREATER
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, CArrowSchema*, int> GetSchemaPtr => &GetSchema;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, CArrowArray*, int> GetNextPtr => &GetNext;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, byte*> GetLastErrorPtr => &GetLastError;
+        private static unsafe delegate* unmanaged<CArrowArrayStream*, void> ReleasePtr => &Release;
+#else
         private unsafe delegate int GetSchemaArrayStream(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema);
         private static unsafe NativeDelegate<GetSchemaArrayStream> s_getSchemaArrayStream = new NativeDelegate<GetSchemaArrayStream>(GetSchema);
+        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowSchema*, int> GetSchemaPtr =>
+            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowSchema*, int>)s_getSchemaArrayStream.Pointer;
         private unsafe delegate int GetNextArrayStream(CArrowArrayStream* cArrayStream, CArrowArray* cArray);
         private static unsafe NativeDelegate<GetNextArrayStream> s_getNextArrayStream = new NativeDelegate<GetNextArrayStream>(GetNext);
+        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowArray*, int> GetNextPtr =>
+            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, CArrowArray*, int>)s_getNextArrayStream.Pointer;
         private unsafe delegate byte* GetLastErrorArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<GetLastErrorArrayStream> s_getLastErrorArrayStream = new NativeDelegate<GetLastErrorArrayStream>(GetLastError);
+        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, byte*> GetLastErrorPtr =>
+            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, byte*>)s_getLastErrorArrayStream.Pointer;
         private unsafe delegate void ReleaseArrayStream(CArrowArrayStream* cArrayStream);
         private static unsafe NativeDelegate<ReleaseArrayStream> s_releaseArrayStream = new NativeDelegate<ReleaseArrayStream>(Release);
+        private static unsafe delegate* unmanaged[Cdecl]<CArrowArrayStream*, void> ReleasePtr =>
+            (delegate* unmanaged[Cdecl]<CArrowArrayStream*, void>)s_releaseArrayStream.Pointer;
+#endif
 
         /// <summary>
         /// Export an <see cref="IArrowArrayStream"/> to a <see cref="CArrowArrayStream"/>.
@@ -53,18 +69,17 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(arrayStream));
             }
-            if (cArrayStream->release != null)
-            {
-                throw new ArgumentException("Cannot export array to a struct that is already initialized.", nameof(cArrayStream));
-            }
 
             cArrayStream->private_data = ExportedArrayStream.Export(arrayStream);
-            cArrayStream->get_schema = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int>)s_getSchemaArrayStream.Pointer;
-            cArrayStream->get_next = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int>)s_getNextArrayStream.Pointer;
-            cArrayStream->get_last_error = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*>)s_getLastErrorArrayStream.Pointer;
-            cArrayStream->release = (delegate* unmanaged[Stdcall]<CArrowArrayStream*, void>)s_releaseArrayStream.Pointer;
+            cArrayStream->get_schema = GetSchemaPtr;
+            cArrayStream->get_next = GetNextPtr;
+            cArrayStream->get_last_error = GetLastErrorPtr;
+            cArrayStream->release = ReleasePtr;
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private unsafe static int GetSchema(CArrowArrayStream* cArrayStream, CArrowSchema* cSchema)
         {
             ExportedArrayStream arrayStream = null;
@@ -80,6 +95,9 @@ namespace Apache.Arrow.C
             }
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private unsafe static int GetNext(CArrowArrayStream* cArrayStream, CArrowArray* cArray)
         {
             ExportedArrayStream arrayStream = null;
@@ -100,6 +118,9 @@ namespace Apache.Arrow.C
             }
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private unsafe static byte* GetLastError(CArrowArrayStream* cArrayStream)
         {
             try
@@ -113,10 +134,12 @@ namespace Apache.Arrow.C
             }
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private unsafe static void Release(CArrowArrayStream* cArrayStream)
         {
-            ExportedArrayStream arrayStream = ExportedArrayStream.FromPointer(cArrayStream->private_data);
-            arrayStream.Dispose();
+            ExportedArrayStream.Free(&cArrayStream->private_data);
             cArrayStream->release = null;
         }
 
@@ -138,6 +161,18 @@ namespace Apache.Arrow.C
                 ExportedArrayStream result = new ExportedArrayStream(arrayStream);
                 GCHandle gch = GCHandle.Alloc(result);
                 return (void*)GCHandle.ToIntPtr(gch);
+            }
+
+            public static void Free(void** ptr)
+            {
+                GCHandle gch = GCHandle.FromIntPtr((IntPtr)(*ptr));
+                if (!gch.IsAllocated)
+                {
+                    return;
+                }
+                ((ExportedArrayStream)gch.Target).Dispose();
+                gch.Free();
+                *ptr = null;
             }
 
             public static ExportedArrayStream FromPointer(void* ptr)
@@ -170,7 +205,7 @@ namespace Apache.Arrow.C
             {
                 if (LastError != null)
                 {
-                    Marshal.FreeCoTaskMem((IntPtr)LastError);
+                    Marshal.FreeHGlobal((IntPtr)LastError);
                     LastError = null;
                 }
             }

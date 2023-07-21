@@ -627,6 +627,8 @@ func RegisterScalarArithmetic(reg FunctionRegistry) {
 	}{
 		{"sub_unchecked", kernels.OpSub, decPromoteAdd, subUncheckedDoc},
 		{"sub", kernels.OpSubChecked, decPromoteAdd, subDoc},
+		{"subtract_unchecked", kernels.OpSub, decPromoteAdd, subUncheckedDoc},
+		{"subtract", kernels.OpSubChecked, decPromoteAdd, subDoc},
 	}
 
 	for _, o := range ops {
@@ -1088,8 +1090,8 @@ func Negate(ctx context.Context, opts ArithmeticOptions, input Datum) (Datum, er
 // input. For x in the input:
 //
 //		if x > 0: 1
-//	 if x < 0: -1
-//	 if x == 0: 0
+//		if x < 0: -1
+//	    if x == 0: 0
 func Sign(ctx context.Context, input Datum) (Datum, error) {
 	return CallFunction(ctx, "sign", nil, input)
 }

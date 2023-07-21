@@ -25,7 +25,7 @@ import org.apache.arrow.dataset.jni.JniLoader;
 public class JniWrapper {
 
   private static final JniWrapper INSTANCE = new JniWrapper();
-  
+
   public static JniWrapper get() {
     JniLoader.get().ensureLoaded();
     return INSTANCE;
@@ -44,6 +44,17 @@ public class JniWrapper {
    * @see FileFormat
    */
   public native long makeFileSystemDatasetFactory(String uri, int fileFormat);
+
+  /**
+   * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
+   * intermediate shared_ptr of the factory instance.
+   *
+   * @param uris List of file uris to read, each path pointing to an individual file
+   * @param fileFormat file format ID
+   * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
+   * @see FileFormat
+   */
+  public native long makeFileSystemDatasetFactory(String[] uris, int fileFormat);
 
   /**
    * Write the content in a {@link org.apache.arrow.c.ArrowArrayStream} into files. This internally

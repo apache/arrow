@@ -512,7 +512,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     ::arrow::util::RleEncoder encoder(buffer, buffer_len, bit_width());
 
     for (int32_t index : buffered_indices_) {
-      if (!encoder.Put(index)) return -1;
+      if (ARROW_PREDICT_FALSE(!encoder.Put(index))) return -1;
     }
     encoder.Flush();
 

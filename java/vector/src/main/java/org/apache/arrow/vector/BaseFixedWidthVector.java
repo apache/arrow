@@ -581,6 +581,14 @@ public abstract class BaseFixedWidthVector extends BaseValueVector
   public abstract TransferPair getTransferPair(String ref, BufferAllocator allocator);
 
   /**
+   * Construct a transfer pair of this vector and another vector of same type.
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return TransferPair
+   */
+  public abstract TransferPair getTransferPair(Field field, BufferAllocator allocator);
+
+  /**
    * Transfer this vector'data to another vector. The memory associated
    * with this vector is transferred to the allocator of target vector
    * for accounting and management purposes.

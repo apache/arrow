@@ -152,6 +152,12 @@ ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndInteger();
 ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(
     std::shared_ptr<TypeMatcher> value_type_matcher);
 
+/// \brief Match run-end encoded types that use any valid run-end type and
+/// encode specific value types
+///
+/// @param[in] value_type_id a type id that the type of the values field should match
+ARROW_EXPORT std::shared_ptr<TypeMatcher> RunEndEncoded(Type::type value_type_id);
+
 /// \brief Match run-end encoded types that encode specific run-end and value types
 ///
 /// @param[in] run_end_type_matcher a matcher that is applied to the run_ends field
@@ -277,14 +283,16 @@ class ARROW_EXPORT OutputType {
   ///
   /// This function SHOULD _not_ be used to check for arity, that is to be
   /// performed one or more layers above.
-  using Resolver = Result<TypeHolder> (*)(KernelContext*, const std::vector<TypeHolder>&);
+  using Resolver =
+      std::function<Result<TypeHolder>(KernelContext*, const std::vector<TypeHolder>&)>;
 
   /// \brief Output an exact type
   OutputType(std::shared_ptr<DataType> type)  // NOLINT implicit construction
       : kind_(FIXED), type_(std::move(type)) {}
 
   /// \brief Output a computed type depending on actual input types
-  OutputType(Resolver resolver)  // NOLINT implicit construction
+  template <typename Fn>
+  OutputType(Fn resolver)  // NOLINT implicit construction
       : kind_(COMPUTED), resolver_(std::move(resolver)) {}
 
   OutputType(const OutputType& other) {

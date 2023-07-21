@@ -337,26 +337,56 @@ class ConcreteRecordBatchColumnSorter<NullType> : public RecordBatchColumnSorter
   const NullPlacement null_placement_;
 };
 
+Result<std::vector<ResolvedRecordBatchSortKey>> ResolveRecordBatchSortKeys(
+    const RecordBatch& batch, const std::vector<SortKey>& sort_keys) {
+  return ::arrow::compute::internal::ResolveSortKeys<ResolvedRecordBatchSortKey>(
+      batch, sort_keys);
+}
+
+std::vector<ResolvedRecordBatchSortKey> ResolveRecordBatchSortKeys(
+    const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
+  const auto maybe_resolved = ResolveRecordBatchSortKeys(batch, sort_keys);
+  if (!maybe_resolved.ok()) {
+    *status = maybe_resolved.status();
+    return {};
+  }
+  return *std::move(maybe_resolved);
+}
+
+// Radix sorting is consistently faster except when there is a large number of sort keys,
+// in which case it can end up degrading catastrophically. This establishes a cutoff point
+// where we should use a different strategy.
+constexpr int kMaxRadixSortKeys = 8;
+
 // Sort a batch using a single-pass left-to-right radix sort.
 class RadixRecordBatchSorter {
  public:
+  using ResolvedSortKey = ResolvedRecordBatchSortKey;
+
+  RadixRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
+                         std::vector<ResolvedSortKey> sort_keys,
+                         const SortOptions& options)
+      : sort_keys_(std::move(sort_keys)),
+        options_(options),
+        indices_begin_(indices_begin),
+        indices_end_(indices_end) {}
+
   RadixRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
                          const RecordBatch& batch, const SortOptions& options)
-      : batch_(batch),
+      : sort_keys_(ResolveRecordBatchSortKeys(batch, options.sort_keys, &status_)),
         options_(options),
         indices_begin_(indices_begin),
         indices_end_(indices_end) {}
 
   // Offset is for table sorting
   Result<NullPartitionResult> Sort(int64_t offset = 0) {
-    ARROW_ASSIGN_OR_RAISE(const auto sort_keys,
-                          ResolveSortKeys(batch_, options_.sort_keys));
+    ARROW_RETURN_NOT_OK(status_);
 
     // Create column sorters from right to left
-    std::vector<std::unique_ptr<RecordBatchColumnSorter>> column_sorts(sort_keys.size());
+    std::vector<std::unique_ptr<RecordBatchColumnSorter>> column_sorts(sort_keys_.size());
     RecordBatchColumnSorter* next_column = nullptr;
-    for (int64_t i = static_cast<int64_t>(sort_keys.size() - 1); i >= 0; --i) {
-      ColumnSortFactory factory(sort_keys[i], options_, next_column);
+    for (int64_t i = static_cast<int64_t>(sort_keys_.size() - 1); i >= 0; --i) {
+      ColumnSortFactory factory(sort_keys_[i], options_, next_column);
       ARROW_ASSIGN_OR_RAISE(column_sorts[i], factory.MakeColumnSort());
       next_column = column_sorts[i].get();
     }
@@ -366,16 +396,11 @@ class RadixRecordBatchSorter {
   }
 
  protected:
-  struct ResolvedSortKey {
-    std::shared_ptr<Array> array;
-    SortOrder order;
-  };
-
   struct ColumnSortFactory {
     ColumnSortFactory(const ResolvedSortKey& sort_key, const SortOptions& options,
                       RecordBatchColumnSorter* next_column)
-        : physical_type(GetPhysicalType(sort_key.array->type())),
-          array(GetPhysicalArray(*sort_key.array, physical_type)),
+        : physical_type(sort_key.type),
+          array(sort_key.owned_array),
           order(sort_key.order),
           null_placement(options.null_placement),
           next_column(next_column) {}
@@ -419,19 +444,27 @@ class RadixRecordBatchSorter {
     return ::arrow::compute::internal::ResolveSortKeys<ResolvedSortKey>(batch, sort_keys);
   }
 
-  const RecordBatch& batch_;
+  const std::vector<ResolvedSortKey> sort_keys_;
   const SortOptions& options_;
   uint64_t* indices_begin_;
   uint64_t* indices_end_;
+  Status status_;
 };
 
 // Sort a batch using a single sort and multiple-key comparisons.
 class MultipleKeyRecordBatchSorter : public TypeVisitor {
- private:
-  using ResolvedSortKey = ResolvedRecordBatchSortKey;
-  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
-
  public:
+  using ResolvedSortKey = ResolvedRecordBatchSortKey;
+
+  MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
+                               std::vector<ResolvedSortKey> sort_keys,
+                               const SortOptions& options)
+      : indices_begin_(indices_begin),
+        indices_end_(indices_end),
+        sort_keys_(std::move(sort_keys)),
+        null_placement_(options.null_placement),
+        comparator_(sort_keys_, null_placement_) {}
+
   MultipleKeyRecordBatchSorter(uint64_t* indices_begin, uint64_t* indices_end,
                                const RecordBatch& batch, const SortOptions& options)
       : indices_begin_(indices_begin),
@@ -457,6 +490,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
 #undef VISIT
 
  private:
+  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
+
   static std::vector<ResolvedSortKey> ResolveSortKeys(
       const RecordBatch& batch, const std::vector<SortKey>& sort_keys, Status* status) {
     const auto maybe_resolved =
@@ -850,12 +885,22 @@ class SortIndicesMetaFunction : public MetaFunction {
                             ExecContext* ctx) const override {
     const SortOptions& sort_options = static_cast<const SortOptions&>(*options);
     switch (args[0].kind()) {
-      case Datum::ARRAY:
-        return SortIndices(*args[0].make_array(), sort_options, ctx);
-        break;
-      case Datum::CHUNKED_ARRAY:
-        return SortIndices(*args[0].chunked_array(), sort_options, ctx);
-        break;
+      case Datum::ARRAY: {
+        auto array = args[0].make_array();
+        if (array->type_id() == Type::STRUCT) {
+          ARROW_ASSIGN_OR_RAISE(auto batch, RecordBatch::FromStructArray(array))
+          return SortIndices(*batch, sort_options, ctx);
+        }
+        return SortIndices(*array, sort_options, ctx);
+      } break;
+      case Datum::CHUNKED_ARRAY: {
+        const auto& chunked_array = args[0].chunked_array();
+        if (chunked_array->type()->id() == Type::STRUCT) {
+          ARROW_ASSIGN_OR_RAISE(auto table, ToTable(chunked_array))
+          return SortIndices(*table, sort_options, ctx);
+        }
+        return SortIndices(*chunked_array, sort_options, ctx);
+      } break;
       case Datum::RECORD_BATCH: {
         return SortIndices(*args[0].record_batch(), sort_options, ctx);
       } break;
@@ -872,6 +917,22 @@ class SortIndicesMetaFunction : public MetaFunction {
   }
 
  private:
+  static Result<std::shared_ptr<Table>> ToTable(
+      const std::shared_ptr<ChunkedArray>& chunked_array) {
+    if (chunked_array->null_count() == 0) {
+      return Table::FromChunkedStructArray(chunked_array);
+    }
+    // We avoid using `Table::FromChunkedStructArray` here since it doesn't take top-level
+    // validity into account for the columns.
+    //
+    // TODO: We could instead use the provided sort keys to only flatten the selected
+    // columns (via `GetFlattenedField`). Same for the Array -> RecordBatch conversion,
+    // since `RecordBatch::FromStructArray` flattens all columns as well.
+    ARROW_ASSIGN_OR_RAISE(auto columns, chunked_array->Flatten());
+    return Table::Make(schema(chunked_array->type()->fields()), std::move(columns),
+                       chunked_array->length());
+  }
+
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
@@ -908,14 +969,15 @@ class SortIndicesMetaFunction : public MetaFunction {
 
   Result<Datum> SortIndices(const RecordBatch& batch, const SortOptions& options,
                             ExecContext* ctx) const {
-    auto n_sort_keys = options.sort_keys.size();
+    ARROW_ASSIGN_OR_RAISE(auto sort_keys,
+                          ResolveRecordBatchSortKeys(batch, options.sort_keys));
+
+    auto n_sort_keys = sort_keys.size();
     if (n_sort_keys == 0) {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      ARROW_ASSIGN_OR_RAISE(auto array, PrependInvalidColumn(GetColumn(
-                                            batch, options.sort_keys[0].target)));
-      return SortIndices(*array, options, ctx);
+      return SortIndices(sort_keys[0].array, options, ctx);
     }
 
     auto out_type = uint64();
@@ -930,14 +992,12 @@ class SortIndicesMetaFunction : public MetaFunction {
     auto out_end = out_begin + length;
     std::iota(out_begin, out_end, 0);
 
-    // Radix sorting is consistently faster except when there is a large number
-    // of sort keys, in which case it can end up degrading catastrophically.
-    // Cut off above 8 sort keys.
-    if (n_sort_keys <= 8) {
-      RadixRecordBatchSorter sorter(out_begin, out_end, batch, options);
+    if (n_sort_keys <= kMaxRadixSortKeys) {
+      RadixRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys), options);
       ARROW_RETURN_NOT_OK(sorter.Sort());
     } else {
-      MultipleKeyRecordBatchSorter sorter(out_begin, out_end, batch, options);
+      MultipleKeyRecordBatchSorter sorter(out_begin, out_end, std::move(sort_keys),
+                                          options);
       ARROW_RETURN_NOT_OK(sorter.Sort());
     }
     return Datum(out);
@@ -950,9 +1010,15 @@ class SortIndicesMetaFunction : public MetaFunction {
       return Status::Invalid("Must specify one or more sort keys");
     }
     if (n_sort_keys == 1) {
-      ARROW_ASSIGN_OR_RAISE(auto chunked_array, PrependInvalidColumn(GetColumn(
-                                                    table, options.sort_keys[0].target)));
-      return SortIndices(*chunked_array, options, ctx);
+      // The single-key approach here differs from the record batch one as pre-resolving
+      // the table sort keys involves processing the table into batches, which we don't
+      // need to do here.
+      ARROW_ASSIGN_OR_RAISE(
+          auto chunked_array,
+          PrependInvalidColumn(options.sort_keys[0].target.GetOneFlattened(table)));
+      if (chunked_array->type()->id() != Type::STRUCT) {
+        return SortIndices(*chunked_array, options, ctx);
+      }
     }
 
     auto out_type = uint64();
@@ -974,25 +1040,67 @@ class SortIndicesMetaFunction : public MetaFunction {
   }
 };
 
+// Helper for processing a vector of `SortKeys` into a vector of `SortFields`
+struct SortFieldPopulator {
+ public:
+  // Process sort keys with the given schema. Note that the output vector may be larger
+  // than the input, as keys referencing a struct are recursively "expanded" into leaf
+  // fields.
+  Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
+                                              const std::vector<SortKey>& sort_keys) {
+    sort_fields_.reserve(sort_keys.size());
+    seen_.reserve(sort_keys.size());
+
+    for (const auto& sort_key : sort_keys) {
+      ARROW_ASSIGN_OR_RAISE(auto match,
+                            PrependInvalidColumn(sort_key.target.FindOne(schema)));
+      if (seen_.insert(match).second) {
+        ARROW_ASSIGN_OR_RAISE(auto schema_field, match.Get(schema));
+        AddField(*schema_field->type(), match, sort_key.order);
+      }
+    }
+
+    return std::move(sort_fields_);
+  }
+
+ protected:
+  void AddLeafFields(const FieldVector& fields, SortOrder order) {
+    if (fields.empty()) {
+      return;
+    }
+
+    tmp_indices_.push_back(0);
+    for (const auto& f : fields) {
+      const auto& type = *f->type();
+      if (type.id() == Type::STRUCT) {
+        AddLeafFields(type.fields(), order);
+      } else {
+        sort_fields_.emplace_back(FieldPath(tmp_indices_), order, &type);
+      }
+      ++tmp_indices_.back();
+    }
+    tmp_indices_.pop_back();
+  }
+
+  void AddField(const DataType& type, const FieldPath& path, SortOrder order) {
+    if (type.id() == Type::STRUCT) {
+      tmp_indices_ = path.indices();
+      AddLeafFields(type.fields(), order);
+    } else {
+      sort_fields_.emplace_back(path, order, &type);
+    }
+  }
+
+  std::vector<SortField> sort_fields_;
+  std::unordered_set<FieldPath, FieldPath::Hash> seen_;
+  std::vector<int> tmp_indices_;
+};
+
 }  // namespace
 
 Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
                                             const std::vector<SortKey>& sort_keys) {
-  std::vector<SortField> fields;
-  std::unordered_set<int> seen;
-  fields.reserve(sort_keys.size());
-  seen.reserve(sort_keys.size());
-
-  for (const auto& sort_key : sort_keys) {
-    RETURN_NOT_OK(CheckNonNested(sort_key.target));
-
-    ARROW_ASSIGN_OR_RAISE(auto match,
-                          PrependInvalidColumn(sort_key.target.FindOne(schema)));
-    if (seen.insert(match[0]).second) {
-      fields.push_back({match[0], sort_key.order});
-    }
-  }
-  return fields;
+  return SortFieldPopulator{}.FindSortKeys(schema, sort_keys);
 }
 
 Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
@@ -1015,6 +1123,35 @@ Result<NullPartitionResult> SortChunkedArray(
                             physical_chunks, sort_order, null_placement, &output);
   RETURN_NOT_OK(sorter.Sort());
   return output;
+}
+
+Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_begin,
+                                            uint64_t* indices_end,
+                                            const StructArray& array,
+                                            SortOrder sort_order,
+                                            NullPlacement null_placement) {
+  ARROW_ASSIGN_OR_RAISE(auto columns, array.Flatten());
+  auto batch = RecordBatch::Make(schema(array.type()->fields()), array.length(),
+                                 std::move(columns));
+
+  auto options = SortOptions::Defaults();
+  options.null_placement = null_placement;
+  options.sort_keys.reserve(array.num_fields());
+  for (int i = 0; i < array.num_fields(); ++i) {
+    options.sort_keys.push_back(SortKey(FieldRef(i), sort_order));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto sort_keys,
+                        ResolveRecordBatchSortKeys(*batch, options.sort_keys));
+  if (sort_keys.size() <= kMaxRadixSortKeys) {
+    RadixRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys),
+                                  options);
+    return sorter.Sort();
+  } else {
+    MultipleKeyRecordBatchSorter sorter(indices_begin, indices_end, std::move(sort_keys),
+                                        options);
+    return sorter.Sort();
+  }
 }
 
 void RegisterVectorSort(FunctionRegistry* registry) {

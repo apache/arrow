@@ -481,13 +481,13 @@ build_libarrow <- function(src_dir, dst_dir) {
   invisible(status)
 }
 
-ensure_cmake <- function() {
-  cmake <- find_cmake()
+ensure_cmake <- function(cmake_minimum_required = "3.16") {
+  cmake <- find_cmake(version_required = cmake_minimum_required)
 
   if (is.null(cmake)) {
     # If not found, download it
     cat("**** cmake\n")
-    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.21.4")
+    CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
     if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
@@ -497,7 +497,8 @@ ensure_cmake <- function() {
     } else {
       stop(paste0(
         "*** cmake was not found locally.\n",
-        "    Please make sure cmake >= 3.10 is installed and available on your PATH.\n"
+        "    Please make sure cmake >= ", cmake_minimum_required,
+        " is installed and available on your PATH.\n"
       ))
     }
     cmake_binary_url <- paste0(
@@ -510,7 +511,8 @@ ensure_cmake <- function() {
     if (!download_successful) {
       cat(paste0(
         "*** cmake was not found locally and download failed.\n",
-        "    Make sure cmake >= 3.10 is installed and available on your PATH,\n",
+        "    Make sure cmake >= ", cmake_minimum_required,
+        " is installed and available on your PATH,\n",
         "    or download ", cmake_binary_url, "\n",
         "    and define the CMAKE environment variable.\n"
       ))
@@ -536,7 +538,7 @@ find_cmake <- function(paths = c(
                          Sys.which("cmake"),
                          Sys.which("cmake3")
                        ),
-                       version_required = "3.10") {
+                       version_required = "3.16") {
   # Given a list of possible cmake paths, return the first one that exists and is new enough
   # version_required should be a string or packageVersion; numeric version
   # can be misleading (e.g. 3.10 is actually 3.1)

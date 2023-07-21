@@ -142,7 +142,7 @@ on:
     run: |
       PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
       gem install --user-install gemfury
-      fury \
+      fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
         --as=${CROSSBOW_GEMFURY_ORG} \
         {{ pattern }}
@@ -204,7 +204,7 @@ on:
     env:
       ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
     run: |
-      brew update
+      brew update || echo "brew update did not finish successfully"
       brew --version
       brew unlink python@2 || true
       brew config
@@ -238,13 +238,14 @@ on:
       cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow*.rb tools/
 
       # Pin the git commit in the formula to match
-      cd tools
+      pushd tools
       if [ "{{ is_fork }}" == "true" ]; then
-        sed -i.bak -E -e 's/apache\/arrow.git"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
+        sed -i.bak -E -e 's/apache\/arrow.git", branch: "main"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
       else
-        sed -i.bak -E -e 's/arrow.git"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
+        sed -i.bak -E -e 's/arrow.git", branch: "main"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
       fi
       rm -f apache-arrow*.rb.bak
+      popd
 {% endmacro %}
 
 {%- macro github_change_r_pkg_version(is_fork, version) -%}

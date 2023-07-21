@@ -622,7 +622,7 @@ will have the following layout: ::
 
     * Children arrays:
       * Field-0 array (f: Float32):
-        * Length: 2, Null count: 1
+        * Length: 3, Null count: 1
         * Validity bitmap buffer: 00000101
 
         * Value Buffer:
