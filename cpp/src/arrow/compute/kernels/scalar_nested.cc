@@ -890,18 +890,25 @@ Result<TypeHolder> ResolveAdjoinAsListOutput(KernelContext* ctx,
   return TypeHolder(list_type);
 }
 
-template <typename ListType>
-struct AdjoinAsListVisitor {
+template <typename OutputType>
+struct AdjoinAsListImpl {
   const std::shared_ptr<DataType>& list_type;
+  const std::shared_ptr<DataType>& input_type;
+
+  AdjoinAsListImpl(const std::shared_ptr<DataType>& list_type,
+                   const std::shared_ptr<DataType>& input_type)
+      : list_type(list_type), input_type(input_type) {}
 
   // ReserveData for binary builders
-  template <typename ArrowType, typename Builder>
+  template <typename InputType, typename Builder>
   Status ReserveBinaryData(const ExecSpan& batch, Builder* builder) {
+    static_assert(is_base_binary_type<InputType>::value ||
+                  is_fixed_size_binary_type<InputType>::value);
     int64_t total_bytes = 0;
     for (const auto& input : batch.values) {
       if (input.is_array()) {
         const auto& arr = input.array;
-        if constexpr (std::is_same_v<ArrowType, FixedSizeBinaryType>) {
+        if constexpr (std::is_same_v<InputType, FixedSizeBinaryType>) {
           total_bytes += arr.buffers[1].size;
         } else {
           total_bytes += arr.buffers[2].size;
@@ -916,9 +923,9 @@ struct AdjoinAsListVisitor {
 
   // Construct offset buffer for variable-size list builders
   Result<std::shared_ptr<Buffer>> MakeOffsetsBuffer(const ExecSpan& batch) {
-    TypedBufferBuilder<typename ListType::offset_type> offset_builder;
+    TypedBufferBuilder<typename OutputType::offset_type> offset_builder;
     RETURN_NOT_OK(offset_builder.Reserve(batch.length + 1));
-    typename ListType::offset_type cur_offset = 0;
+    typename OutputType::offset_type cur_offset = 0;
     offset_builder.UnsafeAppend(cur_offset);
     for (int i = 0; i < batch.length; ++i) {
       cur_offset += batch.num_values();
@@ -933,7 +940,7 @@ struct AdjoinAsListVisitor {
     auto out_data = *out->array_data_mutable();
     out_data->child_data.emplace_back(ArrayData::Make(null(), length, {nullptr}, length));
     out_data->type = list_type;
-    if constexpr (!is_fixed_size_list_type<ListType>::value) {
+    if constexpr (!is_fixed_size_list_type<OutputType>::value) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], MakeOffsetsBuffer(batch));
     }
     return Status::OK();
@@ -941,7 +948,7 @@ struct AdjoinAsListVisitor {
 
   Status Visit(const BooleanType& boolean_type, KernelContext* ctx, const ExecSpan& batch,
                ExecResult* out) {
-    using ListBuilderType = typename TypeTraits<ListType>::BuilderType;
+    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
     auto builder = std::make_shared<BooleanBuilder>(ctx->exec_context()->memory_pool());
     ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
 
@@ -967,13 +974,13 @@ struct AdjoinAsListVisitor {
   }
 
   // Numeric and temporal types
-  template <typename ArrowType>
-  std::enable_if_t<has_c_type<ArrowType>::value || is_temporal_type<ArrowType>::value,
+  template <typename InputType>
+  std::enable_if_t<has_c_type<InputType>::value || is_temporal_type<InputType>::value,
                    Status>
-  Visit(const ArrowType& input_type, KernelContext* ctx, const ExecSpan& batch,
+  Visit(const InputType& input_type, KernelContext* ctx, const ExecSpan& batch,
         ExecResult* out) {
-    using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-    using ListBuilderType = typename TypeTraits<ListType>::BuilderType;
+    using BuilderType = typename TypeTraits<InputType>::BuilderType;
+    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
 
     auto builder = std::make_shared<BuilderType>(input_type.GetSharedPtr(),
                                                  ctx->exec_context()->memory_pool());
@@ -988,12 +995,12 @@ struct AdjoinAsListVisitor {
         if (input.is_array()) {
           const auto& arr = input.array;
           if (arr.IsValid(i)) {
-            builder->UnsafeAppend(arr.GetValues<typename ArrowType::c_type>(1)[i]);
+            builder->UnsafeAppend(arr.GetValues<typename InputType::c_type>(1)[i]);
           } else {
             builder->UnsafeAppendNull();
           }
         } else {
-          builder->UnsafeAppend(UnboxScalar<ArrowType>::Unbox(*input.scalar));
+          builder->UnsafeAppend(UnboxScalar<InputType>::Unbox(*input.scalar));
         }
       }
     }
@@ -1001,18 +1008,18 @@ struct AdjoinAsListVisitor {
   }
 
   // Varlen binary types
-  template <typename ArrowType>
-  std::enable_if_t<is_base_binary_type<ArrowType>::value, Status> Visit(
-      const ArrowType& input_type, KernelContext* ctx, const ExecSpan& batch,
+  template <typename InputType>
+  std::enable_if_t<is_base_binary_type<InputType>::value, Status> Visit(
+      const InputType& input_type, KernelContext* ctx, const ExecSpan& batch,
       ExecResult* out) {
-    using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-    using ListBuilderType = typename TypeTraits<ListType>::BuilderType;
-    using OffsetType = typename TypeTraits<ArrowType>::OffsetType::c_type;
+    using BuilderType = typename TypeTraits<InputType>::BuilderType;
+    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
+    using OffsetType = typename TypeTraits<InputType>::OffsetType::c_type;
     auto builder = std::make_shared<BuilderType>();
     ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
 
     RETURN_NOT_OK(builder->Reserve(batch.num_values() * batch.length));
-    RETURN_NOT_OK(ReserveBinaryData<ArrowType>(batch, builder.get()));
+    RETURN_NOT_OK(ReserveBinaryData<InputType>(batch, builder.get()));
 
     RETURN_NOT_OK(list_builder.Reserve(batch.length));
 
@@ -1031,7 +1038,7 @@ struct AdjoinAsListVisitor {
             builder->UnsafeAppendNull();
           }
         } else {
-          builder->UnsafeAppend(UnboxScalar<ArrowType>::Unbox(*input.scalar));
+          builder->UnsafeAppend(UnboxScalar<InputType>::Unbox(*input.scalar));
         }
       }
     }
@@ -1039,18 +1046,18 @@ struct AdjoinAsListVisitor {
   }
 
   // Fixed-size binary types, including decimals
-  template <typename ArrowType>
-  std::enable_if_t<is_fixed_size_binary_type<ArrowType>::value, Status> Visit(
-      const ArrowType& input_type, KernelContext* ctx, const ExecSpan& batch,
+  template <typename InputType>
+  std::enable_if_t<is_fixed_size_binary_type<InputType>::value, Status> Visit(
+      const InputType& input_type, KernelContext* ctx, const ExecSpan& batch,
       ExecResult* out) {
-    using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
-    using ListBuilderType = typename TypeTraits<ListType>::BuilderType;
+    using BuilderType = typename TypeTraits<InputType>::BuilderType;
+    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
     auto builder = std::make_shared<BuilderType>(input_type.GetSharedPtr(),
                                                  ctx->exec_context()->memory_pool());
     ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
 
     RETURN_NOT_OK(builder->Reserve(batch.num_values() * batch.length));
-    RETURN_NOT_OK(ReserveBinaryData<ArrowType>(batch, builder.get()));
+    RETURN_NOT_OK(ReserveBinaryData<InputType>(batch, builder.get()));
 
     RETURN_NOT_OK(list_builder.Reserve(batch.length));
 
@@ -1068,7 +1075,7 @@ struct AdjoinAsListVisitor {
             builder->UnsafeAppendNull();
           }
         } else {
-          builder->UnsafeAppend(UnboxScalar<ArrowType>::Unbox(*input.scalar));
+          builder->UnsafeAppend(UnboxScalar<InputType>::Unbox(*input.scalar));
         }
       }
     }
@@ -1120,13 +1127,14 @@ struct AdjoinAsListVisitor {
 
     out_data->type = list_type;
 
-    if constexpr (!is_fixed_size_list_type<ListType>::value) {
+    if constexpr (!is_fixed_size_list_type<OutputType>::value) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], MakeOffsetsBuffer(batch));
     }
     return Status::OK();
   }
 };
 
+template <template <typename OutputType> typename AdjoinAsListImpl, typename InputType>
 Status AdjoinAsListExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& state = static_cast<const AdjoinAsListState*>(ctx->state());
   const auto& list_type = state->list_type;
@@ -1134,16 +1142,16 @@ Status AdjoinAsListExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
 
   switch (list_type->id()) {
     case Type::LIST: {
-      AdjoinAsListVisitor<ListType> visitor{list_type};
-      return VisitTypeInline(*input_type, &visitor, ctx, batch, out);
+      return AdjoinAsListImpl<ListType>(list_type, input_type)
+          .Visit(checked_cast<const InputType&>(*input_type), ctx, batch, out);
     }
     case Type::LARGE_LIST: {
-      AdjoinAsListVisitor<LargeListType> visitor{list_type};
-      return VisitTypeInline(*input_type, &visitor, ctx, batch, out);
+      return AdjoinAsListImpl<LargeListType>(list_type, input_type)
+          .Visit(checked_cast<const InputType&>(*input_type), ctx, batch, out);
     }
     case Type::FIXED_SIZE_LIST: {
-      AdjoinAsListVisitor<FixedSizeListType> visitor{list_type};
-      return VisitTypeInline(*input_type, &visitor, ctx, batch, out);
+      return AdjoinAsListImpl<FixedSizeListType>(list_type, input_type)
+          .Visit(checked_cast<const InputType&>(*input_type), ctx, batch, out);
     }
     default:
       return Status::Invalid(
@@ -1152,48 +1160,53 @@ Status AdjoinAsListExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   }
 }
 
-void AddAdjoinAsListKernels(ScalarFunction* func) {
+// A visitor to dispatch type to its type-specific kernel at compile time
+struct AdjoinAsListKernelGenerator {
   ScalarKernel kernel;
-  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
-  kernel.exec = AdjoinAsListExec;
-  kernel.init = AdjoinAsListState::Init;
-  kernel.signature = KernelSignature::Make({InputType::Any()},
-                                           OutputType(ResolveAdjoinAsListOutput), true);
-  DCHECK_OK(func->AddKernel(kernel));
-  // for (const auto& types : {NumericTypes(), BaseBinaryTypes()}) {
-  //   for (const auto& type : types) {
-  //     kernel.signature = KernelSignature::Make(
-  //         {InputType(type)}, OutputType(ResolveAdjoinAsListOutput), true);
-  //     DCHECK_OK(func->AddKernel(kernel));
-  //   }
-  // }
 
-  // // fixed sized binary
-  // kernel.signature = KernelSignature::Make({InputType(Type::FIXED_SIZE_BINARY)},
-  //                                          OutputType(ResolveAdjoinAsListOutput),
-  //                                          true);
-  // DCHECK_OK(func->AddKernel(kernel));
+  AdjoinAsListKernelGenerator() {
+    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
+    kernel.init = AdjoinAsListState::Init;
+  }
 
-  // // decimals
-  // for (auto type_id : {Type::DECIMAL128, Type::DECIMAL256}) {
-  //   kernel.signature = KernelSignature::Make({InputType(type_id)},
-  //                                            OutputType(ResolveAdjoinAsListOutput),
-  //                                            true);
-  //   DCHECK_OK(func->AddKernel(kernel));
-  // }
+  template <typename ArrowType>
+  Status Visit(const ArrowType* type) {
+    kernel.signature = KernelSignature::Make({InputType(ArrowType::type_id)},
+                                             OutputType(ResolveAdjoinAsListOutput), true);
+    kernel.exec = AdjoinAsListExec<AdjoinAsListImpl, ArrowType>;
+    return Status::OK();
+  }
+};
 
-  // // lists
-  // for (auto type_id : {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST}) {
-  //   kernel.signature = KernelSignature::Make({InputType(type_id)},
-  //                                            OutputType(ResolveAdjoinAsListOutput),
-  //                                            true);
-  //   DCHECK_OK(func->AddKernel(kernel));
-  // }
+void AddAdjoinAsListKernels(ScalarFunction* func) {
+  AdjoinAsListKernelGenerator generator;
+  // non-parametric types
+  for (const auto& tys :
+       {PrimitiveTypes(), TemporalTypes(), DurationTypes(), IntervalTypes()}) {
+    for (const auto& ty : tys) {
+      DCHECK_OK(VisitTypeIdInline(ty->id(), &generator));
+      DCHECK_OK(func->AddKernel(generator.kernel));
+    }
+  }
+
+  // parametric types
+  for (const auto& ty : {Type::FIXED_SIZE_BINARY, Type::DECIMAL128, Type::DECIMAL256,
+                         Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST,
+                         Type::DENSE_UNION, Type::DICTIONARY, Type::STRUCT, Type::MAP}) {
+    // TODO(jinshang): add support for SparseUnion, need Take to support it first
+    DCHECK_OK(VisitTypeIdInline(ty, &generator));
+    DCHECK_OK(func->AddKernel(generator.kernel));
+  }
 }
 
-FunctionDoc adjoin_as_list_doc("Adjoin multiple arrays row-wise as a list array", "",
-                               {"input"}, "AdjoinAsListOptions", true);
+FunctionDoc adjoin_as_list_doc(
+    "Adjoin multiple arrays row-wise as a list array",
+    "Combine multiple arrays row-wise as a list array. The input "
+    "arrays must have the same type and length. For N arrays each with length "
+    "M, the output list array will have length M and each list will have N "
+    "elements. The output list type can be specified in AdjoinAsListOptions",
+    {"input"}, "AdjoinAsListOptions", true);
 }  // namespace
 
 void RegisterScalarNested(FunctionRegistry* registry) {

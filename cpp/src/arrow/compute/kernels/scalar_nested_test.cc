@@ -995,7 +995,9 @@ TEST(TestAdjoinAsList, ErrorHandling) {
 
   // Different types
   ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: AdjoinAsList requires all input arguments to have the same type",
+      NotImplemented,
+      "NotImplemented: Function 'adjoin_as_list' has no kernel matching input types "
+      "(int32, int64)",
       CallFunction("adjoin_as_list",
                    {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int64(), R"([1])")},
                    &options));
@@ -1180,6 +1182,7 @@ TYPED_TEST(TestAdjoinAsList, StructTypes) {
 }
 
 TYPED_TEST(TestAdjoinAsList, UnionTypes) {
+  // sparse union is not supported yet
   auto ty = dense_union({field("a", int32()), field("b", utf8())});
   CheckScalar(
       "adjoin_as_list",

@@ -576,7 +576,7 @@ class NullArrayFactory {
       out_->buffers.resize(3);
       out_->buffers[2] = buffer_;
 
-      child_length = 1;
+      child_length = length_ > 0 ? 1 : 0;
     }
     for (int i = 0; i < type_->num_fields(); ++i) {
       ARROW_ASSIGN_OR_RAISE(out_->child_data[i], CreateChild(type, i, child_length));
