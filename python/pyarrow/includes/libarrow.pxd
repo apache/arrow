@@ -2442,6 +2442,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CPairwiseOptions(int64_t period)
         int64_t period
 
+    cdef enum CAdjoinAsListType \
+            "arrow::compute::AdjoinAsListOptions::OutputListType":
+        CAdjoinAsListType_LIST "arrow::compute::AdjoinAsListOptions::LIST"
+        CAdjoinAsListType_LARGE_LIST "arrow::compute::AdjoinAsListOptions::LARGE_LIST"
+        CAdjoinAsListType_FIXED_SIZE_LIST "arrow::compute::AdjoinAsListOptions::FIXED_SIZE_LIST"
+
+    cdef cppclass CAdjoinAsListOptions \
+            "arrow::compute::AdjoinAsListOptions"(CFunctionOptions):
+        CAdjoinAsListOptions(CAdjoinAsListType)
+        CAdjoinAsListType list_type
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)

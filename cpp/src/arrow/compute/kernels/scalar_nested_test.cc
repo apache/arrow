@@ -27,13 +27,11 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 #include "gmock/gmock.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 static std::shared_ptr<DataType> GetOffsetType(const DataType& type) {
   return type.id() == Type::LIST ? int32() : int64();
@@ -979,7 +977,11 @@ class TestAdjoinAsList : public ::testing ::Test {
   }
 
   const AdjoinAsListOptions& Options() {
-    static AdjoinAsListOptions options(ArrowListType::type_id);
+    static AdjoinAsListOptions options(ArrowListType::type_id == Type::LIST
+                                           ? AdjoinAsListOptions::LIST
+                                       : ArrowListType::type_id == Type::LARGE_LIST
+                                           ? AdjoinAsListOptions::LARGE_LIST
+                                           : AdjoinAsListOptions::FIXED_SIZE_LIST);
     return options;
   }
 };
@@ -1008,16 +1010,6 @@ TEST(TestAdjoinAsList, ErrorHandling) {
       CallFunction("adjoin_as_list",
                    {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[1, 2]")},
                    &options));
-
-  // Options with non-list type
-  AdjoinAsListOptions wrong_options(Int32Type::type_id);
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid,
-      "Invalid: AdjoinAsList requires list_type to be LIST, LARGE_LIST or "
-      "FIXED_SIZE_LIST",
-      CallFunction("adjoin_as_list",
-                   {ArrayFromJSON(int32(), "[1]"), ArrayFromJSON(int32(), "[1]")},
-                   &wrong_options));
 }
 
 TYPED_TEST_SUITE(TestAdjoinAsList, ListArrowTypes);
@@ -1211,5 +1203,4 @@ TYPED_TEST(TestAdjoinAsList, DictionaryTypes) {
   AssertDatumsEqual(*Cast(expected, this->MakeListType(utf8(), 3)),
                     *Cast(actual, this->MakeListType(utf8(), 3)), true);
 }
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

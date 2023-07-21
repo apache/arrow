@@ -2034,6 +2034,33 @@ class PairwiseOptions(_PairwiseOptions):
     def __init__(self, period=1):
         self._set_options(period)
 
+cdef CAdjoinAsListType unwrap_adjoin_as_list_type(list_type) except *:
+    if list_type == "list":
+        return CAdjoinAsListType_LIST
+    elif list_type == "large_list":
+        return CAdjoinAsListType_LARGE_LIST
+    elif list_type == "fixed_size_list":
+        return CAdjoinAsListType_FIXED_SIZE_LIST
+    _raise_invalid_function_option(list_type, "list type")
+
+cdef class _AdjoinAsListOptions(FunctionOptions):
+    def _set_options(self, list_type):
+        self.wrapped.reset(new CAdjoinAsListOptions(
+            unwrap_adjoin_as_list_type(list_type)))
+
+class AdjoinAsListOptions(_AdjoinAsListOptions):
+    """
+    Options for the `adjoin_as_list` function.
+
+    Parameters
+    ----------
+    list_type : str, default "list"
+        Which list type to combine inputs into.
+        Accepted values are "list", "large_list", "fixed_size_list".
+    """
+
+    def __init__(self, list_type="list"):
+        self._set_options(list_type)
 
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):

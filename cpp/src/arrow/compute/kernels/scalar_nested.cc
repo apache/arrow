@@ -17,10 +17,7 @@
 
 // Vector kernels involving nested types
 
-#include <arrow/compute/kernel.h>
-#include <arrow/type.h>
 #include <cmath>
-#include <iostream>
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/array/builder_decimal.h"
@@ -37,7 +34,6 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
-#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
@@ -50,8 +46,7 @@ namespace arrow {
 
 using internal::ToChars;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 namespace {
 
 template <typename Type, typename offset_type = typename Type::offset_type>
@@ -863,13 +858,13 @@ struct AdjoinAsListState : public KernelState {
     }
 
     switch (options->list_type) {
-      case Type::LIST:
+      case AdjoinAsListOptions::LIST:
         return std::make_unique<AdjoinAsListState>(list(input_type.GetSharedPtr()),
                                                    input_type.GetSharedPtr());
-      case Type::LARGE_LIST:
+      case AdjoinAsListOptions::LARGE_LIST:
         return std::make_unique<AdjoinAsListState>(large_list(input_type.GetSharedPtr()),
                                                    input_type.GetSharedPtr());
-      case Type::FIXED_SIZE_LIST:
+      case AdjoinAsListOptions::FIXED_SIZE_LIST:
         return std::make_unique<AdjoinAsListState>(
             fixed_size_list(input_type.GetSharedPtr(), args.inputs.size()),
             input_type.GetSharedPtr());
@@ -1202,11 +1197,12 @@ void AddAdjoinAsListKernels(ScalarFunction* func) {
 
 FunctionDoc adjoin_as_list_doc(
     "Adjoin multiple arrays row-wise as a list array",
-    "Combine multiple arrays row-wise as a list array. The input "
-    "arrays must have the same type and length. For N arrays each with length "
-    "M, the output list array will have length M and each list will have N "
-    "elements. The output list type can be specified in AdjoinAsListOptions",
-    {"input"}, "AdjoinAsListOptions", true);
+    "Combine multiple arrays row-wise as a list array.\n"
+    "The input arrays must have the same type and length.\n"
+    "For N arrays each with length M, the output list array will\n"
+    "have length M and each list will have N elements.\n"
+    "The output list type can be specified in AdjoinAsListOptions",
+    {"input"}, "AdjoinAsListOptions", false);
 }  // namespace
 
 void RegisterScalarNested(FunctionRegistry* registry) {
@@ -1260,6 +1256,5 @@ void RegisterScalarNested(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(adjoin_as_list)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

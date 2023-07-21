@@ -253,7 +253,7 @@ TYPED_TEST(ByteRangesVariableBinary, Basic) {
 
 template <typename Type>
 class ByteRangesList : public ::testing::Test {};
-TYPED_TEST_SUITE(ByteRangesList, VarLenListArrowTypes);
+TYPED_TEST_SUITE(ByteRangesList, VarSizeListArrowTypes);
 
 TYPED_TEST(ByteRangesList, Basic) {
   using offset_type = typename TypeParam::offset_type;

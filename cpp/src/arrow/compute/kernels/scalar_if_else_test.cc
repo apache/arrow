@@ -1920,7 +1920,7 @@ TYPED_TEST(TestCaseWhenBinary, Random) {
 template <typename Type>
 class TestCaseWhenList : public ::testing::Test {};
 
-TYPED_TEST_SUITE(TestCaseWhenList, ListArrowTypes);
+TYPED_TEST_SUITE(TestCaseWhenList, VarSizeListArrowTypes);
 
 TYPED_TEST(TestCaseWhenList, ListOfString) {
   auto type = std::make_shared<TypeParam>(utf8());
@@ -2557,7 +2557,7 @@ class TestCoalesceList : public ::testing::Test {};
 
 TYPED_TEST_SUITE(TestCoalesceNumeric, IfElseNumericBasedTypes);
 TYPED_TEST_SUITE(TestCoalesceBinary, BaseBinaryArrowTypes);
-TYPED_TEST_SUITE(TestCoalesceList, ListArrowTypes);
+TYPED_TEST_SUITE(TestCoalesceList, VarSizeListArrowTypes);
 
 TYPED_TEST(TestCoalesceNumeric, Basics) {
   auto type = default_type_instance<TypeParam>();

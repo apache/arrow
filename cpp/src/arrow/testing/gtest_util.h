@@ -187,7 +187,7 @@ using StringArrowTypes = ::testing::Types<StringType, LargeStringType>;
 using StringOrStringViewArrowTypes =
     ::testing::Types<StringType, LargeStringType, StringViewType>;
 
-using VarLenListArrowTypes = ::testing::Types<ListType, LargeListType>;
+using VarSizeListArrowTypes = ::testing::Types<ListType, LargeListType>;
 
 using ListArrowTypes = ::testing::Types<ListType, LargeListType, FixedSizeListType>;
 

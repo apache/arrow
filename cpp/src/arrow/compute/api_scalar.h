@@ -579,14 +579,20 @@ class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
 /// Options for adjoin_as_list function
 class ARROW_EXPORT AdjoinAsListOptions : public FunctionOptions {
  public:
-  explicit AdjoinAsListOptions(Type::type list_type);
+  enum OutputListType {
+    LIST,
+    LARGE_LIST,
+    FIXED_SIZE_LIST,
+  };
+
+  explicit AdjoinAsListOptions(OutputListType list_type);
   AdjoinAsListOptions();
 
   constexpr static char const kTypeName[] = "AdjoinAsListOptions";
   static AdjoinAsListOptions Defaults() { return AdjoinAsListOptions(); }
 
   // The list type to convert to
-  Type::type list_type;
+  OutputListType list_type;
 };
 
 /// @}

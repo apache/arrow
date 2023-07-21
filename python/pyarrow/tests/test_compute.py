@@ -139,6 +139,7 @@ def test_exported_option_classes():
 )
 def test_option_class_equality():
     options = [
+        pc.AdjoinAsListOptions("fixed_size_list"),
         pc.ArraySortOptions(),
         pc.AssumeTimezoneOptions("UTC"),
         pc.CastOptions.safe(pa.int8()),
@@ -3661,3 +3662,22 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+def test_adjoin_as_list():
+    arrs = [pa.array([1, 2, None], type=pa.int32()), pa.array(
+        [None, 5, 6], type=pa.int32()), pa.array([None, None, 9], type=pa.int32())]
+    expected = pa.array([[1, None, None], [2, 5, None], [
+                        None, 6, 9]], type=pa.list_(pa.int32()))
+    result = pa.compute.adjoin_as_list(arrs[0], arrs[1], arrs[2])
+    assert result.equals(expected)
+
+    result = pa.compute.adjoin_as_list(
+        arrs[0], arrs[1], arrs[2], list_type="list")
+    assert result.equals(expected)
+
+    expected = pa.array([[1, None, None], [2, 5, None], [
+                        None, 6, 9]], type=pa.large_list(pa.int32()))
+    result = pa.compute.adjoin_as_list(
+        arrs[0], arrs[1], arrs[2], list_type="large_list")
+    assert result.equals(expected)

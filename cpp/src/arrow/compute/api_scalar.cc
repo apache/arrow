@@ -295,6 +295,25 @@ struct EnumTraits<compute::SetLookupOptions::NullMatchingBehavior>
       case compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE:
         return "INCONCLUSIVE";
     }
+  }
+};
+
+template <>
+struct EnumTraits<compute::AdjoinAsListOptions::OutputListType>
+    : BasicEnumTraits<compute::AdjoinAsListOptions::OutputListType,
+                      compute::AdjoinAsListOptions::OutputListType::LIST,
+                      compute::AdjoinAsListOptions::OutputListType::LARGE_LIST,
+                      compute::AdjoinAsListOptions::OutputListType::FIXED_SIZE_LIST> {
+  static std::string name() { return "AdjoinAsListOptions::OutputListType"; }
+  static std::string value_name(compute::AdjoinAsListOptions::OutputListType value) {
+    switch (value) {
+      case compute::AdjoinAsListOptions::OutputListType::LIST:
+        return "LIST";
+      case compute::AdjoinAsListOptions::OutputListType::LARGE_LIST:
+        return "LARGE_LIST";
+      case compute::AdjoinAsListOptions::OutputListType::FIXED_SIZE_LIST:
+        return "FIXED_SIZE_LIST";
+    }
     return "<INVALID>";
   }
 };
@@ -411,10 +430,11 @@ static auto kRandomOptionsType = GetFunctionOptionsType<RandomOptions>(
 }  // namespace
 }  // namespace internal
 
-AdjoinAsListOptions::AdjoinAsListOptions(Type::type list_type)
+AdjoinAsListOptions::AdjoinAsListOptions(OutputListType list_type)
     : FunctionOptions(internal::kAdjoinAsListOptionsType), list_type(list_type) {}
 AdjoinAsListOptions::AdjoinAsListOptions()
-    : FunctionOptions(internal::kAdjoinAsListOptionsType), list_type(Type::LIST) {}
+    : FunctionOptions(internal::kAdjoinAsListOptionsType),
+      list_type(OutputListType::LIST) {}
 constexpr char AdjoinAsListOptions::kTypeName[];
 
 ArithmeticOptions::ArithmeticOptions(bool check_overflow)
@@ -686,6 +706,7 @@ constexpr char RandomOptions::kTypeName[];
 
 namespace internal {
 void RegisterScalarOptions(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunctionOptionsType(kAdjoinAsListOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kArithmeticOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kAssumeTimezoneOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kDayOfWeekOptionsType));
