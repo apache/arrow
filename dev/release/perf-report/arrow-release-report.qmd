@@ -4,11 +4,19 @@ execute:
   warning: false
 format: 
   html:
+    grid:
+        sidebar-width: 0px
+        body-width: 2000px
+        margin-width: 340px
+        gutter-width: 1.5rem
     self-contained: true
     page-layout: full
     toc: true
+    toc-title: "Contents"
     toc-depth: 3
+    margin-left: 30px
     link-external-newwindow: true
+    theme: cosmo
 ---
 
 
@@ -53,6 +61,7 @@ theme_set(theme_minimal(base_size = 24, base_family = "roboto") %+replace%
   theme(
     plot.title.position = "plot",
     strip.text.y = element_text(angle = -90),
+    strip.text = element_text(size = 18),
     panel.border = element_rect(colour = "grey80", fill = NA, size = 1),
     legend.title = element_blank(),
     legend.position = "top"
@@ -173,7 +182,7 @@ plot_comparison <- function(plot_df, alpha = 0.7) {
       position = "dodge", alpha = 0.75, width = 0.75, colour = "grey 40"
     ) +
     geom_vline(xintercept = 0, colour = "grey50") +
-    geom_text(aes(x = change_lab, hjust = ifelse(change >= 0, 0, 1), label = difference, colour = pn_lab), size = 7) +
+    geom_text(aes(x = change_lab, hjust = ifelse(change >= 0, 0, 1), label = difference, colour = pn_lab), size = 6) +
     facet_grid(rows = maybe_vars(x_facets), cols = maybe_vars(y_facets), labeller = label_both) +
     scale_fill_manual(values = change_cols) +
     scale_colour_manual(values = change_cols) +
