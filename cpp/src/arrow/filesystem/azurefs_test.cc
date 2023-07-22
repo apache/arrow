@@ -45,12 +45,16 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
+#include <azure/storage/common/storage_credential.hpp>
+#include <azure/storage/blobs.hpp>
+
 namespace arrow {
 using internal::TemporaryDir;
 namespace fs {
 namespace {
 namespace bp = boost::process;
 
+namespace bp = boost::process;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
@@ -105,15 +109,18 @@ AzuriteEnv* GetAzuriteEnv() {
   return ::arrow::internal::checked_cast<AzuriteEnv*>(azurite_env);
 }
 
-// Placeholder tests for file structure
+// Placeholder test for file structure
 // TODO: GH-18014 Remove once a proper test is added
-TEST(AzureFileSystem, InitialiseAzurite) {
+TEST(AzureBlobFileSystem, InitialiseClient) {
   const std::string& account_name = GetAzuriteEnv()->account_name();
   const std::string& account_key = GetAzuriteEnv()->account_key();
-  EXPECT_EQ(account_name, "devstoreaccount1");
-  EXPECT_EQ(account_key,
-            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
-            "K1SZFPTOtr/KBHBeksoGMGw==");
+
+  auto credential = std::make_shared<Azure::Storage::StorageSharedKeyCredential>(
+      account_name, account_key);
+  auto blockBlobClient = Azure::Storage::Blobs::BlockBlobClient(
+      "https://wayvedevdataset.blob.core.windows.net/databricks/"
+      "part-00000-540fd04c-424d-482e-b347-b0a200d36e59.c000.snappy.parquet",
+      credential);
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
