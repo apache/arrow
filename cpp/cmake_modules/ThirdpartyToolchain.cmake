@@ -5148,21 +5148,6 @@ macro(build_azuresdk)
   set(AZURESDK_INCLUDE_DIR "${AZURESDK_PREFIX}/include")
   set(AZURESDK_LIB_DIR "lib")
 
-  # provide hint for Azure SDK to link with the already located openssl
-  # get_filename_component(OPENSSL_ROOT_HINT "${OPENSSL_INCLUDE_DIR}" DIRECTORY)
-
-  #     -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-  #     -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-  #     -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
-  #     -Dcrypto_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-  #     -Dcrypto_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  # if(ARROW_OPENSSL_USE_SHARED)
-  #   list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-  #        -Dcrypto_SHARED_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-  # else()
-  #   list(APPEND AWSSDK_COMMON_CMAKE_ARGS
-  #        -Dcrypto_STATIC_LIBRARY=${OPENSSL_CRYPTO_LIBRARY})
-
   set(AZURESDK_COMMON_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
@@ -5174,10 +5159,13 @@ macro(build_azuresdk)
       -DENABLE_UNITY_BUILD=ON
       -DWARNINGS_AS_ERRORS=OFF)
   
-  if("${OPENSSL_VERSION}" LESS 3)
+  if(OPENSSL_VERSION_MAJOR EQUAL 1)
     list(APPEND
     AZURESDK_COMMON_CMAKE_ARGS
-    -DVCPKG_OVERLAY_PORTS=${PROJECT_SOURCE_DIR}/azure/vcpkg-custom-ports)
+    -DVCPKG_OVERLAY_PORTS=${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-prefix/src/azuresdk_ep/vcpkg-custom-ports)
+  elseif(OPENSSL_VERSION_MAJOR EQUAL 3)
+  else()
+    message(FATAL_ERROR "Unknown OpenSSL version: ${OPENSSL_VERSION}")
   endif()
 
   file(MAKE_DIRECTORY ${AZURESDK_INCLUDE_DIR})
