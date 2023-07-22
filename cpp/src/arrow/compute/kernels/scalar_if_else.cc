@@ -1309,9 +1309,9 @@ void AddFixedWidthIfElseKernel(const std::shared_ptr<IfElseFunction>& scalar_fun
 }
 
 void AddNestedIfElseKernels(const std::shared_ptr<IfElseFunction>& scalar_function) {
-  for (const auto type_id :
-       {Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST, Type::STRUCT,
-        Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
+  for (const auto type_id : {Type::LIST, Type::LARGE_LIST, Type::LIST_VIEW,
+                             Type::LARGE_LIST_VIEW, Type::FIXED_SIZE_LIST, Type::STRUCT,
+                             Type::DENSE_UNION, Type::SPARSE_UNION, Type::DICTIONARY}) {
     ScalarKernel kernel({boolean(), InputType(type_id), InputType(type_id)}, LastType,
                         NestedIfElseExec::Exec);
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
