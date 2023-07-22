@@ -5170,7 +5170,6 @@ macro(build_azuresdk)
       -DBUILD_SHARED_LIBS=OFF
       -DCMAKE_INSTALL_LIBDIR=${AZURESDK_LIB_DIR}
       -DDISABLE_AZURE_CORE_OPENTELEMETRY=ON
-      -DBUILD_WINDOWS_UWP=ON  # Hack to disable azure-core-amqp which fails to build
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
       -DWARNINGS_AS_ERRORS=OFF)
@@ -5178,9 +5177,7 @@ macro(build_azuresdk)
   if("${OPENSSL_VERSION}" LESS 3)
     list(APPEND
     AZURESDK_COMMON_CMAKE_ARGS
-    -DVCPKG_MANIFEST_MODE=ON 
-    -DVCPKG_OVERLAY_PORTS=${PROJECT_SOURCE_DIR}/azure/vcpkg-custom-ports
-    -DVCPKG_MANIFEST_DIR=${PROJECT_SOURCE_DIR}/azure)
+    -DVCPKG_OVERLAY_PORTS=${PROJECT_SOURCE_DIR}/azure/vcpkg-custom-ports)
   endif()
 
   file(MAKE_DIRECTORY ${AZURESDK_INCLUDE_DIR})
