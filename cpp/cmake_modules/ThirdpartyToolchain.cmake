@@ -5170,6 +5170,7 @@ macro(build_azuresdk)
       -DBUILD_SHARED_LIBS=OFF
       -DCMAKE_INSTALL_LIBDIR=${AZURESDK_LIB_DIR}
       -DDISABLE_AZURE_CORE_OPENTELEMETRY=ON
+      -DBUILD_WINDOWS_UWP=ON  # Hack to disable azure-core-amqp which fails to build
       -DENABLE_TESTING=OFF
       -DENABLE_UNITY_BUILD=ON
       -DWARNINGS_AS_ERRORS=OFF)
