@@ -40,8 +40,8 @@
 #include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
 
-#include <string>
 #include <iostream>
+#include <string>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
@@ -112,19 +112,32 @@ AzuriteEnv* GetAzuriteEnv() {
   return ::arrow::internal::checked_cast<AzuriteEnv*>(azurite_env);
 }
 
-// Placeholder test for file structure
+// Placeholder tests for file structure
 // TODO: GH-18014 Remove once a proper test is added
 TEST(AzureFileSystem, InitialiseClient) {
+  const std::string containerName = "sample-container";
+  const std::string blobName = "sample-blob.txt";
+  const std::string blobContent = "Hello Azure!";
+
   const std::string& account_name = GetAzuriteEnv()->account_name();
   const std::string& account_key = GetAzuriteEnv()->account_key();
 
   auto credential = std::make_shared<Azure::Storage::StorageSharedKeyCredential>(
       account_name, account_key);
-  auto blockBlobClient = Azure::Storage::Blobs::BlockBlobClient(
-      "http://127.0.0.1:10000/devstoreaccount1/container/file.parquet", credential);
 
-  blockBlobClient.DownloadTo("test.parquet");
-  EXPECT_FALSE(true);
+  auto serviceClient = Azure::Storage::Blobs::BlobServiceClient(
+      "http://127.0.0.1:10000/devstoreaccount1", credential);
+  auto containerClient = serviceClient.GetBlobContainerClient(containerName);
+  containerClient.CreateIfNotExists();
+  auto blobClient = containerClient.GetBlockBlobClient(blobName);
+
+  std::vector<uint8_t> buffer(blobContent.begin(), blobContent.end());
+  blobClient.UploadFrom(buffer.data(), buffer.size());
+
+  std::vector<uint8_t> buffer2(blobContent.size());
+  blobClient.DownloadTo(buffer2.data(), buffer2.size());
+
+  EXPECT_EQ(std::string(buffer2.begin(), buffer2.end()), blobContent);
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
