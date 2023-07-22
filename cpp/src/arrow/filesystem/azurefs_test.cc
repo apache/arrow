@@ -41,12 +41,13 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <iostream>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
-#include <azure/storage/common/storage_credential.hpp>
 #include <azure/storage/blobs.hpp>
+#include <azure/storage/common/storage_credential.hpp>
 
 namespace arrow {
 using internal::TemporaryDir;
@@ -62,6 +63,7 @@ using ::testing::NotNull;
 class AzuriteEnv : public ::testing::Environment {
  public:
   AzuriteEnv() {
+    std::cout << "Starting Azurite emulator..." << std::endl;
     account_name_ = "devstoreaccount1";
     account_key_ =
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
@@ -83,6 +85,7 @@ class AzuriteEnv : public ::testing::Environment {
       status_ = Status::Invalid(error);
       return;
     }
+    std::cout << "Azurite emulator started." << std::endl;
     status_ = Status::OK();
   }
 
@@ -111,16 +114,17 @@ AzuriteEnv* GetAzuriteEnv() {
 
 // Placeholder test for file structure
 // TODO: GH-18014 Remove once a proper test is added
-TEST(AzureBlobFileSystem, InitialiseClient) {
+TEST(AzureFileSystem, InitialiseClient) {
   const std::string& account_name = GetAzuriteEnv()->account_name();
   const std::string& account_key = GetAzuriteEnv()->account_key();
 
   auto credential = std::make_shared<Azure::Storage::StorageSharedKeyCredential>(
       account_name, account_key);
   auto blockBlobClient = Azure::Storage::Blobs::BlockBlobClient(
-      "https://wayvedevdataset.blob.core.windows.net/databricks/"
-      "part-00000-540fd04c-424d-482e-b347-b0a200d36e59.c000.snappy.parquet",
-      credential);
+      "http://127.0.0.1:10000/devstoreaccount1/container/file.parquet", credential);
+
+  blockBlobClient.DownloadTo("test.parquet");
+  EXPECT_FALSE(true);
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
