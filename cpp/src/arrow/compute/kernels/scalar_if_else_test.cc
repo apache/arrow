@@ -126,13 +126,10 @@ TYPED_TEST(TestIfElsePrimitive, IfElseFixedSizeRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
-void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
+void DoCheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
                               const std::shared_ptr<Array>& left,
-                              const std::shared_ptr<Array>& right,
-                              const std::shared_ptr<Array>& expected) {
+                              const std::shared_ptr<Array>& right) {
   // this will check for whole arrays, every scalar at i'th index and slicing (offset)
-  CheckScalar("if_else", {cond, left, right}, expected);
-
   auto len = left->length();
   std::vector<int64_t> array_indices = {-1};  // sentinel for make_input
   std::vector<int64_t> scalar_indices(len);
@@ -195,6 +192,14 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
       }
     }
   }  // for (mask)
+}
+
+void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
+                              const std::shared_ptr<Array>& left,
+                              const std::shared_ptr<Array>& right,
+                              const std::shared_ptr<Array>& expected) {
+  CheckScalar("if_else", {cond, left, right}, expected);
+  DoCheckWithDifferentShapes(cond, left, right);
 }
 
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
