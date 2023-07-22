@@ -59,7 +59,7 @@ Result<std::shared_ptr<ArrayData>> PreallocateRunEndsArray(
 
 Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
     const std::shared_ptr<DataType>& value_type, bool has_validity_buffer, int64_t length,
-    int64_t null_count, MemoryPool* pool, int64_t data_buffer_size) {
+    MemoryPool* pool, int64_t data_buffer_size) {
   std::vector<std::shared_ptr<Buffer>> values_data_buffers;
   std::shared_ptr<Buffer> validity_buffer = NULLPTR;
   if (has_validity_buffer) {
@@ -79,20 +79,22 @@ Result<std::shared_ptr<ArrayData>> PreallocateValuesArray(
   } else {
     values_data_buffers = {std::move(validity_buffer), std::move(values_buffer)};
   }
-  return ArrayData::Make(value_type, length, std::move(values_data_buffers), null_count);
+  auto data = ArrayData::Make(value_type, length, std::move(values_data_buffers),
+                              kUnknownNullCount);
+  DCHECK(!(has_validity_buffer && length > 0) || data->buffers[0]);
+  return data;
 }
 
 Result<std::shared_ptr<ArrayData>> PreallocateREEArray(
     std::shared_ptr<RunEndEncodedType> ree_type, bool has_validity_buffer,
-    int64_t logical_length, int64_t physical_length, int64_t physical_null_count,
-    MemoryPool* pool, int64_t data_buffer_size) {
+    int64_t logical_length, int64_t physical_length, MemoryPool* pool,
+    int64_t data_buffer_size) {
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_data,
       PreallocateRunEndsArray(ree_type->run_end_type(), physical_length, pool));
-  ARROW_ASSIGN_OR_RAISE(
-      auto values_data,
-      PreallocateValuesArray(ree_type->value_type(), has_validity_buffer, physical_length,
-                             physical_null_count, pool, data_buffer_size));
+  ARROW_ASSIGN_OR_RAISE(auto values_data, PreallocateValuesArray(
+                                              ree_type->value_type(), has_validity_buffer,
+                                              physical_length, pool, data_buffer_size));
 
   return ArrayData::Make(std::move(ree_type), logical_length, {NULLPTR},
                          {std::move(run_ends_data), std::move(values_data)},
