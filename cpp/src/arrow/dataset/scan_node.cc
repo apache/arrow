@@ -387,9 +387,6 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
         scan_tasks->AddTask(std::make_unique<ScanBatchTask>(node, state_view, i));
       }
       return Status::OK();
-      // The "list fragments" task doesn't actually end until the fragments are
-      // all scanned.  This allows us to enforce fragment readahead.
-      return list_and_scan_done;
     }
 
     // Take the dataset options, and the fragment evolution, and figure out exactly how
