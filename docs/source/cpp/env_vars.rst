@@ -167,3 +167,7 @@ that changing their value later will have an effect.
    ``OMP_THREAD_LIMIT`` is 8, the global CPU thread pool will have 4 worker
    threads.  But if ``OMP_THREAD_LIMIT`` is 2, the global CPU thread pool
    will have 2 worker threads.
+
+.. envvar:: AWS_ENDPOINT_URL
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
