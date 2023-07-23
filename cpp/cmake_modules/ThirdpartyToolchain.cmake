@@ -74,7 +74,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     xsimd
     ZLIB
     zstd
-    xml2
+    LibXml2
 )
 
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
@@ -216,8 +216,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_zstd()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AZURE_SDK")
     build_azuresdk()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "xml2")
-    build_xml2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "LibXml2")
+    build_libxml2()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
   endif()
@@ -237,6 +237,7 @@ macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
+  message(STATUS "Resolving dependency ${DEPENDENCY_NAME}")
   set(options)
   set(one_value_args
       ARROW_CMAKE_PACKAGE_NAME
@@ -287,12 +288,15 @@ macro(resolve_dependency DEPENDENCY_NAME)
     if(COMPATIBLE)
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
+      message(STATUS "Using bundled ${DEPENDENCY_NAME}")
       build_dependency(${DEPENDENCY_NAME})
       set(${DEPENDENCY_NAME}_SOURCE "BUNDLED")
     endif()
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
+    message(STATUS "Using bundled2 ${DEPENDENCY_NAME}")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
+    message(STATUS "Using system ${DEPENDENCY_NAME}, ${FIND_PACKAGE_ARGUMENTS}")
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
     if(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
       if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
@@ -379,7 +383,7 @@ endif()
 # Enable Azure
 if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
-  set(ARROW_WITH_XML2 ON)
+  set(ARROW_WITH_LIBXML2 ON)
 endif()
 
 if(ARROW_JSON)
@@ -693,11 +697,11 @@ else()
   )
 endif()
 
-if(DEFINED ENV{ARROW_XML2_URL})
-  set(XML2_SOURCE_URL "$ENV{ARROW_XML2_URL}")
+if(DEFINED ENV{ARROW_LIBXML2_URL})
+  set(LIBXML2_SOURCE_URL "$ENV{ARROW_LIBXML2_URL}")
 else()
-  set_urls(XML2_SOURCE_URL
-           "https://github.com/GNOME/libxml2/archive/refs/tags/${ARROW_XML2_BUILD_VERSION}.tar.gz"
+  set_urls(LIBXML2_SOURCE_URL
+           "https://github.com/GNOME/libxml2/archive/refs/tags/${ARROW_LIBXML2_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -5082,11 +5086,11 @@ endif()
 # ----------------------------------------------------------------------
 # Azure SDK and dependencies
 
-macro(build_xml2)
+macro(build_libxml2)
   message(STATUS "Building xml2 from source")
-  # "Build" xml2
-  set(XML2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xml2_ep-install")
-  set(XML2_INCLUDE_DIR "${XML2_PREFIX}/include")
+  # "Build" LibXml2
+  set(LIBXML2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xml2_ep-install")
+  set(LIBXML2_INCLUDE_DIR "${LIBXML2_PREFIX}/include")
   
   set(XML2_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} 
@@ -5100,33 +5104,35 @@ macro(build_xml2)
       -DBUILD_SHARED_LIBS=OFF)
 
   set(_XML2_STATIC_LIBRARY
-    "${XML2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}xml2${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    "${LIBXML2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}xml2${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   set(XML2_BUILD_BYPRODUCTS ${_XML2_STATIC_LIBRARY})
   
-  externalproject_add(xml2_ep
+  externalproject_add(libxml2_ep
                       ${EP_LOG_OPTIONS}
-                      INSTALL_DIR ${XML2_PREFIX}
-                      URL ${XML2_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_XML2_BUILD_SHA256_CHECKSUM}"
+                      INSTALL_DIR ${LIBXML2_PREFIX}
+                      URL ${LIBXML2_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_LIBXML2_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${XML2_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${XML2_BUILD_BYPRODUCTS})
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY "${XML2_INCLUDE_DIR}")
+  file(MAKE_DIRECTORY "${LIBXML2_INCLUDE_DIR}")
   add_library(LibXml2::LibXml2 STATIC IMPORTED)
   set_target_properties(LibXml2::LibXml2
                         PROPERTIES IMPORTED_LOCATION ${_XML2_STATIC_LIBRARY}
                                    INTERFACE_INCLUDE_DIRECTORIES
-                                   "${XML2_INCLUDE_DIR}")
+                                   "${LIBXML2_INCLUDE_DIR}")
   add_dependencies(LibXml2::LibXml2 xml2_ep)
-  set(XML2_VENDORED TRUE)
+  set(LIBXML2_VENDORED TRUE)
 endmacro()
-if(ARROW_WITH_XML2)
-  resolve_dependency(xml2)
-  get_target_property(xml2_INCLUDE_DIR LibXml2::LibXml2
+if(ARROW_WITH_LIBXML2)
+  message(STATUS "Building LibXml2 from source")
+  resolve_dependency(LibXml2)
+  message(STATUS "Resolved LibXml2")
+  get_target_property(LIBXML2_INCLUDE_DIR LibXml2::LibXml2
                       INTERFACE_INCLUDE_DIRECTORIES)
-  message(STATUS "Found xml2 headers: ${xml2_INCLUDE_DIR}")
+  message(STATUS "Found xml2 headers: ${LIBXML2_INCLUDE_DIR}")
 endif()
 
 macro(build_azuresdk)
@@ -5140,8 +5146,8 @@ macro(build_azuresdk)
                         ${ARROW_OPENSSL_REQUIRED_VERSION})
   endif()
 
-  if(XML2_VENDORED)
-    add_dependencies(azure_sdk_dependencies xml2_ep)
+  if(LIBXML2_VENDORED)
+    add_dependencies(azure_sdk_dependencies libxml2_ep)
   endif()
 
   set(AZURESDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-install")
