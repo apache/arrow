@@ -798,6 +798,14 @@ endif()
 if(ARROW_AZURE)
   list(APPEND ARROW_SHARED_LINK_LIBS ${AZURESDK_LINK_LIBRARIES})
   list(APPEND ARROW_STATIC_LINK_LIBS ${AZURESDK_LINK_LIBRARIES})
+  if(AZURE_SDK_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS 
+         Azure::azure-core
+         Azure::azure-identity
+         Azure::azure-storage-blobs
+         Azure::azure-storage-common
+         Azure::azure-storage-files-datalake)
+  endif()
 endif()
 
 if(ARROW_WITH_UTF8PROC)
