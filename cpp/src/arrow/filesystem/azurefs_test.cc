@@ -46,6 +46,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 
+#include <azure/identity/client_secret_credential.hpp>
+#include <azure/identity/default_azure_credential.hpp>
+#include <azure/identity/managed_identity_credential.hpp>
 #include <azure/storage/blobs.hpp>
 #include <azure/storage/common/storage_credential.hpp>
 
@@ -63,7 +66,6 @@ using ::testing::NotNull;
 class AzuriteEnv : public ::testing::Environment {
  public:
   AzuriteEnv() {
-    std::cout << "Starting Azurite emulator..." << std::endl;
     account_name_ = "devstoreaccount1";
     account_key_ =
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
@@ -85,7 +87,6 @@ class AzuriteEnv : public ::testing::Environment {
       status_ = Status::Invalid(error);
       return;
     }
-    std::cout << "Azurite emulator started." << std::endl;
     status_ = Status::OK();
   }
 
@@ -114,7 +115,7 @@ AzuriteEnv* GetAzuriteEnv() {
 
 // Placeholder tests for file structure
 // TODO: GH-18014 Remove once a proper test is added
-TEST(AzureFileSystem, InitialiseClient) {
+TEST(AzureFileSystem, UploadThenDownload) {
   const std::string containerName = "sample-container";
   const std::string blobName = "sample-blob.txt";
   const std::string blobContent = "Hello Azure!";
@@ -138,6 +139,15 @@ TEST(AzureFileSystem, InitialiseClient) {
   blobClient.DownloadTo(buffer2.data(), buffer2.size());
 
   EXPECT_EQ(std::string(buffer2.begin(), buffer2.end()), blobContent);
+}
+
+TEST(AzureFileSystem, InitialiseCredentials) {
+  auto defaultCredential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+  auto managedIdentityCredential =
+      std::make_shared<Azure::Identity::ManagedIdentityCredential>();
+  auto servicePrincipalCredential =
+      std::make_shared<Azure::Identity::ClientSecretCredential>("tenant_id", "client_id",
+                                                                "client_secret");
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
