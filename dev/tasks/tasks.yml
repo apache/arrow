@@ -1434,7 +1434,6 @@ tasks:
       image: debian-go
   {% endfor %}
 
-
   test-ubuntu-default-docs:
     ci: github
     template: docs/github.linux.yml
