@@ -55,7 +55,7 @@ classdef tField < matlab.unittest.TestCase
             smiley = "😀";
             tree =  "🌲";
             mango = "🥭";
-            
+
             type = arrow.type.uint64;
             field = arrow.field(smiley, type);
 

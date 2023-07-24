@@ -26,7 +26,7 @@ namespace arrow::matlab::type::proxy {
 class Field : public libmexclass::proxy::Proxy {
     public:
         Field(std::shared_ptr<arrow::Field> field);
-    
+
         virtual ~Field() {}
 
         std::shared_ptr<arrow::Field> unwrap();

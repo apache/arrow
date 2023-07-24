@@ -29,7 +29,7 @@ classdef Field < matlab.mixin.CustomDisplay
         Type
     end
 
-    methods 
+    methods
         function obj = Field(proxy)
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Field")}
