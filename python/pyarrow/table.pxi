@@ -5058,6 +5058,7 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
     ----
     n_legs: [[2,4,5,100],[2,4]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"],["Parrot","Dog"]]
+
     """
     cdef:
         vector[shared_ptr[CTable]] c_tables

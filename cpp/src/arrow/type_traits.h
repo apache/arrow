@@ -981,7 +981,6 @@ constexpr bool is_decimal(Type::type type_id) {
   return false;
 }
 
-
 /// \brief Check for a type that can be used as a run-end in Run-End Encoded
 /// arrays
 ///
@@ -1115,32 +1114,6 @@ constexpr bool is_binary(Type::type type_id) {
   return false;
 }
 
-static inline bool is_string(Type::type type_id) {
-  switch (type_id) {
-    case Type::STRING:
-    case Type::LARGE_STRING:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_var_size_list(Type::type type_id) {
-  switch (type_id) {
-    case Type::LIST:
-    case Type::LARGE_LIST:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
-
-static inline bool is_dictionary(Type::type type_id) {
-  return type_id == Type::DICTIONARY;
-}
-
 /// \brief Check for a string type
 ///
 /// \param[in] type_id the type-id to check
@@ -1229,7 +1202,6 @@ constexpr bool is_var_length_list(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
-    case Type::MAP:
       return true;
     default:
       break;

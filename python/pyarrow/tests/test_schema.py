@@ -725,15 +725,13 @@ def test_schema_merge():
     result = pa.unify_schemas((a, b, c))
     assert result.equals(expected)
 
-<<<<<<< HEAD
     result = pa.unify_schemas(
         [b, d], options=pa.FieldMergeOptions.permissive())
     assert result.equals(d)
-=======
+
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):
         pa.unify_schemas([a, 1])
->>>>>>> a9f100c690ed8608142ec3d9af043b66a41543e0
 
 
 def test_undecodable_metadata():

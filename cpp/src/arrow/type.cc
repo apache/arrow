@@ -617,13 +617,13 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
     }
 
     if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
-        is_var_size_list(other_type->id())) {
+        is_var_length_list(other_type->id())) {
       promoted_type =
           list(checked_cast<const BaseListType&>(*promoted_type).value_field());
       promoted = other_type->Equals(*promoted_type);
     }
     if (other_type->id() == Type::FIXED_SIZE_LIST &&
-        is_var_size_list(promoted_type->id())) {
+        is_var_length_list(promoted_type->id())) {
       other_type = list(checked_cast<const BaseListType&>(*other_type).value_field());
       promoted = other_type->Equals(*promoted_type);
     }
