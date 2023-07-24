@@ -233,6 +233,24 @@ class TestListArray : public ::testing::Test {
                                                  expected->null_bitmap()));
   }
 
+  void TestFromArraysWithSlicedOffsets() {
+    std::vector<offset_type> offsets = {-1, -1, 0, 1, 2, 4};
+
+    std::shared_ptr<Array> offsets_wo_nulls;
+    ArrayFromVector<OffsetType, offset_type>(offsets, &offsets_wo_nulls);
+
+    auto type = std::make_shared<T>(int32());
+    auto expected = std::dynamic_pointer_cast<ArrayType>(
+        ArrayFromJSON(type, "[[0], [1], [0, null]]"));
+    auto values = expected->values();
+
+    // Apply an offset to the offsets array
+    auto sliced_offsets = offsets_wo_nulls->Slice(2, 4);
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         ArrayType::FromArrays(*sliced_offsets, *values, pool_));
+    AssertArraysEqual(*result, *expected);
+  }
+
   void TestFromArraysWithSlicedNullOffsets() {
     std::vector<offset_type> offsets = {-1, -1, 0, 1, 1, 3};
     std::vector<bool> offsets_w_nulls_is_valid = {true, true, true, false, true, true};
@@ -606,6 +624,7 @@ TYPED_TEST(TestListArray, FromArrays) { this->TestFromArrays(); }
 
 TYPED_TEST(TestListArray, FromArraysWithNullBitMap) {
   this->TestFromArraysWithNullBitMap();
+  this->TestFromArraysWithSlicedOffsets();
   this->TestFromArraysWithSlicedNullOffsets();
 }
 
