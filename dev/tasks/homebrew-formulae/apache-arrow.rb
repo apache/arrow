@@ -60,8 +60,6 @@ class ApacheArrow < Formula
     # https://github.com/Homebrew/homebrew-core/issues/76537
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
-    # ENV["HOMEBREW_OPTIMIZATION_LEVEL"] = "O2"
-
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
@@ -92,6 +90,7 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZSTD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
+    args << "-DARROW_RUNTIME_SIMD_LEVEL=NONE" if Hardware::CPU.intel?
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
