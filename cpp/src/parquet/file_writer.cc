@@ -310,17 +310,17 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
 
       std::unique_ptr<PageWriter> pager;
       if (!codec_options) {
-        pager = PageWriter::Open(sink_, properties_->compression(path), col_meta,
-                                 row_group_ordinal_, static_cast<int16_t>(column_ordinal),
-                                 properties_->memory_pool(), false, meta_encryptor,
-                                 data_encryptor, properties_->page_checksum_enabled(),
-                                 ci_builder, oi_builder, CodecOptions());
+        pager = PageWriter::Open(
+            sink_, properties_->compression(path), col_meta, row_group_ordinal_,
+            static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
+            buffered_row_group_, meta_encryptor, data_encryptor,
+            properties_->page_checksum_enabled(), ci_builder, oi_builder, CodecOptions());
       } else {
-        pager = PageWriter::Open(sink_, properties_->compression(path), col_meta,
-                                 row_group_ordinal_, static_cast<int16_t>(column_ordinal),
-                                 properties_->memory_pool(), false, meta_encryptor,
-                                 data_encryptor, properties_->page_checksum_enabled(),
-                                 ci_builder, oi_builder, *codec_options);
+        pager = PageWriter::Open(
+            sink_, properties_->compression(path), col_meta, row_group_ordinal_,
+            static_cast<int16_t>(column_ordinal), properties_->memory_pool(),
+            buffered_row_group_, meta_encryptor, data_encryptor,
+            properties_->page_checksum_enabled(), ci_builder, oi_builder, *codec_options);
       }
       column_writers_.push_back(
           ColumnWriter::Make(col_meta, std::move(pager), properties_));
