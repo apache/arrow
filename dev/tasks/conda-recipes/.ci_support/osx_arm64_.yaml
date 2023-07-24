@@ -1,12 +1,10 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '11.0'
 aws_crt_cpp:
-- 0.20.1
+- 0.20.3
 aws_sdk_cpp:
 - 1.10.57
 bzip2:
-- '1'
-c_ares:
 - '1'
 c_compiler:
 - clang
@@ -27,15 +25,15 @@ gflags:
 glog:
 - '0.6'
 google_cloud_cpp:
-- 2.10.1
+- '2.12'
 libabseil:
 - '20230125'
-libevent:
-- 2.1.12
 libgrpc:
 - '1.54'
+- '1.56'
 libprotobuf:
 - '3.21'
+- 4.23.3
 lz4_c:
 - 1.9.3
 macos_machine:
@@ -48,7 +46,7 @@ numpy:
 openssl:
 - '3'
 orc:
-- 1.8.3
+- 1.9.0
 pin_run_as_build:
   python:
     min_pin: x.x
@@ -69,6 +67,8 @@ thrift_cpp:
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version
+- - libgrpc
+  - libprotobuf
 - - python
   - numpy
 zlib:
