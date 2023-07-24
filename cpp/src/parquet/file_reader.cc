@@ -179,17 +179,17 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   SerializedRowGroup(std::shared_ptr<ArrowInputFile> source,
                      std::shared_ptr<::arrow::io::internal::ReadRangeCache> cached_source,
                      int64_t source_size, FileMetaData* file_metadata,
-                     int row_group_number, const ReaderProperties& props,
+                     int row_group_number, ReaderProperties props,
                      std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap,
                      std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
       : source_(std::move(source)),
         cached_source_(std::move(cached_source)),
         source_size_(source_size),
         file_metadata_(file_metadata),
-        properties_(props),
+        properties_(std::move(props)),
         row_group_ordinal_(row_group_number),
         prebuffered_column_chunks_bitmap_(std::move(prebuffered_column_chunks_bitmap)),
-        file_decryptor_(file_decryptor) {
+        file_decryptor_(std::move(file_decryptor)) {
     row_group_metadata_ = file_metadata->RowGroup(row_group_number);
   }
 
@@ -273,7 +273,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
   std::unique_ptr<RowGroupMetaData> row_group_metadata_;
   ReaderProperties properties_;
   int row_group_ordinal_;
-  const std::shared_ptr<Buffer> prebuffered_column_chunks_bitmap_;
+  const std::shared_ptr<const Buffer> prebuffered_column_chunks_bitmap_;
   std::shared_ptr<InternalFileDecryptor> file_decryptor_;
 };
 
@@ -366,13 +366,19 @@ class SerializedFile : public ParquetFileReader::Contents {
         std::make_shared<::arrow::io::internal::ReadRangeCache>(source_, ctx, options);
     std::vector<::arrow::io::ReadRange> ranges;
     prebuffered_column_chunks_.clear();
-    for (int row : row_groups) {
-      std::shared_ptr<Buffer>& col_bitmap = prebuffered_column_chunks_[row];
-      int num_cols = file_metadata_->num_columns();
-      PARQUET_THROW_NOT_OK(
-          AllocateEmptyBitmap(num_cols, properties_.memory_pool()).Value(&col_bitmap));
+    int num_cols = file_metadata_->num_columns();
+    // a bitmap for buffered columns.
+    std::shared_ptr<Buffer> buffer_columns;
+    if (!row_groups.empty()) {
+      PARQUET_THROW_NOT_OK(AllocateEmptyBitmap(num_cols, properties_.memory_pool())
+                               .Value(&buffer_columns));
       for (int col : column_indices) {
-        ::arrow::bit_util::SetBit(col_bitmap->mutable_data(), col);
+        ::arrow::bit_util::SetBit(buffer_columns->mutable_data(), col);
+      }
+    }
+    for (int row : row_groups) {
+      prebuffered_column_chunks_[row] = buffer_columns;
+      for (int col : column_indices) {
         ranges.push_back(
             ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col));
       }
