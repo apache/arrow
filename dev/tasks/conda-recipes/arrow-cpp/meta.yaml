@@ -145,7 +145,7 @@ outputs:
     test:
       commands:
         {% set headers = [
-            "arrow/api.h", "arrow/acero/groupby.h", "arrow/flight/types.h",
+            "arrow/api.h", "arrow/acero/api.h", "arrow/flight/types.h",
             "arrow/flight/sql/api.h", "gandiva/engine.h", "parquet/api/reader.h"
         ] %}
         {% for each_header in headers %}
