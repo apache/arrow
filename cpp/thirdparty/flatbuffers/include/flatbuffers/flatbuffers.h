@@ -23,6 +23,15 @@
 #  include <cmath>
 #endif
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private {
+namespace flatbuffers {
+}
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
+namespace arrow_vendored_private {
 namespace flatbuffers {
 // Generic 'operator==' with conditional specialisations.
 // T e - new value of a scalar field.
@@ -2777,6 +2786,7 @@ volatile __attribute__((weak)) const char *flatbuffer_version_string =
     }
 /// @endcond
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 // clang-format on
 

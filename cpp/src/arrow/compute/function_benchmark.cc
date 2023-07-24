@@ -19,6 +19,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/cast_internal.h"
 #include "arrow/compute/exec_internal.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
@@ -67,14 +68,13 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
   // Repeatedly invoke a trivial Cast with all dispatch outside the hot loop
   random::RandomArrayGenerator rag(kSeed);
 
-  auto int_scalars = ToScalars(rag.Int64(kScalarCount, 0, 1 << 20));
-
+  auto int_array = rag.Int64(1, 0, 1 << 20);
   auto double_type = float64();
   CastOptions cast_options;
   cast_options.to_type = double_type;
-  ASSERT_OK_AND_ASSIGN(auto cast_function, GetCastFunction(double_type));
+  ASSERT_OK_AND_ASSIGN(auto cast_function, internal::GetCastFunction(*double_type));
   ASSERT_OK_AND_ASSIGN(auto cast_kernel,
-                       cast_function->DispatchExact({int_scalars[0]->type}));
+                       cast_function->DispatchExact({int_array->type()}));
   const auto& exec = static_cast<const ScalarKernel*>(cast_kernel)->exec;
 
   ExecContext exec_context;
@@ -85,13 +85,13 @@ void BM_CastDispatchBaseline(benchmark::State& state) {
                         .ValueOrDie();
   kernel_context.SetState(cast_state.get());
 
+  ExecSpan input({ExecValue(*int_array->data())}, 1);
+  ExecResult result;
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> result_space,
+                       MakeArrayOfNull(double_type, 1));
+  result.array_span_mutable()->SetMembers(*result_space->data());
   for (auto _ : state) {
-    Datum timestamp_scalar = MakeNullScalar(double_type);
-    for (Datum int_scalar : int_scalars) {
-      ABORT_NOT_OK(
-          exec(&kernel_context, {{std::move(int_scalar)}, 1}, &timestamp_scalar));
-    }
-    benchmark::DoNotOptimize(timestamp_scalar);
+    ABORT_NOT_OK(exec(&kernel_context, input, &result));
   }
 
   state.SetItemsProcessed(state.iterations() * kScalarCount);
@@ -151,34 +151,35 @@ void BM_ExecuteScalarFunctionOnScalar(benchmark::State& state) {
 
 void BM_ExecuteScalarKernelOnScalar(benchmark::State& state) {
   // Execute a trivial function, with argument dispatch outside the hot path
-  const int64_t N = 10000;
-
   auto function = *GetFunctionRegistry()->GetFunction("is_valid");
-  auto kernel = *function->DispatchExact({ValueDescr::Scalar(int64())});
+  auto kernel = *function->DispatchExact({int64()});
   const auto& exec = static_cast<const ScalarKernel&>(*kernel).exec;
-
-  const auto scalars = MakeScalarsForIsValid(N);
 
   ExecContext exec_context;
   KernelContext kernel_context(&exec_context);
 
-  for (auto _ : state) {
-    int64_t total = 0;
-    for (const auto& scalar : scalars) {
-      Datum result{MakeNullScalar(int64())};
-      ABORT_NOT_OK(exec(&kernel_context, ExecBatch{{scalar}, /*length=*/1}, &result));
-      total += result.scalar()->is_valid;
-    }
-    benchmark::DoNotOptimize(total);
-  }
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> input_arr, MakeArrayOfNull(int64(), 1));
+  ExecSpan input({*input_arr->data()}, 1);
 
+  ExecResult output;
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> output_arr, MakeArrayOfNull(int64(), 1));
+  output.array_span_mutable()->SetMembers(*output_arr->data());
+
+  const int64_t N = 10000;
+  for (auto _ : state) {
+    for (int i = 0; i < N; ++i) {
+      ABORT_NOT_OK(exec(&kernel_context, input, &output));
+    }
+  }
   state.SetItemsProcessed(state.iterations() * N);
 }
 
-void BM_ExecBatchIterator(benchmark::State& state) {
-  // Measure overhead related to splitting ExecBatch into smaller ExecBatches
-  // for parallelism or more optimal CPU cache affinity
+void BM_ExecSpanIterator(benchmark::State& state) {
+  // Measure overhead related to splitting ExecBatch into smaller non-owning
+  // ExecSpans for parallelism or more optimal CPU cache affinity
   random::RandomArrayGenerator rag(kSeed);
+
+  using ::arrow::compute::detail::ExecSpanIterator;
 
   const int64_t length = 1 << 20;
   const int num_fields = 32;
@@ -188,22 +189,24 @@ void BM_ExecBatchIterator(benchmark::State& state) {
     args[i] = rag.Int64(length, 0, 100)->data();
   }
 
+  ExecBatch batch(args, length);
+
   const int64_t blocksize = state.range(0);
+  ExecSpanIterator it;
   for (auto _ : state) {
-    std::unique_ptr<detail::ExecBatchIterator> it =
-        *detail::ExecBatchIterator::Make(args, blocksize);
-    ExecBatch batch;
-    while (it->Next(&batch)) {
+    ABORT_NOT_OK(it.Init(batch, blocksize));
+    ExecSpan span;
+    while (it.Next(&span)) {
       for (int i = 0; i < num_fields; ++i) {
-        auto data = batch.values[i].array()->buffers[1]->data();
+        auto data = span[i].array.buffers[1].data;
         benchmark::DoNotOptimize(data);
       }
     }
-    benchmark::DoNotOptimize(batch);
+    benchmark::DoNotOptimize(span);
   }
   // Provides comparability across blocksizes by looking at the iterations per
   // second. So 1000 iterations/second means that input splitting associated
-  // with ExecBatchIterator takes up 1ms every time.
+  // with ExecSpanIterator takes up 1ms every time.
   state.SetItemsProcessed(state.iterations());
 }
 
@@ -212,7 +215,7 @@ BENCHMARK(BM_CastDispatchBaseline);
 BENCHMARK(BM_AddDispatch);
 BENCHMARK(BM_ExecuteScalarFunctionOnScalar);
 BENCHMARK(BM_ExecuteScalarKernelOnScalar);
-BENCHMARK(BM_ExecBatchIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
+BENCHMARK(BM_ExecSpanIterator)->RangeMultiplier(4)->Range(1024, 64 * 1024);
 
 }  // namespace compute
 }  // namespace arrow

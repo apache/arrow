@@ -17,7 +17,7 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
+#include "./safe-call-into-r.h"
 
 #include <arrow/csv/reader.h>
 #include <arrow/csv/writer.h>
@@ -31,7 +31,8 @@ std::shared_ptr<arrow::csv::WriteOptions> csv___WriteOptions__initialize(
       std::make_shared<arrow::csv::WriteOptions>(arrow::csv::WriteOptions::Defaults());
   res->include_header = cpp11::as_cpp<bool>(options["include_header"]);
   res->batch_size = cpp11::as_cpp<int>(options["batch_size"]);
-  res->io_context = arrow::io::IOContext(gc_memory_pool());
+  res->io_context = MainRThread::GetInstance().CancellableIOContext();
+  res->null_string = cpp11::as_cpp<std::string>(options["null_string"]);
   return res;
 }
 
@@ -43,6 +44,7 @@ std::shared_ptr<arrow::csv::ReadOptions> csv___ReadOptions__initialize(
   res->use_threads = cpp11::as_cpp<bool>(options["use_threads"]);
   res->block_size = cpp11::as_cpp<int>(options["block_size"]);
   res->skip_rows = cpp11::as_cpp<int>(options["skip_rows"]);
+  res->skip_rows_after_names = cpp11::as_cpp<int>(options["skip_rows_after_names"]);
   res->column_names = cpp11::as_cpp<std::vector<std::string>>(options["column_names"]);
   res->autogenerate_column_names =
       cpp11::as_cpp<bool>(options["autogenerate_column_names"]);
@@ -73,6 +75,36 @@ SEXP csv___ReadOptions__column_names(
   }
 
   return cpp11::as_sexp(options->column_names);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__block_size(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->block_size);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__skip_rows(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->skip_rows);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__autogenerate_column_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->autogenerate_column_names);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__use_threads(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->use_threads);
+}
+
+// [[arrow::export]]
+SEXP csv___ReadOptions__skip_rows_after_names(
+    const std::shared_ptr<arrow::csv::ReadOptions>& options) {
+  return cpp11::as_sexp(options->skip_rows_after_names);
 }
 
 // [[arrow::export]]
@@ -154,15 +186,17 @@ std::shared_ptr<arrow::csv::TableReader> csv___TableReader__Make(
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options,
     const std::shared_ptr<arrow::csv::ParseOptions>& parse_options,
     const std::shared_ptr<arrow::csv::ConvertOptions>& convert_options) {
-  return ValueOrStop(arrow::csv::TableReader::Make(arrow::io::IOContext(gc_memory_pool()),
-                                                   input, *read_options, *parse_options,
-                                                   *convert_options));
+  return ValueOrStop(arrow::csv::TableReader::Make(
+      MainRThread::GetInstance().CancellableIOContext(), input, *read_options,
+      *parse_options, *convert_options));
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> csv___TableReader__Read(
     const std::shared_ptr<arrow::csv::TableReader>& table_reader) {
-  return ValueOrStop(table_reader->Read());
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return table_reader->Read(); });
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
@@ -202,4 +236,10 @@ void csv___WriteCSV__RecordBatch(
   StopIfNotOk(arrow::csv::WriteCSV(*record_batch, *write_options, stream.get()));
 }
 
-#endif
+// [[arrow::export]]
+void csv___WriteCSV__RecordBatchReader(
+    const std::shared_ptr<arrow::RecordBatchReader>& reader,
+    const std::shared_ptr<arrow::csv::WriteOptions>& write_options,
+    const std::shared_ptr<arrow::io::OutputStream>& stream) {
+  StopIfNotOk(arrow::csv::WriteCSV(reader, *write_options, stream.get()));
+}

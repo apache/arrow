@@ -16,11 +16,14 @@
 // under the License.
 #pragma once
 
-#include "arrow/api.h"
+#include <memory>
+#include <string>
+
 #include "arrow/dataset/file_parquet.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
+#include "arrow/type_fwd.h"
 
 namespace skyhook {
 
@@ -77,11 +80,7 @@ class SkyhookFileFormat : public arrow::dataset::FileFormat {
   arrow::Result<std::shared_ptr<arrow::Schema>> Inspect(
       const arrow::dataset::FileSource& source) const override;
 
-  /// \brief Scan a file fragment.
-  /// \param[in] options The ScanOptions to use.
-  /// \param[in] file The file fragment to scan.
-  /// \return An iterator of ScanTasks.
-  arrow::Result<arrow::dataset::ScanTaskIterator> ScanFile(
+  arrow::Result<arrow::RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<arrow::dataset::ScanOptions>& options,
       const std::shared_ptr<arrow::dataset::FileFragment>& file) const override;
 

@@ -30,16 +30,16 @@
 #' - `$size` : size in memory, in bytes
 #' - `$capacity`: possible capacity, in bytes
 #'
-#' @rdname buffer
-#' @name buffer
-#' @examplesIf arrow_available()
+#' @rdname Buffer-class
+#' @name Buffer
+#' @examples
 #' my_buffer <- buffer(c(1, 2, 3, 4))
 #' my_buffer$is_mutable
 #' my_buffer$ZeroPadding()
 #' my_buffer$size
 #' my_buffer$capacity
 #' @export
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @include enums.R
 Buffer <- R6Class("Buffer",
   inherit = ArrowObject,
@@ -69,8 +69,11 @@ Buffer$create <- function(x) {
   }
 }
 
+#' Create a Buffer
+#' @rdname buffer
 #' @param x R object. Only raw, numeric and integer vectors are currently supported
 #' @return an instance of `Buffer` that borrows memory from `x`
+#' @seealso [Buffer]
 #' @export
 buffer <- Buffer$create
 

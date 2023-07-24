@@ -18,27 +18,22 @@ package main
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestFileToStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-file-to-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-file-to-stream-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-file-to-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -46,7 +41,7 @@ func TestFileToStream(t *testing.T) {
 
 			arrdata.WriteFile(t, f, mem, recs[0].Schema(), recs)
 
-			o, err := ioutil.TempFile(tempDir, "go-arrow-file-to-stream-")
+			o, err := os.CreateTemp(tempDir, "go-arrow-file-to-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}

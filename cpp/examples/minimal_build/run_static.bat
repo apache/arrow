@@ -50,7 +50,6 @@ cmake ..\..\.. ^
     -DARROW_MIMALLOC=ON ^
     -DARROW_ORC=ON ^
     -DARROW_PARQUET=ON ^
-    -DARROW_PLASMA=ON ^
     -DARROW_WITH_BROTLI=ON ^
     -DARROW_WITH_BZ2=OFF ^
     -DARROW_WITH_LZ4=ON ^
@@ -85,4 +84,4 @@ echo "== Running example project"
 echo "=="
 echo
 
-call example\arrow_example.exe
+call example\arrow-example.exe

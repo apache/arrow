@@ -108,6 +108,27 @@ Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
   return FunctionOptionsFromStructScalar(scalar);
 }
 
+Status CheckAllArrayOrScalar(const std::vector<Datum>& values) {
+  for (const auto& value : values) {
+    if (!value.is_value()) {
+      return Status::TypeError(
+          "Tried executing function with non-array, non-scalar type: ", value.ToString());
+    }
+  }
+  return Status::OK();
+}
+
+Result<std::vector<TypeHolder>> GetFunctionArgumentTypes(const std::vector<Datum>& args) {
+  // type-check Datum arguments here. Really we'd like to avoid this as much as
+  // possible
+  RETURN_NOT_OK(CheckAllArrayOrScalar(args));
+  std::vector<TypeHolder> inputs(args.size());
+  for (size_t i = 0; i != args.size(); ++i) {
+    inputs[i] = TypeHolder(args[i].type());
+  }
+  return inputs;
+}
+
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

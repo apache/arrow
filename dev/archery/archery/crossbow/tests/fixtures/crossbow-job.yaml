@@ -5,7 +5,9 @@ target: !Target
   branch: refs/pull/4435/merge
   remote: https://github.com/apache/arrow
   version: 0.13.0.dev306
+  r_version: 0.12.0.100000306
   no_rc_version: 0.13.0.dev306
+  no_rc_r_version: 0.12.0.100000306
 tasks:
   docker-cpp-cmake32: !Task
     ci: circle
@@ -18,6 +20,9 @@ tasks:
       - docker-compose run cpp-cmake32
     branch: ursabot-1-circle-docker-cpp-cmake32
     commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: success
+      build_links: ["https://github.com/apache/crossbow/runs/1"]
   wheel-osx-cp37m: !Task
     ci: travis
     platform: osx
@@ -28,6 +33,9 @@ tasks:
       python_version: 3.7
     branch: ursabot-1-travis-wheel-osx-cp37m
     commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: failure
+      build_links: ["https://github.com/apache/crossbow/runs/2"]
   wheel-osx-cp36m: !Task
     ci: travis
     platform: osx
@@ -38,6 +46,9 @@ tasks:
       python_version: 3.6
     branch: ursabot-1-travis-wheel-osx-cp36m
     commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: error
+      build_links: ["https://github.com/apache/crossbow/runs/3"]
   wheel-win-cp36m: !Task
     ci: appveyor
     platform: win
@@ -48,4 +59,11 @@ tasks:
       python_version: 3.6
     branch: ursabot-1-appveyor-wheel-win-cp36m
     commit: a56b077c8d1b891a7935048e5672bf6fc07599ec
+    _status: !TaskStatus
+      combined_state: pending
+      build_links: ["https://github.com/apache/crossbow/runs/4"]
 branch: ursabot-1
+_queue: !Queue
+  path: the_path
+  github_token: xxxxxxxxx
+  _remote_url: https://github.com/apache/crossbow

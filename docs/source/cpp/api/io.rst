@@ -93,3 +93,9 @@ Compressed input / output wrappers
 
 .. doxygenclass:: arrow::io::CompressedOutputStream
    :members:
+
+Transforming input wrapper
+--------------------------
+
+.. doxygenclass:: arrow::io::TransformInputStream
+   :members:

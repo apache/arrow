@@ -38,7 +38,7 @@ class TestLargeStringScalar < Test::Unit::TestCase
   end
 
   def test_to_s
-    assert_equal("...", @scalar.to_s)
+    assert_equal("Hello", @scalar.to_s)
   end
 
   def test_value

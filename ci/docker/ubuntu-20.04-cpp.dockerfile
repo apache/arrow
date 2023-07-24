@@ -68,6 +68,7 @@ RUN apt-get update -y -q && \
         ca-certificates \
         ccache \
         cmake \
+        curl \
         g++ \
         gcc \
         gdb \
@@ -81,22 +82,33 @@ RUN apt-get update -y -q && \
         libcurl4-openssl-dev \
         libgflags-dev \
         libgoogle-glog-dev \
+        libidn2-dev \
+        libkrb5-dev \
+        libldap-dev \
         liblz4-dev \
+        libnghttp2-dev \
         libprotobuf-dev \
         libprotoc-dev \
+        libpsl-dev \
         libradospp-dev \
         libre2-dev \
+        librtmp-dev \
         libsnappy-dev \
+        libssh-dev \
+        libssh2-1-dev \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
         libzstd-dev \
         make \
         ninja-build \
+        nlohmann-json3-dev \
         pkg-config \
         protobuf-compiler \
+        python3-dev \
         python3-pip \
         python3-rados \
+        python3-venv \
         rados-objclass-dev \
         rapidjson-dev \
         rsync \
@@ -114,14 +126,24 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ceph.sh
 
+COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
+# - Abseil is not packaged
 # - libc-ares-dev does not install CMake config files
 # - flatbuffer is not packaged
 # - libgtest-dev only provide sources
 # - libprotobuf-dev only provide sources
-ENV ARROW_BUILD_TESTS=ON \
+# ARROW-17051: this build uses static Protobuf, so we must also use
+# static Arrow to run Flight/Flight SQL tests
+ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
+    ARROW_BUILD_STATIC=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=OFF \
@@ -133,7 +155,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
@@ -141,17 +162,19 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_WITH_BROTLI=ON \
     ARROW_WITH_BZ2=ON \
     ARROW_WITH_LZ4=ON \
+    ARROW_WITH_OPENTELEMETRY=ON \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
+    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
-    PATH=/usr/lib/ccache/:$PATH \
     Protobuf_SOURCE=BUNDLED \
-    PYTHON=python3
+    PATH=/usr/lib/ccache/:$PATH \
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

@@ -23,9 +23,9 @@ import org.apache.arrow.flight.impl.Flight;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.util.AutoCloseables;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import io.grpc.stub.ServerCallStreamObserver;
 
@@ -33,12 +33,12 @@ public class TestFlightService {
 
   private BufferAllocator allocator;
 
-  @Before
+  @BeforeEach
   public void setup() {
     allocator = new RootAllocator(Long.MAX_VALUE);
   }
 
-  @After
+  @AfterEach
   public void cleanup() throws Exception {
     AutoCloseables.close(allocator);
   }

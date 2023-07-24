@@ -28,6 +28,7 @@
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
+#include "arrow/util/functional.h"
 
 namespace arrow {
 
@@ -793,6 +794,15 @@ TEST(ResultTest, MatcherExplanations) {
     EXPECT_THAT(listener.str(),
                 testing::StrEq("whose error \"Type error: XXX\" doesn't match"));
   }
+}
+
+TEST(ResultTest, ValueOrGeneratedMoveOnlyGenerator) {
+  Result<MoveOnlyDataType> result = Status::Invalid("");
+  internal::FnOnce<MoveOnlyDataType()> alternative_generator = [] {
+    return MoveOnlyDataType{kIntElement};
+  };
+  auto out = std::move(result).ValueOrElse(std::move(alternative_generator));
+  EXPECT_EQ(*out.data, kIntElement);
 }
 
 }  // namespace

@@ -161,6 +161,14 @@ struct _GArrowUnionArrayClass
   GArrowArrayClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_12_0
+gint8
+garrow_union_array_get_type_code(GArrowUnionArray *array,
+                                 gint64 i);
+GARROW_AVAILABLE_IN_12_0
+gint
+garrow_union_array_get_child_id(GArrowUnionArray *array,
+                                gint64 i);
 GArrowArray *
 garrow_union_array_get_field(GArrowUnionArray *array,
                              gint i);
@@ -209,6 +217,10 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
                                        GArrowInt32Array *value_offsets,
                                        GList *fields,
                                        GError **error);
+GARROW_AVAILABLE_IN_12_0
+gint32
+garrow_dense_union_array_get_value_offset(GArrowDenseUnionArray *array,
+                                          gint64 i);
 
 
 #define GARROW_TYPE_DICTIONARY_ARRAY (garrow_dictionary_array_get_type())
@@ -236,5 +248,51 @@ GARROW_DEPRECATED_IN_1_0_FOR(garrow_array_get_value_data_type)
 GArrowDictionaryDataType *
 garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array);
 #endif
+
+
+#define GARROW_TYPE_RUN_END_ENCODED_ARRAY       \
+  (garrow_run_end_encoded_array_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowRunEndEncodedArray,
+                         garrow_run_end_encoded_array,
+                         GARROW,
+                         RUN_END_ENCODED_ARRAY,
+                         GArrowArray)
+struct _GArrowRunEndEncodedArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_13_0
+GArrowRunEndEncodedArray *
+garrow_run_end_encoded_array_new(GArrowDataType *data_type,
+                                 gint64 logical_length,
+                                 GArrowArray *run_ends,
+                                 GArrowArray *values,
+                                 gint64 logical_offset,
+                                 GError **error);
+GARROW_AVAILABLE_IN_13_0
+GArrowArray *
+garrow_run_end_encoded_array_get_run_ends(GArrowRunEndEncodedArray *array);
+GARROW_AVAILABLE_IN_13_0
+GArrowArray *
+garrow_run_end_encoded_array_get_values(GArrowRunEndEncodedArray *array);
+GARROW_AVAILABLE_IN_13_0
+GArrowArray *
+garrow_run_end_encoded_array_get_logical_run_ends(
+  GArrowRunEndEncodedArray *array,
+  GError **error);
+GARROW_AVAILABLE_IN_13_0
+GArrowArray *
+garrow_run_end_encoded_array_get_logical_values(GArrowRunEndEncodedArray *array);
+GARROW_AVAILABLE_IN_13_0
+gint64
+garrow_run_end_encoded_array_find_physical_offset(
+  GArrowRunEndEncodedArray *array);
+GARROW_AVAILABLE_IN_13_0
+gint64
+garrow_run_end_encoded_array_find_physical_length(
+  GArrowRunEndEncodedArray *array);
+
+
 
 G_END_DECLS

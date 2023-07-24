@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/adapters/orc/adapter_util.h"
+#include "arrow/adapters/orc/util.h"
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/io/interfaces.h"
@@ -92,8 +92,7 @@ namespace orc {
 
 namespace {
 
-// The following are required by ORC to be uint64_t
-constexpr uint64_t kOrcWriterBatchSize = 128 * 1024;
+// The following is required by ORC to be uint64_t
 constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
 using internal::checked_cast;
@@ -127,13 +126,6 @@ class ArrowInputFile : public liborc::InputStream {
   std::shared_ptr<io::RandomAccessFile> file_;
 };
 
-struct StripeInformation {
-  uint64_t offset;
-  uint64_t length;
-  uint64_t num_rows;
-  uint64_t first_row_of_stripe;
-};
-
 // The number of rows to read in a ColumnVectorBatch
 constexpr int64_t kReadRowsBatch = 1000;
 
@@ -159,7 +151,8 @@ class OrcStripeReader : public RecordBatchReader {
     }
 
     std::unique_ptr<RecordBatchBuilder> builder;
-    RETURN_NOT_OK(RecordBatchBuilder::Make(schema_, pool_, batch->numElements, &builder));
+    ARROW_ASSIGN_OR_RAISE(builder,
+                          RecordBatchBuilder::Make(schema_, pool_, batch->numElements));
 
     // The top-level type must be a struct to read into an arrow table
     const auto& struct_batch = checked_cast<liborc::StructVectorBatch&>(*batch);
@@ -169,7 +162,7 @@ class OrcStripeReader : public RecordBatchReader {
                                 batch->numElements, builder->GetField(i)));
     }
 
-    RETURN_NOT_OK(builder->Flush(out));
+    ARROW_ASSIGN_OR_RAISE(*out, builder->Flush());
     return Status::OK();
   }
 
@@ -179,6 +172,16 @@ class OrcStripeReader : public RecordBatchReader {
   MemoryPool* pool_;
   int64_t batch_size_;
 };
+
+liborc::RowReaderOptions default_row_reader_options() {
+  liborc::RowReaderOptions options;
+  // Orc timestamp type is error-prone since it serializes values in the writer timezone
+  // and reads them back in the reader timezone. To avoid this, both the Apache Orc C++
+  // writer and reader set the timezone to GMT by default to avoid any conversion.
+  // We follow the same practice here explicitly to make sure readers are aware of this.
+  options.setTimezoneName("GMT");
+  return options;
+}
 
 }  // namespace
 
@@ -206,8 +209,10 @@ class ORCFileReader::Impl {
     uint64_t first_row_of_stripe = 0;
     for (int i = 0; i < nstripes; ++i) {
       stripe = reader_->getStripe(i);
-      stripes_[i] = StripeInformation({stripe->getOffset(), stripe->getLength(),
-                                       stripe->getNumberOfRows(), first_row_of_stripe});
+      stripes_[i] = StripeInformation({static_cast<int64_t>(stripe->getOffset()),
+                                       static_cast<int64_t>(stripe->getLength()),
+                                       static_cast<int64_t>(stripe->getNumberOfRows()),
+                                       static_cast<int64_t>(first_row_of_stripe)});
       first_row_of_stripe += stripe->getNumberOfRows();
     }
     return Status::OK();
@@ -215,18 +220,86 @@ class ORCFileReader::Impl {
 
   int64_t NumberOfStripes() { return stripes_.size(); }
 
-  int64_t NumberOfRows() { return reader_->getNumberOfRows(); }
+  int64_t NumberOfRows() { return static_cast<int64_t>(reader_->getNumberOfRows()); }
 
-  Status ReadSchema(std::shared_ptr<Schema>* out) {
-    const liborc::Type& type = reader_->getType();
-    return GetArrowSchema(type, out);
+  StripeInformation GetStripeInformation(int64_t stripe) { return stripes_[stripe]; }
+
+  FileVersion GetFileVersion() {
+    liborc::FileVersion orc_file_version = reader_->getFormatVersion();
+    return FileVersion(orc_file_version.getMajor(), orc_file_version.getMinor());
   }
 
-  Status ReadSchema(const liborc::RowReaderOptions& opts, std::shared_ptr<Schema>* out) {
+  Result<Compression::type> GetCompression() {
+    liborc::CompressionKind orc_compression = reader_->getCompression();
+    switch (orc_compression) {
+      case liborc::CompressionKind::CompressionKind_NONE:
+        return Compression::UNCOMPRESSED;
+      case liborc::CompressionKind::CompressionKind_ZLIB:
+        return Compression::GZIP;
+      case liborc::CompressionKind::CompressionKind_SNAPPY:
+        return Compression::SNAPPY;
+      case liborc::CompressionKind::CompressionKind_LZ4:
+        return Compression::LZ4;
+      case liborc::CompressionKind::CompressionKind_ZSTD:
+        return Compression::ZSTD;
+      default:
+        // liborc::CompressionKind::CompressionKind_MAX isn't really a compression type
+        return Status::Invalid("Compression type not supported by Arrow");
+    }
+  }
+
+  std::string GetSoftwareVersion() { return reader_->getSoftwareVersion(); }
+
+  int64_t GetCompressionSize() {
+    return static_cast<int64_t>(reader_->getCompressionSize());
+  }
+
+  int64_t GetRowIndexStride() {
+    return static_cast<int64_t>(reader_->getRowIndexStride());
+  }
+
+  WriterId GetWriterId() {
+    return static_cast<WriterId>(static_cast<int8_t>(reader_->getWriterId()));
+  }
+
+  int32_t GetWriterIdValue() { return static_cast<int32_t>(reader_->getWriterIdValue()); }
+
+  WriterVersion GetWriterVersion() {
+    return static_cast<WriterVersion>(static_cast<int8_t>(reader_->getWriterVersion()));
+  }
+
+  int64_t GetNumberOfStripeStatistics() {
+    return static_cast<int64_t>(reader_->getNumberOfStripeStatistics());
+  }
+
+  int64_t GetContentLength() { return static_cast<int64_t>(reader_->getContentLength()); }
+
+  int64_t GetStripeStatisticsLength() {
+    return static_cast<int64_t>(reader_->getStripeStatisticsLength());
+  }
+
+  int64_t GetFileFooterLength() {
+    return static_cast<int64_t>(reader_->getFileFooterLength());
+  }
+
+  int64_t GetFilePostscriptLength() {
+    return static_cast<int64_t>(reader_->getFilePostscriptLength());
+  }
+
+  int64_t GetFileLength() { return static_cast<int64_t>(reader_->getFileLength()); }
+
+  std::string GetSerializedFileTail() { return reader_->getSerializedFileTail(); }
+
+  Result<std::shared_ptr<Schema>> ReadSchema() {
+    const liborc::Type& type = reader_->getType();
+    return GetArrowSchema(type);
+  }
+
+  Result<std::shared_ptr<Schema>> ReadSchema(const liborc::RowReaderOptions& opts) {
     std::unique_ptr<liborc::RowReader> row_reader;
     ORC_CATCH_NOT_OK(row_reader = reader_->createRowReader(opts));
     const liborc::Type& type = row_reader->getSelectedType();
-    return GetArrowSchema(type, out);
+    return GetArrowSchema(type);
   }
 
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata() {
@@ -238,7 +311,7 @@ class ORCFileReader::Impl {
     return std::const_pointer_cast<const KeyValueMetadata>(metadata);
   }
 
-  Status GetArrowSchema(const liborc::Type& type, std::shared_ptr<Schema>* out) {
+  Result<std::shared_ptr<Schema>> GetArrowSchema(const liborc::Type& type) {
     if (type.getKind() != liborc::STRUCT) {
       return Status::NotImplemented(
           "Only ORC files with a top-level struct "
@@ -246,86 +319,79 @@ class ORCFileReader::Impl {
     }
     int size = static_cast<int>(type.getSubtypeCount());
     std::vector<std::shared_ptr<Field>> fields;
+    fields.reserve(size);
     for (int child = 0; child < size; ++child) {
-      std::shared_ptr<DataType> elemtype;
-      RETURN_NOT_OK(GetArrowType(type.getSubtype(child), &elemtype));
-      std::string name = type.getFieldName(child);
-      fields.push_back(field(name, elemtype));
+      const std::string& name = type.getFieldName(child);
+      ARROW_ASSIGN_OR_RAISE(auto elem_field, GetArrowField(name, type.getSubtype(child)));
+      fields.push_back(std::move(elem_field));
     }
     ARROW_ASSIGN_OR_RAISE(auto metadata, ReadMetadata());
-    *out = std::make_shared<Schema>(std::move(fields), std::move(metadata));
-    return Status::OK();
+    return std::make_shared<Schema>(std::move(fields), std::move(metadata));
   }
 
-  Status Read(std::shared_ptr<Table>* out) {
-    liborc::RowReaderOptions opts;
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
-    return ReadTable(opts, schema, out);
+  Result<std::shared_ptr<Table>> Read() {
+    liborc::RowReaderOptions opts = default_row_reader_options();
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+    return ReadTable(opts, schema);
   }
 
-  Status Read(const std::shared_ptr<Schema>& schema, std::shared_ptr<Table>* out) {
-    liborc::RowReaderOptions opts;
-    return ReadTable(opts, schema, out);
+  Result<std::shared_ptr<Table>> Read(const std::shared_ptr<Schema>& schema) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
+    return ReadTable(opts, schema);
   }
 
-  Status Read(const std::vector<int>& include_indices, std::shared_ptr<Table>* out) {
-    liborc::RowReaderOptions opts;
+  Result<std::shared_ptr<Table>> Read(const std::vector<int>& include_indices) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
-    return ReadTable(opts, schema, out);
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return ReadTable(opts, schema);
   }
 
-  Status Read(const std::vector<std::string>& include_names,
-              std::shared_ptr<Table>* out) {
-    liborc::RowReaderOptions opts;
+  Result<std::shared_ptr<Table>> Read(const std::vector<std::string>& include_names) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectNames(&opts, include_names));
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
-    return ReadTable(opts, schema, out);
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return ReadTable(opts, schema);
   }
 
-  Status Read(const std::shared_ptr<Schema>& schema,
-              const std::vector<int>& include_indices, std::shared_ptr<Table>* out) {
-    liborc::RowReaderOptions opts;
+  Result<std::shared_ptr<Table>> Read(const std::shared_ptr<Schema>& schema,
+                                      const std::vector<int>& include_indices) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
-    return ReadTable(opts, schema, out);
+    return ReadTable(opts, schema);
   }
 
-  Status ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
-    liborc::RowReaderOptions opts;
+  Result<std::shared_ptr<RecordBatch>> ReadStripe(int64_t stripe) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
-    return ReadBatch(opts, schema, stripes_[stripe].num_rows, out);
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return ReadBatch(opts, schema, stripes_[stripe].num_rows);
   }
 
-  Status ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
-                    std::shared_ptr<RecordBatch>* out) {
-    liborc::RowReaderOptions opts;
+  Result<std::shared_ptr<RecordBatch>> ReadStripe(
+      int64_t stripe, const std::vector<int>& include_indices) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
-    return ReadBatch(opts, schema, stripes_[stripe].num_rows, out);
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return ReadBatch(opts, schema, stripes_[stripe].num_rows);
   }
 
-  Status ReadStripe(int64_t stripe, const std::vector<std::string>& include_names,
-                    std::shared_ptr<RecordBatch>* out) {
-    liborc::RowReaderOptions opts;
+  Result<std::shared_ptr<RecordBatch>> ReadStripe(
+      int64_t stripe, const std::vector<std::string>& include_names) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
     RETURN_NOT_OK(SelectNames(&opts, include_names));
     RETURN_NOT_OK(SelectStripe(&opts, stripe));
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
-    return ReadBatch(opts, schema, stripes_[stripe].num_rows, out);
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return ReadBatch(opts, schema, stripes_[stripe].num_rows);
   }
 
   Status SelectStripe(liborc::RowReaderOptions* opts, int64_t stripe) {
     ARROW_RETURN_IF(stripe < 0 || stripe >= NumberOfStripes(),
                     Status::Invalid("Out of bounds stripe: ", stripe));
 
-    opts->range(stripes_[stripe].offset, stripes_[stripe].length);
+    opts->range(static_cast<uint64_t>(stripes_[stripe].offset),
+                static_cast<uint64_t>(stripes_[stripe].length));
     return Status::OK();
   }
 
@@ -335,9 +401,9 @@ class ORCFileReader::Impl {
                     Status::Invalid("Out of bounds row number: ", row_number));
 
     for (auto it = stripes_.begin(); it != stripes_.end(); it++) {
-      if (static_cast<uint64_t>(row_number) >= it->first_row_of_stripe &&
-          static_cast<uint64_t>(row_number) < it->first_row_of_stripe + it->num_rows) {
-        opts->range(it->offset, it->length);
+      if (row_number >= it->first_row_id &&
+          row_number < it->first_row_id + it->num_rows) {
+        opts->range(static_cast<uint64_t>(it->offset), static_cast<uint64_t>(it->length));
         *out = *it;
         return Status::OK();
       }
@@ -353,7 +419,7 @@ class ORCFileReader::Impl {
       ARROW_RETURN_IF(*it < 0, Status::Invalid("Negative field index"));
       include_indices_list.push_back(*it);
     }
-    opts->includeTypes(include_indices_list);
+    opts->include(include_indices_list);
     return Status::OK();
   }
 
@@ -364,20 +430,22 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status ReadTable(const liborc::RowReaderOptions& row_opts,
-                   const std::shared_ptr<Schema>& schema, std::shared_ptr<Table>* out) {
+  Result<std::shared_ptr<Table>> ReadTable(const liborc::RowReaderOptions& row_opts,
+                                           const std::shared_ptr<Schema>& schema) {
     liborc::RowReaderOptions opts(row_opts);
     std::vector<std::shared_ptr<RecordBatch>> batches(stripes_.size());
     for (size_t stripe = 0; stripe < stripes_.size(); stripe++) {
-      opts.range(stripes_[stripe].offset, stripes_[stripe].length);
-      RETURN_NOT_OK(ReadBatch(opts, schema, stripes_[stripe].num_rows, &batches[stripe]));
+      opts.range(static_cast<uint64_t>(stripes_[stripe].offset),
+                 static_cast<uint64_t>(stripes_[stripe].length));
+      ARROW_ASSIGN_OR_RAISE(batches[stripe],
+                            ReadBatch(opts, schema, stripes_[stripe].num_rows));
     }
-    return Table::FromRecordBatches(schema, std::move(batches)).Value(out);
+    return Table::FromRecordBatches(schema, std::move(batches));
   }
 
-  Status ReadBatch(const liborc::RowReaderOptions& opts,
-                   const std::shared_ptr<Schema>& schema, int64_t nrows,
-                   std::shared_ptr<RecordBatch>* out) {
+  Result<std::shared_ptr<RecordBatch>> ReadBatch(const liborc::RowReaderOptions& opts,
+                                                 const std::shared_ptr<Schema>& schema,
+                                                 int64_t nrows) {
     std::unique_ptr<liborc::RowReader> row_reader;
     std::unique_ptr<liborc::ColumnVectorBatch> batch;
 
@@ -387,7 +455,7 @@ class ORCFileReader::Impl {
     ORC_END_CATCH_NOT_OK
 
     std::unique_ptr<RecordBatchBuilder> builder;
-    RETURN_NOT_OK(RecordBatchBuilder::Make(schema, pool_, nrows, &builder));
+    ARROW_ASSIGN_OR_RAISE(builder, RecordBatchBuilder::Make(schema, pool_, nrows));
 
     // The top-level type must be a struct to read into an arrow table
     const auto& struct_batch = checked_cast<liborc::StructVectorBatch&>(*batch);
@@ -399,8 +467,8 @@ class ORCFileReader::Impl {
                                   batch->numElements, builder->GetField(i)));
       }
     }
-    RETURN_NOT_OK(builder->Flush(out));
-    return Status::OK();
+
+    return builder->Flush();
   }
 
   Status Seek(int64_t row_number) {
@@ -411,36 +479,51 @@ class ORCFileReader::Impl {
     return Status::OK();
   }
 
-  Status NextStripeReader(int64_t batch_size, const std::vector<int>& include_indices,
-                          std::shared_ptr<RecordBatchReader>* out) {
+  Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(
+      int64_t batch_size, const std::vector<int>& include_indices) {
     if (current_row_ >= NumberOfRows()) {
-      out->reset();
-      return Status::OK();
+      return nullptr;
     }
 
-    liborc::RowReaderOptions opts;
+    liborc::RowReaderOptions opts = default_row_reader_options();
     if (!include_indices.empty()) {
       RETURN_NOT_OK(SelectIndices(&opts, include_indices));
     }
     StripeInformation stripe_info({0, 0, 0, 0});
     RETURN_NOT_OK(SelectStripeWithRowNumber(&opts, current_row_, &stripe_info));
-    std::shared_ptr<Schema> schema;
-    RETURN_NOT_OK(ReadSchema(opts, &schema));
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
     std::unique_ptr<liborc::RowReader> row_reader;
 
     ORC_BEGIN_CATCH_NOT_OK
     row_reader = reader_->createRowReader(opts);
     row_reader->seekToRow(current_row_);
-    current_row_ = stripe_info.first_row_of_stripe + stripe_info.num_rows;
+    current_row_ = stripe_info.first_row_id + stripe_info.num_rows;
     ORC_END_CATCH_NOT_OK
 
-    *out = std::shared_ptr<RecordBatchReader>(
-        new OrcStripeReader(std::move(row_reader), schema, batch_size, pool_));
-    return Status::OK();
+    return std::make_shared<OrcStripeReader>(std::move(row_reader), schema, batch_size,
+                                             pool_);
   }
 
-  Status NextStripeReader(int64_t batch_size, std::shared_ptr<RecordBatchReader>* out) {
-    return NextStripeReader(batch_size, {}, out);
+  Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+      int64_t batch_size, const std::vector<std::string>& include_names) {
+    liborc::RowReaderOptions opts = default_row_reader_options();
+    if (!include_names.empty()) {
+      RETURN_NOT_OK(SelectNames(&opts, include_names));
+    }
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    std::unique_ptr<liborc::RowReader> row_reader;
+
+    ORC_BEGIN_CATCH_NOT_OK
+    row_reader = reader_->createRowReader(opts);
+    ORC_END_CATCH_NOT_OK
+
+    return std::make_shared<OrcStripeReader>(std::move(row_reader), schema, batch_size,
+                                             pool_);
+  }
+
+  Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(int64_t batch_size) {
+    std::vector<int> empty_vec;
+    return NextStripeReader(batch_size, empty_vec);
   }
 
  private:
@@ -454,11 +537,6 @@ ORCFileReader::ORCFileReader() { impl_.reset(new ORCFileReader::Impl()); }
 
 ORCFileReader::~ORCFileReader() {}
 
-Status ORCFileReader::Open(const std::shared_ptr<io::RandomAccessFile>& file,
-                           MemoryPool* pool, std::unique_ptr<ORCFileReader>* reader) {
-  return Open(file, pool).Value(reader);
-}
-
 Result<std::unique_ptr<ORCFileReader>> ORCFileReader::Open(
     const std::shared_ptr<io::RandomAccessFile>& file, MemoryPool* pool) {
   auto result = std::unique_ptr<ORCFileReader>(new ORCFileReader());
@@ -470,127 +548,110 @@ Result<std::shared_ptr<const KeyValueMetadata>> ORCFileReader::ReadMetadata() {
   return impl_->ReadMetadata();
 }
 
-Status ORCFileReader::ReadSchema(std::shared_ptr<Schema>* out) {
-  return impl_->ReadSchema(out);
-}
-
 Result<std::shared_ptr<Schema>> ORCFileReader::ReadSchema() {
-  std::shared_ptr<Schema> schema;
-  RETURN_NOT_OK(impl_->ReadSchema(&schema));
-  return schema;
+  return impl_->ReadSchema();
 }
 
-Status ORCFileReader::Read(std::shared_ptr<Table>* out) { return impl_->Read(out); }
-
-Result<std::shared_ptr<Table>> ORCFileReader::Read() {
-  std::shared_ptr<Table> table;
-  RETURN_NOT_OK(impl_->Read(&table));
-  return table;
-}
-
-Status ORCFileReader::Read(const std::shared_ptr<Schema>& schema,
-                           std::shared_ptr<Table>* out) {
-  return impl_->Read(schema, out);
-}
+Result<std::shared_ptr<Table>> ORCFileReader::Read() { return impl_->Read(); }
 
 Result<std::shared_ptr<Table>> ORCFileReader::Read(
     const std::shared_ptr<Schema>& schema) {
-  std::shared_ptr<Table> table;
-  RETURN_NOT_OK(impl_->Read(schema, &table));
-  return table;
-}
-
-Status ORCFileReader::Read(const std::vector<int>& include_indices,
-                           std::shared_ptr<Table>* out) {
-  return impl_->Read(include_indices, out);
+  return impl_->Read(schema);
 }
 
 Result<std::shared_ptr<Table>> ORCFileReader::Read(
     const std::vector<int>& include_indices) {
-  std::shared_ptr<Table> table;
-  RETURN_NOT_OK(impl_->Read(include_indices, &table));
-  return table;
+  return impl_->Read(include_indices);
 }
 
 Result<std::shared_ptr<Table>> ORCFileReader::Read(
     const std::vector<std::string>& include_names) {
-  std::shared_ptr<Table> table;
-  RETURN_NOT_OK(impl_->Read(include_names, &table));
-  return table;
-}
-
-Status ORCFileReader::Read(const std::shared_ptr<Schema>& schema,
-                           const std::vector<int>& include_indices,
-                           std::shared_ptr<Table>* out) {
-  return impl_->Read(schema, include_indices, out);
+  return impl_->Read(include_names);
 }
 
 Result<std::shared_ptr<Table>> ORCFileReader::Read(
     const std::shared_ptr<Schema>& schema, const std::vector<int>& include_indices) {
-  std::shared_ptr<Table> table;
-  RETURN_NOT_OK(impl_->Read(schema, include_indices, &table));
-  return table;
-}
-
-Status ORCFileReader::ReadStripe(int64_t stripe, std::shared_ptr<RecordBatch>* out) {
-  return impl_->ReadStripe(stripe, out);
+  return impl_->Read(schema, include_indices);
 }
 
 Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(int64_t stripe) {
-  std::shared_ptr<RecordBatch> recordBatch;
-  RETURN_NOT_OK(impl_->ReadStripe(stripe, &recordBatch));
-  return recordBatch;
-}
-
-Status ORCFileReader::ReadStripe(int64_t stripe, const std::vector<int>& include_indices,
-                                 std::shared_ptr<RecordBatch>* out) {
-  return impl_->ReadStripe(stripe, include_indices, out);
+  return impl_->ReadStripe(stripe);
 }
 
 Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(
     int64_t stripe, const std::vector<int>& include_indices) {
-  std::shared_ptr<RecordBatch> recordBatch;
-  RETURN_NOT_OK(impl_->ReadStripe(stripe, include_indices, &recordBatch));
-  return recordBatch;
+  return impl_->ReadStripe(stripe, include_indices);
 }
 
 Result<std::shared_ptr<RecordBatch>> ORCFileReader::ReadStripe(
     int64_t stripe, const std::vector<std::string>& include_names) {
-  std::shared_ptr<RecordBatch> recordBatch;
-  RETURN_NOT_OK(impl_->ReadStripe(stripe, include_names, &recordBatch));
-  return recordBatch;
+  return impl_->ReadStripe(stripe, include_names);
 }
 
 Status ORCFileReader::Seek(int64_t row_number) { return impl_->Seek(row_number); }
 
-Status ORCFileReader::NextStripeReader(int64_t batch_sizes,
-                                       std::shared_ptr<RecordBatchReader>* out) {
-  return impl_->NextStripeReader(batch_sizes, out);
-}
-
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
     int64_t batch_size) {
-  std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(impl_->NextStripeReader(batch_size, &reader));
-  return reader;
+  return impl_->NextStripeReader(batch_size);
 }
 
-Status ORCFileReader::NextStripeReader(int64_t batch_size,
-                                       const std::vector<int>& include_indices,
-                                       std::shared_ptr<RecordBatchReader>* out) {
-  return impl_->NextStripeReader(batch_size, include_indices, out);
+Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReader(
+    int64_t batch_size, const std::vector<std::string>& include_names) {
+  return impl_->GetRecordBatchReader(batch_size, include_names);
 }
 
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
     int64_t batch_size, const std::vector<int>& include_indices) {
-  std::shared_ptr<RecordBatchReader> reader;
-  RETURN_NOT_OK(impl_->NextStripeReader(batch_size, include_indices, &reader));
-  return reader;
+  return impl_->NextStripeReader(batch_size, include_indices);
 }
 
 int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }
 
 int64_t ORCFileReader::NumberOfRows() { return impl_->NumberOfRows(); }
+
+StripeInformation ORCFileReader::GetStripeInformation(int64_t stripe) {
+  return impl_->GetStripeInformation(stripe);
+}
+
+FileVersion ORCFileReader::GetFileVersion() { return impl_->GetFileVersion(); }
+
+std::string ORCFileReader::GetSoftwareVersion() { return impl_->GetSoftwareVersion(); }
+
+Result<Compression::type> ORCFileReader::GetCompression() {
+  return impl_->GetCompression();
+}
+
+int64_t ORCFileReader::GetCompressionSize() { return impl_->GetCompressionSize(); }
+
+int64_t ORCFileReader::GetRowIndexStride() { return impl_->GetRowIndexStride(); }
+
+WriterId ORCFileReader::GetWriterId() { return impl_->GetWriterId(); }
+
+int32_t ORCFileReader::GetWriterIdValue() { return impl_->GetWriterIdValue(); }
+
+WriterVersion ORCFileReader::GetWriterVersion() { return impl_->GetWriterVersion(); }
+
+int64_t ORCFileReader::GetNumberOfStripeStatistics() {
+  return impl_->GetNumberOfStripeStatistics();
+}
+
+int64_t ORCFileReader::GetContentLength() { return impl_->GetContentLength(); }
+
+int64_t ORCFileReader::GetStripeStatisticsLength() {
+  return impl_->GetStripeStatisticsLength();
+}
+
+int64_t ORCFileReader::GetFileFooterLength() { return impl_->GetFileFooterLength(); }
+
+int64_t ORCFileReader::GetFilePostscriptLength() {
+  return impl_->GetFilePostscriptLength();
+}
+
+int64_t ORCFileReader::GetFileLength() { return impl_->GetFileLength(); }
+
+std::string ORCFileReader::GetSerializedFileTail() {
+  return impl_->GetSerializedFileTail();
+}
 
 namespace {
 
@@ -615,11 +676,7 @@ class ArrowOutputStream : public liborc::OutputStream {
     return filename;
   }
 
-  void close() override {
-    if (!output_stream_.closed()) {
-      ORC_THROW_NOT_OK(output_stream_.Close());
-    }
-  }
+  void close() override {}
 
   void set_length(int64_t length) { length_ = length; }
 
@@ -628,53 +685,118 @@ class ArrowOutputStream : public liborc::OutputStream {
   int64_t length_;
 };
 
+Result<liborc::WriterOptions> MakeOrcWriterOptions(
+    arrow::adapters::orc::WriteOptions options) {
+  liborc::WriterOptions orc_options;
+  orc_options.setFileVersion(
+      liborc::FileVersion(static_cast<uint32_t>(options.file_version.major_version()),
+                          static_cast<uint32_t>(options.file_version.minor_version())));
+  orc_options.setStripeSize(static_cast<uint64_t>(options.stripe_size));
+  orc_options.setCompressionBlockSize(
+      static_cast<uint64_t>(options.compression_block_size));
+  orc_options.setCompressionStrategy(static_cast<liborc::CompressionStrategy>(
+      static_cast<int8_t>(options.compression_strategy)));
+  orc_options.setRowIndexStride(static_cast<uint64_t>(options.row_index_stride));
+  orc_options.setPaddingTolerance(options.padding_tolerance);
+  orc_options.setDictionaryKeySizeThreshold(options.dictionary_key_size_threshold);
+  std::set<uint64_t> orc_bloom_filter_columns;
+  std::for_each(options.bloom_filter_columns.begin(), options.bloom_filter_columns.end(),
+                [&orc_bloom_filter_columns](const int64_t col) {
+                  orc_bloom_filter_columns.insert(static_cast<uint64_t>(col));
+                });
+  orc_options.setColumnsUseBloomFilter(std::move(orc_bloom_filter_columns));
+  orc_options.setBloomFilterFPP(options.bloom_filter_fpp);
+  // Orc timestamp type is error-prone since it serializes values in the writer timezone
+  // and reads them back in the reader timezone. To avoid this, both the Apache Orc C++
+  // writer and reader set the timezone to GMT by default to avoid any conversion.
+  // We follow the same practice here explicitly to make sure readers are aware of this.
+  orc_options.setTimezoneName("GMT");
+  switch (options.compression) {
+    case Compression::UNCOMPRESSED:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_NONE);
+      break;
+    case Compression::GZIP:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_ZLIB);
+      break;
+    case Compression::SNAPPY:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_SNAPPY);
+      break;
+    case Compression::LZ4:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_LZ4);
+      break;
+    case Compression::ZSTD:
+      orc_options.setCompression(liborc::CompressionKind::CompressionKind_ZSTD);
+      break;
+    default:
+      return Status::Invalid("Compression type not supported by ORC");
+  }
+  return orc_options;
+}
+
 }  // namespace
 
 class ORCFileWriter::Impl {
  public:
-  Status Open(arrow::io::OutputStream* output_stream) {
+  Status Open(arrow::io::OutputStream* output_stream, const WriteOptions& write_options) {
     out_stream_ = std::unique_ptr<liborc::OutputStream>(
         checked_cast<liborc::OutputStream*>(new ArrowOutputStream(*output_stream)));
+    write_options_ = write_options;
     return Status::OK();
   }
 
   Status Write(const Table& table) {
-    std::unique_ptr<liborc::WriterOptions> orc_options =
-        std::unique_ptr<liborc::WriterOptions>(new liborc::WriterOptions());
-    ARROW_ASSIGN_OR_RAISE(auto orc_schema, GetOrcType(*(table.schema())));
-    ORC_CATCH_NOT_OK(
-        writer_ = liborc::createWriter(*orc_schema, out_stream_.get(), *orc_options))
-
+    if (!writer_.get()) {
+      ARROW_ASSIGN_OR_RAISE(orc_schema_, GetOrcType(*(table.schema())));
+      ARROW_ASSIGN_OR_RAISE(auto orc_options, MakeOrcWriterOptions(write_options_));
+      arrow_schema_ = table.schema();
+      ORC_CATCH_NOT_OK(
+          writer_ = liborc::createWriter(*orc_schema_, out_stream_.get(), orc_options))
+    } else {
+      bool schemas_matching = table.schema()->Equals(arrow_schema_, false);
+      if (!schemas_matching) {
+        return Status::TypeError(
+            "The schema of the RecordBatch does not match"
+            " the initial schema. All exported RecordBatches/Tables"
+            " must have the same schema.\nInitial:\n",
+            *arrow_schema_, "\nCurrent:\n", *table.schema());
+      }
+    }
+    auto batch_size = static_cast<uint64_t>(write_options_.batch_size);
     int64_t num_rows = table.num_rows();
-    const int num_cols_ = table.num_columns();
-    std::vector<int64_t> arrow_index_offset(num_cols_, 0);
-    std::vector<int> arrow_chunk_offset(num_cols_, 0);
+    const int num_cols = table.num_columns();
+    std::vector<int64_t> arrow_index_offset(num_cols, 0);
+    std::vector<int> arrow_chunk_offset(num_cols, 0);
     std::unique_ptr<liborc::ColumnVectorBatch> batch =
-        writer_->createRowBatch(kOrcWriterBatchSize);
+        writer_->createRowBatch(batch_size);
     liborc::StructVectorBatch* root =
         internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
     while (num_rows > 0) {
-      for (int i = 0; i < num_cols_; i++) {
+      for (int i = 0; i < num_cols; i++) {
         RETURN_NOT_OK(adapters::orc::WriteBatch(
-            *(table.column(i)), kOrcWriterBatchSize, &(arrow_chunk_offset[i]),
+            *table.column(i), batch_size, &(arrow_chunk_offset[i]),
             &(arrow_index_offset[i]), (root->fields)[i]));
       }
       root->numElements = (root->fields)[0]->numElements;
       writer_->add(*batch);
       batch->clear();
-      num_rows -= kOrcWriterBatchSize;
+      num_rows -= batch_size;
     }
     return Status::OK();
   }
 
   Status Close() {
-    writer_->close();
+    if (writer_) {
+      writer_->close();
+    }
     return Status::OK();
   }
 
  private:
   std::unique_ptr<liborc::Writer> writer_;
   std::unique_ptr<liborc::OutputStream> out_stream_;
+  std::shared_ptr<Schema> arrow_schema_;
+  WriteOptions write_options_;
+  std::unique_ptr<liborc::Type> orc_schema_;
 };
 
 ORCFileWriter::~ORCFileWriter() {}
@@ -682,15 +804,20 @@ ORCFileWriter::~ORCFileWriter() {}
 ORCFileWriter::ORCFileWriter() { impl_.reset(new ORCFileWriter::Impl()); }
 
 Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
-    io::OutputStream* output_stream) {
+    io::OutputStream* output_stream, const WriteOptions& writer_options) {
   std::unique_ptr<ORCFileWriter> result =
       std::unique_ptr<ORCFileWriter>(new ORCFileWriter());
-  Status status = result->impl_->Open(output_stream);
+  Status status = result->impl_->Open(output_stream, writer_options);
   RETURN_NOT_OK(status);
   return std::move(result);
 }
 
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
+
+Status ORCFileWriter::Write(const RecordBatch& record_batch) {
+  auto table = Table::Make(record_batch.schema(), record_batch.columns());
+  return impl_->Write(*table);
+}
 
 Status ORCFileWriter::Close() { return impl_->Close(); }
 

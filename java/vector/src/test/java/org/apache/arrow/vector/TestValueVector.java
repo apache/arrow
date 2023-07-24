@@ -190,6 +190,41 @@ public class TestValueVector {
     }
   }
 
+  @Test
+  public void testNoOverFlowWithUINT() {
+    try (final UInt8Vector uInt8Vector = new UInt8Vector("uint8", allocator);
+         final UInt4Vector uInt4Vector = new UInt4Vector("uint4", allocator);
+         final UInt1Vector uInt1Vector = new UInt1Vector("uint1", allocator)) {
+
+      long[] longValues = new long[]{Long.MIN_VALUE, Long.MAX_VALUE, -1L};
+      uInt8Vector.allocateNew(3);
+      uInt8Vector.setValueCount(3);
+      for (int i = 0; i < longValues.length; i++) {
+        uInt8Vector.set(i, longValues[i]);
+        long readValue = uInt8Vector.getObjectNoOverflow(i).longValue();
+        assertEquals(readValue, longValues[i]);
+      }
+
+      int[] intValues = new int[]{Integer.MIN_VALUE, Integer.MAX_VALUE, -1};
+      uInt4Vector.allocateNew(3);
+      uInt4Vector.setValueCount(3);
+      for (int i = 0; i < intValues.length; i++) {
+        uInt4Vector.set(i, intValues[i]);
+        int actualValue = (int) UInt4Vector.getNoOverflow(uInt4Vector.getDataBuffer(), i);
+        assertEquals(intValues[i], actualValue);
+      }
+
+      byte[] byteValues = new byte[]{Byte.MIN_VALUE, Byte.MAX_VALUE, -1};
+      uInt1Vector.allocateNew(3);
+      uInt1Vector.setValueCount(3);
+      for (int i = 0; i < byteValues.length; i++) {
+        uInt1Vector.set(i, byteValues[i]);
+        byte actualValue = (byte) UInt1Vector.getNoOverflow(uInt1Vector.getDataBuffer(), i);
+        assertEquals(byteValues[i], actualValue);
+      }
+    }
+  }
+
   @Test /* IntVector */
   public void testFixedType2() {
     try (final IntVector intVector = new IntVector(EMPTY_SCHEMA_PATH, allocator)) {
@@ -1099,6 +1134,25 @@ public class TestValueVector {
 
       // Ensure null value throws.
       assertNull(vector.get(7));
+    }
+  }
+
+  @Test(expected = OversizedAllocationException.class)
+  public void testReallocateCheckSuccess() {
+
+    // Create a new value vector for 1024 integers.
+    try (final VarBinaryVector vector = newVarBinaryVector(EMPTY_SCHEMA_PATH, allocator)) {
+      vector.allocateNew(1024 * 10, 1024);
+
+      vector.set(0, STR1);
+      // Check the sample strings.
+      assertArrayEquals(STR1, vector.get(0));
+
+      // update the index offset to a larger one
+      ArrowBuf offsetBuf = vector.getOffsetBuffer();
+      offsetBuf.setInt(VarBinaryVector.OFFSET_WIDTH, Integer.MAX_VALUE - 5);
+
+      vector.setValueLengthSafe(1, 6);
     }
   }
 
@@ -2394,6 +2448,23 @@ public class TestValueVector {
       VectorEqualsVisitor twoZeroVisitor = new VectorEqualsVisitor();
       // they are not equal because of distinct names
       assertFalse(twoZeroVisitor.vectorEquals(zeroVector, zeroVector1));
+    }
+  }
+
+  @Test
+  public void testBitVectorEquals() {
+    try (final BitVector vector1 = new BitVector("bit", allocator);
+        final BitVector vector2 = new BitVector("bit", allocator)) {
+
+      setVector(vector1, 0, 1, 0);
+      setVector(vector2, 1, 1, 0);
+
+      VectorEqualsVisitor visitor = new VectorEqualsVisitor();
+
+      assertFalse(visitor.vectorEquals(vector1, vector2));
+
+      vector1.set(0, 1);
+      assertTrue(visitor.vectorEquals(vector1, vector2));
     }
   }
 

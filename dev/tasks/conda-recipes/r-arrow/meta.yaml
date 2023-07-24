@@ -10,6 +10,8 @@ source:
   path: ../../../../
 
 build:
+  # 4.1 not usable anymore unless https://github.com/conda-forge/r-base-feedstock/pull/236 gets merged
+  skip: true  # [unix and (r_base == "4.1")]
   merge_build_host: true  # [win]
   number: 0
   rpaths:
@@ -18,10 +20,17 @@ build:
 
 requirements:
   build:
+    - cross-r-base {{ r_base }}  # [build_platform != target_platform]
+    - r-r6                       # [build_platform != target_platform]
+    - r-assertthat               # [build_platform != target_platform]
+    - r-bit64                    # [build_platform != target_platform]
+    - r-purrr                    # [build_platform != target_platform]
+    - r-rlang                    # [build_platform != target_platform]
+    - r-tidyselect               # [build_platform != target_platform]
     - {{ compiler('c') }}        # [not win]
     - {{ compiler('cxx') }}      # [not win]
     - {{ compiler('r_clang') }}  # [win]
-    - pkg-config                 # [not win]
+    - pkg-config
     - {{ posix }}make
     - {{ posix }}sed         # [win]
     - {{ posix }}coreutils   # [win]
@@ -30,10 +39,10 @@ requirements:
   host:
     # Needs to be here, otherwise merge_build_host runs into issues
     - pkg-config  # [win]
+    - libarrow {{ version }}
     - r-base
-    - arrow-cpp {{ version }}
-    - r-cpp11
     - r-r6
+    - r-cpp11
     - r-assertthat
     - r-bit64
     - r-purrr
@@ -50,8 +59,8 @@ requirements:
 
 test:
   commands:
-    - $R -e "library('arrow')"           # [not win]
-    - "\"%R%\" -e \"library('arrow'); data(mtcars); write_parquet(mtcars, 'test.parquet')\""  # [win]
+    - $R -e "library('arrow'); stopifnot(arrow_with_acero(), arrow_with_dataset(), arrow_with_parquet(), arrow_with_s3())"           # [not win]
+    - "\"%R%\" -e \"library('arrow'); stopifnot(arrow_with_acero(), arrow_with_dataset(), arrow_with_parquet(), arrow_with_s3())\""  # [win]
 
 about:
   home: https://github.com/apache/arrow

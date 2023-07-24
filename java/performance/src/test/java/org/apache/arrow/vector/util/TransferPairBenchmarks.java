@@ -84,7 +84,7 @@ public class TransferPairBenchmarks {
   @TearDown
   public void tearDown() {
     intVector.close();
-    varCharVector.close();;
+    varCharVector.close();
     allocator.close();
   }
 

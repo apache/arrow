@@ -65,8 +65,7 @@ namespace red_arrow {
       VISIT(UInt16)
       VISIT(UInt32)
       VISIT(UInt64)
-      // TODO
-      // VISIT(HalfFloat)
+      VISIT(HalfFloat)
       VISIT(Float)
       VISIT(Double)
       VISIT(Binary)
@@ -77,8 +76,9 @@ namespace red_arrow {
       VISIT(Time32)
       VISIT(Time64)
       VISIT(Timestamp)
-      // TODO
-      // VISIT(Interval)
+      VISIT(MonthInterval)
+      VISIT(DayTimeInterval)
+      VISIT(MonthDayNanoInterval)
       VISIT(List)
       VISIT(Struct)
       VISIT(Map)

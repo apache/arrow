@@ -14,10 +14,41 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build !noasm
 // +build !noasm
 
 package utils
 
-import "io"
+import (
+	"os"
+	"strings"
 
-var unpack32 func(io.Reader, []uint32, int) int = unpack32Default
+	"golang.org/x/sys/cpu"
+)
+
+func init() {
+	cpu.ARM64.HasASIMD = false
+	cpu.ARM64.HasAES = false
+	cpu.ARM64.HasPMULL = false
+	// Added ability to enable extension via environment:
+	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
+		exts := strings.Split(ext, ",")
+
+		for _, x := range exts {
+			switch x {
+			case "NEON":
+				cpu.ARM64.HasASIMD = true
+			case "AES":
+				cpu.ARM64.HasAES = true
+			case "PMULL":
+				cpu.ARM64.HasPMULL = true
+			default:
+			}
+		}
+	}
+	if cpu.ARM64.HasASIMD {
+		unpack32 = unpack32NEON
+	} else { // default to the pure go implementation if no avx2 available
+		unpack32 = unpack32Default
+	}
+}

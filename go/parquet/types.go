@@ -24,8 +24,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/arrow"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
 )
 
 const (
@@ -54,7 +54,7 @@ var (
 // to be able to call ReadAt, Read, and Seek
 type ReaderAtSeeker interface {
 	io.ReaderAt
-	io.ReadSeeker
+	io.Seeker
 }
 
 // NewInt96 creates a new Int96 from the given 3 uint32 values.
@@ -131,6 +131,10 @@ func (b ByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
+func (b ByteArray) Bytes() []byte {
+	return b
+}
+
 type byteArrayTraits struct{}
 
 func (byteArrayTraits) BytesRequired(n int) int {
@@ -160,6 +164,10 @@ func (b FixedLenByteArray) Len() int {
 // String returns a string representation of the FixedLenByteArray
 func (b FixedLenByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (b FixedLenByteArray) Bytes() []byte {
+	return b
 }
 
 type fixedLenByteArrayTraits struct{}
@@ -243,20 +251,20 @@ const (
 	// This is useful for maximum compatibility with legacy readers.
 	// Note that logical types may still be emitted, as long as they have
 	// a corresponding converted type.
-	V1_0 Version = iota
+	V1_0 Version = iota // v1.0
 	// Enable parquet format 2.4 and earlier features when writing.
 	//
 	// This enables uint32 as well as logical types which don't have a
 	// corresponding converted type.
 	//
 	// Note: Parquet format 2.4.0 was released in October 2017
-	V2_4
+	V2_4 // v2.4
 	// Enable Parquet format 2.6 and earlier features when writing.
 	//
 	// This enables the nanos time unit in addition to the V2_4 features.
 	//
 	// Note: Parquet format 2.6.0 was released in September 2018
-	V2_6
+	V2_6 // v2.6
 	// Enable the latest parquet format 2.x features.
 	//
 	// This is equal to the greatest 2.x version supported by this library.

@@ -18,8 +18,11 @@
 module Arrow
   class Array
     include Enumerable
+
+    include ArrayComputable
     include GenericFilterable
     include GenericTakeable
+    include InputReferable
 
     class << self
       def new(*args)
@@ -33,6 +36,28 @@ module Arrow
         builder_class_name = "#{name}Builder"
         return nil unless const_defined?(builder_class_name)
         const_get(builder_class_name)
+      end
+
+      # @api private
+      def try_convert(value)
+        case value
+        when ::Array
+          begin
+            new(value)
+          rescue ArgumentError
+            nil
+          end
+        else
+          if value.respond_to?(:to_arrow_array)
+            begin
+              value.to_arrow_array
+            rescue RangeError
+              nil
+            end
+          else
+            nil
+          end
+        end
       end
     end
 
@@ -85,6 +110,14 @@ module Arrow
 
     def to_arrow
       self
+    end
+
+    def to_arrow_array
+      self
+    end
+
+    def to_arrow_chunked_array
+      ChunkedArray.new([self])
     end
 
     alias_method :value_data_type_raw, :value_data_type

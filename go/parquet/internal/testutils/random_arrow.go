@@ -17,9 +17,9 @@
 package testutils
 
 import (
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/exp/rand"
 )
 
@@ -33,80 +33,80 @@ import (
 // binary will have each value between length 2 and 12 but random bytes that are not limited to ascii
 // fixed size binary will all be of length 10, random bytes are not limited to ascii
 // bool will be approximately half false and half true randomly.
-func RandomNonNull(dt arrow.DataType, size int) array.Interface {
+func RandomNonNull(mem memory.Allocator, dt arrow.DataType, size int) arrow.Array {
 	switch dt.ID() {
 	case arrow.FLOAT32:
-		bldr := array.NewFloat32Builder(memory.DefaultAllocator)
+		bldr := array.NewFloat32Builder(mem)
 		defer bldr.Release()
 		values := make([]float32, size)
 		FillRandomFloat32(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.FLOAT64:
-		bldr := array.NewFloat64Builder(memory.DefaultAllocator)
+		bldr := array.NewFloat64Builder(mem)
 		defer bldr.Release()
 		values := make([]float64, size)
 		FillRandomFloat64(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.INT64:
-		bldr := array.NewInt64Builder(memory.DefaultAllocator)
+		bldr := array.NewInt64Builder(mem)
 		defer bldr.Release()
 		values := make([]int64, size)
 		FillRandomInt64(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.UINT64:
-		bldr := array.NewUint64Builder(memory.DefaultAllocator)
+		bldr := array.NewUint64Builder(mem)
 		defer bldr.Release()
 		values := make([]uint64, size)
 		FillRandomUint64(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.INT32:
-		bldr := array.NewInt32Builder(memory.DefaultAllocator)
+		bldr := array.NewInt32Builder(mem)
 		defer bldr.Release()
 		values := make([]int32, size)
 		FillRandomInt32(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.UINT32:
-		bldr := array.NewUint32Builder(memory.DefaultAllocator)
+		bldr := array.NewUint32Builder(mem)
 		defer bldr.Release()
 		values := make([]uint32, size)
 		FillRandomUint32(0, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.INT16:
-		bldr := array.NewInt16Builder(memory.DefaultAllocator)
+		bldr := array.NewInt16Builder(mem)
 		defer bldr.Release()
 		values := make([]int16, size)
 		FillRandomInt16(0, 0, 64, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.UINT16:
-		bldr := array.NewUint16Builder(memory.DefaultAllocator)
+		bldr := array.NewUint16Builder(mem)
 		defer bldr.Release()
 		values := make([]uint16, size)
 		FillRandomUint16(0, 0, 64, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.INT8:
-		bldr := array.NewInt8Builder(memory.DefaultAllocator)
+		bldr := array.NewInt8Builder(mem)
 		defer bldr.Release()
 		values := make([]int8, size)
 		FillRandomInt8(0, 0, 64, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.UINT8:
-		bldr := array.NewUint8Builder(memory.DefaultAllocator)
+		bldr := array.NewUint8Builder(mem)
 		defer bldr.Release()
 		values := make([]uint8, size)
 		FillRandomUint8(0, 0, 64, values)
 		bldr.AppendValues(values, nil)
 		return bldr.NewArray()
 	case arrow.DATE32:
-		bldr := array.NewDate32Builder(memory.DefaultAllocator)
+		bldr := array.NewDate32Builder(mem)
 		defer bldr.Release()
 		values := make([]int32, size)
 		FillRandomInt32Max(0, 24, values)
@@ -118,7 +118,7 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 		bldr.AppendValues(dates, nil)
 		return bldr.NewArray()
 	case arrow.DATE64:
-		bldr := array.NewDate64Builder(memory.DefaultAllocator)
+		bldr := array.NewDate64Builder(mem)
 		defer bldr.Release()
 		values := make([]int64, size)
 		FillRandomInt64Max(0, 24, values)
@@ -130,14 +130,21 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 		bldr.AppendValues(dates, nil)
 		return bldr.NewArray()
 	case arrow.STRING:
-		bldr := array.NewStringBuilder(memory.DefaultAllocator)
+		bldr := array.NewStringBuilder(mem)
 		defer bldr.Release()
 		for i := 0; i < size; i++ {
 			bldr.Append("test-string")
 		}
 		return bldr.NewArray()
-	case arrow.BINARY:
-		bldr := array.NewBinaryBuilder(memory.DefaultAllocator, arrow.BinaryTypes.Binary)
+	case arrow.LARGE_STRING:
+		bldr := array.NewLargeStringBuilder(mem)
+		defer bldr.Release()
+		for i := 0; i < size; i++ {
+			bldr.Append("test-large-string")
+		}
+		return bldr.NewArray()
+	case arrow.BINARY, arrow.LARGE_BINARY:
+		bldr := array.NewBinaryBuilder(mem, dt.(arrow.BinaryDataType))
 		defer bldr.Release()
 
 		buf := make([]byte, 12)
@@ -149,7 +156,7 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 		}
 		return bldr.NewArray()
 	case arrow.FIXED_SIZE_BINARY:
-		bldr := array.NewFixedSizeBinaryBuilder(memory.DefaultAllocator, &arrow.FixedSizeBinaryType{ByteWidth: 10})
+		bldr := array.NewFixedSizeBinaryBuilder(mem, &arrow.FixedSizeBinaryType{ByteWidth: 10})
 		defer bldr.Release()
 
 		buf := make([]byte, 10)
@@ -159,16 +166,16 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 			bldr.Append(buf)
 		}
 		return bldr.NewArray()
-	// case arrow.DECIMAL:
-	// 	dectype := dt.(*arrow.Decimal128Type)
-	// 	bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
-	// 	defer bldr.Release()
+	case arrow.DECIMAL:
+		dectype := dt.(*arrow.Decimal128Type)
+		bldr := array.NewDecimal128Builder(mem, dectype)
+		defer bldr.Release()
 
-	// 	data := RandomDecimals(int64(size), 0, dectype.Precision)
-	// 	bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), nil)
-	// 	return bldr.NewArray()
+		data := RandomDecimals(int64(size), 0, dectype.Precision)
+		bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), nil)
+		return bldr.NewArray()
 	case arrow.BOOL:
-		bldr := array.NewBooleanBuilder(memory.DefaultAllocator)
+		bldr := array.NewBooleanBuilder(mem)
 		defer bldr.Release()
 
 		values := make([]bool, size)
@@ -182,7 +189,7 @@ func RandomNonNull(dt arrow.DataType, size int) array.Interface {
 // RandomNullable generates a random arrow array of length size with approximately numNulls,
 // at most there can be size/2 nulls. Other than there being nulls, the values follow the same rules
 // as described in the docs for RandomNonNull.
-func RandomNullable(dt arrow.DataType, size int, numNulls int) array.Interface {
+func RandomNullable(dt arrow.DataType, size int, numNulls int) arrow.Array {
 	switch dt.ID() {
 	case arrow.FLOAT32:
 		bldr := array.NewFloat32Builder(memory.DefaultAllocator)
@@ -451,22 +458,22 @@ func RandomNullable(dt arrow.DataType, size int, numNulls int) array.Interface {
 			bldr.Append(buf)
 		}
 		return bldr.NewArray()
-	// case arrow.DECIMAL:
-	// 	dectype := dt.(*arrow.Decimal128Type)
-	// 	bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
-	// 	defer bldr.Release()
+	case arrow.DECIMAL:
+		dectype := dt.(*arrow.Decimal128Type)
+		bldr := array.NewDecimal128Builder(memory.DefaultAllocator, dectype)
+		defer bldr.Release()
 
-	// 	valid := make([]bool, size)
-	// 	for idx := range valid {
-	// 		valid[idx] = true
-	// 	}
-	// 	for i := 0; i < numNulls; i++ {
-	// 		valid[i*2] = false
-	// 	}
+		valid := make([]bool, size)
+		for idx := range valid {
+			valid[idx] = true
+		}
+		for i := 0; i < numNulls; i++ {
+			valid[i*2] = false
+		}
 
-	// 	data := RandomDecimals(int64(size), 0, dectype.Precision)
-	// 	bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), valid)
-	// 	return bldr.NewArray()
+		data := RandomDecimals(int64(size), 0, dectype.Precision)
+		bldr.AppendValues(arrow.Decimal128Traits.CastFromBytes(data), valid)
+		return bldr.NewArray()
 	case arrow.BOOL:
 		bldr := array.NewBooleanBuilder(memory.DefaultAllocator)
 		defer bldr.Release()

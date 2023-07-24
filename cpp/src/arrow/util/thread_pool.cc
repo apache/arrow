@@ -26,13 +26,22 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/atfork_internal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/mutex.h"
+
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 namespace internal {
 
 Executor::~Executor() = default;
+
+// By default we do nothing here.  Subclasses that expect to be allocated
+// with static storage duration should override this and ensure any threads respect the
+// lifetime of these resources.
+void Executor::KeepAlive(std::shared_ptr<Resource> resource) {}
 
 namespace {
 
@@ -48,15 +57,38 @@ struct SerialExecutor::State {
   std::deque<Task> task_queue;
   std::mutex mutex;
   std::condition_variable wait_for_tasks;
+  std::thread::id current_thread;
+  bool paused{false};
   bool finished{false};
 };
 
 SerialExecutor::SerialExecutor() : state_(std::make_shared<State>()) {}
 
-SerialExecutor::~SerialExecutor() = default;
+SerialExecutor::~SerialExecutor() {
+  auto state = state_;
+  std::unique_lock<std::mutex> lk(state->mutex);
+  if (!state->task_queue.empty()) {
+    // We may have remaining tasks if the executor is being abandoned.  We could have
+    // resource leakage in this case.  However, we can force the cleanup to happen now
+    state->paused = false;
+    lk.unlock();
+    RunLoop();
+    lk.lock();
+  }
+}
 
 Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
                                  StopToken stop_token, StopCallback&& stop_callback) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  // Wrap the task to propagate a parent tracing span to it
+  // XXX should there be a generic utility in tracing_internal.h for this?
+  task = [func = std::move(task),
+          active_span =
+              ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()]() mutable {
+    auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(active_span);
+    std::move(func)();
+  };
+#endif
   // While the SerialExecutor runs tasks synchronously on its main thread,
   // SpawnReal may be called from external threads (e.g. when transferring back
   // from blocking I/O threads), so we need to keep the state alive *and* to
@@ -67,6 +99,11 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   auto state = state_;
   {
     std::lock_guard<std::mutex> lk(state->mutex);
+    if (state_->finished) {
+      return Status::Invalid(
+          "Attempt to schedule a task on a serial executor that has already finished or "
+          "been abandoned");
+    }
     state->task_queue.push_back(
         Task{std::move(task), std::move(stop_token), std::move(stop_callback)});
   }
@@ -74,8 +111,17 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
   return Status::OK();
 }
 
-void SerialExecutor::MarkFinished() {
+void SerialExecutor::Pause() {
   // Same comment as SpawnReal above
+  auto state = state_;
+  {
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->paused = true;
+  }
+  state->wait_for_tasks.notify_one();
+}
+
+void SerialExecutor::Finish() {
   auto state = state_;
   {
     std::lock_guard<std::mutex> lk(state->mutex);
@@ -84,13 +130,37 @@ void SerialExecutor::MarkFinished() {
   state->wait_for_tasks.notify_one();
 }
 
+bool SerialExecutor::IsFinished() {
+  std::lock_guard<std::mutex> lk(state_->mutex);
+  return state_->finished;
+}
+
+void SerialExecutor::Unpause() {
+  auto state = state_;
+  {
+    std::lock_guard<std::mutex> lk(state->mutex);
+    state->paused = false;
+  }
+}
+
+bool SerialExecutor::OwnsThisThread() {
+  std::lock_guard lk(state_->mutex);
+  return std::this_thread::get_id() == state_->current_thread;
+}
+
 void SerialExecutor::RunLoop() {
   // This is called from the SerialExecutor's main thread, so the
   // state is guaranteed to be kept alive.
   std::unique_lock<std::mutex> lk(state_->mutex);
-
-  while (!state_->finished) {
-    while (!state_->task_queue.empty()) {
+  state_->current_thread = std::this_thread::get_id();
+  // If paused we break out immediately.  If finished we only break out
+  // when all work is done.
+  while (!state_->paused && !(state_->finished && state_->task_queue.empty())) {
+    // The inner loop is to check if we need to sleep (e.g. while waiting on some
+    // async task to finish from another thread pool).  We still need to check paused
+    // because sometimes we will pause even with work leftover when processing
+    // an async generator
+    while (!state_->paused && !state_->task_queue.empty()) {
       Task task = std::move(state_->task_queue.front());
       state_->task_queue.pop_front();
       lk.unlock();
@@ -107,9 +177,11 @@ void SerialExecutor::RunLoop() {
     }
     // In this case we must be waiting on work from external (e.g. I/O) executors.  Wait
     // for tasks to arrive (typically via transferred futures).
-    state_->wait_for_tasks.wait(
-        lk, [&] { return state_->finished || !state_->task_queue.empty(); });
+    state_->wait_for_tasks.wait(lk, [&] {
+      return state_->paused || state_->finished || !state_->task_queue.empty();
+    });
   }
+  state_->current_thread = {};
 }
 
 struct ThreadPool::State {
@@ -137,6 +209,26 @@ struct ThreadPool::State {
   // Are we shutting down?
   bool please_shutdown_ = false;
   bool quick_shutdown_ = false;
+
+  std::vector<std::shared_ptr<Resource>> kept_alive_resources_;
+
+  // At-fork machinery
+
+  void BeforeFork() { mutex_.lock(); }
+
+  void ParentAfterFork() { mutex_.unlock(); }
+
+  void ChildAfterFork() {
+    int desired_capacity = desired_capacity_;
+    bool please_shutdown = please_shutdown_;
+    bool quick_shutdown = quick_shutdown_;
+    new (this) State;  // force-reinitialize, including synchronization primitives
+    desired_capacity_ = desired_capacity;
+    please_shutdown_ = please_shutdown;
+    quick_shutdown_ = quick_shutdown;
+  }
+
+  std::shared_ptr<AtForkHandler> atfork_handler_;
 };
 
 // The worker loop is an independent function so that it can keep running
@@ -221,8 +313,33 @@ ThreadPool::ThreadPool()
     : sp_state_(std::make_shared<ThreadPool::State>()),
       state_(sp_state_.get()),
       shutdown_on_destroy_(true) {
-#ifndef _WIN32
-  pid_ = getpid();
+  // Eternal thread pools would produce false leak reports in the vector of
+  // atfork handlers.
+#if !(defined(_WIN32) || defined(ADDRESS_SANITIZER) || defined(ARROW_VALGRIND))
+  state_->atfork_handler_ = std::make_shared<AtForkHandler>(
+      /*before=*/
+      [weak_state = std::weak_ptr<ThreadPool::State>(sp_state_)]() {
+        auto state = weak_state.lock();
+        if (state) {
+          state->BeforeFork();
+        }
+        return state;  // passed to after-forkers
+      },
+      /*parent_after=*/
+      [](std::any token) {
+        auto state = std::any_cast<std::shared_ptr<ThreadPool::State>>(token);
+        if (state) {
+          state->ParentAfterFork();
+        }
+      },
+      /*child_after=*/
+      [](std::any token) {
+        auto state = std::any_cast<std::shared_ptr<ThreadPool::State>>(token);
+        if (state) {
+          state->ChildAfterFork();
+        }
+      });
+  RegisterAtFork(state_->atfork_handler_);
 #endif
 }
 
@@ -232,34 +349,7 @@ ThreadPool::~ThreadPool() {
   }
 }
 
-void ThreadPool::ProtectAgainstFork() {
-#ifndef _WIN32
-  pid_t current_pid = getpid();
-  if (pid_ != current_pid) {
-    // Reinitialize internal state in child process after fork()
-    // Ideally we would use pthread_at_fork(), but that doesn't allow
-    // storing an argument, hence we'd need to maintain a list of all
-    // existing ThreadPools.
-    int capacity = state_->desired_capacity_;
-
-    auto new_state = std::make_shared<ThreadPool::State>();
-    new_state->please_shutdown_ = state_->please_shutdown_;
-    new_state->quick_shutdown_ = state_->quick_shutdown_;
-
-    pid_ = current_pid;
-    sp_state_ = new_state;
-    state_ = sp_state_.get();
-
-    // Launch worker threads anew
-    if (!state_->please_shutdown_) {
-      ARROW_UNUSED(SetCapacity(capacity));
-    }
-  }
-#endif
-}
-
 Status ThreadPool::SetCapacity(int threads) {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   if (state_->please_shutdown_) {
     return Status::Invalid("operation forbidden during or after shutdown");
@@ -284,25 +374,21 @@ Status ThreadPool::SetCapacity(int threads) {
 }
 
 int ThreadPool::GetCapacity() {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return state_->desired_capacity_;
 }
 
 int ThreadPool::GetNumTasks() {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return state_->tasks_queued_or_running_;
 }
 
 int ThreadPool::GetActualCapacity() {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
   return static_cast<int>(state_->workers_.size());
 }
 
 Status ThreadPool::Shutdown(bool wait) {
-  ProtectAgainstFork();
   std::unique_lock<std::mutex> lock(state_->mutex_);
 
   if (state_->please_shutdown_) {
@@ -349,7 +435,22 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
 Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken stop_token,
                              StopCallback&& stop_callback) {
   {
-    ProtectAgainstFork();
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // Wrap the task to propagate a parent tracing span to it
+    // This task-wrapping needs to be done before we grab the mutex because the
+    // first call to OT (whatever that happens to be) will attempt to grab this mutex
+    // when calling KeepAlive to keep the OT infrastructure alive.
+    struct {
+      void operator()() {
+        auto scope = ::arrow::internal::tracing::GetTracer()->WithActiveSpan(activeSpan);
+        std::move(func)();
+      }
+      FnOnce<void()> func;
+      opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> activeSpan;
+    } wrapper{std::forward<FnOnce<void()>>(task),
+              ::arrow::internal::tracing::GetTracer()->GetCurrentSpan()};
+    task = std::move(wrapper);
+#endif
     std::lock_guard<std::mutex> lock(state_->mutex_);
     if (state_->please_shutdown_) {
       return Status::Invalid("operation forbidden during or after shutdown");
@@ -366,6 +467,12 @@ Status ThreadPool::SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken sto
   }
   state_->cv_.notify_one();
   return Status::OK();
+}
+
+void ThreadPool::KeepAlive(std::shared_ptr<Executor::Resource> resource) {
+  // Seems unlikely but we might as well guard against concurrent calls to KeepAlive
+  std::lock_guard<std::mutex> lk(state_->mutex_);
+  state_->kept_alive_resources_.push_back(std::move(resource));
 }
 
 Result<std::shared_ptr<ThreadPool>> ThreadPool::Make(int threads) {
@@ -435,6 +542,7 @@ std::shared_ptr<ThreadPool> ThreadPool::MakeCpuThreadPool() {
 }
 
 ThreadPool* GetCpuThreadPool() {
+  // Avoid using a global variable because of initialization order issues (ARROW-18383)
   static std::shared_ptr<ThreadPool> singleton = ThreadPool::MakeCpuThreadPool();
   return singleton.get();
 }

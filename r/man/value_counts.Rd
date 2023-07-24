@@ -17,8 +17,6 @@ A \code{StructArray} containing "values" (same type as \code{x}) and "counts"
 This function tabulates the values in the array and returns a table of counts.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 cyl_vals <- Array$create(mtcars$cyl)
 counts <- value_counts(cyl_vals)
-\dontshow{\}) # examplesIf}
 }

@@ -15,11 +15,14 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text;
 using Apache.Arrow.Flight.TestWeb;
 using Grpc.Net.Client;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -29,11 +32,20 @@ namespace Apache.Arrow.Flight.Tests
     public class TestWebFactory : IDisposable
     {
         readonly IHost host;
+        private int _port;
 
         public TestWebFactory(FlightStore flightStore)
         {
             host = WebHostBuilder(flightStore).Build(); //Create the server
             host.Start();
+            var addressInfo = host.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>();
+            if (addressInfo == null)
+            {
+                throw new Exception("No address info could be found for configured server");
+            }
+            var address = addressInfo.Addresses.First();
+            var addressUri = new Uri(address);
+            _port = addressUri.Port;
             AppContext.SetSwitch(
                 "System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
         }
@@ -46,7 +58,7 @@ namespace Apache.Arrow.Flight.Tests
                             webBuilder
                             .ConfigureKestrel(c =>
                             {
-                                c.Listen(IPEndPoint.Parse("0.0.0.0:5001"), l => l.Protocols = HttpProtocols.Http2);
+                                c.ListenAnyIP(0, l => l.Protocols = HttpProtocols.Http2);
                             })
                             .UseStartup<Startup>()
                             .ConfigureServices(services =>
@@ -58,7 +70,7 @@ namespace Apache.Arrow.Flight.Tests
 
         public string GetAddress()
         {
-            return "http://127.0.0.1:5001";
+            return $"http://127.0.0.1:{_port}";
         }
 
         public GrpcChannel GetChannel()

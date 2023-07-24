@@ -21,11 +21,12 @@
 #include <cstdint>
 #include <utility>
 
+#include "arrow/memory_pool_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
-#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/slice_util_internal.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
@@ -43,6 +44,8 @@ Result<std::shared_ptr<Buffer>> Buffer::CopySlice(const int64_t start,
   return std::move(new_buffer);
 }
 
+Buffer::Buffer() : Buffer(memory_pool::internal::kZeroSizeArea, 0) {}
+
 namespace {
 
 Status CheckBufferSlice(const Buffer& buffer, int64_t offset, int64_t length) {
@@ -52,7 +55,7 @@ Status CheckBufferSlice(const Buffer& buffer, int64_t offset, int64_t length) {
 Status CheckBufferSlice(const Buffer& buffer, int64_t offset) {
   if (ARROW_PREDICT_FALSE(offset < 0)) {
     // Avoid UBSAN in subtraction below
-    return Status::Invalid("Negative buffer slice offset");
+    return Status::IndexError("Negative buffer slice offset");
   }
   return CheckBufferSlice(buffer, offset, buffer.size() - offset);
 }
@@ -126,6 +129,11 @@ Result<std::shared_ptr<Buffer>> Buffer::Copy(std::shared_ptr<Buffer> source,
   return MemoryManager::CopyBuffer(source, to);
 }
 
+Result<std::unique_ptr<Buffer>> Buffer::CopyNonOwned(
+    const Buffer& source, const std::shared_ptr<MemoryManager>& to) {
+  return MemoryManager::CopyNonOwned(source, to);
+}
+
 Result<std::shared_ptr<Buffer>> Buffer::View(std::shared_ptr<Buffer> source,
                                              const std::shared_ptr<MemoryManager>& to) {
   return MemoryManager::ViewBuffer(source, to);
@@ -142,11 +150,12 @@ Result<std::shared_ptr<Buffer>> Buffer::ViewOrCopy(
 
 class StlStringBuffer : public Buffer {
  public:
-  explicit StlStringBuffer(std::string data)
-      : Buffer(nullptr, 0), input_(std::move(data)) {
-    data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
-    size_ = static_cast<int64_t>(input_.size());
-    capacity_ = size_;
+  explicit StlStringBuffer(std::string data) : input_(std::move(data)) {
+    if (!input_.empty()) {
+      data_ = reinterpret_cast<const uint8_t*>(input_.c_str());
+      size_ = static_cast<int64_t>(input_.size());
+      capacity_ = size_;
+    }
   }
 
  private:
@@ -180,7 +189,13 @@ Result<std::shared_ptr<Buffer>> AllocateBitmap(int64_t length, MemoryPool* pool)
 }
 
 Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, MemoryPool* pool) {
-  ARROW_ASSIGN_OR_RAISE(auto buf, AllocateBuffer(bit_util::BytesForBits(length), pool));
+  return AllocateEmptyBitmap(length, kDefaultBufferAlignment, pool);
+}
+
+Result<std::shared_ptr<Buffer>> AllocateEmptyBitmap(int64_t length, int64_t alignment,
+                                                    MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(auto buf,
+                        AllocateBuffer(bit_util::BytesForBits(length), alignment, pool));
   memset(buf->mutable_data(), 0, static_cast<size_t>(buf->size()));
   return std::move(buf);
 }

@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,16 +29,16 @@ import java.util.function.Consumer;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import io.grpc.Metadata;
 
 public class TestCallOptions {
 
   @Test
-  @Ignore
+  @Disabled
   public void timeoutFires() {
     // Ignored due to CI flakiness
     test((client) -> {
@@ -43,26 +46,26 @@ public class TestCallOptions {
       Iterator<Result> results = client.doAction(new Action("hang"), CallOptions.timeout(1, TimeUnit.SECONDS));
       try {
         results.next();
-        Assert.fail("Call should have failed");
+        Assertions.fail("Call should have failed");
       } catch (RuntimeException e) {
-        Assert.assertTrue(e.getMessage(), e.getMessage().contains("deadline exceeded"));
+        Assertions.assertTrue(e.getMessage().contains("deadline exceeded"), e.getMessage());
       }
       Instant end = Instant.now();
-      Assert.assertTrue("Call took over 1500 ms despite timeout", Duration.between(start, end).toMillis() < 1500);
+      Assertions.assertTrue(Duration.between(start, end).toMillis() < 1500, "Call took over 1500 ms despite timeout");
     });
   }
 
   @Test
-  @Ignore
+  @Disabled
   public void underTimeout() {
     // Ignored due to CI flakiness
     test((client) -> {
       Instant start = Instant.now();
       // This shouldn't fail and it should complete within the timeout
       Iterator<Result> results = client.doAction(new Action("fast"), CallOptions.timeout(2, TimeUnit.SECONDS));
-      Assert.assertArrayEquals(new byte[]{42, 42}, results.next().getBody());
+      Assertions.assertArrayEquals(new byte[]{42, 42}, results.next().getBody());
       Instant end = Instant.now();
-      Assert.assertTrue("Call took over 2500 ms despite timeout", Duration.between(start, end).toMillis() < 2500);
+      Assertions.assertTrue(Duration.between(start, end).toMillis() < 2500, "Call took over 2500 ms despite timeout");
     });
   }
 
@@ -101,17 +104,15 @@ public class TestCallOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         HeaderProducer producer = new HeaderProducer();
-        FlightServer s =
-            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start();
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
-      client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext();
-
+      Assertions.assertFalse(client.doAction(new Action(""), new HeaderCallOption(headers)).hasNext());
       final CallHeaders incomingHeaders = producer.headers();
       for (String key : headers.keys()) {
         if (key.endsWith(Metadata.BINARY_HEADER_SUFFIX)) {
-          Assert.assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
+          Assertions.assertArrayEquals(headers.getByte(key), incomingHeaders.getByte(key));
         } else {
-          Assert.assertEquals(headers.get(key), incomingHeaders.get(key));
+          Assertions.assertEquals(headers.get(key), incomingHeaders.get(key));
         }
       }
     } catch (InterruptedException | IOException e) {
@@ -123,8 +124,7 @@ public class TestCallOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer();
-        FlightServer s =
-            FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build());
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start();
         FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
       testFn.accept(client);
     } catch (InterruptedException | IOException e) {

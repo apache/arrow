@@ -24,7 +24,7 @@
 #include <utility>
 
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type_fwd.h"
@@ -144,7 +144,8 @@ class FileSystemDatasetFactoryTest : public DatasetFactoryTest {
     }
     options_ = std::make_shared<ScanOptions>();
     options_->dataset_schema = schema;
-    ASSERT_OK(SetProjection(options_.get(), schema->field_names()));
+    ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::Default(*schema));
+    SetProjection(options_.get(), std::move(projection));
     ASSERT_OK_AND_ASSIGN(dataset_, factory_->Finish(schema));
     ASSERT_OK_AND_ASSIGN(auto fragment_it, dataset_->GetFragments());
     AssertFragmentsAreFromPath(std::move(fragment_it), paths);

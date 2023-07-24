@@ -24,9 +24,11 @@ import logging
 import mimetypes
 import subprocess
 import textwrap
+import uuid
 from io import StringIO
 from pathlib import Path
 from datetime import date
+import warnings
 
 import jinja2
 from ruamel.yaml import YAML
@@ -42,8 +44,10 @@ try:
     import pygit2
 except ImportError:
     PygitRemoteCallbacks = object
+    GitError = Exception
 else:
     PygitRemoteCallbacks = pygit2.RemoteCallbacks
+    GitError = pygit2.GitError
 
 from ..utils.source import ArrowSources
 
@@ -130,7 +134,7 @@ def _render_jinja_template(searchpath, template, params):
 
 # configurations for setting up branch skipping
 # - appveyor has a feature to skip builds without an appveyor.yml
-# - travis reads from the master branch and applies the rules
+# - travis reads from the default branch and applies the rules
 # - circle requires the configuration to be present on all branch, even ones
 #   that are configured to be skipped
 # - azure skips branches without azure-pipelines.yml by default
@@ -196,7 +200,7 @@ class GitRemoteCallbacks(PygitRemoteCallbacks):
 
         if (allowed_types &
                 pygit2.credentials.GIT_CREDENTIAL_USERPASS_PLAINTEXT):
-            return pygit2.UserPass(self.token, 'x-oauth-basic')
+            return pygit2.UserPass('x-oauth-basic', self.token)
         else:
             return None
 
@@ -206,12 +210,16 @@ def _git_ssh_to_https(url):
 
 
 def _parse_github_user_repo(remote_url):
-    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git)?$', remote_url)
+    # TODO: use a proper URL parser instead?
+    m = re.match(r'.*\/([^\/]+)\/([^\/\.]+)(\.git|/)?$', remote_url)
     if m is None:
-        raise CrossbowError(
-            "Unable to parse the github owner and repository from the "
-            "repository's remote url '{}'".format(remote_url)
-        )
+        # Perhaps it's simply "username/reponame"?
+        m = re.match(r'^(\w+)/(\w+)$', remote_url)
+        if m is None:
+            raise CrossbowError(
+                f"Unable to parse the github owner and repository from the "
+                f"repository's remote url {remote_url!r}"
+            )
     user, repo = m.group(1), m.group(2)
     return user, repo
 
@@ -265,9 +273,18 @@ class Repo:
                                 "Crossbow: {}".format(remote.url))
         return remote
 
-    def fetch(self):
+    def fetch(self, retry=3):
         refspec = '+refs/heads/*:refs/remotes/origin/*'
-        self.origin.fetch([refspec])
+        attempt = 1
+        while True:
+            try:
+                self.origin.fetch([refspec])
+                break
+            except GitError as e:
+                if retry and attempt < retry:
+                    attempt += 1
+                else:
+                    raise e
 
     def push(self, refs=None, github_token=None):
         github_token = github_token or self.github_token
@@ -299,7 +316,11 @@ class Repo:
         try:
             return self.repo.branches[self.repo.head.shorthand]
         except KeyError:
-            return None  # detached
+            raise CrossbowError(
+                'Cannot determine the current branch of the Arrow repository '
+                'to clone or push to, perhaps it is in detached HEAD state. '
+                'Please checkout a branch.'
+            )
 
     @property
     def remote(self):
@@ -307,7 +328,11 @@ class Repo:
         try:
             return self.repo.remotes[self.branch.upstream.remote_name]
         except (AttributeError, KeyError):
-            return None  # cannot detect
+            raise CrossbowError(
+                'Cannot determine git remote for the Arrow repository to '
+                'clone or push to, try to push the `{}` branch first to have '
+                'a remote tracking counterpart.'.format(self.branch.name)
+            )
 
     @property
     def remote_url(self):
@@ -316,10 +341,7 @@ class Repo:
         If an SSH github url is set, it will be replaced by the https
         equivalent usable with GitHub OAuth token.
         """
-        try:
-            return self._remote_url or _git_ssh_to_https(self.remote.url)
-        except AttributeError:
-            return None
+        return self._remote_url or _git_ssh_to_https(self.remote.url)
 
     @property
     def user_name(self):
@@ -339,6 +361,27 @@ class Repo:
     def signature(self):
         return pygit2.Signature(self.user_name, self.user_email,
                                 int(time.time()))
+
+    @property
+    def default_branch_name(self):
+        default_branch_name = os.getenv("ARCHERY_DEFAULT_BRANCH")
+
+        if default_branch_name is None:
+            try:
+                ref_obj = self.repo.references["refs/remotes/origin/HEAD"]
+                target_name = ref_obj.target
+                target_name_tokenized = target_name.split("/")
+                default_branch_name = target_name_tokenized[-1]
+            except KeyError:
+                default_branch_name = "main"
+                warnings.warn('Unable to determine default branch name: '
+                              'ARCHERY_DEFAULT_BRANCH environment variable is '
+                              'not set. Git repository does not contain a '
+                              '\'refs/remotes/origin/HEAD\'reference. Setting '
+                              'the default branch name to ' +
+                              default_branch_name, RuntimeWarning)
+
+        return default_branch_name
 
     def create_tree(self, files):
         builder = self.repo.TreeBuilder()
@@ -361,7 +404,7 @@ class Repo:
         if parents is None:
             # by default use the main branch as the base of the new branch
             # required to reuse github actions cache across crossbow tasks
-            commit, _ = self.repo.resolve_refish("master")
+            commit, _ = self.repo.resolve_refish(self.default_branch_name)
             parents = [commit.id]
         tree_id = self.create_tree(files)
 
@@ -399,21 +442,38 @@ class Repo:
         blob = self.repo[entry.id]
         return blob.data
 
+    def _github_login(self, github_token):
+        """Returns a logged in github3.GitHub instance"""
+        if not _have_github3:
+            raise ImportError('Must install github3.py')
+        github_token = github_token or self.github_token
+        session = github3.session.GitHubSession(
+            default_connect_timeout=10,
+            default_read_timeout=30
+        )
+        github = github3.GitHub(session=session)
+        github.login(token=github_token)
+        return github
+
     def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
-            if not _have_github3:
-                raise ImportError('Must install github3.py')
-            github_token = github_token or self.github_token
+            github = self._github_login(github_token)
             username, reponame = _parse_github_user_repo(self.remote_url)
-            session = github3.session.GitHubSession(
-                default_connect_timeout=10,
-                default_read_timeout=30
-            )
-            github = github3.GitHub(session=session)
-            github.login(token=github_token)
             self._github_repo = github.repository(username, reponame)
         return self._github_repo
+
+    def token_expiration_date(self, github_token=None):
+        """Returns the expiration date for the github_token provided"""
+        github = self._github_login(github_token)
+        # github3 hides the headers from us. Use the _get method
+        # to access the response headers.
+        resp = github._get(github.session.base_url)
+        # Response in the form '2023-01-23 10:40:28 UTC'
+        date_string = resp.headers.get(
+            'github-authentication-token-expiration')
+        if date_string:
+            return date.fromisoformat(date_string.split()[0])
 
     def github_commit(self, sha):
         repo = self.as_github_repo()
@@ -525,6 +585,28 @@ class Repo:
                         'Unsupported upload method {}'.format(method)
                     )
 
+    def github_pr(self, title, head=None, base=None, body=None,
+                  github_token=None, create=False):
+        if create:
+            # Default value for base is the default_branch_name
+            base = self.default_branch_name if base is None else base
+        github_token = github_token or self.github_token
+        repo = self.as_github_repo(github_token=github_token)
+        if create:
+            return repo.create_pull(title=title, base=base, head=head,
+                                    body=body)
+        else:
+            # Retrieve open PR for base and head.
+            # There should be a single open one with that title.
+            for pull in repo.pull_requests(state="open", head=head,
+                                           base=base):
+                if title in pull.title:
+                    return pull
+            raise CrossbowError(
+                f"Pull request with Title: {title!r} not found "
+                f"in repository {repo.full_name!r}"
+            )
+
 
 class Queue(Repo):
 
@@ -537,17 +619,48 @@ class Queue(Repo):
             latest = -1
         return latest
 
+    def _prefix_contains_date(self, prefix):
+        prefix_date_pattern = re.compile(r'[\w\/-]*-(\d+)-(\d+)-(\d+)')
+        match_prefix = prefix_date_pattern.match(prefix)
+        if match_prefix:
+            return match_prefix.group(0)[-10:]
+
+    def _latest_prefix_date(self, prefix):
+        pattern = re.compile(r'[\w\/-]*{}-(\d+)-(\d+)-(\d+)'.format(prefix))
+        matches = list(filter(None, map(pattern.match, self.repo.branches)))
+        if matches:
+            latest = sorted([m.group(0) for m in matches])[-1]
+            # slice the trailing date part (YYYY-MM-DD)
+            latest = latest[-10:]
+        else:
+            latest = -1
+        return latest
+
     def _next_job_id(self, prefix):
         """Auto increments the branch's identifier based on the prefix"""
         latest_id = self._latest_prefix_id(prefix)
         return '{}-{}'.format(prefix, latest_id + 1)
 
+    def _new_hex_id(self, prefix):
+        """Append a new id to branch's identifier based on the prefix"""
+        hex_id = uuid.uuid4().hex[:10]
+        return '{}-{}'.format(prefix, hex_id)
+
     def latest_for_prefix(self, prefix):
-        latest_id = self._latest_prefix_id(prefix)
-        if latest_id < 0:
-            raise RuntimeError(
-                'No job has been submitted with prefix {} yet'.format(prefix)
-            )
+        prefix_date = self._prefix_contains_date(prefix)
+        if prefix.startswith("nightly") and not prefix_date:
+            latest_id = self._latest_prefix_date(prefix)
+            if not latest_id:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}'' yet"
+                )
+            latest_id += "-0"
+        else:
+            latest_id = self._latest_prefix_id(prefix)
+            if latest_id < 0:
+                raise RuntimeError(
+                    f"No job has been submitted with prefix '{prefix}' yet"
+                )
         job_name = '{}-{}'.format(prefix, latest_id)
         return self.get(job_name)
 
@@ -586,29 +699,20 @@ class Queue(Repo):
         job.queue = self
         return job
 
-    def put(self, job, prefix='build'):
+    def put(self, job, prefix='build', increment_job_id=True):
         if not isinstance(job, Job):
             raise CrossbowError('`job` must be an instance of Job')
         if job.branch is not None:
             raise CrossbowError('`job.branch` is automatically generated, '
                                 'thus it must be blank')
 
-        if job.target.remote is None:
-            raise CrossbowError(
-                'Cannot determine git remote for the Arrow repository to '
-                'clone or push to, try to push the `{}` branch first to have '
-                'a remote tracking counterpart.'.format(job.target.branch)
-            )
-        if job.target.branch is None:
-            raise CrossbowError(
-                'Cannot determine the current branch of the Arrow repository '
-                'to clone or push to, perhaps it is in detached HEAD state. '
-                'Please checkout a branch.'
-            )
-
-        # auto increment and set next job id, e.g. build-85
-        job._queue = self
-        job.branch = self._next_job_id(prefix)
+        job.queue = self
+        if increment_job_id:
+            # auto increment and set next job id, e.g. build-85
+            job.branch = self._next_job_id(prefix)
+        else:
+            # set new branch to something unique, e.g. build-41d017af40
+            job.branch = self._new_hex_id(prefix)
 
         # create tasks' branches
         for task_name, task in job.tasks.items():
@@ -618,6 +722,7 @@ class Queue(Repo):
             params = {
                 **job.params,
                 "arrow": job.target,
+                "job": job,
                 "queue_remote_url": self.remote_url
             }
             files = task.render_files(job.template_searchpath, params=params)
@@ -638,7 +743,7 @@ def get_version(root, **kwargs):
 
     # query the calculated version based on the git tags
     kwargs['describe_command'] = (
-        'git describe --dirty --tags --long --match "apache-arrow-[0-9].*"'
+        'git describe --dirty --tags --long --match "apache-arrow-[0-9]*.*"'
     )
     version = parse_git_version(root, **kwargs)
     tag = str(version.tag)
@@ -654,7 +759,7 @@ def get_version(root, **kwargs):
     if 'dev' not in tag:
         major += 1
 
-    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance)
+    return "{}.{}.{}.dev{}".format(major, minor, patch, version.distance or 0)
 
 
 class Serializable:
@@ -675,14 +780,16 @@ class Target(Serializable):
     (currently only an email address where the notification should be sent).
     """
 
-    def __init__(self, head, branch, remote, version, email=None):
+    def __init__(self, head, branch, remote, version, r_version, email=None):
         self.head = head
         self.email = email
         self.branch = branch
         self.remote = remote
         self.github_repo = "/".join(_parse_github_user_repo(remote))
         self.version = version
+        self.r_version = r_version
         self.no_rc_version = re.sub(r'-rc\d+\Z', '', version)
+        self.no_rc_r_version = re.sub(r'-rc\d+\Z', '', r_version)
         # Semantic Versioning 1.0.0: https://semver.org/spec/v1.0.0.html
         #
         # > A pre-release version number MAY be denoted by appending an
@@ -696,6 +803,14 @@ class Target(Serializable):
         #   '0.16.1-dev10'
         self.no_rc_semver_version = \
             re.sub(r'\.(dev\d+)\Z', r'-\1', self.no_rc_version)
+        # Substitute dev version for SNAPSHOT
+        #
+        # Example:
+        #
+        # '10.0.0.dev235' ->
+        # '10.0.0-SNAPSHOT'
+        self.no_rc_snapshot_version = re.sub(
+            r'\.(dev\d+)$', '-SNAPSHOT', self.no_rc_version)
 
     @classmethod
     def from_repo(cls, repo, head=None, branch=None, remote=None, version=None,
@@ -717,8 +832,42 @@ class Target(Serializable):
         if email is None:
             email = repo.user_email
 
+        version_dev_match = re.match(r".*\.dev(\d+)$", version)
+        if version_dev_match:
+            with open(f"{repo.path}/r/DESCRIPTION") as description_file:
+                description = description_file.read()
+                r_version_pattern = re.compile(r"^Version:\s*(.*)$",
+                                               re.MULTILINE)
+                r_version = re.findall(r_version_pattern, description)[0]
+            if r_version:
+                version_dev = int(version_dev_match[1])
+                # "1_0000_00_00 +" is for generating a greater version
+                # than YYYYMMDD. For example, 1_0000_00_01
+                # (version_dev == 1 case) is greater than 2022_10_16.
+                #
+                # Why do we need a greater version than YYYYMMDD? It's
+                # for keeping backward compatibility. We used
+                # MAJOR.MINOR.PATCH.YYYYMMDD as our nightly package
+                # version. (See also ARROW-16403). If we use "9000 +
+                # version_dev" here, a developer that used
+                # 9.0.0.20221016 can't upgrade to the later nightly
+                # package unless we release 10.0.0. Because 9.0.0.9234
+                # or something is less than 9.0.0.20221016.
+                r_version_dev = 1_0000_00_00 + version_dev
+                # version: 10.0.0.dev234
+                # r_version: 9.0.0.9000
+                # -> 9.0.0.100000234
+                r_version = re.sub(r"\.9000\Z", f".{r_version_dev}", r_version)
+            else:
+                r_version = version
+        else:
+            r_version = version
+
         return cls(head=head, email=email, branch=branch, remote=remote,
-                   version=version)
+                   version=version, r_version=r_version)
+
+    def is_default_branch(self):
+        return self.branch == 'main'
 
 
 class Task(Serializable):
@@ -733,7 +882,7 @@ class Task(Serializable):
     submitting the job to a queue.
     """
 
-    def __init__(self, ci, template, artifacts=None, params=None):
+    def __init__(self, name, ci, template, artifacts=None, params=None):
         assert ci in {
             'circle',
             'travis',
@@ -742,6 +891,7 @@ class Task(Serializable):
             'github',
             'drone',
         }
+        self.name = name
         self.ci = ci
         self.template = template
         self.artifacts = artifacts or []
@@ -929,8 +1079,6 @@ class Job(Serializable):
             raise ValueError('each `tasks` mus be an instance of Task')
         if not isinstance(target, Target):
             raise ValueError('`target` must be an instance of Target')
-        if not isinstance(target, Target):
-            raise ValueError('`target` must be an instance of Target')
         if not isinstance(params, dict):
             raise ValueError('`params` must be an instance of dict')
 
@@ -956,6 +1104,7 @@ class Job(Serializable):
         params = {
             **self.params,
             "arrow": self.target,
+            "job": self,
             **(params or {})
         }
         for task_name, task in self.tasks.items():
@@ -1022,14 +1171,19 @@ class Job(Serializable):
 
         # instantiate the tasks
         tasks = {}
-        versions = {'version': target.version,
-                    'no_rc_version': target.no_rc_version,
-                    'no_rc_semver_version': target.no_rc_semver_version}
+        versions = {
+            'version': target.version,
+            'no_rc_version': target.no_rc_version,
+            'no_rc_semver_version': target.no_rc_semver_version,
+            'no_rc_snapshot_version': target.no_rc_snapshot_version,
+            'r_version': target.r_version,
+            'no_rc_r_version': target.no_rc_r_version,
+        }
         for task_name, task in task_definitions.items():
+            task = task.copy()
             artifacts = task.pop('artifacts', None) or []  # because of yaml
             artifacts = [fn.format(**versions) for fn in artifacts]
-            tasks[task_name] = Task(artifacts=artifacts, **task)
-
+            tasks[task_name] = Task(task_name, artifacts=artifacts, **task)
         return cls(target=target, tasks=tasks, params=params,
                    template_searchpath=config.template_searchpath)
 
@@ -1164,7 +1318,7 @@ class Config(dict):
         # validate that the tasks are constructible
         for task_name, task in self['tasks'].items():
             try:
-                Task(**task)
+                Task(task_name, **task)
             except Exception as e:
                 raise CrossbowError(
                     'Unable to construct a task object from the '
@@ -1172,22 +1326,33 @@ class Config(dict):
                     'is: `{}`'.format(task_name, str(e))
                 )
 
+        # Get the default branch name from the repository
+        arrow_source_dir = ArrowSources.find()
+        repo = Repo(arrow_source_dir.path)
+
         # validate that the defined tasks are renderable, in order to to that
         # define the required object with dummy data
         target = Target(
             head='e279a7e06e61c14868ca7d71dea795420aea6539',
-            branch='master',
+            branch=repo.default_branch_name,
             remote='https://github.com/apache/arrow',
             version='1.0.0dev123',
+            r_version='0.13.0.100000123',
             email='dummy@example.ltd'
         )
+        job = Job.from_config(config=self,
+                              target=target,
+                              tasks=self['tasks'],
+                              groups=self['groups'],
+                              params={})
 
         for task_name, task in self['tasks'].items():
-            task = Task(**task)
+            task = Task(task_name, **task)
             files = task.render_files(
                 self.template_searchpath,
                 params=dict(
                     arrow=target,
+                    job=job,
                     queue_remote_url='https://github.com/org/crossbow'
                 )
             )
@@ -1201,3 +1366,5 @@ yaml = YAML()
 yaml.register_class(Job)
 yaml.register_class(Task)
 yaml.register_class(Target)
+yaml.register_class(Queue)
+yaml.register_class(TaskStatus)

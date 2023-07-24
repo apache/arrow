@@ -31,6 +31,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.stream.Collectors;
 
 import org.apache.arrow.memory.AllocationOutcomeDetails.Entry;
 import org.apache.arrow.memory.rounding.RoundingPolicy;
@@ -39,7 +40,13 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
+import org.slf4j.LoggerFactory;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.netty.buffer.PooledByteBufAllocatorL;
 import sun.misc.Unsafe;
 
 public class TestBaseAllocator {
@@ -438,100 +445,15 @@ public class TestBaseAllocator {
         }).build());
   }
 
-  // Allocation listener
-  // It counts the number of times it has been invoked, and how much memory allocation it has seen
-  // When set to 'expand on fail', it attempts to expand the associated allocator's limit
-  private static final class TestAllocationListener implements AllocationListener {
-    private int numPreCalls;
-    private int numCalls;
-    private int numReleaseCalls;
-    private int numChildren;
-    private long totalMem;
-    private boolean expandOnFail;
-    BufferAllocator expandAlloc;
-    long expandLimit;
-
-    TestAllocationListener() {
-      this.numCalls = 0;
-      this.numChildren = 0;
-      this.totalMem = 0;
-      this.expandOnFail = false;
-      this.expandAlloc = null;
-      this.expandLimit = 0;
-    }
-
-    @Override
-    public void onPreAllocation(long size) {
-      numPreCalls++;
-    }
-
-    @Override
-    public void onAllocation(long size) {
-      numCalls++;
-      totalMem += size;
-    }
-
-    @Override
-    public boolean onFailedAllocation(long size, AllocationOutcome outcome) {
-      if (expandOnFail) {
-        expandAlloc.setLimit(expandLimit);
-        return true;
-      }
-      return false;
-    }
-
-
-    @Override
-    public void onRelease(long size) {
-      numReleaseCalls++;
-    }
-
-    @Override
-    public void onChildAdded(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
-      ++numChildren;
-    }
-
-    @Override
-    public void onChildRemoved(BufferAllocator parentAllocator, BufferAllocator childAllocator) {
-      --numChildren;
-    }
-
-    void setExpandOnFail(BufferAllocator expandAlloc, long expandLimit) {
-      this.expandOnFail = true;
-      this.expandAlloc = expandAlloc;
-      this.expandLimit = expandLimit;
-    }
-
-    int getNumPreCalls() {
-      return numPreCalls;
-    }
-
-    int getNumReleaseCalls() {
-      return numReleaseCalls;
-    }
-
-    int getNumCalls() {
-      return numCalls;
-    }
-
-    int getNumChildren() {
-      return numChildren;
-    }
-
-    long getTotalMem() {
-      return totalMem;
-    }
-  }
-
   @Test
   public void testRootAllocator_listeners() throws Exception {
-    TestAllocationListener l1 = new TestAllocationListener();
+    CountingAllocationListener l1 = new CountingAllocationListener();
     assertEquals(0, l1.getNumPreCalls());
     assertEquals(0, l1.getNumCalls());
     assertEquals(0, l1.getNumReleaseCalls());
     assertEquals(0, l1.getNumChildren());
     assertEquals(0, l1.getTotalMem());
-    TestAllocationListener l2 = new TestAllocationListener();
+    CountingAllocationListener l2 = new CountingAllocationListener();
     assertEquals(0, l2.getNumPreCalls());
     assertEquals(0, l2.getNumCalls());
     assertEquals(0, l2.getNumReleaseCalls());
@@ -590,7 +512,7 @@ public class TestBaseAllocator {
 
   @Test
   public void testRootAllocator_listenerAllocationFail() throws Exception {
-    TestAllocationListener l1 = new TestAllocationListener();
+    CountingAllocationListener l1 = new CountingAllocationListener();
     assertEquals(0, l1.getNumCalls());
     assertEquals(0, l1.getTotalMem());
     // Test attempts to allocate too much from a child whose limit is set to half of the max
@@ -1173,6 +1095,75 @@ public class TestBaseAllocator {
       });
       exMessage = exception.getMessage();
       assertTrue(exMessage.contains("Memory leaked: (256)"));
+    }
+  }
+
+  @Test
+  public void testMemoryUsage() {
+    ListAppender<ILoggingEvent> memoryLogsAppender = new ListAppender<>();
+    Logger logger = (Logger) LoggerFactory.getLogger("arrow.allocator");
+    try {
+      logger.setLevel(Level.TRACE);
+      logger.addAppender(memoryLogsAppender);
+      memoryLogsAppender.start();
+      try (ArrowBuf buf = new ArrowBuf(ReferenceManager.NO_OP, null,
+          1024, new PooledByteBufAllocatorL().empty.memoryAddress())) {
+        buf.memoryAddress();
+      }
+      boolean result = false;
+      long startTime = System.currentTimeMillis();
+      while ((System.currentTimeMillis() - startTime) < 10000) { // 10 seconds maximum for time to read logs
+        result = memoryLogsAppender.list.stream()
+            .anyMatch(
+                log -> log.toString().contains("Memory Usage: \n") &&
+                    log.toString().contains("Large buffers outstanding: ") &&
+                    log.toString().contains("Normal buffers outstanding: ") &&
+                    log.getLevel().equals(Level.TRACE)
+            );
+        if (result) {
+          break;
+        }
+      }
+      assertTrue("Log messages are:\n" +
+          memoryLogsAppender.list.stream().map(ILoggingEvent::toString).collect(Collectors.joining("\n")),
+          result);
+    } finally {
+      memoryLogsAppender.stop();
+      logger.detachAppender(memoryLogsAppender);
+      logger.setLevel(null);
+    }
+  }
+
+  @Test
+  public void testOverlimit() {
+    try (BufferAllocator allocator = new RootAllocator(1024)) {
+      try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, 1024);
+           BufferAllocator child2 = allocator.newChildAllocator("ChildB", 1024, 1024)) {
+        assertThrows(OutOfMemoryException.class, () -> {
+          ArrowBuf buf1 = child1.buffer(8);
+          buf1.close();
+        });
+        assertEquals(0, child1.getAllocatedMemory());
+        assertEquals(0, child2.getAllocatedMemory());
+        assertEquals(1024, allocator.getAllocatedMemory());
+      }
+    }
+  }
+
+  @Test
+  public void testOverlimitOverflow() {
+    // Regression test for https://github.com/apache/arrow/issues/35960
+    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+      try (BufferAllocator child1 = allocator.newChildAllocator("ChildA", 0, Long.MAX_VALUE);
+           BufferAllocator child2 = allocator.newChildAllocator("ChildB", Long.MAX_VALUE, Long.MAX_VALUE)) {
+        assertThrows(OutOfMemoryException.class, () -> {
+          ArrowBuf buf1 = child1.buffer(1024);
+          buf1.close();
+        });
+        assertEquals(0, child1.getAllocatedMemory());
+        assertEquals(0, child2.getAllocatedMemory());
+        assertEquals(Long.MAX_VALUE, allocator.getAllocatedMemory());
+      }
     }
   }
 

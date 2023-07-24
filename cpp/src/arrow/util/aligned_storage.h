@@ -32,13 +32,9 @@ class AlignedStorage {
  public:
   static constexpr bool can_memcpy = std::is_trivial<T>::value;
 
-#if __cpp_constexpr >= 201304L  // non-const constexpr
   constexpr T* get() noexcept {
     return arrow::internal::launder(reinterpret_cast<T*>(&data_));
   }
-#else
-  T* get() noexcept { return arrow::internal::launder(reinterpret_cast<T*>(&data_)); }
-#endif
 
   constexpr const T* get() const noexcept {
     // Use fully qualified name to avoid ambiguities with MSVC (ARROW-14800)
@@ -123,7 +119,26 @@ class AlignedStorage {
   }
 
  private:
+#if !defined(__clang__) && defined(__GNUC__) && defined(__i386__)
+  // Workaround for GCC bug on i386:
+  //   alignof(int64 | float64) can give different results depending on the
+  //   compilation context, leading to internal ABI mismatch manifesting
+  //   in incorrect propagation of Result<int64 | float64> between
+  //   compilation units.
+  // (https://gcc.gnu.org/bugzilla/show_bug.cgi?id=88115)
+  static constexpr size_t alignment() {
+    if (std::is_integral_v<T> && sizeof(T) == 8) {
+      return 4;
+    } else if (std::is_floating_point_v<T> && sizeof(T) == 8) {
+      return 4;
+    }
+    return alignof(T);
+  }
+
+  typename std::aligned_storage<sizeof(T), alignment()>::type data_;
+#else
   typename std::aligned_storage<sizeof(T), alignof(T)>::type data_;
+#endif
 };
 
 }  // namespace internal

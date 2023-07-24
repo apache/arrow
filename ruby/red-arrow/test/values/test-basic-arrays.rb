@@ -107,6 +107,16 @@ module ValuesBasicArraysTests
     assert_equal(values, target.values)
   end
 
+  def test_half_float
+    values = [
+      -1.5,
+      nil,
+      1.5,
+    ]
+    target = build(Arrow::HalfFloatArray.new(values))
+    assert_equal(values, target.values)
+  end
+
   def test_float
     values = [
       -1.0,
@@ -274,6 +284,36 @@ module ValuesBasicArraysTests
     ]
     data_type = Arrow::Decimal256DataType.new(38, 2)
     target = build(Arrow::Decimal256Array.new(data_type, values))
+    assert_equal(values, target.values)
+  end
+
+  def test_month_interval
+    values = [
+      1,
+      nil,
+      12,
+    ]
+    target = build(Arrow::MonthIntervalArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_day_time_interval
+    values = [
+      {day: 1, millisecond: 100},
+      nil,
+      {day: 2, millisecond: 300},
+    ]
+    target = build(Arrow::DayTimeIntervalArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_month_day_nano_interval
+    values = [
+      {month: 1, day: 1, nanosecond: 100},
+      nil,
+      {month: 2, day: 3, nanosecond: 400},
+    ]
+    target = build(Arrow::MonthDayNanoIntervalArray.new(values))
     assert_equal(values, target.values)
   end
 end

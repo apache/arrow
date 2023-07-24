@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -30,12 +33,9 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-@RunWith(JUnit4.class)
 public class TestServerMiddleware {
 
   private static final RuntimeException EXPECTED_EXCEPTION = new RuntimeException("test");
@@ -56,9 +56,9 @@ public class TestServerMiddleware {
           }
         }, (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertNotNull(status.cause());
-          Assert.assertEquals(FlightStatusCode.INTERNAL, status.code());
+          Assertions.assertNotNull(status);
+          Assertions.assertNotNull(status.cause());
+          Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
         });
     // Check the status after server shutdown (to make sure gRPC finishes pending calls on the server side)
   }
@@ -79,10 +79,10 @@ public class TestServerMiddleware {
           }
         }, (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertNull(status.cause());
-          Assert.assertEquals(FlightStatusCode.UNAVAILABLE, status.code());
-          Assert.assertEquals("description", status.description());
+          Assertions.assertNotNull(status);
+          Assertions.assertNull(status.cause());
+          Assertions.assertEquals(FlightStatusCode.UNAVAILABLE, status.code());
+          Assertions.assertEquals("description", status.description());
         });
   }
 
@@ -102,11 +102,11 @@ public class TestServerMiddleware {
         }, (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertEquals(FlightStatusCode.OK, status.code());
-          Assert.assertNull(status.cause());
-          Assert.assertNotNull(err);
-          Assert.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertNotNull(status);
+          Assertions.assertEquals(FlightStatusCode.OK, status.code());
+          Assertions.assertNull(status.cause());
+          Assertions.assertNotNull(err);
+          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
         });
   }
 
@@ -117,11 +117,11 @@ public class TestServerMiddleware {
         }), (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertEquals(FlightStatusCode.OK, status.code());
-          Assert.assertNull(status.cause());
-          Assert.assertNotNull(err);
-          Assert.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertNotNull(status);
+          Assertions.assertEquals(FlightStatusCode.OK, status.code());
+          Assertions.assertNull(status.cause());
+          Assertions.assertNotNull(err);
+          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
         });
   }
 
@@ -132,11 +132,11 @@ public class TestServerMiddleware {
         }), (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertEquals(FlightStatusCode.OK, status.code());
-          Assert.assertNull(status.cause());
-          Assert.assertNotNull(err);
-          Assert.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertNotNull(status);
+          Assertions.assertEquals(FlightStatusCode.OK, status.code());
+          Assertions.assertNull(status.cause());
+          Assertions.assertNotNull(err);
+          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
         });
   }
 
@@ -147,11 +147,11 @@ public class TestServerMiddleware {
         }), (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertEquals(FlightStatusCode.OK, status.code());
-          Assert.assertNull(status.cause());
-          Assert.assertNotNull(err);
-          Assert.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertNotNull(status);
+          Assertions.assertEquals(FlightStatusCode.OK, status.code());
+          Assertions.assertNull(status.cause());
+          Assertions.assertNotNull(err);
+          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
         });
   }
 
@@ -162,10 +162,10 @@ public class TestServerMiddleware {
           FlightTestUtil.assertCode(FlightStatusCode.INTERNAL, () -> client.getInfo(FlightDescriptor.path("test")));
         }, (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertEquals(FlightStatusCode.INTERNAL, status.code());
-          Assert.assertNotNull(status.cause());
-          Assert.assertEquals(EXPECTED_EXCEPTION.getMessage(), status.cause().getMessage());
+          Assertions.assertNotNull(status);
+          Assertions.assertEquals(FlightStatusCode.INTERNAL, status.code());
+          Assertions.assertNotNull(status.cause());
+          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), status.cause().getMessage());
         });
   }
 
@@ -177,16 +177,16 @@ public class TestServerMiddleware {
             while (stream.next()) {
             }
           } catch (Exception e) {
-            Assert.fail(e.toString());
+            Assertions.fail(e.toString());
           }
         }, (recorder) -> {
           final CallStatus status = recorder.statusFuture.get();
           final Throwable err = recorder.errFuture.get();
-          Assert.assertNotNull(status);
-          Assert.assertEquals(FlightStatusCode.OK, status.code());
-          Assert.assertNull(status.cause());
-          Assert.assertNotNull(err);
-          Assert.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
+          Assertions.assertNotNull(status);
+          Assertions.assertEquals(FlightStatusCode.OK, status.code());
+          Assertions.assertNull(status.cause());
+          Assertions.assertNotNull(err);
+          Assertions.assertEquals(EXPECTED_EXCEPTION.getMessage(), err.getMessage());
         });
   }
 
@@ -322,12 +322,9 @@ public class TestServerMiddleware {
   static <T extends FlightServerMiddleware> void test(FlightProducer producer, List<ServerMiddlewarePair<T>> middleware,
       BiConsumer<BufferAllocator, FlightClient> body) {
     try (final BufferAllocator allocator = new RootAllocator(Integer.MAX_VALUE)) {
-      final FlightServer server = FlightTestUtil
-          .getStartedServer(location -> {
-            final FlightServer.Builder builder = FlightServer.builder(allocator, location, producer);
-            middleware.forEach(pair -> builder.middleware(pair.key, pair.factory));
-            return builder.build();
-          });
+      final FlightServer.Builder builder = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0), producer);
+      middleware.forEach(pair -> builder.middleware(pair.key, pair.factory));
+      final FlightServer server = builder.build().start();
       try (final FlightServer ignored = server;
           final FlightClient client = FlightClient.builder(allocator, server.getLocation()).build()
       ) {

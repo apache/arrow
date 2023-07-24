@@ -15,6 +15,7 @@ Testing/
 # Generated sources
 *.c
 *.cpp
+pyarrow/lib.h
 pyarrow/*_api.h
 pyarrow/_generated_version.py
 cython_debug
@@ -30,6 +31,8 @@ dist
 .coverage
 coverage.xml
 htmlcov
+# Hypothesis test framework
+.hypothesis/
 # Cache
 .cache
 
@@ -41,6 +44,3 @@ pyarrow/_table_api.h
 manylinux1/arrow
 nm_arrow.log
 visible_symbols.log
-
-# plasma store
-pyarrow/plasma-store-server

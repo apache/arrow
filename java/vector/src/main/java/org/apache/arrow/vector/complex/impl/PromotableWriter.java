@@ -247,10 +247,18 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
     }
   }
 
+  private boolean requiresArrowType(MinorType type) {
+    return type == MinorType.DECIMAL ||
+        type == MinorType.MAP ||
+        type == MinorType.DURATION ||
+        type == MinorType.FIXEDSIZEBINARY ||
+        (type.name().startsWith("TIMESTAMP") && type.name().endsWith("TZ"));
+  }
+
   @Override
   protected FieldWriter getWriter(MinorType type, ArrowType arrowType) {
     if (state == State.UNION) {
-      if (type == MinorType.DECIMAL || type == MinorType.MAP) {
+      if (requiresArrowType(type)) {
         ((UnionWriter) writer).getWriter(type, arrowType);
       } else {
         ((UnionWriter) writer).getWriter(type);
@@ -277,7 +285,7 @@ public class PromotableWriter extends AbstractPromotableFieldWriter {
       writer.setPosition(position);
     } else if (type != this.type) {
       promoteToUnion();
-      if (type == MinorType.DECIMAL || type == MinorType.MAP) {
+      if (requiresArrowType(type)) {
         ((UnionWriter) writer).getWriter(type, arrowType);
       } else {
         ((UnionWriter) writer).getWriter(type);

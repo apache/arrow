@@ -27,6 +27,9 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/filesystem/filesystem.h"
+#include "arrow/filesystem/localfs.h"
+#include "arrow/status.h"
 #include "arrow/util/io_util.h"
 
 #include "parquet/encryption/encryption.h"
@@ -34,8 +37,7 @@
 
 namespace parquet {
 class ParquetFileReader;
-namespace encryption {
-namespace test {
+namespace encryption::test {
 
 using ::arrow::internal::TemporaryDir;
 
@@ -65,12 +67,18 @@ const char kInt96FieldName[] = "int96_field";
 const char kByteArrayFieldName[] = "ba_field";
 const char kFixedLenByteArrayFieldName[] = "flba_field";
 
-const char kFooterMasterKey[] = "0123456789112345";
+const char kFooterMasterKey[] = "0123456789012345";
 const char kFooterMasterKeyId[] = "kf";
 const char* const kColumnMasterKeys[] = {"1234567890123450", "1234567890123451",
                                          "1234567890123452", "1234567890123453",
                                          "1234567890123454", "1234567890123455"};
 const char* const kColumnMasterKeyIds[] = {"kc1", "kc2", "kc3", "kc4", "kc5", "kc6"};
+
+// New master key values used to simulate key rotation
+const char kNewFooterMasterKey[] = "9123456789012345";
+const char* const kNewColumnMasterKeys[] = {"9234567890123450", "9234567890123451",
+                                            "9234567890123452", "9234567890123453",
+                                            "9234567890123454", "9234567890123455"};
 
 // The result of this function will be used to set into TestOnlyInMemoryKmsClientFactory
 // as the key mapping to look at.
@@ -113,6 +121,5 @@ class FileDecryptor {
                  FileDecryptionProperties* file_decryption_properties);
 };
 
-}  // namespace test
-}  // namespace encryption
+}  // namespace encryption::test
 }  // namespace parquet

@@ -29,31 +29,9 @@ The following guides explain the fundamental data structures used in the Java im
 
 Generated javadoc documentation is available [here](https://arrow.apache.org/docs/java/).
 
-## Setup Build Environment
+## Building from source
 
-install:
- - Java 8 or later
- - Maven 3.3 or later
-
-## Building and running tests
-
-```
-git submodule update --init --recursive # Needed for flight
-cd java
-mvn install
-```
-## Building and running tests for arrow jni modules like gandiva and orc (optional)
-
-[Arrow Cpp][2] must be built before this step. The cpp build directory must
-be provided as the value for argument arrow.cpp.build.dir. eg.
-
-```
-cd java
-mvn install -P arrow-jni -am -Darrow.cpp.build.dir=../../release
-```
-
-The gandiva library is still in Alpha stages, and subject to API changes without
-deprecation warnings.
+Refer to [Building Apache Arrow](https://arrow.apache.org/docs/dev/developers/java/building.html) for documentation of environment setup and build instructions.
 
 ## Flatbuffers dependency
 
@@ -61,7 +39,7 @@ Arrow uses Google's Flatbuffers to transport metadata.  The java version of the 
 requires the generated flatbuffer classes can only be used with the same version that
 generated them.  Arrow packages a version of the arrow-vector module that shades flatbuffers
 and arrow-format into a single JAR.  Using the classifier "shade-format-flatbuffers" in your
-pom.xml will make use of this JAR, you can then exclude/resolve the original dependency to
+`pom.xml` will make use of this JAR, you can then exclude/resolve the original dependency to
 a version of your choosing.
 
 ### Updating the flatbuffers generated code
@@ -99,20 +77,20 @@ done
 There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
 
 * Bounds Checking for memory accesses: Bounds checking is on by default.  You can disable it by setting either the
-system property("arrow.enable_unsafe_memory_access") or the environmental variable
-("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS") to "true". When both the system property and the environmental
+system property(`arrow.enable_unsafe_memory_access`) or the environmental variable
+(`ARROW_ENABLE_UNSAFE_MEMORY_ACCESS`) to `true`. When both the system property and the environmental
 variable are set, the system property takes precedence.
 
-* null checking for gets: ValueVector get methods (not getObject) methods by default verify the slot is not null.  You can disable it by setting either the
-system property("arrow.enable_null_check_for_get") or the environmental variable
-("ARROW_ENABLE_NULL_CHECK_FOR_GET") to "false". When both the system property and the environmental
+* null checking for gets: `ValueVector` get methods (not `getObject`) methods by default verify the slot is not null.  You can disable it by setting either the
+system property(`arrow.enable_null_check_for_get`) or the environmental variable
+(`ARROW_ENABLE_NULL_CHECK_FOR_GET`) to `false`. When both the system property and the environmental
 variable are set, the system property takes precedence.
 
 ## Java Properties
 
- * For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
-This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by netty.
- * To support duplicate fields in a `StructVector` enable "-Darrow.struct.conflict.policy=CONFLICT_APPEND".
+ * For Java 9 or later, should set `-Dio.netty.tryReflectionSetAccessible=true`.
+This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by Netty.
+ * To support duplicate fields in a `StructVector` enable `-Darrow.struct.conflict.policy=CONFLICT_APPEND`.
 Duplicate fields are ignored (`CONFLICT_REPLACE`) by default and overwritten. To support different policies for
 conflicting or duplicate fields set this JVM flag or use the correct static constructor methods for `StructVector`s.
 
@@ -130,13 +108,13 @@ standard Java, org.\*, com.\*
 `VariableDeclarationUsageDistance` due to the existing code base. These rules
 should be followed when possible.
 
-Refer to `java/dev/checkstyle/checkstyle.xml for rule specifics.
+Refer to [checkstyle.xml](dev/checkstyle/checkstyle.xml) for rule specifics.
 
 ## Test Logging Configuration
 
 When running tests, Arrow Java uses the Logback logger with SLF4J. By default,
-it uses the logback.xml present in the corresponding module's src/test/resources
-directory, which has the default log level set to INFO.
+it uses the `logback.xml` present in the corresponding module's `src/test/resources`
+directory, which has the default log level set to `INFO`.
 Arrow Java can be built with an alternate logback configuration file using the
 following command run in the project root directory:
 
@@ -159,6 +137,6 @@ mvn -Pintegration-tests <rest of mvn arguments>
 ```
 
 [1]: https://logback.qos.ch/manual/configuration.html
-[2]: https://github.com/apache/arrow/blob/master/cpp/README.md
+[2]: https://github.com/apache/arrow/blob/main/cpp/README.md
 [3]: http://google.github.io/styleguide/javaguide.html
 [4]: https://maven.apache.org/surefire/maven-failsafe-plugin/

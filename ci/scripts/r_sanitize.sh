@@ -42,6 +42,9 @@ ${R_BIN} CMD INSTALL ${INSTALL_ARGS} arrow*.tar.gz
 # But unset the env var so that it doesn't cause us to run extra dev tests
 unset ARROW_R_DEV
 
+# Set the testthat output to be verbose for easier debugging
+export ARROW_R_VERBOSE_TEST=TRUE
+
 export UBSAN_OPTIONS="print_stacktrace=1,suppressions=/arrow/r/tools/ubsan.supp"
 
 # run tests

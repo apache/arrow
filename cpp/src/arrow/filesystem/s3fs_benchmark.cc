@@ -125,14 +125,14 @@ class MinioFixture : public benchmark::Fixture {
   Status MakeBucket() {
     Aws::S3::Model::HeadBucketRequest head;
     head.SetBucket(ToAwsString(bucket_));
-    const Status st = OutcomeToStatus(client_->HeadBucket(head));
+    const Status st = OutcomeToStatus("HeadBucket", client_->HeadBucket(head));
     if (st.ok()) {
       // Bucket exists already
       return st;
     }
     Aws::S3::Model::CreateBucketRequest req;
     req.SetBucket(ToAwsString(bucket_));
-    return OutcomeToStatus(client_->CreateBucket(req));
+    return OutcomeToStatus("CreateBucket", client_->CreateBucket(req));
   }
 
   /// Make an object with dummy data.
@@ -141,7 +141,7 @@ class MinioFixture : public benchmark::Fixture {
     req.SetBucket(ToAwsString(bucket_));
     req.SetKey(ToAwsString(name));
     req.SetBody(std::make_shared<std::stringstream>(std::string(size, 'a')));
-    return OutcomeToStatus(client_->PutObject(req));
+    return OutcomeToStatus("PutObject", client_->PutObject(req));
   }
 
   /// Make an object with Parquet data.
@@ -314,14 +314,13 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
     ASSERT_OK(builder.Open(file, parquet_properties));
     ASSERT_OK(builder.properties(properties)->Build(&reader));
 
-    std::shared_ptr<Table> table;
-
     if (read_strategy == "ReadTable") {
+      std::shared_ptr<Table> table;
       ASSERT_OK(reader->ReadTable(column_indices, &table));
     } else {
       std::shared_ptr<RecordBatchReader> rb_reader;
       ASSERT_OK(reader->GetRecordBatchReader({0}, column_indices, &rb_reader));
-      ASSERT_OK(rb_reader->ReadAll(&table));
+      ASSERT_OK(rb_reader->ToTable());
     }
 
     // TODO: actually measure table memory usage

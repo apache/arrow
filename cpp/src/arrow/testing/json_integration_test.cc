@@ -60,6 +60,10 @@ DEFINE_bool(
     validate_decimals, true,
     "Validate that decimal values are in range for the given precision (ARROW-13558: "
     "'golden' test data from previous versions may have out-of-range decimal values)");
+DEFINE_bool(validate_date64, true,
+            "Validate that values for DATE64 represent whole numbers of days");
+DEFINE_bool(validate_times, true,
+            "Validate that values for TIME32 and TIME64 are within their valid ranges");
 
 namespace arrow {
 
@@ -126,15 +130,23 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
   return out_file->Write(result.c_str(), static_cast<int64_t>(result.size()));
 }
 
-// Validate the batch, accounting for the -validate_decimals flag
+// Validate the batch, accounting for the -validate_decimals , -validate_date64, and
+// -validate_times flags
 static Status ValidateFull(const RecordBatch& batch) {
-  if (FLAGS_validate_decimals) {
+  if (FLAGS_validate_decimals && FLAGS_validate_date64 && FLAGS_validate_times) {
     return batch.ValidateFull();
   }
-  // Decimal validation disabled, so individually validate columns
+  // Decimal, date64, or times32/64 validation disabled, so individually validate columns
   RETURN_NOT_OK(batch.Validate());
   for (const auto& column : batch.columns()) {
-    if (is_decimal(column->type()->id())) {
+    auto type_id = column->type()->id();
+    if (!FLAGS_validate_decimals && is_decimal(type_id)) {
+      continue;
+    }
+    if (!FLAGS_validate_date64 && type_id == Type::DATE64) {
+      continue;
+    }
+    if (!FLAGS_validate_times && (type_id == Type::TIME32 || type_id == Type::TIME64)) {
       continue;
     }
     RETURN_NOT_OK(column->ValidateFull());
@@ -736,8 +748,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
 
   DictionaryMemo in_memo;
   std::shared_ptr<Schema> out;
-  if (!json::ReadSchema(d, default_memory_pool(), &in_memo, &out).ok()) {
-    FAIL() << "Unable to read JSON schema: " << json_schema;
+  const auto status = json::ReadSchema(d, default_memory_pool(), &in_memo, &out);
+  if (!status.ok()) {
+    FAIL() << "Unable to read JSON schema: " << json_schema << "\nStatus: " << status;
   }
 
   if (!schema.Equals(*out)) {
@@ -818,6 +831,9 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
                         {0, 1})),
       field("f19", large_list(uint8())),
       field("f20", null()),
+      field("f21", run_end_encoded(int16(), utf8())),
+      field("f22", run_end_encoded(int32(), utf8())),
+      field("f23", run_end_encoded(int64(), utf8())),
   };
 
   Schema schema(fields);
@@ -911,6 +927,14 @@ TEST(TestJsonArrayWriter, NestedTypes) {
   StructArray struct_array(struct_type, static_cast<int>(struct_is_valid.size()), fields,
                            struct_bitmap, 2);
   TestArrayRoundTrip(struct_array);
+
+  // Run-End Encoded Type
+  auto run_ends = ArrayFromJSON(int32(), "[100, 200, 300, 400, 500, 600, 700]");
+  ASSERT_OK_AND_ASSIGN(auto ree_array,
+                       RunEndEncodedArray::Make(700, run_ends, i16_values_array));
+  TestArrayRoundTrip(*ree_array);
+  auto sliced_ree_array = ree_array->Slice(150, 300);
+  TestArrayRoundTrip(*sliced_ree_array);
 }
 
 TEST(TestJsonArrayWriter, Unions) {

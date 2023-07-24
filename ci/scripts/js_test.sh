@@ -25,5 +25,6 @@ pushd ${source_dir}
 
 yarn lint
 yarn test
+yarn test:bundle
 
 popd

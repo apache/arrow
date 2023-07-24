@@ -21,7 +21,7 @@ import posixpath
 import sys
 import warnings
 
-from pyarrow.util import implements, _DEPR_MSG
+from pyarrow.util import doc, _DEPR_MSG
 from pyarrow.filesystem import FileSystem
 import pyarrow._hdfsio as _hdfsio
 
@@ -58,15 +58,15 @@ class HadoopFileSystem(_hdfsio.HadoopFileSystem, FileSystem):
         """
         return True
 
-    @implements(FileSystem.isdir)
+    @doc(FileSystem.isdir)
     def isdir(self, path):
         return super().isdir(path)
 
-    @implements(FileSystem.isfile)
+    @doc(FileSystem.isfile)
     def isfile(self, path):
         return super().isfile(path)
 
-    @implements(FileSystem.delete)
+    @doc(FileSystem.delete)
     def delete(self, path, recursive=False):
         return super().delete(path, recursive)
 
@@ -85,11 +85,11 @@ class HadoopFileSystem(_hdfsio.HadoopFileSystem, FileSystem):
         """
         return super().mkdir(path)
 
-    @implements(FileSystem.rename)
+    @doc(FileSystem.rename)
     def rename(self, path, new_path):
         return super().rename(path, new_path)
 
-    @implements(FileSystem.exists)
+    @doc(FileSystem.exists)
     def exists(self, path):
         return super().exists(path)
 

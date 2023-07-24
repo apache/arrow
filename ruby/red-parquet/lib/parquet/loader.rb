@@ -29,6 +29,7 @@ module Parquet
     end
 
     def require_libraries
+      require "parquet/arrow-file-reader"
       require "parquet/arrow-table-loadable"
       require "parquet/arrow-table-savable"
       require "parquet/writer-properties"
@@ -40,6 +41,21 @@ module Parquet
       klass = @base_module.const_get(rubyish_class_name(info))
       if klass.method_defined?(:close)
         klass.extend(Arrow::BlockClosable)
+      end
+    end
+
+    def load_method_info(info, klass, method_name)
+      case klass.name
+      when "Parquet::BooleanStatistics"
+        case method_name
+        when "min?"
+          method_name = "min"
+        when "max?"
+          method_name = "max"
+        end
+        super(info, klass, method_name)
+      else
+        super
       end
     end
   end

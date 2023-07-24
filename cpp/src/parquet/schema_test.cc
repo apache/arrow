@@ -1688,9 +1688,26 @@ TEST(TestSchemaNodeCreation, FactoryExceptions) {
   ASSERT_ANY_THROW(PrimitiveNode::Make("interval", Repetition::REQUIRED,
                                        IntervalLogicalType::Make(),
                                        Type::FIXED_LEN_BYTE_ARRAY, 11));
+  // Scale is greater than precision.
+  ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
+                                       DecimalLogicalType::Make(10, 11), Type::INT64));
+  ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
+                                       DecimalLogicalType::Make(17, 18), Type::INT64));
   // Primitive too small for given precision ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
                                        DecimalLogicalType::Make(16, 6), Type::INT32));
+  ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
+                                       DecimalLogicalType::Make(10, 9), Type::INT32));
+  ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
+                                       DecimalLogicalType::Make(19, 17), Type::INT64));
+  ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
+                                       DecimalLogicalType::Make(308, 6),
+                                       Type::FIXED_LEN_BYTE_ARRAY, 128));
+  // Length is too long
+  ASSERT_ANY_THROW(PrimitiveNode::Make("decimal", Repetition::REQUIRED,
+                                       DecimalLogicalType::Make(10, 6),
+                                       Type::FIXED_LEN_BYTE_ARRAY, 891723283));
+
   // Incompatible primitive length ...
   ASSERT_ANY_THROW(PrimitiveNode::Make("uuid", Repetition::REQUIRED,
                                        UUIDLogicalType::Make(),
@@ -1942,6 +1959,17 @@ TEST_F(TestDecimalSchemaElementConstruction, DecimalCases) {
        true, check_DECIMAL},
       {"decimal", LogicalType::Decimal(11, 11), Type::INT64, -1, true,
        ConvertedType::DECIMAL, true, check_DECIMAL},
+      {"decimal", LogicalType::Decimal(9, 9), Type::INT32, -1, true,
+       ConvertedType::DECIMAL, true, check_DECIMAL},
+      {"decimal", LogicalType::Decimal(18, 18), Type::INT64, -1, true,
+       ConvertedType::DECIMAL, true, check_DECIMAL},
+      {"decimal", LogicalType::Decimal(307, 7), Type::FIXED_LEN_BYTE_ARRAY, 128, true,
+       ConvertedType::DECIMAL, true, check_DECIMAL},
+      {"decimal", LogicalType::Decimal(310, 32), Type::FIXED_LEN_BYTE_ARRAY, 129, true,
+       ConvertedType::DECIMAL, true, check_DECIMAL},
+      {"decimal", LogicalType::Decimal(2147483645, 2147483645),
+       Type::FIXED_LEN_BYTE_ARRAY, 891723282, true, ConvertedType::DECIMAL, true,
+       check_DECIMAL},
   };
 
   for (const SchemaElementConstructionArguments& c : cases) {

@@ -27,10 +27,30 @@ namespace arrow {
   case TYPE_CLASS##Type::type_id:                                                        \
     return visitor->Visit(                                                               \
         internal::checked_cast<const typename TypeTraits<TYPE_CLASS##Type>::ArrayType&>( \
-            array));
+            array),                                                                      \
+        std::forward<ARGS>(args)...);
 
-template <typename VISITOR>
-inline Status VisitArrayInline(const Array& array, VISITOR* visitor) {
+/// \brief Apply the visitors Visit() method specialized to the array type
+///
+/// \tparam VISITOR Visitor type that implements Visit() for all array types.
+/// \tparam ARGS Additional arguments, if any, will be passed to the Visit function after
+/// the `arr` argument
+/// \return Status
+///
+/// A visitor is a type that implements specialized logic for each Arrow type.
+/// Example usage:
+///
+/// ```
+/// class ExampleVisitor {
+///   arrow::Status Visit(arrow::NumericArray<Int32Type> arr) { ... }
+///   arrow::Status Visit(arrow::NumericArray<Int64Type> arr) { ... }
+///   ...
+/// }
+/// ExampleVisitor visitor;
+/// VisitArrayInline(some_array, &visitor);
+/// ```
+template <typename VISITOR, typename... ARGS>
+inline Status VisitArrayInline(const Array& array, VISITOR* visitor, ARGS&&... args) {
   switch (array.type_id()) {
     ARROW_GENERATE_FOR_ALL_TYPES(ARRAY_VISIT_INLINE);
     default:

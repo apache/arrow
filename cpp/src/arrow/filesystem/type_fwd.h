@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace arrow {
 namespace fs {
 
@@ -44,6 +46,7 @@ class SubTreeFileSystem;
 class SlowFileSystem;
 class LocalFileSystem;
 class S3FileSystem;
+class GcsFileSystem;
 
 }  // namespace fs
 }  // namespace arrow

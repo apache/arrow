@@ -20,13 +20,13 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/cancel.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -96,10 +96,6 @@ struct ARROW_EXPORT IOContext {
   StopToken stop_token_;
 };
 
-struct ARROW_DEPRECATED("renamed to IOContext in 4.0.0") AsyncContext : public IOContext {
-  using IOContext::IOContext;
-};
-
 class ARROW_EXPORT FileInterface {
  public:
   virtual ~FileInterface() = 0;
@@ -112,6 +108,13 @@ class ARROW_EXPORT FileInterface {
   /// After Close() is called, closed() returns true and the stream is not
   /// available for further operations.
   virtual Status Close() = 0;
+
+  /// \brief Close the stream asynchronously
+  ///
+  /// By default, this will just submit the synchronous Close() to the
+  /// default I/O thread pool. Subclasses may implement this in a more
+  /// efficient manner.
+  virtual Future<> CloseAsync();
 
   /// \brief Close the stream abruptly
   ///
@@ -168,7 +171,7 @@ class ARROW_EXPORT Writable {
   /// \brief Flush buffered bytes, if any
   virtual Status Flush();
 
-  Status Write(util::string_view data);
+  Status Write(std::string_view data);
 };
 
 class ARROW_EXPORT Readable {
@@ -220,7 +223,7 @@ class ARROW_EXPORT InputStream : virtual public FileInterface,
   /// May return NotImplemented on streams that don't support it.
   ///
   /// \param[in] nbytes the maximum number of bytes to see
-  virtual Result<util::string_view> Peek(int64_t nbytes);
+  virtual Result<std::string_view> Peek(int64_t nbytes);
 
   /// \brief Return true if InputStream is capable of zero copy Buffer reads
   ///
@@ -255,8 +258,8 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
   /// \param[in] file_offset the starting position in the file
   /// \param[in] nbytes the extent of bytes to read. The file should have
   /// sufficient bytes available
-  static std::shared_ptr<InputStream> GetStream(std::shared_ptr<RandomAccessFile> file,
-                                                int64_t file_offset, int64_t nbytes);
+  static Result<std::shared_ptr<InputStream>> GetStream(
+      std::shared_ptr<RandomAccessFile> file, int64_t file_offset, int64_t nbytes);
 
   /// \brief Return the total file size in bytes.
   ///
@@ -297,6 +300,27 @@ class ARROW_EXPORT RandomAccessFile : public InputStream, public Seekable {
 
   /// EXPERIMENTAL: Read data asynchronously, using the file's IOContext.
   Future<std::shared_ptr<Buffer>> ReadAsync(int64_t position, int64_t nbytes);
+
+  /// EXPERIMENTAL: Explicit multi-read.
+  /// \brief Request multiple reads at once
+  ///
+  /// The underlying filesystem may optimize these reads by coalescing small reads into
+  /// large reads or by breaking up large reads into multiple parallel smaller reads.  The
+  /// reads should be issued in parallel if it makes sense for the filesystem.
+  ///
+  /// One future will be returned for each input read range.  Multiple returned futures
+  /// may correspond to a single read.  Or, a single returned future may be a combined
+  /// result of several individual reads.
+  ///
+  /// \param[in] ranges The ranges to read
+  /// \return A future that will complete with the data from the requested range is
+  /// available
+  virtual std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
+      const IOContext&, const std::vector<ReadRange>& ranges);
+
+  /// EXPERIMENTAL: Explicit multi-read, using the file's IOContext.
+  std::vector<Future<std::shared_ptr<Buffer>>> ReadManyAsync(
+      const std::vector<ReadRange>& ranges);
 
   /// EXPERIMENTAL: Inform that the given ranges may be read soon.
   ///

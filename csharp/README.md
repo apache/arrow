@@ -21,7 +21,7 @@
 
 An implementation of Arrow targeting .NET Standard.
 
-See our current [feature matrix](https://github.com/apache/arrow/blob/master/docs/source/status.rst)
+See our current [feature matrix](https://github.com/apache/arrow/blob/main/docs/source/status.rst)
 for currently available features.
 
 # Implementation
@@ -79,7 +79,7 @@ for currently available features.
 
 - Int8, Int16, Int32, Int64
 - UInt8, UInt16, UInt32, UInt64
-- Float, Double
+- Float, Double, Half-float (.NET 6+)
 - Binary (variable-length)
 - String (utf-8)
 - Null
@@ -107,6 +107,16 @@ for currently available features.
 - File
 - Stream
 
+## IPC Format
+
+### Compression
+
+- Buffer compression is not supported when writing IPC files or streams
+- Buffer decompression is supported, but requires installing the `Apache.Arrow.Compression` package,
+  and passing an `Apache.Arrow.Compression.CompressionCodecFactory` instance to the
+  `ArrowFileReader` or `ArrowStreamReader` constructor.
+  Alternatively, a custom implementation of `ICompressionCodecFactory` can be used.
+
 ## Not Implemented
 
 - Serialization
@@ -116,12 +126,10 @@ for currently available features.
     - Dictionary Encoding
 - Types
     - Tensor
-    - Table
 - Arrays
     - Union
         - Dense
         - Sparse
-    - Half-Float
 - Array Operations
 	- Equality / Comparison
 	- Casting
@@ -146,7 +154,7 @@ When building the officially released version run: (see Note below about current
 
 Which will build the final/stable package.
 
-NOTE: When building the officially released version, ensure that your `git` repository has the `origin` remote set to `https://github.com/apache/arrow.git`, which will ensure Source Link is set correctly. See https://github.com/dotnet/sourcelink/blob/master/docs/README.md for more information.
+NOTE: When building the officially released version, ensure that your `git` repository has the `origin` remote set to `https://github.com/apache/arrow.git`, which will ensure Source Link is set correctly. See https://github.com/dotnet/sourcelink/blob/main/docs/README.md for more information.
 
 There are two output artifacts:
 1. `Apache.Arrow.<version>.nupkg` - this contains the executable assemblies
@@ -168,7 +176,7 @@ All build artifacts are placed in the **artifacts** folder in the project root.
 
 # Coding Style
 
-This project follows the coding style specified in [Coding Style](https://github.com/dotnet/runtime/blob/master/docs/coding-guidelines/coding-style.md).
+This project follows the coding style specified in [Coding Style](https://github.com/dotnet/runtime/blob/main/docs/coding-guidelines/coding-style.md).
 
 # Updating FlatBuffers code
 

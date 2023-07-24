@@ -70,6 +70,20 @@ void parquet___arrow___ArrowReaderProperties__set_read_dictionary(
 }
 
 // [[parquet::export]]
+void parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit(
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties,
+    arrow::TimeUnit::type unit) {
+  properties->set_coerce_int96_timestamp_unit(unit);
+}
+
+// [[parquet::export]]
+arrow::TimeUnit::type
+parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(
+    const std::shared_ptr<parquet::ArrowReaderProperties>& properties) {
+  return properties->coerce_int96_timestamp_unit();
+}
+
+// [[parquet::export]]
 std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file,
     const std::shared_ptr<parquet::ArrowReaderProperties>& props) {
@@ -134,9 +148,9 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups2(
 }
 
 // [[parquet::export]]
-int64_t parquet___arrow___FileReader__num_rows(
+r_vec_size parquet___arrow___FileReader__num_rows(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
-  return reader->parquet_reader()->metadata()->num_rows();
+  return r_vec_size(reader->parquet_reader()->metadata()->num_rows());
 }
 
 // [[parquet::export]]
@@ -286,9 +300,9 @@ std::shared_ptr<parquet::arrow::FileWriter> parquet___arrow___ParquetFileWriter_
     const std::shared_ptr<arrow::io::OutputStream>& sink,
     const std::shared_ptr<parquet::WriterProperties>& properties,
     const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_properties) {
-  std::unique_ptr<parquet::arrow::FileWriter> writer;
-  PARQUET_THROW_NOT_OK(parquet::arrow::FileWriter::Open(
-      *schema, gc_memory_pool(), sink, properties, arrow_properties, &writer));
+  std::unique_ptr<parquet::arrow::FileWriter> writer =
+      ValueOrStop(parquet::arrow::FileWriter::Open(*schema, gc_memory_pool(), sink,
+                                                   properties, arrow_properties));
   return std::move(writer);
 }
 

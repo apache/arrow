@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <google/cloud/credentials.h>
+#include <google/cloud/options.h>
 #include <google/cloud/status.h>
 #include <google/cloud/storage/object_metadata.h>
 #include <google/cloud/storage/well_known_headers.h>
@@ -30,26 +32,39 @@
 
 namespace arrow {
 namespace fs {
+struct GcsOptions;
+
 namespace internal {
 
-Status ToArrowStatus(const google::cloud::Status& s);
+struct GcsCredentialsHolder {
+  // Constructor needed for make_shared
+  explicit GcsCredentialsHolder(std::shared_ptr<google::cloud::Credentials> credentials)
+      : credentials(std::move(credentials)) {}
+  std::shared_ptr<google::cloud::Credentials> credentials;
+};
 
-Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
+ARROW_EXPORT Status ToArrowStatus(const google::cloud::Status& s);
+
+ARROW_EXPORT int ErrnoFromStatus(const google::cloud::Status& s);
+
+ARROW_EXPORT Result<google::cloud::storage::EncryptionKey> ToEncryptionKey(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
+ARROW_EXPORT Result<google::cloud::storage::PredefinedAcl> ToPredefinedAcl(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
+ARROW_EXPORT Result<google::cloud::storage::KmsKeyName> ToKmsKeyName(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
+ARROW_EXPORT Result<google::cloud::storage::WithObjectMetadata> ToObjectMetadata(
     const std::shared_ptr<const KeyValueMetadata>& metadata);
 
-Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
+ARROW_EXPORT Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     google::cloud::storage::ObjectMetadata const& m);
 
-std::int64_t Depth(arrow::util::string_view path);
+ARROW_EXPORT std::int64_t Depth(std::string_view path);
+
+ARROW_EXPORT google::cloud::Options AsGoogleCloudOptions(const GcsOptions& options);
 
 }  // namespace internal
 }  // namespace fs

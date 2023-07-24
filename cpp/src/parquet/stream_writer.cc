@@ -136,7 +136,7 @@ StreamWriter& StreamWriter::operator<<(const std::string& v) {
   return WriteVariableLength(v.data(), v.size());
 }
 
-StreamWriter& StreamWriter::operator<<(::arrow::util::string_view v) {
+StreamWriter& StreamWriter::operator<<(::std::string_view v) {
   return WriteVariableLength(v.data(), v.size());
 }
 
@@ -294,7 +294,6 @@ void StreamWriter::EndRow() {
     }
     // Initialize for each row with size already written
     // (compressed + uncompressed).
-    //
     row_group_size_ = row_group_writer_->total_bytes_written() +
                       row_group_writer_->total_compressed_bytes();
   }

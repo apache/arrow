@@ -21,10 +21,50 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 
+cdef class UdfContext(_Weakrefable):
+    cdef:
+        CUdfContext c_context
+
+    cdef void init(self, const CUdfContext& c_context)
+
 
 cdef class FunctionOptions(_Weakrefable):
     cdef:
-        unique_ptr[CFunctionOptions] wrapped
+        shared_ptr[CFunctionOptions] wrapped
 
     cdef const CFunctionOptions* get_options(self) except NULL
-    cdef void init(self, unique_ptr[CFunctionOptions] options)
+    cdef void init(self, const shared_ptr[CFunctionOptions]& sp)
+
+    cdef inline shared_ptr[CFunctionOptions] unwrap(self)
+
+
+cdef class _SortOptions(FunctionOptions):
+    pass
+
+
+cdef CExpression _bind(Expression filter, Schema schema) except *
+
+
+cdef class Expression(_Weakrefable):
+
+    cdef:
+        CExpression expr
+
+    cdef void init(self, const CExpression& sp)
+
+    @staticmethod
+    cdef wrap(const CExpression& sp)
+
+    cdef inline CExpression unwrap(self)
+
+    @staticmethod
+    cdef Expression _expr_or_scalar(object expr)
+
+
+cdef CExpression _true
+
+cdef CFieldRef _ensure_field_ref(value) except *
+
+cdef CSortOrder unwrap_sort_order(order) except *
+
+cdef CNullPlacement unwrap_null_placement(null_placement) except *

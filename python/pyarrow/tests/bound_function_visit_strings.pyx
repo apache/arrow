@@ -18,7 +18,6 @@
 # distutils: language=c++
 # cython: language_level = 3
 
-import pyarrow as pa
 from pyarrow.lib cimport *
 from pyarrow.lib import frombytes, tobytes
 

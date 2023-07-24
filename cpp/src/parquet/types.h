@@ -20,23 +20,21 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
-
-#include "arrow/util/string_view.h"
+#include <string_view>
 
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class Codec;
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 namespace parquet {
 
@@ -488,6 +486,10 @@ PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec);
 
 PARQUET_EXPORT
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options);
+
+PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);
 
 struct ParquetCipher {
@@ -517,6 +519,8 @@ struct PageType {
   };
 };
 
+bool PageCanUseChecksum(PageType::type pageType);
+
 class ColumnOrder {
  public:
   enum type { UNDEFINED, TYPE_DEFINED_ORDER };
@@ -532,13 +536,45 @@ class ColumnOrder {
   ColumnOrder::type column_order_;
 };
 
+/// \brief BoundaryOrder is a proxy around format::BoundaryOrder.
+struct BoundaryOrder {
+  enum type {
+    Unordered = 0,
+    Ascending = 1,
+    Descending = 2,
+    // Should always be last element
+    UNDEFINED = 3
+  };
+};
+
+/// \brief SortingColumn is a proxy around format::SortingColumn.
+struct PARQUET_EXPORT SortingColumn {
+  // The column index (in this row group)
+  int32_t column_idx;
+
+  // If true, indicates this column is sorted in descending order.
+  bool descending;
+
+  // If true, nulls will come before non-null values, otherwise, nulls go at the end.
+  bool nulls_first;
+};
+
+inline bool operator==(const SortingColumn& left, const SortingColumn& right) {
+  return left.nulls_first == right.nulls_first && left.descending == right.descending &&
+         left.column_idx == right.column_idx;
+}
+
+inline bool operator!=(const SortingColumn& left, const SortingColumn& right) {
+  return !(left == right);
+}
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {
   ByteArray() : len(0), ptr(NULLPTR) {}
   ByteArray(uint32_t len, const uint8_t* ptr) : len(len), ptr(ptr) {}
 
-  ByteArray(::arrow::util::string_view view)  // NOLINT implicit conversion
+  ByteArray(::std::string_view view)  // NOLINT implicit conversion
       : ByteArray(static_cast<uint32_t>(view.size()),
                   reinterpret_cast<const uint8_t*>(view.data())) {}
   uint32_t len;
@@ -743,7 +779,7 @@ PARQUET_EXPORT std::string ConvertedTypeToString(ConvertedType::type t);
 PARQUET_EXPORT std::string TypeToString(Type::type t);
 
 PARQUET_EXPORT std::string FormatStatValue(Type::type parquet_type,
-                                           ::arrow::util::string_view val);
+                                           ::std::string_view val);
 
 PARQUET_EXPORT int GetTypeByteSize(Type::type t);
 

@@ -118,6 +118,8 @@ namespace Apache.Arrow.Ipc
         {
             switch (field.TypeType)
             {
+                case Flatbuf.Type.Null:
+                    return Types.NullType.Default;
                 case Flatbuf.Type.Int:
                     Flatbuf.Int intMetaData = field.Type<Flatbuf.Int>().Value;
                     return MessageSerializer.GetNumberType(intMetaData.BitWidth, intMetaData.IsSigned);
@@ -135,7 +137,7 @@ namespace Apache.Arrow.Ipc
                             throw new InvalidDataException("Unsupported floating point precision");
                     }
                 case Flatbuf.Type.Bool:
-                    return new Types.BooleanType();
+                    return Types.BooleanType.Default;
                 case Flatbuf.Type.Decimal:
                     Flatbuf.Decimal decMeta = field.Type<Flatbuf.Decimal>().Value;
                     switch (decMeta.BitWidth)
@@ -178,7 +180,7 @@ namespace Apache.Arrow.Ipc
                     Flatbuf.Interval intervalMetadata = field.Type<Flatbuf.Interval>().Value;
                     return new Types.IntervalType(intervalMetadata.Unit.ToArrow());
                 case Flatbuf.Type.Utf8:
-                    return new Types.StringType();
+                    return Types.StringType.Default;
                 case Flatbuf.Type.FixedSizeBinary:
                     Flatbuf.FixedSizeBinary fixedSizeBinaryMetadata = field.Type<Flatbuf.FixedSizeBinary>().Value;
                     return new Types.FixedSizeBinaryType(fixedSizeBinaryMetadata.ByteWidth);

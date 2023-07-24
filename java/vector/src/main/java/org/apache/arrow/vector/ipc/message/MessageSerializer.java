@@ -684,7 +684,8 @@ public class MessageSerializer {
 
       int messageLength = MessageSerializer.bytesToInt(buffer.array());
       if (messageLength == IPC_CONTINUATION_TOKEN) {
-        buffer.clear();
+        // Avoid breaking change in signature of ByteBuffer.clear() in JDK9+
+        ((java.nio.Buffer) buffer).clear();
         // ARROW-6313, if the first 4 bytes are continuation message, read the next 4 for the length
         if (in.readFully(buffer) == 4) {
           messageLength = MessageSerializer.bytesToInt(buffer.array());

@@ -55,6 +55,10 @@ class SqliteStatementBatchReader : public RecordBatchReader {
   int rc_;
   bool already_executed_;
 
+  // State for parameter binding
+  size_t batch_index_{0};
+  int64_t row_index_{0};
+
   SqliteStatementBatchReader(std::shared_ptr<SqliteStatement> statement,
                              std::shared_ptr<Schema> schema);
 };

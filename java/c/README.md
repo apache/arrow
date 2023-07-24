@@ -24,7 +24,7 @@
 install:
  - Java 8 or later
  - Maven 3.3 or later
- - A C++11-enabled compiler
+ - A C++17-enabled compiler
  - CMake 3.11 or later
  - Make or ninja build utilities
 

@@ -3,7 +3,7 @@
 jobs:
 - job: win
   pool:
-    vmImage: vs2017-win2016
+    vmImage: windows-2022
   timeoutInMinutes: 360
   variables:
     CONFIG: {{ config }}
@@ -13,41 +13,39 @@ jobs:
     UPLOAD_PACKAGES: False
 
   steps:
-    - script: |
-        choco install vcpython27 -fdv -y --debug
-      condition: contains(variables['CONFIG'], 'vs2008')
-      displayName: Install vcpython27.msi (if needed)
-
-    - powershell: |
-        Set-PSDebug -Trace 1
-        $batchcontent = @"
-        ECHO ON
-        SET vcpython=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0
-        DIR "%vcpython%"
-        CALL "%vcpython%\vcvarsall.bat" %*
-        "@
-        $batchDir = "C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC"
-        $batchPath = "$batchDir" + "\vcvarsall.bat"
-        New-Item -Path $batchPath -ItemType "file" -Force
-        Set-Content -Value $batchcontent -Path $batchPath
-        Get-ChildItem -Path $batchDir
-        Get-ChildItem -Path ($batchDir + '\..')
-      condition: contains(variables['CONFIG'], 'vs2008')
-      displayName: Patch vs2008 (if needed)
-
-    - task: CondaEnvironment@1
+    - task: PythonScript@0
+      displayName: 'Download Miniforge'
       inputs:
-        packageSpecs: 'python=3.9 conda-build conda conda-forge::conda-forge-ci-setup=3 pip' # Optional
-        installOptions: "-c conda-forge"
-        updateConda: true
-      displayName: Install conda-build and activate environment
+        scriptSource: inline
+        script: |
+          import urllib.request
+          url = 'https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Windows-x86_64.exe'
+          path = r"$(Build.ArtifactStagingDirectory)/Miniforge.exe"
+          urllib.request.urlretrieve(url, path)
+
+    - script: |
+        start /wait "" %BUILD_ARTIFACTSTAGINGDIRECTORY%\Miniforge.exe /InstallationType=JustMe /RegisterPython=0 /S /D=C:\Miniforge
+      displayName: Install Miniforge
+
+    - powershell: Write-Host "##vso[task.prependpath]C:\Miniforge\Scripts"
+      displayName: Add conda to PATH
+
+    - script: |
+        call activate base
+        mamba.exe install 'python=3.10' conda-build conda pip boa 'conda-forge-ci-setup=3' -c conda-forge --strict-channel-priority --yes
+      displayName: Install conda-build
+
     - script: set PYTHONUNBUFFERED=1
+      displayName: Set PYTHONUNBUFFERED
 
     {{ macros.azure_checkout_arrow()|indent(2) }}
 
     # Configure the VM
-    - script: setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
+    - script: |
+        call activate base
+        setup_conda_rc .\ .\ .\.ci_support\%CONFIG%.yaml
       workingDirectory: arrow\dev\tasks\conda-recipes
+      displayName: conda-forge CI setup
 
     # Configure the VM.
     - script: |
@@ -58,20 +56,21 @@ jobs:
       workingDirectory: arrow\dev\tasks\conda-recipes
 
     - script: |
-        conda.exe build arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
-      displayName: Build recipe
+        call activate base
+        conda.exe mambabuild arrow-cpp parquet-cpp -m .ci_support\%CONFIG%.yaml
+      displayName: Build Arrow recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         PYTHONUNBUFFERED: 1
-      condition: not(contains(variables['CONFIG'], 'vs2008'))
 
     - script: |
-        conda.exe build r-arrow -m .ci_support\r\%R_CONFIG%.yaml
-      displayName: Build recipe
+        call activate base
+        conda.exe mambabuild r-arrow -m .ci_support\r\%R_CONFIG%.yaml
+      displayName: Build R-Arrow recipe
       workingDirectory: arrow\dev\tasks\conda-recipes
       env:
         PYTHONUNBUFFERED: 1
       condition: contains(variables['R_CONFIG'], 'win')
 
-    {{ macros.azure_upload_releases("D:\\bld\\win-64\\*.tar.bz2")|indent(2) }}
-    {{ macros.azure_upload_anaconda("D:\\bld\\win-64\\*.tar.bz2")|indent(2) }}
+    {{ macros.azure_upload_releases("D:\\bld\\win-64\\*.conda")|indent(2) }}
+    {{ macros.azure_upload_anaconda("D:\\bld\\win-64\\*.conda")|indent(2) }}

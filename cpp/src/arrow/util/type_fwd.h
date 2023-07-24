@@ -34,7 +34,13 @@ namespace internal {
 class Executor;
 class TaskGroup;
 class ThreadPool;
+class CpuInfo;
 
+namespace tracing {
+
+struct Scope;
+
+}  // namespace tracing
 }  // namespace internal
 
 struct Compression {
@@ -54,6 +60,7 @@ struct Compression {
 };
 
 namespace util {
+class AsyncTaskScheduler;
 class Compressor;
 class Decompressor;
 class Codec;

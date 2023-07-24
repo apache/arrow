@@ -19,16 +19,14 @@ package arrio_test
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/arrio"
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/ipc"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 type copyKind int
@@ -38,7 +36,7 @@ const (
 	streamKind
 )
 
-func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	switch k {
@@ -51,7 +49,7 @@ func (k copyKind) write(t *testing.T, f *os.File, mem memory.Allocator, schema *
 	}
 }
 
-func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []array.Record) {
+func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *arrow.Schema, recs []arrow.Record) {
 	t.Helper()
 
 	switch k {
@@ -65,13 +63,7 @@ func (k copyKind) check(t *testing.T, f *os.File, mem memory.Allocator, schema *
 }
 
 func TestCopy(t *testing.T) {
-	type kind int
-
-	tempDir, err := ioutil.TempDir("", "go-arrow-copy-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		name     string
@@ -100,13 +92,13 @@ func TestCopy(t *testing.T) {
 							mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 							defer mem.AssertSize(t, 0)
 
-							f, err := ioutil.TempFile(tempDir, "go-arrow-copy-")
+							f, err := os.CreateTemp(tempDir, "go-arrow-copy-")
 							if err != nil {
 								t.Fatal(err)
 							}
 							defer f.Close()
 
-							o, err := ioutil.TempFile(tempDir, "go-arrow-copy-")
+							o, err := os.CreateTemp(tempDir, "go-arrow-copy-")
 							if err != nil {
 								t.Fatal(err)
 							}

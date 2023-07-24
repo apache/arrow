@@ -38,8 +38,8 @@ namespace :dependency do
                                     Gandiva::Version::MAJOR,
                                     Gandiva::Version::MINOR,
                                     Gandiva::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libgandiva-glib-dev",
-                                            :redhat => "gandiva-glib-devel")
+      unless NativePackageInstaller.install(debian: "libgandiva-glib-dev",
+                                            redhat: "gandiva-glib-devel")
         exit(false)
       end
     end

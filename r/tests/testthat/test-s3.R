@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+skip_if_not_available("s3")
 
 run_these <- tryCatch(
   expr = {
@@ -51,5 +52,12 @@ if (run_these) {
     skip_if_not_available("parquet")
     write_parquet(example_data, bucket_uri(now, "test.parquet"))
     expect_identical(read_parquet(bucket_uri(now, "test.parquet")), example_data)
+  })
+
+  test_that("RandomAccessFile$ReadMetadata() works for S3FileSystem", {
+    file <- bucket$OpenInputFile(paste0(now, "/", "test.parquet"))
+    metadata <- file$ReadMetadata()
+    expect_true(is.list(metadata))
+    expect_true("ETag" %in% names(metadata))
   })
 }

@@ -36,8 +36,8 @@ class MemoryPool;
 // Decimal128Builder
 
 Decimal128Builder::Decimal128Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool)
-    : FixedSizeBinaryBuilder(type, pool),
+                                     MemoryPool* pool, int64_t alignment)
+    : FixedSizeBinaryBuilder(type, pool, alignment),
       decimal_type_(internal::checked_pointer_cast<Decimal128Type>(type)) {}
 
 Status Decimal128Builder::Append(Decimal128 value) {
@@ -52,7 +52,7 @@ void Decimal128Builder::UnsafeAppend(Decimal128 value) {
   UnsafeAppendToBitmap(true);
 }
 
-void Decimal128Builder::UnsafeAppend(util::string_view value) {
+void Decimal128Builder::UnsafeAppend(std::string_view value) {
   FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 
@@ -71,8 +71,8 @@ Status Decimal128Builder::FinishInternal(std::shared_ptr<ArrayData>* out) {
 // Decimal256Builder
 
 Decimal256Builder::Decimal256Builder(const std::shared_ptr<DataType>& type,
-                                     MemoryPool* pool)
-    : FixedSizeBinaryBuilder(type, pool),
+                                     MemoryPool* pool, int64_t alignment)
+    : FixedSizeBinaryBuilder(type, pool, alignment),
       decimal_type_(internal::checked_pointer_cast<Decimal256Type>(type)) {}
 
 Status Decimal256Builder::Append(const Decimal256& value) {
@@ -87,7 +87,7 @@ void Decimal256Builder::UnsafeAppend(const Decimal256& value) {
   UnsafeAppendToBitmap(true);
 }
 
-void Decimal256Builder::UnsafeAppend(util::string_view value) {
+void Decimal256Builder::UnsafeAppend(std::string_view value) {
   FixedSizeBinaryBuilder::UnsafeAppend(value);
 }
 

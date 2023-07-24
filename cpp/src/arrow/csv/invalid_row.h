@@ -18,8 +18,7 @@
 #pragma once
 
 #include <functional>
-
-#include "arrow/util/string_view.h"
+#include <string_view>
 
 namespace arrow {
 namespace csv {
@@ -36,7 +35,7 @@ struct InvalidRow {
   /// CSV header rows).
   int64_t number;
   /// \brief View of the entire row. Memory will be freed after callback returns
-  const util::string_view text;
+  const std::string_view text;
 };
 
 /// \brief Result returned by an InvalidRowHandler

@@ -265,8 +265,11 @@ TEST_F(TestTable, CombineChunksZeroRow) {
   ASSERT_EQ(0, table->num_rows());
 
   ASSERT_OK_AND_ASSIGN(auto compacted, table->CombineChunks());
+  ASSERT_TRUE(compacted->Equals(*table));
 
-  EXPECT_TRUE(compacted->Equals(*table));
+  ASSERT_OK_AND_ASSIGN(auto batch, table->CombineChunksToBatch());
+  ASSERT_OK_AND_ASSIGN(auto expected, RecordBatch::MakeEmpty(schema_));
+  ASSERT_NO_FATAL_FAILURE(AssertBatchesEqual(*expected, *batch, /*verbose=*/true));
 }
 
 TEST_F(TestTable, CombineChunks) {
@@ -355,8 +358,8 @@ using TestPromoteTableToSchema = TestTable;
 
 TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   const int length = 10;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
+                                                     std::vector<std::string>{"bar"});
   MakeExample1(length);
   std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
 
@@ -386,8 +389,8 @@ TEST_F(TestPromoteTableToSchema, FieldsReorderedAfterPromotion) {
 
 TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
   const int length = 10;
-  auto metadata =
-      std::shared_ptr<KeyValueMetadata>(new KeyValueMetadata({"foo"}, {"bar"}));
+  auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
+                                                     std::vector<std::string>{"bar"});
   auto table_with_null_column = MakeTableWithOneNullFilledColumn("field", null(), length)
                                     ->ReplaceSchemaMetadata(metadata);
   auto promoted_schema = schema({field("field", int32())});
@@ -545,14 +548,8 @@ TEST_F(ConcatenateTablesWithPromotionTest, Unify) {
   AssertTablesEqual(*expected_null, *actual, /*same_chunk_layout=*/false);
 
   options.field_merge_options.promote_numeric_width = true;
-#ifdef ARROW_COMPUTE
   ASSERT_OK_AND_ASSIGN(actual, ConcatenateTables({t1, t2}, options));
   AssertTablesEqual(*expected_int64, *actual, /*same_chunk_layout=*/false);
-#else
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid, ::testing::HasSubstr("must be built with ARROW_COMPUTE"),
-      ConcatenateTables({t1, t2}, options));
-#endif
 }
 
 TEST_F(TestTable, Slice) {
@@ -805,6 +802,45 @@ TEST_F(TestTableBatchReader, Chunksize) {
   ASSERT_EQ(10, batch->num_rows());
 
   ASSERT_OK(i1.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
+TEST_F(TestTableBatchReader, NoColumns) {
+  std::shared_ptr<Table> table =
+      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100);
+  TableBatchReader reader(*table);
+  reader.set_chunksize(60);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_EQ(60, batch->num_rows());
+
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_EQ(40, batch->num_rows());
+
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_EQ(nullptr, batch);
+}
+
+TEST_F(TestTableBatchReader, OwnedTableNoColumns) {
+  std::shared_ptr<Table> table =
+      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100);
+  TableBatchReader reader(table);
+  table.reset();
+  reader.set_chunksize(80);
+
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_EQ(80, batch->num_rows());
+
+  ASSERT_OK(reader.ReadNext(&batch));
+  ASSERT_OK(batch->ValidateFull());
+  ASSERT_EQ(20, batch->num_rows());
+
+  ASSERT_OK(reader.ReadNext(&batch));
   ASSERT_EQ(nullptr, batch);
 }
 

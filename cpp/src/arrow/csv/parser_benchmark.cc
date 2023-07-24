@@ -20,12 +20,12 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <string_view>
 
 #include "arrow/csv/chunker.h"
 #include "arrow/csv/options.h"
 #include "arrow/csv/parser.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace csv {
@@ -77,12 +77,13 @@ static std::string BuildCSVData(const Example& example) {
 static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const reference
                                  const std::string& csv, ParseOptions options) {
   auto chunker = MakeChunker(options);
-  auto block = std::make_shared<Buffer>(util::string_view(csv));
+  auto block = std::make_shared<Buffer>(std::string_view(csv));
 
   while (state.KeepRunning()) {
     std::shared_ptr<Buffer> whole, partial;
     ABORT_NOT_OK(chunker->Process(block, &whole, &partial));
-    benchmark::DoNotOptimize(whole->size());
+    auto size = whole->size();
+    benchmark::DoNotOptimize(size);
   }
 
   state.SetBytesProcessed(state.iterations() * csv.length());
@@ -161,7 +162,7 @@ static void BenchmarkCSVParsing(benchmark::State& state,  // NOLINT non-const re
 
   while (state.KeepRunning()) {
     uint32_t parsed_size = 0;
-    ABORT_NOT_OK(parser.Parse(util::string_view(csv), &parsed_size));
+    ABORT_NOT_OK(parser.Parse(std::string_view(csv), &parsed_size));
 
     // Include performance of visiting the parsed values, as that might
     // vary depending on the parser's internal data structures.

@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Data } from '../data';
-import * as type from '../type';
-import { Field } from '../schema';
-import { Vector } from '../vector';
-import { DataType } from '../type';
-import { Visitor } from '../visitor';
-import { packBools } from '../util/bit';
-import { encodeUtf8 } from '../util/utf8';
-import { Int64, Int128 } from '../util/int';
-import { UnionMode, DateUnit } from '../enum';
-import { toArrayBufferView } from '../util/buffer';
-import { BufferRegion, FieldNode } from '../ipc/metadata/message';
+import { Data, makeData } from '../data.js';
+import * as type from '../type.js';
+import { Field } from '../schema.js';
+import { Vector } from '../vector.js';
+import { DataType } from '../type.js';
+import { Visitor } from '../visitor.js';
+import { packBools } from '../util/bit.js';
+import { encodeUtf8 } from '../util/utf8.js';
+import { Int64, Int128 } from '../util/int.js';
+import { UnionMode, DateUnit } from '../enum.js';
+import { toArrayBufferView } from '../util/buffer.js';
+import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 
 /** @ignore */
 export interface VectorLoader extends Visitor {
@@ -54,26 +54,66 @@ export class VectorLoader extends Visitor {
         return super.visit(node instanceof Field ? node.type : node);
     }
 
-    public visitNull            <T extends type.Null>            (type: T, { length,           } = this.nextFieldNode()) { return            Data.Null(type, 0, length);                                                                                                                                 }
-    public visitBool            <T extends type.Bool>            (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.Bool(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitInt             <T extends type.Int>             (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Int(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitFloat           <T extends type.Float>           (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Float(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitUtf8            <T extends type.Utf8>            (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.Utf8(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.readData(type));                                   }
-    public visitBinary          <T extends type.Binary>          (type: T, { length, nullCount } = this.nextFieldNode()) { return          Data.Binary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.readData(type));                                   }
-    public visitFixedSizeBinary <T extends type.FixedSizeBinary> (type: T, { length, nullCount } = this.nextFieldNode()) { return Data.FixedSizeBinary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitDate            <T extends type.Date_>           (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.Date(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitTimestamp       <T extends type.Timestamp>       (type: T, { length, nullCount } = this.nextFieldNode()) { return       Data.Timestamp(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitTime            <T extends type.Time>            (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.Time(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitDecimal         <T extends type.Decimal>         (type: T, { length, nullCount } = this.nextFieldNode()) { return         Data.Decimal(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitList            <T extends type.List>            (type: T, { length, nullCount } = this.nextFieldNode()) { return            Data.List(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.visit(type.children[0]));                          }
-    public visitStruct          <T extends type.Struct>          (type: T, { length, nullCount } = this.nextFieldNode()) { return          Data.Struct(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visitMany(type.children));                                                 }
-    public visitUnion           <T extends type.Union>           (type: T                                              ) { return type.mode === UnionMode.Sparse ? this.visitSparseUnion(type as type.SparseUnion) : this.visitDenseUnion(type as type.DenseUnion);                                      }
-    public visitDenseUnion      <T extends type.DenseUnion>      (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Union(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.readOffsets(type), this.visitMany(type.children)); }
-    public visitSparseUnion     <T extends type.SparseUnion>     (type: T, { length, nullCount } = this.nextFieldNode()) { return           Data.Union(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readTypeIds(type), this.visitMany(type.children));                         }
-    public visitDictionary      <T extends type.Dictionary>      (type: T, { length, nullCount } = this.nextFieldNode()) { return      Data.Dictionary(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type.indices), this.readDictionary(type));                        }
-    public visitInterval        <T extends type.Interval>        (type: T, { length, nullCount } = this.nextFieldNode()) { return        Data.Interval(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readData(type));                                                           }
-    public visitFixedSizeList   <T extends type.FixedSizeList>   (type: T, { length, nullCount } = this.nextFieldNode()) { return   Data.FixedSizeList(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.visit(type.children[0]));                                                  }
-    public visitMap             <T extends type.Map_>            (type: T, { length, nullCount } = this.nextFieldNode()) { return             Data.Map(type, 0, length, nullCount, this.readNullBitmap(type, nullCount), this.readOffsets(type), this.visit(type.children[0]));                          }
+    public visitNull<T extends type.Null>(type: T, { length } = this.nextFieldNode()) {
+        return makeData({ type, length });
+    }
+    public visitBool<T extends type.Bool>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitInt<T extends type.Int>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitFloat<T extends type.Float>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitUtf8<T extends type.Utf8>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
+    }
+    public visitBinary<T extends type.Binary>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), data: this.readData(type) });
+    }
+    public visitFixedSizeBinary<T extends type.FixedSizeBinary>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitDate<T extends type.Date_>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitTimestamp<T extends type.Timestamp>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitTime<T extends type.Time>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitDecimal<T extends type.Decimal>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitList<T extends type.List>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), 'child': this.visit(type.children[0]) });
+    }
+    public visitStruct<T extends type.Struct>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), children: this.visitMany(type.children) });
+    }
+    public visitUnion<T extends type.Union>(type: T) {
+        return type.mode === UnionMode.Sparse ? this.visitSparseUnion(type as type.SparseUnion) : this.visitDenseUnion(type as type.DenseUnion);
+    }
+    public visitDenseUnion<T extends type.DenseUnion>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), typeIds: this.readTypeIds(type), valueOffsets: this.readOffsets(type), children: this.visitMany(type.children) });
+    }
+    public visitSparseUnion<T extends type.SparseUnion>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), typeIds: this.readTypeIds(type), children: this.visitMany(type.children) });
+    }
+    public visitDictionary<T extends type.Dictionary>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type.indices), dictionary: this.readDictionary(type) });
+    }
+    public visitInterval<T extends type.Interval>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
+    public visitFixedSizeList<T extends type.FixedSizeList>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), 'child': this.visit(type.children[0]) });
+    }
+    public visitMap<T extends type.Map_>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), valueOffsets: this.readOffsets(type), 'child': this.visit(type.children[0]) });
+    }
 
     protected nextFieldNode() { return this.nodes[++this.nodesIndex]; }
     protected nextBufferRange() { return this.buffers[++this.buffersIndex]; }
@@ -135,7 +175,7 @@ function binaryDataFromJSON(values: string[]) {
     const joined = values.join('');
     const data = new Uint8Array(joined.length / 2);
     for (let i = 0; i < joined.length; i += 2) {
-        data[i >> 1] = parseInt(joined.substr(i, 2), 16);
+        data[i >> 1] = Number.parseInt(joined.slice(i, i + 2), 16);
     }
     return data;
 }

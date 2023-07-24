@@ -26,10 +26,10 @@ import java.util.concurrent.Executors;
 import org.apache.arrow.flight.auth.ServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.google.protobuf.Empty;
 
@@ -49,7 +49,7 @@ public class TestFlightGrpcUtils {
   private BufferAllocator allocator;
   private String serverName;
 
-  @Before
+  @BeforeEach
   public void setup() throws IOException {
     //Defines flight service
     allocator = new RootAllocator(Integer.MAX_VALUE);
@@ -69,7 +69,7 @@ public class TestFlightGrpcUtils {
     server.start();
   }
 
-  @After
+  @AfterEach
   public void cleanup() {
     server.shutdownNow();
   }
@@ -95,7 +95,7 @@ public class TestFlightGrpcUtils {
 
     //Define Test client as a blocking stub and call test method which correctly returns an empty protobuf object
     final TestServiceGrpc.TestServiceBlockingStub blockingStub = TestServiceGrpc.newBlockingStub(managedChannel);
-    Assert.assertEquals(Empty.newBuilder().build(), blockingStub.test(Empty.newBuilder().build()));
+    Assertions.assertEquals(Empty.newBuilder().build(), blockingStub.test(Empty.newBuilder().build()));
   }
 
   @Test
@@ -111,9 +111,9 @@ public class TestFlightGrpcUtils {
 
     // Should be a no-op.
     flightClient.close();
-    Assert.assertFalse(managedChannel.isShutdown());
-    Assert.assertFalse(managedChannel.isTerminated());
-    Assert.assertEquals(ConnectivityState.IDLE, managedChannel.getState(false));
+    Assertions.assertFalse(managedChannel.isShutdown());
+    Assertions.assertFalse(managedChannel.isTerminated());
+    Assertions.assertEquals(ConnectivityState.IDLE, managedChannel.getState(false));
     managedChannel.shutdownNow();
   }
 
@@ -126,22 +126,22 @@ public class TestFlightGrpcUtils {
 
     final FlightGrpcUtils.NonClosingProxyManagedChannel proxyChannel =
         new FlightGrpcUtils.NonClosingProxyManagedChannel(managedChannel);
-    Assert.assertFalse(proxyChannel.isShutdown());
-    Assert.assertFalse(proxyChannel.isTerminated());
+    Assertions.assertFalse(proxyChannel.isShutdown());
+    Assertions.assertFalse(proxyChannel.isTerminated());
     proxyChannel.shutdown();
-    Assert.assertTrue(proxyChannel.isShutdown());
-    Assert.assertTrue(proxyChannel.isTerminated());
-    Assert.assertEquals(ConnectivityState.SHUTDOWN, proxyChannel.getState(false));
+    Assertions.assertTrue(proxyChannel.isShutdown());
+    Assertions.assertTrue(proxyChannel.isTerminated());
+    Assertions.assertEquals(ConnectivityState.SHUTDOWN, proxyChannel.getState(false));
     try {
       proxyChannel.newCall(null, null);
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       // This is expected, since the proxy channel is shut down.
     }
 
-    Assert.assertFalse(managedChannel.isShutdown());
-    Assert.assertFalse(managedChannel.isTerminated());
-    Assert.assertEquals(ConnectivityState.IDLE, managedChannel.getState(false));
+    Assertions.assertFalse(managedChannel.isShutdown());
+    Assertions.assertFalse(managedChannel.isTerminated());
+    Assertions.assertEquals(ConnectivityState.IDLE, managedChannel.getState(false));
 
     managedChannel.shutdownNow();
   }
@@ -155,22 +155,22 @@ public class TestFlightGrpcUtils {
 
     final FlightGrpcUtils.NonClosingProxyManagedChannel proxyChannel =
         new FlightGrpcUtils.NonClosingProxyManagedChannel(managedChannel);
-    Assert.assertFalse(proxyChannel.isShutdown());
-    Assert.assertFalse(proxyChannel.isTerminated());
+    Assertions.assertFalse(proxyChannel.isShutdown());
+    Assertions.assertFalse(proxyChannel.isTerminated());
     managedChannel.shutdownNow();
-    Assert.assertTrue(proxyChannel.isShutdown());
-    Assert.assertTrue(proxyChannel.isTerminated());
-    Assert.assertEquals(ConnectivityState.SHUTDOWN, proxyChannel.getState(false));
+    Assertions.assertTrue(proxyChannel.isShutdown());
+    Assertions.assertTrue(proxyChannel.isTerminated());
+    Assertions.assertEquals(ConnectivityState.SHUTDOWN, proxyChannel.getState(false));
     try {
       proxyChannel.newCall(null, null);
-      Assert.fail();
+      Assertions.fail();
     } catch (IllegalStateException e) {
       // This is expected, since the proxy channel is shut down.
     }
 
-    Assert.assertTrue(managedChannel.isShutdown());
-    Assert.assertTrue(managedChannel.isTerminated());
-    Assert.assertEquals(ConnectivityState.SHUTDOWN, managedChannel.getState(false));
+    Assertions.assertTrue(managedChannel.isShutdown());
+    Assertions.assertTrue(managedChannel.isTerminated());
+    Assertions.assertEquals(ConnectivityState.SHUTDOWN, managedChannel.getState(false));
   }
 
   /**

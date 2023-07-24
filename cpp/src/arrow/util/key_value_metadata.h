@@ -85,14 +85,14 @@ class ARROW_EXPORT KeyValueMetadata {
 /// \brief Create a KeyValueMetadata instance
 ///
 /// \param pairs key-value mapping
-std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
-key_value_metadata(const std::unordered_map<std::string, std::string>& pairs);
+ARROW_EXPORT std::shared_ptr<KeyValueMetadata> key_value_metadata(
+    const std::unordered_map<std::string, std::string>& pairs);
 
 /// \brief Create a KeyValueMetadata instance
 ///
 /// \param keys sequence of metadata keys
 /// \param values sequence of corresponding metadata values
-std::shared_ptr<KeyValueMetadata> ARROW_EXPORT
-key_value_metadata(std::vector<std::string> keys, std::vector<std::string> values);
+ARROW_EXPORT std::shared_ptr<KeyValueMetadata> key_value_metadata(
+    std::vector<std::string> keys, std::vector<std::string> values);
 
 }  // namespace arrow

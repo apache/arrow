@@ -24,8 +24,20 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
 .. toctree::
    :maxdepth: 2
 
+   quickstartguide
+   overview
+   install
+   memory
    vector
    vector_schema_root
+   table
    ipc
    algorithm
+   flight
+   flight_sql
+   flight_sql_jdbc_driver
+   dataset
+   substrait
+   cdata
+   jdbc
    Reference (javadoc) <reference/index>

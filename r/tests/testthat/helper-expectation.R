@@ -19,8 +19,9 @@ expect_as_vector <- function(x, y, ...) {
   expect_equal(as.vector(x), y, ...)
 }
 
-expect_data_frame <- function(x, y, ...) {
-  expect_equal(as.data.frame(x), y, ...)
+# expect both objects to contain equal values when converted to data.frame objects
+expect_equal_data_frame <- function(x, y, ...) {
+  expect_equal(as.data.frame(x), as.data.frame(y), ...)
 }
 
 expect_r6_class <- function(object, class) {
@@ -69,29 +70,18 @@ verify_output <- function(...) {
 #' Ensure that dplyr methods on Arrow objects return the same as for data frames
 #'
 #' This function compares the output of running a dplyr expression on a tibble
-#' or data.frame object against the output of the same expression run on
-#' Arrow Table and RecordBatch objects.
-#'
+#' or data.frame object against the output of the same expression run on a Table
 #'
 #' @param expr A dplyr pipeline which must have `.input` as its start
 #' @param tbl A tibble or data.frame which will be substituted for `.input`
-#' @param skip_record_batch The skip message to show (if you should skip the
-#' RecordBatch test)
-#' @param skip_table The skip message to show (if you should skip the Table test)
-#' @param warning The expected warning from the RecordBatch and Table comparison
-#'  paths, passed to `expect_warning()`. Special values:
+#' @param warning The expected warning from Arrow evaluation
+#'  path, passed to `expect_warning()`. Special values:
 #'     * `NA` (the default) for ensuring no warning message
 #'     * `TRUE` is a special case to mean to check for the
 #'      "not supported in Arrow; pulling data into R" message.
 #' @param ... additional arguments, passed to `expect_equal()`
-compare_dplyr_binding <- function(expr,
-                                  tbl,
-                                  skip_record_batch = NULL,
-                                  skip_table = NULL,
-                                  warning = NA,
-                                  ...) {
-
-  # Quote the contents of `expr` so that we can evaluate it a few different ways
+compare_dplyr_binding <- function(expr, tbl, warning = NA, ...) {
+  # Quote the contents of `expr` so that we can evaluate it twice
   expr <- rlang::enquo(expr)
   # Get the expected output by evaluating expr on the .input data.frame using regular dplyr
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = tbl)))
@@ -101,39 +91,15 @@ compare_dplyr_binding <- function(expr,
     warning <- "not supported in Arrow; pulling data into R"
   }
 
-  skip_msg <- NULL
-
-  # Evaluate `expr` on a RecordBatch object and compare with `expected`
-  if (is.null(skip_record_batch)) {
-    expect_warning(
-      via_batch <- rlang::eval_tidy(
-        expr,
-        rlang::new_data_mask(rlang::env(.input = record_batch(tbl)))
-      ),
-      warning
-    )
-    expect_equal(via_batch, expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_record_batch)
-  }
-
   # Evaluate `expr` on a Table object and compare with `expected`
-  if (is.null(skip_table)) {
-    expect_warning(
-      via_table <- rlang::eval_tidy(
-        expr,
-        rlang::new_data_mask(rlang::env(.input = arrow_table(tbl)))
-      ),
-      warning
-    )
-    expect_equal(via_table, expected, ...)
-  } else {
-    skip_msg <- c(skip_msg, skip_table)
-  }
-
-  if (!is.null(skip_msg)) {
-    skip(paste(skip_msg, collapse = "\n"))
-  }
+  expect_warning(
+    via_table <- rlang::eval_tidy(
+      expr,
+      rlang::new_data_mask(rlang::env(.input = arrow_table(tbl)))
+    ),
+    warning
+  )
+  expect_equal(via_table, expected, ...)
 }
 
 #' Assert that Arrow dplyr methods error in the same way as methods on data.frame
@@ -145,9 +111,7 @@ compare_dplyr_binding <- function(expr,
 #' @param expr A dplyr pipeline which must have `.input` as its start
 #' @param tbl A tibble or data.frame which will be substituted for `.input`
 #' @param ... additional arguments, passed to `expect_error()`
-compare_dplyr_error <- function(expr,
-                                tbl,
-                                ...) {
+compare_dplyr_error <- function(expr, tbl, ...) {
   # ensure we have supplied tbl
   force(tbl)
 
@@ -210,11 +174,11 @@ compare_dplyr_error <- function(expr,
 #' @param ignore_attr Ignore differences in specified attributes?
 #' @param ... additional arguments, passed to `expect_as_vector()`
 compare_expression <- function(expr,
-                           vec,
-                           skip_array = NULL,
-                           skip_chunked_array = NULL,
-                           ignore_attr = FALSE,
-                           ...) {
+                               vec,
+                               skip_array = NULL,
+                               skip_chunked_array = NULL,
+                               ignore_attr = FALSE,
+                               ...) {
   expr <- rlang::enquo(expr)
   expected <- rlang::eval_tidy(expr, rlang::new_data_mask(rlang::env(.input = vec)))
   skip_msg <- NULL
@@ -257,10 +221,10 @@ compare_expression <- function(expr,
 #' @param skip_chunked_array The skip message to show (if you should skip the ChunkedArray test)
 #' @param ... additional arguments, passed to `expect_error()`
 compare_expression_error <- function(expr,
-                                 vec,
-                                 skip_array = NULL,
-                                 skip_chunked_array = NULL,
-                                 ...) {
+                                     vec,
+                                     skip_array = NULL,
+                                     skip_chunked_array = NULL,
+                                     ...) {
   expr <- rlang::enquo(expr)
 
   msg <- tryCatch(
@@ -320,4 +284,8 @@ split_vector_as_list <- function(vec) {
   vec1 <- vec[seq(from = min(1, length(vec) - 1), to = min(length(vec) - 1, vec_split), by = 1)]
   vec2 <- vec[seq(from = min(length(vec), vec_split + 1), to = length(vec), by = 1)]
   list(vec1, vec2)
+}
+
+expect_across_equal <- function(across_expr, expected, tbl) {
+  expect_identical(expand_across(as_adq(tbl), across_expr), new_quosures(expected))
 }

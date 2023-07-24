@@ -17,7 +17,7 @@
 
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/cast_internal.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/util/checked_cast.h"
 
@@ -33,38 +33,16 @@ namespace internal {
 
 namespace {
 
-template <typename OutT, typename InT>
-ARROW_DISABLE_UBSAN("float-cast-overflow")
-void DoStaticCast(const void* in_data, int64_t in_offset, int64_t length,
-                  int64_t out_offset, void* out_data) {
-  auto in = reinterpret_cast<const InT*>(in_data) + in_offset;
-  auto out = reinterpret_cast<OutT*>(out_data) + out_offset;
-  for (int64_t i = 0; i < length; ++i) {
-    *out++ = static_cast<OutT>(*in++);
-  }
-}
-
-using StaticCastFunc = std::function<void(const void*, int64_t, int64_t, int64_t, void*)>;
-
 template <typename OutType, typename InType, typename Enable = void>
 struct CastPrimitive {
-  static void Exec(const Datum& input, Datum* out) {
+  ARROW_DISABLE_UBSAN("float-cast-overflow")
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using OutT = typename OutType::c_type;
     using InT = typename InType::c_type;
-
-    StaticCastFunc caster = DoStaticCast<OutT, InT>;
-    if (input.kind() == Datum::ARRAY) {
-      const ArrayData& arr = *input.array();
-      ArrayData* out_arr = out->mutable_array();
-      caster(arr.buffers[1]->data(), arr.offset, arr.length, out_arr->offset,
-             out_arr->buffers[1]->mutable_data());
-    } else {
-      // Scalar path. Use the caster with length 1 to place the casted value into
-      // the output
-      const auto& in_scalar = input.scalar_as<PrimitiveScalarBase>();
-      auto out_scalar = checked_cast<PrimitiveScalarBase*>(out->scalar().get());
-      caster(reinterpret_cast<const void*>(in_scalar.view().data()), /*in_offset=*/0,
-             /*length=*/1, /*out_offset=*/0, out_scalar->mutable_data());
+    const InT* in_values = arr.GetValues<InT>(1);
+    OutT* out_values = out->GetValues<OutT>(1);
+    for (int64_t i = 0; i < arr.length; ++i) {
+      *out_values++ = static_cast<OutT>(*in_values++);
     }
   }
 };
@@ -72,29 +50,14 @@ struct CastPrimitive {
 template <typename OutType, typename InType>
 struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>::value>> {
   // memcpy output
-  static void Exec(const Datum& input, Datum* out) {
+  static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using T = typename InType::c_type;
-
-    if (input.kind() == Datum::ARRAY) {
-      const ArrayData& arr = *input.array();
-      ArrayData* out_arr = out->mutable_array();
-      std::memcpy(
-          reinterpret_cast<T*>(out_arr->buffers[1]->mutable_data()) + out_arr->offset,
-          reinterpret_cast<const T*>(arr.buffers[1]->data()) + arr.offset,
-          arr.length * sizeof(T));
-    } else {
-      // Scalar path. Use the caster with length 1 to place the casted value into
-      // the output
-      const auto& in_scalar = input.scalar_as<PrimitiveScalarBase>();
-      auto out_scalar = checked_cast<PrimitiveScalarBase*>(out->scalar().get());
-      *reinterpret_cast<T*>(out_scalar->mutable_data()) =
-          *reinterpret_cast<const T*>(in_scalar.view().data());
-    }
+    std::memcpy(out->GetValues<T>(1), arr.GetValues<T>(1), arr.length * sizeof(T));
   }
 };
 
 template <typename InType>
-void CastNumberImpl(Type::type out_type, const Datum& input, Datum* out) {
+void CastNumberImpl(Type::type out_type, const ArraySpan& input, ArraySpan* out) {
   switch (out_type) {
     case Type::INT8:
       return CastPrimitive<Int8Type, InType>::Exec(input, out);
@@ -123,8 +86,8 @@ void CastNumberImpl(Type::type out_type, const Datum& input, Datum* out) {
 
 }  // namespace
 
-void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
-                              Datum* out) {
+void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
+                              const ArraySpan& input, ArraySpan* out) {
   switch (in_type) {
     case Type::INT8:
       return CastNumberImpl<Int8Type>(out_type, input, out);
@@ -154,76 +117,63 @@ void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Dat
 
 // ----------------------------------------------------------------------
 
-Status UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  DCHECK(out->is_array());
+Status UnpackDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // TODO: is there an implementation more friendly to the "span" data structures?
 
-  DictionaryArray dict_arr(batch[0].array());
+  DictionaryArray dict_arr(batch[0].array.ToArrayData());
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
 
   const auto& dict_type = *dict_arr.dictionary()->type();
-  if (!dict_type.Equals(options.to_type) && !CanCast(dict_type, *options.to_type)) {
-    return Status::Invalid("Cast type ", options.to_type->ToString(),
+  const DataType& to_type = *options.to_type;
+  if (!to_type.Equals(dict_type) && !CanCast(dict_type, to_type)) {
+    return Status::Invalid("Cast type ", to_type.ToString(),
                            " incompatible with dictionary type ", dict_type.ToString());
   }
 
-  ARROW_ASSIGN_OR_RAISE(*out,
-                        Take(Datum(dict_arr.dictionary()), Datum(dict_arr.indices()),
+  ARROW_ASSIGN_OR_RAISE(Datum unpacked,
+                        Take(dict_arr.dictionary(), dict_arr.indices(),
                              TakeOptions::Defaults(), ctx->exec_context()));
-
-  if (!dict_type.Equals(options.to_type)) {
-    ARROW_ASSIGN_OR_RAISE(*out, Cast(*out, options));
+  if (!dict_type.Equals(to_type)) {
+    ARROW_ASSIGN_OR_RAISE(unpacked, Cast(unpacked, options));
   }
+  out->value = std::move(unpacked.array());
   return Status::OK();
 }
 
-Status OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  if (out->is_scalar()) {
-    out->scalar()->is_valid = false;
-  } else {
-    ArrayData* output = out->mutable_array();
-    output->buffers = {nullptr};
-    output->null_count = batch.length;
-  }
+Status OutputAllNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // TODO(wesm): there is no good reason to have to use ArrayData here, so we
+  // should clean this up later. This is used in the dict<null>->null cast
+  ArrayData* output = out->array_data().get();
+  output->buffers = {nullptr};
+  output->null_count = batch.length;
   return Status::OK();
 }
 
-Status CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState*>(ctx->state())->options;
 
-  if (batch[0].kind() == Datum::SCALAR) {
-    const auto& ext_scalar = checked_cast<const ExtensionScalar&>(*batch[0].scalar());
-    Datum casted_storage;
-
-    if (ext_scalar.is_valid) {
-      return Cast(ext_scalar.value, out->type(), options, ctx->exec_context()).Value(out);
-    } else {
-      const auto& storage_type =
-          checked_cast<const ExtensionType&>(*ext_scalar.type).storage_type();
-      return Cast(MakeNullScalar(storage_type), out->type(), options, ctx->exec_context())
-          .Value(out);
-    }
-  } else {
-    DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
-    ExtensionArray extension(batch[0].array());
-    return Cast(*extension.storage(), out->type(), options, ctx->exec_context())
-        .Value(out);
-  }
-}
-
-Status CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  if (!batch[0].is_scalar()) {
-    ArrayData* output = out->mutable_array();
-    std::shared_ptr<Array> nulls;
-    RETURN_NOT_OK(MakeArrayOfNull(output->type, batch.length).Value(&nulls));
-    out->value = nulls->data();
-  }
+  DCHECK(batch[0].is_array());
+  ExtensionArray extension(batch[0].array.ToArrayData());
+  std::shared_ptr<Array> result;
+  RETURN_NOT_OK(Cast(*extension.storage(), out->type()->GetSharedPtr(), options,
+                     ctx->exec_context())
+                    .Value(&result));
+  out->value = std::move(result->data());
   return Status::OK();
 }
 
-Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
-                                            const std::vector<ValueDescr>& args) {
+Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // TODO(wesm): handle this case more gracefully
+  std::shared_ptr<Array> nulls;
+  RETURN_NOT_OK(MakeArrayOfNull(out->type()->GetSharedPtr(), batch.length).Value(&nulls));
+  out->value = nulls->data();
+  return Status::OK();
+}
+
+Result<TypeHolder> ResolveOutputFromOptions(KernelContext* ctx,
+                                            const std::vector<TypeHolder>&) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
-  return ValueDescr(options.to_type, args[0].shape);
+  return options.to_type;
 }
 
 /// You will see some of kernels with
@@ -237,17 +187,15 @@ Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
 
 OutputType kOutputTargetType(ResolveOutputFromOptions);
 
-Status ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  DCHECK_EQ(batch[0].kind(), Datum::ARRAY);
-  // Make a copy of the buffers into a destination array without carrying
-  // the type
-  const ArrayData& input = *batch[0].array();
-  ArrayData* output = out->mutable_array();
-  output->length = input.length;
-  output->SetNullCount(input.null_count);
-  output->buffers = input.buffers;
-  output->offset = input.offset;
-  output->child_data = input.child_data;
+Status ZeroCopyCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  // TODO(wesm): alternative strategy for zero copy casts after ARROW-16576
+  std::shared_ptr<ArrayData> input = batch[0].array.ToArrayData();
+  ArrayData* output = out->array_data().get();
+  output->length = input->length;
+  output->offset = input->offset;
+  output->SetNullCount(input->null_count);
+  output->buffers = std::move(input->buffers);
+  output->child_data = std::move(input->child_data);
   return Status::OK();
 }
 
@@ -255,7 +203,7 @@ void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_ty
                      CastFunction* func) {
   auto sig = KernelSignature::Make({in_type}, out_type);
   ScalarKernel kernel;
-  kernel.exec = TrivialScalarUnaryAsArraysExec(ZeroCopyCastExec);
+  kernel.exec = ZeroCopyCastExec;
   kernel.signature = sig;
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
@@ -283,8 +231,7 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
     // XXX: Uses Take and does its own memory allocation for the moment. We can
     // fix this later.
     DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, out_ty,
-                              TrivialScalarUnaryAsArraysExec(UnpackDictionary),
-                              NullHandling::COMPUTED_NO_PREALLOCATE,
+                              UnpackDictionary, NullHandling::COMPUTED_NO_PREALLOCATE,
                               MemAllocation::NO_PREALLOCATE));
   }
 

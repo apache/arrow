@@ -17,11 +17,13 @@
 package encoding
 
 import (
-  "github.com/apache/arrow/go/v7/parquet"
-  "github.com/apache/arrow/go/v7/parquet/schema"
-  format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
-  "github.com/apache/arrow/go/v7/arrow"
-  "github.com/apache/arrow/go/v7/parquet/internal/utils"
+  "github.com/apache/arrow/go/v13/parquet"
+  "github.com/apache/arrow/go/v13/parquet/schema"
+  format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+  "github.com/apache/arrow/go/v13/arrow"
+  "github.com/apache/arrow/go/v13/parquet/internal/utils"
+  shared_utils "github.com/apache/arrow/go/v13/internal/utils"
+  "github.com/apache/arrow/go/v13/internal/bitutils"
 )
 
 // fully typed encoder interfaces to enable writing against encoder/decoders
@@ -165,7 +167,7 @@ func (enc *Dict{{.Name}}Encoder) Type() parquet.Type {
 {{if (ne .Name "Int96")}}
 // WriteDict populates the byte slice with the dictionary index
 func (enc *Dict{{.Name}}Encoder) WriteDict(out []byte) {
-  enc.memo.CopyValues({{.prefix}}.{{.Name}}Traits.CastFromBytes(out))
+  enc.memo.(NumericMemoTable).WriteOutLE(out)
 }
 
 // Put encodes the values passed in, adding to the index as needed.
@@ -178,12 +180,35 @@ func (enc *Dict{{.Name}}Encoder) Put(in []{{.name}}) {
 // PutSpaced is the same as Put but for when the data being encoded has slots open for
 // null values, using the bitmap provided to skip values as needed.
 func (enc *Dict{{.Name}}Encoder) PutSpaced(in []{{.name}}, validBits []byte, validBitsOffset int64) {
-  utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+  bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
     for i := int64(0); i < length; i++ {
       enc.dictEncoder.Put(in[i+pos])
     }
     return nil
   })
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *Dict{{.Name}}Encoder) PutDictionary(values arrow.Array) error {
+  if err := enc.canPutDictionary(values); err != nil {
+    return err
+  }
+
+  enc.dictEncodedSize += values.Len() * arrow.{{.Name}}SizeBytes
+  data := values.(*array.{{.Name}}).{{.Name}}Values()
+  for _, v := range data {
+    if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+      return err
+    }
+  }
+
+  values.Retain()
+  enc.preservedDict = values
+  return nil
 }
 {{else}}
 // WriteDict populates the byte slice with the dictionary index
@@ -207,10 +232,19 @@ func (enc *DictInt96Encoder) Put(in []parquet.Int96) {
 
 // PutSpaced is like Put but assumes space for nulls
 func (enc *DictInt96Encoder) PutSpaced(in []parquet.Int96, validBits []byte, validBitsOffset int64) {
-  utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+  bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
     enc.Put(in[pos : pos+length])
     return nil
   })
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictInt96Encoder) PutDictionary(arrow.Array) error {
+  return fmt.Errorf("%w: direct PutDictionary to Int96", arrow.ErrNotImplemented)
 }
 {{end}}
 {{end}}
@@ -229,30 +263,28 @@ func (Dict{{.Name}}Decoder) Type() parquet.Type {
 // decoding using hte dictionary to get the actual values. Returns the number of values
 // actually decoded and any error encountered.
 func (d *Dict{{.Name}}Decoder) Decode(out []{{.name}}) (int, error) {
-  vals := utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.MinInt(len(out), d.nvals)
   decoded, err := d.decode(out[:vals])
   if err != nil {
     return decoded, err
   }
   if vals != decoded {
     return decoded, xerrors.New("parquet: dict eof exception")
-  }
-  d.nvals -= vals
+  }  
   return vals, nil
 }
 
 // Decode spaced is like Decode but will space out the data leaving slots for null values
 // based on the provided bitmap.
 func (d *Dict{{.Name}}Decoder) DecodeSpaced(out []{{.name}}, nullCount int, validBits []byte, validBitsOffset int64) (int, error) {
-  vals := utils.MinInt(len(out), d.nvals)
+  vals := shared_utils.MinInt(len(out), d.nvals)
   decoded, err := d.decodeSpaced(out[:vals], nullCount, validBits, validBitsOffset)
   if err != nil {
     return decoded, err
   }
   if vals != decoded {
     return decoded, xerrors.New("parquet: dict spaced eof exception")
-  }
-  d.nvals -= vals
+  }  
   return vals, nil
 }
 
@@ -291,7 +323,7 @@ func (dc *{{.Name}}DictConverter) ensure(idx utils.IndexType) error {
 // in the dictionary and if necessary decodes dictionary indexes up to the index
 // requested.
 func (dc *{{.Name}}DictConverter) IsValid(idxes ...utils.IndexType) bool {
-	min, max := utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
+	min, max := shared_utils.GetMinMaxInt32(*(*[]int32)(unsafe.Pointer(&idxes)))
   dc.ensure(utils.IndexType(max))
 
 	return min >= 0 && int(min) < len(dc.dict) && int(max) >= 0 && int(max) < len(dc.dict)

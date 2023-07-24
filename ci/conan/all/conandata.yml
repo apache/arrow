@@ -1,0 +1,86 @@
+# MIT License
+#
+# Copyright (c) 2019 Conan.io
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+sources:
+  "10.0.1":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-10.0.1/apache-arrow-10.0.1.tar.gz?action=download"
+    sha256: "c814e0670112a22c1a6ec03ab420a52ae236a9a42e9e438c3cbd37f37e658fb3"
+  "10.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-10.0.0/apache-arrow-10.0.0.tar.gz?action=download"
+    sha256: "5b46fa4c54f53e5df0019fe0f9d421e93fc906b625ebe8e89eed010d561f1f12"
+  "8.0.1":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-8.0.1/apache-arrow-8.0.1.tar.gz?action=download"
+    sha256: "82d46929f7574715551da21700f100b39f99c3c4d6790f26cac86d869d64e94e"
+  "8.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-8.0.0/apache-arrow-8.0.0.tar.gz?action=download"
+    sha256: "ad9a05705117c989c116bae9ac70492fe015050e1b80fb0e38fde4b5d863aaa3"
+  "7.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-7.0.0/apache-arrow-7.0.0.tar.gz?action=download"
+    sha256: "e8f49b149a15ecef4e40fcfab1b87c113c6b1ee186005c169e5cdf95d31a99de"
+  "2.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-2.0.0/apache-arrow-2.0.0.tar.gz?action=download"
+    sha256: "be0342cc847bb340d86aeaef43596a0b6c1dbf1ede9c789a503d939e01c71fbe"
+  "1.0.0":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-1.0.0/apache-arrow-1.0.0.tar.gz?action=download"
+    sha256: "86ddb9feb48203a5aaf9cc4f2827525e20a2ca4d7239e492af17e74532ccf243"
+patches:
+  "8.0.1":
+    - patch_file: "patches/8.0.0-0005-install-utils.patch"
+      patch_description: "enable utilis installation"
+      patch_type: "conan"
+    - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "8.0.0":
+    - patch_file: "patches/8.0.0-0005-install-utils.patch"
+      patch_description: "enable utilis installation"
+      patch_type: "conan"
+    - patch_file: "patches/8.0.0-0006-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "7.0.0":
+    - patch_file: "patches/7.0.0-0006-install-utils.patch"
+      patch_description: "enable utilis installation"
+      patch_type: "conan"
+    - patch_file: "patches/7.0.0-0007-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "2.0.0":
+    - patch_file: "patches/2.0.0-0003-fix-shared-msvc.patch"
+      patch_description: "make shared enabled in msvc"
+      patch_type: "official"
+    - patch_file: "patches/2.0.0-0005-gandiva-engine.patch"
+      patch_description: "fix grandiva compilation error"
+      patch_type: "official"
+    - patch_file: "patches/2.0.0-0008-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"
+  "1.0.0":
+    - patch_file: "patches/1.0.0-0003-fix-shared-msvc.patch"
+      patch_description: "make shared enabled in msvc"
+      patch_type: "official"
+    - patch_file: "patches/1.0.0-0005-fix-make12-namespace.patch"
+      patch_description: "fix ambiguous `make12` function between std and date"
+      patch_type: "official"
+    - patch_file: "patches/1.0.0-0006-fix-cmake.patch"
+      patch_description: "use cci package"
+      patch_type: "conan"

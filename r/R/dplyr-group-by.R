@@ -21,57 +21,60 @@
 group_by.arrow_dplyr_query <- function(.data,
                                        ...,
                                        .add = FALSE,
-                                       add = .add,
+                                       add = NULL,
                                        .drop = dplyr::group_by_drop_default(.data)) {
+  if (!missing(add)) {
+    .Deprecated(
+      msg = paste(
+        "The `add` argument of `group_by()` is deprecated.",
+        "Please use the `.add` argument instead."
+      )
+    )
+    .add <- add
+  }
+
   .data <- as_adq(.data)
-  new_groups <- enquos(...)
-  # ... can contain expressions (i.e. can add (or rename?) columns) and so we
-  # need to identify those and add them on to the query with mutate. Specifically,
-  # we want to mark as new:
-  #   * expressions (named or otherwise)
-  #   * variables that have new names
-  # All others (i.e. simple references to variables) should not be (re)-added
+  expression_list <- expand_across(.data, quos(...))
+  named_expression_list <- ensure_named_exprs(expression_list)
 
-  # Identify any groups with names which aren't in names of .data
-  new_group_ind <- map_lgl(new_groups, ~ !(quo_name(.x) %in% names(.data)))
-  # Identify any groups which don't have names
-  named_group_ind <- map_lgl(names(new_groups), nzchar)
-  # Retain any new groups identified above
-  new_groups <- new_groups[new_group_ind | named_group_ind]
-  if (length(new_groups)) {
-    # now either use the name that was given in ... or if that is "" then use the expr
-    names(new_groups) <- imap_chr(new_groups, ~ ifelse(.y == "", quo_name(.x), .y))
+  # Set up group names
+  gbp <- dplyr::group_by_prepare(.data, !!!expression_list, .add = .add)
 
-    # Add them to the data
-    .data <- dplyr::mutate(.data, !!!new_groups)
-  }
-  if (".add" %in% names(formals(dplyr::group_by))) {
-    # For compatibility with dplyr >= 1.0
-    gv <- dplyr::group_by_prepare(.data, ..., .add = .add)$group_names
-  } else {
-    gv <- dplyr::group_by_prepare(.data, ..., add = add)$group_names
-  }
-  .data$group_by_vars <- gv
-  .data$drop_empty_groups <- ifelse(length(gv), .drop, dplyr::group_by_drop_default(.data))
+  # Add them all (or update them) to the .data via. In theory
+  # one could calculate which variables do or do not need to be added via a
+  # complex combination of the expression names, whether they are or are not
+  # a symbol, and/or whether they currently exist in .data. Instead, we just
+  # put them all into a mutate().
+  existing_groups <- dplyr::groups(gbp$data)
+  names(existing_groups) <- dplyr::group_vars(gbp$data)
+  final_groups <- c(unclass(named_expression_list), unclass(existing_groups))[gbp$group_names]
+  .data <- dplyr::mutate(.data, !!!final_groups)
+
+  .data$group_by_vars <- gbp$group_names
+  .data$drop_empty_groups <- ifelse(length(gbp$group_names), .drop, dplyr::group_by_drop_default(.data))
   .data
 }
-group_by.Dataset <- group_by.ArrowTabular <- group_by.arrow_dplyr_query
+group_by.Dataset <- group_by.ArrowTabular <- group_by.RecordBatchReader <- group_by.arrow_dplyr_query
 
 groups.arrow_dplyr_query <- function(x) syms(dplyr::group_vars(x))
-groups.Dataset <- groups.ArrowTabular <- function(x) NULL
+groups.Dataset <- groups.ArrowTabular <- groups.RecordBatchReader <- groups.arrow_dplyr_query
 
 group_vars.arrow_dplyr_query <- function(x) x$group_by_vars
-group_vars.Dataset <- function(x) NULL
-group_vars.RecordBatchReader <- function(x) NULL
+group_vars.Dataset <- function(x) character()
+group_vars.RecordBatchReader <- function(x) character()
 group_vars.ArrowTabular <- function(x) {
-  x$r_metadata$attributes$.group_vars
+  x$metadata$r$attributes$.group_vars %||% character()
 }
 
 # the logical literal in the two functions below controls the default value of
 # the .drop argument to group_by()
-group_by_drop_default.arrow_dplyr_query <-
-  function(.tbl) .tbl$drop_empty_groups %||% TRUE
-group_by_drop_default.Dataset <- group_by_drop_default.ArrowTabular <-
+group_by_drop_default.arrow_dplyr_query <- function(.tbl) {
+  .tbl$drop_empty_groups %||% TRUE
+}
+group_by_drop_default.ArrowTabular <- function(.tbl) {
+  .tbl$metadata$r$attributes$.group_by_drop %||% TRUE
+}
+group_by_drop_default.Dataset <- group_by_drop_default.RecordBatchReader <-
   function(.tbl) TRUE
 
 ungroup.arrow_dplyr_query <- function(x, ...) {
@@ -79,8 +82,24 @@ ungroup.arrow_dplyr_query <- function(x, ...) {
   x$drop_empty_groups <- NULL
   x
 }
-ungroup.Dataset <- force
+ungroup.Dataset <- ungroup.RecordBatchReader <- force
 ungroup.ArrowTabular <- function(x) {
-  x$r_metadata$attributes$.group_vars <- NULL
-  x
+  set_group_attributes(x, NULL, NULL)
+}
+
+# Function to call after evaluating a query (as_arrow_table()) to add back any
+# group attributes to the Schema metadata. Or to remove them, pass NULL.
+set_group_attributes <- function(tab, group_vars, .drop) {
+  # dplyr::group_vars() returns character(0)
+  # so passing NULL means unset (ungroup)
+  if (is.null(group_vars) || length(group_vars)) {
+    # Since accessing schema metadata does some work, only overwrite if needed
+    new_atts <- old_atts <- tab$metadata$r$attributes %||% list()
+    new_atts[[".group_vars"]] <- group_vars
+    new_atts[[".group_by_drop"]] <- .drop
+    if (!identical(new_atts, old_atts)) {
+      tab$metadata$r$attributes <- new_atts
+    }
+  }
+  tab
 }

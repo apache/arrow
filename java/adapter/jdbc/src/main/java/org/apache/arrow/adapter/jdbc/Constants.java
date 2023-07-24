@@ -24,6 +24,7 @@ public class Constants {
   private Constants() {}
 
   public static final String SQL_CATALOG_NAME_KEY = "SQL_CATALOG_NAME";
+  public static final String SQL_SCHEMA_NAME_KEY = "SQL_SCHEMA_NAME";
   public static final String SQL_TABLE_NAME_KEY = "SQL_TABLE_NAME";
   public static final String SQL_COLUMN_NAME_KEY = "SQL_COLUMN_NAME";
   public static final String SQL_TYPE_KEY = "SQL_TYPE";

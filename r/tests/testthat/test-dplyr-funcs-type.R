@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
 library(dplyr, warn.conflicts = FALSE)
 suppressPackageStartupMessages(library(bit64))
+suppressPackageStartupMessages(library(lubridate))
 
+skip_if_not_available("acero")
 
 tbl <- example_data
 
@@ -99,6 +99,14 @@ test_that("explicit type conversions with as.*()", {
         dbl2dbl = as.double(dbl),
         dbl2int = as.integer(dbl),
         dbl2num = as.numeric(dbl),
+        rint2chr = as.character(1L),
+        rint2dbl = as.double(1),
+        rint2int = as.integer(1L),
+        rint2num = as.numeric(1.5),
+        rdbl2chr = as.character(1.5),
+        rdbl2dbl = as.double(1.5),
+        rdbl2int = as.integer(1.5),
+        rdbl2num = as.numeric(1.5)
       ) %>%
       collect(),
     tbl
@@ -109,7 +117,15 @@ test_that("explicit type conversions with as.*()", {
         chr2chr = as.character(chr),
         chr2dbl = as.double(chr),
         chr2int = as.integer(chr),
-        chr2num = as.numeric(chr)
+        chr2num = as.numeric(chr),
+        chr2chr2 = base::as.character(chr),
+        chr2dbl2 = base::as.double(chr),
+        chr2int2 = base::as.integer(chr),
+        chr2num2 = base::as.numeric(chr),
+        rchr2chr = as.character("string"),
+        rchr2dbl = as.double("1.5"),
+        rchr2int = as.integer("1"),
+        rchr2num = as.numeric("1.5")
       ) %>%
       collect(),
     tibble(chr = c("1", "2", "3"))
@@ -118,8 +134,12 @@ test_that("explicit type conversions with as.*()", {
     .input %>%
       transmute(
         chr2i64 = as.integer64(chr),
+        chr2i64_nmspc = bit64::as.integer64(chr),
         dbl2i64 = as.integer64(dbl),
         i642i64 = as.integer64(i64),
+        rchr2i64 = as.integer64("10000000000"),
+        rdbl2i64 = as.integer64(10000000000),
+        ri642i64 = as.integer64(as.integer64(1e10))
       ) %>%
       collect(),
     tibble(chr = "10000000000", dbl = 10000000000, i64 = as.integer64(1e10))
@@ -128,8 +148,12 @@ test_that("explicit type conversions with as.*()", {
     .input %>%
       transmute(
         chr2lgl = as.logical(chr),
+        chr2lgl2 = base::as.logical(chr),
         dbl2lgl = as.logical(dbl),
-        int2lgl = as.logical(int)
+        int2lgl = as.logical(int),
+        rchr2lgl = as.logical("TRUE"),
+        rdbl2lgl = as.logical(0),
+        rint2lgl = as.logical(1L)
       ) %>%
       collect(),
     tibble(
@@ -152,11 +176,26 @@ test_that("explicit type conversions with as.*()", {
         lgl2chr = as.character(lgl), # Arrow returns "true", "false" here ...
         lgl2dbl = as.double(lgl),
         lgl2int = as.integer(lgl),
-        lgl2lgl = as.logical(lgl)
+        lgl2lgl = as.logical(lgl),
+        rdbl2chr = as.character(1.5),
+        rdbl2dbl = as.double(1.5),
+        rdbl2int = as.integer(1.5),
+        rdbl2lgl = as.logical(1),
+        rint2chr = as.character(1L),
+        rint2dbl = as.double(1L),
+        rint2int = as.integer(1L),
+        rint2lgl = as.logical(1L),
+        rlgl2chr = as.character(TRUE), # Arrow returns "true", "false" here ...
+        rlgl2dbl = as.double(FALSE),
+        rlgl2int = as.integer(NA),
+        rlgl2lgl = as.logical(FALSE)
       ) %>%
       collect() %>%
       # need to use toupper() *after* collect() or else skip if utf8proc not available
-      mutate(lgl2chr = toupper(lgl2chr)), # ... but we need "TRUE", "FALSE"
+      mutate(
+        lgl2chr = toupper(lgl2chr),
+        rlgl2chr = toupper(rlgl2chr)
+      ), # ... but we need "TRUE", "FALSE"
     tibble(
       dbl = c(1, 0, NA_real_),
       int = c(1L, 0L, NA_integer_),
@@ -174,7 +213,9 @@ test_that("is.finite(), is.infinite(), is.nan()", {
     .input %>%
       transmute(
         is_fin = is.finite(x),
-        is_inf = is.infinite(x)
+        is_inf = is.infinite(x),
+        is_fin2 = base::is.finite(x),
+        is_inf2 = base::is.infinite(x)
       ) %>%
       collect(),
     df
@@ -183,7 +224,8 @@ test_that("is.finite(), is.infinite(), is.nan()", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        is_nan = is.nan(x)
+        is_nan = is.nan(x),
+        is_nan2 = base::is.nan(x)
       ) %>%
       collect(),
     df
@@ -195,7 +237,8 @@ test_that("is.na() evaluates to TRUE on NaN (ARROW-12055)", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        is_na = is.na(x)
+        is_na = is.na(x),
+        is_na2 = base::is.na(x)
       ) %>%
       collect(),
     df
@@ -212,47 +255,50 @@ test_that("type checks with is() giving Arrow types", {
       dec256 = Array$create(pi)$cast(decimal256(3, 2)),
       f64 = Array$create(1.1, float64()),
       str = Array$create("a", arrow::string())
-    ) %>% transmute(
-      i32_is_i32 = is(i32, int32()),
-      i32_is_dec = is(i32, decimal(3, 2)),
-      i32_is_dec128 = is(i32, decimal128(3, 2)),
-      i32_is_dec256 = is(i32, decimal256(3, 2)),
-      i32_is_i64 = is(i32, float64()),
-      i32_is_str = is(i32, arrow::string()),
-      dec_is_i32 = is(dec, int32()),
-      dec_is_dec = is(dec, decimal(3, 2)),
-      dec_is_dec128 = is(dec, decimal128(3, 2)),
-      dec_is_dec256 = is(dec, decimal256(3, 2)),
-      dec_is_i64 = is(dec, float64()),
-      dec_is_str = is(dec, arrow::string()),
-      dec128_is_i32 = is(dec128, int32()),
-      dec128_is_dec128 = is(dec128, decimal128(3, 2)),
-      dec128_is_dec256 = is(dec128, decimal256(3, 2)),
-      dec128_is_i64 = is(dec128, float64()),
-      dec128_is_str = is(dec128, arrow::string()),
-      dec256_is_i32 = is(dec128, int32()),
-      dec256_is_dec128 = is(dec128, decimal128(3, 2)),
-      dec256_is_dec256 = is(dec128, decimal256(3, 2)),
-      dec256_is_i64 = is(dec128, float64()),
-      dec256_is_str = is(dec128, arrow::string()),
-      f64_is_i32 = is(f64, int32()),
-      f64_is_dec = is(f64, decimal(3, 2)),
-      f64_is_dec128 = is(f64, decimal128(3, 2)),
-      f64_is_dec256 = is(f64, decimal256(3, 2)),
-      f64_is_i64 = is(f64, float64()),
-      f64_is_str = is(f64, arrow::string()),
-      str_is_i32 = is(str, int32()),
-      str_is_dec128 = is(str, decimal128(3, 2)),
-      str_is_dec256 = is(str, decimal256(3, 2)),
-      str_is_i64 = is(str, float64()),
-      str_is_str = is(str, arrow::string())
     ) %>%
+      transmute(
+        i32_is_i32 = is(i32, int32()),
+        i32_is_dec = is(i32, decimal(3, 2)),
+        i32_is_dec128 = is(i32, decimal128(3, 2)),
+        i32_is_dec256 = is(i32, decimal256(3, 2)),
+        i32_is_f64 = is(i32, float64()),
+        i32_is_str = is(i32, string()),
+        dec_is_i32 = is(dec, int32()),
+        dec_is_dec = is(dec, decimal(3, 2)),
+        dec_is_dec128 = is(dec, decimal128(3, 2)),
+        dec_is_dec256 = is(dec, decimal256(3, 2)),
+        dec_is_f64 = is(dec, float64()),
+        dec_is_str = is(dec, string()),
+        dec128_is_i32 = is(dec128, int32()),
+        dec128_is_dec128 = is(dec128, decimal128(3, 2)),
+        dec128_is_dec256 = is(dec128, decimal256(3, 2)),
+        dec128_is_f64 = is(dec128, float64()),
+        dec128_is_str = is(dec128, string()),
+        dec256_is_i32 = is(dec128, int32()),
+        dec256_is_dec128 = is(dec128, decimal128(3, 2)),
+        dec256_is_dec256 = is(dec128, decimal256(3, 2)),
+        dec256_is_f64 = is(dec128, float64()),
+        dec256_is_str = is(dec128, string()),
+        f64_is_i32 = is(f64, int32()),
+        f64_is_dec = is(f64, decimal(3, 2)),
+        f64_is_dec128 = is(f64, decimal128(3, 2)),
+        f64_is_dec256 = is(f64, decimal256(3, 2)),
+        f64_is_f64 = is(f64, float64()),
+        f64_is_str = is(f64, string()),
+        str_is_i32 = is(str, int32()),
+        str_is_dec128 = is(str, decimal128(3, 2)),
+        str_is_dec256 = is(str, decimal256(3, 2)),
+        str_is_i64 = is(str, float64()),
+        str_is_str = is(str, string())
+      ) %>%
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
+    c(
+      TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, FALSE, FALSE,
       FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE,
-      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE)
+      FALSE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, TRUE
+    )
   )
   # with class2=string
   expect_equal(
@@ -264,6 +310,9 @@ test_that("type checks with is() giving Arrow types", {
       i32_is_i32 = is(i32, "int32"),
       i32_is_i64 = is(i32, "double"),
       i32_is_str = is(i32, "string"),
+      i32_is_i32_nmspc = methods::is(i32, "int32"),
+      i32_is_i64_nmspc = methods::is(i32, "double"),
+      i32_is_str_nmspc = methods::is(i32, "string"),
       f64_is_i32 = is(f64, "int32"),
       f64_is_i64 = is(f64, "double"),
       f64_is_str = is(f64, "string"),
@@ -274,7 +323,7 @@ test_that("type checks with is() giving Arrow types", {
       collect() %>%
       t() %>%
       as.vector(),
-    c(TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
+    c(TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, TRUE)
   )
   # with class2=string alias
   expect_equal(
@@ -372,12 +421,12 @@ test_that("type checks with is() giving R types", {
         i64_is_chr = is(i64, "character"),
         i64_is_fct = is(i64, "factor"),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_int = is(i64, "integer"),
+        # i64_is_int = is(i64, "integer"), # nolint
         i64_is_i64 = is(i64, "integer64"),
         i64_is_lst = is(i64, "list"),
         i64_is_lgl = is(i64, "logical"),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_num = is(i64, "numeric"),
+        # i64_is_num = is(i64, "numeric"), # nolint
         lst_is_chr = is(lst, "character"),
         lst_is_fct = is(lst, "factor"),
         lst_is_int = is(lst, "integer"),
@@ -407,6 +456,14 @@ test_that("type checks with is.*()", {
         chr_is_lst = is.list(chr),
         chr_is_lgl = is.logical(chr),
         chr_is_num = is.numeric(chr),
+        chr_is_chr2 = base::is.character(chr),
+        chr_is_dbl2 = base::is.double(chr),
+        chr_is_fct2 = base::is.factor(chr),
+        chr_is_int2 = base::is.integer(chr),
+        chr_is_i642 = bit64::is.integer64(chr),
+        chr_is_lst2 = base::is.list(chr),
+        chr_is_lgl2 = base::is.logical(chr),
+        chr_is_num2 = base::is.numeric(chr),
         dbl_is_chr = is.character(dbl),
         dbl_is_dbl = is.double(dbl),
         dbl_is_fct = is.factor(dbl),
@@ -448,10 +505,10 @@ test_that("type checks with is.*()", {
       transmute(
         i64_is_chr = is.character(i64),
         # TODO: investigate why this is not matching when testthat runs it
-        # i64_is_dbl = is.double(i64),
+        # i64_is_dbl = is.double(i64), # nolint
         i64_is_fct = is.factor(i64),
         # we want Arrow to return TRUE, but bit64 returns FALSE
-        # i64_is_int = is.integer(i64),
+        # i64_is_int = is.integer(i64), # nolint
         i64_is_i64 = is.integer64(i64),
         i64_is_lst = is.list(i64),
         i64_is_lgl = is.logical(i64),
@@ -483,6 +540,11 @@ test_that("type checks with is_*()", {
         chr_is_int = is_integer(chr),
         chr_is_lst = is_list(chr),
         chr_is_lgl = is_logical(chr),
+        chr_is_chr2 = rlang::is_character(chr),
+        chr_is_dbl2 = rlang::is_double(chr),
+        chr_is_int2 = rlang::is_integer(chr),
+        chr_is_lst2 = rlang::is_list(chr),
+        chr_is_lgl2 = rlang::is_logical(chr),
         dbl_is_chr = is_character(dbl),
         dbl_is_dbl = is_double(dbl),
         dbl_is_int = is_integer(dbl),
@@ -563,7 +625,10 @@ test_that("as.factor()/dictionary_encode()", {
 
   compare_dplyr_binding(
     .input %>%
-      transmute(x = as.factor(x)) %>%
+      transmute(
+        x = as.factor(x),
+        x2 = base::as.factor(x)
+      ) %>%
       collect(),
     df1
   )
@@ -653,6 +718,10 @@ test_that("structs/nested data frames/tibbles can be created", {
         df_col = tibble(
           regular_col1 = regular_col1,
           regular_col2 = regular_col2
+        ),
+        df_col2 = tibble::tibble(
+          regular_col1 = regular_col1,
+          regular_col2 = regular_col2
         )
       ) %>%
       collect(),
@@ -719,10 +788,14 @@ test_that("structs/nested data frames/tibbles can be created", {
   compare_dplyr_binding(
     .input %>%
       transmute(
-        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE)
+        df_col = data.frame(regular_col1, regular_col1, check.names = FALSE),
+        df_col2 = base::data.frame(regular_col1, regular_col1, check.names = FALSE)
       ) %>%
       collect() %>%
-      mutate(df_col = as.data.frame(df_col)),
+      mutate(
+        df_col = as.data.frame(df_col),
+        df_col2 = as.data.frame(df_col2)
+      ),
     df
   )
 
@@ -766,5 +839,117 @@ test_that("nested structs can be created from scalars and existing data frames",
       ) %>%
       collect(),
     tibble(a = 1:2)
+  )
+})
+
+test_that("format date/time", {
+  # TODO(ARROW-16399): remove this workaround
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    withr::local_locale(LC_TIME = "C")
+  }
+  # In 3.4 the lack of tzone attribute causes spurious failures
+  skip_on_r_older_than("3.5")
+
+  times <- tibble(
+    datetime = c(lubridate::ymd_hms("2018-10-07 19:04:05", tz = "Pacific/Marquesas"), NA),
+    date = c(as.Date("2021-01-01"), NA)
+  )
+  formats <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %z %Z %j %U %W %x %X %% %G %V %u"
+  formats_date <- "%a %A %w %d %b %B %m %y %Y %H %I %p %M %j %U %W %x %X %% %G %V %u"
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = format(datetime, format = formats),
+        x2 = base::format(datetime, format = formats)
+      ) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(date, format = formats_date)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "Europe/Bucharest")) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(x = format(datetime, format = formats, tz = "EST", usetz = TRUE)) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(
+        x = format(1),
+        y = format(13.7, nsmall = 3)
+      ) %>%
+      collect(),
+    times
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      mutate(start_date = format(as.POSIXct("2022-01-01 01:01:00"))) %>%
+      collect(),
+    times
+  )
+
+  withr::with_timezone(
+    "Pacific/Marquesas",
+    {
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            x = format(datetime, format = formats, tz = "EST"),
+            x_date = format(date, format = formats_date, tz = "EST")
+          ) %>%
+          collect(),
+        times
+      )
+
+      compare_dplyr_binding(
+        .input %>%
+          mutate(
+            x = format(datetime, format = formats),
+            x_date = format(date, format = formats_date)
+          ) %>%
+          collect(),
+        times
+      )
+    }
+  )
+})
+
+test_that("format() for unsupported types returns the input as string", {
+  expect_equal(
+    example_data %>%
+      record_batch() %>%
+      mutate(x = format(int)) %>%
+      collect(),
+    example_data %>%
+      record_batch() %>%
+      mutate(x = as.character(int)) %>%
+      collect()
+  )
+  expect_equal(
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = format(dbl)) %>%
+      collect(),
+    example_data %>%
+      arrow_table() %>%
+      mutate(y = as.character(dbl)) %>%
+      collect()
   )
 })

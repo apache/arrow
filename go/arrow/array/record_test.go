@@ -21,9 +21,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRecord(t *testing.T) {
@@ -32,12 +33,12 @@ func TestRecord(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
-	col1 := func() array.Interface {
+	col1 := func() arrow.Array {
 		ib := array.NewInt32Builder(mem)
 		defer ib.Release()
 
@@ -46,7 +47,7 @@ func TestRecord(t *testing.T) {
 	}()
 	defer col1.Release()
 
-	col2 := func() array.Interface {
+	col2 := func() arrow.Array {
 		b := array.NewFloat64Builder(mem)
 		defer b.Release()
 
@@ -55,7 +56,16 @@ func TestRecord(t *testing.T) {
 	}()
 	defer col2.Release()
 
-	cols := []array.Interface{col1, col2}
+	col2_1 := func() arrow.Array {
+		b := array.NewFloat64Builder(mem)
+		defer b.Release()
+
+		b.AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+		return b.NewFloat64Array()
+	}()
+	defer col2_1.Release()
+
+	cols := []arrow.Array{col1, col2}
 	rec := array.NewRecord(schema, cols, -1)
 	defer rec.Release()
 
@@ -80,6 +90,17 @@ func TestRecord(t *testing.T) {
 	}
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
+	}
+	if _, err := rec.SetColumn(0, col2_1); err == nil {
+		t.Fatalf("expected an error")
+	}
+	newRec, err := rec.SetColumn(1, col2_1);
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer newRec.Release()
+	if !reflect.DeepEqual(newRec.Column(1), col2_1) {
+		t.Fatalf("invalid column: got=%q, want=%q", rec.Column(1), col2_1)
 	}
 
 	for _, tc := range []struct {
@@ -127,15 +148,14 @@ func TestRecord(t *testing.T) {
 
 	for _, tc := range []struct {
 		schema *arrow.Schema
-		cols   []array.Interface
+		cols   []arrow.Array
 		rows   int64
 		err    error
 	}{
 		{
 			schema: schema,
 			cols:   nil,
-			rows:   -1,
-			err:    fmt.Errorf("arrow/array: number of columns/fields mismatch"),
+			rows:   0,
 		},
 		{
 			schema: schema,
@@ -146,7 +166,7 @@ func TestRecord(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
 				},
 				nil,
 			),
@@ -157,8 +177,8 @@ func TestRecord(t *testing.T) {
 		{
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int32},
 				},
 				nil,
 			),
@@ -227,13 +247,13 @@ func TestRecordReader(t *testing.T) {
 
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
 		},
 		nil,
 	)
-	rec1 := func() array.Record {
-		col1 := func() array.Interface {
+	rec1 := func() arrow.Record {
+		col1 := func() arrow.Array {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -242,7 +262,7 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col1.Release()
 
-		col2 := func() array.Interface {
+		col2 := func() arrow.Array {
 			b := array.NewFloat64Builder(mem)
 			defer b.Release()
 
@@ -251,13 +271,13 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col2.Release()
 
-		cols := []array.Interface{col1, col2}
+		cols := []arrow.Array{col1, col2}
 		return array.NewRecord(schema, cols, -1)
 	}()
 	defer rec1.Release()
 
-	rec2 := func() array.Record {
-		col1 := func() array.Interface {
+	rec2 := func() arrow.Record {
+		col1 := func() arrow.Array {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -266,7 +286,7 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col1.Release()
 
-		col2 := func() array.Interface {
+		col2 := func() arrow.Array {
 			b := array.NewFloat64Builder(mem)
 			defer b.Release()
 
@@ -275,12 +295,12 @@ func TestRecordReader(t *testing.T) {
 		}()
 		defer col2.Release()
 
-		cols := []array.Interface{col1, col2}
+		cols := []arrow.Array{col1, col2}
 		return array.NewRecord(schema, cols, -1)
 	}()
 	defer rec2.Release()
 
-	recs := []array.Record{rec1, rec2}
+	recs := []arrow.Record{rec1, rec2}
 	itr, err := array.NewRecordReader(schema, recs)
 	if err != nil {
 		t.Fatal(err)
@@ -301,6 +321,9 @@ func TestRecordReader(t *testing.T) {
 			t.Fatalf("itr[%d], invalid record. got=%#v, want=%#v", n-1, got, want)
 		}
 	}
+	if err := itr.Err(); err != nil {
+		t.Fatalf("itr error: %#v", err)
+	}
 
 	if n != len(recs) {
 		t.Fatalf("invalid number of iterations. got=%d, want=%d", n, len(recs))
@@ -315,8 +338,8 @@ func TestRecordReader(t *testing.T) {
 			name: "mismatch-name",
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-XXX", Type: arrow.PrimitiveTypes.Float64},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-XXX", Type: arrow.PrimitiveTypes.Float64},
 				},
 				nil,
 			),
@@ -326,8 +349,8 @@ func TestRecordReader(t *testing.T) {
 			name: "mismatch-type",
 			schema: arrow.NewSchema(
 				[]arrow.Field{
-					arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-					arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int64},
+					{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+					{Name: "f2-f64", Type: arrow.PrimitiveTypes.Int64},
 				},
 				nil,
 			),
@@ -342,7 +365,7 @@ func TestRecordReader(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected an error: %v", tc.err)
 			}
-			if !reflect.DeepEqual(tc.err, err) {
+			if !assert.Equal(t, tc.err, err) {
 				t.Fatalf("invalid error: got=%v, want=%v", err, tc.err)
 			}
 		})
@@ -353,10 +376,14 @@ func TestRecordBuilder(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+	mapDt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	mapDt.KeysSorted = true
+	mapDt.SetItemNullable(false)
 	schema := arrow.NewSchema(
 		[]arrow.Field{
-			arrow.Field{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
-			arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+			{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+			{Name: "map", Type: mapDt},
 		},
 		nil,
 	)
@@ -367,9 +394,18 @@ func TestRecordBuilder(t *testing.T) {
 	b.Retain()
 	b.Release()
 
-	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3, 4, 5, 6}, nil)
-	b.Field(0).(*array.Int32Builder).AppendValues([]int32{7, 8, 9, 10}, nil)
-	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{1, 2, 3}, nil)
+	b.Field(0).(*array.Int32Builder).AppendValues([]int32{4, 5}, nil)
+	b.Field(1).(*array.Float64Builder).AppendValues([]float64{1, 2, 3, 4, 5}, nil)
+	mb := b.Field(2).(*array.MapBuilder)
+	for i := 0; i < 5; i++ {
+		mb.Append(true)
+
+		if i%3 == 0 {
+			mb.KeyBuilder().(*array.StringBuilder).AppendValues([]string{fmt.Sprint(i), "2", "3"}, nil)
+			mb.ItemBuilder().(*array.StringBuilder).AppendValues([]string{"a", "b", "c"}, nil)
+		}
+	}
 
 	rec := b.NewRecord()
 	defer rec.Release()
@@ -378,13 +414,16 @@ func TestRecordBuilder(t *testing.T) {
 		t.Fatalf("invalid schema: got=%#v, want=%#v", got, want)
 	}
 
-	if got, want := rec.NumRows(), int64(10); got != want {
+	if got, want := rec.NumRows(), int64(5); got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
-	if got, want := rec.NumCols(), int64(2); got != want {
+	if got, want := rec.NumCols(), int64(3); got != want {
 		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
 	}
 	if got, want := rec.ColumnName(0), schema.Field(0).Name; got != want {
+		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
+	}
+	if got, want := rec.Column(2).String(), `[{["0" "2" "3"] ["a" "b" "c"]} {[] []} {[] []} {["3" "2" "3"] ["a" "b" "c"]} {[] []}]`; got != want {
 		t.Fatalf("invalid column name: got=%q, want=%q", got, want)
 	}
 }
@@ -454,13 +493,13 @@ func (m *testMessageBar) GetD() []uint64 {
 
 var testMessageSchema = arrow.NewSchema(
 	[]arrow.Field{
-		arrow.Field{Name: "foo", Type: arrow.StructOf(
+		{Name: "foo", Type: arrow.StructOf(
 			arrow.Field{Name: "a", Type: arrow.PrimitiveTypes.Int32},
 			arrow.Field{Name: "b", Type: arrow.ListOf(
 				arrow.PrimitiveTypes.Uint32,
 			)},
 		)},
-		arrow.Field{Name: "bars", Type: arrow.ListOf(
+		{Name: "bars", Type: arrow.ListOf(
 			arrow.StructOf(
 				arrow.Field{Name: "c", Type: arrow.PrimitiveTypes.Int64},
 				arrow.Field{Name: "d", Type: arrow.ListOf(
@@ -472,7 +511,7 @@ var testMessageSchema = arrow.NewSchema(
 	nil,
 )
 
-func (m *testMessage) Fill(rec array.Record, row int) error {
+func (m *testMessage) Fill(rec arrow.Record, row int) error {
 	m.Reset()
 
 	// foo
@@ -571,7 +610,7 @@ type testMessageArrowRecordBuilder struct {
 	rb *array.RecordBuilder
 }
 
-func (b *testMessageArrowRecordBuilder) Build() array.Record {
+func (b *testMessageArrowRecordBuilder) Build() arrow.Record {
 	return b.rb.NewRecord()
 }
 
@@ -677,16 +716,16 @@ func TestRecordBuilderMessages(t *testing.T) {
 				B: []uint32{2, 3, 4, 5, 6, 7, 8, 9},
 			},
 			Bars: []*testMessageBar{
-				&testMessageBar{
+				{
 					C: 11,
 					D: []uint64{12, 13, 14},
 				},
-				&testMessageBar{
+				{
 					C: 15,
 					D: []uint64{16, 17, 18, 19},
 				},
 				nil,
-				&testMessageBar{
+				{
 					C: 20,
 					D: []uint64{21},
 				},

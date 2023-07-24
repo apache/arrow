@@ -15,9 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Wrap testthat::test_that with a check for the C++ library
-options(..skip.tests = !arrow:::arrow_available())
-
 set.seed(1)
 
 MAX_INT <- 2147483647L
@@ -31,6 +28,10 @@ Sys.setlocale("LC_COLLATE", "C")
 # Set English language so that error messages aren't internationalized
 # (R CMD check does this, but in case you're running outside of check)
 Sys.setenv(LANGUAGE = "en")
+
+# Set this option so that the deprecation warning isn't shown
+# (except when we test for it)
+options(arrow.pull_as_vector = FALSE)
 
 with_language <- function(lang, expr) {
   old <- Sys.getenv("LANGUAGE")
@@ -49,17 +50,18 @@ with_language <- function(lang, expr) {
   force(expr)
 }
 
-test_that <- function(what, code) {
-  testthat::test_that(what, {
-    skip_if(getOption("..skip.tests", TRUE), "arrow C++ library not available")
-    code
-  })
-}
-
-# Wrapper to run tests that only touch R code even when the C++ library isn't
-# available (so that at least some tests are run on those platforms)
-r_only <- function(code) {
-  withr::with_options(list(..skip.tests = FALSE), code)
+# backport of 4.0.0 implementation
+if (getRversion() < "4.0.0") {
+  suppressWarnings <- function(expr, classes = "warning") {
+    withCallingHandlers(
+      expr,
+      warning = function(w) {
+        if (inherits(w, classes)) {
+          invokeRestart("muffleWarning")
+        }
+      }
+    )
+  }
 }
 
 make_temp_dir <- function() {

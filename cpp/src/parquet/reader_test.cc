@@ -15,14 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <fcntl.h>
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <string>
+
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
@@ -31,13 +32,13 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/make_unique.h"
 
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/printer.h"
 #include "parquet/test_util.h"
@@ -87,6 +88,34 @@ std::string lz4_raw_compressed_larger() {
   return data_file("lz4_raw_compressed_larger.parquet");
 }
 
+std::string overflow_i16_page_oridinal() {
+  return data_file("overflow_i16_page_cnt.parquet");
+}
+
+std::string data_page_v1_corrupt_checksum() {
+  return data_file("datapage_v1-corrupt-checksum.parquet");
+}
+
+std::string data_page_v1_uncompressed_checksum() {
+  return data_file("datapage_v1-uncompressed-checksum.parquet");
+}
+
+std::string data_page_v1_snappy_checksum() {
+  return data_file("datapage_v1-snappy-compressed-checksum.parquet");
+}
+
+std::string plain_dict_uncompressed_checksum() {
+  return data_file("plain-dict-uncompressed-checksum.parquet");
+}
+
+std::string rle_dict_snappy_checksum() {
+  return data_file("rle-dict-snappy-checksum.parquet");
+}
+
+std::string rle_dict_uncompressed_corrupt_checksum() {
+  return data_file("rle-dict-uncompressed-corrupt-checksum.parquet");
+}
+
 // TODO: Assert on definition and repetition levels
 template <typename DType, typename ValueType>
 void AssertColumnValues(std::shared_ptr<TypedColumnReader<DType>> col, int64_t batch_size,
@@ -125,6 +154,223 @@ void CheckRowGroupMetadata(const RowGroupMetaData* rg_metadata,
   if (total_compressed_size != 0) {
     ASSERT_EQ(total_compressed_size, total_column_compressed_size);
   }
+}
+
+class TestBooleanRLE : public ::testing::Test {
+ public:
+  void SetUp() {
+    reader_ = ParquetFileReader::OpenFile(data_file("rle_boolean_encoding.parquet"));
+  }
+
+  void TearDown() {}
+
+ protected:
+  std::unique_ptr<ParquetFileReader> reader_;
+};
+
+TEST_F(TestBooleanRLE, TestBooleanScanner) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
+  int nvalues = 68;
+  int validation_values = 16;
+
+  auto group = reader_->RowGroup(0);
+
+  // column 0, id
+  auto scanner = std::make_shared<BoolScanner>(group->Column(0));
+
+  bool val = false;
+  bool is_null = false;
+
+  // For this file, 3rd and 16th index value is null
+  std::vector<bool> expected_null = {false, false, true,  false, false, false,
+                                     false, false, false, false, false, false,
+                                     false, false, false, true};
+  std::vector<bool> expected_value = {true,  false, false, true, true,  false,
+                                      false, true,  true,  true, false, false,
+                                      true,  true,  false, false};
+
+  // Assert sizes are same
+  ASSERT_EQ(validation_values, expected_null.size());
+  ASSERT_EQ(validation_values, expected_value.size());
+
+  for (int i = 0; i < validation_values; i++) {
+    ASSERT_TRUE(scanner->HasNext());
+    ASSERT_TRUE(scanner->NextValue(&val, &is_null));
+
+    ASSERT_EQ(expected_null[i], is_null);
+
+    // Only validate val if not null
+    if (!is_null) {
+      ASSERT_EQ(expected_value[i], val);
+    }
+  }
+
+  // Loop through rest of the values to assert data exists
+  for (int i = validation_values; i < nvalues; i++) {
+    ASSERT_TRUE(scanner->HasNext());
+    ASSERT_TRUE(scanner->NextValue(&val, &is_null));
+  }
+
+  // Attempt to read past end of column
+  ASSERT_FALSE(scanner->HasNext());
+  ASSERT_FALSE(scanner->NextValue(&val, &is_null));
+}
+
+TEST_F(TestBooleanRLE, TestBatchRead) {
+#ifndef ARROW_WITH_ZLIB
+  GTEST_SKIP() << "Test requires Zlib compression";
+#endif
+  int nvalues = 68;
+  int num_row_groups = 1;
+  int metadata_size = 111;
+
+  auto group = reader_->RowGroup(0);
+
+  // column 0, id
+  auto col = std::dynamic_pointer_cast<BoolReader>(group->Column(0));
+
+  // This file only has 68 rows
+  ASSERT_EQ(nvalues, reader_->metadata()->num_rows());
+  // This file only has 1 row group
+  ASSERT_EQ(num_row_groups, reader_->metadata()->num_row_groups());
+  // Size of the metadata is 111 bytes
+  ASSERT_EQ(metadata_size, reader_->metadata()->size());
+  // This row group must have 68 rows
+  ASSERT_EQ(nvalues, group->metadata()->num_rows());
+
+  // Check if the column is encoded with RLE
+  auto col_chunk = group->metadata()->ColumnChunk(0);
+  ASSERT_TRUE(std::find(col_chunk->encodings().begin(), col_chunk->encodings().end(),
+                        Encoding::RLE) != col_chunk->encodings().end());
+
+  // Assert column has values to be read
+  ASSERT_TRUE(col->HasNext());
+  int64_t curr_batch_read = 0;
+
+  const int16_t batch_size = 17;
+  const int16_t num_nulls = 2;
+  int16_t def_levels[batch_size];
+  int16_t rep_levels[batch_size];
+  bool values[batch_size];
+  std::fill_n(values, batch_size, false);
+
+  auto levels_read =
+      col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
+  ASSERT_EQ(batch_size, levels_read);
+
+  // Since two value's are null value, expect batches read to be num_nulls less than
+  // indicated batch_size
+  ASSERT_EQ(batch_size - num_nulls, curr_batch_read);
+
+  // 3rd index is null value
+  ASSERT_THAT(def_levels,
+              testing::ElementsAre(1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1));
+
+  // Validate inserted data is as expected
+  ASSERT_THAT(values,
+              testing::ElementsAre(1, 0, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0));
+
+  // Loop through rest of the values and assert batch_size read
+  for (int i = batch_size; i < nvalues; i = i + batch_size) {
+    levels_read =
+        col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
+    ASSERT_EQ(batch_size, levels_read);
+  }
+
+  // Now read past the end of the file
+  ASSERT_FALSE(col->HasNext());
+}
+
+class TestTextDeltaLengthByteArray : public ::testing::Test {
+ public:
+  void SetUp() {
+    reader_ = ParquetFileReader::OpenFile(data_file("delta_length_byte_array.parquet"));
+  }
+
+  void TearDown() {}
+
+ protected:
+  std::unique_ptr<ParquetFileReader> reader_;
+};
+
+TEST_F(TestTextDeltaLengthByteArray, TestTextScanner) {
+#ifndef ARROW_WITH_ZSTD
+  GTEST_SKIP() << "Test requires Zstd compression";
+#endif
+  auto group = reader_->RowGroup(0);
+
+  // column 0, id
+  auto scanner = std::make_shared<ByteArrayScanner>(group->Column(0));
+  ByteArray val;
+  bool is_null;
+  std::string expected_prefix("apple_banana_mango");
+  for (int i = 0; i < 1000; ++i) {
+    ASSERT_TRUE(scanner->HasNext());
+    ASSERT_TRUE(scanner->NextValue(&val, &is_null));
+    ASSERT_FALSE(is_null);
+    std::string expected = expected_prefix + std::to_string(i * i);
+    ASSERT_TRUE(val.len == expected.length());
+    ASSERT_EQ(::std::string_view(reinterpret_cast<const char*>(val.ptr), val.len),
+              expected);
+  }
+  ASSERT_FALSE(scanner->HasNext());
+  ASSERT_FALSE(scanner->NextValue(&val, &is_null));
+}
+
+TEST_F(TestTextDeltaLengthByteArray, TestBatchRead) {
+#ifndef ARROW_WITH_ZSTD
+  GTEST_SKIP() << "Test requires Zstd compression";
+#endif
+  auto group = reader_->RowGroup(0);
+
+  // column 0, id
+  auto col = std::dynamic_pointer_cast<ByteArrayReader>(group->Column(0));
+
+  // This file only has 1000 rows
+  ASSERT_EQ(1000, reader_->metadata()->num_rows());
+  // This file only has 1 row group
+  ASSERT_EQ(1, reader_->metadata()->num_row_groups());
+  // Size of the metadata is 105 bytes
+  ASSERT_EQ(105, reader_->metadata()->size());
+  // This row group must have 1000 rows
+  ASSERT_EQ(1000, group->metadata()->num_rows());
+
+  // Check if the column is encoded with DELTA_LENGTH_BYTE_ARRAY
+  auto col_chunk = group->metadata()->ColumnChunk(0);
+
+  ASSERT_TRUE(std::find(col_chunk->encodings().begin(), col_chunk->encodings().end(),
+                        Encoding::DELTA_LENGTH_BYTE_ARRAY) !=
+              col_chunk->encodings().end());
+
+  ASSERT_TRUE(col->HasNext());
+  int64_t values_read = 0;
+  int64_t curr_batch_read;
+  std::string expected_prefix("apple_banana_mango");
+  while (values_read < 1000) {
+    const int16_t batch_size = 25;
+    int16_t def_levels[batch_size];
+    int16_t rep_levels[batch_size];
+    ByteArray values[batch_size];
+
+    auto levels_read =
+        col->ReadBatch(batch_size, def_levels, rep_levels, values, &curr_batch_read);
+    ASSERT_EQ(batch_size, levels_read);
+    ASSERT_EQ(batch_size, curr_batch_read);
+    for (int16_t i = 0; i < batch_size; i++) {
+      auto expected =
+          expected_prefix + std::to_string((i + values_read) * (i + values_read));
+      ASSERT_TRUE(values[i].len == expected.length());
+      ASSERT_EQ(
+          ::std::string_view(reinterpret_cast<const char*>(values[i].ptr), values[i].len),
+          expected);
+    }
+    values_read += curr_batch_read;
+  }
+
+  // Now read past the end of the file
+  ASSERT_FALSE(col->HasNext());
 }
 
 class TestAllTypesPlain : public ::testing::Test {
@@ -298,6 +544,204 @@ TEST_F(TestLocalFile, OpenWithMetadata) {
   ASSERT_EQ(metadata.get(), reader2->metadata().get());
 }
 
+class TestCheckDataPageCrc : public ::testing::Test {
+ public:
+  void OpenExampleFile(const std::string& file_path) {
+    file_reader_ = ParquetFileReader::OpenFile(file_path,
+                                               /*memory_map=*/false, reader_props_);
+    auto metadata_ptr = file_reader_->metadata();
+    EXPECT_EQ(1, metadata_ptr->num_row_groups());
+    EXPECT_EQ(2, metadata_ptr->num_columns());
+    row_group_ = file_reader_->RowGroup(0);
+
+    column_readers_.resize(2);
+    column_readers_[0] = row_group_->Column(0);
+    column_readers_[1] = row_group_->Column(1);
+
+    page_readers_.resize(2);
+    page_readers_[0] = row_group_->GetColumnPageReader(0);
+    page_readers_[1] = row_group_->GetColumnPageReader(1);
+  }
+
+  template <typename DType>
+  void CheckReadBatches(int col_index, int expect_values) {
+    ASSERT_GT(column_readers_.size(), col_index);
+    auto column_reader =
+        std::dynamic_pointer_cast<TypedColumnReader<DType>>(column_readers_[col_index]);
+    ASSERT_NE(nullptr, column_reader);
+    int64_t total_values = 0;
+    std::vector<typename DType::c_type> values(1024);
+
+    while (column_reader->HasNext()) {
+      int64_t values_read;
+      int64_t levels_read = column_reader->ReadBatch(values.size(), nullptr, nullptr,
+                                                     values.data(), &values_read);
+      EXPECT_EQ(levels_read, values_read);
+      total_values += values_read;
+    }
+    EXPECT_EQ(expect_values, total_values);
+  }
+
+  void CheckCorrectCrc(const std::string& file_path, bool page_checksum_verification) {
+    reader_props_.set_page_checksum_verification(page_checksum_verification);
+    {
+      // Exercise column readers
+      OpenExampleFile(file_path);
+      CheckReadBatches<Int32Type>(/*col_index=*/0, kDataPageValuesPerColumn);
+      CheckReadBatches<Int32Type>(/*col_index=*/1, kDataPageValuesPerColumn);
+    }
+    {
+      // Exercise page readers directly
+      OpenExampleFile(file_path);
+      for (auto& page_reader : page_readers_) {
+        EXPECT_NE(nullptr, page_reader->NextPage());
+        EXPECT_NE(nullptr, page_reader->NextPage());
+        EXPECT_EQ(nullptr, page_reader->NextPage());
+      }
+    }
+  }
+
+  void CheckCorrectDictCrc(const std::string& file_path,
+                           bool page_checksum_verification) {
+    reader_props_.set_page_checksum_verification(page_checksum_verification);
+    {
+      // Exercise column readers
+      OpenExampleFile(file_path);
+      CheckReadBatches<Int64Type>(/*col_index=*/0, kDictPageValuesPerColumn);
+      CheckReadBatches<ByteArrayType>(/*col_index=*/1, kDictPageValuesPerColumn);
+    }
+    {
+      // Exercise page readers directly
+      OpenExampleFile(file_path);
+      for (auto& page_reader : page_readers_) {
+        // read dict page
+        EXPECT_NE(nullptr, page_reader->NextPage());
+        // read data page
+        EXPECT_NE(nullptr, page_reader->NextPage());
+      }
+    }
+  }
+
+  void CheckNextPageCorrupt(PageReader* page_reader) {
+    AssertCrcValidationError([&]() { page_reader->NextPage(); });
+  }
+
+  void AssertCrcValidationError(std::function<void()> func) {
+    EXPECT_THROW_THAT(
+        func, ParquetException,
+        ::testing::Property(&ParquetException::what,
+                            ::testing::HasSubstr("CRC checksum verification failed")));
+  }
+
+ protected:
+  static constexpr int kDataPageSize = 1024 * 10;
+  // Example CRC files have two v1 data pages per column
+  static constexpr int kDataPageValuesPerColumn = kDataPageSize * 2 / sizeof(int32_t);
+  static constexpr int kDictPageValuesPerColumn = 1000;
+
+  ReaderProperties reader_props_;
+  std::unique_ptr<ParquetFileReader> file_reader_;
+  std::shared_ptr<RowGroupReader> row_group_;
+  std::vector<std::shared_ptr<ColumnReader>> column_readers_;
+  std::vector<std::unique_ptr<PageReader>> page_readers_;
+};
+
+TEST_F(TestCheckDataPageCrc, CorruptPageV1) {
+  // Works when not checking crc
+  CheckCorrectCrc(data_page_v1_corrupt_checksum(),
+                  /*page_checksum_verification=*/false);
+  // Fails when checking crc
+  reader_props_.set_page_checksum_verification(true);
+  {
+    // With column readers
+    OpenExampleFile(data_page_v1_corrupt_checksum());
+
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int32Type>(/*col_index=*/0, kDataPageValuesPerColumn);
+    });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int32Type>(/*col_index=*/1, kDataPageValuesPerColumn);
+    });
+  }
+  {
+    // With page readers
+    OpenExampleFile(data_page_v1_corrupt_checksum());
+
+    // First column has a corrupt CRC in first page
+    CheckNextPageCorrupt(page_readers_[0].get());
+    EXPECT_NE(nullptr, page_readers_[0]->NextPage());
+    EXPECT_EQ(nullptr, page_readers_[0]->NextPage());
+
+    // Second column has a corrupt CRC in second page
+    EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+    CheckNextPageCorrupt(page_readers_[1].get());
+    EXPECT_EQ(nullptr, page_readers_[1]->NextPage());
+  }
+}
+
+TEST_F(TestCheckDataPageCrc, UncompressedPageV1) {
+  CheckCorrectCrc(data_page_v1_uncompressed_checksum(),
+                  /*page_checksum_verification=*/false);
+  CheckCorrectCrc(data_page_v1_uncompressed_checksum(),
+                  /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, SnappyPageV1) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  CheckCorrectCrc(data_page_v1_snappy_checksum(),
+                  /*page_checksum_verification=*/false);
+  CheckCorrectCrc(data_page_v1_snappy_checksum(),
+                  /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, UncompressedDict) {
+  CheckCorrectDictCrc(plain_dict_uncompressed_checksum(),
+                      /*page_checksum_verification=*/false);
+  CheckCorrectDictCrc(plain_dict_uncompressed_checksum(),
+                      /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, SnappyDict) {
+#ifndef ARROW_WITH_SNAPPY
+  GTEST_SKIP() << "Test requires Snappy compression";
+#endif
+  CheckCorrectDictCrc(rle_dict_snappy_checksum(),
+                      /*page_checksum_verification=*/false);
+  CheckCorrectDictCrc(rle_dict_snappy_checksum(),
+                      /*page_checksum_verification=*/true);
+}
+
+TEST_F(TestCheckDataPageCrc, CorruptDict) {
+  // Works when not checking crc
+  CheckCorrectDictCrc(rle_dict_uncompressed_corrupt_checksum(),
+                      /*page_checksum_verification=*/false);
+  // Fails when checking crc
+  reader_props_.set_page_checksum_verification(true);
+  {
+    // With column readers
+    OpenExampleFile(rle_dict_uncompressed_corrupt_checksum());
+
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<Int64Type>(/*col_index=*/0, kDictPageValuesPerColumn);
+    });
+    AssertCrcValidationError([this]() {
+      CheckReadBatches<ByteArrayType>(/*col_index=*/1, kDictPageValuesPerColumn);
+    });
+  }
+  {
+    // With page readers
+    OpenExampleFile(rle_dict_uncompressed_corrupt_checksum());
+
+    CheckNextPageCorrupt(page_readers_[0].get());
+    EXPECT_NE(nullptr, page_readers_[0]->NextPage());
+
+    CheckNextPageCorrupt(page_readers_[1].get());
+    EXPECT_NE(nullptr, page_readers_[1]->NextPage());
+  }
+}
+
 TEST(TestFileReaderAdHoc, NationDictTruncatedDataPage) {
   // PARQUET-816. Some files generated by older Parquet implementations may
   // contain malformed data page metadata, and we can successfully decode them
@@ -343,12 +787,12 @@ Column 1: b (INT32)
 --- Rows: 3 ---
 Column 0
   Values: 18  Statistics Not Set
-  Compression: SNAPPY, Encodings: RLE PLAIN_DICTIONARY
+  Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 103, Compressed Size: 104
 Column 1
   Values: 3, Null Values: 0, Distinct Values: 0
   Max: 1, Min: 1
-  Compression: SNAPPY, Encodings: BIT_PACKED PLAIN_DICTIONARY
+  Compression: SNAPPY, Encodings: PLAIN_DICTIONARY(DICT_PAGE) PLAIN_DICTIONARY
   Uncompressed Size: 52, Compressed Size: 56
 )###";
   std::string values_output = R"###(--- Values ---
@@ -528,7 +972,7 @@ TEST(TestFileReader, BufferedReadsWithDictionary) {
       row_group->ColumnWithExposeEncoding(0, ExposedEncoding::DICTIONARY));
   EXPECT_EQ(col_reader->GetExposedEncoding(), ExposedEncoding::DICTIONARY);
 
-  auto indices = ::arrow::internal::make_unique<int32_t[]>(num_rows);
+  auto indices = std::make_unique<int32_t[]>(num_rows);
   const double* dict = nullptr;
   int32_t dict_len = 0;
   for (int row_index = 0; row_index < num_rows; ++row_index) {
@@ -653,16 +1097,6 @@ std::unique_ptr<ParquetFileReader> OpenBuffer(const std::string& contents) {
   return ::arrow::Future<>(
       ParquetFileReader::OpenAsync(std::make_shared<::arrow::io::BufferReader>(buffer)));
 }
-
-// https://github.com/google/googletest/pull/2904 not available in our version of
-// gtest/gmock
-#define EXPECT_THROW_THAT(callable, ex_type, property)   \
-  EXPECT_THROW(                                          \
-      try { (callable)(); } catch (const ex_type& err) { \
-        EXPECT_THAT(err, (property));                    \
-        throw;                                           \
-      },                                                 \
-      ex_type)
 
 TEST(TestFileReader, TestOpenErrors) {
   EXPECT_THROW_THAT(
@@ -810,5 +1244,216 @@ std::vector<TestCodecParam> test_codec_params{
 INSTANTIATE_TEST_SUITE_P(Lz4CodecTests, TestCodec, ::testing::ValuesIn(test_codec_params),
                          testing::PrintToStringParamName());
 #endif  // ARROW_WITH_LZ4
+
+// Test reading a data file with a ColumnChunk contains more than
+// INT16_MAX pages. (GH-15074).
+TEST(TestFileReader, TestOverflowInt16PageOrdinal) {
+  ReaderProperties reader_props;
+  auto file_reader = ParquetFileReader::OpenFile(overflow_i16_page_oridinal(),
+                                                 /*memory_map=*/false, reader_props);
+  auto metadata_ptr = file_reader->metadata();
+  EXPECT_EQ(1, metadata_ptr->num_row_groups());
+  EXPECT_EQ(1, metadata_ptr->num_columns());
+  auto row_group = file_reader->RowGroup(0);
+
+  {
+    auto column_reader =
+        std::dynamic_pointer_cast<TypedColumnReader<BooleanType>>(row_group->Column(0));
+    EXPECT_NE(nullptr, column_reader);
+    constexpr int kBatchLength = 1024;
+    std::array<bool, kBatchLength> boolean_values{};
+    int64_t total_values = 0;
+    int64_t values_read = 0;
+    do {
+      values_read = 0;
+      column_reader->ReadBatch(kBatchLength, nullptr, nullptr, boolean_values.data(),
+                               &values_read);
+      total_values += values_read;
+      for (int i = 0; i < values_read; ++i) {
+        EXPECT_FALSE(boolean_values[i]);
+      }
+    } while (values_read != 0);
+    EXPECT_EQ(40000, total_values);
+  }
+  {
+    auto page_reader = row_group->GetColumnPageReader(0);
+    int32_t page_ordinal = 0;
+    while (page_reader->NextPage() != nullptr) {
+      ++page_ordinal;
+    }
+    EXPECT_EQ(40000, page_ordinal);
+  }
+}
+
+struct PageIndexReaderParam {
+  std::vector<int32_t> row_group_indices;
+  std::vector<int32_t> column_indices;
+  PageIndexSelection index_selection;
+};
+
+// For valgrind
+std::ostream& operator<<(std::ostream& out, const PageIndexReaderParam& params) {
+  out << "PageIndexReaderParam{row_group_indices = ";
+  for (const auto& i : params.row_group_indices) {
+    out << i << ", ";
+  }
+  out << "column_indices = ";
+  for (const auto& i : params.column_indices) {
+    out << i << ", ";
+  }
+
+  out << "index_selection = " << params.index_selection << "}";
+
+  return out;
+}
+
+class ParameterizedPageIndexReaderTest
+    : public ::testing::TestWithParam<PageIndexReaderParam> {};
+
+// Test reading a data file with page index.
+TEST_P(ParameterizedPageIndexReaderTest, TestReadPageIndex) {
+  ReaderProperties properties;
+  auto file_reader = ParquetFileReader::OpenFile(data_file("alltypes_tiny_pages.parquet"),
+                                                 /*memory_map=*/false, properties);
+  auto metadata = file_reader->metadata();
+  EXPECT_EQ(1, metadata->num_row_groups());
+  EXPECT_EQ(13, metadata->num_columns());
+
+  // Create the page index reader and provide different read hints.
+  auto page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(nullptr, page_index_reader);
+  const auto params = GetParam();
+  const bool call_will_need = !params.row_group_indices.empty();
+  if (call_will_need) {
+    page_index_reader->WillNeed(params.row_group_indices, params.column_indices,
+                                params.index_selection);
+  }
+
+  auto row_group_index_reader = page_index_reader->RowGroup(0);
+  if (!call_will_need || params.index_selection.offset_index ||
+      params.index_selection.column_index) {
+    ASSERT_NE(nullptr, row_group_index_reader);
+  } else {
+    // None of page index is requested.
+    ASSERT_EQ(nullptr, row_group_index_reader);
+    return;
+  }
+
+  auto column_index_requested = [&](int32_t column_id) {
+    return !call_will_need ||
+           (params.index_selection.column_index &&
+            (params.column_indices.empty() ||
+             (std::find(params.column_indices.cbegin(), params.column_indices.cend(),
+                        column_id) != params.column_indices.cend())));
+  };
+
+  auto offset_index_requested = [&](int32_t column_id) {
+    return !call_will_need ||
+           (params.index_selection.offset_index &&
+            (params.column_indices.empty() ||
+             (std::find(params.column_indices.cbegin(), params.column_indices.cend(),
+                        column_id) != params.column_indices.cend())));
+  };
+
+  if (offset_index_requested(0)) {
+    // Verify offset index of column 0 and only partial data as it contains 325 pages.
+    const size_t num_pages = 325;
+    const std::vector<size_t> page_indices = {0, 100, 200, 300};
+    const std::vector<PageLocation> page_locations = {
+        PageLocation{4, 109, 0}, PageLocation{11480, 133, 2244},
+        PageLocation{22980, 133, 4494}, PageLocation{34480, 133, 6744}};
+
+    auto offset_index = row_group_index_reader->GetOffsetIndex(0);
+    ASSERT_NE(nullptr, offset_index);
+
+    EXPECT_EQ(num_pages, offset_index->page_locations().size());
+    for (size_t i = 0; i < page_indices.size(); ++i) {
+      size_t page_id = page_indices.at(i);
+      const auto& read_page_location = offset_index->page_locations().at(page_id);
+      const auto& expected_page_location = page_locations.at(i);
+      EXPECT_EQ(expected_page_location.offset, read_page_location.offset);
+      EXPECT_EQ(expected_page_location.compressed_page_size,
+                read_page_location.compressed_page_size);
+      EXPECT_EQ(expected_page_location.first_row_index,
+                read_page_location.first_row_index);
+    }
+  } else {
+    EXPECT_THROW(row_group_index_reader->GetOffsetIndex(0), ParquetException);
+  }
+
+  if (column_index_requested(5)) {
+    // Verify column index of column 5 and only partial data as it contains 528 pages.
+    const size_t num_pages = 528;
+    const BoundaryOrder::type boundary_order = BoundaryOrder::Unordered;
+    const std::vector<size_t> page_indices = {0, 99, 426, 520};
+    const std::vector<bool> null_pages = {false, false, false, false};
+    const bool has_null_counts = true;
+    const std::vector<int64_t> null_counts = {0, 0, 0, 0};
+    const std::vector<int64_t> min_values = {0, 10, 0, 0};
+    const std::vector<int64_t> max_values = {90, 90, 80, 70};
+
+    auto column_index = row_group_index_reader->GetColumnIndex(5);
+    ASSERT_NE(nullptr, column_index);
+    auto typed_column_index = std::dynamic_pointer_cast<Int64ColumnIndex>(column_index);
+    ASSERT_NE(nullptr, typed_column_index);
+
+    EXPECT_EQ(num_pages, column_index->null_pages().size());
+    EXPECT_EQ(has_null_counts, column_index->has_null_counts());
+    EXPECT_EQ(boundary_order, column_index->boundary_order());
+    for (size_t i = 0; i < page_indices.size(); ++i) {
+      size_t page_id = page_indices.at(i);
+      EXPECT_EQ(null_pages.at(i), column_index->null_pages().at(page_id));
+      if (has_null_counts) {
+        EXPECT_EQ(null_counts.at(i), column_index->null_counts().at(page_id));
+      }
+      if (!null_pages.at(i)) {
+        EXPECT_EQ(min_values.at(i), typed_column_index->min_values().at(page_id));
+        EXPECT_EQ(max_values.at(i), typed_column_index->max_values().at(page_id));
+      }
+    }
+  } else {
+    EXPECT_THROW(row_group_index_reader->GetColumnIndex(5), ParquetException);
+  }
+
+  // Verify null is returned if column index does not exist.
+  auto column_index = row_group_index_reader->GetColumnIndex(10);
+  EXPECT_EQ(nullptr, column_index);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    PageIndexReaderTests, ParameterizedPageIndexReaderTest,
+    ::testing::Values(PageIndexReaderParam{{}, {}, {true, true}},
+                      PageIndexReaderParam{{}, {}, {true, false}},
+                      PageIndexReaderParam{{}, {}, {false, true}},
+                      PageIndexReaderParam{{}, {}, {false, false}},
+                      PageIndexReaderParam{{0}, {}, {true, true}},
+                      PageIndexReaderParam{{0}, {}, {true, false}},
+                      PageIndexReaderParam{{0}, {}, {false, true}},
+                      PageIndexReaderParam{{0}, {}, {false, false}},
+                      PageIndexReaderParam{{0}, {0}, {true, true}},
+                      PageIndexReaderParam{{0}, {0}, {true, false}},
+                      PageIndexReaderParam{{0}, {0}, {false, true}},
+                      PageIndexReaderParam{{0}, {0}, {false, false}},
+                      PageIndexReaderParam{{0}, {5}, {true, true}},
+                      PageIndexReaderParam{{0}, {5}, {true, false}},
+                      PageIndexReaderParam{{0}, {5}, {false, true}},
+                      PageIndexReaderParam{{0}, {5}, {false, false}},
+                      PageIndexReaderParam{{0}, {0, 5}, {true, true}},
+                      PageIndexReaderParam{{0}, {0, 5}, {true, false}},
+                      PageIndexReaderParam{{0}, {0, 5}, {false, true}},
+                      PageIndexReaderParam{{0}, {0, 5}, {false, false}}));
+
+TEST(PageIndexReaderTest, ReadFileWithoutPageIndex) {
+  ReaderProperties properties;
+  auto file_reader = ParquetFileReader::OpenFile(data_file("int32_decimal.parquet"),
+                                                 /*memory_map=*/false, properties);
+  auto metadata = file_reader->metadata();
+  EXPECT_EQ(1, metadata->num_row_groups());
+
+  auto page_index_reader = file_reader->GetPageIndexReader();
+  ASSERT_NE(nullptr, page_index_reader);
+  auto row_group_index_reader = page_index_reader->RowGroup(0);
+  ASSERT_EQ(nullptr, row_group_index_reader);
+}
 
 }  // namespace parquet

@@ -30,7 +30,6 @@ import pyarrow.tests.strategies as past
 from pyarrow.feather import (read_feather, write_feather, read_table,
                              FeatherDataset)
 
-
 try:
     from pandas.testing import assert_frame_equal
     import pandas as pd
@@ -90,13 +89,18 @@ def _check_pandas_roundtrip(df, expected=None, path=None,
     if path is None:
         path = random_path()
 
+    if version is None:
+        version = 2
+
     TEST_FILES.append(path)
     write_feather(df, path, compression=compression,
                   compression_level=compression_level, version=version)
+
     if not os.path.exists(path):
         raise Exception('file not written')
 
     result = read_feather(path, columns, use_threads=use_threads)
+
     if expected is None:
         expected = df
 
@@ -391,7 +395,7 @@ def test_strings(version):
     values = [b'foo', None, 'bar', 'qux', np.nan]
     df = pd.DataFrame({'strings': values * repeats})
 
-    ex_values = [b'foo', None, b'bar', b'qux', np.nan]
+    ex_values = [b'foo', None, b'bar', b'qux', None]
     expected = pd.DataFrame({'strings': ex_values * repeats})
     _check_pandas_roundtrip(df, expected, version=version)
 
@@ -403,7 +407,8 @@ def test_strings(version):
 
     values = ['foo', None, 'bar', 'qux', np.nan]
     df = pd.DataFrame({'strings': values * repeats})
-    expected = pd.DataFrame({'strings': values * repeats})
+    ex_values = ['foo', None, 'bar', 'qux', None]
+    expected = pd.DataFrame({'strings': ex_values * repeats})
     _check_pandas_roundtrip(df, expected, version=version)
 
 
@@ -504,8 +509,10 @@ def test_out_of_float64_timestamp_with_nulls(version):
 def test_non_string_columns(version):
     df = pd.DataFrame({0: [1, 2, 3, 4],
                        1: [True, False, True, False]})
+    expected = df
 
-    expected = df.rename(columns=str)
+    if version == 1:
+        expected = df.rename(columns=str)
     _check_pandas_roundtrip(df, expected, version=version)
 
 
@@ -815,8 +822,42 @@ def test_feather_v017_experimental_compression_backward_compatibility(datadir):
     #     table = pa.table({'a': range(5)})
     #     from pyarrow import feather
     #     feather.write_feather(
-    #         table, "v0.17.0.version=2-compression=lz4.feather",
+    #         table, "v0.17.0.version.2-compression.lz4.feather",
     #         compression="lz4", version=2)
     expected = pa.table({'a': range(5)})
-    result = read_table(datadir / "v0.17.0.version=2-compression=lz4.feather")
+    result = read_table(datadir / "v0.17.0.version.2-compression.lz4.feather")
     assert result.equals(expected)
+
+
+@pytest.mark.pandas
+def test_preserve_index_pandas(version):
+    df = pd.DataFrame({'a': [1, 2, 3]}, index=['a', 'b', 'c'])
+
+    if version == 1:
+        expected = df.reset_index(drop=True).rename(columns=str)
+    else:
+        expected = df
+
+    _check_pandas_roundtrip(df, expected, version=version)
+
+
+@pytest.mark.pandas
+def test_feather_datetime_resolution_arrow_to_pandas(tempdir):
+    # ARROW-17192 - ensure timestamp_as_object=True (together with other
+    # **kwargs) can be passed in read_feather to to_pandas.
+
+    from datetime import datetime
+    df = pd.DataFrame({"date": [
+        datetime.fromisoformat("1654-01-01"),
+        datetime.fromisoformat("1920-01-01"), ],
+    })
+    write_feather(df, tempdir / "test_resolution.feather")
+
+    expected_0 = datetime.fromisoformat("1654-01-01")
+    expected_1 = datetime.fromisoformat("1920-01-01")
+
+    result = read_feather(tempdir / "test_resolution.feather",
+                          timestamp_as_object=True)
+
+    assert expected_0 == result['date'][0]
+    assert expected_1 == result['date'][1]

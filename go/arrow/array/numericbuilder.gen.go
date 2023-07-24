@@ -27,11 +27,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type Int64Builder struct {
@@ -44,6 +44,8 @@ type Int64Builder struct {
 func NewInt64Builder(mem memory.Allocator) *Int64Builder {
 	return &Int64Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Int64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int64 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -71,6 +73,22 @@ func (b *Int64Builder) Append(v int64) {
 func (b *Int64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Int64Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Int64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int64Builder) UnsafeAppend(v int64) {
@@ -137,9 +155,13 @@ func (b *Int64Builder) Resize(n int) {
 	}
 }
 
+func (b *Int64Builder) Value(i int) int64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int64 array from the memory buffers used by the builder and resets the Int64Builder
 // so it can be used to build a new array.
-func (b *Int64Builder) NewArray() Interface {
+func (b *Int64Builder) NewArray() arrow.Array {
 	return b.NewInt64Array()
 }
 
@@ -170,7 +192,21 @@ func (b *Int64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 8*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int64(v))
+	return nil
+}
+
+func (b *Int64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -214,9 +250,9 @@ func (b *Int64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -234,7 +270,7 @@ func (b *Int64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint64Builder struct {
@@ -247,6 +283,8 @@ type Uint64Builder struct {
 func NewUint64Builder(mem memory.Allocator) *Uint64Builder {
 	return &Uint64Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Uint64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint64 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -274,6 +312,22 @@ func (b *Uint64Builder) Append(v uint64) {
 func (b *Uint64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Uint64Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Uint64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint64Builder) UnsafeAppend(v uint64) {
@@ -340,9 +394,13 @@ func (b *Uint64Builder) Resize(n int) {
 	}
 }
 
+func (b *Uint64Builder) Value(i int) uint64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Uint64 array from the memory buffers used by the builder and resets the Uint64Builder
 // so it can be used to build a new array.
-func (b *Uint64Builder) NewArray() Interface {
+func (b *Uint64Builder) NewArray() arrow.Array {
 	return b.NewUint64Array()
 }
 
@@ -373,7 +431,21 @@ func (b *Uint64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 8*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint64(v))
+	return nil
+}
+
+func (b *Uint64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -417,9 +489,9 @@ func (b *Uint64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -437,7 +509,7 @@ func (b *Uint64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Float64Builder struct {
@@ -450,6 +522,8 @@ type Float64Builder struct {
 func NewFloat64Builder(mem memory.Allocator) *Float64Builder {
 	return &Float64Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Float64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Float64 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -477,6 +551,22 @@ func (b *Float64Builder) Append(v float64) {
 func (b *Float64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Float64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Float64Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Float64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float64Builder) UnsafeAppend(v float64) {
@@ -543,9 +633,13 @@ func (b *Float64Builder) Resize(n int) {
 	}
 }
 
+func (b *Float64Builder) Value(i int) float64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Float64 array from the memory buffers used by the builder and resets the Float64Builder
 // so it can be used to build a new array.
-func (b *Float64Builder) NewArray() Interface {
+func (b *Float64Builder) NewArray() arrow.Array {
 	return b.NewFloat64Array()
 }
 
@@ -576,7 +670,21 @@ func (b *Float64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Float64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Float64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 8*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(float64(v))
+	return nil
+}
+
+func (b *Float64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -620,9 +728,9 @@ func (b *Float64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Float64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Float64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -640,7 +748,7 @@ func (b *Float64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Int32Builder struct {
@@ -653,6 +761,8 @@ type Int32Builder struct {
 func NewInt32Builder(mem memory.Allocator) *Int32Builder {
 	return &Int32Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Int32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int32 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -680,6 +790,22 @@ func (b *Int32Builder) Append(v int32) {
 func (b *Int32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Int32Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Int32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int32Builder) UnsafeAppend(v int32) {
@@ -746,9 +872,13 @@ func (b *Int32Builder) Resize(n int) {
 	}
 }
 
+func (b *Int32Builder) Value(i int) int32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int32 array from the memory buffers used by the builder and resets the Int32Builder
 // so it can be used to build a new array.
-func (b *Int32Builder) NewArray() Interface {
+func (b *Int32Builder) NewArray() arrow.Array {
 	return b.NewInt32Array()
 }
 
@@ -779,7 +909,21 @@ func (b *Int32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 4*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int32(v))
+	return nil
+}
+
+func (b *Int32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -823,9 +967,9 @@ func (b *Int32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -843,7 +987,7 @@ func (b *Int32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint32Builder struct {
@@ -856,6 +1000,8 @@ type Uint32Builder struct {
 func NewUint32Builder(mem memory.Allocator) *Uint32Builder {
 	return &Uint32Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Uint32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint32 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -883,6 +1029,22 @@ func (b *Uint32Builder) Append(v uint32) {
 func (b *Uint32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Uint32Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Uint32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint32Builder) UnsafeAppend(v uint32) {
@@ -949,9 +1111,13 @@ func (b *Uint32Builder) Resize(n int) {
 	}
 }
 
+func (b *Uint32Builder) Value(i int) uint32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Uint32 array from the memory buffers used by the builder and resets the Uint32Builder
 // so it can be used to build a new array.
-func (b *Uint32Builder) NewArray() Interface {
+func (b *Uint32Builder) NewArray() arrow.Array {
 	return b.NewUint32Array()
 }
 
@@ -982,7 +1148,21 @@ func (b *Uint32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 4*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint32(v))
+	return nil
+}
+
+func (b *Uint32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1026,9 +1206,9 @@ func (b *Uint32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1046,7 +1226,7 @@ func (b *Uint32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Float32Builder struct {
@@ -1059,6 +1239,8 @@ type Float32Builder struct {
 func NewFloat32Builder(mem memory.Allocator) *Float32Builder {
 	return &Float32Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Float32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Float32 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -1086,6 +1268,22 @@ func (b *Float32Builder) Append(v float32) {
 func (b *Float32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Float32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Float32Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Float32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float32Builder) UnsafeAppend(v float32) {
@@ -1152,9 +1350,13 @@ func (b *Float32Builder) Resize(n int) {
 	}
 }
 
+func (b *Float32Builder) Value(i int) float32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Float32 array from the memory buffers used by the builder and resets the Float32Builder
 // so it can be used to build a new array.
-func (b *Float32Builder) NewArray() Interface {
+func (b *Float32Builder) NewArray() arrow.Array {
 	return b.NewFloat32Array()
 }
 
@@ -1185,7 +1387,21 @@ func (b *Float32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Float32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Float32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 4*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(float32(v))
+	return nil
+}
+
+func (b *Float32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1229,9 +1445,9 @@ func (b *Float32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Float32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Float32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1249,7 +1465,7 @@ func (b *Float32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Int16Builder struct {
@@ -1262,6 +1478,8 @@ type Int16Builder struct {
 func NewInt16Builder(mem memory.Allocator) *Int16Builder {
 	return &Int16Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Int16Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int16 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -1289,6 +1507,22 @@ func (b *Int16Builder) Append(v int16) {
 func (b *Int16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Int16Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Int16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int16Builder) UnsafeAppend(v int16) {
@@ -1355,9 +1589,13 @@ func (b *Int16Builder) Resize(n int) {
 	}
 }
 
+func (b *Int16Builder) Value(i int) int16 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int16 array from the memory buffers used by the builder and resets the Int16Builder
 // so it can be used to build a new array.
-func (b *Int16Builder) NewArray() Interface {
+func (b *Int16Builder) NewArray() arrow.Array {
 	return b.NewInt16Array()
 }
 
@@ -1388,7 +1626,21 @@ func (b *Int16Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int16Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int16Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 2*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int16(v))
+	return nil
+}
+
+func (b *Int16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1432,9 +1684,9 @@ func (b *Int16Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int16Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1452,7 +1704,7 @@ func (b *Int16Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint16Builder struct {
@@ -1465,6 +1717,8 @@ type Uint16Builder struct {
 func NewUint16Builder(mem memory.Allocator) *Uint16Builder {
 	return &Uint16Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Uint16Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint16 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -1492,6 +1746,22 @@ func (b *Uint16Builder) Append(v uint16) {
 func (b *Uint16Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Uint16Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Uint16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint16Builder) UnsafeAppend(v uint16) {
@@ -1558,9 +1828,13 @@ func (b *Uint16Builder) Resize(n int) {
 	}
 }
 
+func (b *Uint16Builder) Value(i int) uint16 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Uint16 array from the memory buffers used by the builder and resets the Uint16Builder
 // so it can be used to build a new array.
-func (b *Uint16Builder) NewArray() Interface {
+func (b *Uint16Builder) NewArray() arrow.Array {
 	return b.NewUint16Array()
 }
 
@@ -1591,7 +1865,21 @@ func (b *Uint16Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint16Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint16Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 2*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint16(v))
+	return nil
+}
+
+func (b *Uint16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1635,9 +1923,9 @@ func (b *Uint16Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint16Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1655,7 +1943,7 @@ func (b *Uint16Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Int8Builder struct {
@@ -1668,6 +1956,8 @@ type Int8Builder struct {
 func NewInt8Builder(mem memory.Allocator) *Int8Builder {
 	return &Int8Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Int8Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Int8 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -1695,6 +1985,22 @@ func (b *Int8Builder) Append(v int8) {
 func (b *Int8Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Int8Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Int8Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Int8Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Int8Builder) UnsafeAppend(v int8) {
@@ -1761,9 +2067,13 @@ func (b *Int8Builder) Resize(n int) {
 	}
 }
 
+func (b *Int8Builder) Value(i int) int8 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Int8 array from the memory buffers used by the builder and resets the Int8Builder
 // so it can be used to build a new array.
-func (b *Int8Builder) NewArray() Interface {
+func (b *Int8Builder) NewArray() arrow.Array {
 	return b.NewInt8Array()
 }
 
@@ -1794,7 +2104,21 @@ func (b *Int8Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Int8Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Int8Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseInt(s, 10, 1*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(int8(v))
+	return nil
+}
+
+func (b *Int8Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -1838,9 +2162,9 @@ func (b *Int8Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Int8Builder) unmarshal(dec *json.Decoder) error {
+func (b *Int8Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -1858,7 +2182,7 @@ func (b *Int8Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Uint8Builder struct {
@@ -1871,6 +2195,8 @@ type Uint8Builder struct {
 func NewUint8Builder(mem memory.Allocator) *Uint8Builder {
 	return &Uint8Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Uint8Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Uint8 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -1898,6 +2224,22 @@ func (b *Uint8Builder) Append(v uint8) {
 func (b *Uint8Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Uint8Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Uint8Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Uint8Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Uint8Builder) UnsafeAppend(v uint8) {
@@ -1964,9 +2306,13 @@ func (b *Uint8Builder) Resize(n int) {
 	}
 }
 
+func (b *Uint8Builder) Value(i int) uint8 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Uint8 array from the memory buffers used by the builder and resets the Uint8Builder
 // so it can be used to build a new array.
-func (b *Uint8Builder) NewArray() Interface {
+func (b *Uint8Builder) NewArray() arrow.Array {
 	return b.NewUint8Array()
 }
 
@@ -1997,7 +2343,21 @@ func (b *Uint8Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Uint8Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Uint8Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseUint(s, 10, 1*8)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(uint8(v))
+	return nil
+}
+
+func (b *Uint8Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2041,9 +2401,9 @@ func (b *Uint8Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Uint8Builder) unmarshal(dec *json.Decoder) error {
+func (b *Uint8Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2061,199 +2421,7 @@ func (b *Uint8Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
-}
-
-type TimestampBuilder struct {
-	builder
-
-	dtype   *arrow.TimestampType
-	data    *memory.Buffer
-	rawData []arrow.Timestamp
-}
-
-func NewTimestampBuilder(mem memory.Allocator, dtype *arrow.TimestampType) *TimestampBuilder {
-	return &TimestampBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
-}
-
-// Release decreases the reference count by 1.
-// When the reference count goes to zero, the memory is freed.
-func (b *TimestampBuilder) Release() {
-	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
-
-	if atomic.AddInt64(&b.refCount, -1) == 0 {
-		if b.nullBitmap != nil {
-			b.nullBitmap.Release()
-			b.nullBitmap = nil
-		}
-		if b.data != nil {
-			b.data.Release()
-			b.data = nil
-			b.rawData = nil
-		}
-	}
-}
-
-func (b *TimestampBuilder) Append(v arrow.Timestamp) {
-	b.Reserve(1)
-	b.UnsafeAppend(v)
-}
-
-func (b *TimestampBuilder) AppendNull() {
-	b.Reserve(1)
-	b.UnsafeAppendBoolToBitmap(false)
-}
-
-func (b *TimestampBuilder) UnsafeAppend(v arrow.Timestamp) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.rawData[b.length] = v
-	b.length++
-}
-
-func (b *TimestampBuilder) UnsafeAppendBoolToBitmap(isValid bool) {
-	if isValid {
-		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	} else {
-		b.nulls++
-	}
-	b.length++
-}
-
-// AppendValues will append the values in the v slice. The valid slice determines which values
-// in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
-// all values in v are appended and considered valid.
-func (b *TimestampBuilder) AppendValues(v []arrow.Timestamp, valid []bool) {
-	if len(v) != len(valid) && len(valid) != 0 {
-		panic("len(v) != len(valid) && len(valid) != 0")
-	}
-
-	if len(v) == 0 {
-		return
-	}
-
-	b.Reserve(len(v))
-	arrow.TimestampTraits.Copy(b.rawData[b.length:], v)
-	b.builder.unsafeAppendBoolsToBitmap(valid, len(v))
-}
-
-func (b *TimestampBuilder) init(capacity int) {
-	b.builder.init(capacity)
-
-	b.data = memory.NewResizableBuffer(b.mem)
-	bytesN := arrow.TimestampTraits.BytesRequired(capacity)
-	b.data.Resize(bytesN)
-	b.rawData = arrow.TimestampTraits.CastFromBytes(b.data.Bytes())
-}
-
-// Reserve ensures there is enough space for appending n elements
-// by checking the capacity and calling Resize if necessary.
-func (b *TimestampBuilder) Reserve(n int) {
-	b.builder.reserve(n, b.Resize)
-}
-
-// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
-// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
-func (b *TimestampBuilder) Resize(n int) {
-	nBuilder := n
-	if n < minBuilderCapacity {
-		n = minBuilderCapacity
-	}
-
-	if b.capacity == 0 {
-		b.init(n)
-	} else {
-		b.builder.resize(nBuilder, b.init)
-		b.data.Resize(arrow.TimestampTraits.BytesRequired(n))
-		b.rawData = arrow.TimestampTraits.CastFromBytes(b.data.Bytes())
-	}
-}
-
-// NewArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
-// so it can be used to build a new array.
-func (b *TimestampBuilder) NewArray() Interface {
-	return b.NewTimestampArray()
-}
-
-// NewTimestampArray creates a Timestamp array from the memory buffers used by the builder and resets the TimestampBuilder
-// so it can be used to build a new array.
-func (b *TimestampBuilder) NewTimestampArray() (a *Timestamp) {
-	data := b.newData()
-	a = NewTimestampData(data)
-	data.Release()
-	return
-}
-
-func (b *TimestampBuilder) newData() (data *Data) {
-	bytesRequired := arrow.TimestampTraits.BytesRequired(b.length)
-	if bytesRequired > 0 && bytesRequired < b.data.Len() {
-		// trim buffers
-		b.data.Resize(bytesRequired)
-	}
-	data = NewData(b.dtype, b.length, []*memory.Buffer{b.nullBitmap, b.data}, nil, b.nulls, 0)
-	b.reset()
-
-	if b.data != nil {
-		b.data.Release()
-		b.data = nil
-		b.rawData = nil
-	}
-
-	return
-}
-
-func (b *TimestampBuilder) unmarshalOne(dec *json.Decoder) error {
-	t, err := dec.Token()
-	if err != nil {
-		return err
-	}
-
-	switch v := t.(type) {
-	case nil:
-		b.AppendNull()
-	case string:
-		tm, err := arrow.TimestampFromString(v, b.dtype.Unit)
-		if err != nil {
-			return &json.UnmarshalTypeError{
-				Value:  v,
-				Type:   reflect.TypeOf(arrow.Timestamp(0)),
-				Offset: dec.InputOffset(),
-			}
-		}
-
-		b.Append(tm)
-
-	default:
-		return &json.UnmarshalTypeError{
-			Value:  fmt.Sprint(t),
-			Type:   reflect.TypeOf(arrow.Timestamp(0)),
-			Offset: dec.InputOffset(),
-		}
-	}
-
-	return nil
-}
-
-func (b *TimestampBuilder) unmarshal(dec *json.Decoder) error {
-	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (b *TimestampBuilder) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	t, err := dec.Token()
-	if err != nil {
-		return err
-	}
-
-	if delim, ok := t.(json.Delim); !ok || delim != '[' {
-		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
-	}
-
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Time32Builder struct {
@@ -2267,6 +2435,8 @@ type Time32Builder struct {
 func NewTime32Builder(mem memory.Allocator, dtype *arrow.Time32Type) *Time32Builder {
 	return &Time32Builder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
+
+func (b *Time32Builder) Type() arrow.DataType { return b.dtype }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -2294,6 +2464,22 @@ func (b *Time32Builder) Append(v arrow.Time32) {
 func (b *Time32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Time32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Time32Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Time32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Time32Builder) UnsafeAppend(v arrow.Time32) {
@@ -2360,9 +2546,13 @@ func (b *Time32Builder) Resize(n int) {
 	}
 }
 
+func (b *Time32Builder) Value(i int) arrow.Time32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Time32 array from the memory buffers used by the builder and resets the Time32Builder
 // so it can be used to build a new array.
-func (b *Time32Builder) NewArray() Interface {
+func (b *Time32Builder) NewArray() arrow.Array {
 	return b.NewTime32Array()
 }
 
@@ -2393,7 +2583,21 @@ func (b *Time32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Time32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Time32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := arrow.Time32FromString(s, b.dtype.Unit)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
+}
+
+func (b *Time32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2413,6 +2617,18 @@ func (b *Time32Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(tm)
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(arrow.Time32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(arrow.Time32(n))
+	case float64:
+		b.Append(arrow.Time32(v))
 
 	default:
 		return &json.UnmarshalTypeError{
@@ -2425,9 +2641,9 @@ func (b *Time32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Time32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Time32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2445,7 +2661,7 @@ func (b *Time32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Time64Builder struct {
@@ -2459,6 +2675,8 @@ type Time64Builder struct {
 func NewTime64Builder(mem memory.Allocator, dtype *arrow.Time64Type) *Time64Builder {
 	return &Time64Builder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
+
+func (b *Time64Builder) Type() arrow.DataType { return b.dtype }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -2486,6 +2704,22 @@ func (b *Time64Builder) Append(v arrow.Time64) {
 func (b *Time64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Time64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Time64Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Time64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Time64Builder) UnsafeAppend(v arrow.Time64) {
@@ -2552,9 +2786,13 @@ func (b *Time64Builder) Resize(n int) {
 	}
 }
 
+func (b *Time64Builder) Value(i int) arrow.Time64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Time64 array from the memory buffers used by the builder and resets the Time64Builder
 // so it can be used to build a new array.
-func (b *Time64Builder) NewArray() Interface {
+func (b *Time64Builder) NewArray() arrow.Array {
 	return b.NewTime64Array()
 }
 
@@ -2585,7 +2823,21 @@ func (b *Time64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Time64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Time64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := arrow.Time64FromString(s, b.dtype.Unit)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(val)
+	return nil
+}
+
+func (b *Time64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2605,6 +2857,18 @@ func (b *Time64Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(tm)
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(arrow.Time64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(arrow.Time64(n))
+	case float64:
+		b.Append(arrow.Time64(v))
 
 	default:
 		return &json.UnmarshalTypeError{
@@ -2617,9 +2881,9 @@ func (b *Time64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Time64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Time64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2637,7 +2901,7 @@ func (b *Time64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Date32Builder struct {
@@ -2650,6 +2914,8 @@ type Date32Builder struct {
 func NewDate32Builder(mem memory.Allocator) *Date32Builder {
 	return &Date32Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Date32Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Date32 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -2677,6 +2943,22 @@ func (b *Date32Builder) Append(v arrow.Date32) {
 func (b *Date32Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Date32Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Date32Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Date32Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Date32Builder) UnsafeAppend(v arrow.Date32) {
@@ -2743,9 +3025,13 @@ func (b *Date32Builder) Resize(n int) {
 	}
 }
 
+func (b *Date32Builder) Value(i int) arrow.Date32 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Date32 array from the memory buffers used by the builder and resets the Date32Builder
 // so it can be used to build a new array.
-func (b *Date32Builder) NewArray() Interface {
+func (b *Date32Builder) NewArray() arrow.Array {
 	return b.NewDate32Array()
 }
 
@@ -2776,7 +3062,21 @@ func (b *Date32Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Date32Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Date32Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	tm, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.Date32FromTime(tm))
+	return nil
+}
+
+func (b *Date32Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2796,6 +3096,18 @@ func (b *Date32Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(arrow.Date32FromTime(tm))
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(arrow.Date32(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(arrow.Date32(n))
+	case float64:
+		b.Append(arrow.Date32(v))
 
 	default:
 		return &json.UnmarshalTypeError{
@@ -2808,9 +3120,9 @@ func (b *Date32Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Date32Builder) unmarshal(dec *json.Decoder) error {
+func (b *Date32Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -2828,7 +3140,7 @@ func (b *Date32Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type Date64Builder struct {
@@ -2841,6 +3153,8 @@ type Date64Builder struct {
 func NewDate64Builder(mem memory.Allocator) *Date64Builder {
 	return &Date64Builder{builder: builder{refCount: 1, mem: mem}}
 }
+
+func (b *Date64Builder) Type() arrow.DataType { return arrow.PrimitiveTypes.Date64 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -2868,6 +3182,22 @@ func (b *Date64Builder) Append(v arrow.Date64) {
 func (b *Date64Builder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *Date64Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *Date64Builder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *Date64Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Date64Builder) UnsafeAppend(v arrow.Date64) {
@@ -2934,9 +3264,13 @@ func (b *Date64Builder) Resize(n int) {
 	}
 }
 
+func (b *Date64Builder) Value(i int) arrow.Date64 {
+	return b.rawData[i]
+}
+
 // NewArray creates a Date64 array from the memory buffers used by the builder and resets the Date64Builder
 // so it can be used to build a new array.
-func (b *Date64Builder) NewArray() Interface {
+func (b *Date64Builder) NewArray() arrow.Array {
 	return b.NewDate64Array()
 }
 
@@ -2967,7 +3301,21 @@ func (b *Date64Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Date64Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Date64Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	tm, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(arrow.Date64FromTime(tm))
+	return nil
+}
+
+func (b *Date64Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -2987,6 +3335,18 @@ func (b *Date64Builder) unmarshalOne(dec *json.Decoder) error {
 		}
 
 		b.Append(arrow.Date64FromTime(tm))
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(arrow.Date64(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(arrow.Date64(n))
+	case float64:
+		b.Append(arrow.Date64(v))
 
 	default:
 		return &json.UnmarshalTypeError{
@@ -2999,9 +3359,9 @@ func (b *Date64Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Date64Builder) unmarshal(dec *json.Decoder) error {
+func (b *Date64Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -3019,7 +3379,7 @@ func (b *Date64Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type DurationBuilder struct {
@@ -3033,6 +3393,8 @@ type DurationBuilder struct {
 func NewDurationBuilder(mem memory.Allocator, dtype *arrow.DurationType) *DurationBuilder {
 	return &DurationBuilder{builder: builder{refCount: 1, mem: mem}, dtype: dtype}
 }
+
+func (b *DurationBuilder) Type() arrow.DataType { return b.dtype }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
@@ -3060,6 +3422,22 @@ func (b *DurationBuilder) Append(v arrow.Duration) {
 func (b *DurationBuilder) AppendNull() {
 	b.Reserve(1)
 	b.UnsafeAppendBoolToBitmap(false)
+}
+
+func (b *DurationBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *DurationBuilder) AppendEmptyValue() {
+	b.Append(0)
+}
+
+func (b *DurationBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i ++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *DurationBuilder) UnsafeAppend(v arrow.Duration) {
@@ -3126,9 +3504,13 @@ func (b *DurationBuilder) Resize(n int) {
 	}
 }
 
+func (b *DurationBuilder) Value(i int) arrow.Duration {
+	return b.rawData[i]
+}
+
 // NewArray creates a Duration array from the memory buffers used by the builder and resets the DurationBuilder
 // so it can be used to build a new array.
-func (b *DurationBuilder) NewArray() Interface {
+func (b *DurationBuilder) NewArray() arrow.Array {
 	return b.NewDurationArray()
 }
 
@@ -3159,7 +3541,21 @@ func (b *DurationBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *DurationBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	dur, err := time.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+
+	b.Append(arrow.Duration(dur / b.dtype.Unit.Multiplier()))
+	return nil
+}
+
+func (b *DurationBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -3168,6 +3564,18 @@ func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
 	switch v := t.(type) {
 	case nil:
 		b.AppendNull()
+	case json.Number:
+		n, err := v.Int64()
+		if err != nil {
+			return &json.UnmarshalTypeError{
+				Value:  v.String(),
+				Type:   reflect.TypeOf(arrow.Duration(0)),
+				Offset: dec.InputOffset(),
+			}
+		}
+		b.Append(arrow.Duration(n))
+	case float64:
+		b.Append(arrow.Duration(v))
 	case string:
 		// be flexible for specifying durations by accepting forms like
 		// 3h2m0.5s regardless of the unit and converting it to the proper
@@ -3214,9 +3622,9 @@ func (b *DurationBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *DurationBuilder) unmarshal(dec *json.Decoder) error {
+func (b *DurationBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -3234,7 +3642,7 @@ func (b *DurationBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (
@@ -3248,7 +3656,6 @@ var (
 	_ Builder = (*Uint16Builder)(nil)
 	_ Builder = (*Int8Builder)(nil)
 	_ Builder = (*Uint8Builder)(nil)
-	_ Builder = (*TimestampBuilder)(nil)
 	_ Builder = (*Time32Builder)(nil)
 	_ Builder = (*Time64Builder)(nil)
 	_ Builder = (*Date32Builder)(nil)

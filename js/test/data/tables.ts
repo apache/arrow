@@ -15,13 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { vecs } from '../generate-test-data';
-import * as generate from '../generate-test-data';
-import { Schema, Field, Dictionary } from '../Arrow';
+import 'web-streams-polyfill';
+
+import { vecs } from '../generate-test-data.js';
+import * as generate from '../generate-test-data.js';
+
+import { Schema, Field, Dictionary } from 'apache-arrow';
 
 const listVectorGeneratorNames = ['list', 'fixedSizeList'];
-const nestedVectorGeneratorNames = [ 'struct', 'denseUnion', 'sparseUnion', 'map' ];
-const dictionaryKeyGeneratorNames = ['int8' ,'int16' ,'int32' ,'uint8' ,'uint16' ,'uint32'];
+const nestedVectorGeneratorNames = ['struct', 'denseUnion', 'sparseUnion', 'map'];
+const dictionaryKeyGeneratorNames = ['int8', 'int16', 'int32', 'uint8', 'uint16', 'uint32'];
 const valueVectorGeneratorNames = [
     'null_', 'bool', 'int8', 'int16', 'int32', 'int64', 'uint8', 'uint16', 'uint32', 'uint64',
     'float16', 'float32', 'float64', 'utf8', 'binary', 'fixedSizeBinary', 'dateDay', 'dateMillisecond',
@@ -39,11 +42,11 @@ export function* generateRandomTables(batchLengths = [1000, 2000, 3000], minCols
 
     do {
         numCols = Math.max(Math.min(
-            Math.random() * maxCols | 0, allNames.length), minCols);
+            Math.trunc(Math.random() * maxCols), allNames.length), minCols);
 
-        let names = allNames.slice(0, numCols);
-        let types = names.map((fn) => vecs[fn](0).vector.type);
-        let schema = new Schema(names.map((name, i) => new Field(name, types[i])));
+        const names = allNames.slice(0, numCols);
+        const types = names.map((fn) => vecs[fn](0).vector.type);
+        const schema = new Schema(names.map((name, i) => new Field(name, types[i])));
 
         yield generate.table(batchLengths, schema).table;
 
@@ -75,7 +78,7 @@ function shuffle(input: any[]) {
     const result = input.slice();
     let j, tmp, i = result.length;
     while (--i > 0) {
-        j = (Math.random() * (i + 1)) | 0;
+        j = Math.trunc(Math.random() * (i + 1));
         tmp = result[i];
         result[i] = result[j];
         result[j] = tmp;

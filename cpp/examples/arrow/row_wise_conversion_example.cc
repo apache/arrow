@@ -97,7 +97,7 @@ arrow::Result<std::shared_ptr<arrow::Table>> VectorToColumnarTable(
   ARROW_RETURN_NOT_OK(id_builder.Finish(&id_array));
   std::shared_ptr<arrow::Array> components_array;
   ARROW_RETURN_NOT_OK(components_builder.Finish(&components_array));
-  // No need to invoke component_cost_builder.Finish because it is implied by
+  // No need to invoke component_item_cost_builder.Finish because it is implied by
   // the parent builder's Finish invocation.
   std::shared_ptr<arrow::Array> component_cost_array;
   ARROW_RETURN_NOT_OK(component_cost_builder.Finish(&component_cost_array));
@@ -172,20 +172,17 @@ arrow::Result<std::vector<data_row>> ColumnarTableToVector(
   return rows;
 }
 
-int main(int argc, char** argv) {
-  std::vector<data_row> rows = {
+arrow::Status RunRowConversion() {
+  std::vector<data_row> original_rows = {
       {1, 1, {10.0}}, {2, 3, {11.0, 12.0, 13.0}}, {3, 2, {15.0, 25.0}}};
   std::shared_ptr<arrow::Table> table;
-  std::vector<data_row> expected_rows;
+  std::vector<data_row> converted_rows;
 
-  arrow::Result<std::shared_ptr<arrow::Table>> table_result = VectorToColumnarTable(rows);
-  table = std::move(table_result).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(table, VectorToColumnarTable(original_rows));
 
-  arrow::Result<std::vector<data_row>> expected_rows_result =
-      ColumnarTableToVector(table);
-  expected_rows = std::move(expected_rows_result).ValueOrDie();
+  ARROW_ASSIGN_OR_RAISE(converted_rows, ColumnarTableToVector(table));
 
-  assert(rows.size() == expected_rows.size());
+  assert(original_rows.size() == converted_rows.size());
 
   // Print out contents of table, should get
   // ID Components Component prices
@@ -195,13 +192,22 @@ int main(int argc, char** argv) {
   std::cout << std::left << std::setw(3) << "ID " << std::left << std::setw(11)
             << "Components " << std::left << std::setw(15) << "Component prices "
             << std::endl;
-  for (const auto& row : rows) {
+  for (const auto& row : converted_rows) {
     std::cout << std::left << std::setw(3) << row.id << std::left << std::setw(11)
               << row.components;
     for (const auto& cost : row.component_cost) {
       std::cout << std::left << std::setw(4) << cost;
     }
     std::cout << std::endl;
+  }
+  return arrow::Status::OK();
+}
+
+int main(int argc, char** argv) {
+  auto status = RunRowConversion();
+  if (!status.ok()) {
+    std::cerr << status.ToString() << std::endl;
+    return EXIT_FAILURE;
   }
   return EXIT_SUCCESS;
 }

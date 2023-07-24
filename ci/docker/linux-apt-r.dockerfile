@@ -24,6 +24,9 @@ ENV TZ=${tz}
 ARG r_prune_deps=FALSE
 ENV R_PRUNE_DEPS=${r_prune_deps}
 
+ARG r_duckdb_dev=FALSE
+ENV R_DUCKDB_DEV=${r_duckdb_dev}
+
 # Build R
 # [1] https://www.digitalocean.com/community/tutorials/how-to-install-r-on-ubuntu-18-04
 # [2] https://linuxize.com/post/how-to-install-r-on-ubuntu-18-04/#installing-r-packages-from-cran
@@ -35,13 +38,8 @@ RUN apt-get update -y && \
         software-properties-common && \
     wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
         tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc && \
-    # NOTE: R 3.5 and 3.6 are available in the repos with -cran35 suffix
-    # for trusty, xenial, bionic, and eoan (as of May 2020)
-    # -cran40 has 4.0 versions for bionic and focal
-    # R 3.2, 3.3, 3.4 are available without the suffix but only for trusty and xenial
-    # TODO: make sure OS version and R version are valid together and conditionally set repo suffix
-    # This is a hack to turn 3.6 into 35, and 4.0/4.1 into 40:
-    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran'$(echo "${r}" | tr -d . | tr 6 5 | tr 1 0)'/' && \
+    # NOTE: Only R >= 4.0 is available in this repo
+    add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu '$(lsb_release -cs)'-cran40/' && \
     apt-get install -y \
         r-base=${r}* \
         r-recommended=${r}* \
@@ -49,10 +47,6 @@ RUN apt-get update -y && \
         libxml2-dev \
         libgit2-dev \
         libssl-dev \
-        # install clang to mirror what was done on Travis
-        clang \
-        clang-format \
-        clang-tidy \
         # R CMD CHECK --as-cran needs pdflatex to build the package manual
         texlive-latex-base \
         # Need locales so we can set UTF-8
@@ -102,16 +96,21 @@ COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
+    ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
+    ARROW_HDFS=OFF \
+    ARROW_JSON=ON \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=OFF \
-    ARROW_PYTHON=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \

@@ -32,6 +32,10 @@ package org.apache.arrow.vector.complex.impl;
 
 <#include "/@includes/vv_imports.ftl" />
 
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
+
 /*
  * This class is generated using FreeMarker on the ${.template_name} template.
  */
@@ -191,7 +195,15 @@ package org.apache.arrow.vector.complex.writer;
 public interface ${eName}Writer extends BaseWriter {
   public void write(${minor.class}Holder h);
 
-  <#if minor.class?starts_with("Decimal")>@Deprecated</#if>
+<#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  /**
+   * @deprecated
+   * The holder version should be used instead because the plain value version does not contain enough information
+   * to fully specify this field type.
+   * @see #write(${minor.class}Holder)
+   */
+  @Deprecated
+</#if>
   public void write${minor.class}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>);
 <#if minor.class?starts_with("Decimal")>
 
@@ -201,6 +213,13 @@ public interface ${eName}Writer extends BaseWriter {
 
   public void writeBigEndianBytesTo${minor.class}(byte[] value, ArrowType arrowType);
 
+  /**
+   * @deprecated
+   * Use either the version that additionally takes in an ArrowType or use the holder version.
+   * This version does not contain enough information to fully specify this field type.
+   * @see #writeBigEndianBytesTo${minor.class}(byte[], ArrowType)
+   * @see #write(${minor.class}Holder)
+   */
   @Deprecated
   public void writeBigEndianBytesTo${minor.class}(byte[] value);
 </#if>

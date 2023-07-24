@@ -28,6 +28,7 @@
 #endif
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/compute/exec.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/gtest_util.h"
@@ -494,6 +495,16 @@ TYPED_TEST(TestBaseBinaryKernels, FindSubstringRegex) {
   this->CheckUnary("find_substring_regex", R"(["a", "A", "baaa", null, "", "AaaA"])",
                    this->offset_type(), "[0, 0, 1, null, -1, 0]", &options);
 }
+
+TYPED_TEST(TestBaseBinaryKernels, FindSubstringRegexWrongPattern) {
+  MatchSubstringOptions options{"(a", /*ignore_case=*/false};
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid regular expression"),
+      CallFunction("find_substring_regex",
+                   {Datum(R"(["a", "A", "baaa", null, "", "AaaA"])")}, &options));
+}
+
 #else
 TYPED_TEST(TestBaseBinaryKernels, FindSubstringIgnoreCase) {
   MatchSubstringOptions options{"a+", /*ignore_case=*/true};
@@ -676,7 +687,8 @@ TYPED_TEST(TestBaseBinaryKernels, BinaryJoinElementWise) {
                      ty, R"([null, null, null, null])", &options_replace);
 
   // Error cases
-  ASSERT_RAISES(Invalid, CallFunction("binary_join_element_wise", {}, &options));
+  ASSERT_RAISES(Invalid,
+                CallFunction("binary_join_element_wise", ExecBatch({}, 0), &options));
 }
 
 class TestFixedSizeBinaryKernels : public ::testing::Test {
@@ -1128,7 +1140,8 @@ TYPED_TEST(TestStringKernels, BinaryRepeatWithScalarRepeat) {
                                   "ⱥⱥⱥȺ", "hEllO, WoRld!", "$. A3", "!ɑⱤⱤow"])");
   std::vector<std::pair<int, std::string>> nrepeats_and_expected{{
       {0, R"(["", null, "", "", "", "", "", "", "", ""])"},
-      {1, R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
+      {1,
+       R"(["aAazZæÆ&", null, "", "b", "ɑɽⱤoW", "ıI", "ⱥⱥⱥȺ", "hEllO, WoRld!",
               "$. A3", "!ɑⱤⱤow"])"},
       {4, R"(["aAazZæÆ&aAazZæÆ&aAazZæÆ&aAazZæÆ&", null, "", "bbbb",
               "ɑɽⱤoWɑɽⱤoWɑɽⱤoWɑɽⱤoW", "ıIıIıIıI", "ⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺⱥⱥⱥȺ",
@@ -1752,6 +1765,11 @@ TYPED_TEST(TestBaseBinaryKernels, ReplaceSubstringRegex) {
   this->CheckUnary("replace_substring_regex", R"(["aaaaaa"])", this->type(),
                    R"(["abaaaaabaaaa"])", &options);
 
+  // ARROW-18202: Allow matching against empty string again
+  options = ReplaceSubstringOptions{"^$", "x"};
+  this->CheckUnary("replace_substring_regex", R"([""])", this->type(), R"(["x"])",
+                   &options);
+
   // ARROW-12774
   options = ReplaceSubstringOptions{"X", "Y"};
   this->CheckUnary("replace_substring_regex",
@@ -1840,14 +1858,34 @@ TYPED_TEST(TestBaseBinaryKernels, ExtractRegexInvalid) {
 #endif
 
 TYPED_TEST(TestStringKernels, Strptime) {
-  std::string input1 = R"(["5/1/2020", null, "12/11/1900"])";
-  std::string output1 = R"(["2020-05-01", null, "1900-12-11"])";
-  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO);
-  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+  std::string input1 = R"(["5/1/2020", null, null, "12/13/1900", null])";
+  std::string input2 = R"(["5-1-2020", "12/13/1900"])";
+  std::string input3 = R"(["5/1/2020", "AA/BB/CCCC"])";
+  std::string input4 = R"(["5/1/2020", "AA/BB/CCCC", "AA/BB/CCCC", "AA/BB/CCCC", null])";
+  std::string input5 = R"(["5/1/2020 %z", null, null, "12/13/1900 %z", null])";
+  std::string output1 = R"(["2020-05-01", null, null, "1900-12-13", null])";
+  std::string output2 = R"([null, "1900-12-13"])";
+  std::string output3 = R"(["2020-05-01", null])";
+  std::string output4 = R"(["2020-01-05", null, null, null, null])";
 
-  input1 = R"(["5/1/2020 %z", null, "12/11/1900 %z"])";
+  StrptimeOptions options("%m/%d/%Y", TimeUnit::MICRO, /*error_is_null=*/true);
+  auto unit = timestamp(TimeUnit::MICRO);
+  this->CheckUnary("strptime", input1, unit, output1, &options);
+  this->CheckUnary("strptime", input2, unit, output2, &options);
+  this->CheckUnary("strptime", input3, unit, output3, &options);
+
+  options.format = "%d/%m/%Y";
+  this->CheckUnary("strptime", input4, unit, output4, &options);
+
   options.format = "%m/%d/%Y %%z";
-  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO), output1, &options);
+  this->CheckUnary("strptime", input5, unit, output1, &options);
+
+  options.error_is_null = false;
+  this->CheckUnary("strptime", input5, unit, output1, &options);
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Invalid: Failed to parse string: '5/1/2020'"),
+      Strptime(ArrayFromJSON(this->type(), input1), options));
 }
 
 TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
@@ -1857,11 +1895,17 @@ TYPED_TEST(TestStringKernels, StrptimeZoneOffset) {
   // N.B. BSD strptime only supports (+/-)HHMM and not the wider range
   // of values GNU strptime supports.
   std::string input1 = R"(["5/1/2020 +0100", null, "12/11/1900 -0130"])";
-  std::string output1 =
+  std::string output =
       R"(["2020-04-30T23:00:00.000000", null, "1900-12-11T01:30:00.000000"])";
-  StrptimeOptions options("%m/%d/%Y %z", TimeUnit::MICRO);
-  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output1,
-                   &options);
+  StrptimeOptions options1("%m/%d/%Y %z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input1, timestamp(TimeUnit::MICRO, "UTC"), output,
+                   &options1);
+
+  // format without whitespace before %z (GH-35448)
+  std::string input2 = R"(["2020-05-01T00:00+0100", null, "1900-12-11T00:00-0130"])";
+  StrptimeOptions options2("%Y-%m-%dT%H:%M%z", TimeUnit::MICRO, /*error_is_null=*/true);
+  this->CheckUnary("strptime", input2, timestamp(TimeUnit::MICRO, "UTC"), output,
+                   &options2);
 }
 
 TYPED_TEST(TestStringKernels, StrptimeDoesNotProvideDefaultOptions) {
@@ -2047,6 +2091,14 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsPosPos) {
   options_step_neg.stop = 0;
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{1, max, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "ö", "ö", "öḍ", "öḍ"])", &options_max_step);
+  SliceOptions options_max_step_neg{1, max, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
@@ -2063,6 +2115,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsPosNeg) {
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ","𝑓öõḍš"])",
                    this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "ḍö"])",
                    &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_min_step{2, min, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_min_step);
+  SliceOptions options_min_step_neg{2, min, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "ö", "õ𝑓", "õ𝑓", "õ𝑓"])",
+                   &options_min_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
@@ -2079,6 +2140,15 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegNeg) {
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
                    this->type(), R"(["", "𝑓", "ö", "õ𝑓", "ḍö", "šõ"])",
                    &options_step_neg);
+
+  constexpr auto min = std::numeric_limits<int64_t>::min();
+  SliceOptions options_min_step{-2, min, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_min_step);
+  SliceOptions options_min_step_neg{-2, min, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "𝑓", "ö", "õ𝑓", "ḍö"])",
+                   &options_min_step_neg);
 }
 
 TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
@@ -2094,9 +2164,150 @@ TYPED_TEST(TestStringKernels, SliceCodeunitsNegPos) {
   options_step_neg.stop = 0;
   this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
                    this->type(), R"(["", "", "ö", "õ", "ḍö", "šõ"])", &options_step_neg);
+
+  constexpr auto max = std::numeric_limits<int64_t>::max();
+  SliceOptions options_max_step{-3, max, 2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "𝑓", "𝑓", "𝑓õ", "öḍ", "õš"])",
+                   &options_max_step);
+  SliceOptions options_max_step_neg{-3, max, -2};
+  this->CheckUnary("utf8_slice_codeunits", R"(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])",
+                   this->type(), R"(["", "", "", "", "", ""])", &options_max_step_neg);
 }
 
 #endif  // ARROW_WITH_UTF8PROC
+
+TYPED_TEST(TestBinaryKernels, SliceBytesBasic) {
+  SliceOptions options{2, 4};
+  this->CheckUnary("binary_slice", "[\"fo\xc2\xa2\", \"fo\", null, \"fob \"]",
+                   this->type(), "[\"\xc2\xa2\", \"\", null, \"b \"]", &options);
+
+  // end is beyond 0, but before start (hence empty)
+  SliceOptions options_edgecase_1{-3, 1};
+  this->CheckUnary("binary_slice",
+                   "[\"f\xc2\xa2"
+                   "ds\"]",
+                   this->type(), R"([""])", &options_edgecase_1);
+
+  // this is a safeguard agains an optimization path possible, but actually a tricky case
+  SliceOptions options_edgecase_2{-6, -2};
+  this->CheckUnary("binary_slice",
+                   "[\"f\xc2\xa2"
+                   "ds\"]",
+                   this->type(), "[\"f\xc2\xa2\"]", &options_edgecase_2);
+
+  auto input = ArrayFromJSON(this->type(), R"(["foods"])");
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      testing::HasSubstr("Function 'binary_slice' cannot be called without options"),
+      CallFunction("binary_slice", {input}));
+
+  SliceOptions options_invalid{2, 4, 0};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, testing::HasSubstr("Slice step cannot be zero"),
+      CallFunction("binary_slice", {input}, &options_invalid));
+}
+
+TYPED_TEST(TestBinaryKernels, SliceBytesPosPos) {
+  SliceOptions options{2, 4};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"ab\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xc2\xa2\", \"\xc2\xff\"]", &options);
+  SliceOptions options_step{1, 5, 2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"ab\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"b\", \"\xc2\", \"b\xa2\", \"b\xff\"]", &options_step);
+  SliceOptions options_step_neg{5, 1, -2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"ab\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xa2\", \"Z\xc2\"]",
+      &options_step_neg);
+  options_step_neg.stop = 0;
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"b\", \"\xa2\", \"\xa2Z\", \"Z\xc2\"]",
+      &options_step_neg);
+}
+
+TYPED_TEST(TestBinaryKernels, SliceBytesPosNeg) {
+  SliceOptions options{2, -1};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"\", \"\", \"\xc2\", \"\xc2\xff\"]", &options);
+  SliceOptions options_step{1, -1, 2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"a\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"\", \"\xc2\", \"Z\", \"b\xff\"]", &options_step);
+  SliceOptions options_step_neg{3, -4, -2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"\xff\"]",
+      &options_step_neg);
+  options_step_neg.stop = -5;
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"\xffP\"]",
+      &options_step_neg);
+}
+
+TYPED_TEST(TestBinaryKernels, SliceBytesNegNeg) {
+  SliceOptions options{-2, -1};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"ab\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"a\", \"\xc2\", \"\xc2\", \"\xff\"]", &options);
+  SliceOptions options_step{-4, -1, 2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"a\", \"Z\", \"a\xc2\", \"P\xff\"]", &options_step);
+  SliceOptions options_step_neg{-1, -3, -2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"b\", \"\xa2\", \"\xa2\", \"Z\"]", &options_step_neg);
+  options_step_neg.stop = -4;
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"b\", \"\xa2Z\", \"\xa2Z\", \"Z\xc2\"]",
+      &options_step_neg);
+}
+
+TYPED_TEST(TestBinaryKernels, SliceBytesNegPos) {
+  SliceOptions options{-2, 4};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"ab\", \"\xc2\xa2\", \"\xc2\xa2\", \"\xff\"]",
+      &options);
+  SliceOptions options_step{-4, 4, 2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"a\", \"a\", \"Z\xa2\", \"a\xc2\", \"P\xff\"]",
+      &options_step);
+  SliceOptions options_step_neg{-1, 1, -2};
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"\", \"\xa2\", \"\xa2\", \"Z\xc2\"]",
+      &options_step_neg);
+  options_step_neg.stop = 0;
+  this->CheckUnary(
+      "binary_slice",
+      "[\"\", \"a\", \"ab\", \"Z\xc2\xa2\", \"aZ\xc2\xa2\", \"aP\xc2\xffZ\"]",
+      this->type(), "[\"\", \"\", \"b\", \"\xa2\", \"\xa2Z\", \"Z\xc2\"]",
+      &options_step_neg);
+}
 
 TYPED_TEST(TestStringKernels, PadAscii) {
   PadOptions options{/*width=*/5, " "};

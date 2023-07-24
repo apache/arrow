@@ -31,22 +31,30 @@
 
 namespace arrow {
 
+/// \addtogroup numeric-builders
+///
+/// @{
+
 namespace internal {
 
 class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
  public:
-  AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool);
+  AdaptiveIntBuilderBase(uint8_t start_int_size, MemoryPool* pool,
+                         int64_t alignment = kDefaultBufferAlignment);
 
-  explicit AdaptiveIntBuilderBase(MemoryPool* pool)
-      : AdaptiveIntBuilderBase(sizeof(uint8_t), pool) {}
+  explicit AdaptiveIntBuilderBase(MemoryPool* pool,
+                                  int64_t alignment = kDefaultBufferAlignment)
+      : AdaptiveIntBuilderBase(sizeof(uint8_t), pool, alignment) {}
 
   /// \brief Append multiple nulls
   /// \param[in] length the number of nulls to append
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(CommitPendingData());
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
-    UnsafeSetNull(length);
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(Reserve(length));
+      memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+      UnsafeSetNull(length);
+    }
     return Status::OK();
   }
 
@@ -66,9 +74,11 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(CommitPendingData());
-    ARROW_RETURN_NOT_OK(Reserve(length));
-    memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
-    UnsafeSetNotNull(length);
+    if (ARROW_PREDICT_TRUE(length > 0)) {
+      ARROW_RETURN_NOT_OK(Reserve(length));
+      memset(data_->mutable_data() + length_ * int_size_, 0, int_size_ * length);
+      UnsafeSetNotNull(length);
+    }
     return Status::OK();
   }
 
@@ -132,7 +142,6 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
   explicit AdaptiveUIntBuilder(MemoryPool* pool = default_memory_pool())
       : AdaptiveUIntBuilder(sizeof(uint8_t), pool) {}
 
-  using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;
 
   /// Scalar append
@@ -165,12 +174,13 @@ class ARROW_EXPORT AdaptiveUIntBuilder : public internal::AdaptiveIntBuilderBase
 class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase {
  public:
   explicit AdaptiveIntBuilder(uint8_t start_int_size,
-                              MemoryPool* pool = default_memory_pool());
+                              MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment);
 
-  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool())
-      : AdaptiveIntBuilder(sizeof(uint8_t), pool) {}
+  explicit AdaptiveIntBuilder(MemoryPool* pool = default_memory_pool(),
+                              int64_t alignment = kDefaultBufferAlignment)
+      : AdaptiveIntBuilder(sizeof(uint8_t), pool, alignment) {}
 
-  using ArrayBuilder::Advance;
   using internal::AdaptiveIntBuilderBase::Reset;
 
   /// Scalar append
@@ -199,5 +209,7 @@ class ARROW_EXPORT AdaptiveIntBuilder : public internal::AdaptiveIntBuilderBase 
   template <typename new_type>
   Status ExpandIntSizeN();
 };
+
+/// @}
 
 }  // namespace arrow

@@ -20,22 +20,17 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/ipc"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestLsStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-ls-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		name string
@@ -125,7 +120,7 @@ records: 3
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile(tempDir, "go-arrow-ls-stream-")
+				f, err := os.CreateTemp(tempDir, "go-arrow-ls-stream-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -174,11 +169,7 @@ records: 3
 }
 
 func TestLsFile(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-ls-file-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for _, tc := range []struct {
 		stream bool
@@ -285,7 +276,7 @@ records: 3
 			defer mem.AssertSize(t, 0)
 
 			fname := func() string {
-				f, err := ioutil.TempFile(tempDir, "go-arrow-ls-file-")
+				f, err := os.CreateTemp(tempDir, "go-arrow-ls-file-")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -293,7 +284,7 @@ records: 3
 
 				var w interface {
 					io.Closer
-					Write(array.Record) error
+					Write(arrow.Record) error
 				}
 
 				switch {

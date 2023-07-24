@@ -20,13 +20,18 @@
 #include <atomic>
 #include <cerrno>
 #include <limits>
+#include <mutex>
+#include <optional>
 #include <sstream>
+#include <thread>
 #include <vector>
 
 #include <signal.h>
 
 #ifndef _WIN32
 #include <pthread.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 #include <gmock/gmock-matchers.h>
@@ -35,10 +40,19 @@
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/cpu_info.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/windows_compatibility.h"
 #include "arrow/util/windows_fixup.h"
+
+#ifdef WIN32
+#define PIPE_WRITE _write
+#define PIPE_READ _read
+#else
+#define PIPE_WRITE write
+#define PIPE_READ read
+#endif
 
 namespace arrow {
 namespace internal {
@@ -56,9 +70,8 @@ void AssertNotExists(const PlatformFilename& path) {
 }
 
 void TouchFile(const PlatformFilename& path) {
-  int fd = -1;
-  ASSERT_OK_AND_ASSIGN(fd, FileOpenWritable(path));
-  ASSERT_OK(FileClose(fd));
+  ASSERT_OK_AND_ASSIGN(FileDescriptor fd, FileOpenWritable(path));
+  ASSERT_OK(fd.Close());
 }
 
 TEST(ErrnoFromStatus, Basics) {
@@ -78,6 +91,15 @@ TEST(ErrnoFromStatus, Basics) {
 
   st = CancelledFromSignal(SIGINT, "foo");
   ASSERT_EQ(ErrnoFromStatus(st), 0);
+
+#ifdef _WIN32
+  // If possible, a Windows error detail can be mapped to a corresponding
+  // errno value.
+  st = StatusFromWinError(ERROR_FILE_NOT_FOUND, StatusCode::KeyError, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), ENOENT);
+  st = StatusFromWinError(6789, StatusCode::KeyError, "foo");
+  ASSERT_EQ(ErrnoFromStatus(st), 0);
+#endif
 }
 
 TEST(SignalFromStatus, Basics) {
@@ -146,6 +168,312 @@ TEST(WinErrorFromStatus, Basics) {
   ASSERT_EQ(WinErrorFromStatus(st), ERROR_ACCESS_DENIED);
   st = IOErrorFromWinError(6789, "foo");
   ASSERT_EQ(WinErrorFromStatus(st), 6789);
+}
+#endif
+
+class TestFileDescriptor : public ::testing::Test {
+ public:
+  Result<int> NewFileDescriptor() {
+    // Make a new fd by dup'ing C stdout (why not?)
+    int new_fd = dup(1);
+    if (new_fd < 0) {
+      return IOErrorFromErrno(errno, "Failed to dup() C stdout");
+    }
+    return new_fd;
+  }
+
+  void AssertValidFileDescriptor(int fd) {
+    ASSERT_FALSE(FileIsClosed(fd)) << "Not a valid file descriptor: " << fd;
+  }
+
+  void AssertInvalidFileDescriptor(int fd) {
+    ASSERT_TRUE(FileIsClosed(fd)) << "Unexpectedly valid file descriptor: " << fd;
+  }
+};
+
+TEST_F(TestFileDescriptor, Basics) {
+  int new_fd, new_fd2;
+
+  // Default initialization
+  FileDescriptor a;
+  ASSERT_EQ(a.fd(), -1);
+  ASSERT_TRUE(a.closed());
+  ASSERT_OK(a.Close());
+  ASSERT_OK(a.Close());
+
+  // Assignment
+  ASSERT_OK_AND_ASSIGN(new_fd, NewFileDescriptor());
+  AssertValidFileDescriptor(new_fd);
+  a = FileDescriptor(new_fd);
+  ASSERT_FALSE(a.closed());
+  ASSERT_GT(a.fd(), 2);
+  ASSERT_OK(a.Close());
+  AssertInvalidFileDescriptor(new_fd);  // underlying fd was actually closed
+  ASSERT_TRUE(a.closed());
+  ASSERT_EQ(a.fd(), -1);
+  ASSERT_OK(a.Close());
+  ASSERT_TRUE(a.closed());
+
+  ASSERT_OK_AND_ASSIGN(new_fd, NewFileDescriptor());
+  ASSERT_OK_AND_ASSIGN(new_fd2, NewFileDescriptor());
+
+  // Move assignment
+  FileDescriptor b(new_fd);
+  FileDescriptor c(new_fd2);
+  AssertValidFileDescriptor(new_fd);
+  AssertValidFileDescriptor(new_fd2);
+  c = std::move(b);
+  ASSERT_TRUE(b.closed());
+  ASSERT_EQ(b.fd(), -1);
+  ASSERT_FALSE(c.closed());
+  ASSERT_EQ(c.fd(), new_fd);
+  AssertValidFileDescriptor(new_fd);
+  AssertInvalidFileDescriptor(new_fd2);
+
+  // Move constructor
+  FileDescriptor d(std::move(c));
+  ASSERT_TRUE(c.closed());
+  ASSERT_EQ(c.fd(), -1);
+  ASSERT_FALSE(d.closed());
+  ASSERT_EQ(d.fd(), new_fd);
+  AssertValidFileDescriptor(new_fd);
+
+  // Detaching
+  {
+    FileDescriptor e(d.Detach());
+    ASSERT_TRUE(d.closed());
+    ASSERT_EQ(d.fd(), -1);
+    ASSERT_FALSE(e.closed());
+    ASSERT_EQ(e.fd(), new_fd);
+    AssertValidFileDescriptor(new_fd);
+  }
+  AssertInvalidFileDescriptor(new_fd);  // e was closed
+}
+
+class TestCreatePipe : public ::testing::Test {
+ public:
+  void TearDown() override { ASSERT_OK(pipe_.Close()); }
+
+ protected:
+  Pipe pipe_;
+};
+
+TEST_F(TestCreatePipe, Blocking) {
+  ASSERT_OK_AND_ASSIGN(pipe_, CreatePipe());
+
+  std::string buf("abcd");
+  ASSERT_OK(FileWrite(pipe_.wfd.fd(), reinterpret_cast<const uint8_t*>(buf.data()),
+                      buf.size()));
+  buf = "xxxx";
+  ASSERT_OK_AND_EQ(
+      4, FileRead(pipe_.rfd.fd(), reinterpret_cast<uint8_t*>(&buf[0]), buf.size()));
+  ASSERT_EQ(buf, "abcd");
+}
+
+TEST_F(TestCreatePipe, NonBlocking) {
+  ASSERT_OK_AND_ASSIGN(pipe_, CreatePipe());
+  ASSERT_OK(SetPipeFileDescriptorNonBlocking(pipe_.rfd.fd()));
+  ASSERT_OK(SetPipeFileDescriptorNonBlocking(pipe_.wfd.fd()));
+
+  std::string buf("abcd");
+  ASSERT_OK(FileWrite(pipe_.wfd.fd(), reinterpret_cast<const uint8_t*>(buf.data()),
+                      buf.size()));
+  buf = "xxxx";
+  ASSERT_OK_AND_EQ(
+      4, FileRead(pipe_.rfd.fd(), reinterpret_cast<uint8_t*>(&buf[0]), buf.size()));
+  ASSERT_EQ(buf, "abcd");
+
+  auto st =
+      FileRead(pipe_.rfd.fd(), reinterpret_cast<uint8_t*>(&buf[0]), buf.size()).status();
+  ASSERT_RAISES(IOError, st);
+#ifdef _WIN32
+  ASSERT_EQ(WinErrorFromStatus(st), ERROR_NO_DATA);
+#else
+  ASSERT_EQ(ErrnoFromStatus(st), EAGAIN);
+#endif
+}
+
+class TestSelfPipe : public ::testing::Test {
+ public:
+  void SetUp() override {
+    instance_ = this;
+    ASSERT_OK_AND_ASSIGN(self_pipe_, SelfPipe::Make(/*signal_safe=*/true));
+  }
+
+  void StartReading() {
+    read_thread_ = std::thread([this]() { ReadUntilEof(); });
+  }
+
+  void FinishReading() { read_thread_.join(); }
+
+  void TearDown() override {
+    ASSERT_OK(self_pipe_->Shutdown());
+    if (read_thread_.joinable()) {
+      read_thread_.join();
+    }
+    instance_ = nullptr;
+  }
+
+  Status ReadStatus() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return status_;
+  }
+
+  std::vector<uint64_t> ReadPayloads() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return payloads_;
+  }
+
+  void AssertPayloadsEventually(const std::vector<uint64_t>& expected) {
+    BusyWait(1.0, [&]() { return ReadPayloads().size() == expected.size(); });
+    ASSERT_EQ(ReadPayloads(), expected);
+  }
+
+ protected:
+  void ReadUntilEof() {
+    while (true) {
+      auto maybe_payload = self_pipe_->Wait();
+      std::lock_guard<std::mutex> lock(mutex_);
+      if (maybe_payload.ok()) {
+        payloads_.push_back(*maybe_payload);
+      } else if (maybe_payload.status().IsInvalid()) {
+        // EOF
+        break;
+      } else {
+        status_ = maybe_payload.status();
+        // Since we got an error, we may not be able to ever detect EOF,
+        // so bail out?
+        break;
+      }
+    }
+  }
+
+  static void HandleSignal(int signum) {
+    instance_->signal_received_.store(signum);
+    instance_->self_pipe_->Send(123);
+  }
+
+  std::mutex mutex_;
+  std::shared_ptr<SelfPipe> self_pipe_;
+  std::thread read_thread_;
+  std::vector<uint64_t> payloads_;
+  Status status_;
+  std::atomic<int> signal_received_;
+
+  static TestSelfPipe* instance_;
+};
+
+TestSelfPipe* TestSelfPipe::instance_;
+
+TEST_F(TestSelfPipe, MakeAndShutdown) {}
+
+TEST_F(TestSelfPipe, WaitAndSend) {
+  StartReading();
+  SleepABit();
+  AssertPayloadsEventually({});
+  ASSERT_OK(ReadStatus());
+
+  self_pipe_->Send(123456789123456789ULL);
+  self_pipe_->Send(987654321987654321ULL);
+  AssertPayloadsEventually({123456789123456789ULL, 987654321987654321ULL});
+  ASSERT_OK(ReadStatus());
+}
+
+TEST_F(TestSelfPipe, SendAndWait) {
+  self_pipe_->Send(123456789123456789ULL);
+  StartReading();
+  SleepABit();
+  self_pipe_->Send(987654321987654321ULL);
+
+  AssertPayloadsEventually({123456789123456789ULL, 987654321987654321ULL});
+  ASSERT_OK(ReadStatus());
+}
+
+TEST_F(TestSelfPipe, WaitAndShutdown) {
+  StartReading();
+  SleepABit();
+  ASSERT_OK(self_pipe_->Shutdown());
+  FinishReading();
+
+  ASSERT_THAT(ReadPayloads(), testing::ElementsAre());
+  ASSERT_OK(ReadStatus());
+  ASSERT_OK(self_pipe_->Shutdown());  // idempotent
+}
+
+TEST_F(TestSelfPipe, ShutdownAndWait) {
+  self_pipe_->Send(123456789123456789ULL);
+  ASSERT_OK(self_pipe_->Shutdown());
+  StartReading();
+  SleepABit();
+  FinishReading();
+
+  ASSERT_THAT(ReadPayloads(), testing::ElementsAre(123456789123456789ULL));
+  ASSERT_OK(ReadStatus());
+  ASSERT_OK(self_pipe_->Shutdown());  // idempotent
+}
+
+TEST_F(TestSelfPipe, WaitAndSendFromSignal) {
+  signal_received_.store(0);
+  SignalHandlerGuard guard(SIGINT, &HandleSignal);
+
+  StartReading();
+  SleepABit();
+
+  self_pipe_->Send(456);
+  ASSERT_OK(SendSignal(SIGINT));  // will send 123
+  self_pipe_->Send(789);
+  BusyWait(1.0, [&]() { return signal_received_.load() != 0; });
+  ASSERT_EQ(signal_received_.load(), SIGINT);
+
+  BusyWait(1.0, [&]() { return ReadPayloads().size() == 3; });
+  ASSERT_THAT(ReadPayloads(), testing::UnorderedElementsAre(123, 456, 789));
+  ASSERT_OK(ReadStatus());
+}
+
+TEST_F(TestSelfPipe, SendFromSignalAndWait) {
+  signal_received_.store(0);
+  SignalHandlerGuard guard(SIGINT, &HandleSignal);
+
+  self_pipe_->Send(456);
+  ASSERT_OK(SendSignal(SIGINT));  // will send 123
+  self_pipe_->Send(789);
+  BusyWait(1.0, [&]() { return signal_received_.load() != 0; });
+  ASSERT_EQ(signal_received_.load(), SIGINT);
+
+  StartReading();
+
+  BusyWait(1.0, [&]() { return ReadPayloads().size() == 3; });
+  ASSERT_THAT(ReadPayloads(), testing::UnorderedElementsAre(123, 456, 789));
+  ASSERT_OK(ReadStatus());
+}
+
+#if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
+      defined(THREAD_SANITIZER))
+TEST_F(TestSelfPipe, ForkSafety) {
+  self_pipe_->Send(123456789123456789ULL);
+
+  auto child_pid = fork();
+  if (child_pid == 0) {
+    // Child: pipe is reinitialized and usable without interfering with parent
+    self_pipe_->Send(41ULL);
+    StartReading();
+    SleepABit();
+    self_pipe_->Send(42ULL);
+    AssertPayloadsEventually({41ULL, 42ULL});
+
+    self_pipe_.reset();
+    std::exit(0);
+  } else {
+    // Parent: pipe is usable concurrently with child, data is read correctly
+    StartReading();
+    SleepABit();
+    self_pipe_->Send(987654321987654321ULL);
+
+    AssertPayloadsEventually({123456789123456789ULL, 987654321987654321ULL});
+    ASSERT_OK(ReadStatus());
+
+    AssertChildExit(child_pid);
+  }
 }
 #endif
 
@@ -638,7 +966,6 @@ TEST(FileUtils, LongPaths) {
 
   const std::string BASE = "xxx-io-util-test-dir-long";
   PlatformFilename base_path, long_path, long_filename;
-  int fd = -1;
   std::stringstream fs;
   fs << BASE;
   for (int i = 0; i < 64; ++i) {
@@ -655,9 +982,9 @@ TEST(FileUtils, LongPaths) {
                        PlatformFilename::FromString(fs.str() + "/file.txt"));
   TouchFile(long_filename);
   AssertExists(long_filename);
-  fd = -1;
-  ASSERT_OK_AND_ASSIGN(fd, FileOpenReadable(long_filename));
-  ASSERT_OK(FileClose(fd));
+
+  ASSERT_OK_AND_ASSIGN(FileDescriptor fd, FileOpenReadable(long_filename));
+  ASSERT_OK(fd.Close());
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirContents(long_path));
   ASSERT_TRUE(deleted);
   ASSERT_OK_AND_ASSIGN(deleted, DeleteDirTree(long_path));
@@ -669,44 +996,99 @@ TEST(FileUtils, LongPaths) {
 }
 #endif
 
-static std::atomic<int> signal_received;
+class TestSendSignal : public ::testing::Test {
+ protected:
+  static std::atomic<int> signal_received_;
 
-static void handle_signal(int signum) {
-  ReinstateSignalHandler(signum, &handle_signal);
-  signal_received.store(signum);
-}
+  static void HandleSignal(int signum) {
+    ReinstateSignalHandler(signum, &HandleSignal);
+    signal_received_.store(signum);
+  }
+};
 
-TEST(SendSignal, Generic) {
-  signal_received.store(0);
-  SignalHandlerGuard guard(SIGINT, &handle_signal);
+std::atomic<int> TestSendSignal::signal_received_;
 
-  ASSERT_EQ(signal_received.load(), 0);
+TEST_F(TestSendSignal, Generic) {
+  signal_received_.store(0);
+  SignalHandlerGuard guard(SIGINT, &HandleSignal);
+
+  ASSERT_EQ(signal_received_.load(), 0);
   ASSERT_OK(SendSignal(SIGINT));
-  BusyWait(1.0, [&]() { return signal_received.load() != 0; });
-  ASSERT_EQ(signal_received.load(), SIGINT);
+  BusyWait(1.0, [&]() { return signal_received_.load() != 0; });
+  ASSERT_EQ(signal_received_.load(), SIGINT);
 
   // Re-try (exercise ReinstateSignalHandler)
-  signal_received.store(0);
+  signal_received_.store(0);
   ASSERT_OK(SendSignal(SIGINT));
-  BusyWait(1.0, [&]() { return signal_received.load() != 0; });
-  ASSERT_EQ(signal_received.load(), SIGINT);
+  BusyWait(1.0, [&]() { return signal_received_.load() != 0; });
+  ASSERT_EQ(signal_received_.load(), SIGINT);
 }
 
-TEST(SendSignal, ToThread) {
+TEST_F(TestSendSignal, ToThread) {
 #ifdef _WIN32
   uint64_t dummy_thread_id = 42;
   ASSERT_RAISES(NotImplemented, SendSignalToThread(SIGINT, dummy_thread_id));
 #else
   // Have to use a C-style cast because pthread_t can be a pointer *or* integer type
   uint64_t thread_id = (uint64_t)(pthread_self());  // NOLINT readability-casting
-  signal_received.store(0);
-  SignalHandlerGuard guard(SIGINT, &handle_signal);
+  signal_received_.store(0);
+  SignalHandlerGuard guard(SIGINT, &HandleSignal);
 
-  ASSERT_EQ(signal_received.load(), 0);
+  ASSERT_EQ(signal_received_.load(), 0);
   ASSERT_OK(SendSignalToThread(SIGINT, thread_id));
-  BusyWait(1.0, [&]() { return signal_received.load() != 0; });
+  BusyWait(1.0, [&]() { return signal_received_.load() != 0; });
 
-  ASSERT_EQ(signal_received.load(), SIGINT);
+  ASSERT_EQ(signal_received_.load(), SIGINT);
+#endif
+}
+
+TEST(Memory, GetRSS) {
+#if defined(_WIN32)
+  ASSERT_GT(GetCurrentRSS(), 0);
+#elif defined(__APPLE__)
+  ASSERT_GT(GetCurrentRSS(), 0);
+#elif defined(__linux__)
+  ASSERT_GT(GetCurrentRSS(), 0);
+#else
+  ASSERT_EQ(GetCurrentRSS(), 0);
+#endif
+}
+
+// Some loose tests to check if the cpuinfo makes sense
+TEST(CpuInfo, Basic) {
+  const CpuInfo* ci = CpuInfo::GetInstance();
+
+  const int ncores = ci->num_cores();
+  ASSERT_TRUE(ncores >= 1 && ncores <= 1000) << "invalid number of cores " << ncores;
+
+  const auto l1 = ci->CacheSize(CpuInfo::CacheLevel::L1);
+  const auto l2 = ci->CacheSize(CpuInfo::CacheLevel::L2);
+  const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
+  ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024) << "unexpected L1 size: " << l1;
+  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 8 * 1024 * 1024) << "unexpected L2 size: " << l2;
+  ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 1024 * 1024 * 1024)
+      << "unexpected L3 size: " << l3;
+  ASSERT_LE(l1, l2) << "L1 cache size " << l1 << " larger than L2 " << l2;
+  ASSERT_LE(l2, l3) << "L2 cache size " << l2 << " larger than L3 " << l3;
+
+  // Toggle hardware flags
+  CpuInfo* ci_rw = const_cast<CpuInfo*>(ci);
+  const int64_t original_hardware_flags = ci->hardware_flags();
+  ci_rw->EnableFeature(original_hardware_flags, false);
+  ASSERT_EQ(ci->hardware_flags(), 0);
+  ci_rw->EnableFeature(original_hardware_flags, true);
+  ASSERT_EQ(ci->hardware_flags(), original_hardware_flags);
+}
+
+TEST(Memory, TotalMemory) {
+#if defined(_WIN32)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#elif defined(__APPLE__)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#elif defined(__linux__)
+  ASSERT_GT(GetTotalMemoryBytes(), 0);
+#else
+  ASSERT_EQ(GetTotalMemoryBytes(), 0);
 #endif
 }
 

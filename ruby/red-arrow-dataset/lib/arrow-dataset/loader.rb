@@ -34,6 +34,7 @@ module ArrowDataset
       require "arrow-dataset/dataset"
       require "arrow-dataset/file-format"
       require "arrow-dataset/file-system-dataset-factory"
+      require "arrow-dataset/finish-options"
     end
   end
 end

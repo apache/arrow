@@ -18,18 +18,23 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include "arrow/compare.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
+#include "arrow/compute/kernels/codegen_internal.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/macros.h"
+#include "arrow/visit_scalar_inline.h"
 
 namespace arrow {
 
@@ -42,470 +47,15 @@ using internal::SubtractWithOverflow;
 namespace compute {
 namespace internal {
 
+using applicator::ScalarBinary;
 using applicator::ScalarBinaryEqualTypes;
+using applicator::ScalarBinaryNotNull;
 using applicator::ScalarBinaryNotNullEqualTypes;
 using applicator::ScalarUnary;
 using applicator::ScalarUnaryNotNull;
 using applicator::ScalarUnaryNotNullStateful;
 
 namespace {
-
-// N.B. take care not to conflict with type_traits.h as that can cause surprises in a
-// unity build
-
-struct AbsoluteValue {
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
-    return std::fabs(arg);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                                 Status*) {
-    return arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                               Status* st) {
-    return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
-    return arg.Abs();
-  }
-};
-
-struct AbsoluteValueChecked {
-  template <typename T, typename Arg>
-  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                     Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    if (arg == std::numeric_limits<Arg>::min()) {
-      *st = Status::Invalid("overflow");
-      return arg;
-    }
-    return std::abs(arg);
-  }
-
-  template <typename T, typename Arg>
-  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                       Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return std::fabs(arg);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
-    return arg.Abs();
-  }
-};
-
-struct Add {
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                                    Status*) {
-    return left + right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                            Arg1 right, Status*) {
-    return left + right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                          Arg1 right, Status*) {
-    return arrow::internal::SafeSignedAdd(left, right);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return left + right;
-  }
-};
-
-struct AddChecked {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return left + right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return left + right;
-  }
-};
-
-struct Subtract {
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                                    Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return left - right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                            Arg1 right, Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return left - right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                          Arg1 right, Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return arrow::internal::SafeSignedSubtract(left, right);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return left + (-right);
-  }
-};
-
-struct SubtractChecked {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return left - right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return left + (-right);
-  }
-};
-
-struct Multiply {
-  static_assert(std::is_same<decltype(int8_t() * int8_t()), int32_t>::value, "");
-  static_assert(std::is_same<decltype(uint8_t() * uint8_t()), int32_t>::value, "");
-  static_assert(std::is_same<decltype(int16_t() * int16_t()), int32_t>::value, "");
-  static_assert(std::is_same<decltype(uint16_t() * uint16_t()), int32_t>::value, "");
-  static_assert(std::is_same<decltype(int32_t() * int32_t()), int32_t>::value, "");
-  static_assert(std::is_same<decltype(uint32_t() * uint32_t()), uint32_t>::value, "");
-  static_assert(std::is_same<decltype(int64_t() * int64_t()), int64_t>::value, "");
-  static_assert(std::is_same<decltype(uint64_t() * uint64_t()), uint64_t>::value, "");
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, T left, T right,
-                                                    Status*) {
-    return left * right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_t<
-      is_unsigned_integer_value<T>::value && !std::is_same<T, uint16_t>::value, T>
-  Call(KernelContext*, T left, T right, Status*) {
-    return left * right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_t<
-      is_signed_integer_value<T>::value && !std::is_same<T, int16_t>::value, T>
-  Call(KernelContext*, T left, T right, Status*) {
-    return to_unsigned(left) * to_unsigned(right);
-  }
-
-  // Multiplication of 16 bit integer types implicitly promotes to signed 32 bit
-  // integer. However, some inputs may nevertheless overflow (which triggers undefined
-  // behaviour). Therefore we first cast to 32 bit unsigned integers where overflow is
-  // well defined.
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_same<T, int16_t, T> Call(KernelContext*, int16_t left,
-                                                      int16_t right, Status*) {
-    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
-  }
-  template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_same<T, uint16_t, T> Call(KernelContext*, uint16_t left,
-                                                       uint16_t right, Status*) {
-    return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return left * right;
-  }
-};
-
-struct MultiplyChecked {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return left * right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
-    return left * right;
-  }
-};
-
-struct Divide {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
-    return left / right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    T result;
-    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
-      if (right == 0) {
-        *st = Status::Invalid("divide by zero");
-      } else {
-        result = 0;
-      }
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    if (right == Arg1()) {
-      *st = Status::Invalid("Divide by zero");
-      return T();
-    } else {
-      return left / right;
-    }
-  }
-};
-
-struct DivideChecked {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    T result;
-    if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
-      if (right == 0) {
-        *st = Status::Invalid("divide by zero");
-      } else {
-        *st = Status::Invalid("overflow");
-      }
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status* st) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    if (ARROW_PREDICT_FALSE(right == 0)) {
-      *st = Status::Invalid("divide by zero");
-      return 0;
-    }
-    return left / right;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
-                                         Status* st) {
-    return Divide::Call<T>(ctx, left, right, st);
-  }
-};
-
-struct Negate {
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
-    return -arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
-                                                            Status*) {
-    return ~arg + 1;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg arg,
-                                                          Status*) {
-    return arrow::internal::SafeSignedNegate(arg);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
-    return arg.Negate();
-  }
-};
-
-struct NegateChecked {
-  template <typename T, typename Arg>
-  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                     Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    T result = 0;
-    if (ARROW_PREDICT_FALSE(NegateWithOverflow(arg, &result))) {
-      *st = Status::Invalid("overflow");
-    }
-    return result;
-  }
-
-  template <typename T, typename Arg>
-  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                       Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    DCHECK(false) << "This is included only for the purposes of instantiability from the "
-                     "arithmetic kernel generator";
-    return 0;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status* st) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return -arg;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
-    return arg.Negate();
-  }
-};
-
-struct Power {
-  ARROW_NOINLINE
-  static uint64_t IntegerPower(uint64_t base, uint64_t exp) {
-    // right to left O(logn) power
-    uint64_t pow = 1;
-    while (exp) {
-      pow *= (exp & 1) ? base : 1;
-      base *= base;
-      exp >>= 1;
-    }
-    return pow;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, T base, T exp, Status* st) {
-    if (exp < 0) {
-      *st = Status::Invalid("integers to negative integer powers are not allowed");
-      return 0;
-    }
-    return static_cast<T>(IntegerPower(base, exp));
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, T base, T exp, Status*) {
-    return std::pow(base, exp);
-  }
-};
-
-struct PowerChecked {
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 base, Arg1 exp,
-                                         Status* st) {
-    if (exp < 0) {
-      *st = Status::Invalid("integers to negative integer powers are not allowed");
-      return 0;
-    } else if (exp == 0) {
-      return 1;
-    }
-    // left to right O(logn) power with overflow checks
-    bool overflow = false;
-    uint64_t bitmask =
-        1ULL << (63 - bit_util::CountLeadingZeros(static_cast<uint64_t>(exp)));
-    T pow = 1;
-    while (bitmask) {
-      overflow |= MultiplyWithOverflow(pow, pow, &pow);
-      if (exp & bitmask) {
-        overflow |= MultiplyWithOverflow(pow, base, &pow);
-      }
-      bitmask >>= 1;
-    }
-    if (overflow) {
-      *st = Status::Invalid("overflow");
-    }
-    return pow;
-  }
-
-  template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
-    static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
-    return std::pow(base, exp);
-  }
-};
-
-struct Sign {
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
-    return std::isnan(arg) ? arg : ((arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1));
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                                 Status*) {
-    return (arg > 0) ? 1 : 0;
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                               Status*) {
-    return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
-  }
-
-  template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
-    return (arg == 0) ? 0 : arg.Sign();
-  }
-};
 
 // Bitwise operations
 
@@ -877,632 +427,6 @@ struct LogbChecked {
   }
 };
 
-struct RoundUtil {
-  // Calculate powers of ten with arbitrary integer exponent
-  template <typename T = double>
-  static enable_if_floating_value<T> Pow10(int64_t power) {
-    static constexpr T lut[] = {1e0F, 1e1F, 1e2F,  1e3F,  1e4F,  1e5F,  1e6F,  1e7F,
-                                1e8F, 1e9F, 1e10F, 1e11F, 1e12F, 1e13F, 1e14F, 1e15F};
-    int64_t lut_size = (sizeof(lut) / sizeof(*lut));
-    int64_t abs_power = std::abs(power);
-    auto pow10 = lut[std::min(abs_power, lut_size - 1)];
-    while (abs_power-- >= lut_size) {
-      pow10 *= 1e1F;
-    }
-    return (power >= 0) ? pow10 : (1 / pow10);
-  }
-};
-
-// Specializations of rounding implementations for round kernels
-template <typename Type, RoundMode>
-struct RoundImpl;
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::DOWN> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return std::floor(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    (*val) -= remainder;
-    if (remainder.Sign() < 0) {
-      (*val) -= pow10;
-    }
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::UP> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return std::ceil(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    (*val) -= remainder;
-    if (remainder.Sign() > 0 && remainder != 0) {
-      (*val) += pow10;
-    }
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::TOWARDS_ZERO> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return std::trunc(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    (*val) -= remainder;
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::TOWARDS_INFINITY> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return std::signbit(val) ? std::floor(val) : std::ceil(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    (*val) -= remainder;
-    if (remainder.Sign() < 0) {
-      (*val) -= pow10;
-    } else if (remainder.Sign() > 0 && remainder != 0) {
-      (*val) += pow10;
-    }
-  }
-};
-
-// NOTE: RoundImpl variants for the HALF_* rounding modes are only
-// invoked when the fractional part is equal to 0.5 (std::round is invoked
-// otherwise).
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::HALF_DOWN> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return RoundImpl<T, RoundMode::DOWN>::Round(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    RoundImpl<T, RoundMode::DOWN>::Round(val, remainder, pow10, scale);
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::HALF_UP> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return RoundImpl<T, RoundMode::UP>::Round(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    RoundImpl<T, RoundMode::UP>::Round(val, remainder, pow10, scale);
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::HALF_TOWARDS_ZERO> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(val, remainder, pow10, scale);
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::HALF_TOWARDS_INFINITY> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val);
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val, remainder, pow10, scale);
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::HALF_TO_EVEN> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return std::round(val * T(0.5)) * 2;
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    auto scaled = val->ReduceScaleBy(scale, /*round=*/false);
-    if (scaled.low_bits() % 2 != 0) {
-      scaled += remainder.Sign() >= 0 ? 1 : -1;
-    }
-    *val = scaled.IncreaseScaleBy(scale);
-  }
-};
-
-template <typename Type>
-struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
-  template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
-    return std::floor(val * T(0.5)) + std::ceil(val * T(0.5));
-  }
-
-  template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
-    auto scaled = val->ReduceScaleBy(scale, /*round=*/false);
-    if (scaled.low_bits() % 2 == 0) {
-      scaled += remainder.Sign() ? 1 : -1;
-    }
-    *val = scaled.IncreaseScaleBy(scale);
-  }
-};
-
-// Specializations of kernel state for round kernels
-template <typename OptionsType>
-struct RoundOptionsWrapper;
-
-template <>
-struct RoundOptionsWrapper<RoundOptions> : public OptionsWrapper<RoundOptions> {
-  using OptionsType = RoundOptions;
-  using State = RoundOptionsWrapper<OptionsType>;
-  double pow10;
-
-  explicit RoundOptionsWrapper(OptionsType options) : OptionsWrapper(std::move(options)) {
-    // Only positive exponents for powers of 10 are used because combining
-    // multiply and division operations produced more stable rounding than
-    // using multiply-only.  Refer to NumPy's round implementation:
-    // https://github.com/numpy/numpy/blob/7b2f20b406d27364c812f7a81a9c901afbd3600c/numpy/core/src/multiarray/calculation.c#L589
-    pow10 = RoundUtil::Pow10(std::abs(options.ndigits));
-  }
-
-  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
-                                                   const KernelInitArgs& args) {
-    if (auto options = static_cast<const OptionsType*>(args.options)) {
-      return ::arrow::internal::make_unique<State>(*options);
-    }
-    return Status::Invalid(
-        "Attempted to initialize KernelState from null FunctionOptions");
-  }
-};
-
-template <>
-struct RoundOptionsWrapper<RoundToMultipleOptions>
-    : public OptionsWrapper<RoundToMultipleOptions> {
-  using OptionsType = RoundToMultipleOptions;
-  using State = RoundOptionsWrapper<OptionsType>;
-  using OptionsWrapper::OptionsWrapper;
-
-  static Result<std::unique_ptr<KernelState>> Init(KernelContext* ctx,
-                                                   const KernelInitArgs& args) {
-    std::unique_ptr<State> state;
-    if (auto options = static_cast<const OptionsType*>(args.options)) {
-      state = ::arrow::internal::make_unique<State>(*options);
-    } else {
-      return Status::Invalid(
-          "Attempted to initialize KernelState from null FunctionOptions");
-    }
-
-    auto options = Get(*state);
-    const auto& type = *args.inputs[0].type;
-    if (!options.multiple || !options.multiple->is_valid) {
-      return Status::Invalid("Rounding multiple must be non-null and valid");
-    }
-    if (is_floating(type.id())) {
-      switch (options.multiple->type->id()) {
-        case Type::FLOAT: {
-          if (UnboxScalar<FloatType>::Unbox(*options.multiple) < 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        case Type::DOUBLE: {
-          if (UnboxScalar<DoubleType>::Unbox(*options.multiple) < 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        case Type::HALF_FLOAT:
-          return Status::NotImplemented("Half-float values are not supported");
-        default:
-          return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                                 *options.multiple->type);
-      }
-    } else {
-      DCHECK(is_decimal(type.id()));
-      if (!type.Equals(*options.multiple->type)) {
-        return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                               *options.multiple->type);
-      }
-      switch (options.multiple->type->id()) {
-        case Type::DECIMAL128: {
-          if (UnboxScalar<Decimal128Type>::Unbox(*options.multiple) <= 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        case Type::DECIMAL256: {
-          if (UnboxScalar<Decimal256Type>::Unbox(*options.multiple) <= 0) {
-            return Status::Invalid("Rounding multiple must be positive");
-          }
-          break;
-        }
-        default:
-          // This shouldn't happen
-          return Status::Invalid("Rounding multiple must be a ", type, " scalar, not ",
-                                 *options.multiple->type);
-      }
-    }
-    return std::move(state);
-  }
-};
-
-template <typename ArrowType, RoundMode RndMode, typename Enable = void>
-struct Round {
-  using CType = typename TypeTraits<ArrowType>::CType;
-  using State = RoundOptionsWrapper<RoundOptions>;
-
-  CType pow10;
-  int64_t ndigits;
-
-  explicit Round(const State& state, const DataType& out_ty)
-      : pow10(static_cast<CType>(state.pow10)), ndigits(state.options.ndigits) {}
-
-  template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
-    // Do not process Inf or NaN because they will trigger the overflow error at end of
-    // function.
-    if (!std::isfinite(arg)) {
-      return arg;
-    }
-    auto round_val = ndigits >= 0 ? (arg * pow10) : (arg / pow10);
-    auto frac = round_val - std::floor(round_val);
-    if (frac != T(0)) {
-      // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
-      if ((RndMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
-        round_val = std::round(round_val);
-      } else {
-        round_val = RoundImpl<CType, RndMode>::Round(round_val);
-      }
-      // Equality check is ommitted so that the common case of 10^0 (integer rounding)
-      // uses multiply-only
-      round_val = ndigits > 0 ? (round_val / pow10) : (round_val * pow10);
-      if (!std::isfinite(round_val)) {
-        *st = Status::Invalid("overflow occurred during rounding");
-        return arg;
-      }
-    } else {
-      // If scaled value is an integer, then no rounding is needed.
-      round_val = arg;
-    }
-    return round_val;
-  }
-};
-
-template <typename ArrowType, RoundMode kRoundMode>
-struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
-  using CType = typename TypeTraits<ArrowType>::CType;
-  using State = RoundOptionsWrapper<RoundOptions>;
-
-  const ArrowType& ty;
-  int64_t ndigits;
-  int32_t pow;
-  // pow10 is "1" for the given decimal scale. Similarly half_pow10 is "0.5".
-  CType pow10, half_pow10, neg_half_pow10;
-
-  explicit Round(const State& state, const DataType& out_ty)
-      : Round(state.options.ndigits, out_ty) {}
-
-  explicit Round(int64_t ndigits, const DataType& out_ty)
-      : ty(checked_cast<const ArrowType&>(out_ty)),
-        ndigits(ndigits),
-        pow(static_cast<int32_t>(ty.scale() - ndigits)) {
-    if (pow >= ty.precision() || pow < 0) {
-      pow10 = half_pow10 = neg_half_pow10 = 0;
-    } else {
-      pow10 = CType::GetScaleMultiplier(pow);
-      half_pow10 = CType::GetHalfScaleMultiplier(pow);
-      neg_half_pow10 = -half_pow10;
-    }
-  }
-
-  template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
-    if (pow >= ty.precision()) {
-      *st = Status::Invalid("Rounding to ", ndigits,
-                            " digits will not fit in precision of ", ty);
-      return arg;
-    } else if (pow < 0) {
-      // no-op, copy output to input
-      return arg;
-    }
-
-    std::pair<CType, CType> pair;
-    *st = arg.Divide(pow10).Value(&pair);
-    if (!st->ok()) return arg;
-    // The remainder is effectively the scaled fractional part after division.
-    const auto& remainder = pair.second;
-    if (remainder == 0) return arg;
-    if (kRoundMode >= RoundMode::HALF_DOWN) {
-      if (remainder == half_pow10 || remainder == neg_half_pow10) {
-        // On the halfway point, use tiebreaker
-        RoundImpl<CType, kRoundMode>::Round(&arg, remainder, pow10, pow);
-      } else if (remainder.Sign() >= 0) {
-        // Positive, round up/down
-        arg -= remainder;
-        if (remainder > half_pow10) {
-          arg += pow10;
-        }
-      } else {
-        // Negative, round up/down
-        arg -= remainder;
-        if (remainder < neg_half_pow10) {
-          arg -= pow10;
-        }
-      }
-    } else {
-      RoundImpl<CType, kRoundMode>::Round(&arg, remainder, pow10, pow);
-    }
-    if (!arg.FitsInPrecision(ty.precision())) {
-      *st = Status::Invalid("Rounded value ", arg.ToString(ty.scale()),
-                            " does not fit in precision of ", ty);
-      return 0;
-    }
-    return arg;
-  }
-};
-
-template <typename DecimalType, RoundMode kMode, int32_t kDigits>
-Status FixedRoundDecimalExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using Op = Round<DecimalType, kMode>;
-  return ScalarUnaryNotNullStateful<DecimalType, DecimalType, Op>(
-             Op(kDigits, *out->type()))
-      .Exec(ctx, batch, out);
-}
-
-template <typename ArrowType, RoundMode kRoundMode, typename Enable = void>
-struct RoundToMultiple {
-  using CType = typename TypeTraits<ArrowType>::CType;
-  using State = RoundOptionsWrapper<RoundToMultipleOptions>;
-
-  CType multiple;
-
-  explicit RoundToMultiple(const State& state, const DataType& out_ty) {
-    const auto& options = state.options;
-    DCHECK(options.multiple);
-    DCHECK(options.multiple->is_valid);
-    DCHECK(is_floating(options.multiple->type->id()));
-    switch (options.multiple->type->id()) {
-      case Type::FLOAT:
-        multiple = static_cast<CType>(UnboxScalar<FloatType>::Unbox(*options.multiple));
-        break;
-      case Type::DOUBLE:
-        multiple = static_cast<CType>(UnboxScalar<DoubleType>::Unbox(*options.multiple));
-        break;
-      default:
-        DCHECK(false);
-    }
-  }
-
-  template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
-    // Do not process Inf or NaN because they will trigger the overflow error at end of
-    // function.
-    if (!std::isfinite(arg)) {
-      return arg;
-    }
-    auto round_val = arg / multiple;
-    auto frac = round_val - std::floor(round_val);
-    if (frac != T(0)) {
-      // Use std::round() if in tie-breaking mode and scaled value is not 0.5.
-      if ((kRoundMode >= RoundMode::HALF_DOWN) && (frac != T(0.5))) {
-        round_val = std::round(round_val);
-      } else {
-        round_val = RoundImpl<CType, kRoundMode>::Round(round_val);
-      }
-      round_val *= multiple;
-      if (!std::isfinite(round_val)) {
-        *st = Status::Invalid("overflow occurred during rounding");
-        return arg;
-      }
-    } else {
-      // If scaled value is an integer, then no rounding is needed.
-      round_val = arg;
-    }
-    return round_val;
-  }
-};
-
-template <typename ArrowType, RoundMode kRoundMode>
-struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
-  using CType = typename TypeTraits<ArrowType>::CType;
-  using State = RoundOptionsWrapper<RoundToMultipleOptions>;
-
-  const ArrowType& ty;
-  CType multiple, half_multiple, neg_half_multiple;
-  bool has_halfway_point;
-
-  explicit RoundToMultiple(const State& state, const DataType& out_ty)
-      : ty(checked_cast<const ArrowType&>(out_ty)) {
-    const auto& options = state.options;
-    DCHECK(options.multiple);
-    DCHECK(options.multiple->is_valid);
-    DCHECK(options.multiple->type->Equals(out_ty));
-    multiple = UnboxScalar<ArrowType>::Unbox(*options.multiple);
-    half_multiple = multiple;
-    half_multiple /= 2;
-    neg_half_multiple = -half_multiple;
-    has_halfway_point = multiple.low_bits() % 2 == 0;
-  }
-
-  template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
-    std::pair<CType, CType> pair;
-    *st = arg.Divide(multiple).Value(&pair);
-    if (!st->ok()) return arg;
-    const auto& remainder = pair.second;
-    if (remainder == 0) return arg;
-    if (kRoundMode >= RoundMode::HALF_DOWN) {
-      if (has_halfway_point &&
-          (remainder == half_multiple || remainder == neg_half_multiple)) {
-        // On the halfway point, use tiebreaker
-        // Manually implement rounding since we're not actually rounding a
-        // decimal value, but rather manipulating the multiple
-        switch (kRoundMode) {
-          case RoundMode::HALF_DOWN:
-            if (remainder.Sign() < 0) pair.first -= 1;
-            break;
-          case RoundMode::HALF_UP:
-            if (remainder.Sign() >= 0) pair.first += 1;
-            break;
-          case RoundMode::HALF_TOWARDS_ZERO:
-            // Do nothing
-            break;
-          case RoundMode::HALF_TOWARDS_INFINITY:
-            if (remainder.Sign() >= 0) {
-              pair.first += 1;
-            } else {
-              pair.first -= 1;
-            }
-            break;
-          case RoundMode::HALF_TO_EVEN:
-            if (pair.first.low_bits() % 2 != 0) {
-              pair.first += remainder.Sign() >= 0 ? 1 : -1;
-            }
-            break;
-          case RoundMode::HALF_TO_ODD:
-            if (pair.first.low_bits() % 2 == 0) {
-              pair.first += remainder.Sign() >= 0 ? 1 : -1;
-            }
-            break;
-          default:
-            DCHECK(false);
-        }
-      } else if (remainder.Sign() >= 0) {
-        // Positive, round up/down
-        if (remainder > half_multiple) {
-          pair.first += 1;
-        }
-      } else {
-        // Negative, round up/down
-        if (remainder < neg_half_multiple) {
-          pair.first -= 1;
-        }
-      }
-    } else {
-      // Manually implement rounding since we're not actually rounding a
-      // decimal value, but rather manipulating the multiple
-      switch (kRoundMode) {
-        case RoundMode::DOWN:
-          if (remainder.Sign() < 0) pair.first -= 1;
-          break;
-        case RoundMode::UP:
-          if (remainder.Sign() >= 0) pair.first += 1;
-          break;
-        case RoundMode::TOWARDS_ZERO:
-          // Do nothing
-          break;
-        case RoundMode::TOWARDS_INFINITY:
-          if (remainder.Sign() >= 0) {
-            pair.first += 1;
-          } else {
-            pair.first -= 1;
-          }
-          break;
-        default:
-          DCHECK(false);
-      }
-    }
-    CType round_val = pair.first * multiple;
-    if (!round_val.FitsInPrecision(ty.precision())) {
-      *st = Status::Invalid("Rounded value ", round_val.ToString(ty.scale()),
-                            " does not fit in precision of ", ty);
-      return 0;
-    }
-    return round_val;
-  }
-};
-
-struct Floor {
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return RoundImpl<T, RoundMode::DOWN>::Round(arg);
-  }
-};
-
-struct Ceil {
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return RoundImpl<T, RoundMode::UP>::Round(arg);
-  }
-};
-
-struct Trunc {
-  template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
-    static_assert(std::is_same<T, Arg>::value, "");
-    return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(arg);
-  }
-};
-
-// Generate a kernel given an arithmetic functor
-template <template <typename... Args> class KernelGenerator, typename Op>
-ArrayKernelExec ArithmeticExecFromOp(detail::GetTypeId get_id) {
-  switch (get_id.id) {
-    case Type::INT8:
-      return KernelGenerator<Int8Type, Int8Type, Op>::Exec;
-    case Type::UINT8:
-      return KernelGenerator<UInt8Type, UInt8Type, Op>::Exec;
-    case Type::INT16:
-      return KernelGenerator<Int16Type, Int16Type, Op>::Exec;
-    case Type::UINT16:
-      return KernelGenerator<UInt16Type, UInt16Type, Op>::Exec;
-    case Type::INT32:
-      return KernelGenerator<Int32Type, Int32Type, Op>::Exec;
-    case Type::UINT32:
-      return KernelGenerator<UInt32Type, UInt32Type, Op>::Exec;
-    case Type::INT64:
-    case Type::TIMESTAMP:
-      return KernelGenerator<Int64Type, Int64Type, Op>::Exec;
-    case Type::UINT64:
-      return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
-    case Type::FLOAT:
-      return KernelGenerator<FloatType, FloatType, Op>::Exec;
-    case Type::DOUBLE:
-      return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
-    default:
-      DCHECK(false);
-      return ExecFail;
-  }
-}
-
 // Generate a kernel given a bitwise arithmetic functor. Assumes the
 // functor treats all integer types of equal width identically
 template <template <typename... Args> class KernelGenerator, typename Op>
@@ -1522,7 +446,7 @@ ArrayKernelExec TypeAgnosticBitWiseExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1547,7 +471,7 @@ ArrayKernelExec ShiftExecFromOp(detail::GetTypeId get_id) {
       return KernelGenerator<UInt64Type, UInt64Type, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
@@ -1560,30 +484,30 @@ ArrayKernelExec GenerateArithmeticFloatingPoint(detail::GetTypeId get_id) {
       return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
 // resolve decimal binary operation output type per *casted* args
 template <typename OutputGetter>
-Result<ValueDescr> ResolveDecimalBinaryOperationOutput(
-    const std::vector<ValueDescr>& args, OutputGetter&& getter) {
-  // casted args should be same size decimals
-  auto left_type = checked_cast<const DecimalType*>(args[0].type.get());
-  auto right_type = checked_cast<const DecimalType*>(args[1].type.get());
-  DCHECK_EQ(left_type->id(), right_type->id());
+Result<TypeHolder> ResolveDecimalBinaryOperationOutput(
+    const std::vector<TypeHolder>& types, OutputGetter&& getter) {
+  // casted types should be same size decimals
+  const auto& left_type = checked_cast<const DecimalType&>(*types[0]);
+  const auto& right_type = checked_cast<const DecimalType&>(*types[1]);
+  DCHECK_EQ(left_type.id(), right_type.id());
 
   int32_t precision, scale;
-  std::tie(precision, scale) = getter(left_type->precision(), left_type->scale(),
-                                      right_type->precision(), right_type->scale());
-  ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type->id(), precision, scale));
-  return ValueDescr(std::move(type), GetBroadcastShape(args));
+  std::tie(precision, scale) = getter(left_type.precision(), left_type.scale(),
+                                      right_type.precision(), right_type.scale());
+  ARROW_ASSIGN_OR_RAISE(auto type, DecimalType::Make(left_type.id(), precision, scale));
+  return std::move(type);
 }
 
-Result<ValueDescr> ResolveDecimalAdditionOrSubtractionOutput(
-    KernelContext*, const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ResolveDecimalAdditionOrSubtractionOutput(
+    KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
         DCHECK_EQ(s1, s2);
         const int32_t scale = s1;
         const int32_t precision = std::max(p1 - s1, p2 - s2) + scale + 1;
@@ -1591,25 +515,42 @@ Result<ValueDescr> ResolveDecimalAdditionOrSubtractionOutput(
       });
 }
 
-Result<ValueDescr> ResolveDecimalMultiplicationOutput(
-    KernelContext*, const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ResolveDecimalMultiplicationOutput(
+    KernelContext*, const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
         const int32_t scale = s1 + s2;
         const int32_t precision = p1 + p2 + 1;
         return std::make_pair(precision, scale);
       });
 }
 
-Result<ValueDescr> ResolveDecimalDivisionOutput(KernelContext*,
-                                                const std::vector<ValueDescr>& args) {
+Result<TypeHolder> ResolveDecimalDivisionOutput(KernelContext*,
+                                                const std::vector<TypeHolder>& types) {
   return ResolveDecimalBinaryOperationOutput(
-      args, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
+      types, [](int32_t p1, int32_t s1, int32_t p2, int32_t s2) {
         DCHECK_GE(s1, s2);
         const int32_t scale = s1 - s2;
         const int32_t precision = p1;
         return std::make_pair(precision, scale);
       });
+}
+
+Result<TypeHolder> ResolveTemporalOutput(KernelContext*,
+                                         const std::vector<TypeHolder>& types) {
+  DCHECK_EQ(types[0].id(), types[1].id());
+  const auto& left_type = checked_cast<const TimestampType&>(*types[0]);
+  const auto& right_type = checked_cast<const TimestampType&>(*types[1]);
+  DCHECK_EQ(left_type.unit(), left_type.unit());
+
+  if ((left_type.timezone() == "" || right_type.timezone() == "") &&
+      left_type.timezone() != right_type.timezone()) {
+    return Status::Invalid("Subtraction of zoned and non-zoned times is ambiguous. (",
+                           left_type.timezone(), right_type.timezone(), ").");
+  }
+
+  auto type = duration(right_type.unit());
+  return std::move(type);
 }
 
 template <typename Op>
@@ -1672,49 +613,58 @@ ArrayKernelExec GenerateArithmeticWithFixedIntOutType(detail::GetTypeId get_id) 
       return KernelGenerator<DoubleType, DoubleType, Op>::Exec;
     default:
       DCHECK(false);
-      return ExecFail;
+      return nullptr;
   }
 }
 
 struct ArithmeticFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
-    RETURN_NOT_OK(CheckDecimals(values));
+    RETURN_NOT_OK(CheckDecimals(types));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
     // Only promote types for binary functions
-    if (values->size() == 2) {
-      ReplaceNullWithOtherType(values);
+    if (types->size() == 2) {
+      ReplaceNullWithOtherType(types);
+      TimeUnit::type finest_unit;
+      if (CommonTemporalResolution(types->data(), types->size(), &finest_unit)) {
+        ReplaceTemporalTypes(finest_unit, types);
+      } else {
+        if (TypeHolder type = CommonNumeric(*types)) {
+          ReplaceTypes(type, types);
+        }
+      }
 
-      if (auto type = CommonNumeric(*values)) {
-        ReplaceTypes(type, values);
+      if (name_ == "multiply" || name_ == "multiply_checked" || name_ == "divide" ||
+          name_ == "divide_checked") {
+        PromoteIntegerForDurationArithmetic(types);
       }
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 
-  Status CheckDecimals(std::vector<ValueDescr>* values) const {
-    if (!HasDecimal(*values)) return Status::OK();
+  Status CheckDecimals(std::vector<TypeHolder>* types) const {
+    if (!HasDecimal(*types)) return Status::OK();
 
-    if (values->size() == 2) {
+    if (types->size() == 2) {
       // "add_checked" -> "add"
       const auto func_name = name();
       const std::string op = func_name.substr(0, func_name.find("_"));
       if (op == "add" || op == "subtract") {
-        return CastBinaryDecimalArgs(DecimalPromotion::kAdd, values);
+        return CastBinaryDecimalArgs(DecimalPromotion::kAdd, types);
       } else if (op == "multiply") {
-        return CastBinaryDecimalArgs(DecimalPromotion::kMultiply, values);
+        return CastBinaryDecimalArgs(DecimalPromotion::kMultiply, types);
       } else if (op == "divide") {
-        return CastBinaryDecimalArgs(DecimalPromotion::kDivide, values);
+        return CastBinaryDecimalArgs(DecimalPromotion::kDivide, types);
       } else {
         return Status::Invalid("Invalid decimal function: ", func_name);
       }
@@ -1727,29 +677,30 @@ struct ArithmeticFunction : ScalarFunction {
 struct ArithmeticDecimalToFloatingPointFunction : public ArithmeticFunction {
   using ArithmeticFunction::ArithmeticFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
-    if (values->size() == 2) {
-      ReplaceNullWithOtherType(values);
+    if (types->size() == 2) {
+      ReplaceNullWithOtherType(types);
     }
 
-    for (auto& descr : *values) {
-      if (is_decimal(descr.type->id())) {
-        descr.type = float64();
+    for (size_t i = 0; i < types->size(); ++i) {
+      if (is_decimal((*types)[i].type->id())) {
+        (*types)[i] = float64();
       }
     }
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
+
+    if (TypeHolder type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
@@ -1757,30 +708,31 @@ struct ArithmeticDecimalToFloatingPointFunction : public ArithmeticFunction {
 struct ArithmeticIntegerToFloatingPointFunction : public ArithmeticFunction {
   using ArithmeticFunction::ArithmeticFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
-    RETURN_NOT_OK(CheckDecimals(values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
+    RETURN_NOT_OK(CheckDecimals(types));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
-    if (values->size() == 2) {
-      ReplaceNullWithOtherType(values);
+    if (types->size() == 2) {
+      ReplaceNullWithOtherType(types);
     }
 
-    for (auto& descr : *values) {
-      if (is_integer(descr.type->id())) {
-        descr.type = float64();
+    for (size_t i = 0; i < types->size(); ++i) {
+      if (is_integer((*types)[i].type->id())) {
+        (*types)[i] = float64();
       }
     }
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
+
+    if (auto type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
@@ -1788,46 +740,37 @@ struct ArithmeticIntegerToFloatingPointFunction : public ArithmeticFunction {
 struct ArithmeticFloatingPointFunction : public ArithmeticFunction {
   using ArithmeticFunction::ArithmeticFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
-    if (values->size() == 2) {
-      ReplaceNullWithOtherType(values);
+    if (types->size() == 2) {
+      ReplaceNullWithOtherType(types);
     }
 
-    for (auto& descr : *values) {
-      if (is_integer(descr.type->id()) || is_decimal(descr.type->id())) {
-        descr.type = float64();
+    for (size_t i = 0; i < types->size(); ++i) {
+      if (is_integer((*types)[i].type->id()) || is_decimal((*types)[i].type->id())) {
+        (*types)[i] = float64();
       }
     }
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
+
+    if (auto type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
-// A scalar kernel that ignores (assumed all-null) inputs and returns null.
-Status NullToNullExec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  return Status::OK();
-}
-
-void AddNullExec(ScalarFunction* func) {
-  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
-  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
-}
-
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
-                                                       const FunctionDoc* doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
+                                                       FunctionDoc doc) {
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1840,8 +783,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunction(std::string name,
 // only on non-null output.
 template <typename Op, typename FunctionImpl = ArithmeticFunction>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
-                                                              const FunctionDoc* doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), doc);
+                                                              FunctionDoc doc) {
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -1852,8 +795,8 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionNotNull(std::string name,
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
-                                                            const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+                                                            FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -1866,9 +809,9 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunction(std::string name,
 // output type for integral inputs.
 template <typename Op, typename IntOutType>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
-    std::string name, const FunctionDoc* doc) {
+    std::string name, FunctionDoc doc) {
   auto int_out_ty = TypeTraits<IntOutType>::type_singleton();
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto out_ty = arrow::is_floating(ty->id()) ? ty : int_out_ty;
     auto exec = GenerateArithmeticWithFixedIntOutType<ScalarUnary, IntOutType, Op>(ty);
@@ -1887,111 +830,12 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionWithFixedIntOutType(
 // Like MakeUnaryArithmeticFunction, but for arithmetic ops that need to run
 // only on non-null output.
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionNotNull(std::string name,
+                                                                   FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
-  }
-  AddNullExec(func.get());
-  return func;
-}
-
-// Exec the round kernel for the given types
-template <typename Type, typename OptionsType,
-          template <typename, RoundMode, typename...> class OpImpl>
-Status ExecRound(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-  using State = RoundOptionsWrapper<OptionsType>;
-  const auto& state = static_cast<const State&>(*ctx->state());
-  switch (state.options.round_mode) {
-    case RoundMode::DOWN: {
-      using Op = OpImpl<Type, RoundMode::DOWN>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::UP: {
-      using Op = OpImpl<Type, RoundMode::UP>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::TOWARDS_ZERO: {
-      using Op = OpImpl<Type, RoundMode::TOWARDS_ZERO>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::TOWARDS_INFINITY: {
-      using Op = OpImpl<Type, RoundMode::TOWARDS_INFINITY>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_DOWN: {
-      using Op = OpImpl<Type, RoundMode::HALF_DOWN>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_UP: {
-      using Op = OpImpl<Type, RoundMode::HALF_UP>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TOWARDS_ZERO: {
-      using Op = OpImpl<Type, RoundMode::HALF_TOWARDS_ZERO>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TOWARDS_INFINITY: {
-      using Op = OpImpl<Type, RoundMode::HALF_TOWARDS_INFINITY>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TO_EVEN: {
-      using Op = OpImpl<Type, RoundMode::HALF_TO_EVEN>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-    case RoundMode::HALF_TO_ODD: {
-      using Op = OpImpl<Type, RoundMode::HALF_TO_ODD>;
-      return ScalarUnaryNotNullStateful<Type, Type, Op>(Op(state, *out->type()))
-          .Exec(ctx, batch, out);
-    }
-  }
-  DCHECK(false);
-  return Status::NotImplemented(
-      "Internal implementation error: round mode not implemented: ",
-      state.options.ToString());
-}
-
-// Like MakeUnaryArithmeticFunction, but for unary rounding functions that control
-// kernel dispatch based on RoundMode, only on non-null output.
-template <template <typename, RoundMode, typename...> class Op, typename OptionsType>
-std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
-                                                       const FunctionDoc* doc) {
-  using State = RoundOptionsWrapper<OptionsType>;
-  static const OptionsType kDefaultOptions = OptionsType::Defaults();
-  auto func = std::make_shared<ArithmeticIntegerToFloatingPointFunction>(
-      name, Arity::Unary(), doc, &kDefaultOptions);
-  for (const auto& ty : {float32(), float64(), decimal128(1, 0), decimal256(1, 0)}) {
-    auto type_id = ty->id();
-    auto exec = [type_id](KernelContext* ctx, const ExecBatch& batch, Datum* out) {
-      switch (type_id) {
-        case Type::FLOAT:
-          return ExecRound<FloatType, OptionsType, Op>(ctx, batch, out);
-        case Type::DOUBLE:
-          return ExecRound<DoubleType, OptionsType, Op>(ctx, batch, out);
-        case Type::DECIMAL128:
-          return ExecRound<Decimal128Type, OptionsType, Op>(ctx, batch, out);
-        case Type::DECIMAL256:
-          return ExecRound<Decimal256Type, OptionsType, Op>(ctx, batch, out);
-        default: {
-          DCHECK(false);
-          return ExecFail(ctx, batch, out);
-        }
-      }
-    };
-    DCHECK_OK(func->AddKernel(
-        {InputType(type_id)},
-        is_decimal(type_id) ? OutputType(FirstType) : OutputType(ty), exec, State::Init));
   }
   AddNullExec(func.get());
   return func;
@@ -2001,8 +845,8 @@ std::shared_ptr<ScalarFunction> MakeUnaryRoundFunction(std::string name,
 // only on non-null output.
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : NumericTypes()) {
     if (!arrow::is_unsigned_integer(ty->id())) {
       auto exec = ArithmeticExecFromOp<ScalarUnaryNotNull, Op>(ty);
@@ -2015,8 +859,8 @@ std::shared_ptr<ScalarFunction> MakeUnarySignedArithmeticFunctionNotNull(
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
-                                                           const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+                                                           FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = TypeAgnosticBitWiseExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -2027,8 +871,8 @@ std::shared_ptr<ScalarFunction> MakeBitWiseFunctionNotNull(std::string name,
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
-                                                         const FunctionDoc* doc) {
-  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), doc);
+                                                         FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFunction>(name, Arity::Binary(), std::move(doc));
   for (const auto& ty : IntTypes()) {
     auto exec = ShiftExecFromOp<ScalarBinaryNotNullEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -2039,8 +883,8 @@ std::shared_ptr<ScalarFunction> MakeShiftFunctionNotNull(std::string name,
 
 template <typename Op, typename FunctionImpl = ArithmeticFloatingPointFunction>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
-    std::string name, const FunctionDoc* doc) {
-  auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<FunctionImpl>(name, Arity::Unary(), std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnary, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -2051,9 +895,9 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPoint(
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Unary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarUnaryNotNull, Op>(ty);
     DCHECK_OK(func->AddKernel({ty}, ty, exec));
@@ -2063,10 +907,10 @@ std::shared_ptr<ScalarFunction> MakeUnaryArithmeticFunctionFloatingPointNotNull(
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
-    std::string name, const FunctionDoc* doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(std::string name,
+                                                                    FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryEqualTypes, Op>(ty);
     DCHECK_OK(func->AddKernel({ty, ty}, ty, exec));
@@ -2077,9 +921,9 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPoint(
 
 template <typename Op>
 std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
-    std::string name, const FunctionDoc* doc) {
-  auto func =
-      std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(), doc);
+    std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<ArithmeticFloatingPointFunction>(name, Arity::Binary(),
+                                                                std::move(doc));
   for (const auto& ty : FloatingPointTypes()) {
     auto output = is_integer(ty->id()) ? float64() : ty;
     auto exec = GenerateArithmeticFloatingPoint<ScalarBinaryNotNullEqualTypes, Op>(ty);
@@ -2087,6 +931,58 @@ std::shared_ptr<ScalarFunction> MakeArithmeticFunctionFloatingPointNotNull(
   }
   AddNullExec(func.get());
   return func;
+}
+
+template <template <int64_t> class Op>
+void AddArithmeticFunctionTimeDuration(std::shared_ptr<ScalarFunction> func) {
+  // Add Op(time32, duration) -> time32
+  TimeUnit::type unit = TimeUnit::SECOND;
+  auto exec_1 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400>>::Exec;
+  DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_1)));
+
+  unit = TimeUnit::MILLI;
+  auto exec_2 = ScalarBinary<Time32Type, Time32Type, DurationType, Op<86400000>>::Exec;
+  DCHECK_OK(func->AddKernel({time32(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_2)));
+
+  // Add Op(time64, duration) -> time64
+  unit = TimeUnit::MICRO;
+  auto exec_3 = ScalarBinary<Time64Type, Time64Type, DurationType, Op<86400000000>>::Exec;
+  DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_3)));
+
+  unit = TimeUnit::NANO;
+  auto exec_4 =
+      ScalarBinary<Time64Type, Time64Type, DurationType, Op<86400000000000>>::Exec;
+  DCHECK_OK(func->AddKernel({time64(unit), duration(unit)}, OutputType(FirstType),
+                            std::move(exec_4)));
+}
+
+template <template <int64_t> class Op>
+void AddArithmeticFunctionDurationTime(std::shared_ptr<ScalarFunction> func) {
+  // Add Op(duration, time32) -> time32
+  TimeUnit::type unit = TimeUnit::SECOND;
+  auto exec_1 = ScalarBinary<Time32Type, DurationType, Time32Type, Op<86400>>::Exec;
+  DCHECK_OK(func->AddKernel({duration(unit), time32(unit)}, OutputType(LastType),
+                            std::move(exec_1)));
+
+  unit = TimeUnit::MILLI;
+  auto exec_2 = ScalarBinary<Time32Type, DurationType, Time32Type, Op<86400000>>::Exec;
+  DCHECK_OK(func->AddKernel({duration(unit), time32(unit)}, OutputType(LastType),
+                            std::move(exec_2)));
+
+  // Add Op(duration, time64) -> time64
+  unit = TimeUnit::MICRO;
+  auto exec_3 = ScalarBinary<Time64Type, DurationType, Time64Type, Op<86400000000>>::Exec;
+  DCHECK_OK(func->AddKernel({duration(unit), time64(unit)}, OutputType(LastType),
+                            std::move(exec_3)));
+
+  unit = TimeUnit::NANO;
+  auto exec_4 =
+      ScalarBinary<Time64Type, DurationType, Time64Type, Op<86400000000000>>::Exec;
+  DCHECK_OK(func->AddKernel({duration(unit), time64(unit)}, OutputType(LastType),
+                            std::move(exec_4)));
 }
 
 const FunctionDoc absolute_value_doc{
@@ -2170,11 +1066,28 @@ const FunctionDoc pow_doc{
      "wraps around. If either base or exponent is null the result will be null."),
     {"base", "exponent"}};
 
+const FunctionDoc exp_doc{
+    "Compute Euler's number raised to the power of specified exponent, element-wise",
+    ("If exponent is null the result will be null."),
+    {"exponent"}};
+
 const FunctionDoc pow_checked_doc{
     "Raise arguments to power element-wise",
     ("An error is returned when integer to negative integer power is encountered,\n"
      "or integer overflow is encountered."),
     {"base", "exponent"}};
+
+const FunctionDoc sqrt_doc{
+    "Takes the square root of arguments element-wise",
+    ("A negative argument returns a NaN.  For a variant that returns an\n"
+     "error, use function \"sqrt_checked\"."),
+    {"x"}};
+
+const FunctionDoc sqrt_checked_doc{
+    "Takes the square root of arguments element-wise",
+    ("A negative argument returns an error.  For a variant that returns a\n"
+     "NaN, use function \"sqrt\"."),
+    {"x"}};
 
 const FunctionDoc sign_doc{
     "Get the signedness of the arguments element-wise",
@@ -2361,136 +1274,303 @@ const FunctionDoc logb_checked_doc{
      "-inf or NaN."),
     {"x", "b"}};
 
-const FunctionDoc floor_doc{
-    "Round down to the nearest integer",
-    ("Compute the largest integer value not greater in magnitude than `x`."),
-    {"x"}};
-
-const FunctionDoc ceil_doc{
-    "Round up to the nearest integer",
-    ("Compute the smallest integer value not less in magnitude than `x`."),
-    {"x"}};
-
-const FunctionDoc trunc_doc{
-    "Compute the integral part",
-    ("Compute the nearest integer not greater in magnitude than `x`."),
-    {"x"}};
-
-const FunctionDoc round_doc{
-    "Round to a given precision",
-    ("Options are used to control the number of digits and rounding mode.\n"
-     "Default behavior is to round to the nearest integer and\n"
-     "use half-to-even rule to break ties."),
-    {"x"},
-    "RoundOptions"};
-
-const FunctionDoc round_to_multiple_doc{
-    "Round to a given multiple",
-    ("Options are used to control the rounding multiple and rounding mode.\n"
-     "Default behavior is to round to the nearest integer and\n"
-     "use half-to-even rule to break ties."),
-    {"x"},
-    "RoundToMultipleOptions"};
 }  // namespace
 
 void RegisterScalarArithmetic(FunctionRegistry* registry) {
+  // NOTE for registration of arithmetic kernels: to minimize code generation,
+  // it is advised to template the actual executors with physical execution
+  // types (e.g. Int64 instead of Duration or Timestamp).
+
   // ----------------------------------------------------------------------
   auto absolute_value =
-      MakeUnaryArithmeticFunction<AbsoluteValue>("abs", &absolute_value_doc);
+      MakeUnaryArithmeticFunction<AbsoluteValue>("abs", absolute_value_doc);
   AddDecimalUnaryKernels<AbsoluteValue>(absolute_value.get());
   DCHECK_OK(registry->AddFunction(std::move(absolute_value)));
 
   // ----------------------------------------------------------------------
   auto absolute_value_checked = MakeUnaryArithmeticFunctionNotNull<AbsoluteValueChecked>(
-      "abs_checked", &absolute_value_checked_doc);
+      "abs_checked", absolute_value_checked_doc);
   AddDecimalUnaryKernels<AbsoluteValueChecked>(absolute_value_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(absolute_value_checked)));
 
   // ----------------------------------------------------------------------
-  auto add = MakeArithmeticFunction<Add>("add", &add_doc);
+  auto add = MakeArithmeticFunction<Add>("add", add_doc);
   AddDecimalBinaryKernels<Add>("add", add.get());
+
+  // Add add(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<Int64Type, Int64Type, Int64Type, Add>::Exec;
+    DCHECK_OK(add->AddKernel({in_type, duration(unit)}, OutputType(FirstType), exec));
+    DCHECK_OK(add->AddKernel({duration(unit), in_type}, OutputType(LastType), exec));
+  }
+
+  // Add add(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Add>(Type::DURATION);
+    DCHECK_OK(add->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  AddArithmeticFunctionTimeDuration<AddTimeDuration>(add);
+  AddArithmeticFunctionDurationTime<AddTimeDuration>(add);
+
   DCHECK_OK(registry->AddFunction(std::move(add)));
 
   // ----------------------------------------------------------------------
   auto add_checked =
-      MakeArithmeticFunctionNotNull<AddChecked>("add_checked", &add_checked_doc);
+      MakeArithmeticFunctionNotNull<AddChecked>("add_checked", add_checked_doc);
   AddDecimalBinaryKernels<AddChecked>("add_checked", add_checked.get());
+
+  // Add add_checked(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<Int64Type, Int64Type, Int64Type, AddChecked>::Exec;
+    DCHECK_OK(
+        add_checked->AddKernel({in_type, duration(unit)}, OutputType(FirstType), exec));
+    DCHECK_OK(
+        add_checked->AddKernel({duration(unit), in_type}, OutputType(LastType), exec));
+  }
+
+  // Add add(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, AddChecked>(Type::DURATION);
+    DCHECK_OK(
+        add_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  AddArithmeticFunctionTimeDuration<AddTimeDurationChecked>(add_checked);
+  AddArithmeticFunctionDurationTime<AddTimeDurationChecked>(add_checked);
+
   DCHECK_OK(registry->AddFunction(std::move(add_checked)));
 
   // ----------------------------------------------------------------------
-  auto subtract = MakeArithmeticFunction<Subtract>("subtract", &sub_doc);
+  auto subtract = MakeArithmeticFunction<Subtract>("subtract", sub_doc);
   AddDecimalBinaryKernels<Subtract>("subtract", subtract.get());
 
   // Add subtract(timestamp, timestamp) -> duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
     auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::TIMESTAMP);
+    DCHECK_OK(subtract->AddKernel({in_type, in_type},
+                                  OutputType::Resolver(ResolveTemporalOutput),
+                                  std::move(exec)));
+  }
+
+  // Add subtract(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<Int64Type, Int64Type, Int64Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, duration(unit)}, OutputType(FirstType),
+                                  std::move(exec)));
+  }
+
+  // Add subtract(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Subtract>(Type::DURATION);
     DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
   }
+
+  // Add subtract(time32, time32) -> duration
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Int32Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract(time64, time64) -> duration
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Int64Type, Subtract>::Exec;
+    DCHECK_OK(subtract->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract(date32, date32) -> duration(TimeUnit::SECOND)
+  InputType in_type_date_32(date32());
+  auto exec_date_32 = ScalarBinaryEqualTypes<Int64Type, Int32Type, SubtractDate32>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_32, in_type_date_32},
+                                duration(TimeUnit::SECOND), std::move(exec_date_32)));
+
+  // Add subtract(date64, date64) -> duration(TimeUnit::MILLI)
+  InputType in_type_date_64(date64());
+  auto exec_date_64 = ScalarBinaryEqualTypes<Int64Type, Int64Type, Subtract>::Exec;
+  DCHECK_OK(subtract->AddKernel({in_type_date_64, in_type_date_64},
+                                duration(TimeUnit::MILLI), std::move(exec_date_64)));
+
+  AddArithmeticFunctionTimeDuration<SubtractTimeDuration>(subtract);
 
   DCHECK_OK(registry->AddFunction(std::move(subtract)));
 
   // ----------------------------------------------------------------------
-  auto subtract_checked = MakeArithmeticFunctionNotNull<SubtractChecked>(
-      "subtract_checked", &sub_checked_doc);
+  auto subtract_checked =
+      MakeArithmeticFunctionNotNull<SubtractChecked>("subtract_checked", sub_checked_doc);
   AddDecimalBinaryKernels<SubtractChecked>("subtract_checked", subtract_checked.get());
+
+  // Add subtract_checked(timestamp, timestamp) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::TIMESTAMP);
+    DCHECK_OK(subtract_checked->AddKernel({in_type, in_type},
+                                          OutputType::Resolver(ResolveTemporalOutput),
+                                          std::move(exec)));
+  }
+
+  // Add subtract_checked(timestamp, duration) -> timestamp
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::TimestampTypeUnit(unit));
+    auto exec = ScalarBinary<Int64Type, Int64Type, Int64Type, SubtractChecked>::Exec;
+    DCHECK_OK(subtract_checked->AddKernel({in_type, duration(unit)},
+                                          OutputType(FirstType), std::move(exec)));
+  }
+
+  // Add subtract_checked(duration, duration) -> duration
+  for (auto unit : TimeUnit::values()) {
+    InputType in_type(match::DurationTypeUnit(unit));
+    auto exec =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, SubtractChecked>(Type::DURATION);
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract_checked(date32, date32) -> duration(TimeUnit::SECOND)
+  auto exec_date_32_checked =
+      ScalarBinaryEqualTypes<Int64Type, Int32Type, SubtractCheckedDate32>::Exec;
+  DCHECK_OK(subtract_checked->AddKernel({in_type_date_32, in_type_date_32},
+                                        duration(TimeUnit::SECOND),
+                                        std::move(exec_date_32_checked)));
+
+  // Add subtract_checked(date64, date64) -> duration(TimeUnit::MILLI)
+  auto exec_date_64_checked =
+      ScalarBinaryEqualTypes<Int64Type, Int64Type, SubtractChecked>::Exec;
+  DCHECK_OK(subtract_checked->AddKernel({in_type_date_64, in_type_date_64},
+                                        duration(TimeUnit::MILLI),
+                                        std::move(exec_date_64_checked)));
+
+  // Add subtract_checked(time32, time32) -> duration
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
+    InputType in_type(match::Time32TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Int32Type, SubtractChecked>::Exec;
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  // Add subtract_checked(time64, time64) -> duration
+  for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
+    InputType in_type(match::Time64TypeUnit(unit));
+    auto exec = ScalarBinaryEqualTypes<Int64Type, Int64Type, SubtractChecked>::Exec;
+    DCHECK_OK(
+        subtract_checked->AddKernel({in_type, in_type}, duration(unit), std::move(exec)));
+  }
+
+  AddArithmeticFunctionTimeDuration<SubtractTimeDurationChecked>(subtract_checked);
+
   DCHECK_OK(registry->AddFunction(std::move(subtract_checked)));
 
   // ----------------------------------------------------------------------
-  auto multiply = MakeArithmeticFunction<Multiply>("multiply", &mul_doc);
+  auto multiply = MakeArithmeticFunction<Multiply>("multiply", mul_doc);
   AddDecimalBinaryKernels<Multiply>("multiply", multiply.get());
+
+  // Add multiply(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ArithmeticExecFromOp<ScalarBinaryEqualTypes, Multiply>(Type::DURATION);
+    DCHECK_OK(multiply->AddKernel({duration(unit), int64()}, duration(unit), exec));
+    DCHECK_OK(multiply->AddKernel({int64(), duration(unit)}, duration(unit), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(multiply)));
 
   // ----------------------------------------------------------------------
-  auto multiply_checked = MakeArithmeticFunctionNotNull<MultiplyChecked>(
-      "multiply_checked", &mul_checked_doc);
+  auto multiply_checked =
+      MakeArithmeticFunctionNotNull<MultiplyChecked>("multiply_checked", mul_checked_doc);
   AddDecimalBinaryKernels<MultiplyChecked>("multiply_checked", multiply_checked.get());
+
+  // Add multiply_checked(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec =
+        ArithmeticExecFromOp<ScalarBinaryEqualTypes, MultiplyChecked>(Type::DURATION);
+    DCHECK_OK(
+        multiply_checked->AddKernel({duration(unit), int64()}, duration(unit), exec));
+    DCHECK_OK(
+        multiply_checked->AddKernel({int64(), duration(unit)}, duration(unit), exec));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(multiply_checked)));
 
   // ----------------------------------------------------------------------
-  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", &div_doc);
+  auto divide = MakeArithmeticFunctionNotNull<Divide>("divide", div_doc);
   AddDecimalBinaryKernels<Divide>("divide", divide.get());
+
+  // Add divide(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, Divide>::Exec;
+    DCHECK_OK(
+        divide->AddKernel({duration(unit), int64()}, duration(unit), std::move(exec)));
+  }
   DCHECK_OK(registry->AddFunction(std::move(divide)));
 
   // ----------------------------------------------------------------------
   auto divide_checked =
-      MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", &div_checked_doc);
+      MakeArithmeticFunctionNotNull<DivideChecked>("divide_checked", div_checked_doc);
   AddDecimalBinaryKernels<DivideChecked>("divide_checked", divide_checked.get());
+
+  // Add divide_checked(duration, int64) -> duration
+  for (auto unit : TimeUnit::values()) {
+    auto exec = ScalarBinaryNotNull<Int64Type, Int64Type, Int64Type, DivideChecked>::Exec;
+    DCHECK_OK(divide_checked->AddKernel({duration(unit), int64()}, duration(unit),
+                                        std::move(exec)));
+  }
+
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
 
   // ----------------------------------------------------------------------
-  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", &negate_doc);
+  auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
   AddDecimalUnaryKernels<Negate>(negate.get());
   DCHECK_OK(registry->AddFunction(std::move(negate)));
 
   // ----------------------------------------------------------------------
   auto negate_checked = MakeUnarySignedArithmeticFunctionNotNull<NegateChecked>(
-      "negate_checked", &negate_checked_doc);
+      "negate_checked", negate_checked_doc);
   AddDecimalUnaryKernels<NegateChecked>(negate_checked.get());
   DCHECK_OK(registry->AddFunction(std::move(negate_checked)));
 
   // ----------------------------------------------------------------------
   auto power = MakeArithmeticFunction<Power, ArithmeticDecimalToFloatingPointFunction>(
-      "power", &pow_doc);
+      "power", pow_doc);
   DCHECK_OK(registry->AddFunction(std::move(power)));
 
   // ----------------------------------------------------------------------
   auto power_checked =
       MakeArithmeticFunctionNotNull<PowerChecked,
                                     ArithmeticDecimalToFloatingPointFunction>(
-          "power_checked", &pow_checked_doc);
+          "power_checked", pow_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(power_checked)));
 
   // ----------------------------------------------------------------------
+  auto exp = MakeUnaryArithmeticFunctionFloatingPoint<Exp>("exp", exp_doc);
+  DCHECK_OK(registry->AddFunction(std::move(exp)));
+
+  // ----------------------------------------------------------------------
+  auto sqrt = MakeUnaryArithmeticFunctionFloatingPoint<SquareRoot>("sqrt", sqrt_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sqrt)));
+
+  // ----------------------------------------------------------------------
+  auto sqrt_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SquareRootChecked>(
+      "sqrt_checked", sqrt_checked_doc);
+  DCHECK_OK(registry->AddFunction(std::move(sqrt_checked)));
+
+  // ----------------------------------------------------------------------
   auto sign =
-      MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", &sign_doc);
+      MakeUnaryArithmeticFunctionWithFixedIntOutType<Sign, Int8Type>("sign", sign_doc);
   DCHECK_OK(registry->AddFunction(std::move(sign)));
 
   // ----------------------------------------------------------------------
   // Bitwise functions
   {
     auto bit_wise_not = std::make_shared<ArithmeticFunction>(
-        "bit_wise_not", Arity::Unary(), &bit_wise_not_doc);
+        "bit_wise_not", Arity::Unary(), bit_wise_not_doc);
     for (const auto& ty : IntTypes()) {
       auto exec = TypeAgnosticBitWiseExecFromOp<ScalarUnaryNotNull, BitWiseNot>(ty);
       DCHECK_OK(bit_wise_not->AddKernel({ty}, ty, exec));
@@ -2500,157 +1580,110 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   auto bit_wise_and =
-      MakeBitWiseFunctionNotNull<BitWiseAnd>("bit_wise_and", &bit_wise_and_doc);
+      MakeBitWiseFunctionNotNull<BitWiseAnd>("bit_wise_and", bit_wise_and_doc);
   DCHECK_OK(registry->AddFunction(std::move(bit_wise_and)));
 
   auto bit_wise_or =
-      MakeBitWiseFunctionNotNull<BitWiseOr>("bit_wise_or", &bit_wise_or_doc);
+      MakeBitWiseFunctionNotNull<BitWiseOr>("bit_wise_or", bit_wise_or_doc);
   DCHECK_OK(registry->AddFunction(std::move(bit_wise_or)));
 
   auto bit_wise_xor =
-      MakeBitWiseFunctionNotNull<BitWiseXor>("bit_wise_xor", &bit_wise_xor_doc);
+      MakeBitWiseFunctionNotNull<BitWiseXor>("bit_wise_xor", bit_wise_xor_doc);
   DCHECK_OK(registry->AddFunction(std::move(bit_wise_xor)));
 
-  auto shift_left = MakeShiftFunctionNotNull<ShiftLeft>("shift_left", &shift_left_doc);
+  auto shift_left = MakeShiftFunctionNotNull<ShiftLeft>("shift_left", shift_left_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_left)));
 
   auto shift_left_checked = MakeShiftFunctionNotNull<ShiftLeftChecked>(
-      "shift_left_checked", &shift_left_checked_doc);
+      "shift_left_checked", shift_left_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_left_checked)));
 
-  auto shift_right =
-      MakeShiftFunctionNotNull<ShiftRight>("shift_right", &shift_right_doc);
+  auto shift_right = MakeShiftFunctionNotNull<ShiftRight>("shift_right", shift_right_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_right)));
 
   auto shift_right_checked = MakeShiftFunctionNotNull<ShiftRightChecked>(
-      "shift_right_checked", &shift_right_checked_doc);
+      "shift_right_checked", shift_right_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(shift_right_checked)));
 
   // ----------------------------------------------------------------------
   // Trig functions
-  auto sin = MakeUnaryArithmeticFunctionFloatingPoint<Sin>("sin", &sin_doc);
+  auto sin = MakeUnaryArithmeticFunctionFloatingPoint<Sin>("sin", sin_doc);
   DCHECK_OK(registry->AddFunction(std::move(sin)));
 
   auto sin_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<SinChecked>(
-      "sin_checked", &sin_checked_doc);
+      "sin_checked", sin_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(sin_checked)));
 
-  auto cos = MakeUnaryArithmeticFunctionFloatingPoint<Cos>("cos", &cos_doc);
+  auto cos = MakeUnaryArithmeticFunctionFloatingPoint<Cos>("cos", cos_doc);
   DCHECK_OK(registry->AddFunction(std::move(cos)));
 
   auto cos_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<CosChecked>(
-      "cos_checked", &cos_checked_doc);
+      "cos_checked", cos_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(cos_checked)));
 
-  auto tan = MakeUnaryArithmeticFunctionFloatingPoint<Tan>("tan", &tan_doc);
+  auto tan = MakeUnaryArithmeticFunctionFloatingPoint<Tan>("tan", tan_doc);
   DCHECK_OK(registry->AddFunction(std::move(tan)));
 
   auto tan_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<TanChecked>(
-      "tan_checked", &tan_checked_doc);
+      "tan_checked", tan_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(tan_checked)));
 
-  auto asin = MakeUnaryArithmeticFunctionFloatingPoint<Asin>("asin", &asin_doc);
+  auto asin = MakeUnaryArithmeticFunctionFloatingPoint<Asin>("asin", asin_doc);
   DCHECK_OK(registry->AddFunction(std::move(asin)));
 
   auto asin_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AsinChecked>(
-      "asin_checked", &asin_checked_doc);
+      "asin_checked", asin_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(asin_checked)));
 
-  auto acos = MakeUnaryArithmeticFunctionFloatingPoint<Acos>("acos", &acos_doc);
+  auto acos = MakeUnaryArithmeticFunctionFloatingPoint<Acos>("acos", acos_doc);
   DCHECK_OK(registry->AddFunction(std::move(acos)));
 
   auto acos_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<AcosChecked>(
-      "acos_checked", &acos_checked_doc);
+      "acos_checked", acos_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(acos_checked)));
 
-  auto atan = MakeUnaryArithmeticFunctionFloatingPoint<Atan>("atan", &atan_doc);
+  auto atan = MakeUnaryArithmeticFunctionFloatingPoint<Atan>("atan", atan_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan)));
 
-  auto atan2 = MakeArithmeticFunctionFloatingPoint<Atan2>("atan2", &atan2_doc);
+  auto atan2 = MakeArithmeticFunctionFloatingPoint<Atan2>("atan2", atan2_doc);
   DCHECK_OK(registry->AddFunction(std::move(atan2)));
 
   // ----------------------------------------------------------------------
   // Logarithms
-  auto ln = MakeUnaryArithmeticFunctionFloatingPoint<LogNatural>("ln", &ln_doc);
+  auto ln = MakeUnaryArithmeticFunctionFloatingPoint<LogNatural>("ln", ln_doc);
   DCHECK_OK(registry->AddFunction(std::move(ln)));
 
   auto ln_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<LogNaturalChecked>(
-      "ln_checked", &ln_checked_doc);
+      "ln_checked", ln_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(ln_checked)));
 
-  auto log10 = MakeUnaryArithmeticFunctionFloatingPoint<Log10>("log10", &log10_doc);
+  auto log10 = MakeUnaryArithmeticFunctionFloatingPoint<Log10>("log10", log10_doc);
   DCHECK_OK(registry->AddFunction(std::move(log10)));
 
   auto log10_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log10Checked>(
-      "log10_checked", &log10_checked_doc);
+      "log10_checked", log10_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log10_checked)));
 
-  auto log2 = MakeUnaryArithmeticFunctionFloatingPoint<Log2>("log2", &log2_doc);
+  auto log2 = MakeUnaryArithmeticFunctionFloatingPoint<Log2>("log2", log2_doc);
   DCHECK_OK(registry->AddFunction(std::move(log2)));
 
   auto log2_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log2Checked>(
-      "log2_checked", &log2_checked_doc);
+      "log2_checked", log2_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log2_checked)));
 
-  auto log1p = MakeUnaryArithmeticFunctionFloatingPoint<Log1p>("log1p", &log1p_doc);
+  auto log1p = MakeUnaryArithmeticFunctionFloatingPoint<Log1p>("log1p", log1p_doc);
   DCHECK_OK(registry->AddFunction(std::move(log1p)));
 
   auto log1p_checked = MakeUnaryArithmeticFunctionFloatingPointNotNull<Log1pChecked>(
-      "log1p_checked", &log1p_checked_doc);
+      "log1p_checked", log1p_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(log1p_checked)));
 
-  auto logb = MakeArithmeticFunctionFloatingPoint<Logb>("logb", &logb_doc);
+  auto logb = MakeArithmeticFunctionFloatingPoint<Logb>("logb", logb_doc);
   DCHECK_OK(registry->AddFunction(std::move(logb)));
 
   auto logb_checked = MakeArithmeticFunctionFloatingPointNotNull<LogbChecked>(
-      "logb_checked", &logb_checked_doc);
+      "logb_checked", logb_checked_doc);
   DCHECK_OK(registry->AddFunction(std::move(logb_checked)));
-
-  // ----------------------------------------------------------------------
-  // Rounding functions
-  auto floor =
-      MakeUnaryArithmeticFunctionFloatingPoint<Floor,
-                                               ArithmeticIntegerToFloatingPointFunction>(
-          "floor", &floor_doc);
-  DCHECK_OK(floor->AddKernel(
-      {InputType(Type::DECIMAL128)}, OutputType(FirstType),
-      FixedRoundDecimalExec<Decimal128Type, RoundMode::DOWN, /*ndigits=*/0>));
-  DCHECK_OK(floor->AddKernel(
-      {InputType(Type::DECIMAL256)}, OutputType(FirstType),
-      FixedRoundDecimalExec<Decimal256Type, RoundMode::DOWN, /*ndigits=*/0>));
-  DCHECK_OK(registry->AddFunction(std::move(floor)));
-
-  auto ceil =
-      MakeUnaryArithmeticFunctionFloatingPoint<Ceil,
-                                               ArithmeticIntegerToFloatingPointFunction>(
-          "ceil", &ceil_doc);
-  DCHECK_OK(ceil->AddKernel(
-      {InputType(Type::DECIMAL128)}, OutputType(FirstType),
-      FixedRoundDecimalExec<Decimal128Type, RoundMode::UP, /*ndigits=*/0>));
-  DCHECK_OK(ceil->AddKernel(
-      {InputType(Type::DECIMAL256)}, OutputType(FirstType),
-      FixedRoundDecimalExec<Decimal256Type, RoundMode::UP, /*ndigits=*/0>));
-  DCHECK_OK(registry->AddFunction(std::move(ceil)));
-
-  auto trunc =
-      MakeUnaryArithmeticFunctionFloatingPoint<Trunc,
-                                               ArithmeticIntegerToFloatingPointFunction>(
-          "trunc", &trunc_doc);
-  DCHECK_OK(trunc->AddKernel(
-      {InputType(Type::DECIMAL128)}, OutputType(FirstType),
-      FixedRoundDecimalExec<Decimal128Type, RoundMode::TOWARDS_ZERO, /*ndigits=*/0>));
-  DCHECK_OK(trunc->AddKernel(
-      {InputType(Type::DECIMAL256)}, OutputType(FirstType),
-      FixedRoundDecimalExec<Decimal256Type, RoundMode::TOWARDS_ZERO, /*ndigits=*/0>));
-  DCHECK_OK(registry->AddFunction(std::move(trunc)));
-
-  auto round = MakeUnaryRoundFunction<Round, RoundOptions>("round", &round_doc);
-  DCHECK_OK(registry->AddFunction(std::move(round)));
-
-  auto round_to_multiple =
-      MakeUnaryRoundFunction<RoundToMultiple, RoundToMultipleOptions>(
-          "round_to_multiple", &round_to_multiple_doc);
-  DCHECK_OK(registry->AddFunction(std::move(round_to_multiple)));
 }
 
 }  // namespace internal

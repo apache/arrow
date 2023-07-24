@@ -20,6 +20,7 @@
 #include <cstdint>
 
 #include "arrow/array/data.h"
+#include "arrow/compute/function.h"
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
@@ -30,51 +31,36 @@ using internal::checked_cast;
 namespace compute {
 namespace internal {
 
-const uint8_t* GetValidityBitmap(const ArrayData& data) {
-  const uint8_t* bitmap = nullptr;
-  if (data.buffers[0]) {
-    bitmap = data.buffers[0]->data();
+namespace {
+
+Status NullToNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return Status::OK();
+}
+
+}  // namespace
+
+ExecValue GetExecValue(const Datum& value) {
+  ExecValue result;
+  if (value.is_array()) {
+    result.SetArray(*value.array());
+  } else {
+    result.SetScalar(value.scalar().get());
   }
-  return bitmap;
+  return result;
 }
 
-int GetBitWidth(const DataType& type) {
-  return checked_cast<const FixedWidthType&>(type).bit_width();
-}
-
-PrimitiveArg GetPrimitiveArg(const ArrayData& arr) {
-  PrimitiveArg arg;
-  arg.is_valid = GetValidityBitmap(arr);
-  arg.data = arr.buffers[1]->data();
-  arg.bit_width = GetBitWidth(*arr.type);
-  arg.offset = arr.offset;
-  arg.length = arr.length;
-  if (arg.bit_width > 1) {
-    arg.data += arr.offset * arg.bit_width / 8;
+int64_t GetTrueCount(const ArraySpan& mask) {
+  if (mask.buffers[0].data != nullptr) {
+    return CountAndSetBits(mask.buffers[0].data, mask.offset, mask.buffers[1].data,
+                           mask.offset, mask.length);
+  } else {
+    return CountSetBits(mask.buffers[1].data, mask.offset, mask.length);
   }
-  // This may be kUnknownNullCount
-  arg.null_count = (arg.is_valid != nullptr) ? arr.null_count.load() : 0;
-  return arg;
 }
 
-ArrayKernelExec TrivialScalarUnaryAsArraysExec(ArrayKernelExec exec,
-                                               NullHandling::type null_handling) {
-  return [=](KernelContext* ctx, const ExecBatch& batch, Datum* out) -> Status {
-    if (out->is_array()) {
-      return exec(ctx, batch, out);
-    }
-
-    if (null_handling == NullHandling::INTERSECTION && !batch[0].scalar()->is_valid) {
-      out->scalar()->is_valid = false;
-      return Status::OK();
-    }
-
-    ARROW_ASSIGN_OR_RAISE(Datum array_in, MakeArrayFromScalar(*batch[0].scalar(), 1));
-    ARROW_ASSIGN_OR_RAISE(Datum array_out, MakeArrayFromScalar(*out->scalar(), 1));
-    RETURN_NOT_OK(exec(ctx, ExecBatch{{std::move(array_in)}, 1}, &array_out));
-    ARROW_ASSIGN_OR_RAISE(*out, array_out.make_array()->GetScalar(0));
-    return Status::OK();
-  };
+void AddNullExec(ScalarFunction* func) {
+  std::vector<InputType> input_types(func->arity().num_args, InputType(Type::NA));
+  DCHECK_OK(func->AddKernel(std::move(input_types), OutputType(null()), NullToNullExec));
 }
 
 }  // namespace internal

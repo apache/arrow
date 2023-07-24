@@ -160,7 +160,7 @@ garrow_field_import(gpointer c_abi_schema, GError **error)
 /**
  * garrow_field_new:
  * @name: The name of the field.
- * @data_type: The data type of the field.
+ * @data_type: (transfer full): The data type of the field.
  *
  * Returns: A newly created #GArrowField.
  */
@@ -286,7 +286,8 @@ gchar *
 garrow_field_to_string(GArrowField *field)
 {
   const auto arrow_field = garrow_field_get_raw(field);
-  return g_strdup(arrow_field->ToString().c_str());
+  const auto string = arrow_field->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -304,7 +305,8 @@ gchar *
 garrow_field_to_string_metadata(GArrowField *field, gboolean show_metadata)
 {
   const auto arrow_field = garrow_field_get_raw(field);
-  return g_strdup(arrow_field->ToString(show_metadata).c_str());
+  const auto string = arrow_field->ToString(show_metadata);
+  return g_strdup(string.c_str());
 }
 
 /**

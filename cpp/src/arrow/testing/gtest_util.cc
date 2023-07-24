@@ -19,7 +19,11 @@
 
 #include "arrow/testing/extension_type.h"
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include <crtdbg.h>
+#include <io.h>
+#else
+#include <fcntl.h>     // IWYU pragma: keep
 #include <sys/stat.h>  // IWYU pragma: keep
 #include <sys/wait.h>  // IWYU pragma: keep
 #include <unistd.h>    // IWYU pragma: keep
@@ -43,6 +47,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/pretty_print.h"
@@ -53,53 +58,14 @@
 #include "arrow/util/future.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-
-std::vector<Type::type> AllTypeIds() {
-  return {Type::NA,
-          Type::BOOL,
-          Type::INT8,
-          Type::INT16,
-          Type::INT32,
-          Type::INT64,
-          Type::UINT8,
-          Type::UINT16,
-          Type::UINT32,
-          Type::UINT64,
-          Type::HALF_FLOAT,
-          Type::FLOAT,
-          Type::DOUBLE,
-          Type::DECIMAL128,
-          Type::DECIMAL256,
-          Type::DATE32,
-          Type::DATE64,
-          Type::TIME32,
-          Type::TIME64,
-          Type::TIMESTAMP,
-          Type::INTERVAL_DAY_TIME,
-          Type::INTERVAL_MONTHS,
-          Type::DURATION,
-          Type::STRING,
-          Type::BINARY,
-          Type::LARGE_STRING,
-          Type::LARGE_BINARY,
-          Type::FIXED_SIZE_BINARY,
-          Type::STRUCT,
-          Type::LIST,
-          Type::LARGE_LIST,
-          Type::FIXED_SIZE_LIST,
-          Type::MAP,
-          Type::DENSE_UNION,
-          Type::SPARSE_UNION,
-          Type::DICTIONARY,
-          Type::EXTENSION,
-          Type::INTERVAL_MONTH_DAY_NANO};
-}
+using internal::ThreadPool;
 
 template <typename T, typename CompareFunctor>
 void AssertTsSame(const T& expected, const T& actual, CompareFunctor&& compare) {
@@ -406,15 +372,14 @@ void AssertDatumsApproxEqual(const Datum& expected, const Datum& actual, bool ve
 }
 
 std::shared_ptr<Array> ArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                     util::string_view json) {
-  std::shared_ptr<Array> out;
-  ABORT_NOT_OK(ipc::internal::json::ArrayFromJSON(type, json, &out));
+                                     std::string_view json) {
+  EXPECT_OK_AND_ASSIGN(auto out, ipc::internal::json::ArrayFromJSON(type, json));
   return out;
 }
 
 std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
-                                         util::string_view indices_json,
-                                         util::string_view dictionary_json) {
+                                         std::string_view indices_json,
+                                         std::string_view dictionary_json) {
   std::shared_ptr<Array> out;
   ABORT_NOT_OK(
       ipc::internal::json::DictArrayFromJSON(type, indices_json, dictionary_json, &out));
@@ -423,15 +388,13 @@ std::shared_ptr<Array> DictArrayFromJSON(const std::shared_ptr<DataType>& type,
 
 std::shared_ptr<ChunkedArray> ChunkedArrayFromJSON(const std::shared_ptr<DataType>& type,
                                                    const std::vector<std::string>& json) {
-  ArrayVector out_chunks;
-  for (const std::string& chunk_json : json) {
-    out_chunks.push_back(ArrayFromJSON(type, chunk_json));
-  }
-  return std::make_shared<ChunkedArray>(std::move(out_chunks), type);
+  std::shared_ptr<ChunkedArray> out;
+  ABORT_NOT_OK(ipc::internal::json::ChunkedArrayFromJSON(type, json, &out));
+  return out;
 }
 
 std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& schema,
-                                                 util::string_view json) {
+                                                 std::string_view json) {
   // Parse as a StructArray
   auto struct_type = struct_(schema->fields());
   std::shared_ptr<Array> struct_array = ArrayFromJSON(struct_type, json);
@@ -441,15 +404,15 @@ std::shared_ptr<RecordBatch> RecordBatchFromJSON(const std::shared_ptr<Schema>& 
 }
 
 std::shared_ptr<Scalar> ScalarFromJSON(const std::shared_ptr<DataType>& type,
-                                       util::string_view json) {
+                                       std::string_view json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(ipc::internal::json::ScalarFromJSON(type, json, &out));
   return out;
 }
 
 std::shared_ptr<Scalar> DictScalarFromJSON(const std::shared_ptr<DataType>& type,
-                                           util::string_view index_json,
-                                           util::string_view dictionary_json) {
+                                           std::string_view index_json,
+                                           std::string_view dictionary_json) {
   std::shared_ptr<Scalar> out;
   ABORT_NOT_OK(
       ipc::internal::json::DictScalarFromJSON(type, index_json, dictionary_json, &out));
@@ -465,10 +428,28 @@ std::shared_ptr<Table> TableFromJSON(const std::shared_ptr<Schema>& schema,
   return *Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Result<util::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
-                                                   const ChunkedArray& actual) {
+Result<std::shared_ptr<Table>> RunEndEncodeTableColumns(
+    const Table& table, const std::vector<int>& column_indices) {
+  const int num_columns = table.num_columns();
+  std::vector<std::shared_ptr<ChunkedArray>> encoded_columns;
+  encoded_columns.reserve(num_columns);
+  for (int i = 0; i < num_columns; i++) {
+    if (std::find(column_indices.begin(), column_indices.end(), i) !=
+        column_indices.end()) {
+      ARROW_ASSIGN_OR_RAISE(auto run_end_encoded, compute::RunEndEncode(table.column(i)));
+      DCHECK_EQ(run_end_encoded.kind(), Datum::CHUNKED_ARRAY);
+      encoded_columns.push_back(run_end_encoded.chunked_array());
+    } else {
+      encoded_columns.push_back(table.column(i));
+    }
+  }
+  return Table::Make(table.schema(), std::move(encoded_columns));
+}
+
+Result<std::optional<std::string>> PrintArrayDiff(const ChunkedArray& expected,
+                                                  const ChunkedArray& actual) {
   if (actual.Equals(expected)) {
-    return util::nullopt;
+    return std::nullopt;
   }
 
   std::stringstream ss;
@@ -577,6 +558,56 @@ std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
   return MakeArray(data);
 }
 
+// XXX create a testing/io.{h,cc}?
+
+#if defined(_WIN32)
+static void InvalidParamHandler(const wchar_t* expr, const wchar_t* func,
+                                const wchar_t* source_file, unsigned int source_line,
+                                uintptr_t reserved) {
+  wprintf(L"Invalid parameter in function '%s'. Source: '%s' line %d expression '%s'\n",
+          func, source_file, source_line, expr);
+}
+#endif
+
+bool FileIsClosed(int fd) {
+#if defined(_WIN32)
+  // Disables default behavior on wrong params which causes the application to crash
+  // https://msdn.microsoft.com/en-us/library/ksazx244.aspx
+  _set_invalid_parameter_handler(InvalidParamHandler);
+
+  // Disables possible assertion alert box on invalid input arguments
+  _CrtSetReportMode(_CRT_ASSERT, 0);
+
+  int new_fd = _dup(fd);
+  if (new_fd == -1) {
+    return errno == EBADF;
+  }
+  _close(new_fd);
+  return false;
+#else
+  if (-1 != fcntl(fd, F_GETFD)) {
+    return false;
+  }
+  return errno == EBADF;
+#endif
+}
+
+#if !defined(_WIN32)
+void AssertChildExit(int child_pid, int expected_exit_status) {
+  ASSERT_GT(child_pid, 0);
+  int child_status;
+  int got_pid = waitpid(child_pid, &child_status, 0);
+  ASSERT_EQ(got_pid, child_pid);
+  if (WIFSIGNALED(child_status)) {
+    FAIL() << "Child terminated by signal " << WTERMSIG(child_status);
+  }
+  if (!WIFEXITED(child_status)) {
+    FAIL() << "Child didn't terminate normally?? Child status = " << child_status;
+  }
+  ASSERT_EQ(WEXITSTATUS(child_status), expected_exit_status);
+}
+#endif
+
 bool LocaleExists(const char* locale) {
   try {
     std::locale loc(locale);
@@ -683,7 +714,7 @@ void TestInitialized(const ArrayData& array) {
   // entire buffer data).  If not all bits are well-defined, Valgrind will
   // error with "Conditional jump or move depends on uninitialised value(s)".
   if (total_bit == 0) {
-    ++throw_away;
+    throw_away = throw_away + 1;
   }
   for (const auto& child : array.child_data) {
     TestInitialized(*child);
@@ -732,22 +763,27 @@ void BusyWait(double seconds, std::function<bool()> predicate) {
   }
 }
 
-Future<> SleepAsync(double seconds) {
-  auto out = Future<>::Make();
-  std::thread([out, seconds]() mutable {
-    SleepFor(seconds);
-    out.MarkFinished();
-  }).detach();
-  return out;
+namespace {
+
+// These threads will spend most of their time sleeping so there
+// is no need to base this on the # of cores.  Instead it should be
+// high enough to ensure good concurrency when there is concurrent hardware.
+//
+// Note using a thread pool prevents potentially hitting thread count limits
+// in stress tests (ARROW-17927).
+constexpr int kNumSleepThreads = 32;
+
+std::shared_ptr<ThreadPool> CreateSleepThreadPool() {
+  Result<std::shared_ptr<ThreadPool>> thread_pool =
+      ThreadPool::MakeEternal(kNumSleepThreads);
+  return thread_pool.ValueOrDie();
 }
 
+}  // namespace
+
 Future<> SleepABitAsync() {
-  auto out = Future<>::Make();
-  std::thread([out]() mutable {
-    SleepABit();
-    out.MarkFinished();
-  }).detach();
-  return out;
+  static std::shared_ptr<ThreadPool> sleep_tp = CreateSleepThreadPool();
+  return DeferNotOk(sleep_tp->Submit([] { SleepABit(); }));
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -795,6 +831,28 @@ Result<std::shared_ptr<DataType>> SmallintType::Deserialize(
                            storage_type->ToString());
   }
   return std::make_shared<SmallintType>();
+}
+
+bool TinyintType::ExtensionEquals(const ExtensionType& other) const {
+  return (other.extension_name() == this->extension_name());
+}
+
+std::shared_ptr<Array> TinyintType::MakeArray(std::shared_ptr<ArrayData> data) const {
+  DCHECK_EQ(data->type->id(), Type::EXTENSION);
+  DCHECK_EQ("tinyint", static_cast<const ExtensionType&>(*data->type).extension_name());
+  return std::make_shared<TinyintArray>(data);
+}
+
+Result<std::shared_ptr<DataType>> TinyintType::Deserialize(
+    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
+  if (serialized != "tinyint") {
+    return Status::Invalid("Type identifier did not match: '", serialized, "'");
+  }
+  if (!storage_type->Equals(*int16())) {
+    return Status::Invalid("Invalid storage type for TinyintType: ",
+                           storage_type->ToString());
+  }
+  return std::make_shared<TinyintType>();
 }
 
 bool ListExtensionType::ExtensionEquals(const ExtensionType& other) const {
@@ -870,6 +928,8 @@ std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
 
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
+std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
+
 std::shared_ptr<DataType> list_extension_type() {
   return std::make_shared<ListExtensionType>();
 }
@@ -899,6 +959,11 @@ std::shared_ptr<Array> ExampleUuid() {
 std::shared_ptr<Array> ExampleSmallint() {
   auto arr = ArrayFromJSON(int16(), "[-32768, null, 1, 2, 3, 4, 32767]");
   return ExtensionType::WrapArray(smallint(), arr);
+}
+
+std::shared_ptr<Array> ExampleTinyint() {
+  auto arr = ArrayFromJSON(int8(), "[-128, null, 1, 2, 3, 4, 127]");
+  return ExtensionType::WrapArray(tinyint(), arr);
 }
 
 std::shared_ptr<Array> ExampleDictExtension() {
@@ -961,8 +1026,10 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Future<> AsyncTask() {
+    std::lock_guard<std::mutex> lk(mx_);
     num_launched_++;
     num_running_++;
+    running_cv_.notify_all();
     /// TODO(ARROW-13004) Could maybe implement this check with future chains
     /// if we check to see if the future has been "consumed" or not
     num_finished_++;
@@ -994,9 +1061,11 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
   }
 
   Status Unlock() {
-    std::lock_guard<std::mutex> lk(mx_);
-    unlocked_ = true;
-    unlocked_cv_.notify_all();
+    {
+      std::lock_guard<std::mutex> lk(mx_);
+      unlocked_ = true;
+      unlocked_cv_.notify_all();
+    }
     unlocked_future_.MarkFinished();
     return status_;
   }
@@ -1028,6 +1097,32 @@ Status GatingTask::WaitForRunning(int count) { return impl_->WaitForRunning(coun
 
 std::shared_ptr<GatingTask> GatingTask::Make(double timeout_seconds) {
   return std::make_shared<GatingTask>(timeout_seconds);
+}
+
+std::shared_ptr<ArrayData> UnalignBuffers(const ArrayData& array) {
+  std::vector<std::shared_ptr<Buffer>> new_buffers;
+  new_buffers.reserve(array.buffers.size());
+
+  for (const auto& buffer : array.buffers) {
+    if (!buffer) {
+      new_buffers.emplace_back();
+      continue;
+    }
+    EXPECT_OK_AND_ASSIGN(std::shared_ptr<Buffer> padded,
+                         AllocateBuffer(buffer->size() + 1, default_memory_pool()));
+    memcpy(padded->mutable_data() + 1, buffer->data(), buffer->size());
+    std::shared_ptr<Buffer> unaligned = SliceBuffer(padded, 1);
+    new_buffers.push_back(std::move(unaligned));
+  }
+
+  std::shared_ptr<ArrayData> array_data = std::make_shared<ArrayData>(array);
+  array_data->buffers = std::move(new_buffers);
+  return array_data;
+}
+
+std::shared_ptr<Array> UnalignBuffers(const Array& array) {
+  std::shared_ptr<ArrayData> array_data = UnalignBuffers(*array.data());
+  return MakeArray(array_data);
 }
 
 }  // namespace arrow

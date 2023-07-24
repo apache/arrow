@@ -26,7 +26,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
+import org.apache.arrow.vector.ipc.ArrowReader;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.table.Table;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -114,13 +116,69 @@ public final class Data {
   }
 
   /**
+   * Export the current contents of a Java Table using the C data
+   * interface format.
+   * <p>
+   * The table is exported as if it were a struct array. The
+   * resulting ArrowArray struct keeps the record batch data and buffers alive
+   * until its release callback is called by the consumer.
+   *
+   * @param allocator Buffer allocator for allocating C data interface fields
+   * @param table     Table to export
+   * @param out       C struct where to export the record batch
+   */
+  public static void exportTable(BufferAllocator allocator, Table table, ArrowArray out) {
+    exportTable(allocator, table, table.getDictionaryProvider(), out, null);
+  }
+
+  /**
+   * Export the current contents of a Java Table using the C data
+   * interface format.
+   * <p>
+   * The table is exported as if it were a struct array. The
+   * resulting ArrowArray struct keeps the record batch data and buffers alive
+   * until its release callback is called by the consumer.
+   *
+   * @param allocator Buffer allocator for allocating C data interface fields
+   * @param table     Table to export
+   * @param provider  Dictionary provider for dictionary encoded vectors
+   *                  (optional)
+   * @param out       C struct where to export the record batch
+   */
+  public static void exportTable(BufferAllocator allocator, Table table,
+      DictionaryProvider provider, ArrowArray out) {
+    exportTable(allocator, table, provider, out, null);
+  }
+
+  /**
+   * Export the current contents of a Java Table using the C data interface format.
+   * <p>
+   * The table is exported as if it were a struct array. The
+   * resulting ArrowArray struct keeps the record batch data and buffers alive
+   * until its release callback is called by the consumer.
+   *
+   * @param allocator Buffer allocator for allocating C data interface fields
+   * @param table     Table to export
+   * @param provider  Dictionary provider for dictionary encoded vectors
+   *                  (optional)
+   * @param out       C struct where to export the record batch
+   * @param outSchema C struct where to export the record batch schema (optional)
+   */
+  public static void exportTable(BufferAllocator allocator, Table table,
+                                 DictionaryProvider provider, ArrowArray out, ArrowSchema outSchema) {
+    try (VectorSchemaRoot root = table.toVectorSchemaRoot()) {
+      exportVectorSchemaRoot(allocator, root, provider, out, outSchema);
+    }
+  }
+
+  /**
    * Export the current contents of a Java VectorSchemaRoot using the C data
    * interface format.
    * <p>
    * The vector schema root is exported as if it were a struct array. The
    * resulting ArrowArray struct keeps the record batch data and buffers alive
    * until its release callback is called by the consumer.
-   * 
+   *
    * @param allocator Buffer allocator for allocating C data interface fields
    * @param vsr       Vector schema root to export
    * @param provider  Dictionary provider for dictionary encoded vectors
@@ -128,7 +186,7 @@ public final class Data {
    * @param out       C struct where to export the record batch
    */
   public static void exportVectorSchemaRoot(BufferAllocator allocator, VectorSchemaRoot vsr,
-      DictionaryProvider provider, ArrowArray out) {
+                                            DictionaryProvider provider, ArrowArray out) {
     exportVectorSchemaRoot(allocator, vsr, provider, out, null);
   }
 
@@ -160,6 +218,16 @@ public final class Data {
         exportVector(allocator, vector, provider, out);
       }
     }
+  }
+
+  /**
+   * Export a reader as an ArrowArrayStream using the C Stream Interface.
+   * @param allocator Buffer allocator for allocating C data inteface fields
+   * @param reader Reader to export
+   * @param out C struct to export the stream
+   */
+  public static void exportArrayStream(BufferAllocator allocator, ArrowReader reader, ArrowArrayStream out) {
+    new ArrayStreamExporter(allocator).export(out, reader);
   }
 
   /**
@@ -259,7 +327,7 @@ public final class Data {
    */
   public static void importIntoVectorSchemaRoot(BufferAllocator allocator, ArrowArray array, VectorSchemaRoot root,
       DictionaryProvider provider) {
-    try (StructVector structVector = StructVector.empty("", allocator)) {
+    try (StructVector structVector = StructVector.emptyWithDuplicates("", allocator)) {
       structVector.initializeChildrenFromFields(root.getSchema().getFields());
       importIntoVector(allocator, array, structVector, provider);
       StructVectorUnloader unloader = new StructVectorUnloader(structVector);
@@ -313,5 +381,15 @@ public final class Data {
       importIntoVectorSchemaRoot(allocator, array, vsr, provider);
     }
     return vsr;
+  }
+
+  /**
+   * Import an ArrowArrayStream as an {@link ArrowReader}.
+   * @param allocator Buffer allocator for allocating the output data.
+   * @param stream C stream interface struct to import.
+   * @return Imported reader
+   */
+  public static ArrowReader importArrayStream(BufferAllocator allocator, ArrowArrayStream stream) {
+    return new ArrowArrayStreamReader(allocator, stream);
   }
 }

@@ -27,10 +27,10 @@ namespace compute {
 
 static void RandomKernel(benchmark::State& state, bool is_seed) {
   const int64_t length = state.range(0);
-  const auto options = is_seed ? RandomOptions::FromSeed(length, 42)
-                               : RandomOptions::FromSystemRandom(length);
+  const auto options =
+      is_seed ? RandomOptions::FromSeed(42) : RandomOptions::FromSystemRandom();
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("random", {}, &options).status());
+    ABORT_NOT_OK(CallFunction("random", ExecBatch({}, length), &options).status());
   }
   state.SetItemsProcessed(state.iterations() * length);
 }

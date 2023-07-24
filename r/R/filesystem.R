@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 #' @title FileSystem entry info
 #' @usage NULL
 #' @format NULL
@@ -148,11 +148,50 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    such as "localhost:9000". This is useful for connecting to file systems
 #'    that emulate S3.
 #' - `scheme`: S3 connection transport (default "https")
+#' - `proxy_options`: optional string, URI of a proxy to use when connecting
+#'    to S3
 #' - `background_writes`: logical, whether `OutputStream` writes will be issued
 #'    in the background, without blocking (default `TRUE`)
+#' - `allow_bucket_creation`: logical, if TRUE, the filesystem will create
+#'    buckets if `$CreateDir()` is called on the bucket level (default `FALSE`).
+#' - `allow_bucket_deletion`: logical, if TRUE, the filesystem will delete
+#'    buckets if`$DeleteDir()` is called on the bucket level (default `FALSE`).
+#' - `request_timeout`: Socket read time on Windows and MacOS in seconds. If
+#'    negative, the AWS SDK default (typically 3 seconds).
+#' - `connect_timeout`: Socket connection timeout in seconds. If negative, AWS
+#'    SDK default is used (typically 1 second).
+#'
+#' `GcsFileSystem$create()` optionally takes arguments:
+#'
+#' - `anonymous`: logical, default `FALSE`. If true, will not attempt to look up
+#'    credentials using standard GCS configuration methods.
+#' - `access_token`: optional string for authentication. Should be provided along
+#'   with `expiration`
+#' - `expiration`: `POSIXct`. optional datetime representing point at which
+#'   `access_token` will expire.
+#' - `json_credentials`: optional string for authentication. Either a string
+#'   containing JSON credentials or a path to their location on the filesystem.
+#'   If a path to credentials is given, the file should be UTF-8 encoded.
+#' - `endpoint_override`: if non-empty, will connect to provided host name / port,
+#'   such as "localhost:9001", instead of default GCS ones. This is primarily useful
+#'   for testing purposes.
+#' - `scheme`: connection transport (default "https")
+#' - `default_bucket_location`: the default location (or "region") to create new
+#'   buckets in.
+#' - `retry_limit_seconds`: the maximum amount of time to spend retrying if
+#'   the filesystem encounters errors. Default is 15 seconds.
+#' - `default_metadata`: default metadata to write in new objects.
+#' - `project_id`: the project to use for creating buckets.
 #'
 #' @section Methods:
 #'
+#' - `path(x)`: Create a `SubTreeFileSystem` from the current `FileSystem`
+#'   rooted at the specified path `x`.
+#' - `cd(x)`: Create a `SubTreeFileSystem` from the current `FileSystem`
+#'    rooted at the specified path `x`.
+#' - `ls(path, ...)`: List files or objects at the given path or from the root
+#'    of the `FileSystem` if `path` is not provided. Additional arguments passed
+#'    to `FileSelector$create`, see [FileSelector][FileSelector].
 #' - `$GetFileInfo(x)`: `x` may be a [FileSelector][FileSelector] or a character
 #'    vector of paths. Returns a list of [FileInfo][FileInfo]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
@@ -188,6 +227,17 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
 #' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
 #'    root in this `SubTreeFileSystem`.
+#' - `$options`: for `GcsFileSystem`, the options used to create the
+#'    `GcsFileSystem` instance as a `list`
+#'
+#' @section Notes:
+#'
+#' On S3FileSystem, `$CreateDir()` on a top-level directory creates a new bucket.
+#' When S3FileSystem creates new buckets (assuming allow_bucket_creation is TRUE),
+#' it does not pass any non-default settings. In AWS S3, the bucket and all
+#' objects will be not publicly visible, and will have no bucket policies
+#' and no resource tags. To have more control over how buckets are created,
+#' use a different API to create them.
 #'
 #' @usage NULL
 #' @format NULL
@@ -256,7 +306,20 @@ FileSystem <- R6Class("FileSystem",
     }
   ),
   active = list(
-    type_name = function() fs___FileSystem__type_name(self)
+    type_name = function() fs___FileSystem__type_name(self),
+    url_scheme = function() {
+      fs_type_name <- self$type_name
+      if (identical(fs_type_name, "subtree")) {
+        # Recurse
+        return(self$base_fs$url_scheme)
+      }
+      # Some type_names are the url scheme but others aren't
+      type_map <- list(
+        local = "file",
+        gcs = "gs"
+      )
+      type_map[[fs_type_name]] %||% fs_type_name
+    }
   )
 )
 FileSystem$from_uri <- function(uri) {
@@ -310,6 +373,7 @@ get_path_and_filesystem <- function(x, filesystem = NULL) {
 }
 
 is_url <- function(x) is.string(x) && grepl("://", x)
+is_http_url <- function(x) is_url(x) && grepl("^http", x)
 are_urls <- function(x) if (!is.character(x)) FALSE else grepl("://", x)
 
 #' @usage NULL
@@ -338,7 +402,7 @@ S3FileSystem$create <- function(anonymous = FALSE, ...) {
     invalid_args <- intersect(
       c(
         "access_key", "secret_key", "session_token", "role_arn", "session_name",
-        "external_id", "load_frequency"
+        "external_id", "load_frequency", "allow_bucket_creation", "allow_bucket_deletion"
       ),
       names(args)
     )
@@ -383,7 +447,11 @@ default_s3_options <- list(
   endpoint_override = "",
   scheme = "",
   proxy_options = "",
-  background_writes = TRUE
+  background_writes = TRUE,
+  allow_bucket_creation = FALSE,
+  allow_bucket_deletion = FALSE,
+  connect_timeout = -1,
+  request_timeout = -1
 )
 
 #' Connect to an AWS S3 bucket
@@ -397,27 +465,133 @@ default_s3_options <- list(
 #' @return A `SubTreeFileSystem` containing an `S3FileSystem` and the bucket's
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
-#' @examplesIf arrow_with_s3()
-#' bucket <- s3_bucket("ursa-labs-taxi-data")
+#' @examplesIf FALSE
+#' bucket <- s3_bucket("voltrondata-labs-datasets")
 #' @export
 s3_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
   args <- list2(...)
 
-  # Use FileSystemFromUri to detect the bucket's region
-  if (!is_url(bucket)) {
-    bucket <- paste0("s3://", bucket)
-  }
-  fs_and_path <- FileSystem$from_uri(bucket)
-  fs <- fs_and_path$fs
-  # If there are no additional S3Options, we can use that filesystem
-  # Otherwise, take the region that was detected and make a new fs with the args
-  if (length(args)) {
-    args$region <- fs$region
+  # If user specifies args, they must specify region as arg, env var, or config
+  if (length(args) == 0) {
+    # Use FileSystemFromUri to detect the bucket's region
+    if (!is_url(bucket)) {
+      bucket <- paste0("s3://", bucket)
+    }
+
+    fs_and_path <- FileSystem$from_uri(bucket)
+    fs <- fs_and_path$fs
+  } else {
+    # If there are no additional S3Options, we can use that filesystem
     fs <- exec(S3FileSystem$create, !!!args)
   }
+
   # Return a subtree pointing at that bucket path
-  SubTreeFileSystem$create(fs_and_path$path, fs)
+  SubTreeFileSystem$create(bucket, fs)
+}
+
+#' Connect to a Google Cloud Storage (GCS) bucket
+#'
+#' `gs_bucket()` is a convenience function to create an `GcsFileSystem` object
+#' that holds onto its relative path
+#'
+#' @param bucket string GCS bucket name or path
+#' @param ... Additional connection options, passed to `GcsFileSystem$create()`
+#' @return A `SubTreeFileSystem` containing an `GcsFileSystem` and the bucket's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the bucket's contents.
+#' @examplesIf FALSE
+#' bucket <- gs_bucket("voltrondata-labs-datasets")
+#' @export
+gs_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  fs <- exec(GcsFileSystem$create, !!!args)
+
+  SubTreeFileSystem$create(bucket, fs)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
+#' @export
+GcsFileSystem <- R6Class("GcsFileSystem",
+  inherit = FileSystem,
+  active = list(
+    options = function() {
+      out <- fs___GcsFileSystem__options(self)
+
+      # Convert from nanoseconds to POSIXct w/ UTC tz
+      if ("expiration" %in% names(out)) {
+        out$expiration <- as.POSIXct(
+          out$expiration / 1000000000, origin = "1970-01-01", tz = "UTC"
+        )
+      }
+
+      out
+    }
+  )
+)
+GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ...) {
+  # The default retry limit in C++ is 15 minutes, but that is experienced as
+  # hanging in an interactive context, so default is set here to 15 seconds.
+  options <- list(...)
+
+  # Validate options
+  if (isTRUE(anonymous)) {
+    invalid_args <- intersect(
+      c("access_token", "expiration", "json_credentials"),
+      names(options)
+    )
+    if (length(invalid_args)) {
+      stop(
+        "Cannot specify ",
+        oxford_paste(invalid_args),
+        " when anonymous = TRUE",
+        call. = FALSE
+      )
+    }
+  } else {
+    token_args <- intersect(c("access_token", "expiration"), names(options))
+    if (!is.null(options[["json_credentials"]]) && length(token_args) > 0) {
+      stop("Cannot provide access_token with json_credentials", call. = FALSE)
+    } else if (length(token_args) == 1) {
+      stop("token auth requires both 'access_token' and 'expiration'", call. = FALSE)
+    }
+  }
+
+  valid_opts <- c(
+    "access_token", "expiration", "json_credentials", "endpoint_override",
+    "scheme", "default_bucket_location", "default_metadata", "project_id"
+  )
+
+  invalid_opts <- setdiff(names(options), valid_opts)
+  if (length(invalid_opts)) {
+    stop(
+      "Invalid options for GcsFileSystem: ",
+      oxford_paste(invalid_opts),
+      call. = FALSE
+    )
+  }
+
+  # Stop if expiration isn't a POSIXct
+  if ("expiration" %in% names(options) && !inherits(options$expiration, "POSIXct")) {
+    stop(
+      paste(
+        "Option 'expiration' must be of class POSIXct, not",
+        class(options$expiration)[[1]]),
+      call. = FALSE)
+  }
+
+  options$retry_limit_seconds <- retry_limit_seconds
+
+  # Handle reading json_credentials from the filesystem
+  if ("json_credentials" %in% names(options) && file.exists(options[["json_credentials"]])) {
+    options[["json_credentials"]] <- paste(read_file_utf8(options[["json_credentials"]]), collapse = "\n")
+  }
+
+  fs___GcsFileSystem__Make(anonymous, options)
 }
 
 #' @usage NULL
@@ -428,13 +602,11 @@ SubTreeFileSystem <- R6Class("SubTreeFileSystem",
   inherit = FileSystem,
   public = list(
     print = function(...) {
-      if (inherits(self$base_fs, "LocalFileSystem")) {
-        cat("SubTreeFileSystem: ", "file://", self$base_path, "\n", sep = "")
-      } else if (inherits(self$base_fs, "S3FileSystem")) {
-        cat("SubTreeFileSystem: ", "s3://", self$base_path, "\n", sep = "")
-      } else {
-        cat("SubTreeFileSystem", "\n", sep = "")
-      }
+      cat(
+        "SubTreeFileSystem: ",
+        self$url_scheme, "://", self$base_path, "\n",
+        sep = ""
+      )
       invisible(self)
     }
   ),
@@ -496,11 +668,18 @@ copy_files <- function(from, to, chunk_size = 1024L * 1024L) {
 
 clean_path_abs <- function(path) {
   # Make sure we have a valid, absolute, forward-slashed path for passing to Arrow
-  normalizePath(path, winslash = "/", mustWork = FALSE)
+  enc2utf8(normalizePath(path, winslash = "/", mustWork = FALSE))
 }
 
 clean_path_rel <- function(path) {
   # Make sure all path separators are "/", not "\" as on Windows
   path_sep <- ifelse(tolower(Sys.info()[["sysname"]]) == "windows", "\\\\", "/")
   gsub(path_sep, "/", path)
+}
+
+read_file_utf8 <- function(file) {
+  res <- readBin(file, "raw", n = file.size(file))
+  res <- rawToChar(res)
+  Encoding(res) <- "UTF-8"
+  res
 }

@@ -22,10 +22,9 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // MetadataVersion represents the Arrow metadata version.
@@ -64,13 +63,6 @@ func (m MessageType) String() string {
 	}
 	return fmt.Sprintf("MessageType(%d)", int(m))
 }
-
-const (
-	// maxNestingDepth is an arbitrary value to catch user mistakes.
-	// For deeply nested schemas, it is expected the user will indicate
-	// explicitly the maximum allowed recursion depth.
-	maxNestingDepth = 64
-)
 
 // Message is an IPC message, including metadata and body.
 type Message struct {
@@ -195,7 +187,7 @@ func (r *messageReader) Message() (*Message, error) {
 	var buf = make([]byte, 4)
 	_, err := io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read continuation indicator: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read continuation indicator: %w", err)
 	}
 	var (
 		cid    = binary.LittleEndian.Uint32(buf)
@@ -208,7 +200,7 @@ func (r *messageReader) Message() (*Message, error) {
 	case kIPCContToken:
 		_, err = io.ReadFull(r.r, buf)
 		if err != nil {
-			return nil, xerrors.Errorf("arrow/ipc: could not read message length: %w", err)
+			return nil, fmt.Errorf("arrow/ipc: could not read message length: %w", err)
 		}
 		msgLen = int32(binary.LittleEndian.Uint32(buf))
 		if msgLen == 0 {
@@ -225,7 +217,7 @@ func (r *messageReader) Message() (*Message, error) {
 	buf = make([]byte, msgLen)
 	_, err = io.ReadFull(r.r, buf)
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read message metadata: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read message metadata: %w", err)
 	}
 
 	meta := flatbuf.GetRootAsMessage(buf, 0)
@@ -237,7 +229,7 @@ func (r *messageReader) Message() (*Message, error) {
 
 	_, err = io.ReadFull(r.r, body.Bytes())
 	if err != nil {
-		return nil, xerrors.Errorf("arrow/ipc: could not read message body: %w", err)
+		return nil, fmt.Errorf("arrow/ipc: could not read message body: %w", err)
 	}
 
 	if r.msg != nil {

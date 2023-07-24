@@ -19,26 +19,29 @@
 
 #pragma once
 
-#include "arrow/array.h"                    // IYWU pragma: export
-#include "arrow/array/concatenate.h"        // IYWU pragma: export
-#include "arrow/buffer.h"                   // IYWU pragma: export
-#include "arrow/builder.h"                  // IYWU pragma: export
-#include "arrow/chunked_array.h"            // IYWU pragma: export
-#include "arrow/compare.h"                  // IYWU pragma: export
-#include "arrow/config.h"                   // IYWU pragma: export
-#include "arrow/datum.h"                    // IYWU pragma: export
-#include "arrow/extension_type.h"           // IYWU pragma: export
-#include "arrow/memory_pool.h"              // IYWU pragma: export
-#include "arrow/pretty_print.h"             // IYWU pragma: export
-#include "arrow/record_batch.h"             // IYWU pragma: export
-#include "arrow/result.h"                   // IYWU pragma: export
-#include "arrow/status.h"                   // IYWU pragma: export
-#include "arrow/table.h"                    // IYWU pragma: export
-#include "arrow/table_builder.h"            // IYWU pragma: export
-#include "arrow/tensor.h"                   // IYWU pragma: export
-#include "arrow/type.h"                     // IYWU pragma: export
+#include "arrow/array.h"                    // IWYU pragma: export
+#include "arrow/array/array_run_end.h"      // IWYU pragma: export
+#include "arrow/array/concatenate.h"        // IWYU pragma: export
+#include "arrow/buffer.h"                   // IWYU pragma: export
+#include "arrow/builder.h"                  // IWYU pragma: export
+#include "arrow/chunked_array.h"            // IWYU pragma: export
+#include "arrow/compare.h"                  // IWYU pragma: export
+#include "arrow/config.h"                   // IWYU pragma: export
+#include "arrow/datum.h"                    // IWYU pragma: export
+#include "arrow/extension_type.h"           // IWYU pragma: export
+#include "arrow/memory_pool.h"              // IWYU pragma: export
+#include "arrow/pretty_print.h"             // IWYU pragma: export
+#include "arrow/record_batch.h"             // IWYU pragma: export
+#include "arrow/result.h"                   // IWYU pragma: export
+#include "arrow/status.h"                   // IWYU pragma: export
+#include "arrow/table.h"                    // IWYU pragma: export
+#include "arrow/table_builder.h"            // IWYU pragma: export
+#include "arrow/tensor.h"                   // IWYU pragma: export
+#include "arrow/type.h"                     // IWYU pragma: export
 #include "arrow/util/key_value_metadata.h"  // IWYU pragma: export
-#include "arrow/visitor.h"                  // IYWU pragma: export
+#include "arrow/visit_array_inline.h"       // IWYU pragma: export
+#include "arrow/visit_scalar_inline.h"      // IWYU pragma: export
+#include "arrow/visitor.h"                  // IWYU pragma: export
 
 /// \brief Top-level namespace for Apache Arrow C++ API
 namespace arrow {}

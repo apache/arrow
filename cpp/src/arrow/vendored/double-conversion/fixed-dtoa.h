@@ -30,6 +30,7 @@
 
 #include "utils.h"
 
+namespace arrow_vendored {
 namespace double_conversion {
 
 // Produces digits necessary to print a given number with
@@ -52,5 +53,6 @@ bool FastFixedDtoa(double v, int fractional_count,
                    Vector<char> buffer, int* length, int* decimal_point);
 
 }  // namespace double_conversion
+}  // namespace arrow_vendored
 
 #endif  // DOUBLE_CONVERSION_FIXED_DTOA_H_

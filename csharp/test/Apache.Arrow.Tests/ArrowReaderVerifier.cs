@@ -74,12 +74,17 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<UInt16Array>,
             IArrowArrayVisitor<UInt32Array>,
             IArrowArrayVisitor<UInt64Array>,
+#if NET5_0_OR_GREATER
+            IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
             IArrowArrayVisitor<TimestampArray>,
             IArrowArrayVisitor<Date32Array>,
             IArrowArrayVisitor<Date64Array>,
+            IArrowArrayVisitor<Time32Array>,
+            IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
@@ -87,7 +92,8 @@ namespace Apache.Arrow.Tests
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
-            IArrowArrayVisitor<DictionaryArray>
+            IArrowArrayVisitor<DictionaryArray>,
+            IArrowArrayVisitor<NullArray>
         {
             private readonly IArrowArray _expectedArray;
             private readonly ArrayTypeComparer _arrayTypeComparer;
@@ -108,12 +114,17 @@ namespace Apache.Arrow.Tests
             public void Visit(UInt16Array array) => CompareArrays(array);
             public void Visit(UInt32Array array) => CompareArrays(array);
             public void Visit(UInt64Array array) => CompareArrays(array);
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatArray array) => CompareArrays(array);
+#endif
             public void Visit(FloatArray array) => CompareArrays(array);
             public void Visit(DoubleArray array) => CompareArrays(array);
             public void Visit(BooleanArray array) => CompareArrays(array);
             public void Visit(TimestampArray array) => CompareArrays(array);
             public void Visit(Date32Array array) => CompareArrays(array);
             public void Visit(Date64Array array) => CompareArrays(array);
+            public void Visit(Time32Array array) => CompareArrays(array);
+            public void Visit(Time64Array array) => CompareArrays(array);
             public void Visit(ListArray array) => CompareArrays(array);
             public void Visit(FixedSizeBinaryArray array) => CompareArrays(array);
             public void Visit(Decimal128Array array) => CompareArrays(array);
@@ -146,6 +157,14 @@ namespace Apache.Arrow.Tests
                 var dictionaryComparer = new ArrayComparer(expectedArray.Dictionary, _strictCompare);
                 array.Indices.Accept(indicesComparer);
                 array.Dictionary.Accept(dictionaryComparer);
+            }
+
+            public void Visit(NullArray array)
+            {
+                Assert.IsAssignableFrom<NullArray>(_expectedArray);
+                Assert.Equal(_expectedArray.Length, array.Length);
+                Assert.Equal(_expectedArray.NullCount, array.NullCount);
+                Assert.Equal(_expectedArray.Offset, array.Offset);
             }
 
             public void Visit(IArrowArray array) => throw new NotImplementedException();
@@ -278,7 +297,16 @@ namespace Apache.Arrow.Tests
                 Assert.Equal(expectedArray.Offset, actualArray.Offset);
 
                 CompareValidityBuffer(expectedArray.NullCount, _expectedArray.Length, expectedArray.NullBitmapBuffer, actualArray.NullBitmapBuffer);
-                Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+
+                if (_strictCompare)
+                {
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.SequenceEqual(actualArray.ValueOffsetsBuffer.Span));
+                }
+                else
+                {
+                    int offsetsLength = (expectedArray.Length + 1) * 4;
+                    Assert.True(expectedArray.ValueOffsetsBuffer.Span.Slice(0, offsetsLength).SequenceEqual(actualArray.ValueOffsetsBuffer.Span.Slice(0, offsetsLength)));
+                }
 
                 actualArray.Values.Accept(new ArrayComparer(expectedArray.Values, _strictCompare));
             }

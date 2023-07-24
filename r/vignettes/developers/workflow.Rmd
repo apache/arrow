@@ -1,8 +1,29 @@
-# Common developer workflow tasks
+---
+title: "Developer workflows"
+description: >
+  Learn about the workflows and conventions followed by arrow developers
+output: rmarkdown::html_vignette
+---
+
 
 ```{r setup-options, include=FALSE}
 knitr::opts_chunk$set(error = TRUE, eval = FALSE)
 ```
+
+The Arrow R package uses several additional development tools:
+
+* [`lintr`](https://github.com/r-lib/lintr) for code analysis
+* [`styler`](https://styler.r-lib.org) for code styling
+* [`pkgdown`](https://pkgdown.r-lib.org) for building the website
+* [`roxygen2`](https://roxygen2.r-lib.org) for documenting the package
+  - the R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.2
+
+You can install all these additional dependencies by running:
+
+```r
+install.packages(c("lintr", "styler", "pkgdown", "roxygen2"))
+```
+
 
 The `arrow/r` directory contains a `Makefile` to help with some common tasks from the command line (e.g. `make test`, `make doc`, `make clean`, etc.).
 
@@ -12,9 +33,9 @@ You can load the R package via `devtools::load_all()`.
 
 ## Rebuilding the documentation
 
-The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `roxygen2` version 7.1.2.
+The R documentation uses the [`@examplesIf`](https://roxygen2.r-lib.org/articles/rd.html#functions) tag introduced in `{roxygen2}` version 7.1.2.
 
-```{r, run=FALSE}
+```r
 remotes::install_github("r-lib/roxygen2")
 ```
 
@@ -34,9 +55,9 @@ pkgdown::build_site(preview=TRUE)
 
 The R code in the package follows [the tidyverse style](https://style.tidyverse.org/). On PR submission (and on pushes) our CI will run linting and will flag possible errors on the pull request with annotations.
 
-To run the [lintr](https://github.com/jimhester/lintr) locally, install the lintr package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file `ci/docker/linux-apt-lint.dockerfile` for the current status) and then run
+To run the linter locally, install the `{lintr}` package (note, we currently use a fork that includes fixes not yet accepted upstream, see how lintr is being installed in the file [`ci/docker/linux-apt-lint.dockerfile`](https://github.com/apache/arrow/blob/main/ci/docker/linux-apt-lint.dockerfile) for the current status) and then run
 
-```{r}
+```r
 lintr::lint_package("arrow/r")
 ```
 
@@ -53,9 +74,9 @@ make style-all # (for all files)
 
 or in R:
 
-```{r}
-# note the two excluded files which should not be styled
-styler::style_pkg(exclude_files = c("tests/testthat/latin1.R", "data-raw/codegen.R"))
+```r
+# note the file that should not be styled
+styler::style_pkg(exclude_files = c("data-raw/codegen.R"))
 ```
 
 The styler package will fix many styling errors, thought not all lintr errors are automatically fixable with styler. The list of files we intentionally do not style is in `r/.styler_excludes.R`.
@@ -115,7 +136,9 @@ Tests can be run either using `devtools::test()` or the Makefile alternative.
 ```r
 # Run the test suite, optionally filtering file names
 devtools::test(filter="^regexp$")
+```
 
+```bash
 # or the Makefile alternative from the arrow/r directory in a shell:
 make test file=regexp
 ```
@@ -159,16 +182,16 @@ covr::package_coverage()
 
 For full package validation, you can run the following commands from a terminal.
 
-```
+```bash
 R CMD build .
 R CMD check arrow_*.tar.gz --as-cran
 ```
 
 
-## Running additional CI checks
+## Running extended CI checks
 
 On a pull request, there are some actions you can trigger by commenting on the
-PR. We have additional CI checks that run nightly and can be requested on demand
+PR. These extended CI checks are run nightly and can also be requested on-demand
 using an internal tool called
 [crossbow](https://arrow.apache.org/docs/developers/crossbow.html).
 A few important GitHub comment commands are shown below.
@@ -185,7 +208,7 @@ This runs each of the R-related CI tasks.
 @github-actions crossbow submit {task-name}
 ```
 
-See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/master/dev/tasks/tasks.yml)
+See the `r:` group definition near the beginning of the [crossbow configuration](https://github.com/apache/arrow/blob/main/dev/tasks/tasks.yml)
 for a list of glob expression patterns that match names of items in the `tasks:`
 list below it.
 

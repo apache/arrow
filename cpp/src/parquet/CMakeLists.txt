@@ -105,13 +105,16 @@ endfunction()
 # TODO(wesm): Handling of ABI/SO version
 
 if(ARROW_BUILD_STATIC)
-  set(PARQUET_STATIC_LINK_LIBS arrow_static)
-  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
+  set(PARQUET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
+  set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
+  set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static
+                                       ${ARROW_STATIC_LINK_LIBS})
 else()
+  set(PARQUET_STATIC_INSTALL_INTERFACE_LIBS)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest)
+set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST} Boost::headers)
 
 if(APPLE)
   set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
@@ -127,9 +130,12 @@ set(PARQUET_STATIC_TEST_LINK_LIBS ${PARQUET_MIN_TEST_LIBS} parquet_static thrift
 
 #
 # Generated Thrift sources
-set_source_files_properties(src/generated/parquet_types.cpp src/generated/parquet_types.h
-                            src/generated/parquet_constants.cpp
-                            src/generated/parquet_constants.h
+set(PARQUET_THRIFT_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
+
+set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.h"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
+                            "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.h"
                             PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                        SKIP_UNITY_BUILD_INCLUSION ON)
 
@@ -149,6 +155,7 @@ set(PARQUET_SRCS
     arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -162,9 +169,10 @@ set(PARQUET_SRCS
     level_comparison.cc
     level_conversion.cc
     metadata.cc
-    murmur3.cc
-    "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-    "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp"
+    xxhasher.cc
+    page_index.cc
+    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
+    "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
     platform.cc
     printer.cc
     properties.cc
@@ -177,17 +185,36 @@ set(PARQUET_SRCS
 if(ARROW_HAVE_RUNTIME_AVX2)
   # AVX2 is used as a proxy for BMI2.
   list(APPEND PARQUET_SRCS level_comparison_avx2.cc level_conversion_bmi2.cc)
+  # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
+  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
+  # will force inlining as much as possible.
+  # See also: ARROW-15664 and ARROW-15678
+  #
+  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
+  # CMake 3.11 or later.
+  set(AVX2_FLAGS "${ARROW_AVX2_FLAG}")
+  if(NOT MSVC)
+    string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
+  endif()
   set_source_files_properties(level_comparison_avx2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${ARROW_AVX2_FLAG}")
+                                                                    "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
   # BMI2 is present.  For a very small number of CPUs AVX2 does not
   # imply BMI2.
+  #
+  # We need CMAKE_CXX_FLAGS_RELEASE here to prevent the one-definition-rule
+  # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
+  # will force inlining as much as possible.
+  # See also: ARROW-15664 and ARROW-15678
+  #
+  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
+  # CMake 3.11 or later.
+  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
   set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON
-                                         COMPILE_FLAGS
-                                         "${ARROW_AVX2_FLAG} -DARROW_HAVE_BMI2 -mbmi2")
+                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                    "${BMI2_FLAGS}")
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
@@ -198,6 +225,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       encryption/crypto_factory.cc
       encryption/file_key_unwrapper.cc
       encryption/file_key_wrapper.cc
+      encryption/file_system_key_material_store.cc
       encryption/kms_client.cc
       encryption/key_material.cc
       encryption/key_metadata.cc
@@ -217,20 +245,11 @@ if(NOT PARQUET_MINIMAL_DEPENDENCY)
 
   # Link publicly with parquet_static (because internal users need to
   # transitively link all dependencies)
-  set(PARQUET_STATIC_LINK_LIBS ${PARQUET_STATIC_LINK_LIBS} thrift::thrift)
-
-  # Although we don't link parquet_objlib against anything, we need it to depend
-  # on these libs as we may generate their headers via ExternalProject_Add
-  if(ARROW_BUILD_SHARED)
-    set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} ${PARQUET_SHARED_LINK_LIBS}
-                             ${PARQUET_SHARED_PRIVATE_LINK_LIBS})
+  list(APPEND PARQUET_STATIC_LINK_LIBS thrift::thrift)
+  if(NOT THRIFT_VENDORED)
+    list(APPEND PARQUET_STATIC_INSTALL_INTERFACE_LIBS thrift::thrift)
   endif()
-
-  if(ARROW_BUILD_STATIC)
-    set(PARQUET_DEPENDENCIES ${PARQUET_DEPENDENCIES} ${PARQUET_STATIC_LINK_LIBS})
-  endif()
-
-endif(NOT PARQUET_MINIMAL_DEPENDENCY)
+endif()
 
 if(CXX_LINKER_SUPPORTS_VERSION_SCRIPT)
   set(PARQUET_SHARED_LINK_FLAGS
@@ -248,22 +267,24 @@ add_arrow_lib(parquet
               "$<$<COMPILE_LANGUAGE:CXX>:parquet/pch.h>"
               OUTPUTS
               PARQUET_LIBRARIES
-              DEPENDENCIES
-              ${PARQUET_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ${PARQUET_SHARED_LINK_FLAGS}
               SHARED_LINK_LIBS
               ${PARQUET_SHARED_LINK_LIBS}
               SHARED_PRIVATE_LINK_LIBS
               ${PARQUET_SHARED_PRIVATE_LINK_LIBS}
+              SHARED_INSTALL_INTERFACE_LIBS
+              Arrow::arrow_shared
               STATIC_LINK_LIBS
-              ${PARQUET_STATIC_LINK_LIBS})
+              ${PARQUET_STATIC_LINK_LIBS}
+              STATIC_INSTALL_INTERFACE_LIBS
+              ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
-              "${ARROW_SOURCE_DIR}/src/generated/parquet_constants.cpp"
-              "${ARROW_SOURCE_DIR}/src/generated/parquet_types.cpp")
-  add_dependencies(parquet_test_support thrift::thrift)
+              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_constants.cpp"
+              "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
+  target_link_libraries(parquet_test_support thrift::thrift)
   set(PARQUET_SHARED_TEST_LINK_LIBS ${PARQUET_SHARED_TEST_LINK_LIBS} parquet_test_support)
   set(PARQUET_LIBRARIES ${PARQUET_LIBRARIES} parquet_test_support)
 endif()
@@ -277,13 +298,11 @@ endif()
 
 if(ARROW_BUILD_STATIC AND WIN32)
   # ARROW-4848: Static Parquet lib needs to import static symbols on Windows
-  target_compile_definitions(parquet_static PUBLIC ARROW_STATIC)
+  target_compile_definitions(parquet_static PUBLIC PARQUET_STATIC)
 endif()
 
-add_dependencies(parquet ${PARQUET_LIBRARIES} thrift::thrift)
-
-add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${THRIFT_VERSION_MAJOR})
-add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${THRIFT_VERSION_MINOR})
+add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
+add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})
 
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
@@ -316,10 +335,12 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
+                 bloom_filter_reader_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc
                  metadata_test.cc
+                 page_index_test.cc
                  public_api_test.cc
                  types_test.cc
                  test_util.cc)
@@ -380,9 +401,14 @@ endif()
 add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
 add_parquet_test(schema_test)
 
+add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
+                      benchmark_util.cc)
+add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
+add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
+                      benchmark_util.cc)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
 if(ARROW_WITH_BROTLI)

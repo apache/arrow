@@ -23,21 +23,21 @@ Even if you do not plan to contribute to Apache Arrow itself or Arrow
 integrations in other projects, we'd be happy to have you involved:
 
 * Join the mailing list: send an email to [dev-subscribe@arrow.apache.org][1].
-  Share your ideas and use cases for the project.
-* [Follow our activity on JIRA][3]
+  Share your ideas and use cases for the project
+* Follow our activity on [GitHub issues][3]
 * [Learn the format][2]
 * Contribute code to one of the reference implementations
 
 We prefer to receive contributions in the form of GitHub pull requests.
 Please send pull requests against the [github.com/apache/arrow][4] repository.
 
-If you are looking for some ideas on what to contribute, check out the [JIRA
+If you are looking for some ideas on what to contribute, check out the [GitHub
 issues][3] for the Apache Arrow project. Comment on the issue and/or contact
 [dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
 with your questions and ideas.
 
 If you’d like to report a bug but don’t have time to fix it, you can still post
-it on JIRA, or email the mailing list
+it on GitHub issues, or email the mailing list
 [dev@arrow.apache.org](http://mail-archives.apache.org/mod_mbox/arrow-dev/)
 
 # The package.json scripts
@@ -80,6 +80,12 @@ You can run the benchmarks with `yarn perf`. To print the results to stderr as J
 
 You can change the target you want to test by changing the imports in `perf/index.ts`. Note that you need to compile the bundles with `yarn build` before you can import them.
 
+# Testing Bundling
+
+The bundles use `apache-arrow` so make sure to build it with `yarn build -t apache-arrow`. To bundle with a variety of bundlers, run `yarn test:bundle` or `yarn gulp bundle`.
+
+Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
+
 # Updating the Arrow format flatbuffers generated code
 
 1. Once generated, the flatbuffers format code needs to be adjusted for our build scripts (assumes `gnu-sed`):
@@ -96,29 +102,19 @@ You can change the target you want to test by changing the imports in `perf/inde
     sed -i '+s+org.apache.arrow.flatbuf.++ig' $tmp_format_dir/*.fbs
 
     # Generate TS source from the modified Arrow flatbuffers schemas
-    flatc --ts --no-ts-reexport -o ./js/src/fb $tmp_format_dir/{File,Schema,Message}.fbs
+    flatc --ts -o ./js/src/fb $tmp_format_dir/{File,Schema,Message,Tensor,SparseTensor}.fbs
 
     # Remove the tmpdir
     rm -rf $tmp_format_dir
-
-    cd ./js/src/fb
-
-    # Rename the existing files to <filename>.bak.ts
-    mv File{,.bak}.ts && mv Schema{,.bak}.ts && mv Message{,.bak}.ts
-
-    # Remove `_generated` from the ES6 imports of the generated files
-    sed -i '+s+_generated\";+\";+ig' *_generated.ts
-    # Fix all the `flatbuffers` imports
-    sed -i '+s+./flatbuffers+flatbuffers+ig' *_generated.ts
-    # Fix the Union createTypeIdsVector typings
-    sed -i -r '+s+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Uint8Array+static createTypeIdsVector\(builder: flatbuffers.Builder, data: number\[\] \| Int32Array+ig' Schema_generated.ts
-    # Remove "_generated" suffix from TS files
-    mv File{_generated,}.ts && mv Schema{_generated,}.ts && mv Message{_generated,}.ts
     ```
 
-2. Execute `yarn lint` from the `js` directory to fix the linting errors
+2. Manually fix the unused imports and add // @ts-ignore for other errors
+
+3. Add `.js` to the imports. In VSCode, you can search for `^(import [^';]* from '(\./|(\.\./)+)[^';.]*)';` and replace with `$1.js';`.
+
+4. Execute `yarn lint` from the `js` directory to fix the linting errors
 
 [1]: mailto:dev-subscribe@arrow.apache.org
-[2]: https://github.com/apache/arrow/tree/master/format
-[3]: https://issues.apache.org/jira/browse/ARROW
+[2]: https://github.com/apache/arrow/tree/main/format
+[3]: https://github.com/apache/arrow/issues
 [4]: https://github.com/apache/arrow

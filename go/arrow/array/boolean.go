@@ -18,12 +18,13 @@ package array
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // A type which represents an immutable sequence of boolean values.
@@ -41,10 +42,10 @@ func NewBoolean(length int, data *memory.Buffer, nullBitmap *memory.Buffer, null
 	return NewBooleanData(arrdata)
 }
 
-func NewBooleanData(data *Data) *Boolean {
+func NewBooleanData(data arrow.ArrayData) *Boolean {
 	a := &Boolean{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
@@ -53,6 +54,14 @@ func (a *Boolean) Value(i int) bool {
 		panic("arrow/array: index out of range")
 	}
 	return bitutil.BitIsSet(a.values, a.array.data.offset+i)
+}
+
+func (a *Boolean) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	} else {
+		return strconv.FormatBool(a.Value(i))
+	}
 }
 
 func (a *Boolean) String() string {
@@ -64,7 +73,7 @@ func (a *Boolean) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%v", a.Value(i))
 		}
@@ -81,7 +90,7 @@ func (a *Boolean) setData(data *Data) {
 	}
 }
 
-func (a *Boolean) getOneForMarshal(i int) interface{} {
+func (a *Boolean) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -113,5 +122,5 @@ func arrayEqualBoolean(left, right *Boolean) bool {
 }
 
 var (
-	_ Interface = (*Boolean)(nil)
+	_ arrow.Array = (*Boolean)(nil)
 )

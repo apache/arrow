@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -40,14 +41,14 @@ namespace compute {
 class ARROW_EXPORT ArithmeticOptions : public FunctionOptions {
  public:
   explicit ArithmeticOptions(bool check_overflow = false);
-  constexpr static char const kTypeName[] = "ArithmeticOptions";
+  static constexpr char const kTypeName[] = "ArithmeticOptions";
   bool check_overflow;
 };
 
 class ARROW_EXPORT ElementWiseAggregateOptions : public FunctionOptions {
  public:
   explicit ElementWiseAggregateOptions(bool skip_nulls = true);
-  constexpr static char const kTypeName[] = "ElementWiseAggregateOptions";
+  static constexpr char const kTypeName[] = "ElementWiseAggregateOptions";
   static ElementWiseAggregateOptions Defaults() { return ElementWiseAggregateOptions{}; }
   bool skip_nulls;
 };
@@ -82,10 +83,19 @@ class ARROW_EXPORT RoundOptions : public FunctionOptions {
  public:
   explicit RoundOptions(int64_t ndigits = 0,
                         RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  constexpr static char const kTypeName[] = "RoundOptions";
+  static constexpr char const kTypeName[] = "RoundOptions";
   static RoundOptions Defaults() { return RoundOptions(); }
   /// Rounding precision (number of digits to round to)
   int64_t ndigits;
+  /// Rounding and tie-breaking mode
+  RoundMode round_mode;
+};
+
+class ARROW_EXPORT RoundBinaryOptions : public FunctionOptions {
+ public:
+  explicit RoundBinaryOptions(RoundMode round_mode = RoundMode::HALF_TO_EVEN);
+  static constexpr char const kTypeName[] = "RoundBinaryOptions";
+  static RoundBinaryOptions Defaults() { return RoundBinaryOptions(); }
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
 };
@@ -106,14 +116,38 @@ enum class CalendarUnit : int8_t {
 
 class ARROW_EXPORT RoundTemporalOptions : public FunctionOptions {
  public:
-  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY);
-  constexpr static char const kTypeName[] = "RoundTemporalOptions";
+  explicit RoundTemporalOptions(int multiple = 1, CalendarUnit unit = CalendarUnit::DAY,
+                                bool week_starts_monday = true,
+                                bool ceil_is_strictly_greater = false,
+                                bool calendar_based_origin = false);
+  static constexpr char const kTypeName[] = "RoundTemporalOptions";
   static RoundTemporalOptions Defaults() { return RoundTemporalOptions(); }
 
   /// Number of units to round to
   int multiple;
   /// The unit used for rounding of time
   CalendarUnit unit;
+  /// What day does the week start with (Monday=true, Sunday=false)
+  bool week_starts_monday;
+  /// Enable this flag to return a rounded value that is strictly greater than the input.
+  /// For example: ceiling 1970-01-01T00:00:00 to 3 hours would yield 1970-01-01T03:00:00
+  /// if set to true and 1970-01-01T00:00:00 if set to false.
+  /// This applies for ceiling only.
+  bool ceil_is_strictly_greater;
+  /// By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
+  /// By setting calendar_based_origin to true, time will be rounded to a number
+  /// of units since the last greater calendar unit.
+  /// For example: rounding to a multiple of days since the beginning of the month or
+  /// to hours since the beginning of the day.
+  /// Exceptions: week and quarter are not used as greater units, therefore days will
+  /// will be rounded to the beginning of the month not week. Greater unit of week
+  /// is year.
+  /// Note that ceiling and rounding might change sorting order of an array near greater
+  /// unit change. For example rounding YYYY-mm-dd 23:00:00 to 5 hours will ceil and
+  /// round to YYYY-mm-dd+1 01:00:00 and floor to YYYY-mm-dd 20:00:00. On the other hand
+  /// YYYY-mm-dd+1 00:00:00 will ceil, round and floor to YYYY-mm-dd+1 00:00:00. This
+  /// can break the order of an already ordered array.
+  bool calendar_based_origin;
 };
 
 class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
@@ -122,14 +156,13 @@ class ARROW_EXPORT RoundToMultipleOptions : public FunctionOptions {
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
   explicit RoundToMultipleOptions(std::shared_ptr<Scalar> multiple,
                                   RoundMode round_mode = RoundMode::HALF_TO_EVEN);
-  constexpr static char const kTypeName[] = "RoundToMultipleOptions";
+  static constexpr char const kTypeName[] = "RoundToMultipleOptions";
   static RoundToMultipleOptions Defaults() { return RoundToMultipleOptions(); }
   /// Rounding scale (multiple to round to).
   ///
-  /// Should be a scalar of a type compatible with the argument to be rounded.
-  /// For example, rounding a decimal value means a decimal multiple is
-  /// required. Rounding a floating point or integer value means a floating
-  /// point scalar is required.
+  /// Should be a positive numeric scalar of a type compatible with the
+  /// argument to be rounded. The cast kernel is used to convert the rounding
+  /// multiple to match the result type.
   std::shared_ptr<Scalar> multiple;
   /// Rounding and tie-breaking mode
   RoundMode round_mode;
@@ -149,7 +182,7 @@ class ARROW_EXPORT JoinOptions : public FunctionOptions {
   };
   explicit JoinOptions(NullHandlingBehavior null_handling = EMIT_NULL,
                        std::string null_replacement = "");
-  constexpr static char const kTypeName[] = "JoinOptions";
+  static constexpr char const kTypeName[] = "JoinOptions";
   static JoinOptions Defaults() { return JoinOptions(); }
   NullHandlingBehavior null_handling;
   std::string null_replacement;
@@ -159,7 +192,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
  public:
   explicit MatchSubstringOptions(std::string pattern, bool ignore_case = false);
   MatchSubstringOptions();
-  constexpr static char const kTypeName[] = "MatchSubstringOptions";
+  static constexpr char const kTypeName[] = "MatchSubstringOptions";
 
   /// The exact substring (or regex, depending on kernel) to look for inside input values.
   std::string pattern;
@@ -170,7 +203,7 @@ class ARROW_EXPORT MatchSubstringOptions : public FunctionOptions {
 class ARROW_EXPORT SplitOptions : public FunctionOptions {
  public:
   explicit SplitOptions(int64_t max_splits = -1, bool reverse = false);
-  constexpr static char const kTypeName[] = "SplitOptions";
+  static constexpr char const kTypeName[] = "SplitOptions";
 
   /// Maximum number of splits allowed, or unlimited when -1
   int64_t max_splits;
@@ -183,7 +216,7 @@ class ARROW_EXPORT SplitPatternOptions : public FunctionOptions {
   explicit SplitPatternOptions(std::string pattern, int64_t max_splits = -1,
                                bool reverse = false);
   SplitPatternOptions();
-  constexpr static char const kTypeName[] = "SplitPatternOptions";
+  static constexpr char const kTypeName[] = "SplitPatternOptions";
 
   /// The exact substring to split on.
   std::string pattern;
@@ -197,7 +230,7 @@ class ARROW_EXPORT ReplaceSliceOptions : public FunctionOptions {
  public:
   explicit ReplaceSliceOptions(int64_t start, int64_t stop, std::string replacement);
   ReplaceSliceOptions();
-  constexpr static char const kTypeName[] = "ReplaceSliceOptions";
+  static constexpr char const kTypeName[] = "ReplaceSliceOptions";
 
   /// Index to start slicing at
   int64_t start;
@@ -212,7 +245,7 @@ class ARROW_EXPORT ReplaceSubstringOptions : public FunctionOptions {
   explicit ReplaceSubstringOptions(std::string pattern, std::string replacement,
                                    int64_t max_replacements = -1);
   ReplaceSubstringOptions();
-  constexpr static char const kTypeName[] = "ReplaceSubstringOptions";
+  static constexpr char const kTypeName[] = "ReplaceSubstringOptions";
 
   /// Pattern to match, literal, or regular expression depending on which kernel is used
   std::string pattern;
@@ -226,7 +259,7 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
  public:
   explicit ExtractRegexOptions(std::string pattern);
   ExtractRegexOptions();
-  constexpr static char const kTypeName[] = "ExtractRegexOptions";
+  static constexpr char const kTypeName[] = "ExtractRegexOptions";
 
   /// Regular expression with named capture fields
   std::string pattern;
@@ -237,7 +270,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
   explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
   SetLookupOptions();
-  constexpr static char const kTypeName[] = "SetLookupOptions";
+  static constexpr char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
@@ -254,22 +287,28 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
 class ARROW_EXPORT StructFieldOptions : public FunctionOptions {
  public:
   explicit StructFieldOptions(std::vector<int> indices);
+  explicit StructFieldOptions(std::initializer_list<int>);
+  explicit StructFieldOptions(FieldRef field_ref);
   StructFieldOptions();
-  constexpr static char const kTypeName[] = "StructFieldOptions";
+  static constexpr char const kTypeName[] = "StructFieldOptions";
 
-  /// The child indices to extract. For instance, to get the 2nd child
-  /// of the 1st child of a struct or union, this would be {0, 1}.
-  std::vector<int> indices;
+  /// The FieldRef specifying what to extract from struct or union.
+  FieldRef field_ref;
 };
 
 class ARROW_EXPORT StrptimeOptions : public FunctionOptions {
  public:
-  explicit StrptimeOptions(std::string format, TimeUnit::type unit);
+  explicit StrptimeOptions(std::string format, TimeUnit::type unit,
+                           bool error_is_null = false);
   StrptimeOptions();
-  constexpr static char const kTypeName[] = "StrptimeOptions";
+  static constexpr char const kTypeName[] = "StrptimeOptions";
 
+  /// The desired format string.
   std::string format;
+  /// The desired time resolution
   TimeUnit::type unit;
+  /// Return null on parsing errors if true or raise if false
+  bool error_is_null;
 };
 
 class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
@@ -277,9 +316,9 @@ class ARROW_EXPORT StrftimeOptions : public FunctionOptions {
   explicit StrftimeOptions(std::string format, std::string locale = "C");
   StrftimeOptions();
 
-  constexpr static char const kTypeName[] = "StrftimeOptions";
+  static constexpr char const kTypeName[] = "StrftimeOptions";
 
-  constexpr static const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%S";
+  static constexpr const char* kDefaultFormat = "%Y-%m-%dT%H:%M:%S";
 
   /// The desired format string.
   std::string format;
@@ -291,7 +330,7 @@ class ARROW_EXPORT PadOptions : public FunctionOptions {
  public:
   explicit PadOptions(int64_t width, std::string padding = " ");
   PadOptions();
-  constexpr static char const kTypeName[] = "PadOptions";
+  static constexpr char const kTypeName[] = "PadOptions";
 
   /// The desired string length.
   int64_t width;
@@ -303,9 +342,9 @@ class ARROW_EXPORT TrimOptions : public FunctionOptions {
  public:
   explicit TrimOptions(std::string characters);
   TrimOptions();
-  constexpr static char const kTypeName[] = "TrimOptions";
+  static constexpr char const kTypeName[] = "TrimOptions";
 
-  /// The individual characters that can be trimmed from the string.
+  /// The individual characters to be trimmed from the string.
   std::string characters;
 };
 
@@ -314,14 +353,33 @@ class ARROW_EXPORT SliceOptions : public FunctionOptions {
   explicit SliceOptions(int64_t start, int64_t stop = std::numeric_limits<int64_t>::max(),
                         int64_t step = 1);
   SliceOptions();
-  constexpr static char const kTypeName[] = "SliceOptions";
+  static constexpr char const kTypeName[] = "SliceOptions";
   int64_t start, stop, step;
+};
+
+class ARROW_EXPORT ListSliceOptions : public FunctionOptions {
+ public:
+  explicit ListSliceOptions(int64_t start, std::optional<int64_t> stop = std::nullopt,
+                            int64_t step = 1,
+                            std::optional<bool> return_fixed_size_list = std::nullopt);
+  ListSliceOptions();
+  static constexpr char const kTypeName[] = "ListSliceOptions";
+  /// The start of list slicing.
+  int64_t start;
+  /// Optional stop of list slicing. If not set, then slice to end. (NotImplemented)
+  std::optional<int64_t> stop;
+  /// Slicing step
+  int64_t step;
+  // Whether to return a FixedSizeListArray. If true _and_ stop is after
+  // a list element's length, nulls will be appended to create the requested slice size.
+  // Default of `nullopt` will return whatever type it got in.
+  std::optional<bool> return_fixed_size_list;
 };
 
 class ARROW_EXPORT NullOptions : public FunctionOptions {
  public:
   explicit NullOptions(bool nan_is_null = false);
-  constexpr static char const kTypeName[] = "NullOptions";
+  static constexpr char const kTypeName[] = "NullOptions";
   static NullOptions Defaults() { return NullOptions{}; }
 
   bool nan_is_null;
@@ -348,7 +406,7 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
                     std::vector<std::shared_ptr<const KeyValueMetadata>> m);
   explicit MakeStructOptions(std::vector<std::string> n);
   MakeStructOptions();
-  constexpr static char const kTypeName[] = "MakeStructOptions";
+  static constexpr char const kTypeName[] = "MakeStructOptions";
 
   /// Names for wrapped columns
   std::vector<std::string> field_names;
@@ -363,7 +421,7 @@ class ARROW_EXPORT MakeStructOptions : public FunctionOptions {
 struct ARROW_EXPORT DayOfWeekOptions : public FunctionOptions {
  public:
   explicit DayOfWeekOptions(bool count_from_zero = true, uint32_t week_start = 1);
-  constexpr static char const kTypeName[] = "DayOfWeekOptions";
+  static constexpr char const kTypeName[] = "DayOfWeekOptions";
   static DayOfWeekOptions Defaults() { return DayOfWeekOptions(); }
 
   /// Number days from 0 if true and from 1 if false
@@ -396,7 +454,7 @@ struct ARROW_EXPORT AssumeTimezoneOptions : public FunctionOptions {
                                  Ambiguous ambiguous = AMBIGUOUS_RAISE,
                                  Nonexistent nonexistent = NONEXISTENT_RAISE);
   AssumeTimezoneOptions();
-  constexpr static char const kTypeName[] = "AssumeTimezoneOptions";
+  static constexpr char const kTypeName[] = "AssumeTimezoneOptions";
 
   /// Timezone to convert timestamps from
   std::string timezone;
@@ -411,7 +469,7 @@ struct ARROW_EXPORT WeekOptions : public FunctionOptions {
  public:
   explicit WeekOptions(bool week_starts_monday = true, bool count_from_zero = false,
                        bool first_week_is_fully_in_year = false);
-  constexpr static char const kTypeName[] = "WeekOptions";
+  static constexpr char const kTypeName[] = "WeekOptions";
   static WeekOptions Defaults() { return WeekOptions{}; }
   static WeekOptions ISODefaults() {
     return WeekOptions{/*week_starts_monday*/ true,
@@ -440,7 +498,7 @@ struct ARROW_EXPORT Utf8NormalizeOptions : public FunctionOptions {
 
   explicit Utf8NormalizeOptions(Form form = NFC);
   static Utf8NormalizeOptions Defaults() { return Utf8NormalizeOptions(); }
-  constexpr static char const kTypeName[] = "Utf8NormalizeOptions";
+  static constexpr char const kTypeName[] = "Utf8NormalizeOptions";
 
   /// The Unicode normalization form to apply
   Form form;
@@ -450,24 +508,42 @@ class ARROW_EXPORT RandomOptions : public FunctionOptions {
  public:
   enum Initializer { SystemRandom, Seed };
 
-  static RandomOptions FromSystemRandom(int64_t length) {
-    return RandomOptions{length, SystemRandom, 0};
-  }
-  static RandomOptions FromSeed(int64_t length, uint64_t seed) {
-    return RandomOptions{length, Seed, seed};
-  }
+  static RandomOptions FromSystemRandom() { return RandomOptions{SystemRandom, 0}; }
+  static RandomOptions FromSeed(uint64_t seed) { return RandomOptions{Seed, seed}; }
 
-  RandomOptions(int64_t length, Initializer initializer, uint64_t seed);
+  RandomOptions(Initializer initializer, uint64_t seed);
   RandomOptions();
-  constexpr static char const kTypeName[] = "RandomOptions";
+  static constexpr char const kTypeName[] = "RandomOptions";
   static RandomOptions Defaults() { return RandomOptions(); }
 
-  /// The length of the array returned. Negative is invalid.
-  int64_t length;
   /// The type of initialization for random number generation - system or provided seed.
   Initializer initializer;
   /// The seed value used to initialize the random number generation.
   uint64_t seed;
+};
+
+/// Options for map_lookup function
+class ARROW_EXPORT MapLookupOptions : public FunctionOptions {
+ public:
+  enum Occurrence {
+    /// Return the first matching value
+    FIRST,
+    /// Return the last matching value
+    LAST,
+    /// Return all matching values
+    ALL
+  };
+
+  explicit MapLookupOptions(std::shared_ptr<Scalar> query_key, Occurrence occurrence);
+  MapLookupOptions();
+
+  constexpr static char const kTypeName[] = "MapLookupOptions";
+
+  /// The key to lookup in the map
+  std::shared_ptr<Scalar> query_key;
+
+  /// Whether to return the first, last, or all matching values
+  Occurrence occurrence;
 };
 
 /// @}
@@ -563,6 +639,15 @@ ARROW_EXPORT
 Result<Datum> Power(const Datum& left, const Datum& right,
                     ArithmeticOptions options = ArithmeticOptions(),
                     ExecContext* ctx = NULLPTR);
+
+/// \brief Raise Euler's number to the power of specified exponent, element-wise.
+/// If the exponent value is null the result will be null.
+///
+/// \param[in] arg the exponent
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise Euler's number raised to the power of exponent
+ARROW_EXPORT
+Result<Datum> Exp(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Left shift the left array by the right array. Array values must be the
 /// same length. If either operand is null, the result will be null.
@@ -715,6 +800,18 @@ Result<Datum> Logb(const Datum& arg, const Datum& base,
                    ArithmeticOptions options = ArithmeticOptions(),
                    ExecContext* ctx = NULLPTR);
 
+/// \brief Get the square-root of a value.
+///
+/// If argument is null the result will be null.
+///
+/// \param[in] arg The values to compute the square-root for.
+/// \param[in] options arithmetic options (overflow handling), optional
+/// \param[in] ctx the function execution context, optional
+/// \return the elementwise square-root
+ARROW_EXPORT
+Result<Datum> Sqrt(const Datum& arg, ArithmeticOptions options = ArithmeticOptions(),
+                   ExecContext* ctx = NULLPTR);
+
 /// \brief Round to the nearest integer less than or equal in magnitude to the
 /// argument.
 ///
@@ -784,15 +881,33 @@ Result<Datum> Sign(const Datum& arg, ExecContext* ctx = NULLPTR);
 
 /// \brief Round a value to a given precision.
 ///
-/// If argument is null the result will be null.
+/// If arg is null the result will be null.
 ///
-/// \param[in] arg the value rounded
+/// \param[in] arg the value to be rounded
 /// \param[in] options rounding options (rounding mode and number of digits), optional
 /// \param[in] ctx the function execution context, optional
 /// \return the element-wise rounded value
 ARROW_EXPORT
 Result<Datum> Round(const Datum& arg, RoundOptions options = RoundOptions::Defaults(),
                     ExecContext* ctx = NULLPTR);
+
+/// \brief Round a value to a given precision.
+///
+/// If arg1 is null the result will be null.
+/// If arg2 is null then the result will be null. If arg2 is negative, then the rounding
+/// place will be shifted to the left (thus -1 would correspond to rounding to the nearest
+/// ten).  If positive, the rounding place will shift to the right (and +1 would
+/// correspond to rounding to the nearest tenth).
+///
+/// \param[in] arg1 the value to be rounded
+/// \param[in] arg2 the number of significant digits to round to
+/// \param[in] options rounding options, optional
+/// \param[in] ctx the function execution context, optional
+/// \return the element-wise rounded value
+ARROW_EXPORT
+Result<Datum> RoundBinary(const Datum& arg1, const Datum& arg2,
+                          RoundBinaryOptions options = RoundBinaryOptions::Defaults(),
+                          ExecContext* ctx = NULLPTR);
 
 /// \brief Round a value to a given multiple.
 ///
@@ -854,24 +969,6 @@ ARROW_EXPORT
 Result<Datum> RoundTemporal(
     const Datum& arg, RoundTemporalOptions options = RoundTemporalOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
-
-/// \brief Compare a numeric array with a scalar.
-///
-/// \param[in] left datum to compare, must be an Array
-/// \param[in] right datum to compare, must be a Scalar of the same type than
-///            left Datum.
-/// \param[in] options compare options
-/// \param[in] ctx the function execution context, optional
-/// \return resulting datum
-///
-/// Note on floating point arrays, this uses ieee-754 compare semantics.
-///
-/// \since 1.0.0
-/// \note API not yet finalized
-ARROW_DEPRECATED("Deprecated in 5.0.0. Use each compare function directly")
-ARROW_EXPORT
-Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
-                      ExecContext* ctx = NULLPTR);
 
 /// \brief Invert the values of a boolean datum
 /// \param[in] value datum to invert
@@ -1099,6 +1196,17 @@ Result<Datum> CaseWhen(const Datum& cond, const std::vector<Datum>& cases,
 ARROW_EXPORT
 Result<Datum> Year(const Datum& values, ExecContext* ctx = NULLPTR);
 
+/// \brief IsLeapYear returns if a year is a leap year for each element of `values`
+///
+/// \param[in] values input to extract leap year indicator from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> IsLeapYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
 /// \brief Month returns month for each element of `values`.
 /// Month is encoded as January=1, December=12
 ///
@@ -1174,6 +1282,20 @@ ARROW_EXPORT Result<Datum> DayOfYear(const Datum& values, ExecContext* ctx = NUL
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> ISOYear(const Datum& values, ExecContext* ctx = NULLPTR);
+
+/// \brief USYear returns US epidemiological year number for each element of `values`.
+/// First week of US epidemiological year has the majority (4 or more) of it's
+/// days in January. Last week of US epidemiological year has the year's last
+/// Wednesday in it. US epidemiological week starts on Sunday.
+///
+/// \param[in] values input to extract US epidemiological year from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> USYear(const Datum& values, ExecContext* ctx = NULLPTR);
 
 /// \brief ISOWeek returns ISO week of year number for each element of `values`.
 /// First ISO week has the majority (4 or more) of its days in January.
@@ -1334,6 +1456,22 @@ ARROW_EXPORT Result<Datum> Subsecond(const Datum& values, ExecContext* ctx = NUL
 ARROW_EXPORT Result<Datum> Strftime(const Datum& values, StrftimeOptions options,
                                     ExecContext* ctx = NULLPTR);
 
+/// \brief Parse timestamps according to a format string
+///
+/// Return parsed timestamps according to the format string
+/// `StrptimeOptions::format` at time resolution `Strftime::unit`. Parse errors are
+/// raised depending on the `Strftime::error_is_null` setting.
+///
+/// \param[in] values input strings
+/// \param[in] options for setting format string, unit and error_is_null
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> Strptime(const Datum& values, StrptimeOptions options,
+                                    ExecContext* ctx = NULLPTR);
+
 /// \brief Converts timestamps from local timestamp without a timezone to a timestamp with
 /// timezone, interpreting the local timestamp as being in the specified timezone for each
 /// element of `values`
@@ -1350,5 +1488,200 @@ ARROW_EXPORT Result<Datum> AssumeTimezone(const Datum& values,
                                           AssumeTimezoneOptions options,
                                           ExecContext* ctx = NULLPTR);
 
+/// \brief IsDaylightSavings extracts if currently observing daylight savings for each
+/// element of `values`
+///
+/// \param[in] values input to extract daylight savings indicator from
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> IsDaylightSavings(const Datum& values,
+                                             ExecContext* ctx = NULLPTR);
+
+/// \brief LocalTimestamp converts timestamp to timezone naive local timestamp
+///
+/// \param[in] values input to convert to local time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 12.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> LocalTimestamp(const Datum& values,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Years Between finds the number of years between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> YearsBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
+
+/// \brief Quarters Between finds the number of quarters between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> QuartersBetween(const Datum& left, const Datum& right,
+                                           ExecContext* ctx = NULLPTR);
+
+/// \brief Months Between finds the number of month between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MonthsBetween(const Datum& left, const Datum& right,
+                                         ExecContext* ctx = NULLPTR);
+
+/// \brief Weeks Between finds the number of weeks between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> WeeksBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
+
+/// \brief Month Day Nano Between finds the number of months, days, and nonaseconds
+/// between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MonthDayNanoBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief DayTime Between finds the number of days and milliseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DayTimeBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Days Between finds the number of days between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> DaysBetween(const Datum& left, const Datum& right,
+                                       ExecContext* ctx = NULLPTR);
+
+/// \brief Hours Between finds the number of hours between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> HoursBetween(const Datum& left, const Datum& right,
+                                        ExecContext* ctx = NULLPTR);
+
+/// \brief Minutes Between finds the number of minutes between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MinutesBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Seconds Between finds the number of hours between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> SecondsBetween(const Datum& left, const Datum& right,
+                                          ExecContext* ctx = NULLPTR);
+
+/// \brief Milliseconds Between finds the number of milliseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MillisecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief Microseconds Between finds the number of microseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MicrosecondsBetween(const Datum& left, const Datum& right,
+                                               ExecContext* ctx = NULLPTR);
+
+/// \brief Nanoseconds Between finds the number of nanoseconds between two values
+///
+/// \param[in] left input treated as the start time
+/// \param[in] right input treated as the end time
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> NanosecondsBetween(const Datum& left, const Datum& right,
+                                              ExecContext* ctx = NULLPTR);
+
+/// \brief Finds either the FIRST, LAST, or ALL items with a key that matches the given
+/// query key in a map.
+///
+/// Returns an array of items for FIRST and LAST, and an array of list of items for ALL.
+///
+/// \param[in] map to look in
+/// \param[in] options to pass a query key and choose which matching keys to return
+/// (FIRST, LAST or ALL)
+/// \param[in] ctx the function execution context, optional
+/// \return the resulting datum
+///
+/// \since 8.0.0
+/// \note API not yet finalized
+ARROW_EXPORT Result<Datum> MapLookup(const Datum& map, MapLookupOptions options,
+                                     ExecContext* ctx = NULLPTR);
 }  // namespace compute
 }  // namespace arrow

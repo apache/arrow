@@ -19,8 +19,12 @@
 
 #include "arrow/util/visibility.h"
 
+#include <string_view>
+
 namespace arrow {
 
 [[noreturn]] ARROW_EXPORT void Unreachable(const char* message = "Unreachable");
+
+[[noreturn]] ARROW_EXPORT void Unreachable(std::string_view message);
 
 }  // namespace arrow

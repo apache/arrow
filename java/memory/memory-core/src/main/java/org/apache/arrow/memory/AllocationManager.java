@@ -17,48 +17,38 @@
 
 package org.apache.arrow.memory;
 
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.apache.arrow.util.Preconditions;
 
 /**
- * The abstract base class of AllocationManager.
+ * An AllocationManager is the implementation of a physical memory allocation.
  *
- * <p>Manages the relationship between one or more allocators and a particular UDLE. Ensures that
- * one allocator owns the
- * memory that multiple allocators may be referencing. Manages a BufferLedger between each of its
- * associated allocators.
+ * <p>Manages the relationship between the allocators and a particular memory allocation. Ensures that
+ * one allocator owns the memory that multiple allocators may be referencing. Manages a BufferLedger between
+ * each of its associated allocators. It does not track the reference count; that is the role of {@link BufferLedger}
+ * (aka {@link ReferenceManager}).
  *
- * <p>The only reason that this isn't package private is we're forced to put ArrowBuf in Netty's
- * package which need access
- * to these objects or methods.
+ * <p>This is a public interface implemented by concrete allocator implementations (e.g. Netty or Unsafe).
  *
  * <p>Threading: AllocationManager manages thread-safety internally. Operations within the context
- * of a single BufferLedger
- * are lockless in nature and can be leveraged by multiple threads. Operations that cross the
- * context of two ledgers
- * will acquire a lock on the AllocationManager instance. Important note, there is one
- * AllocationManager per
- * UnsafeDirectLittleEndian buffer allocation. As such, there will be thousands of these in a
- * typical query. The
- * contention of acquiring a lock on AllocationManager should be very low.
+ * of a single BufferLedger are lockless in nature and can be leveraged by multiple threads. Operations that cross the
+ * context of two ledgers will acquire a lock on the AllocationManager instance. Important note, there is one
+ * AllocationManager per physical buffer allocation. As such, there will be thousands of these in a
+ * typical query. The contention of acquiring a lock on AllocationManager should be very low.
  */
 public abstract class AllocationManager {
-
-  private static final AtomicLong MANAGER_ID_GENERATOR = new AtomicLong(0);
-
+  // The RootAllocator we are associated with. An allocation can only ever be associated with a single RootAllocator.
   private final BufferAllocator root;
-  private final long allocatorManagerId = MANAGER_ID_GENERATOR.incrementAndGet();
-  // ARROW-1627 Trying to minimize memory overhead caused by previously used IdentityHashMap
-  // see JIRA for details
+  // An allocation can be tracked by multiple allocators. (This is because an allocator is more like a ledger.)
+  // All such allocators track reference counts individually, via BufferLedger instances. When an individual
+  // reference count reaches zero, the allocator will be dissociated from this allocation. If that was via the
+  // owningLedger, then no more allocators should be tracking this allocation, and the allocation will be freed.
+  // ARROW-1627: Trying to minimize memory overhead caused by previously used IdentityHashMap
   private final LowCostIdentityHashMap<BufferAllocator, BufferLedger> map = new LowCostIdentityHashMap<>();
-  private final long amCreationTime = System.nanoTime();
-
-  // The ReferenceManager created at the time of creation of this AllocationManager
-  // is treated as the owning reference manager for the underlying chunk of memory
-  // managed by this allocation manager
+  // The primary BufferLedger (i.e. reference count) tracking this allocation.
+  // This is mostly a semantic constraint on the API user: if the reference count reaches 0 in the owningLedger, then
+  // there are not supposed to be any references through other allocators. In practice, this doesn't do anything
+  // as the implementation just forces ownership to be transferred to one of the other extant references.
   private volatile BufferLedger owningLedger;
-  private volatile long amDestructionTime = 0;
 
   protected AllocationManager(BufferAllocator accountingAllocator) {
     Preconditions.checkNotNull(accountingAllocator);
@@ -81,7 +71,7 @@ public abstract class AllocationManager {
 
   /**
    * Associate the existing underlying buffer with a new allocator. This will increase the
-   * reference count on the corresponding buffer ledger by 1
+   * reference count on the corresponding buffer ledger by 1.
    *
    * @param allocator The target allocator to associate this buffer with.
    * @return The reference manager (new or existing) that associates the underlying
@@ -99,6 +89,7 @@ public abstract class AllocationManager {
     synchronized (this) {
       BufferLedger ledger = map.get(allocator);
       if (ledger != null) {
+        // We were already being tracked by the given allocator, just return it
         if (retain) {
           // bump the ref count for the ledger
           ledger.increment();
@@ -106,6 +97,7 @@ public abstract class AllocationManager {
         return ledger;
       }
 
+      // We weren't previously being tracked by the given allocator; create a new ledger
       ledger = new BufferLedger(allocator, this);
 
       if (retain) {
@@ -161,7 +153,6 @@ public abstract class AllocationManager {
         // free the memory chunk associated with the allocation manager
         release0();
         oldAllocator.getListener().onRelease(getSize());
-        amDestructionTime = System.nanoTime();
         owningLedger = null;
       } else {
         // since the refcount dropped to 0 for the owning reference manager and allocation

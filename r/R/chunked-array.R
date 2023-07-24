@@ -32,6 +32,7 @@
 #'
 #' - `$length()`: Size in the number of elements this array contains
 #' - `$chunk(i)`: Extract an `Array` chunk by integer position
+#' - `$nbytes() : Total number of bytes consumed by the elements of the array
 #' - `$as_vector()`: convert to an R vector
 #' - `$Slice(offset, length = NULL)`: Construct a zero-copy slice of the array
 #'    with the indicated offset and length. If length is `NULL`, the slice goes
@@ -54,10 +55,10 @@
 #' - `$Validate()`: Perform any validation checks to determine obvious inconsistencies
 #'    within the array's internal data. This can be an expensive check, potentially `O(length)`
 #'
-#' @rdname ChunkedArray
+#' @rdname ChunkedArray-class
 #' @name ChunkedArray
 #' @seealso [Array]
-#' @examplesIf arrow_available()
+#' @examples
 #' # Pass items into chunked_array as separate objects to create chunks
 #' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
 #' class_scores$num_chunks
@@ -76,12 +77,18 @@
 #' # When constructing a ChunkedArray, the first chunk is used to infer type.
 #' doubles <- chunked_array(c(1, 2, 3), c(5L, 6L, 7L))
 #' doubles$type
+#'
+#' # Concatenating chunked arrays returns a new chunked array containing all chunks
+#' a <- chunked_array(c(1, 2), 3)
+#' b <- chunked_array(c(4, 5), 6)
+#' c(a, b)
 #' @export
 ChunkedArray <- R6Class("ChunkedArray",
   inherit = ArrowDatum,
   public = list(
     length = function() ChunkedArray__length(self),
     type_id = function() ChunkedArray__type(self)$id,
+    nbytes = function() ChunkedArray__ReferencedBufferSize(self),
     chunk = function(i) Array$create(ChunkedArray__chunk(self, i)),
     as_vector = function() ChunkedArray__as_vector(self, option_use_threads()),
     Slice = function(offset, length = NULL) {
@@ -106,18 +113,6 @@ ChunkedArray <- R6Class("ChunkedArray",
       }
       call_function("filter", self, i, options = list(keep_na = keep_na))
     },
-    SortIndices = function(descending = FALSE) {
-      assert_that(is.logical(descending))
-      assert_that(length(descending) == 1L)
-      assert_that(!is.na(descending))
-      # TODO: after ARROW-12042 is closed, review whether this and the
-      # Array$SortIndices definition can be consolidated
-      call_function(
-        "sort_indices",
-        self,
-        options = list(names = "", orders = as.integer(descending))
-      )
-    },
     View = function(type) {
       ChunkedArray__View(self, as_type(type))
     },
@@ -125,7 +120,8 @@ ChunkedArray <- R6Class("ChunkedArray",
       ChunkedArray__Validate(self)
     },
     ToString = function() {
-      ChunkedArray__ToString(self)
+      typ <- paste0("<", self$type$ToString(), ">")
+      paste(typ, ChunkedArray__ToString(self), sep = "\n")
     },
     Equals = function(other, ...) {
       inherits(other, "ChunkedArray") && ChunkedArray__Equals(self, other)
@@ -143,11 +139,84 @@ ChunkedArray$create <- function(..., type = NULL) {
   if (!is.null(type)) {
     type <- as_type(type)
   }
-  ChunkedArray__from_list(list2(...), type)
+  chunks <- flatten(map(list2(...), function(arr) {
+    if (inherits(arr, "ChunkedArray")) {
+      arr$chunks
+    } else {
+      list(arr)
+    }
+  }))
+  ChunkedArray__from_list(chunks, type)
 }
 
-#' @param \dots Vectors to coerce
-#' @param type currently ignored
-#' @rdname ChunkedArray
+#' @export
+c.ChunkedArray <- function(...) {
+  ChunkedArray$create(...)
+}
+
+#' Create a Chunked Array
+#'
+#' @param ... R objects to coerce into a ChunkedArray. They must be of the same type.
+#' @param type An optional [data type][data-type]. If omitted, the type will be inferred from the data.
+#' @rdname chunked_array
+#' @examples
+#' # Pass items into chunked_array as separate objects to create chunks
+#' class_scores <- chunked_array(c(87, 88, 89), c(94, 93, 92), c(71, 72, 73))
+#'
+#' # If you pass a list into chunked_array, you get a list of length 1
+#' list_scores <- chunked_array(list(c(9.9, 9.6, 9.5), c(8.2, 8.3, 8.4), c(10.0, 9.9, 9.8)))
+#'
+#' # When constructing a ChunkedArray, the first chunk is used to infer type.
+#' infer_type(chunked_array(c(1, 2, 3), c(5L, 6L, 7L)))
+#'
+#' # Concatenating chunked arrays returns a new chunked array containing all chunks
+#' a <- chunked_array(c(1, 2), 3)
+#' b <- chunked_array(c(4, 5), 6)
+#' c(a, b)
+#' @seealso [ChunkedArray]
 #' @export
 chunked_array <- ChunkedArray$create
+
+#' Convert an object to an Arrow ChunkedArray
+#'
+#' Whereas [chunked_array()] constructs a [ChunkedArray] from zero or more
+#' [Array]s or R vectors, `as_chunked_array()` converts a single object to a
+#' [ChunkedArray].
+#'
+#' @param x An object to convert to an Arrow Chunked Array
+#' @inheritParams as_arrow_array
+#'
+#' @return A [ChunkedArray].
+#' @export
+#'
+#' @examples
+#' as_chunked_array(1:5)
+#'
+as_chunked_array <- function(x, ..., type = NULL) {
+  UseMethod("as_chunked_array")
+}
+
+#' @rdname as_chunked_array
+#' @export
+as_chunked_array.ChunkedArray <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    x
+  } else {
+    x$cast(type)
+  }
+}
+
+#' @rdname as_chunked_array
+#' @export
+as_chunked_array.Array <- function(x, ..., type = NULL) {
+  if (is.null(type)) {
+    chunked_array(x)
+  } else {
+    chunked_array(x$cast(type))
+  }
+}
+
+#' @export
+as_chunked_array.default <- function(x, ..., type = NULL) {
+  ChunkedArray$create(x)
+}

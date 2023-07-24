@@ -17,31 +17,46 @@
 package array
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"math/bits"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/encoded"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/internal/utils"
 )
 
-// Concatenate creates a new array.Interface which is the concatenation of the
+// Concatenate creates a new arrow.Array which is the concatenation of the
 // passed in arrays. Returns nil if an error is encountered.
 //
 // The passed in arrays still need to be released manually, and will not be
 // released by this function.
-func Concatenate(arrs []Interface, mem memory.Allocator) (Interface, error) {
+func Concatenate(arrs []arrow.Array, mem memory.Allocator) (result arrow.Array, err error) {
 	if len(arrs) == 0 {
-		return nil, xerrors.New("array/concat: must pass at least one array")
+		return nil, errors.New("array/concat: must pass at least one array")
 	}
 
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			switch e := pErr.(type) {
+			case error:
+				err = fmt.Errorf("arrow/concat: %w", e)
+			default:
+				err = fmt.Errorf("arrow/concat: %v", pErr)
+			}
+		}
+	}()
+
 	// gather Data of inputs
-	data := make([]*Data, len(arrs))
+	data := make([]arrow.ArrayData, len(arrs))
 	for i, ar := range arrs {
 		if !arrow.TypeEqual(ar.DataType(), arrs[0].DataType()) {
-			return nil, xerrors.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
+			return nil, fmt.Errorf("arrays to be concatenated must be identically typed, but %s and %s were encountered",
 				arrs[0].DataType(), ar.DataType())
 		}
 		data[i] = ar.Data()
@@ -69,14 +84,14 @@ type bitmap struct {
 }
 
 // gather up the bitmaps from the passed in data objects
-func gatherBitmaps(data []*Data, idx int) []bitmap {
+func gatherBitmaps(data []arrow.ArrayData, idx int) []bitmap {
 	out := make([]bitmap, len(data))
 	for i, d := range data {
-		if d.buffers[idx] != nil {
-			out[i].data = d.buffers[idx].Bytes()
+		if d.Buffers()[idx] != nil {
+			out[i].data = d.Buffers()[idx].Bytes()
 		}
-		out[i].rng.offset = d.offset
-		out[i].rng.len = d.length
+		out[i].rng.offset = d.Offset()
+		out[i].rng.len = d.Len()
 	}
 	return out
 }
@@ -85,32 +100,32 @@ func gatherBitmaps(data []*Data, idx int) []bitmap {
 // returning only the slices of the buffers which are relevant to the passed in arrays
 // in case they are themselves slices of other arrays. nil buffers are ignored and not
 // in the output slice.
-func gatherFixedBuffers(data []*Data, idx, byteWidth int) []*memory.Buffer {
+func gatherFixedBuffers(data []arrow.ArrayData, idx, byteWidth int) []*memory.Buffer {
 	out := make([]*memory.Buffer, 0, len(data))
 	for _, d := range data {
-		buf := d.buffers[idx]
+		buf := d.Buffers()[idx]
 		if buf == nil {
 			continue
 		}
 
-		out = append(out, memory.NewBufferBytes(buf.Bytes()[d.offset*byteWidth:(d.offset+d.length)*byteWidth]))
+		out = append(out, memory.NewBufferBytes(buf.Bytes()[d.Offset()*byteWidth:(d.Offset()+d.Len())*byteWidth]))
 	}
 	return out
 }
 
 // gatherBuffersFixedWidthType is like gatherFixedBuffers, but uses a datatype to determine the size
 // to use for determining the byte slice rather than a passed in bytewidth.
-func gatherBuffersFixedWidthType(data []*Data, idx int, fixed arrow.FixedWidthDataType) []*memory.Buffer {
+func gatherBuffersFixedWidthType(data []arrow.ArrayData, idx int, fixed arrow.FixedWidthDataType) []*memory.Buffer {
 	return gatherFixedBuffers(data, idx, fixed.BitWidth()/8)
 }
 
 // gatherBufferRanges requires that len(ranges) == len(data) and returns a list of buffers
 // which represent the corresponding range of each buffer in the specified index of each
 // data object.
-func gatherBufferRanges(data []*Data, idx int, ranges []rng) []*memory.Buffer {
+func gatherBufferRanges(data []arrow.ArrayData, idx int, ranges []rng) []*memory.Buffer {
 	out := make([]*memory.Buffer, 0, len(data))
 	for i, d := range data {
-		buf := d.buffers[idx]
+		buf := d.Buffers()[idx]
 		if buf == nil {
 			debug.Assert(ranges[i].len == 0, "misaligned buffer value ranges")
 			continue
@@ -122,28 +137,28 @@ func gatherBufferRanges(data []*Data, idx int, ranges []rng) []*memory.Buffer {
 }
 
 // gatherChildren gathers the children data objects for child of index idx for all of the data objects.
-func gatherChildren(data []*Data, idx int) []*Data {
+func gatherChildren(data []arrow.ArrayData, idx int) []arrow.ArrayData {
 	return gatherChildrenMultiplier(data, idx, 1)
 }
 
 // gatherChildrenMultiplier gathers the full data slice of the underlying values from the children data objects
 // such as the values data for a list array so that it can return a slice of the buffer for a given
 // index into the children.
-func gatherChildrenMultiplier(data []*Data, idx, multiplier int) []*Data {
-	out := make([]*Data, len(data))
+func gatherChildrenMultiplier(data []arrow.ArrayData, idx, multiplier int) []arrow.ArrayData {
+	out := make([]arrow.ArrayData, len(data))
 	for i, d := range data {
-		out[i] = NewSliceData(d.childData[idx], int64(d.offset*multiplier), int64(d.offset+d.length)*int64(multiplier))
+		out[i] = NewSliceData(d.Children()[idx], int64(d.Offset()*multiplier), int64(d.Offset()+d.Len())*int64(multiplier))
 	}
 	return out
 }
 
 // gatherChildrenRanges returns a slice of Data objects which each represent slices of the given ranges from the
 // child in the specified index from each data object.
-func gatherChildrenRanges(data []*Data, idx int, ranges []rng) []*Data {
+func gatherChildrenRanges(data []arrow.ArrayData, idx int, ranges []rng) []arrow.ArrayData {
 	debug.Assert(len(data) == len(ranges), "mismatched children ranges for concat")
-	out := make([]*Data, len(data))
+	out := make([]arrow.ArrayData, len(data))
 	for i, d := range data {
-		out[i] = NewSliceData(d.childData[idx], int64(ranges[i].offset), int64(ranges[i].offset+ranges[i].len))
+		out[i] = NewSliceData(d.Children()[idx], int64(ranges[i].offset), int64(ranges[i].offset+ranges[i].len))
 	}
 	return out
 }
@@ -166,20 +181,7 @@ func concatBuffers(bufs []*memory.Buffer, mem memory.Allocator) *memory.Buffer {
 	return out
 }
 
-// concatOffsets creates a single offset buffer which represents the concatenation of all of the
-// offsets buffers, adjusting the offsets appropriately to their new relative locations.
-//
-// It also returns the list of ranges that need to be fetched for the corresponding value buffers
-// to construct the final concatenated value buffer.
-func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buffer, []rng, error) {
-	outLen := 0
-	for _, b := range buffers {
-		outLen += b.Len() / arrow.Int32SizeBytes
-	}
-
-	out := memory.NewResizableBuffer(mem)
-	out.Resize(arrow.Int32Traits.BytesRequired(outLen + 1))
-
+func handle32BitOffsets(outLen int, buffers []*memory.Buffer, out *memory.Buffer) (*memory.Buffer, []rng, error) {
 	dst := arrow.Int32Traits.CastFromBytes(out.Bytes())
 	valuesRanges := make([]rng, len(buffers))
 	nextOffset := int32(0)
@@ -201,7 +203,7 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 		valuesRanges[i].len = int(expand[len(src)]) - valuesRanges[i].offset
 
 		if nextOffset > math.MaxInt32-int32(valuesRanges[i].len) {
-			return nil, nil, xerrors.New("offset overflow while concatenating arrays")
+			return nil, nil, errors.New("offset overflow while concatenating arrays")
 		}
 
 		// adjust each offset by the difference between our last ending point and our starting point
@@ -221,20 +223,163 @@ func concatOffsets(buffers []*memory.Buffer, mem memory.Allocator) (*memory.Buff
 	return out, valuesRanges, nil
 }
 
-// concat is the implementation for actually performing the concatenation of the *array.Data
+func unifyDictionaries(mem memory.Allocator, data []arrow.ArrayData, dt *arrow.DictionaryType) ([]*memory.Buffer, arrow.Array, error) {
+	unifier, err := NewDictionaryUnifier(mem, dt.ValueType)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer unifier.Release()
+
+	newLookup := make([]*memory.Buffer, len(data))
+	for i, d := range data {
+		dictArr := MakeFromData(d.Dictionary())
+		defer dictArr.Release()
+		newLookup[i], err = unifier.UnifyAndTranspose(dictArr)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	unified, err := unifier.GetResultWithIndexType(dt.IndexType)
+	if err != nil {
+		for _, b := range newLookup {
+			b.Release()
+		}
+		return nil, nil, err
+	}
+	return newLookup, unified, nil
+}
+
+func concatDictIndices(mem memory.Allocator, data []arrow.ArrayData, idxType arrow.FixedWidthDataType, transpositions []*memory.Buffer) (out *memory.Buffer, err error) {
+	defer func() {
+		if err != nil && out != nil {
+			out.Release()
+			out = nil
+		}
+	}()
+
+	idxWidth := idxType.BitWidth() / 8
+	outLen := 0
+	for i, d := range data {
+		outLen += d.Len()
+		defer transpositions[i].Release()
+	}
+
+	out = memory.NewResizableBuffer(mem)
+	out.Resize(outLen * idxWidth)
+
+	outData := out.Bytes()
+	for i, d := range data {
+		transposeMap := arrow.Int32Traits.CastFromBytes(transpositions[i].Bytes())
+		src := d.Buffers()[1].Bytes()
+		if d.Buffers()[0] == nil {
+			if err = utils.TransposeIntsBuffers(idxType, idxType, src, outData, d.Offset(), 0, d.Len(), transposeMap); err != nil {
+				return
+			}
+		} else {
+			rdr := bitutils.NewBitRunReader(d.Buffers()[0].Bytes(), int64(d.Offset()), int64(d.Len()))
+			pos := 0
+			for {
+				run := rdr.NextRun()
+				if run.Len == 0 {
+					break
+				}
+
+				if run.Set {
+					err = utils.TransposeIntsBuffers(idxType, idxType, src, outData, d.Offset()+pos, pos, int(run.Len), transposeMap)
+					if err != nil {
+						return
+					}
+				} else {
+					memory.Set(outData[pos:pos+(int(run.Len)*idxWidth)], 0x00)
+				}
+
+				pos += int(run.Len)
+			}
+		}
+		outData = outData[d.Len()*idxWidth:]
+	}
+	return
+}
+
+func handle64BitOffsets(outLen int, buffers []*memory.Buffer, out *memory.Buffer) (*memory.Buffer, []rng, error) {
+	dst := arrow.Int64Traits.CastFromBytes(out.Bytes())
+	valuesRanges := make([]rng, len(buffers))
+	nextOffset := int64(0)
+	nextElem := int(0)
+	for i, b := range buffers {
+		if b.Len() == 0 {
+			valuesRanges[i].offset = 0
+			valuesRanges[i].len = 0
+			continue
+		}
+
+		// when we gather our buffers, we sliced off the last offset from the buffer
+		// so that we could count the lengths accurately
+		src := arrow.Int64Traits.CastFromBytes(b.Bytes())
+		valuesRanges[i].offset = int(src[0])
+		// expand our slice to see that final offset
+		expand := src[:len(src)+1]
+		// compute the length of this range by taking the final offset and subtracting where we started.
+		valuesRanges[i].len = int(expand[len(src)]) - valuesRanges[i].offset
+
+		if nextOffset > math.MaxInt64-int64(valuesRanges[i].len) {
+			return nil, nil, errors.New("offset overflow while concatenating arrays")
+		}
+
+		// adjust each offset by the difference between our last ending point and our starting point
+		adj := nextOffset - src[0]
+		for j, o := range src {
+			dst[nextElem+j] = adj + o
+		}
+
+		// the next index for an element in the output buffer
+		nextElem += b.Len() / arrow.Int64SizeBytes
+		// update our offset counter to be the total current length of our output
+		nextOffset += int64(valuesRanges[i].len)
+	}
+
+	// final offset should point to the end of the data
+	dst[outLen] = nextOffset
+	return out, valuesRanges, nil
+}
+
+// concatOffsets creates a single offset buffer which represents the concatenation of all of the
+// offsets buffers, adjusting the offsets appropriately to their new relative locations.
+//
+// It also returns the list of ranges that need to be fetched for the corresponding value buffers
+// to construct the final concatenated value buffer.
+func concatOffsets(buffers []*memory.Buffer, byteWidth int, mem memory.Allocator) (*memory.Buffer, []rng, error) {
+	outLen := 0
+	for _, b := range buffers {
+		outLen += b.Len() / byteWidth
+	}
+
+	out := memory.NewResizableBuffer(mem)
+	out.Resize(byteWidth * (outLen + 1))
+
+	switch byteWidth {
+	case arrow.Int64SizeBytes:
+		return handle64BitOffsets(outLen, buffers, out)
+	default:
+		return handle32BitOffsets(outLen, buffers, out)
+	}
+}
+
+// concat is the implementation for actually performing the concatenation of the arrow.ArrayData
 // objects that we can call internally for nested types.
-func concat(data []*Data, mem memory.Allocator) (*Data, error) {
-	out := &Data{refCount: 1, dtype: data[0].dtype, nulls: 0}
+func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, error) {
+	out := &Data{refCount: 1, dtype: data[0].DataType(), nulls: 0}
 	for _, d := range data {
-		out.length += d.length
-		if out.nulls == UnknownNullCount || d.nulls == UnknownNullCount {
+		out.length += d.Len()
+		if out.nulls == UnknownNullCount || d.NullN() == UnknownNullCount {
 			out.nulls = UnknownNullCount
 			continue
 		}
-		out.nulls += d.nulls
+		out.nulls += d.NullN()
 	}
 
-	out.buffers = make([]*memory.Buffer, len(data[0].buffers))
+	out.buffers = make([]*memory.Buffer, len(data[0].Buffers()))
 	if out.nulls != 0 && out.dtype.ID() != arrow.NULL {
 		bm, err := concatBitmaps(gatherBitmaps(data, 0), mem)
 		if err != nil {
@@ -243,7 +388,12 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		out.buffers[0] = bm
 	}
 
-	switch dt := out.dtype.(type) {
+	dt := out.dtype
+	if dt.ID() == arrow.EXTENSION {
+		dt = dt.(arrow.ExtensionType).StorageType()
+	}
+
+	switch dt := dt.(type) {
 	case *arrow.NullType:
 	case *arrow.BooleanType:
 		bm, err := concatBitmaps(gatherBitmaps(data, 1), mem)
@@ -251,17 +401,55 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 			return nil, err
 		}
 		out.buffers[1] = bm
+	case *arrow.DictionaryType:
+		idxType := dt.IndexType.(arrow.FixedWidthDataType)
+		// two cases: all dictionaries are the same or we need to unify them
+		dictsSame := true
+		dict0 := MakeFromData(data[0].Dictionary())
+		defer dict0.Release()
+		for _, d := range data {
+			dict := MakeFromData(d.Dictionary())
+			if !Equal(dict0, dict) {
+				dict.Release()
+				dictsSame = false
+				break
+			}
+			dict.Release()
+		}
+
+		indexBuffers := gatherBuffersFixedWidthType(data, 1, idxType)
+		if dictsSame {
+			out.dictionary = dict0.Data().(*Data)
+			out.dictionary.Retain()
+			out.buffers[1] = concatBuffers(indexBuffers, mem)
+			break
+		}
+
+		indexLookup, unifiedDict, err := unifyDictionaries(mem, data, dt)
+		if err != nil {
+			return nil, err
+		}
+		defer unifiedDict.Release()
+		out.dictionary = unifiedDict.Data().(*Data)
+		out.dictionary.Retain()
+
+		out.buffers[1], err = concatDictIndices(mem, data, idxType, indexLookup)
+		if err != nil {
+			return nil, err
+		}
 	case arrow.FixedWidthDataType:
 		out.buffers[1] = concatBuffers(gatherBuffersFixedWidthType(data, 1, dt), mem)
 	case arrow.BinaryDataType:
-		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, arrow.Int32SizeBytes), mem)
+		offsetWidth := dt.Layout().Buffers[1].ByteWidth
+		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
 		if err != nil {
 			return nil, err
 		}
 		out.buffers[2] = concatBuffers(gatherBufferRanges(data, 2, valueRanges), mem)
 		out.buffers[1] = offsetBuffer
 	case *arrow.ListType:
-		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, arrow.Int32SizeBytes), mem)
+		offsetWidth := dt.Layout().Buffers[1].ByteWidth
+		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
 		if err != nil {
 			return nil, err
 		}
@@ -271,7 +459,24 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		}
 
 		out.buffers[1] = offsetBuffer
-		out.childData = make([]*Data, 1)
+		out.childData = make([]arrow.ArrayData, 1)
+		out.childData[0], err = concat(childData, mem)
+		if err != nil {
+			return nil, err
+		}
+	case *arrow.LargeListType:
+		offsetWidth := dt.Layout().Buffers[1].ByteWidth
+		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
+		if err != nil {
+			return nil, err
+		}
+		childData := gatherChildrenRanges(data, 0, valueRanges)
+		for _, c := range childData {
+			defer c.Release()
+		}
+
+		out.buffers[1] = offsetBuffer
+		out.childData = make([]arrow.ArrayData, 1)
 		out.childData[0], err = concat(childData, mem)
 		if err != nil {
 			return nil, err
@@ -286,9 +491,9 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		if err != nil {
 			return nil, err
 		}
-		out.childData = []*Data{children}
+		out.childData = []arrow.ArrayData{children}
 	case *arrow.StructType:
-		out.childData = make([]*Data, len(dt.Fields()))
+		out.childData = make([]arrow.ArrayData, len(dt.Fields()))
 		for i := range dt.Fields() {
 			children := gatherChildren(data, i)
 			for _, c := range children {
@@ -302,7 +507,8 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 			out.childData[i] = childData
 		}
 	case *arrow.MapType:
-		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, arrow.Int32SizeBytes), mem)
+		offsetWidth := dt.Layout().Buffers[1].ByteWidth
+		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)
 		if err != nil {
 			return nil, err
 		}
@@ -312,13 +518,57 @@ func concat(data []*Data, mem memory.Allocator) (*Data, error) {
 		}
 
 		out.buffers[1] = offsetBuffer
-		out.childData = make([]*Data, 1)
+		out.childData = make([]arrow.ArrayData, 1)
 		out.childData[0], err = concat(childData, mem)
 		if err != nil {
 			return nil, err
 		}
+	case *arrow.RunEndEncodedType:
+		physicalLength, overflow := int(0), false
+		// we can't use gatherChildren because the Offset and Len of
+		// data doesn't correspond to the physical length or offset
+		runs := make([]arrow.ArrayData, len(data))
+		values := make([]arrow.ArrayData, len(data))
+		for i, d := range data {
+			plen := encoded.GetPhysicalLength(d)
+			off := encoded.FindPhysicalOffset(d)
+
+			runs[i] = NewSliceData(d.Children()[0], int64(off), int64(off+plen))
+			defer runs[i].Release()
+			values[i] = NewSliceData(d.Children()[1], int64(off), int64(off+plen))
+			defer values[i].Release()
+
+			physicalLength, overflow = addOvf(physicalLength, plen)
+			if overflow {
+				return nil, fmt.Errorf("%w: run end encoded array length must fit into a 32-bit signed integer",
+					arrow.ErrInvalid)
+			}
+		}
+
+		runEndsByteWidth := runs[0].DataType().(arrow.FixedWidthDataType).Bytes()
+		runEndsBuffers := gatherFixedBuffers(runs, 1, runEndsByteWidth)
+		outRunEndsLen := physicalLength * runEndsByteWidth
+		outRunEndsBuf := memory.NewResizableBuffer(mem)
+		outRunEndsBuf.Resize(outRunEndsLen)
+		defer outRunEndsBuf.Release()
+
+		if err := updateRunEnds(runEndsByteWidth, data, runEndsBuffers, outRunEndsBuf); err != nil {
+			return nil, err
+		}
+
+		out.childData = make([]arrow.ArrayData, 2)
+		out.childData[0] = NewData(data[0].Children()[0].DataType(), int(physicalLength),
+			[]*memory.Buffer{nil, outRunEndsBuf}, nil, 0, 0)
+
+		var err error
+		out.childData[1], err = concat(values, mem)
+		if err != nil {
+			out.childData[0].Release()
+			return nil, err
+		}
+
 	default:
-		return nil, xerrors.Errorf("concatenate not implemented for type %s", dt)
+		return nil, fmt.Errorf("concatenate not implemented for type %s", dt)
 	}
 
 	return out, nil
@@ -346,7 +596,7 @@ func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, erro
 
 	for _, bm := range bitmaps {
 		if outlen, overflow = addOvf(outlen, bm.rng.len); overflow {
-			return nil, xerrors.New("length overflow when concatenating arrays")
+			return nil, errors.New("length overflow when concatenating arrays")
 		}
 	}
 
@@ -364,4 +614,124 @@ func concatBitmaps(bitmaps []bitmap, mem memory.Allocator) (*memory.Buffer, erro
 		offset += bm.rng.len
 	}
 	return out, nil
+}
+
+func updateRunEnds(byteWidth int, inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, outputBuffer *memory.Buffer) error {
+	switch byteWidth {
+	case 2:
+		out := arrow.Int16Traits.CastFromBytes(outputBuffer.Bytes())
+		return updateRunsInt16(inputData, inputBuffers, out)
+	case 4:
+		out := arrow.Int32Traits.CastFromBytes(outputBuffer.Bytes())
+		return updateRunsInt32(inputData, inputBuffers, out)
+	case 8:
+		out := arrow.Int64Traits.CastFromBytes(outputBuffer.Bytes())
+		return updateRunsInt64(inputData, inputBuffers, out)
+	}
+	return fmt.Errorf("%w: invalid dataType for RLE runEnds", arrow.ErrInvalid)
+}
+
+func updateRunsInt16(inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, output []int16) error {
+	// for now we will not attempt to optimize by checking if we
+	// can fold the end and beginning of each array we're concatenating
+	// into a single run
+	pos := 0
+	for i, buf := range inputBuffers {
+		if buf.Len() == 0 {
+			continue
+		}
+		src := arrow.Int16Traits.CastFromBytes(buf.Bytes())
+		if pos == 0 {
+			pos += copy(output, src)
+			continue
+		}
+
+		lastEnd := output[pos-1]
+		// we can check the last runEnd in the src and add it to the
+		// last value that we're adjusting them all by to see if we
+		// are going to overflow
+		if int64(lastEnd)+int64(int(src[len(src)-1])-inputData[i].Offset()) > math.MaxInt16 {
+			return fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+		}
+
+		// adjust all of the run ends by first normalizing them (e - data[i].offset)
+		// then adding the previous value we ended on. Since the offset
+		// is a logical length offset it should be accurate to just subtract
+		// it from each value.
+		for j, e := range src {
+			output[pos+j] = lastEnd + int16(int(e)-inputData[i].Offset())
+		}
+		pos += len(src)
+	}
+	return nil
+}
+
+func updateRunsInt32(inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, output []int32) error {
+	// for now we will not attempt to optimize by checking if we
+	// can fold the end and beginning of each array we're concatenating
+	// into a single run
+	pos := 0
+	for i, buf := range inputBuffers {
+		if buf.Len() == 0 {
+			continue
+		}
+		src := arrow.Int32Traits.CastFromBytes(buf.Bytes())
+		if pos == 0 {
+			pos += copy(output, src)
+			continue
+		}
+
+		lastEnd := output[pos-1]
+		// we can check the last runEnd in the src and add it to the
+		// last value that we're adjusting them all by to see if we
+		// are going to overflow
+		if int64(lastEnd)+int64(int(src[len(src)-1])-inputData[i].Offset()) > math.MaxInt32 {
+			return fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+		}
+
+		// adjust all of the run ends by first normalizing them (e - data[i].offset)
+		// then adding the previous value we ended on. Since the offset
+		// is a logical length offset it should be accurate to just subtract
+		// it from each value.
+		for j, e := range src {
+			output[pos+j] = lastEnd + int32(int(e)-inputData[i].Offset())
+		}
+		pos += len(src)
+	}
+	return nil
+}
+
+func updateRunsInt64(inputData []arrow.ArrayData, inputBuffers []*memory.Buffer, output []int64) error {
+	// for now we will not attempt to optimize by checking if we
+	// can fold the end and beginning of each array we're concatenating
+	// into a single run
+	pos := 0
+	for i, buf := range inputBuffers {
+		if buf.Len() == 0 {
+			continue
+		}
+		src := arrow.Int64Traits.CastFromBytes(buf.Bytes())
+		if pos == 0 {
+			pos += copy(output, src)
+			continue
+		}
+
+		lastEnd := output[pos-1]
+		// we can check the last runEnd in the src and add it to the
+		// last value that we're adjusting them all by to see if we
+		// are going to overflow
+		if uint64(lastEnd)+uint64(int(src[len(src)-1])-inputData[i].Offset()) > math.MaxInt64 {
+			return fmt.Errorf("%w: overflow in run-length-encoded run ends concat", arrow.ErrInvalid)
+		}
+
+		// adjust all of the run ends by first normalizing them (e - data[i].offset)
+		// then adding the previous value we ended on. Since the offset
+		// is a logical length offset it should be accurate to just subtract
+		// it from each value.
+		for j, e := range src {
+			output[pos+j] = lastEnd + e - int64(inputData[i].Offset())
+		}
+		pos += len(src)
+	}
+	return nil
 }

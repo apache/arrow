@@ -16,10 +16,11 @@
 // under the License.
 
 #include <gflags/gflags.h>
-
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <memory>
+#include <optional>
 
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
@@ -29,7 +30,6 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
-#include "arrow/util/optional.h"
 
 using arrow::Result;
 using arrow::Schema;
@@ -71,11 +71,10 @@ Status PrintResultsForEndpoint(FlightSqlClient& client,
 
   std::cout << "Results:" << std::endl;
 
-  FlightStreamChunk chunk;
   int64_t num_rows = 0;
 
   while (true) {
-    ARROW_RETURN_NOT_OK(stream->Next(&chunk));
+    ARROW_ASSIGN_OR_RAISE(FlightStreamChunk chunk, stream->Next());
     if (chunk.data == nullptr) {
       break;
     }
@@ -102,10 +101,8 @@ Status PrintResults(FlightSqlClient& client, const FlightCallOptions& call_optio
 }
 
 Status RunMain() {
-  std::unique_ptr<FlightClient> client;
-  Location location;
-  ARROW_RETURN_NOT_OK(Location::ForGrpcTcp(FLAGS_host, FLAGS_port, &location));
-  ARROW_RETURN_NOT_OK(FlightClient::Connect(location, &client));
+  ARROW_ASSIGN_OR_RAISE(auto location, Location::ForGrpcTcp(FLAGS_host, FLAGS_port));
+  ARROW_ASSIGN_OR_RAISE(auto client, FlightClient::Connect(location));
 
   FlightCallOptions call_options;
 
@@ -162,16 +159,16 @@ Status RunMain() {
         info, sql_client.GetTables(call_options, &FLAGS_catalog, &FLAGS_schema,
                                    &FLAGS_table, false, nullptr));
   } else if (FLAGS_command == "GetExportedKeys") {
-    TableRef table_ref = {arrow::util::make_optional(FLAGS_catalog),
-                          arrow::util::make_optional(FLAGS_schema), FLAGS_table};
+    TableRef table_ref = {std::make_optional(FLAGS_catalog),
+                          std::make_optional(FLAGS_schema), FLAGS_table};
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetExportedKeys(call_options, table_ref));
   } else if (FLAGS_command == "GetImportedKeys") {
-    TableRef table_ref = {arrow::util::make_optional(FLAGS_catalog),
-                          arrow::util::make_optional(FLAGS_schema), FLAGS_table};
+    TableRef table_ref = {std::make_optional(FLAGS_catalog),
+                          std::make_optional(FLAGS_schema), FLAGS_table};
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetImportedKeys(call_options, table_ref));
   } else if (FLAGS_command == "GetPrimaryKeys") {
-    TableRef table_ref = {arrow::util::make_optional(FLAGS_catalog),
-                          arrow::util::make_optional(FLAGS_schema), FLAGS_table};
+    TableRef table_ref = {std::make_optional(FLAGS_catalog),
+                          std::make_optional(FLAGS_schema), FLAGS_table};
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetPrimaryKeys(call_options, table_ref));
   } else if (FLAGS_command == "GetSqlInfo") {
     ARROW_ASSIGN_OR_RAISE(info, sql_client.GetSqlInfo(call_options, {}));

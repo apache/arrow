@@ -365,6 +365,64 @@ test_that("list type works as expected", {
   )
   expect_equal(x$value_type, int32())
   expect_equal(x$value_field, field("item", int32()))
+
+  # nullability matters in comparison
+  expect_false(x$Equals(list_of(field("item", int32(), nullable = FALSE))))
+
+  # field names don't matter by default
+  other_name <- list_of(field("other", int32()))
+  expect_equal(x, other_name, ignore_attr = TRUE)
+  expect_false(x$Equals(other_name, check_metadata = TRUE))
+})
+
+test_that("map type works as expected", {
+  x <- map_of(int32(), utf8())
+  expect_equal(x$id, Type$MAP)
+  expect_equal(x$name, "map")
+  expect_equal(x$ToString(), "map<int32, string>")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(
+    x$key_field,
+    field("key", int32(), nullable = FALSE)
+  )
+  expect_equal(
+    x$item_field,
+    field("value", utf8())
+  )
+  expect_equal(x$key_type, int32())
+  expect_equal(x$item_type, string())
+  # TODO: (ARROW-15102): Enable constructing StructTypes with non-nullable fields, so
+  # we can make this comparison:
+  # expect_equal(x$value_type, struct(key = x$key_field, value = x$item_field)) # nolint
+  expect_false(x$keys_sorted)
+
+  # nullability matters in comparison
+  expect_false(x$Equals(map_of(int32(), field("value", utf8(), nullable = FALSE))))
+
+  # field names don't matter by default
+  other_name <- map_of(int32(), field("other", utf8()))
+  expect_equal(x, other_name, ignore_attr = TRUE)
+  expect_false(x$Equals(other_name, check_metadata = TRUE))
+})
+
+test_that("map type validates arguments", {
+  expect_error(
+    map_of(field("key", int32(), nullable = TRUE), utf8()),
+    "cannot be nullable"
+  )
+  expect_error(map_of(1L, utf8()), "must be a DataType or Field")
+  expect_error(map_of(int32(), 1L), "must be a DataType or Field")
+
+  # field construction
+  ty <- map_of(
+    field("the_keys", int32(), nullable = FALSE),
+    field("my_values", utf8(), nullable = FALSE)
+  )
+  expect_equal(ty$key_field$name, "the_keys")
+  expect_equal(ty$item_field$name, "my_values")
+  expect_equal(ty$key_field$nullable, FALSE)
+  expect_equal(ty$item_field$nullable, FALSE)
 })
 
 test_that("struct type works as expected", {
@@ -486,4 +544,94 @@ test_that("DataType to C-interface", {
 
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
+})
+
+test_that("DataType$code()", {
+  expect_code_roundtrip(int8())
+  expect_code_roundtrip(uint8())
+  expect_code_roundtrip(int16())
+  expect_code_roundtrip(uint16())
+  expect_code_roundtrip(int32())
+  expect_code_roundtrip(uint32())
+  expect_code_roundtrip(int64())
+  expect_code_roundtrip(uint64())
+
+  expect_code_roundtrip(float16())
+  expect_code_roundtrip(float32())
+  expect_code_roundtrip(float64())
+
+  expect_code_roundtrip(null())
+
+  expect_code_roundtrip(boolean())
+  expect_code_roundtrip(utf8())
+  expect_code_roundtrip(large_utf8())
+
+  expect_code_roundtrip(binary())
+  expect_code_roundtrip(large_binary())
+  expect_code_roundtrip(fixed_size_binary(byte_width = 91))
+
+  expect_code_roundtrip(date32())
+  expect_code_roundtrip(date64())
+
+  expect_code_roundtrip(time32())
+  expect_code_roundtrip(time32(unit = "ms"))
+  expect_code_roundtrip(time32(unit = "s"))
+
+  expect_code_roundtrip(time64())
+  expect_code_roundtrip(time64(unit = "ns"))
+  expect_code_roundtrip(time64(unit = "us"))
+
+  expect_code_roundtrip(timestamp())
+  expect_code_roundtrip(timestamp(unit = "s"))
+  expect_code_roundtrip(timestamp(unit = "ms"))
+  expect_code_roundtrip(timestamp(unit = "ns"))
+  expect_code_roundtrip(timestamp(unit = "us"))
+
+  expect_code_roundtrip(timestamp(unit = "s", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ms", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "ns", timezone = "CET"))
+  expect_code_roundtrip(timestamp(unit = "us", timezone = "CET"))
+
+  expect_code_roundtrip(decimal(precision = 3, scale = 5))
+
+  expect_code_roundtrip(
+    struct(a = int32(), b = struct(c = list_of(utf8())), d = float64())
+  )
+
+  expect_code_roundtrip(list_of(int32()))
+  expect_code_roundtrip(large_list_of(int32()))
+  expect_code_roundtrip(
+    fixed_size_list_of(int32(), list_size = 7L)
+  )
+
+  expect_code_roundtrip(dictionary())
+  expect_code_roundtrip(dictionary(index_type = int8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), value_type = large_utf8()))
+  expect_code_roundtrip(dictionary(index_type = int8(), ordered = TRUE))
+
+  skip_if(packageVersion("rlang") < 1)
+  # Are these unsupported for a reason?
+  expect_error(
+    eval(DayTimeInterval__initialize()$code()),
+    "Unsupported type"
+  )
+  expect_error(
+    eval(struct(a = DayTimeInterval__initialize())$code()),
+    "Unsupported type"
+  )
+})
+
+test_that("as_data_type() works for DataType", {
+  expect_equal(as_data_type(int32()), int32())
+})
+
+test_that("as_data_type() works for Field", {
+  expect_equal(as_data_type(field("a field", int32())), int32())
+})
+
+test_that("as_data_type() works for Schema", {
+  expect_equal(
+    as_data_type(schema(col1 = int32(), col2 = string())),
+    struct(col1 = int32(), col2 = string())
+  )
 })

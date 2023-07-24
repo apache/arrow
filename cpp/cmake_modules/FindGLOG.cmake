@@ -17,6 +17,10 @@
 #
 #  find_package(GLOG)
 
+if(GLOG_FOUND)
+  return()
+endif()
+
 find_package(PkgConfig QUIET)
 pkg_check_modules(GLOG_PC libglog)
 if(GLOG_PC_FOUND)

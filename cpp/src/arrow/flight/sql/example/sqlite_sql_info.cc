@@ -18,6 +18,7 @@
 #include "arrow/flight/sql/example/sqlite_sql_info.h"
 
 #include "arrow/flight/sql/types.h"
+#include "arrow/util/config.h"
 
 namespace arrow {
 namespace flight {
@@ -33,8 +34,14 @@ SqlInfoResultMap GetSqlInfoResultMap() {
       {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_VERSION,
        SqlInfoResult(std::string("sqlite 3"))},
       {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_ARROW_VERSION,
-       SqlInfoResult(std::string("7.0.0-SNAPSHOT" /* Only an example */))},
+       SqlInfoResult(std::string(ARROW_VERSION_STRING))},
       {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_READ_ONLY, SqlInfoResult(false)},
+      {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_SQL, SqlInfoResult(true)},
+      {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_SUBSTRAIT, SqlInfoResult(false)},
+      {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_TRANSACTION,
+       SqlInfoResult(SqlInfoOptions::SqlSupportedTransaction::
+                         SQL_SUPPORTED_TRANSACTION_TRANSACTION)},
+      {SqlInfoOptions::SqlInfo::FLIGHT_SQL_SERVER_CANCEL, SqlInfoResult(false)},
       {SqlInfoOptions::SqlInfo::SQL_DDL_CATALOG,
        SqlInfoResult(false /* SQLite 3 does not support catalogs */)},
       {SqlInfoOptions::SqlInfo::SQL_DDL_SCHEMA,

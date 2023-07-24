@@ -21,24 +21,7 @@
 
 #include "parquet/platform.h"
 
-namespace parquet {
-namespace encryption {
-namespace internal {
-
-// "data encryption key" and "master key identifier" are paired together as output when
-// parsing from "key material"
-class PARQUET_EXPORT KeyWithMasterId {
- public:
-  KeyWithMasterId(std::string key_bytes, std::string master_id)
-      : key_bytes_(std::move(key_bytes)), master_id_(std::move(master_id)) {}
-
-  const std::string& data_key() const { return key_bytes_; }
-  const std::string& master_id() const { return master_id_; }
-
- private:
-  const std::string key_bytes_;
-  const std::string master_id_;
-};
+namespace parquet::encryption::internal {
 
 /// Encrypts "key" with "master_key", using AES-GCM and the "aad"
 PARQUET_EXPORT
@@ -53,6 +36,4 @@ std::string DecryptKeyLocally(const std::string& encoded_encrypted_key,
 PARQUET_EXPORT
 bool ValidateKeyLength(int32_t key_length_bits);
 
-}  // namespace internal
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::internal

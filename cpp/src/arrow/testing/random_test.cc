@@ -14,6 +14,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -22,6 +23,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
@@ -46,6 +48,43 @@ struct RandomTestParam {
 class RandomArrayTest : public ::testing::TestWithParam<RandomTestParam> {
  protected:
   std::shared_ptr<Field> GetField() { return GetParam().field; }
+
+  BufferVector GetAllBuffers(const Array& array) {
+    BufferVector out;
+    GetAllBuffers(*array.data(), &out);
+    return out;
+  }
+
+  void GetAllBuffers(const ArrayData& data, BufferVector* out) {
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        out->push_back(buf);
+      }
+    }
+    if (data.dictionary) {
+      GetAllBuffers(*data.dictionary, out);
+    }
+    for (const auto& child : data.child_data) {
+      GetAllBuffers(*child, out);
+    }
+  }
+
+  bool HasList(const DataType& type) {
+    if (is_var_length_list(type.id())) {
+      return true;
+    }
+    for (const auto& child : type.fields()) {
+      if (HasList(*child->type())) {
+        return true;
+      }
+    }
+    if (type.id() == Type::DICTIONARY) {
+      if (HasList(*checked_cast<const DictionaryType&>(type).value_type())) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
 
 TEST_P(RandomArrayTest, GenerateArray) {
@@ -54,6 +93,23 @@ TEST_P(RandomArrayTest, GenerateArray) {
   AssertTypeEqual(field->type(), array->type());
   ASSERT_EQ(kExpectedLength, array->length());
   ASSERT_OK(array->ValidateFull());
+}
+
+TEST_P(RandomArrayTest, GenerateArrayAlignment) {
+  const int64_t alignment = 1024;
+  auto field = GetField();
+  if (HasList(*field->type())) {
+    GTEST_SKIP() << "ListArray::FromArrays does not conserve buffer alignment";
+  }
+  auto array = GenerateArray(*field, /*size=*/13, 0xDEADBEEF, alignment);
+  AssertTypeEqual(field->type(), array->type());
+  ASSERT_EQ(13, array->length());
+  ASSERT_OK(array->ValidateFull());
+
+  for (const auto& buf : GetAllBuffers(*array)) {
+    ASSERT_EQ(buf->address() % (alignment), 0)
+        << "Buffer address is unaligned: " << buf->address();
+  }
 }
 
 TEST_P(RandomArrayTest, GenerateBatch) {
@@ -360,7 +416,7 @@ TEST(TypeSpecificTests, RepeatedStrings) {
   AssertTypeEqual(field->type(), base_array->type());
   auto array = internal::checked_pointer_cast<StringArray>(base_array);
   ASSERT_OK(array->ValidateFull());
-  util::string_view singular_value = array->GetView(0);
+  std::string_view singular_value = array->GetView(0);
   for (auto slot : *array) {
     if (!slot.has_value()) continue;
     ASSERT_EQ(slot, singular_value);
@@ -440,6 +496,66 @@ TEST(RandomList, Basics) {
       null_count += array->IsNull(i);
     }
     ASSERT_EQ(null_count, array->data()->null_count);
+  }
+}
+
+TEST(RandomChildFieldNullablity, List) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_list_field = arrow::field("list", arrow::list(item), false);
+  auto list_field = arrow::field("list", arrow::list(nest_list_field), true);
+  auto array = rng.ArrayOf(*list_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({list_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Struct) {
+  random::RandomArrayGenerator rng(42);
+
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_struct_field = arrow::field("struct", arrow::struct_({item}), false);
+  auto struct_field = arrow::field("struct", arrow::struct_({nest_struct_field}), true);
+  auto array = rng.ArrayOf(*struct_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({struct_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomChildFieldNullablity, Map) {
+  random::RandomArrayGenerator rng(42);
+  auto item = arrow::field("item", arrow::int8(), true);
+  auto nest_map_field =
+      arrow::field("map", arrow::map(arrow::int8(), item, false), false);
+  auto map_field =
+      arrow::field("struct", arrow::map(arrow::int8(), nest_map_field, false), true);
+  auto array = rng.ArrayOf(*map_field, 428);
+  ARROW_EXPECT_OK(array->ValidateFull());
+
+  auto batch = rng.BatchOf({map_field}, 428);
+  ARROW_EXPECT_OK(batch->ValidateFull());
+}
+
+TEST(RandomRunEndEncoded, Basics) {
+  random::RandomArrayGenerator rng(42);
+  for (const double null_probability : {0.0, 0.1, 1.0}) {
+    SCOPED_TRACE("null_probability = " + std::to_string(null_probability));
+    auto array = rng.ArrayOf(run_end_encoded(int32(), int16()), 12345, null_probability);
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_EQ(array->length(), 12345);
+    const auto& ree_array = checked_cast<const RunEndEncodedArray&>(*array);
+    ASSERT_EQ(*ree_array.type(), *run_end_encoded(int32(), int16()));
+    const int64_t physical_length = ree_array.run_ends()->length();
+    ASSERT_EQ(ree_array.values()->length(), physical_length);
+    if (null_probability == 0.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), 0);
+    }
+    if (null_probability == 1.0) {
+      ASSERT_EQ(ree_array.values()->null_count(), physical_length);
+    }
   }
 }
 

@@ -33,6 +33,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-builders
+///
+/// @{
+
 /// \brief Base class for union array builds.
 ///
 /// Note that while we subclass ArrayBuilder, as union types do not have a
@@ -63,7 +67,7 @@ class ARROW_EXPORT BasicUnionBuilder : public ArrayBuilder {
   int64_t length() const override { return types_builder_.length(); }
 
  protected:
-  BasicUnionBuilder(MemoryPool* pool,
+  BasicUnionBuilder(MemoryPool* pool, int64_t alignment,
                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
                     const std::shared_ptr<DataType>& type);
 
@@ -88,15 +92,19 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
   /// Use this constructor to initialize the UnionBuilder with no child builders,
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
-  explicit DenseUnionBuilder(MemoryPool* pool)
-      : BasicUnionBuilder(pool, {}, dense_union(FieldVector{})), offsets_builder_(pool) {}
+  explicit DenseUnionBuilder(MemoryPool* pool,
+                             int64_t alignment = kDefaultBufferAlignment)
+      : BasicUnionBuilder(pool, alignment, {}, dense_union(FieldVector{})),
+        offsets_builder_(pool, alignment) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
   DenseUnionBuilder(MemoryPool* pool,
                     const std::vector<std::shared_ptr<ArrayBuilder>>& children,
-                    const std::shared_ptr<DataType>& type)
-      : BasicUnionBuilder(pool, children, type), offsets_builder_(pool) {}
+                    const std::shared_ptr<DataType>& type,
+                    int64_t alignment = kDefaultBufferAlignment)
+      : BasicUnionBuilder(pool, alignment, children, type),
+        offsets_builder_(pool, alignment) {}
 
   Status AppendNull() final {
     const int8_t first_child_code = type_codes_[0];
@@ -156,7 +164,7 @@ class ARROW_EXPORT DenseUnionBuilder : public BasicUnionBuilder {
     return offsets_builder_.Append(offset);
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
 
   Status FinishInternal(std::shared_ptr<ArrayData>* out) override;
@@ -173,15 +181,17 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// Use this constructor to initialize the UnionBuilder with no child builders,
   /// allowing type to be inferred. You will need to call AppendChild for each of the
   /// children builders you want to use.
-  explicit SparseUnionBuilder(MemoryPool* pool)
-      : BasicUnionBuilder(pool, {}, sparse_union(FieldVector{})) {}
+  explicit SparseUnionBuilder(MemoryPool* pool,
+                              int64_t alignment = kDefaultBufferAlignment)
+      : BasicUnionBuilder(pool, alignment, {}, sparse_union(FieldVector{})) {}
 
   /// Use this constructor to specify the type explicitly.
   /// You can still add child builders to the union after using this constructor
   SparseUnionBuilder(MemoryPool* pool,
                      const std::vector<std::shared_ptr<ArrayBuilder>>& children,
-                     const std::shared_ptr<DataType>& type)
-      : BasicUnionBuilder(pool, children, type) {}
+                     const std::shared_ptr<DataType>& type,
+                     int64_t alignment = kDefaultBufferAlignment)
+      : BasicUnionBuilder(pool, alignment, children, type) {}
 
   /// \brief Append a null value.
   ///
@@ -235,8 +245,10 @@ class ARROW_EXPORT SparseUnionBuilder : public BasicUnionBuilder {
   /// is called, and all other child builders must have null or empty value appended.
   Status Append(int8_t next_type) { return types_builder_.Append(next_type); }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override;
 };
+
+/// @}
 
 }  // namespace arrow

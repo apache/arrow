@@ -35,7 +35,7 @@ class FileDecryptionProperties;
 
 class PARQUET_EXPORT Decryptor {
  public:
-  Decryptor(encryption::AesDecryptor* decryptor, const std::string& key,
+  Decryptor(std::shared_ptr<encryption::AesDecryptor> decryptor, const std::string& key,
             const std::string& file_aad, const std::string& aad,
             ::arrow::MemoryPool* pool);
 
@@ -47,7 +47,7 @@ class PARQUET_EXPORT Decryptor {
   int Decrypt(const uint8_t* ciphertext, int ciphertext_len, uint8_t* plaintext);
 
  private:
-  encryption::AesDecryptor* aes_decryptor_;
+  std::shared_ptr<encryption::AesDecryptor> aes_decryptor_;
   std::string key_;
   std::string file_aad_;
   std::string aad_;
@@ -97,12 +97,9 @@ class InternalFileDecryptor {
   std::shared_ptr<Decryptor> footer_data_decryptor_;
   ParquetCipher::type algorithm_;
   std::string footer_key_metadata_;
-  std::vector<encryption::AesDecryptor*> all_decryptors_;
-
-  /// Key must be 16, 24 or 32 bytes in length. Thus there could be up to three
-  // types of meta_decryptors and data_decryptors.
-  std::unique_ptr<encryption::AesDecryptor> meta_decryptor_[3];
-  std::unique_ptr<encryption::AesDecryptor> data_decryptor_[3];
+  // A weak reference to all decryptors that need to be wiped out when decryption is
+  // finished
+  std::vector<std::weak_ptr<encryption::AesDecryptor>> all_decryptors_;
 
   ::arrow::MemoryPool* pool_;
 
@@ -111,11 +108,6 @@ class InternalFileDecryptor {
                                                 const std::string& column_key_metadata,
                                                 const std::string& aad,
                                                 bool metadata = false);
-
-  encryption::AesDecryptor* GetMetaAesDecryptor(size_t key_size);
-  encryption::AesDecryptor* GetDataAesDecryptor(size_t key_size);
-
-  int MapKeyLenToDecryptorArrayIndex(int key_len);
 };
 
 }  // namespace parquet

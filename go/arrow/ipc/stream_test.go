@@ -18,29 +18,24 @@ package ipc_test
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestStream(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	for name, recs := range arrdata.Records {
 		t.Run(name, func(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
+			f, err := os.CreateTemp(tempDir, "go-arrow-stream-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -64,11 +59,7 @@ func TestStream(t *testing.T) {
 }
 
 func TestStreamCompressed(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-stream-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	compressTypes := []flatbuf.CompressionType{
 		flatbuf.CompressionTypeLZ4_FRAME, flatbuf.CompressionTypeZSTD,
@@ -83,7 +74,7 @@ func TestStreamCompressed(t *testing.T) {
 							mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 							defer mem.AssertSize(t, 0)
 
-							f, err := ioutil.TempFile(tempDir, "go-arrow-stream-")
+							f, err := os.CreateTemp(tempDir, "go-arrow-stream-")
 							if err != nil {
 								t.Fatal(err)
 							}

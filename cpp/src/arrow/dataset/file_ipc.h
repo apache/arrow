@@ -43,6 +43,8 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
  public:
   std::string type_name() const override { return kIpcTypeName; }
 
+  IpcFileFormat();
+
   bool Equals(const FileFormat& other) const override {
     return type_name() == other.type_name();
   }
@@ -52,16 +54,11 @@ class ARROW_DS_EXPORT IpcFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& fragment) const override;
-
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -95,7 +92,8 @@ class ARROW_DS_EXPORT IpcFileWriteOptions : public FileWriteOptions {
   std::shared_ptr<const KeyValueMetadata> metadata;
 
  protected:
-  using FileWriteOptions::FileWriteOptions;
+  explicit IpcFileWriteOptions(std::shared_ptr<FileFormat> format)
+      : FileWriteOptions(std::move(format)) {}
 
   friend class IpcFileFormat;
 };
@@ -111,7 +109,7 @@ class ARROW_DS_EXPORT IpcFileWriter : public FileWriter {
                 std::shared_ptr<IpcFileWriteOptions> options,
                 fs::FileLocator destination_locator);
 
-  Status FinishInternal() override;
+  Future<> FinishInternal() override;
 
   std::shared_ptr<io::OutputStream> destination_;
   std::shared_ptr<ipc::RecordBatchWriter> batch_writer_;

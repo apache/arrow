@@ -15,6 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(utf8proc_FOUND)
+  return()
+endif()
+
+if(ARROW_PACKAGE_KIND STREQUAL "vcpkg")
+  set(find_package_args "")
+  if(utf8proc_FIND_VERSION)
+    list(APPEND find_package_args ${utf8proc_FIND_VERSION})
+  endif()
+  if(utf8proc_FIND_QUIETLY)
+    list(APPEND find_package_args QUIET)
+  endif()
+  if(utf8proc_FIND_REQUIRED)
+    list(APPEND find_package_args REQUIRED)
+  endif()
+  find_package(utf8proc NAMES unofficial-utf8proc ${find_package_args})
+  if(utf8proc_FOUND)
+    add_library(utf8proc::utf8proc ALIAS utf8proc)
+    return()
+  endif()
+endif()
+
 function(extract_utf8proc_version)
   if(utf8proc_INCLUDE_DIR)
     file(READ "${utf8proc_INCLUDE_DIR}/utf8proc.h" UTF8PROC_H_CONTENT)
@@ -95,7 +117,7 @@ if(utf8proc_FOUND)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${utf8proc_INCLUDE_DIR}")
   if(NOT ARROW_UTF8PROC_USE_SHARED)
-    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILER_DEFINITIONS
+    set_target_properties(utf8proc::utf8proc PROPERTIES INTERFACE_COMPILE_DEFINITIONS
                                                         "UTF8PROC_STATIC")
   endif()
 endif()

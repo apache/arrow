@@ -15,4 +15,4 @@
 #  specific language governing permissions and limitations
 #  under the License.
 
-c("tests/testthat/latin1.R", "data-raw/codegen.R")
+"data-raw/codegen.R"

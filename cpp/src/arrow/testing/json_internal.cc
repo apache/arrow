@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -46,6 +47,7 @@
 #include "arrow/util/formatting.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/range.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
@@ -54,7 +56,9 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::Enumerate;
 using internal::ParseValue;
+using internal::Zip;
 
 using ipc::DictionaryFieldMapper;
 using ipc::DictionaryMemo;
@@ -118,10 +122,8 @@ class SchemaWriter {
     writer_->StartArray();
 
     FieldPosition field_pos;
-    int i = 0;
-    for (const std::shared_ptr<Field>& field : schema_.fields()) {
+    for (auto [field, i] : Zip(schema_.fields(), Enumerate<int>)) {
       RETURN_NOT_OK(VisitField(field, field_pos.child(i)));
-      ++i;
     }
     writer_->EndArray();
     WriteKeyValueMetadata(schema_.metadata());
@@ -139,12 +141,12 @@ class SchemaWriter {
 
     writer_->StartArray();
     if (metadata != nullptr) {
-      for (int64_t i = 0; i < metadata->size(); ++i) {
-        WriteKeyValue(metadata->key(i), metadata->value(i));
+      for (auto [key, value] : Zip(metadata->keys(), metadata->values())) {
+        WriteKeyValue(key, value);
       }
     }
-    for (const auto& kv : additional_metadata) {
-      WriteKeyValue(kv.first, kv.second);
+    for (const auto& [key, value] : additional_metadata) {
+      WriteKeyValue(key, value);
     }
     writer_->EndArray();
   }
@@ -227,8 +229,8 @@ class SchemaWriter {
 
   template <typename T>
   enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-              is_base_binary_type<T>::value || is_base_list_type<T>::value ||
-              is_struct_type<T>::value>
+              is_base_binary_type<T>::value || is_var_length_list_type<T>::value ||
+              is_struct_type<T>::value || is_run_end_encoded_type<T>::value>
   WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
@@ -334,8 +336,8 @@ class SchemaWriter {
     // Write type ids
     writer_->Key("typeIds");
     writer_->StartArray();
-    for (size_t i = 0; i < type.type_codes().size(); ++i) {
-      writer_->Int(type.type_codes()[i]);
+    for (int8_t i : type.type_codes()) {
+      writer_->Int(i);
     }
     writer_->EndArray();
   }
@@ -365,10 +367,8 @@ class SchemaWriter {
                        FieldPosition field_pos) {
     writer_->Key("children");
     writer_->StartArray();
-    int i = 0;
-    for (const std::shared_ptr<Field>& field : children) {
+    for (auto [i, field] : Zip(Enumerate<int>, children)) {
       RETURN_NOT_OK(VisitField(field, field_pos.child(i)));
-      ++i;
     }
     writer_->EndArray();
     return Status::OK();
@@ -437,6 +437,11 @@ class SchemaWriter {
 
   Status Visit(const DictionaryType& type) { return VisitType(*type.value_type()); }
 
+  Status Visit(const RunEndEncodedType& type) {
+    WriteName("runendencoded", type);
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& type) { return Status::NotImplemented(type.name()); }
 
  private:
@@ -472,7 +477,7 @@ class ArrayWriter {
     return Status::OK();
   }
 
-  void WriteRawNumber(util::string_view v) {
+  void WriteRawNumber(std::string_view v) {
     // Avoid RawNumber() as it misleadingly adds quotes
     // (see https://github.com/Tencent/rapidjson/pull/1155)
     writer_->RawValue(v.data(), v.size(), rj::kNumberType);
@@ -503,7 +508,7 @@ class ArrayWriter {
     static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
-        fmt(arr.Value(i), [&](util::string_view repr) {
+        fmt(arr.Value(i), [&](std::string_view repr) {
           writer_->String(repr.data(), static_cast<rj::SizeType>(repr.size()));
         });
       } else {
@@ -630,7 +635,7 @@ class ArrayWriter {
       // Represent 64-bit integers as strings, as JSON numbers cannot represent
       // them exactly.
       ::arrow::internal::StringFormatter<typename CTypeTraits<T>::ArrowType> formatter;
-      auto append = [this](util::string_view v) {
+      auto append = [this](std::string_view v) {
         writer_->String(v.data(), static_cast<rj::SizeType>(v.size()));
         return Status::OK();
       };
@@ -664,14 +669,14 @@ class ArrayWriter {
   Status WriteChildren(const std::vector<std::shared_ptr<Field>>& fields,
                        const std::vector<std::shared_ptr<Array>>& arrays) {
     // NOTE: the Java parser fails on an empty "children" member (ARROW-11483).
-    if (fields.size() > 0) {
-      writer_->Key("children");
-      writer_->StartArray();
-      for (size_t i = 0; i < fields.size(); ++i) {
-        RETURN_NOT_OK(VisitArray(fields[i]->name(), *arrays[i]));
-      }
-      writer_->EndArray();
+    if (fields.size() == 0) return Status::OK();
+
+    writer_->Key("children");
+    writer_->StartArray();
+    for (auto [field, array] : Zip(fields, arrays)) {
+      RETURN_NOT_OK(VisitArray(field->name(), *array));
     }
+    writer_->EndArray();
     return Status::OK();
   }
 
@@ -741,6 +746,16 @@ class ArrayWriter {
       children.emplace_back(array.field(i));
     }
     return WriteChildren(type.fields(), children);
+  }
+
+  Status Visit(const RunEndEncodedArray& array) {
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(*array.type());
+    ARROW_ASSIGN_OR_RAISE(auto run_ends, array.LogicalRunEnds(default_memory_pool()));
+    const std::vector<std::shared_ptr<Array>> children = {
+        std::move(run_ends),
+        array.LogicalValues(),
+    };
+    return WriteChildren(ree_type.fields(), children);
   }
 
   Status Visit(const ExtensionArray& array) { return VisitArrayValues(*array.storage()); }
@@ -1005,6 +1020,36 @@ Status GetUnion(const RjObject& json_type,
   return Status::OK();
 }
 
+Status GetRunEndEncoded(const RjObject& json_type,
+                        const std::vector<std::shared_ptr<Field>>& children,
+                        std::shared_ptr<DataType>* type) {
+  if (children.size() != 2) {
+    return Status::Invalid("Run-end encoded array must have exactly 2 fields, but got ",
+                           children.size());
+  }
+  if (children[0]->name() != "run_ends") {
+    return Status::Invalid(
+        "First child of run-end encoded array must be called run_ends, but got: ",
+        children[0]->name());
+  }
+  if (children[1]->name() != "values") {
+    return Status::Invalid(
+        "Second child of run-end encoded array must be called values, but got: ",
+        children[1]->name());
+  }
+  if (!is_run_end_type(children[0]->type()->id())) {
+    return Status::Invalid(
+        "Only int16, int32, and int64 types are supported"
+        " as run ends array type, but got: ",
+        children[0]->type());
+  }
+  if (children[0]->nullable()) {
+    return Status::Invalid("Run ends array should not be nullable");
+  }
+  *type = run_end_encoded(children[0]->type(), children[1]->type());
+  return Status::OK();
+}
+
 Status GetType(const RjObject& json_type,
                const std::vector<std::shared_ptr<Field>>& children,
                std::shared_ptr<DataType>* type) {
@@ -1058,6 +1103,8 @@ Status GetType(const RjObject& json_type,
     *type = struct_(children);
   } else if (type_name == "union") {
     return GetUnion(json_type, children, type);
+  } else if (type_name == "runendencoded") {
+    return GetRunEndEncoded(json_type, children, type);
   } else {
     return Status::Invalid("Unrecognized type name: ", type_name);
   }
@@ -1071,9 +1118,8 @@ Status GetFieldsFromArray(const RjArray& json_fields, FieldPosition parent_pos,
                           DictionaryMemo* dictionary_memo,
                           std::vector<std::shared_ptr<Field>>* fields) {
   fields->resize(json_fields.Size());
-  for (rj::SizeType i = 0; i < json_fields.Size(); ++i) {
-    RETURN_NOT_OK(GetField(json_fields[i], parent_pos.child(static_cast<int>(i)),
-                           dictionary_memo, &(*fields)[i]));
+  for (auto [json_field, field, i] : Zip(json_fields, *fields, Enumerate<int>)) {
+    RETURN_NOT_OK(GetField(json_field, parent_pos.child(i), dictionary_memo, &field));
   }
   return Status::OK();
 }
@@ -1148,7 +1194,7 @@ Status GetField(const rj::Value& obj, FieldPosition field_pos,
     // Parse dictionary id in JSON and add dictionary field to the
     // memo, and parse the dictionaries later
     RETURN_NOT_OBJECT("dictionary", it_dictionary, json_field);
-    bool is_ordered;
+    bool is_ordered{};
     std::shared_ptr<DataType> index_type;
     RETURN_NOT_OK(ParseDictionary(it_dictionary->value.GetObject(), &dictionary_id,
                                   &is_ordered, &index_type));
@@ -1248,14 +1294,8 @@ class ArrayReader {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
-
-    for (int i = 0; i < length_; ++i) {
-      if (!is_valid_[i]) {
-        RETURN_NOT_OK(builder.AppendNull());
-        continue;
-      }
-      const rj::Value& val = json_data_arr[i];
-      RETURN_NOT_OK(builder.Append(UnboxValue<T>(val)));
+    for (auto [is_valid, val] : Zip(is_valid_, json_data_arr)) {
+      RETURN_NOT_OK(is_valid ? builder.Append(UnboxValue<T>(val)) : builder.AppendNull());
     }
     return FinishBuilder(&builder);
   }
@@ -1282,41 +1322,48 @@ class ArrayReader {
           "JSON OFFSET array size differs from advertised array length + 1");
     }
 
-    for (int i = 0; i < length_; ++i) {
-      if (!is_valid_[i]) {
+    for (auto [i, is_valid, json_val] :
+         Zip(Enumerate<rj::SizeType>, is_valid_, json_data_arr)) {
+      if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-      const rj::Value& val = json_data_arr[i];
-      DCHECK(val.IsString());
+
+      DCHECK(json_val.IsString());
+      std::string_view val{
+          json_val.GetString()};  // XXX can we use json_val.GetStringLength()?
 
       int64_t offset_start = ParseOffset(json_offsets[i]);
       int64_t offset_end = ParseOffset(json_offsets[i + 1]);
-      DCHECK(offset_end >= offset_start);
+      DCHECK_GE(offset_end, offset_start);
+      auto val_len = static_cast<size_t>(offset_end - offset_start);
 
-      if (T::is_utf8) {
-        auto str = val.GetString();
-        DCHECK(std::string(str).size() == static_cast<size_t>(offset_end - offset_start));
-        RETURN_NOT_OK(builder.Append(str));
+      if constexpr (T::is_utf8) {
+        if (val.size() != val_len) {
+          return Status::Invalid("Value ", std::quoted(val),
+                                 " differs from advertised length ", val_len);
+        }
+        RETURN_NOT_OK(builder.Append(json_val.GetString()));
       } else {
-        std::string hex_string = val.GetString();
-
-        if (hex_string.size() % 2 != 0) {
+        if (val.size() % 2 != 0) {
           return Status::Invalid("Expected base16 hex string");
         }
-        const auto value_len = static_cast<int64_t>(hex_string.size()) / 2;
+        if (val.size() / 2 != val_len) {
+          return Status::Invalid("Value 0x", val, " differs from advertised byte length ",
+                                 val_len);
+        }
 
-        ARROW_ASSIGN_OR_RAISE(auto byte_buffer, AllocateBuffer(value_len, pool_));
+        ARROW_ASSIGN_OR_RAISE(auto byte_buffer, AllocateBuffer(val_len, pool_));
 
-        const char* hex_data = hex_string.c_str();
         uint8_t* byte_buffer_data = byte_buffer->mutable_data();
-        for (int64_t j = 0; j < value_len; ++j) {
-          RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
+        for (size_t j = 0; j < val_len; ++j) {
+          RETURN_NOT_OK(ParseHexValue(&val[j * 2], &byte_buffer_data[j]));
         }
         RETURN_NOT_OK(
-            builder.Append(byte_buffer_data, static_cast<offset_type>(value_len)));
+            builder.Append(byte_buffer_data, static_cast<offset_type>(val_len)));
       }
     }
+
     return FinishBuilder(&builder);
   }
 
@@ -1325,15 +1372,13 @@ class ArrayReader {
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
-    for (int i = 0; i < length_; ++i) {
-      if (!is_valid_[i]) {
+    for (auto [is_valid, val] : Zip(is_valid_, json_data_arr)) {
+      if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-
-      const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsObject());
-      DayTimeIntervalType::DayMilliseconds dm = {0, 0};
+      DayTimeIntervalType::DayMilliseconds dm;
       dm.days = val[kDays].GetInt();
       dm.milliseconds = val[kMilliseconds].GetInt();
       RETURN_NOT_OK(builder.Append(dm));
@@ -1346,19 +1391,17 @@ class ArrayReader {
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
 
-    for (int i = 0; i < length_; ++i) {
-      if (!is_valid_[i]) {
+    for (auto [is_valid, val] : Zip(is_valid_, json_data_arr)) {
+      if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
         continue;
       }
-
-      const rj::Value& val = json_data_arr[i];
       DCHECK(val.IsObject());
-      MonthDayNanoIntervalType::MonthDayNanos dm = {0, 0, 0};
-      dm.months = val[kMonths].GetInt();
-      dm.days = val[kDays].GetInt();
-      dm.nanoseconds = val[kNanoseconds].GetInt64();
-      RETURN_NOT_OK(builder.Append(dm));
+      MonthDayNanoIntervalType::MonthDayNanos mdn;
+      mdn.months = val[kMonths].GetInt();
+      mdn.days = val[kDays].GetInt();
+      mdn.nanoseconds = val[kNanoseconds].GetInt64();
+      RETURN_NOT_OK(builder.Append(mdn));
     }
     return FinishBuilder(&builder);
   }
@@ -1376,25 +1419,24 @@ class ArrayReader {
     ARROW_ASSIGN_OR_RAISE(auto byte_buffer, AllocateBuffer(byte_width, pool_));
     uint8_t* byte_buffer_data = byte_buffer->mutable_data();
 
-    for (int i = 0; i < length_; ++i) {
-      if (!is_valid_[i]) {
+    for (auto [is_valid, json_val] : Zip(is_valid_, json_data_arr)) {
+      if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
-      } else {
-        const rj::Value& val = json_data_arr[i];
-        DCHECK(val.IsString())
-            << "Found non-string JSON value when parsing FixedSizeBinary value";
-        std::string hex_string = val.GetString();
-        if (static_cast<int32_t>(hex_string.size()) != byte_width * 2) {
-          DCHECK(false) << "Expected size: " << byte_width * 2
-                        << " got: " << hex_string.size();
-        }
-        const char* hex_data = hex_string.c_str();
-
-        for (int32_t j = 0; j < byte_width; ++j) {
-          RETURN_NOT_OK(ParseHexValue(hex_data + j * 2, &byte_buffer_data[j]));
-        }
-        RETURN_NOT_OK(builder.Append(byte_buffer_data));
+        continue;
       }
+
+      DCHECK(json_val.IsString())
+          << "Found non-string JSON value when parsing FixedSizeBinary value";
+
+      std::string_view val = json_val.GetString();
+      if (static_cast<int32_t>(val.size()) != byte_width * 2) {
+        DCHECK(false) << "Expected size: " << byte_width * 2 << " got: " << val.size();
+      }
+
+      for (int32_t j = 0; j < byte_width; ++j) {
+        RETURN_NOT_OK(ParseHexValue(&val[j * 2], &byte_buffer_data[j]));
+      }
+      RETURN_NOT_OK(builder.Append(byte_buffer_data));
     }
     return FinishBuilder(&builder);
   }
@@ -1404,22 +1446,25 @@ class ArrayReader {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
+    if (static_cast<rj::SizeType>(length_) != json_data_arr.Size()) {
+      return Status::Invalid("Integer array had unexpected length ", json_data_arr.Size(),
+                             " (expected ", length_, ")");
+    }
 
-    for (int i = 0; i < length_; ++i) {
-      if (!is_valid_[i]) {
+    for (auto [is_valid, val] : Zip(is_valid_, json_data_arr)) {
+      if (!is_valid) {
         RETURN_NOT_OK(builder.AppendNull());
-      } else {
-        const rj::Value& val = json_data_arr[i];
-        DCHECK(val.IsString())
-            << "Found non-string JSON value when parsing Decimal128 value";
-        DCHECK_GT(val.GetStringLength(), 0)
-            << "Empty string found when parsing Decimal128 value";
-
-        using Value = typename TypeTraits<T>::ScalarType::ValueType;
-        Value value;
-        ARROW_ASSIGN_OR_RAISE(value, Value::FromString(val.GetString()));
-        RETURN_NOT_OK(builder.Append(value));
+        continue;
       }
+
+      DCHECK(val.IsString())
+          << "Found non-string JSON value when parsing Decimal128 value";
+      DCHECK_GT(val.GetStringLength(), 0)
+          << "Empty string found when parsing Decimal128 value";
+
+      using Value = typename TypeTraits<T>::ScalarType::ValueType;
+      ARROW_ASSIGN_OR_RAISE(Value decimal_val, Value::FromString(val.GetString()));
+      RETURN_NOT_OK(builder.Append(decimal_val));
     }
 
     return FinishBuilder(&builder);
@@ -1428,26 +1473,29 @@ class ArrayReader {
   template <typename T>
   Status GetIntArray(const RjArray& json_array, const int32_t length,
                      std::shared_ptr<Buffer>* out) {
-    using ArrowType = typename CTypeTraits<T>::ArrowType;
+    if (static_cast<rj::SizeType>(length) != json_array.Size()) {
+      return Status::Invalid("Integer array had unexpected length ", json_array.Size(),
+                             " (expected ", length, ")");
+    }
+
     ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateBuffer(length * sizeof(T), pool_));
 
     T* values = reinterpret_cast<T*>(buffer->mutable_data());
-    if (sizeof(T) < sizeof(int64_t)) {
-      for (int i = 0; i < length; ++i) {
-        const rj::Value& val = json_array[i];
+
+    for (auto [i, val] : Zip(Enumerate<rj::SizeType>, json_array)) {
+      if constexpr (sizeof(T) < sizeof(int64_t)) {
         DCHECK(val.IsInt() || val.IsInt64());
         if (val.IsInt()) {
           values[i] = static_cast<T>(val.GetInt());
         } else {
           values[i] = static_cast<T>(val.GetInt64());
         }
-      }
-    } else {
-      // Read 64-bit integers as strings, as JSON numbers cannot represent
-      // them exactly.
-      for (int i = 0; i < length; ++i) {
-        const rj::Value& val = json_array[i];
+      } else {
+        // Read 64-bit integers as strings, as JSON numbers cannot represent
+        // them exactly.
         DCHECK(val.IsString());
+
+        using ArrowType = typename CTypeTraits<T>::ArrowType;
         if (!ParseValue<ArrowType>(val.GetString(), val.GetStringLength(), &values[i])) {
           return Status::Invalid("Failed to parse integer: '",
                                  std::string(val.GetString(), val.GetStringLength()),
@@ -1542,6 +1590,13 @@ class ArrayReader {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    RETURN_NOT_OK(InitializeData(1));
+    RETURN_NOT_OK(GetNullBitmap());
+    RETURN_NOT_OK(GetChildren(obj_, type));
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& type) {
     ArrayReader parser(obj_, pool_, field_->WithType(type.storage_type()));
     ARROW_ASSIGN_OR_RAISE(data_, parser.Parse());
@@ -1560,7 +1615,7 @@ class ArrayReader {
   }
 
   Status GetNullBitmap() {
-    const int64_t length = static_cast<int64_t>(is_valid_.size());
+    const auto length = static_cast<int64_t>(is_valid_.size());
 
     ARROW_ASSIGN_OR_RAISE(data_->buffers[0], AllocateEmptyBitmap(length, pool_));
     uint8_t* bitmap = data_->buffers[0]->mutable_data();
@@ -1589,19 +1644,17 @@ class ArrayReader {
     }
 
     data_->child_data.resize(type.num_fields());
-    for (int i = 0; i < type.num_fields(); ++i) {
-      const rj::Value& json_child = json_children[i];
+    for (auto [json_child, child_field, child_data] :
+         Zip(json_children, type.fields(), data_->child_data)) {
       DCHECK(json_child.IsObject());
       const auto& child_obj = json_child.GetObject();
 
-      std::shared_ptr<Field> child_field = type.field(i);
-
       auto it = json_child.FindMember("name");
       RETURN_NOT_STRING("name", it, json_child);
-
       DCHECK_EQ(it->value.GetString(), child_field->name());
+
       ArrayReader child_reader(child_obj, pool_, child_field);
-      ARROW_ASSIGN_OR_RAISE(data_->child_data[i], child_reader.Parse());
+      ARROW_ASSIGN_OR_RAISE(child_data, child_reader.Parse());
     }
 
     return Status::OK();
@@ -1741,9 +1794,8 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
   ARROW_ASSIGN_OR_RAISE(const auto json_columns, GetMemberArray(batch_obj, "columns"));
 
   ArrayDataVector columns(json_columns.Size());
-  for (int i = 0; i < static_cast<int>(columns.size()); ++i) {
-    ARROW_ASSIGN_OR_RAISE(columns[i],
-                          ReadArrayData(pool, json_columns[i], schema->field(i)));
+  for (auto [column, json_column, field] : Zip(columns, json_columns, schema->fields())) {
+    ARROW_ASSIGN_OR_RAISE(column, ReadArrayData(pool, json_column, field));
   }
 
   RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo, pool));
@@ -1781,9 +1833,7 @@ Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer) {
   writer->Key("columns");
   writer->StartArray();
 
-  for (int i = 0; i < batch.num_columns(); ++i) {
-    const std::shared_ptr<Array>& column = batch.column(i);
-
+  for (auto [column, i] : Zip(batch.columns(), Enumerate<int>)) {
     DCHECK_EQ(batch.num_rows(), column->length())
         << "Array length did not match record batch length: " << batch.num_rows()
         << " != " << column->length() << " " << batch.column_name(i);

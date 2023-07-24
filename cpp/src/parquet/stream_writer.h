@@ -21,11 +21,11 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
-#include "arrow/util/optional.h"
-#include "arrow/util/string_view.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 
@@ -48,11 +48,11 @@ namespace parquet {
 /// Required and optional fields are supported:
 /// - Required fields are written using operator<<(T)
 /// - Optional fields are written using
-///   operator<<(arrow::util::optional<T>).
+///   operator<<(std::optional<T>).
 ///
 /// Note that operator<<(T) can be used to write optional fields.
 ///
-/// Similarly, operator<<(arrow::util::optional<T>) can be used to
+/// Similarly, operator<<(std::optional<T>) can be used to
 /// write required fields.  However if the optional parameter does not
 /// have a value (i.e. it is nullopt) then a ParquetException will be
 /// raised.
@@ -62,7 +62,7 @@ namespace parquet {
 class PARQUET_EXPORT StreamWriter {
  public:
   template <typename T>
-  using optional = ::arrow::util::optional<T>;
+  using optional = ::std::optional<T>;
 
   // N.B. Default constructed objects are not usable.  This
   //      constructor is provided so that the object may be move
@@ -123,7 +123,7 @@ class PARQUET_EXPORT StreamWriter {
 
   /// \brief Helper class to write fixed length strings.
   /// This is useful as the standard string view (such as
-  /// arrow::util::string_view) is for variable length data.
+  /// std::string_view) is for variable length data.
   struct PARQUET_EXPORT FixedStringView {
     FixedStringView() = default;
 
@@ -149,7 +149,7 @@ class PARQUET_EXPORT StreamWriter {
   /// \brief Output operators for variable length strings.
   StreamWriter& operator<<(const char* v);
   StreamWriter& operator<<(const std::string& v);
-  StreamWriter& operator<<(::arrow::util::string_view v);
+  StreamWriter& operator<<(::std::string_view v);
 
   /// \brief Output operator for optional fields.
   template <typename T>

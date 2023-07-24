@@ -89,6 +89,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/array.h"
@@ -103,14 +104,11 @@
 #include "arrow/util/bitmap_visit.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/variant.h"
 #include "arrow/visit_array_inline.h"
 
 #include "parquet/properties.h"
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 namespace {
 
@@ -202,7 +200,7 @@ struct PathWriteContext {
 
   // Incorporates |range| into visited elements. If the |range| is contiguous
   // with the last range, extend the last range, otherwise add |range| separately
-  // tot he list.
+  // to the list.
   void RecordPostListVisit(const ElementRange& range) {
     if (!visited_elements.empty() && range.start == visited_elements.back().end) {
       visited_elements.back().end = range.end;
@@ -519,9 +517,9 @@ struct PathInfo {
   // The vectors are expected to the same length info.
 
   // Note index order matters here.
-  using Node = ::arrow::util::Variant<NullableTerminalNode, ListNode, LargeListNode,
-                                      FixedSizeListNode, NullableNode,
-                                      AllPresentTerminalNode, AllNullsTerminalNode>;
+  using Node =
+      std::variant<NullableTerminalNode, ListNode, LargeListNode, FixedSizeListNode,
+                   NullableNode, AllPresentTerminalNode, AllNullsTerminalNode>;
 
   std::vector<Node> path;
   std::shared_ptr<Array> primitive_array;
@@ -578,32 +576,32 @@ Status WritePath(ElementRange root_range, PathInfo* path_info,
   while (stack_position >= stack_base) {
     PathInfo::Node& node = path_info->path[stack_position - stack_base];
     struct {
-      IterationResult operator()(NullableNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(NullableNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(ListNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(ListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(NullableTerminalNode* node) {
-        return node->Run(*stack_position, context);
+      IterationResult operator()(NullableTerminalNode& node) {
+        return node.Run(*stack_position, context);
       }
-      IterationResult operator()(FixedSizeListNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(FixedSizeListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
-      IterationResult operator()(AllPresentTerminalNode* node) {
-        return node->Run(*stack_position, context);
+      IterationResult operator()(AllPresentTerminalNode& node) {
+        return node.Run(*stack_position, context);
       }
-      IterationResult operator()(AllNullsTerminalNode* node) {
-        return node->Run(*stack_position, context);
+      IterationResult operator()(AllNullsTerminalNode& node) {
+        return node.Run(*stack_position, context);
       }
-      IterationResult operator()(LargeListNode* node) {
-        return node->Run(stack_position, stack_position + 1, context);
+      IterationResult operator()(LargeListNode& node) {
+        return node.Run(stack_position, stack_position + 1, context);
       }
       ElementRange* stack_position;
       PathWriteContext* context;
     } visitor = {stack_position, &context};
 
-    IterationResult result = ::arrow::util::visit(visitor, &node);
+    IterationResult result = std::visit(visitor, node);
 
     if (ARROW_PREDICT_FALSE(result == kError)) {
       DCHECK(!context.last_status.ok());
@@ -640,39 +638,39 @@ struct FixupVisitor {
   int16_t rep_level_if_null = kLevelNotSet;
 
   template <typename T>
-  void HandleListNode(T* arg) {
-    if (arg->rep_level() == max_rep_level) {
-      arg->SetLast();
+  void HandleListNode(T& arg) {
+    if (arg.rep_level() == max_rep_level) {
+      arg.SetLast();
       // after the last list node we don't need to fill
       // rep levels on null.
       rep_level_if_null = kLevelNotSet;
     } else {
-      rep_level_if_null = arg->rep_level();
+      rep_level_if_null = arg.rep_level();
     }
   }
-  void operator()(ListNode* node) { HandleListNode(node); }
-  void operator()(LargeListNode* node) { HandleListNode(node); }
-  void operator()(FixedSizeListNode* node) { HandleListNode(node); }
+  void operator()(ListNode& node) { HandleListNode(node); }
+  void operator()(LargeListNode& node) { HandleListNode(node); }
+  void operator()(FixedSizeListNode& node) { HandleListNode(node); }
 
   // For non-list intermediate nodes.
   template <typename T>
-  void HandleIntermediateNode(T* arg) {
+  void HandleIntermediateNode(T& arg) {
     if (rep_level_if_null != kLevelNotSet) {
-      arg->SetRepLevelIfNull(rep_level_if_null);
+      arg.SetRepLevelIfNull(rep_level_if_null);
     }
   }
 
-  void operator()(NullableNode* arg) { HandleIntermediateNode(arg); }
+  void operator()(NullableNode& arg) { HandleIntermediateNode(arg); }
 
-  void operator()(AllNullsTerminalNode* arg) {
+  void operator()(AllNullsTerminalNode& arg) {
     // Even though no processing happens past this point we
     // still need to adjust it if a list occurred after an
     // all null array.
     HandleIntermediateNode(arg);
   }
 
-  void operator()(NullableTerminalNode*) {}
-  void operator()(AllPresentTerminalNode*) {}
+  void operator()(NullableTerminalNode&) {}
+  void operator()(AllPresentTerminalNode&) {}
 };
 
 PathInfo Fixup(PathInfo info) {
@@ -687,7 +685,7 @@ PathInfo Fixup(PathInfo info) {
     visitor.rep_level_if_null = 0;
   }
   for (size_t x = 0; x < info.path.size(); x++) {
-    ::arrow::util::visit(visitor, &info.path[x]);
+    std::visit(visitor, info.path[x]);
   }
   return info;
 }
@@ -829,8 +827,9 @@ class PathBuilder {
                                   " not supported yet");                   \
   }
 
-  // Union types aren't supported in Parquet.
+  // Types not yet supported in Parquet.
   NOT_IMPLEMENTED_VISIT(Union)
+  NOT_IMPLEMENTED_VISIT(RunEndEncoded);
 
 #undef NOT_IMPLEMENTED_VISIT
   std::vector<PathInfo>& paths() { return paths_; }
@@ -862,8 +861,13 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
 
   ::arrow::Status Write(int leaf_index, ArrowWriteContext* context,
                         CallbackFunction write_leaf_callback) override {
-    DCHECK_GE(leaf_index, 0);
-    DCHECK_LT(leaf_index, GetLeafCount());
+    if (ARROW_PREDICT_FALSE(leaf_index < 0 || leaf_index >= GetLeafCount())) {
+      return Status::Invalid("Column index out of bounds (got ", leaf_index,
+                             ", should be "
+                             "between 0 and ",
+                             GetLeafCount(), ")");
+    }
+
     return WritePath(root_range_, &path_builder_->paths()[leaf_index], context,
                      std::move(write_leaf_callback));
   }
@@ -878,10 +882,10 @@ class MultipathLevelBuilderImpl : public MultipathLevelBuilder {
 // static
 ::arrow::Result<std::unique_ptr<MultipathLevelBuilder>> MultipathLevelBuilder::Make(
     const ::arrow::Array& array, bool array_field_nullable) {
-  auto constructor = ::arrow::internal::make_unique<PathBuilder>(array_field_nullable);
+  auto constructor = std::make_unique<PathBuilder>(array_field_nullable);
   RETURN_NOT_OK(VisitArrayInline(array, constructor.get()));
-  return ::arrow::internal::make_unique<MultipathLevelBuilderImpl>(
-      array.data(), std::move(constructor));
+  return std::make_unique<MultipathLevelBuilderImpl>(array.data(),
+                                                     std::move(constructor));
 }
 
 // static
@@ -890,13 +894,10 @@ Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullabl
                                     MultipathLevelBuilder::CallbackFunction callback) {
   ARROW_ASSIGN_OR_RAISE(std::unique_ptr<MultipathLevelBuilder> builder,
                         MultipathLevelBuilder::Make(array, array_field_nullable));
-  PathBuilder constructor(array_field_nullable);
-  RETURN_NOT_OK(VisitArrayInline(array, &constructor));
   for (int leaf_idx = 0; leaf_idx < builder->GetLeafCount(); leaf_idx++) {
     RETURN_NOT_OK(builder->Write(leaf_idx, context, callback));
   }
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

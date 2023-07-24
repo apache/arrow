@@ -19,10 +19,10 @@ package array_test
 import (
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -49,7 +49,7 @@ func (e *ExtensionTypeTestSuite) TestParametricEquals() {
 	e.False(arrow.TypeEqual(p1Type, p3Type))
 }
 
-func exampleParametric(mem memory.Allocator, dt arrow.DataType, vals []int32, valid []bool) array.Interface {
+func exampleParametric(mem memory.Allocator, dt arrow.DataType, vals []int32, valid []bool) arrow.Array {
 	bldr := array.NewBuilder(mem, dt)
 	defer bldr.Release()
 
@@ -85,7 +85,7 @@ func (e *ExtensionTypeTestSuite) TestParametricArrays() {
 		{Name: "f1", Type: p2Type, Nullable: true},
 		{Name: "f2", Type: p3Type, Nullable: true},
 		{Name: "f3", Type: p4Type, Nullable: true},
-	}, nil), []array.Interface{p1, p2, p3, p4}, -1)
+	}, nil), []arrow.Array{p1, p2, p3, p4}, -1)
 	defer rb.Release()
 
 	e.True(array.RecordEqual(rb, rb))

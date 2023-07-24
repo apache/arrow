@@ -18,14 +18,16 @@
 
 set -ex
 
+if [[ "${ARROW_JAVA_TEST:-ON}" != "ON" ]]; then
+  exit
+fi
+
 arrow_dir=${1}
 source_dir=${1}/java
-cpp_build_dir=${2}/cpp/${ARROW_BUILD_TYPE:-debug}
-cdata_dist_dir=${2}/java/c
+java_jni_dist_dir=${3}
 
-# For JNI and Plasma tests
+# For JNI
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export PLASMA_STORE=${ARROW_HOME}/bin/plasma-store-server
 
 mvn="mvn -B -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=warn"
 # Use `2 * ncores` threads
@@ -35,20 +37,25 @@ pushd ${source_dir}
 
 ${mvn} test
 
-if [ "${ARROW_JNI}" = "ON" ]; then
-  ${mvn} test -Parrow-jni -pl adapter/orc,gandiva,dataset -Darrow.cpp.build.dir=${cpp_build_dir}
+projects=()
+if [ "${ARROW_DATASET}" = "ON" ]; then
+  projects+=(gandiva)
+fi
+if [ "${ARROW_GANDIVA}" = "ON" ]; then
+  projects+=(gandiva)
+fi
+if [ "${ARROW_ORC}" = "ON" ]; then
+  projects+=(adapter/orc)
+fi
+if [ "${#projects[@]}" -gt 0 ]; then
+  ${mvn} test \
+         -Parrow-jni \
+         -pl $(IFS=,; echo "${projects[*]}") \
+         -Darrow.cpp.build.dir=${java_jni_dist_dir}
 fi
 
 if [ "${ARROW_JAVA_CDATA}" = "ON" ]; then
-  ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${cdata_dist_dir}
-fi
-
-if [ "${ARROW_PLASMA}" = "ON" ]; then
-  pushd ${source_dir}/plasma
-  java -cp target/test-classes:target/classes \
-       -Djava.library.path=${cpp_build_dir} \
-       org.apache.arrow.plasma.PlasmaClientTest
-  popd
+  ${mvn} test -Parrow-c-data -pl c -Darrow.c.jni.dist.dir=${java_jni_dist_dir}
 fi
 
 popd

@@ -18,6 +18,7 @@
 package org.apache.arrow.memory.util;
 
 import static junit.framework.TestCase.assertEquals;
+import static junit.framework.TestCase.assertNotSame;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
@@ -120,18 +121,18 @@ public class TestArrowBufPointer {
       ArrowBufPointer pointer = new ArrowBufPointer(hasher);
 
       pointer.set(buf, 0, 4);
-      pointer.hashCode();
+      int hashCode = pointer.hashCode();
 
       // hash code computed
       assertEquals(1, hasher.counter);
 
       // no hash code re-compute
-      pointer.hashCode();
+      assertEquals(hashCode, pointer.hashCode());
       assertEquals(1, hasher.counter);
 
       // hash code re-computed
       pointer.set(buf, 4, 4);
-      pointer.hashCode();
+      assertNotSame(hashCode, pointer.hashCode());
       assertEquals(2, hasher.counter);
     }
   }

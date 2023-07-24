@@ -59,13 +59,14 @@ G_BEGIN_DECLS
  * input.
  */
 
-typedef struct GArrowRecordBatchReaderPrivate_ {
+struct GArrowRecordBatchReaderPrivate {
   std::shared_ptr<arrow::ipc::RecordBatchReader> record_batch_reader;
-} GArrowRecordBatchReaderPrivate;
+  GList *sources;
+};
 
 enum {
-  PROP_0,
-  PROP_RECORD_BATCH_READER
+  PROP_RECORD_BATCH_READER = 1,
+  PROP_SOURCES,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowRecordBatchReader,
@@ -88,6 +89,17 @@ garrow_record_batch_reader_finalize(GObject *object)
 }
 
 static void
+garrow_record_batch_reader_dispose(GObject *object)
+{
+  auto priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(object);
+
+  g_list_free_full(priv->sources, g_object_unref);
+  priv->sources = nullptr;
+
+  G_OBJECT_CLASS(garrow_record_batch_reader_parent_class)->dispose(object);
+}
+
+static void
 garrow_record_batch_reader_set_property(GObject *object,
                                         guint prop_id,
                                         const GValue *value,
@@ -100,19 +112,11 @@ garrow_record_batch_reader_set_property(GObject *object,
     priv->record_batch_reader =
       *static_cast<std::shared_ptr<arrow::ipc::RecordBatchReader> *>(g_value_get_pointer(value));
     break;
-  default:
-    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+  case PROP_SOURCES:
+    priv->sources = g_list_copy_deep(static_cast<GList *>(g_value_get_pointer(value)),
+                                     reinterpret_cast<GCopyFunc>(g_object_ref),
+                                     nullptr);
     break;
-  }
-}
-
-static void
-garrow_record_batch_reader_get_property(GObject *object,
-                                        guint prop_id,
-                                        GValue *value,
-                                        GParamSpec *pspec)
-{
-  switch (prop_id) {
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
     break;
@@ -129,21 +133,25 @@ garrow_record_batch_reader_init(GArrowRecordBatchReader *object)
 static void
 garrow_record_batch_reader_class_init(GArrowRecordBatchReaderClass *klass)
 {
-  GObjectClass *gobject_class;
-  GParamSpec *spec;
-
-  gobject_class = G_OBJECT_CLASS(klass);
-
+  auto gobject_class = G_OBJECT_CLASS(klass);
   gobject_class->finalize     = garrow_record_batch_reader_finalize;
+  gobject_class->finalize     = garrow_record_batch_reader_dispose;
   gobject_class->set_property = garrow_record_batch_reader_set_property;
-  gobject_class->get_property = garrow_record_batch_reader_get_property;
 
+  GParamSpec *spec;
   spec = g_param_spec_pointer("record-batch-reader",
                               "arrow::ipc::RecordBatchReader",
                               "The raw std::shared<arrow::ipc::RecordBatchRecordBatchReader> *",
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_RECORD_BATCH_READER, spec);
+
+  spec = g_param_spec_pointer("sources",
+                              "Sources",
+                              "The sources of this reader",
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_SOURCES, spec);
 }
 
 /**
@@ -168,7 +176,7 @@ garrow_record_batch_reader_import(gpointer c_abi_array_stream, GError **error)
   if (garrow::check(error,
                     arrow_reader_result,
                     "[record-batch-reader][import]")) {
-    return garrow_record_batch_reader_new_raw(&(*arrow_reader_result));
+    return garrow_record_batch_reader_new_raw(&(*arrow_reader_result), nullptr);
   } else {
     return NULL;
   }
@@ -204,7 +212,8 @@ garrow_record_batch_reader_new(GList *record_batches,
   if (garrow::check(error,
                     arrow_reader_result,
                     "[record-batch-stream-reader][new]")) {
-    return garrow_record_batch_reader_new_raw(&*arrow_reader_result);
+    return garrow_record_batch_reader_new_raw(&*arrow_reader_result,
+                                              record_batches);
   } else {
     return NULL;
   }
@@ -343,7 +352,7 @@ garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
 {
   auto arrow_reader = garrow_record_batch_reader_get_raw(reader);
   std::shared_ptr<arrow::Table> arrow_table;
-  auto status = arrow_reader->ReadAll(&arrow_table);
+  auto status = arrow_reader->ToTable().Value(&arrow_table);
 
   if (garrow::check(error,
                     status,
@@ -352,6 +361,22 @@ garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
   } else {
     return NULL;
   }
+}
+
+/**
+ * garrow_record_batch_reader_get_sources:
+ * @reader: A #GArrowRecordBatchReader.
+ *
+ * Returns: (transfer none) (element-type GObject): A list of source
+ *   of this reader.
+ *
+ * Since: 13.0.0
+ */
+GList *
+garrow_record_batch_reader_get_sources(GArrowRecordBatchReader *reader)
+{
+  auto priv = GARROW_RECORD_BATCH_READER_GET_PRIVATE(reader);
+  return priv->sources;
 }
 
 
@@ -383,7 +408,27 @@ garrow_table_batch_reader_new(GArrowTable *table)
   auto arrow_table = garrow_table_get_raw(table);
   auto arrow_table_batch_reader =
     std::make_shared<arrow::TableBatchReader>(*arrow_table);
-  return garrow_table_batch_reader_new_raw(&arrow_table_batch_reader);
+  return garrow_table_batch_reader_new_raw(&arrow_table_batch_reader, table);
+}
+
+/**
+ * garrow_table_batch_reader_set_max_chunk_size:
+ * @reader: A #GArrowTableBatchReader.
+ * @max_chunk_size: The maximum chunk size of record batches.
+ *
+ * Set the desired maximum chunk size of record batches.
+ *
+ * The actual chunk size of each record batch may be smaller,
+ * depending on actual chunking characteristics of each table column.
+ *
+ * Since: 12.0.0
+ */
+void
+garrow_table_batch_reader_set_max_chunk_size(GArrowTableBatchReader *reader,
+                                             gint64 max_chunk_size)
+{
+  auto arrow_reader = garrow_table_batch_reader_get_raw(reader);
+  arrow_reader->set_chunksize(max_chunk_size);
 }
 
 
@@ -2213,11 +2258,13 @@ G_END_DECLS
 
 GArrowRecordBatchReader *
 garrow_record_batch_reader_new_raw(
-  std::shared_ptr<arrow::RecordBatchReader> *arrow_reader)
+  std::shared_ptr<arrow::RecordBatchReader> *arrow_reader,
+  GList *sources)
 {
   return GARROW_RECORD_BATCH_READER(
     g_object_new(GARROW_TYPE_RECORD_BATCH_READER,
                  "record-batch-reader", arrow_reader,
+                 "sources", sources,
                  NULL));
 }
 
@@ -2229,13 +2276,25 @@ garrow_record_batch_reader_get_raw(GArrowRecordBatchReader *reader)
 }
 
 GArrowTableBatchReader *
-garrow_table_batch_reader_new_raw(std::shared_ptr<arrow::TableBatchReader> *arrow_reader)
+garrow_table_batch_reader_new_raw(
+  std::shared_ptr<arrow::TableBatchReader> *arrow_reader,
+  GArrowTable *table)
 {
+  auto sources = g_list_prepend(nullptr, table);
   auto reader =
     GARROW_TABLE_BATCH_READER(g_object_new(GARROW_TYPE_TABLE_BATCH_READER,
                                            "record-batch-reader", arrow_reader,
+                                           "sources", sources,
                                            NULL));
+  g_list_free(sources);
   return reader;
+}
+
+std::shared_ptr<arrow::TableBatchReader>
+garrow_table_batch_reader_get_raw(GArrowTableBatchReader *reader)
+{
+  return std::static_pointer_cast<arrow::TableBatchReader>(
+    garrow_record_batch_reader_get_raw(GARROW_RECORD_BATCH_READER(reader)));
 }
 
 GArrowRecordBatchStreamReader *

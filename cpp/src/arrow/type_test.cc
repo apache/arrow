@@ -27,8 +27,11 @@
 
 #include <gmock/gmock.h>
 
+#include "arrow/array.h"
 #include "arrow/memory_pool.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -36,8 +39,6 @@
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
-
-using testing::ElementsAre;
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
@@ -128,6 +129,12 @@ TEST(TestField, Equals) {
   AssertFieldEqual(f0, f0_with_meta1);
   AssertFieldEqual(f0, f0_with_meta2);
   AssertFieldEqual(f0_with_meta1, f0_with_meta2);
+
+  // operator==(), where check_metadata == false
+  ASSERT_EQ(f0, f0_other);
+  ASSERT_NE(f0, f0_nn);
+  ASSERT_EQ(f0, f0_with_meta1);
+  ASSERT_EQ(f0_with_meta1, f0_with_meta2);
 }
 
 #define ASSERT_COMPATIBLE_IMPL(NAME, TYPE, PLURAL)                        \
@@ -355,101 +362,6 @@ TEST(TestField, TestMerge) {
   }
 }
 
-TEST(TestFieldPath, Basics) {
-  auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
-  auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
-  Schema s({f0, f1, f2, f3});
-
-  // retrieving a field with single-element FieldPath is equivalent to Schema::field
-  for (int index = 0; index < s.num_fields(); ++index) {
-    ASSERT_OK_AND_EQ(s.field(index), FieldPath({index}).Get(s));
-  }
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
-                                  testing::HasSubstr("empty indices cannot be traversed"),
-                                  FieldPath().Get(s));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(IndexError, testing::HasSubstr("index out of range"),
-                                  FieldPath({s.num_fields() * 2}).Get(s));
-}
-
-TEST(TestFieldRef, Basics) {
-  auto f0 = field("alpha", int32());
-  auto f1 = field("beta", int32());
-  auto f2 = field("alpha", int32());
-  auto f3 = field("beta", int32());
-  Schema s({f0, f1, f2, f3});
-
-  // lookup by index returns Indices{index}
-  for (int index = 0; index < s.num_fields(); ++index) {
-    EXPECT_THAT(FieldRef(index).FindAll(s), ElementsAre(FieldPath{index}));
-  }
-  // out of range index results in a failure to match
-  EXPECT_THAT(FieldRef(s.num_fields() * 2).FindAll(s), ElementsAre());
-
-  // lookup by name returns the Indices of both matching fields
-  EXPECT_THAT(FieldRef("alpha").FindAll(s), ElementsAre(FieldPath{0}, FieldPath{2}));
-  EXPECT_THAT(FieldRef("beta").FindAll(s), ElementsAre(FieldPath{1}, FieldPath{3}));
-}
-
-TEST(TestFieldRef, FromDotPath) {
-  ASSERT_OK_AND_EQ(FieldRef("alpha"), FieldRef::FromDotPath(R"(.alpha)"));
-
-  ASSERT_OK_AND_EQ(FieldRef("", ""), FieldRef::FromDotPath(R"(..)"));
-
-  ASSERT_OK_AND_EQ(FieldRef(2), FieldRef::FromDotPath(R"([2])"));
-
-  ASSERT_OK_AND_EQ(FieldRef("beta", 3), FieldRef::FromDotPath(R"(.beta[3])"));
-
-  ASSERT_OK_AND_EQ(FieldRef(5, "gamma", "delta", 7),
-                   FieldRef::FromDotPath(R"([5].gamma.delta[7])"));
-
-  ASSERT_OK_AND_EQ(FieldRef("hello world"), FieldRef::FromDotPath(R"(.hello world)"));
-
-  ASSERT_OK_AND_EQ(FieldRef(R"([y]\tho.\)"), FieldRef::FromDotPath(R"(.\[y\]\\tho\.\)"));
-
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"()"));
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"(alpha)"));
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([134234)"));
-  ASSERT_RAISES(Invalid, FieldRef::FromDotPath(R"([1stuf])"));
-}
-
-TEST(TestFieldPath, Nested) {
-  auto f0 = field("alpha", int32());
-  auto f1_0 = field("alpha", int32());
-  auto f1 = field("beta", struct_({f1_0}));
-  auto f2_0 = field("alpha", int32());
-  auto f2_1_0 = field("alpha", int32());
-  auto f2_1_1 = field("alpha", int32());
-  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
-  auto f2 = field("beta", struct_({f2_0, f2_1}));
-  Schema s({f0, f1, f2});
-
-  // retrieving fields with nested indices
-  EXPECT_EQ(FieldPath({0}).Get(s), f0);
-  EXPECT_EQ(FieldPath({1, 0}).Get(s), f1_0);
-  EXPECT_EQ(FieldPath({2, 0}).Get(s), f2_0);
-  EXPECT_EQ(FieldPath({2, 1, 0}).Get(s), f2_1_0);
-  EXPECT_EQ(FieldPath({2, 1, 1}).Get(s), f2_1_1);
-}
-
-TEST(TestFieldRef, Nested) {
-  auto f0 = field("alpha", int32());
-  auto f1_0 = field("alpha", int32());
-  auto f1 = field("beta", struct_({f1_0}));
-  auto f2_0 = field("alpha", int32());
-  auto f2_1_0 = field("alpha", int32());
-  auto f2_1_1 = field("alpha", int32());
-  auto f2_1 = field("gamma", struct_({f2_1_0, f2_1_1}));
-  auto f2 = field("beta", struct_({f2_0, f2_1}));
-  Schema s({f0, f1, f2});
-
-  EXPECT_THAT(FieldRef("beta", "alpha").FindAll(s),
-              ElementsAre(FieldPath{1, 0}, FieldPath{2, 0}));
-  EXPECT_THAT(FieldRef("beta", "gamma", "alpha").FindAll(s),
-              ElementsAre(FieldPath{2, 1, 0}, FieldPath{2, 1, 1}));
-}
-
 using TestSchema = ::testing::Test;
 
 TEST_F(TestSchema, Basics) {
@@ -472,6 +384,8 @@ TEST_F(TestSchema, Basics) {
   auto schema3 = std::make_shared<Schema>(fields3);
   AssertSchemaEqual(schema, schema2);
   AssertSchemaNotEqual(schema, schema3);
+  ASSERT_EQ(*schema, *schema2);
+  ASSERT_NE(*schema, *schema3);
 
   ASSERT_EQ(schema->fingerprint(), schema2->fingerprint());
   ASSERT_NE(schema->fingerprint(), schema3->fingerprint());
@@ -1548,6 +1462,8 @@ TEST(TestLargeListType, Basics) {
 }
 
 TEST(TestMapType, Basics) {
+  auto md = key_value_metadata({"foo"}, {"foo value"});
+
   std::shared_ptr<DataType> kt = std::make_shared<StringType>();
   std::shared_ptr<DataType> it = std::make_shared<UInt8Type>();
 
@@ -1580,6 +1496,41 @@ TEST(TestMapType, Basics) {
           "some_entries",
           struct_({field("some_key", kt, false), field("some_value", mt)}), false)));
   AssertTypeEqual(mt3, *mt5);
+  // ...unless we explicitly ask about them.
+  ASSERT_FALSE(mt3.Equals(mt5, /*check_metadata=*/true));
+
+  // nullability of value type matters in comparisons
+  MapType map_type_non_nullable(kt, field("value", it, /*nullable=*/false));
+  AssertTypeNotEqual(map_type, map_type_non_nullable);
+}
+
+TEST(TestMapType, Metadata) {
+  auto md1 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md2 = key_value_metadata({"foo", "bar"}, {"foo value", "bar value"});
+  auto md3 = key_value_metadata({"foo"}, {"foo value"});
+
+  auto t1 = map(utf8(), field("value", int32(), md1));
+  auto t2 = map(utf8(), field("value", int32(), md2));
+  auto t3 = map(utf8(), field("value", int32(), md3));
+  auto t4 =
+      std::make_shared<MapType>(field("key", utf8(), md1), field("value", int32(), md2));
+  ASSERT_OK_AND_ASSIGN(auto t5,
+                       MapType::Make(field("some_entries",
+                                           struct_({field("some_key", utf8(), false),
+                                                    field("some_value", int32(), md2)}),
+                                           false, md2)));
+
+  AssertTypeEqual(*t1, *t2);
+  AssertTypeEqual(*t1, *t2, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t3);
+  AssertTypeNotEqual(*t1, *t3, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t4);
+  AssertTypeNotEqual(*t1, *t4, /*check_metadata=*/true);
+
+  AssertTypeEqual(*t1, *t5);
+  AssertTypeNotEqual(*t1, *t5, /*check_metadata=*/true);
 }
 
 TEST(TestFixedSizeListType, Basics) {
@@ -1764,15 +1715,26 @@ TEST(TestListType, Equals) {
   auto t1 = list(utf8());
   auto t2 = list(utf8());
   auto t3 = list(binary());
-  auto t4 = large_list(binary());
-  auto t5 = large_list(binary());
-  auto t6 = large_list(float64());
+  auto t4 = list(field("item", utf8(), /*nullable=*/false));
+  auto tl1 = large_list(binary());
+  auto tl2 = large_list(binary());
+  auto tl3 = large_list(float64());
 
   AssertTypeEqual(*t1, *t2);
   AssertTypeNotEqual(*t1, *t3);
-  AssertTypeNotEqual(*t3, *t4);
-  AssertTypeEqual(*t4, *t5);
-  AssertTypeNotEqual(*t5, *t6);
+  AssertTypeNotEqual(*t1, *t4);
+  AssertTypeNotEqual(*t3, *tl1);
+  AssertTypeEqual(*tl1, *tl2);
+  AssertTypeNotEqual(*tl2, *tl3);
+
+  std::shared_ptr<DataType> vt = std::make_shared<UInt8Type>();
+  std::shared_ptr<Field> inner_field = std::make_shared<Field>("non_default_name", vt);
+
+  ListType list_type(vt);
+  ListType list_type_named(inner_field);
+
+  AssertTypeEqual(list_type, list_type_named);
+  ASSERT_FALSE(list_type.Equals(list_type_named, /*check_metadata=*/true));
 }
 
 TEST(TestListType, Metadata) {
@@ -2164,5 +2126,82 @@ TEST(TypesTest, TestDecimalEquals) {
   AssertTypeNotEqual(t5, t8);
   AssertTypeNotEqual(t5, t10);
 }
+
+TEST(TypesTest, TestRunEndEncodedType) {
+  auto int8_ree_expected = std::make_shared<RunEndEncodedType>(int32(), list(int8()));
+  auto int8_ree_type = run_end_encoded(int32(), list(int8()));
+  auto int32_ree_type = run_end_encoded(int32(), list(int32()));
+
+  ASSERT_EQ(*int8_ree_expected, *int8_ree_type);
+  ASSERT_NE(*int8_ree_expected, *int32_ree_type);
+
+  ASSERT_EQ(int8_ree_type->id(), Type::RUN_END_ENCODED);
+  ASSERT_EQ(int32_ree_type->id(), Type::RUN_END_ENCODED);
+
+  auto int8_ree_type_cast = std::dynamic_pointer_cast<RunEndEncodedType>(int8_ree_type);
+  auto int32_ree_type_cast = std::dynamic_pointer_cast<RunEndEncodedType>(int32_ree_type);
+  ASSERT_EQ(*int8_ree_type_cast->value_type(), *list(int8()));
+  ASSERT_EQ(*int32_ree_type_cast->value_type(), *list(int32()));
+
+  ASSERT_TRUE(int8_ree_type_cast->field(0)->Equals(Field("run_ends", int32(), false)));
+  ASSERT_TRUE(int8_ree_type_cast->field(1)->Equals(Field("values", list(int8()), true)));
+
+  auto int16_int32_ree_type = run_end_encoded(int16(), list(int32()));
+  auto int64_int32_ree_type = run_end_encoded(int64(), list(int32()));
+  ASSERT_NE(*int32_ree_type, *int16_int32_ree_type);
+  ASSERT_NE(*int32_ree_type, *int64_int32_ree_type);
+  ASSERT_NE(*int16_int32_ree_type, *int64_int32_ree_type);
+
+  ASSERT_EQ(int16_int32_ree_type->ToString(),
+            "run_end_encoded<run_ends: int16, values: list<item: int32>>");
+  ASSERT_EQ(int8_ree_type->ToString(),
+            "run_end_encoded<run_ends: int32, values: list<item: int8>>");
+  ASSERT_EQ(int64_int32_ree_type->ToString(),
+            "run_end_encoded<run_ends: int64, values: list<item: int32>>");
+}
+
+#define TEST_PREDICATE(all_types, type_predicate)                 \
+  for (auto type : all_types) {                                   \
+    ASSERT_EQ(type_predicate(type->id()), type_predicate(*type)); \
+  }
+
+TEST(TypesTest, TestMembership) {
+  std::vector<std::shared_ptr<DataType>> all_types;
+  for (auto type : NumericTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : TemporalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : IntervalTypes()) {
+    all_types.push_back(type);
+  }
+  for (auto type : PrimitiveTypes()) {
+    all_types.push_back(type);
+  }
+  TEST_PREDICATE(all_types, is_integer);
+  TEST_PREDICATE(all_types, is_signed_integer);
+  TEST_PREDICATE(all_types, is_unsigned_integer);
+  TEST_PREDICATE(all_types, is_floating);
+  TEST_PREDICATE(all_types, is_numeric);
+  TEST_PREDICATE(all_types, is_decimal);
+  TEST_PREDICATE(all_types, is_primitive);
+  TEST_PREDICATE(all_types, is_base_binary_like);
+  TEST_PREDICATE(all_types, is_binary_like);
+  TEST_PREDICATE(all_types, is_large_binary_like);
+  TEST_PREDICATE(all_types, is_binary);
+  TEST_PREDICATE(all_types, is_string);
+  TEST_PREDICATE(all_types, is_temporal);
+  TEST_PREDICATE(all_types, is_interval);
+  TEST_PREDICATE(all_types, is_dictionary);
+  TEST_PREDICATE(all_types, is_fixed_size_binary);
+  TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_var_length_list);
+  TEST_PREDICATE(all_types, is_list_like);
+  TEST_PREDICATE(all_types, is_nested);
+  TEST_PREDICATE(all_types, is_union);
+}
+
+#undef TEST_PREDICATE
 
 }  // namespace arrow

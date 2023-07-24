@@ -91,7 +91,7 @@ struct MultiplyTraits<Type, enable_if_decimal<Type>> {
 };
 
 struct ScalarAggregator : public KernelState {
-  virtual Status Consume(KernelContext* ctx, const ExecBatch& batch) = 0;
+  virtual Status Consume(KernelContext* ctx, const ExecSpan& batch) = 0;
   virtual Status MergeFrom(KernelContext* ctx, KernelState&& src) = 0;
   virtual Status Finalize(KernelContext* ctx, Datum* out) = 0;
 };
@@ -100,17 +100,21 @@ struct ScalarAggregator : public KernelState {
 // kernel implementations together
 enum class VarOrStd : bool { Var, Std };
 
+// Helper to differentiate between first/last calculation so we can fold
+// kernel implementations together
+enum class FirstOrLast : bool { First, Last };
+
 // Helper to differentiate between min/max calculation so we can fold
 // kernel implementations together
 enum class MinOrMax : uint8_t { Min = 0, Max };
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
+                  SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
 
 void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
                   ScalarAggregateFinalize finalize, ScalarAggregateFunction* func,
-                  SimdLevel::type simd_level = SimdLevel::NONE);
+                  SimdLevel::type simd_level = SimdLevel::NONE, bool ordered = false);
 
 using arrow::internal::VisitSetBitRunsVoid;
 
@@ -142,7 +146,7 @@ struct GetSumType<T, enable_if_decimal<T>> {
 template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
 enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
-    const ArrayData& data, ValueFunc&& func) {
+    const ArraySpan& data, ValueFunc&& func) {
   using arrow::internal::VisitSetBitRunsVoid;
 
   const int64_t data_size = data.length - data.GetNullCount();
@@ -164,7 +168,8 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 
   // reduce summation of one block (may be smaller than kBlockSize) from leaf node
   // continue reducing to upper level if two summations are ready for non-leaf node
-  auto reduce = [&](SumType block_sum) {
+  // (capture `levels` by value because of ARROW-17567)
+  auto reduce = [&, levels](SumType block_sum) {
     int cur_level = 0;
     uint64_t cur_level_mask = 1ULL;
     sum[cur_level] += block_sum;
@@ -182,7 +187,7 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
   };
 
   const ValueType* values = data.GetValues<ValueType>(1);
-  VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+  VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                       [&](int64_t pos, int64_t len) {
                         const ValueType* v = &values[pos];
                         // unsigned division by constant is cheaper than signed one
@@ -219,12 +224,12 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
-    const ArrayData& data, ValueFunc&& func) {
+    const ArraySpan& data, ValueFunc&& func) {
   using arrow::internal::VisitSetBitRunsVoid;
 
   SumType sum = 0;
   const ValueType* values = data.GetValues<ValueType>(1);
-  VisitSetBitRunsVoid(data.buffers[0], data.offset, data.length,
+  VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
                       [&](int64_t pos, int64_t len) {
                         for (int64_t i = 0; i < len; ++i) {
                           sum += func(values[pos + i]);
@@ -234,7 +239,7 @@ enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
 }
 
 template <typename ValueType, typename SumType, SimdLevel::type SimdLevel>
-SumType SumArray(const ArrayData& data) {
+SumType SumArray(const ArraySpan& data) {
   return SumArray<ValueType, SumType, SimdLevel>(
       data, [](ValueType v) { return static_cast<SumType>(v); });
 }

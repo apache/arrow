@@ -24,36 +24,58 @@ an eye toward maximum portability across different Linux distributions. This
 may help for contributors debugging build issues caused by their local
 environments.
 
-## Fedora 31
+## Fedora 35
 
 First, build the Docker image using:
 ```
 docker build -t arrow_fedora_minimal -f Dockerfile.fedora .
 ```
 
-Then build PyArrow with conda or pip/virtualenv, respectively:
+Then build PyArrow with conda or pip, respectively:
 ```
-# With pip/virtualenv
-docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_venv.sh
+# With pip
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /io/build_venv.sh
 
 # With conda
-docker run --rm -t -i -v $PWD:/io arrow_fedora_minimal /io/build_conda.sh
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_fedora_minimal /io/build_conda.sh
 ```
 
-## Ubuntu 18.04
+Alternatively you can use [Docker Compose][docker-compose] to build and run using:
+```
+docker-compose build
+
+# With conda
+docker-compose run --rm minimal-fedora-conda
+
+# With pip
+docker-compose run --rm minimal-fedora-venv
+```
+
+## Ubuntu 20.04
 
 First, build the Docker image using:
 ```
 docker build -t arrow_ubuntu_minimal -f Dockerfile.ubuntu .
 ```
 
-Then build PyArrow with conda or pip/virtualenv, respectively:
+Then build PyArrow with conda or pip, respectively:
 ```
-# With pip/virtualenv
-docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_venv.sh
+# With pip
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /io/build_venv.sh
 
 # With conda
-docker run --rm -t -i -v $PWD:/io arrow_ubuntu_minimal /io/build_conda.sh
+docker run --rm -t -i -v $PWD:/io -v $PWD/../../..:/arrow arrow_ubuntu_minimal /io/build_conda.sh
+```
+
+Alternatively you can use [Docker Compose][docker-compose] to build and run using:
+```
+docker-compose build
+
+# With conda
+docker-compose run --rm minimal-ubuntu-conda
+
+# With pip
+docker-compose run --rm minimal-ubuntu-venv
 ```
 
 ## Building on Fedora - Podman and SELinux
@@ -66,8 +88,10 @@ First, build the image using:
 podman build -t arrow_fedora_minimal -f Dockerfile.fedora
 ```
 
-Then build PyArrow with pip/virtualenv:
+Then build PyArrow with pip:
 ```
-# With pip/virtualenv
-podman run --rm -i -v $PWD:/io:Z -t arrow_fedora_minimal /io/build_venv.sh
+# With pip
+podman run --rm -i -v $PWD:/io:Z -v $PWD/../../..:/arrow:Z -t arrow_fedora_minimal /io/build_venv.sh
 ```
+
+[docker-compose]: https://docs.docker.com/compose/

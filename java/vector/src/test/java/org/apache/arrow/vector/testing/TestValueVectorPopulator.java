@@ -107,7 +107,7 @@ public class TestValueVectorPopulator {
       }
       vector1.setValueCount(10);
 
-      setVector(vector2, null, 1, null, 1, null, 0, null, 0, null, 0);
+      setVector(vector2, null, 1, null, 1, null, 1, null, 0, null, 0);
       assertTrue(VectorEqualsVisitor.vectorEquals(vector1, vector2));
     }
   }

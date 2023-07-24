@@ -15,29 +15,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-aws-sdk-cpp
+aws-sdk-cpp=1.11.68
 benchmark>=1.6.0
 boost-cpp>=1.68.0
 brotli
 bzip2
 c-ares
 cmake
+flatbuffers
 gflags
 glog
 gmock>=1.10.0
-grpc-cpp>=1.27.3
+google-cloud-cpp>=1.34.0
+grpc-cpp<=1.50.1
 gtest>=1.10.0
 libprotobuf
 libutf8proc
 lz4-c
 make
 ninja
+orc
 pkg-config
 python
 rapidjson
 re2
 snappy
 thrift-cpp>=0.11.0
+xsimd
 zlib
 zstd
-flatbuffers

@@ -93,9 +93,7 @@ class SnappyCodec : public Codec {
 
 }  // namespace
 
-std::unique_ptr<Codec> MakeSnappyCodec() {
-  return std::unique_ptr<Codec>(new SnappyCodec());
-}
+std::unique_ptr<Codec> MakeSnappyCodec() { return std::make_unique<SnappyCodec>(); }
 
 }  // namespace internal
 }  // namespace util

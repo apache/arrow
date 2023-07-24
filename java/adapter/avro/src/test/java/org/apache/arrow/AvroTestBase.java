@@ -63,8 +63,9 @@ public class AvroTestBase {
   }
 
   protected Schema getSchema(String schemaName) throws Exception {
-    Path schemaPath = Paths.get(TestWriteReadAvroRecord.class.getResource("/").getPath(),
+    Path schemaPath = Paths.get(Paths.get(TestWriteReadAvroRecord.class.getResource("/").toURI()).toString(),
         "schema", schemaName);
+
     return new Schema.Parser().parse(schemaPath.toFile());
   }
 

@@ -31,6 +31,13 @@ Abstract Function classes
    :content-only:
    :members:
 
+Function execution
+------------------
+
+.. doxygengroup:: compute-function-executor
+   :content-only:
+   :members:
+
 Function registry
 -----------------
 
@@ -54,3 +61,19 @@ Concrete options classes
    :undoc-members:
 
 .. TODO: List concrete function invocation shortcuts?
+
+Compute Expressions
+-------------------
+
+.. doxygengroup:: expression-core
+   :content-only:
+   :members:
+
+.. doxygengroup:: expression-convenience
+   :content-only:
+   :members:
+   :undoc-members:
+
+.. doxygengroup:: expression-passes
+   :content-only:
+   :members:

@@ -71,8 +71,8 @@ class SparseCSFTensorConverter : private SparseTensorConverterMixin {
     RETURN_NOT_OK(::arrow::internal::CheckSparseIndexMaximumValue(index_value_type_,
                                                                   tensor_.shape()));
 
-    const int index_elsize = GetByteWidth(*index_value_type_);
-    const int value_elsize = GetByteWidth(*tensor_.type());
+    const int index_elsize = index_value_type_->byte_width();
+    const int value_elsize = tensor_.type()->byte_width();
 
     const int64_t ndim = tensor_.ndim();
     // Axis order as ascending order of dimension size is a good heuristic but is not
@@ -203,11 +203,11 @@ class TensorBuilderFromSparseCSFTensor : private SparseTensorConverterMixin {
         ndim_(sparse_tensor->ndim()),
         tensor_size_(sparse_tensor->size()),
         value_type_(checked_cast<const FixedWidthType&>(*sparse_tensor->type())),
-        value_elsize_(GetByteWidth(value_type_)),
+        value_elsize_(value_type_.byte_width()),
         raw_data_(sparse_tensor->raw_data()) {}
 
   int ElementSize(const std::shared_ptr<Tensor>& tensor) const {
-    return GetByteWidth(*tensor->type());
+    return tensor->type()->byte_width();
   }
 
   Result<std::shared_ptr<Tensor>> Build() {

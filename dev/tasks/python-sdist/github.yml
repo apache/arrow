@@ -30,7 +30,7 @@ jobs:
       - name: Build sdist
         run: |
           archery docker run python-sdist
-          {% if arrow.branch == 'master' %}
+          {% if arrow.is_default_branch() %}
           archery docker push python-sdist || :
           {% endif %}
         env:

@@ -20,7 +20,9 @@
 
 arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   call <- match.call()
-  exprs <- quos(...)
+  .data <- as_adq(.data)
+  exprs <- expand_across(.data, quos(...))
+
   if (.by_group) {
     # when the data is is grouped and .by_group is TRUE, order the result by
     # the grouping columns first
@@ -51,7 +53,7 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
   .data$arrange_desc <- c(descs, .data$arrange_desc)
   .data
 }
-arrange.Dataset <- arrange.ArrowTabular <- arrange.arrow_dplyr_query
+arrange.Dataset <- arrange.ArrowTabular <- arrange.RecordBatchReader <- arrange.arrow_dplyr_query
 
 # Helper to handle desc() in arrange()
 # * Takes a quosure as input
@@ -76,7 +78,7 @@ find_and_remove_desc <- function(quosure) {
     if (identical(expr[[1]], quote(`(`))) {
       # remove enclosing parentheses
       expr <- expr[[2]]
-    } else if (identical(expr[[1]], quote(desc))) {
+    } else if (identical(expr[[1]], quote(desc)) || identical(expr[[1]], quote(dplyr::desc))) {
       # ensure desc() has only one argument (when an R expression is a function
       # call, length == 2 means it has exactly one argument)
       if (length(expr) > 2) {

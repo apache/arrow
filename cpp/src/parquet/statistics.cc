@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <optional>
 #include <type_traits>
 #include <utility>
 
@@ -30,7 +31,6 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/optional.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 #include "parquet/encoding.h"
@@ -42,6 +42,7 @@ using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
 using arrow::util::SafeCopy;
+using arrow::util::SafeLoad;
 
 namespace parquet {
 namespace {
@@ -162,7 +163,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/false> {
     int a_length = value_length(type_length, a);
     int b_length = value_length(type_length, b);
     // Unsigned comparison is used for non-numeric types so straight
-    // lexiographic comparison makes sense. (a.ptr is always unsigned)....
+    // lexicographic comparison makes sense. (a.ptr is always unsigned)....
     return std::lexicographical_compare(a.ptr, a.ptr + a_length, b.ptr, b.ptr + b_length);
   }
 };
@@ -185,7 +186,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
     // We can short circuit for different signed numbers or
     // for equal length bytes arrays that have different first bytes.
     // The equality requirement is necessary for sign extension cases.
-    // 0xFF10 should be eqaul to 0x10 (due to big endian sign extension).
+    // 0xFF10 should be equal to 0x10 (due to big endian sign extension).
     if ((0x80 & first_a) != (0x80 & first_b) ||
         (a_length == b_length && first_a != first_b)) {
       return first_a < first_b;
@@ -227,7 +228,7 @@ struct BinaryLikeComparer<T, /*is_signed=*/true> {
         //        a must be the lesser value: return true
         //
         //    positive values:
-        //      b  is the longer value.
+        //      b is the longer value.
         //        values in b must be greater than a: return true
         //      else:
         //        values in a must be greater than b: return false
@@ -276,7 +277,7 @@ template <bool is_signed>
 struct CompareHelper<FLBAType, is_signed>
     : public BinaryLikeCompareHelperBase<FLBAType, is_signed> {};
 
-using ::arrow::util::optional;
+using ::std::optional;
 
 template <typename T>
 ::arrow::enable_if_t<std::is_integral<T>::value, optional<std::pair<T, T>>>
@@ -297,11 +298,11 @@ CleanStatistic(std::pair<T, T> min_max) {
 
   // Ignore if one of the value is nan.
   if (std::isnan(min) || std::isnan(max)) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
 
   if (min == std::numeric_limits<T>::max() && max == std::numeric_limits<T>::lowest()) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
 
   T zero{};
@@ -319,7 +320,7 @@ CleanStatistic(std::pair<T, T> min_max) {
 
 optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
   return min_max;
 }
@@ -327,7 +328,7 @@ optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max) {
 optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
     std::pair<ByteArray, ByteArray> min_max) {
   if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
-    return ::arrow::util::nullopt;
+    return ::std::nullopt;
   }
   return min_max;
 }
@@ -353,7 +354,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     T max = Helper::DefaultMax();
 
     for (int64_t i = 0; i < length; i++) {
-      auto val = values[i];
+      const auto val = SafeLoad(values + i);
       min = Helper::Min(type_length_, min, Helper::Coalesce(val, Helper::DefaultMin()));
       max = Helper::Max(type_length_, max, Helper::Coalesce(val, Helper::DefaultMax()));
     }
@@ -372,7 +373,7 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     ::arrow::internal::VisitSetBitRunsVoid(
         valid_bits, valid_bits_offset, length, [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
-            const auto val = values[i + position];
+            const auto val = SafeLoad(values + i + position);
             min = Helper::Min(type_length_, min,
                               Helper::Coalesce(val, Helper::DefaultMin()));
             max = Helper::Max(type_length_, max,
@@ -434,11 +435,11 @@ std::pair<ByteArray, ByteArray> GetMinMaxBinaryHelper(
   const auto null_func = [&]() {};
 
   if (::arrow::is_binary_like(values.type_id())) {
-    ::arrow::VisitArrayDataInline<::arrow::BinaryType>(
+    ::arrow::VisitArraySpanInline<::arrow::BinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   } else {
     DCHECK(::arrow::is_large_binary_like(values.type_id()));
-    ::arrow::VisitArrayDataInline<::arrow::LargeBinaryType>(
+    ::arrow::VisitArraySpanInline<::arrow::LargeBinaryType>(
         *values.data(), std::move(valid_func), std::move(null_func));
   }
 
@@ -462,6 +463,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  public:
   using T = typename DType::c_type;
 
+  // Create an empty stats.
   TypedStatisticsImpl(const ColumnDescriptor* descr, MemoryPool* pool)
       : descr_(descr),
         pool_(pool),
@@ -469,36 +471,40 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         max_buffer_(AllocateBuffer(pool_, 0)) {
     auto comp = Comparator::Make(descr);
     comparator_ = std::static_pointer_cast<TypedComparator<DType>>(comp);
-    Reset();
-    has_null_count_ = true;
-    has_distinct_count_ = true;
+    TypedStatisticsImpl::Reset();
   }
 
+  // Create stats from provided values.
   TypedStatisticsImpl(const T& min, const T& max, int64_t num_values, int64_t null_count,
                       int64_t distinct_count)
       : pool_(default_memory_pool()),
         min_buffer_(AllocateBuffer(pool_, 0)),
         max_buffer_(AllocateBuffer(pool_, 0)) {
-    IncrementNumValues(num_values);
-    IncrementNullCount(null_count);
-    IncrementDistinctCount(distinct_count);
+    TypedStatisticsImpl::IncrementNumValues(num_values);
+    TypedStatisticsImpl::IncrementNullCount(null_count);
+    SetDistinctCount(distinct_count);
 
     Copy(min, &min_, min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
   }
 
+  // Create stats from a thrift Statistics object.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       int64_t null_count, int64_t distinct_count, bool has_min_max,
                       bool has_null_count, bool has_distinct_count, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
-    IncrementNumValues(num_values);
-    if (has_null_count_) {
-      IncrementNullCount(null_count);
+    TypedStatisticsImpl::IncrementNumValues(num_values);
+    if (has_null_count) {
+      TypedStatisticsImpl::IncrementNullCount(null_count);
+    } else {
+      has_null_count_ = false;
     }
     if (has_distinct_count) {
-      IncrementDistinctCount(distinct_count);
+      SetDistinctCount(distinct_count);
+    } else {
+      has_distinct_count_ = false;
     }
 
     if (!encoded_min.empty()) {
@@ -527,8 +533,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     const auto& other = checked_cast<const TypedStatisticsImpl&>(raw_other);
 
     if (has_min_max_ != other.has_min_max_) return false;
+    if (has_min_max_) {
+      if (!MinMaxEqual(other)) return false;
+    }
 
-    return (has_min_max_ && MinMaxEqual(other)) && null_count() == other.null_count() &&
+    return null_count() == other.null_count() &&
            distinct_count() == other.distinct_count() &&
            num_values() == other.num_values();
   }
@@ -537,9 +546,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Reset() override {
     ResetCounts();
-    has_min_max_ = false;
-    has_distinct_count_ = false;
-    has_null_count_ = false;
+    ResetHasFlags();
   }
 
   void SetMinMax(const T& arg_min, const T& arg_max) override {
@@ -548,21 +555,27 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
+    // null_count is always valid when merging page statistics into
+    // column chunk statistics.
     if (other.HasNullCount()) {
       this->statistics_.null_count += other.null_count();
+    } else {
+      this->has_null_count_ = false;
     }
-    if (other.HasDistinctCount()) {
-      this->statistics_.distinct_count += other.distinct_count();
-    }
+    // Clear has_distinct_count_ as distinct count cannot be merged.
+    has_distinct_count_ = false;
+    // Do not clear min/max here if the other side does not provide
+    // min/max which may happen when other is an empty stats or all
+    // its values are null and/or NaN.
     if (other.HasMinMax()) {
       SetMinMax(other.min(), other.max());
     }
   }
 
-  void Update(const T* values, int64_t num_not_null, int64_t num_null) override;
+  void Update(const T* values, int64_t num_values, int64_t null_count) override;
   void UpdateSpaced(const T* values, const uint8_t* valid_bits, int64_t valid_bits_offset,
-                    int64_t num_spaced_values, int64_t num_not_null,
-                    int64_t num_null) override;
+                    int64_t num_spaced_values, int64_t num_values,
+                    int64_t null_count) override;
 
   void Update(const ::arrow::Array& values, bool update_counts) override {
     if (update_counts) {
@@ -605,7 +618,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
     if (HasNullCount()) {
       s.set_null_count(this->null_count());
+      // num_values_ is reliable and it means number of non-null values.
+      s.all_null_value = num_values_ == 0;
     }
+    // TODO (GH-36505): distinct count is not encoded for now.
     return s;
   }
 
@@ -621,6 +637,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
+  // Number of non-null values.
+  // Please note that num_values_ is reliable when has_null_count_ is set.
+  // When has_null_count_ is not set, e.g. a page statistics created from
+  // a statistics thrift message which doesn't have the optional null_count,
+  // `num_values_` may include null values.
   int64_t num_values_ = 0;
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
@@ -631,8 +652,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void Copy(const T& src, T* dst, ResizableBuffer*) { *dst = src; }
 
-  void IncrementDistinctCount(int64_t n) {
-    statistics_.distinct_count += n;
+  void SetDistinctCount(int64_t n) {
+    // distinct count can only be "set", and cannot be incremented.
+    statistics_.distinct_count = n;
     has_distinct_count_ = true;
   }
 
@@ -640,6 +662,17 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->statistics_.null_count = 0;
     this->statistics_.distinct_count = 0;
     this->num_values_ = 0;
+  }
+
+  void ResetHasFlags() {
+    // has_min_max_ will only be set when it meets any valid value.
+    this->has_min_max_ = false;
+    // has_distinct_count_ will only be set once SetDistinctCount()
+    // is called because distinct count calculation is not cheap and
+    // disabled by default.
+    this->has_distinct_count_ = false;
+    // Null count calculation is cheap and enabled by default.
+    this->has_null_count_ = true;
   }
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
@@ -672,7 +705,7 @@ inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
 template <typename DType>
 bool TypedStatisticsImpl<DType>::MinMaxEqual(
     const TypedStatisticsImpl<DType>& other) const {
-  return min_ != other.min_ && max_ != other.max_;
+  return min_ == other.min_ && max_ == other.max_;
 }
 
 template <>
@@ -695,30 +728,30 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
 }
 
 template <typename DType>
-void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_not_null,
-                                        int64_t num_null) {
-  DCHECK_GE(num_not_null, 0);
-  DCHECK_GE(num_null, 0);
+void TypedStatisticsImpl<DType>::Update(const T* values, int64_t num_values,
+                                        int64_t null_count) {
+  DCHECK_GE(num_values, 0);
+  DCHECK_GE(null_count, 0);
 
-  IncrementNullCount(num_null);
-  IncrementNumValues(num_not_null);
+  IncrementNullCount(null_count);
+  IncrementNumValues(num_values);
 
-  if (num_not_null == 0) return;
-  SetMinMaxPair(comparator_->GetMinMax(values, num_not_null));
+  if (num_values == 0) return;
+  SetMinMaxPair(comparator_->GetMinMax(values, num_values));
 }
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* valid_bits,
                                               int64_t valid_bits_offset,
                                               int64_t num_spaced_values,
-                                              int64_t num_not_null, int64_t num_null) {
-  DCHECK_GE(num_not_null, 0);
-  DCHECK_GE(num_null, 0);
+                                              int64_t num_values, int64_t null_count) {
+  DCHECK_GE(num_values, 0);
+  DCHECK_GE(null_count, 0);
 
-  IncrementNullCount(num_null);
-  IncrementNumValues(num_not_null);
+  IncrementNullCount(null_count);
+  IncrementNumValues(num_values);
 
-  if (num_not_null == 0) return;
+  if (num_values == 0) return;
   SetMinMaxPair(comparator_->GetMinMaxSpaced(values, num_spaced_values, valid_bits,
                                              valid_bits_offset));
 }
@@ -853,6 +886,17 @@ std::shared_ptr<Statistics> Statistics::Make(Type::type physical_type, const voi
 #undef MAKE_STATS
   DCHECK(false) << "Cannot reach here";
   return nullptr;
+}
+
+std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
+                                             const EncodedStatistics* encoded_stats,
+                                             int64_t num_values,
+                                             ::arrow::MemoryPool* pool) {
+  DCHECK(encoded_stats != nullptr);
+  return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
+              encoded_stats->null_count, encoded_stats->distinct_count,
+              encoded_stats->has_min && encoded_stats->has_max,
+              encoded_stats->has_null_count, encoded_stats->has_distinct_count, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,

@@ -21,11 +21,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/metadata"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -187,4 +187,16 @@ func TestCheckNegativeZeroStats(t *testing.T) {
 		assertMinMaxZeroesSign(fstats, []float32{f32zero, f32zero})
 		assertMinMaxZeroesSign(dstats, []float64{f64zero, f64zero})
 	}
+}
+
+func TestBooleanStatisticsEncoding(t *testing.T) {
+	n := schema.NewBooleanNode("boolean", parquet.Repetitions.Required, -1)
+	descr := schema.NewColumn(n, 0, 0)
+	s := metadata.NewStatistics(descr, nil)
+	bs := s.(*metadata.BooleanStatistics)
+	bs.SetMinMax(false, true)
+	maxEnc := bs.EncodeMax()
+	minEnc := bs.EncodeMin()
+	assert.Equal(t, []byte{1}, maxEnc)
+	assert.Equal(t, []byte{0}, minEnc)
 }

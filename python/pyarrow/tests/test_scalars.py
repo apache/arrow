@@ -19,59 +19,59 @@ import datetime
 import decimal
 import pickle
 import pytest
+import sys
 import weakref
 
 import numpy as np
 
 import pyarrow as pa
+import pyarrow.compute as pc
+from pyarrow.tests import util
 
 
-@pytest.mark.parametrize(['value', 'ty', 'klass', 'deprecated'], [
-    (False, None, pa.BooleanScalar, pa.BooleanValue),
-    (True, None, pa.BooleanScalar, pa.BooleanValue),
-    (1, None, pa.Int64Scalar, pa.Int64Value),
-    (-1, None, pa.Int64Scalar, pa.Int64Value),
-    (1, pa.int8(), pa.Int8Scalar, pa.Int8Value),
-    (1, pa.uint8(), pa.UInt8Scalar, pa.UInt8Value),
-    (1, pa.int16(), pa.Int16Scalar, pa.Int16Value),
-    (1, pa.uint16(), pa.UInt16Scalar, pa.UInt16Value),
-    (1, pa.int32(), pa.Int32Scalar, pa.Int32Value),
-    (1, pa.uint32(), pa.UInt32Scalar, pa.UInt32Value),
-    (1, pa.int64(), pa.Int64Scalar, pa.Int64Value),
-    (1, pa.uint64(), pa.UInt64Scalar, pa.UInt64Value),
-    (1.0, None, pa.DoubleScalar, pa.DoubleValue),
-    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar, pa.HalfFloatValue),
-    (1.0, pa.float32(), pa.FloatScalar, pa.FloatValue),
-    (decimal.Decimal("1.123"), None, pa.Decimal128Scalar, pa.Decimal128Value),
+@pytest.mark.parametrize(['value', 'ty', 'klass'], [
+    (False, None, pa.BooleanScalar),
+    (True, None, pa.BooleanScalar),
+    (1, None, pa.Int64Scalar),
+    (-1, None, pa.Int64Scalar),
+    (1, pa.int8(), pa.Int8Scalar),
+    (1, pa.uint8(), pa.UInt8Scalar),
+    (1, pa.int16(), pa.Int16Scalar),
+    (1, pa.uint16(), pa.UInt16Scalar),
+    (1, pa.int32(), pa.Int32Scalar),
+    (1, pa.uint32(), pa.UInt32Scalar),
+    (1, pa.int64(), pa.Int64Scalar),
+    (1, pa.uint64(), pa.UInt64Scalar),
+    (1.0, None, pa.DoubleScalar),
+    (np.float16(1.0), pa.float16(), pa.HalfFloatScalar),
+    (1.0, pa.float32(), pa.FloatScalar),
+    (decimal.Decimal("1.123"), None, pa.Decimal128Scalar),
     (decimal.Decimal("1.1234567890123456789012345678901234567890"),
-     None, pa.Decimal256Scalar, pa.Decimal256Value),
-    ("string", None, pa.StringScalar, pa.StringValue),
-    (b"bytes", None, pa.BinaryScalar, pa.BinaryValue),
-    ("largestring", pa.large_string(), pa.LargeStringScalar,
-     pa.LargeStringValue),
-    (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar,
-     pa.LargeBinaryValue),
-    (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar, pa.FixedSizeBinaryValue),
-    ([1, 2, 3], None, pa.ListScalar, pa.ListValue),
-    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar,
-     pa.LargeListValue),
-    ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar,
-     pa.FixedSizeListValue),
-    (datetime.date.today(), None, pa.Date32Scalar, pa.Date32Value),
-    (datetime.date.today(), pa.date64(), pa.Date64Scalar, pa.Date64Value),
-    (datetime.datetime.now(), None, pa.TimestampScalar, pa.TimestampValue),
+     None, pa.Decimal256Scalar),
+    ("string", None, pa.StringScalar),
+    (b"bytes", None, pa.BinaryScalar),
+    ("largestring", pa.large_string(), pa.LargeStringScalar),
+    (b"largebytes", pa.large_binary(), pa.LargeBinaryScalar),
+    (b"abc", pa.binary(3), pa.FixedSizeBinaryScalar),
+    ([1, 2, 3], None, pa.ListScalar),
+    ([1, 2, 3, 4], pa.large_list(pa.int8()), pa.LargeListScalar),
+    ([1, 2, 3, 4, 5], pa.list_(pa.int8(), 5), pa.FixedSizeListScalar),
+    (datetime.date.today(), None, pa.Date32Scalar),
+    (datetime.date.today(), pa.date64(), pa.Date64Scalar),
+    (datetime.datetime.now(), None, pa.TimestampScalar),
     (datetime.datetime.now().time().replace(microsecond=0), pa.time32('s'),
-     pa.Time32Scalar, pa.Time32Value),
-    (datetime.datetime.now().time(), None, pa.Time64Scalar, pa.Time64Value),
-    (datetime.timedelta(days=1), None, pa.DurationScalar, pa.DurationValue),
+     pa.Time32Scalar),
+    (datetime.datetime.now().time(), None, pa.Time64Scalar),
+    (datetime.timedelta(days=1), None, pa.DurationScalar),
     (pa.MonthDayNano([1, -1, -10100]), None,
-     pa.MonthDayNanoIntervalScalar, None),
-    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar, pa.StructValue),
-    ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar,
-     pa.MapValue),
+     pa.MonthDayNanoIntervalScalar),
+    ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
+    ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
-def test_basics(value, ty, klass, deprecated):
+def test_basics(value, ty, klass):
     s = pa.scalar(value, type=ty)
+    s.validate()
+    s.validate(full=True)
     assert isinstance(s, klass)
     assert s.as_py() == value
     assert s == pa.scalar(value, type=ty)
@@ -80,9 +80,6 @@ def test_basics(value, ty, klass, deprecated):
     assert hash(s) == hash(s)
     assert s.is_valid is True
     assert s != None  # noqa: E711
-    if deprecated is not None:
-        with pytest.warns(FutureWarning):
-            assert isinstance(s, deprecated)
 
     s = pa.scalar(None, type=s.type)
     assert s.is_valid is False
@@ -98,6 +95,14 @@ def test_basics(value, ty, klass, deprecated):
     assert wr() is not None
     del s
     assert wr() is None
+
+
+def test_invalid_scalar():
+    s = pc.cast(pa.scalar(b"\xff"), pa.string(), safe=False)
+    s.validate()
+    with pytest.raises(ValueError,
+                       match="string scalar contains invalid UTF8 data"):
+        s.validate(full=True)
 
 
 def test_null_singleton():
@@ -138,6 +143,15 @@ def test_hashing():
     set_from_array = set(arr)
     assert isinstance(set_from_array, set)
     assert len(set_from_array) == 500
+
+
+def test_hashing_struct_scalar():
+    # GH-35360
+    a = pa.array([[{'a': 5}, {'a': 6}], [{'a': 7}, None]])
+    b = pa.array([[{'a': 7}, None]])
+    hash1 = hash(a[1])
+    hash2 = hash(b[0])
+    assert hash1 == hash2
 
 
 def test_bool():
@@ -238,7 +252,7 @@ def test_date_cast():
         assert result.as_py() == expected
 
 
-def test_time():
+def test_time_from_datetime_time():
     t1 = datetime.time(18, 0)
     t2 = datetime.time(21, 0)
 
@@ -249,6 +263,40 @@ def test_time():
             assert s.as_py() == t
 
 
+@pytest.mark.parametrize(['value', 'time_type'], [
+    (1, pa.time32("s")),
+    (2**30, pa.time32("s")),
+    (None, pa.time32("s")),
+    (1, pa.time32("ms")),
+    (2**30, pa.time32("ms")),
+    (None, pa.time32("ms")),
+    (1, pa.time64("us")),
+    (2**62, pa.time64("us")),
+    (None, pa.time64("us")),
+    (1, pa.time64("ns")),
+    (2**62, pa.time64("ns")),
+    (None, pa.time64("ns")),
+    (1, pa.date32()),
+    (2**30, pa.date32()),
+    (None, pa.date32()),
+    (1, pa.date64()),
+    (2**62, pa.date64()),
+    (None, pa.date64()),
+    (1, pa.timestamp("ns")),
+    (2**62, pa.timestamp("ns")),
+    (None, pa.timestamp("ns")),
+    (1, pa.duration("ns")),
+    (2**62, pa.duration("ns")),
+    (None, pa.duration("ns")),
+    ((1, 2, -3), pa.month_day_nano_interval()),
+    (None, pa.month_day_nano_interval()),
+])
+def test_temporal_values(value, time_type: pa.DataType):
+    time_scalar = pa.scalar(value, type=time_type)
+    time_scalar.validate(full=True)
+    assert time_scalar.value == value
+
+
 def test_cast():
     val = pa.scalar(5, type='int8')
     assert val.cast('int64') == pa.scalar(5, type='int64')
@@ -256,6 +304,37 @@ def test_cast():
     assert val.cast('string') == pa.scalar('5', type='string')
     with pytest.raises(ValueError):
         pa.scalar('foo').cast('int32')
+
+
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
+def test_cast_timestamp_to_string():
+    # GH-35370
+    pytest.importorskip("pytz")
+    import pytz
+    dt = datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=pytz.utc)
+    ts = pa.scalar(dt, type=pa.timestamp("ns", tz="UTC"))
+    assert ts.cast(pa.string()) == pa.scalar('2000-01-01 00:00:00.000000000Z')
+
+
+def test_cast_float_to_int():
+    # GH-35040
+    float_scalar = pa.scalar(1.5, type=pa.float64())
+    unsafe_cast = float_scalar.cast(pa.int64(), safe=False)
+    expected_unsafe_cast = pa.scalar(1, type=pa.int64())
+    assert unsafe_cast == expected_unsafe_cast
+    with pytest.raises(pa.ArrowInvalid):
+        float_scalar.cast(pa.int64())  # verify default is safe cast
+
+
+def test_cast_int_to_float():
+    # GH-34901
+    int_scalar = pa.scalar(18014398509481983, type=pa.int64())
+    unsafe_cast = int_scalar.cast(pa.float64(), safe=False)
+    expected_unsafe_cast = pa.scalar(18014398509481983.0, type=pa.float64())
+    assert unsafe_cast == expected_unsafe_cast
+    with pytest.raises(pa.ArrowInvalid):
+        int_scalar.cast(pa.float64())  # verify default is safe cast
 
 
 @pytest.mark.pandas
@@ -289,6 +368,7 @@ def test_timestamp():
 @pytest.mark.nopandas
 def test_timestamp_nanos_nopandas():
     # ARROW-5450
+    pytest.importorskip("pytz")
     import pytz
     tz = 'America/New_York'
     ty = pa.timestamp('ns', tz=tz)
@@ -312,6 +392,7 @@ def test_timestamp_nanos_nopandas():
 
 def test_timestamp_no_overflow():
     # ARROW-5450
+    pytest.importorskip("pytz")
     import pytz
 
     timestamps = [
@@ -326,6 +407,7 @@ def test_timestamp_no_overflow():
 
 def test_timestamp_fixed_offset_print():
     # ARROW-13896
+    pytest.importorskip("pytz")
     arr = pa.array([0], pa.timestamp('s', tz='+02:00'))
     assert str(arr[0]) == "1970-01-01 02:00:00+02:00"
 
@@ -637,13 +719,29 @@ def test_dictionary():
         assert s.index.equals(i)
         assert s.dictionary.equals(dictionary)
 
-        with pytest.warns(FutureWarning):
-            assert s.index_value.equals(i)
-        with pytest.warns(FutureWarning):
-            assert s.dictionary_value.as_py() == v
-
         restored = pickle.loads(pickle.dumps(s))
         assert restored.equals(s)
+
+
+def test_run_end_encoded():
+    run_ends = [3, 5, 10, 12, 19]
+    values = [1, 2, 1, None, 3]
+    arr = pa.RunEndEncodedArray.from_arrays(run_ends, values)
+
+    scalar = arr[0]
+    assert isinstance(scalar, pa.RunEndEncodedScalar)
+    assert isinstance(scalar.value, pa.Int64Scalar)
+    assert scalar.value == pa.array(values)[0]
+    assert scalar.as_py() == 1
+
+    # null -> .value is still a scalar, as_py returns None
+    scalar = arr[10]
+    assert isinstance(scalar.value, pa.Int64Scalar)
+    assert scalar.as_py() is None
+
+    # constructing a scalar directly doesn't work yet
+    with pytest.raises(NotImplementedError):
+        pa.scalar(1, pa.run_end_encoded(pa.int64(), pa.int64()))
 
 
 def test_union():
@@ -656,6 +754,7 @@ def test_union():
         ]
     )
     for s in arr:
+        s.validate(full=True)
         assert isinstance(s, pa.UnionScalar)
         assert s.type.equals(arr.type)
         assert s.is_valid is True
@@ -681,6 +780,7 @@ def test_union():
         ]
     )
     for s in arr:
+        s.validate(full=True)
         assert isinstance(s, pa.UnionScalar)
         assert s.type.equals(arr.type)
         assert s.is_valid is True

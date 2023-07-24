@@ -43,10 +43,8 @@ std::unique_ptr<llvm::MemoryBuffer> GandivaObjectCache::getObject(const llvm::Mo
   if (cached_obj != nullptr) {
     std::unique_ptr<llvm::MemoryBuffer> cached_buffer = cached_obj->getMemBufferCopy(
         cached_obj->getBuffer(), cached_obj->getBufferIdentifier());
-    ARROW_LOG(INFO) << "[INFO][CACHE-LOG]: An object code was found on cache.";
     return cached_buffer;
   }
-  ARROW_LOG(INFO) << "[INFO][CACHE-LOG]: No object code was found on cache.";
   return nullptr;
 }
 

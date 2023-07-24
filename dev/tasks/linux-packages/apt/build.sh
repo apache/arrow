@@ -57,7 +57,7 @@ if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPRESSLEVEL=6
   export CCACHE_DIR="${PWD}/ccache"
   export CCACHE_MAXSIZE=500M
-  ccache --show-stats
+  ccache --show-stats --verbose || :
   debuild_options+=(-eCCACHE_COMPILERCHECK)
   debuild_options+=(-eCCACHE_COMPRESS)
   debuild_options+=(-eCCACHE_COMPRESSLEVEL)
@@ -92,13 +92,15 @@ fi
 : ${DEB_BUILD_OPTIONS:="parallel=$(nproc)"}
 # DEB_BUILD_OPTIONS="${DEB_BUILD_OPTIONS} noopt"
 export DEB_BUILD_OPTIONS
+df -h
 if [ "${DEBUG:-no}" = "yes" ]; then
   run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}"
 else
   run debuild "${debuild_options[@]}" "${dpkg_buildpackage_options[@]}" > /dev/null
 fi
+df -h
 if which ccache > /dev/null 2>&1; then
-  ccache --show-stats
+  ccache --show-stats --verbose || :
 fi
 run cd -
 

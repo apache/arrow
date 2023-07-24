@@ -20,6 +20,7 @@ package org.apache.arrow.flight.sql;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.IntStream.range;
 import static org.apache.arrow.flight.FlightProducer.ServerStreamListener;
+import static org.apache.arrow.flight.sql.impl.FlightSql.SqlSupportedTransaction;
 import static org.apache.arrow.flight.sql.util.SqlInfoOptionsUtils.createBitmaskFromEnums;
 
 import java.nio.charset.StandardCharsets;
@@ -116,6 +117,46 @@ public class SqlInfoBuilder {
    */
   public SqlInfoBuilder withFlightSqlServerArrowVersion(final String value) {
     return withStringProvider(SqlInfo.FLIGHT_SQL_SERVER_ARROW_VERSION_VALUE, value);
+  }
+
+  /** Set a value for SQL support. */
+  public SqlInfoBuilder withFlightSqlServerSql(boolean value) {
+    return withBooleanProvider(SqlInfo.FLIGHT_SQL_SERVER_SQL_VALUE, value);
+  }
+
+  /** Set a value for Substrait support. */
+  public SqlInfoBuilder withFlightSqlServerSubstrait(boolean value) {
+    return withBooleanProvider(SqlInfo.FLIGHT_SQL_SERVER_SUBSTRAIT_VALUE, value);
+  }
+
+  /** Set a value for Substrait minimum version support. */
+  public SqlInfoBuilder withFlightSqlServerSubstraitMinVersion(String value) {
+    return withStringProvider(SqlInfo.FLIGHT_SQL_SERVER_SUBSTRAIT_MIN_VERSION_VALUE, value);
+  }
+
+  /** Set a value for Substrait maximum version support. */
+  public SqlInfoBuilder withFlightSqlServerSubstraitMaxVersion(String value) {
+    return withStringProvider(SqlInfo.FLIGHT_SQL_SERVER_SUBSTRAIT_MAX_VERSION_VALUE, value);
+  }
+
+  /** Set a value for transaction support. */
+  public SqlInfoBuilder withFlightSqlServerTransaction(SqlSupportedTransaction value) {
+    return withIntProvider(SqlInfo.FLIGHT_SQL_SERVER_TRANSACTION_VALUE, value.getNumber());
+  }
+
+  /** Set a value for query cancellation support. */
+  public SqlInfoBuilder withFlightSqlServerCancel(boolean value) {
+    return withBooleanProvider(SqlInfo.FLIGHT_SQL_SERVER_CANCEL_VALUE, value);
+  }
+
+  /** Set a value for statement timeouts. */
+  public SqlInfoBuilder withFlightSqlServerStatementTimeout(int value) {
+    return withIntProvider(SqlInfo.FLIGHT_SQL_SERVER_STATEMENT_TIMEOUT_VALUE, value);
+  }
+
+  /** Set a value for transaction timeouts. */
+  public SqlInfoBuilder withFlightSqlServerTransactionTimeout(int value) {
+    return withIntProvider(SqlInfo.FLIGHT_SQL_SERVER_TRANSACTION_TIMEOUT_VALUE, value);
   }
 
   /**

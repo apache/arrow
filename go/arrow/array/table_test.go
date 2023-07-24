@@ -17,20 +17,21 @@
 package array_test
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestChunked(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	c1 := array.NewChunked(arrow.PrimitiveTypes.Int32, nil)
+	c1 := arrow.NewChunked(arrow.PrimitiveTypes.Int32, nil)
 	c1.Retain()
 	c1.Release()
 	if got, want := c1.Len(), 0; got != want {
@@ -59,9 +60,9 @@ func TestChunked(t *testing.T) {
 	f3 := fb.NewFloat64Array()
 	defer f3.Release()
 
-	c2 := array.NewChunked(
+	c2 := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f1, f2, f3},
+		[]arrow.Array{f1, f2, f3},
 	)
 	defer c2.Release()
 
@@ -93,7 +94,7 @@ func TestChunked(t *testing.T) {
 		{i: 10, j: 10, len: 0, nulls: 0, chunks: 0},
 	} {
 		t.Run("", func(t *testing.T) {
-			sub := c2.NewSlice(tc.i, tc.j)
+			sub := array.NewChunkedSlice(c2, tc.i, tc.j)
 			defer sub.Release()
 
 			if got, want := sub.Len(), tc.len; got != want {
@@ -128,7 +129,7 @@ func TestChunkedEqualDataType(t *testing.T) {
 	v2 := lb2.NewArray()
 	defer v2.Release()
 
-	c1 := array.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []array.Interface{
+	c1 := arrow.NewChunked(arrow.ListOf(arrow.PrimitiveTypes.Int32), []arrow.Array{
 		v1, v2,
 	})
 	defer c1.Release()
@@ -157,12 +158,22 @@ func TestChunkedInvalid(t *testing.T) {
 		if e == nil {
 			t.Fatalf("expected a panic")
 		}
-		if got, want := e.(string), "arrow/array: mismatch data type"; got != want {
+
+		err, ok := e.(error)
+		if !ok {
+			t.Fatalf("expected an error")
+		}
+
+		if !errors.Is(err, arrow.ErrInvalid) {
+			t.Fatalf("should be an ErrInvalid")
+		}
+
+		if got, want := err.Error(), fmt.Sprintf("%s: arrow/array: mismatch data type float64 vs int32", arrow.ErrInvalid); got != want {
 			t.Fatalf("invalid error. got=%q, want=%q", got, want)
 		}
 	}()
 
-	c1 := array.NewChunked(arrow.PrimitiveTypes.Int32, []array.Interface{
+	c1 := arrow.NewChunked(arrow.PrimitiveTypes.Int32, []arrow.Array{
 		f1, f2,
 	})
 	defer c1.Release()
@@ -187,9 +198,9 @@ func TestChunkedSliceInvalid(t *testing.T) {
 	f3 := fb.NewFloat64Array()
 	defer f3.Release()
 
-	c := array.NewChunked(
+	c := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f1, f2, f3},
+		[]arrow.Array{f1, f2, f3},
 	)
 	defer c.Release()
 
@@ -210,7 +221,7 @@ func TestChunkedSliceInvalid(t *testing.T) {
 					t.Fatalf("invalid error. got=%q, want=%q", got, want)
 				}
 			}()
-			sub := c.NewSlice(tc.i, tc.j)
+			sub := array.NewChunkedSlice(c, tc.i, tc.j)
 			defer sub.Release()
 		})
 	}
@@ -228,13 +239,13 @@ func TestColumn(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		chunk  *array.Chunked
+		chunk  *arrow.Chunked
 		field  arrow.Field
 		err    error
 		slices []slice
 	}{
 		{
-			chunk: func() *array.Chunked {
+			chunk: func() *arrow.Chunked {
 				ib := array.NewInt32Builder(mem)
 				defer ib.Release()
 
@@ -246,9 +257,9 @@ func TestColumn(t *testing.T) {
 				i2 := ib.NewInt32Array()
 				defer i2.Release()
 
-				c := array.NewChunked(
+				c := arrow.NewChunked(
 					arrow.PrimitiveTypes.Int32,
-					[]array.Interface{i1, i2},
+					[]arrow.Array{i1, i2},
 				)
 				return c
 			}(),
@@ -264,7 +275,7 @@ func TestColumn(t *testing.T) {
 			},
 		},
 		{
-			chunk: func() *array.Chunked {
+			chunk: func() *arrow.Chunked {
 				fb := array.NewFloat64Builder(mem)
 				defer fb.Release()
 
@@ -280,9 +291,9 @@ func TestColumn(t *testing.T) {
 				f3 := fb.NewFloat64Array()
 				defer f3.Release()
 
-				c := array.NewChunked(
+				c := arrow.NewChunked(
 					arrow.PrimitiveTypes.Float64,
-					[]array.Interface{f1, f2, f3},
+					[]arrow.Array{f1, f2, f3},
 				)
 				return c
 			}(),
@@ -298,7 +309,7 @@ func TestColumn(t *testing.T) {
 			},
 		},
 		{
-			chunk: func() *array.Chunked {
+			chunk: func() *arrow.Chunked {
 				fb := array.NewFloat64Builder(mem)
 				defer fb.Release()
 
@@ -306,14 +317,14 @@ func TestColumn(t *testing.T) {
 				f1 := fb.NewFloat64Array()
 				defer f1.Release()
 
-				c := array.NewChunked(
+				c := arrow.NewChunked(
 					arrow.PrimitiveTypes.Float64,
-					[]array.Interface{f1},
+					[]arrow.Array{f1},
 				)
 				return c
 			}(),
 			field: arrow.Field{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
-			err:   fmt.Errorf("arrow/array: inconsistent data type"),
+			err:   fmt.Errorf("%w: arrow/array: inconsistent data type float64 vs float32", arrow.ErrInvalid),
 		},
 	} {
 		t.Run("", func(t *testing.T) {
@@ -340,7 +351,7 @@ func TestColumn(t *testing.T) {
 				}()
 			}
 
-			col := array.NewColumn(tc.field, tc.chunk)
+			col := arrow.NewColumn(tc.field, tc.chunk)
 			defer col.Release()
 
 			if got, want := col.Len(), tc.chunk.Len(); got != want {
@@ -367,7 +378,7 @@ func TestColumn(t *testing.T) {
 
 			for _, slice := range tc.slices {
 				t.Run("", func(t *testing.T) {
-					sub := col.NewSlice(slice.i, slice.j)
+					sub := array.NewColumnSlice(col, slice.i, slice.j)
 					defer sub.Release()
 
 					if got, want := sub.Len(), slice.len; got != want {
@@ -393,6 +404,12 @@ func TestTable(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
+	preSchema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
+		},
+		nil,
+	)
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "f1-i32", Type: arrow.PrimitiveTypes.Int32},
@@ -400,8 +417,8 @@ func TestTable(t *testing.T) {
 		},
 		nil,
 	)
-	col1 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col1 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -413,20 +430,20 @@ func TestTable(t *testing.T) {
 			i2 := ib.NewInt32Array()
 			defer i2.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Int32,
-				[]array.Interface{i1, i2},
+				[]arrow.Array{i1, i2},
 			)
 			return c
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(0), chunk)
+		return arrow.NewColumn(schema.Field(0), chunk)
 	}()
 	defer col1.Release()
 
-	col2 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col2 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			fb := array.NewFloat64Builder(mem)
 			defer fb.Release()
 
@@ -442,22 +459,36 @@ func TestTable(t *testing.T) {
 			f3 := fb.NewFloat64Array()
 			defer f3.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Float64,
-				[]array.Interface{f1, f2, f3},
+				[]arrow.Array{f1, f2, f3},
 			)
 			return c
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(1), chunk)
+		return arrow.NewColumn(schema.Field(1), chunk)
 	}()
 	defer col2.Release()
 
-	cols := []array.Column{*col1, *col2}
+	cols := []arrow.Column{*col1, *col2}
 
-	tbl := array.NewTable(schema, cols, -1)
+	slices := [][]arrow.Array{col1.Data().Chunks(), col2.Data().Chunks()}
+
+	preTbl := array.NewTable(preSchema, []arrow.Column{*col1}, -1)
+	defer preTbl.Release()
+	tbl, err := preTbl.AddColumn(
+		1,
+		arrow.Field{Name: "f2-f64", Type: arrow.PrimitiveTypes.Float64},
+		*col2,
+	)
 	defer tbl.Release()
+	if err != nil {
+		t.Fatalf("could not add column: %+v", err)
+	}
+
+	tbl2 := array.NewTableFromSlice(schema, slices)
+	defer tbl2.Release()
 
 	tbl.Retain()
 	tbl.Release()
@@ -476,9 +507,19 @@ func TestTable(t *testing.T) {
 		t.Fatalf("invalid column: got=%q, want=%q", got, want)
 	}
 
+	if got, want := tbl2.NumRows(), int64(10); got != want {
+		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
+	}
+	if got, want := tbl2.NumCols(), int64(2); got != want {
+		t.Fatalf("invalid number of columns: got=%d, want=%d", got, want)
+	}
+	if got, want := tbl2.Column(0).Name(), col1.Name(); got != want {
+		t.Fatalf("invalid column: got=%q, want=%q", got, want)
+	}
+
 	for _, tc := range []struct {
 		schema *arrow.Schema
-		cols   []array.Column
+		cols   []arrow.Column
 		rows   int64
 		err    error
 	}{
@@ -600,7 +641,7 @@ func TestTableFromRecords(t *testing.T) {
 	rec2 := b.NewRecord()
 	defer rec2.Release()
 
-	tbl := array.NewTableFromRecords(schema, []array.Record{rec1, rec2})
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1, rec2})
 	defer tbl.Release()
 
 	if got, want := tbl.Schema(), schema; !got.Equal(want) {
@@ -629,8 +670,8 @@ func TestTableReader(t *testing.T) {
 		},
 		nil,
 	)
-	col1 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col1 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			ib := array.NewInt32Builder(mem)
 			defer ib.Release()
 
@@ -642,20 +683,20 @@ func TestTableReader(t *testing.T) {
 			i2 := ib.NewInt32Array()
 			defer i2.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Int32,
-				[]array.Interface{i1, i2},
+				[]arrow.Array{i1, i2},
 			)
 			return c
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(0), chunk)
+		return arrow.NewColumn(schema.Field(0), chunk)
 	}()
 	defer col1.Release()
 
-	col2 := func() *array.Column {
-		chunk := func() *array.Chunked {
+	col2 := func() *arrow.Column {
+		chunk := func() *arrow.Chunked {
 			fb := array.NewFloat64Builder(mem)
 			defer fb.Release()
 
@@ -671,19 +712,19 @@ func TestTableReader(t *testing.T) {
 			f3 := fb.NewFloat64Array()
 			defer f3.Release()
 
-			c := array.NewChunked(
+			c := arrow.NewChunked(
 				arrow.PrimitiveTypes.Float64,
-				[]array.Interface{f1, f2, f3},
+				[]arrow.Array{f1, f2, f3},
 			)
 			return c
 		}()
 		defer chunk.Release()
 
-		return array.NewColumn(schema.Field(1), chunk)
+		return arrow.NewColumn(schema.Field(1), chunk)
 	}()
 	defer col2.Release()
 
-	cols := []array.Column{*col1, *col2}
+	cols := []arrow.Column{*col1, *col2}
 	tbl := array.NewTable(schema, cols, -1)
 	defer tbl.Release()
 
@@ -694,6 +735,9 @@ func TestTableReader(t *testing.T) {
 	tr.Release()
 
 	for tr.Next() {
+	}
+	if err := tr.Err(); err != nil {
+		t.Fatalf("tr err: %#v", err)
 	}
 
 	for _, tc := range []struct {
@@ -728,6 +772,9 @@ func TestTableReader(t *testing.T) {
 				}
 				n++
 				sum += rec.NumRows()
+			}
+			if err := tr.Err(); err != nil {
+				t.Fatalf("tr err: %#v", err)
 			}
 
 			if got, want := n, tc.n; got != want {

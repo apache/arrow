@@ -25,6 +25,7 @@
 #include "arrow/array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/chunked_internal.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 
@@ -446,15 +447,356 @@ struct MergeImpl {
 // TODO make this usable if indices are non trivial on input
 // (see ConcreteRecordBatchColumnSorter)
 // `offset` is used when this is called on a chunk of a chunked array
-using ArraySortFunc = std::function<NullPartitionResult(
+using ArraySortFunc = std::function<Result<NullPartitionResult>(
     uint64_t* indices_begin, uint64_t* indices_end, const Array& values, int64_t offset,
-    const ArraySortOptions& options)>;
+    const ArraySortOptions& options, ExecContext* ctx)>;
 
 Result<ArraySortFunc> GetArraySorter(const DataType& type);
 
-Status SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
-                        const ChunkedArray& values, SortOrder sort_order,
-                        NullPlacement null_placement);
+Result<NullPartitionResult> SortChunkedArray(ExecContext* ctx, uint64_t* indices_begin,
+                                             uint64_t* indices_end,
+                                             const ChunkedArray& chunked_array,
+                                             SortOrder sort_order,
+                                             NullPlacement null_placement);
+
+Result<NullPartitionResult> SortChunkedArray(
+    ExecContext* ctx, uint64_t* indices_begin, uint64_t* indices_end,
+    const std::shared_ptr<DataType>& physical_type, const ArrayVector& physical_chunks,
+    SortOrder sort_order, NullPlacement null_placement);
+
+Result<NullPartitionResult> SortStructArray(ExecContext* ctx, uint64_t* indices_begin,
+                                            uint64_t* indices_end,
+                                            const StructArray& array,
+                                            SortOrder sort_order,
+                                            NullPlacement null_placement);
+
+// ----------------------------------------------------------------------
+// Helpers for Sort/SelectK/Rank implementations
+
+struct SortField {
+  SortField() = default;
+  SortField(FieldPath path, SortOrder order, const DataType* type)
+      : path(std::move(path)), order(order), type(type) {}
+  SortField(int index, SortOrder order, const DataType* type)
+      : SortField(FieldPath({index}), order, type) {}
+
+  bool is_nested() const { return path.indices().size() > 1; }
+
+  FieldPath path;
+  SortOrder order;
+  const DataType* type;
+};
+
+inline Status CheckNonNested(const FieldRef& ref) {
+  if (ref.IsNested()) {
+    return Status::KeyError("Nested keys not supported for SortKeys");
+  }
+  return Status::OK();
+}
+
+template <typename T>
+Result<T> PrependInvalidColumn(Result<T> res) {
+  if (res.ok()) return res;
+  return res.status().WithMessage("Invalid sort key column: ", res.status().message());
+}
+
+// Return the field indices of the sort keys, deduplicating them along the way
+Result<std::vector<SortField>> FindSortKeys(const Schema& schema,
+                                            const std::vector<SortKey>& sort_keys);
+
+template <typename ResolvedSortKey, typename ResolvedSortKeyFactory>
+Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
+    const Schema& schema, const std::vector<SortKey>& sort_keys,
+    ResolvedSortKeyFactory&& factory) {
+  ARROW_ASSIGN_OR_RAISE(const auto fields, FindSortKeys(schema, sort_keys));
+  std::vector<ResolvedSortKey> resolved;
+  resolved.reserve(fields.size());
+  for (const auto& f : fields) {
+    ARROW_ASSIGN_OR_RAISE(auto resolved_key, factory(f));
+    resolved.push_back(std::move(resolved_key));
+  }
+  return resolved;
+}
+
+template <typename ResolvedSortKey, typename TableOrBatch>
+Result<std::vector<ResolvedSortKey>> ResolveSortKeys(
+    const TableOrBatch& table_or_batch, const std::vector<SortKey>& sort_keys) {
+  return ResolveSortKeys<ResolvedSortKey>(
+      *table_or_batch.schema(), sort_keys,
+      [&](const SortField& f) -> Result<ResolvedSortKey> {
+        if (f.is_nested()) {
+          // TODO: Some room for improvement here, as we potentially duplicate some of the
+          // null-flattening work for nested sort keys. For instance, given two keys with
+          // paths [0,0,0,0] and [0,0,0,1], we shouldn't need to flatten the first three
+          // components more than once.
+          ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(table_or_batch));
+          return ResolvedSortKey{std::move(child), f.order};
+        }
+        return ResolvedSortKey{table_or_batch.column(f.path[0]), f.order};
+      });
+}
+
+// // Returns an error status if no column matching `ref` is found, or if the FieldRef is
+// // a nested reference.
+inline Result<std::shared_ptr<ChunkedArray>> GetColumn(const Table& table,
+                                                       const FieldRef& ref) {
+  RETURN_NOT_OK(CheckNonNested(ref));
+  ARROW_ASSIGN_OR_RAISE(auto path, ref.FindOne(*table.schema()));
+  return table.column(path[0]);
+}
+
+inline Result<std::shared_ptr<Array>> GetColumn(const RecordBatch& batch,
+                                                const FieldRef& ref) {
+  RETURN_NOT_OK(CheckNonNested(ref));
+  return ref.GetOne(batch);
+}
+
+// We could try to reproduce the concrete Array classes' facilities
+// (such as cached raw values pointer) in a separate hierarchy of
+// physical accessors, but doing so ends up too cumbersome.
+// Instead, we simply create the desired concrete Array objects.
+inline std::shared_ptr<Array> GetPhysicalArray(
+    const Array& array, const std::shared_ptr<DataType>& physical_type) {
+  auto new_data = array.data()->Copy();
+  new_data->type = physical_type;
+  return MakeArray(std::move(new_data));
+}
+
+inline ArrayVector GetPhysicalChunks(const ArrayVector& chunks,
+                                     const std::shared_ptr<DataType>& physical_type) {
+  ArrayVector physical(chunks.size());
+  std::transform(chunks.begin(), chunks.end(), physical.begin(),
+                 [&](const std::shared_ptr<Array>& array) {
+                   return GetPhysicalArray(*array, physical_type);
+                 });
+  return physical;
+}
+
+inline ArrayVector GetPhysicalChunks(const ChunkedArray& chunked_array,
+                                     const std::shared_ptr<DataType>& physical_type) {
+  return GetPhysicalChunks(chunked_array.chunks(), physical_type);
+}
+
+// Compare two records in a single column (either from a batch or table)
+template <typename ResolvedSortKey>
+struct ColumnComparator {
+  using Location = typename ResolvedSortKey::LocationType;
+
+  ColumnComparator(const ResolvedSortKey& sort_key, NullPlacement null_placement)
+      : sort_key_(sort_key), null_placement_(null_placement) {}
+
+  virtual ~ColumnComparator() = default;
+
+  virtual int Compare(const Location& left, const Location& right) const = 0;
+
+  ResolvedSortKey sort_key_;
+  NullPlacement null_placement_;
+};
+
+template <typename ResolvedSortKey, typename Type>
+struct ConcreteColumnComparator : public ColumnComparator<ResolvedSortKey> {
+  using ArrayType = typename TypeTraits<Type>::ArrayType;
+  using Location = typename ResolvedSortKey::LocationType;
+
+  using ColumnComparator<ResolvedSortKey>::ColumnComparator;
+
+  int Compare(const Location& left, const Location& right) const override {
+    const auto& sort_key = this->sort_key_;
+
+    const auto chunk_left = sort_key.template GetChunk<ArrayType>(left);
+    const auto chunk_right = sort_key.template GetChunk<ArrayType>(right);
+    if (sort_key.null_count > 0) {
+      const bool is_null_left = chunk_left.IsNull();
+      const bool is_null_right = chunk_right.IsNull();
+      if (is_null_left && is_null_right) {
+        return 0;
+      } else if (is_null_left) {
+        return this->null_placement_ == NullPlacement::AtStart ? -1 : 1;
+      } else if (is_null_right) {
+        return this->null_placement_ == NullPlacement::AtStart ? 1 : -1;
+      }
+    }
+    return CompareTypeValues<Type>(chunk_left.Value(), chunk_right.Value(),
+                                   sort_key.order, this->null_placement_);
+  }
+};
+
+template <typename ResolvedSortKey>
+struct ConcreteColumnComparator<ResolvedSortKey, NullType>
+    : public ColumnComparator<ResolvedSortKey> {
+  using Location = typename ResolvedSortKey::LocationType;
+
+  using ColumnComparator<ResolvedSortKey>::ColumnComparator;
+
+  int Compare(const Location& left, const Location& right) const override { return 0; }
+};
+
+// Compare two records in the same RecordBatch or Table
+// (indexing is handled through ResolvedSortKey)
+template <typename ResolvedSortKey>
+class MultipleKeyComparator {
+ public:
+  using Location = typename ResolvedSortKey::LocationType;
+
+  MultipleKeyComparator(const std::vector<ResolvedSortKey>& sort_keys,
+                        NullPlacement null_placement)
+      : sort_keys_(sort_keys), null_placement_(null_placement) {
+    status_ &= MakeComparators();
+  }
+
+  Status status() const { return status_; }
+
+  // Returns true if the left-th value should be ordered before the
+  // right-th value, false otherwise. The start_sort_key_index-th
+  // sort key and subsequent sort keys are used for comparison.
+  bool Compare(const Location& left, const Location& right, size_t start_sort_key_index) {
+    return CompareInternal(left, right, start_sort_key_index) < 0;
+  }
+
+  bool Equals(const Location& left, const Location& right, size_t start_sort_key_index) {
+    return CompareInternal(left, right, start_sort_key_index) == 0;
+  }
+
+ private:
+  struct ColumnComparatorFactory {
+#define VISIT(TYPE) \
+  Status Visit(const TYPE& type) { return VisitGeneric(type); }
+
+    VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
+    VISIT(NullType)
+
+#undef VISIT
+
+    Status Visit(const DataType& type) {
+      return Status::TypeError("Unsupported type for batch or table sorting: ",
+                               type.ToString());
+    }
+
+    template <typename Type>
+    Status VisitGeneric(const Type& type) {
+      res.reset(
+          new ConcreteColumnComparator<ResolvedSortKey, Type>{sort_key, null_placement});
+      return Status::OK();
+    }
+
+    const ResolvedSortKey& sort_key;
+    NullPlacement null_placement;
+    std::unique_ptr<ColumnComparator<ResolvedSortKey>> res;
+  };
+
+  Status MakeComparators() {
+    column_comparators_.reserve(sort_keys_.size());
+
+    for (const auto& sort_key : sort_keys_) {
+      ColumnComparatorFactory factory{sort_key, null_placement_, nullptr};
+      RETURN_NOT_OK(VisitTypeInline(*sort_key.type, &factory));
+      column_comparators_.push_back(std::move(factory.res));
+    }
+    return Status::OK();
+  }
+
+  // Compare two records in the same table and return -1, 0 or 1.
+  //
+  // -1: The left is less than the right.
+  // 0: The left equals to the right.
+  // 1: The left is greater than the right.
+  //
+  // This supports null and NaN. Null is processed in this and NaN
+  // is processed in CompareTypeValue().
+  int CompareInternal(const Location& left, const Location& right,
+                      size_t start_sort_key_index) {
+    const auto num_sort_keys = sort_keys_.size();
+    for (size_t i = start_sort_key_index; i < num_sort_keys; ++i) {
+      const int r = column_comparators_[i]->Compare(left, right);
+      if (r != 0) {
+        return r;
+      }
+    }
+    return 0;
+  }
+
+  const std::vector<ResolvedSortKey>& sort_keys_;
+  const NullPlacement null_placement_;
+  std::vector<std::unique_ptr<ColumnComparator<ResolvedSortKey>>> column_comparators_;
+  Status status_;
+};
+
+struct ResolvedRecordBatchSortKey {
+  ResolvedRecordBatchSortKey(const std::shared_ptr<Array>& array, SortOrder order)
+      : type(GetPhysicalType(array->type())),
+        owned_array(GetPhysicalArray(*array, type)),
+        array(*owned_array),
+        order(order),
+        null_count(array->null_count()) {}
+
+  using LocationType = int64_t;
+
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> GetChunk(int64_t index) const {
+    return {&::arrow::internal::checked_cast<const ArrayType&>(array), index};
+  }
+
+  const std::shared_ptr<DataType> type;
+  std::shared_ptr<Array> owned_array;
+  const Array& array;
+  SortOrder order;
+  int64_t null_count;
+};
+
+struct ResolvedTableSortKey {
+  ResolvedTableSortKey(const std::shared_ptr<DataType>& type, ArrayVector chunks,
+                       SortOrder order, int64_t null_count)
+      : type(GetPhysicalType(type)),
+        owned_chunks(std::move(chunks)),
+        chunks(GetArrayPointers(owned_chunks)),
+        order(order),
+        null_count(null_count) {}
+
+  using LocationType = ::arrow::internal::ChunkLocation;
+
+  template <typename ArrayType>
+  ResolvedChunk<ArrayType> GetChunk(::arrow::internal::ChunkLocation loc) const {
+    return {checked_cast<const ArrayType*>(chunks[loc.chunk_index]), loc.index_in_chunk};
+  }
+
+  // Make a vector of ResolvedSortKeys for the sort keys and the given table.
+  // `batches` must be a chunking of `table`.
+  static Result<std::vector<ResolvedTableSortKey>> Make(
+      const Table& table, const RecordBatchVector& batches,
+      const std::vector<SortKey>& sort_keys) {
+    auto factory = [&](const SortField& f) -> Result<ResolvedTableSortKey> {
+      // We must expose a homogenous chunking for all ResolvedSortKey,
+      // so we can't simply access the column from the table directly.
+      ArrayVector chunks;
+      chunks.reserve(batches.size());
+      int64_t null_count = 0;
+      for (const auto& batch : batches) {
+        ARROW_ASSIGN_OR_RAISE(auto child, f.path.GetFlattened(*batch));
+        null_count += child->null_count();
+        chunks.push_back(std::move(child));
+      }
+
+      return ResolvedTableSortKey(f.type->GetSharedPtr(), std::move(chunks), f.order,
+                                  null_count);
+    };
+
+    return ::arrow::compute::internal::ResolveSortKeys<ResolvedTableSortKey>(
+        *table.schema(), sort_keys, factory);
+  }
+
+  std::shared_ptr<DataType> type;
+  ArrayVector owned_chunks;
+  std::vector<const Array*> chunks;
+  SortOrder order;
+  int64_t null_count;
+};
+
+inline Result<std::shared_ptr<ArrayData>> MakeMutableUInt64Array(
+    int64_t length, MemoryPool* memory_pool) {
+  auto buffer_size = length * sizeof(uint64_t);
+  ARROW_ASSIGN_OR_RAISE(auto data, AllocateBuffer(buffer_size, memory_pool));
+  return ArrayData::Make(uint64(), length, {nullptr, std::move(data)}, /*null_count=*/0);
+}
 
 }  // namespace internal
 }  // namespace compute

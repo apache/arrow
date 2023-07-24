@@ -44,7 +44,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -75,11 +77,12 @@ void CompareBatchColumnsDetailed(const RecordBatch& result, const RecordBatch& e
 }
 
 Status MakeRandomInt32Array(int64_t length, bool include_nulls, MemoryPool* pool,
-                            std::shared_ptr<Array>* out, uint32_t seed) {
+                            std::shared_ptr<Array>* out, uint32_t seed, int32_t min,
+                            int32_t max) {
   random::RandomArrayGenerator rand(seed);
   const double null_probability = include_nulls ? 0.5 : 0.0;
 
-  *out = rand.Int32(length, 0, 1000, null_probability);
+  *out = rand.Int32(length, min, max, null_probability);
 
   return Status::OK();
 }
@@ -538,6 +541,57 @@ Status MakeStruct(std::shared_ptr<RecordBatch>* out) {
   return Status::OK();
 }
 
+Status AddArtificialOffsetInChildArray(ArrayData* array, int64_t offset) {
+  auto& child = array->child_data[1];
+  auto builder = MakeBuilder(child->type).ValueOrDie();
+  ARROW_RETURN_NOT_OK(builder->AppendNulls(offset));
+  ARROW_RETURN_NOT_OK(builder->AppendArraySlice(ArraySpan(*child), 0, child->length));
+  array->child_data[1] = builder->Finish().ValueOrDie()->Slice(offset)->data();
+  return Status::OK();
+}
+
+Status MakeRunEndEncoded(std::shared_ptr<RecordBatch>* out) {
+  const int64_t logical_length = 10000;
+  const int64_t slice_offset = 2000;
+  random::RandomArrayGenerator rand(/*seed =*/1);
+  std::vector<std::shared_ptr<Array>> all_arrays;
+  std::vector<std::shared_ptr<Field>> all_fields;
+  for (const bool sliced : {false, true}) {
+    const int64_t generate_length =
+        sliced ? logical_length + 2 * slice_offset : logical_length;
+
+    std::vector<std::shared_ptr<Array>> arrays = {
+        rand.RunEndEncoded(int32(), generate_length, 0.5),
+        rand.RunEndEncoded(int32(), generate_length, 0),
+        rand.RunEndEncoded(utf8(), generate_length, 0.5),
+        rand.RunEndEncoded(list(int32()), generate_length, 0.5),
+    };
+    std::vector<std::shared_ptr<Field>> fields = {
+        field("ree_int32", run_end_encoded(int32(), int32())),
+        field("ree_int32_not_null", run_end_encoded(int32(), int32()), false),
+        field("ree_string", run_end_encoded(int32(), utf8())),
+        field("ree_list", run_end_encoded(int32(), list(int32()))),
+    };
+
+    if (sliced) {
+      for (auto& array : arrays) {
+        ARROW_RETURN_NOT_OK(
+            AddArtificialOffsetInChildArray(array->data().get(), slice_offset));
+        array = array->Slice(slice_offset, logical_length);
+      }
+      for (auto& item : fields) {
+        item = field(item->name() + "_sliced", item->type(), item->nullable(),
+                     item->metadata());
+      }
+    }
+
+    all_arrays.insert(all_arrays.end(), arrays.begin(), arrays.end());
+    all_fields.insert(all_fields.end(), fields.begin(), fields.end());
+  }
+  *out = RecordBatch::Make(schema(all_fields), logical_length, all_arrays);
+  return Status::OK();
+}
+
 Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
   // Define schema
   std::vector<std::shared_ptr<Field>> union_fields(
@@ -811,9 +865,8 @@ Status MakeDates(std::shared_ptr<RecordBatch>* out) {
   std::shared_ptr<Array> date32_array;
   ArrayFromVector<Date32Type, int32_t>(is_valid, date32_values, &date32_array);
 
-  std::vector<int64_t> date64_values = {1489269000000, 1489270000000, 1489271000000,
-                                        1489272000000, 1489272000000, 1489273000000,
-                                        1489274000000};
+  std::vector<int64_t> date64_values = {86400000,  172800000, 259200000, 1489272000000,
+                                        345600000, 432000000, 518400000};
   std::shared_ptr<Array> date64_array;
   ArrayFromVector<Date64Type, int64_t>(is_valid, date64_values, &date64_array);
 
@@ -877,8 +930,7 @@ Status MakeTimes(std::shared_ptr<RecordBatch>* out) {
   auto f3 = field("f3", time64(TimeUnit::NANO));
   auto schema = ::arrow::schema({f0, f1, f2, f3});
 
-  std::vector<int32_t> t32_values = {1489269000, 1489270000, 1489271000,
-                                     1489272000, 1489272000, 1489273000};
+  std::vector<int32_t> t32_values = {14896, 14897, 14892, 1489272000, 14893, 14895};
   std::vector<int64_t> t64_values = {1489269000000, 1489270000000, 1489271000000,
                                      1489272000000, 1489272000000, 1489273000000};
 
@@ -1013,7 +1065,7 @@ Status MakeDictExtension(std::shared_ptr<RecordBatch>* out) {
 
   auto storage1 = std::make_shared<DictionaryArray>(
       storage_type, ArrayFromJSON(int8(), "[2, 0, 0, 1, 1]"),
-      ArrayFromJSON(utf8(), R"(["arrow", "parquet", "plasma"])"));
+      ArrayFromJSON(utf8(), R"(["arrow", "parquet", "gandiva"])"));
   auto a1 = std::make_shared<ExtensionArray>(type, storage1);
 
   *out = RecordBatch::Make(schema, a1->length(), {a0, a1});

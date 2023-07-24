@@ -17,16 +17,18 @@
 package encoding
 
 import (
+	"fmt"
 	"math/bits"
 	"reflect"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/parquet"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 )
 
 //go:generate go run ../../../arrow/_tools/tmpl/main.go -i -data=physical_types.tmpldata plain_encoder_types.gen.go.tmpl typed_encoder.gen.go.tmpl
@@ -78,6 +80,14 @@ func newEncoderBase(e format.Encoding, descr *schema.Column, mem memory.Allocato
 	}
 }
 
+func (e *encoder) Release() {
+	poolbuf := e.sink.buf
+	memory.Set(poolbuf.Buf(), 0)
+	poolbuf.ResizeNoShrink(0)
+	bufferPool.Put(poolbuf)
+	e.sink = nil
+}
+
 // ReserveForWrite allocates n bytes so that the next n bytes written do not require new allocations.
 func (e *encoder) ReserveForWrite(n int)           { e.sink.Reserve(n) }
 func (e *encoder) EstimatedDataEncodedSize() int64 { return int64(e.sink.Len()) }
@@ -103,6 +113,8 @@ type dictEncoder struct {
 	idxBuffer       *memory.Buffer
 	idxValues       []int32
 	memo            MemoTable
+
+	preservedDict arrow.Array
 }
 
 // newDictEncoderBase constructs and returns a dictionary encoder for the appropriate type using the passed
@@ -123,15 +135,95 @@ func (d *dictEncoder) Reset() {
 	d.idxValues = d.idxValues[:0]
 	d.idxBuffer.ResizeNoShrink(0)
 	d.memo.Reset()
+	if d.preservedDict != nil {
+		d.preservedDict.Release()
+		d.preservedDict = nil
+	}
+}
+
+func (d *dictEncoder) Release() {
+	d.encoder.Release()
+	d.idxBuffer.Release()
+	if m, ok := d.memo.(BinaryMemoTable); ok {
+		m.Release()
+	} else {
+		d.memo.Reset()
+	}
+	if d.preservedDict != nil {
+		d.preservedDict.Release()
+		d.preservedDict = nil
+	}
+}
+
+func (d *dictEncoder) expandBuffer(newCap int) {
+	if cap(d.idxValues) >= newCap {
+		return
+	}
+
+	curLen := len(d.idxValues)
+	d.idxBuffer.ResizeNoShrink(arrow.Int32Traits.BytesRequired(bitutil.NextPowerOf2(newCap)))
+	d.idxValues = arrow.Int32Traits.CastFromBytes(d.idxBuffer.Buf())[: curLen : d.idxBuffer.Len()/arrow.Int32SizeBytes]
+}
+
+func (d *dictEncoder) PutIndices(data arrow.Array) error {
+	newValues := data.Len() - data.NullN()
+	curPos := len(d.idxValues)
+	newLen := newValues + curPos
+	d.expandBuffer(newLen)
+	d.idxValues = d.idxValues[:newLen:cap(d.idxValues)]
+
+	switch data.DataType().ID() {
+	case arrow.UINT8, arrow.INT8:
+		values := arrow.Uint8Traits.CastFromBytes(data.Data().Buffers()[1].Bytes())[data.Data().Offset():]
+		bitutils.VisitSetBitRunsNoErr(data.NullBitmapBytes(),
+			int64(data.Data().Offset()), int64(data.Len()),
+			func(pos, length int64) {
+				for i := int64(0); i < length; i++ {
+					d.idxValues[curPos] = int32(values[i+pos])
+					curPos++
+				}
+			})
+	case arrow.UINT16, arrow.INT16:
+		values := arrow.Uint16Traits.CastFromBytes(data.Data().Buffers()[1].Bytes())[data.Data().Offset():]
+		bitutils.VisitSetBitRunsNoErr(data.NullBitmapBytes(),
+			int64(data.Data().Offset()), int64(data.Len()),
+			func(pos, length int64) {
+				for i := int64(0); i < length; i++ {
+					d.idxValues[curPos] = int32(values[i+pos])
+					curPos++
+				}
+			})
+	case arrow.UINT32, arrow.INT32:
+		values := arrow.Uint32Traits.CastFromBytes(data.Data().Buffers()[1].Bytes())[data.Data().Offset():]
+		bitutils.VisitSetBitRunsNoErr(data.NullBitmapBytes(),
+			int64(data.Data().Offset()), int64(data.Len()),
+			func(pos, length int64) {
+				for i := int64(0); i < length; i++ {
+					d.idxValues[curPos] = int32(values[i+pos])
+					curPos++
+				}
+			})
+	case arrow.UINT64, arrow.INT64:
+		values := arrow.Uint64Traits.CastFromBytes(data.Data().Buffers()[1].Bytes())[data.Data().Offset():]
+		bitutils.VisitSetBitRunsNoErr(data.NullBitmapBytes(),
+			int64(data.Data().Offset()), int64(data.Len()),
+			func(pos, length int64) {
+				for i := int64(0); i < length; i++ {
+					d.idxValues[curPos] = int32(values[i+pos])
+					curPos++
+				}
+			})
+	default:
+		return fmt.Errorf("%w: passed non-integer array to PutIndices", arrow.ErrInvalid)
+	}
+
+	return nil
 }
 
 // append the passed index to the indexbuffer
 func (d *dictEncoder) addIndex(idx int) {
-	if len(d.idxValues) == cap(d.idxValues) {
-		curLen := len(d.idxValues)
-		d.idxBuffer.ResizeNoShrink(arrow.Int32Traits.BytesRequired(bitutil.NextPowerOf2(curLen + 1)))
-		d.idxValues = arrow.Int32Traits.CastFromBytes(d.idxBuffer.Buf())[: curLen : d.idxBuffer.Len()/arrow.Int32SizeBytes]
-	}
+	curLen := len(d.idxValues)
+	d.expandBuffer(curLen + 1)
 	d.idxValues = append(d.idxValues, int32(idx))
 }
 
@@ -214,6 +306,21 @@ func (d *dictEncoder) DictEncodedSize() int {
 	return d.dictEncodedSize
 }
 
+func (d *dictEncoder) canPutDictionary(values arrow.Array) error {
+	switch {
+	case values.NullN() > 0:
+		return fmt.Errorf("%w: inserted dictionary cannot contain nulls",
+			arrow.ErrInvalid)
+	case d.NumEntries() > 0:
+		return fmt.Errorf("%w: can only call PutDictionary on an empty DictEncoder",
+			arrow.ErrInvalid)
+	}
+
+	return nil
+}
+
+func (d *dictEncoder) PreservedDictionary() arrow.Array { return d.preservedDict }
+
 // spacedCompress is a helper function for encoders to remove the slots in the slices passed in according
 // to the bitmap which are null into an output slice that is no longer spaced out with slots for nulls.
 func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int64) int {
@@ -224,7 +331,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 	switch s := src.(type) {
 	case []int32:
 		o := out.([]int32)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -235,7 +342,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []int64:
 		o := out.([]int64)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -246,7 +353,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []float32:
 		o := out.([]float32)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -257,7 +364,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []float64:
 		o := out.([]float64)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -268,7 +375,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []parquet.ByteArray:
 		o := out.([]parquet.ByteArray)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -279,7 +386,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []parquet.FixedLenByteArray:
 		o := out.([]parquet.FixedLenByteArray)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {
@@ -290,7 +397,7 @@ func spacedCompress(src, out interface{}, validBits []byte, validBitsOffset int6
 		}
 	case []bool:
 		o := out.([]bool)
-		reader := utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
+		reader := bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(s)))
 		for {
 			run := reader.NextRun()
 			if run.Length == 0 {

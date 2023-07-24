@@ -18,7 +18,7 @@
 # Assumes:
 # * We've already done arrow::install_pyarrow()
 # * R -e 'arrow::load_flight_server("demo_flight_server")$DemoFlightServer(port = 8089)$serve()'
-# TODO: set up CI job to test this, or some way of running a background process
+
 if (process_is_running("demo_flight_server")) {
   client <- flight_connect(port = 8089)
   flight_obj <- tempfile()
@@ -38,14 +38,28 @@ if (process_is_running("demo_flight_server")) {
     )
   })
 
+  test_that("flight_put with max_chunksize", {
+    flight_put(client, example_data, path = flight_obj, max_chunksize = 1)
+    expect_true(flight_path_exists(client, flight_obj))
+    expect_true(flight_obj %in% list_flights(client))
+    expect_warning(
+      flight_put(client, record_batch(example_data), path = flight_obj, max_chunksize = 123),
+      regexp = "`max_chunksize` is not supported for flight_put with RecordBatch"
+    )
+    expect_error(
+      flight_put(client, Array$create(c(1:3)), path = flight_obj),
+      regexp = 'data must be a "data.frame", "Table", or "RecordBatch"'
+    )
+  })
+
   test_that("flight_get", {
-    expect_identical(as.data.frame(flight_get(client, flight_obj)), example_data)
+    expect_equal_data_frame(flight_get(client, flight_obj), example_data)
   })
 
   test_that("flight_put with RecordBatch", {
     flight_obj2 <- tempfile()
     flight_put(client, RecordBatch$create(example_data), path = flight_obj2)
-    expect_identical(as.data.frame(flight_get(client, flight_obj2)), example_data)
+    expect_equal_data_frame(flight_get(client, flight_obj2), example_data)
   })
 
   test_that("flight_put with overwrite = FALSE", {
@@ -55,7 +69,13 @@ if (process_is_running("demo_flight_server")) {
     )
     # Default is TRUE so this will overwrite
     flight_put(client, example_with_times, path = flight_obj)
-    expect_identical(as.data.frame(flight_get(client, flight_obj)), example_with_times)
+    expect_equal_data_frame(flight_get(client, flight_obj), example_with_times)
+  })
+
+  test_that("flight_disconnect", {
+    flight_disconnect(client)
+    # Idempotent
+    flight_disconnect(client)
   })
 } else {
   # Kinda hacky, let's put a skipped test here, just so we note that the tests

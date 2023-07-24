@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import streamAdapters from './adapters';
-import { decodeUtf8 } from '../util/utf8';
-import { ITERATOR_DONE, Readable, Writable, AsyncQueue } from './interfaces';
-import { toUint8Array, joinUint8Arrays, ArrayBufferViewInput } from '../util/buffer';
+import streamAdapters from './adapters.js';
+import { decodeUtf8 } from '../util/utf8.js';
+import { ITERATOR_DONE, Readable, Writable, AsyncQueue } from './interfaces.js';
+import { toUint8Array, joinUint8Arrays, ArrayBufferViewInput } from '../util/buffer.js';
 
 import {
     isPromise, isFetchResponse,
     isIterable, isAsyncIterable,
     isReadableDOMStream, isReadableNodeStream
-} from '../util/compat';
+} from '../util/compat.js';
 
 /** @ignore */
 export type WritableSink<T> = Writable<T> | WritableStream<T> | NodeJS.WritableStream | null;
@@ -62,7 +62,7 @@ export class AsyncByteQueue<T extends ArrayBufferViewInput = Uint8Array> extends
 
 /** @ignore */
 export class ByteStream implements IterableIterator<Uint8Array> {
-    private source!: ByteStreamSource<Uint8Array>;
+    declare private source: ByteStreamSource<Uint8Array>;
     constructor(source?: Iterable<ArrayBufferViewInput> | ArrayBufferViewInput) {
         if (source) {
             this.source = new ByteStreamSource(streamAdapters.fromIterable(source));
@@ -78,7 +78,7 @@ export class ByteStream implements IterableIterator<Uint8Array> {
 
 /** @ignore */
 export class AsyncByteStream implements Readable<Uint8Array>, AsyncIterableIterator<Uint8Array> {
-    private source!: AsyncByteStreamSource<Uint8Array>;
+    declare private source: AsyncByteStreamSource<Uint8Array>;
     constructor(source?: PromiseLike<ArrayBufferViewInput> | Response | ReadableStream<ArrayBufferViewInput> | NodeJS.ReadableStream | AsyncIterable<ArrayBufferViewInput> | Iterable<ArrayBufferViewInput>) {
         if (source instanceof AsyncByteStream) {
             this.source = (source as AsyncByteStream).source;
@@ -115,7 +115,7 @@ type AsyncByteStreamSourceIterator<T> = AsyncGenerator<T, null, { cmd: 'peek' | 
 
 /** @ignore */
 class ByteStreamSource<T> {
-    constructor(protected source: ByteStreamSourceIterator<T>) {}
+    constructor(protected source: ByteStreamSourceIterator<T>) { }
     public cancel(reason?: any) { this.return(reason); }
     public peek(size?: number | null): T | null { return this.next(size, 'peek').value; }
     public read(size?: number | null): T | null { return this.next(size, 'read').value; }
@@ -129,7 +129,7 @@ class AsyncByteStreamSource<T> implements Readable<T> {
 
     private _closedPromise: Promise<void>;
     private _closedPromiseResolve?: (value?: any) => void;
-    constructor (protected source: ByteStreamSourceIterator<T> | AsyncByteStreamSourceIterator<T>) {
+    constructor(protected source: ByteStreamSourceIterator<T> | AsyncByteStreamSourceIterator<T>) {
         this._closedPromise = new Promise((r) => this._closedPromiseResolve = r);
     }
     public async cancel(reason?: any) { await this.return(reason); }

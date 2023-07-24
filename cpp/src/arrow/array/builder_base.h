@@ -28,12 +28,60 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+namespace internal {
+
+template <class Builder, class V>
+class ArrayBuilderExtraOps {
+ public:
+  /// \brief Append a value from an optional or null if it has no value.
+  Status AppendOrNull(const std::optional<V>& value) {
+    auto* self = static_cast<Builder*>(this);
+    return value.has_value() ? self->Append(*value) : self->AppendNull();
+  }
+
+  /// \brief Append a value from an optional or null if it has no value.
+  ///
+  /// Unsafe methods don't check existing size.
+  void UnsafeAppendOrNull(const std::optional<V>& value) {
+    auto* self = static_cast<Builder*>(this);
+    return value.has_value() ? self->UnsafeAppend(*value) : self->UnsafeAppendNull();
+  }
+};
+
+}  // namespace internal
+
+/// \defgroup numeric-builders Concrete builder subclasses for numeric types
+/// @{
+/// @}
+
+/// \defgroup temporal-builders Concrete builder subclasses for temporal types
+/// @{
+/// @}
+
+/// \defgroup binary-builders Concrete builder subclasses for binary types
+/// @{
+/// @}
+
+/// \defgroup nested-builders Concrete builder subclasses for nested types
+/// @{
+/// @}
+
+/// \defgroup dictionary-builders Concrete builder subclasses for dictionary types
+/// @{
+/// @}
+
+/// \defgroup run-end-encoded-builders Concrete builder subclasses for run-end encoded
+/// arrays
+/// @{
+/// @}
 
 constexpr int64_t kMinBuilderCapacity = 1 << 5;
 constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1;
@@ -48,7 +96,8 @@ constexpr int64_t kListMaximumElements = std::numeric_limits<int32_t>::max() - 1
 /// For example, ArrayBuilder* pointing to BinaryBuilder should be downcast before use.
 class ARROW_EXPORT ArrayBuilder {
  public:
-  explicit ArrayBuilder(MemoryPool* pool) : pool_(pool), null_bitmap_builder_(pool) {}
+  explicit ArrayBuilder(MemoryPool* pool, int64_t alignment = kDefaultBufferAlignment)
+      : pool_(pool), alignment_(alignment), null_bitmap_builder_(pool, alignment) {}
 
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ArrayBuilder);
 
@@ -126,19 +175,10 @@ class ARROW_EXPORT ArrayBuilder {
   /// \brief Append a range of values from an array.
   ///
   /// The given array must be the same type as the builder.
-  virtual Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  virtual Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                                   int64_t length) {
     return Status::NotImplemented("AppendArraySlice for builder for ", *type());
   }
-
-  /// For cases where raw data was memcpy'd into the internal buffers, allows us
-  /// to advance the length of the builder. It is your responsibility to use
-  /// this function responsibly.
-  ARROW_DEPRECATED(
-      "Deprecated in 6.0.0. ArrayBuilder::Advance is poorly supported and mostly "
-      "untested.\nFor low-level control over buffer construction, use BufferBuilder "
-      "or TypedBufferBuilder directly.")
-  Status Advance(int64_t elements);
 
   /// \brief Return result of builder as an internal generic ArrayData
   /// object. Resets builder except for dictionary builder
@@ -262,6 +302,7 @@ class ARROW_EXPORT ArrayBuilder {
                         const char* message);
 
   MemoryPool* pool_;
+  int64_t alignment_;
 
   TypedBufferBuilder<bool> null_bitmap_builder_;
   int64_t null_count_ = 0;
@@ -286,12 +327,26 @@ ARROW_EXPORT
 Status MakeBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                    std::unique_ptr<ArrayBuilder>* out);
 
+inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilder(
+    const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
+  std::unique_ptr<ArrayBuilder> out;
+  ARROW_RETURN_NOT_OK(MakeBuilder(pool, type, &out));
+  return std::move(out);
+}
+
 /// \brief Construct an empty ArrayBuilder corresponding to the data
 /// type, where any top-level or nested dictionary builders return the
 /// exact index type specified by the type.
 ARROW_EXPORT
 Status MakeBuilderExactIndex(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                              std::unique_ptr<ArrayBuilder>* out);
+
+inline Result<std::unique_ptr<ArrayBuilder>> MakeBuilderExactIndex(
+    const std::shared_ptr<DataType>& type, MemoryPool* pool = default_memory_pool()) {
+  std::unique_ptr<ArrayBuilder> out;
+  ARROW_RETURN_NOT_OK(MakeBuilderExactIndex(pool, type, &out));
+  return std::move(out);
+}
 
 /// \brief Construct an empty DictionaryBuilder initialized optionally
 /// with a pre-existing dictionary
@@ -303,5 +358,13 @@ ARROW_EXPORT
 Status MakeDictionaryBuilder(MemoryPool* pool, const std::shared_ptr<DataType>& type,
                              const std::shared_ptr<Array>& dictionary,
                              std::unique_ptr<ArrayBuilder>* out);
+
+inline Result<std::unique_ptr<ArrayBuilder>> MakeDictionaryBuilder(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Array>& dictionary,
+    MemoryPool* pool = default_memory_pool()) {
+  std::unique_ptr<ArrayBuilder> out;
+  ARROW_RETURN_NOT_OK(MakeDictionaryBuilder(pool, type, dictionary, &out));
+  return std::move(out);
+}
 
 }  // namespace arrow

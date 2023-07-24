@@ -25,10 +25,27 @@
 
 #include "arrow/buffer.h"
 #include "arrow/result.h"
+#include "arrow/type.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
+
+class Array;
+struct ArrayData;
+
+namespace internal {
+// ----------------------------------------------------------------------
+// Null handling for types without a validity bitmap
+
+ARROW_EXPORT bool IsNullSparseUnion(const ArrayData& data, int64_t i);
+ARROW_EXPORT bool IsNullDenseUnion(const ArrayData& data, int64_t i);
+ARROW_EXPORT bool IsNullRunEndEncoded(const ArrayData& data, int64_t i);
+
+ARROW_EXPORT bool UnionMayHaveLogicalNulls(const ArrayData& data);
+ARROW_EXPORT bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data);
+}  // namespace internal
 
 // When slicing, we do not know the null count of the sliced range without
 // doing some computation. To avoid doing this eagerly, we set the null count
@@ -163,6 +180,25 @@ struct ARROW_EXPORT ArrayData {
 
   std::shared_ptr<ArrayData> Copy() const { return std::make_shared<ArrayData>(*this); }
 
+  bool IsNull(int64_t i) const { return !IsValid(i); }
+
+  bool IsValid(int64_t i) const {
+    if (buffers[0] != NULLPTR) {
+      return bit_util::GetBit(buffers[0]->data(), i + offset);
+    }
+    const auto type = this->type->id();
+    if (type == Type::SPARSE_UNION) {
+      return !internal::IsNullSparseUnion(*this, i);
+    }
+    if (type == Type::DENSE_UNION) {
+      return !internal::IsNullDenseUnion(*this, i);
+    }
+    if (type == Type::RUN_END_ENCODED) {
+      return !internal::IsNullRunEndEncoded(*this, i);
+    }
+    return null_count.load() != length;
+  }
+
   // Access a buffer's data as a typed C pointer
   template <typename T>
   inline const T* GetValues(int i, int64_t absolute_offset) const {
@@ -220,14 +256,87 @@ struct ARROW_EXPORT ArrayData {
 
   void SetNullCount(int64_t v) { null_count.store(v); }
 
-  /// \brief Return null count, or compute and set it if it's not known
+  /// \brief Return physical null count, or compute and set it if it's not known
   int64_t GetNullCount() const;
 
+  /// \brief Return true if the data has a validity bitmap and the physical null
+  /// count is known to be non-zero or not yet known.
+  ///
+  /// Note that this is not the same as MayHaveLogicalNulls, which also checks
+  /// for the presence of nulls in child data for types like unions and run-end
+  /// encoded types.
+  ///
+  /// \see HasValidityBitmap
+  /// \see MayHaveLogicalNulls
   bool MayHaveNulls() const {
     // If an ArrayData is slightly malformed it may have kUnknownNullCount set
     // but no buffer
     return null_count.load() != 0 && buffers[0] != NULLPTR;
   }
+
+  /// \brief Return true if the data has a validity bitmap
+  bool HasValidityBitmap() const { return buffers[0] != NULLPTR; }
+
+  /// \brief Return true if the validity bitmap may have 0's in it, or if the
+  /// child arrays (in the case of types without a validity bitmap) may have
+  /// nulls
+  ///
+  /// This is not a drop-in replacement for MayHaveNulls, as historically
+  /// MayHaveNulls() has been used to check for the presence of a validity
+  /// bitmap that needs to be checked.
+  ///
+  /// Code that previously used MayHaveNulls() and then dealt with the validity
+  /// bitmap directly can be fixed to handle all types correctly without
+  /// performance degradation when handling most types by adopting
+  /// HasValidityBitmap and MayHaveLogicalNulls.
+  ///
+  /// Before:
+  ///
+  ///     uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
+  ///     for (int64_t i = 0; i < array.length; ++i) {
+  ///       if (validity && !bit_util::GetBit(validity, i)) {
+  ///         continue;  // skip a NULL
+  ///       }
+  ///       ...
+  ///     }
+  ///
+  /// After:
+  ///
+  ///     bool all_valid = !array.MayHaveLogicalNulls();
+  ///     uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
+  ///     for (int64_t i = 0; i < array.length; ++i) {
+  ///       bool is_valid = all_valid ||
+  ///                       (validity && bit_util::GetBit(validity, i)) ||
+  ///                       array.IsValid(i);
+  ///       if (!is_valid) {
+  ///         continue;  // skip a NULL
+  ///       }
+  ///       ...
+  ///     }
+  bool MayHaveLogicalNulls() const {
+    if (buffers[0] != NULLPTR) {
+      return null_count.load() != 0;
+    }
+    const auto t = type->id();
+    if (t == Type::SPARSE_UNION || t == Type::DENSE_UNION) {
+      return internal::UnionMayHaveLogicalNulls(*this);
+    }
+    if (t == Type::RUN_END_ENCODED) {
+      return internal::RunEndEncodedMayHaveLogicalNulls(*this);
+    }
+    return null_count.load() != 0;
+  }
+
+  /// \brief Computes the logical null count for arrays of all types including
+  /// those that do not have a validity bitmap like union and run-end encoded
+  /// arrays
+  ///
+  /// If the array has a validity bitmap, this function behaves the same as
+  /// GetNullCount. For types that have no validity bitmap, this function will
+  /// recompute the null count every time it is called.
+  ///
+  /// \see GetNullCount
+  int64_t ComputeLogicalNullCount() const;
 
   std::shared_ptr<DataType> type;
   int64_t length = 0;
@@ -242,7 +351,207 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<ArrayData> dictionary;
 };
 
+/// \brief A non-owning Buffer reference
+struct ARROW_EXPORT BufferSpan {
+  // It is the user of this class's responsibility to ensure that
+  // buffers that were const originally are not written to
+  // accidentally.
+  uint8_t* data = NULLPTR;
+  int64_t size = 0;
+  // Pointer back to buffer that owns this memory
+  const std::shared_ptr<Buffer>* owner = NULLPTR;
+
+  template <typename T>
+  const T* data_as() const {
+    return reinterpret_cast<const T*>(data);
+  }
+  template <typename T>
+  T* mutable_data_as() {
+    return reinterpret_cast<T*>(data);
+  }
+};
+
+/// \brief EXPERIMENTAL: A non-owning ArrayData reference that is cheaply
+/// copyable and does not contain any shared_ptr objects. Do not use in public
+/// APIs aside from compute kernels for now
+struct ARROW_EXPORT ArraySpan {
+  const DataType* type = NULLPTR;
+  int64_t length = 0;
+  mutable int64_t null_count = kUnknownNullCount;
+  int64_t offset = 0;
+  BufferSpan buffers[3];
+
+  ArraySpan() = default;
+
+  explicit ArraySpan(const DataType* type, int64_t length) : type(type), length(length) {}
+
+  ArraySpan(const ArrayData& data) {  // NOLINT implicit conversion
+    SetMembers(data);
+  }
+  explicit ArraySpan(const Scalar& data) { FillFromScalar(data); }
+
+  /// If dictionary-encoded, put dictionary in the first entry
+  std::vector<ArraySpan> child_data;
+
+  /// \brief Populate ArraySpan to look like an array of length 1 pointing at
+  /// the data members of a Scalar value
+  void FillFromScalar(const Scalar& value);
+
+  void SetMembers(const ArrayData& data);
+
+  void SetBuffer(int index, const std::shared_ptr<Buffer>& buffer) {
+    this->buffers[index].data = const_cast<uint8_t*>(buffer->data());
+    this->buffers[index].size = buffer->size();
+    this->buffers[index].owner = &buffer;
+  }
+
+  const ArraySpan& dictionary() const { return child_data[0]; }
+
+  /// \brief Return the number of buffers (out of 3) that are used to
+  /// constitute this array
+  int num_buffers() const;
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline T* GetValues(int i, int64_t absolute_offset) {
+    return reinterpret_cast<T*>(buffers[i].data) + absolute_offset;
+  }
+
+  template <typename T>
+  inline T* GetValues(int i) {
+    return GetValues<T>(i, this->offset);
+  }
+
+  // Access a buffer's data as a typed C pointer
+  template <typename T>
+  inline const T* GetValues(int i, int64_t absolute_offset) const {
+    return reinterpret_cast<const T*>(buffers[i].data) + absolute_offset;
+  }
+
+  template <typename T>
+  inline const T* GetValues(int i) const {
+    return GetValues<T>(i, this->offset);
+  }
+
+  inline bool IsNull(int64_t i) const { return !IsValid(i); }
+
+  inline bool IsValid(int64_t i) const {
+    if (this->buffers[0].data != NULLPTR) {
+      return bit_util::GetBit(this->buffers[0].data, i + this->offset);
+    } else {
+      const auto type = this->type->id();
+      if (type == Type::SPARSE_UNION) {
+        return !IsNullSparseUnion(i);
+      }
+      if (type == Type::DENSE_UNION) {
+        return !IsNullDenseUnion(i);
+      }
+      if (type == Type::RUN_END_ENCODED) {
+        return !IsNullRunEndEncoded(i);
+      }
+      return this->null_count != this->length;
+    }
+  }
+
+  std::shared_ptr<ArrayData> ToArrayData() const;
+
+  std::shared_ptr<Array> ToArray() const;
+
+  std::shared_ptr<Buffer> GetBuffer(int index) const {
+    const BufferSpan& buf = this->buffers[index];
+    if (buf.owner) {
+      return *buf.owner;
+    } else if (buf.data != NULLPTR) {
+      // Buffer points to some memory without an owning buffer
+      return std::make_shared<Buffer>(buf.data, buf.size);
+    } else {
+      return NULLPTR;
+    }
+  }
+
+  void SetSlice(int64_t offset, int64_t length) {
+    this->offset = offset;
+    this->length = length;
+    if (this->type->id() != Type::NA) {
+      this->null_count = kUnknownNullCount;
+    } else {
+      this->null_count = this->length;
+    }
+  }
+
+  /// \brief Return physical null count, or compute and set it if it's not known
+  int64_t GetNullCount() const;
+
+  /// \brief Return true if the array has a validity bitmap and the physical null
+  /// count is known to be non-zero or not yet known
+  ///
+  /// Note that this is not the same as MayHaveLogicalNulls, which also checks
+  /// for the presence of nulls in child data for types like unions and run-end
+  /// encoded types.
+  ///
+  /// \see HasValidityBitmap
+  /// \see MayHaveLogicalNulls
+  bool MayHaveNulls() const {
+    // If an ArrayData is slightly malformed it may have kUnknownNullCount set
+    // but no buffer
+    return null_count != 0 && buffers[0].data != NULLPTR;
+  }
+
+  /// \brief Return true if the array has a validity bitmap
+  bool HasValidityBitmap() const { return buffers[0].data != NULLPTR; }
+
+  /// \brief Return true if the validity bitmap may have 0's in it, or if the
+  /// child arrays (in the case of types without a validity bitmap) may have
+  /// nulls
+  ///
+  /// \see ArrayData::MayHaveLogicalNulls
+  bool MayHaveLogicalNulls() const {
+    if (buffers[0].data != NULLPTR) {
+      return null_count != 0;
+    }
+    const auto t = type->id();
+    if (t == Type::SPARSE_UNION || t == Type::DENSE_UNION) {
+      return UnionMayHaveLogicalNulls();
+    }
+    if (t == Type::RUN_END_ENCODED) {
+      return RunEndEncodedMayHaveLogicalNulls();
+    }
+    return null_count != 0;
+  }
+
+  /// \brief Compute the logical null count for arrays of all types including
+  /// those that do not have a validity bitmap like union and run-end encoded
+  /// arrays
+  ///
+  /// If the array has a validity bitmap, this function behaves the same as
+  /// GetNullCount. For types that have no validity bitmap, this function will
+  /// recompute the logical null count every time it is called.
+  ///
+  /// \see GetNullCount
+  int64_t ComputeLogicalNullCount() const;
+
+ private:
+  ARROW_FRIEND_EXPORT friend bool internal::IsNullRunEndEncoded(const ArrayData& span,
+                                                                int64_t i);
+
+  bool IsNullSparseUnion(int64_t i) const;
+  bool IsNullDenseUnion(int64_t i) const;
+
+  /// \brief Return true if the value at logical index i is null
+  ///
+  /// This function uses binary-search, so it has a O(log N) cost.
+  /// Iterating over the whole array and calling IsNull is O(N log N), so
+  /// for better performance it is recommended to use a
+  /// ree_util::RunEndEncodedArraySpan to iterate run by run instead.
+  bool IsNullRunEndEncoded(int64_t i) const;
+
+  bool UnionMayHaveLogicalNulls() const;
+  bool RunEndEncodedMayHaveLogicalNulls() const;
+};
+
 namespace internal {
+
+void FillZeroLengthArray(const DataType* type, ArraySpan* span);
 
 /// Construct a zero-copy view of this ArrayData with the given type.
 ///

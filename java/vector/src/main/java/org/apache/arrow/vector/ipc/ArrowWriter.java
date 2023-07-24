@@ -23,12 +23,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
-import org.apache.arrow.util.AutoCloseables;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
+import org.apache.arrow.vector.compression.NoCompressionCodec;
 import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
@@ -55,54 +58,53 @@ public abstract class ArrowWriter implements AutoCloseable {
   protected final WriteChannel out;
 
   private final VectorUnloader unloader;
-  private final List<ArrowDictionaryBatch> dictionaries;
+  private final DictionaryProvider dictionaryProvider;
+  private final Set<Long> dictionaryIdsUsed = new HashSet<>();
 
   private boolean started = false;
   private boolean ended = false;
 
-  private boolean dictWritten = false;
-
   protected IpcOption option;
 
   protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
-    this (root, provider, out, IpcOption.DEFAULT);
+    this(root, provider, out, IpcOption.DEFAULT);
+  }
+
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
+    this(root, provider, out, option, NoCompressionCodec.Factory.INSTANCE, CompressionUtil.CodecType.NO_COMPRESSION,
+            Optional.empty());
   }
 
   /**
    * Note: fields are not closed when the writer is closed.
    *
-   * @param root     the vectors to write to the output
-   * @param provider where to find the dictionaries
-   * @param out      the output where to write
-   * @param option   IPC write options
+   * @param root               the vectors to write to the output
+   * @param provider           where to find the dictionaries
+   * @param out                the output where to write
+   * @param option             IPC write options
+   * @param compressionFactory Compression codec factory
+   * @param codecType          Compression codec
+   * @param compressionLevel   Compression level
    */
-  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option) {
-    this.unloader = new VectorUnloader(root);
+  protected ArrowWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out, IpcOption option,
+                        CompressionCodec.Factory compressionFactory, CompressionUtil.CodecType codecType,
+                        Optional<Integer> compressionLevel) {
+    this.unloader = new VectorUnloader(
+        root, /*includeNullCount*/ true,
+        compressionLevel.isPresent() ?
+            compressionFactory.createCodec(codecType, compressionLevel.get()) :
+            compressionFactory.createCodec(codecType),
+        /*alignBuffers*/ true);
     this.out = new WriteChannel(out);
     this.option = option;
+    this.dictionaryProvider = provider;
 
     List<Field> fields = new ArrayList<>(root.getSchema().getFields().size());
-    Set<Long> dictionaryIdsUsed = new HashSet<>();
 
     MetadataV4UnionChecker.checkForUnion(root.getSchema().getFields().iterator(), option.metadataVersion);
     // Convert fields with dictionaries to have dictionary type
     for (Field field : root.getSchema().getFields()) {
       fields.add(DictionaryUtility.toMessageFormat(field, provider, dictionaryIdsUsed));
-    }
-
-    // Create a record batch for each dictionary
-    this.dictionaries = new ArrayList<>(dictionaryIdsUsed.size());
-    for (long id : dictionaryIdsUsed) {
-      Dictionary dictionary = provider.lookup(id);
-      FieldVector vector = dictionary.getVector();
-      int count = vector.getValueCount();
-      VectorSchemaRoot dictRoot = new VectorSchemaRoot(
-          Collections.singletonList(vector.getField()),
-          Collections.singletonList(vector),
-          count);
-      VectorUnloader unloader = new VectorUnloader(dictRoot);
-      ArrowRecordBatch batch = unloader.getRecordBatch();
-      this.dictionaries.add(new ArrowDictionaryBatch(id, batch));
     }
 
     this.schema = new Schema(fields, root.getSchema().getCustomMetadata());
@@ -117,9 +119,31 @@ public abstract class ArrowWriter implements AutoCloseable {
    */
   public void writeBatch() throws IOException {
     ensureStarted();
-    ensureDictionariesWritten();
+    ensureDictionariesWritten(dictionaryProvider, dictionaryIdsUsed);
     try (ArrowRecordBatch batch = unloader.getRecordBatch()) {
       writeRecordBatch(batch);
+    }
+  }
+
+  protected void writeDictionaryBatch(Dictionary dictionary) throws IOException {
+    FieldVector vector = dictionary.getVector();
+    long id = dictionary.getEncoding().getId();
+    int count = vector.getValueCount();
+    VectorSchemaRoot dictRoot = new VectorSchemaRoot(
+        Collections.singletonList(vector.getField()),
+        Collections.singletonList(vector),
+        count);
+    VectorUnloader unloader = new VectorUnloader(dictRoot);
+    ArrowRecordBatch batch = unloader.getRecordBatch();
+    ArrowDictionaryBatch dictionaryBatch = new ArrowDictionaryBatch(id, batch, false);
+    try {
+      writeDictionaryBatch(dictionaryBatch);
+    } finally {
+      try {
+        dictionaryBatch.close();
+      } catch (Exception e) {
+        throw new RuntimeException("Error occurred while closing dictionary.", e);
+      }
     }
   }
 
@@ -164,23 +188,8 @@ public abstract class ArrowWriter implements AutoCloseable {
    * Write dictionaries after schema and before recordBatches, dictionaries won't be
    * written if empty stream (only has schema data in IPC).
    */
-  private void ensureDictionariesWritten() throws IOException {
-    if (!dictWritten) {
-      dictWritten = true;
-      // write out any dictionaries
-      try {
-        for (ArrowDictionaryBatch batch : dictionaries) {
-          writeDictionaryBatch(batch);
-        }
-      } finally {
-        try {
-          AutoCloseables.close(dictionaries);
-        } catch (Exception e) {
-          throw new RuntimeException("Error occurred while closing dictionaries.", e);
-        }
-      }
-    }
-  }
+  protected abstract void ensureDictionariesWritten(DictionaryProvider provider, Set<Long> dictionaryIdsUsed)
+      throws IOException;
 
   private void ensureEnded() throws IOException {
     if (!ended) {
@@ -200,9 +209,6 @@ public abstract class ArrowWriter implements AutoCloseable {
     try {
       end();
       out.close();
-      if (!dictWritten) {
-        AutoCloseables.close(dictionaries);
-      }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

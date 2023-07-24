@@ -27,8 +27,9 @@ import sys
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_python cimport *
 from pyarrow.includes.common cimport PyObject_to_object
-cimport pyarrow.includes.libarrow as libarrow
+cimport pyarrow.includes.libarrow_python as libarrow_python
 cimport cpython as cp
 
 # Initialize NumPy C API
@@ -113,14 +114,33 @@ Type_STRUCT = _Type_STRUCT
 Type_SPARSE_UNION = _Type_SPARSE_UNION
 Type_DENSE_UNION = _Type_DENSE_UNION
 Type_DICTIONARY = _Type_DICTIONARY
+Type_RUN_END_ENCODED = _Type_RUN_END_ENCODED
 
 UnionMode_SPARSE = _UnionMode_SPARSE
 UnionMode_DENSE = _UnionMode_DENSE
 
+__pc = None
+__pac = None
+
 
 def _pc():
-    import pyarrow.compute as pc
-    return pc
+    global __pc
+    if __pc is None:
+        import pyarrow.compute as pc
+        __pc = pc
+    return __pc
+
+
+def _pac():
+    global __pac
+    if __pac is None:
+        import pyarrow.acero as pac
+        __pac = pac
+    return __pac
+
+
+def _gdb_test_session():
+    GdbTestSession()
 
 
 # Assorted compatibility helpers
@@ -161,9 +181,6 @@ include "io.pxi"
 
 # IPC / Messaging
 include "ipc.pxi"
-
-# Python serialization
-include "serialization.pxi"
 
 # Micro-benchmark routines
 include "benchmark.pxi"

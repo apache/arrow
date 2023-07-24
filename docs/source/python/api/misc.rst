@@ -28,6 +28,8 @@ Multi-Threading
 
    cpu_count
    set_cpu_count
+   io_thread_count
+   set_io_thread_count
 
 Using with C extensions
 -----------------------

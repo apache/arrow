@@ -249,7 +249,7 @@ gadataset_file_writer_finish(GADatasetFileWriter *writer,
                              GError **error)
 {
   const auto arrow_writer = gadataset_file_writer_get_raw(writer);
-  auto status = arrow_writer->Finish();
+  auto status = arrow_writer->Finish().status();
   return garrow::check(error,
                        status,
                        "[file-writer][finish]");

@@ -17,8 +17,10 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 
+#include "arrow/status.h"
 #include "arrow/util/config.h"  // IWYU pragma: export
 #include "arrow/util/visibility.h"
 
@@ -37,12 +39,20 @@ struct BuildInfo {
   std::string version_string;
   std::string so_version;
   std::string full_so_version;
+
+  /// The CMake compiler identifier, e.g. "GNU"
   std::string compiler_id;
   std::string compiler_version;
   std::string compiler_flags;
+
+  /// The git changeset id, if available
   std::string git_id;
+  /// The git changeset description, if available
   std::string git_description;
   std::string package_kind;
+
+  /// The uppercase build type, e.g. "DEBUG" or "RELEASE"
+  std::string build_type;
 };
 
 struct RuntimeInfo {
@@ -54,6 +64,13 @@ struct RuntimeInfo {
 
   /// The SIMD level available on the OS and CPU
   std::string detected_simd_level;
+
+  /// Whether using the OS-based timezone database
+  /// This is set at compile-time.
+  bool using_os_timezone_db;
+
+  /// The path to the timezone database; by default None.
+  std::optional<std::string> timezone_db_path;
 };
 
 /// \brief Get runtime build info.
@@ -68,5 +85,14 @@ const BuildInfo& GetBuildInfo();
 ///
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
+
+struct GlobalOptions {
+  /// Path to text timezone database. This is only configurable on Windows,
+  /// which does not have a compatible OS timezone database.
+  std::optional<std::string> timezone_db_path;
+};
+
+ARROW_EXPORT
+Status Initialize(const GlobalOptions& options) noexcept;
 
 }  // namespace arrow

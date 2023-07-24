@@ -36,43 +36,80 @@ fi
 VERSION="$1"
 TYPE="$2"
 
-local_prefix="/arrow/dev/tasks/linux-packages"
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOP_SOURCE_DIR="${SOURCE_DIR}/../.."
+local_prefix="${TOP_SOURCE_DIR}/dev/tasks/linux-packages"
 
 artifactory_base_url="https://apache.jfrog.io/artifactory/arrow"
 
 distribution=$(. /etc/os-release && echo "${ID}")
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
-distribution_prefix="centos"
+repository_version="${distribution_version}"
 
 cmake_package=cmake
 cmake_command=cmake
+devtoolset=
+scl_package=
+have_arrow_libs=no
 have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
-have_python=yes
-install_command="dnf install -y --enablerepo=powertools"
+have_ruby=yes
+have_vala=yes
+ruby_devel_packages=(ruby-devel)
+enablerepo_epel="--enablerepo=epel"
+install_command="dnf install -y --enablerepo=crb"
+uninstall_command="dnf remove -y"
+clean_command="dnf clean"
+info_command="dnf info --enablerepo=crb"
+
+echo "::group::Prepare repository"
 
 case "${distribution}-${distribution_version}" in
+  almalinux-8)
+    distribution_prefix="almalinux"
+    have_arrow_libs=yes
+    ruby_devel_packages+=(redhat-rpm-config)
+    install_command="dnf install -y --enablerepo=powertools"
+    info_command="dnf info --enablerepo=powertools"
+    ;;
   almalinux-*)
     distribution_prefix="almalinux"
+    ruby_devel_packages+=(redhat-rpm-config)
     ;;
-  amzn-2)
-    cmake_package=cmake3
-    cmake_command=cmake3
-    have_flight=no
-    have_gandiva=no
-    have_python=no
-    install_command="yum install -y"
+  amzn-*)
     distribution_prefix="amazon-linux"
-    amazon-linux-extras install epel -y
+    enablerepo_epel=""
+    install_command="dnf install -y"
+    info_command="dnf info"
     ;;
   centos-7)
+    distribution_prefix="centos"
     cmake_package=cmake3
     cmake_command=cmake3
+    devtoolset=11
+    scl_package=centos-release-scl-rh
+    have_arrow_libs=yes
     have_flight=no
     have_gandiva=no
+    have_ruby=no
+    have_vala=no
     install_command="yum install -y"
+    uninstall_command="yum remove -y"
+    clean_command="yum clean"
+    info_command="yum info"
+    ;;
+  centos-8)
+    distribution_prefix="centos"
+    repository_version+="-stream"
+    ruby_devel_packages+=(redhat-rpm-config)
+    install_command="dnf install -y --enablerepo=powertools"
+    info_command="dnf info --enablerepo=powertools"
+    ;;
+  centos-*)
+    distribution_prefix="centos"
+    repository_version+="-stream"
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
@@ -101,14 +138,13 @@ if [ "${TYPE}" = "local" ]; then
     amzn)
       package_version+=".${distribution}${distribution_version}"
       release_path+="/amazon-linux"
-      amazon-linux-extras install -y epel
       ;;
-    *)
+    centos)
       package_version+=".el${distribution_version}"
       release_path+="/centos"
       ;;
   esac
-  release_path+="/${distribution_version}/$(arch)/Packages"
+  release_path+="/${repository_version}/$(arch)/Packages"
   release_path+="/apache-arrow-release-${package_version}.noarch.rpm"
   ${install_command} "${release_path}"
 else
@@ -120,7 +156,7 @@ else
       ;;
   esac
   ${install_command} \
-    ${artifactory_base_url}/${distribution_prefix}/${distribution_version}/apache-arrow-release-latest.rpm
+    ${artifactory_base_url}/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm
 fi
 
 if [ "${TYPE}" = "local" ]; then
@@ -146,59 +182,123 @@ else
   esac
 fi
 
-${install_command} --enablerepo=epel arrow-devel-${package_version}
+echo "::endgroup::"
+
+
+echo "::group::Test Apache Arrow C++"
+${install_command} ${enablerepo_epel} arrow-devel-${package_version}
+if [ -n "${devtoolset}" ]; then
+  ${install_command} ${scl_package}
+fi
 ${install_command} \
   ${cmake_package} \
-  gcc-c++ \
   git \
   libarchive \
-  make \
   pkg-config
+if [ -n "${devtoolset}" ]; then
+  ${install_command} \
+    devtoolset-${devtoolset}-gcc-c++ \
+    devtoolset-${devtoolset}-make
+  . /opt/rh/devtoolset-${devtoolset}/enable
+else
+  ${install_command} \
+    gcc-c++ \
+    make
+fi
 mkdir -p build
-cp -a /arrow/cpp/examples/minimal_build build
+cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
 pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
-./arrow_example
-c++ -std=c++11 -o arrow_example example.cc $(pkg-config --cflags --libs arrow)
-./arrow_example
+./arrow-example
+c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+./arrow-example
 popd
+echo "::endgroup::"
 
 if [ "${have_glib}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
-fi
+  echo "::group::Test Apache Arrow GLib"
+  export G_DEBUG=fatal-warnings
 
-if [ "${have_python}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-python-devel-${package_version}
-fi
+  ${install_command} ${enablerepo_epel} arrow-glib-devel-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-glib-doc-${package_version}
 
-if [ "${have_glib}" = "yes" ]; then
-  ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
-else
-  ${install_command} --enablerepo=epel plasma-devel-${package_version}
+  if [ "${have_vala}" = "yes" ]; then
+    ${install_command} vala
+    cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
+    pushd build/vala
+    valac --pkg arrow-glib --pkg posix build.vala
+    ./build
+    popd
+  fi
+
+  if [ "${have_ruby}" = "yes" ]; then
+    ${install_command} "${ruby_devel_packages[@]}"
+    gem install gobject-introspection
+    ruby -r gi -e "p GI.load('Arrow')"
+  fi
+  echo "::endgroup::"
 fi
 
 if [ "${have_flight}" = "yes" ]; then
-  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
+  echo "::group::Test Apache Arrow Flight"
+  ${install_command} ${enablerepo_epel} arrow-flight-glib-devel-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-flight-glib-doc-${package_version}
+  if [ "${have_ruby}" = "yes" ]; then
+    ruby -r gi -e "p GI.load('ArrowFlight')"
+  fi
+  echo "::endgroup::"
+
+  echo "::group::Test Apache Arrow Flight SQL"
+  ${install_command} ${enablerepo_epel} arrow-flight-sql-glib-devel-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-flight-sql-glib-doc-${package_version}
+  if [ "${have_ruby}" = "yes" ]; then
+    ruby -r gi -e "p GI.load('ArrowFlightSQL')"
+  fi
+  echo "::endgroup::"
 fi
 
 if [ "${have_gandiva}" = "yes" ]; then
+  echo "::group::Test Gandiva"
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
-    ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
+    ${install_command} ${enablerepo_epel} gandiva-glib-devel-${package_version}
+    ${install_command} ${enablerepo_epel} gandiva-glib-doc-${package_version}
+    if [ "${have_ruby}" = "yes" ]; then
+      ruby -r gi -e "p GI.load('Gandiva')"
+    fi
   else
-    ${install_command} --enablerepo=epel gandiva-devel-${package_version}
+    ${install_command} ${enablerepo_epel} gandiva-devel-${package_version}
   fi
+  echo "::endgroup::"
 fi
 
 if [ "${have_parquet}" = "yes" ]; then
+  echo "::group::Test Apache Parquet"
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
-    ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
+    ${install_command} ${enablerepo_epel} parquet-glib-devel-${package_version}
+    ${install_command} ${enablerepo_epel} parquet-glib-doc-${package_version}
+    if [ "${have_ruby}" = "yes" ]; then
+      ruby -r gi -e "p GI.load('Parquet')"
+    fi
   else
-    ${install_command} --enablerepo=epel parquet-devel-${package_version}
+    ${install_command} ${enablerepo_epel} parquet-devel-${package_version}
+  fi
+  echo "::endgroup::"
+fi
+
+echo "::group::Test coexistence with old library"
+${uninstall_command} apache-arrow-release
+if ${install_command} \
+     https://apache.jfrog.io/artifactory/arrow/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
+  ${clean_command} all
+  if [ "${have_arrow_libs}" = "yes" ]; then
+    ${install_command} ${enablerepo_epel} arrow-libs
+  else
+    major_version=$(echo ${VERSION} | grep -E -o '^[0-9]+')
+    previous_major_version="$((${major_version} - 1))"
+    if ${info_command} ${enablerepo_epel} arrow${previous_major_version}-libs; then
+      ${install_command} ${enablerepo_epel} arrow${previous_major_version}-libs
+    fi
   fi
 fi
+echo "::endgroup::"

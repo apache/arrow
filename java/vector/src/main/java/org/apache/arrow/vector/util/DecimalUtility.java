@@ -23,8 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 
 import org.apache.arrow.memory.ArrowBuf;
-
-import io.netty.util.internal.PlatformDependent;
+import org.apache.arrow.memory.util.MemoryUtil;
 
 /**
  * Utility methods for configurable precision Decimal values (e.g. {@link BigDecimal}).
@@ -141,15 +140,15 @@ public class DecimalUtility {
     final long addressOfValue = bytebuf.memoryAddress() + (long) index * byteWidth;
     final long padValue = Long.signum(value) == -1 ? -1L : 0L;
     if (LITTLE_ENDIAN) {
-      PlatformDependent.putLong(addressOfValue, value);
+      MemoryUtil.UNSAFE.putLong(addressOfValue, value);
       for (int i = 1; i <= (byteWidth - 8) / 8; i++) {
-        PlatformDependent.putLong(addressOfValue + Long.BYTES * i, padValue);
+        MemoryUtil.UNSAFE.putLong(addressOfValue + Long.BYTES * i, padValue);
       }
     } else {
       for (int i = 0; i < (byteWidth - 8) / 8; i++) {
-        PlatformDependent.putLong(addressOfValue + Long.BYTES * i, padValue);
+        MemoryUtil.UNSAFE.putLong(addressOfValue + Long.BYTES * i, padValue);
       }
-      PlatformDependent.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
+      MemoryUtil.UNSAFE.putLong(addressOfValue + Long.BYTES * (byteWidth - 8) / 8, value);
     }
   }
 

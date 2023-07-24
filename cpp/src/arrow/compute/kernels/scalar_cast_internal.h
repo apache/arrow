@@ -20,7 +20,7 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"           // IWYU pragma: export
 #include "arrow/compute/cast_internal.h"  // IWYU pragma: export
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 
 namespace arrow {
@@ -37,43 +37,42 @@ struct CastFunctor {};
 template <typename O, typename I>
 struct CastFunctor<
     O, I, enable_if_t<std::is_same<O, I>::value && is_parameter_free_type<I>::value>> {
-  static Status Exec(KernelContext*, const ExecBatch&, Datum*) { return Status::OK(); }
+  static Status Exec(KernelContext*, const ExecSpan&, ExecResult*) {
+    return Status::OK();
+  }
 };
 
-Status CastFromExtension(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status CastFromExtension(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 // Utility for numeric casts
-void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type, const Datum& input,
-                              Datum* out);
+void CastNumberToNumberUnsafe(Type::type in_type, Type::type out_type,
+                              const ArraySpan& input, ArraySpan* out);
 
 // ----------------------------------------------------------------------
 // Dictionary to other things
 
-Status UnpackDictionary(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status UnpackDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
-Status OutputAllNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status OutputAllNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
-Status CastFromNull(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status CastFromNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 // Adds a cast function where CastFunctor is specialized and the input and output
-// types are parameter free (have a type_singleton). Scalar inputs are handled by
-// wrapping with TrivialScalarUnaryAsArraysExec.
+// types are parameter free (have a type_singleton).
 template <typename InType, typename OutType>
 void AddSimpleCast(InputType in_ty, OutputType out_ty, CastFunction* func) {
-  DCHECK_OK(func->AddKernel(
-      InType::type_id, {in_ty}, out_ty,
-      TrivialScalarUnaryAsArraysExec(CastFunctor<OutType, InType>::Exec)));
+  DCHECK_OK(func->AddKernel(InType::type_id, {in_ty}, out_ty,
+                            CastFunctor<OutType, InType>::Exec));
 }
 
-Status ZeroCopyCastExec(KernelContext* ctx, const ExecBatch& batch, Datum* out);
+Status ZeroCopyCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out);
 
 void AddZeroCopyCast(Type::type in_type_id, InputType in_type, OutputType out_type,
                      CastFunction* func);
 
-// OutputType::Resolver that returns a descr with the shape of the input
-// argument and the type from CastOptions
-Result<ValueDescr> ResolveOutputFromOptions(KernelContext* ctx,
-                                            const std::vector<ValueDescr>& args);
+// OutputType::Resolver that returns a type the type from CastOptions
+Result<TypeHolder> ResolveOutputFromOptions(KernelContext* ctx,
+                                            const std::vector<TypeHolder>& args);
 
 ARROW_EXPORT extern OutputType kOutputTargetType;
 

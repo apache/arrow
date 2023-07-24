@@ -86,7 +86,7 @@ BENCHMARK(TrieLookupNotFound);
 
 #ifdef ARROW_WITH_BENCHMARKS_REFERENCE
 
-static inline bool InlinedNullLookup(util::string_view s) {
+static inline bool InlinedNullLookup(std::string_view s) {
   // An inlined version of trie lookup for a specific set of strings
   // (see AllNulls())
   auto size = s.length();

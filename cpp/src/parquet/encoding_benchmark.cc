@@ -25,12 +25,14 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/byte_stream_split.h"
+#include "arrow/visit_data_inline.h"
 
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 
 #include <cmath>
+#include <limits>
 #include <random>
 
 using arrow::default_memory_pool;
@@ -214,7 +216,7 @@ struct BM_SpacedEncodingTraits<BooleanType> {
   using CType = bool;
 };
 
-static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
+static void BM_SpacedArgs(benchmark::internal::Benchmark* bench) {
   constexpr auto kPlainSpacedSize = 32 * 1024;  // 32k
 
   bench->Args({/*size*/ kPlainSpacedSize, /*null_in_ten_thousand*/ 1});
@@ -225,7 +227,7 @@ static void BM_PlainSpacedArgs(benchmark::internal::Benchmark* bench) {
 }
 
 template <typename ParquetType>
-static void BM_PlainEncodingSpaced(benchmark::State& state) {
+static void BM_EncodingSpaced(benchmark::State& state, Encoding::type encoding) {
   using ArrowType = typename BM_SpacedEncodingTraits<ParquetType>::ArrowType;
   using ArrayType = typename BM_SpacedEncodingTraits<ParquetType>::ArrayType;
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
@@ -244,7 +246,7 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   // input to PutSpaced.
   const auto src = reinterpret_cast<const CType*>(raw_values);
 
-  auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
+  auto encoder = MakeTypedEncoder<ParquetType>(encoding);
   for (auto _ : state) {
     encoder->PutSpaced(src, num_values, valid_bits, 0);
     encoder->FlushValues();
@@ -253,23 +255,59 @@ static void BM_PlainEncodingSpaced(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
 }
 
+template <>
+void BM_EncodingSpaced<BooleanType>(benchmark::State& state, Encoding::type encoding) {
+  using CType = bool;
+
+  const int num_values = static_cast<int>(state.range(0));
+  const double null_percent = static_cast<double>(state.range(1)) / 10000.0;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(1923);
+  const auto array = rand.Boolean(num_values, 0.5, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  bool* output = new bool[state.range(0)];
+  int output_idx = 0;
+  PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<::arrow::BooleanType>(
+      *array->data(),
+      [&](bool value) {
+        output[output_idx] = value;
+        ++output_idx;
+        return ::arrow::Status::OK();
+      },
+      []() { return ::arrow::Status::OK(); }));
+
+  auto encoder = MakeTypedEncoder<BooleanType>(encoding);
+  for (auto _ : state) {
+    encoder->PutSpaced(output, num_values, valid_bits, 0);
+    encoder->FlushValues();
+  }
+  state.counters["null_percent"] = null_percent * 100;
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
+  delete[] output;
+}
+
+template <typename ParquetType>
+static void BM_PlainEncodingSpaced(benchmark::State& state) {
+  BM_EncodingSpaced<ParquetType>(state, Encoding::PLAIN);
+}
+
 static void BM_PlainEncodingSpacedBoolean(benchmark::State& state) {
   BM_PlainEncodingSpaced<BooleanType>(state);
 }
-BENCHMARK(BM_PlainEncodingSpacedBoolean)->Apply(BM_PlainSpacedArgs);
+BENCHMARK(BM_PlainEncodingSpacedBoolean)->Apply(BM_SpacedArgs);
 
 static void BM_PlainEncodingSpacedFloat(benchmark::State& state) {
   BM_PlainEncodingSpaced<FloatType>(state);
 }
-BENCHMARK(BM_PlainEncodingSpacedFloat)->Apply(BM_PlainSpacedArgs);
+BENCHMARK(BM_PlainEncodingSpacedFloat)->Apply(BM_SpacedArgs);
 
 static void BM_PlainEncodingSpacedDouble(benchmark::State& state) {
   BM_PlainEncodingSpaced<DoubleType>(state);
 }
-BENCHMARK(BM_PlainEncodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
+BENCHMARK(BM_PlainEncodingSpacedDouble)->Apply(BM_SpacedArgs);
 
 template <typename ParquetType>
-static void BM_PlainDecodingSpaced(benchmark::State& state) {
+static void BM_DecodingSpaced(benchmark::State& state, Encoding::type encoding) {
   using ArrowType = typename BM_SpacedEncodingTraits<ParquetType>::ArrowType;
   using ArrayType = typename BM_SpacedEncodingTraits<ParquetType>::ArrayType;
   using CType = typename BM_SpacedEncodingTraits<ParquetType>::CType;
@@ -278,22 +316,21 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   const auto null_percent = static_cast<double>(state.range(1)) / 10000.0;
 
   auto rand = ::arrow::random::RandomArrayGenerator(1923);
-  const auto array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
+  std::shared_ptr<::arrow::Array> array;
+  if constexpr (std::is_same_v<ParquetType, BooleanType>) {
+    array = rand.Boolean(num_values, /*true_probability*/ 0.5, null_percent);
+  } else {
+    array = rand.Numeric<ArrowType>(num_values, -100, 100, null_percent);
+  }
   const auto valid_bits = array->null_bitmap_data();
   const int null_count = static_cast<int>(array->null_count());
   const auto array_actual = ::arrow::internal::checked_pointer_cast<ArrayType>(array);
-  const auto raw_values = array_actual->raw_values();
-  // Guarantee the type cast between raw_values and input of PutSpaced.
-  static_assert(sizeof(CType) == sizeof(*raw_values), "Type mismatch");
-  // Cast only happens for BooleanType as it use UInt8 for the array data to match a bool*
-  // input to PutSpaced.
-  const auto src = reinterpret_cast<const CType*>(raw_values);
 
-  auto encoder = MakeTypedEncoder<ParquetType>(Encoding::PLAIN);
-  encoder->PutSpaced(src, num_values, valid_bits, 0);
+  auto encoder = MakeTypedEncoder<ParquetType>(encoding);
+  encoder->Put(*array);
   std::shared_ptr<Buffer> buf = encoder->FlushValues();
 
-  auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN);
+  auto decoder = MakeTypedDecoder<ParquetType>(encoding);
   std::vector<uint8_t> decode_values(num_values * sizeof(CType));
   auto decode_buf = reinterpret_cast<CType*>(decode_values.data());
   for (auto _ : state) {
@@ -304,20 +341,25 @@ static void BM_PlainDecodingSpaced(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * num_values * sizeof(CType));
 }
 
+template <typename ParquetType>
+static void BM_PlainDecodingSpaced(benchmark::State& state) {
+  BM_DecodingSpaced<ParquetType>(state, Encoding::PLAIN);
+}
+
 static void BM_PlainDecodingSpacedBoolean(benchmark::State& state) {
   BM_PlainDecodingSpaced<BooleanType>(state);
 }
-BENCHMARK(BM_PlainDecodingSpacedBoolean)->Apply(BM_PlainSpacedArgs);
+BENCHMARK(BM_PlainDecodingSpacedBoolean)->Apply(BM_SpacedArgs);
 
 static void BM_PlainDecodingSpacedFloat(benchmark::State& state) {
   BM_PlainDecodingSpaced<FloatType>(state);
 }
-BENCHMARK(BM_PlainDecodingSpacedFloat)->Apply(BM_PlainSpacedArgs);
+BENCHMARK(BM_PlainDecodingSpacedFloat)->Apply(BM_SpacedArgs);
 
 static void BM_PlainDecodingSpacedDouble(benchmark::State& state) {
   BM_PlainDecodingSpaced<DoubleType>(state);
 }
-BENCHMARK(BM_PlainDecodingSpacedDouble)->Apply(BM_PlainSpacedArgs);
+BENCHMARK(BM_PlainDecodingSpacedDouble)->Apply(BM_SpacedArgs);
 
 template <typename T, typename DecodeFunc>
 static void BM_ByteStreamSplitDecode(benchmark::State& state, DecodeFunc&& decode_func) {
@@ -452,8 +494,318 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Avx512)->Range(MIN_RANGE, MAX_RANGE);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Avx512)->Range(MIN_RANGE, MAX_RANGE);
 #endif
 
+template <typename DType>
+static auto MakeDeltaBitPackingInputFixed(size_t length) {
+  using T = typename DType::c_type;
+  return std::vector<T>(length, 42);
+}
+
+template <typename DType>
+static auto MakeDeltaBitPackingInputNarrow(size_t length) {
+  using T = typename DType::c_type;
+  auto numbers = std::vector<T>(length);
+  ::arrow::randint<T, T>(length, 0, 1000, &numbers);
+  return numbers;
+}
+
+template <typename DType>
+static auto MakeDeltaBitPackingInputWide(size_t length) {
+  using T = typename DType::c_type;
+  auto numbers = std::vector<T>(length);
+  ::arrow::randint<T, T>(length, std::numeric_limits<T>::min() >> 2,
+                         std::numeric_limits<T>::max() >> 2, &numbers);
+  return numbers;
+}
+
+template <typename DType, typename NumberGenerator>
+static void BM_DeltaBitPackingEncode(benchmark::State& state, NumberGenerator gen) {
+  using T = typename DType::c_type;
+  std::vector<T> values = gen(state.range(0));
+  auto encoder = MakeTypedEncoder<DType>(Encoding::DELTA_BINARY_PACKED);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * values.size() * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * values.size());
+}
+
+static void BM_DeltaBitPackingEncode_Int32_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputFixed<Int32Type>);
+}
+
+static void BM_DeltaBitPackingEncode_Int64_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputFixed<Int64Type>);
+}
+
+static void BM_DeltaBitPackingEncode_Int32_Narrow(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputNarrow<Int32Type>);
+}
+
+static void BM_DeltaBitPackingEncode_Int64_Narrow(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputNarrow<Int64Type>);
+}
+
+static void BM_DeltaBitPackingEncode_Int32_Wide(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int32Type>(state, MakeDeltaBitPackingInputWide<Int32Type>);
+}
+
+static void BM_DeltaBitPackingEncode_Int64_Wide(benchmark::State& state) {
+  BM_DeltaBitPackingEncode<Int64Type>(state, MakeDeltaBitPackingInputWide<Int64Type>);
+}
+
+BENCHMARK(BM_DeltaBitPackingEncode_Int32_Fixed)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int64_Fixed)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int32_Narrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingEncode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
+
+template <typename DType, typename NumberGenerator>
+static void BM_DeltaBitPackingDecode(benchmark::State& state, NumberGenerator gen) {
+  using T = typename DType::c_type;
+  std::vector<T> values = gen(state.range(0));
+  auto encoder = MakeTypedEncoder<DType>(Encoding::DELTA_BINARY_PACKED);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<DType>(Encoding::DELTA_BINARY_PACKED);
+  for (auto _ : state) {
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+static void BM_DeltaBitPackingDecode_Int32_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputFixed<Int32Type>);
+}
+
+static void BM_DeltaBitPackingDecode_Int64_Fixed(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputFixed<Int64Type>);
+}
+
+static void BM_DeltaBitPackingDecode_Int32_Narrow(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputNarrow<Int32Type>);
+}
+
+static void BM_DeltaBitPackingDecode_Int64_Narrow(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputNarrow<Int64Type>);
+}
+
+static void BM_DeltaBitPackingDecode_Int32_Wide(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int32Type>(state, MakeDeltaBitPackingInputWide<Int32Type>);
+}
+
+static void BM_DeltaBitPackingDecode_Int64_Wide(benchmark::State& state) {
+  BM_DeltaBitPackingDecode<Int64Type>(state, MakeDeltaBitPackingInputWide<Int64Type>);
+}
+
+BENCHMARK(BM_DeltaBitPackingDecode_Int32_Fixed)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int64_Fixed)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int32_Narrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int64_Narrow)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int32_Wide)->Range(MIN_RANGE, MAX_RANGE);
+BENCHMARK(BM_DeltaBitPackingDecode_Int64_Wide)->Range(MIN_RANGE, MAX_RANGE);
+
+static void ByteArrayCustomArguments(benchmark::internal::Benchmark* b) {
+  b->ArgsProduct({{8, 64, 1024}, {512, 2048}})
+      ->ArgNames({"max-string-length", "batch-size"});
+}
+
+void EncodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
+  ::arrow::random::RandomArrayGenerator rag(0);
+  // Using arrow generator to generate random data.
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
+  auto array =
+      rag.String(/* size */ array_size, /* min_length */ 0, /* max_length */ max_length,
+                 /* null_probability */ 0);
+  const auto array_actual =
+      ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(encoding);
+  std::vector<ByteArray> values;
+  for (int i = 0; i < array_actual->length(); ++i) {
+    values.emplace_back(array_actual->GetView(i));
+  }
+
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetItemsProcessed(state.iterations() * array_actual->length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
+}
+
+static void BM_DeltaLengthEncodingByteArray(benchmark::State& state) {
+  EncodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
+}
+
+static void BM_PlainEncodingByteArray(benchmark::State& state) {
+  EncodingByteArrayBenchmark(state, Encoding::PLAIN);
+}
+
+void DecodingByteArrayBenchmark(benchmark::State& state, Encoding::type encoding) {
+  ::arrow::random::RandomArrayGenerator rag(0);
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
+  // Using arrow to write, because we just benchmark decoding here.
+  auto array =
+      rag.String(/* size */ array_size, /* min_length */ 0, /* max_length */ max_length,
+                 /* null_probability */ 0);
+  const auto array_actual =
+      ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(encoding);
+  encoder->Put(*array);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  std::vector<ByteArray> values;
+  values.resize(array->length());
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<ByteArrayType>(encoding);
+    decoder->SetData(static_cast<int>(array->length()), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+    ::benchmark::DoNotOptimize(values);
+  }
+  state.SetItemsProcessed(state.iterations() * array->length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
+}
+
+static void BM_PlainDecodingByteArray(benchmark::State& state) {
+  DecodingByteArrayBenchmark(state, Encoding::PLAIN);
+}
+
+static void BM_DeltaLengthDecodingByteArray(benchmark::State& state) {
+  DecodingByteArrayBenchmark(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
+}
+
+BENCHMARK(BM_PlainEncodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaLengthEncodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_PlainDecodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaLengthDecodingByteArray)->Apply(ByteArrayCustomArguments);
+
+static void BM_DecodingByteArraySpaced(benchmark::State& state, Encoding::type encoding) {
+  const double null_percent = 0.02;
+
+  auto rand = ::arrow::random::RandomArrayGenerator(0);
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t num_values = static_cast<int32_t>(state.range(1));
+  const auto array = rand.String(num_values, /* min_length */ 0,
+                                 /* max_length */ max_length, null_percent);
+  const auto valid_bits = array->null_bitmap_data();
+  const int null_count = static_cast<int>(array->null_count());
+  const auto array_actual =
+      ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
+
+  std::vector<ByteArray> byte_arrays;
+  byte_arrays.reserve(array_actual->length());
+  for (int i = 0; i < array_actual->length(); ++i) {
+    byte_arrays.emplace_back(array_actual->GetView(i));
+  }
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(encoding);
+  encoder->PutSpaced(byte_arrays.data(), num_values, valid_bits, 0);
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(encoding);
+  std::vector<uint8_t> decode_values(num_values * sizeof(ByteArray));
+  auto decode_buf = reinterpret_cast<ByteArray*>(decode_values.data());
+  for (auto _ : state) {
+    decoder->SetData(num_values - null_count, buf->data(), static_cast<int>(buf->size()));
+    decoder->DecodeSpaced(decode_buf, num_values, null_count, valid_bits, 0);
+    ::benchmark::DoNotOptimize(decode_buf);
+  }
+  state.counters["null_percent"] = null_percent * 100;
+  state.SetItemsProcessed(state.iterations() * array_actual->length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
+}
+
+static void BM_PlainDecodingSpacedByteArray(benchmark::State& state) {
+  BM_DecodingByteArraySpaced(state, Encoding::PLAIN);
+}
+
+static void BM_DeltaLengthDecodingSpacedByteArray(benchmark::State& state) {
+  BM_DecodingByteArraySpaced(state, Encoding::DELTA_LENGTH_BYTE_ARRAY);
+}
+
+BENCHMARK(BM_PlainDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
+
+static void BM_RleEncodingBoolean(benchmark::State& state) {
+  std::vector<bool> values(state.range(0), true);
+  auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::RLE);
+  auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
+
+  for (auto _ : state) {
+    typed_encoder->Put(values, static_cast<int>(values.size()));
+    typed_encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
+}
+
+BENCHMARK(BM_RleEncodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_RleDecodingBoolean(benchmark::State& state) {
+  std::vector<bool> values(state.range(0), true);
+  bool* output = new bool[state.range(0)];
+  auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::RLE);
+  auto typed_encoder = dynamic_cast<BooleanEncoder*>(encoder.get());
+  typed_encoder->Put(values, static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE);
+  for (auto _ : state) {
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    decoder->Decode(output, static_cast<int>(values.size()));
+  }
+
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(bool));
+  delete[] output;
+}
+
+BENCHMARK(BM_RleDecodingBoolean)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_RleEncodingSpacedBoolean(benchmark::State& state) {
+  BM_EncodingSpaced<BooleanType>(state, Encoding::RLE);
+}
+BENCHMARK(BM_RleEncodingSpacedBoolean)->Apply(BM_SpacedArgs);
+
+static void BM_RleDecodingSpacedBoolean(benchmark::State& state) {
+  BM_DecodingSpaced<BooleanType>(state, Encoding::RLE);
+}
+BENCHMARK(BM_RleDecodingSpacedBoolean)->Apply(BM_SpacedArgs);
+
 template <typename Type>
-static void DecodeDict(std::vector<typename Type::c_type>& values,
+static void EncodeDict(const std::vector<typename Type::c_type>& values,
+                       benchmark::State& state) {
+  using T = typename Type::c_type;
+  int num_values = static_cast<int>(values.size());
+
+  MemoryPool* allocator = default_memory_pool();
+  std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
+
+  auto base_encoder = MakeEncoder(Type::type_num, Encoding::RLE_DICTIONARY,
+                                  /*use_dictionary=*/true, descr.get(), allocator);
+  auto encoder =
+      dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_encoder.get());
+  for (auto _ : state) {
+    encoder->Put(values.data(), num_values);
+    encoder->FlushValues();
+  }
+
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * num_values);
+}
+
+template <typename Type>
+static void DecodeDict(const std::vector<typename Type::c_type>& values,
                        benchmark::State& state) {
   typedef typename Type::c_type T;
   int num_values = static_cast<int>(values.size());
@@ -480,6 +832,7 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
 
   PARQUET_THROW_NOT_OK(indices->Resize(actual_bytes));
 
+  std::vector<T> decoded_values(num_values);
   for (auto _ : state) {
     auto dict_decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr.get());
     dict_decoder->SetData(dict_traits->num_entries(), dict_buffer->data(),
@@ -488,10 +841,11 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
     auto decoder = MakeDictDecoder<Type>(descr.get());
     decoder->SetDict(dict_decoder.get());
     decoder->SetData(num_values, indices->data(), static_cast<int>(indices->size()));
-    decoder->Decode(values.data(), num_values);
+    decoder->Decode(decoded_values.data(), num_values);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * num_values);
 }
 
 static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
@@ -504,18 +858,60 @@ static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
 
 BENCHMARK(BM_DictDecodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_DictEncodingInt64_repeats(benchmark::State& state) {
+  typedef Int64Type Type;
+  typedef typename Type::c_type T;
+
+  std::vector<T> values(state.range(0), 64);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
+
 static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
   std::vector<T> values(state.range(0));
-  for (size_t i = 0; i < values.size(); ++i) {
-    values[i] = i;
-  }
+  std::iota(values.begin(), values.end(), 0);
   DecodeDict<Type>(values, state);
 }
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_DictEncodingInt64_literals(benchmark::State& state) {
+  using Type = Int64Type;
+  using T = typename Type::c_type;
+
+  std::vector<T> values(state.range(0));
+  std::iota(values.begin(), values.end(), 0);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_DictDecodingByteArray(benchmark::State& state) {
+  ::arrow::random::RandomArrayGenerator rag(0);
+  // Using arrow generator to generate random data.
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
+  auto array =
+      rag.String(/* size */ array_size, /* min_length */ 0, /* max_length */ max_length,
+                 /* null_probability */ 0);
+  const auto array_actual =
+      ::arrow::internal::checked_pointer_cast<::arrow::StringArray>(array);
+  auto encoder = MakeDictDecoder<ByteArrayType>();
+  std::vector<ByteArray> values;
+  for (int i = 0; i < array_actual->length(); ++i) {
+    values.emplace_back(array_actual->GetView(i));
+  }
+  DecodeDict<ByteArrayType>(values, state);
+  state.SetItemsProcessed(state.iterations() * array_actual->length());
+  state.SetBytesProcessed(state.iterations() * (array_actual->value_data()->size() +
+                                                array_actual->value_offsets()->size()));
+}
+
+BENCHMARK(BM_DictDecodingByteArray)->Apply(ByteArrayCustomArguments);
 
 // ----------------------------------------------------------------------
 // Shared benchmarks for decoding using arrow builders
@@ -538,8 +934,8 @@ class BenchmarkDecodeArrow : public ::benchmark::Fixture {
   }
 
   void InitDataInputs() {
-    // Generate a random string dictionary without any nulls so that this dataset can be
-    // used for benchmarking the DecodeArrowNonNull API
+    // Generate a random string dictionary without any nulls so that this dataset can
+    // be used for benchmarking the DecodeArrowNonNull API
     constexpr int repeat_factor = 8;
     constexpr int64_t min_length = 2;
     constexpr int64_t max_length = 10;
@@ -682,7 +1078,7 @@ class BM_ArrowBinaryDict : public BenchmarkDecodeArrow {
   template <typename PutValuesFunc>
   void DoEncode(PutValuesFunc&& put_values) {
     auto node = schema::ByteArray("name");
-    descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+    descr_ = std::make_unique<ColumnDescriptor>(node, 0, 0);
 
     auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
                                                    /*use_dictionary=*/true, descr_.get());

@@ -16,7 +16,10 @@
 // under the License.
 
 #include <algorithm>  // Missing include in boost/process
-#include <sstream>
+
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 
 // This boost/asio/io_context.hpp include is needless for no MinGW
 // build.
@@ -28,10 +31,13 @@
 // includes windows.h. boost/process/args.hpp is included before
 // boost/process/async.h that includes
 // boost/asio/detail/socket_types.hpp implicitly is included.
+#ifdef __MINGW32__
 #include <boost/asio/io_context.hpp>
+#endif
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 // We need BOOST_USE_WINDOWS_H definition with MinGW when we use
-// boost/process.hpp. See ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS in
-// cpp/cmake_modules/BuildUtils.cmake for details.
+// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
+// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
 #include <boost/process.hpp>
 
 #include "arrow/filesystem/s3_test_util.h"
@@ -60,11 +66,7 @@ const char* kEnvConnectString = "ARROW_TEST_S3_CONNECT_STRING";
 const char* kEnvAccessKey = "ARROW_TEST_S3_ACCESS_KEY";
 const char* kEnvSecretKey = "ARROW_TEST_S3_SECRET_KEY";
 
-std::string GenerateConnectString() {
-  std::stringstream ss;
-  ss << "127.0.0.1:" << GetListenPort();
-  return ss.str();
-}
+std::string GenerateConnectString() { return GetListenAddress(); }
 
 }  // namespace
 
@@ -109,9 +111,10 @@ Status MinioTestServer::Start() {
   bp::environment env = boost::this_process::environment();
   env["MINIO_ACCESS_KEY"] = kMinioAccessKey;
   env["MINIO_SECRET_KEY"] = kMinioSecretKey;
+  // Disable the embedded console (one less listening address to care about)
+  env["MINIO_BROWSER"] = "off";
 
   impl_->connect_string_ = GenerateConnectString();
-
   auto exe_path = bp::search_path(kMinioExecutableName);
   if (exe_path.empty()) {
     return Status::IOError("Failed to find minio executable ('", kMinioExecutableName,
@@ -134,6 +137,11 @@ Status MinioTestServer::Stop() {
     // Brutal shutdown
     impl_->server_process_->terminate();
     impl_->server_process_->wait();
+#ifndef _WIN32
+    // Despite calling wait() above, boost::process fails to clear zombies
+    // so do it ourselves.
+    waitpid(impl_->server_process_->id(), nullptr, 0);
+#endif
   }
   return Status::OK();
 }

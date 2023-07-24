@@ -67,6 +67,10 @@ class RowGroupReader;
 /// `FileReader::RowGroup(i)->Column(j)->Read` and receive an `arrow::Column`
 /// instance.
 ///
+/// Finally, one can also get a stream of record batches using
+/// `FileReader::GetRecordBatchReader()`. This can internally decode columns
+/// in parallel if use_threads was enabled in the ArrowReaderProperties.
+///
 /// The parquet format supports an optional integer field_id which can be assigned
 /// to a field.  Arrow will convert these field IDs to a metadata key named
 /// PARQUET:field_id on the appropriate field.
@@ -83,7 +87,7 @@ class RowGroupReader;
 //   optional int32 val4;
 // }
 //
-// In the Parquet file, there are 3 leaf nodes:
+// In the Parquet file, there are 4 leaf nodes:
 //
 // * data.record.val1
 // * data.record.val2
@@ -129,6 +133,7 @@ class PARQUET_EXPORT FileReader {
   // fully-materialized arrow::Array instances
   //
   // Returns error status if the column of interest is not flat.
+  // The indicated column index is relative to the schema
   virtual ::arrow::Status GetColumn(int i, std::unique_ptr<ColumnReader>* out) = 0;
 
   /// \brief Return arrow schema for all the columns.
@@ -136,24 +141,22 @@ class PARQUET_EXPORT FileReader {
 
   /// \brief Read column as a whole into a chunked array.
   ///
-  /// The indicated column index is relative to the schema
+  /// The index i refers the index of the top level schema field, which may
+  /// be nested or flat - e.g.
+  ///
+  /// 0 foo.bar
+  ///   foo.bar.baz
+  ///   foo.qux
+  /// 1 foo2
+  /// 2 foo3
+  ///
+  /// i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
   virtual ::arrow::Status ReadColumn(int i,
                                      std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
 
-  // NOTE: Experimental API
-  // Reads a specific top level schema field into an Array
-  // The index i refers the index of the top level schema field, which may
-  // be nested or flat - e.g.
-  //
-  // 0 foo.bar
-  //   foo.bar.baz
-  //   foo.qux
-  // 1 foo2
-  // 2 foo3
-  //
-  // i=0 will read the entire foo struct, i=1 the foo2 primitive column etc
-  virtual ::arrow::Status ReadSchemaField(
-      int i, std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
+  /// \brief Return a RecordBatchReader of all row groups and columns.
+  virtual ::arrow::Status GetRecordBatchReader(
+      std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
 
   /// \brief Return a RecordBatchReader of row groups selected from row_group_indices.
   ///
@@ -164,9 +167,6 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
-
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a RecordBatchReader of row groups selected from
   /// row_group_indices, whose columns are selected by column_indices.
@@ -179,6 +179,25 @@ class PARQUET_EXPORT FileReader {
   virtual ::arrow::Status GetRecordBatchReader(
       const std::vector<int>& row_group_indices, const std::vector<int>& column_indices,
       std::unique_ptr<::arrow::RecordBatchReader>* out) = 0;
+
+  /// \brief Return a RecordBatchReader of row groups selected from
+  /// row_group_indices, whose columns are selected by column_indices.
+  ///
+  /// Note that the ordering in row_group_indices and column_indices
+  /// matter. FileReaders must outlive their RecordBatchReaders.
+  ///
+  /// \param row_group_indices which row groups to read (order determines read order).
+  /// \param column_indices which columns to read (order determines output schema).
+  /// \param[out] out record batch stream from parquet data.
+  ///
+  /// \returns error Status if either row_group_indices or column_indices
+  ///     contains an invalid index
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       const std::vector<int>& column_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
+                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+  ::arrow::Status GetRecordBatchReader(std::shared_ptr<::arrow::RecordBatchReader>* out);
 
   /// \brief Return a generator of record batches.
   ///
@@ -193,18 +212,28 @@ class PARQUET_EXPORT FileReader {
                           const std::vector<int> row_group_indices,
                           const std::vector<int> column_indices,
                           ::arrow::internal::Executor* cpu_executor = NULLPTR,
-                          int row_group_readahead = 0) = 0;
-
-  ::arrow::Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
-                                       const std::vector<int>& column_indices,
-                                       std::shared_ptr<::arrow::RecordBatchReader>* out);
+                          int64_t rows_to_readahead = 0) = 0;
 
   /// Read all columns into a Table
   virtual ::arrow::Status ReadTable(std::shared_ptr<::arrow::Table>* out) = 0;
 
   /// \brief Read the given columns into a Table
   ///
-  /// The indicated column indices are relative to the schema
+  /// The indicated column indices are relative to the internal representation
+  /// of the parquet table. For instance :
+  /// 0 foo.bar
+  ///       foo.bar.baz           0
+  ///       foo.bar.baz2          1
+  ///   foo.qux                   2
+  /// 1 foo2                      3
+  /// 2 foo3                      4
+  ///
+  /// i=0 will read foo.bar.baz, i=1 will read only foo.bar.baz2 and so on.
+  /// Only leaf fields have indices; foo itself doesn't have an index.
+  /// To get the index for a particular leaf field, one can use
+  /// manifest().schema_fields to get the top level fields, and then walk the
+  /// tree to identify the relevant leaf fields and access its column_index.
+  /// To get the total number of leaf fields, use FileMetadata.num_columns().
   virtual ::arrow::Status ReadTable(const std::vector<int>& column_indices,
                                     std::shared_ptr<::arrow::Table>* out) = 0;
 
@@ -300,6 +329,11 @@ class PARQUET_EXPORT FileReaderBuilder {
                        const ReaderProperties& properties = default_reader_properties(),
                        std::shared_ptr<FileMetaData> metadata = NULLPTR);
 
+  /// Create FileReaderBuilder from file path and optional properties / metadata
+  ::arrow::Status OpenFile(const std::string& path, bool memory_map = false,
+                           const ReaderProperties& props = default_reader_properties(),
+                           std::shared_ptr<FileMetaData> metadata = NULLPTR);
+
   ParquetFileReader* raw_reader() { return raw_reader_.get(); }
 
   /// Set Arrow MemoryPool for memory allocation
@@ -308,6 +342,7 @@ class PARQUET_EXPORT FileReaderBuilder {
   FileReaderBuilder* properties(const ArrowReaderProperties& arg_properties);
   /// Build FileReader instance
   ::arrow::Status Build(std::unique_ptr<FileReader>* out);
+  ::arrow::Result<std::unique_ptr<FileReader>> Build();
 
  private:
   ::arrow::MemoryPool* pool_;

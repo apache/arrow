@@ -6,26 +6,28 @@
 \alias{arrow-package}
 \title{arrow: Integration to 'Apache' 'Arrow'}
 \description{
-'Apache' 'Arrow' <https://arrow.apache.org/> is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. This package provides an interface to the 'Arrow C++' library.
+'Apache' 'Arrow' \url{https://arrow.apache.org/} is a cross-language development platform for in-memory data. It specifies a standardized language-independent columnar memory format for flat and hierarchical data, organized for efficient analytic operations on modern hardware. This package provides an interface to the 'Arrow C++' library.
 }
 \seealso{
 Useful links:
 \itemize{
   \item \url{https://github.com/apache/arrow/}
   \item \url{https://arrow.apache.org/docs/r/}
-  \item Report bugs at \url{https://issues.apache.org/jira/projects/ARROW/issues}
+  \item Report bugs at \url{https://github.com/apache/arrow/issues}
 }
 
 }
 \author{
-\strong{Maintainer}: Neal Richardson \email{neal@ursalabs.org}
+\strong{Maintainer}: Nic Crane \email{thisisnic@gmail.com}
 
 Authors:
 \itemize{
+  \item Neal Richardson \email{neal.p.richardson@gmail.com}
   \item Ian Cook \email{ianmcook@gmail.com}
-  \item Nic Crane \email{thisisnic@gmail.com}
+  \item Dewey Dunnington \email{dewey@fishandwhistle.net} (\href{https://orcid.org/0000-0002-9415-4582}{ORCID})
+  \item Romain François (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
   \item Jonathan Keane \email{jkeane@gmail.com}
-  \item Romain François \email{romain@rstudio.com} (\href{https://orcid.org/0000-0002-2444-4226}{ORCID})
+  \item Dragoș Moldovan-Grünfeld \email{dragos.mold@gmail.com}
   \item Jeroen Ooms \email{jeroen@berkeley.edu}
   \item Apache Arrow \email{dev@arrow.apache.org} [copyright holder]
 }

@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cerrno>
 #include <chrono>
 #include <memory>
 #include <sstream>
@@ -32,6 +33,7 @@
 
 namespace arrow {
 
+using internal::ErrnoFromStatus;
 using internal::Uri;
 
 namespace fs {
@@ -117,6 +119,8 @@ class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTest
     ARROW_LOG(INFO) << "!!! uri = " << ss.str();
     ASSERT_OK_AND_ASSIGN(uri_fs, FileSystemFromUri(ss.str(), &path));
     ASSERT_EQ(path, "/");
+    ASSERT_OK_AND_ASSIGN(path, uri_fs->PathFromUri(ss.str()));
+    ASSERT_EQ(path, "/");
 
     // Sanity check
     ASSERT_OK(uri_fs->CreateDir("AB"));
@@ -183,7 +187,9 @@ class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTest
     ASSERT_EQ(infos.size(), 0);
 
     selector.allow_not_found = false;
-    ASSERT_RAISES(IOError, fs_->GetFileInfo(selector));
+    auto st = fs_->GetFileInfo(selector).status();
+    ASSERT_RAISES(IOError, st);
+    ASSERT_EQ(ErrnoFromStatus(st), ENOENT);
 
     ASSERT_OK(fs_->DeleteDir(base_dir + "AB"));
     AssertFileInfo(fs_.get(), base_dir + "AB", FileType::NotFound);
@@ -215,7 +221,10 @@ TEST_F(TestHadoopFileSystem, CreateDirDeleteDir) {
 
   ASSERT_OK(this->fs_->DeleteDir("AB"));
   AssertFileInfo(this->fs_.get(), "AB", FileType::NotFound);
-  ASSERT_RAISES(IOError, this->fs_->DeleteDir("AB"));
+
+  auto st = this->fs_->DeleteDir("AB");
+  ASSERT_RAISES(IOError, st);
+  ASSERT_EQ(ErrnoFromStatus(st), ENOENT);
 }
 
 TEST_F(TestHadoopFileSystem, DeleteDirContents) {
@@ -235,6 +244,11 @@ TEST_F(TestHadoopFileSystem, DeleteDirContents) {
   ASSERT_OK(this->fs_->DeleteDirContents("AB"));
   AssertFileInfo(this->fs_.get(), "AB", FileType::Directory);
   ASSERT_OK(this->fs_->DeleteDir("AB"));
+
+  ASSERT_OK(this->fs_->DeleteDirContents("DoesNotExist", /*missing_dir_ok=*/true));
+  auto st = this->fs_->DeleteDirContents("DoesNotExist");
+  ASSERT_RAISES(IOError, st);
+  ASSERT_EQ(ErrnoFromStatus(st), ENOENT);
 }
 
 TEST_F(TestHadoopFileSystem, WriteReadFile) {

@@ -15,25 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Table } from '../table';
-import { MAGIC } from './message';
-import { Vector } from '../vector';
-import { Column } from '../column';
-import { DataType } from '../type';
-import { Schema, Field } from '../schema';
-import { Message } from './metadata/message';
-import * as metadata from './metadata/message';
-import { FileBlock, Footer } from './metadata/file';
-import { MessageHeader, MetadataVersion } from '../enum';
-import { compareSchemas } from '../visitor/typecomparator';
-import { WritableSink, AsyncByteQueue } from '../io/stream';
-import { VectorAssembler } from '../visitor/vectorassembler';
-import { JSONTypeAssembler } from '../visitor/jsontypeassembler';
-import { JSONVectorAssembler } from '../visitor/jsonvectorassembler';
-import { ArrayBufferViewInput, toUint8Array } from '../util/buffer';
-import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch';
-import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces';
-import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable, isObject } from '../util/compat';
+import { Data } from '../data.js';
+import { Table } from '../table.js';
+import { MAGIC } from './message.js';
+import { Vector } from '../vector.js';
+import { DataType, TypeMap } from '../type.js';
+import { Schema, Field } from '../schema.js';
+import { Message } from './metadata/message.js';
+import * as metadata from './metadata/message.js';
+import { FileBlock, Footer } from './metadata/file.js';
+import { MessageHeader, MetadataVersion } from '../enum.js';
+import { compareSchemas } from '../visitor/typecomparator.js';
+import { WritableSink, AsyncByteQueue } from '../io/stream.js';
+import { VectorAssembler } from '../visitor/vectorassembler.js';
+import { JSONTypeAssembler } from '../visitor/jsontypeassembler.js';
+import { JSONVectorAssembler } from '../visitor/jsonvectorassembler.js';
+import { ArrayBufferViewInput, toUint8Array } from '../util/buffer.js';
+import { RecordBatch, _InternalEmptyPlaceholderRecordBatch } from '../recordbatch.js';
+import { Writable, ReadableInterop, ReadableDOMStreamOptions } from '../io/interfaces.js';
+import { isPromise, isAsyncIterable, isWritableDOMStream, isWritableNodeStream, isIterable, isObject } from '../util/compat.js';
 
 export interface RecordBatchStreamWriterOptions {
     /**
@@ -49,7 +49,7 @@ export interface RecordBatchStreamWriterOptions {
     writeLegacyIpcFormat?: boolean;
 }
 
-export class RecordBatchWriter<T extends { [key: string]: DataType } = any> extends ReadableInterop<Uint8Array> implements Writable<RecordBatch<T>> {
+export class RecordBatchWriter<T extends TypeMap = any> extends ReadableInterop<Uint8Array> implements Writable<RecordBatch<T>> {
 
     /** @nocollapse */
     // @ts-ignore
@@ -57,7 +57,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         throw new Error(`"throughNode" not available in this environment`);
     }
     /** @nocollapse */
-    public static throughDOM<T extends { [key: string]: DataType }>(
+    public static throughDOM<T extends TypeMap>(
         // @ts-ignore
         writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
         // @ts-ignore
@@ -105,7 +105,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         } else if (isAsyncIterable<RecordBatch<T>>(input)) {
             return writeAllAsync(this, input);
         }
-        return writeAll(this, <any> input);
+        return writeAll(this, <any>input);
     }
 
     public get closed() { return this._sink.closed; }
@@ -145,7 +145,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
         this._dictionaryDeltaOffsets = new Map();
 
         if (!schema || !(compareSchemas(schema, this._schema))) {
-            if (schema === null) {
+            if (schema == null) {
                 this._position = 0;
                 this._schema = null;
             } else {
@@ -183,7 +183,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
                 this._writeRecordBatch(payload);
             }
         } else if (payload instanceof Table) {
-            this.writeAll(payload.chunks);
+            this.writeAll(payload.batches);
         } else if (isIterable(payload)) {
             this.writeAll(payload);
         }
@@ -248,7 +248,7 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
 
     protected _writeRecordBatch(batch: RecordBatch<T>) {
         const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(batch);
-        const recordBatch = new metadata.RecordBatch(batch.length, nodes, bufferRegions);
+        const recordBatch = new metadata.RecordBatch(batch.numRows, nodes, bufferRegions);
         const message = Message.from(recordBatch, byteLength);
         return this
             ._writeDictionaries(batch)
@@ -256,9 +256,9 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
             ._writeBodyBuffers(buffers);
     }
 
-    protected _writeDictionaryBatch(dictionary: Vector, id: number, isDelta = false) {
+    protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
-        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(dictionary);
+        const { byteLength, nodes, bufferRegions, buffers } = VectorAssembler.assemble(new Vector([dictionary]));
         const recordBatch = new metadata.RecordBatch(dictionary.length, nodes, bufferRegions);
         const dictionaryBatch = new metadata.DictionaryBatch(recordBatch, id, isDelta);
         const message = Message.from(dictionaryBatch, byteLength);
@@ -284,11 +284,10 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
     protected _writeDictionaries(batch: RecordBatch<T>) {
         for (let [id, dictionary] of batch.dictionaries) {
             let offset = this._dictionaryDeltaOffsets.get(id) || 0;
-            if (offset === 0 || (dictionary = dictionary.slice(offset)).length > 0) {
-                const chunks = 'chunks' in dictionary ? (dictionary as any).chunks : [dictionary];
-                for (const chunk of chunks) {
-                    this._writeDictionaryBatch(chunk, id, offset > 0);
-                    offset += chunk.length;
+            if (offset === 0 || (dictionary = dictionary?.slice(offset)).length > 0) {
+                for (const data of dictionary.data) {
+                    this._writeDictionaryBatch(data, id, offset > 0);
+                    offset += data.length;
                 }
             }
         }
@@ -297,13 +296,13 @@ export class RecordBatchWriter<T extends { [key: string]: DataType } = any> exte
 }
 
 /** @ignore */
-export class RecordBatchStreamWriter<T extends { [key: string]: DataType } = any> extends RecordBatchWriter<T> {
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: Table<T> | Iterable<RecordBatch<T>>, options?: RecordBatchStreamWriterOptions): RecordBatchStreamWriter<T>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: AsyncIterable<RecordBatch<T>>, options?: RecordBatchStreamWriterOptions): Promise<RecordBatchStreamWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<AsyncIterable<RecordBatch<T>>>, options?: RecordBatchStreamWriterOptions): Promise<RecordBatchStreamWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>, options?: RecordBatchStreamWriterOptions): Promise<RecordBatchStreamWriter<T>>;
+export class RecordBatchStreamWriter<T extends TypeMap = any> extends RecordBatchWriter<T> {
+    public static writeAll<T extends TypeMap = any>(input: Table<T> | Iterable<RecordBatch<T>>, options?: RecordBatchStreamWriterOptions): RecordBatchStreamWriter<T>;
+    public static writeAll<T extends TypeMap = any>(input: AsyncIterable<RecordBatch<T>>, options?: RecordBatchStreamWriterOptions): Promise<RecordBatchStreamWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(input: PromiseLike<AsyncIterable<RecordBatch<T>>>, options?: RecordBatchStreamWriterOptions): Promise<RecordBatchStreamWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>, options?: RecordBatchStreamWriterOptions): Promise<RecordBatchStreamWriter<T>>;
     /** @nocollapse */
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: any, options?: RecordBatchStreamWriterOptions) {
+    public static writeAll<T extends TypeMap = any>(input: any, options?: RecordBatchStreamWriterOptions) {
         const writer = new RecordBatchStreamWriter<T>(options);
         if (isPromise<any>(input)) {
             return input.then((x) => writer.writeAll(x));
@@ -315,13 +314,13 @@ export class RecordBatchStreamWriter<T extends { [key: string]: DataType } = any
 }
 
 /** @ignore */
-export class RecordBatchFileWriter<T extends { [key: string]: DataType } = any> extends RecordBatchWriter<T> {
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: Table<T> | Iterable<RecordBatch<T>>): RecordBatchFileWriter<T>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: AsyncIterable<RecordBatch<T>>): Promise<RecordBatchFileWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<AsyncIterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
+export class RecordBatchFileWriter<T extends TypeMap = any> extends RecordBatchWriter<T> {
+    public static writeAll<T extends TypeMap = any>(input: Table<T> | Iterable<RecordBatch<T>>): RecordBatchFileWriter<T>;
+    public static writeAll<T extends TypeMap = any>(input: AsyncIterable<RecordBatch<T>>): Promise<RecordBatchFileWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(input: PromiseLike<AsyncIterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>): Promise<RecordBatchFileWriter<T>>;
     /** @nocollapse */
-    public static writeAll<T extends { [key: string]: DataType } = any>(input: any) {
+    public static writeAll<T extends TypeMap = any>(input: any) {
         const writer = new RecordBatchFileWriter<T>();
         if (isPromise<any>(input)) {
             return input.then((x) => writer.writeAll(x));
@@ -355,15 +354,15 @@ export class RecordBatchFileWriter<T extends { [key: string]: DataType } = any> 
 }
 
 /** @ignore */
-export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> extends RecordBatchWriter<T> {
+export class RecordBatchJSONWriter<T extends TypeMap = any> extends RecordBatchWriter<T> {
 
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: Table<T> | Iterable<RecordBatch<T>>): RecordBatchJSONWriter<T>;
+    public static writeAll<T extends TypeMap = any>(this: typeof RecordBatchWriter, input: Table<T> | Iterable<RecordBatch<T>>): RecordBatchJSONWriter<T>;
     // @ts-ignore
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: AsyncIterable<RecordBatch<T>>): Promise<RecordBatchJSONWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: PromiseLike<AsyncIterable<RecordBatch<T>>>): Promise<RecordBatchJSONWriter<T>>;
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>): Promise<RecordBatchJSONWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(this: typeof RecordBatchWriter, input: AsyncIterable<RecordBatch<T>>): Promise<RecordBatchJSONWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(this: typeof RecordBatchWriter, input: PromiseLike<AsyncIterable<RecordBatch<T>>>): Promise<RecordBatchJSONWriter<T>>;
+    public static writeAll<T extends TypeMap = any>(this: typeof RecordBatchWriter, input: PromiseLike<Table<T> | Iterable<RecordBatch<T>>>): Promise<RecordBatchJSONWriter<T>>;
     /** @nocollapse */
-    public static writeAll<T extends { [key: string]: DataType } = any>(this: typeof RecordBatchWriter, input: any) {
+    public static writeAll<T extends TypeMap = any>(this: typeof RecordBatchWriter, input: any) {
         return new RecordBatchJSONWriter<T>().writeAll(input as any);
     }
 
@@ -381,9 +380,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
     // @ts-ignore
     protected _writeFooter(schema: Schema<T>) { return this; }
     protected _writeSchema(schema: Schema<T>) {
-        return this._write(`{\n  "schema": ${
-            JSON.stringify({ fields: schema.fields.map(fieldToJSON) }, null, 2)
-        }`);
+        return this._write(`{\n  "schema": ${JSON.stringify({ fields: schema.fields.map(field => fieldToJSON(field)) }, null, 2)}`);
     }
     protected _writeDictionaries(batch: RecordBatch<T>) {
         if (batch.dictionaries.size > 0) {
@@ -391,7 +388,7 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
         }
         return this;
     }
-    protected _writeDictionaryBatch(dictionary: Vector, id: number, isDelta = false) {
+    protected _writeDictionaryBatch(dictionary: Data, id: number, isDelta = false) {
         this._dictionaryDeltaOffsets.set(id, dictionary.length + (this._dictionaryDeltaOffsets.get(id) || 0));
         this._write(this._dictionaryBlocks.length === 0 ? `    ` : `,\n    `);
         this._write(`${dictionaryBatchToJSON(dictionary, id, isDelta)}`);
@@ -434,10 +431,10 @@ export class RecordBatchJSONWriter<T extends { [key: string]: DataType } = any> 
 }
 
 /** @ignore */
-function writeAll<T extends { [key: string]: DataType } = any>(writer: RecordBatchWriter<T>, input: Table<T> | Iterable<RecordBatch<T>>) {
+function writeAll<T extends TypeMap = any>(writer: RecordBatchWriter<T>, input: Table<T> | Iterable<RecordBatch<T>>) {
     let chunks = input as Iterable<RecordBatch<T>>;
     if (input instanceof Table) {
-        chunks = input.chunks;
+        chunks = input.batches;
         writer.reset(undefined, input.schema);
     }
     for (const batch of chunks) {
@@ -447,7 +444,7 @@ function writeAll<T extends { [key: string]: DataType } = any>(writer: RecordBat
 }
 
 /** @ignore */
-async function writeAllAsync<T extends { [key: string]: DataType } = any>(writer: RecordBatchWriter<T>, batches: AsyncIterable<RecordBatch<T>>) {
+async function writeAllAsync<T extends TypeMap = any>(writer: RecordBatchWriter<T>, batches: AsyncIterable<RecordBatch<T>>) {
     for await (const batch of batches) {
         writer.write(batch);
     }
@@ -460,7 +457,7 @@ function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
     return {
         'name': name, 'nullable': nullable,
         'type': assembler.visit(type),
-        'children': (type.children || []).map(fieldToJSON),
+        'children': (type.children || []).map((field: any) => fieldToJSON(field)),
         'dictionary': !DataType.isDictionary(type) ? undefined : {
             'id': type.id,
             'isOrdered': type.isOrdered,
@@ -470,9 +467,8 @@ function fieldToJSON({ name, type, nullable }: Field): Record<string, unknown> {
 }
 
 /** @ignore */
-function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) {
-    const field = new Field(`${id}`, dictionary.type, dictionary.nullCount > 0);
-    const columns = JSONVectorAssembler.assemble(new Column(field, [dictionary]));
+function dictionaryBatchToJSON(dictionary: Data, id: number, isDelta = false) {
+    const [columns] = JSONVectorAssembler.assemble(new RecordBatch({ [id]: dictionary }));
     return JSON.stringify({
         'id': id,
         'isDelta': isDelta,
@@ -485,8 +481,9 @@ function dictionaryBatchToJSON(dictionary: Vector, id: number, isDelta = false) 
 
 /** @ignore */
 function recordBatchToJSON(records: RecordBatch) {
+    const [columns] = JSONVectorAssembler.assemble(records);
     return JSON.stringify({
-        'count': records.length,
-        'columns': JSONVectorAssembler.assemble(records)
+        'count': records.numRows,
+        'columns': columns
     }, null, 2);
 }

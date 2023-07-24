@@ -25,9 +25,9 @@ Red Arrow is the Ruby bindings of Apache Arrow. Red Arrow is based on GObject In
 
 [GObject Introspection](https://wiki.gnome.org/action/show/Projects/GObjectIntrospection) is a middleware for language bindings of C library. GObject Introspection can generate language bindings automatically at runtime.
 
-Red Arrow uses [Apache Arrow GLib](https://github.com/apache/arrow/tree/master/c_glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow.
+Red Arrow uses [Apache Arrow GLib](https://github.com/apache/arrow/tree/main/c_glib) and [gobject-introspection gem](https://rubygems.org/gems/gobject-introspection) to generate Ruby bindings of Apache Arrow.
 
-Apache Arrow GLib is a C wrapper for [Apache Arrow C++](https://github.com/apache/arrow/tree/master/cpp). GObject Introspection can't use Apache Arrow C++ directly. Apache Arrow GLib is a bridge between Apache Arrow C++ and GObject Introspection.
+Apache Arrow GLib is a C wrapper for [Apache Arrow C++](https://github.com/apache/arrow/tree/main/cpp). GObject Introspection can't use Apache Arrow C++ directly. Apache Arrow GLib is a bridge between Apache Arrow C++ and GObject Introspection.
 
 gobject-introspection gem is a Ruby bindings of GObject Introspection. Red Arrow uses GObject Introspection via gobject-introspection gem.
 
@@ -56,7 +56,7 @@ table.save("/dev/shm/data-processed.arrow")
 Note that you need to install Apache Arrow C++/GLib at master before preparing Red Arrow. See also:
 
   * For Apache Arrow C++: https://arrow.apache.org/docs/developers/cpp/building.html
-  * For Apache Arrow GLib: https://github.com/apache/arrow/blob/master/c_glib/README.md
+  * For Apache Arrow GLib: https://github.com/apache/arrow/blob/main/c_glib/README.md
 
 ```console
 $ cd ruby/red-arrow

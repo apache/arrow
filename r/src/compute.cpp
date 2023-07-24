@@ -16,9 +16,9 @@
 // under the License.
 
 #include "./arrow_types.h"
+#include "./safe-call-into-r.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
+#include <arrow/array/util.h>
 #include <arrow/compute/api.h>
 #include <arrow/record_batch.h>
 #include <arrow/table.h>
@@ -375,9 +375,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "strptime") {
     using Options = arrow::compute::StrptimeOptions;
+    bool error_is_null = false;
+    if (!Rf_isNull(options["error_is_null"])) {
+      error_is_null = cpp11::as_cpp<bool>(options["error_is_null"]);
+    }
     return std::make_shared<Options>(
         cpp11::as_cpp<std::string>(options["format"]),
-        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]));
+        cpp11::as_cpp<arrow::TimeUnit::type>(options["unit"]), error_is_null);
   }
 
   if (func_name == "strftime") {
@@ -389,8 +393,8 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
 
   if (func_name == "assume_timezone") {
     using Options = arrow::compute::AssumeTimezoneOptions;
-    enum Options::Ambiguous ambiguous;
-    enum Options::Nonexistent nonexistent;
+    enum Options::Ambiguous ambiguous = Options::AMBIGUOUS_RAISE;
+    enum Options::Nonexistent nonexistent = Options::NONEXISTENT_RAISE;
 
     if (!Rf_isNull(options["ambiguous"])) {
       ambiguous = cpp11::as_cpp<enum Options::Ambiguous>(options["ambiguous"]);
@@ -445,7 +449,7 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return std::make_shared<Options>(cpp11::as_cpp<std::string>(options["characters"]));
   }
 
-  if (func_name == "utf8_slice_codeunits") {
+  if (func_name == "utf8_slice_codeunits" || func_name == "binary_slice") {
     using Options = arrow::compute::SliceOptions;
 
     int64_t step = 1;
@@ -517,6 +521,35 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     return out;
   }
 
+  if (func_name == "round_temporal" || func_name == "floor_temporal" ||
+      func_name == "ceil_temporal") {
+    using Options = arrow::compute::RoundTemporalOptions;
+
+    int64_t multiple = 1;
+    enum arrow::compute::CalendarUnit unit = arrow::compute::CalendarUnit::DAY;
+    bool week_starts_monday = true;
+    bool ceil_is_strictly_greater = true;
+    bool calendar_based_origin = true;
+
+    if (!Rf_isNull(options["multiple"])) {
+      multiple = cpp11::as_cpp<int64_t>(options["multiple"]);
+    }
+    if (!Rf_isNull(options["unit"])) {
+      unit = cpp11::as_cpp<enum arrow::compute::CalendarUnit>(options["unit"]);
+    }
+    if (!Rf_isNull(options["week_starts_monday"])) {
+      week_starts_monday = cpp11::as_cpp<bool>(options["week_starts_monday"]);
+    }
+    if (!Rf_isNull(options["ceil_is_strictly_greater"])) {
+      ceil_is_strictly_greater = cpp11::as_cpp<bool>(options["ceil_is_strictly_greater"]);
+    }
+    if (!Rf_isNull(options["calendar_based_origin"])) {
+      calendar_based_origin = cpp11::as_cpp<bool>(options["calendar_based_origin"]);
+    }
+    return std::make_shared<Options>(multiple, unit, week_starts_monday,
+                                     ceil_is_strictly_greater, calendar_based_origin);
+  }
+
   if (func_name == "round_to_multiple") {
     using Options = arrow::compute::RoundToMultipleOptions;
     auto out = std::make_shared<Options>(Options::Defaults());
@@ -529,6 +562,20 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
       out->round_mode = cpp11::as_cpp<enum arrow::compute::RoundMode>(round_mode);
     }
     return out;
+  }
+
+  if (func_name == "struct_field") {
+    using Options = arrow::compute::StructFieldOptions;
+    if (!Rf_isNull(options["indices"])) {
+      return std::make_shared<Options>(
+          cpp11::as_cpp<std::vector<int>>(options["indices"]));
+    } else {
+      // field_ref
+      return std::make_shared<Options>(
+          *cpp11::as_cpp<std::shared_ptr<arrow::compute::Expression>>(
+               options["field_ref"])
+               ->field_ref());
+    }
   }
 
   return nullptr;
@@ -573,4 +620,169 @@ std::vector<std::string> compute__GetFunctionNames() {
   return arrow::compute::GetFunctionRegistry()->GetFunctionNames();
 }
 
-#endif
+class RScalarUDFKernelState : public arrow::compute::KernelState {
+ public:
+  RScalarUDFKernelState(cpp11::sexp exec_func, cpp11::sexp resolver)
+      : exec_func_(exec_func), resolver_(resolver) {}
+
+  cpp11::sexp exec_func_;
+  cpp11::sexp resolver_;
+};
+
+arrow::Result<arrow::TypeHolder> ResolveScalarUDFOutputType(
+    arrow::compute::KernelContext* context,
+    const std::vector<arrow::TypeHolder>& input_types) {
+  return SafeCallIntoR<arrow::TypeHolder>(
+      [&]() -> arrow::TypeHolder {
+        auto kernel =
+            reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
+        auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
+
+        cpp11::writable::list input_types_sexp(input_types.size());
+        for (size_t i = 0; i < input_types.size(); i++) {
+          input_types_sexp[i] =
+              cpp11::to_r6<arrow::DataType>(input_types[i].GetSharedPtr());
+        }
+
+        cpp11::sexp output_type_sexp =
+            cpp11::function(state->resolver_)(input_types_sexp);
+        if (!Rf_inherits(output_type_sexp, "DataType")) {
+          cpp11::stop(
+              "Function specified as arrow_scalar_function() out_type argument must "
+              "return a DataType");
+        }
+
+        return arrow::TypeHolder(
+            cpp11::as_cpp<std::shared_ptr<arrow::DataType>>(output_type_sexp));
+      },
+      "resolve scalar user-defined function output data type");
+}
+
+arrow::Status CallRScalarUDF(arrow::compute::KernelContext* context,
+                             const arrow::compute::ExecSpan& span,
+                             arrow::compute::ExecResult* result) {
+  if (result->is_array_span()) {
+    return arrow::Status::NotImplemented("ArraySpan result from R scalar UDF");
+  }
+
+  return SafeCallIntoRVoid(
+      [&]() {
+        auto kernel =
+            reinterpret_cast<const arrow::compute::ScalarKernel*>(context->kernel());
+        auto state = std::dynamic_pointer_cast<RScalarUDFKernelState>(kernel->data);
+
+        cpp11::writable::list args_sexp(span.num_values());
+
+        for (int i = 0; i < span.num_values(); i++) {
+          const arrow::compute::ExecValue& exec_val = span[i];
+          if (exec_val.is_array()) {
+            args_sexp[i] = cpp11::to_r6<arrow::Array>(exec_val.array.ToArray());
+          } else if (exec_val.is_scalar()) {
+            args_sexp[i] = cpp11::to_r6<arrow::Scalar>(exec_val.scalar->GetSharedPtr());
+          }
+        }
+
+        cpp11::sexp batch_length_sexp = cpp11::as_sexp(span.length);
+
+        std::shared_ptr<arrow::DataType> output_type = result->type()->GetSharedPtr();
+        cpp11::sexp output_type_sexp = cpp11::to_r6<arrow::DataType>(output_type);
+        cpp11::writable::list udf_context = {batch_length_sexp, output_type_sexp};
+        udf_context.names() = {"batch_length", "output_type"};
+
+        cpp11::sexp func_result_sexp =
+            cpp11::function(state->exec_func_)(udf_context, args_sexp);
+
+        if (Rf_inherits(func_result_sexp, "Array")) {
+          auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(func_result_sexp);
+
+          // Error for an Array result of the wrong type
+          if (!result->type()->Equals(array->type())) {
+            return cpp11::stop(
+                "Expected return Array or Scalar with type '%s' from user-defined "
+                "function but got Array with type '%s'",
+                result->type()->ToString().c_str(), array->type()->ToString().c_str());
+          }
+
+          result->value = std::move(array->data());
+        } else if (Rf_inherits(func_result_sexp, "Scalar")) {
+          auto scalar = cpp11::as_cpp<std::shared_ptr<arrow::Scalar>>(func_result_sexp);
+
+          // handle a Scalar result of the wrong type
+          if (!result->type()->Equals(scalar->type)) {
+            return cpp11::stop(
+                "Expected return Array or Scalar with type '%s' from user-defined "
+                "function but got Scalar with type '%s'",
+                result->type()->ToString().c_str(), scalar->type->ToString().c_str());
+          }
+
+          auto array = ValueOrStop(
+              arrow::MakeArrayFromScalar(*scalar, span.length, context->memory_pool()));
+          result->value = std::move(array->data());
+        } else {
+          cpp11::stop("arrow_scalar_function must return an Array or Scalar");
+        }
+      },
+      "execute scalar user-defined function");
+}
+
+// [[arrow::export]]
+void RegisterScalarUDF(std::string name, cpp11::list func_sexp) {
+  cpp11::list in_type_r(func_sexp["in_type"]);
+  cpp11::list out_type_r(func_sexp["out_type"]);
+  R_xlen_t n_kernels = in_type_r.size();
+
+  if (n_kernels == 0) {
+    cpp11::stop("Can't register user-defined function with zero kernels");
+  }
+
+  // Compute the Arity from the list of input kernels. We don't currently handle
+  // variable numbers of arguments in a user-defined function.
+  int64_t n_args =
+      cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[0])->num_fields();
+  for (R_xlen_t i = 1; i < n_kernels; i++) {
+    auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
+    if (in_types->num_fields() != n_args) {
+      cpp11::stop(
+          "Kernels for user-defined function must accept the same number of arguments");
+    }
+  }
+
+  arrow::compute::Arity arity(n_args, false);
+
+  // The function documentation isn't currently accessible from R but is required
+  // for the C++ function constructor.
+  std::vector<std::string> dummy_argument_names(n_args);
+  for (int64_t i = 0; i < n_args; i++) {
+    dummy_argument_names[i] = "arg";
+  }
+  const arrow::compute::FunctionDoc dummy_function_doc{
+      "A user-defined R function", "returns something", std::move(dummy_argument_names)};
+
+  auto func =
+      std::make_shared<arrow::compute::ScalarFunction>(name, arity, dummy_function_doc);
+
+  for (R_xlen_t i = 0; i < n_kernels; i++) {
+    auto in_types = cpp11::as_cpp<std::shared_ptr<arrow::Schema>>(in_type_r[i]);
+    cpp11::sexp out_type_func = out_type_r[i];
+
+    std::vector<arrow::compute::InputType> compute_in_types(in_types->num_fields());
+    for (int64_t j = 0; j < in_types->num_fields(); j++) {
+      compute_in_types[j] = arrow::compute::InputType(in_types->field(j)->type());
+    }
+
+    arrow::compute::OutputType out_type((&ResolveScalarUDFOutputType));
+
+    auto signature = std::make_shared<arrow::compute::KernelSignature>(
+        std::move(compute_in_types), std::move(out_type), true);
+    arrow::compute::ScalarKernel kernel(signature, &CallRScalarUDF);
+    kernel.mem_allocation = arrow::compute::MemAllocation::NO_PREALLOCATE;
+    kernel.null_handling = arrow::compute::NullHandling::COMPUTED_NO_PREALLOCATE;
+    kernel.data =
+        std::make_shared<RScalarUDFKernelState>(func_sexp["wrapper_fun"], out_type_func);
+
+    StopIfNotOk(func->AddKernel(std::move(kernel)));
+  }
+
+  auto registry = arrow::compute::GetFunctionRegistry();
+  StopIfNotOk(registry->AddFunction(std::move(func), true));
+}

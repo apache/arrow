@@ -23,3 +23,5 @@
 
 #include <parquet-glib/arrow-file-reader.hpp>
 #include <parquet-glib/arrow-file-writer.hpp>
+#include <parquet-glib/metadata.hpp>
+#include <parquet-glib/statistics.hpp>

@@ -21,6 +21,7 @@
 
 #include <arrow-glib/array.h>
 #include <arrow-glib/decimal.h>
+#include <arrow-glib/interval.h>
 
 G_BEGIN_DECLS
 
@@ -34,8 +35,6 @@ struct _GArrowArrayBuilderClass
 {
   GObjectClass parent_class;
 };
-
-void garrow_array_builder_release_ownership(GArrowArrayBuilder *builder);
 
 GArrowDataType *
 garrow_array_builder_get_value_data_type(GArrowArrayBuilder *builder);
@@ -53,6 +52,13 @@ GARROW_AVAILABLE_IN_2_0
 gint64 garrow_array_builder_get_length(GArrowArrayBuilder *builder);
 GARROW_AVAILABLE_IN_2_0
 gint64 garrow_array_builder_get_n_nulls(GArrowArrayBuilder *builder);
+GARROW_AVAILABLE_IN_12_0
+GArrowArrayBuilder *
+garrow_array_builder_get_child(GArrowArrayBuilder *builder,
+                               gint i);
+GARROW_AVAILABLE_IN_12_0
+GList *
+garrow_array_builder_get_children(GArrowArrayBuilder *builder);
 
 GARROW_AVAILABLE_IN_2_0
 gboolean garrow_array_builder_resize(GArrowArrayBuilder *builder,
@@ -549,6 +555,38 @@ gboolean garrow_uint64_array_builder_append_nulls(GArrowUInt64ArrayBuilder *buil
 #endif
 
 
+#define GARROW_TYPE_HALF_FLOAT_ARRAY_BUILDER    \
+  (garrow_half_float_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatArrayBuilder,
+                         garrow_half_float_array_builder,
+                         GARROW,
+                         HALF_FLOAT_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowHalfFloatArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatArrayBuilder *
+garrow_half_float_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_11_0
+gboolean
+garrow_half_float_array_builder_append_value(
+  GArrowHalfFloatArrayBuilder *builder,
+  guint16 value,
+  GError **error);
+GARROW_AVAILABLE_IN_11_0
+gboolean garrow_half_float_array_builder_append_values(
+  GArrowHalfFloatArrayBuilder *builder,
+  const guint16 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
 #define GARROW_TYPE_FLOAT_ARRAY_BUILDER (garrow_float_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowFloatArrayBuilder,
                          garrow_float_array_builder,
@@ -753,6 +791,14 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_string_array_builder_append_string(GArrowStringArrayBuilder *builder,
                                                    const gchar *value,
                                                    GError **error);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_string_array_builder_append_string_len(GArrowStringArrayBuilder *builder,
+                                              const gchar *value,
+                                              gint32 length,
+                                              GError **error);
+
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_DEPRECATED_IN_0_16_FOR(garrow_string_array_builder_append_strings)
 gboolean garrow_string_array_builder_append_values(GArrowStringArrayBuilder *builder,
@@ -789,6 +835,12 @@ GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_string(GArrowLargeStringArrayBuilder *builder,
                                                          const gchar *value,
                                                          GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean garrow_large_string_array_builder_append_string_len(
+  GArrowLargeStringArrayBuilder *builder,
+  const gchar *value,
+  gint64 length,
+  GError **error);
 GARROW_AVAILABLE_IN_0_16
 gboolean garrow_large_string_array_builder_append_strings(GArrowLargeStringArrayBuilder *builder,
                                                           const gchar **values,
@@ -1052,6 +1104,105 @@ gboolean garrow_time64_array_builder_append_nulls(GArrowTime64ArrayBuilder *buil
 #endif
 
 
+#define GARROW_TYPE_MONTH_INTERVAL_ARRAY_BUILDER        \
+  (garrow_month_interval_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthIntervalArrayBuilder,
+                         garrow_month_interval_array_builder,
+                         GARROW,
+                         MONTH_INTERVAL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowMonthIntervalArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthIntervalArrayBuilder *
+garrow_month_interval_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_interval_array_builder_append_value(
+  GArrowMonthIntervalArrayBuilder *builder,
+  gint32 value,
+  GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_interval_array_builder_append_values(
+  GArrowMonthIntervalArrayBuilder *builder,
+  const gint32 *values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
+#define GARROW_TYPE_DAY_TIME_INTERVAL_ARRAY_BUILDER     \
+  (garrow_day_time_interval_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalArrayBuilder,
+                         garrow_day_time_interval_array_builder,
+                         GARROW,
+                         DAY_TIME_INTERVAL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowDayTimeIntervalArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowDayTimeIntervalArrayBuilder *
+garrow_day_time_interval_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_day_time_interval_array_builder_append_value(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  GArrowDayMillisecond *value,
+  GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_day_time_interval_array_builder_append_values(
+  GArrowDayTimeIntervalArrayBuilder *builder,
+  const GArrowDayMillisecond **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
+#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER       \
+  (garrow_month_day_nano_interval_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalArrayBuilder,
+                         garrow_month_day_nano_interval_array_builder,
+                         GARROW,
+                         MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowMonthDayNanoIntervalArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthDayNanoIntervalArrayBuilder *
+garrow_month_day_nano_interval_array_builder_new(void);
+
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_day_nano_interval_array_builder_append_value(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  GArrowMonthDayNano *value,
+  GError **error);
+GARROW_AVAILABLE_IN_8_0
+gboolean
+garrow_month_day_nano_interval_array_builder_append_values(
+  GArrowMonthDayNanoIntervalArrayBuilder *builder,
+  const GArrowMonthDayNano **values,
+  gint64 values_length,
+  const gboolean *is_valids,
+  gint64 is_valids_length,
+  GError **error);
+
+
 #define GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER (garrow_binary_dictionary_array_builder_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowBinaryDictionaryArrayBuilder,
                          garrow_binary_dictionary_array_builder,
@@ -1261,9 +1412,15 @@ gboolean garrow_struct_array_builder_append_null(GArrowStructArrayBuilder *build
                                                  GError **error);
 #endif
 
-GArrowArrayBuilder *garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder,
-                                                                  gint i);
-GList *garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder);
+#ifndef GARROW_DISABLE_DEPRECATED
+GARROW_DEPRECATED_IN_12_0_FOR(garrow_array_builder_get_child)
+GArrowArrayBuilder *
+garrow_struct_array_builder_get_field_builder(GArrowStructArrayBuilder *builder,
+                                              gint i);
+GARROW_DEPRECATED_IN_12_0_FOR(garrow_array_builder_get_children)
+GList *
+garrow_struct_array_builder_get_field_builders(GArrowStructArrayBuilder *builder);
+#endif
 
 
 #define GARROW_TYPE_MAP_ARRAY_BUILDER        \
@@ -1383,5 +1540,67 @@ garrow_decimal256_array_builder_append_values(
   const gboolean *is_valids,
   gint64 is_valids_length,
   GError **error);
+
+
+#define GARROW_TYPE_UNION_ARRAY_BUILDER         \
+  (garrow_union_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowUnionArrayBuilder,
+                         garrow_union_array_builder,
+                         GARROW,
+                         UNION_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowUnionArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+gint8
+garrow_union_array_builder_append_child(GArrowUnionArrayBuilder *builder,
+                                        GArrowArrayBuilder *child,
+                                        const gchar *filed_name);
+
+GARROW_AVAILABLE_IN_12_0
+gboolean
+garrow_union_array_builder_append_value(GArrowUnionArrayBuilder *builder,
+                                        gint8 value,
+                                        GError **error);
+
+
+#define GARROW_TYPE_DENSE_UNION_ARRAY_BUILDER   \
+  (garrow_dense_union_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDenseUnionArrayBuilder,
+                         garrow_dense_union_array_builder,
+                         GARROW,
+                         DENSE_UNION_ARRAY_BUILDER,
+                         GArrowUnionArrayBuilder)
+struct _GArrowDenseUnionArrayBuilderClass
+{
+  GArrowUnionArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GArrowDenseUnionArrayBuilder *
+garrow_dense_union_array_builder_new(GArrowDenseUnionDataType *data_type,
+                                     GError **error);
+
+
+#define GARROW_TYPE_SPARSE_UNION_ARRAY_BUILDER   \
+  (garrow_sparse_union_array_builder_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowSparseUnionArrayBuilder,
+                         garrow_sparse_union_array_builder,
+                         GARROW,
+                         SPARSE_UNION_ARRAY_BUILDER,
+                         GArrowUnionArrayBuilder)
+struct _GArrowSparseUnionArrayBuilderClass
+{
+  GArrowUnionArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_12_0
+GArrowSparseUnionArrayBuilder *
+garrow_sparse_union_array_builder_new(GArrowSparseUnionDataType *data_type,
+                                      GError **error);
+
 
 G_END_DECLS

@@ -110,7 +110,7 @@ module Arrow
               description[key] = value
             end
           end
-          if type.nil?
+          if type.nil? and self == DataType
             message =
               "data type description must have :type value: #{data_type.inspect}"
             raise ArgumentError, message
@@ -152,6 +152,7 @@ module Arrow
 
       private
       def resolve_class(data_type)
+        return self if data_type.nil?
         components = data_type.to_s.split("_").collect(&:capitalize)
         data_type_name = components.join.gsub(/\AUint/, "UInt")
         data_type_class_name = "#{data_type_name}DataType"
@@ -187,12 +188,25 @@ module Arrow
       end
     end
 
-    def build_array(values)
+    def array_class
       base_name = self.class.name.gsub(/DataType\z/, "")
-      builder_class = self.class.const_get("#{base_name}ArrayBuilder")
+      ::Arrow.const_get("#{base_name}Array")
+    end
+
+    def build_array(values)
+      builder_class = array_class.builder_class
       args = [values]
       args.unshift(self) unless builder_class.buildable?(args)
       builder_class.build(*args)
+    end
+
+    # @return [Arrow::Scalar} A corresponding {Arrow::Scalar} class
+    #   for this data type.
+    #
+    # @since 12.0.0
+    def scalar_class
+      base_name = self.class.name.gsub(/DataType\z/, "")
+      ::Arrow.const_get("#{base_name}Scalar")
     end
   end
 end

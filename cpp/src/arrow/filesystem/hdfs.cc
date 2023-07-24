@@ -26,12 +26,14 @@
 #include "arrow/io/hdfs.h"
 #include "arrow/io/hdfs_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/util/windows_fixup.h"
 
 namespace arrow {
 
+using internal::ErrnoFromStatus;
 using internal::ParseValue;
 using internal::Uri;
 
@@ -46,12 +48,7 @@ class HadoopFileSystem::Impl {
   Impl(HdfsOptions options, const io::IOContext& io_context)
       : options_(std::move(options)), io_context_(io_context) {}
 
-  ~Impl() {
-    Status st = Close();
-    if (!st.ok()) {
-      ARROW_LOG(WARNING) << "Failed to disconnect hdfs client: " << st.ToString();
-    }
-  }
+  ~Impl() { ARROW_WARN_NOT_OK(Close(), "Failed to disconnect hdfs client"); }
 
   Status Init() {
     io::internal::LibHdfsShim* driver_shim;
@@ -193,22 +190,34 @@ class HadoopFileSystem::Impl {
     return Status::OK();
   }
 
-  Status DeleteDir(const std::string& path) {
-    if (!IsDirectory(path)) {
-      return Status::IOError("Cannot delete directory '", path, "': not a directory");
+  Status CheckForDirectory(const std::string& path, const char* action) {
+    // Check existence of path, and that it's a directory
+    io::HdfsPathInfo info;
+    RETURN_NOT_OK(client_->GetPathInfo(path, &info));
+    if (info.kind != io::ObjectType::DIRECTORY) {
+      return Status::IOError("Cannot ", action, " directory '", path,
+                             "': not a directory");
     }
-    RETURN_NOT_OK(client_->DeleteDirectory(path));
     return Status::OK();
   }
 
-  Status DeleteDirContents(const std::string& path) {
-    if (!IsDirectory(path)) {
-      return Status::IOError("Cannot delete contents of directory '", path,
-                             "': not a directory");
+  Status DeleteDir(const std::string& path) {
+    RETURN_NOT_OK(CheckForDirectory(path, "delete"));
+    return client_->DeleteDirectory(path);
+  }
+
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok) {
+    auto st = CheckForDirectory(path, "delete contents of");
+    if (!st.ok()) {
+      if (missing_dir_ok && ErrnoFromStatus(st) == ENOENT) {
+        return Status::OK();
+      }
+      return st;
     }
+
     std::vector<std::string> file_list;
     RETURN_NOT_OK(client_->GetChildren(path, &file_list));
-    for (auto file : file_list) {
+    for (const auto& file : file_list) {
       RETURN_NOT_OK(client_->Delete(file, /*recursive=*/true));
     }
     return Status::OK();
@@ -237,12 +246,14 @@ class HadoopFileSystem::Impl {
   }
 
   Result<std::shared_ptr<io::InputStream>> OpenInputStream(const std::string& path) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     std::shared_ptr<io::HdfsReadableFile> file;
     RETURN_NOT_OK(client_->OpenReadable(path, io_context_, &file));
     return file;
   }
 
   Result<std::shared_ptr<io::RandomAccessFile>> OpenInputFile(const std::string& path) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     std::shared_ptr<io::HdfsReadableFile> file;
     RETURN_NOT_OK(client_->OpenReadable(path, io_context_, &file));
     return file;
@@ -276,6 +287,7 @@ class HadoopFileSystem::Impl {
 
   Result<std::shared_ptr<io::OutputStream>> OpenOutputStreamGeneric(
       const std::string& path, bool append) {
+    ARROW_RETURN_NOT_OK(internal::AssertNoTrailingSlash(path));
     std::shared_ptr<io::HdfsOutputStream> stream;
     RETURN_NOT_OK(client_->OpenWritable(path, append, options_.buffer_size,
                                         options_.replication, options_.default_block_size,
@@ -461,6 +473,12 @@ bool HadoopFileSystem::Equals(const FileSystem& other) const {
   return options().Equals(hdfs.options());
 }
 
+Result<std::string> HadoopFileSystem::PathFromUri(const std::string& uri_string) const {
+  return internal::PathFromUriHelper(uri_string, {"hdfs", "viewfs"},
+                                     /*accept_local_paths=*/false,
+                                     internal::AuthorityHandlingBehavior::kIgnore);
+}
+
 Result<std::vector<FileInfo>> HadoopFileSystem::GetFileInfo(const FileSelector& select) {
   return impl_->GetFileInfo(select);
 }
@@ -473,14 +491,16 @@ Status HadoopFileSystem::DeleteDir(const std::string& path) {
   return impl_->DeleteDir(path);
 }
 
-Status HadoopFileSystem::DeleteDirContents(const std::string& path) {
+Status HadoopFileSystem::DeleteDirContents(const std::string& path, bool missing_dir_ok) {
   if (internal::IsEmptyPath(path)) {
     return internal::InvalidDeleteDirContents(path);
   }
-  return impl_->DeleteDirContents(path);
+  return impl_->DeleteDirContents(path, missing_dir_ok);
 }
 
-Status HadoopFileSystem::DeleteRootDirContents() { return impl_->DeleteDirContents(""); }
+Status HadoopFileSystem::DeleteRootDirContents() {
+  return impl_->DeleteDirContents("", /*missing_dir_ok=*/false);
+}
 
 Status HadoopFileSystem::DeleteFile(const std::string& path) {
   return impl_->DeleteFile(path);

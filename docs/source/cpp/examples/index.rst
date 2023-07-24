@@ -24,5 +24,6 @@ Examples
    cmake_minimal_build
    compute_and_write_example
    dataset_documentation_example
+   dataset_skyhook_scan_example
    row_columnar_conversion
    std::tuple-like ranges to Arrow <tuple_range_conversion>

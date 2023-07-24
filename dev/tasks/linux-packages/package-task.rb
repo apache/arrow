@@ -16,6 +16,7 @@
 # under the License.
 
 require "English"
+require "json"
 require "open-uri"
 require "time"
 
@@ -74,20 +75,6 @@ class PackageTask
 
   def debug_build?
     ENV["DEBUG"] != "no"
-  end
-
-  def git_directory?(directory)
-    candidate_paths = [".git", "HEAD"]
-    candidate_paths.any? do |candidate_path|
-      File.exist?(File.join(directory, candidate_path))
-    end
-  end
-
-  def latest_commit_time(git_directory)
-    return nil unless git_directory?(git_directory)
-    cd(git_directory) do
-      return Time.iso8601(`git log -n 1 --format=%aI`.chomp).utc
-    end
   end
 
   def download(url, output_path)
@@ -172,10 +159,26 @@ class PackageTask
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
-      from = File.readlines(File.join(id, "from")).find do |line|
-        /^[a-z]/i =~ line
+      lines = File.readlines(File.join(id, "from"), encoding: "UTF-8")
+      from = lines.find do |line|
+        /^[a-z-]/i =~ line
       end
-      build_command_line.concat(["--build-arg", "FROM=#{from.chomp}"])
+      from_components = from.chomp.split
+      from = from_components.pop
+      build_arguments = from_components
+      case build_arguments
+      when ["--platform=linux/arm64"]
+        docker_info = JSON.parse(`docker info --format '{{json .}}'`)
+        case docker_info["Architecture"]
+        when "aarch64"
+          # Do nothing
+        else
+          # docker build ... -> docker buildx build ...
+          build_command_line[1, 0] = "buildx"
+          build_command_line.concat(build_arguments)
+        end
+      end
+      build_command_line.concat(["--build-arg", "FROM=#{from}"])
       docker_context = os
     end
     build_command_line.concat(docker_build_options(os, architecture))
@@ -236,6 +239,8 @@ class PackageTask
     components = target.split("-")
     if components[0, 2] == ["amazon", "linux"]
       components[0, 2] = components[0, 2].join("-")
+    elsif components.values_at(0, 2) == ["centos", "stream"]
+      components[1, 2] = components[1, 2].join("-")
     end
     if components.size >= 3
       components[2..-1] = components[2..-1].join("-")
@@ -262,20 +267,16 @@ class PackageTask
     # Disable arm64 targets by default for now
     # because they require some setups on host.
     [
-      "debian-buster",
-      # "debian-buster-arm64",
       "debian-bullseye",
       # "debian-bullseye-arm64",
       "debian-bookworm",
       # "debian-bookworm-arm64",
-      "ubuntu-bionic",
-      # "ubuntu-bionic-arm64",
       "ubuntu-focal",
       # "ubuntu-focal-arm64",
-      "ubuntu-hirsute",
-      # "ubuntu-hirsute-arm64",
-      "ubuntu-impish",
-      # "ubuntu-impish-arm64",
+      "ubuntu-jammy",
+      # "ubuntu-jammy-arm64",
+      "ubuntu-lunar",
+      # "ubuntu-lunar-arm64",
     ]
   end
 
@@ -309,7 +310,7 @@ class PackageTask
     cp_r(source_debian_dir, prepared_debian_dir)
     control_in_path = "#{prepared_debian_dir}/control.in"
     if File.exist?(control_in_path)
-      control_in = File.read(control_in_path)
+      control_in = File.read(control_in_path, encoding: "UTF-8")
       rm_f(control_in_path)
       File.open("#{prepared_debian_dir}/control", "w") do |control|
         prepared_control = apt_prepare_debian_control(control_in, target)
@@ -410,10 +411,16 @@ VERSION=#{@deb_upstream_version}
     # Disable aarch64 targets by default for now
     # because they require some setups on host.
     [
+      "almalinux-9",
+      # "almalinux-9-arch64",
       "almalinux-8",
       # "almalinux-8-arch64",
-      "amazon-linux-2",
-      # "amazon-linux-2-arch64",
+      "amazon-linux-2023",
+      # "amazon-linux-2023-arch64",
+      "centos-9-stream",
+      # "centos-9-stream-aarch64",
+      "centos-8-stream",
+      # "centos-8-stream-aarch64",
       "centos-7",
       # "centos-7-aarch64",
     ]
@@ -470,7 +477,7 @@ RELEASE=#{@rpm_release}
     end
 
     spec = "#{tmp_dir}/#{@rpm_package}.spec"
-    spec_in_data = File.read(yum_spec_in_path)
+    spec_in_data = File.read(yum_spec_in_path, encoding: "UTF-8")
     spec_data = substitute_content(spec_in_data) do |key, matched|
       yum_expand_variable(key) || matched
     end
@@ -563,7 +570,7 @@ RELEASE=#{@rpm_release}
 
   def update_content(path)
     if File.exist?(path)
-      content = File.read(path)
+      content = File.read(path, encoding: "UTF-8")
     else
       content = ""
     end

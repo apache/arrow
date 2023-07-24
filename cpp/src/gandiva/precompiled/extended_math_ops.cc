@@ -98,7 +98,7 @@ void set_error_for_logbase(int64_t execution_context, double base) {
       set_error_for_logbase(context, static_cast<gdv_float64>(base));                \
       return 0;                                                                      \
     }                                                                                \
-    return LOGL(value) / LOGL(base);                                                 \
+    return LOGL(value) / log_of_base;                                                \
   }
 
 LOG_WITH_BASE(int32, int32, float64)

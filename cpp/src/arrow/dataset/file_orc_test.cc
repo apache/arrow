@@ -25,8 +25,7 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/scanner_internal.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -42,8 +41,7 @@ class OrcFormatHelper {
   static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
     ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
     ARROW_ASSIGN_OR_RAISE(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
-    std::shared_ptr<Table> table;
-    RETURN_NOT_OK(reader->ReadAll(&table));
+    ARROW_ASSIGN_OR_RAISE(auto table, reader->ToTable());
     RETURN_NOT_OK(writer->Write(*table));
     RETURN_NOT_OK(writer->Close());
     return sink->Finish();
@@ -64,19 +62,32 @@ TEST_F(TestOrcFileFormat, InspectFailureWithRelevantError) {
 TEST_F(TestOrcFileFormat, Inspect) { TestInspect(); }
 TEST_F(TestOrcFileFormat, IsSupported) { TestIsSupported(); }
 TEST_F(TestOrcFileFormat, CountRows) { TestCountRows(); }
+TEST_F(TestOrcFileFormat, FragmentEquals) { TestFragmentEquals(); }
 
 // TODO add TestOrcFileSystemDataset if write support is added
 
 class TestOrcFileFormatScan : public FileFormatScanMixin<OrcFormatHelper> {};
 
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReader) { TestScan(); }
-TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
-  TestScanWithVirtualColumn();
-}
+TEST_P(TestOrcFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestOrcFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedNested) {
+  TestScanProjectedNested();
+}
 TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   TestScanProjectedMissingCols();
 }
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
+  TestScanWithVirtualColumn();
+}
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
+  TestScanWithDuplicateColumn();
+}
+TEST_P(TestOrcFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
+}
+TEST_P(TestOrcFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 INSTANTIATE_TEST_SUITE_P(TestScan, TestOrcFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);

@@ -117,6 +117,16 @@ module RawRecordsBasicArraysTests
     assert_equal(records, target.raw_records)
   end
 
+  def test_half_float
+    records = [
+      [-1.5],
+      [nil],
+      [1.5],
+    ]
+    target = build({column: :half_float}, records)
+    assert_equal(records, target.raw_records)
+  end
+
   def test_float
     records = [
       [-1.0],
@@ -344,6 +354,36 @@ module RawRecordsBasicArraysTests
                      }
                    },
                    records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_month_interval
+    records = [
+      [1],
+      [nil],
+      [12],
+    ]
+    target = build({column: :month_interval}, records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_day_time_interval
+    records = [
+      [{day: 1, millisecond: 100}],
+      [nil],
+      [{day: 2, millisecond: 300}],
+    ]
+    target = build({column: :day_time_interval}, records)
+    assert_equal(records, target.raw_records)
+  end
+
+  def test_month_day_nano_interval
+    records = [
+      [{month: 1, day: 1, nanosecond: 100}],
+      [nil],
+      [{month: 2, day: 3, nanosecond: 400}],
+    ]
+    target = build({column: :month_day_nano_interval}, records)
     assert_equal(records, target.raw_records)
   end
 end

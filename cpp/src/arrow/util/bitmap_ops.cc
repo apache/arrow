@@ -25,6 +25,7 @@
 #include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/util/align_util.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
@@ -84,6 +85,22 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
   return count;
 }
 
+int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
+                        const uint8_t* right_bitmap, int64_t right_offset,
+                        int64_t length) {
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t count = 0;
+  while (true) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.length == 0) {
+      break;
+    }
+    count += block.popcount;
+  }
+  return count;
+}
+
 enum class TransferMode : bool { Copy, Invert };
 
 // Reverse all bits from entire byte(uint8)
@@ -98,7 +115,7 @@ uint8_t ReverseUint8(uint8_t num) {
 // part of a left block and right block, length indicates the number of bits
 // to be taken from the right block
 uint8_t GetReversedBlock(uint8_t block_left, uint8_t block_right, uint8_t length) {
-  return ReverseUint8(block_left >> (length) | block_right << (8 - length));
+  return ReverseUint8(((block_right << 8) + block_left) >> length);
 }
 
 template <TransferMode mode>

@@ -83,8 +83,8 @@ std::vector<NativeFunction> GetMathOpsFunctionRegistry() {
       MATH_UNARY_OPS(sin, {}), MATH_UNARY_OPS(cos, {}), MATH_UNARY_OPS(asin, {}),
       MATH_UNARY_OPS(acos, {}), MATH_UNARY_OPS(tan, {}), MATH_UNARY_OPS(atan, {}),
       MATH_UNARY_OPS(sinh, {}), MATH_UNARY_OPS(cosh, {}), MATH_UNARY_OPS(tanh, {}),
-      MATH_UNARY_OPS(cot, {}), MATH_UNARY_OPS(radians, {}), MATH_UNARY_OPS(degrees, {}),
-      MATH_BINARY_SAFE(atan2, {}),
+      MATH_UNARY_OPS(cot, {}), MATH_UNARY_OPS(radians, {}),
+      MATH_UNARY_OPS(degrees, {"udfdegrees"}), MATH_BINARY_SAFE(atan2, {}),
 
       // decimal functions
       UNARY_SAFE_NULL_IF_NULL(abs, {}, decimal128, decimal128),

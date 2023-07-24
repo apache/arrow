@@ -1,4 +1,9 @@
-# Using docker with Arrow
+---
+title: "Using docker containers"
+description: >
+  A guide for arrow developers wanting to use docker
+output: rmarkdown::html_vignette
+---
 
 Arrow is compatible with a huge number of combinations of OSs, OS versions, 
 compilers, R versions, and other variables.  Sometimes these combinations of 

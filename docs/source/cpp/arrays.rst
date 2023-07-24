@@ -49,7 +49,7 @@ example a ``std::vector``.  Instead, several strategies can be used:
 
 * if the data already exists in memory with the right layout, you can wrap
   said memory inside :class:`arrow::Buffer` instances and then construct
-  a :class:`arrow::ArrowData` describing the array;
+  a :class:`arrow::ArrayData` describing the array;
 
   .. seealso:: :ref:`cpp_memory_management`
 

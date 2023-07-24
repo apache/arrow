@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build cdata_test
 // +build cdata_test
 
 package main
@@ -22,10 +23,10 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/cdata"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/cdata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 // #include <stdint.h>
@@ -109,7 +110,7 @@ func makeSchema() *arrow.Schema {
 	}, &meta)
 }
 
-func makeBatch() array.Record {
+func makeBatch() arrow.Record {
 	bldr := array.NewRecordBuilder(alloc, makeSchema())
 	defer bldr.Release()
 
@@ -160,6 +161,18 @@ func importThenExportRecord(schemaIn, arrIn uintptr, schemaOut, arrOut uintptr) 
 
 	defer rec.Release()
 	cdata.ExportArrowRecordBatch(rec, cdata.ArrayFromPtr(arrOut), cdata.SchemaFromPtr(schemaOut))
+}
+
+//export roundtripArray
+func roundtripArray(arrIn, schema, arrOut uintptr) {
+	_, arr, err := cdata.ImportCArray(cdata.ArrayFromPtr(arrIn), cdata.SchemaFromPtr(schema))
+	if err != nil {
+		panic(err)
+	}
+	defer arr.Release()
+
+	outArr := cdata.ArrayFromPtr(arrOut)
+	cdata.ExportArrowArray(arr, outArr, nil)
 }
 
 func main() {}

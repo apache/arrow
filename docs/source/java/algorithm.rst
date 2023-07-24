@@ -32,7 +32,7 @@ elements can be compared in one of the two ways:
 Currently, this type of comparison is supported through the ``org.apache.arrow.vector.compare.VectorValueEqualizer``
 interface.
 
-2. **Ordering comparison**: there are three possible results for this type of comparisons: ``less than``, ``equal to ``
+2. **Ordering comparison**: there are three possible results for this type of comparisons: ``less than``, ``equal to``
 and ``greater than``. This comparison is supported by the abstract class ``org.apache.arrow.algorithm.sort.VectorValueComparator``.
 
 We provide default implementations to compare vector elements. However, users can also define ways

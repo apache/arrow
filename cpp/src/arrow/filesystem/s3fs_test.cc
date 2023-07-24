@@ -58,7 +58,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -100,12 +100,16 @@ class ShortRetryStrategy : public S3RetryStrategy {
       // which would trigger spurious retries.
       return false;
     }
-    return error.should_retry && (attempted_retries * kRetryInterval < kMaxRetryDuration);
+    return IsRetryable(error) && (attempted_retries * kRetryInterval < kMaxRetryDuration);
   }
 
   int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                         int64_t attempted_retries) override {
     return kRetryInterval;
+  }
+
+  bool IsRetryable(const AWSErrorDetail& error) const {
+    return error.should_retry || error.exception_name == "XMinioServerNotInitialized";
   }
 
 #ifdef _WIN32
@@ -141,11 +145,6 @@ class ShortRetryStrategy : public S3RetryStrategy {
 
 class AwsTestMixin : public ::testing::Test {
  public:
-  // We set this environment variable to speed up tests by ensuring
-  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
-  // EC2 metadata endpoint
-  AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
-
   void SetUp() override {
 #ifdef AWS_CPP_SDK_S3_NOT_SHARED
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
@@ -164,7 +163,6 @@ class AwsTestMixin : public ::testing::Test {
   }
 
  private:
-  EnvVarGuard ec2_metadata_disabled_guard_;
 #ifdef AWS_CPP_SDK_S3_NOT_SHARED
   Aws::SDKOptions aws_options_;
 #endif
@@ -175,8 +173,27 @@ class S3TestMixin : public AwsTestMixin {
   void SetUp() override {
     AwsTestMixin::SetUp();
 
-    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+    // Starting the server may fail, for example if the generated port number
+    // was "stolen" by another process. Run a dummy S3 operation to make sure it
+    // is running, otherwise retry a number of times.
+    Status connect_status;
+    int retries = kNumServerRetries;
+    do {
+      ASSERT_OK(InitServerAndClient());
+      connect_status = OutcomeToStatus("ListBuckets", client_->ListBuckets());
+    } while (!connect_status.ok() && --retries > 0);
+    ASSERT_OK(connect_status);
+  }
 
+  void TearDown() override {
+    client_.reset();  // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+                      // reset before Aws::ShutdownAPI
+    AwsTestMixin::TearDown();
+  }
+
+ protected:
+  Status InitServerAndClient() {
+    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
@@ -188,11 +205,12 @@ class S3TestMixin : public AwsTestMixin {
         new Aws::S3::S3Client(credentials_, *client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
+    return Status::OK();
   }
 
-  void TearDown() override { AwsTestMixin::TearDown(); }
+  // How many times to try launching a server in a row before decreeing failure
+  static constexpr int kNumServerRetries = 3;
 
- protected:
   std::shared_ptr<MinioTestServer> minio_;
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
@@ -279,6 +297,13 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Invalid option
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
+
+  // Endpoint from environment variable
+  {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
@@ -318,7 +343,7 @@ TEST_F(S3OptionsTest, FromAssumeRole) {
 class S3RegionResolutionTest : public AwsTestMixin {};
 
 TEST_F(S3RegionResolutionTest, PublicBucket) {
-  ASSERT_OK_AND_EQ("us-east-2", ResolveS3BucketRegion("ursa-labs-taxi-data"));
+  ASSERT_OK_AND_EQ("us-east-2", ResolveS3BucketRegion("voltrondata-labs-datasets"));
 
   // Taken from a registry of open S3-hosted datasets
   // at https://github.com/awslabs/open-data-registry
@@ -401,32 +426,36 @@ class TestS3FS : public S3TestMixin {
  public:
   void SetUp() override {
     S3TestMixin::SetUp();
+    // Most tests will create buckets
+    options_.allow_bucket_creation = true;
+    options_.allow_bucket_deletion = true;
     MakeFileSystem();
     // Set up test bucket
     {
       Aws::S3::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
       req.SetBucket(ToAwsString("empty-bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
     {
       Aws::S3::Model::PutObjectRequest req;
       req.SetBucket(ToAwsString("bucket"));
       req.SetKey(ToAwsString("emptydir/"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      req.SetBody(std::make_shared<std::stringstream>(""));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       // NOTE: no need to create intermediate "directories" somedir/ and
       // somedir/subdir/
       req.SetKey(ToAwsString("somedir/subdir/subfile"));
       req.SetBody(std::make_shared<std::stringstream>("sub data"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("somefile"));
       req.SetBody(std::make_shared<std::stringstream>("some data"));
       req.SetContentType("x-arrow/test");
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
       req.SetKey(ToAwsString("otherdir/1/2/3/otherfile"));
       req.SetBody(std::make_shared<std::stringstream>("other data"));
-      ASSERT_OK(OutcomeToStatus(client_->PutObject(req)));
+      ASSERT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
     }
   }
 
@@ -855,6 +884,42 @@ TEST_F(TestS3FS, DeleteDir) {
   ASSERT_RAISES(Invalid, fs_->DeleteDir("s3:empty-bucket"));
 }
 
+TEST_F(TestS3FS, DeleteDirContents) {
+  FileSelector select;
+  select.base_dir = "bucket";
+  std::vector<FileInfo> infos;
+
+  ASSERT_OK(fs_->DeleteDirContents("bucket/doesnotexist", /*missing_dir_ok=*/true));
+  ASSERT_OK(fs_->DeleteDirContents("bucket/emptydir"));
+  ASSERT_OK(fs_->DeleteDirContents("bucket/somedir"));
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents("bucket/somefile"));
+  ASSERT_RAISES(IOError, fs_->DeleteDirContents("bucket/doesnotexist"));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 4);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
+  AssertFileInfo(infos[1], "bucket/otherdir", FileType::Directory);
+  AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "bucket/somefile", FileType::File);
+}
+
+TEST_F(TestS3FS, DeleteDirContentsAsync) {
+  FileSelector select;
+  select.base_dir = "bucket";
+  std::vector<FileInfo> infos;
+
+  ASSERT_FINISHES_OK(fs_->DeleteDirContentsAsync("bucket/emptydir"));
+  ASSERT_FINISHES_OK(fs_->DeleteDirContentsAsync("bucket/somedir"));
+  ASSERT_FINISHES_AND_RAISES(IOError, fs_->DeleteDirContentsAsync("bucket/somefile"));
+  ASSERT_OK_AND_ASSIGN(infos, fs_->GetFileInfo(select));
+  ASSERT_EQ(infos.size(), 4);
+  SortInfos(&infos);
+  AssertFileInfo(infos[0], "bucket/emptydir", FileType::Directory);
+  AssertFileInfo(infos[1], "bucket/otherdir", FileType::Directory);
+  AssertFileInfo(infos[2], "bucket/somedir", FileType::Directory);
+  AssertFileInfo(infos[3], "bucket/somefile", FileType::File);
+}
+
 TEST_F(TestS3FS, CopyFile) {
   // "File"
   ASSERT_OK(fs_->CopyFile("bucket/somefile", "bucket/newfile"));
@@ -1033,6 +1098,14 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
   std::shared_ptr<io::OutputStream> stream;
 
+  // Create new file with no explicit or default metadata
+  // The Content-Type will still be set
+  auto empty_metadata = KeyValueMetadata::Make({}, {});
+  auto implicit_metadata =
+      KeyValueMetadata::Make({"Content-Type"}, {"application/octet-stream"});
+  AssertMetadataRoundtrip("bucket/mdfile0", empty_metadata,
+                          testing::IsSupersetOf(implicit_metadata->sorted_pairs()));
+
   // Create new file with explicit metadata
   auto metadata = KeyValueMetadata::Make({"Content-Type", "Expires"},
                                          {"x-arrow/test6", "2016-02-05T20:08:35Z"});
@@ -1071,8 +1144,39 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
   ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
 
+  ASSERT_OK_AND_ASSIGN(path, fs->PathFromUri(ss.str()));
+  ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  // Incorrect scheme
+  ASSERT_THAT(fs->PathFromUri("file:///@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("expected a URI with one of the schemes (s3)")));
+
+  // Not a URI
+  ASSERT_THAT(fs->PathFromUri("/@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
+
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);
+}
+
+TEST_F(TestS3FS, NoCreateDeleteBucket) {
+  // Create a bucket to try deleting
+  ASSERT_OK(fs_->CreateDir("test-no-delete"));
+
+  options_.allow_bucket_creation = false;
+  options_.allow_bucket_deletion = false;
+  MakeFileSystem();
+
+  auto maybe_create_dir = fs_->CreateDir("test-no-create");
+  ASSERT_RAISES(IOError, maybe_create_dir);
+  ASSERT_THAT(maybe_create_dir.message(),
+              ::testing::HasSubstr("Bucket 'test-no-create' not found"));
+
+  auto maybe_delete_dir = fs_->DeleteDir("test-no-delete");
+  ASSERT_RAISES(IOError, maybe_delete_dir);
+  ASSERT_THAT(maybe_delete_dir.message(),
+              ::testing::HasSubstr("Would delete bucket 'test-no-delete'"));
 }
 
 // Simple retry strategy that records errors encountered and its emitted retry delays
@@ -1132,7 +1236,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     {
       Aws::S3::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("s3fs-test-bucket"));
-      ASSERT_OK(OutcomeToStatus(client_->CreateBucket(req)));
+      ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
 
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());

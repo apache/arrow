@@ -39,7 +39,7 @@ TEST_DIRNAME=$(cd $(dirname $1); pwd)
 TEST_FILENAME=$(basename $1)
 shift
 TEST_EXECUTABLE="$TEST_DIRNAME/$TEST_FILENAME"
-TEST_NAME=$(echo $TEST_FILENAME | perl -pe 's/\..+?$//') # Remove path and extension (if any).
+TEST_NAME=$(echo $TEST_FILENAME | sed -E -e 's/\..+$//') # Remove path and extension (if any).
 
 # We run each test in its own subdir to avoid core file related races.
 TEST_WORKDIR=$OUTPUT_ROOT/build/test-work/$TEST_NAME
@@ -97,7 +97,6 @@ function run_test() {
   cat $LOGFILE.raw \
     | ${PYTHON:-python} $ROOT/build-support/asan_symbolize.py \
     | ${CXXFILT:-c++filt} \
-    | $ROOT/build-support/stacktrace_addr2line.pl $TEST_EXECUTABLE \
     | $pipe_cmd 2>&1 | tee $LOGFILE
   rm -f $LOGFILE.raw
 
@@ -109,8 +108,7 @@ function run_test() {
   # XML output from gtest. We assume that gtest knows better than us and our
   # regexes in most cases, but for certain errors we delete the resulting xml
   # file and let our own post-processing step regenerate it.
-  export GREP=$(which egrep)
-  if zgrep --silent "ThreadSanitizer|Leak check.*detected leaks" $LOGFILE ; then
+  if grep -E -q "ThreadSanitizer|Leak check.*detected leaks" $LOGFILE ; then
     echo ThreadSanitizer or leak check failures in $LOGFILE
     STATUS=1
     rm -f $XMLFILE
@@ -157,16 +155,16 @@ function post_process_tests() {
   # If we have a LeakSanitizer report, and XML reporting is configured, add a new test
   # case result to the XML file for the leak report. Otherwise Jenkins won't show
   # us which tests had LSAN errors.
-  if zgrep --silent "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
-      echo Test had memory leaks. Editing XML
-      perl -p -i -e '
-      if (m#</testsuite>#) {
-        print "<testcase name=\"LeakSanitizer\" status=\"run\" classname=\"LSAN\">\n";
-        print "  <failure message=\"LeakSanitizer failed\" type=\"\">\n";
-        print "    See txt log file for details\n";
-        print "  </failure>\n";
-        print "</testcase>\n";
-      }' $XMLFILE
+  if grep -E -q "ERROR: LeakSanitizer: detected memory leaks" $LOGFILE ; then
+    echo Test had memory leaks. Editing XML
+    sed -i.bak -e '/<\/testsuite>/ i\
+  <testcase name="LeakSanitizer" status="run" classname="LSAN">\
+    <failure message="LeakSanitizer failed" type="">\
+      See txt log file for details\
+    </failure>\
+  </testcase>' \
+      $XMLFILE
+    mv $XMLFILE.bak $XMLFILE
   fi
 }
 

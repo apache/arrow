@@ -32,6 +32,7 @@ import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.Location;
 import org.apache.arrow.flight.PutResult;
+import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -152,46 +153,55 @@ class IntegrationTestClient {
       // 3. Download the data from the server.
       List<Location> locations = endpoint.getLocations();
       if (locations.isEmpty()) {
-        throw new RuntimeException("No locations returned from Flight server.");
-      }
-      for (Location location : locations) {
-        System.out.println("Verifying location " + location.getUri());
-        try (FlightClient readClient = FlightClient.builder(allocator, location).build();
-             FlightStream stream = readClient.getStream(endpoint.getTicket());
-             VectorSchemaRoot root = stream.getRoot();
-             VectorSchemaRoot downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
-             JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator)) {
-          VectorLoader loader = new VectorLoader(downloadedRoot);
-          VectorUnloader unloader = new VectorUnloader(root);
-
-          Schema jsonSchema = reader.start();
-          Validator.compareSchemas(root.getSchema(), jsonSchema);
-          try (VectorSchemaRoot jsonRoot = VectorSchemaRoot.create(jsonSchema, allocator)) {
-
-            while (stream.next()) {
-              try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
-                loader.load(arb);
-                if (reader.read(jsonRoot)) {
-
-                  // 4. Validate the data.
-                  Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
-                  jsonRoot.clear();
-                } else {
-                  throw new RuntimeException("Flight stream has more batches than JSON");
-                }
-              }
-            }
-
-            // Verify no more batches with data in JSON
-            // NOTE: Currently the C++ Flight server skips empty batches at end of the stream
-            if (reader.read(jsonRoot) && jsonRoot.getRowCount() > 0) {
-              throw new RuntimeException("JSON has more batches with than Flight stream");
-            }
+        // No locations provided, validate the server itself.
+        testTicket(allocator, client, endpoint.getTicket(), inputPath);
+      } else {
+        // All locations should be equivalent, validate each one.
+        for (Location location : locations) {
+          try (FlightClient readClient = FlightClient.builder(allocator, location).build()) {
+            testTicket(allocator, readClient, endpoint.getTicket(), inputPath);
+          } catch (Exception e) {
+            throw new RuntimeException(e);
           }
-        } catch (Exception e) {
-          throw new RuntimeException(e);
         }
       }
+    }
+  }
+
+  private static void testTicket(BufferAllocator allocator, FlightClient readClient, Ticket ticket, String inputPath) {
+    try (FlightStream stream = readClient.getStream(ticket);
+         VectorSchemaRoot root = stream.getRoot();
+         VectorSchemaRoot downloadedRoot = VectorSchemaRoot.create(root.getSchema(), allocator);
+         JsonFileReader reader = new JsonFileReader(new File(inputPath), allocator)) {
+      VectorLoader loader = new VectorLoader(downloadedRoot);
+      VectorUnloader unloader = new VectorUnloader(root);
+
+      Schema jsonSchema = reader.start();
+      Validator.compareSchemas(root.getSchema(), jsonSchema);
+      try (VectorSchemaRoot jsonRoot = VectorSchemaRoot.create(jsonSchema, allocator)) {
+
+        while (stream.next()) {
+          try (final ArrowRecordBatch arb = unloader.getRecordBatch()) {
+            loader.load(arb);
+            if (reader.read(jsonRoot)) {
+
+              // 4. Validate the data.
+              Validator.compareVectorSchemaRoot(jsonRoot, downloadedRoot);
+              jsonRoot.clear();
+            } else {
+              throw new RuntimeException("Flight stream has more batches than JSON");
+            }
+          }
+        }
+
+        // Verify no more batches with data in JSON
+        // NOTE: Currently the C++ Flight server skips empty batches at end of the stream
+        if (reader.read(jsonRoot) && jsonRoot.getRowCount() > 0) {
+          throw new RuntimeException("JSON has more batches with than Flight stream");
+        }
+      }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 }

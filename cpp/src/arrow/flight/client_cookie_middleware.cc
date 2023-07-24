@@ -16,7 +16,7 @@
 // under the License.
 
 #include "arrow/flight/client_cookie_middleware.h"
-#include "arrow/flight/client_header_internal.h"
+#include "arrow/flight/cookie_internal.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -27,7 +27,7 @@ class ClientCookieMiddlewareFactory : public ClientMiddlewareFactory {
  public:
   void StartCall(const CallInfo& info, std::unique_ptr<ClientMiddleware>* middleware) {
     ARROW_UNUSED(info);
-    *middleware = std::unique_ptr<ClientMiddleware>(new ClientCookieMiddleware(*this));
+    *middleware = std::make_unique<ClientCookieMiddleware>(*this);
   }
 
  private:

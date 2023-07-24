@@ -15,16 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Run } from './run';
-import { Field } from '../schema';
-import { Builder } from '../builder';
-import { DataType, FixedSizeList } from '../type';
+import { Field } from '../schema.js';
+import { Builder } from '../builder.js';
+import { DataType, FixedSizeList } from '../type.js';
 
 /** @ignore */
 export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends Builder<FixedSizeList<T>, TNull> {
-    protected _run = new Run<T, TNull>();
     public setValue(index: number, value: T['TValue']) {
-        super.setValue(index, this._run.bind(value));
+        const [child] = this.children;
+        const start = index * this.stride;
+        for (let i = -1, n = value.length; ++i < n;) {
+            child.set(start + i, value[i]);
+        }
     }
     public addChild(child: Builder<T>, name = '0') {
         if (this.numChildren > 0) {
@@ -33,9 +35,5 @@ export class FixedSizeListBuilder<T extends DataType = any, TNull = any> extends
         const childIndex = this.children.push(child);
         this.type = new FixedSizeList(this.type.listSize, new Field(name, child.type, true));
         return childIndex;
-    }
-    public clear() {
-        this._run.clear();
-        return super.clear();
     }
 }

@@ -1,4 +1,9 @@
-# Debugging Arrow
+---
+title: "Debugging strategies"
+description: >
+  Tools and strategies to help arrow developers with debugging
+output: rmarkdown::html_vignette
+---
 
 If you are a developer working with Arrow code, the package's use of tidy eval 
 and C++ necessitates a solid debugging strategy.  In this article, we recommend
@@ -100,7 +105,7 @@ thread apply all bt
 This will generate a large amount of output, but this information is useful when
 identifying the cause of the issue.
 
-## Resources
+## Further reading
 
 The following resources provide detailed guides to debugging R code:
 

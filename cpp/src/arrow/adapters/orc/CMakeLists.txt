@@ -20,17 +20,11 @@
 #
 
 # Headers: top level
-install(FILES adapter.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/orc")
+install(FILES adapter.h options.h
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/adapters/orc")
 
 # pkg-config support
 arrow_add_pkg_config("arrow-orc")
-
-set(ORC_MIN_TEST_LIBS
-    GTest::gtest_main
-    GTest::gtest
-    Snappy::snappy
-    LZ4::lz4
-    ZLIB::ZLIB)
 
 if(ARROW_BUILD_STATIC)
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_static arrow_static)
@@ -38,14 +32,8 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-if(APPLE)
-  set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
-elseif(NOT MSVC)
-  set(ORC_MIN_TEST_LIBS ${ORC_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
-endif()
-
 set(ORC_STATIC_TEST_LINK_LIBS orc::liborc ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
-                              ${ORC_MIN_TEST_LIBS})
+                              ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST})
 
 add_arrow_test(adapter_test
                PREFIX

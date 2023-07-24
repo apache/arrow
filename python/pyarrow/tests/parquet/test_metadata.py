@@ -16,13 +16,17 @@
 # under the License.
 
 import datetime
+import decimal
 from collections import OrderedDict
+import io
 
 import numpy as np
 import pytest
 
 import pyarrow as pa
 from pyarrow.tests.parquet.common import _check_roundtrip, make_sample_file
+from pyarrow.fs import LocalFileSystem
+from pyarrow.tests import util
 
 try:
     import pyarrow.parquet as pq
@@ -40,6 +44,8 @@ except ImportError:
     pd = tm = None
 
 
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -122,7 +128,7 @@ def test_parquet_metadata_api():
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
-    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
@@ -155,33 +161,33 @@ def test_parquet_metadata_lifetime(tempdir):
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
-            'FLOAT', -1.1, 4.4, 1, 4, 0
+            'FLOAT', -1.1, 4.4, 1, 4, None
         ),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
-            'DOUBLE', -1.1, 4.4, 1, 4, 0
+            'DOUBLE', -1.1, 4.4, 1, 4, None
         ),
         (
             ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, 0
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, None
         ),
         (
             [True, False, False, True, True], pa.bool_(),
-            'BOOLEAN', False, True, 0, 5, 0
+            'BOOLEAN', False, True, 0, 5, None
         ),
         (
             [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'\x00', b'b', 1, 4, 0
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, None
         ),
     ]
 )
@@ -245,7 +251,13 @@ def test_statistics_convert_logical_types(tempdir):
               pa.timestamp('ms')),
              (datetime.datetime(2019, 6, 24, 0, 0, 0, 1000),
               datetime.datetime(2019, 6, 25, 0, 0, 0, 1000),
-              pa.timestamp('us'))]
+              pa.timestamp('us')),
+             (datetime.date(2019, 6, 24),
+              datetime.date(2019, 6, 25),
+              pa.date32()),
+             (decimal.Decimal("20.123"),
+              decimal.Decimal("20.124"),
+              pa.decimal128(12, 5))]
 
     for i, (min_val, max_val, typ) in enumerate(cases):
         t = pa.Table.from_arrays([pa.array([min_val, max_val], type=typ)],
@@ -345,6 +357,21 @@ def test_field_id_metadata():
     assert schema[5].metadata[field_id] == b'-1000'
 
 
+def test_parquet_file_page_index():
+    for write_page_index in (False, True):
+        table = pa.table({'a': [1, 2, 3]})
+
+        writer = pa.BufferOutputStream()
+        _write_table(table, writer, write_page_index=write_page_index)
+        reader = pa.BufferReader(writer.getvalue())
+
+        # Can retrieve sorting columns from metadata
+        metadata = pq.read_metadata(reader)
+        cc = metadata.row_group(0).column(0)
+        assert cc.has_offset_index is write_page_index
+        assert cc.has_column_index is write_page_index
+
+
 @pytest.mark.pandas
 def test_multi_dataset_metadata(tempdir):
     filenames = ["ARROW-1983-dataset.0", "ARROW-1983-dataset.1"]
@@ -388,6 +415,7 @@ def test_multi_dataset_metadata(tempdir):
     assert md['serialized_size'] > 0
 
 
+@pytest.mark.filterwarnings("ignore:Parquet format:FutureWarning")
 def test_write_metadata(tempdir):
     path = str(tempdir / "metadata")
     schema = pa.schema([("a", "int64"), ("b", "float64")])
@@ -422,7 +450,9 @@ def test_write_metadata(tempdir):
     assert parquet_meta_mult.num_row_groups == 2
 
     # append metadata with different schema raises an error
-    with pytest.raises(RuntimeError, match="requires equal schemas"):
+    msg = ("AppendRowGroups requires equal schemas.\n"
+           "The two columns with index 0 differ.")
+    with pytest.raises(RuntimeError, match=msg):
         pq.write_metadata(
             pa.schema([("a", "int32"), ("b", "null")]),
             path, metadata_collector=[parquet_meta, parquet_meta]
@@ -501,7 +531,7 @@ def test_parquet_metadata_empty_to_dict(tempdir):
 @pytest.mark.slow
 @pytest.mark.large_memory
 def test_metadata_exceeds_message_size():
-    # ARROW-13655: Thrift may enable a defaut message size that limits
+    # ARROW-13655: Thrift may enable a default message size that limits
     # the size of Parquet metadata that can be written.
     NCOLS = 1000
     NREPEATS = 4000
@@ -522,3 +552,113 @@ def test_metadata_exceeds_message_size():
         buf = out.getvalue()
 
     metadata = pq.read_metadata(pa.BufferReader(buf))
+
+
+def test_metadata_schema_filesystem(tempdir):
+    table = pa.table({"a": [1, 2, 3]})
+
+    # URI writing to local file.
+    fname = "data.parquet"
+    file_path = str(tempdir / fname)
+    file_uri = 'file:///' + file_path
+
+    pq.write_table(table, file_path)
+
+    # Get expected `metadata` from path.
+    metadata = pq.read_metadata(tempdir / fname)
+    schema = table.schema
+
+    assert pq.read_metadata(file_uri).equals(metadata)
+    assert pq.read_metadata(
+        file_path, filesystem=LocalFileSystem()).equals(metadata)
+    assert pq.read_metadata(
+        fname, filesystem=f'file:///{tempdir}').equals(metadata)
+
+    assert pq.read_schema(file_uri).equals(schema)
+    assert pq.read_schema(
+        file_path, filesystem=LocalFileSystem()).equals(schema)
+    assert pq.read_schema(
+        fname, filesystem=f'file:///{tempdir}').equals(schema)
+
+    with util.change_cwd(tempdir):
+        # Pass `filesystem` arg
+        assert pq.read_metadata(
+            fname, filesystem=LocalFileSystem()).equals(metadata)
+
+        assert pq.read_schema(
+            fname, filesystem=LocalFileSystem()).equals(schema)
+
+
+def test_metadata_equals():
+    table = pa.table({"a": [1, 2, 3]})
+    with pa.BufferOutputStream() as out:
+        pq.write_table(table, out)
+        buf = out.getvalue()
+
+    original_metadata = pq.read_metadata(pa.BufferReader(buf))
+    match = "Argument 'other' has incorrect type"
+    with pytest.raises(TypeError, match=match):
+        original_metadata.equals(None)
+
+
+@pytest.mark.parametrize("t1,t2,expected_error", (
+    ({'col1': range(10)}, {'col1': range(10)}, None),
+    ({'col1': range(10)}, {'col2': range(10)},
+     "The two columns with index 0 differ."),
+    ({'col1': range(10), 'col2': range(10)}, {'col3': range(10)},
+     "This schema has 2 columns, other has 1")
+))
+def test_metadata_append_row_groups_diff(t1, t2, expected_error):
+    table1 = pa.table(t1)
+    table2 = pa.table(t2)
+
+    buf1 = io.BytesIO()
+    buf2 = io.BytesIO()
+    pq.write_table(table1, buf1)
+    pq.write_table(table2, buf2)
+    buf1.seek(0)
+    buf2.seek(0)
+
+    meta1 = pq.ParquetFile(buf1).metadata
+    meta2 = pq.ParquetFile(buf2).metadata
+
+    if expected_error:
+        # Error clearly defines it's happening at append row groups call
+        prefix = "AppendRowGroups requires equal schemas.\n"
+        with pytest.raises(RuntimeError, match=prefix + expected_error):
+            meta1.append_row_groups(meta2)
+    else:
+        meta1.append_row_groups(meta2)
+
+
+@pytest.mark.s3
+def test_write_metadata_fs_file_combinations(tempdir, s3_example_s3fs):
+    s3_fs, s3_path = s3_example_s3fs
+
+    meta1 = tempdir / "meta1"
+    meta2 = tempdir / "meta2"
+    meta3 = tempdir / "meta3"
+    meta4 = tempdir / "meta4"
+    meta5 = f"{s3_path}/meta5"
+
+    table = pa.table({"col": range(5)})
+
+    # plain local path
+    pq.write_metadata(table.schema, meta1, [])
+
+    # Used the localfilesystem to resolve opening an output stream
+    pq.write_metadata(table.schema, meta2, [], filesystem=LocalFileSystem())
+
+    # Can resolve local file URI
+    pq.write_metadata(table.schema, meta3.as_uri(), [])
+
+    # Take a file-like obj all the way thru?
+    with meta4.open('wb+') as meta4_stream:
+        pq.write_metadata(table.schema, meta4_stream, [])
+
+    # S3FileSystem
+    pq.write_metadata(table.schema, meta5, [], filesystem=s3_fs)
+
+    assert meta1.read_bytes() == meta2.read_bytes() \
+        == meta3.read_bytes() == meta4.read_bytes() \
+        == s3_fs.open(meta5).read()

@@ -23,12 +23,12 @@
 #include <iosfwd>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/status.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -45,10 +45,10 @@ class SmallString {
 
   template <typename T>
   SmallString(const T& v) {  // NOLINT implicit constructor
-    *this = util::string_view(v);
+    *this = std::string_view(v);
   }
 
-  SmallString& operator=(const util::string_view s) {
+  SmallString& operator=(const std::string_view s) {
 #ifndef NDEBUG
     CheckSize(s.size());
 #endif
@@ -58,18 +58,16 @@ class SmallString {
   }
 
   SmallString& operator=(const std::string& s) {
-    *this = util::string_view(s);
+    *this = std::string_view(s);
     return *this;
   }
 
   SmallString& operator=(const char* s) {
-    *this = util::string_view(s);
+    *this = std::string_view(s);
     return *this;
   }
 
-  explicit operator util::string_view() const {
-    return util::string_view(data_, length_);
-  }
+  explicit operator std::string_view() const { return std::string_view(data_, length_); }
 
   const char* data() const { return data_; }
   size_t length() const { return length_; }
@@ -82,21 +80,21 @@ class SmallString {
   }
 
   SmallString substr(size_t pos) const {
-    return SmallString(util::string_view(*this).substr(pos));
+    return SmallString(std::string_view(*this).substr(pos));
   }
 
   SmallString substr(size_t pos, size_t count) const {
-    return SmallString(util::string_view(*this).substr(pos, count));
+    return SmallString(std::string_view(*this).substr(pos, count));
   }
 
   template <typename T>
   bool operator==(T&& other) const {
-    return util::string_view(*this) == util::string_view(std::forward<T>(other));
+    return std::string_view(*this) == std::string_view(std::forward<T>(other));
   }
 
   template <typename T>
   bool operator!=(T&& other) const {
-    return util::string_view(*this) != util::string_view(std::forward<T>(other));
+    return std::string_view(*this) != std::string_view(std::forward<T>(other));
   }
 
  protected:
@@ -108,7 +106,7 @@ class SmallString {
 
 template <uint8_t N>
 std::ostream& operator<<(std::ostream& os, const SmallString<N>& str) {
-  return os << util::string_view(str);
+  return os << std::string_view(str);
 }
 
 // A trie class for byte strings, optimized for small sets of short strings.
@@ -123,7 +121,7 @@ class ARROW_EXPORT Trie {
   Trie(Trie&&) = default;
   Trie& operator=(Trie&&) = default;
 
-  int32_t Find(util::string_view s) const {
+  int32_t Find(std::string_view s) const {
     const Node* node = &nodes_[0];
     fast_index_type pos = 0;
     if (s.length() > static_cast<size_t>(kMaxIndex)) {
@@ -222,7 +220,7 @@ class ARROW_EXPORT TrieBuilder {
 
  public:
   TrieBuilder();
-  Status Append(util::string_view s, bool allow_duplicate = false);
+  Status Append(std::string_view s, bool allow_duplicate = false);
   Trie Finish();
 
  protected:
@@ -233,8 +231,8 @@ class ARROW_EXPORT TrieBuilder {
   // Append an already constructed child node to the parent
   Status AppendChildNode(Trie::Node* parent, uint8_t ch, Trie::Node&& node);
   // Create a matching child node from this parent
-  Status CreateChildNode(Trie::Node* parent, uint8_t ch, util::string_view substring);
-  Status CreateChildNode(Trie::Node* parent, char ch, util::string_view substring);
+  Status CreateChildNode(Trie::Node* parent, uint8_t ch, std::string_view substring);
+  Status CreateChildNode(Trie::Node* parent, char ch, std::string_view substring);
 
   Trie trie_;
 

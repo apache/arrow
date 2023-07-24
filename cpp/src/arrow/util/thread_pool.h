@@ -17,10 +17,6 @@
 
 #pragma once
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
-
 #include <cstdint>
 #include <memory>
 #include <queue>
@@ -32,6 +28,7 @@
 #include "arrow/util/cancel.h"
 #include "arrow/util/functional.h"
 #include "arrow/util/future.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -197,6 +194,27 @@ class ARROW_EXPORT Executor {
   // Executor. Returns false if this Executor does not support this property.
   virtual bool OwnsThisThread() { return false; }
 
+  /// \brief An interface to represent something with a custom destructor
+  ///
+  /// \see KeepAlive
+  class ARROW_EXPORT Resource {
+   public:
+    virtual ~Resource() = default;
+  };
+
+  /// \brief Keep a resource alive until all executor threads have terminated
+  ///
+  /// Executors may have static storage duration.  In particular, the CPU and I/O
+  /// executors are currently implemented this way.  These threads may access other
+  /// objects with static storage duration such as the OpenTelemetry runtime context
+  /// the default memory pool, or other static executors.
+  ///
+  /// The order in which these objects are destroyed is difficult to control.  In order
+  /// to ensure those objects remain alive until all threads have finished those objects
+  /// should be wrapped in a Resource object and passed into this method.  The given
+  /// shared_ptr will be kept alive until all threads have finished their worker loops.
+  virtual void KeepAlive(std::shared_ptr<Resource> resource);
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Executor);
 
@@ -254,6 +272,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   ~SerialExecutor() override;
 
   int GetCapacity() override { return 1; };
+  bool OwnsThisThread() override;
   Status SpawnReal(TaskHints hints, FnOnce<void()> task, StopToken,
                    StopCallback&&) override;
 
@@ -272,6 +291,82 @@ class ARROW_EXPORT SerialExecutor : public Executor {
     return FutureToSync(fut);
   }
 
+  /// \brief Transform an AsyncGenerator into an Iterator
+  ///
+  /// An event loop will be created and each call to Next will power the event loop with
+  /// the calling thread until the next item is ready to be delivered.
+  ///
+  /// Note: The iterator's destructor will run until the given generator is fully
+  /// exhausted. If you wish to abandon iteration before completion then the correct
+  /// approach is to use a stop token to cause the generator to exhaust early.
+  template <typename T>
+  static Iterator<T> IterateGenerator(
+      internal::FnOnce<Result<std::function<Future<T>()>>(Executor*)> initial_task) {
+    auto serial_executor = std::unique_ptr<SerialExecutor>(new SerialExecutor());
+    auto maybe_generator = std::move(initial_task)(serial_executor.get());
+    if (!maybe_generator.ok()) {
+      return MakeErrorIterator<T>(maybe_generator.status());
+    }
+    auto generator = maybe_generator.MoveValueUnsafe();
+    struct SerialIterator {
+      SerialIterator(std::unique_ptr<SerialExecutor> executor,
+                     std::function<Future<T>()> generator)
+          : executor(std::move(executor)), generator(std::move(generator)) {}
+      ARROW_DISALLOW_COPY_AND_ASSIGN(SerialIterator);
+      ARROW_DEFAULT_MOVE_AND_ASSIGN(SerialIterator);
+      ~SerialIterator() {
+        // A serial iterator must be consumed before it can be destroyed.  Allowing it to
+        // do otherwise would lead to resource leakage.  There will likely be deadlocks at
+        // this spot in the future but these will be the result of other bugs and not the
+        // fact that we are forcing consumption here.
+
+        // If a streaming API needs to support early abandonment then it should be done so
+        // with a cancellation token and not simply discarding the iterator and expecting
+        // the underlying work to clean up correctly.
+        if (executor && !executor->IsFinished()) {
+          while (true) {
+            Result<T> maybe_next = Next();
+            if (!maybe_next.ok() || IsIterationEnd(*maybe_next)) {
+              break;
+            }
+          }
+        }
+      }
+
+      Result<T> Next() {
+        executor->Unpause();
+        // This call may lead to tasks being scheduled in the serial executor
+        Future<T> next_fut = generator();
+        next_fut.AddCallback([this](const Result<T>& res) {
+          // If we're done iterating we should drain the rest of the tasks in the executor
+          if (!res.ok() || IsIterationEnd(*res)) {
+            executor->Finish();
+            return;
+          }
+          // Otherwise we will break out immediately, leaving the remaining tasks for
+          // the next call.
+          executor->Pause();
+        });
+        // Borrow this thread and run tasks until the future is finished
+        executor->RunLoop();
+        if (!next_fut.is_finished()) {
+          // Not clear this is possible since RunLoop wouldn't generally exit
+          // unless we paused/finished which would imply next_fut has been
+          // finished.
+          return Status::Invalid(
+              "Serial executor terminated before next result computed");
+        }
+        // At this point we may still have tasks in the executor, that is ok.
+        // We will run those tasks the next time through.
+        return next_fut.result();
+      }
+
+      std::unique_ptr<SerialExecutor> executor;
+      std::function<Future<T>()> generator;
+    };
+    return Iterator<T>(SerialIterator{std::move(serial_executor), std::move(generator)});
+  }
+
  private:
   SerialExecutor();
 
@@ -279,18 +374,25 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   struct State;
   std::shared_ptr<State> state_;
 
+  void RunLoop();
+  // We mark the serial executor "finished" when there should be
+  // no more tasks scheduled on it.  It's not strictly needed but
+  // can help catch bugs where we are trying to use the executor
+  // after we are done with it.
+  void Finish();
+  bool IsFinished();
+  // We pause the executor when we are running an async generator
+  // and we have received an item that we can deliver.
+  void Pause();
+  void Unpause();
+
   template <typename T, typename FTSync = typename Future<T>::SyncType>
   Future<T> Run(TopLevelTask<T> initial_task) {
     auto final_fut = std::move(initial_task)(this);
-    if (final_fut.is_finished()) {
-      return final_fut;
-    }
-    final_fut.AddCallback([this](const FTSync&) { MarkFinished(); });
+    final_fut.AddCallback([this](const FTSync&) { Finish(); });
     RunLoop();
     return final_fut;
   }
-  void RunLoop();
-  void MarkFinished();
 };
 
 /// An Executor implementation spawning tasks in FIFO manner on a fixed-size
@@ -346,12 +448,14 @@ class ARROW_EXPORT ThreadPool : public Executor {
   // This is useful for sequencing tests
   void WaitForIdle();
 
+  void KeepAlive(std::shared_ptr<Executor::Resource> resource) override;
+
   struct State;
 
  protected:
   FRIEND_TEST(TestThreadPool, SetCapacity);
   FRIEND_TEST(TestGlobalThreadPool, Capacity);
-  friend ARROW_EXPORT ThreadPool* GetCpuThreadPool();
+  ARROW_FRIEND_EXPORT friend ThreadPool* GetCpuThreadPool();
 
   ThreadPool();
 
@@ -364,17 +468,12 @@ class ARROW_EXPORT ThreadPool : public Executor {
   void LaunchWorkersUnlocked(int threads);
   // Get the current actual capacity
   int GetActualCapacity();
-  // Reinitialize the thread pool if the pid changed
-  void ProtectAgainstFork();
 
   static std::shared_ptr<ThreadPool> MakeCpuThreadPool();
 
   std::shared_ptr<State> sp_state_;
   State* state_;
   bool shutdown_on_destroy_;
-#ifndef _WIN32
-  pid_t pid_;
-#endif
 };
 
 // Return the process-global thread pool for CPU-bound tasks.
@@ -396,6 +495,31 @@ typename Fut::SyncType RunSynchronously(FnOnce<Fut(Executor*)> get_future,
     return FutureToSync(fut);
   } else {
     return SerialExecutor::RunInSerialExecutor<ValueType>(std::move(get_future));
+  }
+}
+
+/// \brief Potentially iterate an async generator serially (if use_threads is false)
+/// \see IterateGenerator
+///
+/// If `use_threads` is true, the global CPU executor will be used.  Each call to
+///   the iterator will simply wait until the next item is available.  Tasks may run in
+///   the background between calls.
+///
+/// If `use_threads` is false, the calling thread only will be used.  Each call to
+///   the iterator will use the calling thread to do enough work to generate one item.
+///   Tasks will be left in a queue until the next call and no work will be done between
+///   calls.
+template <typename T>
+Iterator<T> IterateSynchronously(
+    FnOnce<Result<std::function<Future<T>()>>(Executor*)> get_gen, bool use_threads) {
+  if (use_threads) {
+    auto maybe_gen = std::move(get_gen)(GetCpuThreadPool());
+    if (!maybe_gen.ok()) {
+      return MakeErrorIterator<T>(maybe_gen.status());
+    }
+    return MakeGeneratorIterator(*maybe_gen);
+  } else {
+    return SerialExecutor::IterateGenerator(std::move(get_gen));
   }
 }
 

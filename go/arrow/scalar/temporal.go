@@ -22,8 +22,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v13/arrow"
 )
 
 func temporalToString(s TemporalScalar) string {
@@ -86,12 +85,14 @@ func NewDurationScalar(val arrow.Duration, typ arrow.DataType) *Duration {
 
 type DateScalar interface {
 	TemporalScalar
+	ToTime() time.Time
 	date()
 }
 
 type TimeScalar interface {
 	TemporalScalar
 	Unit() arrow.TimeUnit
+	ToTime() time.Time
 	time()
 }
 
@@ -170,7 +171,7 @@ func castTemporal(from TemporalScalar, to arrow.DataType) (Scalar, error) {
 		}
 	}
 
-	return nil, xerrors.Errorf("")
+	return nil, fmt.Errorf("")
 }
 
 type Date32 struct {
@@ -197,6 +198,9 @@ func (s *Date32) String() string {
 		return "..."
 	}
 	return string(val.(*String).Value.Bytes())
+}
+func (s *Date32) ToTime() time.Time {
+	return s.Value.ToTime()
 }
 
 func NewDate32Scalar(val arrow.Date32) *Date32 {
@@ -227,6 +231,9 @@ func (s *Date64) String() string {
 		return "..."
 	}
 	return string(val.(*String).Value.Bytes())
+}
+func (s *Date64) ToTime() time.Time {
+	return s.Value.ToTime()
 }
 
 func NewDate64Scalar(val arrow.Date64) *Date64 {
@@ -263,6 +270,10 @@ func (s *Time32) Data() []byte {
 	return (*[arrow.Time32SizeBytes]byte)(unsafe.Pointer(&s.Value))[:]
 }
 
+func (s *Time32) ToTime() time.Time {
+	return s.Value.ToTime(s.Unit())
+}
+
 func NewTime32Scalar(val arrow.Time32, typ arrow.DataType) *Time32 {
 	return &Time32{scalar{typ, true}, val}
 }
@@ -294,6 +305,10 @@ func (s *Time64) String() string {
 		return "..."
 	}
 	return string(val.(*String).Value.Bytes())
+}
+
+func (s *Time64) ToTime() time.Time {
+	return s.Value.ToTime(s.Unit())
 }
 
 func NewTime64Scalar(val arrow.Time64, typ arrow.DataType) *Time64 {
@@ -329,6 +344,10 @@ func (s *Timestamp) String() string {
 	return string(val.(*String).Value.Bytes())
 }
 
+func (s *Timestamp) ToTime() time.Time {
+	return s.Value.ToTime(s.Unit())
+}
+
 func NewTimestampScalar(val arrow.Timestamp, typ arrow.DataType) *Timestamp {
 	return &Timestamp{scalar{typ, true}, val}
 }
@@ -347,7 +366,7 @@ func (s *MonthInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if !arrow.TypeEqual(s.DataType(), to) {
-		return nil, xerrors.Errorf("non-null monthinterval scalar cannot be cast to anything other than monthinterval")
+		return nil, fmt.Errorf("non-null monthinterval scalar cannot be cast to anything other than monthinterval")
 	}
 
 	return s, nil
@@ -401,7 +420,7 @@ func (s *DayTimeInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if !arrow.TypeEqual(s.DataType(), to) {
-		return nil, xerrors.Errorf("non-null daytimeinterval scalar cannot be cast to anything other than monthinterval")
+		return nil, fmt.Errorf("non-null daytimeinterval scalar cannot be cast to anything other than monthinterval")
 	}
 
 	return s, nil
@@ -443,7 +462,7 @@ func (s *MonthDayNanoInterval) CastTo(to arrow.DataType) (Scalar, error) {
 	}
 
 	if !arrow.TypeEqual(s.DataType(), to) {
-		return nil, xerrors.Errorf("non-null month_day_nano_interval scalar cannot be cast to anything other than monthinterval")
+		return nil, fmt.Errorf("non-null month_day_nano_interval scalar cannot be cast to anything other than monthinterval")
 	}
 
 	return s, nil

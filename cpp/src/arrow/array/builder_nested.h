@@ -35,6 +35,10 @@
 
 namespace arrow {
 
+/// \addtogroup nested-builders
+///
+/// @{
+
 // ----------------------------------------------------------------------
 // List builder
 
@@ -47,17 +51,19 @@ class BaseListBuilder : public ArrayBuilder {
   /// Use this constructor to incrementally build the value array along with offsets and
   /// null bitmap.
   BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
-                  const std::shared_ptr<DataType>& type)
-      : ArrayBuilder(pool),
-        offsets_builder_(pool),
+                  const std::shared_ptr<DataType>& type,
+                  int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment),
+        offsets_builder_(pool, alignment),
         value_builder_(value_builder),
         value_field_(type->field(0)->WithType(NULLPTR)) {}
 
-  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder)
-      : BaseListBuilder(pool, value_builder, list(value_builder->type())) {}
+  BaseListBuilder(MemoryPool* pool, std::shared_ptr<ArrayBuilder> const& value_builder,
+                  int64_t alignment = kDefaultBufferAlignment)
+      : BaseListBuilder(pool, value_builder, list(value_builder->type()), alignment) {}
 
   Status Resize(int64_t capacity) override {
-    if (capacity > maximum_elements()) {
+    if (ARROW_PREDICT_FALSE(capacity > maximum_elements())) {
       return Status::CapacityError("List array cannot reserve space for more than ",
                                    maximum_elements(), " got ", capacity);
     }
@@ -93,14 +99,14 @@ class BaseListBuilder : public ArrayBuilder {
   Status Append(bool is_valid = true) {
     ARROW_RETURN_NOT_OK(Reserve(1));
     UnsafeAppendToBitmap(is_valid);
-    return AppendNextOffset();
+    UnsafeAppendNextOffset();
+    return Status::OK();
   }
 
   Status AppendNull() final { return Append(false); }
 
   Status AppendNulls(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     UnsafeAppendToBitmap(length, false);
     const int64_t num_values = value_builder_->length();
     for (int64_t i = 0; i < length; ++i) {
@@ -113,7 +119,6 @@ class BaseListBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final {
     ARROW_RETURN_NOT_OK(Reserve(length));
-    ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     UnsafeAppendToBitmap(length, true);
     const int64_t num_values = value_builder_->length();
     for (int64_t i = 0; i < length; ++i) {
@@ -122,18 +127,22 @@ class BaseListBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const offset_type* offsets = array.GetValues<offset_type>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+    const bool all_valid = !array.MayHaveLogicalNulls();
+    const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
+    ARROW_RETURN_NOT_OK(Reserve(length));
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
-        ARROW_RETURN_NOT_OK(Append());
+      const bool is_valid =
+          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
+          array.IsValid(row);
+      UnsafeAppendToBitmap(is_valid);
+      UnsafeAppendNextOffset();
+      if (is_valid) {
         int64_t slot_length = offsets[row + 1] - offsets[row];
-        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(*array.child_data[0],
+        ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(array.child_data[0],
                                                              offsets[row], slot_length));
-      } else {
-        ARROW_RETURN_NOT_OK(AppendNull());
       }
     }
     return Status::OK();
@@ -191,6 +200,11 @@ class BaseListBuilder : public ArrayBuilder {
     ARROW_RETURN_NOT_OK(ValidateOverflow(0));
     const int64_t num_values = value_builder_->length();
     return offsets_builder_.Append(static_cast<offset_type>(num_values));
+  }
+
+  void UnsafeAppendNextOffset() {
+    const int64_t num_values = value_builder_->length();
+    offsets_builder_.UnsafeAppend(static_cast<offset_type>(num_values));
   }
 };
 
@@ -292,18 +306,24 @@ class ARROW_EXPORT MapBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final;
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     const int32_t* offsets = array.GetValues<int32_t>(1);
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+    const bool all_valid = !array.MayHaveLogicalNulls();
+    const uint8_t* validity = array.HasValidityBitmap() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
-      if (!validity || bit_util::GetBit(validity, array.offset + row)) {
+      const bool is_valid =
+          all_valid || (validity && bit_util::GetBit(validity, array.offset + row)) ||
+          array.IsValid(row);
+      if (is_valid) {
         ARROW_RETURN_NOT_OK(Append());
         const int64_t slot_length = offsets[row + 1] - offsets[row];
+        // Add together the inner StructArray offset to the Map/List offset
+        int64_t key_value_offset = array.child_data[0].offset + offsets[row];
         ARROW_RETURN_NOT_OK(key_builder_->AppendArraySlice(
-            *array.child_data[0]->child_data[0], offsets[row], slot_length));
+            array.child_data[0].child_data[0], key_value_offset, slot_length));
         ARROW_RETURN_NOT_OK(item_builder_->AppendArraySlice(
-            *array.child_data[0]->child_data[1], offsets[row], slot_length));
+            array.child_data[0].child_data[1], key_value_offset, slot_length));
       } else {
         ARROW_RETURN_NOT_OK(AppendNull());
       }
@@ -421,12 +441,12 @@ class ARROW_EXPORT FixedSizeListBuilder : public ArrayBuilder {
 
   Status AppendEmptyValues(int64_t length) final;
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset, int64_t length) final {
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset, int64_t length) final {
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     for (int64_t row = offset; row < offset + length; row++) {
       if (!validity || bit_util::GetBit(validity, array.offset + row)) {
         ARROW_RETURN_NOT_OK(value_builder_->AppendArraySlice(
-            *array.child_data[0], list_size_ * (array.offset + row), list_size_));
+            array.child_data[0], list_size_ * (array.offset + row), list_size_));
         ARROW_RETURN_NOT_OK(Append());
       } else {
         ARROW_RETURN_NOT_OK(AppendNull());
@@ -528,13 +548,13 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
     return Status::OK();
   }
 
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     for (int i = 0; static_cast<size_t>(i) < children_.size(); i++) {
-      ARROW_RETURN_NOT_OK(children_[i]->AppendArraySlice(*array.child_data[i],
+      ARROW_RETURN_NOT_OK(children_[i]->AppendArraySlice(array.child_data[i],
                                                          array.offset + offset, length));
     }
-    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0]->data() : NULLPTR;
+    const uint8_t* validity = array.MayHaveNulls() ? array.buffers[0].data : NULLPTR;
     ARROW_RETURN_NOT_OK(Reserve(length));
     UnsafeAppendToBitmap(validity, array.offset + offset, length);
     return Status::OK();
@@ -551,5 +571,7 @@ class ARROW_EXPORT StructBuilder : public ArrayBuilder {
  private:
   std::shared_ptr<DataType> type_;
 };
+
+/// @}
 
 }  // namespace arrow

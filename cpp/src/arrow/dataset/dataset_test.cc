@@ -17,14 +17,15 @@
 
 #include "arrow/dataset/dataset.h"
 
+#include <optional>
+
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/partition.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/filesystem/mockfs.h"
 #include "arrow/stl.h"
 #include "arrow/testing/generator.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 namespace dataset {
@@ -62,9 +63,13 @@ TEST_F(TestInMemoryDataset, ReplaceSchema) {
       schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
 
   // drop field
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  auto new_schema = schema({field("i32", int32())});
+  ASSERT_OK_AND_ASSIGN(auto new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // add field (will be materialized as null during projection)
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  new_schema = schema({field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // incompatible type
   ASSERT_RAISES(TypeError,
                 dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
@@ -107,6 +112,68 @@ TEST_F(TestInMemoryDataset, InMemoryFragment) {
   AssertSchemaEqual(batch->schema(), schema);
 }
 
+TEST_F(TestInMemoryDataset, HandlesDifferingSchemas) {
+  constexpr int64_t kBatchSize = 1024;
+
+  // These schemas can be merged
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch1 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  SetSchema({field("i32", int32())});
+  auto batch2 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  RecordBatchVector batches{batch1, batch2};
+
+  auto dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+
+  ASSERT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
+  ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+  ASSERT_EQ(*table->schema(), *schema_);
+  ASSERT_EQ(table->num_rows(), 2 * kBatchSize);
+
+  // These cannot be merged
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  batch1 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  SetSchema({field("i32", struct_({field("x", date32())}))});
+  batch2 = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  batches = RecordBatchVector({batch1, batch2});
+
+  dataset = std::make_shared<InMemoryDataset>(schema_, batches);
+
+  ASSERT_OK_AND_ASSIGN(scanner_builder, dataset->NewScan());
+  ASSERT_OK_AND_ASSIGN(scanner, scanner_builder->Finish());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      TypeError, testing::HasSubstr("fields had matching names but differing types"),
+      scanner->ToTable());
+}
+
+TEST_F(TestInMemoryDataset, GetFragmentsSync) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  AssertDatasetFragmentsEqual(reader.get(), dataset.get());
+}
+
+TEST_F(TestInMemoryDataset, GetFragmentsAsync) {
+  constexpr int64_t kBatchSize = 1024;
+  constexpr int64_t kNumberBatches = 16;
+
+  SetSchema({field("i32", int32()), field("f64", float64())});
+  auto batch = ConstantArrayGenerator::Zeroes(kBatchSize, schema_);
+  auto reader = ConstantArrayGenerator::Repeat(kNumberBatches, batch);
+
+  auto dataset = std::make_shared<InMemoryDataset>(
+      schema_, RecordBatchVector{static_cast<size_t>(kNumberBatches), batch});
+
+  AssertDatasetAsyncFragmentsEqual(reader.get(), dataset.get());
+}
+
 class TestUnionDataset : public DatasetFixtureMixin {};
 
 TEST_F(TestUnionDataset, ReplaceSchema) {
@@ -131,9 +198,13 @@ TEST_F(TestUnionDataset, ReplaceSchema) {
   AssertDatasetEquals(reader.get(), dataset.get());
 
   // drop field
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("i32", int32())})).status());
+  auto new_schema = schema({field("i32", int32())});
+  ASSERT_OK_AND_ASSIGN(auto new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // add nullable field (will be materialized as null during projection)
-  ASSERT_OK(dataset->ReplaceSchema(schema({field("str", utf8())})).status());
+  new_schema = schema({field("str", utf8())});
+  ASSERT_OK_AND_ASSIGN(new_dataset, dataset->ReplaceSchema(new_schema));
+  AssertDatasetHasSchema(new_dataset, new_schema);
   // incompatible type
   ASSERT_RAISES(TypeError,
                 dataset->ReplaceSchema(schema({field("i32", utf8())})).status());
@@ -443,7 +514,7 @@ inline std::shared_ptr<Schema> SchemaFromNames(const std::vector<std::string> na
 
 class TestSchemaUnification : public TestUnionDataset {
  public:
-  using i32 = util::optional<int32_t>;
+  using i32 = std::optional<int32_t>;
   using PathAndContent = std::vector<std::pair<std::string, std::string>>;
 
   void SetUp() override {
@@ -553,7 +624,7 @@ class TestSchemaUnification : public TestUnionDataset {
   std::shared_ptr<Dataset> dataset_;
 };
 
-using util::nullopt;
+using std::nullopt;
 
 TEST_F(TestSchemaUnification, SelectStar) {
   // This is a `SELECT * FROM dataset` where it ensures:

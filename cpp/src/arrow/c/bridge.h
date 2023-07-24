@@ -170,7 +170,7 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 ///
 /// @{
 
-/// \brief EXPERIMENTAL: Export C++ RecordBatchReader using the C stream interface.
+/// \brief Export C++ RecordBatchReader using the C stream interface.
 ///
 /// The resulting ArrowArrayStream struct keeps the record batch reader alive
 /// until its release callback is called by the consumer.
@@ -181,7 +181,7 @@ ARROW_EXPORT
 Status ExportRecordBatchReader(std::shared_ptr<RecordBatchReader> reader,
                                struct ArrowArrayStream* out);
 
-/// \brief EXPERIMENTAL: Import C++ RecordBatchReader from the C stream interface.
+/// \brief Import C++ RecordBatchReader from the C stream interface.
 ///
 /// The ArrowArrayStream struct has its contents moved to a private object
 /// held alive by the resulting record batch reader.

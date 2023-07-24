@@ -21,6 +21,17 @@ set -ex
 
 source_dir=${1}/csharp
 
+# Python and PyArrow are required for C Data Interface tests.
+if [ -z "${PYTHON}" ]; then
+  if type python3 > /dev/null 2>&1; then
+    export PYTHON=python3
+  else
+    export PYTHON=python
+  fi
+fi
+${PYTHON} -m pip install pyarrow find-libpython
+export PYTHONNET_PYDLL=$(${PYTHON} -m find_libpython)
+
 pushd ${source_dir}
 dotnet test
 for pdb in artifacts/Apache.Arrow/*/*/Apache.Arrow.pdb; do

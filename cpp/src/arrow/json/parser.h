@@ -37,7 +37,15 @@ class ResizableBuffer;
 namespace json {
 
 struct Kind {
-  enum type : uint8_t { kNull, kBoolean, kNumber, kString, kArray, kObject };
+  enum type : uint8_t {
+    kNull,
+    kBoolean,
+    kNumber,
+    kString,
+    kArray,
+    kObject,
+    kNumberOrString
+  };
 
   static const std::string& Name(Kind::type);
 

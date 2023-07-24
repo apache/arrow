@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build s390x
 // +build s390x
 
 package endian
@@ -22,4 +23,8 @@ import "encoding/binary"
 
 var Native = binary.BigEndian
 
-const IsBigEndian = true
+const (
+	IsBigEndian     = true
+	NativeEndian    = BigEndian
+	NonNativeEndian = LittleEndian
+)

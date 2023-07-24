@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/arrow/tensor"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/tensor"
 )
 
 // This example demonstrates how to build an array of int64 values using a builder and Append.
@@ -53,7 +53,7 @@ func Example_minimal() {
 	for i, v := range ints.Int64Values() {
 		fmt.Printf("ints[%d] = ", i)
 		if ints.IsNull(i) {
-			fmt.Println("(null)")
+			fmt.Println(array.NullValueStr)
 		} else {
 			fmt.Println(v)
 		}
@@ -97,7 +97,7 @@ func Example_fromMemory() {
 	for i := 0; i < n; i++ {
 		fmt.Printf("bools[%d] = ", i)
 		if bools.IsNull(i) {
-			fmt.Println("(null)")
+			fmt.Println(array.NullValueStr)
 		} else {
 			fmt.Printf("%t\n", bools.Value(i))
 		}
@@ -125,7 +125,8 @@ func Example_fromMemory() {
 
 // This example shows how to create a List array.
 // The resulting array should be:
-//  [[0, 1, 2], [], [3], [4, 5], [6, 7, 8], [], [9]]
+//
+//	[[0, 1, 2], [], [3], [4, 5], [6, 7, 8], [], [9]]
 func Example_listArray() {
 	pool := memory.NewGoAllocator()
 
@@ -207,7 +208,8 @@ func Example_listArray() {
 
 // This example shows how to create a FixedSizeList array.
 // The resulting array should be:
-//  [[0, 1, 2], (null), [3, 4, 5], [6, 7, 8], (null)]
+//
+//	[[0, 1, 2], (null), [3, 4, 5], [6, 7, 8], (null)]
 func Example_fixedSizeListArray() {
 	pool := memory.NewGoAllocator()
 
@@ -223,7 +225,6 @@ func Example_fixedSizeListArray() {
 	vb.Append(2)
 
 	lb.AppendNull()
-	vb.AppendValues([]int64{-1, -1, -1}, nil)
 
 	lb.Append(true)
 	vb.Append(3)
@@ -238,6 +239,7 @@ func Example_fixedSizeListArray() {
 	lb.AppendNull()
 
 	arr := lb.NewArray().(*array.FixedSizeList)
+	arr.DataType().(*arrow.FixedSizeListType).SetElemNullable(false)
 	defer arr.Release()
 
 	fmt.Printf("NullN()   = %d\n", arr.NullN())
@@ -248,13 +250,14 @@ func Example_fixedSizeListArray() {
 	// Output:
 	// NullN()   = 2
 	// Len()     = 5
-	// Type()    = fixed_size_list<item: int64, nullable>[3]
+	// Type()    = fixed_size_list<item: int64>[3]
 	// List      = [[0 1 2] (null) [3 4 5] [6 7 8] (null)]
 }
 
 // This example shows how to create a Struct array.
 // The resulting array should be:
-//  [{‘joe’, 1}, {null, 2}, null, {‘mark’, 4}]
+//
+//	[{‘joe’, 1}, {null, 2}, null, {‘mark’, 4}]
 func Example_structArray() {
 	pool := memory.NewGoAllocator()
 
@@ -295,6 +298,7 @@ func Example_structArray() {
 
 	fmt.Printf("NullN() = %d\n", arr.NullN())
 	fmt.Printf("Len()   = %d\n", arr.Len())
+	fmt.Printf("Type()    = %v\n", arr.DataType())
 
 	list := arr.Field(0).(*array.List)
 	offsets := list.Offsets()
@@ -328,6 +332,7 @@ func Example_structArray() {
 	// Output:
 	// NullN() = 1
 	// Len()   = 4
+	// Type()    = struct<f1: list<item: uint8, nullable>, f2: int32>
 	// Struct[0] = [[j, o, e], 1]
 	// Struct[1] = [[], 2]
 	// Struct[2] = (null)
@@ -336,10 +341,12 @@ func Example_structArray() {
 
 // This example shows how one can slice an array.
 // The initial (float64) array is:
-//  [1, 2, 3, (null), 4, 5]
+//
+//	[1, 2, 3, (null), 4, 5]
 //
 // and the sub-slice is:
-//  [3, (null), 4]
+//
+//	[3, (null), 4]
 func Example_float64Slice() {
 	pool := memory.NewGoAllocator()
 
@@ -509,7 +516,7 @@ func Example_recordReader() {
 	rec2 := b.NewRecord()
 	defer rec2.Release()
 
-	itr, err := array.NewRecordReader(schema, []array.Record{rec1, rec2})
+	itr, err := array.NewRecordReader(schema, []arrow.Record{rec1, rec2})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -558,7 +565,7 @@ func Example_table() {
 	rec2 := b.NewRecord()
 	defer rec2.Release()
 
-	tbl := array.NewTableFromRecords(schema, []array.Record{rec1, rec2})
+	tbl := array.NewTableFromRecords(schema, []arrow.Record{rec1, rec2})
 	defer tbl.Release()
 
 	tr := array.NewTableReader(tbl, 5)
@@ -586,7 +593,8 @@ func Example_table() {
 
 // This example demonstrates how to create a Map Array.
 // The resulting array should be:
-//   [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
+//
+//	[{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
 func Example_mapArray() {
 	pool := memory.NewGoAllocator()
 	mb := array.NewMapBuilder(pool, arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int16, false)
@@ -632,7 +640,7 @@ func Example_mapArray() {
 			if itemArr.IsValid(int(j)) {
 				fmt.Printf("%v", itemArr.Value(int(j)))
 			} else {
-				fmt.Printf("(null)")
+				fmt.Printf(array.NullValueStr)
 			}
 		}
 		fmt.Printf("}\n")
@@ -646,4 +654,180 @@ func Example_mapArray() {
 	// Map[1] = (null)
 	// Map[2] = {ab => (null), cd => 2, ef => 5, gh => 1}
 	// Map    = [{["ab" "cd" "ef" "gh"] [1 2 3 4]} (null) {["ab" "cd" "ef" "gh"] [(null) 2 5 1]}]
+}
+
+func Example_sparseUnionArray() {
+	pool := memory.NewGoAllocator()
+
+	sparseBuilder := array.NewEmptySparseUnionBuilder(pool)
+	defer sparseBuilder.Release()
+
+	i8Builder := array.NewInt8Builder(pool)
+	defer i8Builder.Release()
+	i8Code := sparseBuilder.AppendChild(i8Builder, "i8")
+
+	strBuilder := array.NewStringBuilder(pool)
+	defer strBuilder.Release()
+	strCode := sparseBuilder.AppendChild(strBuilder, "str")
+
+	f64Builder := array.NewFloat64Builder(pool)
+	defer f64Builder.Release()
+	f64Code := sparseBuilder.AppendChild(f64Builder, "f64")
+
+	values := []interface{}{int8(33), "abc", float64(1.0), float64(-1.0), nil,
+		"", int8(10), "def", int8(-10), float64(0.5)}
+
+	for _, v := range values {
+		switch v := v.(type) {
+		case int8:
+			sparseBuilder.Append(i8Code)
+			i8Builder.Append(v)
+			strBuilder.AppendEmptyValue()
+			f64Builder.AppendEmptyValue()
+		case string:
+			sparseBuilder.Append(strCode)
+			i8Builder.AppendEmptyValue()
+			strBuilder.Append(v)
+			f64Builder.AppendEmptyValue()
+		case float64:
+			sparseBuilder.Append(f64Code)
+			i8Builder.AppendEmptyValue()
+			strBuilder.AppendEmptyValue()
+			f64Builder.Append(v)
+		case nil:
+			sparseBuilder.AppendNull()
+		}
+	}
+
+	arr := sparseBuilder.NewSparseUnionArray()
+	defer arr.Release()
+
+	fmt.Printf("Len() = %d\n", arr.Len())
+	fields := arr.UnionType().Fields()
+	for i := 0; i < arr.Len(); i++ {
+		child := arr.ChildID(i)
+		data := arr.Field(child)
+		field := fields[child]
+
+		if data.IsNull(i) {
+			fmt.Printf("[%d]   = (null)\n", i)
+			continue
+		}
+		var v interface{}
+		switch varr := data.(type) {
+		case *array.Int8:
+			v = varr.Value(i)
+		case *array.String:
+			v = varr.Value(i)
+		case *array.Float64:
+			v = varr.Value(i)
+		}
+		fmt.Printf("[%d]   = %#5v {%s}\n", i, v, field.Name)
+	}
+
+	fmt.Printf("i8:  %s\n", arr.Field(0))
+	fmt.Printf("str: %s\n", arr.Field(1))
+	fmt.Printf("f64: %s\n", arr.Field(2))
+
+	// Output:
+	// Len() = 10
+	// [0]   =    33 {i8}
+	// [1]   = "abc" {str}
+	// [2]   =     1 {f64}
+	// [3]   =    -1 {f64}
+	// [4]   = (null)
+	// [5]   =    "" {str}
+	// [6]   =    10 {i8}
+	// [7]   = "def" {str}
+	// [8]   =   -10 {i8}
+	// [9]   =   0.5 {f64}
+	// i8:  [33 0 0 0 (null) 0 10 0 -10 0]
+	// str: ["" "abc" "" "" "" "" "" "def" "" ""]
+	// f64: [0 0 1 -1 0 0 0 0 0 0.5]
+}
+
+func Example_denseUnionArray() {
+	pool := memory.NewGoAllocator()
+
+	denseBuilder := array.NewEmptyDenseUnionBuilder(pool)
+	defer denseBuilder.Release()
+
+	i8Builder := array.NewInt8Builder(pool)
+	defer i8Builder.Release()
+	i8Code := denseBuilder.AppendChild(i8Builder, "i8")
+
+	strBuilder := array.NewStringBuilder(pool)
+	defer strBuilder.Release()
+	strCode := denseBuilder.AppendChild(strBuilder, "str")
+
+	f64Builder := array.NewFloat64Builder(pool)
+	defer f64Builder.Release()
+	f64Code := denseBuilder.AppendChild(f64Builder, "f64")
+
+	values := []interface{}{int8(33), "abc", float64(1.0), float64(-1.0), nil,
+		"", int8(10), "def", int8(-10), float64(0.5)}
+
+	for _, v := range values {
+		switch v := v.(type) {
+		case int8:
+			denseBuilder.Append(i8Code)
+			i8Builder.Append(v)
+		case string:
+			denseBuilder.Append(strCode)
+			strBuilder.Append(v)
+		case float64:
+			denseBuilder.Append(f64Code)
+			f64Builder.Append(v)
+		case nil:
+			denseBuilder.AppendNull()
+		}
+	}
+
+	arr := denseBuilder.NewDenseUnionArray()
+	defer arr.Release()
+
+	fmt.Printf("Len() = %d\n", arr.Len())
+	fields := arr.UnionType().Fields()
+	offsets := arr.RawValueOffsets()
+	for i := 0; i < arr.Len(); i++ {
+		child := arr.ChildID(i)
+		data := arr.Field(child)
+		field := fields[child]
+
+		idx := int(offsets[i])
+		if data.IsNull(idx) {
+			fmt.Printf("[%d]   = (null)\n", i)
+			continue
+		}
+		var v interface{}
+		switch varr := data.(type) {
+		case *array.Int8:
+			v = varr.Value(idx)
+		case *array.String:
+			v = varr.Value(idx)
+		case *array.Float64:
+			v = varr.Value(idx)
+		}
+		fmt.Printf("[%d]   = %#5v {%s}\n", i, v, field.Name)
+	}
+
+	fmt.Printf("i8:  %s\n", arr.Field(0))
+	fmt.Printf("str: %s\n", arr.Field(1))
+	fmt.Printf("f64: %s\n", arr.Field(2))
+
+	// Output:
+	// Len() = 10
+	// [0]   =    33 {i8}
+	// [1]   = "abc" {str}
+	// [2]   =     1 {f64}
+	// [3]   =    -1 {f64}
+	// [4]   = (null)
+	// [5]   =    "" {str}
+	// [6]   =    10 {i8}
+	// [7]   = "def" {str}
+	// [8]   =   -10 {i8}
+	// [9]   =   0.5 {f64}
+	// i8:  [33 (null) 10 -10]
+	// str: ["abc" "" "def"]
+	// f64: [1 -1 0.5]
 }

@@ -333,4 +333,16 @@ struct _GArrowS3FileSystemClass
 };
 
 
+#define GARROW_TYPE_GCS_FILE_SYSTEM (garrow_gcs_file_system_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowGCSFileSystem,
+                         garrow_gcs_file_system,
+                         GARROW,
+                         GCS_FILE_SYSTEM,
+                         GArrowFileSystem)
+struct _GArrowGCSFileSystemClass
+{
+  GArrowFileSystemClass parent_class;
+};
+
+
 G_END_DECLS

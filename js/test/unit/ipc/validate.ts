@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import '../../jest-extensions';
+import '../../jest-extensions.js';
 
 import {
-    Schema,
     RecordBatch,
-    RecordBatchReader,
     RecordBatchFileReader,
+    RecordBatchReader,
     RecordBatchStreamReader,
+    Schema
 } from 'apache-arrow';
 
 export function validateRecordBatchReader<T extends RecordBatchFileReader | RecordBatchStreamReader>(type: 'json' | 'file' | 'stream', numBatches: number, r: T) {

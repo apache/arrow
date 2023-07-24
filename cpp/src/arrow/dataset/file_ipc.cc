@@ -30,6 +30,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 
 namespace arrow {
 
@@ -62,23 +63,38 @@ static inline Result<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReader(
 static inline Future<std::shared_ptr<ipc::RecordBatchFileReader>> OpenReaderAsync(
     const FileSource& source,
     const ipc::IpcReadOptions& options = default_read_options()) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("arrow::dataset::IpcFileFormat::OpenReaderAsync");
+#endif
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
   auto path = source.path();
   return ipc::RecordBatchFileReader::OpenAsync(std::move(input), options)
-      .Then([](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
-                -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> { return reader; },
-            [path](const Status& status)
-                -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
-              return status.WithMessage("Could not open IPC input source '", path,
-                                        "': ", status.message());
-            });
+      .Then(
+          [=](const std::shared_ptr<ipc::RecordBatchFileReader>& reader)
+              -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+            span->End();
+#endif
+            return reader;
+          },
+          [=](const Status& status)
+              -> Result<std::shared_ptr<ipc::RecordBatchFileReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+            arrow::internal::tracing::MarkSpan(status, span.get());
+            span->End();
+#endif
+            return status.WithMessage("Could not open IPC input source '", path,
+                                      "': ", status.message());
+          });
 }
 
 static inline Result<std::vector<int>> GetIncludedFields(
-    const Schema& schema, const std::vector<std::string>& materialized_fields) {
+    const Schema& schema, const std::vector<FieldRef>& materialized_fields) {
   std::vector<int> included_fields;
 
-  for (FieldRef ref : materialized_fields) {
+  for (const auto& ref : materialized_fields) {
     ARROW_ASSIGN_OR_RAISE(auto match, ref.FindOneOrNone(schema));
     if (match.indices().empty()) continue;
 
@@ -108,87 +124,7 @@ static inline Result<ipc::IpcReadOptions> GetReadOptions(
   return options;
 }
 
-/// \brief A ScanTask backed by an Ipc file.
-class IpcScanTask : public ScanTask {
- public:
-  IpcScanTask(std::shared_ptr<FileFragment> fragment,
-              std::shared_ptr<ScanOptions> options)
-      : ScanTask(std::move(options), fragment), source_(fragment->source()) {}
-
-  Result<RecordBatchIterator> Execute() override {
-    struct Impl {
-      static Result<RecordBatchIterator> Make(const FileSource& source,
-                                              const FileFormat& format,
-                                              const ScanOptions& scan_options) {
-        ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
-        ARROW_ASSIGN_OR_RAISE(auto options,
-                              GetReadOptions(*reader->schema(), format, scan_options));
-        ARROW_ASSIGN_OR_RAISE(reader, OpenReader(source, options));
-        return RecordBatchIterator(
-            Impl{std::move(reader), scan_options.batch_size, nullptr, 0});
-      }
-
-      Result<std::shared_ptr<RecordBatch>> Next() {
-        if (leftover_) {
-          if (leftover_->num_rows() > batch_size) {
-            auto chunk = leftover_->Slice(0, batch_size);
-            leftover_ = leftover_->Slice(batch_size);
-            return chunk;
-          }
-          return std::move(leftover_);
-        }
-        if (i_ == reader_->num_record_batches()) {
-          return nullptr;
-        }
-
-        ARROW_ASSIGN_OR_RAISE(auto batch, reader_->ReadRecordBatch(i_++));
-        if (batch->num_rows() > batch_size) {
-          leftover_ = batch->Slice(batch_size);
-          return batch->Slice(0, batch_size);
-        }
-        return batch;
-      }
-
-      std::shared_ptr<ipc::RecordBatchFileReader> reader_;
-      const int64_t batch_size;
-      std::shared_ptr<RecordBatch> leftover_;
-      int i_;
-    };
-
-    return Impl::Make(source_, *checked_pointer_cast<FileFragment>(fragment_)->format(),
-                      *options_);
-  }
-
- private:
-  FileSource source_;
-};
-
-class IpcScanTaskIterator {
- public:
-  static Result<ScanTaskIterator> Make(std::shared_ptr<ScanOptions> options,
-                                       std::shared_ptr<FileFragment> fragment) {
-    return ScanTaskIterator(IpcScanTaskIterator(std::move(options), std::move(fragment)));
-  }
-
-  Result<std::shared_ptr<ScanTask>> Next() {
-    if (once_) {
-      // Iteration is done.
-      return nullptr;
-    }
-
-    once_ = true;
-    return std::shared_ptr<ScanTask>(new IpcScanTask(fragment_, options_));
-  }
-
- private:
-  IpcScanTaskIterator(std::shared_ptr<ScanOptions> options,
-                      std::shared_ptr<FileFragment> fragment)
-      : options_(std::move(options)), fragment_(std::move(fragment)) {}
-
-  bool once_ = false;
-  std::shared_ptr<ScanOptions> options_;
-  std::shared_ptr<FileFragment> fragment_;
-};
+IpcFileFormat::IpcFileFormat() : FileFormat(std::make_shared<IpcFragmentScanOptions>()) {}
 
 Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
   RETURN_NOT_OK(source.Open().status());
@@ -198,12 +134,6 @@ Result<bool> IpcFileFormat::IsSupported(const FileSource& source) const {
 Result<std::shared_ptr<Schema>> IpcFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(source));
   return reader->schema();
-}
-
-Result<ScanTaskIterator> IpcFileFormat::ScanFile(
-    const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& fragment) const {
-  return IpcScanTaskIterator::Make(options, fragment);
 }
 
 Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
@@ -239,21 +169,26 @@ Result<RecordBatchGenerator> IpcFileFormat::ScanBatchesAsync(
       ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(
                                            /*coalesce=*/false, options->io_context));
     }
+    WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
+        generator, "arrow::dataset::IpcFileFormat::ScanBatchesAsync::Next");
+    if (readahead_level == 0) {
+      return MakeChunkedBatchGenerator(std::move(generator), options->batch_size);
+    }
     auto batch_generator = MakeReadaheadGenerator(std::move(generator), readahead_level);
     return MakeChunkedBatchGenerator(std::move(batch_generator), options->batch_size);
   };
   return MakeFromFuture(open_reader.Then(reopen_reader).Then(open_generator));
 }
 
-Future<util::optional<int64_t>> IpcFileFormat::CountRows(
+Future<std::optional<int64_t>> IpcFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<IpcFileFormat>(shared_from_this());
   return DeferNotOk(options->io_context.executor()->Submit(
-      [self, file]() -> Result<util::optional<int64_t>> {
+      [self, file]() -> Result<std::optional<int64_t>> {
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenReader(file->source()));
         return reader->CountRows();
       }));
@@ -304,7 +239,10 @@ Status IpcFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status IpcFileWriter::FinishInternal() { return batch_writer_->Close(); }
+Future<> IpcFileWriter::FinishInternal() {
+  return DeferNotOk(destination_locator_.filesystem->io_context().executor()->Submit(
+      [this]() { return batch_writer_->Close(); }));
+}
 
 }  // namespace dataset
 }  // namespace arrow

@@ -17,10 +17,11 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/array.h>
+#include <arrow/array/concatenate.h>
+#include <arrow/record_batch.h>
 #include <arrow/util/bitmap_reader.h>
+#include <arrow/util/byte_size.h>
 
 namespace cpp11 {
 
@@ -37,6 +38,10 @@ const char* r6_class_name<arrow::Array>::get(const std::shared_ptr<arrow::Array>
       return "LargeListArray";
     case arrow::Type::FIXED_SIZE_LIST:
       return "FixedSizeListArray";
+    case arrow::Type::MAP:
+      return "MapArray";
+    case arrow::Type::EXTENSION:
+      return "ExtensionArray";
 
     default:
       return "Array";
@@ -65,7 +70,10 @@ void arrow::r::validate_slice_length(R_xlen_t length, int64_t available) {
     cpp11::stop("Slice 'length' cannot be negative");
   }
   if (length > available) {
-    cpp11::warning("Slice 'length' greater than available length");
+    // For an unknown reason, cpp11::warning() crashes here; however, this
+    // should throw an exception if Rf_warning() jumps, so we need
+    // cpp11::safe[]().
+    cpp11::safe[Rf_warning]("Slice 'length' greater than available length");
   }
 }
 
@@ -106,7 +114,9 @@ bool Array__IsValid(const std::shared_ptr<arrow::Array>& x, R_xlen_t i) {
 }
 
 // [[arrow::export]]
-int Array__length(const std::shared_ptr<arrow::Array>& x) { return x->length(); }
+r_vec_size Array__length(const std::shared_ptr<arrow::Array>& x) {
+  return r_vec_size(x->length());
+}
 
 // [[arrow::export]]
 int Array__offset(const std::shared_ptr<arrow::Array>& x) { return x->offset(); }
@@ -205,6 +215,13 @@ std::shared_ptr<arrow::Array> StructArray__GetFieldByName(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::StructArray> StructArray__from_RecordBatch(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return ValueOrStop(
+      arrow::StructArray::Make(batch->columns(), batch->schema()->field_names()));
+}
+
+// [[arrow::export]]
 cpp11::list StructArray__Flatten(const std::shared_ptr<arrow::StructArray>& array) {
   return arrow::r::to_r_list(ValueOrStop(array->Flatten()));
 }
@@ -240,15 +257,15 @@ int32_t ListArray__value_length(const std::shared_ptr<arrow::ListArray>& array,
 }
 
 // [[arrow::export]]
-int64_t LargeListArray__value_length(const std::shared_ptr<arrow::LargeListArray>& array,
-                                     int64_t i) {
-  return array->value_length(i);
+r_vec_size LargeListArray__value_length(
+    const std::shared_ptr<arrow::LargeListArray>& array, int64_t i) {
+  return r_vec_size(array->value_length(i));
 }
 
 // [[arrow::export]]
-int64_t FixedSizeListArray__value_length(
+r_vec_size FixedSizeListArray__value_length(
     const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
-  return array->value_length(i);
+  return r_vec_size(array->value_length(i));
 }
 
 // [[arrow::export]]
@@ -258,15 +275,15 @@ int32_t ListArray__value_offset(const std::shared_ptr<arrow::ListArray>& array,
 }
 
 // [[arrow::export]]
-int64_t LargeListArray__value_offset(const std::shared_ptr<arrow::LargeListArray>& array,
-                                     int64_t i) {
-  return array->value_offset(i);
+r_vec_size LargeListArray__value_offset(
+    const std::shared_ptr<arrow::LargeListArray>& array, int64_t i) {
+  return r_vec_size(array->value_offset(i));
 }
 
 // [[arrow::export]]
-int64_t FixedSizeListArray__value_offset(
+r_vec_size FixedSizeListArray__value_offset(
     const std::shared_ptr<arrow::FixedSizeListArray>& array, int64_t i) {
-  return array->value_offset(i);
+  return r_vec_size(array->value_offset(i));
 }
 
 // [[arrow::export]]
@@ -284,8 +301,49 @@ cpp11::writable::integers LargeListArray__raw_value_offsets(
 }
 
 // [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__keys(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return array->keys();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__items(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return array->items();
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__keys_nested(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return ValueOrStop(arrow::ListArray::FromArrays(*(array->offsets()), *(array->keys())));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> MapArray__items_nested(
+    const std::shared_ptr<arrow::MapArray>& array) {
+  return ValueOrStop(
+      arrow::ListArray::FromArrays(*(array->offsets()), *(array->items())));
+}
+
+// [[arrow::export]]
 bool Array__Same(const std::shared_ptr<arrow::Array>& x,
                  const std::shared_ptr<arrow::Array>& y) {
   return x.get() == y.get();
 }
-#endif
+
+// [[arrow::export]]
+r_vec_size Array__ReferencedBufferSize(const std::shared_ptr<arrow::Array>& x) {
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*x)));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Array> arrow__Concatenate(cpp11::list dots) {
+  arrow::ArrayVector vector;
+  vector.reserve(dots.size());
+
+  for (const cpp11::sexp& item : dots) {
+    vector.push_back(cpp11::as_cpp<std::shared_ptr<arrow::Array>>(item));
+  }
+
+  return ValueOrStop(arrow::Concatenate(vector));
+}

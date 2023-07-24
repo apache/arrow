@@ -22,10 +22,10 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
-#include "arrow/util/optional.h"
 #include "parquet/column_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/stream_writer.h"
@@ -44,9 +44,9 @@ namespace parquet {
 /// Required and optional fields are supported:
 /// - Required fields are read using operator>>(T)
 /// - Optional fields are read with
-///   operator>>(arrow::util::optional<T>)
+///   operator>>(std::optional<T>)
 ///
-/// Note that operator>>(arrow::util::optional<T>) can be used to read
+/// Note that operator>>(std::optional<T>) can be used to read
 /// required fields.
 ///
 /// Similarly operator>>(T) can be used to read optional fields.
@@ -58,7 +58,7 @@ namespace parquet {
 class PARQUET_EXPORT StreamReader {
  public:
   template <typename T>
-  using optional = ::arrow::util::optional<T>;
+  using optional = ::std::optional<T>;
 
   // N.B. Default constructed objects are not usable.  This
   //      constructor is provided so that the object may be move
@@ -134,6 +134,8 @@ class PARQUET_EXPORT StreamReader {
 
   StreamReader& operator>>(std::string& v);
 
+  StreamReader& operator>>(::arrow::Decimal128& v);
+
   // Input operators for optional fields.
 
   StreamReader& operator>>(optional<bool>& v);
@@ -165,6 +167,8 @@ class PARQUET_EXPORT StreamReader {
   StreamReader& operator>>(optional<char>& v);
 
   StreamReader& operator>>(optional<std::string>& v);
+
+  StreamReader& operator>>(optional<::arrow::Decimal128>& v);
 
   template <std::size_t N>
   StreamReader& operator>>(optional<std::array<char, N>>& v) {

@@ -17,14 +17,15 @@
 package array
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 type Option func(config)
@@ -72,7 +73,7 @@ type JSONReader struct {
 	bldr *RecordBuilder
 
 	refs int64
-	cur  Record
+	cur  arrow.Record
 	err  error
 
 	chunk int
@@ -122,7 +123,7 @@ func (r *JSONReader) Schema() *arrow.Schema { return r.schema }
 
 // Record returns the last read in record. The returned record is only valid
 // until the next call to Next unless Retain is called on the record itself.
-func (r *JSONReader) Record() Record { return r.cur }
+func (r *JSONReader) Record() arrow.Record { return r.cur }
 
 func (r *JSONReader) Retain() {
 	atomic.AddInt64(&r.refs, 1)
@@ -159,7 +160,7 @@ func (r *JSONReader) readNext() bool {
 	r.err = r.r.Decode(r.bldr)
 	if r.err != nil {
 		r.done = true
-		if r.err == io.EOF {
+		if errors.Is(r.err, io.EOF) {
 			r.err = nil
 		}
 		return false

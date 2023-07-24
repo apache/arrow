@@ -24,6 +24,11 @@
 G_BEGIN_DECLS
 
 
+typedef void(*GAFlightHeaderFunc)(const gchar *name,
+                                  const gchar *value,
+                                  gpointer  user_data);
+
+
 #define GAFLIGHT_TYPE_CRITERIA (gaflight_criteria_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightCriteria,
                          gaflight_criteria,

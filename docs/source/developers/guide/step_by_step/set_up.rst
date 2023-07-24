@@ -64,6 +64,8 @@ a username and password each time you execute a git command.
 Get the source code
 ===================
 
+.. _fork-repo-guide:
+
 Fork the repository
 -------------------
 
@@ -76,7 +78,7 @@ in your own GitHub account.
 
 2. Press Fork in the top right corner.
 
-   .. figure:: github_fork.jpeg
+   .. figure:: ../../images/github_fork.jpeg
       :scale: 50 %
       :alt: Fork the Apache Arrow repository on GitHub.
 

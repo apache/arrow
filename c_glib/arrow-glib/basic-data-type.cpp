@@ -58,6 +58,9 @@ G_BEGIN_DECLS
  *
  * #GArrowUInt64DataType is a class for the 64-bit unsigned integer data type.
  *
+ * #GArrowHalfFloatDataType is a class for the 16-bit floating point
+ * data type.
+ *
  * #GArrowFloatDataType is a class for the 32-bit floating point data
  * type.
  *
@@ -294,7 +297,8 @@ gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  return g_strdup(arrow_data_type->ToString().c_str());
+  const auto string = arrow_data_type->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -324,7 +328,8 @@ gchar *
 garrow_data_type_get_name(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  return g_strdup(arrow_data_type->name().c_str());
+  const auto name = arrow_data_type->name();
+  return g_strdup(name.c_str());
 }
 
 
@@ -738,6 +743,39 @@ garrow_floating_point_data_type_init(GArrowFloatingPointDataType *object)
 static void
 garrow_floating_point_data_type_class_init(GArrowFloatingPointDataTypeClass *klass)
 {
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatDataType,
+              garrow_half_float_data_type,
+              GARROW_TYPE_FLOATING_POINT_DATA_TYPE)
+
+static void
+garrow_half_float_data_type_init(GArrowHalfFloatDataType *object)
+{
+}
+
+static void
+garrow_half_float_data_type_class_init(GArrowHalfFloatDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_data_type_new:
+ *
+ * Returns: The newly created half float data type.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatDataType *
+garrow_half_float_data_type_new(void)
+{
+  auto arrow_data_type = arrow::float16();
+  auto data_type =
+    GARROW_HALF_FLOAT_DATA_TYPE(g_object_new(GARROW_TYPE_HALF_FLOAT_DATA_TYPE,
+                                             "data-type", &arrow_data_type,
+                                             NULL));
+  return data_type;
 }
 
 
@@ -1734,7 +1772,8 @@ garrow_extension_data_type_get_extension_name(GArrowExtensionDataType *data_type
   auto arrow_data_type =
     std::static_pointer_cast<arrow::ExtensionType>(
       garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
-  return g_strdup(arrow_data_type->extension_name().c_str());
+  const auto name = arrow_data_type->extension_name();
+  return g_strdup(name.c_str());
 }
 
 /**
@@ -2114,6 +2153,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::INT64:
     type = GARROW_TYPE_INT64_DATA_TYPE;
     break;
+  case arrow::Type::type::HALF_FLOAT:
+    type = GARROW_TYPE_HALF_FLOAT_DATA_TYPE;
+    break;
   case arrow::Type::type::FLOAT:
     type = GARROW_TYPE_FLOAT_DATA_TYPE;
     break;
@@ -2177,6 +2219,15 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
   case arrow::Type::type::DECIMAL256:
     type = GARROW_TYPE_DECIMAL256_DATA_TYPE;
     break;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    type = GARROW_TYPE_MONTH_INTERVAL_DATA_TYPE;
+    break;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    type = GARROW_TYPE_DAY_TIME_INTERVAL_DATA_TYPE;
+    break;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE;
+    break;
   case arrow::Type::type::EXTENSION:
     {
       auto g_extension_data_type =
@@ -2188,6 +2239,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
       }
     }
     type = GARROW_TYPE_EXTENSION_DATA_TYPE;
+    break;
+  case arrow::Type::type::RUN_END_ENCODED:
+    type = GARROW_TYPE_RUN_END_ENCODED_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

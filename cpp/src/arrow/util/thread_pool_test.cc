@@ -16,7 +16,7 @@
 // under the License.
 
 #ifndef _WIN32
-#include <sys/wait.h>
+#include <sys/types.h>
 #include <unistd.h>
 #endif
 
@@ -25,6 +25,7 @@
 #include <cstdlib>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -32,10 +33,12 @@
 #include <gtest/gtest.h>
 
 #include "arrow/status.h"
+#include "arrow/testing/async_test_util.h"
 #include "arrow/testing/executor_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
@@ -97,7 +100,8 @@ class AddTester {
 
   void SpawnTasks(ThreadPool* pool, AddTaskFunc add_func) {
     for (int i = 0; i < nadds_; ++i) {
-      ASSERT_OK(pool->Spawn([=] { add_func(xs_[i], ys_[i], &outs_[i]); }, stop_token_));
+      ASSERT_OK(pool->Spawn([this, add_func, i] { add_func(xs_[i], ys_[i], &outs_[i]); },
+                            stop_token_));
     }
   }
 
@@ -258,6 +262,189 @@ TEST_P(TestRunSynchronously, PropagatedError) {
 
 INSTANTIATE_TEST_SUITE_P(TestRunSynchronously, TestRunSynchronously,
                          ::testing::Values(false, true));
+
+TEST(SerialExecutor, AsyncGenerator) {
+  std::vector<TestInt> values{1, 2, 3, 4, 5};
+  auto source = util::SlowdownABit(util::AsyncVectorIt(values));
+  Iterator<TestInt> iter =
+      SerialExecutor::IterateGenerator<TestInt>([&source](Executor* executor) {
+        return MakeMappedGenerator(source, [executor](const TestInt& ti) {
+          return DeferNotOk(executor->Submit([ti] { return ti; }));
+        });
+      });
+  ASSERT_OK_AND_ASSIGN(auto vec, iter.ToVector());
+  ASSERT_EQ(vec, values);
+}
+
+TEST(SerialExecutor, AsyncGeneratorWithFollowUp) {
+  // Sometimes a task will generate follow-up tasks.  These should be run
+  // before the next task is started
+  bool follow_up_ran = false;
+  bool first = true;
+  Iterator<TestInt> iter =
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
+        return [=, &first, &follow_up_ran]() -> Future<TestInt> {
+          if (first) {
+            first = false;
+            Future<TestInt> item =
+                DeferNotOk(executor->Submit([] { return TestInt(0); }));
+            RETURN_NOT_OK(executor->Spawn([&] { follow_up_ran = true; }));
+            return item;
+          }
+          return DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
+        };
+      });
+  ASSERT_FALSE(follow_up_ran);
+  ASSERT_OK_AND_EQ(TestInt(0), iter.Next());
+  ASSERT_FALSE(follow_up_ran);
+  ASSERT_OK_AND_EQ(IterationEnd<TestInt>(), iter.Next());
+  ASSERT_TRUE(follow_up_ran);
+}
+
+TEST(SerialExecutor, AsyncGeneratorWithAsyncFollowUp) {
+  // Simulates a situation where a user calls into the async generator, tasks (e.g. I/O
+  // readahead tasks) are spawned onto the I/O threadpool, the user gets a result, and
+  // then the I/O readahead tasks are completed while there is no calling thread in the
+  // async generator to hand the task off to (it should be queued up)
+  bool follow_up_ran = false;
+  bool first = true;
+  Executor* captured_executor = nullptr;
+  Iterator<TestInt> iter =
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
+        return [=, &first, &captured_executor]() -> Future<TestInt> {
+          if (first) {
+            captured_executor = executor;
+            first = false;
+            return DeferNotOk(executor->Submit([] {
+              // I/O tasks would be scheduled at this point
+              return TestInt(0);
+            }));
+          }
+          return DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
+        };
+      });
+  ASSERT_FALSE(follow_up_ran);
+  ASSERT_OK_AND_EQ(TestInt(0), iter.Next());
+  // I/O task completes and has reference to executor to submit continuation
+  ASSERT_OK(captured_executor->Spawn([&] { follow_up_ran = true; }));
+  // Follow-up task can't run right now because there is no thread in the executor
+  SleepABit();
+  ASSERT_FALSE(follow_up_ran);
+  // Follow-up should run as part of retrieving the next item
+  ASSERT_OK_AND_EQ(IterationEnd<TestInt>(), iter.Next());
+  ASSERT_TRUE(follow_up_ran);
+}
+
+TEST(SerialExecutor, AsyncGeneratorWithCleanup) {
+  // Test the case where tasks are added to the executor after the task that
+  // marks the final future complete (i.e. the terminal item).  These tasks
+  // must run before the terminal item is delivered from the iterator.
+  bool follow_up_ran = false;
+  Iterator<TestInt> iter =
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
+        return [=, &follow_up_ran]() -> Future<TestInt> {
+          Future<TestInt> end =
+              DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
+          RETURN_NOT_OK(executor->Spawn([&] { follow_up_ran = true; }));
+          return end;
+        };
+      });
+  ASSERT_FALSE(follow_up_ran);
+  ASSERT_OK_AND_EQ(IterationEnd<TestInt>(), iter.Next());
+  ASSERT_TRUE(follow_up_ran);
+}
+
+TEST(SerialExecutor, AbandonIteratorWithCleanup) {
+  // If we abandon an iterator we still need to drain all remaining tasks
+  bool follow_up_ran = false;
+  bool first = true;
+  {
+    Iterator<TestInt> iter =
+        SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
+          return [=, &first, &follow_up_ran]() -> Future<TestInt> {
+            if (first) {
+              first = false;
+              Future<TestInt> item =
+                  DeferNotOk(executor->Submit([] { return TestInt(0); }));
+              RETURN_NOT_OK(executor->Spawn([&] { follow_up_ran = true; }));
+              return item;
+            }
+            return DeferNotOk(executor->Submit([] { return IterationEnd<TestInt>(); }));
+          };
+        });
+    ASSERT_FALSE(follow_up_ran);
+    ASSERT_OK_AND_EQ(TestInt(0), iter.Next());
+    // At this point the iterator still has one remaining cleanup task
+    ASSERT_FALSE(follow_up_ran);
+  }
+  ASSERT_TRUE(follow_up_ran);
+}
+
+TEST(SerialExecutor, FailingIteratorWithCleanup) {
+  // If an iterator hits an error we should still generally run any remaining tasks as
+  // they might be cleanup tasks.
+  bool follow_up_ran = false;
+  Iterator<TestInt> iter =
+      SerialExecutor::IterateGenerator<TestInt>([&](Executor* executor) {
+        return [=, &follow_up_ran]() -> Future<TestInt> {
+          Future<TestInt> end = DeferNotOk(executor->Submit(
+              []() -> Result<TestInt> { return Status::Invalid("XYZ"); }));
+          RETURN_NOT_OK(executor->Spawn([&] { follow_up_ran = true; }));
+          return end;
+        };
+      });
+  ASSERT_FALSE(follow_up_ran);
+  ASSERT_RAISES(Invalid, iter.Next());
+  ASSERT_TRUE(follow_up_ran);
+}
+
+TEST(SerialExecutor, IterateSynchronously) {
+  for (bool use_threads : {false, true}) {
+    FnOnce<Result<AsyncGenerator<TestInt>>(Executor*)> factory = [](Executor* executor) {
+      AsyncGenerator<TestInt> vector_gen = MakeVectorGenerator<TestInt>({1, 2, 3});
+      return MakeTransferredGenerator(vector_gen, executor);
+    };
+
+    Iterator<TestInt> my_it =
+        IterateSynchronously<TestInt>(std::move(factory), use_threads);
+    ASSERT_EQ(TestInt(1), *my_it.Next());
+    ASSERT_EQ(TestInt(2), *my_it.Next());
+    ASSERT_EQ(TestInt(3), *my_it.Next());
+    AssertIteratorExhausted(my_it);
+  }
+}
+
+struct MockGeneratorFactory {
+  explicit MockGeneratorFactory(Executor** captured_executor)
+      : captured_executor(captured_executor) {}
+
+  Result<AsyncGenerator<TestInt>> operator()(Executor* executor) {
+    *captured_executor = executor;
+    return MakeEmptyGenerator<TestInt>();
+  }
+  Executor** captured_executor;
+};
+
+TEST(SerialExecutor, IterateSynchronouslyFactoryFails) {
+  for (bool use_threads : {false, true}) {
+    FnOnce<Result<AsyncGenerator<TestInt>>(Executor*)> factory = [](Executor* executor) {
+      return Status::Invalid("XYZ");
+    };
+
+    Iterator<TestInt> my_it =
+        IterateSynchronously<TestInt>(std::move(factory), use_threads);
+    ASSERT_RAISES(Invalid, my_it.Next());
+  }
+}
+
+TEST(SerialExecutor, IterateSynchronouslyUsesThreadsIfRequested) {
+  Executor* captured_executor;
+  MockGeneratorFactory gen_factory(&captured_executor);
+  IterateSynchronously<TestInt>(gen_factory, true);
+  ASSERT_EQ(internal::GetCpuThreadPool(), captured_executor);
+  IterateSynchronously<TestInt>(gen_factory, false);
+  ASSERT_NE(internal::GetCpuThreadPool(), captured_executor);
+}
 
 class TransferTest : public testing::Test {
  public:
@@ -610,32 +797,27 @@ TEST_F(TestThreadPool, SubmitWithStopTokenCancelled) {
 
 #if !(defined(_WIN32) || defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
       defined(THREAD_SANITIZER))
-TEST_F(TestThreadPool, ForkSafety) {
-  pid_t child_pid;
-  int child_status;
 
+class TestThreadPoolForkSafety : public TestThreadPool {};
+
+TEST_F(TestThreadPoolForkSafety, Basics) {
   {
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
-    ASSERT_OK_AND_EQ(9, fut.result());
+    ASSERT_FINISHES_OK_AND_EQ(9, fut);
 
-    child_pid = fork();
+    auto child_pid = fork();
     if (child_pid == 0) {
       // Child: thread pool should be usable
       ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 3, 4));
-      if (*fut.result() != 7) {
-        std::exit(1);
-      }
+      ASSERT_FINISHES_OK_AND_EQ(7, fut);
       // Shutting down shouldn't hang or fail
       Status st = pool->Shutdown();
       std::exit(st.ok() ? 0 : 2);
     } else {
       // Parent
-      ASSERT_GT(child_pid, 0);
-      ASSERT_GT(waitpid(child_pid, &child_status, 0), 0);
-      ASSERT_TRUE(WIFEXITED(child_status));
-      ASSERT_EQ(WEXITSTATUS(child_status), 0);
+      AssertChildExit(child_pid);
       ASSERT_OK(pool->Shutdown());
     }
   }
@@ -644,7 +826,7 @@ TEST_F(TestThreadPool, ForkSafety) {
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK(pool->Shutdown());
 
-    child_pid = fork();
+    auto child_pid = fork();
     if (child_pid == 0) {
       // Child
       // Spawning a task should return with error (pool was shutdown)
@@ -657,13 +839,92 @@ TEST_F(TestThreadPool, ForkSafety) {
       std::exit(0);
     } else {
       // Parent
-      ASSERT_GT(child_pid, 0);
-      ASSERT_GT(waitpid(child_pid, &child_status, 0), 0);
-      ASSERT_TRUE(WIFEXITED(child_status));
-      ASSERT_EQ(WEXITSTATUS(child_status), 0);
+      AssertChildExit(child_pid);
     }
   }
 }
+
+TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
+  // ARROW-15593: race condition in after-fork ThreadPool reinitialization
+  // when SpawnReal() was called from multiple threads in a forked child.
+  auto run_in_child = [](ThreadPool* pool) {
+    const int n_threads = 5;
+    std::vector<Future<int>> futures;
+    std::vector<std::thread> threads;
+    futures.reserve(n_threads);
+    threads.reserve(n_threads);
+    std::mutex mutex;
+
+    auto run_in_thread = [&]() {
+      auto fut = DeferNotOk(pool->Submit(add<int>, 3, 4));
+      std::lock_guard<std::mutex> lock(mutex);
+      futures.push_back(std::move(fut));
+    };
+
+    for (int i = 0; i < n_threads; ++i) {
+      threads.emplace_back(run_in_thread);
+    }
+    for (auto& thread : threads) {
+      thread.join();
+    }
+    for (const auto& fut : futures) {
+      ASSERT_FINISHES_OK_AND_EQ(7, fut);
+    }
+  };
+
+  {
+    auto pool = this->MakeThreadPool(3);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
+    ASSERT_OK_AND_EQ(9, fut.result());
+
+    auto child_pid = fork();
+    if (child_pid == 0) {
+      // Child: spawn tasks from multiple threads at once
+      run_in_child(pool.get());
+      std::exit(0);
+    } else {
+      // Parent
+      AssertChildExit(child_pid);
+      ASSERT_OK(pool->Shutdown());
+    }
+  }
+}
+
+TEST_F(TestThreadPoolForkSafety, NestedChild) {
+  {
+#ifdef __APPLE__
+    GTEST_SKIP() << "Nested fork is not supported on macos";
+#endif
+    auto pool = this->MakeThreadPool(3);
+    ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
+    ASSERT_OK_AND_EQ(9, fut.result());
+
+    auto child_pid = fork();
+    if (child_pid == 0) {
+      // Child
+      ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 3, 4));
+      // Fork while the task is running
+      auto grandchild_pid = fork();
+      if (grandchild_pid == 0) {
+        // Grandchild
+        ASSERT_OK_AND_ASSIGN(fut, pool->Submit(add<int>, 1, 2));
+        ASSERT_FINISHES_OK_AND_EQ(3, fut);
+        ASSERT_OK(pool->Shutdown());
+      } else {
+        // Child
+        AssertChildExit(grandchild_pid);
+        ASSERT_FINISHES_OK_AND_EQ(7, fut);
+        ASSERT_OK(pool->Shutdown());
+      }
+      std::exit(0);
+    } else {
+      // Parent
+      AssertChildExit(child_pid);
+      ASSERT_OK(pool->Shutdown());
+    }
+  }
+}
+
 #endif
 
 TEST(TestGlobalThreadPool, Capacity) {

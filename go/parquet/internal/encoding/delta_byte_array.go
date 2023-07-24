@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
 	"golang.org/x/xerrors"
 )
 
@@ -37,6 +37,10 @@ type DeltaByteArrayEncoder struct {
 	suffixEncoder *DeltaLengthByteArrayEncoder
 
 	lastVal parquet.ByteArray
+}
+
+func (enc *DeltaByteArrayEncoder) EstimatedDataEncodedSize() int64 {
+	return enc.prefixEncoder.EstimatedDataEncodedSize() + enc.suffixEncoder.EstimatedDataEncodedSize()
 }
 
 func (enc *DeltaByteArrayEncoder) initEncoders() {

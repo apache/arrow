@@ -21,6 +21,7 @@ import static org.junit.Assert.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +42,8 @@ import org.apache.arrow.vector.complex.NonNullableStructVector;
 import org.apache.arrow.vector.complex.StructVector;
 import org.apache.arrow.vector.complex.UnionVector;
 import org.apache.arrow.vector.complex.impl.ComplexWriterImpl;
+import org.apache.arrow.vector.complex.impl.NullableStructReaderImpl;
+import org.apache.arrow.vector.complex.impl.NullableStructWriter;
 import org.apache.arrow.vector.complex.impl.SingleStructReaderImpl;
 import org.apache.arrow.vector.complex.impl.SingleStructWriter;
 import org.apache.arrow.vector.complex.impl.UnionListReader;
@@ -59,8 +62,15 @@ import org.apache.arrow.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.MapWriter;
 import org.apache.arrow.vector.complex.writer.BaseWriter.StructWriter;
 import org.apache.arrow.vector.holders.DecimalHolder;
+import org.apache.arrow.vector.holders.DurationHolder;
+import org.apache.arrow.vector.holders.FixedSizeBinaryHolder;
 import org.apache.arrow.vector.holders.IntHolder;
+import org.apache.arrow.vector.holders.NullableDurationHolder;
+import org.apache.arrow.vector.holders.NullableFixedSizeBinaryHolder;
+import org.apache.arrow.vector.holders.NullableTimeStampMilliTZHolder;
 import org.apache.arrow.vector.holders.NullableTimeStampNanoTZHolder;
+import org.apache.arrow.vector.holders.TimeStampMilliTZHolder;
+import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.ArrowType.ArrowTypeID;
 import org.apache.arrow.vector.types.pojo.ArrowType.Int;
@@ -353,6 +363,125 @@ public class TestComplexWriter {
   }
 
   @Test
+  public void listTimeStampMilliTZType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+            holder.timezone = "FakeTimeZone";
+            holder.value = j;
+            listWriter.timeStampMilliTZ().write(holder);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            NullableTimeStampMilliTZHolder actual = new NullableTimeStampMilliTZHolder();
+            listReader.reader().read(actual);
+            assertEquals(j, actual.value);
+            assertEquals("FakeTimeZone", actual.timezone);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void listDurationType() {
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            DurationHolder holder = new DurationHolder();
+            holder.unit = TimeUnit.MICROSECOND;
+            holder.value = j;
+            listWriter.duration().write(holder);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            NullableDurationHolder actual = new NullableDurationHolder();
+            listReader.reader().read(actual);
+            assertEquals(TimeUnit.MICROSECOND, actual.unit);
+            assertEquals(j, actual.value);
+          }
+        }
+      }
+    }
+  }
+
+  @Test
+  public void listFixedSizeBinaryType() throws Exception {
+    List<ArrowBuf> bufs = new ArrayList<ArrowBuf>();
+    try (ListVector listVector = ListVector.empty("list", allocator)) {
+      listVector.allocateNew();
+      UnionListWriter listWriter = new UnionListWriter(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listWriter.startList();
+        for (int j = 0; j < i % 7; j++) {
+          if (j % 2 == 0) {
+            listWriter.writeNull();
+          } else {
+            ArrowBuf buf = allocator.buffer(4);
+            buf.setInt(0, j);
+            FixedSizeBinaryHolder holder = new FixedSizeBinaryHolder();
+            holder.byteWidth = 4;
+            holder.buffer = buf;
+            listWriter.fixedSizeBinary().write(holder);
+            bufs.add(buf);
+          }
+        }
+        listWriter.endList();
+      }
+      listWriter.setValueCount(COUNT);
+      UnionListReader listReader = new UnionListReader(listVector);
+      for (int i = 0; i < COUNT; i++) {
+        listReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          listReader.next();
+          if (j % 2 == 0) {
+            assertFalse("index is set: " + j, listReader.reader().isSet());
+          } else {
+            NullableFixedSizeBinaryHolder actual = new NullableFixedSizeBinaryHolder();
+            listReader.reader().read(actual);
+            assertEquals(j, actual.buffer.getInt(0));
+            assertEquals(4, actual.byteWidth);
+          }
+        }
+      }
+    }
+    AutoCloseables.close(bufs);
+  }
+
+  @Test
   public void listScalarTypeNullable() {
     try (ListVector listVector = ListVector.empty("list", allocator)) {
       listVector.allocateNew();
@@ -603,14 +732,33 @@ public class TestComplexWriter {
   }
 
   @Test
-  public void simpleUnion() {
+  public void simpleUnion() throws Exception {
+    List<ArrowBuf> bufs = new ArrayList<ArrowBuf>();
     UnionVector vector = new UnionVector("union", allocator, /* field type */ null, /* call-back */ null);
     UnionWriter unionWriter = new UnionWriter(vector);
     unionWriter.allocate();
     for (int i = 0; i < COUNT; i++) {
       unionWriter.setPosition(i);
-      if (i % 2 == 0) {
+      if (i % 5 == 0) {
         unionWriter.writeInt(i);
+      } else if (i % 5 == 1) {
+        TimeStampMilliTZHolder holder = new TimeStampMilliTZHolder();
+        holder.value = (long) i;
+        holder.timezone = "AsdfTimeZone";
+        unionWriter.write(holder);
+      } else if (i % 5 == 2) {
+        DurationHolder holder = new DurationHolder();
+        holder.value = (long) i;
+        holder.unit = TimeUnit.NANOSECOND;
+        unionWriter.write(holder);
+      } else if (i % 5 == 3) {
+        FixedSizeBinaryHolder holder = new FixedSizeBinaryHolder();
+        ArrowBuf buf = allocator.buffer(4);
+        buf.setInt(0, i);
+        holder.byteWidth = 4;
+        holder.buffer = buf;
+        unionWriter.write(holder);
+        bufs.add(buf);
       } else {
         unionWriter.writeFloat4((float) i);
       }
@@ -619,13 +767,29 @@ public class TestComplexWriter {
     UnionReader unionReader = new UnionReader(vector);
     for (int i = 0; i < COUNT; i++) {
       unionReader.setPosition(i);
-      if (i % 2 == 0) {
+      if (i % 5 == 0) {
         Assert.assertEquals(i, i, unionReader.readInteger());
+      } else if (i % 5 == 1) {
+        NullableTimeStampMilliTZHolder holder = new NullableTimeStampMilliTZHolder();
+        unionReader.read(holder);
+        Assert.assertEquals(i, holder.value);
+        Assert.assertEquals("AsdfTimeZone", holder.timezone);
+      } else if (i % 5 == 2) {
+        NullableDurationHolder holder = new NullableDurationHolder();
+        unionReader.read(holder);
+        Assert.assertEquals(i, holder.value);
+        Assert.assertEquals(TimeUnit.NANOSECOND, holder.unit);
+      } else if (i % 5 == 3) {
+        NullableFixedSizeBinaryHolder holder = new NullableFixedSizeBinaryHolder();
+        unionReader.read(holder);
+        assertEquals(i, holder.buffer.getInt(0));
+        assertEquals(4, holder.byteWidth);
       } else {
         Assert.assertEquals((float) i, unionReader.readFloat(), 1e-12);
       }
     }
     vector.close();
+    AutoCloseables.close(bufs);
   }
 
   @Test
@@ -1330,6 +1494,177 @@ public class TestComplexWriter {
           }
         }
       }
+    }
+  }
+
+  @Test
+  public void testStructOfList() {
+    try (StructVector structVector = StructVector.empty("struct1", allocator)) {
+      structVector.addOrGetList("childList1");
+      NullableStructReaderImpl structReader = structVector.getReader();
+      FieldReader childListReader = structReader.reader("childList1");
+      Assert.assertNotNull(childListReader);
+    }
+
+    try (StructVector structVector = StructVector.empty("struct2", allocator)) {
+      structVector.addOrGetList("childList2");
+      NullableStructWriter structWriter = structVector.getWriter();
+      structWriter.start();
+      ListWriter listWriter = structWriter.list("childList2");
+      listWriter.startList();
+      listWriter.integer().writeInt(10);
+      listWriter.endList();
+      structWriter.end();
+
+      NullableStructReaderImpl structReader = structVector.getReader();
+      FieldReader childListReader = structReader.reader("childList2");
+      int size = childListReader.size();
+      Assert.assertEquals(1, size);
+      int data = childListReader.reader().readInteger();
+      Assert.assertEquals(10, data);
+    }
+
+    try (StructVector structVector = StructVector.empty("struct3", allocator)) {
+      structVector.addOrGetList("childList3");
+      NullableStructWriter structWriter = structVector.getWriter();
+      for (int i = 0; i < 5; ++i) {
+        structWriter.setPosition(i);
+        structWriter.start();
+        ListWriter listWriter = structWriter.list("childList3");
+        listWriter.startList();
+        listWriter.integer().writeInt(i);
+        listWriter.endList();
+        structWriter.end();
+      }
+
+      NullableStructReaderImpl structReader = structVector.getReader();
+      structReader.setPosition(3);
+      FieldReader childListReader = structReader.reader("childList3");
+      int size = childListReader.size();
+      Assert.assertEquals(1, size);
+      int data = ((List<Integer>) childListReader.readObject()).get(0);
+      Assert.assertEquals(3, data);
+    }
+
+    try (StructVector structVector = StructVector.empty("struct4", allocator)) {
+      structVector.addOrGetList("childList4");
+      NullableStructWriter structWriter = structVector.getWriter();
+      for (int i = 0; i < 5; ++i) {
+        structWriter.setPosition(i);
+        structWriter.start();
+        structWriter.writeNull();
+        structWriter.end();
+      }
+
+      NullableStructReaderImpl structReader = structVector.getReader();
+      structReader.setPosition(3);
+      FieldReader childListReader = structReader.reader("childList4");
+      int size = childListReader.size();
+      Assert.assertEquals(0, size);
+    }
+  }
+
+  @Test
+  public void testMap() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      for (int i = 0; i < COUNT; i++) {
+        mapWriter.startMap();
+        for (int j = 0; j < i % 7; j++) {
+          mapWriter.startEntry();
+          if (j % 2 == 0) {
+            mapWriter.key().integer().writeInt(j);
+            mapWriter.value().integer().writeInt(j + 1);
+          } else {
+            IntHolder keyHolder = new IntHolder();
+            keyHolder.value = j;
+            IntHolder valueHolder = new IntHolder();
+            valueHolder.value = j + 1;
+            mapWriter.key().integer().write(keyHolder);
+            mapWriter.value().integer().write(valueHolder);
+          }
+          mapWriter.endEntry();
+        }
+        mapWriter.endMap();
+      }
+      writer.setValueCount(COUNT);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      for (int i = 0; i < COUNT; i++) {
+        mapReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          mapReader.next();
+          assertEquals(j, mapReader.key().readInteger().intValue());
+          assertEquals(j + 1, mapReader.value().readInteger().intValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testMapWithNulls() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().integer().writeNull();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      Assert.assertNull(mapReader.key().readInteger());
+      assertEquals(1, mapReader.value().readInteger().intValue());
+    }
+  }
+
+  @Test
+  public void testMapWithListKey() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().list().startList();
+      for (int i = 0; i < 3; i++) {
+        mapWriter.key().list().integer().writeInt(i);
+      }
+      mapWriter.key().list().endList();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      mapReader.key().next();
+      assertEquals(0, mapReader.key().reader().readInteger().intValue());
+      mapReader.key().next();
+      assertEquals(1, mapReader.key().reader().readInteger().intValue());
+      mapReader.key().next();
+      assertEquals(2, mapReader.key().reader().readInteger().intValue());
+      assertEquals(1, mapReader.value().readInteger().intValue());
+    }
+  }
+
+  @Test
+  public void testMapWithStructKey() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().struct().start();
+      mapWriter.key().struct().integer("value1").writeInt(1);
+      mapWriter.key().struct().integer("value2").writeInt(2);
+      mapWriter.key().struct().end();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      assertEquals(1, mapReader.key().reader("value1").readInteger().intValue());
+      assertEquals(2, mapReader.key().reader("value2").readInteger().intValue());
+      assertEquals(1, mapReader.value().readInteger().intValue());
     }
   }
 }

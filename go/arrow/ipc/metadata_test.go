@@ -21,34 +21,40 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v7/arrow/internal/testing/types"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/types"
 	flatbuffers "github.com/google/flatbuffers/go"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestRWSchema(t *testing.T) {
 	meta := arrow.NewMetadata([]string{"k1", "k2", "k3"}, []string{"v1", "v2", "v3"})
+
+	mType := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	mType.SetItemNullable(false)
 	for _, tc := range []struct {
 		schema *arrow.Schema
-		memo   dictMemo
+		memo   dictutils.Memo
 	}{
 		{
 			schema: arrow.NewSchema([]arrow.Field{
 				{Name: "f1", Type: arrow.PrimitiveTypes.Int64},
 				{Name: "f2", Type: arrow.PrimitiveTypes.Uint16},
 				{Name: "f3", Type: arrow.PrimitiveTypes.Float64},
+				{Name: "f4", Type: mType},
 			}, &meta),
-			memo: newMemo(),
+			memo: dictutils.Memo{},
 		},
 	} {
 		t.Run("", func(t *testing.T) {
 			b := flatbuffers.NewBuilder(0)
 
-			offset := schemaToFB(b, tc.schema, &tc.memo)
+			tc.memo.Mapper.ImportSchema(tc.schema)
+			offset := schemaToFB(b, tc.schema, &tc.memo.Mapper)
 			b.Finish(offset)
 
 			buf := b.FinishedBytes()
@@ -162,7 +168,7 @@ func TestRWFooter(t *testing.T) {
 	}
 }
 
-func exampleUUID(mem memory.Allocator) array.Interface {
+func exampleUUID(mem memory.Allocator) arrow.Array {
 	extType := types.NewUUIDType()
 	bldr := array.NewExtensionBuilder(mem, extType)
 	defer bldr.Release()
@@ -187,7 +193,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	batch := array.NewRecord(
 		arrow.NewSchema([]arrow.Field{
 			{Name: "f0", Type: extArr.DataType(), Nullable: true}}, nil),
-		[]array.Interface{extArr}, 4)
+		[]arrow.Array{extArr}, 4)
 	defer batch.Release()
 
 	storageArr := extArr.(array.ExtensionArray).Storage()
@@ -215,7 +221,7 @@ func TestUnrecognizedExtensionType(t *testing.T) {
 	batchNoExt := array.NewRecord(
 		arrow.NewSchema([]arrow.Field{
 			{Name: "f0", Type: storageArr.DataType(), Nullable: true, Metadata: extMetadata},
-		}, nil), []array.Interface{storageArr}, 4)
+		}, nil), []arrow.Array{storageArr}, 4)
 	defer batchNoExt.Release()
 
 	assert.Truef(t, array.RecordEqual(rec, batchNoExt), "expected: %s\ngot: %s\n", batchNoExt, rec)

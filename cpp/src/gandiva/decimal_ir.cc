@@ -96,8 +96,9 @@ void DecimalIR::InitializeIntrinsics() {
 // CPP:  return kScaleMultipliers[scale]
 llvm::Value* DecimalIR::GetScaleMultiplier(llvm::Value* scale) {
   auto const_array = module()->getGlobalVariable(kScaleMultipliersName);
-  auto ptr = CreateGEP(ir_builder(), const_array, {types()->i32_constant(0), scale});
-  return CreateLoad(ir_builder(), ptr);
+  auto ptr = ir_builder()->CreateGEP(const_array->getValueType(), const_array,
+                                     {types()->i32_constant(0), scale});
+  return ir_builder()->CreateLoad(types()->i128_type(), ptr);
 }
 
 // CPP:  x <= y ? y : x
@@ -248,8 +249,8 @@ llvm::Value* DecimalIR::AddLarge(const ValueFull& x, const ValueFull& y,
   ir_builder()->CreateCall(module()->getFunction("add_large_decimal128_decimal128"),
                            args);
 
-  auto out_high = CreateLoad(ir_builder(), out_high_ptr);
-  auto out_low = CreateLoad(ir_builder(), out_low_ptr);
+  auto out_high = ir_builder()->CreateLoad(types()->i64_type(), out_high_ptr);
+  auto out_low = ir_builder()->CreateLoad(types()->i64_type(), out_low_ptr);
   auto sum = ValueSplit(out_high, out_low).AsInt128(this);
   ADD_TRACE_128("AddLarge : sum", sum);
   return sum;
@@ -445,8 +446,8 @@ llvm::Value* DecimalIR::CallDecimalFunction(const std::string& function_name,
     // Make call to pre-compiled IR function.
     ir_builder()->CreateCall(module()->getFunction(function_name), dis_assembled_args);
 
-    auto out_high = CreateLoad(ir_builder(), out_high_ptr);
-    auto out_low = CreateLoad(ir_builder(), out_low_ptr);
+    auto out_high = ir_builder()->CreateLoad(i64, out_high_ptr);
+    auto out_low = ir_builder()->CreateLoad(i64, out_low_ptr);
     result = ValueSplit(out_high, out_low).AsInt128(this);
   } else {
     DCHECK_NE(return_type, types()->void_type());

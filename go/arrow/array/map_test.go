@@ -17,11 +17,12 @@
 package array_test
 
 import (
+	"strconv"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -78,16 +79,39 @@ func TestMapArray(t *testing.T) {
 	unequalArr = bldr.NewMapArray()
 	defer unequalArr.Release()
 
-	assert.True(t, array.ArrayEqual(arr, arr))
-	assert.True(t, array.ArrayEqual(arr, equalArr))
-	assert.True(t, array.ArrayEqual(equalArr, arr))
-	assert.False(t, array.ArrayEqual(equalArr, unequalArr))
-	assert.False(t, array.ArrayEqual(unequalArr, equalArr))
+	assert.True(t, array.Equal(arr, arr))
+	assert.True(t, array.Equal(arr, equalArr))
+	assert.True(t, array.Equal(equalArr, arr))
+	assert.False(t, array.Equal(equalArr, unequalArr))
+	assert.False(t, array.Equal(unequalArr, equalArr))
 
-	assert.True(t, array.ArraySliceEqual(arr, 0, 1, unequalArr, 0, 1))
-	assert.False(t, array.ArraySliceEqual(arr, 0, 2, unequalArr, 0, 2))
-	assert.False(t, array.ArraySliceEqual(arr, 1, 2, unequalArr, 1, 2))
-	assert.True(t, array.ArraySliceEqual(arr, 2, 3, unequalArr, 2, 3))
+	assert.True(t, array.SliceEqual(arr, 0, 1, unequalArr, 0, 1))
+	assert.False(t, array.SliceEqual(arr, 0, 2, unequalArr, 0, 2))
+	assert.False(t, array.SliceEqual(arr, 1, 2, unequalArr, 1, 2))
+	assert.True(t, array.SliceEqual(arr, 2, 3, unequalArr, 2, 3))
+
+	t.Run("items non nullable", func(t *testing.T) {
+		mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+		defer mem.AssertSize(t, 0)
+
+		dt := arrow.MapOf(arrow.PrimitiveTypes.Int16, arrow.PrimitiveTypes.Int16)
+		dt.KeysSorted = true
+		dt.SetItemNullable(false)
+
+		bldr := array.NewBuilder(pool, dt).(*array.MapBuilder)
+		defer bldr.Release()
+
+		kb := bldr.KeyBuilder().(*array.Int16Builder)
+		ib := bldr.ItemBuilder().(*array.Int16Builder)
+
+		bldr.Append(true)
+		kb.Append(1)
+		ib.AppendNull()
+
+		assert.Panics(t, func() {
+			_ = bldr.NewArray()
+		})
+	})
 }
 
 func TestMapArrayBuildIntToInt(t *testing.T) {
@@ -148,4 +172,48 @@ func TestMapArrayBuildIntToInt(t *testing.T) {
 	}
 
 	assert.Equal(t, "[{[0 1 2 3 4 5] [1 1 2 3 5 8]} (null) {[0 1 2 3 4 5] [(null) (null) 0 1 (null) 2]} {[] []}]", arr.String())
+}
+
+func TestMapStringRoundTrip(t *testing.T) {
+	// 1. create array
+	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int32)
+
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewMapBuilderWithType(mem, dt)
+	defer b.Release()
+
+	kb := b.KeyBuilder().(*array.StringBuilder)
+	ib := b.ItemBuilder().(*array.Int32Builder)
+
+	for n := 0; n < 10; n++ {
+		b.AppendNull()
+		b.Append(true)
+
+		for r := 'a'; r <= 'z'; r++ {
+			kb.Append(string(r) + strconv.Itoa(n))
+			if (n+int(r))%2 == 0 {
+				ib.AppendNull()
+			} else {
+				ib.Append(int32(n + int(r)))
+			}
+		}
+	}
+
+	arr := b.NewArray().(*array.Map)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewMapBuilderWithType(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Map)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

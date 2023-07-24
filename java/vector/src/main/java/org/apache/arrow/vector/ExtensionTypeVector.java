@@ -131,7 +131,7 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   }
 
   @Override
-  public FieldReader getReader() {
+  protected FieldReader getReaderImpl() {
     return underlyingVector.getReader();
   }
 
@@ -192,6 +192,11 @@ public abstract class ExtensionTypeVector<T extends ValueVector & FieldVector> e
   @Override
   public boolean isNull(int index) {
     return underlyingVector.isNull(index);
+  }
+
+  @Override
+  public void setNull(int index) {
+    underlyingVector.setNull(index);
   }
 
   @Override

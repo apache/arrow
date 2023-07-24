@@ -23,16 +23,16 @@ There are many ways to contribute to Apache Arrow:
 
 * Contributing code (we call them "patches")
 * Writing documentation (another form of code, in a way)
-* Participating in discussions on JIRA or the mailing list
+* Participating in discussions on GitHub issues or the mailing list
 * Helping users of the libraries
 
 ## Reporting bugs and asking questions
 
-We support GitHub issues as a lightweight way to ask questions and engage with
-the Arrow developer community. We use [JIRA][3] for maintaining a queue of
-development work and as the public record for work on the project. So, feel
-free to open GitHub issues, but bugs and feature requests will eventually need
-to end up in JIRA, either before or after completing a pull request.
+We use GitHub issues for questions, maintaining a queue of development
+work, and as the public record for work on the project. Feel free to
+open issues for discussions, bugs, and feature requests. Questions may
+also be asked on the user mailing list
+[user@arrow.apache.org](https://lists.apache.org/list.html?user@arrow.apache.org).
 
 ## How to contribute patches
 
@@ -55,7 +55,7 @@ To contribute a patch:
 harder to merge in a large change with a lot of disjoint features.
 2. If one doesn't already exist, create a JIRA for your patch on the [Arrow Project
 JIRA](https://issues.apache.org/jira/browse/ARROW).
-3. Submit the patch as a GitHub pull request against the master branch. For a
+3. Submit the patch as a GitHub pull request against the main branch. For a
 tutorial, see the GitHub guides on [forking a repo](https://help.github.com/en/articles/fork-a-repo)
 and [sending a pull request](https://help.github.com/en/articles/creating-a-pull-request-from-a-fork). So that your pull request syncs with the JIRA issue, prefix your pull request
 name with the JIRA issue id (ex: [ARROW-767: [C++] Filesystem abstraction](https://github.com/apache/arrow/pull/4225))
@@ -67,6 +67,6 @@ file.
 Thank you in advance for your contributions!
 
 [1]: mailto:dev-subscribe@arrow.apache.org
-[2]: https://github.com/apache/arrow/tree/master/format
+[2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://issues.apache.org/jira/browse/ARROW
 [4]: https://github.com/apache/arrow

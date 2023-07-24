@@ -63,6 +63,10 @@ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
   target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
   add_executable(arrow-stream-to-file stream_to_file.cc)
   target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
+  if(ARROW_BUILD_UTILITIES)
+    install(TARGETS arrow-file-to-stream arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
+            DESTINATION ${CMAKE_INSTALL_BINDIR})
+  endif()
 
   if(ARROW_BUILD_INTEGRATION)
     add_dependencies(arrow-integration arrow-file-to-stream)

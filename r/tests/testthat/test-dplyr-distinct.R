@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
 library(dplyr, warn.conflicts = FALSE)
+
+skip_if_not_available("acero")
 
 tbl <- example_data
 tbl$some_grouping <- rep(c(1, 2), 5)
@@ -27,6 +27,9 @@ test_that("distinct()", {
     .input %>%
       distinct(some_grouping, lgl) %>%
       collect() %>%
+      # GH-14947: column output order changed in dplyr 1.1.0, so we need
+      # to make the column order explicit until dplyr 1.1.0 is on CRAN
+      select(some_grouping, lgl) %>%
       arrange(some_grouping, lgl),
     tbl
   )
@@ -58,6 +61,9 @@ test_that("distinct() can retain groups", {
       group_by(some_grouping, int) %>%
       distinct(lgl) %>%
       collect() %>%
+      # GH-14947: column output order changed in dplyr 1.1.0, so we need
+      # to make the column order explicit until dplyr 1.1.0 is on CRAN
+      select(some_grouping, int, lgl) %>%
       arrange(lgl, int),
     tbl
   )
@@ -68,6 +74,9 @@ test_that("distinct() can retain groups", {
       group_by(y = some_grouping, int) %>%
       distinct(x = lgl) %>%
       collect() %>%
+      # GH-14947: column output order changed in dplyr 1.1.0, so we need
+      # to make the column order explicit until dplyr 1.1.0 is on CRAN
+      select(y, int, x) %>%
       arrange(int),
     tbl
   )
@@ -87,13 +96,26 @@ test_that("distinct() can contain expressions", {
       group_by(lgl, int) %>%
       distinct(x = some_grouping + 1) %>%
       collect() %>%
+      # GH-14947: column output order changed in dplyr 1.1.0, so we need
+      # to make the column order explicit until dplyr 1.1.0 is on CRAN
+      select(lgl, int, x) %>%
       arrange(int),
     tbl
   )
 })
 
+test_that("across() works in distinct()", {
+  compare_dplyr_binding(
+    .input %>%
+      distinct(across(starts_with("d"))) %>%
+      collect() %>%
+      arrange(dbl, dbl2),
+    tbl
+  )
+})
+
 test_that("distinct() can return all columns", {
-  skip("ARROW-13993 - need this to return correct rows from other cols")
+  skip("ARROW-14045")
   compare_dplyr_binding(
     .input %>%
       distinct(lgl, .keep_all = TRUE) %>%

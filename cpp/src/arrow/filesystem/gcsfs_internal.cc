@@ -16,56 +16,97 @@
 // under the License.
 
 #include "arrow/filesystem/gcsfs_internal.h"
+#include "arrow/filesystem/gcsfs.h"
 
 #include <absl/time/time.h>  // NOLINT
 #include <google/cloud/storage/client.h>
 
+#include <cerrno>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
 
 #include "arrow/filesystem/path_util.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::ToChars;
+
 namespace fs {
 namespace internal {
+
+using GcsCode = google::cloud::StatusCode;
+
+int ErrnoFromStatus(const google::cloud::Status& s) {
+  switch (s.code()) {
+    case GcsCode::kAlreadyExists:
+      return EEXIST;
+    case GcsCode::kInvalidArgument:
+      return EINVAL;
+    case GcsCode::kNotFound:
+      return ENOENT;
+    case GcsCode::kPermissionDenied:
+    case GcsCode::kUnauthenticated:
+      return EACCES;
+    default:
+      return 0;
+  }
+}
 
 Status ToArrowStatus(const google::cloud::Status& s) {
   std::ostringstream os;
   os << "google::cloud::Status(" << s << ")";
+  Status st;
   switch (s.code()) {
-    case google::cloud::StatusCode::kOk:
+    case GcsCode::kCancelled:
+      st = Status::Cancelled(os.str());
       break;
-    case google::cloud::StatusCode::kCancelled:
-      return Status::Cancelled(os.str());
-    case google::cloud::StatusCode::kUnknown:
-      return Status::UnknownError(os.str());
-    case google::cloud::StatusCode::kInvalidArgument:
-      return Status::Invalid(os.str());
-    case google::cloud::StatusCode::kDeadlineExceeded:
-    case google::cloud::StatusCode::kNotFound:
-      return Status::IOError(os.str());
-    case google::cloud::StatusCode::kAlreadyExists:
-      return Status::AlreadyExists(os.str());
-    case google::cloud::StatusCode::kPermissionDenied:
-    case google::cloud::StatusCode::kUnauthenticated:
-      return Status::IOError(os.str());
-    case google::cloud::StatusCode::kResourceExhausted:
-      return Status::CapacityError(os.str());
-    case google::cloud::StatusCode::kFailedPrecondition:
-    case google::cloud::StatusCode::kAborted:
-      return Status::IOError(os.str());
-    case google::cloud::StatusCode::kOutOfRange:
-      return Status::Invalid(os.str());
-    case google::cloud::StatusCode::kUnimplemented:
-      return Status::NotImplemented(os.str());
-    case google::cloud::StatusCode::kInternal:
-    case google::cloud::StatusCode::kUnavailable:
-    case google::cloud::StatusCode::kDataLoss:
-      return Status::IOError(os.str());
+    case GcsCode::kUnknown:
+      st = Status::UnknownError(os.str());
+      break;
+    case GcsCode::kInvalidArgument:
+      st = Status::Invalid(os.str());
+      break;
+    case GcsCode::kDeadlineExceeded:
+    case GcsCode::kNotFound:
+      st = Status::IOError(os.str());
+      break;
+    case GcsCode::kAlreadyExists:
+      st = Status::AlreadyExists(os.str());
+      break;
+    case GcsCode::kPermissionDenied:
+    case GcsCode::kUnauthenticated:
+      st = Status::IOError(os.str());
+      break;
+    case GcsCode::kResourceExhausted:
+      st = Status::CapacityError(os.str());
+      break;
+    case GcsCode::kFailedPrecondition:
+    case GcsCode::kAborted:
+      st = Status::IOError(os.str());
+      break;
+    case GcsCode::kOutOfRange:
+      st = Status::Invalid(os.str());
+      break;
+    case GcsCode::kUnimplemented:
+      st = Status::NotImplemented(os.str());
+      break;
+    case GcsCode::kInternal:
+    case GcsCode::kUnavailable:
+    case GcsCode::kDataLoss:
+      st = Status::IOError(os.str());
+      break;
+    default:
+      return Status::OK();
   }
-  return Status::OK();
+  int errnum = ErrnoFromStatus(s);
+  if (errnum) {
+    st = st.WithDetail(::arrow::internal::StatusDetailFromErrno(errnum));
+  }
+  return st;
 }
 
 namespace gcs = ::google::cloud::storage;
@@ -210,7 +251,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
   result->Append("selfLink", m.self_link());
   result->Append("name", m.name());
   result->Append("bucket", m.bucket());
-  result->Append("generation", std::to_string(m.generation()));
+  result->Append("generation", ToChars(m.generation()));
   result->Append("Content-Type", m.content_type());
   result->Append("timeCreated", format_time(m.time_created()));
   result->Append("updated", format_time(m.updated()));
@@ -230,7 +271,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     result->Append("timeStorageClassUpdated",
                    format_time(m.time_storage_class_updated()));
   }
-  result->Append("size", std::to_string(m.size()));
+  result->Append("size", ToChars(m.size()));
   result->Append("md5Hash", m.md5_hash());
   result->Append("mediaLink", m.media_link());
   result->Append("Content-Encoding", m.content_encoding());
@@ -246,7 +287,7 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
     result->Append("owner.entityId", m.owner().entity_id);
   }
   result->Append("crc32c", m.crc32c());
-  result->Append("componentCount", std::to_string(m.component_count()));
+  result->Append("componentCount", ToChars(m.component_count()));
   result->Append("etag", m.etag());
   if (m.has_customer_encryption()) {
     result->Append("customerEncryption.encryptionAlgorithm",
@@ -259,8 +300,50 @@ Result<std::shared_ptr<const KeyValueMetadata>> FromObjectMetadata(
   return result;
 }
 
-std::int64_t Depth(arrow::util::string_view path) {
-  return std::count(path.begin(), path.end(), fs::internal::kSep);
+std::int64_t Depth(std::string_view path) {
+  // The last slash is not counted towards depth because it represents a
+  // directory.
+  bool has_trailing_slash = !path.empty() && path.back() == '/';
+  return std::count(path.begin(), path.end(), fs::internal::kSep) - has_trailing_slash;
+}
+
+// Change the default upload buffer size. In general, sending larger buffers is more
+// efficient with GCS, as each buffer requires a roundtrip to the service. With formatted
+// output (when using `operator<<`), keeping a larger buffer in memory before uploading
+// makes sense.  With unformatted output (the only choice given gcs::io::OutputStream's
+// API) it is better to let the caller provide as large a buffer as they want. The GCS C++
+// client library will upload this buffer with zero copies if possible.
+auto constexpr kUploadBufferSize = 256 * 1024;
+
+google::cloud::Options AsGoogleCloudOptions(const GcsOptions& o) {
+  auto options = google::cloud::Options{};
+  std::string scheme = o.scheme;
+  if (scheme.empty()) scheme = "https";
+  if (scheme == "https") {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        google::cloud::MakeGoogleDefaultCredentials());
+  } else {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        google::cloud::MakeInsecureCredentials());
+  }
+  options.set<gcs::UploadBufferSizeOption>(kUploadBufferSize);
+  if (!o.endpoint_override.empty()) {
+    options.set<gcs::RestEndpointOption>(scheme + "://" + o.endpoint_override);
+  }
+  if (o.credentials.holder() && o.credentials.holder()->credentials) {
+    options.set<google::cloud::UnifiedCredentialsOption>(
+        o.credentials.holder()->credentials);
+  }
+  if (o.retry_limit_seconds.has_value()) {
+    options.set<gcs::RetryPolicyOption>(
+        gcs::LimitedTimeRetryPolicy(
+            std::chrono::milliseconds(static_cast<int>(*o.retry_limit_seconds * 1000)))
+            .clone());
+  }
+  if (o.project_id.has_value()) {
+    options.set<gcs::ProjectIdOption>(*o.project_id);
+  }
+  return options;
 }
 
 }  // namespace internal

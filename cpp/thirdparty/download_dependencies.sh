@@ -25,12 +25,14 @@ set -eu
 SOURCE_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [ "$#" -ne 1 ]; then
-  DESTDIR=$(pwd)
+  orig_destdir=$(pwd)
 else
-  DESTDIR=$1
+  orig_destdir=$1
 fi
 
-DESTDIR=$(readlink -f "${DESTDIR}")
+# Try to canonicalize. Not all platforms support `readlink -f` or `realpath`.
+# This only matters if there are symlinks you need to resolve before downloading
+DESTDIR=$(readlink -f "${orig_destdir}" 2> /dev/null) || DESTDIR="${orig_destdir}"
 
 download_dependency() {
   local url=$1

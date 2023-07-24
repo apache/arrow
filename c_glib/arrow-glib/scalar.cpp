@@ -19,9 +19,11 @@
 
 #include <arrow-glib/basic-array.hpp>
 #include <arrow-glib/buffer.hpp>
+#include <arrow-glib/compute.h>
 #include <arrow-glib/data-type.hpp>
 #include <arrow-glib/decimal.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/interval.hpp>
 #include <arrow-glib/scalar.hpp>
 
 G_BEGIN_DECLS
@@ -54,6 +56,8 @@ G_BEGIN_DECLS
  * #GArrowUInt32Scalar is a class for a 32-bit unsigned integer scalar.
  *
  * #GArrowUInt64Scalar is a class for a 64-bit unsigned integer scalar.
+ *
+ * #GArrowHalfFloatScalar is a class for a 16-bit floating point scalar.
  *
  * #GArrowFloatScalar is a class for a 32-bit floating point scalar.
  *
@@ -90,6 +94,13 @@ G_BEGIN_DECLS
  * #GArrowTimestampScalar is a class for the number of
  * seconds/milliseconds/microseconds/nanoseconds since UNIX epoch in
  * a 64-bit signed integer scalar.
+ *
+ * #GArrowMonthIntervalScalar is a class for the month intarval scalar.
+ *
+ * #GArrowDayTimeIntervalScalar is a class for the day time intarval scalar.
+ *
+ * #GArrowMonthDayNanoIntervalScalar is a class for the month day nano
+ * intarval scalar.
  *
  * #GArrowDecimal128Scalar is a class for a 128-bit decimal scalar.
  *
@@ -241,9 +252,8 @@ garrow_scalar_parse(GArrowDataType *data_type,
                     GError **error)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  auto arrow_data =
-    arrow::util::string_view(reinterpret_cast<const char *>(data),
-                             size);
+  auto arrow_data = std::string_view(reinterpret_cast<const char *>(data),
+                                     size);
   auto arrow_scalar_result = arrow::Scalar::Parse(arrow_data_type, arrow_data);
   if (garrow::check(error, arrow_scalar_result, "[scalar][parse]")) {
     auto arrow_scalar = *arrow_scalar_result;
@@ -330,10 +340,10 @@ garrow_scalar_equal_options(GArrowScalar *scalar,
     if (is_approx) {
       return arrow_scalar->ApproxEquals(*arrow_other_scalar, *arrow_options);
     } else {
-      return arrow_scalar->Equals(arrow_other_scalar, *arrow_options);
+      return arrow_scalar->Equals(*arrow_other_scalar, *arrow_options);
     }
   } else {
-    return arrow_scalar->Equals(arrow_other_scalar);
+    return arrow_scalar->Equals(*arrow_other_scalar);
   }
 }
 
@@ -351,7 +361,8 @@ gchar *
 garrow_scalar_to_string(GArrowScalar *scalar)
 {
   const auto arrow_scalar = garrow_scalar_get_raw(scalar);
-  return g_strdup(arrow_scalar->ToString().c_str());
+  const auto string = arrow_scalar->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -854,6 +865,55 @@ garrow_uint64_scalar_get_value(GArrowUInt64Scalar *scalar)
 {
   const auto arrow_scalar =
     std::static_pointer_cast<arrow::UInt64Scalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->value;
+}
+
+
+G_DEFINE_TYPE(GArrowHalfFloatScalar,
+              garrow_half_float_scalar,
+              GARROW_TYPE_SCALAR)
+
+static void
+garrow_half_float_scalar_init(GArrowHalfFloatScalar *object)
+{
+}
+
+static void
+garrow_half_float_scalar_class_init(GArrowHalfFloatScalarClass *klass)
+{
+}
+
+/**
+ * garrow_half_float_scalar_new:
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowHalfFloatScalar.
+ *
+ * Since: 11.0.0
+ */
+GArrowHalfFloatScalar *
+garrow_half_float_scalar_new(guint16 value)
+{
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::HalfFloatScalar>(value));
+  return GARROW_HALF_FLOAT_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_half_float_scalar_get_value:
+ * @scalar: A #GArrowHalfFloatScalar.
+ *
+ * Returns: The value of this scalar.
+ *
+ * Since: 11.0.0
+ */
+guint16
+garrow_half_float_scalar_get_value(GArrowHalfFloatScalar *scalar)
+{
+  const auto arrow_scalar =
+    std::static_pointer_cast<arrow::HalfFloatScalar>(
       garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
 }
@@ -1498,6 +1558,188 @@ garrow_timestamp_scalar_get_value(GArrowTimestampScalar *scalar)
     std::static_pointer_cast<arrow::TimestampScalar>(
       garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
   return arrow_scalar->value;
+}
+
+
+G_DEFINE_TYPE(GArrowMonthIntervalScalar,
+              garrow_month_interval_scalar,
+              GARROW_TYPE_SCALAR)
+
+static void
+garrow_month_interval_scalar_init(GArrowMonthIntervalScalar *object)
+{
+}
+
+static void
+garrow_month_interval_scalar_class_init(GArrowMonthIntervalScalarClass *klass)
+{
+}
+
+/**
+ * garrow_month_interval_scalar_new:
+ * @value: The value of this scalar.
+ *
+ * Returns: A newly created #GArrowMonthIntervalScalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthIntervalScalar *
+garrow_month_interval_scalar_new(gint32 value)
+{
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::MonthIntervalScalar>(value));
+  return GARROW_MONTH_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_month_interval_scalar_get_value:
+ * @scalar: A #GArrowMonthIntervalScalar.
+ *
+ * Returns: The value of this scalar.
+ *
+ * Since: 8.0.0
+ */
+gint32
+garrow_month_interval_scalar_get_value(GArrowMonthIntervalScalar *scalar)
+{
+  const auto arrow_scalar =
+    std::static_pointer_cast<arrow::MonthIntervalScalar>(
+      garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+  return arrow_scalar->value;
+}
+
+
+typedef struct GArrowDayTimeIntervalScalarPrivate_ {
+  GArrowDayMillisecond *value;
+} GArrowDayTimeIntervalScalarPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowDayTimeIntervalScalar,
+                           garrow_day_time_interval_scalar,
+                           GARROW_TYPE_SCALAR)
+
+#define GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
+  static_cast<GArrowDayTimeIntervalScalarPrivate *>(             \
+    garrow_day_time_interval_scalar_get_instance_private(        \
+      GARROW_DAY_TIME_INTERVAL_SCALAR(obj)))
+
+static void
+garrow_day_time_interval_scalar_init(GArrowDayTimeIntervalScalar *object)
+{
+}
+
+static void
+garrow_day_time_interval_scalar_class_init(
+  GArrowDayTimeIntervalScalarClass *klass)
+{
+}
+
+/**
+ * garrow_day_time_interval_scalar_new:
+ * @value: The value of GArrowDayMillisecond.
+ *
+ * Returns: A newly created #GArrowDayTimeIntervalScalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayTimeIntervalScalar *
+garrow_day_time_interval_scalar_new(GArrowDayMillisecond *value)
+{
+  auto arrow_value = garrow_day_millisecond_get_raw(value);
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::DayTimeIntervalScalar>(*arrow_value));
+  return GARROW_DAY_TIME_INTERVAL_SCALAR(garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_day_time_interval_scalar_get_value:
+ * @scalar: A #GArrowDayTimeIntervalScalar.
+ *
+ * Returns: (transfer none): The value of this scalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowDayMillisecond *
+garrow_day_time_interval_scalar_get_value(GArrowDayTimeIntervalScalar *scalar)
+{
+  auto priv = GARROW_DAY_TIME_INTERVAL_SCALAR_GET_PRIVATE(scalar);
+  if (!priv->value) {
+    auto arrow_scalar =
+      std::static_pointer_cast<arrow::DayTimeIntervalScalar>(
+        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    auto arrow_value = arrow_scalar->value;
+    priv->value = garrow_day_millisecond_new_raw(&arrow_value);
+  }
+
+  return priv->value;
+}
+
+
+typedef struct GArrowMonthDayNanoIntervalScalarPrivate_ {
+  GArrowMonthDayNano *value;
+} GArrowMonthDayNanoIntervalScalarPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowMonthDayNanoIntervalScalar,
+                           garrow_month_day_nano_interval_scalar,
+                           GARROW_TYPE_SCALAR)
+
+#define GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(obj)         \
+  static_cast<GArrowMonthDayNanoIntervalScalarPrivate *>(              \
+    garrow_month_day_nano_interval_scalar_get_instance_private(        \
+      GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(obj)))
+
+static void
+garrow_month_day_nano_interval_scalar_init(
+  GArrowMonthDayNanoIntervalScalar *object)
+{
+}
+
+static void
+garrow_month_day_nano_interval_scalar_class_init(
+  GArrowMonthDayNanoIntervalScalarClass *klass)
+{
+}
+
+/**
+ * garrow_month_day_nano_interval_scalar_new:
+ * @value: The value of GArrowMonthDayNano.
+ *
+ * Returns: A newly created #GArrowMonthDayNanoIntervalScalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNanoIntervalScalar *
+garrow_month_day_nano_interval_scalar_new(GArrowMonthDayNano *value)
+{
+  auto arrow_value = garrow_month_day_nano_get_raw(value);
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::MonthDayNanoIntervalScalar>(*arrow_value));
+  return GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR(
+    garrow_scalar_new_raw(&arrow_scalar));
+}
+
+/**
+ * garrow_month_day_nano_interval_scalar_get_value:
+ * @scalar: A #GArrowMonthDayNanoIntervalScalar.
+ *
+ * Returns: (transfer none): The value of this scalar.
+ *
+ * Since: 8.0.0
+ */
+GArrowMonthDayNano *
+garrow_month_day_nano_interval_scalar_get_value(GArrowMonthDayNanoIntervalScalar *scalar)
+{
+  auto priv = GARROW_MONTH_DAY_NANO_INTERVAL_SCALAR_GET_PRIVATE(scalar);
+  if (!priv->value) {
+    auto arrow_scalar =
+      std::static_pointer_cast<arrow::MonthDayNanoIntervalScalar>(
+        garrow_scalar_get_raw(GARROW_SCALAR(scalar)));
+    priv->value = garrow_month_day_nano_new_raw(&arrow_scalar->value);
+  }
+
+  return priv->value;
 }
 
 
@@ -2210,9 +2452,31 @@ garrow_sparse_union_scalar_new(GArrowSparseUnionDataType *data_type,
                                gint8 type_code,
                                GArrowScalar *value)
 {
-  return GARROW_SPARSE_UNION_SCALAR(
-    garrow_union_scalar_new<arrow::SparseUnionScalar>(
-      GARROW_DATA_TYPE(data_type), type_code, value));
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto &arrow_type_codes =
+    std::dynamic_pointer_cast<arrow::SparseUnionType>(
+      arrow_data_type)->type_codes();
+  auto arrow_value = garrow_scalar_get_raw(value);
+  arrow::SparseUnionScalar::ValueType arrow_field_values;
+  for (int i = 0; i < arrow_data_type->num_fields(); ++i) {
+    if (arrow_type_codes[i] == type_code) {
+      arrow_field_values.emplace_back(arrow_value);
+    } else {
+      arrow_field_values.emplace_back(
+        arrow::MakeNullScalar(arrow_data_type->field(i)->type()));
+    }
+  }
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::SparseUnionScalar>(arrow_field_values,
+                                                 type_code,
+                                                 arrow_data_type));
+  auto scalar = garrow_scalar_new_raw(&arrow_scalar,
+                                      "scalar", &arrow_scalar,
+                                      "data-type", data_type,
+                                      "value", value,
+                                      NULL);
+  return GARROW_SPARSE_UNION_SCALAR(scalar);
 }
 
 
@@ -2245,9 +2509,19 @@ garrow_dense_union_scalar_new(GArrowDenseUnionDataType *data_type,
                               gint8 type_code,
                               GArrowScalar *value)
 {
-  return GARROW_DENSE_UNION_SCALAR(
-    garrow_union_scalar_new<arrow::DenseUnionScalar>(
-      GARROW_DATA_TYPE(data_type), type_code, value));
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto arrow_value = garrow_scalar_get_raw(value);
+  auto arrow_scalar =
+    std::static_pointer_cast<arrow::Scalar>(
+      std::make_shared<arrow::DenseUnionScalar>(arrow_value,
+                                                type_code,
+                                                arrow_data_type));
+  auto scalar = garrow_scalar_new_raw(&arrow_scalar,
+                                      "scalar", &arrow_scalar,
+                                      "data-type", data_type,
+                                      "value", value,
+                                      NULL);
+  return GARROW_DENSE_UNION_SCALAR(scalar);
 }
 
 
@@ -2329,6 +2603,9 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
   case arrow::Type::type::UINT64:
     type = GARROW_TYPE_UINT64_SCALAR;
     break;
+  case arrow::Type::type::HALF_FLOAT:
+    type = GARROW_TYPE_HALF_FLOAT_SCALAR;
+    break;
   case arrow::Type::type::FLOAT:
     type = GARROW_TYPE_FLOAT_SCALAR;
     break;
@@ -2364,6 +2641,15 @@ garrow_scalar_new_raw_valist(std::shared_ptr<arrow::Scalar> *arrow_scalar,
     break;
   case arrow::Type::type::TIMESTAMP:
     type = GARROW_TYPE_TIMESTAMP_SCALAR;
+    break;
+  case arrow::Type::type::INTERVAL_MONTHS:
+    type = GARROW_TYPE_MONTH_INTERVAL_SCALAR;
+    break;
+  case arrow::Type::type::INTERVAL_DAY_TIME:
+    type = GARROW_TYPE_DAY_TIME_INTERVAL_SCALAR;
+    break;
+  case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
+    type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_SCALAR;
     break;
   case arrow::Type::type::DECIMAL128:
     type = GARROW_TYPE_DECIMAL128_SCALAR;

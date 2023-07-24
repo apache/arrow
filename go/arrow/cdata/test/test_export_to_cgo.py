@@ -43,6 +43,7 @@ def load_cgotest():
         void importThenExportSchema(uintptr_t input, uintptr_t output);
         void importThenExportRecord(uintptr_t schemaIn, uintptr_t arrIn, 
                                     uintptr_t schemaOut, uintptr_t arrOut);
+        void roundtripArray(uintptr_t arrIn, uintptr_t schema, uintptr_t arrOut);
         """)
     return ffi.dlopen(f'./cgotest.{libext}')
 
@@ -161,6 +162,68 @@ class TestRoundTrip(BaseTestGoPython):
             del c_schema
             del c_batch
 
+    # commented out types can be uncommented after
+    # GH-14875 is addressed
+    _test_pyarrow_types = [
+        pa.null(),
+        pa.bool_(),
+        pa.int32(),
+        pa.time32("s"),
+        pa.time64("us"),
+        pa.date32(),
+        pa.timestamp("us"),
+        pa.timestamp("us", tz="UTC"),
+        pa.timestamp("us", tz="Europe/Paris"),
+        pa.duration("s"),
+        pa.duration("ms"),
+        pa.duration("us"),
+        pa.duration("ns"),
+        pa.float16(),
+        pa.float32(),
+        pa.float64(),
+        pa.decimal128(19, 4),        
+        # pa.string(),
+        # pa.binary(),
+        # pa.binary(10),
+        # pa.large_string(),
+        # pa.large_binary(),
+        pa.list_(pa.int32()),
+        pa.list_(pa.int32(), 2),
+        pa.large_list(pa.uint16()),
+        pa.struct([
+            pa.field("a", pa.int32()),
+            pa.field("b", pa.int8()),
+            # pa.field("c", pa.string()),
+        ]),
+        pa.struct([
+            pa.field("a", pa.int32(), nullable=False),
+            pa.field("b", pa.int8(), nullable=False),
+            # pa.field("c", pa.string()),
+        ]),
+        pa.dictionary(pa.int8(), pa.int64()),
+        # pa.dictionary(pa.int8(), pa.string()),
+        # pa.map_(pa.string(), pa.int32()),
+        pa.map_(pa.int64(), pa.int32()),
+    ]
+
+    def test_empty_roundtrip(self):
+        for typ in self._test_pyarrow_types:
+            with self.subTest(typ=typ):
+                with self.assert_pyarrow_memory_released():
+                    a = pa.array([], typ)
+                    a._export_to_c(self.ptr_array)
+                    typ._export_to_c(self.ptr_schema)
+                    
+                    c_arr = ffi.new("struct ArrowArray*")
+                    ptr_arr = int(ffi.cast("uintptr_t", c_arr))
+
+                    cgotest.roundtripArray(self.ptr_array, self.ptr_schema, ptr_arr)
+                    b = pa.Array._import_from_c(ptr_arr, typ)
+                    b.validate(full=True)
+                    assert a.to_pylist() == b.to_pylist()
+                    assert a.type == b.type
+                    del a
+                    del b
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

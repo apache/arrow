@@ -77,6 +77,18 @@ has a schema which must match its arrays' datatypes.
 Record batches are a convenient unit of work for various serialization
 and computation functions, possibly incremental.
 
+.. image:: tables-versus-record-batches.svg
+   :alt: A graphical representation of an Arrow Table and a Record Batch, with
+         structure as described in text above.
+
+Record batches can be sent between implementations, such as via 
+:ref:`IPC <format-ipc>` or
+via the :doc:`C Data Interface <../format/CDataInterface>`. Tables and 
+chunked arrays, on the other hand, are concepts in the C++ implementation,
+not in the Arrow format itself, so they aren't directly portable.
+
+However, a table can be converted to and built from a sequence of record 
+batches easily without needing to copy the underlying array buffers.
 A table can be streamed as an arbitrary number of record batches using
 a :class:`arrow::TableBatchReader`.  Conversely, a logical sequence of
 record batches can be assembled to form a table using one of the

@@ -70,7 +70,7 @@ enum class S3CredentialsKind : int8_t {
 };
 
 /// Pure virtual class for describing custom S3 retry strategies
-class S3RetryStrategy {
+class ARROW_EXPORT S3RetryStrategy {
  public:
   virtual ~S3RetryStrategy() = default;
 
@@ -90,6 +90,12 @@ class S3RetryStrategy {
   /// Returns the time in milliseconds the S3 client should sleep for until retrying.
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
+  /// Returns a stock AWS Default retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
+      int64_t max_attempts);
+  /// Returns a stock AWS Standard retry strategy.
+  static std::shared_ptr<S3RetryStrategy> GetAwsStandardRetryStrategy(
+      int64_t max_attempts);
 };
 
 /// Options for the S3FileSystem implementation.
@@ -102,6 +108,17 @@ struct ARROW_EXPORT S3Options {
   /// the region (environment variables, configuration profile, EC2 metadata
   /// server).
   std::string region;
+
+  /// \brief Socket connection timeout, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 1 second).
+  double connect_timeout = -1;
+
+  /// \brief Socket read timeout on Windows and macOS, in seconds
+  ///
+  /// If negative, the AWS SDK default value is used (typically 3 seconds).
+  /// This option is ignored on non-Windows, non-macOS systems.
+  double request_timeout = -1;
 
   /// If non-empty, override region with a connect string such as "localhost:9000"
   // XXX perhaps instead take a URL like "http://localhost:9000"?
@@ -116,7 +133,7 @@ struct ARROW_EXPORT S3Options {
   /// Optional external idenitifer to pass to STS when assuming a role
   std::string external_id;
   /// Frequency (in seconds) to refresh temporary credentials from assumed role
-  int load_frequency;
+  int load_frequency = 900;
 
   /// If connection is through a proxy, set options here
   S3ProxyOptions proxy_options;
@@ -129,6 +146,17 @@ struct ARROW_EXPORT S3Options {
 
   /// Whether OutputStream writes will be issued in the background, without blocking.
   bool background_writes = true;
+
+  /// Whether to allow creation of buckets
+  ///
+  /// When S3FileSystem creates new buckets, it does not pass any non-default settings.
+  /// In AWS S3, the bucket and all objects will be not publicly visible, and there
+  /// will be no bucket policies and no resource tags. To have more control over how
+  /// buckets are created, use a different API to create them.
+  bool allow_bucket_creation = false;
+
+  /// Whether to allow deletion of buckets
+  bool allow_bucket_deletion = false;
 
   /// \brief Default metadata for OpenOutputStream.
   ///
@@ -219,6 +247,7 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   std::string region() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;
@@ -231,7 +260,9 @@ class ARROW_EXPORT S3FileSystem : public FileSystem {
   Status CreateDir(const std::string& path, bool recursive = true) override;
 
   Status DeleteDir(const std::string& path) override;
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
+  Future<> DeleteDirContentsAsync(const std::string& path,
+                                  bool missing_dir_ok = false) override;
   Status DeleteRootDirContents() override;
 
   Status DeleteFile(const std::string& path) override;
@@ -294,21 +325,55 @@ enum class S3LogLevel : int8_t { Off, Fatal, Error, Warn, Info, Debug, Trace };
 
 struct ARROW_EXPORT S3GlobalOptions {
   S3LogLevel log_level;
+  /// The number of threads to configure when creating AWS' I/O event loop
+  ///
+  /// Defaults to 1 as recommended by AWS' doc when the # of connections is
+  /// expected to be, at most, in the hundreds
+  ///
+  /// For more details see Aws::Crt::Io::EventLoopGroup
+  int num_event_loop_threads = 1;
 };
 
-/// Initialize the S3 APIs.  It is required to call this function at least once
-/// before using S3FileSystem.
+/// \brief Initialize the S3 APIs.
+///
+/// It is required to call this function at least once before using S3FileSystem.
+///
+/// Once this function is called you MUST call FinalizeS3 before the end of the
+/// application in order to avoid a segmentation fault at shutdown.
 ARROW_EXPORT
 Status InitializeS3(const S3GlobalOptions& options);
 
-/// Ensure the S3 APIs are initialized, but only if not already done.
+/// \brief Ensure the S3 APIs are initialized, but only if not already done.
+///
 /// If necessary, this will call InitializeS3() with some default options.
 ARROW_EXPORT
 Status EnsureS3Initialized();
 
-/// Shutdown the S3 APIs.
+/// Whether S3 was initialized, and not finalized.
+ARROW_EXPORT
+bool IsS3Initialized();
+
+/// Whether S3 was finalized.
+ARROW_EXPORT
+bool IsS3Finalized();
+
+/// \brief Shutdown the S3 APIs.
+///
+/// This can wait for some S3 concurrent calls to finish so as to avoid
+/// race conditions.
+/// After this function has been called, all S3 calls will fail with an error.
+///
+/// Calls to InitializeS3() and FinalizeS3() should be serialized by the
+/// application (this also applies to EnsureS3Initialized() and
+/// EnsureS3Finalized()).
 ARROW_EXPORT
 Status FinalizeS3();
+
+/// \brief Ensure the S3 APIs are shutdown, but only if not already done.
+///
+/// If necessary, this will call FinalizeS3().
+ARROW_EXPORT
+Status EnsureS3Finalized();
 
 ARROW_EXPORT
 Result<std::string> ResolveS3BucketRegion(const std::string& bucket);

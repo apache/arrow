@@ -19,45 +19,71 @@
 
 set -ex
 
+# simplistic semver comparison
+verlte() {
+    [ "$1" = "`echo -e "$1\n$2" | sort -V | head -n1`" ]
+}
+verlt() {
+    [ "$1" = "$2" ] && return 1 || verlte $1 $2
+}
+
+ver=`go env GOVERSION`
+
 source_dir=${1}/go
 
 testargs="-race"
+if verlte "1.18" "${ver#go}" && [ "$(go env GOOS)" != "darwin" ]; then
+    # asan not supported on darwin/amd64
+    testargs="-asan"
+fi
+
 case "$(uname)" in
     MINGW*)
-        # -race doesn't work on windows currently
+        # -asan and -race don't work on windows currently
         testargs=""
         ;;
 esac
 
 if [[ "$(go env GOHOSTARCH)" = "s390x" ]]; then
-    testargs="" # -race not supported on s390x
+    testargs="" # -race and -asan not supported on s390x
 fi
+
+# Go static check (skipped in MinGW)
+if [[ -z "${MINGW_LINT}" ]]; then
+    pushd ${source_dir}
+    "$(go env GOPATH)"/bin/staticcheck ./...
+    popd
+fi
+
 
 pushd ${source_dir}/arrow
 
 TAGS="assert,test"
-if [[ -n "${ARROW_GO_TESTCGO}" ]]; then    
+if [[ -n "${ARROW_GO_TESTCGO}" ]]; then
     if [[ "${MSYSTEM}" = "MINGW64" ]]; then
-        export PATH=${MINGW_PREFIX}/bin:$PATH        
+        export PATH=${MINGW_PREFIX}\\bin:${MINGW_PREFIX}\\lib:$PATH
     fi
     TAGS="${TAGS},ccalloc"
 fi
-
 
 # the cgo implementation of the c data interface requires the "test"
 # tag in order to run its tests so that the testing functions implemented
 # in .c files don't get included in non-test builds.
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags $TAGS $d
-done
+go test $testargs -tags $TAGS ./...
+
+# run it again but with the noasm tag
+go test $testargs -tags $TAGS,noasm ./...
 
 popd
 
+export PARQUET_TEST_DATA=${1}/cpp/submodules/parquet-testing/data
+export ARROW_TEST_DATA=${1}/testing/data
 pushd ${source_dir}/parquet
 
-for d in $(go list ./... | grep -v vendor); do
-    go test $testargs -tags assert $d
-done
+go test $testargs -tags assert ./...
+
+# run the tests again but with the noasm tag
+go test $testargs -tags assert,noasm ./...
 
 popd

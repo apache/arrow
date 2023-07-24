@@ -57,11 +57,12 @@ class TestMemoryPoolBase : public ::testing::Test {
     auto pool = memory_pool();
 
     uint8_t* data;
-    int64_t to_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
-                                          std::numeric_limits<size_t>::max());
+    int64_t max_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
+                                           std::numeric_limits<size_t>::max());
     // subtract 63 to prevent overflow after the size is aligned
-    to_alloc -= 63;
-    ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
+    for (int64_t to_alloc : {max_alloc, max_alloc - 63, max_alloc - 127}) {
+      ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
+    }
   }
 
   void TestReallocate() {
@@ -86,6 +87,23 @@ class TestMemoryPoolBase : public ::testing::Test {
     // Free
     pool->Free(data, 5);
     ASSERT_EQ(0, pool->bytes_allocated());
+  }
+
+  void TestAlignment() {
+    auto pool = memory_pool();
+    {
+      uint8_t* data64;
+      ASSERT_OK(pool->Allocate(10, &data64));
+      ASSERT_EQ(reinterpret_cast<uintptr_t>(data64) % kDefaultBufferAlignment, 0);
+      pool->Free(data64, 10);
+    }
+
+    {
+      uint8_t* data512;
+      ASSERT_OK(pool->Allocate(10, 512, &data512));
+      ASSERT_EQ(reinterpret_cast<uintptr_t>(data512) % 512, 0);
+      pool->Free(data512, 10, 512);
+    }
   }
 };
 

@@ -24,6 +24,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <vector>
 
@@ -32,7 +33,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/formatting.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/value_parsing.h"
 
 namespace arrow {
@@ -218,7 +218,7 @@ static void TimestampParsingStrptime(
 }
 
 struct DummyAppender {
-  Status operator()(util::string_view v) {
+  Status operator()(std::string_view v) {
     if (pos_ >= static_cast<int32_t>(v.size())) {
       pos_ = 0;
     }

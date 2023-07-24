@@ -23,7 +23,8 @@ Using Arrow C++ in your own project
 ===================================
 
 This section assumes you already have the Arrow C++ libraries on your
-system, either after installing them using a package manager or after
+system, either after `installing them using a package manager
+<https://arrow.apache.org/install/>`_ or after
 :ref:`building them yourself <building-arrow-cpp>`.
 
 The recommended way to integrate the Arrow C++ libraries in your own
@@ -45,12 +46,14 @@ file into an executable linked with the Arrow C++ shared library:
 
 .. code-block:: cmake
 
+   cmake_minimum_required(VERSION 3.16)
+   
    project(MyExample)
 
    find_package(Arrow REQUIRED)
 
    add_executable(my_example my_example.cc)
-   target_link_libraries(my_example PRIVATE arrow_shared)
+   target_link_libraries(my_example PRIVATE Arrow::arrow_shared)
 
 Available variables and targets
 -------------------------------
@@ -66,10 +69,71 @@ CMake variables:
 In addition, it will have created some targets that you can link against
 (note these are plain strings, not variables):
 
-* ``arrow_shared`` links to the Arrow shared libraries
-* ``arrow_static`` links to the Arrow static libraries
+* ``Arrow::arrow_shared`` links to the Arrow shared libraries
+* ``Arrow::arrow_static`` links to the Arrow static libraries
+
+For backwards compatibility purposes the ``arrow_shared`` and ``arrow_static``
+targets are also available but we recommend using ``Arrow::arrow_shared`` and
+``Arrow::arrow_static`` respectively.
 
 In most cases, it is recommended to use the Arrow shared libraries.
+
+If Arrow is installed on a custom path instead of a common system one you
+will have to add the path where Arrow is installed to ``CMAKE_PREFIX_PATH``.
+
+``CMAKE_PREFIX_PATH`` can be defined as a `CMake variable
+<https://cmake.org/cmake/help/latest/variable/CMAKE_PREFIX_PATH.html>`_ or an
+`environment variable <https://cmake.org/cmake/help/latest/envvar/CMAKE_PREFIX_PATH.html>`_.
+
+Your system might already have a ``CMAKE_PREFIX_PATH`` environment variable
+defined, use the following to expand it with the path to your Arrow
+installation. In this case ``ARROW_ROOT`` is expected to contain the
+path to your Arrow installation:
+
+.. code-block:: shell
+
+   export CMAKE_PREFIX_PATH=${ARROW_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
+
+In the case of using a CMake variable you can add it when configuring the
+project like the following to contain the possible existing
+``CMAKE_PREFIX_PATH`` environment variable:
+
+.. code-block:: shell
+
+   cmake ... -DCMAKE_PREFIX_PATH=${ARROW_ROOT}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
+
+.. note::
+   The usage of ``COMPONENTS`` on our ``find_package`` implementation is
+   currently not supported.
+
+Other available packages
+------------------------
+
+There are other available packages, they can also be used with the `find_package
+<https://cmake.org/cmake/help/latest/command/find_package.html>`_ directive.
+This is the list of available ones and the respective targets created:
+
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| find_package usage                            | shared target                                          | static target                                       |
++===============================================+========================================================+=====================================================+
+| ``find_package(ArrowCUDA REQUIRED)``          | ``ArrowCUDA::arrow_cuda_shared``                       | ``ArrowCUDA::arrow_cuda_static``                    |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowDataset REQUIRED)``       | ``ArrowDataset::arrow_dataset_shared``                 | ``ArrowDataset::arrow_dataset_static``              |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowFlight REQUIRED)``        | ``ArrowFlight::arrow_flight_shared``                   | ``ArrowFlight::arrow_flight_static``                |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowFlightSql REQUIRED)``     | ``ArrowFlightSql::arrow_flight_sql_shared``            | ``ArrowFlightSql::arrow_flight_sql_static``         |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowFlightTesting REQUIRED)`` | ``ArrowFlightTesting::arrow_flight_testing_shared``    | ``ArrowFlightTesting::arrow_flight_testing_static`` |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowSubstrait REQUIRED)``     | ``ArrowSubstrait::arrow_substrait_shared``             | ``ArrowSubstrait::arrow_substrait_static``          |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(ArrowTesting REQUIRED)``       | ``ArrowTesting::arrow_testing_shared``                 | ``ArrowTesting::arrow_testing_static``              |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(Gandiva REQUIRED)``            | ``Gandiva::gandiva_shared``                            | ``Gandiva::gandiva_static``                         |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
+| ``find_package(Parquet REQUIRED)``            | ``Parquet::parquet_shared``                            | ``Parquet::parquet_static``                         |
++-----------------------------------------------+--------------------------------------------------------+-----------------------------------------------------+
 
 .. note::
    CMake is case-sensitive.  The names and variables listed above have to be
@@ -133,7 +197,6 @@ all available packages:
   * ``arrow``
   * ``gandiva``
   * ``parquet``
-  * ``plasma``
 
 A Note on Linking
 =================
@@ -163,3 +226,26 @@ can control the source of each dependency and whether it is statically or
 dynamically linked. See :doc:`/developers/cpp/building` for instructions. Or
 alternatively, use Arrow from a package manager such as Conda or vcpkg which
 will manage consistent versions of Arrow and its dependencies.
+
+
+.. _download-timezone-database:
+
+Runtime Dependencies
+====================
+
+While Arrow uses the OS-provided timezone database on Linux and macOS, it
+requires a user-provided database on Windows. You must download and extract the
+text version of the IANA timezone database and add the Windows timezone mapping
+XML. To download, you can use the following batch script:
+
+.. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
+   :language: batch
+   :start-after: @rem (Doc section: Download timezone database)
+   :end-before: @rem (Doc section: Download timezone database)
+
+By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
+but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
+
+   arrow::GlobalOptions options;
+   options.timezone_db_path = "path/to/tzdata";
+   ARROW_RETURN_NOT_OK(arrow::Initialize(options));

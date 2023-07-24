@@ -14,6 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build cgo
 // +build cgo
 
 package cdata
@@ -21,10 +22,10 @@ package cdata
 import (
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/arrio"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"golang.org/x/xerrors"
 )
 
@@ -65,13 +66,13 @@ func ImportCArrowSchema(out *CArrowSchema) (*arrow.Schema, error) {
 //
 // The underlying buffers will not be copied, but will instead be referenced directly
 // by the resulting array interface object. The passed in ArrowArray will have it's ownership
-// transferred to the resulting array.Interface via ArrowArrayMove. The underlying array.Data
+// transferred to the resulting arrow.Array via ArrowArrayMove. The underlying array.Data
 // object that is owned by the Array will now be the owner of the memory pointer and
 // will call ArrowArrayRelease when it is released and garbage collected via runtime.SetFinalizer.
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (array.Interface, error) {
+func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (arrow.Array, error) {
 	imp, err := importCArrayAsType(arr, dt)
 	if err != nil {
 		return nil, err
@@ -87,12 +88,12 @@ func ImportCArrayWithType(arr *CArrowArray, dt arrow.DataType) (array.Interface,
 //
 // The Schema will be copied with the information used to populate the returned Field, complete
 // with metadata. The array will reference the same memory that is referred to by the ArrowArray
-// object and take ownership of it as per ImportCArrayWithType. The returned array.Interface will
+// object and take ownership of it as per ImportCArrayWithType. The returned arrow.Array will
 // own the C memory and call ArrowArrayRelease when the array.Data object is cleaned up.
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCArray(arr *CArrowArray, schema *CArrowSchema) (arrow.Field, array.Interface, error) {
+func ImportCArray(arr *CArrowArray, schema *CArrowSchema) (arrow.Field, arrow.Array, error) {
 	field, err := importSchema(schema)
 	if err != nil {
 		return field, nil, err
@@ -110,7 +111,7 @@ func ImportCArray(arr *CArrowArray, schema *CArrowSchema) (arrow.Field, array.In
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (array.Record, error) {
+func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (arrow.Record, error) {
 	imp, err := importCArrayAsType(arr, arrow.StructOf(sc.Fields()...))
 	if err != nil {
 		return nil, err
@@ -121,7 +122,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (array.Rec
 
 	// now that we have our fields, we can split them out into the slice of arrays
 	// and construct a record batch from them to return.
-	cols := make([]array.Interface, st.NumField())
+	cols := make([]arrow.Array, st.NumField())
 	for i := 0; i < st.NumField(); i++ {
 		cols[i] = st.Field(i)
 	}
@@ -141,7 +142,7 @@ func ImportCRecordBatchWithSchema(arr *CArrowArray, sc *arrow.Schema) (array.Rec
 //
 // NOTE: The array takes ownership of the underlying memory buffers via ArrowArrayMove,
 // it does not take ownership of the actual arr object itself.
-func ImportCRecordBatch(arr *CArrowArray, sc *CArrowSchema) (array.Record, error) {
+func ImportCRecordBatch(arr *CArrowArray, sc *CArrowSchema) (arrow.Record, error) {
 	field, err := importSchema(sc)
 	if err != nil {
 		return nil, err
@@ -163,10 +164,32 @@ func ImportCRecordBatch(arr *CArrowArray, sc *CArrowSchema) (array.Record, error
 //
 // NOTE: The reader takes ownership of the underlying memory buffers via ArrowArrayStreamMove,
 // it does not take ownership of the actual stream object itself.
+//
+// Deprecated: This will panic if importing the schema fails (which is possible).
+// Prefer ImportCRecordReader instead.
 func ImportCArrayStream(stream *CArrowArrayStream, schema *arrow.Schema) arrio.Reader {
+	reader, err := ImportCRecordReader(stream, schema)
+	if err != nil {
+		panic(err)
+	}
+	return reader
+}
+
+// ImportCStreamReader creates an arrio.Reader from an ArrowArrayStream taking ownership
+// of the underlying stream object via ArrowArrayStreamMove.
+//
+// The records returned by this reader must be released manually after they are returned.
+// The reader itself will release the stream via SetFinalizer when it is garbage collected.
+// It will return (nil, io.EOF) from the Read function when there are no more records to return.
+//
+// NOTE: The reader takes ownership of the underlying memory buffers via ArrowArrayStreamMove,
+// it does not take ownership of the actual stream object itself.
+func ImportCRecordReader(stream *CArrowArrayStream, schema *arrow.Schema) (arrio.Reader, error) {
 	out := &nativeCRecordBatchReader{schema: schema}
-	initReader(out, stream)
-	return out
+	if err := initReader(out, stream); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ExportArrowSchema populates the passed in CArrowSchema with the schema passed in so
@@ -175,6 +198,11 @@ func ImportCArrayStream(stream *CArrowArrayStream, schema *arrow.Schema) arrio.R
 // the populating of the struct. Any memory allocated will be allocated using malloc
 // which means that it is invisible to the Go Garbage Collector and must be freed manually
 // using the callback on the CArrowSchema object.
+//
+// WARNING: the output ArrowSchema MUST BE ZERO INITIALIZED, or the Go garbage collector
+// may error at runtime, due to CGO rules ("the current implementation may sometimes
+// cause a runtime error if the contents of the C memory appear to be a Go pointer").
+// You have been warned!
 func ExportArrowSchema(schema *arrow.Schema, out *CArrowSchema) {
 	dummy := arrow.Field{Type: arrow.StructOf(schema.Fields()...), Metadata: schema.Metadata()}
 	exportField(dummy, out)
@@ -197,8 +225,13 @@ func ExportArrowSchema(schema *arrow.Schema, out *CArrowSchema) {
 // The release function on the populated CArrowArray will properly decrease the reference counts,
 // and release the memory if the record has already been released. But since this must be explicitly
 // done, make sure it is released so that you do not create a memory leak.
-func ExportArrowRecordBatch(rb array.Record, out *CArrowArray, outSchema *CArrowSchema) {
-	children := make([]*array.Data, rb.NumCols())
+//
+// WARNING: the output ArrowArray MUST BE ZERO INITIALIZED, or the Go garbage collector
+// may error at runtime, due to CGO rules ("the current implementation may sometimes
+// cause a runtime error if the contents of the C memory appear to be a Go pointer").
+// You have been warned!
+func ExportArrowRecordBatch(rb arrow.Record, out *CArrowArray, outSchema *CArrowSchema) {
+	children := make([]arrow.ArrayData, rb.NumCols())
 	for i := range rb.Columns() {
 		children[i] = rb.Column(i).Data()
 	}
@@ -217,11 +250,30 @@ func ExportArrowRecordBatch(rb array.Record, out *CArrowArray, outSchema *CArrow
 }
 
 // ExportArrowArray populates the CArrowArray that is passed in with the pointers to the memory
-// being used by the array.Interface passed in, in order to share with zero-copy across the C
+// being used by the arrow.Array passed in, in order to share with zero-copy across the C
 // Data Interface. See the documentation for ExportArrowRecordBatch for details on how to ensure
 // you do not leak memory and prevent unwanted, undefined or strange behaviors.
-func ExportArrowArray(arr array.Interface, out *CArrowArray, outSchema *CArrowSchema) {
+//
+// WARNING: the output ArrowArray MUST BE ZERO INITIALIZED, or the Go garbage collector
+// may error at runtime, due to CGO rules ("the current implementation may sometimes
+// cause a runtime error if the contents of the C memory appear to be a Go pointer").
+// You have been warned!
+func ExportArrowArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 	exportArray(arr, out, outSchema)
+}
+
+// ExportRecordReader populates the CArrowArrayStream that is passed in with the appropriate
+// callbacks to be a working ArrowArrayStream utilizing the passed in RecordReader. The
+// CArrowArrayStream takes ownership of the RecordReader until the consumer calls the release
+// callback, as such it is unnecesary to call Release on the passed in reader unless it has
+// previously been retained.
+//
+// WARNING: the output ArrowArrayStream MUST BE ZERO INITIALIZED, or the Go garbage
+// collector may error at runtime, due to CGO rules ("the current implementation may
+// sometimes cause a runtime error if the contents of the C memory appear to be a Go
+// pointer").  You have been warned!
+func ExportRecordReader(reader array.RecordReader, out *CArrowArrayStream) {
+	exportStream(reader, out)
 }
 
 // ReleaseCArrowArray calls ArrowArrayRelease on the passed in cdata array

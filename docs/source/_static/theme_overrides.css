@@ -54,6 +54,40 @@ a.navbar-brand img {
   max-width: 100%;
 }
 
+/* Contibuting landing page overview cards */
+
+.contrib-card {
+  background: #fff;
+  border-radius: 0;
+  padding: 30px 10px 20px 10px;
+  margin: 10px 0px;
+}
+
+.contrib-card p.card-text {
+  margin: 0px;
+}
+
+.contrib-card .sd-card-img-top {
+  margin: 2px;
+  height: 75px;
+}
+
+.contrib-card .sd-card-title {
+  /* color: rgb(var(--pst-color-h1)) !important; */
+  font-size: var(--pst-font-size-h3);
+  /* font-weight: bold; */
+  padding: 1rem 0rem 0.5rem 0rem;
+}
+
+.contrib-card .sd-card-footer {
+  border: none;
+}
+
+.contib-card .sd-card-footer p.sd-card-text{
+  max-width: 220px;
+  margin-left: auto;
+  margin-right: auto;
+}
 
 /* This is the bootstrap CSS style for "table-striped". Since the theme does
 not yet provide an easy way to configure this globaly, it easier to simply

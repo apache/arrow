@@ -25,16 +25,22 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/array/util.h"
 #include "arrow/buffer.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/int_util_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/ree_util.h"
+#include "arrow/util/slice_util_internal.h"
+#include "arrow/util/union_util.h"
 
 namespace arrow {
 
+using internal::checked_cast;
 using internal::CountSetBits;
 
 static inline void AdjustNonNullable(Type::type type_id, int64_t length,
@@ -55,6 +61,38 @@ static inline void AdjustNonNullable(Type::type type_id, int64_t length,
     *null_count = 0;
   }
 }
+
+namespace internal {
+
+bool IsNullSparseUnion(const ArrayData& data, int64_t i) {
+  auto* union_type = checked_cast<const SparseUnionType*>(data.type.get());
+  const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
+  const int child_id = union_type->child_ids()[types[data.offset + i]];
+  return data.child_data[child_id]->IsNull(i);
+}
+
+bool IsNullDenseUnion(const ArrayData& data, int64_t i) {
+  auto* union_type = checked_cast<const DenseUnionType*>(data.type.get());
+  const auto* types = reinterpret_cast<const int8_t*>(data.buffers[1]->data());
+  const int child_id = union_type->child_ids()[types[data.offset + i]];
+  const auto* offsets = reinterpret_cast<const int32_t*>(data.buffers[2]->data());
+  const int64_t child_offset = offsets[data.offset + i];
+  return data.child_data[child_id]->IsNull(child_offset);
+}
+
+bool IsNullRunEndEncoded(const ArrayData& data, int64_t i) {
+  return ArraySpan(data).IsNullRunEndEncoded(i);
+}
+
+bool UnionMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+bool RunEndEncodedMayHaveLogicalNulls(const ArrayData& data) {
+  return ArraySpan(data).MayHaveLogicalNulls();
+}
+
+}  // namespace internal
 
 std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64_t length,
                                            std::vector<std::shared_ptr<Buffer>> buffers,
@@ -92,7 +130,8 @@ std::shared_ptr<ArrayData> ArrayData::Make(std::shared_ptr<DataType> type, int64
 }
 
 std::shared_ptr<ArrayData> ArrayData::Slice(int64_t off, int64_t len) const {
-  ARROW_CHECK_LE(off, length) << "Slice offset greater than array length";
+  ARROW_CHECK_LE(off, length) << "Slice offset (" << off
+                              << ") greater than array length (" << length << ")";
   len = std::min(length - off, len);
   off += offset;
 
@@ -128,8 +167,414 @@ int64_t ArrayData::GetNullCount() const {
   return precomputed;
 }
 
+int64_t ArrayData::ComputeLogicalNullCount() const {
+  if (this->buffers[0]) {
+    return GetNullCount();
+  }
+  return ArraySpan(*this).ComputeLogicalNullCount();
+}
+
 // ----------------------------------------------------------------------
-// Implement ArrayData::View
+// Methods for ArraySpan
+
+void ArraySpan::SetMembers(const ArrayData& data) {
+  this->type = data.type.get();
+  this->length = data.length;
+  if (this->type->id() == Type::NA) {
+    this->null_count = this->length;
+  } else {
+    this->null_count = data.null_count.load();
+  }
+  this->offset = data.offset;
+
+  for (int i = 0; i < static_cast<int>(data.buffers.size()); ++i) {
+    const std::shared_ptr<Buffer>& buffer = data.buffers[i];
+    // It is the invoker-of-kernels's responsibility to ensure that
+    // const buffers are not written to accidentally.
+    if (buffer) {
+      SetBuffer(i, buffer);
+    } else {
+      this->buffers[i] = {};
+    }
+  }
+
+  Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
+  if ((data.buffers.size() == 0 || data.buffers[0] == nullptr) && type_id != Type::NA &&
+      type_id != Type::SPARSE_UNION && type_id != Type::DENSE_UNION) {
+    // This should already be zero but we make for sure
+    this->null_count = 0;
+  }
+
+  // Makes sure any other buffers are seen as null / non-existent
+  for (int i = static_cast<int>(data.buffers.size()); i < 3; ++i) {
+    this->buffers[i] = {};
+  }
+
+  if (type_id == Type::DICTIONARY) {
+    this->child_data.resize(1);
+    this->child_data[0].SetMembers(*data.dictionary);
+  } else {
+    this->child_data.resize(data.child_data.size());
+    for (size_t child_index = 0; child_index < data.child_data.size(); ++child_index) {
+      this->child_data[child_index].SetMembers(*data.child_data[child_index]);
+    }
+  }
+}
+
+namespace {
+
+template <typename offset_type>
+BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
+  auto* offsets = reinterpret_cast<offset_type*>(scratch_space);
+  offsets[0] = 0;
+  offsets[1] = static_cast<offset_type>(value_size);
+  return {scratch_space, sizeof(offset_type) * 2};
+}
+
+int GetNumBuffers(const DataType& type) {
+  switch (type.id()) {
+    case Type::NA:
+    case Type::STRUCT:
+    case Type::FIXED_SIZE_LIST:
+    case Type::RUN_END_ENCODED:
+      return 1;
+    case Type::BINARY:
+    case Type::LARGE_BINARY:
+    case Type::STRING:
+    case Type::LARGE_STRING:
+    case Type::DENSE_UNION:
+      return 3;
+    case Type::EXTENSION:
+      // The number of buffers depends on the storage type
+      return GetNumBuffers(
+          *internal::checked_cast<const ExtensionType&>(type).storage_type());
+    default:
+      // Everything else has 2 buffers
+      return 2;
+  }
+}
+
+}  // namespace
+
+namespace internal {
+
+void FillZeroLengthArray(const DataType* type, ArraySpan* span) {
+  span->type = type;
+  span->length = 0;
+  int num_buffers = GetNumBuffers(*type);
+  for (int i = 0; i < num_buffers; ++i) {
+    alignas(int64_t) static std::array<uint8_t, sizeof(int64_t) * 2> kZeros{0};
+    span->buffers[i].data = kZeros.data();
+    span->buffers[i].size = 0;
+  }
+
+  if (!HasValidityBitmap(type->id())) {
+    span->buffers[0] = {};
+  }
+
+  for (int i = num_buffers; i < 3; ++i) {
+    span->buffers[i] = {};
+  }
+
+  if (type->id() == Type::DICTIONARY) {
+    span->child_data.resize(1);
+    const std::shared_ptr<DataType>& value_type =
+        checked_cast<const DictionaryType*>(type)->value_type();
+    FillZeroLengthArray(value_type.get(), &span->child_data[0]);
+  } else {
+    // Fill children
+    span->child_data.resize(type->num_fields());
+    for (int i = 0; i < type->num_fields(); ++i) {
+      FillZeroLengthArray(type->field(i)->type().get(), &span->child_data[i]);
+    }
+  }
+}
+
+}  // namespace internal
+
+void ArraySpan::FillFromScalar(const Scalar& value) {
+  static uint8_t kTrueBit = 0x01;
+  static uint8_t kFalseBit = 0x00;
+
+  this->type = value.type.get();
+  this->length = 1;
+
+  Type::type type_id = value.type->id();
+
+  if (type_id == Type::NA) {
+    this->null_count = 1;
+  } else if (!internal::HasValidityBitmap(type_id)) {
+    this->null_count = 0;
+  } else {
+    // Populate null count and validity bitmap
+    this->null_count = value.is_valid ? 0 : 1;
+    this->buffers[0].data = value.is_valid ? &kTrueBit : &kFalseBit;
+    this->buffers[0].size = 1;
+  }
+
+  if (type_id == Type::BOOL) {
+    const auto& scalar = checked_cast<const BooleanScalar&>(value);
+    this->buffers[1].data = scalar.value ? &kTrueBit : &kFalseBit;
+    this->buffers[1].size = 1;
+  } else if (is_primitive(type_id) || is_decimal(type_id) ||
+             type_id == Type::DICTIONARY) {
+    const auto& scalar = checked_cast<const internal::PrimitiveScalarBase&>(value);
+    const uint8_t* scalar_data = reinterpret_cast<const uint8_t*>(scalar.view().data());
+    this->buffers[1].data = const_cast<uint8_t*>(scalar_data);
+    this->buffers[1].size = scalar.type->byte_width();
+    if (type_id == Type::DICTIONARY) {
+      // Populate dictionary data
+      const auto& dict_scalar = checked_cast<const DictionaryScalar&>(value);
+      this->child_data.resize(1);
+      this->child_data[0].SetMembers(*dict_scalar.value.dictionary->data());
+    }
+  } else if (is_base_binary_like(type_id)) {
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+
+    const uint8_t* data_buffer = nullptr;
+    int64_t data_size = 0;
+    if (scalar.is_valid) {
+      data_buffer = scalar.value->data();
+      data_size = scalar.value->size();
+    }
+    if (is_binary_like(type_id)) {
+      this->buffers[1] =
+          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(data_size));
+    } else {
+      // is_large_binary_like
+      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, data_size);
+    }
+    this->buffers[2].data = const_cast<uint8_t*>(data_buffer);
+    this->buffers[2].size = data_size;
+  } else if (type_id == Type::FIXED_SIZE_BINARY) {
+    const auto& scalar = checked_cast<const BaseBinaryScalar&>(value);
+    this->buffers[1].data = const_cast<uint8_t*>(scalar.value->data());
+    this->buffers[1].size = scalar.value->size();
+  } else if (is_list_like(type_id)) {
+    const auto& scalar = checked_cast<const BaseListScalar&>(value);
+
+    int64_t value_length = 0;
+    this->child_data.resize(1);
+    if (scalar.value != nullptr) {
+      // When the scalar is null, scalar.value can also be null
+      this->child_data[0].SetMembers(*scalar.value->data());
+      value_length = scalar.value->length();
+    } else {
+      // Even when the value is null, we still must populate the
+      // child_data to yield a valid array. Tedious
+      internal::FillZeroLengthArray(this->type->field(0)->type().get(),
+                                    &this->child_data[0]);
+    }
+
+    if (type_id == Type::LIST || type_id == Type::MAP) {
+      this->buffers[1] =
+          OffsetsForScalar(scalar.scratch_space_, static_cast<int32_t>(value_length));
+    } else if (type_id == Type::LARGE_LIST) {
+      this->buffers[1] = OffsetsForScalar(scalar.scratch_space_, value_length);
+    } else {
+      // FIXED_SIZE_LIST: does not have a second buffer
+      this->buffers[1] = {};
+    }
+  } else if (type_id == Type::STRUCT) {
+    const auto& scalar = checked_cast<const StructScalar&>(value);
+    this->child_data.resize(this->type->num_fields());
+    DCHECK_EQ(this->type->num_fields(), static_cast<int>(scalar.value.size()));
+    for (size_t i = 0; i < scalar.value.size(); ++i) {
+      this->child_data[i].FillFromScalar(*scalar.value[i]);
+    }
+  } else if (is_union(type_id)) {
+    // Dense union needs scratch space to store both offsets and a type code
+    struct UnionScratchSpace {
+      alignas(int64_t) int8_t type_code;
+      alignas(int64_t) uint8_t offsets[sizeof(int32_t) * 2];
+    };
+    static_assert(sizeof(UnionScratchSpace) <= sizeof(UnionScalar::scratch_space_));
+    auto* union_scratch_space = reinterpret_cast<UnionScratchSpace*>(
+        &checked_cast<const UnionScalar&>(value).scratch_space_);
+
+    // First buffer is kept null since unions have no validity vector
+    this->buffers[0] = {};
+
+    union_scratch_space->type_code = checked_cast<const UnionScalar&>(value).type_code;
+    this->buffers[1].data = reinterpret_cast<uint8_t*>(&union_scratch_space->type_code);
+    this->buffers[1].size = 1;
+
+    this->child_data.resize(this->type->num_fields());
+    if (type_id == Type::DENSE_UNION) {
+      const auto& scalar = checked_cast<const DenseUnionScalar&>(value);
+      this->buffers[2] =
+          OffsetsForScalar(union_scratch_space->offsets, static_cast<int32_t>(1));
+      // We can't "see" the other arrays in the union, but we put the "active"
+      // union array in the right place and fill zero-length arrays for the
+      // others
+      const auto& child_ids = checked_cast<const UnionType*>(this->type)->child_ids();
+      DCHECK_GE(scalar.type_code, 0);
+      DCHECK_LT(scalar.type_code, static_cast<int>(child_ids.size()));
+      for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {
+        if (i == child_ids[scalar.type_code]) {
+          this->child_data[i].FillFromScalar(*scalar.value);
+        } else {
+          internal::FillZeroLengthArray(this->type->field(i)->type().get(),
+                                        &this->child_data[i]);
+        }
+      }
+    } else {
+      const auto& scalar = checked_cast<const SparseUnionScalar&>(value);
+      // Sparse union scalars have a full complement of child values even
+      // though only one of them is relevant, so we just fill them in here
+      for (int i = 0; i < static_cast<int>(this->child_data.size()); ++i) {
+        this->child_data[i].FillFromScalar(*scalar.value[i]);
+      }
+    }
+  } else if (type_id == Type::EXTENSION) {
+    // Pass through storage
+    const auto& scalar = checked_cast<const ExtensionScalar&>(value);
+    FillFromScalar(*scalar.value);
+
+    // Restore the extension type
+    this->type = value.type.get();
+  } else if (type_id == Type::RUN_END_ENCODED) {
+    const auto& scalar = checked_cast<const RunEndEncodedScalar&>(value);
+    this->child_data.resize(2);
+
+    auto set_run_end = [&](auto run_end) {
+      auto& e = this->child_data[0];
+      e.type = scalar.run_end_type().get();
+      e.length = 1;
+      e.null_count = 0;
+      e.buffers[1].data = scalar.scratch_space_;
+      e.buffers[1].size = sizeof(run_end);
+      reinterpret_cast<decltype(run_end)*>(scalar.scratch_space_)[0] = run_end;
+    };
+
+    switch (scalar.run_end_type()->id()) {
+      case Type::INT16:
+        set_run_end(static_cast<int16_t>(1));
+        break;
+      case Type::INT32:
+        set_run_end(static_cast<int32_t>(1));
+        break;
+      default:
+        DCHECK_EQ(scalar.run_end_type()->id(), Type::INT64);
+        set_run_end(static_cast<int64_t>(1));
+    }
+    this->child_data[1].FillFromScalar(*scalar.value);
+  } else {
+    DCHECK_EQ(Type::NA, type_id) << "should be unreachable: " << *value.type;
+  }
+}
+
+int64_t ArraySpan::GetNullCount() const {
+  int64_t precomputed = this->null_count;
+  if (ARROW_PREDICT_FALSE(precomputed == kUnknownNullCount)) {
+    if (this->buffers[0].data != nullptr) {
+      precomputed =
+          this->length - CountSetBits(this->buffers[0].data, this->offset, this->length);
+    } else {
+      precomputed = 0;
+    }
+    this->null_count = precomputed;
+  }
+  return precomputed;
+}
+
+int64_t ArraySpan::ComputeLogicalNullCount() const {
+  const auto t = this->type->id();
+  if (t == Type::SPARSE_UNION) {
+    return union_util::LogicalSparseUnionNullCount(*this);
+  }
+  if (t == Type::DENSE_UNION) {
+    return union_util::LogicalDenseUnionNullCount(*this);
+  }
+  if (t == Type::RUN_END_ENCODED) {
+    return ree_util::LogicalNullCount(*this);
+  }
+  return GetNullCount();
+}
+
+int ArraySpan::num_buffers() const { return GetNumBuffers(*this->type); }
+
+std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
+  auto result = std::make_shared<ArrayData>(this->type->GetSharedPtr(), this->length,
+                                            this->null_count, this->offset);
+
+  for (int i = 0; i < this->num_buffers(); ++i) {
+    result->buffers.emplace_back(this->GetBuffer(i));
+  }
+
+  Type::type type_id = this->type->id();
+  if (type_id == Type::EXTENSION) {
+    const ExtensionType* ext_type = checked_cast<const ExtensionType*>(this->type);
+    type_id = ext_type->storage_type()->id();
+  }
+
+  if (type_id == Type::NA) {
+    result->null_count = this->length;
+  } else if (this->buffers[0].data == nullptr) {
+    // No validity bitmap, so the null count is 0
+    result->null_count = 0;
+  }
+
+  if (type_id == Type::DICTIONARY) {
+    result->dictionary = this->dictionary().ToArrayData();
+  } else {
+    // Emit children, too
+    for (size_t i = 0; i < this->child_data.size(); ++i) {
+      result->child_data.push_back(this->child_data[i].ToArrayData());
+    }
+  }
+  return result;
+}
+
+std::shared_ptr<Array> ArraySpan::ToArray() const {
+  return MakeArray(this->ToArrayData());
+}
+
+bool ArraySpan::IsNullSparseUnion(int64_t i) const {
+  auto* union_type = checked_cast<const SparseUnionType*>(this->type);
+  const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
+  const int child_id = union_type->child_ids()[types[this->offset + i]];
+  return this->child_data[child_id].IsNull(i);
+}
+
+bool ArraySpan::IsNullDenseUnion(int64_t i) const {
+  auto* union_type = checked_cast<const DenseUnionType*>(this->type);
+  const auto* types = reinterpret_cast<const int8_t*>(this->buffers[1].data);
+  const auto* offsets = reinterpret_cast<const int32_t*>(this->buffers[2].data);
+  const int64_t child_id = union_type->child_ids()[types[this->offset + i]];
+  const int64_t child_offset = offsets[this->offset + i];
+  return this->child_data[child_id].IsNull(child_offset);
+}
+
+bool ArraySpan::IsNullRunEndEncoded(int64_t i) const {
+  const auto& values = ree_util::ValuesArray(*this);
+  if (values.MayHaveLogicalNulls()) {
+    const int64_t physical_offset = ree_util::FindPhysicalIndex(*this, i, this->offset);
+    return ree_util::ValuesArray(*this).IsNull(physical_offset);
+  }
+  return false;
+}
+
+bool ArraySpan::UnionMayHaveLogicalNulls() const {
+  for (auto& child : this->child_data) {
+    if (child.MayHaveLogicalNulls()) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool ArraySpan::RunEndEncodedMayHaveLogicalNulls() const {
+  return ree_util::ValuesArray(*this).MayHaveLogicalNulls();
+}
+
+// ----------------------------------------------------------------------
+// Implement internal::GetArrayView
 
 namespace {
 

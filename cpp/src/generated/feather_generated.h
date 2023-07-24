@@ -324,7 +324,6 @@ struct PrimitiveArrayBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  PrimitiveArrayBuilder &operator=(const PrimitiveArrayBuilder &);
   flatbuffers::Offset<PrimitiveArray> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<PrimitiveArray>(end);
@@ -387,7 +386,6 @@ struct CategoryMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  CategoryMetadataBuilder &operator=(const CategoryMetadataBuilder &);
   flatbuffers::Offset<CategoryMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<CategoryMetadata>(end);
@@ -442,7 +440,6 @@ struct TimestampMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TimestampMetadataBuilder &operator=(const TimestampMetadataBuilder &);
   flatbuffers::Offset<TimestampMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TimestampMetadata>(end);
@@ -487,7 +484,6 @@ struct DateMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  DateMetadataBuilder &operator=(const DateMetadataBuilder &);
   flatbuffers::Offset<DateMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<DateMetadata>(end);
@@ -527,7 +523,6 @@ struct TimeMetadataBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  TimeMetadataBuilder &operator=(const TimeMetadataBuilder &);
   flatbuffers::Offset<TimeMetadata> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<TimeMetadata>(end);
@@ -635,7 +630,6 @@ struct ColumnBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ColumnBuilder &operator=(const ColumnBuilder &);
   flatbuffers::Offset<Column> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<Column>(end);
@@ -745,7 +739,6 @@ struct CTableBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  CTableBuilder &operator=(const CTableBuilder &);
   flatbuffers::Offset<CTable> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<CTable>(end);

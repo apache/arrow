@@ -20,10 +20,9 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/compute-definition.h>
 
 G_BEGIN_DECLS
-
-typedef struct _GArrowCastOptions GArrowCastOptions;
 
 #define GARROW_TYPE_SCALAR (garrow_scalar_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowScalar,
@@ -255,6 +254,25 @@ garrow_uint64_scalar_new(guint64 value);
 GARROW_AVAILABLE_IN_5_0
 guint64
 garrow_uint64_scalar_get_value(GArrowUInt64Scalar *scalar);
+
+
+#define GARROW_TYPE_HALF_FLOAT_SCALAR (garrow_half_float_scalar_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatScalar,
+                         garrow_half_float_scalar,
+                         GARROW,
+                         HALF_FLOAT_SCALAR,
+                         GArrowScalar)
+struct _GArrowHalfFloatScalarClass
+{
+  GArrowScalarClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatScalar *
+garrow_half_float_scalar_new(guint16 value);
+GARROW_AVAILABLE_IN_11_0
+guint16
+garrow_half_float_scalar_get_value(GArrowHalfFloatScalar *scalar);
 
 
 #define GARROW_TYPE_FLOAT_SCALAR (garrow_float_scalar_get_type())
@@ -489,6 +507,67 @@ garrow_timestamp_scalar_new(GArrowTimestampDataType *data_type,
 GARROW_AVAILABLE_IN_5_0
 gint64
 garrow_timestamp_scalar_get_value(GArrowTimestampScalar *scalar);
+
+
+#define GARROW_TYPE_MONTH_INTERVAL_SCALAR       \
+  (garrow_month_interval_scalar_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthIntervalScalar,
+                         garrow_month_interval_scalar,
+                         GARROW,
+                         MONTH_INTERVAL_SCALAR,
+                         GArrowScalar)
+struct _GArrowMonthIntervalScalarClass
+{
+  GArrowScalarClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthIntervalScalar *
+garrow_month_interval_scalar_new(gint32 value);
+GARROW_AVAILABLE_IN_8_0
+gint32
+garrow_month_interval_scalar_get_value(GArrowMonthIntervalScalar *scalar);
+
+
+#define GARROW_TYPE_DAY_TIME_INTERVAL_SCALAR    \
+  (garrow_day_time_interval_scalar_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowDayTimeIntervalScalar,
+                         garrow_day_time_interval_scalar,
+                         GARROW,
+                         DAY_TIME_INTERVAL_SCALAR,
+                         GArrowScalar)
+struct _GArrowDayTimeIntervalScalarClass
+{
+  GArrowScalarClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowDayTimeIntervalScalar *
+garrow_day_time_interval_scalar_new(GArrowDayMillisecond *value);
+GARROW_AVAILABLE_IN_8_0
+GArrowDayMillisecond *
+garrow_day_time_interval_scalar_get_value(GArrowDayTimeIntervalScalar *scalar);
+
+
+#define GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_SCALAR \
+  (garrow_month_day_nano_interval_scalar_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowMonthDayNanoIntervalScalar,
+                         garrow_month_day_nano_interval_scalar,
+                         GARROW,
+                         MONTH_DAY_NANO_INTERVAL_SCALAR,
+                         GArrowScalar)
+struct _GArrowMonthDayNanoIntervalScalarClass
+{
+  GArrowScalarClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthDayNanoIntervalScalar *
+garrow_month_day_nano_interval_scalar_new(GArrowMonthDayNano *value);
+GARROW_AVAILABLE_IN_8_0
+GArrowMonthDayNano *
+garrow_month_day_nano_interval_scalar_get_value(
+  GArrowMonthDayNanoIntervalScalar *scalar);
 
 
 #define GARROW_TYPE_DECIMAL128_SCALAR (garrow_decimal128_scalar_get_type())

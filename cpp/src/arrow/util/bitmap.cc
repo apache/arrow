@@ -38,30 +38,32 @@ std::string Bitmap::ToString() const {
   return out;
 }
 
-std::shared_ptr<BooleanArray> Bitmap::ToArray() const {
-  return std::make_shared<BooleanArray>(length_, buffer_, nullptr, 0, offset_);
-}
-
 std::string Bitmap::Diff(const Bitmap& other) const {
-  return ToArray()->Diff(*other.ToArray());
+  auto this_buf = std::make_shared<Buffer>(data_, length_);
+  auto other_buf = std::make_shared<Buffer>(other.data_, other.length_);
+
+  auto this_arr = std::make_shared<BooleanArray>(length_, this_buf, nullptr, 0, offset_);
+  auto other_arr =
+      std::make_shared<BooleanArray>(other.length_, other_buf, nullptr, 0, other.offset_);
+
+  return this_arr->Diff(*other_arr);
 }
 
 void Bitmap::CopyFrom(const Bitmap& other) {
-  ::arrow::internal::CopyBitmap(other.buffer_->data(), other.offset_, other.length_,
-                                buffer_->mutable_data(), offset_);
+  ::arrow::internal::CopyBitmap(other.data_, other.offset_, other.length_, mutable_data_,
+                                offset_);
 }
 
 void Bitmap::CopyFromInverted(const Bitmap& other) {
-  ::arrow::internal::InvertBitmap(other.buffer_->data(), other.offset_, other.length_,
-                                  buffer_->mutable_data(), offset_);
+  ::arrow::internal::InvertBitmap(other.data_, other.offset_, other.length_,
+                                  mutable_data_, offset_);
 }
 
 bool Bitmap::Equals(const Bitmap& other) const {
   if (length_ != other.length_) {
     return false;
   }
-  return BitmapEquals(buffer_->data(), offset_, other.buffer_->data(), other.offset(),
-                      length_);
+  return BitmapEquals(data_, offset_, other.data_, other.offset(), length_);
 }
 
 int64_t Bitmap::BitLength(const Bitmap* bitmaps, size_t N) {

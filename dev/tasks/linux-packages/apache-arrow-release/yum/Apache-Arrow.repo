@@ -22,9 +22,16 @@ gpgcheck=1
 enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
 
-[apache-arrow-amazon-linux]
-name=Apache Arrow for Amazon Linux $releasever - $basearch
-baseurl=https://apache.jfrog.io/artifactory/arrow/amazon-linux/$releasever/$basearch/
+[apache-arrow-amazon-linux-2023]
+name=Apache Arrow for Amazon Linux 2023 - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/amazon-linux/2023/$basearch/
+gpgcheck=1
+enabled=0
+gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow
+
+[apache-arrow-centos-stream]
+name=Apache Arrow for CentOS Stream $releasever - $basearch
+baseurl=https://apache.jfrog.io/artifactory/arrow/centos/$stream/$basearch/
 gpgcheck=1
 enabled=0
 gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-Apache-Arrow

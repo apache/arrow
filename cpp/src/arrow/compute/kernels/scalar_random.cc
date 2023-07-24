@@ -21,7 +21,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernel.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/util/pcg_random.h"
 
@@ -56,22 +56,12 @@ random::pcg64_oneseq MakeSeedGenerator() {
   return seed_gen;
 }
 
-Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+Status ExecRandom(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   static random::pcg64_oneseq seed_gen = MakeSeedGenerator();
   static std::mutex seed_gen_mutex;
 
   random::pcg64_oneseq gen;
   const RandomOptions& options = RandomState::Get(ctx);
-  if (options.length < 0) {
-    return Status::Invalid("Negative number of elements");
-  }
-
-  auto out_data = ArrayData::Make(float64(), options.length, 0);
-  out_data->buffers.resize(2, nullptr);
-
-  ARROW_ASSIGN_OR_RAISE(out_data->buffers[1],
-                        ctx->Allocate(options.length * sizeof(double)));
-  double* out_buffer = out_data->template GetMutableValues<double>(1);
 
   if (options.initializer == RandomOptions::Seed) {
     gen.seed(options.seed);
@@ -79,17 +69,17 @@ Status ExecRandom(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     std::lock_guard<std::mutex> seed_gen_lock(seed_gen_mutex);
     gen.seed(seed_gen());
   }
-  for (int64_t i = 0; i < options.length; ++i) {
-    out_buffer[i] = generate_uniform(&gen);
+  double* out_values = out->array_span_mutable()->GetValues<double>(1);
+  for (int64_t i = 0; i < batch.length; ++i) {
+    out_values[i] = generate_uniform(&gen);
   }
-  *out = std::move(out_data);
   return Status::OK();
 }
 
 const FunctionDoc random_doc{
     "Generate numbers in the range [0, 1)",
     ("Generated values are uniformly-distributed, double-precision in range [0, 1).\n"
-     "Length of generated data, algorithm and seed can be changed via RandomOptions."),
+     "Algorithm and seed can be changed via RandomOptions."),
     {},
     "RandomOptions"};
 
@@ -97,13 +87,10 @@ const FunctionDoc random_doc{
 
 void RegisterScalarRandom(FunctionRegistry* registry) {
   static auto random_options = RandomOptions::Defaults();
-
   auto random_func = std::make_shared<ScalarFunction>("random", Arity::Nullary(),
-                                                      &random_doc, &random_options);
-  ScalarKernel kernel{
-      {}, ValueDescr(float64(), ValueDescr::Shape::ARRAY), ExecRandom, RandomState::Init};
+                                                      random_doc, &random_options);
+  ScalarKernel kernel{{}, float64(), ExecRandom, RandomState::Init};
   kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
-  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   DCHECK_OK(random_func->AddKernel(kernel));
   DCHECK_OK(registry->AddFunction(std::move(random_func)));
 }

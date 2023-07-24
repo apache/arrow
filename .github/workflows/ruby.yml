@@ -47,10 +47,11 @@ concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   DOCKER_VOLUME_PREFIX: ".docker/"
-  ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-  ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
 
 jobs:
 
@@ -68,48 +69,62 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: .docker
           key: ubuntu-${{ matrix.ubuntu }}-ruby-${{ hashFiles('cpp/**') }}
           restore-keys: ubuntu-${{ matrix.ubuntu }}-ruby-
       - name: Setup Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       - name: Setup Archery
         run: pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
           archery docker run \
             -e ARROW_FLIGHT=ON \
+            -e ARROW_FLIGHT_SQL=ON \
+            -e ARROW_GCS=ON \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
             ubuntu-ruby
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         shell: bash
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: AMD64 MacOS 10.15 GLib & Ruby
+    name: AMD64 macOS 12 GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
-    strategy:
-      fail-fast: false
+    timeout-minutes: 60
     env:
+      ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_UTILITIES: OFF
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_GLIB_GTK_DOC: true
       ARROW_GLIB_WERROR: true
       ARROW_HOME: /usr/local
@@ -124,15 +139,20 @@ jobs:
       XML_CATALOG_FILES: /usr/local/etc/xml/catalog
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Install Homebrew Dependencies
         shell: bash
         run: |
-          rm -f /usr/local/bin/2to3
-          brew update --preinstall
+          rm -f /usr/local/bin/2to3* || :
+          rm -f /usr/local/bin/idle3* || :
+          rm -f /usr/local/bin/pydoc3* || :
+          rm -f /usr/local/bin/python3* || :
+          rm -f /usr/local/bin/python3-config || :
+          brew update --preinstall || :
+          brew install --overwrite git
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
       - name: Install Ruby Dependencies
@@ -149,9 +169,9 @@ jobs:
       - name: ccache info
         id: ccache-info
         run: |
-          echo "::set-output name=cache-dir::$(ccache --get-config cache_dir)"
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: ruby-ccache-macos-${{ hashFiles('cpp/**') }}
@@ -171,25 +191,27 @@ jobs:
 
   windows:
     name: AMD64 Windows MinGW ${{ matrix.mingw-n-bits }} GLib & Ruby
-    runs-on: windows-latest
+    runs-on: windows-2019
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 40
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
         mingw-n-bits:
           - 64
         ruby-version:
-          - "3.0"
+          - ruby
     env:
-      ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: OFF
+      ARROW_BUILD_UTILITIES: OFF
       ARROW_BUILD_TYPE: release
       ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
       ARROW_GANDIVA: ON
+      ARROW_GCS: ON
       ARROW_HDFS: OFF
-      ARROW_HOME: /mingw${{ matrix.mingw-n-bits }}
+      ARROW_HOME: /ucrt${{ matrix.mingw-n-bits }}
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_PYTHON: OFF
@@ -205,8 +227,9 @@ jobs:
       # -DBoost_NO_BOOST_CMAKE=ON
       BOOST_ROOT: ""
       CMAKE_ARGS: >-
-        -DARROW_PACKAGE_PREFIX=/mingw${{ matrix.mingw-n-bits }}
+        -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
+        -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
       CMAKE_UNITY_BUILD: ON
     steps:
       - name: Disable Crash Dialogs
@@ -218,7 +241,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
           submodules: recursive
@@ -237,11 +260,11 @@ jobs:
         run: |
           ridk exec bash ci\scripts\msys2_setup.sh ruby
       - name: Cache ccache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ccache
-          key: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ruby-ccache-mingw${{ matrix.mingw-n-bits }}-
+          key: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ruby-ccache-ucrt${{ matrix.mingw-n-bits }}-
       - name: Build C++
         run: |
           $Env:CMAKE_BUILD_PARALLEL_LEVEL = $Env:NUMBER_OF_PROCESSORS
@@ -259,13 +282,14 @@ jobs:
       - name: RubyGems info
         id: rubygems-info
         run: |
-          Write-Output "::set-output name=gem-dir::$(ridk exec gem env gemdir)"
+          Write-Output "gem-dir=$(ridk exec gem env gemdir)" | `
+            Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
       - name: Cache RubyGems
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.rubygems-info.outputs.gem-dir }}
-          key: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
-          restore-keys: ruby-rubygems-mingw${{ matrix.mingw-n-bits }}-
+          key: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-${{ hashFiles('**/Gemfile', 'ruby/*/*.gemspec') }}
+          restore-keys: ruby-rubygems-ucrt${{ matrix.mingw-n-bits }}-
       - name: Install test dependencies
         run: |
           bundle install --gemfile c_glib\Gemfile

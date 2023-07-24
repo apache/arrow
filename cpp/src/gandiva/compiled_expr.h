@@ -25,8 +25,8 @@
 namespace gandiva {
 
 using EvalFunc = int (*)(uint8_t** buffers, int64_t* offsets, uint8_t** local_bitmaps,
-                         const uint8_t* selection_buffer, int64_t execution_ctx_ptr,
-                         int64_t record_count);
+                         const void* const* holder_ptrs, const uint8_t* selection_buffer,
+                         int64_t execution_ctx_ptr, int64_t record_count);
 
 /// \brief Tracks the compiled state for one expression.
 class CompiledExpr {
@@ -38,11 +38,11 @@ class CompiledExpr {
 
   FieldDescriptorPtr output() const { return output_; }
 
-  void SetIRFunction(SelectionVector::Mode mode, llvm::Function* ir_function) {
-    ir_functions_[static_cast<int>(mode)] = ir_function;
+  void SetFunctionName(SelectionVector::Mode mode, std::string& name) {
+    ir_functions_[static_cast<int>(mode)] = name;
   }
 
-  llvm::Function* GetIRFunction(SelectionVector::Mode mode) const {
+  std::string GetFunctionName(SelectionVector::Mode mode) const {
     return ir_functions_[static_cast<int>(mode)];
   }
 
@@ -61,8 +61,8 @@ class CompiledExpr {
   // output field
   FieldDescriptorPtr output_;
 
-  // IR functions for various modes in the generated code
-  std::array<llvm::Function*, SelectionVector::kNumModes> ir_functions_;
+  // Function names for various modes in the generated code
+  std::array<std::string, SelectionVector::kNumModes> ir_functions_;
 
   // JIT functions in the generated code (set after the module is optimised and finalized)
   std::array<EvalFunc, SelectionVector::kNumModes> jit_functions_;

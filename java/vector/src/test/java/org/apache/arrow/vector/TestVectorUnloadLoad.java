@@ -64,6 +64,17 @@ public class TestVectorUnloadLoad {
   }
 
   @Test
+  public void testNullCodec() {
+    final Schema schema = new Schema(Collections.emptyList());
+    try (final VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+      root.setRowCount(1);
+      final VectorUnloader unloader = new VectorUnloader(
+          root, /*includeNulls*/ true, /*codec*/ null, /*alignBuffers*/ true);
+      unloader.getRecordBatch().close();
+    }
+  }
+
+  @Test
   public void testUnloadLoad() throws IOException {
     int count = 10000;
     Schema schema;

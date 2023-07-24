@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "arch.h"
+#include <arch.h>
 #include <memory.h>
 
 void FULL_NAME(memset)(void *buf, size_t len, int v) {

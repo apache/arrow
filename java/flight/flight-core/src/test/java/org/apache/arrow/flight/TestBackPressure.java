@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,9 +33,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.ImmutableList;
 
@@ -43,7 +46,7 @@ public class TestBackPressure {
   /**
    * Make sure that failing to consume one stream doesn't block other streams.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureIndependentSteams() throws Exception {
     ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location)));
@@ -52,7 +55,7 @@ public class TestBackPressure {
   /**
    * Make sure that failing to consume one stream doesn't block other streams.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureIndependentSteamsWithCallbacks() throws Exception {
     ensureIndependentSteams((b) -> (location -> new PerformanceTestServer(b, location,
@@ -62,7 +65,7 @@ public class TestBackPressure {
   /**
    * Test to make sure stream doesn't go faster than the consumer is consuming.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureWaitUntilProceed() throws Exception {
     ensureWaitUntilProceed(new PollingBackpressureStrategy(), false);
@@ -72,7 +75,7 @@ public class TestBackPressure {
    * Test to make sure stream doesn't go faster than the consumer is consuming using a callback-based
    * backpressure strategy.
    */
-  @Ignore
+  @Disabled
   @Test
   public void ensureWaitUntilProceedWithCallbacks() throws Exception {
     ensureWaitUntilProceed(new RecordingCallbackBackpressureStrategy(), true);
@@ -85,8 +88,7 @@ public class TestBackPressure {
                                                   serverConstructor) throws Exception {
     try (
         final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        final PerformanceTestServer server = FlightTestUtil.getStartedServer(
-            (location) -> (serverConstructor.apply(a).apply(location)));
+        final PerformanceTestServer server = serverConstructor.apply(a).apply(forGrpcInsecure(LOCALHOST, 0)).start();
         final FlightClient client = FlightClient.builder(a, server.getLocation()).build()
     ) {
       try (FlightStream fs1 = client.getStream(client.getInfo(
@@ -160,9 +162,8 @@ public class TestBackPressure {
 
       try (
           BufferAllocator serverAllocator = allocator.newChildAllocator("server", 0, Long.MAX_VALUE);
-          FlightServer server =
-              FlightTestUtil.getStartedServer((location) -> FlightServer.builder(serverAllocator, location, producer)
-                  .build());
+          FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0), producer)
+              .build().start();
           BufferAllocator clientAllocator = allocator.newChildAllocator("client", 0, Long.MAX_VALUE);
           FlightClient client =
               FlightClient
@@ -177,9 +178,14 @@ public class TestBackPressure {
           root.clear();
         }
         long expected = wait - epsilon;
-        Assert.assertTrue(
-            String.format("Expected a sleep of at least %dms but only slept for %d", expected,
-                bpStrategy.getSleepTime()), bpStrategy.getSleepTime() > expected);
+        Assertions.assertTrue(
+            bpStrategy.getSleepTime() > expected,
+            String.format(
+                "Expected a sleep of at least %dms but only slept for %d",
+                expected,
+                bpStrategy.getSleepTime()
+            )
+        );
 
       }
     }

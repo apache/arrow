@@ -36,7 +36,7 @@ cpdef enum S3LogLevel:
     Trace = <int8_t> CS3LogLevel_Trace
 
 
-def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
+def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal, int num_event_loop_threads=1):
     """
     Initialize S3 support
 
@@ -44,10 +44,24 @@ def initialize_s3(S3LogLevel log_level=S3LogLevel.Fatal):
     ----------
     log_level : S3LogLevel
         level of logging
+    num_event_loop_threads : int, default 1
+        how many threads to use for the AWS SDK's I/O event loop
+
+    Examples
+    --------
+    >>> fs.initialize_s3(fs.S3LogLevel.Error) # doctest: +SKIP
     """
     cdef CS3GlobalOptions options
     options.log_level = <CS3LogLevel> log_level
+    options.num_event_loop_threads = num_event_loop_threads
     check_status(CInitializeS3(options))
+
+
+def ensure_s3_initialized():
+    """
+    Initialize S3 (with default options) if not already initialized
+    """
+    check_status(CEnsureS3Initialized())
 
 
 def finalize_s3():
@@ -70,7 +84,7 @@ def resolve_s3_region(bucket):
 
     Examples
     --------
-    >>> resolve_s3_region('ursa-labs-taxi-data')
+    >>> fs.resolve_s3_region('voltrondata-labs-datasets')
     'us-east-2'
     """
     cdef:
@@ -82,6 +96,44 @@ def resolve_s3_region(bucket):
         c_region = GetResultValue(ResolveS3BucketRegion(c_bucket))
 
     return frombytes(c_region)
+
+
+class S3RetryStrategy:
+    """
+    Base class for AWS retry strategies for use with S3.
+
+    Parameters
+    ----------
+    max_attempts : int, default 3
+        The maximum number of retry attempts to attempt before failing.
+    """
+
+    def __init__(self, max_attempts=3):
+        self.max_attempts = max_attempts
+
+
+class AwsStandardS3RetryStrategy(S3RetryStrategy):
+    """
+    Represents an AWS Standard retry strategy for use with S3.
+
+    Parameters
+    ----------
+    max_attempts : int, default 3
+        The maximum number of retry attempts to attempt before failing.
+    """
+    pass
+
+
+class AwsDefaultS3RetryStrategy(S3RetryStrategy):
+    """
+    Represents an AWS Default retry strategy for use with S3.
+
+    Parameters
+    ----------
+    max_attempts : int, default 3
+        The maximum number of retry attempts to attempt before failing.
+    """
+    pass
 
 
 cdef class S3FileSystem(FileSystem):
@@ -98,6 +150,12 @@ cdef class S3FileSystem(FileSystem):
 
     Note: S3 buckets are special and the operations available on them may be
     limited or more expensive than desired.
+
+    When S3FileSystem creates new buckets (assuming allow_bucket_creation is
+    True), it does not pass any non-default settings. In AWS S3, the bucket and
+    all objects will be not publicly visible, and will have no bucket policies
+    and no resource tags. To have more control over how buckets are created,
+    use a different API to create them.
 
     Parameters
     ----------
@@ -125,8 +183,19 @@ cdef class S3FileSystem(FileSystem):
     load_frequency : int, default 900
         The frequency (in seconds) with which temporary credentials from an
         assumed role session will be refreshed.
-    region : str, default 'us-east-1'
-        AWS region to connect to.
+    region : str, default None
+        AWS region to connect to. If not set, the AWS SDK will attempt to
+        determine the region using heuristics such as environment variables,
+        configuration profile, EC2 metadata, or default to 'us-east-1' when SDK
+        version <1.8. One can also use :func:`pyarrow.fs.resolve_s3_region` to
+        automatically resolve the region from a bucket name.
+    request_timeout : double, default None
+        Socket read timeouts on Windows and macOS, in seconds.
+        If omitted, the AWS SDK default value is used (typically 3 seconds).
+        This option is ignored on non-Windows, non-macOS systems.
+    connect_timeout : double, default None
+        Socket connection timeout, in seconds.
+        If omitted, the AWS SDK default value is used (typically 1 second).
     scheme : str, default 'https'
         S3 connection transport scheme.
     endpoint_override : str, default None
@@ -134,7 +203,7 @@ cdef class S3FileSystem(FileSystem):
     background_writes : boolean, default True
         Whether file writes will be issued in the background, without
         blocking.
-    default_metadata : mapping or KeyValueMetadata, default None
+    default_metadata : mapping or pyarrow.KeyValueMetadata, default None
         Default metadata for open_output_stream.  This will be ignored if
         non-empty metadata is passed to open_output_stream.
     proxy_options : dict or str, default None
@@ -150,19 +219,46 @@ cdef class S3FileSystem(FileSystem):
             S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost',
                                         'port': 8020, 'username': 'username',
                                         'password': 'password'})
+    allow_bucket_creation : bool, default False
+        Whether to allow CreateDir at the bucket-level. This option may also be
+        passed in a URI query parameter.
+    allow_bucket_deletion : bool, default False
+        Whether to allow DeleteDir at the bucket-level. This option may also be
+        passed in a URI query parameter.
+    retry_strategy : S3RetryStrategy, default AwsStandardS3RetryStrategy(max_attempts=3)
+        The retry strategy to use with S3; fail after max_attempts. Available
+        strategies are AwsStandardS3RetryStrategy, AwsDefaultS3RetryStrategy.
+
+    Examples
+    --------
+    >>> from pyarrow import fs
+    >>> s3 = fs.S3FileSystem(region='us-west-2')
+    >>> s3.get_file_info(fs.FileSelector(
+    ...    'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN', recursive=True
+    ... ))
+    [<FileInfo for 'power-analysis-ready-datastore/power_901_constants.zarr/FROCEAN/.zarray...
+
+    For usage of the methods see examples for :func:`~pyarrow.fs.LocalFileSystem`.
     """
 
     cdef:
         CS3FileSystem* s3fs
 
     def __init__(self, *, access_key=None, secret_key=None, session_token=None,
-                 bint anonymous=False, region=None, scheme=None,
-                 endpoint_override=None, bint background_writes=True,
-                 default_metadata=None, role_arn=None, session_name=None,
-                 external_id=None, load_frequency=900, proxy_options=None):
+                 bint anonymous=False, region=None, request_timeout=None,
+                 connect_timeout=None, scheme=None, endpoint_override=None,
+                 bint background_writes=True, default_metadata=None,
+                 role_arn=None, session_name=None, external_id=None,
+                 load_frequency=900, proxy_options=None,
+                 allow_bucket_creation=False, allow_bucket_deletion=False,
+                 retry_strategy: S3RetryStrategy = AwsStandardS3RetryStrategy(max_attempts=3)):
         cdef:
-            CS3Options options
+            optional[CS3Options] options
             shared_ptr[CS3FileSystem] wrapped
+
+        # Need to do this before initializing `options` as the S3Options
+        # constructor has a debug check against use after S3 finalization.
+        ensure_s3_initialized()
 
         if access_key is not None and secret_key is None:
             raise ValueError(
@@ -210,6 +306,10 @@ cdef class S3FileSystem(FileSystem):
 
             options = CS3Options.Anonymous()
         elif role_arn:
+            if session_name is None:
+                session_name = ''
+            if external_id is None:
+                external_id = ''
 
             options = CS3Options.FromAssumeRole(
                 tobytes(role_arn),
@@ -221,40 +321,60 @@ cdef class S3FileSystem(FileSystem):
             options = CS3Options.Defaults()
 
         if region is not None:
-            options.region = tobytes(region)
+            options.value().region = tobytes(region)
+        if request_timeout is not None:
+            options.value().request_timeout = request_timeout
+        if connect_timeout is not None:
+            options.value().connect_timeout = connect_timeout
         if scheme is not None:
-            options.scheme = tobytes(scheme)
+            options.value().scheme = tobytes(scheme)
         if endpoint_override is not None:
-            options.endpoint_override = tobytes(endpoint_override)
+            options.value().endpoint_override = tobytes(endpoint_override)
         if background_writes is not None:
-            options.background_writes = background_writes
+            options.value().background_writes = background_writes
         if default_metadata is not None:
             if not isinstance(default_metadata, KeyValueMetadata):
                 default_metadata = KeyValueMetadata(default_metadata)
-            options.default_metadata = pyarrow_unwrap_metadata(
+            options.value().default_metadata = pyarrow_unwrap_metadata(
                 default_metadata)
 
         if proxy_options is not None:
             if isinstance(proxy_options, dict):
-                options.proxy_options.scheme = tobytes(proxy_options["scheme"])
-                options.proxy_options.host = tobytes(proxy_options["host"])
-                options.proxy_options.port = proxy_options["port"]
+                options.value().proxy_options.scheme = tobytes(
+                    proxy_options["scheme"])
+                options.value().proxy_options.host = tobytes(
+                    proxy_options["host"])
+                options.value().proxy_options.port = proxy_options["port"]
                 proxy_username = proxy_options.get("username", None)
                 if proxy_username:
-                    options.proxy_options.username = tobytes(proxy_username)
+                    options.value().proxy_options.username = tobytes(
+                        proxy_username)
                 proxy_password = proxy_options.get("password", None)
                 if proxy_password:
-                    options.proxy_options.password = tobytes(proxy_password)
+                    options.value().proxy_options.password = tobytes(
+                        proxy_password)
             elif isinstance(proxy_options, str):
-                options.proxy_options = GetResultValue(
+                options.value().proxy_options = GetResultValue(
                     CS3ProxyOptions.FromUriString(tobytes(proxy_options)))
             else:
                 raise TypeError(
                     "'proxy_options': expected 'dict' or 'str', "
                     f"got {type(proxy_options)} instead.")
 
+        options.value().allow_bucket_creation = allow_bucket_creation
+        options.value().allow_bucket_deletion = allow_bucket_deletion
+
+        if isinstance(retry_strategy, AwsStandardS3RetryStrategy):
+            options.value().retry_strategy = CS3RetryStrategy.GetAwsStandardRetryStrategy(
+                retry_strategy.max_attempts)
+        elif isinstance(retry_strategy, AwsDefaultS3RetryStrategy):
+            options.value().retry_strategy = CS3RetryStrategy.GetAwsDefaultRetryStrategy(
+                retry_strategy.max_attempts)
+        else:
+            raise ValueError(f'Invalid retry_strategy {retry_strategy!r}')
+
         with nogil:
-            wrapped = GetResultValue(CS3FileSystem.Make(options))
+            wrapped = GetResultValue(CS3FileSystem.Make(options.value()))
 
         self.init(<shared_ptr[CFileSystem]> wrapped)
 
@@ -289,12 +409,16 @@ cdef class S3FileSystem(FileSystem):
                            CS3CredentialsKind_Anonymous),
                 region=frombytes(opts.region),
                 scheme=frombytes(opts.scheme),
+                connect_timeout=opts.connect_timeout,
+                request_timeout=opts.request_timeout,
                 endpoint_override=frombytes(opts.endpoint_override),
                 role_arn=frombytes(opts.role_arn),
                 session_name=frombytes(opts.session_name),
                 external_id=frombytes(opts.external_id),
                 load_frequency=opts.load_frequency,
                 background_writes=opts.background_writes,
+                allow_bucket_creation=opts.allow_bucket_creation,
+                allow_bucket_deletion=opts.allow_bucket_deletion,
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
                 proxy_options={'scheme': frombytes(opts.proxy_options.scheme),
                                'host': frombytes(opts.proxy_options.host),
@@ -302,7 +426,7 @@ cdef class S3FileSystem(FileSystem):
                                'username': frombytes(
                                    opts.proxy_options.username),
                                'password': frombytes(
-                                   opts.proxy_options.password)}
+                                   opts.proxy_options.password)},
             ),)
         )
 

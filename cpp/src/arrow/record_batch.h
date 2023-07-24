@@ -22,9 +22,11 @@
 #include <string>
 #include <vector>
 
+#include "arrow/compare.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/iterator.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
@@ -81,20 +83,33 @@ class ARROW_EXPORT RecordBatch {
   /// \brief Construct record batch from struct array
   ///
   /// This constructs a record batch using the child arrays of the given
-  /// array, which must be a struct array.  Note that the struct array's own
-  /// null bitmap is not reflected in the resulting record batch.
+  /// array, which must be a struct array.
+  ///
+  /// \param[in] array the source array, must be a StructArray
+  /// \param[in] pool the memory pool to allocate new validity bitmaps
+  ///
+  /// This operation will usually be zero-copy.  However, if the struct array has an
+  /// offset or a validity bitmap then these will need to be pushed into the child arrays.
+  /// Pushing the offset is zero-copy but pushing the validity bitmap is not.
   static Result<std::shared_ptr<RecordBatch>> FromStructArray(
-      const std::shared_ptr<Array>& array);
+      const std::shared_ptr<Array>& array, MemoryPool* pool = default_memory_pool());
 
   /// \brief Determine if two record batches are exactly equal
   ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] check_metadata if true, check that Schema metadata is the same
+  /// \param[in] opts the options for equality comparisons
   /// \return true if batches are equal
-  bool Equals(const RecordBatch& other, bool check_metadata = false) const;
+  bool Equals(const RecordBatch& other, bool check_metadata = false,
+              const EqualOptions& opts = EqualOptions::Defaults()) const;
 
   /// \brief Determine if two record batches are approximately equal
-  bool ApproxEquals(const RecordBatch& other) const;
+  ///
+  /// \param[in] other the RecordBatch to compare with
+  /// \param[in] opts the options for equality comparisons
+  /// \return true if batches are approximately equal
+  bool ApproxEquals(const RecordBatch& other,
+                    const EqualOptions& opts = EqualOptions::Defaults()) const;
 
   /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
@@ -210,12 +225,17 @@ class ARROW_EXPORT RecordBatch {
   ARROW_DISALLOW_COPY_AND_ASSIGN(RecordBatch);
 };
 
+struct ARROW_EXPORT RecordBatchWithMetadata {
+  std::shared_ptr<RecordBatch> batch;
+  std::shared_ptr<KeyValueMetadata> custom_metadata;
+};
+
 /// \brief Abstract interface for reading stream of record batches
 class ARROW_EXPORT RecordBatchReader {
  public:
   using ValueType = std::shared_ptr<RecordBatch>;
 
-  virtual ~RecordBatchReader() = default;
+  virtual ~RecordBatchReader();
 
   /// \return the shared schema of the record batches in the stream
   virtual std::shared_ptr<Schema> schema() const = 0;
@@ -227,6 +247,10 @@ class ARROW_EXPORT RecordBatchReader {
   /// \return Status
   virtual Status ReadNext(std::shared_ptr<RecordBatch>* batch) = 0;
 
+  virtual Result<RecordBatchWithMetadata> ReadNext() {
+    return Status::NotImplemented("ReadNext with custom metadata");
+  }
+
   /// \brief Iterator interface
   Result<std::shared_ptr<RecordBatch>> Next() {
     std::shared_ptr<RecordBatch> batch;
@@ -234,11 +258,76 @@ class ARROW_EXPORT RecordBatchReader {
     return batch;
   }
 
+  /// \brief finalize reader
+  virtual Status Close() { return Status::OK(); }
+
+  class RecordBatchReaderIterator {
+   public:
+    using iterator_category = std::input_iterator_tag;
+    using difference_type = std::ptrdiff_t;
+    using value_type = std::shared_ptr<RecordBatch>;
+    using pointer = value_type const*;
+    using reference = value_type const&;
+
+    RecordBatchReaderIterator() : batch_(RecordBatchEnd()), reader_(NULLPTR) {}
+
+    explicit RecordBatchReaderIterator(RecordBatchReader* reader)
+        : batch_(RecordBatchEnd()), reader_(reader) {
+      Next();
+    }
+
+    bool operator==(const RecordBatchReaderIterator& other) const {
+      return batch_ == other.batch_;
+    }
+
+    bool operator!=(const RecordBatchReaderIterator& other) const {
+      return !(*this == other);
+    }
+
+    Result<std::shared_ptr<RecordBatch>> operator*() {
+      ARROW_RETURN_NOT_OK(batch_.status());
+
+      return batch_;
+    }
+
+    RecordBatchReaderIterator& operator++() {
+      Next();
+      return *this;
+    }
+
+    RecordBatchReaderIterator operator++(int) {
+      RecordBatchReaderIterator tmp(*this);
+      Next();
+      return tmp;
+    }
+
+   private:
+    std::shared_ptr<RecordBatch> RecordBatchEnd() {
+      return std::shared_ptr<RecordBatch>(NULLPTR);
+    }
+
+    void Next() {
+      if (reader_ == NULLPTR) {
+        batch_ = RecordBatchEnd();
+        return;
+      }
+      batch_ = reader_->Next();
+    }
+
+    Result<std::shared_ptr<RecordBatch>> batch_;
+    RecordBatchReader* reader_;
+  };
+  /// \brief Return an iterator to the first record batch in the stream
+  RecordBatchReaderIterator begin() { return RecordBatchReaderIterator(this); }
+
+  /// \brief Return an iterator to the end of the stream
+  RecordBatchReaderIterator end() { return RecordBatchReaderIterator(); }
+
   /// \brief Consume entire stream as a vector of record batches
-  Status ReadAll(RecordBatchVector* batches);
+  Result<RecordBatchVector> ToRecordBatches();
 
   /// \brief Read all batches and concatenate as arrow::Table
-  Status ReadAll(std::shared_ptr<Table>* table);
+  Result<std::shared_ptr<Table>> ToTable();
 
   /// \brief Create a RecordBatchReader from a vector of RecordBatch.
   ///
@@ -247,6 +336,13 @@ class ARROW_EXPORT RecordBatchReader {
   ///            element if not provided.
   static Result<std::shared_ptr<RecordBatchReader>> Make(
       RecordBatchVector batches, std::shared_ptr<Schema> schema = NULLPTR);
+
+  /// \brief Create a RecordBatchReader from an Iterator of RecordBatch.
+  ///
+  /// \param[in] batches an iterator of RecordBatch to read from.
+  /// \param[in] schema schema that each record batch in iterator will conform to.
+  static Result<std::shared_ptr<RecordBatchReader>> MakeFromIterator(
+      Iterator<std::shared_ptr<RecordBatch>> batches, std::shared_ptr<Schema> schema);
 };
 
 }  // namespace arrow

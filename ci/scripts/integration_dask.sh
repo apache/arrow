@@ -28,13 +28,14 @@ python -c "import pyarrow.parquet"
 python -c "import dask.dataframe"
 
 # TODO(kszucs): the following tests are also uses pyarrow
-# pytest -sv --pyargs dask.bytes.tests.test_s3
 # pytest -sv --pyargs dask.bytes.tests.test_hdfs
 # pytest -sv --pyargs dask.bytes.tests.test_local
 
-# skip failing pickle test, see https://github.com/dask/dask/issues/6374
-pytest -v --pyargs dask.dataframe.tests.test_dataframe -k "not test_dataframe_picklable and not test_describe_empty"
+pytest -v --pyargs dask.dataframe.tests.test_dataframe
 pytest -v --pyargs dask.dataframe.io.tests.test_orc
-# skip failing parquet tests, see https://github.com/dask/dask/issues/6243
+# skip failing parquet tests
+# test_pandas_timestamp_overflow_pyarrow is skipped because of GH-33321.
 pytest -v --pyargs dask.dataframe.io.tests.test_parquet \
-  -k "not test_to_parquet_pyarrow_w_inconsistent_schema_by_partition_fails_by_default and not test_timeseries_nulls_in_schema"
+  -k "not test_pandas_timestamp_overflow_pyarrow"
+# this file contains parquet tests that use S3 filesystem
+pytest -v --pyargs dask.bytes.tests.test_s3

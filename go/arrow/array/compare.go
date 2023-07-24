@@ -17,15 +17,16 @@
 package array
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/float16"
-	"golang.org/x/xerrors"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.
-func RecordEqual(left, right Record) bool {
+func RecordEqual(left, right arrow.Record) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -36,7 +37,7 @@ func RecordEqual(left, right Record) bool {
 	for i := range left.Columns() {
 		lc := left.Column(i)
 		rc := right.Column(i)
-		if !ArrayEqual(lc, rc) {
+		if !Equal(lc, rc) {
 			return false
 		}
 	}
@@ -45,7 +46,7 @@ func RecordEqual(left, right Record) bool {
 
 // RecordApproxEqual reports whether the two provided records are approximately equal.
 // For non-floating point columns, it is equivalent to RecordEqual.
-func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
+func RecordApproxEqual(left, right arrow.Record, opts ...EqualOption) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -68,16 +69,16 @@ func RecordApproxEqual(left, right Record, opts ...EqualOption) bool {
 // helper function to evaluate a function on two chunked object having possibly different
 // chunk layouts. the function passed in will be called for each corresponding slice of the
 // two chunked arrays and if the function returns false it will end the loop early.
-func chunkedBinaryApply(left, right *Chunked, fn func(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool) {
+func chunkedBinaryApply(left, right *arrow.Chunked, fn func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool) {
 	var (
 		pos               int64
-		length            int64 = int64(left.length)
+		length            int64 = int64(left.Len())
 		leftIdx, rightIdx int
 		leftPos, rightPos int64
 	)
 
 	for pos < length {
-		var cleft, cright Interface
+		var cleft, cright arrow.Array
 		for {
 			cleft, cright = left.Chunk(leftIdx), right.Chunk(rightIdx)
 			if leftPos == int64(cleft.Len()) {
@@ -105,21 +106,21 @@ func chunkedBinaryApply(left, right *Chunked, fn func(left Interface, lbeg, lend
 }
 
 // ChunkedEqual reports whether two chunked arrays are equal regardless of their chunkings
-func ChunkedEqual(left, right *Chunked) bool {
+func ChunkedEqual(left, right *arrow.Chunked) bool {
 	switch {
 	case left == right:
 		return true
-	case left.length != right.length:
+	case left.Len() != right.Len():
 		return false
-	case left.nulls != right.nulls:
+	case left.NullN() != right.NullN():
 		return false
-	case !arrow.TypeEqual(left.dtype, right.dtype):
+	case !arrow.TypeEqual(left.DataType(), right.DataType()):
 		return false
 	}
 
-	var isequal bool
-	chunkedBinaryApply(left, right, func(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool {
-		isequal = ArraySliceEqual(left, lbeg, lend, right, rbeg, rend)
+	var isequal bool = true
+	chunkedBinaryApply(left, right, func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
+		isequal = SliceEqual(left, lbeg, lend, right, rbeg, rend)
 		return isequal
 	})
 
@@ -128,21 +129,21 @@ func ChunkedEqual(left, right *Chunked) bool {
 
 // ChunkedApproxEqual reports whether two chunked arrays are approximately equal regardless of their chunkings
 // for non-floating point arrays, this is equivalent to ChunkedEqual
-func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
+func ChunkedApproxEqual(left, right *arrow.Chunked, opts ...EqualOption) bool {
 	switch {
 	case left == right:
 		return true
-	case left.length != right.length:
+	case left.Len() != right.Len():
 		return false
-	case left.nulls != right.nulls:
+	case left.NullN() != right.NullN():
 		return false
-	case !arrow.TypeEqual(left.dtype, right.dtype):
+	case !arrow.TypeEqual(left.DataType(), right.DataType()):
 		return false
 	}
 
 	var isequal bool
-	chunkedBinaryApply(left, right, func(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool {
-		isequal = ArraySliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
+	chunkedBinaryApply(left, right, func(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
+		isequal = SliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opts...)
 		return isequal
 	})
 
@@ -150,7 +151,7 @@ func ChunkedApproxEqual(left, right *Chunked, opts ...EqualOption) bool {
 }
 
 // TableEqual returns if the two tables have the same data in the same schema
-func TableEqual(left, right Table) bool {
+func TableEqual(left, right arrow.Table) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -161,11 +162,11 @@ func TableEqual(left, right Table) bool {
 	for i := 0; int64(i) < left.NumCols(); i++ {
 		lc := left.Column(i)
 		rc := right.Column(i)
-		if !lc.field.Equal(rc.field) {
+		if !lc.Field().Equal(rc.Field()) {
 			return false
 		}
 
-		if !ChunkedEqual(lc.data, rc.data) {
+		if !ChunkedEqual(lc.Data(), rc.Data()) {
 			return false
 		}
 	}
@@ -173,7 +174,7 @@ func TableEqual(left, right Table) bool {
 }
 
 // TableEqual returns if the two tables have the approximately equal data in the same schema
-func TableApproxEqual(left, right Table, opts ...EqualOption) bool {
+func TableApproxEqual(left, right arrow.Table, opts ...EqualOption) bool {
 	switch {
 	case left.NumCols() != right.NumCols():
 		return false
@@ -184,19 +185,19 @@ func TableApproxEqual(left, right Table, opts ...EqualOption) bool {
 	for i := 0; int64(i) < left.NumCols(); i++ {
 		lc := left.Column(i)
 		rc := right.Column(i)
-		if !lc.field.Equal(rc.field) {
+		if !lc.Field().Equal(rc.Field()) {
 			return false
 		}
 
-		if !ChunkedApproxEqual(lc.data, rc.data, opts...) {
+		if !ChunkedApproxEqual(lc.Data(), rc.Data(), opts...) {
 			return false
 		}
 	}
 	return true
 }
 
-// ArrayEqual reports whether the two provided arrays are equal.
-func ArrayEqual(left, right Interface) bool {
+// Equal reports whether the two provided arrays are equal.
+func Equal(left, right arrow.Array) bool {
 	switch {
 	case !baseArrayEqual(left, right):
 		return false
@@ -225,6 +226,12 @@ func ArrayEqual(left, right Interface) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -261,6 +268,9 @@ func ArrayEqual(left, right Interface) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -279,6 +289,9 @@ func ArrayEqual(left, right Interface) bool {
 	case *List:
 		r := right.(*List)
 		return arrayEqualList(l, r)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayEqualLargeList(l, r)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayEqualFixedSizeList(l, r)
@@ -303,36 +316,54 @@ func ArrayEqual(left, right Interface) bool {
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayEqualExtension(l, r)
+	case *Dictionary:
+		r := right.(*Dictionary)
+		return arrayEqualDict(l, r)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionEqual(l, r)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionEqual(l, r)
+	case *RunEndEncoded:
+		r := right.(*RunEndEncoded)
+		return arrayRunEndEncodedEqual(l, r)
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
+		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
 }
 
-// ArraySliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
-func ArraySliceEqual(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64) bool {
+// SliceEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are equal.
+func SliceEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64) bool {
 	l := NewSlice(left, lbeg, lend)
 	defer l.Release()
 	r := NewSlice(right, rbeg, rend)
 	defer r.Release()
 
-	return ArrayEqual(l, r)
+	return Equal(l, r)
 }
 
-// ArraySliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
-func ArraySliceApproxEqual(left Interface, lbeg, lend int64, right Interface, rbeg, rend int64, opts ...EqualOption) bool {
+// SliceApproxEqual reports whether slices left[lbeg:lend] and right[rbeg:rend] are approximately equal.
+func SliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opts ...EqualOption) bool {
+	opt := newEqualOption(opts...)
+	return sliceApproxEqual(left, lbeg, lend, right, rbeg, rend, opt)
+}
+
+func sliceApproxEqual(left arrow.Array, lbeg, lend int64, right arrow.Array, rbeg, rend int64, opt equalOption) bool {
 	l := NewSlice(left, lbeg, lend)
 	defer l.Release()
 	r := NewSlice(right, rbeg, rend)
 	defer r.Release()
 
-	return ArrayApproxEqual(l, r, opts...)
+	return arrayApproxEqual(l, r, opt)
 }
 
 const defaultAbsoluteTolerance = 1e-5
 
 type equalOption struct {
-	atol   float64 // absolute tolerance
-	nansEq bool    // whether NaNs are considered equal.
+	atol             float64 // absolute tolerance
+	nansEq           bool    // whether NaNs are considered equal.
+	unorderedMapKeys bool    // whether maps are allowed to have different entries order
 }
 
 func (eq equalOption) f16(f1, f2 float16.Num) bool {
@@ -351,18 +382,18 @@ func (eq equalOption) f32(f1, f2 float32) bool {
 	v2 := float64(f2)
 	switch {
 	case eq.nansEq:
-		return math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
 	default:
-		return math.Abs(v1-v2) <= eq.atol
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
 	}
 }
 
 func (eq equalOption) f64(v1, v2 float64) bool {
 	switch {
 	case eq.nansEq:
-		return math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol || (math.IsNaN(v1) && math.IsNaN(v2))
 	default:
-		return math.Abs(v1-v2) <= eq.atol
+		return v1 == v2 || math.Abs(v1-v2) <= eq.atol
 	}
 }
 
@@ -396,14 +427,21 @@ func WithAbsTolerance(atol float64) EqualOption {
 	}
 }
 
-// ArrayApproxEqual reports whether the two provided arrays are approximately equal.
-// For non-floating point arrays, it is equivalent to ArrayEqual.
-func ArrayApproxEqual(left, right Interface, opts ...EqualOption) bool {
+// WithUnorderedMapKeys configures the comparison functions so that Map with different entries order are considered equal.
+func WithUnorderedMapKeys(v bool) EqualOption {
+	return func(o *equalOption) {
+		o.unorderedMapKeys = v
+	}
+}
+
+// ApproxEqual reports whether the two provided arrays are approximately equal.
+// For non-floating point arrays, it is equivalent to Equal.
+func ApproxEqual(left, right arrow.Array, opts ...EqualOption) bool {
 	opt := newEqualOption(opts...)
 	return arrayApproxEqual(left, right, opt)
 }
 
-func arrayApproxEqual(left, right Interface, opt equalOption) bool {
+func arrayApproxEqual(left, right arrow.Array, opt equalOption) bool {
 	switch {
 	case !baseArrayEqual(left, right):
 		return false
@@ -432,6 +470,12 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *String:
 		r := right.(*String)
 		return arrayEqualString(l, r)
+	case *LargeBinary:
+		r := right.(*LargeBinary)
+		return arrayEqualLargeBinary(l, r)
+	case *LargeString:
+		r := right.(*LargeString)
+		return arrayEqualLargeString(l, r)
 	case *Int8:
 		r := right.(*Int8)
 		return arrayEqualInt8(l, r)
@@ -468,6 +512,9 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *Decimal128:
 		r := right.(*Decimal128)
 		return arrayEqualDecimal128(l, r)
+	case *Decimal256:
+		r := right.(*Decimal256)
+		return arrayEqualDecimal256(l, r)
 	case *Date32:
 		r := right.(*Date32)
 		return arrayEqualDate32(l, r)
@@ -486,6 +533,9 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 	case *List:
 		r := right.(*List)
 		return arrayApproxEqualList(l, r, opt)
+	case *LargeList:
+		r := right.(*LargeList)
+		return arrayApproxEqualLargeList(l, r, opt)
 	case *FixedSizeList:
 		r := right.(*FixedSizeList)
 		return arrayApproxEqualFixedSizeList(l, r, opt)
@@ -506,18 +556,31 @@ func arrayApproxEqual(left, right Interface, opt equalOption) bool {
 		return arrayEqualDuration(l, r)
 	case *Map:
 		r := right.(*Map)
+		if opt.unorderedMapKeys {
+			return arrayApproxEqualMap(l, r, opt)
+		}
 		return arrayApproxEqualList(l.List, r.List, opt)
+	case *Dictionary:
+		r := right.(*Dictionary)
+		return arrayApproxEqualDict(l, r, opt)
 	case ExtensionArray:
 		r := right.(ExtensionArray)
 		return arrayApproxEqualExtension(l, r, opt)
+	case *SparseUnion:
+		r := right.(*SparseUnion)
+		return arraySparseUnionApproxEqual(l, r, opt)
+	case *DenseUnion:
+		r := right.(*DenseUnion)
+		return arrayDenseUnionApproxEqual(l, r, opt)
+	case *RunEndEncoded:
+		r := right.(*RunEndEncoded)
+		return arrayRunEndEncodedApproxEqual(l, r, opt)
 	default:
-		panic(xerrors.Errorf("arrow/array: unknown array type %T", l))
+		panic(fmt.Errorf("arrow/array: unknown array type %T", l))
 	}
-
-	return false
 }
 
-func baseArrayEqual(left, right Interface) bool {
+func baseArrayEqual(left, right arrow.Array) bool {
 	switch {
 	case left.Len() != right.Len():
 		return false
@@ -531,7 +594,7 @@ func baseArrayEqual(left, right Interface) bool {
 	return true
 }
 
-func validityBitmapEqual(left, right Interface) bool {
+func validityBitmapEqual(left, right arrow.Array) bool {
 	// TODO(alexandreyc): make it faster by comparing byte slices of the validity bitmap?
 	n := left.Len()
 	if n != right.Len() {
@@ -600,6 +663,25 @@ func arrayApproxEqualList(left, right *List, opt equalOption) bool {
 	return true
 }
 
+func arrayApproxEqualLargeList(left, right *LargeList, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return arrayApproxEqual(l, r, opt)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
 func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) bool {
 	for i := 0; i < left.Len(); i++ {
 		if left.IsNull(i) {
@@ -620,11 +702,91 @@ func arrayApproxEqualFixedSizeList(left, right *FixedSizeList, opt equalOption) 
 }
 
 func arrayApproxEqualStruct(left, right *Struct, opt equalOption) bool {
-	for i, lf := range left.fields {
-		rf := right.fields[i]
-		if !arrayApproxEqual(lf, rf, opt) {
+	return bitutils.VisitSetBitRuns(
+		left.NullBitmapBytes(),
+		int64(left.Offset()), int64(left.Len()),
+		approxEqualStructRun(left, right, opt),
+	) == nil
+}
+
+func approxEqualStructRun(left, right *Struct, opt equalOption) bitutils.VisitFn {
+	return func(pos int64, length int64) error {
+		for i := range left.fields {
+			if !sliceApproxEqual(left.fields[i], pos, pos+length, right.fields[i], pos, pos+length, opt) {
+				return arrow.ErrInvalid
+			}
+		}
+		return nil
+	}
+}
+
+// arrayApproxEqualMap doesn't care about the order of keys (in Go map traversal order is undefined)
+func arrayApproxEqualMap(left, right *Map, opt equalOption) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if !arrayApproxEqualSingleMapEntry(left.newListValue(i).(*Struct), right.newListValue(i).(*Struct), opt) {
 			return false
 		}
 	}
 	return true
+}
+
+// arrayApproxEqualSingleMapEntry is a helper function that checks if a single entry pair is approx equal.
+// Basically, it doesn't care about key order.
+// structs passed will be released
+func arrayApproxEqualSingleMapEntry(left, right *Struct, opt equalOption) bool {
+	defer left.Release()
+	defer right.Release()
+
+	// we don't compare the validity bitmap, but we want other checks from baseArrayEqual
+	switch {
+	case left.Len() != right.Len():
+		return false
+	case left.NullN() != right.NullN():
+		return false
+	case !arrow.TypeEqual(left.DataType(), right.DataType()): // We do not check for metadata as in the C++ implementation.
+		return false
+	case left.NullN() == left.Len():
+		return true
+	}
+
+	used := make(map[int]bool, right.Len())
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+
+		found := false
+		lBeg, lEnd := int64(i), int64(i+1)
+		for j := 0; j < right.Len(); j++ {
+			if used[j] {
+				continue
+			}
+			if right.IsNull(j) {
+				used[j] = true
+				continue
+			}
+
+			rBeg, rEnd := int64(j), int64(j+1)
+
+			// check keys (field 0)
+			if !sliceApproxEqual(left.Field(0), lBeg, lEnd, right.Field(0), rBeg, rEnd, opt) {
+				continue
+			}
+
+			// only now check the values
+			if sliceApproxEqual(left.Field(1), lBeg, lEnd, right.Field(1), rBeg, rEnd, opt) {
+				found = true
+				used[j] = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return len(used) == right.Len()
 }

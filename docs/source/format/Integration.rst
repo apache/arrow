@@ -26,8 +26,14 @@ Our strategy for integration testing between Arrow implementations is:
   designed exclusively for Arrow's integration tests
 * Each implementation provides a testing executable capable of converting
   between the JSON and the binary Arrow file representation
-* The test executable is also capable of validating the contents of a binary
-  file against a corresponding JSON file
+* Each testing executable is used to generate binary Arrow file representations
+  from the JSON-based test datasets. These results are then used to call the
+  testing executable of each other implementation to validate the contents
+  against the corresponding JSON file.
+  - *ie.* the C++ testing executable generates binary arrow files from JSON
+  specified datasets. The resulting files are then used as input to the Java
+  testing executable for validation, confirming that the Java implementation 
+  can correctly read what the C++ implementation wrote.
 
 Running integration tests
 -------------------------
@@ -87,7 +93,7 @@ cross-language integration testing purposes.
 This representation is `not canonical <https://lists.apache.org/thread.html/6947fb7666a0f9cc27d9677d2dad0fb5990f9063b7cf3d80af5e270f%40%3Cdev.arrow.apache.org%3E>`_
 but it provides a human-readable way of verifying language implementations.
 
-See `here <https://github.com/apache/arrow/tree/master/docs/source/format/integration_json_examples>`_
+See `here <https://github.com/apache/arrow/tree/main/docs/source/format/integration_json_examples>`_
 for some examples of this JSON data.
 
 .. can we check in more examples, e.g. from the generated_*.json test files?
@@ -153,7 +159,7 @@ considered equivalent to ``[]`` (no metadata). Duplicated keys are not forbidden
     }
 
 A ``Type`` will have other fields as defined in
-`Schema.fbs <https://github.com/apache/arrow/tree/master/format/Schema.fbs>`_
+`Schema.fbs <https://github.com/apache/arrow/tree/main/format/Schema.fbs>`_
 depending on its name.
 
 Int: ::
@@ -303,6 +309,17 @@ Null: ::
       "name": "null"
     }
 
+RunEndEncoded: ::
+
+    {
+      "name": "runendencoded"
+    }
+
+The ``Field``'s "children" should be exactly two child fields. The first
+child must be named "run_ends", be non-nullable and be either an ``int16``,
+``int32``, or ``int64`` type field. The second child must be named "values",
+but can be of any type.
+
 Extension types are, as in the IPC format, represented as their underlying
 storage type plus some dedicated field metadata to reconstruct the extension
 type.  For example, assuming a "uuid" extension type backed by a
@@ -396,3 +413,112 @@ of ``listSize`` 4, then the data inside the "children" of that ``FieldData``
 will have count 28.
 
 For "null" type, ``BufferData`` does not contain any buffers.
+
+Archery Integration Test Cases
+--------------------------------------
+
+This list can make it easier to understand what manual testing may need to
+be done for any future Arrow Format changes by knowing what cases the automated
+integration testing actually tests.
+
+There are two types of integration test cases: the ones populated on the fly
+by the data generator in the Archery utility, and *gold* files that exist
+in the `arrow-testing <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream/integration>` 
+repository.
+
+Data Generator Tests
+~~~~~~~~~~~~~~~~~~~~
+
+This is the high-level description of the cases which are generated and
+tested using the ``archery integration`` command (see ``get_generated_json_files`` 
+in ``datagen.py``):
+
+* Primitive Types
+  - No Batches
+  - Various Primitive Values
+  - Batches with Zero Length
+  - String and Binary Large offset cases
+* Null Type
+  * Trivial Null batches
+* Decimal128
+* Decimal256
+* DateTime with various units
+* Durations with various units
+* Intervals
+  - MonthDayNano interval is a separate case
+* Map Types
+  - Non-Canonical Maps
+* Nested Types
+  - Lists
+  - Structs
+  - Lists with Large Offsets
+* Unions
+* Custom Metadata
+* Schemas with Duplicate Field Names
+* Dictionary Types
+  - Signed indices
+  - Unsigned indices
+  - Nested dictionaries
+* Extension Types
+
+
+Gold File Integration Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Pre-generated json and arrow IPC files (both file and stream format) exist
+in the `arrow-testing <https://github.com/apache/arrow-testing>`__ repository
+in the ``data/arrow-ipc-stream/integration`` directory. These serve as
+*gold* files that are assumed to be correct for use in testing. They are 
+referenced by ``runner.py`` in the code for the :ref:`Archery <archery>`
+utility. Below are the test cases which are covered by them:
+
+* Backwards Compatibility
+
+  - The following cases are tested using the 0.14.1 format:
+
+    + datetime
+    + decimals
+    + dictionaries
+    + intervals
+    + maps
+    + nested types (list, struct)
+    + primitives 
+    + primitive with no batches
+    + primitive with zero length batches
+
+  - The following is tested for 0.17.1 format:
+
+    + unions
+
+* Endianness
+
+  - The following cases are tested with both Little Endian and Big Endian versions for auto conversion
+
+    + custom metadata
+    + datetime
+    + decimals
+    + decimal256
+    + dictionaries
+    + dictionaries with unsigned indices
+    + record batches with duplicate fieldnames
+    + extension types
+    + interval types
+    + map types
+    + non-canonical map data
+    + nested types (lists, structs)
+    + nested dictionaries
+    + nested large offset types
+    + nulls
+    + primitive data
+    + large offset binary and strings
+    + primitives with no batches included
+    + primitive batches with zero length
+    + recursive nested types
+    + union types
+
+* Compression tests
+
+  - LZ4
+  - ZSTD
+
+* Batches with Shared Dictionaries

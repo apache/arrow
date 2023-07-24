@@ -63,21 +63,6 @@
 #define ARROW_PREFETCH(addr)
 #endif
 
-#if (defined(__GNUC__) || defined(__APPLE__))
-#define ARROW_MUST_USE_RESULT __attribute__((warn_unused_result))
-#elif defined(_MSC_VER)
-#define ARROW_MUST_USE_RESULT
-#else
-#define ARROW_MUST_USE_RESULT
-#endif
-
-#if defined(__clang__)
-// Only clang supports warn_unused_result as a type annotation.
-#define ARROW_MUST_USE_TYPE ARROW_MUST_USE_RESULT
-#else
-#define ARROW_MUST_USE_TYPE
-#endif
-
 #if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
 #define ARROW_RESTRICT __restrict
 #else
@@ -104,33 +89,14 @@
 // This macro takes an optional deprecation message
 #ifdef __COVERITY__
 #  define ARROW_DEPRECATED(...)
-#  define ARROW_DEPRECATED_USING(...)
-#elif __cplusplus > 201103L
-#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
-#  define ARROW_DEPRECATED_USING(...) ARROW_DEPRECATED(__VA_ARGS__)
 #else
-# ifdef __GNUC__
-#  define ARROW_DEPRECATED(...) __attribute__((deprecated(__VA_ARGS__)))
-#  define ARROW_DEPRECATED_USING(...) ARROW_DEPRECATED(__VA_ARGS__)
-# elif defined(_MSC_VER)
-#  define ARROW_DEPRECATED(...) __declspec(deprecated(__VA_ARGS__))
-#  define ARROW_DEPRECATED_USING(...)
-# else
-#  define ARROW_DEPRECATED(...)
-#  define ARROW_DEPRECATED_USING(...)
-# endif
+#  define ARROW_DEPRECATED(...) [[deprecated(__VA_ARGS__)]]
 #endif
 
 #ifdef __COVERITY__
 #  define ARROW_DEPRECATED_ENUM_VALUE(...)
-#elif __cplusplus > 201103L
-#  define ARROW_DEPRECATED_ENUM_VALUE(...) [[deprecated(__VA_ARGS__)]]
 #else
-# if defined(__GNUC__) && __GNUC__ >= 6
-#  define ARROW_DEPRECATED_ENUM_VALUE(...) __attribute__((deprecated(__VA_ARGS__)))
-# else
-#  define ARROW_DEPRECATED_ENUM_VALUE(...)
-# endif
+#  define ARROW_DEPRECATED_ENUM_VALUE(...) [[deprecated(__VA_ARGS__)]]
 #endif
 
 // clang-format on

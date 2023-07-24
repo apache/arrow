@@ -19,8 +19,9 @@
 
 /// Format Version History.
 /// Version 1.0 - Forward and backwards compatibility guaranteed.
-/// Version 1.1 - Add Decimal256 (No format release).
-/// Version 1.2 (Pending)- Add Interval MONTH_DAY_NANO
+/// Version 1.1 - Add Decimal256.
+/// Version 1.2 - Add Interval MONTH_DAY_NANO.
+/// Version 1.3 - Add Run-End Encoded.
 
 namespace org.apache.arrow.flatbuf;
 
@@ -176,6 +177,14 @@ table FixedSizeBinary {
 }
 
 table Bool {
+}
+
+/// Contains two child arrays, run_ends and values.
+/// The run_ends child array must be a 16/32/64-bit integer array
+/// which encodes the indices at which the run with the value in 
+/// each corresponding index in the values child array ends.
+/// Like list/struct types, the value array can be of any type.
+table RunEndEncoded {
 }
 
 /// Exact decimal value represented as an integer value in two's
@@ -417,6 +426,7 @@ union Type {
   LargeBinary,
   LargeUtf8,
   LargeList,
+  RunEndEncoded,
 }
 
 /// ----------------------------------------------------------------------

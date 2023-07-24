@@ -15,6 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <algorithm>  // Missing include in boost/process
+
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
+// This boost/asio/io_context.hpp include is needless for no MinGW
+// build.
+//
+// This is for including boost/asio/detail/socket_types.hpp before any
+// "#include <windows.h>". boost/asio/detail/socket_types.hpp doesn't
+// work if windows.h is already included. boost/process.h ->
+// boost/process/args.hpp -> boost/process/detail/basic_cmd.hpp
+// includes windows.h. boost/process/args.hpp is included before
+// boost/process/async.h that includes
+// boost/asio/detail/socket_types.hpp implicitly is included.
+#include <boost/asio/io_context.hpp>
+// We need BOOST_USE_WINDOWS_H definition with MinGW when we use
+// boost/process.hpp. See BOOST_USE_WINDOWS_H=1 in
+// cpp/cmake_modules/ThirdpartyToolchain.cmake for details.
+#include <boost/process.hpp>
+#include <boost/thread.hpp>
+
 #include "arrow/filesystem/gcsfs.h"
 
 #include <absl/time/time.h>
@@ -26,23 +46,21 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <boost/process.hpp>
 #include <random>
 #include <string>
+#include <thread>
 
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
+#include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace arrow {
 namespace fs {
-/// Custom comparison for FileInfo, we need this to use complex googletest matchers.
-inline bool operator==(const FileInfo& a, const FileInfo& b) {
-  return a.path() == b.path() && a.type() == b.type();
-}
 
 namespace {
 
@@ -50,8 +68,8 @@ namespace bp = boost::process;
 namespace gc = google::cloud;
 namespace gcs = google::cloud::storage;
 
+using ::testing::Eq;
 using ::testing::HasSubstr;
-using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
 using ::testing::Pair;
@@ -78,7 +96,7 @@ class GcsTestbench : public ::testing::Environment {
       names = {env};
     }
     auto error = std::string(
-        "Cloud not start GCS emulator."
+        "Could not start GCS emulator."
         " Used the following list of python interpreter names:");
     for (const auto& interpreter : names) {
       auto exe_path = bp::search_path(interpreter);
@@ -88,9 +106,27 @@ class GcsTestbench : public ::testing::Environment {
         continue;
       }
 
-      server_process_ = bp::child(boost::this_process::environment(), exe_path, "-m",
-                                  "testbench", "--port", port_, group_);
-      if (server_process_.valid() && server_process_.running()) break;
+      bp::ipstream output;
+      server_process_ = bp::child(exe_path, "-m", "testbench", "--port", port_, group_,
+                                  bp::std_err > output);
+      // Wait for message: "* Restarting with"
+      auto testbench_is_running = [&output, this](bp::child& process) {
+        std::string line;
+        std::chrono::time_point<std::chrono::steady_clock> end =
+            std::chrono::steady_clock::now() + std::chrono::seconds(10);
+        while (server_process_.valid() && server_process_.running() &&
+               std::chrono::steady_clock::now() < end) {
+          if (output.peek() && std::getline(output, line)) {
+            std::cerr << line << std::endl;
+            if (line.find("* Restarting with") != std::string::npos) return true;
+          } else {
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+          }
+        }
+        return false;
+      };
+
+      if (testbench_is_running(server_process_)) break;
       error += " (failed to start)";
       server_process_.terminate();
       server_process_.wait();
@@ -98,6 +134,8 @@ class GcsTestbench : public ::testing::Environment {
     if (server_process_.valid() && server_process_.valid()) return;
     error_ = std::move(error);
   }
+
+  bool running() { return server_process_.running(); }
 
   ~GcsTestbench() override {
     // Brutal shutdown, kill the full process group because the GCS testbench may launch
@@ -129,7 +167,8 @@ class GcsIntegrationTest : public ::testing::Test {
  protected:
   void SetUp() override {
     ASSERT_THAT(Testbench(), NotNull());
-    ASSERT_THAT(Testbench()->error(), IsEmpty());
+    ASSERT_EQ(Testbench()->error(), "");
+    ASSERT_TRUE(Testbench()->running());
 
     // Initialize a PRNG with a small amount of entropy.
     generator_ = std::mt19937_64(std::random_device()());
@@ -140,7 +179,11 @@ class GcsIntegrationTest : public ::testing::Test {
     auto client = gcs::Client(
         google::cloud::Options{}
             .set<gcs::RestEndpointOption>("http://127.0.0.1:" + Testbench()->port())
-            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials()));
+            .set<gc::UnifiedCredentialsOption>(gc::MakeInsecureCredentials())
+            .set<gcs::TransferStallTimeoutOption>(std::chrono::seconds(5))
+            .set<gcs::RetryPolicyOption>(
+                gcs::LimitedTimeRetryPolicy(std::chrono::seconds(45)).clone()));
+
     google::cloud::StatusOr<gcs::BucketMetadata> bucket = client.CreateBucketForProject(
         PreexistingBucketName(), "ignored-by-testbench", gcs::BucketMetadata{});
     ASSERT_TRUE(bucket.ok()) << "Failed to create bucket <" << PreexistingBucketName()
@@ -167,6 +210,8 @@ class GcsIntegrationTest : public ::testing::Test {
   GcsOptions TestGcsOptions() {
     auto options = GcsOptions::Anonymous();
     options.endpoint_override = "127.0.0.1:" + Testbench()->port();
+    options.retry_limit_seconds = 60;
+    options.project_id = "test-only-invalid-project-id";
     return options;
   }
 
@@ -190,7 +235,7 @@ class GcsIntegrationTest : public ::testing::Test {
 
   std::string RandomBucketName() { return RandomChars(32); }
 
-  std::string RandomFolderName() { return RandomChars(32) + "/"; }
+  std::string RandomFolderName() { return RandomChars(32); }
 
   struct Hierarchy {
     std::string base_dir;
@@ -199,18 +244,18 @@ class GcsIntegrationTest : public ::testing::Test {
 
   Result<Hierarchy> CreateHierarchy(std::shared_ptr<arrow::fs::FileSystem> fs) {
     const char* const kTestFolders[] = {
-        "b/",
-        "b/0/",
-        "b/0/0/",
-        "b/1/",
-        "b/2/",
+        "b",
+        "b/0",
+        "b/0/0",
+        "b/1",
+        "b/2",
         // Create some additional folders that should not appear in any listing of b/
-        "aa/",
-        "ba/",
-        "c/",
+        "aa",
+        "ba",
+        "c",
     };
     constexpr auto kFilesPerFolder = 2;
-    auto base_dir = internal::ConcatAbstractPath(PreexistingBucketPath(), "b/");
+    auto base_dir = internal::ConcatAbstractPath(PreexistingBucketPath(), "b");
     auto result = Hierarchy{base_dir, {}};
     for (auto const* f : kTestFolders) {
       const auto folder = internal::ConcatAbstractPath(PreexistingBucketPath(), f);
@@ -220,10 +265,22 @@ class GcsIntegrationTest : public ::testing::Test {
         const auto filename =
             internal::ConcatAbstractPath(folder, "test-file-" + std::to_string(i));
         CreateFile(fs.get(), filename, filename);
-        result.contents.push_back(arrow::fs::File(filename));
+        ARROW_ASSIGN_OR_RAISE(auto file_info, fs->GetFileInfo(filename));
+        result.contents.push_back(std::move(file_info));
       }
     }
     return result;
+  }
+
+  // Directories must appear without a trailing slash in the results.
+  std::vector<arrow::fs::FileInfo> static CleanupDirectoryNames(
+      std::vector<arrow::fs::FileInfo> expected) {
+    std::transform(expected.begin(), expected.end(), expected.begin(),
+                   [](FileInfo const& info) {
+                     if (!info.IsDirectory()) return info;
+                     return Dir(std::string(internal::RemoveTrailingSlash(info.path())));
+                   });
+    return expected;
   }
 
  private:
@@ -239,6 +296,34 @@ class GcsIntegrationTest : public ::testing::Test {
   std::string bucket_name_;
 };
 
+class TestGCSFSGeneric : public GcsIntegrationTest, public GenericFileSystemTest {
+ public:
+  void SetUp() override {
+    ASSERT_NO_FATAL_FAILURE(GcsIntegrationTest::SetUp());
+    auto bucket_name = RandomBucketName();
+    gcs_fs_ = GcsFileSystem::Make(TestGcsOptions());
+    ASSERT_OK(gcs_fs_->CreateDir(bucket_name, true));
+    fs_ = std::make_shared<SubTreeFileSystem>(bucket_name, gcs_fs_);
+  }
+
+ protected:
+  std::shared_ptr<FileSystem> GetEmptyFileSystem() override { return fs_; }
+
+  bool have_implicit_directories() const override { return true; }
+  bool allow_write_file_over_dir() const override { return true; }
+  bool allow_read_dir_as_file() const override { return true; }
+  bool allow_move_dir() const override { return false; }
+  bool allow_append_to_file() const override { return false; }
+  bool have_directory_mtimes() const override { return false; }
+  bool have_flaky_directory_tree_deletion() const override { return false; }
+  bool have_file_metadata() const override { return true; }
+
+  std::shared_ptr<GcsFileSystem> gcs_fs_;
+  std::shared_ptr<FileSystem> fs_;
+};
+
+GENERIC_FS_TEST_FUNCTIONS(TestGCSFSGeneric);
+
 TEST(GcsFileSystem, OptionsCompare) {
   auto a = GcsOptions::Anonymous();
   auto b = a;
@@ -252,25 +337,87 @@ TEST(GcsFileSystem, OptionsCompare) {
 
 TEST(GcsFileSystem, OptionsAnonymous) {
   GcsOptions a = GcsOptions::Anonymous();
-  EXPECT_THAT(a.credentials, NotNull());
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_TRUE(a.credentials.anonymous());
   EXPECT_EQ(a.scheme, "http");
 }
 
+TEST(GcsFileSystem, OptionsFromUri) {
+  std::string path;
+
+  ASSERT_OK_AND_ASSIGN(GcsOptions options, GcsOptions::FromUri("gs://", &path));
+  EXPECT_EQ(options.default_bucket_location, "");
+  EXPECT_EQ(options.scheme, "https");
+  EXPECT_EQ(options.endpoint_override, "");
+  EXPECT_EQ(path, "");
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs:", &path));
+  EXPECT_EQ(path, "");
+
+  // Username/password is unsupported
+  ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs://access:secret@mybucket", &path));
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://mybucket/", &path));
+  EXPECT_EQ(options.default_bucket_location, "");
+  EXPECT_EQ(options.scheme, "https");
+  EXPECT_EQ(options.endpoint_override, "");
+  EXPECT_EQ(path, "mybucket");
+
+  ASSERT_OK_AND_ASSIGN(options, GcsOptions::FromUri("gs://mybucket/foo/bar/", &path));
+  EXPECT_EQ(options.default_bucket_location, "");
+  EXPECT_EQ(options.scheme, "https");
+  EXPECT_EQ(options.endpoint_override, "");
+  EXPECT_EQ(path, "mybucket/foo/bar");
+
+  // Explicit default_bucket_location override
+  ASSERT_OK_AND_ASSIGN(
+      options,
+      GcsOptions::FromUri("gs://mybucket/foo/bar/"
+                          "?endpoint_override=localhost&scheme=http&location=us-west2"
+                          "&retry_limit_seconds=40.5"
+                          "&project_id=test-project-id",
+                          &path));
+  EXPECT_EQ(options.default_bucket_location, "us-west2");
+  EXPECT_EQ(options.scheme, "http");
+  EXPECT_EQ(options.endpoint_override, "localhost");
+  EXPECT_EQ(path, "mybucket/foo/bar");
+  ASSERT_TRUE(options.retry_limit_seconds.has_value());
+  EXPECT_EQ(*options.retry_limit_seconds, 40.5);
+  ASSERT_TRUE(options.project_id.has_value());
+  EXPECT_EQ(*options.project_id, "test-project-id");
+
+  // Missing bucket name
+  ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs:///foo/bar/", &path));
+
+  // Invalid option
+  ASSERT_RAISES(Invalid, GcsOptions::FromUri("gs://mybucket/?xxx=zzz", &path));
+
+  // Invalid retry limit
+  ASSERT_RAISES(Invalid,
+                GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=0", &path));
+  ASSERT_RAISES(Invalid,
+                GcsOptions::FromUri("gs://foo/bar/?retry_limit_seconds=-1", &path));
+}
+
 TEST(GcsFileSystem, OptionsAccessToken) {
-  auto a = GcsOptions::FromAccessToken(
-      "invalid-access-token-test-only",
-      std::chrono::system_clock::now() + std::chrono::minutes(5));
-  EXPECT_THAT(a.credentials, NotNull());
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto a = GcsOptions::FromAccessToken(/*access_token=*/"accesst", expiration);
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.access_token(), Eq("accesst"));
+  EXPECT_THAT(a.credentials.expiration(), Eq(expiration));
   EXPECT_EQ(a.scheme, "https");
 }
 
 TEST(GcsFileSystem, OptionsImpersonateServiceAccount) {
-  auto base = GcsOptions::FromAccessToken(
-      "invalid-access-token-test-only",
-      std::chrono::system_clock::now() + std::chrono::minutes(5));
-  auto a = GcsOptions::FromImpersonatedServiceAccount(
-      *base.credentials, "invalid-sa-test-only@my-project.iam.gserviceaccount.com");
-  EXPECT_THAT(a.credentials, NotNull());
+  TimePoint expiration = std::chrono::system_clock::now() + std::chrono::minutes(5);
+  auto base = GcsOptions::FromAccessToken(/*access_token=*/"at", expiration);
+  std::string account = "invalid-sa-test-only@my-project.iam.gserviceaccount.com";
+  auto a = GcsOptions::FromImpersonatedServiceAccount(base.credentials, account);
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.access_token(), Eq("at"));
+  EXPECT_THAT(a.credentials.expiration(), Eq(expiration));
+  EXPECT_THAT(a.credentials.target_service_account(), Eq(account));
+
   EXPECT_EQ(a.scheme, "https");
 }
 
@@ -293,8 +440,35 @@ TEST(GcsFileSystem, OptionsServiceAccountCredentials) {
   })""";
 
   auto a = GcsOptions::FromServiceAccountCredentials(kJsonKeyfileContents);
-  EXPECT_THAT(a.credentials, NotNull());
+  EXPECT_THAT(a.credentials.holder(), NotNull());
+  EXPECT_THAT(a.credentials.json_credentials(), kJsonKeyfileContents);
   EXPECT_EQ(a.scheme, "https");
+}
+
+TEST(GcsFileSystem, OptionsAsGoogleCloudOptions) {
+  auto a = GcsOptions::Anonymous();
+  a.scheme = "http";
+  a.endpoint_override = "localhost:8080";
+  a.default_bucket_location = "us-central1";
+  a.retry_limit_seconds = 40.5;
+  a.project_id = "test-only-invalid-project-id";
+
+  auto const o1 = internal::AsGoogleCloudOptions(a);
+  EXPECT_TRUE(o1.has<google::cloud::UnifiedCredentialsOption>());
+  EXPECT_TRUE(o1.has<gcs::RetryPolicyOption>());
+  EXPECT_EQ(o1.get<gcs::RestEndpointOption>(), "http://localhost:8080");
+  EXPECT_EQ(o1.get<gcs::ProjectIdOption>(), "test-only-invalid-project-id");
+
+  a.scheme.clear();
+  a.endpoint_override.clear();
+  a.retry_limit_seconds.reset();
+  a.project_id.reset();
+
+  auto const o2 = internal::AsGoogleCloudOptions(a);
+  EXPECT_TRUE(o2.has<google::cloud::UnifiedCredentialsOption>());
+  EXPECT_FALSE(o2.has<gcs::RetryPolicyOption>());
+  EXPECT_FALSE(o2.has<gcs::RestEndpointOption>());
+  EXPECT_FALSE(o2.has<gcs::ProjectIdOption>());
 }
 
 TEST(GcsFileSystem, ToArrowStatusOK) {
@@ -342,14 +516,16 @@ TEST(GcsFileSystem, ToArrowStatus) {
 TEST(GcsFileSystem, FileSystemCompare) {
   GcsOptions a_options;
   a_options.scheme = "http";
-  auto a = internal::MakeGcsFileSystemForTest(a_options);
+  a_options.project_id = "test-only-invalid-project-id";
+  auto a = GcsFileSystem::Make(a_options);
   EXPECT_THAT(a, NotNull());
   EXPECT_TRUE(a->Equals(*a));
 
   GcsOptions b_options;
   b_options.scheme = "http";
   b_options.endpoint_override = "localhost:1234";
-  auto b = internal::MakeGcsFileSystemForTest(b_options);
+  b_options.project_id = "test-only-invalid-project-id";
+  auto b = GcsFileSystem::Make(b_options);
   EXPECT_THAT(b, NotNull());
   EXPECT_TRUE(b->Equals(*b));
 
@@ -476,15 +652,58 @@ TEST(GcsFileSystem, ObjectMetadataRoundtrip) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoBucket) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
 
   // URI
-  ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketPath()));
+  ASSERT_RAISES(Invalid, fs->GetFileInfo("gs://" + PreexistingBucketName()));
 }
 
-TEST_F(GcsIntegrationTest, GetFileInfoObject) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+TEST_F(GcsIntegrationTest, GetFileInfoObjectWithNestedStructure) {
+  // Adds detailed tests to handle cases of different edge cases
+  // with directory naming conventions (e.g. with and without slashes).
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  constexpr auto kObjectName = "test-object-dir/some_other_dir/another_dir/foo";
+  ASSERT_OK_AND_ASSIGN(
+      auto output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName, /*metadata=*/{}));
+  const auto data = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  // 0 is immediately after "/" lexicographically, ensure that this doesn't
+  // cause unexpected issues.
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(PreexistingBucketPath() +
+                                                        "test-object-dir/some_other_dir0",
+                                                    /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+  ASSERT_OK_AND_ASSIGN(
+      output,
+      fs->OpenOutputStream(PreexistingBucketPath() + kObjectName + "0", /*metadata=*/{}));
+  ASSERT_OK(output->Write(data.data(), data.size()));
+  ASSERT_OK(output->Close());
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName, FileType::File);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + kObjectName + "/",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir",
+                 FileType::Directory);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_dir/",
+                 FileType::Directory);
+
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-di",
+                 FileType::NotFound);
+  AssertFileInfo(fs.get(), PreexistingBucketPath() + "test-object-dir/some_other_di",
+                 FileType::NotFound);
+}
+
+TEST_F(GcsIntegrationTest, GetFileInfoObjectNoExplicitObject) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   auto object =
       GcsClient().GetObjectMetadata(PreexistingBucketName(), PreexistingObjectName());
   ASSERT_TRUE(object.ok()) << "status=" << object.status();
@@ -496,7 +715,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoObject) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
   std::vector<arrow::fs::FileInfo> expected;
   std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
@@ -506,6 +725,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
                  }
                  return hierarchy.base_dir != info.path();
                });
+  expected = CleanupDirectoryNames(std::move(expected));
 
   auto selector = FileSelector();
   selector.base_dir = hierarchy.base_dir;
@@ -521,14 +741,13 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorRecursive) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorNonRecursive) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
   std::vector<arrow::fs::FileInfo> expected;
   std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
                std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
                  if (info.path() == hierarchy.base_dir) return false;
-                 return internal::EnsureTrailingSlash(
-                            internal::GetAbstractPathParent(info.path()).first) ==
+                 return internal::GetAbstractPathParent(info.path()).first ==
                         hierarchy.base_dir;
                });
 
@@ -541,14 +760,14 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorNonRecursive) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
 
   for (const auto max_recursion : {0, 1, 2, 3}) {
     SCOPED_TRACE("Testing with max_recursion=" + std::to_string(max_recursion));
     const auto max_depth =
         internal::Depth(internal::EnsureTrailingSlash(hierarchy.base_dir)) +
-        max_recursion;
+        max_recursion + 1;  // Add 1 because files in a directory should be included
     std::vector<arrow::fs::FileInfo> expected;
     std::copy_if(hierarchy.contents.begin(), hierarchy.contents.end(),
                  std::back_inserter(expected), [&](const arrow::fs::FileInfo& info) {
@@ -558,6 +777,7 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
                    }
                    return internal::Depth(info.path()) <= max_depth;
                  });
+    expected = CleanupDirectoryNames(std::move(expected));
     auto selector = FileSelector();
     selector.base_dir = hierarchy.base_dir;
     selector.allow_not_found = true;
@@ -569,18 +789,18 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorLimitedRecursion) {
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundTrue) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   auto selector = FileSelector();
   selector.base_dir = NotFoundObjectPath() + "/";
   selector.allow_not_found = true;
   selector.recursive = true;
   ASSERT_OK_AND_ASSIGN(auto results, fs->GetFileInfo(selector));
-  EXPECT_THAT(results, IsEmpty());
+  EXPECT_EQ(results.size(), 0);
 }
 
 TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundFalse) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   auto selector = FileSelector();
   selector.base_dir = NotFoundObjectPath() + "/";
@@ -590,63 +810,70 @@ TEST_F(GcsIntegrationTest, GetFileInfoSelectorNotFoundFalse) {
 }
 
 TEST_F(GcsIntegrationTest, CreateDirSuccessBucketOnly) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   auto bucket_name = RandomBucketName();
   ASSERT_OK(fs->CreateDir(bucket_name, false));
-  arrow::fs::AssertFileInfo(fs.get(), bucket_name + "/", FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), bucket_name, FileType::Directory);
 }
 
 TEST_F(GcsIntegrationTest, CreateDirSuccessBucketAndFolder) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto path = PreexistingBucketPath() + RandomFolderName();
   ASSERT_OK(fs->CreateDir(path, false));
   arrow::fs::AssertFileInfo(fs.get(), path, FileType::Directory);
 }
 
 TEST_F(GcsIntegrationTest, CreateDirFailureFolderWithMissingBucket) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  const auto path = std::string("not-a-bucket/new-folder/");
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  const auto path = std::string("not-a-bucket/new-folder");
   ASSERT_RAISES(IOError, fs->CreateDir(path, false));
 }
 
 TEST_F(GcsIntegrationTest, CreateDirRecursiveBucketOnly) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   auto bucket_name = RandomBucketName();
   ASSERT_OK(fs->CreateDir(bucket_name, true));
-  arrow::fs::AssertFileInfo(fs.get(), bucket_name + "/", FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), bucket_name, FileType::Directory);
 }
 
 TEST_F(GcsIntegrationTest, CreateDirRecursiveFolderOnly) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto parent = PreexistingBucketPath() + RandomFolderName();
-  const auto path = parent + "new-sub/";
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
   ASSERT_OK(fs->CreateDir(path, true));
   arrow::fs::AssertFileInfo(fs.get(), path, FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), parent, FileType::Directory);
 }
 
 TEST_F(GcsIntegrationTest, CreateDirRecursiveBucketAndFolder) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   auto bucket_name = RandomBucketName();
-  const auto parent = bucket_name + "/" + RandomFolderName();
-  const auto path = parent + "new-sub/";
+  const auto parent = internal::ConcatAbstractPath(bucket_name, RandomFolderName());
+  const auto path = internal::ConcatAbstractPath(parent, "new-sub");
   ASSERT_OK(fs->CreateDir(path, true));
   arrow::fs::AssertFileInfo(fs.get(), path, FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), parent, FileType::Directory);
-  arrow::fs::AssertFileInfo(fs.get(), bucket_name + "/", FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), bucket_name, FileType::Directory);
 }
 
 TEST_F(GcsIntegrationTest, CreateDirUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(Invalid, fs->CreateDir("gs://" + RandomBucketName(), true));
 }
 
+TEST_F(GcsIntegrationTest, DeleteBucketDirSuccess) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  ASSERT_OK(fs->CreateDir("pyarrow-filesystem/", /*recursive=*/true));
+  ASSERT_RAISES(Invalid, fs->CreateDir("/", false));
+  ASSERT_OK(fs->DeleteDir("pyarrow-filesystem/"));
+}
+
 TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
 
   ASSERT_OK(fs->DeleteDir(hierarchy.base_dir));
-  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
   for (auto const& info : hierarchy.contents) {
     const auto expected_type = fs::internal::IsAncestorOf(hierarchy.base_dir, info.path())
@@ -657,17 +884,17 @@ TEST_F(GcsIntegrationTest, DeleteDirSuccess) {
 }
 
 TEST_F(GcsIntegrationTest, DeleteDirUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(Invalid, fs->DeleteDir("gs://" + PreexistingBucketPath()));
 }
 
 TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK_AND_ASSIGN(auto hierarchy, CreateHierarchy(fs));
 
   ASSERT_OK(fs->DeleteDirContents(hierarchy.base_dir));
   arrow::fs::AssertFileInfo(fs.get(), hierarchy.base_dir, FileType::Directory);
-  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketPath(), FileType::Directory);
+  arrow::fs::AssertFileInfo(fs.get(), PreexistingBucketName(), FileType::Directory);
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::File);
   for (auto const& info : hierarchy.contents) {
     auto expected_type = FileType::NotFound;
@@ -680,35 +907,35 @@ TEST_F(GcsIntegrationTest, DeleteDirContentsSuccess) {
 }
 
 TEST_F(GcsIntegrationTest, DeleteRootDirContents) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("too dangerous"),
                                   fs->DeleteRootDirContents());
 }
 
 TEST_F(GcsIntegrationTest, DeleteFileSuccess) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_OK(fs->DeleteFile(PreexistingObjectPath()));
   arrow::fs::AssertFileInfo(fs.get(), PreexistingObjectPath(), FileType::NotFound);
 }
 
 TEST_F(GcsIntegrationTest, DeleteFileFailure) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(IOError, fs->DeleteFile(NotFoundObjectPath()));
 }
 
 TEST_F(GcsIntegrationTest, DeleteFileDirectoryFails) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto path = PreexistingBucketPath() + "DeleteFileDirectoryFails/";
   ASSERT_RAISES(IOError, fs->DeleteFile(path));
 }
 
 TEST_F(GcsIntegrationTest, DeleteFileUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(Invalid, fs->DeleteFile("gs://" + PreexistingObjectPath()));
 }
 
 TEST_F(GcsIntegrationTest, MoveFileSuccess) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto destination_path = PreexistingBucketPath() + "move-destination";
   ASSERT_OK(fs->Move(PreexistingObjectPath(), destination_path));
   arrow::fs::AssertFileInfo(fs.get(), destination_path, FileType::File);
@@ -716,45 +943,45 @@ TEST_F(GcsIntegrationTest, MoveFileSuccess) {
 }
 
 TEST_F(GcsIntegrationTest, MoveFileCannotRenameBuckets) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(IOError, fs->Move(PreexistingBucketPath(), "another-bucket/"));
 }
 
 TEST_F(GcsIntegrationTest, MoveFileCannotRenameDirectories) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(IOError, fs->Move(PreexistingBucketPath() + "folder/",
                                   PreexistingBucketPath() + "new-name"));
 }
 
 TEST_F(GcsIntegrationTest, MoveFileCannotRenameToDirectory) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
-  ASSERT_OK(fs->CreateDir(PreexistingBucketPath() + "destination/", false));
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+  ASSERT_OK(fs->CreateDir(PreexistingBucketPath() + "destination", false));
   ASSERT_RAISES(IOError, fs->Move(PreexistingObjectPath(),
-                                  PreexistingBucketPath() + "destination/"));
+                                  PreexistingBucketPath() + "destination"));
 }
 
 TEST_F(GcsIntegrationTest, MoveFileUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto destination_path = PreexistingBucketPath() + "move-destination";
   ASSERT_RAISES(Invalid, fs->Move("gs://" + PreexistingObjectPath(), destination_path));
   ASSERT_RAISES(Invalid, fs->Move(PreexistingObjectPath(), "gs://" + destination_path));
 }
 
 TEST_F(GcsIntegrationTest, CopyFileSuccess) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto destination_path = PreexistingBucketPath() + "copy-destination";
   ASSERT_OK(fs->CopyFile(PreexistingObjectPath(), destination_path));
   arrow::fs::AssertFileInfo(fs.get(), destination_path, FileType::File);
 }
 
 TEST_F(GcsIntegrationTest, CopyFileNotFound) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto destination_path = PreexistingBucketPath() + "copy-destination";
   ASSERT_RAISES(IOError, fs->CopyFile(NotFoundObjectPath(), destination_path));
 }
 
 TEST_F(GcsIntegrationTest, CopyFileUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   const auto destination_path = PreexistingBucketPath() + "copy-destination";
   ASSERT_RAISES(Invalid,
                 fs->CopyFile("gs://" + PreexistingObjectPath(), destination_path));
@@ -763,7 +990,7 @@ TEST_F(GcsIntegrationTest, CopyFileUri) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamString) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(PreexistingObjectPath()));
@@ -776,7 +1003,7 @@ TEST_F(GcsIntegrationTest, OpenInputStreamString) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamStringBuffers) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream(PreexistingObjectPath()));
@@ -792,7 +1019,7 @@ TEST_F(GcsIntegrationTest, OpenInputStreamStringBuffers) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamInfo) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   arrow::fs::FileInfo info;
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingObjectPath()));
@@ -808,7 +1035,7 @@ TEST_F(GcsIntegrationTest, OpenInputStreamInfo) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamEmpty) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   const auto object_path =
       internal::ConcatAbstractPath(PreexistingBucketName(), "empty-object.txt");
@@ -822,13 +1049,13 @@ TEST_F(GcsIntegrationTest, OpenInputStreamEmpty) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamNotFound) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   ASSERT_RAISES(IOError, fs->OpenInputStream(NotFoundObjectPath()));
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamInfoInvalid) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   arrow::fs::FileInfo info;
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingBucketPath()));
@@ -839,7 +1066,7 @@ TEST_F(GcsIntegrationTest, OpenInputStreamInfoInvalid) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   ASSERT_RAISES(Invalid, fs->OpenInputStream("gs://" + PreexistingObjectPath()));
 }
 
@@ -858,7 +1085,7 @@ TEST_F(GcsIntegrationTest, OpenInputStreamReadMetadata) {
                                                     .upsert_metadata("key0", "value0")))
           .value();
 
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
   std::shared_ptr<io::InputStream> stream;
   ASSERT_OK_AND_ASSIGN(stream,
                        fs->OpenInputStream(PreexistingBucketPath() + object_name));
@@ -906,7 +1133,7 @@ TEST_F(GcsIntegrationTest, OpenInputStreamReadMetadata) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputStreamClosed) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputStream(PreexistingObjectPath()));
   ASSERT_OK(stream->Close());
@@ -916,8 +1143,52 @@ TEST_F(GcsIntegrationTest, OpenInputStreamClosed) {
   ASSERT_RAISES(Invalid, stream->Tell());
 }
 
+TEST_F(GcsIntegrationTest, TestWriteWithDefaults) {
+  auto options = TestGcsOptions();
+  options.default_bucket_location = "utopia";
+  options.default_metadata = arrow::key_value_metadata({{"foo", "bar"}});
+  auto fs = GcsFileSystem::Make(options);
+  std::string bucket = "new_bucket_with_default_location";
+  auto file_name = "object_with_defaults";
+  ASSERT_OK(fs->CreateDir(bucket, /*recursive=*/false));
+  const auto path = bucket + "/" + file_name;
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, /*metadata=*/{}));
+  const auto expected = std::string(kLoremIpsum);
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+
+  // Verify we can read the object back.
+  std::shared_ptr<io::InputStream> input;
+  ASSERT_OK_AND_ASSIGN(input, fs->OpenInputStream(path));
+
+  std::array<char, 1024> inbuf{};
+  std::int64_t size;
+  ASSERT_OK_AND_ASSIGN(size, input->Read(inbuf.size(), inbuf.data()));
+
+  EXPECT_EQ(std::string(inbuf.data(), size), expected);
+  auto object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["foo"], "bar");
+  auto bucket_info = GcsClient().GetBucketMetadata(bucket);
+  ASSERT_TRUE(bucket_info.ok()) << "status=" << object.status();
+  EXPECT_EQ(bucket_info->location(), "utopia");
+
+  // Check that explicit metadata overrides the defaults.
+  ASSERT_OK_AND_ASSIGN(
+      output, fs->OpenOutputStream(
+                  path, /*metadata=*/arrow::key_value_metadata({{"bar", "foo"}})));
+  ASSERT_OK(output->Write(expected.data(), expected.size()));
+  ASSERT_OK(output->Close());
+  object = GcsClient().GetObjectMetadata(bucket, file_name);
+  ASSERT_TRUE(object.ok()) << "status=" << object.status();
+  EXPECT_EQ(object->mutable_metadata()["bar"], "foo");
+  // Defaults are overwritten and not merged.
+  EXPECT_FALSE(object->has_metadata("foo"));
+}
+
 TEST_F(GcsIntegrationTest, OpenOutputStreamSmall) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   const auto path = PreexistingBucketPath() + "test-write-object";
   std::shared_ptr<io::OutputStream> output;
@@ -938,7 +1209,7 @@ TEST_F(GcsIntegrationTest, OpenOutputStreamSmall) {
 }
 
 TEST_F(GcsIntegrationTest, OpenOutputStreamLarge) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   const auto path = PreexistingBucketPath() + "test-write-object";
   std::shared_ptr<io::OutputStream> output;
@@ -974,7 +1245,7 @@ TEST_F(GcsIntegrationTest, OpenOutputStreamLarge) {
 }
 
 TEST_F(GcsIntegrationTest, OpenOutputStreamClosed) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   const auto path = internal::ConcatAbstractPath(PreexistingBucketName(),
                                                  "open-output-stream-closed.txt");
@@ -987,7 +1258,7 @@ TEST_F(GcsIntegrationTest, OpenOutputStreamClosed) {
 }
 
 TEST_F(GcsIntegrationTest, OpenOutputStreamUri) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   const auto path =
       internal::ConcatAbstractPath(PreexistingBucketName(), "open-output-stream-uri.txt");
@@ -995,7 +1266,7 @@ TEST_F(GcsIntegrationTest, OpenOutputStreamUri) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
@@ -1047,7 +1318,7 @@ TEST_F(GcsIntegrationTest, OpenInputFileMixedReadVsReadAt) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   // Create a file large enough to make the random access tests non-trivial.
   auto constexpr kLineWidth = 100;
@@ -1078,8 +1349,24 @@ TEST_F(GcsIntegrationTest, OpenInputFileRandomSeek) {
   }
 }
 
+TEST_F(GcsIntegrationTest, OpenInputFileIoContext) {
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
+
+  // Create a test file.
+  const auto path = PreexistingBucketPath() + "OpenInputFileIoContext/object-name";
+  std::shared_ptr<io::OutputStream> output;
+  ASSERT_OK_AND_ASSIGN(output, fs->OpenOutputStream(path, {}));
+  const std::string contents = "The quick brown fox jumps over the lazy dog";
+  ASSERT_OK(output->Write(contents.data(), contents.size()));
+  ASSERT_OK(output->Close());
+
+  std::shared_ptr<io::RandomAccessFile> file;
+  ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile(path));
+  EXPECT_EQ(fs->io_context().external_id(), file->io_context().external_id());
+}
+
 TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   arrow::fs::FileInfo info;
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingObjectPath()));
@@ -1097,13 +1384,13 @@ TEST_F(GcsIntegrationTest, OpenInputFileInfo) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileNotFound) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   ASSERT_RAISES(IOError, fs->OpenInputFile(NotFoundObjectPath()));
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   arrow::fs::FileInfo info;
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo(PreexistingBucketPath()));
@@ -1114,7 +1401,7 @@ TEST_F(GcsIntegrationTest, OpenInputFileInfoInvalid) {
 }
 
 TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
-  auto fs = internal::MakeGcsFileSystemForTest(TestGcsOptions());
+  auto fs = GcsFileSystem::Make(TestGcsOptions());
 
   ASSERT_OK_AND_ASSIGN(auto stream, fs->OpenInputFile(PreexistingObjectPath()));
   ASSERT_OK(stream->Close());
@@ -1125,6 +1412,28 @@ TEST_F(GcsIntegrationTest, OpenInputFileClosed) {
   ASSERT_RAISES(Invalid, stream->ReadAt(1, buffer.size(), buffer.data()));
   ASSERT_RAISES(Invalid, stream->ReadAt(1, 1));
   ASSERT_RAISES(Invalid, stream->Seek(2));
+}
+
+TEST_F(GcsIntegrationTest, TestFileSystemFromUri) {
+  // Smoke test for FileSystemFromUri
+  std::string path;
+  ASSERT_OK_AND_ASSIGN(
+      auto fs,
+      FileSystemFromUri(std::string("gs://anonymous@") + PreexistingBucketPath(), &path));
+  EXPECT_EQ(fs->type_name(), "gcs");
+  EXPECT_EQ(path, PreexistingBucketName());
+  ASSERT_OK_AND_ASSIGN(
+      path, fs->PathFromUri(std::string("gs://anonymous@") + PreexistingBucketPath()));
+  EXPECT_EQ(path, PreexistingBucketName());
+  ASSERT_OK_AND_ASSIGN(auto fs2, FileSystemFromUri(std::string("gcs://anonymous@") +
+                                                   PreexistingBucketPath()));
+  EXPECT_EQ(fs2->type_name(), "gcs");
+  ASSERT_THAT(fs->PathFromUri("/foo/bar"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
+  ASSERT_THAT(
+      fs->PathFromUri("s3:///foo/bar"),
+      Raises(StatusCode::Invalid,
+             testing::HasSubstr("expected a URI with one of the schemes (gs, gcs)")));
 }
 
 }  // namespace

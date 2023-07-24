@@ -20,7 +20,7 @@ package org.apache.arrow.vector.util;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,7 +54,7 @@ import io.netty.util.collection.IntObjectMap;
 public class MapWithOrdinalImpl<K, V> implements MapWithOrdinal<K, V> {
   private static final Logger logger = LoggerFactory.getLogger(MapWithOrdinalImpl.class);
 
-  private final Map<K, Map.Entry<Integer, V>> primary = new HashMap<>();
+  private final Map<K, Map.Entry<Integer, V>> primary = new LinkedHashMap<>();
   private final IntObjectHashMap<V> secondary = new IntObjectHashMap<>();
 
   private final Map<K, V> delegate = new Map<K, V>() {

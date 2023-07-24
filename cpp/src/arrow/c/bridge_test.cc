@@ -19,6 +19,7 @@
 #include <deque>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -34,13 +35,13 @@
 #include "arrow/memory_pool.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -123,6 +124,24 @@ class ReleaseCallback {
 
 using SchemaReleaseCallback = ReleaseCallback<SchemaExportTraits>;
 using ArrayReleaseCallback = ReleaseCallback<ArrayExportTraits>;
+
+// Whether c_struct or any of its descendents have non-null data pointers.
+bool HasData(const ArrowArray* c_struct) {
+  for (int64_t i = 0; i < c_struct->n_buffers; ++i) {
+    if (c_struct->buffers[i] != nullptr) {
+      return true;
+    }
+  }
+  if (c_struct->dictionary && HasData(c_struct->dictionary)) {
+    return true;
+  }
+  for (int64_t i = 0; i < c_struct->n_children; ++i) {
+    if (HasData(c_struct->children[i])) {
+      return true;
+    }
+  }
+  return false;
+}
 
 static const std::vector<std::string> kMetadataKeys1{"key1", "key2"};
 static const std::vector<std::string> kMetadataValues1{"", "bar"};
@@ -399,6 +418,10 @@ TEST_F(TestSchemaExport, Map) {
       map(int8(), utf8(), /*keys_sorted=*/true), {"+m", "+s", "c", "u"},
       {"", "entries", "key", "value"},
       {ARROW_FLAG_NULLABLE | ARROW_FLAG_MAP_KEYS_SORTED, 0, 0, ARROW_FLAG_NULLABLE});
+
+  // Exports field names and nullability
+  TestNested(map(int8(), field("something", utf8(), false)), {"+m", "+s", "c", "u"},
+             {"", "entries", "key", "something"}, {ARROW_FLAG_NULLABLE, 0, 0, 0});
 }
 
 TEST_F(TestSchemaExport, Union) {
@@ -408,12 +431,16 @@ TEST_F(TestSchemaExport, Union) {
   auto type = dense_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+ud:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE, 0});
+  TestNested(dense_union(arrow::FieldVector{}, std::vector<int8_t>{}), {"+ud:"}, {""},
+             {ARROW_FLAG_NULLABLE});
   // Sparse
   field_a = field("a", int8(), /*nullable=*/false);
   field_b = field("b", boolean());
   type = sparse_union({field_a, field_b}, {42, 43});
   TestNested(type, {"+us:42,43", "c", "b"}, {"", "a", "b"},
              {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
+  TestNested(sparse_union(arrow::FieldVector{}, std::vector<int8_t>{}), {"+us:"}, {""},
+             {ARROW_FLAG_NULLABLE});
 }
 
 std::string GetIndexFormat(Type::type type_id) {
@@ -1655,6 +1682,8 @@ static const uint8_t bits_buffer1[] = {0xed, 0xed};
 static const void* buffers_no_nulls_no_data[1] = {nullptr};
 static const void* buffers_nulls_no_data1[1] = {bits_buffer1};
 
+static const void* all_buffers_omitted[3] = {nullptr, nullptr, nullptr};
+
 static const uint8_t data_buffer1[] = {1, 2,  3,  4,  5,  6,  7,  8,
                                        9, 10, 11, 12, 13, 14, 15, 16};
 static const uint8_t data_buffer2[] = "abcdefghijklmnopqrstuvwxyz";
@@ -1668,6 +1697,7 @@ static const float data_buffer5[] = {0.0f, 1.5f, -2.0f, 3.0f, 4.0f, 5.0f};
 static const double data_buffer6[] = {0.0, 1.5, -2.0, 3.0, 4.0, 5.0};
 static const int32_t data_buffer7[] = {1234, 5678, 9012, 3456};
 static const int64_t data_buffer8[] = {123456789, 987654321, -123456789, -987654321};
+static const int64_t date64_data_buffer8[] = {86400000, 172800000, -86400000, -172800000};
 #if ARROW_LITTLE_ENDIAN
 static const void* primitive_buffers_no_nulls1_8[2] = {nullptr, data_buffer1};
 static const void* primitive_buffers_no_nulls1_16[2] = {nullptr, data_buffer1};
@@ -1699,6 +1729,9 @@ static const void* primitive_buffers_nulls7[2] = {bits_buffer1, data_buffer7};
 static const void* primitive_buffers_no_nulls8[2] = {nullptr, data_buffer8};
 static const void* primitive_buffers_nulls8[2] = {bits_buffer1, data_buffer8};
 
+static const void* date64_buffers_no_nulls8[2] = {nullptr, date64_data_buffer8};
+static const void* date64_buffers_nulls8[2] = {bits_buffer1, date64_data_buffer8};
+
 static const int64_t timestamp_data_buffer1[] = {0, 951782400, -2203977600LL};
 static const int64_t timestamp_data_buffer2[] = {0, 951782400000LL, -2203977600000LL};
 static const int64_t timestamp_data_buffer3[] = {0, 951782400000000LL,
@@ -1716,10 +1749,13 @@ static const uint8_t string_data_buffer1[] = "foobarquuxxyzzy";
 static const int32_t string_offsets_buffer1[] = {0, 3, 3, 6, 10, 15};
 static const void* string_buffers_no_nulls1[3] = {nullptr, string_offsets_buffer1,
                                                   string_data_buffer1};
+static const void* string_buffers_omitted[3] = {nullptr, string_offsets_buffer1, nullptr};
 
 static const int64_t large_string_offsets_buffer1[] = {0, 3, 3, 6, 10};
 static const void* large_string_buffers_no_nulls1[3] = {
     nullptr, large_string_offsets_buffer1, string_data_buffer1};
+static const void* large_string_buffers_omitted[3] = {
+    nullptr, large_string_offsets_buffer1, nullptr};
 
 static const int32_t list_offsets_buffer1[] = {0, 2, 2, 5, 6, 8};
 static const void* list_buffers_no_nulls1[2] = {nullptr, list_offsets_buffer1};
@@ -1893,9 +1929,9 @@ class TestArrayImport : public ::testing::Test {
     Reset();                                        // for further tests
 
     ASSERT_OK(array->ValidateFull());
-    // Special case: Null array doesn't have any data, so it needn't
-    // keep the ArrowArray struct alive.
-    if (type->id() != Type::NA) {
+    // Special case: arrays without data (such as Null arrays) needn't keep
+    // the ArrowArray struct alive.
+    if (HasData(&c_struct_)) {
       cb.AssertNotCalled();
     }
     AssertArraysEqual(*expected, *array, true);
@@ -1982,13 +2018,17 @@ TEST_F(TestArrayImport, Primitive) {
   CheckImport(ArrayFromJSON(boolean(), "[true, null, false]"));
   FillPrimitive(3, 1, 0, primitive_buffers_nulls1_8);
   CheckImport(ArrayFromJSON(boolean(), "[true, null, false]"));
+
+  // Empty array with null data pointers
+  FillPrimitive(0, 0, 0, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(int32(), "[]"));
 }
 
 TEST_F(TestArrayImport, Temporal) {
   FillPrimitive(3, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, 5678, 9012]"));
-  FillPrimitive(3, 0, 0, primitive_buffers_no_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, 987654321, -123456789]"));
+  FillPrimitive(3, 0, 0, date64_buffers_no_nulls8);
+  CheckImport(ArrayFromJSON(date64(), "[86400000, 172800000, -86400000]"));
 
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls7);
   CheckImport(ArrayFromJSON(time32(TimeUnit::SECOND), "[1234, 5678]"));
@@ -2026,8 +2066,8 @@ TEST_F(TestArrayImport, Temporal) {
   // With nulls
   FillPrimitive(3, -1, 0, primitive_buffers_nulls7);
   CheckImport(ArrayFromJSON(date32(), "[1234, null, 9012]"));
-  FillPrimitive(3, -1, 0, primitive_buffers_nulls8);
-  CheckImport(ArrayFromJSON(date64(), "[123456789, null, -123456789]"));
+  FillPrimitive(3, -1, 0, date64_buffers_nulls8);
+  CheckImport(ArrayFromJSON(date64(), "[86400000, null, -86400000]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
   CheckImport(ArrayFromJSON(time64(TimeUnit::NANO), "[123456789, null]"));
   FillPrimitive(2, -1, 0, primitive_buffers_nulls8);
@@ -2062,6 +2102,12 @@ TEST_F(TestArrayImport, PrimitiveWithOffset) {
 
   FillPrimitive(4, 0, 7, primitive_buffers_no_nulls1_8);
   CheckImport(ArrayFromJSON(boolean(), "[false, false, true, false]"));
+
+  // Empty array with null data pointers
+  FillPrimitive(0, 0, 2, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(int32(), "[]"));
+  FillPrimitive(0, 0, 3, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(boolean(), "[]"));
 }
 
 TEST_F(TestArrayImport, NullWithOffset) {
@@ -2084,10 +2130,48 @@ TEST_F(TestArrayImport, String) {
   FillStringLike(4, 0, 0, large_string_buffers_no_nulls1);
   CheckImport(ArrayFromJSON(large_binary(), R"(["foo", "", "bar", "quux"])"));
 
+  // Empty array with null data pointers
+  FillStringLike(0, 0, 0, string_buffers_omitted);
+  CheckImport(ArrayFromJSON(utf8(), "[]"));
+  FillStringLike(0, 0, 0, large_string_buffers_omitted);
+  CheckImport(ArrayFromJSON(large_binary(), "[]"));
+}
+
+TEST_F(TestArrayImport, StringWithOffset) {
+  FillStringLike(3, 0, 1, string_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(utf8(), R"(["", "bar", "quux"])"));
+  FillStringLike(2, 0, 2, large_string_buffers_no_nulls1);
+  CheckImport(ArrayFromJSON(large_utf8(), R"(["bar", "quux"])"));
+
+  // Empty array with null data pointers
+  FillStringLike(0, 0, 1, string_buffers_omitted);
+  CheckImport(ArrayFromJSON(utf8(), "[]"));
+}
+
+TEST_F(TestArrayImport, FixedSizeBinary) {
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls2);
   CheckImport(ArrayFromJSON(fixed_size_binary(3), R"(["abc", "def"])"));
   FillPrimitive(2, 0, 0, primitive_buffers_no_nulls3);
   CheckImport(ArrayFromJSON(decimal(15, 4), R"(["12345.6789", "98765.4321"])"));
+
+  // Empty array with null data pointers
+  FillPrimitive(0, 0, 0, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(fixed_size_binary(3), "[]"));
+  FillPrimitive(0, 0, 0, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(decimal(15, 4), "[]"));
+}
+
+TEST_F(TestArrayImport, FixedSizeBinaryWithOffset) {
+  FillPrimitive(1, 0, 1, primitive_buffers_no_nulls2);
+  CheckImport(ArrayFromJSON(fixed_size_binary(3), R"(["def"])"));
+  FillPrimitive(1, 0, 1, primitive_buffers_no_nulls3);
+  CheckImport(ArrayFromJSON(decimal(15, 4), R"(["98765.4321"])"));
+
+  // Empty array with null data pointers
+  FillPrimitive(0, 0, 1, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(fixed_size_binary(3), "[]"));
+  FillPrimitive(0, 0, 1, all_buffers_omitted);
+  CheckImport(ArrayFromJSON(decimal(15, 4), "[]"));
 }
 
 TEST_F(TestArrayImport, List) {
@@ -2109,6 +2193,11 @@ TEST_F(TestArrayImport, List) {
   FillFixedSizeListLike(3, 0, 0, buffers_no_nulls_no_data);
   CheckImport(
       ArrayFromJSON(fixed_size_list(int8(), 3), "[[1, 2, 3], [4, 5, 6], [7, 8, 9]]"));
+
+  // Empty child array with null data pointers
+  FillPrimitive(AddChild(), 0, 0, 0, all_buffers_omitted);
+  FillFixedSizeListLike(0, 0, 0, buffers_no_nulls_no_data);
+  CheckImport(ArrayFromJSON(fixed_size_list(int8(), 3), "[]"));
 }
 
 TEST_F(TestArrayImport, NestedList) {
@@ -2197,6 +2286,15 @@ TEST_F(TestArrayImport, SparseUnion) {
   FillUnionLike(UnionMode::SPARSE, 4, 0, 0, 2, sparse_union_buffers1_legacy,
                 /*legacy=*/true);
   CheckImport(expected);
+
+  // Empty array with null data pointers
+  expected = ArrayFromJSON(type, "[]");
+  FillStringLike(AddChild(), 0, 0, 0, string_buffers_omitted);
+  FillPrimitive(AddChild(), 0, 0, 0, all_buffers_omitted);
+  FillUnionLike(UnionMode::SPARSE, 0, 0, 0, 2, all_buffers_omitted, /*legacy=*/false);
+  FillStringLike(AddChild(), 0, 0, 0, string_buffers_omitted);
+  FillPrimitive(AddChild(), 0, 0, 0, all_buffers_omitted);
+  FillUnionLike(UnionMode::SPARSE, 0, 0, 3, 2, all_buffers_omitted, /*legacy=*/false);
 }
 
 TEST_F(TestArrayImport, DenseUnion) {
@@ -2215,6 +2313,15 @@ TEST_F(TestArrayImport, DenseUnion) {
   FillUnionLike(UnionMode::DENSE, 5, 0, 0, 2, dense_union_buffers1_legacy,
                 /*legacy=*/true);
   CheckImport(expected);
+
+  // Empty array with null data pointers
+  expected = ArrayFromJSON(type, "[]");
+  FillStringLike(AddChild(), 0, 0, 0, string_buffers_omitted);
+  FillPrimitive(AddChild(), 0, 0, 0, all_buffers_omitted);
+  FillUnionLike(UnionMode::DENSE, 0, 0, 0, 2, all_buffers_omitted, /*legacy=*/false);
+  FillStringLike(AddChild(), 0, 0, 0, string_buffers_omitted);
+  FillPrimitive(AddChild(), 0, 0, 0, all_buffers_omitted);
+  FillUnionLike(UnionMode::DENSE, 0, 0, 3, 2, all_buffers_omitted, /*legacy=*/false);
 }
 
 TEST_F(TestArrayImport, StructWithOffset) {
@@ -2351,6 +2458,29 @@ TEST_F(TestArrayImport, PrimitiveError) {
   // Zero null bitmap but non-zero null_count
   FillPrimitive(3, 1, 0, primitive_buffers_no_nulls1_8);
   CheckImportError(int8());
+
+  // Null data pointers with non-zero length
+  FillPrimitive(1, 0, 0, all_buffers_omitted);
+  CheckImportError(int8());
+  FillPrimitive(1, 0, 0, all_buffers_omitted);
+  CheckImportError(boolean());
+  FillPrimitive(1, 0, 0, all_buffers_omitted);
+  CheckImportError(fixed_size_binary(3));
+}
+
+TEST_F(TestArrayImport, StringError) {
+  // Bad number of buffers
+  FillStringLike(4, 0, 0, string_buffers_no_nulls1);
+  c_struct_.n_buffers = 2;
+  CheckImportError(utf8());
+
+  // Null data pointers with non-zero length
+  FillStringLike(4, 0, 0, string_buffers_omitted);
+  CheckImportError(utf8());
+
+  // Null offsets pointer
+  FillStringLike(0, 0, 0, all_buffers_omitted);
+  CheckImportError(utf8());
 }
 
 TEST_F(TestArrayImport, StructError) {
@@ -2359,6 +2489,13 @@ TEST_F(TestArrayImport, StructError) {
   FillPrimitive(AddChild(), 3, -1, 0, primitive_buffers_nulls1_8);
   FillStructLike(3, 0, 0, 2, buffers_no_nulls_no_data);
   CheckImportError(struct_({field("strs", utf8())}));
+}
+
+TEST_F(TestArrayImport, ListError) {
+  // Null offsets pointer
+  FillPrimitive(AddChild(), 0, 0, 0, primitive_buffers_no_nulls1_8);
+  FillListLike(0, 0, 0, all_buffers_omitted);
+  CheckImportError(list(int8()));
 }
 
 TEST_F(TestArrayImport, MapError) {
@@ -2621,6 +2758,7 @@ TEST_F(TestSchemaRoundtrip, Struct) {
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
   TestWithTypeFactory([&]() { return struct_({f1, f2}); });
+  TestWithTypeFactory([&]() { return struct_(arrow::FieldVector{}); });
 }
 
 TEST_F(TestSchemaRoundtrip, Union) {
@@ -2628,6 +2766,10 @@ TEST_F(TestSchemaRoundtrip, Union) {
   auto f2 = field("f2", list(decimal(19, 4)));
   auto type_codes = std::vector<int8_t>{42, 43};
 
+  TestWithTypeFactory(
+      [&]() { return dense_union(arrow::FieldVector{}, std::vector<int8_t>{}); });
+  TestWithTypeFactory(
+      [&]() { return sparse_union(arrow::FieldVector{}, std::vector<int8_t>{}); });
   TestWithTypeFactory([&]() { return sparse_union({f1, f2}, type_codes); });
   f2 = f2->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
   TestWithTypeFactory([&]() { return dense_union({f1, f2}, type_codes); });
@@ -2665,6 +2807,17 @@ TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
 
 TEST_F(TestSchemaRoundtrip, Map) {
   TestWithTypeFactory([&]() { return map(utf8(), int32()); });
+  TestWithTypeFactory([&]() { return map(utf8(), field("value", int32(), false)); });
+  // Field names are brought in line with the spec on import.
+  TestWithTypeFactory(
+      [&]() {
+        return MapType::Make(field("some_entries",
+                                   struct_({field("some_key", utf8(), false),
+                                            field("some_value", int32())}),
+                                   false))
+            .ValueOrDie();
+      },
+      [&]() { return map(utf8(), int32()); });
   TestWithTypeFactory([&]() { return map(list(utf8()), int32()); });
   TestWithTypeFactory([&]() { return list(map(list(utf8()), int32())); });
 }
@@ -2846,8 +2999,10 @@ TEST_F(TestArrayRoundtrip, UnknownNullCount) {
 TEST_F(TestArrayRoundtrip, List) {
   TestWithJSON(list(int32()), "[]");
   TestWithJSON(list(int32()), "[[4, 5], [6, null], null]");
+  TestWithJSON(fixed_size_list(int32(), 3), "[[4, 5, 6], null, [7, 8, null]]");
 
   TestWithJSONSliced(list(int32()), "[[4, 5], [6, null], null]");
+  TestWithJSONSliced(fixed_size_list(int32(), 3), "[[4, 5, 6], null, [7, 8, null]]");
 }
 
 TEST_F(TestArrayRoundtrip, Struct) {
@@ -2867,6 +3022,12 @@ TEST_F(TestArrayRoundtrip, Struct) {
   TestWithJSON(type, "[[4, true], [5, null]]");
 
   TestWithJSONSliced(type, "[[4, true], [5, null], [6, false]]");
+
+  // With no fields
+  type = struct_({});
+  TestWithJSON(type, "[]");
+  TestWithJSON(type, "[[], null, [], null, []]");
+  TestWithJSONSliced(type, "[[], null, [], null, []]");
 }
 
 TEST_F(TestArrayRoundtrip, Map) {
@@ -2893,6 +3054,15 @@ TEST_F(TestArrayRoundtrip, Union) {
     TestWithJSON(type, "[]");
     TestWithJSON(type, json);
     TestWithJSONSliced(type, json);
+  }
+
+  // With no fields
+  fields = {};
+  type_codes = {};
+  union_types = {sparse_union(fields, type_codes), dense_union(fields, type_codes)};
+
+  for (const auto& type : union_types) {
+    TestWithJSON(type, "[]");
   }
 }
 
@@ -3195,6 +3365,16 @@ class TestArrayStreamRoundtrip : public BaseArrayStreamTest {
     ASSERT_OK_AND_ASSIGN(auto batch, reader->Next());
     ASSERT_EQ(batch, nullptr);
   }
+
+  void AssertReaderClosed(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_THAT(reader->Next(),
+                Raises(StatusCode::Invalid, ::testing::HasSubstr("already been closed")));
+  }
+
+  void AssertReaderClose(const std::shared_ptr<RecordBatchReader>& reader) {
+    ASSERT_OK(reader->Close());
+    AssertReaderClosed(reader);
+  }
 };
 
 TEST_F(TestArrayStreamRoundtrip, Simple) {
@@ -3210,6 +3390,20 @@ TEST_F(TestArrayStreamRoundtrip, Simple) {
     AssertReaderNext(reader, *batches[1]);
     AssertReaderEnd(reader);
     AssertReaderEnd(reader);
+    AssertReaderClose(reader);
+  });
+}
+
+TEST_F(TestArrayStreamRoundtrip, CloseEarly) {
+  auto orig_schema = arrow::schema({field("ints", int32())});
+  auto batches = MakeBatches(orig_schema, {ArrayFromJSON(int32(), "[1, 2]"),
+                                           ArrayFromJSON(int32(), "[4, 5, null]")});
+
+  ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make(batches, orig_schema));
+
+  Roundtrip(std::move(reader), [&](const std::shared_ptr<RecordBatchReader>& reader) {
+    AssertReaderNext(reader, *batches[0]);
+    AssertReaderClose(reader);
   });
 }
 
@@ -3222,6 +3416,39 @@ TEST_F(TestArrayStreamRoundtrip, Errors) {
     ASSERT_RAISES(Invalid, status);
     ASSERT_THAT(status.message(), ::testing::HasSubstr("roundtrip error example"));
   });
+}
+
+TEST_F(TestArrayStreamRoundtrip, SchemaError) {
+  struct StreamState {
+    bool released = false;
+
+    static const char* GetLastError(struct ArrowArrayStream* stream) {
+      return "Expected error";
+    }
+
+    static int GetSchema(struct ArrowArrayStream* stream, struct ArrowSchema* schema) {
+      return EIO;
+    }
+
+    static int GetNext(struct ArrowArrayStream* stream, struct ArrowArray* array) {
+      return EINVAL;
+    }
+
+    static void Release(struct ArrowArrayStream* stream) {
+      reinterpret_cast<StreamState*>(stream->private_data)->released = true;
+      std::memset(stream, 0, sizeof(*stream));
+    }
+  } state;
+  struct ArrowArrayStream stream = {};
+  stream.get_last_error = &StreamState::GetLastError;
+  stream.get_schema = &StreamState::GetSchema;
+  stream.get_next = &StreamState::GetNext;
+  stream.release = &StreamState::Release;
+  stream.private_data = &state;
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(IOError, ::testing::HasSubstr("Expected error"),
+                                  ImportRecordBatchReader(&stream));
+  ASSERT_TRUE(state.released);
 }
 
 }  // namespace arrow

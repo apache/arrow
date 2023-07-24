@@ -36,18 +36,27 @@ TEST(TestVectorNested, ListFlatten) {
     CheckVectorUnary("list_flatten", input, expected);
 
     // Construct a list with a non-empty null slot
-    TweakValidityBit(input, 0, false);
+    auto tweaked = TweakValidityBit(input, 0, false);
     expected = ArrayFromJSON(int16(), "[2, 3]");
-    CheckVectorUnary("list_flatten", input, expected);
+    CheckVectorUnary("list_flatten", tweaked, expected);
   }
+}
+
+TEST(TestVectorNested, ListFlattenNulls) {
+  const auto ty = list(int32());
+  auto input = ArrayFromJSON(ty, "[null, null]");
+  auto expected = ArrayFromJSON(int32(), "[]");
+  CheckVectorUnary("list_flatten", input, expected);
 }
 
 TEST(TestVectorNested, ListFlattenChunkedArray) {
   for (auto ty : {list(int16()), large_list(int16())}) {
+    ARROW_SCOPED_TRACE(ty->ToString());
     auto input = ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], []]"});
     auto expected = ChunkedArrayFromJSON(int16(), {"[0, null, 1]", "[2, 3]"});
     CheckVectorUnary("list_flatten", input, expected);
 
+    ARROW_SCOPED_TRACE("empty");
     input = ChunkedArrayFromJSON(ty, {});
     expected = ChunkedArrayFromJSON(int16(), {});
     CheckVectorUnary("list_flatten", input, expected);
@@ -76,20 +85,26 @@ TEST(TestVectorNested, ListFlattenFixedSizeList) {
   }
 }
 
+TEST(TestVectorNested, ListFlattenFixedSizeListNulls) {
+  const auto ty = fixed_size_list(int32(), 1);
+  auto input = ArrayFromJSON(ty, "[null, null]");
+  auto expected = ArrayFromJSON(int32(), "[]");
+  CheckVectorUnary("list_flatten", input, expected);
+}
+
 TEST(TestVectorNested, ListParentIndices) {
   for (auto ty : {list(int16()), large_list(int16())}) {
     auto input = ArrayFromJSON(ty, "[[0, null, 1], null, [2, 3], [], [4, 5]]");
 
-    auto out_ty = ty->id() == Type::LIST ? int32() : int64();
-    auto expected = ArrayFromJSON(out_ty, "[0, 0, 0, 2, 2, 4, 4]");
+    auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 2, 2, 4, 4]");
     CheckVectorUnary("list_parent_indices", input, expected);
   }
 
   // Construct a list with a non-empty null slot
   auto input = ArrayFromJSON(list(int16()), "[[0, null, 1], [0, 0], [2, 3], [], [4, 5]]");
-  TweakValidityBit(input, 1, false);
-  auto expected = ArrayFromJSON(int32(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
-  CheckVectorUnary("list_parent_indices", input, expected);
+  auto tweaked = TweakValidityBit(input, 1, false);
+  auto expected = ArrayFromJSON(int64(), "[0, 0, 0, 1, 1, 2, 2, 4, 4]");
+  CheckVectorUnary("list_parent_indices", tweaked, expected);
 }
 
 TEST(TestVectorNested, ListParentIndicesChunkedArray) {
@@ -97,12 +112,11 @@ TEST(TestVectorNested, ListParentIndicesChunkedArray) {
     auto input =
         ChunkedArrayFromJSON(ty, {"[[0, null, 1], null]", "[[2, 3], [], [4, 5]]"});
 
-    auto out_ty = ty->id() == Type::LIST ? int32() : int64();
-    auto expected = ChunkedArrayFromJSON(out_ty, {"[0, 0, 0]", "[2, 2, 4, 4]"});
+    auto expected = ChunkedArrayFromJSON(int64(), {"[0, 0, 0]", "[2, 2, 4, 4]"});
     CheckVectorUnary("list_parent_indices", input, expected);
 
     input = ChunkedArrayFromJSON(ty, {});
-    expected = ChunkedArrayFromJSON(out_ty, {});
+    expected = ChunkedArrayFromJSON(int64(), {});
     CheckVectorUnary("list_parent_indices", input, expected);
   }
 }

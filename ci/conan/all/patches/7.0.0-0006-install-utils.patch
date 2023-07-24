@@ -1,0 +1,39 @@
+MIT License
+
+Copyright (c) 2019 Conan.io
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+diff --git a/cpp/src/arrow/ipc/CMakeLists.txt b/cpp/src/arrow/ipc/CMakeLists.txt
+index 495018e..f6cee6f 100644
+--- a/cpp/src/arrow/ipc/CMakeLists.txt
++++ b/cpp/src/arrow/ipc/CMakeLists.txt
+@@ -61,8 +61,12 @@ endif()
+ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
+   add_executable(arrow-file-to-stream file_to_stream.cc)
+   target_link_libraries(arrow-file-to-stream ${ARROW_UTIL_LIB})
++  install(TARGETS arrow-file-to-stream ${INSTALL_IS_OPTIONAL}
++    DESTINATION ${CMAKE_INSTALL_BINDIR})
+   add_executable(arrow-stream-to-file stream_to_file.cc)
+   target_link_libraries(arrow-stream-to-file ${ARROW_UTIL_LIB})
++  install(TARGETS arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
++    DESTINATION ${CMAKE_INSTALL_BINDIR})
+ 
+   if(ARROW_BUILD_INTEGRATION)
+     add_dependencies(arrow-integration arrow-file-to-stream)

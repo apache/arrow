@@ -39,11 +39,11 @@ out-of-source. If you are not familiar with this terminology:
 
 Building requires:
 
-* A C++11-enabled compiler. On Linux, gcc 4.8 and higher should be
-  sufficient. For Windows, at least Visual Studio 2017 is required.
-* CMake 3.5 or higher
+* A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
+  sufficient. For Windows, at least Visual Studio VS2017 is required.
+* CMake 3.16 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities
-* At least 1GB of RAM for a minimal build, 4GB for a minimal  
+* At least 1GB of RAM for a minimal build, 4GB for a minimal
   debug build with tests and 8GB for a full build using
   :ref:`docker <docker-builds>`.
 
@@ -53,6 +53,7 @@ On Ubuntu/Debian you can install the requirements with:
 
    sudo apt-get install \
         build-essential \
+        ninja-build \
         cmake
 
 On Alpine Linux:
@@ -64,6 +65,7 @@ On Alpine Linux:
            cmake \
            g++ \
            gcc \
+           ninja \
            make
            
 On Fedora Linux:
@@ -74,7 +76,17 @@ On Fedora Linux:
         cmake \
         gcc \
         gcc-c++ \
+        ninja-build \
         make
+
+On Arch Linux:
+
+.. code-block:: shell
+
+   sudo pacman -S --needed \
+        base-devel \
+        ninja \
+        cmake
 
 On macOS, you can use `Homebrew <https://brew.sh/>`_:
 
@@ -242,6 +254,34 @@ Several build types are possible:
 * ``Release``: applies compiler optimizations and removes debug information
   from the binary.
 
+.. note::
+
+   These build types provide suitable optimization/debug flags by
+   default but you can change them by specifying
+   ``-DARROW_C_FLAGS_${BUILD_TYPE}=...`` and/or
+   ``-DARROW_CXX_FLAGS_${BUILD_TYPE}=...``. ``${BUILD_TYPE}`` is upper
+   case of build type. For example, ``DEBUG``
+   (``-DARROW_C_FLAGS_DEBUG=...`` / ``-DARROW_CXX_FLAGS_DEBUG=...``) for the
+   ``Debug`` build type and ``RELWITHDEBINFO``
+   (``-DARROW_C_FLAGS_RELWITHDEBINFO=...`` /
+   ``-DARROW_CXX_FLAGS_RELWITHDEBINFO=...``) for the ``RelWithDebInfo``
+   build type.
+
+   For example, you can use ``-O3`` as an optimization flag for the ``Release``
+   build type by passing ``-DARROW_CXX_FLAGS_RELEASE=-O3`` .
+   You can use ``-g3`` as a debug flag for the ``Debug`` build type
+   by passing ``-DARROW_CXX_FLAGS_DEBUG=-g3`` .
+
+   You can also use the standard ``CMAKE_C_FLAGS_${BUILD_TYPE}``
+   and ``CMAKE_CXX_FLAGS_${BUILD_TYPE}`` variables but
+   the ``ARROW_C_FLAGS_${BUILD_TYPE}`` and
+   ``ARROW_CXX_FLAGS_${BUILD_TYPE}`` variables are
+   recommended. The ``CMAKE_C_FLAGS_${BUILD_TYPE}`` and
+   ``CMAKE_CXX_FLAGS_${BUILD_TYPE}`` variables replace all default
+   flags provided by CMake, while ``ARROW_C_FLAGS_${BUILD_TYPE}`` and
+   ``ARROW_CXX_FLAGS_${BUILD_TYPE}`` just append the
+   flags specified, which allows selectively overriding some of the defaults.
+
 You can also run default build with flag ``-DARROW_EXTRA_ERROR_CONTEXT=ON``, see
 :ref:`cpp-extra-debugging`.
 
@@ -290,7 +330,7 @@ Unity builds
 ~~~~~~~~~~~~
 
 The CMake
-`unity builds <https://cmake.org/cmake/help/latest/prop_tgt/UNITY_BUILD.html/>`_
+`unity builds <https://cmake.org/cmake/help/latest/prop_tgt/UNITY_BUILD.html>`_
 option can make full builds significantly faster, but it also increases the
 memory requirements.  Consider turning it on (using ``-DCMAKE_UNITY_BUILD=ON``)
 if memory consumption is not an issue.
@@ -305,7 +345,7 @@ several optional system components which you can opt into building by passing
 boolean flags to ``cmake``.
 
 * ``-DARROW_BUILD_UTILITIES=ON`` : Build Arrow commandline utilities
-* ``-DARROW_COMPUTE=ON``: Computational kernel functions and other support
+* ``-DARROW_COMPUTE=ON``: Build all computational kernel functions
 * ``-DARROW_CSV=ON``: CSV reader module
 * ``-DARROW_CUDA=ON``: CUDA integration for GPU development. Depends on NVIDIA
   CUDA toolkit. The CUDA toolchain used to build the library can be customized
@@ -315,25 +355,24 @@ boolean flags to ``cmake``.
   filesystems
 * ``-DARROW_FLIGHT=ON``: Arrow Flight RPC system, which depends at least on
   gRPC
+* ``-DARROW_FLIGHT_SQL=ON``: Arrow Flight SQL
 * ``-DARROW_GANDIVA=ON``: Gandiva expression compiler, depends on LLVM,
   Protocol Buffers, and re2
 * ``-DARROW_GANDIVA_JAVA=ON``: Gandiva JNI bindings for Java
 * ``-DARROW_GCS=ON``: Build Arrow with GCS support (requires the GCloud SDK for C++)
 * ``-DARROW_HDFS=ON``: Arrow integration with libhdfs for accessing the Hadoop
   Filesystem
-* ``-DARROW_HIVESERVER2=ON``: Client library for HiveServer2 database protocol
 * ``-DARROW_JEMALLOC=ON``: Build the Arrow jemalloc-based allocator, on by default 
 * ``-DARROW_JSON=ON``: JSON reader module
 * ``-DARROW_MIMALLOC=ON``: Build the Arrow mimalloc-based allocator
 * ``-DARROW_ORC=ON``: Arrow integration with Apache ORC
 * ``-DARROW_PARQUET=ON``: Apache Parquet libraries and Arrow integration
-* ``-DARROW_PLASMA=ON``: Plasma Shared Memory Object Store
-* ``-DARROW_PLASMA_JAVA_CLIENT=ON``: Build Java client for Plasma
-* ``-DARROW_PYTHON=ON``: Arrow Python C++ integration library (required for
-  building pyarrow). This library must be built against the same Python version
-  for which you are building pyarrow. NumPy must also be installed. Enabling
-  this option also enables ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
-  ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON``.
+* ``-DPARQUET_REQUIRE_ENCRYPTION=ON``: Parquet Modular Encryption
+* ``-DARROW_PYTHON=ON``: This option is deprecated since 10.0.0. This
+  will be removed in a future release. Use CMake presets instead. Or
+  you can enable ``ARROW_COMPUTE``, ``ARROW_CSV``, ``ARROW_DATASET``,
+  ``ARROW_FILESYSTEM``, ``ARROW_HDFS``, and ``ARROW_JSON`` directly
+  instead.
 * ``-DARROW_S3=ON``: Support for Amazon S3-compatible filesystems
 * ``-DARROW_WITH_RE2=ON`` Build with support for regular expressions using the re2 
   library, on by default and used when ``ARROW_COMPUTE`` or ``ARROW_GANDIVA`` is ``ON``
@@ -355,6 +394,19 @@ Some features of the core Arrow shared library can be switched off for improved
 build times if they are not required for your application:
 
 * ``-DARROW_IPC=ON``: build the IPC extensions
+
+.. note::
+   If your use-case is limited to reading/writing Arrow data then the default
+   options should be sufficient. However, if you wish to build any tests/benchmarks
+   then ``ARROW_JSON`` is also required (it will be enabled automatically).
+   If extended format support is desired then adding ``ARROW_PARQUET``, ``ARROW_CSV``,
+   ``ARROW_JSON``, or ``ARROW_ORC`` shouldn't enable any additional components.
+
+.. note::
+   In general, it's a good idea to enable ``ARROW_COMPUTE`` if you anticipate using
+   any compute kernels beyond ``cast``. While there are (as of 12.0.0) a handful of
+   additional kernels built in by default, this list may change in the future as it's
+   partly based on kernel usage in the current format implementations.
 
 Optional Targets
 ~~~~~~~~~~~~~~~~
@@ -394,12 +446,7 @@ several times with different options if you want to exercise all of them.
 CMake version requirements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-While we support CMake 3.5 and higher, some features require a newer version of
-CMake:
-
-* Building the benchmarks requires 3.6 or higher
-* Building zstd from source requires 3.7 or higher
-* Building Gandiva JNI bindings requires 3.11 or higher
+We support CMake 3.16 and higher.
 
 LLVM and Clang Tools
 ~~~~~~~~~~~~~~~~~~~~
@@ -472,7 +519,7 @@ from source, set
 
 This variable is unfortunately case-sensitive; the name used for each package
 is listed above, but the most up-to-date listing can be found in
-`cpp/cmake_modules/ThirdpartyToolchain.cmake <https://github.com/apache/arrow/blob/master/cpp/cmake_modules/ThirdpartyToolchain.cmake>`_.
+`cpp/cmake_modules/ThirdpartyToolchain.cmake <https://github.com/apache/arrow/blob/main/cpp/cmake_modules/ThirdpartyToolchain.cmake>`_.
 
 Bundled Dependency Versions
 ---------------------------
@@ -539,7 +586,7 @@ If you are using CMake, the bundled dependencies will automatically be included
 when linking if you use the ``arrow_static`` CMake target. In other build
 systems, you may need to explicitly link to the dependency bundle. We created
 an `example CMake-based build configuration
-<https://github.com/apache/arrow/tree/master/cpp/examples/minimal_build>`_ to
+<https://github.com/apache/arrow/tree/main/cpp/examples/minimal_build>`_ to
 show you a working example.
 
 On Linux and macOS, if your application does not link to the ``pthread``
@@ -593,7 +640,6 @@ and benchmarks, and their dependencies:
 * ``make arrow`` for Arrow core libraries
 * ``make parquet`` for Parquet libraries
 * ``make gandiva`` for Gandiva (LLVM expression compiler) libraries
-* ``make plasma`` for Plasma libraries, server
 
 .. note::
    If you have selected Ninja as CMake generator, replace ``make arrow`` with

@@ -16,6 +16,7 @@
 // under the License.
 
 #include "gandiva/function_registry_arithmetic.h"
+
 #include "gandiva/function_registry_common.h"
 
 namespace gandiva {
@@ -81,12 +82,12 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       UNARY_CAST_TO_FLOAT64(float32), UNARY_CAST_TO_FLOAT64(decimal128),
 
       // cast to decimal
-      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {}, int32, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {}, int64, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {}, float32, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {}, float64, decimal128),
-      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {}, decimal128, decimal128),
-      UNARY_UNSAFE_NULL_IF_NULL(castDECIMAL, {}, utf8, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, int32, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, int64, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, float32, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, float64, decimal128),
+      UNARY_SAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, decimal128, decimal128),
+      UNARY_UNSAFE_NULL_IF_NULL(castDECIMAL, {"decimal"}, utf8, decimal128),
 
       NativeFunction("castDECIMALNullOnOverflow", {}, DataTypeVector{decimal128()},
                      decimal128(), kResultNullInternal,
@@ -102,6 +103,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       NUMERIC_TYPES(BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL, divide, {}),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int32, int32),
       BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, int64, int64, int64),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, uint32, uint32, uint32),
+      BINARY_GENERIC_SAFE_NULL_IF_NULL(mod, {"modulo"}, uint64, uint64, uint64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, decimal128),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(mod, {"modulo"}, float64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, int32),
@@ -110,6 +113,8 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(pmod, {}, float64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, int32),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, int64),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, uint32),
+      BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, uint64),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, float32),
       BINARY_SYMMETRIC_UNSAFE_NULL_IF_NULL(div, {}, float64),
 
@@ -118,32 +123,32 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_and, {}, int64),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, int32),
       BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_or, {}, int64),
-      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, int32),
-      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {}, int64),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {"xor"}, int32),
+      BINARY_SYMMETRIC_SAFE_NULL_IF_NULL(bitwise_xor, {"xor"}, int64),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int32, int32),
       UNARY_SAFE_NULL_IF_NULL(bitwise_not, {}, int64, int64),
 
-      // is true, is not false, is false
-      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}),
-                              boolean, boolean),
-      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}),
-                              boolean, boolean),
-      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}), int32,
-                              boolean),
-      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}), int32,
-                              boolean),
-      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}), int64,
-                              boolean),
-      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}), int64,
-                              boolean),
-      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}),
-                              float32, boolean),
-      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}),
-                              float32, boolean),
-      UNARY_SAFE_NULL_IF_NULL(istrue, ({"is true", "isnotfalse", "is not false"}),
-                              float64, boolean),
-      UNARY_SAFE_NULL_IF_NULL(isfalse, ({"is false", "isnottrue", "is not true"}),
-                              float64, boolean),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnotfalse, ({"is not false"}), boolean),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnottrue, ({"is not true"}), boolean),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnotfalse, ({"is not false"}), int32),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnottrue, ({"is not true"}), int32),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnotfalse, ({"is not false"}), int64),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnottrue, ({"is not true"}), int64),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnotfalse, ({"is not false"}), float32),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnottrue, ({"is not true"}), float32),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnotfalse, ({"is not false"}), float64),
+      UNARY_SAFE_NULL_NEVER_BOOL(isnottrue, ({"is not true"}), float64),
+
+      UNARY_SAFE_NULL_NEVER_BOOL(istrue, ({"is true"}), boolean),
+      UNARY_SAFE_NULL_NEVER_BOOL(isfalse, ({"is false"}), boolean),
+      UNARY_SAFE_NULL_NEVER_BOOL(istrue, ({"is true"}), int32),
+      UNARY_SAFE_NULL_NEVER_BOOL(isfalse, ({"is false"}), int32),
+      UNARY_SAFE_NULL_NEVER_BOOL(istrue, ({"is true"}), int64),
+      UNARY_SAFE_NULL_NEVER_BOOL(isfalse, ({"is false"}), int64),
+      UNARY_SAFE_NULL_NEVER_BOOL(istrue, ({"is true"}), float32),
+      UNARY_SAFE_NULL_NEVER_BOOL(isfalse, ({"is false"}), float32),
+      UNARY_SAFE_NULL_NEVER_BOOL(istrue, ({"is true"}), float64),
+      UNARY_SAFE_NULL_NEVER_BOOL(isfalse, ({"is false"}), float64),
 
       // round functions
       UNARY_SAFE_NULL_IF_NULL(round, {}, float32, float32),
@@ -158,6 +163,56 @@ std::vector<NativeFunction> GetArithmeticFunctionRegistry() {
       // bround functions
       NativeFunction("bround", {}, DataTypeVector{float64()}, float64(),
                      kResultNullIfNull, "bround_float64"),
+
+      // positive and negative functions
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(positive, {}, float64, float64),
+      UNARY_SAFE_NULL_IF_NULL(negative, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(negative, {}, float64, float64),
+
+      NativeFunction("negative", {}, DataTypeVector{int32()}, int32(), kResultNullIfNull,
+                     "negative_int32",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{int64()}, int64(), kResultNullIfNull,
+                     "negative_int64",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{decimal128()}, decimal128(),
+                     kResultNullIfNull, "negative_decimal",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{month_interval()}, month_interval(),
+                     kResultNullIfNull, "negative_month_interval",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      NativeFunction("negative", {}, DataTypeVector{day_time_interval()},
+                     day_time_interval(), kResultNullIfNull, "negative_daytimeinterval",
+                     NativeFunction::kNeedsContext | NativeFunction::kCanReturnErrors),
+
+      // sign functions
+      UNARY_SAFE_NULL_IF_NULL(sign, {}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(sign, {}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(sign, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(sign, {}, float64, float64),
+      // abs functions
+      UNARY_SAFE_NULL_IF_NULL(abs, {}, int32, int32),
+      UNARY_SAFE_NULL_IF_NULL(abs, {}, int64, int64),
+      UNARY_SAFE_NULL_IF_NULL(abs, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(abs, {}, float64, float64),
+      // ceil functions
+      UNARY_SAFE_NULL_IF_NULL(ceiling, {"ceil"}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(ceiling, {"ceil"}, float64, float64),
+      // floor functions
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, float32, float32),
+      UNARY_SAFE_NULL_IF_NULL(floor, {}, float64, float64),
+      // sqrt functions
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, int32, float64),
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, int64, float64),
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, float32, float64),
+      UNARY_SAFE_NULL_IF_NULL(sqrt, {}, float64, float64),
 
       // compare functions
       BINARY_RELATIONAL_BOOL_FN(equal, ({"eq", "same"})),

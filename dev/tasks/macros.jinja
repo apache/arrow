@@ -25,20 +25,20 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout_arrow(fetch_depth=1) -%}
+{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive") -%}
   - name: Checkout Arrow
-    uses: actions/checkout@v2
+    uses: actions/checkout@v3
     with:
       fetch-depth: {{ fetch_depth }}
       path: arrow
       repository: {{ arrow.github_repo }}
       ref: {{ arrow.head }}
-      submodules: recursive
+      submodules: {{ submodules }}
 {% endmacro %}
 
 {%- macro github_login_dockerhub() -%}
   - name: Login to Dockerhub
-    uses: docker/login-action@v1
+    uses: docker/login-action@v2
     with:
       username: {{ '${{ secrets.DOCKERHUB_USER }}' }}
       password: {{ '${{ secrets.DOCKERHUB_TOKEN }}' }}
@@ -46,55 +46,106 @@ on:
 
 {%- macro github_login_ghcr() -%}
   - name: Login to GitHub Container Registry
-    shell: bash
-    run: docker login ghcr.io -u {{ '${{ github.repository_owner }}' }} -p {{ '${{ secrets.CROSSBOW_GHCR_TOKEN }}' }}
+    uses: docker/login-action@v2
+    with:
+      registry: ghcr.io
+      username: {{ '${{ github.actor }}' }}
+      password: {{ '${{ secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
-  - name: Set up Python
-    uses: actions/setup-python@v2
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
+    uses: actions/setup-python@v4
     with:
+      cache: 'pip'
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt-get install -y python3-pip
+      pip install -U pip
+      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
-  - name: Set up Python
-    uses: actions/setup-python@v2
+  - name: Set up Python by actions/setup-python
+    if: runner.arch == 'X64'
+    uses: actions/setup-python@v4
     with:
       python-version: 3.8
+  - name: Set up Python by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y \
+        libgit2-dev \
+        libpython3-dev \
+        python3-pip
+      sudo python3 -m pip install --upgrade pip
+  - name: Checkout Crossbow
+    uses: actions/checkout@v3
+    with:
+      path: crossbow
+      ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
-    run: pip install -e arrow/dev/archery[crossbow-upload]
+    run: |
+      python3 -m pip install -e arrow/dev/archery[crossbow]
+      echo "$HOME/.local/bin" >> $GITHUB_PATH
   - name: Upload artifacts
     shell: bash
     run: |
       archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }} \
-    {% if pattern is string %}
-      "{{ pattern }}"
-    {% elif pattern is iterable %}
-      {% for p in pattern %}
-      "{{ p }}" {{ "\\" if not loop.last else "" }}
-      {% endfor %}
-    {% endif %}
+        --queue-path $(pwd)/crossbow \
+        --queue-remote {{ queue_remote_url }} \
+        upload-artifacts \
+        --sha {{ task.branch }} \
+        --tag {{ task.tag }} \
+      {% if pattern is string %}
+        "{{ pattern }}"
+      {% elif pattern is iterable %}
+        {% for p in pattern %}
+        "{{ p }}" {{ "\\" if not loop.last else "" }}
+        {% endfor %}
+      {% endif %}
+    env:
+      CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
+  - name: Verify uploaded artifacts
+    shell: bash
+    run: |
+      archery crossbow \
+        --queue-path $(pwd)/crossbow \
+        --queue-remote {{ queue_remote_url }} \
+        status \
+        --task-filter '{{ task.name }}' \
+        --no-fetch \
+        --validate \
+        {{ job.branch }}
     env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
+  - name: Set up Ruby by apt
+    if: runner.os == 'Linux' && runner.arch != 'X64'
+    run: |
+      sudo apt update
+      sudo apt install -y ruby-full
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      path=$(ls {{ pattern }})
-      curl -F "package=@${path}" https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/
+      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
+      gem install --user-install gemfury
+      fury push \
+        --api-token=${CROSSBOW_GEMFURY_TOKEN} \
+        --as=${CROSSBOW_GEMFURY_ORG} \
+        {{ pattern }}
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
@@ -135,7 +186,7 @@ on:
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
+  {%- if arrow.is_default_branch() -%}
   - task: CondaEnvironment@1
     inputs:
       packageSpecs: 'anaconda-client'
@@ -148,47 +199,182 @@ on:
   {% endif %}
 {% endmacro %}
 
-{%- macro travis_checkout_arrow() -%}
-  - git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
-  - git -C arrow checkout {{ arrow.head }}
-  - git -C arrow submodule update --init --recursive
+{%- macro configure_homebrew_arrow(formula) -%}
+  - name: Configure Homebrew formula for testing
+    env:
+      ARROW_FORMULA: ./arrow/dev/tasks/homebrew-formulae/{{ formula }}
+    run: |
+      brew update || echo "brew update did not finish successfully"
+      brew --version
+      brew unlink python@2 || true
+      brew config
+      brew doctor || true
+      # The GHA runners install of python > 3.10 is incompatible with brew so we
+      # have to force overwritting of the symlinks
+      # see https://github.com/actions/runner-images/issues/6868
+      brew install --overwrite python@3.11 python@3.10
+
+      ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
+      echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
+      for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
+        if [ ! -f ${formula} ]; then
+          continue
+        fi
+        # Pin the current commit in the formula to test so that
+        # we're not always pulling from the tip of the default branch
+        sed -i '' -E \
+          -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
+          ${formula}
+        # Sometimes crossbow gives a remote URL with .git and sometimes not.
+        # Make sure there's only one
+        sed -i '' -E -e 's@.git.git@.git@' ${formula}
+        cp ${formula} $(brew --repository homebrew/core)/Formula/
+      done
 {% endmacro %}
 
-{%- macro travis_install_archery() -%}
-  - sudo -H pip3 install --upgrade pip
-  - sudo -H pip3 install docker-compose
-  - sudo -H pip3 install -e arrow/dev/archery[docker]
+{%- macro pin_brew_formulae(is_fork = false) -%}
+{#- This macro expects the cwd to be arrow/r -#}
+      # Copy all *brew formulae
+      cp ../dev/tasks/homebrew-formulae/autobrew/apache-arrow*.rb tools/
+
+      # Pin the git commit in the formula to match
+      pushd tools
+      if [ "{{ is_fork }}" == "true" ]; then
+        sed -i.bak -E -e 's/apache\/arrow.git", branch: "main"$/{{ arrow.github_repo.split("/") | join("\/") }}.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
+      else
+        sed -i.bak -E -e 's/arrow.git", branch: "main"$/arrow.git", :revision => "'"{{ arrow.head }}"'"/' apache-arrow*.rb
+      fi
+      rm -f apache-arrow*.rb.bak
+      popd
 {% endmacro %}
 
-{%- macro travis_docker_login() -%}
-  - echo "${DOCKERHUB_TOKEN}" | docker login --username "${DOCKERHUB_USER}" --password-stdin
+{%- macro github_change_r_pkg_version(is_fork, version) -%}
+  - name: Modify version
+    shell: bash
+    run: |
+      cd arrow/r
+      sed -i.bak -E -e \
+        's/(^Version: )([0-9]+\.[0-9]+\.[0-9]+).*$/\1{{ version }}/' \
+        DESCRIPTION
+      head DESCRIPTION
+      rm -f DESCRIPTION.bak
+
+      {{ pin_brew_formulae(is_fork) }}
 {% endmacro %}
 
-{%- macro travis_upload_releases(pattern) -%}
-  - sudo -H pip3 install pygit2==1.0
-  - sudo -H pip3 install -e arrow/dev/archery[crossbow-upload]
-  - |
-    archery crossbow \
-      --queue-path $(pwd) \
-      --queue-remote {{ queue_remote_url }} \
-      upload-artifacts \
-      --sha {{ task.branch }} \
-      --tag {{ task.tag }} \
-    {% if pattern is string %}
-      "{{ pattern }}"
-    {% elif pattern is iterable %}
-      {% for p in pattern %}
-      "{{ p }}" {{ "\\" if not loop.last else "" }}
-      {% endfor %}
-    {% endif %}
+{%- macro github_test_r_src_pkg() -%}
+  source("https://raw.githubusercontent.com/apache/arrow/HEAD/ci/etc/rprofile")
+
+  # always remove arrow (mainly for self-hosted runners)
+  try(remove.packages("arrow"), silent = TRUE)
+
+  install.packages(
+    "arrow",
+    repos = c(getOption("arrow.dev_repo"), getOption("repos")),
+    verbose = TRUE,
+    INSTALL_opts = "--build"
+  )
+
+  library(arrow)
+  read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+  print(arrow_info())
+
+  # Our Version should always be > CRAN so we would detect a CRAN version here.
+  stopifnot(packageVersion("arrow") == {{ '"${{needs.source.outputs.pkg_version}}"' }})
 {% endmacro %}
 
-{%- macro travis_upload_gemfury(pattern) -%}
-  {%- if arrow.branch == 'master' -%}
-  - |
-    WHEEL_PATH=$(echo arrow/python/repaired_wheels/*.whl)
-    curl \
-      -F "package=@${WHEEL_PATH}" \
-      "https://${CROSSBOW_GEMFURY_TOKEN}@push.fury.io/${CROSSBOW_GEMFURY_ORG}/"
+{%- macro github_setup_local_r_repo(get_nix, get_win) -%}
+  - name: Setup local repo
+    shell: bash
+    run: mkdir repo
+  {% if get_win %}
+  - name: Get windows binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-lib__libarrow__bin__windows
+      path: repo/libarrow/bin/windows
   {% endif %}
+  {% if get_nix %}
+    {% for openssl_version in ["1.0", "1.1", "3.0"] %}
+  - name: Get Linux OpenSSL {{ openssl_version }} binary
+    uses: actions/download-artifact@v3
+    with:
+      name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
+      path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
+    {% endfor %}
+  {% endif %}
+  - name: Get src pkg
+    uses: actions/download-artifact@v3
+    with:
+      name: r-pkg__src__contrib
+      path: repo/src/contrib
+  - name: Update repo index
+    shell: Rscript {0}
+    run: |
+      # getwd() is necessary as this macro is used within jobs using a docker container
+      tools::write_PACKAGES(file.path(getwd(), "repo/src/contrib", fsep = "/"), type = "source", verbose = TRUE)
+  - name: Show repo
+    shell: bash
+    # tree not available in git-bash on windows
+    run: |
+      ls -R repo
+  - name: Add repos to .Rprofile
+    shell: Rscript {0}
+    run: |
+      profile_path <- file.path(getwd(), ".Rprofile")
+      repo <- paste0("file://", getwd(), "/repo")
+      str <- paste0("options(arrow.repo = '", repo, "' )")
+      print(str)
+      write(str, file = profile_path, append = TRUE)
+      str <- paste0("options(arrow.dev_repo = '", repo, "' )")
+      print(str)
+      write(str, file = profile_path, append = TRUE)
+      # Set envvar for later steps by appending to $GITHUB_ENV
+      write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
+  {% endmacro %}
+
+{# Detect if we are using a fork or the upstream repo #}
+  {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
+  {# use filter to cast to string and convert to lowercase to match yaml boolean #}
+  {% set is_fork = (not is_upstream_b)|lower %}
+
+{% set r_release = {"ver": "4.2", "rt" : "42"} %}
+{% set r_oldrel = {"ver": "4.1", "rt" : "40"} %}
+
+{%- macro github_set_env(env) -%}
+  {% if env is defined %}
+    env:
+    {% for key, value in env.items() %}
+      {{ key }}: "{{ value }}"
+    {% endfor %}
+  {% endif %}
+{%- endmacro -%}
+
+{% macro github_set_sccache_envvars(sccache_key_prefix = "sccache") %}
+  {% set sccache_vars =  {
+            "AWS_ACCESS_KEY_ID": '${{ secrets.AWS_ACCESS_KEY_ID }}',
+            "AWS_SECRET_ACCESS_KEY": '${{ secrets.AWS_SECRET_ACCESS_KEY }}',
+            "SCCACHE_BUCKET": '${{ secrets.SCCACHE_BUCKET }}',
+            "SCCACHE_REGION": '${{ secrets.SCCACHE_REGION }}',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+          }
+ %}
+  {% for key, value in sccache_vars.items() %}
+  {{ key }}: "{{ value }}"
+  {% endfor %}
 {% endmacro %}
+
+{% macro azure_set_sccache_envvars(sccache_key_prefix = "sccache") %}
+  {% set sccache_vars = {
+            "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
+            "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
+            "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
+            "SCCACHE_REGION": '$(SCCACHE_REGION)',
+            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix 
+          }
+  %}
+  {% for key, value in sccache_vars.items() %}
+  {{ key }}: "{{ value }}"
+  {% endfor %}
+{% endmacro %}
+

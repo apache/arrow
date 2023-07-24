@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
@@ -29,8 +32,8 @@ import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class TestLargeMessage {
   /**
@@ -40,8 +43,7 @@ public class TestLargeMessage {
   public void getLargeMessage() throws Exception {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
-         final FlightServer s =
-             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build())) {
+         final FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start()) {
 
       try (FlightClient client = FlightClient.builder(a, s.getLocation()).build()) {
         try (FlightStream stream = client.getStream(new Ticket(new byte[]{}));
@@ -51,7 +53,7 @@ public class TestLargeMessage {
               int value = 0;
               final IntVector iv = (IntVector) root.getVector(field.getName());
               for (int i = 0; i < root.getRowCount(); i++) {
-                Assert.assertEquals(value, iv.get(i));
+                Assertions.assertEquals(value, iv.get(i));
                 value++;
               }
             }
@@ -68,10 +70,7 @@ public class TestLargeMessage {
   public void putLargeMessage() throws Exception {
     try (final BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
          final Producer producer = new Producer(a);
-         final FlightServer s =
-             FlightTestUtil.getStartedServer((location) -> FlightServer.builder(a, location, producer).build()
-             )) {
-
+         final FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer).build().start()) {
       try (FlightClient client = FlightClient.builder(a, s.getLocation()).build();
            BufferAllocator testAllocator = a.newChildAllocator("testcase", 0, Long.MAX_VALUE);
            VectorSchemaRoot root = generateData(testAllocator)) {

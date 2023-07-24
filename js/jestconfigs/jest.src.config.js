@@ -15,14 +15,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
-module.exports = {
-  ...require("../jest.config"),
-  rootDir: "../",
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-      tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
-      useESM: true,
+import config from "../jest.config.js";
+
+export default {
+    ...config,
+    rootDir: "../",
+    transform: {
+        ...config.transform,
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
+                useESM: true,
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.src.json",
+                useESM: true,
+            },
+        ],
     },
-  },
 };

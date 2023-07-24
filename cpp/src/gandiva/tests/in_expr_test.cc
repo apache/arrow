@@ -20,6 +20,7 @@
 
 #include "arrow/memory_pool.h"
 #include "gandiva/filter.h"
+#include "gandiva/function_registry_common.h"
 #include "gandiva/tests/test_util.h"
 #include "gandiva/tree_expr_builder.h"
 
@@ -275,4 +276,85 @@ TEST_F(TestIn, TestInStringValidationError) {
   std::string expected_error = "Evaluation expression for IN clause returns ";
   EXPECT_TRUE(status.message().find(expected_error) != std::string::npos);
 }
+
+// Test that timestamp types work as inputs to in expressions
+template <typename Type>
+void TestDateOrTimeInExpression(
+    arrow::MemoryPool* pool, const DataTypePtr& type,
+    std::function<NodePtr(NodePtr, std::unordered_set<typename Type::c_type>)>
+        expression_factory) {
+  using c_type = typename Type::c_type;
+
+  // schema for input fields
+  auto field0 = field("f0", type);
+  auto schema = arrow::schema({field0});
+
+  // Build f0 in (717629471, 717630471)
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  std::unordered_set<c_type> in_constants({717629471, 717630471});
+  auto in_expr = expression_factory(node_f0, in_constants);
+  auto condition = TreeExprBuilder::MakeCondition(in_expr);
+
+  std::shared_ptr<Filter> filter;
+  auto status = Filter::Make(schema, condition, TestConfiguration(), &filter);
+  ASSERT_TRUE(status.ok()) << status.message();
+
+  // Create a row-batch with some sample data
+  int num_records = 5;
+  auto array0 = MakeArrowArray<Type, c_type>(
+      type, {717629471, 717630471, 717729471, 717629471, 717629571},
+      {true, true, true, false, true});
+  // expected output (indices for which condition matches)
+  auto exp = MakeArrowArrayUint16({0, 1});
+
+  // prepare input record batch
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  std::shared_ptr<SelectionVector> selection_vector;
+  status = SelectionVector::MakeInt16(num_records, pool, &selection_vector);
+  ASSERT_TRUE(status.ok()) << status.message();
+
+  // Evaluate expression
+  status = filter->Evaluate(*in_batch, selection_vector);
+  ASSERT_TRUE(status.ok()) << status.message();
+
+  // Validate results
+  EXPECT_ARROW_ARRAY_EQUALS(exp, selection_vector->ToArray());
+}
+
+TEST_F(TestIn, TestInDate32) {
+  TestDateOrTimeInExpression<arrow::Date32Type>(
+      pool_, date32(), [](auto node, auto in_constants) {
+        return TreeExprBuilder::MakeInExpressionDate32(node, in_constants);
+      });
+}
+
+TEST_F(TestIn, TestInDate64) {
+  TestDateOrTimeInExpression<arrow::Date64Type>(
+      pool_, date64(), [](auto node, auto in_constants) {
+        return TreeExprBuilder::MakeInExpressionDate64(node, in_constants);
+      });
+}
+
+TEST_F(TestIn, TestInTimeStamp) {
+  TestDateOrTimeInExpression<arrow::TimestampType>(
+      pool_, timestamp(), [](auto node, auto in_constants) {
+        return TreeExprBuilder::MakeInExpressionTimeStamp(node, in_constants);
+      });
+}
+
+TEST_F(TestIn, TestInTime32) {
+  TestDateOrTimeInExpression<arrow::Time32Type>(
+      pool_, time32(), [](auto node, auto in_constants) {
+        return TreeExprBuilder::MakeInExpressionTime32(node, in_constants);
+      });
+}
+
+TEST_F(TestIn, TestInTime64) {
+  TestDateOrTimeInExpression<arrow::Time64Type>(
+      pool_, time64(), [](auto node, auto in_constants) {
+        return TreeExprBuilder::MakeInExpressionTime64(node, in_constants);
+      });
+}
+
 }  // namespace gandiva

@@ -16,47 +16,87 @@
 # under the License.
 
 
-test_that("type() gets the right type for arrow::Array", {
+test_that("infer_type() gets the right type for arrow::Array", {
   a <- Array$create(1:10)
-  expect_equal(type(a), a$type)
+  expect_equal(infer_type(a), a$type)
 })
 
-test_that("type() gets the right type for ChunkedArray", {
+test_that("infer_type() gets the right type for ChunkedArray", {
   a <- chunked_array(1:10, 1:10)
-  expect_equal(type(a), a$type)
+  expect_equal(infer_type(a), a$type)
 })
 
-test_that("type() infers from R type", {
-  expect_equal(type(1:10), int32())
-  expect_equal(type(1), float64())
-  expect_equal(type(TRUE), boolean())
-  expect_equal(type(raw()), uint8())
-  expect_equal(type(""), utf8())
+test_that("infer_type() infers from R type", {
+  expect_equal(infer_type(1:10), int32())
+  expect_equal(infer_type(1), float64())
+  expect_equal(infer_type(TRUE), boolean())
+  expect_equal(infer_type(raw()), uint8())
+  expect_equal(infer_type(""), utf8())
   expect_equal(
-    type(example_data$fct),
+    infer_type(example_data$fct),
     dictionary(int8(), utf8(), FALSE)
   )
   expect_equal(
-    type(lubridate::ymd_hms("2019-02-14 13:55:05")),
+    infer_type(lubridate::ymd_hms("2019-02-14 13:55:05")),
     timestamp(TimeUnit$MICRO, "UTC")
   )
   expect_equal(
-    type(hms::hms(56, 34, 12)),
+    infer_type(hms::hms(56, 34, 12)),
     time32(unit = TimeUnit$SECOND)
   )
   expect_equal(
-    type(as.difftime(123, units = "days")),
+    infer_type(as.difftime(123, units = "days")),
     duration(unit = TimeUnit$SECOND)
   )
   expect_equal(
-    type(bit64::integer64()),
+    infer_type(bit64::integer64()),
     int64()
   )
 })
 
-test_that("type() can infer struct types from data frames", {
+test_that("infer_type() default method errors for unknown classes", {
+  vec <- structure(list(), class = "class_not_supported")
+
+  # check simulating a call from C++
+  expect_snapshot_error(infer_type(vec, from_array_infer_type = TRUE))
+
+  # also check the error when infer_type() is called from Array__infer_type()
+  expect_snapshot_error(infer_type(vec))
+})
+
+test_that("infer_type() can infer struct types from data frames", {
   df <- tibble::tibble(x = 1:10, y = rnorm(10), z = letters[1:10])
-  expect_equal(type(df), struct(x = int32(), y = float64(), z = utf8()))
+  expect_equal(infer_type(df), struct(x = int32(), y = float64(), z = utf8()))
+})
+
+test_that("infer_type() can infer type for vctr_vctr subclasses", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+  expect_equal(
+    infer_type(vctr),
+    vctrs_extension_type(vctrs::vec_ptype(vctr))
+  )
+})
+
+test_that("infer_type() can infer nested extension types", {
+  vctr <- vctrs::new_vctr(1:5, class = "custom_vctr")
+  expect_equal(
+    infer_type(tibble::tibble(x = vctr)),
+    struct(x = infer_type(vctr))
+  )
+})
+
+test_that("infer_type() can infer vctrs::list_of() types", {
+  expect_equal(infer_type(vctrs::list_of(.ptype = integer())), list_of(int32()))
+})
+
+test_that("infer_type() can infer blob type", {
+  skip_if_not_installed("blob")
+
+  expect_equal(infer_type(blob::blob()), binary())
+
+  big_ish_raw <- raw(2 ^ 20)
+  big_ish_blob <- blob::new_blob(rep(list(big_ish_raw), 2049))
+  expect_equal(infer_type(big_ish_blob), large_binary())
 })
 
 test_that("DataType$Equals", {
@@ -200,6 +240,10 @@ test_that("Type strings are correctly canonicalized", {
     canonical_type_str("fixed_size_list"),
     sub("^([^([<]+).*$", "\\1", fixed_size_list_of(int32(), 42)$ToString())
   )
+  expect_equal(
+    canonical_type_str("map_of"),
+    sub("^([^([<]+).*$", "\\1", map_of(utf8(), utf8())$ToString())
+  )
 
   # unsupported data types
   expect_error(
@@ -211,6 +255,10 @@ test_that("Type strings are correctly canonicalized", {
     "parameters"
   )
   expect_error(
+    canonical_type_str("map<key: int32, item: int32>"),
+    "parameters"
+  )
+  expect_error(
     canonical_type_str("time32[s]"),
     "parameters"
   )
@@ -219,5 +267,79 @@ test_that("Type strings are correctly canonicalized", {
   expect_error(
     canonical_type_str("foo"),
     "Unrecognized"
+  )
+})
+
+test_that("infer_type() gets the right type for Expression", {
+  x <- Expression$scalar(32L)
+  y <- Expression$scalar(10)
+  add_xy <- Expression$create("add", x, y)
+
+  expect_equal(x$type(), infer_type(x))
+  expect_equal(infer_type(x), int32())
+  expect_equal(y$type(), infer_type(y))
+  expect_equal(infer_type(y), float64())
+  expect_equal(add_xy$type(), infer_type(add_xy))
+  # even though 10 is a float64, arrow will clamp it to the narrowest
+  # type that can exactly represent it when building expressions
+  expect_equal(infer_type(add_xy), float32())
+})
+
+test_that("infer_type() infers type for POSIXlt", {
+  posix_lt <- as.POSIXlt("2021-01-01 01:23:45", tz = "UTC")
+  expect_equal(
+    infer_type(posix_lt),
+    vctrs_extension_type(posix_lt[integer(0)])
+  )
+})
+
+test_that("infer_type() infers type for vctrs", {
+  vec <- vctrs::new_vctr(1:5, class = "special_integer")
+  expect_equal(
+    infer_type(vec),
+    vctrs_extension_type(vec[integer(0)])
+  )
+})
+
+test_that("type() is deprecated", {
+  a <- Array$create(1:10)
+  expect_deprecated(
+    a_type <- type(a),
+    "infer_type"
+  )
+  expect_equal(a_type, a$type)
+})
+
+test_that("infer_type() infers type for lists of raw() as binary()", {
+  expect_equal(
+    infer_type(list(raw())),
+    binary()
+  )
+
+  expect_equal(
+    infer_type(list(NULL, raw(), raw())),
+    binary()
+  )
+})
+
+test_that("infer_type() infers type for lists starting with NULL - ARROW-17639", {
+  null_start_list <- list(NULL, c(2, 3), c(4, 5))
+
+  expect_equal(
+    infer_type(null_start_list),
+    list_of(float64())
+  )
+
+  totally_null_list <- list(NULL, NULL, NULL)
+
+  expect_equal(
+    infer_type(totally_null_list),
+    list_of(null())
+  )
+
+  empty_list <- list()
+  expect_equal(
+    infer_type(empty_list),
+    list_of(null())
   )
 })

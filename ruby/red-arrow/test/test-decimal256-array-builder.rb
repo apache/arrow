@@ -55,6 +55,20 @@ class Decimal256ArrayBuilderTest < Test::Unit::TestCase
       assert_equal(BigDecimal("10.1"),
                    array[0])
     end
+
+    test("BigDecimal::NAN") do
+      message = "can't use NaN as an Arrow::Decimal256Array value"
+      assert_raise(FloatDomainError.new(message)) do
+        @builder.append_value(BigDecimal::NAN)
+      end
+    end
+
+    test("BigDecimal::INFINITY") do
+      message = "can't use Infinity as an Arrow::Decimal256Array value"
+      assert_raise(FloatDomainError.new(message)) do
+        @builder.append_value(BigDecimal::INFINITY)
+      end
+    end
   end
 
   sub_test_case("#append_values") do

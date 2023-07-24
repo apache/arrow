@@ -45,12 +45,25 @@ using internal::checked_pointer_cast;
 
 namespace compute {
 
+#ifdef ARROW_VALGRIND
+using RealArrowTypes = ::testing::Types<FloatType>;
+
+using IntegralArrowTypes = ::testing::Types<UInt32Type>;
+using TemporalArrowTypes = ::testing::Types<Date32Type, TimestampType, Time32Type>;
+
+using DecimalArrowTypes = ::testing::Types<Decimal128Type>;
+#endif
+
 std::vector<SortOrder> AllOrders() {
   return {SortOrder::Ascending, SortOrder::Descending};
 }
 
 std::vector<NullPlacement> AllNullPlacements() {
   return {NullPlacement::AtEnd, NullPlacement::AtStart};
+}
+
+std::vector<RankOptions::Tiebreaker> AllTiebreakers() {
+  return {RankOptions::Min, RankOptions::Max, RankOptions::First, RankOptions::Dense};
 }
 
 std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
@@ -316,10 +329,15 @@ class TestNthToIndicesRandom : public TestNthToIndicesBase<ArrowType> {
   }
 };
 
+#ifdef ARROW_VALGRIND
+using NthToIndicesableTypes =
+    ::testing::Types<Int16Type, FloatType, Decimal128Type, StringType>;
+#else
 using NthToIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Decimal128Type,
                      StringType>;
+#endif
 
 TYPED_TEST_SUITE(TestNthToIndicesRandom, NthToIndicesableTypes);
 
@@ -350,6 +368,138 @@ TEST(ArraySortIndicesFunction, Array) {
   AssertDatumsEqual(expected, actual, /*verbose=*/true);
 }
 
+TEST(ArraySortIndicesFunction, DictionaryArray) {
+  // Decoded dictionary array:
+  // (["b", "c", null, null, null, "b", "c", "c", "a"])
+
+  std::vector<std::string> expected_str = {
+      "[8, 0, 5, 1, 6, 7, 2, 3, 4]",  // SortOrder::Ascending NullPlacement::AtEnd
+      "[2, 3, 4, 8, 0, 5, 1, 6, 7]",  // SortOrder::Ascending NullPlacement::AtStart
+      "[1, 6, 7, 0, 5, 8, 2, 3, 4]",  // SortOrder::Descending NullPlacement::AtEnd
+      "[2, 3, 4, 1, 6, 7, 0, 5, 8]"   // SortOrder::Descending NullPlacement::AtStart
+  };
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    int i = 0;
+    auto dict_arr = DictArrayFromJSON(dictionary(index_type, utf8()),
+                                      "[0, 4, null, 1, null, 0, 4, 2, 3]",
+                                      "[ \"b\", null, \"c\", \"a\", \"c\"]");
+    for (auto order : AllOrders()) {
+      for (auto null_placement : AllNullPlacements()) {
+        ARROW_SCOPED_TRACE("i = ", i);
+        ArraySortOptions options{order, null_placement};
+        auto expected = ArrayFromJSON(uint64(), expected_str[i++]);
+        ASSERT_OK_AND_ASSIGN(auto actual,
+                             CallFunction("array_sort_indices", {dict_arr}, &options));
+        ValidateOutput(actual);
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      }
+    }
+  }
+}
+
+TEST(ArraySortIndicesFunction, EmptyDictionaryArray) {
+  auto expected = ArrayFromJSON(uint64(), "[]");
+  auto dict_arr = DictArrayFromJSON(dictionary(int32(), utf8()), "[]", "[\"b\", \"a\"]");
+  auto options = ArraySortOptions::Defaults();
+
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       CallFunction("array_sort_indices", {dict_arr}, &options));
+  ValidateOutput(actual);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+TEST(ArraySortIndicesFunction, AllNullDictionaryArray) {
+  auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3]");
+  auto dict_type = dictionary(int32(), utf8());
+  ArrayVector dict_arrs = {
+      DictArrayFromJSON(dict_type, "[null, 3, null, 1]", "[\"b\", null, \"a\", null]"),
+      DictArrayFromJSON(dict_type, "[null, null, null, null]", "[\"c\", \"a\"]"),
+      DictArrayFromJSON(dict_type, "[0, 1, 1, 0]", "[null, null]"),
+  };
+
+  int i = 0;
+  for (auto order : AllOrders()) {
+    for (auto null_placement : AllNullPlacements()) {
+      ArraySortOptions options{order, null_placement};
+
+      for (const auto& dict_arr : dict_arrs) {
+        ARROW_SCOPED_TRACE("i = ", i);
+        ASSERT_OK_AND_ASSIGN(auto actual,
+                             CallFunction("array_sort_indices", {dict_arr}, &options));
+        ValidateOutput(actual);
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+        ++i;
+      }
+    }
+  }
+}
+
+Result<std::shared_ptr<Array>> DecodeDictionary(const Array& array) {
+  const auto& dict_array = checked_cast<const DictionaryArray&>(array);
+  ARROW_ASSIGN_OR_RAISE(auto decoded_datum,
+                        Take(dict_array.dictionary(), dict_array.indices()));
+  return decoded_datum.make_array();
+}
+
+TEST(ArraySortIndicesFunction, RandomDictionaryArray) {
+  ::arrow::random::RandomArrayGenerator rng(/*seed=*/1234);
+  constexpr int64_t kLength = 200;
+  constexpr int64_t kDictLength = 20;
+  // Lengths of source arrays which each dictionary array's index and value arrays are
+  // sliced from
+  constexpr int64_t kNumIndices = kLength * 4;
+  constexpr int64_t kNumValues = kDictLength * 8;
+
+  // Ensure there are duplicates in the dictionary and the indices, and nulls in both as
+  // well.
+  auto source_values = rng.StringWithRepeats(kNumValues, /*unique=*/kNumValues / 2,
+                                             /*min_length=*/1, /*max_length=*/10,
+                                             /*null_probability=*/0.2);
+  auto source_indices =
+      rng.Int64(kNumIndices, 0, kDictLength - 1, /*null_probability = */ 0.2);
+
+  auto get_test_array = [&](int64_t indices_offset,
+                            int64_t values_offset) -> std::shared_ptr<Array> {
+    auto out = *DictionaryArray::FromArrays(
+        *source_indices->SliceSafe(indices_offset, kLength),
+        *source_values->SliceSafe(values_offset, kDictLength));
+    ARROW_CHECK_EQ(out->length(), kLength);
+    ARROW_CHECK_EQ(checked_cast<const DictionaryArray&>(*out).dictionary()->length(),
+                   kDictLength);
+    return out;
+  };
+
+  // Test cases are sliced from the beginning/middle/end
+  ArrayVector dict_arrays;
+  dict_arrays.push_back(get_test_array(0, 0));
+  dict_arrays.push_back(get_test_array(kNumIndices / 3, kNumValues / 3));
+  dict_arrays.push_back(get_test_array(kNumIndices - kLength, kNumValues - kDictLength));
+
+  for (size_t i = 0; i < dict_arrays.size(); ++i) {
+    ARROW_SCOPED_TRACE("i = ", i);
+    auto dict_array = dict_arrays[i];
+
+    ASSERT_OK_AND_ASSIGN(auto decoded, DecodeDictionary(*dict_array));
+
+    for (auto order : AllOrders()) {
+      for (auto null_placement : AllNullPlacements()) {
+        ArraySortOptions options{order, null_placement};
+        // Sorting the dictionary array...
+        ASSERT_OK_AND_ASSIGN(auto actual,
+                             CallFunction("array_sort_indices", {dict_array}, &options));
+        ValidateOutput(actual);
+
+        // should give identical results to sorting the decoded array
+        ASSERT_OK_AND_ASSIGN(auto expected,
+                             CallFunction("array_sort_indices", {decoded}, &options));
+        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+      }
+    }
+  }
+}
+
 TEST(ArraySortIndicesFunction, ChunkedArray) {
   auto arr = ChunkedArrayFromJSON(int16(), {"[0, 1]", "[null, -3, null, -42, 5]"});
   auto expected = ChunkedArrayFromJSON(uint64(), {"[5, 3, 0, 1, 6, 2, 4]"});
@@ -365,6 +515,18 @@ TEST(ArraySortIndicesFunction, ChunkedArray) {
 // ----------------------------------------------------------------------
 // Tests for SortToIndices
 
+void AssertSortIndices(const Datum& datum, const SortOptions& options,
+                       const std::shared_ptr<Array>& expected) {
+  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(datum, options));
+  ValidateOutput(*actual);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void AssertSortIndices(const Datum& datum, const SortOptions& options,
+                       const std::string& expected) {
+  AssertSortIndices(datum, options, ArrayFromJSON(uint64(), expected));
+}
+
 template <typename T>
 void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
                        NullPlacement null_placement,
@@ -373,20 +535,6 @@ void AssertSortIndices(const std::shared_ptr<T>& input, SortOrder order,
   ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(*input, options));
   ValidateOutput(*actual);
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-}
-
-template <typename T>
-void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
-                       const std::shared_ptr<Array>& expected) {
-  ASSERT_OK_AND_ASSIGN(auto actual, SortIndices(Datum(*input), options));
-  ValidateOutput(*actual);
-  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-}
-
-template <typename T>
-void AssertSortIndices(const std::shared_ptr<T>& input, const SortOptions& options,
-                       const std::string& expected) {
-  AssertSortIndices(input, options, ArrayFromJSON(uint64(), expected));
 }
 
 template <typename T>
@@ -775,10 +923,15 @@ class TestArraySortIndicesRandomCount : public ::testing::Test {};
 template <typename ArrowType>
 class TestArraySortIndicesRandomCompare : public ::testing::Test {};
 
+#ifdef ARROW_VALGRIND
+using SortIndicesableTypes = ::testing::Types<UInt32Type, FloatType, DoubleType,
+                                              StringType, Decimal128Type, BooleanType>;
+#else
 using SortIndicesableTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, StringType,
                      Decimal128Type, BooleanType>;
+#endif
 
 template <typename ArrayType>
 void ValidateSorted(const ArrayType& array, UInt64Array& offsets, SortOrder order,
@@ -1936,12 +2089,17 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
   }
 }
 
+#ifdef ARROW_VALGRIND
+static const auto first_sort_keys = testing::Values("uint64");
+static const auto num_sort_keys = testing::Values(3);
+#else
 // Some first keys will have duplicates, others not
 static const auto first_sort_keys = testing::Values("uint8", "int16", "uint64", "float",
                                                     "boolean", "string", "decimal128");
 
 // Different numbers of sort keys may trigger different algorithms
 static const auto num_sort_keys = testing::Values(1, 3, 7, 9);
+#endif
 
 INSTANTIATE_TEST_SUITE_P(NoNull, TestTableSortIndicesRandom,
                          testing::Combine(first_sort_keys, num_sort_keys,
@@ -1954,6 +2112,359 @@ INSTANTIATE_TEST_SUITE_P(SomeNulls, TestTableSortIndicesRandom,
 INSTANTIATE_TEST_SUITE_P(AllNull, TestTableSortIndicesRandom,
                          testing::Combine(first_sort_keys, num_sort_keys,
                                           testing::Values(1.0)));
+
+class TestNestedSortIndices : public ::testing::Test {
+ protected:
+  static std::shared_ptr<Array> GetArray() {
+    auto struct_type = struct_({field(
+        "a",
+        struct_({field("a", uint8()),
+                 field("b", struct_({field("a", int32()), field("b", uint32())}))}))});
+    auto struct_array = checked_pointer_cast<StructArray>(
+        ArrayFromJSON(struct_type,
+                      R"([{"a": {"a": 5,    "b": {"a": null, "b": 8   }}},
+                          {"a": {"a": null, "b": {"a": 8,    "b": null}}},
+                          {"a": {"a": null, "b": {"a": 9,    "b": 0   }}},
+                          {"a": {"a": 2,    "b": {"a": 4,    "b": null}}},
+                          {"a": {"a": 5,    "b": {"a": 1,    "b": 8   }}},
+                          {"a": {"a": 3,    "b": {"a": null, "b": 0   }}},
+                          {"a": {"a": 2,    "b": {"a": 4,    "b": 2   }}},
+                          {"a": {"a": 2,    "b": {"a": 4,    "b": 4   }}},
+                          {"a": {"a": null, "b": {"a": 7,    "b": 7   }}}])"));
+
+    // The top-level validity bitmap is created independently to test null inheritance for
+    // child fields.
+    std::shared_ptr<Buffer> parent_bitmap;
+    ARROW_CHECK_OK(
+        GetBitmapFromVector<bool>({1, 1, 1, 1, 1, 0, 1, 1, 1}, &parent_bitmap));
+
+    auto array =
+        *StructArray::Make(struct_array->fields(), struct_type->fields(), parent_bitmap);
+    ARROW_CHECK_OK(array->ValidateFull());
+    return array;
+  }
+
+  static std::shared_ptr<RecordBatch> GetRecordBatch() {
+    auto batch = *RecordBatch::FromStructArray(GetArray());
+    ARROW_CHECK_OK(batch->ValidateFull());
+    return batch;
+  }
+
+  static std::shared_ptr<ChunkedArray> GetChunkedArray() {
+    auto array = GetArray();
+    ArrayVector chunks(2);
+    chunks[0] = *array->SliceSafe(0, 3);
+    chunks[1] = *array->SliceSafe(3);
+    auto chunked = *ChunkedArray::Make(std::move(chunks));
+    ARROW_CHECK_OK(chunked->ValidateFull());
+    return chunked;
+  }
+
+  static std::shared_ptr<Table> GetTable() {
+    auto chunked = GetChunkedArray();
+    auto columns = *chunked->Flatten();
+    auto table =
+        Table::Make(arrow::schema(chunked->type()->fields()), std::move(columns));
+    ARROW_CHECK_OK(table->ValidateFull());
+    return table;
+  }
+
+  void TestSort(const Datum& datum) const {
+    std::vector<SortKey> sort_keys = {SortKey(FieldRef("a", "a"), SortOrder::Ascending),
+                                      SortKey(FieldRef("a", "b"), SortOrder::Descending)};
+
+    SortOptions options(sort_keys, NullPlacement::AtEnd);
+    AssertSortIndices(datum, options, "[7, 6, 3, 4, 0, 2, 1, 8, 5]");
+    options.null_placement = NullPlacement::AtStart;
+    AssertSortIndices(datum, options, "[5, 2, 1, 8, 3, 7, 6, 0, 4]");
+
+    // Implementations may have an optimized path for cases with one sort key.
+    // Additionally, this key references a struct containing another struct, which should
+    // work recursively
+    options.sort_keys = {SortKey(FieldRef("a"), SortOrder::Ascending)};
+    options.null_placement = NullPlacement::AtEnd;
+    AssertSortIndices(datum, options, "[6, 7, 3, 4, 0, 8, 1, 2, 5]");
+    options.null_placement = NullPlacement::AtStart;
+    AssertSortIndices(datum, options, "[5, 8, 1, 2, 3, 6, 7, 0, 4]");
+  }
+
+  void TestArraySort() const {
+    auto array = GetArray();
+    AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtEnd,
+                      "[6, 7, 3, 4, 0, 8, 1, 2, 5]");
+    AssertSortIndices(array, SortOrder::Ascending, NullPlacement::AtStart,
+                      "[5, 8, 1, 2, 3, 6, 7, 0, 4]");
+  }
+};
+
+TEST_F(TestNestedSortIndices, ArraySort) { TestArraySort(); }
+
+TEST_F(TestNestedSortIndices, SortStructArray) { TestSort(GetArray()); }
+TEST_F(TestNestedSortIndices, SortChunkedArray) { TestSort(GetChunkedArray()); }
+TEST_F(TestNestedSortIndices, SortRecordBatch) { TestSort(GetRecordBatch()); }
+TEST_F(TestNestedSortIndices, SortTable) { TestSort(GetTable()); }
+
+// ----------------------------------------------------------------------
+// Tests for Rank
+
+class TestRank : public ::testing::Test {
+ protected:
+  // Create several test datums from `array`. One of which is the unmodified Array
+  // while the rest are chunked variants based on it.
+  void SetInput(const std::shared_ptr<Array>& array) {
+    datums_ = {array};
+    const int64_t length = array->length();
+    for (int64_t num_chunks : {1, 2, 3}) {
+      if (num_chunks > length) continue;
+      ArrayVector chunks;
+      int64_t offset = 0;
+      for (int64_t i = 0; i < num_chunks; ++i) {
+        auto next_offset = offset + length / num_chunks;
+        if (i + 1 == num_chunks) {
+          next_offset = length;
+        }
+        chunks.push_back(array->Slice(offset, next_offset - offset));
+        offset = next_offset;
+      }
+      auto chunked = ChunkedArray::Make(std::move(chunks), array->type()).ValueOrDie();
+      DCHECK_EQ(chunked->num_chunks(), num_chunks);
+      datums_.push_back(std::move(chunked));
+    }
+  }
+
+  void SetInput(const std::shared_ptr<ChunkedArray>& chunked_array) {
+    datums_ = {chunked_array};
+  }
+
+  static void AssertRank(const DatumVector& datums, SortOrder order,
+                         NullPlacement null_placement, RankOptions::Tiebreaker tiebreaker,
+                         const std::shared_ptr<Array>& expected) {
+    const std::vector<SortKey> sort_keys{SortKey("foo", order)};
+    RankOptions options(sort_keys, null_placement, tiebreaker);
+    ARROW_SCOPED_TRACE("options = ", options.ToString());
+    for (const auto& datum : datums) {
+      ASSERT_OK_AND_ASSIGN(auto actual, CallFunction("rank", {datum}, &options));
+      ValidateOutput(actual);
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+    }
+  }
+
+  void AssertRank(SortOrder order, NullPlacement null_placement,
+                  RankOptions::Tiebreaker tiebreaker,
+                  const std::shared_ptr<Array>& expected) const {
+    AssertRank(datums_, order, null_placement, tiebreaker, expected);
+  }
+
+  static void AssertRankEmpty(std::shared_ptr<DataType> type, SortOrder order,
+                              NullPlacement null_placement,
+                              RankOptions::Tiebreaker tiebreaker) {
+    AssertRank({ArrayFromJSON(type, "[]")}, order, null_placement, tiebreaker,
+               ArrayFromJSON(uint64(), "[]"));
+    AssertRank({ArrayFromJSON(type, "[null]")}, order, null_placement, tiebreaker,
+               ArrayFromJSON(uint64(), "[1]"));
+  }
+
+  void AssertRankSimple(NullPlacement null_placement,
+                        RankOptions::Tiebreaker tiebreaker) const {
+    auto expected_asc = ArrayFromJSON(uint64(), "[3, 4, 2, 1, 5]");
+    AssertRank(SortOrder::Ascending, null_placement, tiebreaker, expected_asc);
+
+    auto expected_desc = ArrayFromJSON(uint64(), "[3, 2, 4, 5, 1]");
+    AssertRank(SortOrder::Descending, null_placement, tiebreaker, expected_desc);
+  }
+
+  void AssertRankAllTiebreakers() const {
+    AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+               ArrayFromJSON(uint64(), "[3, 1, 4, 6, 4, 6, 1]"));
+    AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+               ArrayFromJSON(uint64(), "[3, 2, 5, 7, 5, 7, 2]"));
+    AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+               ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
+    AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+               ArrayFromJSON(uint64(), "[2, 1, 3, 4, 3, 4, 1]"));
+
+    AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+               ArrayFromJSON(uint64(), "[5, 3, 6, 1, 6, 1, 3]"));
+    AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+               ArrayFromJSON(uint64(), "[5, 4, 7, 2, 7, 2, 4]"));
+    AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+               ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
+    AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+               ArrayFromJSON(uint64(), "[3, 2, 4, 1, 4, 1, 2]"));
+
+    AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+               ArrayFromJSON(uint64(), "[3, 4, 1, 6, 1, 6, 4]"));
+    AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+               ArrayFromJSON(uint64(), "[3, 5, 2, 7, 2, 7, 5]"));
+    AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+               ArrayFromJSON(uint64(), "[3, 4, 1, 6, 2, 7, 5]"));
+    AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+               ArrayFromJSON(uint64(), "[2, 3, 1, 4, 1, 4, 3]"));
+
+    AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+               ArrayFromJSON(uint64(), "[5, 6, 3, 1, 3, 1, 6]"));
+    AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+               ArrayFromJSON(uint64(), "[5, 7, 4, 2, 4, 2, 7]"));
+    AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+               ArrayFromJSON(uint64(), "[5, 6, 3, 1, 4, 2, 7]"));
+    AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+               ArrayFromJSON(uint64(), "[3, 4, 2, 1, 2, 1, 4]"));
+  }
+
+  DatumVector datums_;
+};
+
+TEST_F(TestRank, Real) {
+  for (auto real_type : ::arrow::FloatingPointTypes()) {
+    SetInput(ArrayFromJSON(real_type, "[2.1, 3.2, 1.0, 0.0, 5.5]"));
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(real_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(null_placement, tiebreaker);
+      }
+    }
+
+    SetInput(ArrayFromJSON(real_type, "[1.2, 0.0, 5.3, null, 5.3, null, 0.0]"));
+    AssertRankAllTiebreakers();
+  }
+}
+
+TEST_F(TestRank, Integral) {
+  for (auto integer_type : ::arrow::IntTypes()) {
+    SetInput(ArrayFromJSON(integer_type, "[2, 3, 1, 0, 5]"));
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(integer_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(null_placement, tiebreaker);
+      }
+    }
+
+    SetInput(ArrayFromJSON(integer_type, "[1, 0, 5, null, 5, null, 0]"));
+    AssertRankAllTiebreakers();
+  }
+}
+
+TEST_F(TestRank, Bool) {
+  SetInput(ArrayFromJSON(boolean(), "[false, true]"));
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      for (auto order : AllOrders()) {
+        AssertRankEmpty(boolean(), order, null_placement, tiebreaker);
+      }
+
+      AssertRank(SortOrder::Ascending, null_placement, tiebreaker,
+                 ArrayFromJSON(uint64(), "[1, 2]"));
+      AssertRank(SortOrder::Descending, null_placement, tiebreaker,
+                 ArrayFromJSON(uint64(), "[2, 1]"));
+    }
+  }
+
+  SetInput(ArrayFromJSON(boolean(), "[true, false, true, null, true, null, false]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[3, 1, 3, 6, 3, 6, 1]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[5, 2, 5, 7, 5, 7, 2]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::First,
+             ArrayFromJSON(uint64(), "[3, 1, 4, 6, 5, 7, 2]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[2, 1, 2, 3, 2, 3, 1]"));
+
+  AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[5, 3, 5, 1, 5, 1, 3]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[7, 4, 7, 2, 7, 2, 4]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::First,
+             ArrayFromJSON(uint64(), "[5, 3, 6, 1, 7, 2, 4]"));
+  AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[3, 2, 3, 1, 3, 1, 2]"));
+
+  AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[1, 4, 1, 6, 1, 6, 4]"));
+  AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[3, 5, 3, 7, 3, 7, 5]"));
+  AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::First,
+             ArrayFromJSON(uint64(), "[1, 4, 2, 6, 3, 7, 5]"));
+  AssertRank(SortOrder::Descending, NullPlacement::AtEnd, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[1, 2, 1, 3, 1, 3, 2]"));
+
+  AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Min,
+             ArrayFromJSON(uint64(), "[3, 6, 3, 1, 3, 1, 6]"));
+  AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Max,
+             ArrayFromJSON(uint64(), "[5, 7, 5, 2, 5, 2, 7]"));
+  AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::First,
+             ArrayFromJSON(uint64(), "[3, 6, 4, 1, 5, 2, 7]"));
+  AssertRank(SortOrder::Descending, NullPlacement::AtStart, RankOptions::Dense,
+             ArrayFromJSON(uint64(), "[2, 3, 2, 1, 2, 1, 3]"));
+}
+
+TEST_F(TestRank, Temporal) {
+  for (auto temporal_type : ::arrow::TemporalTypes()) {
+    SetInput(ArrayFromJSON(temporal_type, "[2, 3, 1, 0, 5]"));
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(temporal_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(null_placement, tiebreaker);
+      }
+    }
+
+    SetInput(ArrayFromJSON(temporal_type, "[1, 0, 5, null, 5, null, 0]"));
+    AssertRankAllTiebreakers();
+  }
+}
+
+TEST_F(TestRank, String) {
+  for (auto string_type : ::arrow::StringTypes()) {
+    SetInput(ArrayFromJSON(string_type, R"(["b", "c", "a", "", "d"])"));
+    for (auto null_placement : AllNullPlacements()) {
+      for (auto tiebreaker : AllTiebreakers()) {
+        for (auto order : AllOrders()) {
+          AssertRankEmpty(string_type, order, null_placement, tiebreaker);
+        }
+
+        AssertRankSimple(null_placement, tiebreaker);
+      }
+    }
+
+    SetInput(ArrayFromJSON(string_type, R"(["a", "", "e", null, "e", null, ""])"));
+    AssertRankAllTiebreakers();
+  }
+}
+
+TEST_F(TestRank, FixedSizeBinary) {
+  auto binary_type = fixed_size_binary(3);
+  SetInput(ArrayFromJSON(binary_type, R"(["bbb", "ccc", "aaa", "   ", "ddd"])"));
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      for (auto order : AllOrders()) {
+        AssertRankEmpty(binary_type, order, null_placement, tiebreaker);
+      }
+
+      AssertRankSimple(null_placement, tiebreaker);
+    }
+  }
+
+  SetInput(
+      ArrayFromJSON(binary_type, R"(["aaa", "   ", "eee", null, "eee", null, "   "])"));
+  AssertRankAllTiebreakers();
+}
+
+TEST_F(TestRank, EmptyChunks) {
+  SetInput(ChunkedArrayFromJSON(int32(), {"[2, 3]", "[]", "[1, 0]", "[]", "[5]"}));
+  for (auto null_placement : AllNullPlacements()) {
+    for (auto tiebreaker : AllTiebreakers()) {
+      AssertRankSimple(null_placement, tiebreaker);
+    }
+  }
+}
 
 }  // namespace compute
 }  // namespace arrow

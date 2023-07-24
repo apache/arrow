@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataType } from '../../type';
-import { RecordBatch } from '../../recordbatch';
-import { AsyncByteStream } from '../../io/stream';
-import { RecordBatchWriter } from '../../ipc/writer';
+import { TypeMap } from '../../type.js';
+import { RecordBatch } from '../../recordbatch.js';
+import { AsyncByteStream } from '../../io/stream.js';
+import { RecordBatchWriter } from '../../ipc/writer.js';
 
 /** @ignore */
-export function recordBatchWriterThroughDOMStream<T extends { [key: string]: DataType } = any>(
+export function recordBatchWriterThroughDOMStream<T extends TypeMap = any>(
     this: typeof RecordBatchWriter,
     writableStrategy?: QueuingStrategy<RecordBatch<T>> & { autoDestroy: boolean },
     readableStrategy?: { highWaterMark?: number; size?: any }
@@ -30,7 +30,7 @@ export function recordBatchWriterThroughDOMStream<T extends { [key: string]: Dat
     const writer = new this<T>(writableStrategy);
     const reader = new AsyncByteStream(writer);
     const readable = new ReadableStream({
-        type: 'bytes',
+        // type: 'bytes',
         async cancel() { await reader.cancel(); },
         async pull(controller) { await next(controller); },
         async start(controller) { await next(controller); },

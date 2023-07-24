@@ -24,16 +24,22 @@ include(CheckCXXSourceCompiles)
 message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
-  if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
-    set(ARROW_CPU_FLAG "armv8")
-  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "armv7")
-    set(ARROW_CPU_FLAG "armv7")
+  if(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
+    set(ARROW_CPU_FLAG "x86")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
+    set(ARROW_CPU_FLAG "aarch64")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^arm$|armv[4-7]")
+    set(ARROW_CPU_FLAG "aarch32")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "powerpc|ppc")
     set(ARROW_CPU_FLAG "ppc")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "s390x")
     set(ARROW_CPU_FLAG "s390x")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "riscv64")
+    set(ARROW_CPU_FLAG "riscv64")
+  elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch64")
+    set(ARROW_CPU_FLAG "loongarch64")
   else()
-    set(ARROW_CPU_FLAG "x86")
+    message(FATAL_ERROR "Unknown system processor")
   endif()
 endif()
 
@@ -56,29 +62,32 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
-  check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
-  if(MINGW)
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    message(STATUS "Disable AVX512 support on MINGW for now")
-  else()
-    # Check for AVX512 support in the compiler.
-    set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
-    check_cxx_source_compiles("
-      #ifdef _MSC_VER
-      #include <intrin.h>
-      #else
-      #include <immintrin.h>
-      #endif
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
+    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+    if(MINGW)
+      # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+      message(STATUS "Disable AVX512 support on MINGW for now")
+    else()
+      # Check for AVX512 support in the compiler.
+      set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
+      check_cxx_source_compiles("
+        #ifdef _MSC_VER
+        #include <intrin.h>
+        #else
+        #include <immintrin.h>
+        #endif
 
-      int main() {
-        __m512i mask = _mm512_set1_epi32(0x1);
-        char out[32];
-        _mm512_storeu_si512(out, mask);
-        return 0;
-      }"
-                              CXX_SUPPORTS_AVX512)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+        int main() {
+          __m512i mask = _mm512_set1_epi32(0x1);
+          char out[32];
+          _mm512_storeu_si512(out, mask);
+          return 0;
+        }"
+                                CXX_SUPPORTS_AVX512)
+      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+    endif()
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
@@ -104,10 +113,10 @@ elseif(ARROW_CPU_FLAG STREQUAL "ppc")
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "NONE")
   endif()
-elseif(ARROW_CPU_FLAG STREQUAL "armv8")
+elseif(ARROW_CPU_FLAG STREQUAL "aarch64")
   # Arm64 compiler flags, gcc/clang only
-  set(ARROW_ARMV8_ARCH_FLAG "-march=${ARROW_ARMV8_ARCH}")
-  check_cxx_compiler_flag(${ARROW_ARMV8_ARCH_FLAG} CXX_SUPPORTS_ARMV8_ARCH)
+  set(ARROW_ARMV8_MARCH "armv8-a")
+  check_cxx_compiler_flag("-march=${ARROW_ARMV8_MARCH}+sve" CXX_SUPPORTS_SVE)
   if(ARROW_SIMD_LEVEL STREQUAL "DEFAULT")
     set(ARROW_SIMD_LEVEL "NEON")
   endif()
@@ -118,12 +127,14 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++11 get passed correctly
+# This ensures that things like c++17 get passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD 17)
+elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 17)
+  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 17")
 endif()
 
-# We require a C++11 compliant compiler
+# We require a C++17 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARROW-6848: Do not use GNU (or other CXX) extensions
@@ -131,7 +142,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Build with -fPIC so that can static link our libraries into other people's
 # shared libraries
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ${ARROW_POSITION_INDEPENDENT_CODE})
 
 string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE)
 
@@ -201,6 +212,24 @@ if(WIN32)
     #   * https://developercommunity.visualstudio.com/content/problem/1249671/stdc17-generates-warning-compiling-windowsh.html
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /wd5105")
 
+    if(ARROW_USE_CCACHE)
+      foreach(c_flag
+              CMAKE_CXX_FLAGS
+              CMAKE_CXX_FLAGS_RELEASE
+              CMAKE_CXX_FLAGS_DEBUG
+              CMAKE_CXX_FLAGS_MINSIZEREL
+              CMAKE_CXX_FLAGS_RELWITHDEBINFO
+              CMAKE_C_FLAGS
+              CMAKE_C_FLAGS_RELEASE
+              CMAKE_C_FLAGS_DEBUG
+              CMAKE_C_FLAGS_MINSIZEREL
+              CMAKE_C_FLAGS_RELWITHDEBINFO)
+        # ccache doesn't work with /Zi.
+        # See also: https://github.com/ccache/ccache/issues/1040
+        string(REPLACE "/Zi" "/Z7" ${c_flag} "${${c_flag}}")
+      endforeach()
+    endif()
+
     if(ARROW_USE_STATIC_CRT)
       foreach(c_flag
               CMAKE_CXX_FLAGS
@@ -213,7 +242,7 @@ if(WIN32)
               CMAKE_C_FLAGS_DEBUG
               CMAKE_C_FLAGS_MINSIZEREL
               CMAKE_C_FLAGS_RELWITHDEBINFO)
-        string(REPLACE "/MD" "-MT" ${c_flag} "${${c_flag}}")
+        string(REPLACE "/MD" "/MT" ${c_flag} "${${c_flag}}")
       endforeach()
     endif()
 
@@ -259,13 +288,13 @@ string(TOUPPER ${BUILD_WARNING_LEVEL} BUILD_WARNING_LEVEL)
 message(STATUS "Arrow build warning level: ${BUILD_WARNING_LEVEL}")
 
 macro(arrow_add_werror_if_debug)
-  if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-    # Treat all compiler warnings as errors
-    if(MSVC)
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /WX")
-    else()
-      set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Werror")
-    endif()
+  # Treat all compiler warnings as errors
+  if(MSVC)
+    string(APPEND CMAKE_C_FLAGS_DEBUG " /WX")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " /WX")
+  else()
+    string(APPEND CMAKE_C_FLAGS_DEBUG " -Werror")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Werror")
   endif()
 endmacro()
 
@@ -282,15 +311,18 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wextra")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdocumentation")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wshorten-64-to-32")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-missing-braces")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-parameter")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-constant-logical-operand")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-return-stack-address")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wall")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-conversion")
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-deprecated-declarations")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-sign-conversion")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Intel")
     if(WIN32)
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} /Wall")
@@ -375,22 +407,20 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
   endif()
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "5.2")
-    # Disabling semantic interposition allows faster calling conventions
-    # when calling global functions internally, and can also help inlining.
-    # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -fno-semantic-interposition")
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "13.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                        VERSION_GREATER "13.0")
+    # -Wself-move added in GCC 13 warns when a value is moved to itself
+    # See https://gcc.gnu.org/gcc-13/changes.html
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-self-move")
   endif()
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER "4.9")
-    # Add colors when paired with ninja
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
-  endif()
+  # Disabling semantic interposition allows faster calling conventions
+  # when calling global functions internally, and can also help inlining.
+  # See https://stackoverflow.com/questions/35745543/new-option-in-gcc-5-3-fno-semantic-interposition
+  set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -fno-semantic-interposition")
 
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "6.0")
-    # Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=43407
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-attributes")
-  endif()
+  # Add colors when paired with ninja
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
 
   if(CMAKE_UNITY_BUILD)
     # Work around issue similar to https://bugs.webkit.org/show_bug.cgi?id=176869
@@ -417,11 +447,11 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STRE
   # Don't complain about optimization passes that were not possible
   set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-pass-failed")
 
-  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-    # Depending on the default OSX_DEPLOYMENT_TARGET (< 10.9), libstdc++ may be
-    # the default standard library which does not support C++11. libc++ is the
-    # default from 10.9 onward.
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -stdlib=libc++")
+  # Avoid clang / libc++ error about C++17 aligned allocation on macOS.
+  # See https://chromium.googlesource.com/chromium/src/+/eee44569858fc650b635779c4e34be5cb0c73186%5E%21/#F0
+  # for details.
+  if(APPLE)
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -fno-aligned-new")
   endif()
 endif()
 
@@ -468,33 +498,28 @@ if(ARROW_CPU_FLAG STREQUAL "ppc")
   endif()
 endif()
 
-if(ARROW_CPU_FLAG STREQUAL "armv8")
-  if(ARROW_SIMD_LEVEL STREQUAL "NEON")
+if(ARROW_CPU_FLAG STREQUAL "aarch64")
+  if(ARROW_SIMD_LEVEL MATCHES "NEON|SVE[0-9]*")
     set(ARROW_HAVE_NEON ON)
-
-    if(NOT CXX_SUPPORTS_ARMV8_ARCH)
-      message(FATAL_ERROR "Unsupported arch flag: ${ARROW_ARMV8_ARCH_FLAG}.")
-    endif()
-    if(ARROW_ARMV8_ARCH_FLAG MATCHES "native")
-      message(FATAL_ERROR "native arch not allowed, please specify arch explicitly.")
-    endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_ARMV8_ARCH_FLAG}")
-
     add_definitions(-DARROW_HAVE_NEON)
-
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS
-                                                "5.4")
-      message(WARNING "Disable Armv8 CRC and Crypto as compiler doesn't support them well."
-      )
-    else()
-      if(ARROW_ARMV8_ARCH_FLAG MATCHES "\\+crypto")
-        add_definitions(-DARROW_HAVE_ARMV8_CRYPTO)
+    if(ARROW_SIMD_LEVEL MATCHES "SVE[0-9]*")
+      if(NOT CXX_SUPPORTS_SVE)
+        message(FATAL_ERROR "SVE required but compiler doesn't support it.")
       endif()
-      # armv8.1+ implies crc support
-      if(ARROW_ARMV8_ARCH_FLAG MATCHES "armv8\\.[1-9]|\\+crc")
-        add_definitions(-DARROW_HAVE_ARMV8_CRC)
+      # -march=armv8-a+sve
+      set(ARROW_ARMV8_MARCH "${ARROW_ARMV8_MARCH}+sve")
+      string(REGEX MATCH "[0-9]+" SVE_VECTOR_BITS ${ARROW_SIMD_LEVEL})
+      if(SVE_VECTOR_BITS)
+        set(ARROW_HAVE_SVE${SVE_VECTOR_BITS} ON)
+        add_definitions(-DARROW_HAVE_SVE${SVE_VECTOR_BITS})
+        # -msve-vector-bits=256
+        set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -msve-vector-bits=${SVE_VECTOR_BITS}")
+      else()
+        set(ARROW_HAVE_SVE_SIZELESS ON)
+        add_definitions(-DARROW_HAVE_SVE_SIZELSS)
       endif()
     endif()
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
     message(WARNING "ARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} not supported by Arm.")
   endif()
@@ -546,8 +571,8 @@ if(NOT WIN32 AND NOT APPLE)
                     OUTPUT_VARIABLE GOLD_LOCATION
                     OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
     if("${GOLD_LOCATION}" MATCHES "^/opt/rh/devtoolset")
-      message("Skipping optional gold linker (version ${GOLD_VERSION}) because "
-              "it's in devtoolset")
+      message(STATUS "Skipping optional gold linker (version ${GOLD_VERSION}) because "
+                     "it's in devtoolset")
       set(GOLD_VERSION)
     endif()
   endif()
@@ -569,7 +594,7 @@ if(NOT WIN32 AND NOT APPLE)
       set(ARROW_BUGGY_GOLD 1)
     endif()
     if(MUST_USE_GOLD)
-      message("Using hard-wired gold linker (version ${GOLD_VERSION})")
+      message(STATUS "Using hard-wired gold linker (version ${GOLD_VERSION})")
       if(ARROW_BUGGY_GOLD)
         if("${ARROW_LINK}" STREQUAL "d" AND "${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
           message(SEND_ERROR "Configured to use buggy gold with dynamic linking "
@@ -580,12 +605,12 @@ if(NOT WIN32 AND NOT APPLE)
       # The Gold linker must be manually enabled.
       set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fuse-ld=gold")
       set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=gold")
-      message("Using optional gold linker (version ${GOLD_VERSION})")
+      message(STATUS "Using optional gold linker (version ${GOLD_VERSION})")
     else()
-      message("Optional gold linker is buggy, using ld linker instead")
+      message(STATUS "Optional gold linker is buggy, using ld linker instead")
     endif()
   else()
-    message("Using ld linker")
+    message(STATUS "Using ld linker")
   endif()
 endif()
 
@@ -593,57 +618,60 @@ endif()
 # For all builds:
 # For CMAKE_BUILD_TYPE=Debug
 #   -ggdb: Enable gdb debugging
-# For CMAKE_BUILD_TYPE=FastDebug
-#   Same as DEBUG, except with some optimizations on.
 # For CMAKE_BUILD_TYPE=Release
-#   -O3: Enable all compiler optimizations
-#   Debug symbols are stripped for reduced binary size. Add
-#   -DARROW_CXXFLAGS="-g" to add them
+#   -O2 (not -O3): Enable compiler optimizations
+#   Debug symbols are stripped for reduced binary size.
+# For CMAKE_BUILD_TYPE=RelWithDebInfo
+#   Same as Release, except with debug symbols enabled.
+
 if(NOT MSVC)
-  if(ARROW_GGDB_DEBUG)
-    set(ARROW_DEBUG_SYMBOL_TYPE "gdb")
-    set(C_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-    set(C_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-    set(CXX_FLAGS_DEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O0")
-    set(CXX_FLAGS_FASTDEBUG "-g${ARROW_DEBUG_SYMBOL_TYPE} -O1")
-  else()
-    set(C_FLAGS_DEBUG "-g -O0")
-    set(C_FLAGS_FASTDEBUG "-g -O1")
-    set(CXX_FLAGS_DEBUG "-g -O0")
-    set(CXX_FLAGS_FASTDEBUG "-g -O1")
+  set(C_RELEASE_FLAGS "")
+  if(CMAKE_C_FLAGS_RELEASE MATCHES "-O3")
+    string(APPEND C_RELEASE_FLAGS " -O2")
+  endif()
+  set(CXX_RELEASE_FLAGS "")
+  if(CMAKE_CXX_FLAGS_RELEASE MATCHES "-O3")
+    string(APPEND CXX_RELEASE_FLAGS " -O2")
+  endif()
+  set(C_RELWITHDEBINFO_FLAGS "")
+  if(CMAKE_C_FLAGS_RELWITHDEBINFO MATCHES "-O3")
+    string(APPEND C_RELWITHDEBINFO_FLAGS " -O2")
+  endif()
+  set(CXX_RELWITHDEBINFO_FLAGS "")
+  if(CMAKE_CXX_FLAGS_RELWITHDEBINFO MATCHES "-O3")
+    string(APPEND CXX_RELWITHDEBINFO_FLAGS " -O2")
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    string(APPEND C_RELEASE_FLAGS " -ftree-vectorize")
+    string(APPEND CXX_RELEASE_FLAGS " -ftree-vectorize")
+    string(APPEND C_RELWITHDEBINFO_FLAGS " -ftree-vectorize")
+    string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ftree-vectorize")
+  endif()
+  set(C_DEBUG_FLAGS "")
+  set(CXX_DEBUG_FLAGS "")
+  if(NOT MSVC)
+    if(NOT CMAKE_C_FLAGS_DEBUG MATCHES "-O")
+      string(APPEND C_DEBUG_FLAGS " -O0")
+    endif()
+    if(NOT CMAKE_CXX_FLAGS_DEBUG MATCHES "-O")
+      string(APPEND CXX_DEBUG_FLAGS " -O0")
+    endif()
+    if(ARROW_GGDB_DEBUG)
+      string(APPEND C_DEBUG_FLAGS " -ggdb")
+      string(APPEND CXX_DEBUG_FLAGS " -ggdb")
+      string(APPEND C_RELWITHDEBINFO_FLAGS " -ggdb")
+      string(APPEND CXX_RELWITHDEBINFO_FLAGS " -ggdb")
+    endif()
   endif()
 
-  set(C_FLAGS_RELEASE "-O3 -DNDEBUG")
-  set(CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
-endif()
-
-set(C_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
-set(C_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
-set(CXX_FLAGS_PROFILE_GEN "${CXX_FLAGS_RELEASE} -fprofile-generate")
-set(CXX_FLAGS_PROFILE_BUILD "${CXX_FLAGS_RELEASE} -fprofile-use")
-
-# Set compile flags based on the build type.
-message("Configured for ${CMAKE_BUILD_TYPE} build (set with cmake -DCMAKE_BUILD_TYPE={release,debug,...})"
-)
-if("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_DEBUG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_DEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELWITHDEBINFO")
-
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "FASTDEBUG")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_FASTDEBUG}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_FASTDEBUG}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_RELEASE}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_RELEASE}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_GEN")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_GEN}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_GEN}")
-elseif("${CMAKE_BUILD_TYPE}" STREQUAL "PROFILE_BUILD")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${C_FLAGS_PROFILE_BUILD}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_FLAGS_PROFILE_BUILD}")
-else()
-  message(FATAL_ERROR "Unknown build type: ${CMAKE_BUILD_TYPE}")
+  string(APPEND CMAKE_C_FLAGS_RELEASE "${C_RELEASE_FLAGS} ${ARROW_C_FLAGS_RELEASE}")
+  string(APPEND CMAKE_CXX_FLAGS_RELEASE "${CXX_RELEASE_FLAGS} ${ARROW_CXX_FLAGS_RELEASE}")
+  string(APPEND CMAKE_C_FLAGS_DEBUG "${C_DEBUG_FLAGS} ${ARROW_C_FLAGS_DEBUG}")
+  string(APPEND CMAKE_CXX_FLAGS_DEBUG "${CXX_DEBUG_FLAGS} ${ARROW_CXX_FLAGS_DEBUG}")
+  string(APPEND CMAKE_C_FLAGS_RELWITHDEBINFO
+         "${C_RELWITHDEBINFO_FLAGS} ${ARROW_C_FLAGS_RELWITHDEBINFO}")
+  string(APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO
+         "${CXX_RELWITHDEBINFO_FLAGS} ${ARROW_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")

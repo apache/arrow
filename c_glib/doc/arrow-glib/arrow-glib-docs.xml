@@ -54,6 +54,7 @@
     <chapter id="value">
       <title>Value</title>
       <xi:include href="xml/decimal.xml"/>
+      <xi:include href="xml/interval.xml"/>
     </chapter>
     <chapter id="scalar">
       <title>Scalar</title>
@@ -164,6 +165,14 @@
     </chapter>
   </part>
 
+  <part id="memory">
+    <title>Memory</title>
+    <chapter id="memory-pool">
+      <title>Memory pool</title>
+      <xi:include href="xml/memory-pool.xml"><xi:fallback /></xi:include>
+    </chapter>
+  </part>
+
   <part id="misc">
     <title>Misc</title>
     <chapter id="version">
@@ -183,6 +192,30 @@
   <index id="deprecated-api-index" role="deprecated">
     <title>Index of deprecated API</title>
     <xi:include href="xml/api-index-deprecated.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-13-0-0" role="13.0.0">
+    <title>Index of new symbols in 13.0.0</title>
+    <xi:include href="xml/api-index-13.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-12-0-0" role="12.0.0">
+    <title>Index of new symbols in 12.0.0</title>
+    <xi:include href="xml/api-index-12.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-11-0-0" role="11.0.0">
+    <title>Index of new symbols in 11.0.0</title>
+    <xi:include href="xml/api-index-11.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-10-0-0" role="10.0.0">
+    <title>Index of new symbols in 10.0.0</title>
+    <xi:include href="xml/api-index-10.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-9-0-0" role="9.0.0">
+    <title>Index of new symbols in 9.0.0</title>
+    <xi:include href="xml/api-index-9.0.0.xml"><xi:fallback /></xi:include>
+  </index>
+  <index id="api-index-8-0-0" role="8.0.0">
+    <title>Index of new symbols in 8.0.0</title>
+    <xi:include href="xml/api-index-8.0.0.xml"><xi:fallback /></xi:include>
   </index>
   <index id="api-index-7-0-0" role="7.0.0">
     <title>Index of new symbols in 7.0.0</title>

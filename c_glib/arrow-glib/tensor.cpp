@@ -162,7 +162,7 @@ garrow_tensor_class_init(GArrowTensorClass *klass)
  * @n_strides: The number of strides.
  * @dimension_names: (array length=n_dimension_names) (nullable): A list of
  *   dimension names.
- * @n_dimension_names: The number of dimension names
+ * @n_dimension_names: A list of dimension names
  *
  * Returns: The newly created #GArrowTensor.
  *

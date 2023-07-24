@@ -20,6 +20,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -30,7 +31,6 @@
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/caching.h"
-#include "arrow/util/optional.h"
 
 namespace parquet {
 class ParquetFileReader;
@@ -66,7 +66,7 @@ constexpr char kParquetTypeName[] = "parquet";
 /// \brief A FileFormat implementation that reads from Parquet files
 class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
  public:
-  ParquetFileFormat() = default;
+  ParquetFileFormat();
 
   /// Convenience constructor which copies properties from a parquet::ReaderProperties.
   /// memory_pool will be ignored.
@@ -95,16 +95,11 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
-      const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& file) const override;
-
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
 
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 
@@ -121,11 +116,19 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
       std::shared_ptr<Schema> physical_schema, std::vector<int> row_groups);
 
   /// \brief Return a FileReader on the given source.
-  Result<std::unique_ptr<parquet::arrow::FileReader>> GetReader(
-      const FileSource& source, ScanOptions* = NULLPTR) const;
+  Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
+
+  Result<std::shared_ptr<parquet::arrow::FileReader>> GetReader(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<parquet::FileMetaData>& metadata) const;
 
   Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
       const FileSource& source, const std::shared_ptr<ScanOptions>& options) const;
+
+  Future<std::shared_ptr<parquet::arrow::FileReader>> GetReaderAsync(
+      const FileSource& source, const std::shared_ptr<ScanOptions>& options,
+      const std::shared_ptr<parquet::FileMetaData>& metadata) const;
 
   Result<std::shared_ptr<FileWriter>> MakeWriter(
       std::shared_ptr<io::OutputStream> destination, std::shared_ptr<Schema> schema,
@@ -168,11 +171,14 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<std::shared_ptr<Fragment>> Subset(compute::Expression predicate);
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
+  static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
+      const Field& field, const parquet::Statistics& statistics);
+
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
                       compute::Expression partition_expression,
                       std::shared_ptr<Schema> physical_schema,
-                      util::optional<std::vector<int>> row_groups);
+                      std::optional<std::vector<int>> row_groups);
 
   Status SetMetadata(std::shared_ptr<parquet::FileMetaData> metadata,
                      std::shared_ptr<parquet::arrow::SchemaManifest> manifest);
@@ -190,13 +196,13 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   /// Try to count rows matching the predicate using metadata. Expects
   /// metadata to be present, and expects the predicate to have been
   /// simplified against the partition expression already.
-  Result<util::optional<int64_t>> TryCountRows(compute::Expression predicate);
+  Result<std::optional<int64_t>> TryCountRows(compute::Expression predicate);
 
   ParquetFileFormat& parquet_format_;
 
   /// Indices of row groups selected by this fragment,
-  /// or util::nullopt if all row groups are selected.
-  util::optional<std::vector<int>> row_groups_;
+  /// or std::nullopt if all row groups are selected.
+  std::optional<std::vector<int>> row_groups_;
 
   std::vector<compute::Expression> statistics_expressions_;
   std::vector<bool> statistics_expressions_complete_;
@@ -217,16 +223,9 @@ class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
   /// ScanOptions.
   std::shared_ptr<parquet::ReaderProperties> reader_properties;
   /// Arrow reader properties. Not all properties are respected: batch_size comes from
-  /// ScanOptions, and use_threads will be overridden based on
-  /// enable_parallel_column_conversion. Additionally, dictionary columns come from
+  /// ScanOptions. Additionally, dictionary columns come from
   /// ParquetFileFormat::ReaderOptions::dict_columns.
   std::shared_ptr<parquet::ArrowReaderProperties> arrow_reader_properties;
-  /// EXPERIMENTAL: Parallelize conversion across columns. This option is ignored if a
-  /// scan is already parallelized across input files to avoid thread contention. This
-  /// option will be removed after support is added for simultaneous parallelization
-  /// across files and columns. Only affects the threaded reader; the async reader
-  /// will parallelize across columns if use_threads is enabled.
-  bool enable_parallel_column_conversion = false;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
@@ -238,7 +237,8 @@ class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {
   std::shared_ptr<parquet::ArrowWriterProperties> arrow_writer_properties;
 
  protected:
-  using FileWriteOptions::FileWriteOptions;
+  explicit ParquetFileWriteOptions(std::shared_ptr<FileFormat> format)
+      : FileWriteOptions(std::move(format)) {}
 
   friend class ParquetFileFormat;
 };
@@ -257,7 +257,7 @@ class ARROW_DS_EXPORT ParquetFileWriter : public FileWriter {
                     std::shared_ptr<ParquetFileWriteOptions> options,
                     fs::FileLocator destination_locator);
 
-  Status FinishInternal() override;
+  Future<> FinishInternal() override;
 
   std::shared_ptr<parquet::arrow::FileWriter> parquet_writer_;
 

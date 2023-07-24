@@ -19,13 +19,14 @@ package array_test
 import (
 	"fmt"
 	"math"
+	"sort"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/float16"
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/float16"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,7 +38,7 @@ func TestArrayEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArrayEqual(arr, arr) {
+					if !array.Equal(arr, arr) {
 						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
 					}
 					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
@@ -46,7 +47,7 @@ func TestArrayEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayEqual(sub1, sub2) && name != "nulls" {
+					if array.Equal(sub1, sub2) && name != "nulls" {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -63,7 +64,7 @@ func TestArraySliceEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArraySliceEqual(
+					if !array.SliceEqual(
 						arr, 0, int64(arr.Len()),
 						arr, 0, int64(arr.Len()),
 					) {
@@ -75,7 +76,7 @@ func TestArraySliceEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArraySliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
+					if array.SliceEqual(sub1, 0, int64(sub1.Len()), sub2, 0, int64(sub2.Len())) && name != "nulls" {
 						t.Fatalf("non-identical slices should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -92,7 +93,7 @@ func TestArrayApproxEqual(t *testing.T) {
 			for i, col := range rec.Columns() {
 				t.Run(schema.Field(i).Name, func(t *testing.T) {
 					arr := col
-					if !array.ArrayApproxEqual(arr, arr) {
+					if !array.ApproxEqual(arr, arr) {
 						t.Fatalf("identical arrays should compare equal:\narray=%v", arr)
 					}
 					sub1 := array.NewSlice(arr, 1, int64(arr.Len()))
@@ -101,7 +102,7 @@ func TestArrayApproxEqual(t *testing.T) {
 					sub2 := array.NewSlice(arr, 0, int64(arr.Len()-1))
 					defer sub2.Release()
 
-					if array.ArrayApproxEqual(sub1, sub2) && name != "nulls" {
+					if array.ApproxEqual(sub1, sub2) && name != "nulls" {
 						t.Fatalf("non-identical arrays should not compare equal:\nsub1=%v\nsub2=%v\narrf=%v\n", sub1, sub2, arr)
 					}
 				})
@@ -295,14 +296,129 @@ func TestArrayApproxEqualFloats(t *testing.T) {
 			a2 := arrayOf(mem, tc.a2, nil)
 			defer a2.Release()
 
-			if got, want := array.ArrayApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
+			if got, want := array.ApproxEqual(a1, a2, tc.opts...), tc.want; got != want {
 				t.Fatalf("invalid comparison: got=%v, want=%v\na1: %v\na2: %v\n", got, want, a1, a2)
 			}
 		})
 	}
 }
 
-func arrayOf(mem memory.Allocator, a interface{}, valids []bool) array.Interface {
+func testStringMap(mem memory.Allocator, m map[string]string, keys []string) *array.Map {
+	dt := arrow.MapOf(arrow.BinaryTypes.String, arrow.BinaryTypes.String)
+	builder := array.NewMapBuilderWithType(mem, dt)
+	defer builder.Release()
+	key, item := builder.KeyBuilder().(*array.StringBuilder), builder.ItemBuilder().(*array.StringBuilder)
+
+	builder.AppendNull()
+	builder.Append(true)
+
+	for _, k := range keys {
+		key.Append(k)
+
+		v, ok := m[k]
+		if !ok {
+			item.AppendNull()
+			continue
+		}
+
+		item.Append(v)
+	}
+
+	return builder.NewMapArray()
+}
+
+func TestArrayApproxEqualMaps(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	t.Run("different order", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z"}
+
+		keys := []string{"z", "y", "x", "null"}
+		a := testStringMap(mem, m, keys)
+		defer a.Release()
+
+		asc := make([]string, len(keys))
+		copy(asc, keys)
+		sort.Strings(asc)
+		assert.NotEqual(t, keys, asc)
+
+		b := testStringMap(mem, m, asc)
+		defer b.Release()
+
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.True(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+
+	t.Run("extra left value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra"}
+
+		aKeys := []string{"z", "y", "x", "extra"}
+		a := testStringMap(mem, m, aKeys)
+		defer a.Release()
+
+		bKeys := []string{"z", "y", "x"}
+		b := testStringMap(mem, m, bKeys)
+		defer b.Release()
+
+		assert.NotEqual(t, aKeys, bKeys)
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+
+	t.Run("extra right value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra"}
+
+		aKeys := []string{"z", "y", "x"}
+		a := testStringMap(mem, m, aKeys)
+		defer a.Release()
+
+		bKeys := []string{"z", "y", "x", "extra"}
+		b := testStringMap(mem, m, bKeys)
+		defer b.Release()
+
+		assert.NotEqual(t, aKeys, bKeys)
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+
+	t.Run("unmatched value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra", "extra2": "extra"}
+
+		aKeys := []string{"z", "y", "x", "extra"}
+		a := testStringMap(mem, m, aKeys)
+		defer a.Release()
+
+		bKeys := []string{"z", "y", "x", "extra2"}
+		b := testStringMap(mem, m, bKeys)
+		defer b.Release()
+
+		assert.NotEqual(t, aKeys, bKeys)
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+
+	t.Run("different value", func(t *testing.T) {
+		m := map[string]string{"x": "x", "y": "y", "z": "z", "extra": "extra"}
+
+		keys := []string{"z", "y", "x", "extra"}
+		a := testStringMap(mem, m, keys)
+		defer a.Release()
+
+		m["extra"] = "different"
+		b := testStringMap(mem, m, keys)
+		defer b.Release()
+
+		assert.Equal(t, a.NullN(), b.NullN())
+		assert.False(t, array.ApproxEqual(a, b))
+		assert.False(t, array.ApproxEqual(a, b, array.WithUnorderedMapKeys(true)))
+	})
+}
+
+func arrayOf(mem memory.Allocator, a interface{}, valids []bool) arrow.Array {
 	if mem == nil {
 		mem = memory.NewGoAllocator()
 	}
@@ -349,7 +465,7 @@ func TestArrayEqualBaseArray(t *testing.T) {
 	a2 := b2.NewBooleanArray()
 	defer a2.Release()
 
-	if array.ArrayEqual(a1, a2) {
+	if array.Equal(a1, a2) {
 		t.Errorf("two arrays with different lengths must not be equal")
 	}
 
@@ -359,7 +475,7 @@ func TestArrayEqualBaseArray(t *testing.T) {
 	a3 := b3.NewBooleanArray()
 	defer a3.Release()
 
-	if array.ArrayEqual(a1, a3) {
+	if array.Equal(a1, a3) {
 		t.Errorf("two arrays with different number of null values must not be equal")
 	}
 
@@ -369,7 +485,7 @@ func TestArrayEqualBaseArray(t *testing.T) {
 	a4 := b4.NewInt32Array()
 	defer a4.Release()
 
-	if array.ArrayEqual(a1, a4) {
+	if array.Equal(a1, a4) {
 		t.Errorf("two arrays with different types must not be equal")
 	}
 
@@ -381,7 +497,7 @@ func TestArrayEqualBaseArray(t *testing.T) {
 	defer a5.Release()
 	b1.AppendNull()
 
-	if array.ArrayEqual(a1, a5) {
+	if array.Equal(a1, a5) {
 		t.Errorf("two arrays with different validity bitmaps must not be equal")
 	}
 }
@@ -393,7 +509,7 @@ func TestArrayEqualNull(t *testing.T) {
 	null := array.NewNull(0)
 	defer null.Release()
 
-	if !array.ArrayEqual(null, null) {
+	if !array.Equal(null, null) {
 		t.Fatalf("identical arrays should compare equal")
 	}
 
@@ -403,13 +519,13 @@ func TestArrayEqualNull(t *testing.T) {
 	n1 := array.NewNull(10)
 	defer n1.Release()
 
-	if !array.ArrayEqual(n0, n0) {
+	if !array.Equal(n0, n0) {
 		t.Fatalf("identical arrays should compare equal")
 	}
-	if !array.ArrayEqual(n1, n1) {
+	if !array.Equal(n1, n1) {
 		t.Fatalf("identical arrays should compare equal")
 	}
-	if !array.ArrayEqual(n0, n1) || !array.ArrayEqual(n1, n0) {
+	if !array.Equal(n0, n1) || !array.Equal(n1, n0) {
 		t.Fatalf("n0 and n1 should compare equal")
 	}
 
@@ -420,11 +536,11 @@ func TestArrayEqualNull(t *testing.T) {
 	sub19 := array.NewSlice(n0, 1, 9)
 	defer sub19.Release()
 
-	if !array.ArrayEqual(sub08, sub19) {
+	if !array.Equal(sub08, sub19) {
 		t.Fatalf("sub08 and sub19 should compare equal")
 	}
 
-	if array.ArrayEqual(sub08, sub07) {
+	if array.Equal(sub08, sub07) {
 		t.Fatalf("sub08 and sub07 should not compare equal")
 	}
 }
@@ -446,11 +562,11 @@ func TestArrayEqualMaskedArray(t *testing.T) {
 	a2 := ab.NewInt32Array()
 	defer a2.Release()
 
-	if !array.ArrayEqual(a1, a1) || !array.ArrayEqual(a2, a2) {
+	if !array.Equal(a1, a1) || !array.Equal(a2, a2) {
 		t.Errorf("an array must be equal to itself")
 	}
 
-	if !array.ArrayEqual(a1, a2) {
+	if !array.Equal(a1, a2) {
 		t.Errorf("%v must be equal to %v", a1, a2)
 	}
 }
@@ -473,11 +589,11 @@ func TestArrayEqualDifferentMaskedValues(t *testing.T) {
 	a2 := ab.NewInt32Array()
 	defer a2.Release()
 
-	if !array.ArrayEqual(a1, a1) || !array.ArrayEqual(a2, a2) {
+	if !array.Equal(a1, a1) || !array.Equal(a2, a2) {
 		t.Errorf("an array must be equal to itself")
 	}
 
-	if !array.ArrayEqual(a1, a2) {
+	if !array.Equal(a1, a2) {
 		t.Errorf("%v must be equal to %v", a1, a2)
 	}
 }
@@ -563,9 +679,9 @@ func TestChunkedApproxEqual(t *testing.T) {
 	f3 := fb.NewFloat64Array()
 	defer f3.Release()
 
-	c1 := array.NewChunked(
+	c1 := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f1, f2, f3},
+		[]arrow.Array{f1, f2, f3},
 	)
 	defer c1.Release()
 
@@ -585,9 +701,9 @@ func TestChunkedApproxEqual(t *testing.T) {
 	f7 := fb.NewFloat64Array()
 	defer f7.Release()
 
-	c2 := array.NewChunked(
+	c2 := arrow.NewChunked(
 		arrow.PrimitiveTypes.Float64,
-		[]array.Interface{f4, f5, f6, f7},
+		[]arrow.Array{f4, f5, f6, f7},
 	)
 	defer c2.Release()
 

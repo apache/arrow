@@ -52,6 +52,20 @@ GARROW_AVAILABLE_IN_5_0
 GAFlightCallOptions *
 gaflight_call_options_new(void);
 
+GARROW_AVAILABLE_IN_9_0
+void
+gaflight_call_options_add_header(GAFlightCallOptions *options,
+                                 const gchar *name,
+                                 const gchar *value);
+GARROW_AVAILABLE_IN_9_0
+void
+gaflight_call_options_clear_headers(GAFlightCallOptions *options);
+GARROW_AVAILABLE_IN_9_0
+void
+gaflight_call_options_foreach_header(GAFlightCallOptions *options,
+                                     GAFlightHeaderFunc func,
+                                     gpointer user_data);
+
 
 #define GAFLIGHT_TYPE_CLIENT_OPTIONS (gaflight_client_options_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightClientOptions,
@@ -86,12 +100,34 @@ gaflight_client_new(GAFlightLocation *location,
                     GAFlightClientOptions *options,
                     GError **error);
 
+GARROW_AVAILABLE_IN_8_0
+gboolean
+gaflight_client_close(GAFlightClient *client,
+                      GError **error);
+
+GARROW_AVAILABLE_IN_12_0
+gboolean
+gaflight_client_authenticate_basic_token(GAFlightClient *client,
+                                         const gchar *user,
+                                         const gchar *password,
+                                         GAFlightCallOptions *options,
+                                         gchar **bearer_name,
+                                         gchar **bearer_value,
+                                         GError **error);
+
 GARROW_AVAILABLE_IN_5_0
 GList *
 gaflight_client_list_flights(GAFlightClient *client,
                              GAFlightCriteria *criteria,
                              GAFlightCallOptions *options,
                              GError **error);
+
+GARROW_AVAILABLE_IN_9_0
+GAFlightInfo *
+gaflight_client_get_flight_info(GAFlightClient *client,
+                                GAFlightDescriptor *descriptor,
+                                GAFlightCallOptions *options,
+                                GError **error);
 
 GARROW_AVAILABLE_IN_6_0
 GAFlightStreamReader *

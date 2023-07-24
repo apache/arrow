@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 import com.google.flatbuffers.FlatBufferBuilder;
 
 /**
- * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/IPC.html).
+ * POJO representation of a RecordBatch IPC message (https://arrow.apache.org/docs/format/Columnar.html#recordbatch-message).
  */
 public class ArrowRecordBatch implements ArrowMessage {
 
@@ -76,10 +76,28 @@ public class ArrowRecordBatch implements ArrowMessage {
    * @param nodes   field level info
    * @param buffers will be retained until this recordBatch is closed
    * @param bodyCompression compression info.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
    */
   public ArrowRecordBatch(
       int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
       ArrowBodyCompression bodyCompression, boolean alignBuffers) {
+    this(length, nodes, buffers, bodyCompression, alignBuffers, /*retainBuffers*/ true);
+  }
+
+  /**
+   * Construct a record batch from nodes.
+   *
+   * @param length  how many rows in this batch
+   * @param nodes   field level info
+   * @param buffers will be retained until this recordBatch is closed
+   * @param bodyCompression compression info.
+   * @param alignBuffers Whether to align buffers to an 8 byte boundary.
+   * @param retainBuffers Whether to retain() each source buffer in the constructor. If false, the caller is
+   *                      responsible for retaining the buffers beforehand.
+   */
+  public ArrowRecordBatch(
+      int length, List<ArrowFieldNode> nodes, List<ArrowBuf> buffers,
+      ArrowBodyCompression bodyCompression, boolean alignBuffers, boolean retainBuffers) {
     super();
     this.length = length;
     this.nodes = nodes;
@@ -89,7 +107,9 @@ public class ArrowRecordBatch implements ArrowMessage {
     List<ArrowBuffer> arrowBuffers = new ArrayList<>(buffers.size());
     long offset = 0;
     for (ArrowBuf arrowBuf : buffers) {
-      arrowBuf.getReferenceManager().retain();
+      if (retainBuffers) {
+        arrowBuf.getReferenceManager().retain();
+      }
       long size = arrowBuf.readableBytes();
       arrowBuffers.add(new ArrowBuffer(offset, size));
       if (LOGGER.isDebugEnabled()) {

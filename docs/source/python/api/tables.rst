@@ -44,6 +44,15 @@ Classes
    RecordBatch
    Table
    TableGroupBy
+   RecordBatchReader
+
+Dataframe Interchange Protocol
+------------------------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   interchange.from_dataframe
 
 .. _api.tensor:
 

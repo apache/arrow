@@ -84,6 +84,13 @@ class Bridge:
             ptr_array), self.java_c.ArrowSchema.wrap(ptr_schema))
         return pa.RecordBatch._import_from_c(ptr_array, ptr_schema)
 
+    def java_to_python_reader(self, reader):
+        c_stream = ffi.new("struct ArrowArrayStream*")
+        ptr_stream = int(ffi.cast("uintptr_t", c_stream))
+        self.java_c.Data.exportArrayStream(self.java_allocator, reader,
+                                           self.java_c.ArrowArrayStream.wrap(ptr_stream))
+        return pa.RecordBatchReader._import_from_c(ptr_stream)
+
     def python_to_java_field(self, field):
         c_schema = self.java_c.ArrowSchema.allocateNew(self.java_allocator)
         field._export_to_c(c_schema.memoryAddress())
@@ -101,6 +108,11 @@ class Bridge:
         record_batch._export_to_c(
             c_array.memoryAddress(), c_schema.memoryAddress())
         return self.java_c.Data.importVectorSchemaRoot(self.java_allocator, c_array, c_schema, None)
+
+    def python_to_java_reader(self, reader):
+        c_stream = self.java_c.ArrowArrayStream.allocateNew(self.java_allocator)
+        reader._export_to_c(c_stream.memoryAddress())
+        return self.java_c.Data.importArrayStream(self.java_allocator, c_stream)
 
     def close(self):
         self.java_allocator.close()
@@ -130,7 +142,7 @@ class TestPythonIntegration(unittest.TestCase):
         expected = field_generator()
         self.assertEqual(expected, new_field)
 
-    def round_trip_array(self, array_generator, expected_diff=None):
+    def round_trip_array(self, array_generator, check_metadata=True):
         original_arr = array_generator()
         with self.bridge.java_c.CDataDictionaryProvider() as dictionary_provider, \
                 self.bridge.python_to_java_array(original_arr, dictionary_provider) as vector:
@@ -138,9 +150,10 @@ class TestPythonIntegration(unittest.TestCase):
             new_array = self.bridge.java_to_python_array(vector, dictionary_provider)
 
         expected = array_generator()
-        if expected_diff:
-            self.assertEqual(expected, new_array.view(expected.type))
-        self.assertEqual(expected.diff(new_array), expected_diff or '')
+
+        self.assertEqual(expected, new_array)
+        if check_metadata:
+            self.assertTrue(new_array.type.equals(expected.type, check_metadata=True))
 
     def round_trip_record_batch(self, rb_generator):
         original_rb = rb_generator()
@@ -150,6 +163,17 @@ class TestPythonIntegration(unittest.TestCase):
 
         expected = rb_generator()
         self.assertEqual(expected, new_rb)
+
+    def round_trip_reader(self, schema, batches):
+        reader = pa.RecordBatchReader.from_batches(schema, batches)
+
+        java_reader = self.bridge.python_to_java_reader(reader)
+        del reader
+        py_reader = self.bridge.java_to_python_reader(java_reader)
+        del java_reader
+
+        actual = list(py_reader)
+        self.assertEqual(batches, actual)
 
     def test_string_array(self):
         self.round_trip_array(lambda: pa.array([None, "a", "bb", "ccc"]))
@@ -168,7 +192,10 @@ class TestPythonIntegration(unittest.TestCase):
     def test_list_array(self):
         self.round_trip_array(lambda: pa.array(
             [[], [0], [1, 2], [4, 5, 6]], pa.list_(pa.int64())
-        ), "# Array types differed: list<item: int64> vs list<$data$: int64>\n")
+            # disabled check_metadata since the list internal field name ("item")
+            # is not preserved during round trips (it becomes "$data$").
+        ), check_metadata=False)
+        
 
     def test_struct_array(self):
         fields = [
@@ -216,6 +243,34 @@ class TestPythonIntegration(unittest.TestCase):
         ]
         self.round_trip_record_batch(
             lambda: pa.RecordBatch.from_arrays(data, ['f0', 'f1', 'f2', 'f3']))
+
+    def test_reader_roundtrip(self):
+        schema = pa.schema([("ints", pa.int64()), ("strs", pa.string())])
+        data = [
+            pa.record_batch([[1, 2, 3, None],
+                             ["a", "bc", None, ""]],
+                            schema=schema),
+            pa.record_batch([[None, 4, 5, 6],
+                             [None, "", "def", "g"]],
+                            schema=schema),
+        ]
+        self.round_trip_reader(schema, data)
+
+    def test_reader_complex_roundtrip(self):
+        schema = pa.schema([
+            ("str_dict", pa.dictionary(pa.int8(), pa.string())),
+            ("int_list", pa.list_(pa.int64())),
+        ])
+        dictionary = pa.array(["a", "bc", None])
+        data = [
+            pa.record_batch([pa.DictionaryArray.from_arrays([0, 2], dictionary),
+                             [[1, 2, 3], None]],
+                            schema=schema),
+            pa.record_batch([pa.DictionaryArray.from_arrays([None, 1], dictionary),
+                             [[], [4]]],
+                            schema=schema),
+        ]
+        self.round_trip_reader(schema, data)
 
 
 if __name__ == '__main__':

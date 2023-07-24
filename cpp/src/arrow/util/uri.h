@@ -20,11 +20,11 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -38,12 +38,15 @@ class ARROW_EXPORT Uri {
   Uri(Uri&&);
   Uri& operator=(Uri&&);
 
-  // XXX Should we use util::string_view instead?  These functions are
+  // XXX Should we use std::string_view instead?  These functions are
   // not performance-critical.
 
   /// The URI scheme, such as "http", or the empty string if the URI has no
   /// explicit scheme.
   std::string scheme() const;
+
+  /// Convenience function that returns true if the scheme() is "file"
+  bool is_file_scheme() const;
 
   /// Whether the URI has an explicit host name.  This may return true if
   /// the URI has an empty host (e.g. "file:///tmp/foo"), while it returns
@@ -89,20 +92,27 @@ class ARROW_EXPORT Uri {
 };
 
 /// Percent-encode the input string, for use e.g. as a URI query parameter.
+///
+/// This will escape directory separators, making this function unsuitable
+/// for encoding URI paths directly. See UriFromAbsolutePath() instead.
 ARROW_EXPORT
-std::string UriEscape(const std::string& s);
+std::string UriEscape(std::string_view s);
 
 ARROW_EXPORT
-std::string UriUnescape(const arrow::util::string_view s);
+std::string UriUnescape(std::string_view s);
 
 /// Encode a host for use within a URI, such as "localhost",
 /// "127.0.0.1", or "[::1]".
 ARROW_EXPORT
-std::string UriEncodeHost(const std::string& host);
+std::string UriEncodeHost(std::string_view host);
 
 /// Whether the string is a syntactically valid URI scheme according to RFC 3986.
 ARROW_EXPORT
-bool IsValidUriScheme(const arrow::util::string_view s);
+bool IsValidUriScheme(std::string_view s);
+
+/// Create a file uri from a given absolute path
+ARROW_EXPORT
+Result<std::string> UriFromAbsolutePath(std::string_view path);
 
 }  // namespace internal
 }  // namespace arrow

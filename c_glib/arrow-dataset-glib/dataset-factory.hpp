@@ -23,5 +23,10 @@
 
 #include <arrow-dataset-glib/dataset-factory.h>
 
+GADatasetFinishOptions *
+gadataset_finish_options_new_raw(arrow::dataset::FinishOptions *arrow_options);
+arrow::dataset::FinishOptions *
+gadataset_finish_options_get_raw(GADatasetFinishOptions *options);
+
 std::shared_ptr<arrow::dataset::DatasetFactory>
 gadataset_dataset_factory_get_raw(GADatasetDatasetFactory *factory);

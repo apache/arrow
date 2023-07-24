@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -37,8 +38,10 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/tracing_internal.h"
 #include "arrow/util/utf8.h"
 
 namespace arrow {
@@ -50,19 +53,108 @@ using internal::SerialExecutor;
 
 namespace dataset {
 
+struct CsvInspectedFragment : public InspectedFragment {
+  CsvInspectedFragment(std::vector<std::string> column_names,
+                       std::shared_ptr<io::InputStream> input_stream, int64_t num_bytes)
+      : InspectedFragment(std::move(column_names)),
+        input_stream(std::move(input_stream)),
+        num_bytes(num_bytes) {}
+  // We need to start reading the file in order to figure out the column names and
+  // so we save off the input stream
+  std::shared_ptr<io::InputStream> input_stream;
+  int64_t num_bytes;
+};
+
+class CsvFileScanner : public FragmentScanner {
+ public:
+  CsvFileScanner(std::shared_ptr<csv::StreamingReader> reader, int num_batches,
+                 int64_t best_guess_bytes_per_batch)
+      : reader_(std::move(reader)),
+        num_batches_(num_batches),
+        best_guess_bytes_per_batch_(best_guess_bytes_per_batch) {}
+
+  Future<std::shared_ptr<RecordBatch>> ScanBatch(int batch_number) override {
+    // This should be called in increasing order but let's verify that in case it changes.
+    // It would be easy enough to handle out of order but no need for that complexity at
+    // the moment.
+    DCHECK_EQ(scanned_so_far_++, batch_number);
+    return reader_->ReadNextAsync();
+  }
+
+  int64_t EstimatedDataBytes(int batch_number) override {
+    return best_guess_bytes_per_batch_;
+  }
+
+  int NumBatches() override { return num_batches_; }
+
+  static Result<csv::ConvertOptions> GetConvertOptions(
+      const CsvFragmentScanOptions& csv_options, const FragmentScanRequest& scan_request,
+      const CsvInspectedFragment& inspected_fragment) {
+    // We use the convert options given from the user but override which columns we are
+    // looking for.
+    auto convert_options = csv_options.convert_options;
+    std::vector<std::string> columns;
+    std::unordered_map<std::string, std::shared_ptr<DataType>> column_types;
+    for (const auto& scan_column : scan_request.fragment_selection->columns()) {
+      if (scan_column.path.indices().size() != 1) {
+        return Status::Invalid("CSV reader does not supported nested references");
+      }
+      const std::string& column_name =
+          inspected_fragment.column_names[scan_column.path.indices()[0]];
+      columns.push_back(column_name);
+      column_types[column_name] = scan_column.requested_type->GetSharedPtr();
+    }
+    convert_options.include_columns = std::move(columns);
+    convert_options.column_types = std::move(column_types);
+    return std::move(convert_options);
+  }
+
+  static Future<std::shared_ptr<FragmentScanner>> Make(
+      const CsvFragmentScanOptions& csv_options, const FragmentScanRequest& scan_request,
+      const CsvInspectedFragment& inspected_fragment, Executor* cpu_executor) {
+    auto read_options = csv_options.read_options;
+
+    int num_batches = static_cast<int>(bit_util::CeilDiv(
+        inspected_fragment.num_bytes, static_cast<int64_t>(read_options.block_size)));
+    // Could be better, but a reasonable starting point.  CSV presumably takes up more
+    // space than an in-memory format so this should be conservative.
+    int64_t best_guess_bytes_per_batch = read_options.block_size;
+    ARROW_ASSIGN_OR_RAISE(
+        csv::ConvertOptions convert_options,
+        GetConvertOptions(csv_options, scan_request, inspected_fragment));
+
+    return csv::StreamingReader::MakeAsync(
+               io::default_io_context(), inspected_fragment.input_stream, cpu_executor,
+               read_options, csv_options.parse_options, convert_options)
+        .Then([num_batches, best_guess_bytes_per_batch](
+                  const std::shared_ptr<csv::StreamingReader>& reader)
+                  -> std::shared_ptr<FragmentScanner> {
+          return std::make_shared<CsvFileScanner>(reader, num_batches,
+                                                  best_guess_bytes_per_batch);
+        });
+  }
+
+ private:
+  std::shared_ptr<csv::StreamingReader> reader_;
+  int num_batches_;
+  int64_t best_guess_bytes_per_batch_;
+
+  int scanned_so_far_ = 0;
+};
+
 using RecordBatchGenerator = std::function<Future<std::shared_ptr<RecordBatch>>()>;
 
-Result<std::unordered_set<std::string>> GetColumnNames(
+Result<std::vector<std::string>> GetOrderedColumnNames(
     const csv::ReadOptions& read_options, const csv::ParseOptions& parse_options,
-    util::string_view first_block, MemoryPool* pool) {
+    std::string_view first_block, MemoryPool* pool) {
+  // Skip BOM when reading column names (ARROW-14644, ARROW-17382)
+  auto size = first_block.length();
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(first_block.data());
+  ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
+  size = size - static_cast<uint32_t>(data_no_bom - data);
+  first_block = std::string_view(reinterpret_cast<const char*>(data_no_bom), size);
   if (!read_options.column_names.empty()) {
-    std::unordered_set<std::string> column_names;
-    for (const auto& s : read_options.column_names) {
-      if (!column_names.emplace(s).second) {
-        return Status::Invalid("CSV file contained multiple columns named ", s);
-      }
-    }
-    return column_names;
+    return read_options.column_names;
   }
 
   uint32_t parsed_size = 0;
@@ -70,7 +162,7 @@ Result<std::unordered_set<std::string>> GetColumnNames(
   csv::BlockParser parser(pool, parse_options, /*num_cols=*/-1, /*first_row=*/1,
                           max_num_rows);
 
-  RETURN_NOT_OK(parser.Parse(util::string_view{first_block}, &parsed_size));
+  RETURN_NOT_OK(parser.Parse(std::string_view{first_block}, &parsed_size));
 
   if (parser.num_rows() != max_num_rows) {
     return Status::Invalid("Could not read first ", max_num_rows,
@@ -82,27 +174,46 @@ Result<std::unordered_set<std::string>> GetColumnNames(
     return Status::Invalid("No columns in CSV file");
   }
 
-  std::unordered_set<std::string> column_names;
+  std::vector<std::string> column_names;
+
+  if (read_options.autogenerate_column_names) {
+    column_names.reserve(parser.num_cols());
+    for (int32_t i = 0; i < parser.num_cols(); ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      column_names.emplace_back(ss.str());
+    }
+    return column_names;
+  }
 
   RETURN_NOT_OK(
       parser.VisitLastRow([&](const uint8_t* data, uint32_t size, bool quoted) -> Status {
-        // Skip BOM when reading column names (ARROW-14644)
-        ARROW_ASSIGN_OR_RAISE(auto data_no_bom, util::SkipUTF8BOM(data, size));
-        size = size - static_cast<uint32_t>(data_no_bom - data);
-
-        util::string_view view{reinterpret_cast<const char*>(data_no_bom), size};
-        if (column_names.emplace(std::string(view)).second) {
-          return Status::OK();
-        }
-        return Status::Invalid("CSV file contained multiple columns named ", view);
+        std::string_view view{reinterpret_cast<const char*>(data), size};
+        column_names.emplace_back(view);
+        return Status::OK();
       }));
 
   return column_names;
 }
 
+Result<std::unordered_set<std::string>> GetColumnNames(
+    const csv::ReadOptions& read_options, const csv::ParseOptions& parse_options,
+    std::string_view first_block, MemoryPool* pool) {
+  ARROW_ASSIGN_OR_RAISE(
+      std::vector<std::string> ordered_names,
+      GetOrderedColumnNames(read_options, parse_options, first_block, pool));
+  std::unordered_set<std::string> unordered_names;
+  for (const auto& column : ordered_names) {
+    if (!unordered_names.emplace(column).second) {
+      return Status::Invalid("CSV file contained multiple columns named ", column);
+    }
+  }
+  return unordered_names;
+}
+
 static inline Result<csv::ConvertOptions> GetConvertOptions(
     const CsvFileFormat& format, const ScanOptions* scan_options,
-    const util::string_view first_block) {
+    const std::string_view first_block) {
   ARROW_ASSIGN_OR_RAISE(
       auto csv_scan_options,
       GetFragmentScanOptions<CsvFragmentScanOptions>(
@@ -116,9 +227,28 @@ static inline Result<csv::ConvertOptions> GetConvertOptions(
 
   if (!scan_options) return convert_options;
 
-  auto materialized = scan_options->MaterializedFields();
-  std::unordered_set<std::string> materialized_fields(materialized.begin(),
-                                                      materialized.end());
+  auto field_refs = scan_options->MaterializedFields();
+  std::unordered_set<std::string> materialized_fields;
+  materialized_fields.reserve(field_refs.size());
+  // Preprocess field refs. We try to avoid FieldRef::GetFoo here since that's
+  // quadratic (and this is significant overhead with 1000+ columns)
+  for (const auto& ref : field_refs) {
+    if (const std::string* name = ref.name()) {
+      // Common case
+      materialized_fields.emplace(*name);
+      continue;
+    }
+    // Currently CSV reader doesn't support reading any nested types, so this
+    // path shouldn't be hit. However, implement it in the same way as IPC/ORC:
+    // load the entire top-level field if a nested field is selected.
+    ARROW_ASSIGN_OR_RAISE(auto field, ref.GetOneOrNone(*scan_options->dataset_schema));
+    if (column_names.find(field->name()) == column_names.end()) continue;
+    // Only read the requested columns
+    convert_options.include_columns.push_back(field->name());
+    // Properly set conversion types
+    convert_options.column_types[field->name()] = field->type();
+  }
+
   for (auto field : scan_options->dataset_schema->fields()) {
     if (materialized_fields.find(field->name()) == materialized_fields.end()) continue;
     // Ignore virtual columns.
@@ -148,9 +278,20 @@ static inline Result<csv::ReadOptions> GetReadOptions(
 static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
     const FileSource& source, const CsvFileFormat& format,
     const std::shared_ptr<ScanOptions>& scan_options, Executor* cpu_executor) {
+#ifdef ARROW_WITH_OPENTELEMETRY
+  auto tracer = arrow::internal::tracing::GetTracer();
+  auto span = tracer->StartSpan("arrow::dataset::CsvFileFormat::OpenReaderAsync");
+#endif
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, scan_options.get(), format.default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto reader_options, GetReadOptions(format, scan_options));
-
   ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
+  const auto& path = source.path();
   ARROW_ASSIGN_OR_RAISE(
       input, io::BufferedInputStream::Create(reader_options.block_size,
                                              default_memory_pool(), std::move(input)));
@@ -171,11 +312,20 @@ static inline Future<std::shared_ptr<csv::StreamingReader>> OpenReaderAsync(
       }));
   return reader_fut.Then(
       // Adds the filename to the error
-      [](const std::shared_ptr<csv::StreamingReader>& reader)
-          -> Result<std::shared_ptr<csv::StreamingReader>> { return reader; },
-      [source](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
-        return err.WithMessage("Could not open CSV input source '", source.path(),
-                               "': ", err);
+      [=](const std::shared_ptr<csv::StreamingReader>& reader)
+          -> Result<std::shared_ptr<csv::StreamingReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+        span->SetStatus(opentelemetry::trace::StatusCode::kOk);
+        span->End();
+#endif
+        return reader;
+      },
+      [=](const Status& err) -> Result<std::shared_ptr<csv::StreamingReader>> {
+#ifdef ARROW_WITH_OPENTELEMETRY
+        arrow::internal::tracing::MarkSpan(err, span.get());
+        span->End();
+#endif
+        return err.WithMessage("Could not open CSV input source '", path, "': ", err);
       });
 }
 
@@ -198,41 +348,7 @@ static RecordBatchGenerator GeneratorFromReader(
   return MakeFromFuture(std::move(gen_fut));
 }
 
-/// \brief A ScanTask backed by an Csv file.
-class CsvScanTask : public ScanTask {
- public:
-  CsvScanTask(std::shared_ptr<const CsvFileFormat> format,
-              std::shared_ptr<ScanOptions> options,
-              std::shared_ptr<FileFragment> fragment)
-      : ScanTask(std::move(options), fragment),
-        format_(std::move(format)),
-        source_(fragment->source()) {}
-
-  Result<RecordBatchIterator> Execute() override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(),
-                                      ::arrow::internal::GetCpuThreadPool());
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return MakeGeneratorIterator(std::move(reader_gen));
-  }
-
-  Future<RecordBatchVector> SafeExecute(Executor* executor) override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return CollectAsyncGenerator(reader_gen);
-  }
-
-  Future<> SafeVisit(
-      Executor* executor,
-      std::function<Status(std::shared_ptr<RecordBatch>)> visitor) override {
-    auto reader_fut = OpenReaderAsync(source_, *format_, options(), executor);
-    auto reader_gen = GeneratorFromReader(std::move(reader_fut), options()->batch_size);
-    return VisitAsyncGenerator(reader_gen, visitor);
-  }
-
- private:
-  std::shared_ptr<const CsvFileFormat> format_;
-  FileSource source_;
-};
+CsvFileFormat::CsvFileFormat() : FileFormat(std::make_shared<CsvFragmentScanOptions>()) {}
 
 bool CsvFileFormat::Equals(const FileFormat& format) const {
   if (type_name() != format.type_name()) return false;
@@ -260,15 +376,6 @@ Result<std::shared_ptr<Schema>> CsvFileFormat::Inspect(const FileSource& source)
   return reader->schema();
 }
 
-Result<ScanTaskIterator> CsvFileFormat::ScanFile(
-    const std::shared_ptr<ScanOptions>& options,
-    const std::shared_ptr<FileFragment>& fragment) const {
-  auto this_ = checked_pointer_cast<const CsvFileFormat>(shared_from_this());
-  auto task = std::make_shared<CsvScanTask>(std::move(this_), options, fragment);
-
-  return MakeVectorIterator<std::shared_ptr<ScanTask>>({std::move(task)});
-}
-
 Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
     const std::shared_ptr<ScanOptions>& scan_options,
     const std::shared_ptr<FileFragment>& file) const {
@@ -276,22 +383,78 @@ Result<RecordBatchGenerator> CsvFileFormat::ScanBatchesAsync(
   auto source = file->source();
   auto reader_fut =
       OpenReaderAsync(source, *this, scan_options, ::arrow::internal::GetCpuThreadPool());
-  return GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
+  auto generator = GeneratorFromReader(std::move(reader_fut), scan_options->batch_size);
+  WRAP_ASYNC_GENERATOR_WITH_CHILD_SPAN(
+      generator, "arrow::dataset::CsvFileFormat::ScanBatchesAsync::Next");
+  return generator;
 }
 
-Future<util::optional<int64_t>> CsvFileFormat::CountRows(
+Future<std::optional<int64_t>> CsvFileFormat::CountRows(
     const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
     const std::shared_ptr<ScanOptions>& options) {
   if (ExpressionHasFieldRefs(predicate)) {
-    return Future<util::optional<int64_t>>::MakeFinished(util::nullopt);
+    return Future<std::optional<int64_t>>::MakeFinished(std::nullopt);
   }
   auto self = checked_pointer_cast<CsvFileFormat>(shared_from_this());
-  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  ARROW_ASSIGN_OR_RAISE(
+      auto fragment_scan_options,
+      GetFragmentScanOptions<CsvFragmentScanOptions>(
+          kCsvTypeName, options.get(), self->default_fragment_scan_options));
   ARROW_ASSIGN_OR_RAISE(auto read_options, GetReadOptions(*self, options));
+  ARROW_ASSIGN_OR_RAISE(auto input, file->source().OpenCompressed());
+  if (fragment_scan_options->stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, fragment_scan_options->stream_transform_func(input));
+  }
   return csv::CountRowsAsync(options->io_context, std::move(input),
                              ::arrow::internal::GetCpuThreadPool(), read_options,
                              self->parse_options)
-      .Then([](int64_t count) { return util::make_optional<int64_t>(count); });
+      .Then([](int64_t count) { return std::make_optional<int64_t>(count); });
+}
+
+Future<std::shared_ptr<FragmentScanner>> CsvFileFormat::BeginScan(
+    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+  auto csv_options = static_cast<const CsvFragmentScanOptions*>(format_options);
+  auto csv_fragment = static_cast<const CsvInspectedFragment&>(inspected_fragment);
+  return CsvFileScanner::Make(*csv_options, request, csv_fragment,
+                              exec_context->executor());
+}
+
+Result<std::shared_ptr<InspectedFragment>> DoInspectFragment(
+    const FileSource& source, const CsvFragmentScanOptions& csv_options,
+    compute::ExecContext* exec_context) {
+  ARROW_ASSIGN_OR_RAISE(auto input, source.OpenCompressed());
+  if (csv_options.stream_transform_func) {
+    ARROW_ASSIGN_OR_RAISE(input, csv_options.stream_transform_func(input));
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      input, io::BufferedInputStream::Create(csv_options.read_options.block_size,
+                                             default_memory_pool(), std::move(input)));
+
+  ARROW_ASSIGN_OR_RAISE(std::string_view first_block,
+                        input->Peek(csv_options.read_options.block_size));
+
+  ARROW_ASSIGN_OR_RAISE(
+      std::vector<std::string> column_names,
+      GetOrderedColumnNames(csv_options.read_options, csv_options.parse_options,
+                            first_block, exec_context->memory_pool()));
+  return std::make_shared<CsvInspectedFragment>(std::move(column_names), std::move(input),
+                                                source.Size());
+}
+
+Future<std::shared_ptr<InspectedFragment>> CsvFileFormat::InspectFragment(
+    const FileSource& source, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
+  auto csv_options = static_cast<const CsvFragmentScanOptions*>(format_options);
+  Executor* io_executor;
+  if (source.filesystem()) {
+    io_executor = source.filesystem()->io_context().executor();
+  } else {
+    io_executor = exec_context->executor();
+  }
+  return DeferNotOk(io_executor->Submit([source, csv_options, exec_context]() {
+    return DoInspectFragment(source, *csv_options, exec_context);
+  }));
 }
 
 //
@@ -334,7 +497,11 @@ Status CsvFileWriter::Write(const std::shared_ptr<RecordBatch>& batch) {
   return batch_writer_->WriteRecordBatch(*batch);
 }
 
-Status CsvFileWriter::FinishInternal() { return batch_writer_->Close(); }
+Future<> CsvFileWriter::FinishInternal() {
+  // The CSV writer's Close() is a no-op, so just treat it as synchronous
+  RETURN_NOT_OK(batch_writer_->Close());
+  return Status::OK();
+}
 
 }  // namespace dataset
 }  // namespace arrow

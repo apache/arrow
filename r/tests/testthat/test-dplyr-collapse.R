@@ -15,12 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
 withr::local_options(list(arrow.summarise.sort = TRUE))
 
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
+
+skip_if_not_available("acero")
 
 tbl <- example_data
 # Add some better string data
@@ -31,6 +31,7 @@ tbl$padded_strings <- stringr::str_pad(letters[1:10], width = 2 * (1:10) + 1, si
 tbl$some_grouping <- rep(c(1, 2), 5)
 
 tab <- Table$create(tbl)
+
 
 test_that("implicit_schema with select", {
   expect_equal(
@@ -58,7 +59,7 @@ test_that("implicit_schema with mutate", {
         words = as.character(int)
       ) %>%
       implicit_schema(),
-    schema(numbers = float64(), words = utf8())
+    schema(numbers = int32(), words = utf8())
   )
 })
 
@@ -161,17 +162,18 @@ test_that("Properties of collapsed query", {
 
   expect_output(
     print(q),
-    "InMemoryDataset (query)
+    "Table (query)
 lgl: bool
-total: int32
-extra: double (multiply_checked(total, 5))
+total: int64
+extra: int64 (multiply_checked(total, 5))
 
+* Sorted by lgl [asc]
 See $.data for the source Arrow object",
     fixed = TRUE
   )
   expect_output(
     print(q$.data),
-    "InMemoryDataset (query)
+    "Table (query)
 int: int32
 lgl: bool
 
@@ -194,12 +196,18 @@ See $.data for the source Arrow object",
   # Component "total": Mean relative difference: 0.9230769
   # Component "extra": Mean relative difference: 0.9230769
   expect_equal(
-    q %>% head(1) %>% collect(),
+    q %>%
+      arrange(lgl) %>%
+      head(1) %>%
+      collect(),
     tibble::tibble(lgl = FALSE, total = 8L, extra = 40)
   )
-  skip("TODO (ARROW-1XXXX): implement sorting option about where NAs go")
+  skip("TODO (ARROW-16630): make sure BottomK can handle NA ordering")
   expect_equal(
-    q %>% tail(1) %>% collect(),
+    q %>%
+      arrange(lgl) %>%
+      tail(1) %>%
+      collect(),
     tibble::tibble(lgl = NA, total = 25L, extra = 125)
   )
 })
@@ -215,6 +223,8 @@ test_that("query_on_dataset handles collapse()", {
       collapse() %>%
       select(int)
   ))
+
+  skip_if_not_available("dataset")
 
   ds_dir <- tempfile()
   dir.create(ds_dir)
@@ -232,4 +242,40 @@ test_that("query_on_dataset handles collapse()", {
       collapse() %>%
       select(int)
   ))
+})
+
+test_that("collapse doesn't unnecessarily add ProjectNodes", {
+  plan <- capture.output(
+    tab %>%
+      collapse() %>%
+      collapse() %>%
+      show_query()
+  )
+  # There should be no projections
+  expect_length(grep("ProjectNode", plan), 0)
+
+  plan <- capture.output(
+    tab %>%
+      select(int, chr) %>%
+      collapse() %>%
+      collapse() %>%
+      show_query()
+  )
+  # There should be just one projection
+  expect_length(grep("ProjectNode", plan), 1)
+
+  skip_if_not_available("dataset")
+  # We need one ProjectNode on dataset queries to handle augmented fields
+
+  tf <- tempfile()
+  write_dataset(tab, tf, partitioning = "lgl")
+  ds <- open_dataset(tf)
+
+  plan <- capture.output(
+    ds %>%
+      collapse() %>%
+      collapse() %>%
+      show_query()
+  )
+  expect_length(grep("ProjectNode", plan), 1)
 })

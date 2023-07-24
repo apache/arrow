@@ -26,6 +26,16 @@ export ARROW_TEST_DATA=${arrow_dir}/testing/data
 
 pushd ${arrow_dir}/java
 
+# Ensure that there is no old jar
+# inside the maven repository
+maven_repo=~/.m2/repository/org/apache/arrow
+if [ -d $maven_repo ]; then
+    find $maven_repo \
+      "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
+      -exec echo {} ";" \
+      -exec rm -rf {} ";"
+fi
+
 # generate dummy GPG key for -Papache-release.
 # -Papache-release generates signs (*.asc) of artifacts.
 # We don't use these signs in our release process.
@@ -55,7 +65,13 @@ find . \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
 find ~/.m2/repository/org/apache/arrow \
-     "(" -name "*.jar" -o -name "*.zip" -o -name "*.pom" ")" \
+     "(" \
+     -name "*.jar" -o \
+     -name "*.json" -o \
+     -name "*.pom" -o \
+     -name "*.xml" -o \
+     -name "*.zip" \
+     ")" \
      -exec echo {} ";" \
      -exec cp {} $dist_dir ";"
 

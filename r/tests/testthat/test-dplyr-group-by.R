@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
+
+skip_if_not_available("acero")
 
 tbl <- example_data
 
@@ -54,6 +54,24 @@ test_that("group_by supports creating/renaming", {
   )
 })
 
+test_that("group_by supports re-grouping by overlapping groups", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, int) %>%
+      group_by(int, dbl) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, int) %>%
+      group_by(int, chr = "some new value") %>%
+      collect(),
+    tbl
+  )
+})
+
 test_that("ungroup", {
   compare_dplyr_binding(
     .input %>%
@@ -78,6 +96,25 @@ test_that("ungroup", {
         collect(),
       tbl
     )
+  )
+})
+
+test_that("Groups before conversion to a Table must not be restored after collect() (ARROW-17737)", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = FALSE) %>%
+      ungroup() %>%
+      collect(),
+    tbl %>%
+      group_by(int)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = TRUE) %>%
+      ungroup() %>%
+      collect(),
+    tbl %>%
+      group_by(int)
   )
 })
 
@@ -154,5 +191,146 @@ test_that("group_by with .drop", {
       ungroup() %>%
       group_by_drop_default(),
     example_with_logical_factors
+  )
+})
+
+test_that("group_by() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(int > base::sqrt(25)) %>%
+      summarise(mean(dbl, na.rm = TRUE)) %>%
+      # group order is different from dplyr, hence reordering
+      arrange(`int > base::sqrt(25)`) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("group_by() with .add", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(.add = FALSE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(.add = TRUE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(chr, .add = FALSE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(chr, .add = TRUE) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.add = FALSE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.add = TRUE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = FALSE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(chr, .add = TRUE) %>%
+      collect(),
+    tbl %>%
+      group_by(dbl2)
+  )
+  suppressWarnings(compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(add = FALSE) %>%
+      collect(),
+    tbl,
+    warning = "deprecated"
+  ))
+  suppressWarnings(compare_dplyr_binding(
+    .input %>%
+      group_by(dbl2) %>%
+      group_by(add = TRUE) %>%
+      collect(),
+    tbl,
+    warning = "deprecated"
+  ))
+  expect_warning(
+    tbl %>%
+      arrow_table() %>%
+      group_by(add = TRUE) %>%
+      collect(),
+    "The `add` argument of `group_by\\(\\)` is deprecated"
+  )
+  expect_error(
+    suppressWarnings(
+      tbl %>%
+        arrow_table() %>%
+        group_by(add = dbl2) %>%
+        collect()
+    ),
+    "object 'dbl2' not found"
+  )
+})
+
+test_that("Can use across() within group_by()", {
+  test_groups <- c("dbl", "int", "chr")
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(everything())) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(starts_with("d"))) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across({{ test_groups }})) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      group_by(across(where(is.numeric))) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("ARROW-18131 - correctly handles .data pronoun in group_by()", {
+  compare_dplyr_binding(
+    .input %>%
+      group_by(.data$lgl) %>%
+      collect(),
+    tbl
   )
 })

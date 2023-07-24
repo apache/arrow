@@ -46,20 +46,11 @@ Gem::Specification.new do |spec|
   spec.test_files += Dir.glob("test/**/*")
   spec.extensions = ["ext/arrow/extconf.rb"]
 
-  spec.add_runtime_dependency("bigdecimal", ">= 2.0.3")
-  spec.add_runtime_dependency("extpp", ">= 0.0.7")
-  spec.add_runtime_dependency("gio2", ">= 3.4.9")
+  spec.add_runtime_dependency("bigdecimal", ">= 3.1.0")
+  spec.add_runtime_dependency("extpp", ">= 0.1.1")
+  spec.add_runtime_dependency("gio2", ">= 3.5.0")
   spec.add_runtime_dependency("native-package-installer")
   spec.add_runtime_dependency("pkg-config")
-
-  spec.add_development_dependency("benchmark-driver")
-  spec.add_development_dependency("bundler")
-  spec.add_development_dependency("faker")
-  spec.add_development_dependency("fiddle", ">= 1.0.9")
-  spec.add_development_dependency("rake")
-  spec.add_development_dependency("redcarpet")
-  spec.add_development_dependency("test-unit")
-  spec.add_development_dependency("yard")
 
   required_msys2_package_version = version_components[0, 3].join(".")
   spec.metadata["msys2_mingw_dependencies"] =

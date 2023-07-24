@@ -16,12 +16,11 @@
 // under the License.
 
 import {
-    generateRandomTables,
-    generateDictionaryTables
-} from '../../../data/tables';
+    generateDictionaryTables, generateRandomTables
+} from '../../../data/tables.js';
+import { validateRecordBatchIterator } from '../validate.js';
 
-import { validateRecordBatchIterator } from '../validate';
-import { Table, RecordBatchFileWriter } from 'apache-arrow';
+import { RecordBatchFileWriter, RecordBatchReader, Table } from 'apache-arrow';
 
 describe('RecordBatchFileWriter', () => {
     for (const table of generateRandomTables([10, 20, 30])) {
@@ -40,7 +39,7 @@ function testFileWriter(table: Table, name: string) {
 
 async function validateTable(source: Table) {
     const writer = RecordBatchFileWriter.writeAll(source);
-    const result = await Table.from(writer.toUint8Array());
-    validateRecordBatchIterator(3, source.chunks);
+    const result = new Table(RecordBatchReader.from(await writer.toUint8Array()));
+    validateRecordBatchIterator(3, source.batches);
     expect(result).toEqualTable(source);
 }

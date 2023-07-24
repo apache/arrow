@@ -70,6 +70,8 @@ test_that("filter() with %in%", {
 })
 
 test_that("filter() on timestamp columns", {
+  skip_if_not_available("re2")
+
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equal(
     ds %>%
@@ -116,6 +118,8 @@ test_that("filter() on date32 columns", {
     1L
   )
 
+  skip_if_not_available("re2")
+
   # Also with timestamp scalar
   expect_equal(
     open_dataset(tmp) %>%
@@ -139,7 +143,7 @@ test_that("mutate()", {
 chr: string
 dbl: double
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 * Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
 See $.data for the source Arrow object",
@@ -160,6 +164,7 @@ See $.data for the source Arrow object",
 })
 
 test_that("mutate() features not yet implemented", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
       group_by(int) %>%
@@ -170,11 +175,12 @@ test_that("mutate() features not yet implemented", {
 })
 
 test_that("filter scalar validation doesn't crash (ARROW-7772)", {
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_error(
     ds %>%
-      filter(int == "fff", part == 1) %>%
+      filter(int == Expression$scalar("fff"), part == 1) %>%
       collect(),
-    "'equal' has no kernel matching input types .array.int32., scalar.string.."
+    "'equal' has no kernel matching input types .int32, string."
   )
 })
 
@@ -213,7 +219,7 @@ test_that("arrange()", {
 chr: string
 dbl: double
 int: int32
-twice: double (multiply_checked(int, 2))
+twice: int32 (multiply_checked(int, 2))
 
 * Filter: ((multiply_checked(dbl, 2) > 14) and (subtract_checked(dbl, 50) < 3))
 * Sorted by chr [asc], multiply_checked(int, 2) [desc], add_checked(dbl, int) [asc]
@@ -278,13 +284,9 @@ test_that("compute()/collect(as_data_frame=FALSE)", {
     group_by(fct) %>%
     compute()
 
-  # the group_by() prevents compute() from returning a Table...
-  expect_s3_class(tab5, "arrow_dplyr_query")
-
-  # ... but $.data is a Table (InMemoryDataset)...
-  expect_r6_class(tab5$.data, "InMemoryDataset")
-  # ... and the mutate() was evaluated
-  expect_true("negint" %in% names(tab5$.data))
+  expect_r6_class(tab5, "Table")
+  # mutate() was evaluated
+  expect_true("negint" %in% names(tab5))
 })
 
 test_that("head/tail on query on dataset", {
@@ -336,5 +338,70 @@ test_that("dplyr method not implemented messages", {
     ds %>% filter(int > 6, dbl > max(dbl)),
     "Filter expression not supported for Arrow Datasets: dbl > max(dbl)\nCall collect() first to pull data into R.",
     fixed = TRUE
+  )
+})
+
+test_that("show_exec_plan(), show_query() and explain() with datasets", {
+  # show_query() and explain() are wrappers around show_exec_plan() and are not
+  # tested separately
+
+  ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
+
+  # minimal test
+  expect_output(
+    ds %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "SourceNode" # entry point
+    )
+  )
+
+  # filter and select
+  expect_output(
+    ds %>%
+      select(string = chr, integer = int, part) %>%
+      filter(integer > 6L & part == 1) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "ProjectNode.*", # output columns
+      "FilterNode.*", # filter node
+      "int > 6.*", # filtering expressions
+      "SourceNode" # entry point
+    )
+  )
+
+  # group_by and summarise
+  expect_output(
+    ds %>%
+      group_by(part) %>%
+      summarise(avg = mean(int)) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "GroupByNode.*", # group by node
+      "keys=.*part.*", # key for aggregations
+      "aggregates=.*hash_mean.*", # aggregations
+      "ProjectNode.*", # input columns
+      "SourceNode" # entry point
+    )
+  )
+
+  # arrange and head
+  expect_output(
+    ds %>%
+      filter(lgl) %>%
+      arrange(chr) %>%
+      show_exec_plan(),
+    regexp = paste0(
+      "ExecPlan with .* nodes:.*", # boiler plate for ExecPlan
+      "OrderByNode.*chr.*ASC.*", # arrange goes via the OrderBy node
+      "ProjectNode.*", # output columns
+      "FilterNode.*", # filter node
+      "filter=lgl.*", # filtering expression
+      "SourceNode" # entry point
+    )
   )
 })

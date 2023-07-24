@@ -21,13 +21,13 @@
 #include <iosfwd>
 #include <limits>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/basic_decimal.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 
@@ -95,13 +95,13 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
 
   /// \brief Convert a decimal string to a Decimal128 value, optionally including
   /// precision and scale if they're passed in and not null.
-  static Status FromString(const util::string_view& s, Decimal128* out,
-                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(std::string_view s, Decimal128* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
   static Status FromString(const std::string& s, Decimal128* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
   static Status FromString(const char* s, Decimal128* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
-  static Result<Decimal128> FromString(const util::string_view& s);
+  static Result<Decimal128> FromString(std::string_view s);
   static Result<Decimal128> FromString(const std::string& s);
   static Result<Decimal128> FromString(const char* s);
 
@@ -146,32 +146,23 @@ class ARROW_EXPORT Decimal128 : public BasicDecimal128 {
   double ToDouble(int32_t scale) const;
 
   /// \brief Convert to a floating-point number (scaled)
-  template <typename T>
+  template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
   T ToReal(int32_t scale) const {
-    return ToRealConversion<T>::ToReal(*this, scale);
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                  "Unexpected floating-point type");
+    if constexpr (std::is_same_v<T, float>) {
+      return ToFloat(scale);
+    } else {
+      return ToDouble(scale);
+    }
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
-                                               const Decimal128& decimal);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
+                                                      const Decimal128& decimal);
 
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
-
-  template <typename T>
-  struct ToRealConversion {};
-};
-
-template <>
-struct Decimal128::ToRealConversion<float> {
-  static float ToReal(const Decimal128& dec, int32_t scale) { return dec.ToFloat(scale); }
-};
-
-template <>
-struct Decimal128::ToRealConversion<double> {
-  static double ToReal(const Decimal128& dec, int32_t scale) {
-    return dec.ToDouble(scale);
-  }
 };
 
 /// Represents a signed 256-bit integer in two's complement.
@@ -193,7 +184,8 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   /// \endcond
 
   /// \brief constructor creates a Decimal256 from a BasicDecimal256.
-  constexpr Decimal256(const BasicDecimal256& value) noexcept : BasicDecimal256(value) {}
+  constexpr Decimal256(const BasicDecimal256& value) noexcept  // NOLINT(runtime/explicit)
+      : BasicDecimal256(value) {}
 
   /// \brief Parse the number from a base 10 string representation.
   explicit Decimal256(const std::string& value);
@@ -211,13 +203,13 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
 
   /// \brief Convert a decimal string to a Decimal256 value, optionally including
   /// precision and scale if they're passed in and not null.
-  static Status FromString(const util::string_view& s, Decimal256* out,
-                           int32_t* precision, int32_t* scale = NULLPTR);
+  static Status FromString(std::string_view s, Decimal256* out, int32_t* precision,
+                           int32_t* scale = NULLPTR);
   static Status FromString(const std::string& s, Decimal256* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
   static Status FromString(const char* s, Decimal256* out, int32_t* precision,
                            int32_t* scale = NULLPTR);
-  static Result<Decimal256> FromString(const util::string_view& s);
+  static Result<Decimal256> FromString(std::string_view s);
   static Result<Decimal256> FromString(const std::string& s);
   static Result<Decimal256> FromString(const char* s);
 
@@ -261,32 +253,23 @@ class ARROW_EXPORT Decimal256 : public BasicDecimal256 {
   double ToDouble(int32_t scale) const;
 
   /// \brief Convert to a floating-point number (scaled)
-  template <typename T>
+  template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
   T ToReal(int32_t scale) const {
-    return ToRealConversion<T>::ToReal(*this, scale);
+    static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                  "Unexpected floating-point type");
+    if constexpr (std::is_same_v<T, float>) {
+      return ToFloat(scale);
+    } else {
+      return ToDouble(scale);
+    }
   }
 
-  friend ARROW_EXPORT std::ostream& operator<<(std::ostream& os,
-                                               const Decimal256& decimal);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os,
+                                                      const Decimal256& decimal);
 
  private:
   /// Converts internal error code to Status
   Status ToArrowStatus(DecimalStatus dstatus) const;
-
-  template <typename T>
-  struct ToRealConversion {};
-};
-
-template <>
-struct Decimal256::ToRealConversion<float> {
-  static float ToReal(const Decimal256& dec, int32_t scale) { return dec.ToFloat(scale); }
-};
-
-template <>
-struct Decimal256::ToRealConversion<double> {
-  static double ToReal(const Decimal256& dec, int32_t scale) {
-    return dec.ToDouble(scale);
-  }
 };
 
 /// For an integer type, return the max number of decimal digits

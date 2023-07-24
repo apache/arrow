@@ -35,11 +35,11 @@ namespace Apache.Arrow.Tests
                 Assert.True(actual.Metadata.Keys.All(k => expected.Metadata.ContainsKey(k) && actual.Metadata[k] == expected.Metadata[k]));
             }
 
-            Assert.Equal(expected.Fields.Count, actual.Fields.Count);
-            Assert.True(expected.Fields.Keys.All(k => actual.Fields.ContainsKey(k)));
-            foreach (string name in expected.Fields.Keys)
+            Assert.Equal(expected.FieldsList.Count, actual.FieldsList.Count);
+            Assert.True(expected.FieldsList.All(f1 => actual.FieldsList.Any(f2 => f2.Name == f1.Name)));
+            foreach (string name in expected.FieldsList.Select(f => f.Name))
             {
-                FieldComparer.Compare(expected.Fields[name], actual.Fields[name]);
+                FieldComparer.Compare(expected.GetFieldByName(name), actual.GetFieldByName(name));
             }
         }
     }

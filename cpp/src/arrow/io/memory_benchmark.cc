@@ -28,12 +28,12 @@
 namespace arrow {
 
 using internal::CpuInfo;
-static CpuInfo* cpu_info = CpuInfo::GetInstance();
+static const CpuInfo* cpu_info = CpuInfo::GetInstance();
 
 static const int kNumCores = cpu_info->num_cores();
-static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::L1_CACHE);
-static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::L2_CACHE);
-static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::L3_CACHE);
+static const int64_t kL1Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L1);
+static const int64_t kL2Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L2);
+static const int64_t kL3Size = cpu_info->CacheSize(CpuInfo::CacheLevel::L3);
 
 constexpr size_t kMemoryPerCore = 32 * 1024 * 1024;
 using BufferPtr = std::shared_ptr<Buffer>;
@@ -101,7 +101,8 @@ static void Read(void* src, void* dst, size_t size) {
   memset(&c, 0, sizeof(c));
   memset(&d, 0, sizeof(d));
 
-  benchmark::DoNotOptimize(a + b + c + d);
+  auto result = a + b + c + d;
+  benchmark::DoNotOptimize(result);
 }
 
 // See http://codearcana.com/posts/2013/05/18/achieving-maximum-memory-bandwidth.html
@@ -124,7 +125,8 @@ static void StreamRead(void* src, void* dst, size_t size) {
     VectorStreamLoadAsm(simd[i + 3], d);
   }
 
-  benchmark::DoNotOptimize(a + b + c + d);
+  auto result = a + b + c + d;
+  benchmark::DoNotOptimize(result);
 }
 
 static void StreamWrite(void* src, void* dst, size_t size) {
@@ -154,7 +156,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
 
 #endif  // ARROW_HAVE_SSE4_2
 
-#ifdef ARROW_HAVE_ARMV8_CRYPTO
+#ifdef ARROW_HAVE_NEON
 
 using VectorType = uint8x16_t;
 using VectorTypeDual = uint8x16x2_t;
@@ -237,7 +239,7 @@ static void StreamReadWrite(void* src, void* dst, size_t size) {
   }
 }
 
-#endif  // ARROW_HAVE_ARMV8_CRYPTO
+#endif  // ARROW_HAVE_NEON
 
 static void PlatformMemcpy(void* src, void* dst, size_t size) { memcpy(src, dst, size); }
 

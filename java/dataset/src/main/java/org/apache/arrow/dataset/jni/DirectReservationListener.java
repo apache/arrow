@@ -35,9 +35,9 @@ public class DirectReservationListener implements ReservationListener {
   private DirectReservationListener() {
     try {
       final Class<?> classBits = Class.forName("java.nio.Bits");
-      methodReserve = classBits.getDeclaredMethod("reserveMemory", long.class, int.class);
+      methodReserve = this.getDeclaredMethodBaseOnJDKVersion(classBits, "reserveMemory");
       methodReserve.setAccessible(true);
-      methodUnreserve = classBits.getDeclaredMethod("unreserveMemory", long.class, int.class);
+      methodUnreserve = this.getDeclaredMethodBaseOnJDKVersion(classBits, "unreserveMemory");
       methodUnreserve.setAccessible(true);
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -87,11 +87,38 @@ public class DirectReservationListener implements ReservationListener {
   public long getCurrentDirectMemReservation() {
     try {
       final Class<?> classBits = Class.forName("java.nio.Bits");
-      final Field f = classBits.getDeclaredField("reservedMemory");
+      Field f;
+      try {
+        f = classBits.getDeclaredField("reservedMemory");
+      } catch (NoSuchFieldException e) {
+        try {
+          f = classBits.getDeclaredField("RESERVED_MEMORY");
+        } catch (NoSuchFieldException ex) {
+          throw new AssertionError(ex);
+        }
+      }
       f.setAccessible(true);
       return ((AtomicLong) f.get(null)).get();
     } catch (Exception e) {
       throw new RuntimeException(e);
+    }
+  }
+
+  /**
+   * Get the given method via reflection, searching for different signatures based on the Java version.
+   * @param classBits The java.nio.Bits class.
+   * @param name The method being requested.
+   * @return The method object.
+   */
+  private Method getDeclaredMethodBaseOnJDKVersion(Class<?> classBits, String name) {
+    try {
+      return classBits.getDeclaredMethod(name, long.class, int.class);
+    } catch (NoSuchMethodException e) {
+      try {
+        return classBits.getDeclaredMethod(name, long.class, long.class);
+      } catch (NoSuchMethodException ex) {
+        throw new AssertionError(ex);
+      }
     }
   }
 }

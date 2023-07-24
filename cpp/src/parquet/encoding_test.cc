@@ -18,7 +18,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <limits>
 #include <utility>
@@ -27,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/compute/cast.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -35,7 +35,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
-
+#include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
@@ -48,13 +48,42 @@ using arrow::internal::checked_cast;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
+namespace parquet::test {
 
-namespace test {
+TEST(VectorBooleanTest, TestEncodeBoolDecode) {
+  // PARQUET-454
+  const int nvalues = 10000;
+  bool decode_buffer[nvalues] = {false};
 
-TEST(VectorBooleanTest, TestEncodeDecode) {
+  int nbytes = static_cast<int>(bit_util::BytesForBits(nvalues));
+
+  std::vector<bool> draws;
+  ::arrow::random_is_valid(nvalues, 0.5 /* null prob */, &draws, 0 /* seed */);
+
+  std::unique_ptr<BooleanEncoder> encoder =
+      MakeTypedEncoder<BooleanType>(Encoding::PLAIN);
+  encoder->Put(draws, nvalues);
+
+  std::unique_ptr<BooleanDecoder> decoder =
+      MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+
+  std::shared_ptr<Buffer> encode_buffer = encoder->FlushValues();
+  ASSERT_EQ(nbytes, encode_buffer->size());
+
+  decoder->SetData(nvalues, encode_buffer->data(),
+                   static_cast<int>(encode_buffer->size()));
+  int values_decoded = decoder->Decode(&decode_buffer[0], nvalues);
+  ASSERT_EQ(nvalues, values_decoded);
+
+  for (int i = 0; i < nvalues; ++i) {
+    ASSERT_EQ(draws[i], decode_buffer[i]);
+  }
+}
+
+TEST(VectorBooleanTest, TestEncodeIntDecode) {
   // PARQUET-454
   int nvalues = 10000;
+
   int nbytes = static_cast<int>(bit_util::BytesForBits(nvalues));
 
   std::vector<bool> draws;
@@ -83,46 +112,6 @@ TEST(VectorBooleanTest, TestEncodeDecode) {
   }
 }
 
-// ----------------------------------------------------------------------
-// test data generation
-
-template <typename T>
-void GenerateData(int num_values, T* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_numbers(num_values, 0, std::numeric_limits<T>::min(),
-                 std::numeric_limits<T>::max(), out);
-}
-
-template <>
-void GenerateData<bool>(int num_values, bool* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_bools(num_values, 0.5, 0, out);
-}
-
-template <>
-void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  random_Int96_numbers(num_values, 0, std::numeric_limits<int32_t>::min(),
-                       std::numeric_limits<int32_t>::max(), out);
-}
-
-template <>
-void GenerateData<ByteArray>(int num_values, ByteArray* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  int max_byte_array_len = 12;
-  heap->resize(num_values * max_byte_array_len);
-  random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
-}
-
-static int flba_length = 8;
-
-template <>
-void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
-  heap->resize(num_values * flba_length);
-  random_fixed_byte_array(num_values, 0, heap->data(), flba_length, out);
-}
-
 template <typename T>
 void VerifyResults(T* result, T* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
@@ -143,7 +132,7 @@ void VerifyResultsSpaced(T* result, T* expected, int num_values,
 template <>
 void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
-    ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, flba_length)) << i;
+    ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
   }
 }
 
@@ -152,7 +141,7 @@ void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
-      ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, flba_length)) << i;
+      ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
     }
   }
 }
@@ -168,9 +157,9 @@ std::shared_ptr<ColumnDescriptor> ExampleDescr() {
 
 template <>
 std::shared_ptr<ColumnDescriptor> ExampleDescr<FLBAType>() {
-  auto node = schema::PrimitiveNode::Make("name", Repetition::OPTIONAL,
-                                          Type::FIXED_LEN_BYTE_ARRAY,
-                                          ConvertedType::DECIMAL, flba_length, 10, 2);
+  auto node = schema::PrimitiveNode::Make(
+      "name", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL,
+      kGenerateDataFLBALength, 10, 2);
   return std::make_shared<ColumnDescriptor>(node, 0, 0);
 }
 
@@ -264,7 +253,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   virtual void CheckRoundtrip() {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN, false, descr_.get());
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
@@ -277,7 +267,8 @@ class TestPlainEncoding : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
-    auto encoder = MakeTypedEncoder<Type>(Encoding::PLAIN, false, descr_.get());
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::PLAIN, /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr_.get());
     int null_count = 0;
     for (auto i = 0; i < num_values_; i++) {
@@ -306,7 +297,7 @@ TYPED_TEST_SUITE(TestPlainEncoding, ParquetTypes);
 TYPED_TEST(TestPlainEncoding, BasicRoundTrip) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
 
-  // Spaced test with different sizes and offest to guarantee SIMD implementation
+  // Spaced test with different sizes and offset to guarantee SIMD implementation
   constexpr int kAvx512Size = 64;         // sizeof(__m512i) for Avx512
   constexpr int kSimdSize = kAvx512Size;  // Current the max is Avx512
   constexpr int kMultiSimdSize = kSimdSize * 33;
@@ -448,7 +439,7 @@ class TestArrowBuilderDecoding : public ::testing::Test {
   }
 
   std::unique_ptr<DictBuilder> CreateDictBuilder() {
-    return std::unique_ptr<DictBuilder>(new DictBuilder(default_memory_pool()));
+    return std::make_unique<DictBuilder>(default_memory_pool());
   }
 
   // Setup encoder/decoder pair for testing with
@@ -703,6 +694,62 @@ class EncodingAdHocTyped : public ::testing::Test {
     ::arrow::AssertArraysEqual(*values, *result);
   }
 
+  void Rle(int seed) {
+    if (!std::is_same<ParquetType, BooleanType>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(Encoding::RLE, /*use_dictionary=*/false,
+                                                 column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::RLE, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  }
+
+  void DeltaBitPack(int seed) {
+    if (!std::is_same<ParquetType, Int32Type>::value &&
+        !std::is_same<ParquetType, Int64Type>::value) {
+      return;
+    }
+    auto values = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(
+        Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, column_descr());
+    auto decoder =
+        MakeTypedDecoder<ParquetType>(Encoding::DELTA_BINARY_PACKED, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result);
+  }
+
   void Dict(int seed) {
     if (std::is_same<ParquetType, BooleanType>::value) {
       return;
@@ -788,7 +835,7 @@ class EncodingAdHocTyped : public ::testing::Test {
 
  protected:
   const int64_t size_ = 50;
-  const double null_probability_ = 0.25;
+  double null_probability_ = 0.25;
 };
 
 template <typename ParquetType>
@@ -838,6 +885,22 @@ TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
 TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->ByteStreamSplit(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, RleArrowDirectPut) {
+  // TODO: test with nulls once RleBooleanDecoder::DecodeArrow supports them
+  this->null_probability_ = 0;
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->Rle(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, DeltaBitPackArrowDirectPut) {
+  // TODO: test with nulls once DeltaBitPackDecoder::DecodeArrow supports them
+  this->null_probability_ = 0;
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->DeltaBitPack(seed);
   }
 }
 
@@ -931,7 +994,7 @@ class DictEncoding : public TestArrowBuilderDecoding {
  public:
   void SetupEncoderDecoder() override {
     auto node = schema::ByteArray("name");
-    descr_ = std::unique_ptr<ColumnDescriptor>(new ColumnDescriptor(node, 0, 0));
+    descr_ = std::make_unique<ColumnDescriptor>(node, 0, 0);
     encoder_ = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
                                                descr_.get());
     if (null_count_ == 0) {
@@ -1030,8 +1093,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   static constexpr int TYPE = Type::type_num;
 
   void CheckRoundtrip() override {
-    auto encoder =
-        MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT, false, descr_.get());
+    auto encoder = MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT,
+                                          /*use_dictionary=*/false, descr_.get());
     auto decoder = MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
     encoder->Put(draws_, num_values_);
     encode_buffer_ = encoder->FlushValues();
@@ -1085,6 +1148,29 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
       ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(
           decode_buf_, expected_filtered_output.data(), expected_size));
     }
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits,
+                            int64_t valid_bits_offset) override {
+    auto encoder =
+        MakeTypedEncoder<Type>(Encoding::BYTE_STREAM_SPLIT, false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::BYTE_STREAM_SPLIT, descr_.get());
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+
+    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+    encode_buffer_ = encoder->FlushValues();
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+    auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                valid_bits, valid_bits_offset);
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
+                                                        valid_bits, valid_bits_offset));
   }
 
   void CheckDecode();
@@ -1209,6 +1295,28 @@ TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSingleElement) {
   ASSERT_NO_FATAL_FAILURE(this->Execute(1, 1));
 }
 
+TYPED_TEST(TestByteStreamSplitEncoding, RoundTripSpace) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(10000, 1));
+
+  // Spaced test with different sizes and offset to guarantee SIMD implementation
+  constexpr int kAvx512Size = 64;         // sizeof(__m512i) for Avx512
+  constexpr int kSimdSize = kAvx512Size;  // Current the max is Avx512
+  constexpr int kMultiSimdSize = kSimdSize * 33;
+
+  for (auto null_prob : {0.001, 0.1, 0.5, 0.9, 0.999}) {
+    // Test with both size and offset up to 3 Simd block
+    for (auto i = 1; i < kSimdSize * 3; i++) {
+      ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, 0, null_prob));
+      ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(i, 1, i + 1, null_prob));
+    }
+    // Large block and offset
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize, 1, 0, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize + 33, 1, 0, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize, 1, 33, null_prob));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(kMultiSimdSize + 33, 1, 33, null_prob));
+  }
+}
+
 TYPED_TEST(TestByteStreamSplitEncoding, CheckOnlyDecode) {
   ASSERT_NO_FATAL_FAILURE(this->CheckDecode());
 }
@@ -1245,5 +1353,559 @@ TEST(ByteStreamSplitEncodeDecode, InvalidDataTypes) {
   ASSERT_THROW(MakeTypedDecoder<FLBAType>(Encoding::BYTE_STREAM_SPLIT), ParquetException);
 }
 
-}  // namespace test
-}  // namespace parquet
+// ----------------------------------------------------------------------
+// DELTA_BINARY_PACKED encode/decode tests.
+
+template <typename Type>
+class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+  static constexpr size_t kNumRoundTrips = 3;
+  const std::vector<int> kReadBatchSizes = {1, 11};
+
+  void InitBoundData(int nvalues, int repeats, c_type half_range) {
+    num_values_ = nvalues * repeats;
+    input_bytes_.resize(num_values_ * sizeof(c_type));
+    output_bytes_.resize(num_values_ * sizeof(c_type));
+    draws_ = reinterpret_cast<c_type*>(input_bytes_.data());
+    decode_buf_ = reinterpret_cast<c_type*>(output_bytes_.data());
+    GenerateBoundData<c_type>(nvalues, draws_, -half_range, half_range, &data_buffer_);
+
+    // add some repeated values
+    for (int j = 1; j < repeats; ++j) {
+      for (int i = 0; i < nvalues; ++i) {
+        draws_[nvalues * j + i] = draws_[i];
+      }
+    }
+  }
+
+  void ExecuteBound(int nvalues, int repeats, c_type half_range) {
+    InitBoundData(nvalues, repeats, half_range);
+    CheckRoundtrip();
+  }
+
+  void ExecuteSpacedBound(int nvalues, int repeats, int64_t valid_bits_offset,
+                          double null_probability, c_type half_range) {
+    InitBoundData(nvalues, repeats, half_range);
+
+    int64_t size = num_values_ + valid_bits_offset;
+    auto rand = ::arrow::random::RandomArrayGenerator(1923);
+    const auto array = rand.UInt8(size, 0, 100, null_probability);
+    const auto valid_bits = array->null_bitmap_data();
+    CheckRoundtripSpaced(valid_bits, valid_bits_offset);
+  }
+
+  void CheckDecoding() {
+    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+    auto read_batch_sizes = kReadBatchSizes;
+    read_batch_sizes.push_back(num_values_);
+    // Exercise different batch sizes
+    for (const int read_batch_size : read_batch_sizes) {
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+
+      int values_decoded = 0;
+      while (values_decoded < num_values_) {
+        values_decoded += decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
+      }
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+    }
+  }
+
+  void CheckRoundtrip() override {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
+                                          /*use_dictionary=*/false, descr_.get());
+    // Encode a number of times to exercise the flush logic
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+      CheckDecoding();
+    }
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits,
+                            int64_t valid_bits_offset) override {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
+                                          /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+
+    for (size_t i = 0; i < kNumRoundTrips; ++i) {
+      encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+      encode_buffer_ = encoder->FlushValues();
+      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                  valid_bits, valid_bits_offset);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(
+          decode_buf_, draws_, num_values_, valid_bits, valid_bits_offset));
+    }
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+  std::vector<uint8_t> input_bytes_;
+  std::vector<uint8_t> output_bytes_;
+};
+
+using TestDeltaBitPackEncodingTypes = ::testing::Types<Int32Type, Int64Type>;
+TYPED_TEST_SUITE(TestDeltaBitPackEncoding, TestDeltaBitPackEncodingTypes);
+
+TYPED_TEST(TestDeltaBitPackEncoding, BasicRoundTrip) {
+  using T = typename TypeParam::c_type;
+  int values_per_block = 128;
+  int values_per_mini_block = 32;
+
+  // Size a multiple of miniblock size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_mini_block * 10, 10));
+  // Size a multiple of block size
+  ASSERT_NO_FATAL_FAILURE(this->Execute(values_per_block * 10, 10));
+  // Size multiple of neither miniblock nor block size
+  ASSERT_NO_FATAL_FAILURE(
+      this->Execute((values_per_mini_block * values_per_block) + 1, 10));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(65, 1));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
+
+  // All identical values
+  ASSERT_NO_FATAL_FAILURE(
+      this->ExecuteBound(/*nvalues*/ 2000, /*repeats*/ 50, /*half_range*/ 0));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1,
+      /*half_range*/ 0));
+
+  // Various delta bitwidths, including the full datatype width
+  const int max_bitwidth = sizeof(T) * 8;
+  std::vector<int> bitwidths = {
+      1, 2, 3, 5, 8, 11, 16, max_bitwidth - 8, max_bitwidth - 1, max_bitwidth};
+  for (int bitwidth : bitwidths) {
+    T half_range =
+        std::numeric_limits<T>::max() >> static_cast<uint32_t>(max_bitwidth - bitwidth);
+
+    ASSERT_NO_FATAL_FAILURE(
+        this->ExecuteBound(/*nvalues*/ 2000, /*repeats*/ 50, half_range));
+    ASSERT_NO_FATAL_FAILURE(this->ExecuteSpacedBound(
+        /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+        /*null_probability*/ 0.1,
+        /*half_range*/ half_range));
+  }
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, NonZeroPaddedMiniblockBitWidth) {
+  // GH-14923: depending on the number of encoded values, some of the miniblock
+  // bitwidths are actually padding bytes that may take non-conformant values
+  // according to the Parquet spec.
+
+  // Same values as in DeltaBitPackEncoder
+  constexpr int kValuesPerBlock =
+      std::is_same_v<int32_t, typename TypeParam::c_type> ? 128 : 256;
+  constexpr int kMiniBlocksPerBlock = 4;
+  constexpr int kValuesPerMiniBlock = kValuesPerBlock / kMiniBlocksPerBlock;
+
+  // num_values must be kept small enough for kHeaderLength below
+  for (const int num_values : {2, 62, 63, 64, 65, 95, 96, 97, 127}) {
+    ARROW_SCOPED_TRACE("num_values = ", num_values);
+
+    // Generate input data with a small half_range to make the header length
+    // deterministic (see kHeaderLength).
+    this->InitBoundData(num_values, /*repeats=*/1, /*half_range=*/31);
+    ASSERT_EQ(this->num_values_, num_values);
+
+    auto encoder = MakeTypedEncoder<TypeParam>(
+        Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
+    encoder->Put(this->draws_, this->num_values_);
+    auto encoded = encoder->FlushValues();
+    const auto encoded_size = encoded->size();
+
+    // Make mutable copy of encoded buffer
+    this->encode_buffer_ = AllocateBuffer(default_memory_pool(), encoded_size);
+    uint8_t* data = this->encode_buffer_->mutable_data();
+    memcpy(data, encoded->data(), encoded_size);
+
+    // The number of padding bytes at the end of the miniblock bitwidths array.
+    // We subtract 1 from num_values because the first data value is encoded
+    // in the header, thus does not participate in miniblock encoding.
+    const int num_padding_bytes =
+        (kValuesPerBlock - num_values + 1) / kValuesPerMiniBlock;
+    ARROW_SCOPED_TRACE("num_padding_bytes = ", num_padding_bytes);
+
+    // The header length is:
+    // - 2 bytes for ULEB128-encoded block size (== kValuesPerBlock)
+    // - 1 byte for ULEB128-encoded miniblocks per block (== kMiniBlocksPerBlock)
+    // - 1 byte for ULEB128-encoded num_values
+    // - 1 byte for ULEB128-encoded first value
+    // (this assumes that num_values and the first value are narrow enough)
+    constexpr int kHeaderLength = 5;
+    // After the header, there is a zigzag ULEB128-encoded min delta for the first block,
+    // then the miniblock bitwidths for the first block.
+    // Given a narrow enough range, the zigzag ULEB128-encoded min delta is 1 byte long.
+    uint8_t* mini_block_bitwidths = data + kHeaderLength + 1;
+
+    // Garble padding bytes; decoding should succeed.
+    for (int i = 0; i < num_padding_bytes; ++i) {
+      mini_block_bitwidths[kMiniBlocksPerBlock - i - 1] = 0xFFU;
+    }
+    ASSERT_NO_THROW(this->CheckDecoding());
+
+    // Not a padding byte but an actual miniblock bitwidth; decoding should error out.
+    mini_block_bitwidths[kMiniBlocksPerBlock - num_padding_bytes - 1] = 0xFFU;
+    EXPECT_THROW(this->CheckDecoding(), ParquetException);
+  }
+}
+
+// ----------------------------------------------------------------------
+// Rle for Boolean encode/decode tests.
+
+class TestRleBooleanEncoding : public TestEncodingBase<BooleanType> {
+ public:
+  using c_type = bool;
+  static constexpr int TYPE = Type::BOOLEAN;
+
+  virtual void CheckRoundtrip() {
+    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::RLE,
+                                                 /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE, descr_.get());
+
+    for (int i = 0; i < 3; ++i) {
+      encoder->Put(draws_, num_values_);
+      encode_buffer_ = encoder->FlushValues();
+
+      decoder->SetData(num_values_, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      int values_decoded = decoder->Decode(decode_buf_, num_values_);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+    }
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    auto encoder = MakeTypedEncoder<BooleanType>(Encoding::RLE,
+                                                 /*use_dictionary=*/false, descr_.get());
+    auto decoder = MakeTypedDecoder<BooleanType>(Encoding::RLE, descr_.get());
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+    for (int i = 0; i < 3; ++i) {
+      encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+      encode_buffer_ = encoder->FlushValues();
+      decoder->SetData(num_values_ - null_count, encode_buffer_->data(),
+                       static_cast<int>(encode_buffer_->size()));
+      auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                  valid_bits, valid_bits_offset);
+      ASSERT_EQ(num_values_, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(
+          decode_buf_, draws_, num_values_, valid_bits, valid_bits_offset));
+    }
+  }
+};
+
+TEST_F(TestRleBooleanEncoding, BasicRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 200));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
+}
+
+TEST_F(TestRleBooleanEncoding, AllNull) {
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 1));
+}
+
+// ----------------------------------------------------------------------
+// DELTA_LENGTH_BYTE_ARRAY encode/decode tests.
+
+template <typename Type>
+class TestDeltaLengthByteArrayEncoding : public TestEncodingBase<Type> {
+ public:
+  using c_type = typename Type::c_type;
+  static constexpr int TYPE = Type::type_num;
+
+  virtual void CheckRoundtrip() {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                          /*use_dictionary=*/false, descr_.get());
+    auto decoder =
+        MakeTypedDecoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_.get());
+
+    encoder->Put(draws_, num_values_);
+    encode_buffer_ = encoder->FlushValues();
+
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+    int values_decoded = decoder->Decode(decode_buf_, num_values_);
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+  }
+
+  void CheckRoundtripSpaced(const uint8_t* valid_bits, int64_t valid_bits_offset) {
+    auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                          /*use_dictionary=*/false, descr_.get());
+    auto decoder =
+        MakeTypedDecoder<Type>(Encoding::DELTA_LENGTH_BYTE_ARRAY, descr_.get());
+    int null_count = 0;
+    for (auto i = 0; i < num_values_; i++) {
+      if (!bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+        null_count++;
+      }
+    }
+
+    encoder->PutSpaced(draws_, num_values_, valid_bits, valid_bits_offset);
+    encode_buffer_ = encoder->FlushValues();
+    decoder->SetData(num_values_, encode_buffer_->data(),
+                     static_cast<int>(encode_buffer_->size()));
+    auto values_decoded = decoder->DecodeSpaced(decode_buf_, num_values_, null_count,
+                                                valid_bits, valid_bits_offset);
+    ASSERT_EQ(num_values_, values_decoded);
+    ASSERT_NO_FATAL_FAILURE(VerifyResultsSpaced<c_type>(decode_buf_, draws_, num_values_,
+                                                        valid_bits, valid_bits_offset));
+  }
+
+ protected:
+  USING_BASE_MEMBERS();
+};
+
+typedef ::testing::Types<ByteArrayType> TestDeltaLengthByteArrayEncodingTypes;
+TYPED_TEST_SUITE(TestDeltaLengthByteArrayEncoding, TestDeltaLengthByteArrayEncodingTypes);
+
+TYPED_TEST(TestDeltaLengthByteArrayEncoding, BasicRoundTrip) {
+  ASSERT_NO_FATAL_FAILURE(this->Execute(0, 0));
+  ASSERT_NO_FATAL_FAILURE(this->Execute(2000, 200));
+  ASSERT_NO_FATAL_FAILURE(this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 0.1));
+}
+
+TYPED_TEST(TestDeltaLengthByteArrayEncoding, AllNulls) {
+  this->ExecuteSpaced(
+      /*nvalues*/ 1234, /*repeats*/ 1, /*valid_bits_offset*/ 64,
+      /*null_probability*/ 1);
+}
+
+std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
+  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+  encoder->Put(lengths.data(), static_cast<int>(lengths.size()));
+  return encoder->FlushValues();
+}
+
+TEST(TestDeltaLengthByteArrayEncoding, AdHocRoundTrip) {
+  const std::shared_ptr<::arrow::Array> cases[] = {
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"([])"),
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["abc", "de", ""])"),
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["", "", ""])"),
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["abc", "", "xyz"])")->Slice(1),
+  };
+
+  std::string expected_encoded_vals[] = {
+      DeltaEncode({})->ToString(),
+      DeltaEncode({3, 2, 0})->ToString() + "abcde",
+      DeltaEncode({0, 0, 0})->ToString(),
+      DeltaEncode({0, 3})->ToString() + "xyz",
+  };
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
+                                                 /*use_dictionary=*/false);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  for (int i = 0; i < 4; ++i) {
+    auto array = cases[i];
+    auto expected_encoded = expected_encoded_vals[i];
+
+    encoder->Put(*array);
+    std::shared_ptr<Buffer> buffer = encoder->FlushValues();
+
+    ASSERT_EQ(expected_encoded, buffer->ToString());
+
+    int num_values = static_cast<int>(array->length() - array->null_count());
+    decoder->SetData(num_values, buffer->data(), static_cast<int>(buffer->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    acc.builder.reset(new ::arrow::StringBuilder);
+
+    int values_decoded = decoder->DecodeArrow(num_values, 0, nullptr, 0, &acc);
+    ASSERT_EQ(values_decoded, num_values);
+
+    std::shared_ptr<::arrow::Array> roundtripped_array;
+    ASSERT_OK(acc.builder->Finish(&roundtripped_array));
+    ASSERT_ARRAYS_EQUAL(*array, *roundtripped_array);
+  }
+}
+
+TEST(DeltaLengthByteArrayEncoding, RejectBadBuffer) {
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+
+  // Missing length delta header
+  Buffer empty_buffer = Buffer("");
+  ASSERT_THROW(decoder->SetData(10, empty_buffer.data(), 0), ParquetException);
+
+  // Incomplete header
+  std::shared_ptr<Buffer> partial_buffer =
+      DeltaEncode({3, 2, 0})->CopySlice(0, 2).ValueOrDie();
+  ASSERT_THROW(decoder->SetData(10, partial_buffer->data(),
+                                static_cast<int>(partial_buffer->size())),
+               ParquetException);
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  acc.builder.reset(new ::arrow::StringBuilder);
+
+  // buffer only has lengths
+  std::shared_ptr<Buffer> buffer = DeltaEncode({3, 2, 0});
+  decoder->SetData(3, buffer->data(), static_cast<int>(buffer->size()));
+  acc.builder.reset(new ::arrow::StringBuilder);
+  ASSERT_THROW(decoder->DecodeArrow(3, 0, nullptr, 0, &acc), ParquetException);
+
+  // bytes are too short for lengths
+  std::shared_ptr<Buffer> short_buffer =
+      ::arrow::ConcatenateBuffers(
+          {DeltaEncode({2, 4, 6}), std::make_shared<Buffer>("short")})
+          .ValueOrDie();
+  decoder->SetData(3, short_buffer->data(), static_cast<int>(short_buffer->size()));
+  acc.builder.reset(new ::arrow::StringBuilder);
+  ASSERT_THROW(decoder->DecodeArrow(3, 0, nullptr, 0, &acc), ParquetException);
+}
+
+std::shared_ptr<::arrow::Array> CastBinaryTypesHelper(
+    std::shared_ptr<::arrow::Array> result, std::shared_ptr<::arrow::DataType> type) {
+  if (::arrow::is_large_binary_like(type->id())) {
+    ::arrow::compute::CastOptions options;
+    if (::arrow::is_string(type->id())) {
+      options.to_type = ::arrow::large_utf8();
+    } else {
+      options.to_type = ::arrow::large_binary();
+    }
+    EXPECT_OK_AND_ASSIGN(
+        auto tmp, CallFunction("cast", {::arrow::Datum{result}}, &options, nullptr));
+    result = tmp.make_array();
+  }
+  return result;
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowBinaryDirectPut) {
+  const int64_t size = 50;
+  const int32_t min_length = 0;
+  const int32_t max_length = 10;
+  const int32_t num_unique = 10;
+  const double null_probability = 0.25;
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+
+  auto CheckSeed = [&](std::shared_ptr<::arrow::Array> values) {
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(values->length() - values->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    if (::arrow::is_string(values->type()->id())) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(values->length(), result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    auto upcast_result = CastBinaryTypesHelper(result, values->type());
+    ::arrow::AssertArraysEqual(*values, *result);
+  };
+
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto values = rag.String(0, min_length, max_length, null_probability);
+  CheckSeed(values);
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    rag = ::arrow::random::RandomArrayGenerator(seed);
+
+    values = rag.String(size, min_length, max_length, null_probability);
+    CheckSeed(values);
+
+    values =
+        rag.BinaryWithRepeats(size, num_unique, min_length, max_length, null_probability);
+    CheckSeed(values);
+  }
+}
+
+TEST(DeltaLengthByteArrayEncodingAdHoc, ArrowDirectPut) {
+  auto CheckEncode = [](std::shared_ptr<::arrow::Array> values,
+                        std::shared_ptr<::arrow::Array> lengths) {
+    auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    ASSERT_NO_THROW(encoder->Put(*values));
+    auto buf = encoder->FlushValues();
+
+    auto lengths_encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+    ASSERT_NO_THROW(lengths_encoder->Put(*lengths));
+    auto lengths_buf = lengths_encoder->FlushValues();
+
+    auto encoded_lengths_buf = SliceBuffer(buf, 0, lengths_buf->size());
+    auto encoded_values_buf = SliceBuffer(buf, lengths_buf->size());
+
+    ASSERT_TRUE(encoded_lengths_buf->Equals(*lengths_buf));
+    ASSERT_TRUE(encoded_values_buf->Equals(*values->data()->buffers[2]));
+  };
+
+  auto CheckDecode = [](std::shared_ptr<Buffer> buf,
+                        std::shared_ptr<::arrow::Array> values) {
+    int num_values = static_cast<int>(values->length());
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY);
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    typename EncodingTraits<ByteArrayType>::Accumulator acc;
+    if (::arrow::is_string(values->type()->id())) {
+      acc.builder = std::make_unique<::arrow::StringBuilder>();
+    } else {
+      acc.builder = std::make_unique<::arrow::BinaryBuilder>();
+    }
+
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.builder->Finish(&result));
+    ASSERT_EQ(num_values, result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    auto upcast_result = CastBinaryTypesHelper(result, values->type());
+    ::arrow::AssertArraysEqual(*values, *upcast_result);
+  };
+
+  auto values = R"(["Hello", "World", "Foobar", "ADBCEF"])";
+  auto lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([5, 5, 6, 6])");
+
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), lengths);
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), lengths);
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), lengths);
+  CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), lengths);
+
+  auto encoded =
+      ::arrow::ConcatenateBuffers(
+          {DeltaEncode({5, 5, 6, 6}), std::make_shared<Buffer>("HelloWorldFoobarADBCEF")})
+          .ValueOrDie();
+
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
+  CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+}
+
+}  // namespace parquet::test

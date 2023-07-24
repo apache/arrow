@@ -24,38 +24,58 @@ namespace Apache.Arrow.Ipc
     /// <summary>
     /// Represents a reader that can read Arrow streams.
     /// </summary>
-    public class ArrowStreamReader : IArrowReader, IDisposable
+    public class ArrowStreamReader : IArrowReader, IArrowArrayStream, IDisposable
     {
         private protected readonly ArrowReaderImplementation _implementation;
 
         public Schema Schema => _implementation.Schema;
 
         public ArrowStreamReader(Stream stream)
-            : this(stream, allocator: null, leaveOpen: false)
+            : this(stream, allocator: null, compressionCodecFactory: null, leaveOpen: false)
         {
         }
 
         public ArrowStreamReader(Stream stream, MemoryAllocator allocator)
-            : this(stream, allocator, leaveOpen: false)
+            : this(stream, allocator, compressionCodecFactory: null, leaveOpen: false)
+        {
+        }
+
+        public ArrowStreamReader(Stream stream, ICompressionCodecFactory compressionCodecFactory)
+            : this(stream, allocator: null, compressionCodecFactory, leaveOpen: false)
         {
         }
 
         public ArrowStreamReader(Stream stream, bool leaveOpen)
-            : this(stream, allocator: null, leaveOpen)
+            : this(stream, allocator: null, compressionCodecFactory: null, leaveOpen)
         {
         }
 
         public ArrowStreamReader(Stream stream, MemoryAllocator allocator, bool leaveOpen)
+            : this(stream, allocator, compressionCodecFactory: null, leaveOpen)
+        {
+        }
+
+        public ArrowStreamReader(Stream stream, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
+            : this(stream, allocator: null, compressionCodecFactory, leaveOpen)
+        {
+        }
+
+        public ArrowStreamReader(Stream stream, MemoryAllocator allocator, ICompressionCodecFactory compressionCodecFactory, bool leaveOpen)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            _implementation = new ArrowStreamReaderImplementation(stream, allocator, leaveOpen);
+            _implementation = new ArrowStreamReaderImplementation(stream, allocator, compressionCodecFactory, leaveOpen);
         }
 
         public ArrowStreamReader(ReadOnlyMemory<byte> buffer)
         {
-            _implementation = new ArrowMemoryReaderImplementation(buffer);
+            _implementation = new ArrowMemoryReaderImplementation(buffer, compressionCodecFactory: null);
+        }
+
+        public ArrowStreamReader(ReadOnlyMemory<byte> buffer, ICompressionCodecFactory compressionCodecFactory)
+        {
+            _implementation = new ArrowMemoryReaderImplementation(buffer, compressionCodecFactory);
         }
 
         private protected ArrowStreamReader(ArrowReaderImplementation implementation)

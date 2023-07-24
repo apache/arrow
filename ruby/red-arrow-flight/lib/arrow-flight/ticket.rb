@@ -21,7 +21,7 @@ module ArrowFlight
       # @api private
       def try_convert(value)
         case value
-        when String
+        when String, GLib::Bytes
           new(value)
         else
           nil

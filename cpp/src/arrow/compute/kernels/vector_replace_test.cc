@@ -19,13 +19,15 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/concatenate.h"
+#include "arrow/chunked_array.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/test_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 namespace compute {
@@ -64,28 +66,42 @@ class TestReplaceKernel : public ::testing::Test {
     return ArrayFromJSON(boolean(), value);
   }
 
-  Status AssertRaises(ReplaceFunction func, const std::shared_ptr<Array>& array,
-                      const Datum& mask, const std::shared_ptr<Array>& replacements) {
+  Status AssertRaises(ReplaceFunction func, const Datum& array, const Datum& mask,
+                      const Datum& replacements) {
     auto result = func(array, mask, replacements, nullptr);
     EXPECT_FALSE(result.ok());
     return result.status();
   }
 
-  void Assert(ReplaceFunction func, const std::shared_ptr<Array>& array,
-              const Datum& mask, Datum replacements,
-              const std::shared_ptr<Array>& expected) {
-    SCOPED_TRACE("Replacements: " + (replacements.is_array()
-                                         ? replacements.make_array()->ToString()
-                                         : replacements.scalar()->ToString()));
-    SCOPED_TRACE("Mask: " + (mask.is_array() ? mask.make_array()->ToString()
-                                             : mask.scalar()->ToString()));
-    SCOPED_TRACE("Array: " + array->ToString());
+  std::string PrintDatum(const Datum& datum) {
+    switch (datum.kind()) {
+      case Datum::ARRAY:
+        return datum.make_array()->ToString();
+      case Datum::CHUNKED_ARRAY:
+        return datum.chunked_array()->ToString();
+      case Datum::SCALAR:
+        return datum.scalar()->ToString();
+      default:
+        return datum.ToString();
+    }
+  }
+
+  void Assert(ReplaceFunction func, const Datum& array, const Datum& mask,
+              const Datum& replacements, const Datum& expected) {
+    ARROW_SCOPED_TRACE("Replacements: ", PrintDatum(replacements));
+    ARROW_SCOPED_TRACE("Mask: ", PrintDatum(mask));
+    ARROW_SCOPED_TRACE("Array: ", PrintDatum(array));
 
     ASSERT_OK_AND_ASSIGN(auto actual, func(array, mask, replacements, nullptr));
-    ASSERT_TRUE(actual.is_array());
-    ASSERT_OK(actual.make_array()->ValidateFull());
+    if (actual.is_array()) {
+      ASSERT_OK(actual.make_array()->ValidateFull());
+    } else if (actual.is_scalar()) {
+      ASSERT_OK(actual.scalar()->ValidateFull());
+    } else if (actual.is_arraylike()) {
+      ASSERT_OK(actual.chunked_array()->ValidateFull());
+    }
 
-    AssertArraysApproxEqual(*expected, *actual.make_array(), /*verbose=*/true);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
   }
 
   void AssertFillNullArray(FillNullFunction func, const std::shared_ptr<Array>& array,
@@ -142,7 +158,7 @@ class TestReplaceKernel : public ::testing::Test {
       const typename TypeTraits<T>::ArrayType& array, const BooleanArray& mask,
       const typename TypeTraits<T>::ArrayType& replacements) {
     auto length = array.length();
-    auto builder = arrow::internal::make_unique<typename TypeTraits<T>::BuilderType>(
+    auto builder = std::make_unique<typename TypeTraits<T>::BuilderType>(
         default_type_instance<T>(), default_memory_pool());
     int64_t replacement_offset = 0;
     for (int64_t i = 0; i < length; ++i) {
@@ -224,99 +240,166 @@ TYPED_TEST_SUITE(TestReplaceNumeric, NumericBasedTypes);
 TYPED_TEST_SUITE(TestReplaceDecimal, DecimalArrowTypes);
 TYPED_TEST_SUITE(TestReplaceBinary, BaseBinaryArrowTypes);
 
+struct ReplaceWithMaskCase {
+  Datum input;
+  Datum mask;
+  Datum replacements;
+  Datum expected;
+};
+
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
+      // Regression test for ARROW-15928
+      {this->array("[1, 1, 1, 1]"), this->mask("[true, false, true, false]"),
+       this->array("[2, 2]"), this->array("[2, 1, 2, 1]")},
 
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[1]"));
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
-               this->array("[0]"), this->array("[0]"));
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->mask_scalar(true),
-               this->array("[2, 0]"), this->array("[2]"));
-  this->Assert(ReplaceWithMask, this->array("[1]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array("[1]"), this->mask_scalar(false), this->array("[]"),
+       this->array("[1]")},
+      {this->array("[1]"), this->mask_scalar(true), this->array("[0]"),
+       this->array("[0]")},
+      {this->array("[1]"), this->mask_scalar(true), this->array("[2, 0]"),
+       this->array("[2]")},
+      {this->array("[1]"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(false),
-               this->scalar("1"), this->array("[0, 0]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
-               this->scalar("1"), this->array("[1, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 0]"), this->mask_scalar(true),
-               this->scalar("null"), this->array("[null, null]"));
+      {this->array("[0, 0]"), this->mask_scalar(false), this->scalar("1"),
+       this->array("[0, 0]")},
+      {this->array("[0, 0]"), this->mask_scalar(true), this->scalar("1"),
+       this->array("[1, 1]")},
+      {this->array("[0, 0]"), this->mask_scalar(true), this->scalar("null"),
+       this->array("[null, null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[0, 1, 2, 3]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
-               this->mask("[true, true, true, true]"), this->array("[10, 11, 12, 13]"),
-               this->array("[10, 11, 12, 13]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[0, 1, 2, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
-               this->mask("[true, true, true, true]"), this->array("[10, 11, 12, 13]"),
-               this->array("[10, 11, 12, 13]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, null]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2, 3, 4, 5]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[10, null]"), this->array("[0, 1, null, null, 10, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[10, null]"),
-               this->array("[null, null, null, null, 10, null]"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array("[0, 1, 2, 3]"), this->mask("[false, false, false, false]"),
+       this->array("[]"), this->array("[0, 1, 2, 3]")},
+      {this->array("[0, 1, 2, 3]"), this->mask("[true, true, true, true]"),
+       this->array("[10, 11, 12, 13]"), this->array("[10, 11, 12, 13]")},
+      {this->array("[0, 1, 2, 3]"), this->mask("[null, null, null, null]"),
+       this->array("[]"), this->array("[null, null, null, null]")},
+      {this->array("[0, 1, 2, null]"), this->mask("[false, false, false, false]"),
+       this->array("[]"), this->array("[0, 1, 2, null]")},
+      {this->array("[0, 1, 2, null]"), this->mask("[true, true, true, true]"),
+       this->array("[10, 11, 12, 13]"), this->array("[10, 11, 12, 13]")},
+      {this->array("[0, 1, 2, null]"), this->mask("[null, null, null, null]"),
+       this->array("[]"), this->array("[null, null, null, null]")},
+      {this->array("[0, 1, 2, 3, 4, 5]"),
+       this->mask("[false, false, null, null, true, true]"), this->array("[10, null]"),
+       this->array("[0, 1, null, null, 10, null]")},
+      {this->array("[null, null, null, null, null, null]"),
+       this->mask("[false, false, null, null, true, true]"), this->array("[10, null]"),
+       this->array("[null, null, null, null, 10, null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->scalar("1"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1]"), this->mask("[true, true]"),
-               this->scalar("10"), this->array("[10, 10]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1]"), this->mask("[true, true]"),
-               this->scalar("null"), this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[0, 1, 2]"),
-               this->mask("[false, null, true]"), this->scalar("10"),
-               this->array("[0, null, 10]"));
-}
+      {this->array("[]"), this->mask("[]"), this->scalar("1"), this->array("[]")},
+      {this->array("[0, 1]"), this->mask("[true, true]"), this->scalar("10"),
+       this->array("[10, 10]")},
+      {this->array("[0, 1]"), this->mask("[true, true]"), this->scalar("null"),
+       this->array("[null, null]")},
+      {this->array("[0, 1, 2]"), this->mask("[false, null, true]"), this->scalar("10"),
+       this->array("[0, null, 10]")},
 
-TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskForNullValuesAndMaskEnabled) {
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[false, true, false]"), this->array("[7]"),
-               this->array("[1, 7, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1, 7]"),
-               this->mask("[false, true, false, true]"), this->array("[7, 20]"),
-               this->array("[1, 7, 1, 20]"));
-  this->Assert(ReplaceWithMask, this->array("[1, 2, 3, 4]"),
-               this->mask("[false, true, false, true]"), this->array("[null, null]"),
-               this->array("[1, null, 3, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, 2, 3, 4]"),
-               this->mask("[true, true, false, true]"), this->array("[1, null, null]"),
-               this->array("[1, null, 3, null]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[false, true, false]"), this->scalar("null"),
-               this->array("[1, null, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[true, true, true]"), this->array("[7, 7, 7]"),
-               this->array("[7, 7, 7]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[true, true, true]"), this->array("[null, null, null]"),
-               this->array("[null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[false, true, false]"), this->scalar("null"),
-               this->array("[1, null, 1]"));
-  this->Assert(ReplaceWithMask, this->array("[1, null, 1]"),
-               this->mask("[true, true, true]"), this->scalar("null"),
-               this->array("[null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
-               this->array("[1, 1]"), this->array("[1, 1]"));
+      // Regression tests for ARROW-14795
+      {this->array("[1, null, 1]"), this->mask("[false, true, false]"),
+       this->array("[7]"), this->array("[1, 7, 1]")},
+      {this->array("[1, null, 1, 7]"), this->mask("[false, true, false, true]"),
+       this->array("[7, 20]"), this->array("[1, 7, 1, 20]")},
+      {this->array("[1, 2, 3, 4]"), this->mask("[false, true, false, true]"),
+       this->array("[null, null]"), this->array("[1, null, 3, null]")},
+      {this->array("[null, 2, 3, 4]"), this->mask("[true, true, false, true]"),
+       this->array("[1, null, null]"), this->array("[1, null, 3, null]")},
+      {this->array("[1, null, 1]"), this->mask("[false, true, false]"),
+       this->scalar("null"), this->array("[1, null, 1]")},
+      {this->array("[1, null, 1]"), this->mask("[true, true, true]"),
+       this->array("[7, 7, 7]"), this->array("[7, 7, 7]")},
+      {this->array("[1, null, 1]"), this->mask("[true, true, true]"),
+       this->array("[null, null, null]"), this->array("[null, null, null]")},
+      {this->array("[1, null, 1]"), this->mask("[false, true, false]"),
+       this->scalar("null"), this->array("[1, null, 1]")},
+      {this->array("[1, null, 1]"), this->mask("[true, true, true]"),
+       this->scalar("null"), this->array("[null, null, null]")},
+      {this->array("[null, null]"), this->mask("[true, true]"), this->array("[1, 1]"),
+       this->array("[1, 1]")},
+
+      // ChunkedArray tests for ARROW-15928
+      {this->chunked_array({}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({}), this->mask_scalar(true), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({})},
+
+      {this->chunked_array({"[0, 1, 2, 3]", "[]", "[4, 5, 6, 7]"}),
+       this->mask("[true, false, false, false, false, true, false, false]"),
+       this->array("[10, 10]"), this->chunked_array({"[10, 1, 2, 3]", "[4, 10, 6, 7]"})},
+      {this->chunked_array({"[0, 1, 2, 3, 4, 5, 6, 7]"}),
+       this->mask("[true, true, true, true, true, true, true, true]"),
+       this->array("[10, 10, 10, 10, 10, 10, 10, 10]"),
+       this->chunked_array({"[10, 10, 10, 10, 10, 10, 10, 10]"})},
+      {this->chunked_array({"[0, 1, 2, 3]", "[4, null, 6, 7]"}), this->mask_scalar(true),
+       this->array("[10, 10, 10, 10, 10, 10, 10, 10]"),
+       this->chunked_array({"[10, 10, 10, 10, 10, 10, 10, 10]"})},
+      {this->chunked_array({"[0, 1, 2, 3]", "[4, null, 6, 7]"}), this->mask_scalar(false),
+       this->array("[]"), this->chunked_array({"[0, 1, 2, 3]", "[4, null, 6, 7]"})},
+      {this->chunked_array({"[0, 1, 2, 3]", "[4, null, 6, 7]"}), this->null_mask_scalar(),
+       this->array("[]"),
+       this->chunked_array({"[null, null, null, null]", "[null, null, null, null]"})},
+      {this->chunked_array({"[0, 1, 2, 3]", "[4, null, 6, 7]"}), this->mask_scalar(true),
+       this->scalar("10"), this->chunked_array({"[10, 10, 10, 10, 10, 10, 10, 10]"})},
+      {this->chunked_array({"[0, 1, 2, 3]", "[4, null, 6, 7]"}), this->mask_scalar(true),
+       this->scalar("null"),
+       this->chunked_array({"[null, null, null, null, null, null, null, null]"})},
+
+      {this->chunked_array(
+           {"[]", "[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"}),
+       this->mask("[true, true, false, false, true, true, false, true, false]"),
+       this->array("[10, 11, null, null, 14]"),
+       this->chunked_array({"[10]", "[11, 1]", "[null, null]", "[null, 5, 14]", "[7]"})},
+      {this->chunked_array(
+           {"[]", "[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"}),
+       this->mask_scalar(true),
+       this->array("[10, 11, null, null, 14, 15, null, 16, null]"),
+       this->chunked_array(
+           {"[10]", "[11, null]", "[null, 14]", "[15, null, 16]", "[null]"})},
+      {this->chunked_array(
+           {"[]", "[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"}),
+       this->mask_scalar(true), this->scalar("null"),
+       this->chunked_array(
+           {"[null]", "[null, null]", "[null, null]", "[null, null, null]", "[null]"})},
+      {this->chunked_array(
+           {"[]", "[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"}),
+       this->mask_scalar(true), this->scalar("12"),
+       this->chunked_array({"[12]", "[12, 12]", "[12, 12]", "[12, 12, 12]", "[12]"})},
+      {this->chunked_array(
+           {"[]", "[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"}),
+       this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({"[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"})},
+      {this->chunked_array(
+           {"[]", "[null]", "[0, 1]", "[null, 3]", "[null, 5, 6]", "[7]"}),
+       this->null_mask_scalar(), this->array("[]"),
+       this->chunked_array(
+           {"[null]", "[null, null]", "[null, null]", "[null, null, null]", "[null]"})},
+  };
+
+  for (size_t i = 0; i < cases.size(); ++i) {
+    auto test_case = cases[i];
+    if (std::is_same<TypeParam, Date64Type>::value) {
+      // ARROW-10924: account for Date64 value restrictions
+      ASSERT_OK_AND_ASSIGN(test_case.input, Cast(test_case.input, int64()));
+      ASSERT_OK_AND_ASSIGN(test_case.input, Multiply(test_case.input, Datum(86400000)));
+      ASSERT_OK_AND_ASSIGN(test_case.replacements, Cast(test_case.replacements, int64()));
+      ASSERT_OK_AND_ASSIGN(test_case.replacements,
+                           Multiply(test_case.replacements, Datum(86400000)));
+      ASSERT_OK_AND_ASSIGN(test_case.expected, Cast(test_case.expected, int64()));
+      ASSERT_OK_AND_ASSIGN(test_case.expected,
+                           Multiply(test_case.expected, Datum(86400000)));
+    }
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
@@ -337,7 +420,7 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskRandom) {
       rand.ArrayOf(boolean(), length, /*null_probability=*/0.01));
   const int64_t num_replacements = std::count_if(
       mask->begin(), mask->end(),
-      [](util::optional<bool> value) { return value.has_value() && *value; });
+      [](std::optional<bool> value) { return value.has_value() && *value; });
   auto replacements = checked_pointer_cast<ArrayType>(
       rand.ArrayOf(*field("a", ty, options), num_replacements));
   auto expected = this->NaiveImpl(*array, *mask, *replacements);
@@ -370,78 +453,88 @@ TYPED_TEST(TestReplaceNumeric, ReplaceWithMaskErrors) {
                            "items but got 0 items)"),
       this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"), this->mask("[]"),
                          this->array("[]")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Replacement array must be of appropriate length (expected 2 "
+                           "items but got 0 items)"),
+      this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"), this->mask_scalar(true),
+                         this->array("[]")));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Replacements must be array or scalar, not ChunkedArray"),
+      this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"),
+                         this->mask("[true, false]"), this->chunked_array({"[0]"})));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Mask must be array or scalar, not ChunkedArray"),
+      this->AssertRaises(ReplaceWithMask, this->array("[1, 2]"),
+                         ChunkedArrayFromJSON(boolean(), {"[true]", "[false]"}),
+                         this->array({"[0]"})));
 }
 
 TEST_F(TestReplaceBoolean, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
 
-  this->Assert(ReplaceWithMask, this->array("[true]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[true]"));
-  this->Assert(ReplaceWithMask, this->array("[true]"), this->mask_scalar(true),
-               this->array("[false]"), this->array("[false]"));
-  this->Assert(ReplaceWithMask, this->array("[true]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array("[true]"), this->mask_scalar(false), this->array("[]"),
+       this->array("[true]")},
+      {this->array("[true]"), this->mask_scalar(true), this->array("[false]"),
+       this->array("[false]")},
+      {this->array("[true]"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask_scalar(false),
-               this->scalar("true"), this->array("[false, false]"));
-  this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask_scalar(true),
-               this->scalar("true"), this->array("[true, true]"));
-  this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask_scalar(true),
-               this->scalar("null"), this->array("[null, null]"));
+      {this->array("[false, false]"), this->mask_scalar(false), this->scalar("true"),
+       this->array("[false, false]")},
+      {this->array("[false, false]"), this->mask_scalar(true), this->scalar("true"),
+       this->array("[true, true]")},
+      {this->array("[false, false]"), this->mask_scalar(true), this->scalar("null"),
+       this->array("[null, null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, true]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[true, true, true, true]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, true]"),
-               this->mask("[true, true, true, true]"),
-               this->array("[false, false, false, false]"),
-               this->array("[false, false, false, false]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, true]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, null]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[true, true, true, null]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, null]"),
-               this->mask("[true, true, true, true]"),
-               this->array("[false, false, false, false]"),
-               this->array("[false, false, false, false]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, null]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[true, true, true, true, true, true]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[false, null]"),
-               this->array("[true, true, null, null, false, null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[false, null]"),
-               this->array("[null, null, null, null, false, null]"));
-  this->Assert(ReplaceWithMask, this->array("[true, null, true]"),
-               this->mask("[false, true, false]"), this->array("[true]"),
-               this->array("[true, true, true]"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array("[true, true, true, true]"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array("[true, true, true, true]")},
+      {this->array("[true, true, true, true]"), this->mask("[true, true, true, true]"),
+       this->array("[false, false, false, false]"),
+       this->array("[false, false, false, false]")},
+      {this->array("[true, true, true, true]"), this->mask("[null, null, null, null]"),
+       this->array("[]"), this->array("[null, null, null, null]")},
+      {this->array("[true, true, true, null]"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array("[true, true, true, null]")},
+      {this->array("[true, true, true, null]"), this->mask("[true, true, true, true]"),
+       this->array("[false, false, false, false]"),
+       this->array("[false, false, false, false]")},
+      {this->array("[true, true, true, null]"), this->mask("[null, null, null, null]"),
+       this->array("[]"), this->array("[null, null, null, null]")},
+      {this->array("[true, true, true, true, true, true]"),
+       this->mask("[false, false, null, null, true, true]"), this->array("[false, null]"),
+       this->array("[true, true, null, null, false, null]")},
+      {this->array("[null, null, null, null, null, null]"),
+       this->mask("[false, false, null, null, true, true]"), this->array("[false, null]"),
+       this->array("[null, null, null, null, false, null]")},
+      {this->array("[true, null, true]"), this->mask("[false, true, false]"),
+       this->array("[true]"), this->array("[true, true, true]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->scalar("true"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[null, false, true]"),
-               this->mask("[true, false, false]"), this->scalar("false"),
-               this->array("[false, false, true]"));
-  this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask("[true, true]"),
-               this->scalar("true"), this->array("[true, true]"));
-  this->Assert(ReplaceWithMask, this->array("[false, false]"), this->mask("[true, true]"),
-               this->scalar("null"), this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[false, false, false]"),
-               this->mask("[false, null, true]"), this->scalar("true"),
-               this->array("[false, null, true]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null]"), this->mask("[true, true]"),
-               this->array("[true, true]"), this->array("[true, true]"));
+      {this->array("[]"), this->mask("[]"), this->scalar("true"), this->array("[]")},
+      {this->array("[null, false, true]"), this->mask("[true, false, false]"),
+       this->scalar("false"), this->array("[false, false, true]")},
+      {this->array("[false, false]"), this->mask("[true, true]"), this->scalar("true"),
+       this->array("[true, true]")},
+      {this->array("[false, false]"), this->mask("[true, true]"), this->scalar("null"),
+       this->array("[null, null]")},
+      {this->array("[false, false, false]"), this->mask("[false, null, true]"),
+       this->scalar("true"), this->array("[false, null, true]")},
+      {this->array("[null, null]"), this->mask("[true, true]"),
+       this->array("[true, true]"), this->array("[true, true]")},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TEST_F(TestReplaceBoolean, ReplaceWithMaskErrors) {
@@ -466,74 +559,92 @@ TEST_F(TestReplaceBoolean, ReplaceWithMaskErrors) {
 }
 
 TEST_F(TestReplaceFixedSizeBinary, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
 
-  this->Assert(ReplaceWithMask, this->array(R"(["foo"])"), this->mask_scalar(false),
-               this->array("[]"), this->array(R"(["foo"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo"])"), this->mask_scalar(true),
-               this->array(R"(["bar"])"), this->array(R"(["bar"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo"])"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array(R"(["foo"])"), this->mask_scalar(false), this->array("[]"),
+       this->array(R"(["foo"])")},
+      {this->array(R"(["foo"])"), this->mask_scalar(true), this->array(R"(["bar"])"),
+       this->array(R"(["bar"])")},
+      {this->array(R"(["foo"])"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array(R"(["foo", "bar"])"),
-               this->mask_scalar(false), this->scalar(R"("baz")"),
-               this->array(R"(["foo", "bar"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo", "bar"])"), this->mask_scalar(true),
-               this->scalar(R"("baz")"), this->array(R"(["baz", "baz"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo", "bar"])"), this->mask_scalar(true),
-               this->scalar("null"), this->array(R"([null, null])"));
+      {this->array(R"(["foo", "bar"])"), this->mask_scalar(false),
+       this->scalar(R"("baz")"), this->array(R"(["foo", "bar"])")},
+      {this->array(R"(["foo", "bar"])"), this->mask_scalar(true),
+       this->scalar(R"("baz")"), this->array(R"(["baz", "baz"])")},
+      {this->array(R"(["foo", "bar"])"), this->mask_scalar(true), this->scalar("null"),
+       this->array(R"([null, null])")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc", "ddd"])"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array(R"(["aaa", "bbb", "ccc", "ddd"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc", "ddd"])"),
-               this->mask("[true, true, true, true]"),
-               this->array(R"(["eee", "fff", "ggg", "hhh"])"),
-               this->array(R"(["eee", "fff", "ggg", "hhh"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc", "ddd"])"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array(R"([null, null, null, null])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc", null])"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array(R"(["aaa", "bbb", "ccc", null])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc", null])"),
-               this->mask("[true, true, true, true]"),
-               this->array(R"(["eee", "fff", "ggg", "hhh"])"),
-               this->array(R"(["eee", "fff", "ggg", "hhh"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc", null])"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array(R"([null, null, null, null])"));
-  this->Assert(ReplaceWithMask,
-               this->array(R"(["aaa", "bbb", "ccc", "ddd", "eee", "fff"])"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array(R"(["ggg", null])"),
-               this->array(R"(["aaa", "bbb", null, null, "ggg", null])"));
-  this->Assert(ReplaceWithMask, this->array(R"([null, null, null, null, null, null])"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array(R"(["aaa", null])"),
-               this->array(R"([null, null, null, null, "aaa", null])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", null, "bbb"])"),
-               this->mask("[false, true, false]"), this->array(R"(["aba"])"),
-               this->array(R"(["aaa", "aba", "bbb"])"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array(R"(["aaa", "bbb", "ccc", "ddd"])"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array(R"(["aaa", "bbb", "ccc", "ddd"])")},
+      {this->array(R"(["aaa", "bbb", "ccc", "ddd"])"),
+       this->mask("[true, true, true, true]"),
+       this->array(R"(["eee", "fff", "ggg", "hhh"])"),
+       this->array(R"(["eee", "fff", "ggg", "hhh"])")},
+      {this->array(R"(["aaa", "bbb", "ccc", "ddd"])"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array(R"([null, null, null, null])")},
+      {this->array(R"(["aaa", "bbb", "ccc", null])"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array(R"(["aaa", "bbb", "ccc", null])")},
+      {this->array(R"(["aaa", "bbb", "ccc", null])"),
+       this->mask("[true, true, true, true]"),
+       this->array(R"(["eee", "fff", "ggg", "hhh"])"),
+       this->array(R"(["eee", "fff", "ggg", "hhh"])")},
+      {this->array(R"(["aaa", "bbb", "ccc", null])"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array(R"([null, null, null, null])")},
+      {this->array(R"(["aaa", "bbb", "ccc", "ddd", "eee", "fff"])"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array(R"(["ggg", null])"),
+       this->array(R"(["aaa", "bbb", null, null, "ggg", null])")},
+      {this->array(R"([null, null, null, null, null, null])"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array(R"(["aaa", null])"),
+       this->array(R"([null, null, null, null, "aaa", null])")},
+      {this->array(R"(["aaa", null, "bbb"])"), this->mask("[false, true, false]"),
+       this->array(R"(["aba"])"), this->array(R"(["aaa", "aba", "bbb"])")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
-               this->scalar(R"("zzz")"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb"])"),
-               this->mask("[true, true]"), this->scalar(R"("zzz")"),
-               this->array(R"(["zzz", "zzz"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb"])"),
-               this->mask("[true, true]"), this->scalar("null"),
-               this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["aaa", "bbb", "ccc"])"),
-               this->mask("[false, null, true]"), this->scalar(R"("zzz")"),
-               this->array(R"(["aaa", null, "zzz"])"));
+      {this->array("[]"), this->mask("[]"), this->scalar(R"("zzz")"), this->array("[]")},
+      {this->array(R"(["aaa", "bbb"])"), this->mask("[true, true]"),
+       this->scalar(R"("zzz")"), this->array(R"(["zzz", "zzz"])")},
+      {this->array(R"(["aaa", "bbb"])"), this->mask("[true, true]"), this->scalar("null"),
+       this->array("[null, null]")},
+      {this->array(R"(["aaa", "bbb", "ccc"])"), this->mask("[false, null, true]"),
+       this->scalar(R"("zzz")"), this->array(R"(["aaa", null, "zzz"])")},
+
+      {this->chunked_array({}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({}), this->mask_scalar(true), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({})},
+
+      {this->chunked_array({R"([])", R"([null])", R"(["aaa", "bbb"])", R"([null, "ccc"])",
+                            R"([null, "ddd", "eee"])", R"(["fff"])"}),
+       this->mask("[true, true, false, false, true, true, false, true, false]"),
+       this->array(R"(["zzz", "yyy", null, null, "xxx"])"),
+       this->chunked_array({R"(["zzz"])", R"(["yyy", "bbb"])", R"([null, null])",
+                            R"([null, "ddd", "xxx"])", R"(["fff"])"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["aaa", "bbb"])", R"([null, "ccc"])",
+                            R"([null, "ddd", "eee"])", R"(["fff"])"}),
+       this->mask_scalar(true),
+       this->array(R"(["zzz", "yyy", null, null, "xxx", "www", null, "vvv", null])"),
+       this->chunked_array({R"(["zzz"])", R"(["yyy", null])", R"([null, "xxx"])",
+                            R"(["www", null, "vvv"])", R"([null])"})},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TEST_F(TestReplaceFixedSizeBinary, ReplaceWithMaskErrors) {
@@ -548,279 +659,378 @@ TEST_F(TestReplaceFixedSizeBinary, ReplaceWithMaskErrors) {
 }
 
 TYPED_TEST(TestReplaceDecimal, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
 
-  this->Assert(ReplaceWithMask, this->array(R"(["1.00"])"), this->mask_scalar(false),
-               this->array("[]"), this->array(R"(["1.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["1.00"])"), this->mask_scalar(true),
-               this->array(R"(["0.00"])"), this->array(R"(["0.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["1.00"])"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array(R"(["1.00"])"), this->mask_scalar(false), this->array("[]"),
+       this->array(R"(["1.00"])")},
+      {this->array(R"(["1.00"])"), this->mask_scalar(true), this->array(R"(["0.00"])"),
+       this->array(R"(["0.00"])")},
+      {this->array(R"(["1.00"])"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "0.00"])"),
-               this->mask_scalar(false), this->scalar(R"("1.00")"),
-               this->array(R"(["0.00", "0.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "0.00"])"),
-               this->mask_scalar(true), this->scalar(R"("1.00")"),
-               this->array(R"(["1.00", "1.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "0.00"])"),
-               this->mask_scalar(true), this->scalar("null"),
-               this->array("[null, null]"));
+      {this->array(R"(["0.00", "0.00"])"), this->mask_scalar(false),
+       this->scalar(R"("1.00")"), this->array(R"(["0.00", "0.00"])")},
+      {this->array(R"(["0.00", "0.00"])"), this->mask_scalar(true),
+       this->scalar(R"("1.00")"), this->array(R"(["1.00", "1.00"])")},
+      {this->array(R"(["0.00", "0.00"])"), this->mask_scalar(true), this->scalar("null"),
+       this->array("[null, null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00", "3.00"])"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array(R"(["0.00", "1.00", "2.00", "3.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00", "3.00"])"),
-               this->mask("[true, true, true, true]"),
-               this->array(R"(["10.00", "11.00", "12.00", "13.00"])"),
-               this->array(R"(["10.00", "11.00", "12.00", "13.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00", "3.00"])"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00", null])"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array(R"(["0.00", "1.00", "2.00", null])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00", null])"),
-               this->mask("[true, true, true, true]"),
-               this->array(R"(["10.00", "11.00", "12.00", "13.00"])"),
-               this->array(R"(["10.00", "11.00", "12.00", "13.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00", null])"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask,
-               this->array(R"(["0.00", "1.00", "2.00", "3.00", "4.00", "5.00"])"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array(R"(["10.00", null])"),
-               this->array(R"(["0.00", "1.00", null, null, "10.00", null])"));
-  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array(R"(["10.00", null])"),
-               this->array(R"([null, null, null, null, "10.00", null])"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array(R"(["0.00", "1.00", "2.00", "3.00"])"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array(R"(["0.00", "1.00", "2.00", "3.00"])")},
+      {this->array(R"(["0.00", "1.00", "2.00", "3.00"])"),
+       this->mask("[true, true, true, true]"),
+       this->array(R"(["10.00", "11.00", "12.00", "13.00"])"),
+       this->array(R"(["10.00", "11.00", "12.00", "13.00"])")},
+      {this->array(R"(["0.00", "1.00", "2.00", "3.00"])"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array("[null, null, null, null]")},
+      {this->array(R"(["0.00", "1.00", "2.00", null])"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array(R"(["0.00", "1.00", "2.00", null])")},
+      {this->array(R"(["0.00", "1.00", "2.00", null])"),
+       this->mask("[true, true, true, true]"),
+       this->array(R"(["10.00", "11.00", "12.00", "13.00"])"),
+       this->array(R"(["10.00", "11.00", "12.00", "13.00"])")},
+      {this->array(R"(["0.00", "1.00", "2.00", null])"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array("[null, null, null, null]")},
+      {this->array(R"(["0.00", "1.00", "2.00", "3.00", "4.00", "5.00"])"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array(R"(["10.00", null])"),
+       this->array(R"(["0.00", "1.00", null, null, "10.00", null])")},
+      {this->array("[null, null, null, null, null, null]"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array(R"(["10.00", null])"),
+       this->array(R"([null, null, null, null, "10.00", null])")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
-               this->scalar(R"("1.00")"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00"])"),
-               this->mask("[true, true]"), this->scalar(R"("10.00")"),
-               this->array(R"(["10.00", "10.00"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00"])"),
-               this->mask("[true, true]"), this->scalar("null"),
-               this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["0.00", "1.00", "2.00"])"),
-               this->mask("[false, null, true]"), this->scalar(R"("10.00")"),
-               this->array(R"(["0.00", null, "10.00"])"));
+      {this->array("[]"), this->mask("[]"), this->scalar(R"("1.00")"), this->array("[]")},
+      {this->array(R"(["0.00", "1.00"])"), this->mask("[true, true]"),
+       this->scalar(R"("10.00")"), this->array(R"(["10.00", "10.00"])")},
+      {this->array(R"(["0.00", "1.00"])"), this->mask("[true, true]"),
+       this->scalar("null"), this->array("[null, null]")},
+      {this->array(R"(["0.00", "1.00", "2.00"])"), this->mask("[false, null, true]"),
+       this->scalar(R"("10.00")"), this->array(R"(["0.00", null, "10.00"])")},
+
+      {this->chunked_array({}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({}), this->mask_scalar(true), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({R"([])", R"([null])", R"(["1.02", "-2.45"])",
+                            R"([null, "-3.00"])", R"([null, "-5.45", "6.01"])",
+                            R"(["7.77"])"}),
+       this->mask("[true, true, false, false, true, true, false, true, false]"),
+       this->array(R"(["9.01", "9.23", null, null, "9.45"])"),
+       this->chunked_array({R"(["9.01"])", R"(["9.23", "-2.45"])", R"([null, null])",
+                            R"([null, "-5.45", "9.45"])", R"(["7.77"])"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["1.02", "-2.45"])",
+                            R"([null, "-3.00"])", R"([null, "-5.45", "6.01"])",
+                            R"(["7.77"])"}),
+       this->mask_scalar(true),
+       this->array(R"(["9.01", "9.23", null, null, "9.45", "9.67", null, "9.19", null])"),
+       this->chunked_array({R"(["9.01"])", R"(["9.23", null])", R"([null, "9.45"])",
+                            R"(["9.67", null, "9.19"])", R"([null])"})},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TEST_F(TestReplaceDayTimeInterval, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
 
-  this->Assert(ReplaceWithMask, this->array("[[1, 2]]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[[1, 2]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2]]"), this->mask_scalar(true),
-               this->array("[[3, 4]]"), this->array("[[3, 4]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2]]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array("[[1, 2]]"), this->mask_scalar(false), this->array("[]"),
+       this->array("[[1, 2]]")},
+      {this->array("[[1, 2]]"), this->mask_scalar(true), this->array("[[3, 4]]"),
+       this->array("[[3, 4]]")},
+      {this->array("[[1, 2]]"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4]]"), this->mask_scalar(false),
-               this->scalar("[7, 8]"), this->array("[[1, 2], [3, 4]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4]]"), this->mask_scalar(true),
-               this->scalar("[7, 8]"), this->array("[[7, 8], [7, 8]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4]]"), this->mask_scalar(true),
-               this->scalar("null"), this->array("[null, null]"));
+      {this->array("[[1, 2], [3, 4]]"), this->mask_scalar(false), this->scalar("[7, 8]"),
+       this->array("[[1, 2], [3, 4]]")},
+      {this->array("[[1, 2], [3, 4]]"), this->mask_scalar(true), this->scalar("[7, 8]"),
+       this->array("[[7, 8], [7, 8]]")},
+      {this->array("[[1, 2], [3, 4]]"), this->mask_scalar(true), this->scalar("null"),
+       this->array("[null, null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"),
-               this->mask("[true, true, true, true]"),
-               this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]"),
-               this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], null]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[[1, 2], [1, 2], [1, 2], null]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], null]"),
-               this->mask("[true, true, true, true]"),
-               this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]"),
-               this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], null]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(
-      ReplaceWithMask, this->array("[[1, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]]"),
-      this->mask("[false, false, null, null, true, true]"), this->array("[[3, 4], null]"),
-      this->array("[[1, 2], [1, 2], null, null, [3, 4], null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[[3, 4], null]"),
-               this->array("[null, null, null, null, [3, 4], null]"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"),
+       this->mask("[true, true, true, true]"),
+       this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]"),
+       this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], [1, 2]]"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array("[null, null, null, null]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], null]"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array("[[1, 2], [1, 2], [1, 2], null]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], null]"),
+       this->mask("[true, true, true, true]"),
+       this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]"),
+       this->array("[[3, 4], [3, 4], [3, 4], [3, 4]]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], null]"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array("[null, null, null, null]")},
+      {this->array("[[1, 2], [1, 2], [1, 2], [1, 2], [1, 2], [1, 2]]"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array("[[3, 4], null]"),
+       this->array("[[1, 2], [1, 2], null, null, [3, 4], null]")},
+      {this->array("[null, null, null, null, null, null]"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array("[[3, 4], null]"),
+       this->array("[null, null, null, null, [3, 4], null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
-               this->scalar("[7, 8]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4]]"),
-               this->mask("[true, true]"), this->scalar("[7, 8]"),
-               this->array("[[7, 8], [7, 8]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4]]"),
-               this->mask("[true, true]"), this->scalar("null"),
-               this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2], [3, 4], [5, 6]]"),
-               this->mask("[false, null, true]"), this->scalar("[7, 8]"),
-               this->array("[[1, 2], null, [7, 8]]"));
+      {this->array("[]"), this->mask("[]"), this->scalar("[7, 8]"), this->array("[]")},
+      {this->array("[[1, 2], [3, 4]]"), this->mask("[true, true]"),
+       this->scalar("[7, 8]"), this->array("[[7, 8], [7, 8]]")},
+      {this->array("[[1, 2], [3, 4]]"), this->mask("[true, true]"), this->scalar("null"),
+       this->array("[null, null]")},
+      {this->array("[[1, 2], [3, 4], [5, 6]]"), this->mask("[false, null, true]"),
+       this->scalar("[7, 8]"), this->array("[[1, 2], null, [7, 8]]")},
+
+      {this->chunked_array({}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({}), this->mask_scalar(true), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({})},
+
+      {this->chunked_array({"[]", "[null]", "[[0, 0], [1, -2]]", "[null, [-3, -5]]",
+                            "[null, [5, 0], [6, -6]]", "[[7, 7]]"}),
+       this->mask("[true, true, false, false, true, true, false, true, false]"),
+       this->array("[[10, 19], [11, 18], null, null, [14, 14]]"),
+       this->chunked_array({"[[10, 19]]", "[[11, 18], [1, -2]]", "[null, null]",
+                            "[null, [5, 0], [14, 14]]", "[[7, 7]]"})},
+      {this->chunked_array({"[]", "[null]", "[[0, 0], [1, -2]]", "[null, [-3, -5]]",
+                            "[null, [5, 0], [6, -6]]", "[[7, 7]]"}),
+       this->mask_scalar(true),
+       this->array(
+           "[[10, 19], [11, 18], null, null, [14, 14], [15, 17], null, [16, 20], null]"),
+       this->chunked_array({"[[10, 19]]", "[[11, 18], null]", "[null, [14, 14]]",
+                            "[[15, 17], null, [16, 20]]", "[null]"})},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TEST_F(TestReplaceMonthDayNanoInterval, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
 
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4]]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[[1, 2, 4]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4]]"), this->mask_scalar(true),
-               this->array("[[3, 4, -2]]"), this->array("[[3, 4, -2]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4]]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array("[[1, 2, 4]]"), this->mask_scalar(false), this->array("[]"),
+       this->array("[[1, 2, 4]]")},
+      {this->array("[[1, 2, 4]]"), this->mask_scalar(true), this->array("[[3, 4, -2]]"),
+       this->array("[[3, 4, -2]]")},
+      {this->array("[[1, 2, 4]]"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
-               this->mask_scalar(false), this->scalar("[7, 0, 8]"),
-               this->array("[[1, 2, 4], [3, 4, -2]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
-               this->mask_scalar(true), this->scalar("[7, 0, 8]"),
-               this->array("[[7, 0, 8], [7, 0, 8]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
-               this->mask_scalar(true), this->scalar("null"),
-               this->array("[null, null]"));
+      {this->array("[[1, 2, 4], [3, 4, -2]]"), this->mask_scalar(false),
+       this->scalar("[7, 0, 8]"), this->array("[[1, 2, 4], [3, 4, -2]]")},
+      {this->array("[[1, 2, 4], [3, 4, -2]]"), this->mask_scalar(true),
+       this->scalar("[7, 0, 8]"), this->array("[[7, 0, 8], [7, 0, 8]]")},
+      {this->array("[[1, 2, 4], [3, 4, -2]]"), this->mask_scalar(true),
+       this->scalar("null"), this->array("[null, null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask,
-               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"));
-  this->Assert(ReplaceWithMask,
-               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
-               this->mask("[true, true, true, true]"),
-               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"),
-               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"));
-  this->Assert(ReplaceWithMask,
-               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
-               this->mask("[true, true, true, true]"),
-               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"),
-               this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array("[null, null, null, null]"));
-  this->Assert(
-      ReplaceWithMask,
-      this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
-      this->mask("[false, false, null, null, true, true]"),
-      this->array("[[3, 4, -2], null]"),
-      this->array("[[1, 2, 4], [1, 2, 4], null, null, [3, 4, -2], null]"));
-  this->Assert(ReplaceWithMask, this->array("[null, null, null, null, null, null]"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array("[[3, 4, -2], null]"),
-               this->array("[null, null, null, null, [3, 4, -2], null]"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+       this->mask("[true, true, true, true]"),
+       this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"),
+       this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array("[null, null, null, null]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
+       this->mask("[true, true, true, true]"),
+       this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]"),
+       this->array("[[3, 4, -2], [3, 4, -2], [3, 4, -2], [3, 4, -2]]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], null]"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array("[null, null, null, null]")},
+      {this->array("[[1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4], [1, 2, 4]]"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array("[[3, 4, -2], null]"),
+       this->array("[[1, 2, 4], [1, 2, 4], null, null, [3, 4, -2], null]")},
+      {this->array("[null, null, null, null, null, null]"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array("[[3, 4, -2], null]"),
+       this->array("[null, null, null, null, [3, 4, -2], null]")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
-               this->scalar("[7, 0, 8]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
-               this->mask("[true, true]"), this->scalar("[7, 0, 8]"),
-               this->array("[[7, 0, 8], [7, 0, 8]]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2]]"),
-               this->mask("[true, true]"), this->scalar("null"),
-               this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array("[[1, 2, 4], [3, 4, -2], [-5, 6, 7]]"),
-               this->mask("[false, null, true]"), this->scalar("[7, 0, 8]"),
-               this->array("[[1, 2, 4], null, [7, 0, 8]]"));
+      {this->array("[]"), this->mask("[]"), this->scalar("[7, 0, 8]"), this->array("[]")},
+      {this->array("[[1, 2, 4], [3, 4, -2]]"), this->mask("[true, true]"),
+       this->scalar("[7, 0, 8]"), this->array("[[7, 0, 8], [7, 0, 8]]")},
+      {this->array("[[1, 2, 4], [3, 4, -2]]"), this->mask("[true, true]"),
+       this->scalar("null"), this->array("[null, null]")},
+      {this->array("[[1, 2, 4], [3, 4, -2], [-5, 6, 7]]"),
+       this->mask("[false, null, true]"), this->scalar("[7, 0, 8]"),
+       this->array("[[1, 2, 4], null, [7, 0, 8]]")},
+
+      {this->chunked_array({}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({}), this->mask_scalar(true), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({})},
+
+      {this->chunked_array({"[]", "[null]", "[[0, 0, 0], [1, -2, -3]]",
+                            "[null, [-3, -5, -7]]", "[null, [5, 0, 0], [6, -6, 0]]",
+                            "[[7, 7, 7]]"}),
+       this->mask("[true, true, false, false, true, true, false, true, false]"),
+       this->array("[[10, 19, 20], [11, 18, -2], null, null, [14, 14, 14]]"),
+       this->chunked_array({"[[10, 19, 20]]", "[[11, 18, -2], [1, -2, -3]]",
+                            "[null, null]", "[null, [5, 0, 0], [14, 14, 14]]",
+                            "[[7, 7, 7]]"})},
+      {this->chunked_array({"[]", "[null]", "[[0, 0, 0], [1, -2, -3]]",
+                            "[null, [-3, -5, -7]]", "[null, [5, 0, 0], [6, -6, 0]]",
+                            "[[7, 7, 7]]"}),
+       this->mask_scalar(true),
+       this->array("[[10, 19, 20], [11, 18, -2], null, null, [14, 14, 14], [15, 17, "
+                   "-30], null, [16, 20, 24], null]"),
+       this->chunked_array({"[[10, 19, 20]]", "[[11, 18, -2], null]",
+                            "[null, [14, 14, 14]]", "[[15, 17, -30], null, [16, 20, 24]]",
+                            "[null]"})},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TYPED_TEST(TestReplaceBinary, ReplaceWithMask) {
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(false),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask_scalar(true),
-               this->array("[]"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array("[]"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[]"));
+  std::vector<ReplaceWithMaskCase> cases = {
+      {this->array("[]"), this->mask_scalar(false), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->mask_scalar(true), this->array("[]"), this->array("[]")},
+      {this->array("[]"), this->null_mask_scalar(), this->array("[]"), this->array("[]")},
 
-  this->Assert(ReplaceWithMask, this->array(R"(["foo"])"), this->mask_scalar(false),
-               this->array("[]"), this->array(R"(["foo"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo"])"), this->mask_scalar(true),
-               this->array(R"(["bar"])"), this->array(R"(["bar"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo"])"), this->null_mask_scalar(),
-               this->array("[]"), this->array("[null]"));
+      {this->array(R"(["foo"])"), this->mask_scalar(false), this->array("[]"),
+       this->array(R"(["foo"])")},
+      {this->array(R"(["foo"])"), this->mask_scalar(true), this->array(R"(["bar"])"),
+       this->array(R"(["bar"])")},
+      {this->array(R"(["foo"])"), this->null_mask_scalar(), this->array("[]"),
+       this->array("[null]")},
 
-  this->Assert(ReplaceWithMask, this->array(R"(["foo", "bar"])"),
-               this->mask_scalar(false), this->scalar(R"("baz")"),
-               this->array(R"(["foo", "bar"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo", "bar"])"), this->mask_scalar(true),
-               this->scalar(R"("baz")"), this->array(R"(["baz", "baz"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["foo", "bar"])"), this->mask_scalar(true),
-               this->scalar("null"), this->array(R"([null, null])"));
+      {this->array(R"(["foo", "bar"])"), this->mask_scalar(false),
+       this->scalar(R"("baz")"), this->array(R"(["foo", "bar"])")},
+      {this->array(R"(["foo", "bar"])"), this->mask_scalar(true),
+       this->scalar(R"("baz")"), this->array(R"(["baz", "baz"])")},
+      {this->array(R"(["foo", "bar"])"), this->mask_scalar(true), this->scalar("null"),
+       this->array(R"([null, null])")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"), this->array("[]"),
-               this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc", "dddd"])"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array(R"(["a", "bb", "ccc", "dddd"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc", "dddd"])"),
-               this->mask("[true, true, true, true]"),
-               this->array(R"(["eeeee", "f", "ggg", "hhh"])"),
-               this->array(R"(["eeeee", "f", "ggg", "hhh"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc", "dddd"])"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array(R"([null, null, null, null])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc", null])"),
-               this->mask("[false, false, false, false]"), this->array("[]"),
-               this->array(R"(["a", "bb", "ccc", null])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc", null])"),
-               this->mask("[true, true, true, true]"),
-               this->array(R"(["eeeee", "f", "ggg", "hhh"])"),
-               this->array(R"(["eeeee", "f", "ggg", "hhh"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc", null])"),
-               this->mask("[null, null, null, null]"), this->array("[]"),
-               this->array(R"([null, null, null, null])"));
-  this->Assert(ReplaceWithMask,
-               this->array(R"(["a", "bb", "ccc", "dddd", "eeeee", "f"])"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array(R"(["ggg", null])"),
-               this->array(R"(["a", "bb", null, null, "ggg", null])"));
-  this->Assert(ReplaceWithMask, this->array(R"([null, null, null, null, null, null])"),
-               this->mask("[false, false, null, null, true, true]"),
-               this->array(R"(["a", null])"),
-               this->array(R"([null, null, null, null, "a", null])"));
+      {this->array("[]"), this->mask("[]"), this->array("[]"), this->array("[]")},
+      {this->array(R"(["a", "bb", "ccc", "dddd"])"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array(R"(["a", "bb", "ccc", "dddd"])")},
+      {this->array(R"(["a", "bb", "ccc", "dddd"])"),
+       this->mask("[true, true, true, true]"),
+       this->array(R"(["eeeee", "f", "ggg", "hhh"])"),
+       this->array(R"(["eeeee", "f", "ggg", "hhh"])")},
+      {this->array(R"(["a", "bb", "ccc", "dddd"])"),
+       this->mask("[null, null, null, null]"), this->array("[]"),
+       this->array(R"([null, null, null, null])")},
+      {this->array(R"(["a", "bb", "ccc", null])"),
+       this->mask("[false, false, false, false]"), this->array("[]"),
+       this->array(R"(["a", "bb", "ccc", null])")},
+      {this->array(R"(["a", "bb", "ccc", null])"), this->mask("[true, true, true, true]"),
+       this->array(R"(["eeeee", "f", "ggg", "hhh"])"),
+       this->array(R"(["eeeee", "f", "ggg", "hhh"])")},
+      {this->array(R"(["a", "bb", "ccc", null])"), this->mask("[null, null, null, null]"),
+       this->array("[]"), this->array(R"([null, null, null, null])")},
+      {this->array(R"(["a", "bb", "ccc", "dddd", "eeeee", "f"])"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array(R"(["ggg", null])"),
+       this->array(R"(["a", "bb", null, null, "ggg", null])")},
+      {this->array(R"([null, null, null, null, null, null])"),
+       this->mask("[false, false, null, null, true, true]"),
+       this->array(R"(["a", null])"),
+       this->array(R"([null, null, null, null, "a", null])")},
 
-  this->Assert(ReplaceWithMask, this->array("[]"), this->mask("[]"),
-               this->scalar(R"("zzz")"), this->array("[]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb"])"), this->mask("[true, true]"),
-               this->scalar(R"("zzz")"), this->array(R"(["zzz", "zzz"])"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb"])"), this->mask("[true, true]"),
-               this->scalar("null"), this->array("[null, null]"));
-  this->Assert(ReplaceWithMask, this->array(R"(["a", "bb", "ccc"])"),
-               this->mask("[false, null, true]"), this->scalar(R"("zzz")"),
-               this->array(R"(["a", null, "zzz"])"));
+      {this->array("[]"), this->mask("[]"), this->scalar(R"("zzz")"), this->array("[]")},
+      {this->array(R"(["a", "bb"])"), this->mask("[true, true]"),
+       this->scalar(R"("zzz")"), this->array(R"(["zzz", "zzz"])")},
+      {this->array(R"(["a", "bb"])"), this->mask("[true, true]"), this->scalar("null"),
+       this->array("[null, null]")},
+      {this->array(R"(["a", "bb", "ccc"])"), this->mask("[false, null, true]"),
+       this->scalar(R"("zzz")"), this->array(R"(["a", null, "zzz"])")},
+
+      {this->chunked_array({}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask("[]"), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({}), this->mask_scalar(true), this->array("[]"),
+       this->chunked_array({})},
+      {this->chunked_array({"[]"}), this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({})},
+
+      {this->chunked_array({R"([])", R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"}),
+       this->mask("[true, true, false, false, true, true, false, true, false]"),
+       this->array(R"(["zzz", "y", null, null, "a"])"),
+       this->chunked_array({R"(["zzz"])", R"(["y", "aba"])", R"([null, null])",
+                            R"([null, "abcdefg", "a"])", R"([""])"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"}),
+       this->mask_scalar(true),
+       this->array(R"(["zzz", "y", null, null, "a", "www", null, "vvv", null])"),
+       this->chunked_array({R"(["zzz"])", R"(["y", null])", R"([null, "a"])",
+                            R"(["www", null, "vvv"])", R"([null])"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"}),
+       this->mask_scalar(true), this->scalar("null"),
+       this->chunked_array(
+           {"[null]", "[null, null]", "[null, null]", "[null, null, null]", "[null]"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"}),
+       this->mask_scalar(true), this->scalar(R"("abcde")"),
+       this->chunked_array({R"(["abcde"])", R"(["abcde", "abcde"])",
+                            R"(["abcde", "abcde"])", R"(["abcde", "abcde", "abcde"])",
+                            R"(["abcde"])"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"}),
+       this->mask_scalar(false), this->array("[]"),
+       this->chunked_array({R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"})},
+      {this->chunked_array({R"([])", R"([null])", R"(["a", "aba"])", R"([null, "defgh"])",
+                            R"([null, "abcdefg", "e"])", R"([""])"}),
+       this->null_mask_scalar(), this->array("[]"),
+       this->chunked_array(
+           {"[null]", "[null, null]", "[null, null]", "[null, null, null]", "[null]"})},
+  };
+
+  for (auto test_case : cases) {
+    this->Assert(ReplaceWithMask, test_case.input, test_case.mask, test_case.replacements,
+                 test_case.expected);
+  }
 }
 
 TYPED_TEST(TestReplaceBinary, ReplaceWithMaskRandom) {
@@ -836,7 +1046,7 @@ TYPED_TEST(TestReplaceBinary, ReplaceWithMaskRandom) {
       rand.ArrayOf(boolean(), length, /*null_probability=*/0.01));
   const int64_t num_replacements = std::count_if(
       mask->begin(), mask->end(),
-      [](util::optional<bool> value) { return value.has_value() && *value; });
+      [](std::optional<bool> value) { return value.has_value() && *value; });
   auto replacements = checked_pointer_cast<ArrayType>(
       rand.ArrayOf(*field("a", ty, options), num_replacements));
   auto expected = this->NaiveImpl(*array, *mask, *replacements);
@@ -879,37 +1089,92 @@ TYPED_TEST(TestFillNullNumeric, FillNullValuesForward) {
 
   this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, null]"),
                             this->array("[null, null, null, null]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4]"),
-                            this->array("[null, null, null, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, 4, null]"),
-                            this->array("[null, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4, null]"),
-                            this->array("[null, null, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4, null]"),
-                            this->array("[null, null, null, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4,null, 5, null]"),
-                            this->array("[null, null, 4, 4, 5, 5]"));
 
-  this->AssertFillNullArray(FillNullForward, this->array("[1,4,null]"),
-                            this->array("[1,4,4]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, null, null, null]"),
-                            this->array("[1, 4 ,4, 4, 4, 4]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, null]"),
-                            this->array("[1, 4 ,4, 5, 5, 5]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, 5, null, null, 6]"),
-                            this->array("[1, 4 ,4, 5, 5, 5, 6]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, 5, null, null, 5]"),
-                            this->array("[1, 4 ,4, 5, 5, 5, 5]"));
-  this->AssertFillNullArray(FillNullForward,
-                            this->array("[1, 4, null, 5, null, 6, null]"),
-                            this->array("[1, 4 ,4, 5, 5, 6, 6]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, 6, 7]"),
-                            this->array("[1, 4 ,4, 5, 5, 6, 7]"));
-  this->AssertFillNullArray(FillNullForward, this->array("[1, 4 ,4, 5, 5, 6, 7]"),
-                            this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, null, 345600000]"),
+                              this->array("[null, null, null, 345600000]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, 345600000, null]"),
+                              this->array("[null, 345600000, 345600000]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, 345600000, null]"),
+                              this->array("[null, null, 345600000, 345600000]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, null, 345600000, null]"),
+                              this->array("[null, null, null, 345600000, 345600000]"));
+    this->AssertFillNullArray(
+        FillNullForward, this->array("[null, null, 345600000, null, 432000000, null]"),
+        this->array("[null, null, 345600000, 345600000, 432000000, 432000000]"));
+
+    this->AssertFillNullArray(FillNullForward, this->array("[86400000, 345600000, null]"),
+                              this->array("[86400000, 345600000, 345600000]"));
+    this->AssertFillNullArray(
+        FillNullForward, this->array("[86400000, 345600000, null, null, null, null]"),
+        this->array("[86400000, 345600000 ,345600000, 345600000, 345600000, 345600000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, null]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 432000000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, null, 518400000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 432000000, "
+                    "518400000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, null, 432000000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 432000000, "
+                    "432000000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, 518400000, null]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "518400000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000, null, 432000000, null, 518400000, 604800000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "604800000]"));
+    this->AssertFillNullArray(
+        FillNullForward,
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "604800000]"),
+        this->array("[86400000, 345600000 ,345600000, 432000000, 432000000, 518400000, "
+                    "604800000]"));
+  } else {
+    this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4]"),
+                              this->array("[null, null, null, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, 4, null]"),
+                              this->array("[null, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, null, 4, null]"),
+                              this->array("[null, null, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[null, null, null, 4, null]"),
+                              this->array("[null, null, null, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[null, null, 4,null, 5, null]"),
+                              this->array("[null, null, 4, 4, 5, 5]"));
+
+    this->AssertFillNullArray(FillNullForward, this->array("[1,4,null]"),
+                              this->array("[1,4,4]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, null, null, null]"),
+                              this->array("[1, 4 ,4, 4, 4, 4]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, null]"),
+                              this->array("[1, 4 ,4, 5, 5, 5]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, 5, null, null, 6]"),
+                              this->array("[1, 4 ,4, 5, 5, 5, 6]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, 5, null, null, 5]"),
+                              this->array("[1, 4 ,4, 5, 5, 5, 5]"));
+    this->AssertFillNullArray(FillNullForward,
+                              this->array("[1, 4, null, 5, null, 6, null]"),
+                              this->array("[1, 4 ,4, 5, 5, 6, 6]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[1, 4, null, 5, null, 6, 7]"),
+                              this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+    this->AssertFillNullArray(FillNullForward, this->array("[1, 4 ,4, 5, 5, 6, 7]"),
+                              this->array("[1, 4 ,4, 5, 5, 6, 7]"));
+  }
 }
 
 TYPED_TEST(TestFillNullDecimal, FillNullValuesForward) {
@@ -1010,40 +1275,104 @@ TYPED_TEST(TestFillNullNumeric, FillNullValuesBackward) {
   this->AssertFillNullArray(FillNullBackward, this->array("[]"), this->array("[]"));
   this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, null]"),
                             this->array("[null, null, null, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null, null, null]"),
-                            this->array("[4, 4,null, null, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4]"),
-                            this->array("[4, 4, 4, 4]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null]"),
-                            this->array("[4, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, 4, null]"),
-                            this->array("[4, 4, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4, null]"),
-                            this->array("[4, 4, 4, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[null, null, 4,null, 5, null]"),
-                            this->array("[4, 4, 4, 5, 5, null]"));
 
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null]"),
-                            this->array("[1, 4, null]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, null, null, null]"),
-                            this->array("[1, 4 ,null, null, null, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null, 5, null, null]"),
-                            this->array("[1, 4 , 5, 5, null, null]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, 5, null, null, 6]"),
-                            this->array("[1, 4 ,5, 5, 6, 6, 6]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, 5, null, null, 5]"),
-                            this->array("[1, 4 ,5 , 5, 5, 5, 5]"));
-  this->AssertFillNullArray(FillNullBackward,
-                            this->array("[1, 4, null, 5, null, 6, null]"),
-                            this->array("[1, 4 ,5 , 5, 6, 6, null]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null, 5, null, 6, 7]"),
-                            this->array("[1, 4 ,5, 5, 6, 6, 7]"));
-  this->AssertFillNullArray(FillNullBackward, this->array("[1, 4 ,5, 5, 6, 6, 7]"),
-                            this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, 345600000, null, null, null]"),
+                              this->array("[345600000, 345600000,null, null, null]"));
+    this->AssertFillNullArray(
+        FillNullBackward, this->array("[null, null, null, 345600000]"),
+        this->array("[345600000, 345600000, 345600000, 345600000]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, 345600000, null]"),
+                              this->array("[345600000, 345600000, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, 345600000, null]"),
+                              this->array("[345600000, 345600000, 345600000, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, null, 345600000, null]"),
+                              this->array("[345600000, 345600000, 345600000, 345600000, "
+                                          "null]"));
+    this->AssertFillNullArray(
+        FillNullBackward, this->array("[null, null, 345600000,null, 432000000, null]"),
+        this->array("[345600000, 345600000, 345600000, 432000000, "
+                    "432000000, null]"));
+
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null]"),
+                              this->array("[86400000, 345600000, null]"));
+    this->AssertFillNullArray(
+        FillNullBackward, this->array("[86400000, 345600000, null, null, null, null]"),
+        this->array("[86400000, 345600000 ,null, null, null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "null]"),
+                              this->array("[86400000, 345600000 , 432000000, 432000000, "
+                                          "null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null,"
+                                          "null, 518400000]"),
+                              this->array("[86400000, 345600000 ,432000000, 432000000, "
+                                          "518400000, 518400000, 518400000]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "null, 432000000]"),
+                              this->array("[86400000, 345600000 ,432000000 , 432000000, "
+                                          "432000000, 432000000, 432000000]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "518400000, null]"),
+                              this->array("[86400000, 345600000 ,432000000 , 432000000, "
+                                          "518400000, 518400000, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, null, 432000000, null, "
+                                          "518400000, 604800000]"),
+                              this->array("[86400000, 345600000 ,432000000, 432000000, "
+                                          "518400000, 518400000, 604800000]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[86400000, 345600000, 432000000, 432000000, "
+                                          "518400000, 518400000, 604800000]"),
+                              this->array("[86400000, 345600000 ,432000000, 432000000, "
+                                          "518400000, 518400000, 604800000]"));
+  } else {
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, 4, null, null, null]"),
+                              this->array("[4, 4,null, null, null]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, null, null, 4]"),
+                              this->array("[4, 4, 4, 4]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, 4, null]"),
+                              this->array("[4, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[null, null, 4, null]"),
+                              this->array("[4, 4, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, null, 4, null]"),
+                              this->array("[4, 4, 4, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[null, null, 4,null, 5, null]"),
+                              this->array("[4, 4, 4, 5, 5, null]"));
+
+    this->AssertFillNullArray(FillNullBackward, this->array("[1, 4, null]"),
+                              this->array("[1, 4, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, null, null, null]"),
+                              this->array("[1, 4 ,null, null, null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, null]"),
+                              this->array("[1, 4 , 5, 5, null, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, null, 6]"),
+                              this->array("[1, 4 ,5, 5, 6, 6, 6]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, null, 5]"),
+                              this->array("[1, 4 ,5 , 5, 5, 5, 5]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, 6, null]"),
+                              this->array("[1, 4 ,5 , 5, 6, 6, null]"));
+    this->AssertFillNullArray(FillNullBackward,
+                              this->array("[1, 4, null, 5, null, 6, 7]"),
+                              this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+    this->AssertFillNullArray(FillNullBackward, this->array("[1, 4 ,5, 5, 6, 6, 7]"),
+                              this->array("[1, 4 ,5, 5, 6, 6, 7]"));
+  }
 }
 
 TYPED_TEST(TestFillNullDecimal, FillNullValuesBackward) {
@@ -1190,15 +1519,33 @@ TYPED_TEST(TestFillNullNumeric, FillNullBackwardLargeInput) {
 }
 
 TYPED_TEST(TestFillNullNumeric, FillNullForwardSliced) {
-  auto first_input_array =
-      this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
-  auto expected_slice_length_2 =
-      this->array("[1, 4, null, null, 7, 7, null, 8, 9, 5, null]");
-  auto expected_slice_length_3 = this->array("[1, 4, 4, null, 7, 7, null, 8, 9, 5, 5]");
-  auto expected_slice_length_4 = this->array("[1, 4, 4, 4, 7, 7, 7, 8, 9, 5, 5]");
-  this->AssertFillNullArraySlices(FillNullForward, first_input_array,
-                                  expected_slice_length_2, expected_slice_length_3,
-                                  expected_slice_length_4);
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto first_input_array = this->array(
+        "[86400000, 345600000, null, null, 604800000, null, null, 691200000, "
+        "777600000, 432000000, null]");
+    auto expected_slice_length_2 = this->array(
+        "[86400000, 345600000, null, null, 604800000, 604800000, null, "
+        "691200000, 777600000, 432000000, null]");
+    auto expected_slice_length_3 = this->array(
+        "[86400000, 345600000, 345600000, null, 604800000, 604800000, null, "
+        "691200000, 777600000, 432000000, 432000000]");
+    auto expected_slice_length_4 = this->array(
+        "[86400000, 345600000, 345600000, 345600000, 604800000, 604800000, "
+        "604800000, 691200000, 777600000, 432000000, 432000000]");
+    this->AssertFillNullArraySlices(FillNullForward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  } else {
+    auto first_input_array =
+        this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
+    auto expected_slice_length_2 =
+        this->array("[1, 4, null, null, 7, 7, null, 8, 9, 5, null]");
+    auto expected_slice_length_3 = this->array("[1, 4, 4, null, 7, 7, null, 8, 9, 5, 5]");
+    auto expected_slice_length_4 = this->array("[1, 4, 4, 4, 7, 7, 7, 8, 9, 5, 5]");
+    this->AssertFillNullArraySlices(FillNullForward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillNullForwardSliced) {
@@ -1217,18 +1564,37 @@ TYPED_TEST(TestFillNullBinary, FillNullForwardSliced) {
 }
 
 TYPED_TEST(TestFillNullNumeric, FillNullBackwardSliced) {
-  auto first_input_array =
-      this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
-  auto expected_slice_length_2 =
-      this->array("[1, 4, null, null, 7, null, 8, 8, 9, 5, null]");
-  auto expected_slice_length_3 =
-      this->array("[1, 4, null, 7, 7, null, 8, 8, 9, 5, null]");
-  auto expected_slice_length_4 =
-      this->array("[1, 4, null, null, 7, 8, 8, 8, 9, 5, null]");
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    auto first_input_array = this->array(
+        "[86400000, 345600000, null, null, 604800000, null, null, 691200000, "
+        "777600000, 432000000, null]");
+    auto expected_slice_length_2 = this->array(
+        "[86400000, 345600000, null, null, 604800000, null, 691200000, "
+        "691200000, 777600000, 432000000, null]");
+    auto expected_slice_length_3 = this->array(
+        "[86400000, 345600000, null, 604800000, 604800000, null, 691200000, "
+        "691200000, 777600000, 432000000, null]");
+    auto expected_slice_length_4 = this->array(
+        "[86400000, 345600000, null, null, 604800000, 691200000, 691200000, "
+        "691200000, 777600000, 432000000, null]");
 
-  this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
-                                  expected_slice_length_2, expected_slice_length_3,
-                                  expected_slice_length_4);
+    this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  } else {
+    auto first_input_array =
+        this->array("[1, 4, null, null, 7, null, null, 8, 9, 5, null]");
+    auto expected_slice_length_2 =
+        this->array("[1, 4, null, null, 7, null, 8, 8, 9, 5, null]");
+    auto expected_slice_length_3 =
+        this->array("[1, 4, null, 7, 7, null, 8, 8, 9, 5, null]");
+    auto expected_slice_length_4 =
+        this->array("[1, 4, null, null, 7, 8, 8, 8, 9, 5, null]");
+
+    this->AssertFillNullArraySlices(FillNullBackward, first_input_array,
+                                    expected_slice_length_2, expected_slice_length_3,
+                                    expected_slice_length_4);
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillNullBackwardSliced) {
@@ -1253,61 +1619,149 @@ TYPED_TEST(TestFillNullNumeric, FillNullForwardChunkedArray) {
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
       this->chunked_array(
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
-      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[]", "[null, null]"}),
-      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array(
-          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[null, null, null]", "[8, 8, 8]", "[8]", "[8, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 3, 3, 4]", "[5, 5, 5]", "[5, 7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 3, 3, 3]", "[3, 3, 3]", "[3, 7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[1, 2, 2]", "[2, 2, 2]", "[2]", "[2, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[null, 2, 2]", "[2, 2, 3]", "[3]", "[3, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[null, 2, 2]", "[4, 4, 3]", "[3]", "[3, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[null, null, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullForward,
-      this->chunked_array({"[2, 4, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[2, 4, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array({"[604800000, 604800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[]", "[null, null]"}),
+        this->chunked_array({"[604800000, 604800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 604800000]"}),
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, null]", "[691200000, null, null]", "[null]",
+                             "[null, 604800000]"}),
+        this->chunked_array({"[null, null, null]", "[691200000, 691200000, 691200000]",
+                             "[691200000]", "[691200000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, 345600000]",
+                             "[432000000, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 259200000, 259200000, 345600000]",
+             "[432000000, 432000000, 432000000]", "[432000000, 604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, null]",
+                             "[null, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 259200000, 259200000, 259200000]",
+             "[259200000, 259200000, 259200000]", "[259200000, 604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[86400000, 172800000, null]", "[null, null, null]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[86400000, 172800000, 172800000]",
+                             "[172800000, 172800000, 172800000]", "[172800000]",
+                             "[172800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, 172800000, null]", "[null, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[null, 172800000, 172800000]",
+                             "[172800000, 172800000, 259200000]", "[259200000]",
+                             "[259200000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, 172800000, null]", "[345600000, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[null, 172800000, 172800000]",
+                             "[345600000, 345600000, 259200000]", "[259200000]",
+                             "[259200000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, null]", "[null, null, null]", "[432000000]",
+                             "[432000000, 604800000]"}),
+        this->chunked_array({"[null, null, null]", "[null, null, null]", "[432000000]",
+                             "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, 86400000]", "[null, null, null]",
+                             "[432000000]", "[432000000, 604800000]"}),
+        this->chunked_array({"[null, null, 86400000]", "[86400000, 86400000, 86400000]",
+                             "[432000000]", "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[172800000, 345600000, 86400000]", "[null, null, null]",
+                             "[432000000]", "[432000000, 604800000]"}),
+        this->chunked_array({"[172800000, 345600000, 86400000]",
+                             "[86400000, 86400000, 86400000]", "[432000000]",
+                             "[432000000, 604800000]"}));
+  } else {
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[]", "[null, null]"}),
+        this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[null, null, null]", "[8, 8, 8]", "[8]", "[8, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 3, 3, 4]", "[5, 5, 5]", "[5, 7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 3, 3, 3]", "[3, 3, 3]", "[3, 7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[1, 2, 2]", "[2, 2, 2]", "[2]", "[2, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[null, 2, 2]", "[2, 2, 3]", "[3]", "[3, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[null, 2, 2]", "[4, 4, 3]", "[3]", "[3, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[null, null, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullForward,
+        this->chunked_array({"[2, 4, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[2, 4, 1]", "[1, 1, 1]", "[5]", "[5, 7]"}));
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillNullForwardChunkedArray) {
@@ -1395,56 +1849,140 @@ TYPED_TEST(TestFillNullNumeric, FillBackwardChunkedArray) {
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
       this->chunked_array(
           {"[null, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
-      this->chunked_array(
-          {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[8, 8, 8]", "[8, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 4, 4, 4]", "[5, 7, 7]", "[7, 7, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array(
-          {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
-      this->chunked_array({"[1, 2, 3, 7, 7, 7]", "[7, 7, 7]", "[7, 7, null]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[1, 2, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[2, 2, 3]", "[3, 3, 3]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
-      this->chunked_array({"[2, 2, 4]", "[4, 3, 3]", "[7]", "[7, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[5, 5, 5]", "[5, 5, 5]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
-      this->chunked_array({"[1, 1, 1]", "[5, 5, 5]", "[5]", "[5, 7]"}));
-  this->AssertFillNullChunkedArray(
-      FillNullBackward,
-      this->chunked_array({"[null, null, 1]", "[null, null, null]", "[9, 0]", "[5, 7]"}),
-      this->chunked_array({"[1, 1, 1]", "[9, 9, 9]", "[9, 0]", "[5, 7]"}));
+
+  if (std::is_same<TypeParam, Date64Type>::value) {
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array(
+            {"[604800000, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[604800000, 604800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, null]", "[691200000, null, null]", "[null]",
+                             "[null, 604800000]"}),
+        this->chunked_array({"[691200000, 691200000, 691200000]",
+                             "[691200000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, 345600000]",
+                             "[432000000, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 345600000, 345600000, 345600000]",
+             "[432000000, 604800000, 604800000]", "[604800000, 604800000, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[86400000, 172800000, 259200000, null, null, null]",
+                             "[null, null, null]", "[null, 604800000, null]"}),
+        this->chunked_array(
+            {"[86400000, 172800000, 259200000, 604800000, 604800000, 604800000]",
+             "[604800000, 604800000, 604800000]", "[604800000, 604800000, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[86400000, 172800000, null]", "[null, null, null]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[86400000, 172800000, 604800000]",
+                             "[604800000, 604800000, 604800000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, 172800000, null]", "[null, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[172800000, 172800000, 259200000]",
+                             "[259200000, 259200000, 259200000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, 172800000, null]", "[345600000, null, 259200000]",
+                             "[null]", "[null, 604800000]"}),
+        this->chunked_array({"[172800000, 172800000, 345600000]",
+                             "[345600000, 259200000, 259200000]", "[604800000]",
+                             "[604800000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, null]", "[null, null, null]", "[432000000]",
+                             "[432000000, 604800000]"}),
+        this->chunked_array({"[432000000, 432000000, 432000000]",
+                             "[432000000, 432000000, 432000000]", "[432000000]",
+                             "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, 86400000]", "[null, null, null]",
+                             "[432000000]", "[432000000, 604800000]"}),
+        this->chunked_array({"[86400000, 86400000, 86400000]",
+                             "[432000000, 432000000, 432000000]", "[432000000]",
+                             "[432000000, 604800000]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, 86400000]", "[null, null, null]",
+                             "[777600000, 0]", "[432000000, 604800000]"}),
+        this->chunked_array({"[86400000, 86400000, 86400000]",
+                             "[777600000, 777600000, 777600000]", "[777600000, 0]",
+                             "[432000000, 604800000]"}));
+  } else {
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}),
+        this->chunked_array(
+            {"[7, null, null]", "[null, null, null]", "[null]", "[null, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[7, 7, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[8, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[8, 8, 8]", "[8, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, 4]", "[5, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 4, 4, 4]", "[5, 7, 7]", "[7, 7, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[1, 2, 3, null, null, null]", "[null, null, null]", "[null, 7, null]"}),
+        this->chunked_array({"[1, 2, 3, 7, 7, 7]", "[7, 7, 7]", "[7, 7, null]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[1, 2, null]", "[null, null, null]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[1, 2, 7]", "[7, 7, 7]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, 2, null]", "[null, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[2, 2, 3]", "[3, 3, 3]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, 2, null]", "[4, null, 3]", "[null]", "[null, 7]"}),
+        this->chunked_array({"[2, 2, 4]", "[4, 3, 3]", "[7]", "[7, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, null]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[5, 5, 5]", "[5, 5, 5]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array({"[null, null, 1]", "[null, null, null]", "[5]", "[5, 7]"}),
+        this->chunked_array({"[1, 1, 1]", "[5, 5, 5]", "[5]", "[5, 7]"}));
+    this->AssertFillNullChunkedArray(
+        FillNullBackward,
+        this->chunked_array(
+            {"[null, null, 1]", "[null, null, null]", "[9, 0]", "[5, 7]"}),
+        this->chunked_array({"[1, 1, 1]", "[9, 9, 9]", "[9, 0]", "[5, 7]"}));
+  }
 }
 
 TYPED_TEST(TestFillNullBinary, FillBackwardChunkedArray) {

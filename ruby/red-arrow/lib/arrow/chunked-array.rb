@@ -18,8 +18,27 @@
 module Arrow
   class ChunkedArray
     include Enumerable
+
+    include ArrayComputable
     include GenericFilterable
     include GenericTakeable
+    include InputReferable
+
+    def to_arrow
+      self
+    end
+
+    def to_arrow_array
+      if n_chunks.zero?
+        value_data_type.build_array([])
+      else
+        combine
+      end
+    end
+
+    def to_arrow_chunked_array
+      self
+    end
 
     alias_method :size, :n_rows
     unless method_defined?(:length)
@@ -28,7 +47,16 @@ module Arrow
 
     alias_method :chunks_raw, :chunks
     def chunks
-      @chunks ||= chunks_raw
+      @chunks ||= chunks_raw.tap do |_chunks|
+        _chunks.each do |chunk|
+          share_input(chunk)
+        end
+      end
+    end
+
+    alias_method :get_chunk_raw, :get_chunk
+    def get_chunk(i)
+      chunks[i]
     end
 
     def null?(i)
@@ -86,6 +114,25 @@ module Arrow
       else
         first_chunk.class.new(to_a)
       end
+    end
+
+    def count(options: nil)
+      compute("count", options: options).value
+    end
+
+    def sum(options: nil)
+      compute("sum", options: options).value
+    end
+
+    def unique
+      compute("unique")
+    end
+
+    def cast(target_data_type, options: nil)
+      casted_chunks = chunks.collect do |chunk|
+        chunk.cast(target_data_type, options)
+      end
+      self.class.new(casted_chunks)
     end
   end
 end

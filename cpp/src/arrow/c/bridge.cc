@@ -21,6 +21,7 @@
 #include <cerrno>
 #include <cstring>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -30,6 +31,7 @@
 #include "arrow/c/util_internal.h"
 #include "arrow/extension_type.h"
 #include "arrow/memory_pool.h"
+#include "arrow/memory_pool_internal.h"  // for kZeroSizeArea
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/stl_allocator.h"
@@ -40,7 +42,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/small_vector.h"
-#include "arrow/util/string_view.h"
+#include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_type_inline.h"
 
@@ -56,6 +58,10 @@ using internal::ArrayExportGuard;
 using internal::ArrayExportTraits;
 using internal::SchemaExportGuard;
 using internal::SchemaExportTraits;
+
+using internal::ToChars;
+
+using memory_pool::internal::kZeroSizeArea;
 
 namespace {
 
@@ -334,18 +340,16 @@ struct SchemaExporter {
   Status Visit(const DoubleType& type) { return SetFormat("g"); }
 
   Status Visit(const FixedSizeBinaryType& type) {
-    return SetFormat("w:" + std::to_string(type.byte_width()));
+    return SetFormat("w:" + ToChars(type.byte_width()));
   }
 
   Status Visit(const DecimalType& type) {
     if (type.bit_width() == 128) {
       // 128 is the default bit-width
-      return SetFormat("d:" + std::to_string(type.precision()) + "," +
-                       std::to_string(type.scale()));
+      return SetFormat("d:" + ToChars(type.precision()) + "," + ToChars(type.scale()));
     } else {
-      return SetFormat("d:" + std::to_string(type.precision()) + "," +
-                       std::to_string(type.scale()) + "," +
-                       std::to_string(type.bit_width()));
+      return SetFormat("d:" + ToChars(type.precision()) + "," + ToChars(type.scale()) +
+                       "," + ToChars(type.bit_width()));
     }
   }
 
@@ -441,7 +445,7 @@ struct SchemaExporter {
   Status Visit(const LargeListType& type) { return SetFormat("+L"); }
 
   Status Visit(const FixedSizeListType& type) {
-    return SetFormat("+w:" + std::to_string(type.list_size()));
+    return SetFormat("+w:" + ToChars(type.list_size()));
   }
 
   Status Visit(const StructType& type) { return SetFormat("+s"); }
@@ -468,7 +472,7 @@ struct SchemaExporter {
       if (!first) {
         s += ",";
       }
-      s += std::to_string(code);
+      s += ToChars(code);
       first = false;
     }
     return Status::OK();
@@ -666,7 +670,7 @@ namespace {
 
 static constexpr int64_t kMaxImportRecursionLevel = 64;
 
-Status InvalidFormatString(util::string_view v) {
+Status InvalidFormatString(std::string_view v) {
   return Status::Invalid("Invalid or unsupported format string: '", v, "'");
 }
 
@@ -674,13 +678,13 @@ class FormatStringParser {
  public:
   FormatStringParser() {}
 
-  explicit FormatStringParser(util::string_view v) : view_(v), index_(0) {}
+  explicit FormatStringParser(std::string_view v) : view_(v), index_(0) {}
 
   bool AtEnd() const { return index_ >= view_.length(); }
 
   char Next() { return view_[index_++]; }
 
-  util::string_view Rest() { return view_.substr(index_); }
+  std::string_view Rest() { return view_.substr(index_); }
 
   Status CheckNext(char c) {
     if (AtEnd() || Next() != c) {
@@ -704,7 +708,7 @@ class FormatStringParser {
   }
 
   template <typename IntType = int32_t>
-  Result<IntType> ParseInt(util::string_view v) {
+  Result<IntType> ParseInt(std::string_view v) {
     using ArrowIntType = typename CTypeTraits<IntType>::ArrowType;
     IntType value;
     if (!internal::ParseValue<ArrowIntType>(v.data(), v.size(), &value)) {
@@ -729,13 +733,13 @@ class FormatStringParser {
     }
   }
 
-  SmallVector<util::string_view, 2> Split(util::string_view v, char delim = ',') {
-    SmallVector<util::string_view, 2> parts;
+  SmallVector<std::string_view, 2> Split(std::string_view v, char delim = ',') {
+    SmallVector<std::string_view, 2> parts;
     size_t start = 0, end;
     while (true) {
       end = v.find_first_of(delim, start);
       parts.push_back(v.substr(start, end - start));
-      if (end == util::string_view::npos) {
+      if (end == std::string_view::npos) {
         break;
       }
       start = end + 1;
@@ -744,9 +748,10 @@ class FormatStringParser {
   }
 
   template <typename IntType = int32_t>
-  Result<std::vector<IntType>> ParseInts(util::string_view v) {
-    auto parts = Split(v);
+  Result<std::vector<IntType>> ParseInts(std::string_view v) {
     std::vector<IntType> result;
+    if (v.empty()) return result;
+    auto parts = Split(v);
     result.reserve(parts.size());
     for (const auto& p : parts) {
       ARROW_ASSIGN_OR_RAISE(auto i, ParseInt<IntType>(p));
@@ -758,7 +763,7 @@ class FormatStringParser {
   Status Invalid() { return InvalidFormatString(view_); }
 
  protected:
-  util::string_view view_;
+  std::string_view view_;
   size_t index_;
 };
 
@@ -1097,7 +1102,13 @@ struct SchemaImporter {
     }
 
     bool keys_sorted = (c_struct_->flags & ARROW_FLAG_MAP_KEYS_SORTED);
-    type_ = map(value_type->field(0)->type(), value_type->field(1)->type(), keys_sorted);
+    bool values_nullable = value_type->field(1)->nullable();
+    // Some implementations of Arrow (such as Rust) use a non-standard field name
+    // for key ("keys") and value ("values") fields. For simplicity, we override
+    // them on import.
+    auto values_field =
+        ::arrow::field("value", value_type->field(1)->type(), values_nullable);
+    type_ = map(value_type->field(0)->type(), values_field, keys_sorted);
     return Status::OK();
   }
 
@@ -1263,7 +1274,8 @@ class ImportedBuffer : public Buffer {
 };
 
 struct ArrayImporter {
-  explicit ArrayImporter(const std::shared_ptr<DataType>& type) : type_(type) {}
+  explicit ArrayImporter(const std::shared_ptr<DataType>& type)
+      : type_(type), zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)) {}
 
   Status Import(struct ArrowArray* src) {
     if (ArrowArrayIsReleased(src)) {
@@ -1527,7 +1539,7 @@ struct ArrayImporter {
   }
 
   Status ImportNullBitmap(int32_t buffer_id = 0) {
-    RETURN_NOT_OK(ImportBitsBuffer(buffer_id));
+    RETURN_NOT_OK(ImportBitsBuffer(buffer_id, /*is_null_bitmap=*/true));
     if (data_->null_count > 0 && data_->buffers[buffer_id] == nullptr) {
       return Status::Invalid(
           "ArrowArray struct has null bitmap buffer but non-zero null_count ",
@@ -1536,15 +1548,20 @@ struct ArrayImporter {
     return Status::OK();
   }
 
-  Status ImportBitsBuffer(int32_t buffer_id) {
+  Status ImportBitsBuffer(int32_t buffer_id, bool is_null_bitmap = false) {
     // Compute visible size of buffer
-    int64_t buffer_size = bit_util::BytesForBits(c_struct_->length + c_struct_->offset);
-    return ImportBuffer(buffer_id, buffer_size);
+    int64_t buffer_size =
+        (c_struct_->length > 0)
+            ? bit_util::BytesForBits(c_struct_->length + c_struct_->offset)
+            : 0;
+    return ImportBuffer(buffer_id, buffer_size, is_null_bitmap);
   }
 
   Status ImportFixedSizeBuffer(int32_t buffer_id, int64_t byte_width) {
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * (c_struct_->length + c_struct_->offset);
+    int64_t buffer_size = (c_struct_->length > 0)
+                              ? byte_width * (c_struct_->length + c_struct_->offset)
+                              : 0;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
@@ -1561,17 +1578,27 @@ struct ArrayImporter {
                                   int64_t byte_width = 1) {
     auto offsets = data_->GetValues<OffsetType>(offsets_buffer_id);
     // Compute visible size of buffer
-    int64_t buffer_size = byte_width * offsets[c_struct_->length];
+    int64_t buffer_size =
+        (c_struct_->length > 0) ? byte_width * offsets[c_struct_->length] : 0;
     return ImportBuffer(buffer_id, buffer_size);
   }
 
-  Status ImportBuffer(int32_t buffer_id, int64_t buffer_size) {
+  Status ImportBuffer(int32_t buffer_id, int64_t buffer_size,
+                      bool is_null_bitmap = false) {
     std::shared_ptr<Buffer>* out = &data_->buffers[buffer_id];
     auto data = reinterpret_cast<const uint8_t*>(c_struct_->buffers[buffer_id]);
     if (data != nullptr) {
       *out = std::make_shared<ImportedBuffer>(data, buffer_size, import_);
-    } else {
+    } else if (is_null_bitmap) {
       out->reset();
+    } else {
+      // Ensure that imported buffers are never null (except for the null bitmap)
+      if (buffer_size != 0) {
+        return Status::Invalid(
+            "ArrowArrayStruct contains null data pointer "
+            "for a buffer with non-zero computed size");
+      }
+      *out = zero_size_buffer_;
     }
     return Status::OK();
   }
@@ -1583,6 +1610,9 @@ struct ArrayImporter {
   std::shared_ptr<ImportedArrayData> import_;
   std::shared_ptr<ArrayData> data_;
   std::vector<ArrayImporter> child_importers_;
+
+  // For imported null buffer pointers
+  std::shared_ptr<Buffer> zero_size_buffer_;
 };
 
 }  // namespace
@@ -1742,41 +1772,69 @@ namespace {
 
 class ArrayStreamBatchReader : public RecordBatchReader {
  public:
-  explicit ArrayStreamBatchReader(struct ArrowArrayStream* stream) {
+  explicit ArrayStreamBatchReader(std::shared_ptr<Schema> schema,
+                                  struct ArrowArrayStream* stream)
+      : schema_(std::move(schema)) {
     ArrowArrayStreamMove(stream, &stream_);
     DCHECK(!ArrowArrayStreamIsReleased(&stream_));
   }
 
   ~ArrayStreamBatchReader() {
-    ArrowArrayStreamRelease(&stream_);
+    if (!ArrowArrayStreamIsReleased(&stream_)) {
+      ArrowArrayStreamRelease(&stream_);
+    }
     DCHECK(ArrowArrayStreamIsReleased(&stream_));
   }
 
-  std::shared_ptr<Schema> schema() const override { return CacheSchema(); }
+  std::shared_ptr<Schema> schema() const override { return schema_; }
 
   Status ReadNext(std::shared_ptr<RecordBatch>* batch) override {
     struct ArrowArray c_array;
+    if (ArrowArrayStreamIsReleased(&stream_)) {
+      return Status::Invalid(
+          "Attempt to read from a reader that has already been closed");
+    }
     RETURN_NOT_OK(StatusFromCError(stream_.get_next(&stream_, &c_array)));
     if (ArrowArrayIsReleased(&c_array)) {
       // End of stream
       batch->reset();
       return Status::OK();
     } else {
-      return ImportRecordBatch(&c_array, CacheSchema()).Value(batch);
+      return ImportRecordBatch(&c_array, schema_).Value(batch);
     }
+  }
+
+  Status Close() override {
+    if (!ArrowArrayStreamIsReleased(&stream_)) {
+      ArrowArrayStreamRelease(&stream_);
+    }
+    return Status::OK();
+  }
+
+  static Result<std::shared_ptr<RecordBatchReader>> Make(
+      struct ArrowArrayStream* stream) {
+    if (ArrowArrayStreamIsReleased(stream)) {
+      return Status::Invalid("Cannot import released ArrowArrayStream");
+    }
+    std::shared_ptr<Schema> schema;
+    struct ArrowSchema c_schema = {};
+    auto status = StatusFromCError(stream, stream->get_schema(stream, &c_schema));
+    if (status.ok()) {
+      status = ImportSchema(&c_schema).Value(&schema);
+    }
+    if (!status.ok()) {
+      ArrowArrayStreamRelease(stream);
+      return status;
+    }
+    return std::make_shared<ArrayStreamBatchReader>(std::move(schema), stream);
   }
 
  private:
-  std::shared_ptr<Schema> CacheSchema() const {
-    if (!schema_) {
-      struct ArrowSchema c_schema;
-      ARROW_CHECK_OK(StatusFromCError(stream_.get_schema(&stream_, &c_schema)));
-      schema_ = ImportSchema(&c_schema).ValueOrDie();
-    }
-    return schema_;
+  Status StatusFromCError(int errno_like) const {
+    return StatusFromCError(&stream_, errno_like);
   }
 
-  Status StatusFromCError(int errno_like) const {
+  static Status StatusFromCError(struct ArrowArrayStream* stream, int errno_like) {
     if (ARROW_PREDICT_TRUE(errno_like == 0)) {
       return Status::OK();
     }
@@ -1796,23 +1854,19 @@ class ArrayStreamBatchReader : public RecordBatchReader {
         code = StatusCode::IOError;
         break;
     }
-    const char* last_error = stream_.get_last_error(&stream_);
-    return Status(code, last_error ? std::string(last_error) : "");
+    const char* last_error = stream->get_last_error(stream);
+    return {code, last_error ? std::string(last_error) : ""};
   }
 
   mutable struct ArrowArrayStream stream_;
-  mutable std::shared_ptr<Schema> schema_;
+  std::shared_ptr<Schema> schema_;
 };
 
 }  // namespace
 
 Result<std::shared_ptr<RecordBatchReader>> ImportRecordBatchReader(
     struct ArrowArrayStream* stream) {
-  if (ArrowArrayStreamIsReleased(stream)) {
-    return Status::Invalid("Cannot import released ArrowArrayStream");
-  }
-  // XXX should we call get_schema() here to avoid crashing on error?
-  return std::make_shared<ArrayStreamBatchReader>(stream);
+  return ArrayStreamBatchReader::Make(stream);
 }
 
 }  // namespace arrow

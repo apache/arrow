@@ -97,7 +97,7 @@ Result<std::shared_ptr<Buffer>> SlowInputStream::Read(int64_t nbytes) {
   return stream_->Read(nbytes);
 }
 
-Result<util::string_view> SlowInputStream::Peek(int64_t nbytes) {
+Result<std::string_view> SlowInputStream::Peek(int64_t nbytes) {
   return stream_->Peek(nbytes);
 }
 
@@ -140,7 +140,7 @@ Result<std::shared_ptr<Buffer>> SlowRandomAccessFile::ReadAt(int64_t position,
   return stream_->ReadAt(position, nbytes);
 }
 
-Result<util::string_view> SlowRandomAccessFile::Peek(int64_t nbytes) {
+Result<std::string_view> SlowRandomAccessFile::Peek(int64_t nbytes) {
   return stream_->Peek(nbytes);
 }
 

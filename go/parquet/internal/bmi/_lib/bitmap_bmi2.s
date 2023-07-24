@@ -1,10 +1,10 @@
 	.text
 	.intel_syntax noprefix
 	.file	"bitmap_bmi2.c"
-	.globl	extract_bits                    # -- Begin function extract_bits
+	.globl	extract_bits_bmi2                    # -- Begin function extract_bits_bmi2
 	.p2align	4, 0x90
-	.type	extract_bits,@function
-extract_bits:                           # @extract_bits
+	.type	extract_bits_bmi2,@function
+extract_bits_bmi2:                           # @extract_bits_bmi2
 # %bb.0:
 	push	rbp
 	mov	rbp, rsp
@@ -14,10 +14,10 @@ extract_bits:                           # @extract_bits
 	pop	rbp
 	ret
 .Lfunc_end0:
-	.size	extract_bits, .Lfunc_end0-extract_bits
+	.size	extract_bits_bmi2, .Lfunc_end0-extract_bits_bmi2
                                         # -- End function
 	.section	.rodata.cst32,"aM",@progbits,32
-	.p2align	5                               # -- Begin function levels_to_bitmap
+	.p2align	5                               # -- Begin function levels_to_bitmap_bmi2
 .LCPI1_0:
 	.quad	0                               # 0x0
 	.quad	1                               # 0x1
@@ -36,10 +36,10 @@ extract_bits:                           # @extract_bits
 .LCPI1_5:
 	.quad	16                              # 0x10
 	.text
-	.globl	levels_to_bitmap
+	.globl	levels_to_bitmap_bmi2
 	.p2align	4, 0x90
-	.type	levels_to_bitmap,@function
-levels_to_bitmap:                       # @levels_to_bitmap
+	.type	levels_to_bitmap_bmi2,@function
+levels_to_bitmap_bmi2:                       # @levels_to_bitmap_bmi2
 # %bb.0:
 	push	rbp
 	mov	rbp, rsp
@@ -133,7 +133,7 @@ levels_to_bitmap:                       # @levels_to_bitmap
 	vzeroupper
 	ret
 .Lfunc_end1:
-	.size	levels_to_bitmap, .Lfunc_end1-levels_to_bitmap
+	.size	levels_to_bitmap_bmi2, .Lfunc_end1-levels_to_bitmap_bmi2
                                         # -- End function
 	.ident	"Ubuntu clang version 11.1.0-++20210204121720+1fdec59bffc1-1~exp1~20210203232336.162"
 	.section	".note.GNU-stack","",@progbits

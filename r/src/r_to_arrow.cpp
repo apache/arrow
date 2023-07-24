@@ -16,9 +16,7 @@
 // under the License.
 
 #include "./arrow_types.h"
-#include "./arrow_vctrs.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/builder_base.h>
 #include <arrow/array/builder_binary.h>
 #include <arrow/array/builder_decimal.h>
@@ -265,6 +263,50 @@ class RConverter : public Converter<SEXP, RConversionOptions> {
     ARROW_ASSIGN_OR_RAISE(auto array, this->ToArray())
     return std::make_shared<ChunkedArray>(array);
   }
+};
+
+// A Converter that calls as_arrow_array(x, type = options.type)
+class AsArrowArrayConverter : public RConverter {
+ public:
+  // This is not run in parallel by default, so it's safe to call into R here;
+  // however, it is not safe to throw an exception here because the caller
+  // might be waiting for other conversions to finish in the background. To
+  // avoid this, use StatusUnwindProtect() to communicate the error back to
+  // ValueOrStop() (which reconstructs the exception and re-throws it).
+  Status Extend(SEXP values, int64_t size, int64_t offset = 0) {
+    try {
+      cpp11::sexp as_array_result = cpp11::package("arrow")["as_arrow_array"](
+          values, cpp11::named_arg("type") = cpp11::as_sexp(options().type),
+          cpp11::named_arg("from_vec_to_array") = cpp11::as_sexp<bool>(true));
+
+      // Check that the R method returned an Array
+      if (!Rf_inherits(as_array_result, "Array")) {
+        return Status::Invalid("as_arrow_array() did not return object of type Array");
+      }
+
+      auto array = cpp11::as_cpp<std::shared_ptr<arrow::Array>>(as_array_result);
+
+      // We need the type to be equal because the schema has already been finalized
+      if (!array->type()->Equals(options().type)) {
+        return Status::Invalid(
+            "as_arrow_array() returned an Array with an incorrect type");
+      }
+
+      arrays_.push_back(std::move(array));
+      return Status::OK();
+    } catch (cpp11::unwind_exception& e) {
+      return StatusUnwindProtect(e.token, "calling as_arrow_array()");
+    }
+  }
+
+  // This is sometimes run in parallel so we can't call into R
+  Result<std::shared_ptr<ChunkedArray>> ToChunkedArray() {
+    return std::make_shared<ChunkedArray>(std::move(arrays_));
+  }
+
+ private:
+  cpp11::writable::list objects_;
+  std::vector<std::shared_ptr<Array>> arrays_;
 };
 
 template <typename T, typename Enable = void>
@@ -685,9 +727,48 @@ class RPrimitiveConverter<T, enable_if_t<is_timestamp_type<T>::value>>
 template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_decimal_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
+  using ValueType = typename arrow::TypeTraits<T>::CType;
+
  public:
   Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
-    return Status::NotImplemented("Extend");
+    RETURN_NOT_OK(this->Reserve(size - offset));
+    int32_t precision = this->primitive_type_->precision();
+    int32_t scale = this->primitive_type_->scale();
+
+    auto append_value = [this, precision, scale](double value) {
+      ARROW_ASSIGN_OR_RAISE(ValueType converted,
+                            ValueType::FromReal(value, precision, scale));
+      this->primitive_builder_->UnsafeAppend(converted);
+      return Status::OK();
+    };
+
+    auto append_null = [this]() {
+      this->primitive_builder_->UnsafeAppendNull();
+      return Status::OK();
+    };
+
+    switch (TYPEOF(x)) {
+      case REALSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<double>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<double>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      case INTSXP:
+        if (ALTREP(x)) {
+          return VisitVector(RVectorIterator_ALTREP<int>(x, offset), size, append_null,
+                             append_value);
+        } else {
+          return VisitVector(RVectorIterator<int>(x, offset), size, append_null,
+                             append_value);
+        }
+        break;
+      default:
+        return Status::NotImplemented("Conversion to decimal from non-integer/double");
+    }
   }
 };
 
@@ -700,7 +781,7 @@ Status check_binary(SEXP x, int64_t size) {
       // check this is a list of raw vectors
       const SEXP* p_x = VECTOR_PTR_RO(x);
       for (R_xlen_t i = 0; i < size; i++, ++p_x) {
-        if (TYPEOF(*p_x) != RAWSXP) {
+        if (TYPEOF(*p_x) != RAWSXP && (*p_x != R_NilValue)) {
           return Status::Invalid("invalid R type to convert to binary");
         }
       }
@@ -995,7 +1076,7 @@ class RListConverter : public ListConverter<T, RConverter, RConverterTrait> {
     auto append_value = [this](SEXP value) {
       // TODO: if we decide that this can be run concurrently
       //       we'll have to do vec_size() upfront
-      int n = vctrs::vec_size(value);
+      int n = arrow::r::vec_size(value);
 
       RETURN_NOT_OK(this->list_builder_->ValidateOverflow(n));
       RETURN_NOT_OK(this->list_builder_->Append());
@@ -1096,7 +1177,7 @@ class RStructConverter : public StructConverter<RConverter, RConverterTrait> {
 
     for (R_xlen_t i = 0; i < n_columns; i++) {
       SEXP x_i = VECTOR_ELT(x, i);
-      if (vctrs::vec_size(x_i) < size) {
+      if (arrow::r::vec_size(x_i) < size) {
         return Status::RError("Degenerated data frame");
       }
     }
@@ -1217,28 +1298,35 @@ std::shared_ptr<arrow::ChunkedArray> vec_to_arrow_ChunkedArray(
         cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
   }
 
-  // short circuit if `x` is an altrep vector that shells a chunked Array
-  auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
-  if (maybe.get()) {
-    return maybe;
-  }
-
   RConversionOptions options;
   options.strict = !type_inferred;
   options.type = type;
-  options.size = vctrs::vec_size(x);
+  options.size = arrow::r::vec_size(x);
 
-  // maybe short circuit when zero-copy is possible
-  if (can_reuse_memory(x, options.type)) {
-    return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
+  // If we can handle this in C++ we do so; otherwise we use the
+  // AsArrowArrayConverter, which calls as_arrow_array().
+  std::unique_ptr<RConverter> converter;
+  if (can_convert_native(x) && type->id() != Type::EXTENSION) {
+    // short circuit if `x` is an altrep vector that shells a chunked Array
+    auto maybe = altrep::vec_to_arrow_altrep_bypass(x);
+    if (maybe.get() && maybe->type()->Equals(type)) {
+      return maybe;
+    }
+
+    // maybe short circuit when zero-copy is possible
+    if (can_reuse_memory(x, type)) {
+      return std::make_shared<arrow::ChunkedArray>(vec_to_arrow__reuse_memory(x));
+    }
+
+    // Otherwise go through the converter API.
+    converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
+        options.type, options, gc_memory_pool()));
+  } else {
+    converter = std::unique_ptr<RConverter>(new AsArrowArrayConverter());
+    StopIfNotOk(converter->Construct(type, options, gc_memory_pool()));
   }
 
-  // otherwise go through the converter api
-  auto converter = ValueOrStop(MakeConverter<RConverter, RConverterTrait>(
-      options.type, options, gc_memory_pool()));
-
   StopIfNotOk(converter->Extend(x, options.size));
-
   return ValueOrStop(converter->ToChunkedArray());
 }
 
@@ -1410,28 +1498,44 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
           cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
-    } else if (arrow::r::altrep::is_arrow_altrep(x)) {
+    } else if (arrow::r::altrep::is_unmaterialized_arrow_altrep(x)) {
       columns[j] = arrow::r::altrep::vec_to_arrow_altrep_bypass(x);
     } else {
       arrow::r::RConversionOptions options;
       options.strict = !infer_schema;
       options.type = schema->field(j)->type();
-      options.size = vctrs::vec_size(x);
+      options.size = arrow::r::vec_size(x);
 
-      // first try to add a task to do a zero copy in parallel
-      if (arrow::r::vector_from_r_memory(x, options.type, columns, j, tasks)) {
-        continue;
+      // If we can handle this in C++  we do so; otherwise we use the
+      // AsArrowArrayConverter, which calls as_arrow_array().
+      std::unique_ptr<arrow::r::RConverter> converter;
+      if (arrow::r::can_convert_native(x) &&
+          options.type->id() != arrow::Type::EXTENSION) {
+        // first try to add a task to do a zero copy in parallel
+        if (arrow::r::vector_from_r_memory(x, options.type, columns, j, tasks)) {
+          continue;
+        }
+
+        // otherwise go through the Converter API
+        auto converter_result =
+            arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
+                options.type, options, gc_memory_pool());
+        if (converter_result.ok()) {
+          converter = std::move(converter_result.ValueUnsafe());
+        } else {
+          status = converter_result.status();
+          break;
+        }
+      } else {
+        converter =
+            std::unique_ptr<arrow::r::RConverter>(new arrow::r::AsArrowArrayConverter());
+        status = converter->Construct(options.type, options, gc_memory_pool());
+        if (!status.ok()) {
+          break;
+        }
       }
 
-      // if unsuccessful: use RConverter api
-      auto converter_result =
-          arrow::MakeConverter<arrow::r::RConverter, arrow::r::RConverterTrait>(
-              options.type, options, gc_memory_pool());
-      if (!converter_result.ok()) {
-        status = converter_result.status();
-        break;
-      }
-      converters[j] = std::move(converter_result.ValueUnsafe());
+      converters[j] = std::move(converter);
     }
   }
 
@@ -1496,5 +1600,3 @@ std::shared_ptr<arrow::Array> DictionaryArray__FromArrays(
     const std::shared_ptr<arrow::Array>& dict) {
   return ValueOrStop(arrow::DictionaryArray::FromArrays(type, indices, dict));
 }
-
-#endif

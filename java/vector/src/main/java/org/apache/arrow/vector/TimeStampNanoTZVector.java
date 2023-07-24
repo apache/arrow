@@ -37,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * (bit vector) is maintained to track which elements in the vector are null.
  */
 public final class TimeStampNanoTZVector extends TimeStampVector {
-  private final FieldReader reader;
   private final String timeZone;
 
   /**
@@ -63,7 +62,6 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     super(name, fieldType, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) fieldType.getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
 
   /**
@@ -77,17 +75,11 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     super(field, allocator);
     ArrowType.Timestamp arrowType = (ArrowType.Timestamp) field.getFieldType().getType();
     timeZone = arrowType.getTimezone();
-    reader = new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   *
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new TimeStampNanoTZReaderImpl(TimeStampNanoTZVector.this);
   }
 
   /**
@@ -99,6 +91,15 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
   @Override
   public MinorType getMinorType() {
     return MinorType.TIMESTAMPNANOTZ;
+  }
+
+  /**
+   * Get the time zone of the timestamps stored in this vector.
+   *
+   * @return the time zone of the timestamps stored in this vector.
+   */
+  public String getTimeZone() {
+    return this.timeZone;
   }
 
 
@@ -123,6 +124,7 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
     }
     holder.isSet = 1;
     holder.value = valueBuffer.getLong((long) index * TYPE_WIDTH);
+    holder.timezone = timeZone;
   }
 
   /**
@@ -158,6 +160,9 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
   public void set(int index, NullableTimeStampNanoTZHolder holder) throws IllegalArgumentException {
     if (holder.isSet < 0) {
       throw new IllegalArgumentException();
+    } else if (!this.timeZone.equals(holder.timezone)) {
+      throw new IllegalArgumentException(
+          String.format("holder.timezone: %s not equal to vector timezone: %s", holder.timezone, this.timeZone));
     } else if (holder.isSet > 0) {
       BitVectorHelper.setBit(validityBuffer, index);
       setValue(index, holder.value);
@@ -173,6 +178,10 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
    * @param holder  data holder for value of element
    */
   public void set(int index, TimeStampNanoTZHolder holder) {
+    if (!this.timeZone.equals(holder.timezone)) {
+      throw new IllegalArgumentException(
+          String.format("holder.timezone: %s not equal to vector timezone: %s", holder.timezone, this.timeZone));
+    }
     BitVectorHelper.setBit(validityBuffer, index);
     setValue(index, holder.value);
   }
@@ -214,7 +223,7 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
 
 
   /**
-   * Construct a TransferPair comprising of this and a target vector of
+   * Construct a TransferPair comprising this and a target vector of
    * the same type.
    *
    * @param ref name of the target vector
@@ -225,6 +234,20 @@ public final class TimeStampNanoTZVector extends TimeStampVector {
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     TimeStampNanoTZVector to = new TimeStampNanoTZVector(ref,
             field.getFieldType(), allocator);
+    return new TransferImpl(to);
+  }
+
+  /**
+   * Construct a TransferPair comprising this and a target vector of
+   * the same type.
+   *
+   * @param field Field object used by the target vector
+   * @param allocator allocator for the target vector
+   * @return {@link TransferPair}
+   */
+  @Override
+  public TransferPair getTransferPair(Field field, BufferAllocator allocator) {
+    TimeStampNanoTZVector to = new TimeStampNanoTZVector(field, allocator);
     return new TransferImpl(to);
   }
 

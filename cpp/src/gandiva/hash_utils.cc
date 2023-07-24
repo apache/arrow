@@ -22,6 +22,16 @@
 #include "openssl/evp.h"
 
 namespace gandiva {
+
+/// Hashes a generic message using the SHA512 algorithm
+GANDIVA_EXPORT
+const char* gdv_sha512_hash(int64_t context, const void* message, size_t message_length,
+                            int32_t* out_length) {
+  constexpr int sha512_result_length = 128;
+  return gdv_hash_using_openssl(context, message, message_length, EVP_sha512(),
+                                sha512_result_length, out_length);
+}
+
 /// Hashes a generic message using the SHA256 algorithm
 GANDIVA_EXPORT
 const char* gdv_sha256_hash(int64_t context, const void* message, size_t message_length,

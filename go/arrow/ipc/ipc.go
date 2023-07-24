@@ -19,10 +19,10 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/arrio"
-	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/arrio"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 const (
@@ -66,14 +66,19 @@ type config struct {
 	footer struct {
 		offset int64
 	}
-	codec      flatbuf.CompressionType
-	compressNP int
+	codec              flatbuf.CompressionType
+	compressNP         int
+	ensureNativeEndian bool
+	noAutoSchema       bool
+	emitDictDeltas     bool
+	minSpaceSavings    *float64
 }
 
 func newConfig(opts ...Option) *config {
 	cfg := &config{
-		alloc: memory.NewGoAllocator(),
-		codec: -1, // uncompressed
+		alloc:              memory.NewGoAllocator(),
+		codec:              -1, // uncompressed
+		ensureNativeEndian: true,
 	}
 
 	for _, opt := range opts {
@@ -131,6 +136,56 @@ func WithZstd() Option {
 func WithCompressConcurrency(n int) Option {
 	return func(cfg *config) {
 		cfg.compressNP = n
+	}
+}
+
+// WithEnsureNativeEndian specifies whether or not to automatically byte-swap
+// buffers with endian-sensitive data if the schema's endianness is not the
+// platform-native endianness. This includes all numeric types, temporal types,
+// decimal types, as well as the offset buffers of variable-sized binary and
+// list-like types.
+//
+// This is only relevant to ipc Reader objects, not to writers. This defaults
+// to true.
+func WithEnsureNativeEndian(v bool) Option {
+	return func(cfg *config) {
+		cfg.ensureNativeEndian = v
+	}
+}
+
+// WithDelayedReadSchema alters the ipc.Reader behavior to delay attempting
+// to read the schema from the stream until the first call to Next instead
+// of immediately attempting to read a schema from the stream when created.
+func WithDelayReadSchema(v bool) Option {
+	return func(cfg *config) {
+		cfg.noAutoSchema = v
+	}
+}
+
+// WithDictionaryDeltas specifies whether or not to emit dictionary deltas.
+func WithDictionaryDeltas(v bool) Option {
+	return func(cfg *config) {
+		cfg.emitDictDeltas = v
+	}
+}
+
+// WithMinSpaceSavings specifies a percentage of space savings for
+// compression to be applied to buffers.
+//
+// Space savings is calculated as (1.0 - compressedSize / uncompressedSize).
+//
+// For example, if minSpaceSavings = 0.1, a 100-byte body buffer won't
+// undergo compression if its expected compressed size exceeds 90 bytes.
+// If this option is unset, compression will be used indiscriminately. If
+// no codec was supplied, this option is ignored.
+//
+// Values outside of the range [0,1] are handled as errors.
+//
+// Note that enabling this option may result in unreadable data for Arrow
+// Go and C++ versions prior to 12.0.0.
+func WithMinSpaceSavings(savings float64) Option {
+	return func(cfg *config) {
+		cfg.minSpaceSavings = &savings
 	}
 }
 

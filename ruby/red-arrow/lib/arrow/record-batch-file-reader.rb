@@ -20,6 +20,8 @@ module Arrow
     include Enumerable
 
     def each
+      return to_enum(__method__) {n_record_batches} unless block_given?
+
       n_record_batches.times do |i|
         yield(get_record_batch(i))
       end

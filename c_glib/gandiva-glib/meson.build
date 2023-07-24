@@ -69,7 +69,7 @@ enums = gnome.mkenums('enums',
                       symbol_prefix: 'ggandiva',
                       c_template: 'enums.c.template',
                       h_template: 'enums.h.template',
-                      install_dir: join_paths(include_dir, meson.project_name()),
+                      install_dir: join_paths(include_dir, 'gandiva-glib'),
                       install_header: true)
 enums_source = enums[0]
 enums_header = enums[1]
@@ -94,27 +94,41 @@ gandiva_glib = declare_dependency(link_with: libgandiva_glib,
                                   sources: enums_header)
 
 pkgconfig.generate(libgandiva_glib,
+                   description: 'C API for Apache Arrow Gandiva based on GLib',
                    filebase: project_name,
                    name: 'Apache Arrow Gandiva GLib',
-                   description: 'C API for Apache Arrow Gandiva based on GLib',
-                   version: version,
-                   requires: ['gandiva', 'arrow-glib'])
+                   requires: ['gandiva', 'arrow-glib'],
+                   variables: pkgconfig_variables,
+                   version: version)
 
 if have_gi
-  gnome.generate_gir(libgandiva_glib,
-                     dependencies: declare_dependency(sources: arrow_glib_gir),
-                     sources: sources + c_headers + enums,
-                     namespace: 'Gandiva',
-                     nsversion: api_version,
-                     identifier_prefix: 'GGandiva',
-                     symbol_prefix: 'ggandiva',
-                     export_packages: 'gandiva-glib',
-                     includes: [
-                       'Arrow-1.0'
-                     ],
-                     install: true,
-                     extra_args: [
-                       '--warn-all',
-                       '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-                     ])
+  gandiva_glib_gir = \
+    gnome.generate_gir(libgandiva_glib,
+                       dependencies: declare_dependency(sources: arrow_glib_gir),
+                       export_packages: 'gandiva-glib',
+                       extra_args: [
+                         '--warn-all',
+                         '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+                       ],
+                       fatal_warnings: gi_fatal_warnings,
+                       header: 'gandiva-glib/gandiva-glib.h',
+                       identifier_prefix: 'GGandiva',
+                       includes: [
+                         'Arrow-1.0'
+                       ],
+                       install: true,
+                       namespace: 'Gandiva',
+                       nsversion: api_version,
+                       sources: sources + c_headers + enums,
+                       symbol_prefix: 'ggandiva')
+
+  if generate_vapi
+    gnome.generate_vapi('gandiva-glib',
+                        install: true,
+                        packages: [
+                          arrow_glib_vapi,
+                          'gio-2.0',
+                        ],
+                        sources: [gandiva_glib_gir[0]])
+  endif
 endif

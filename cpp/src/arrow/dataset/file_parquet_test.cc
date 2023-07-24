@@ -21,10 +21,11 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
-#include "arrow/dataset/scanner_internal.h"
-#include "arrow/dataset/test_util.h"
+#include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
+#include "arrow/io/test_common.h"
 #include "arrow/io/util_internal.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
@@ -32,10 +33,14 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/range.h"
 
 #include "parquet/arrow/writer.h"
+#include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/statistics.h"
+#include "parquet/types.h"
 
 namespace arrow {
 
@@ -112,8 +117,9 @@ class ParquetFormatHelper {
       const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
           default_arrow_writer_properties()) {
     std::unique_ptr<parquet::arrow::FileWriter> writer;
-    RETURN_NOT_OK(parquet::arrow::FileWriter::Open(
-        *reader->schema(), pool, sink, properties, arrow_properties, &writer));
+    ARROW_ASSIGN_OR_RAISE(writer,
+                          parquet::arrow::FileWriter::Open(*reader->schema(), pool, sink,
+                                                           properties, arrow_properties));
     RETURN_NOT_OK(WriteRecordBatchReader(reader, writer.get()));
     return writer->Close();
   }
@@ -121,15 +127,9 @@ class ParquetFormatHelper {
 
 class TestParquetFileFormat : public FileFormatFixtureMixin<ParquetFormatHelper> {
  public:
-  RecordBatchIterator Batches(ScanTaskIterator scan_task_it) {
-    return MakeFlattenIterator(MakeMaybeMapIterator(
-        [](std::shared_ptr<ScanTask> scan_task) { return scan_task->Execute(); },
-        std::move(scan_task_it)));
-  }
-
   RecordBatchIterator Batches(Fragment* fragment) {
-    EXPECT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    return Batches(std::move(scan_task_it));
+    EXPECT_OK_AND_ASSIGN(auto batch_gen, fragment->ScanBatchesAsync(opts_));
+    return MakeGeneratorIterator(batch_gen);
   }
 
   std::shared_ptr<RecordBatch> SingleBatch(Fragment* fragment) {
@@ -224,6 +224,8 @@ TEST_F(TestParquetFileFormat, WriteRecordBatchReaderCustomOptions) {
 
 TEST_F(TestParquetFileFormat, CountRows) { TestCountRows(); }
 
+TEST_F(TestParquetFileFormat, FragmentEquals) { TestFragmentEquals(); }
+
 TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
   constexpr int64_t kNumRowGroups = 16;
   constexpr int64_t kTotalNumRows = kNumRowGroups * (kNumRowGroups + 1) / 2;
@@ -235,7 +237,7 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
 
   auto fragment = MakeFragment(*source);
 
-  ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(kTotalNumRows),
+  ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(kTotalNumRows),
                             fragment->CountRows(literal(true), options));
 
   for (int i = 1; i <= kNumRowGroups; i++) {
@@ -244,18 +246,18 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
     auto predicate = less_equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
     auto expected = i * (i + 1) / 2;
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(expected),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(expected),
                               fragment->CountRows(predicate, options));
 
     predicate = and_(less_equal(field_ref("i64"), literal(i)),
                      greater_equal(field_ref("i64"), literal(i)));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
 
     predicate = equal(field_ref("i64"), literal(i));
     ASSERT_OK_AND_ASSIGN(predicate, predicate.Bind(*reader->schema()));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(i),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(i),
                               fragment->CountRows(predicate, options));
   }
 
@@ -271,18 +273,73 @@ TEST_F(TestParquetFileFormat, CountRowsPredicatePushdown) {
 [1],
 [2]
 ])");
-    ASSERT_OK_AND_ASSIGN(auto reader,
-                         RecordBatchReader::Make({null_batch, batch}, dataset_schema));
+    auto batch2 = RecordBatchFromJSON(dataset_schema, R"([
+[4],
+[4]
+])");
+    ASSERT_OK_AND_ASSIGN(auto reader, RecordBatchReader::Make({null_batch, batch, batch2},
+                                                              dataset_schema));
     auto source = GetFileSource(reader.get());
     auto fragment = MakeFragment(*source);
     ASSERT_OK_AND_ASSIGN(
         auto predicate,
         greater_equal(field_ref("i64"), literal(1)).Bind(*dataset_schema));
-    ASSERT_FINISHES_OK_AND_EQ(util::make_optional<int64_t>(2),
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
                               fragment->CountRows(predicate, options));
-    // TODO(ARROW-12659): SimplifyWithGuarantee can't handle
-    // not(is_null) so trying to count with is_null doesn't work
+
+    ASSERT_OK_AND_ASSIGN(predicate, is_null(field_ref("i64")).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(3),
+                              fragment->CountRows(predicate, options));
+
+    ASSERT_OK_AND_ASSIGN(predicate, is_valid(field_ref("i64")).Bind(*dataset_schema));
+    ASSERT_FINISHES_OK_AND_EQ(std::make_optional<int64_t>(4),
+                              fragment->CountRows(predicate, options));
   }
+}
+
+TEST_F(TestParquetFileFormat, CachedMetadata) {
+  // Create a test file
+  auto mock_fs = std::make_shared<fs::internal::MockFileSystem>(fs::kNoTime);
+  std::shared_ptr<Schema> test_schema = schema({field("x", int32())});
+  std::shared_ptr<RecordBatch> batch = RecordBatchFromJSON(test_schema, "[[0]]");
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::OutputStream> out_stream,
+                       mock_fs->OpenOutputStream("/foo.parquet"));
+  ASSERT_OK_AND_ASSIGN(
+      std::shared_ptr<FileWriter> writer,
+      format_->MakeWriter(out_stream, test_schema, format_->DefaultWriteOptions(),
+                          {mock_fs, "/foo.parquet"}));
+  ASSERT_OK(writer->Write(batch));
+  ASSERT_FINISHES_OK(writer->Finish());
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<io::RandomAccessFile> test_file,
+                       mock_fs->OpenInputFile("/foo.parquet"));
+  std::shared_ptr<io::TrackedRandomAccessFile> tracked_input =
+      io::TrackedRandomAccessFile::Make(test_file.get());
+
+  FileSource source(tracked_input);
+  ASSERT_OK_AND_ASSIGN(auto fragment,
+                       format_->MakeFragment(std::move(source), literal(true)));
+
+  // Read the file the first time, will read metadata
+  auto options = std::make_shared<ScanOptions>();
+  options->filter = literal(true);
+  ASSERT_OK_AND_ASSIGN(auto projection_descr,
+                       ProjectionDescr::FromNames({"x"}, *test_schema));
+  options->projected_schema = projection_descr.schema;
+  options->projection = projection_descr.expression;
+  ASSERT_OK_AND_ASSIGN(auto generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+
+  ASSERT_GT(tracked_input->bytes_read(), 0);
+  int64_t bytes_read_first_time = tracked_input->bytes_read();
+
+  ASSERT_OK(tracked_input->Seek(0));
+
+  // Read the file the second time, should not read metadata
+  ASSERT_OK_AND_ASSIGN(generator, fragment->ScanBatchesAsync(options));
+  ASSERT_FINISHES_OK(CollectAsyncGenerator(std::move(generator)));
+  int64_t bytes_read_second_time = tracked_input->bytes_read() - bytes_read_first_time;
+  ASSERT_LT(bytes_read_second_time, bytes_read_first_time);
 }
 
 TEST_F(TestParquetFileFormat, MultithreadedScan) {
@@ -298,7 +355,6 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
   FragmentDataset dataset(ArithmeticDatasetFixture::schema(), {fragment});
   ScannerBuilder builder({&dataset, [](...) {}});
 
-  ASSERT_OK(builder.UseAsync(true));
   ASSERT_OK(builder.UseThreads(true));
   ASSERT_OK(builder.Project({call("add", {field_ref("i64"), literal(3)})}, {""}));
   ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
@@ -383,10 +439,25 @@ class TestParquetFileFormatScan : public FileFormatScanMixin<ParquetFormatHelper
 
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReader) { TestScan(); }
 TEST_P(TestParquetFileFormatScan, ScanBatchSize) { TestScanBatchSize(); }
+TEST_P(TestParquetFileFormatScan, ScanNoReadahead) { TestScanNoReadahead(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjected) { TestScanProjected(); }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedNested) {
+  // TODO(ARROW-1888): enable fine-grained column projection.
+  TestScanProjectedNested(/*fine_grained_selection=*/false);
+}
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderProjectedMissingCols) {
   TestScanProjectedMissingCols();
 }
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithVirtualColumn) {
+  TestScanWithVirtualColumn();
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumn) {
+  TestScanWithDuplicateColumn();
+}
+TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderWithDuplicateColumnError) {
+  TestScanWithDuplicateColumnError();
+}
+TEST_P(TestParquetFileFormatScan, ScanWithPushdownNulls) { TestScanWithPushdownNulls(); }
 TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderDictEncoded) {
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
   auto source = GetFileSource(reader.get());
@@ -417,7 +488,6 @@ TEST_P(TestParquetFileFormatScan, ScanRecordBatchReaderPreBuffer) {
   auto fragment_scan_options = std::make_shared<ParquetFragmentScanOptions>();
   fragment_scan_options->arrow_reader_properties->set_pre_buffer(true);
   opts_->fragment_scan_options = fragment_scan_options;
-  ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
 
   int64_t row_count = 0;
   for (auto maybe_batch : PhysicalBatches(fragment)) {
@@ -581,10 +651,14 @@ TEST_P(TestParquetFileFormatScan, ExplicitRowGroupSelection) {
   SetFilter(greater(field_ref("i64"), literal(3)));
   CountRowsAndBatchesInScan(row_groups_fragment({2, 3, 4, 5}), 4 + 5 + 6, 3);
 
+  ASSERT_OK_AND_ASSIGN(auto batch_gen,
+                       row_groups_fragment({kNumRowGroups + 1})->ScanBatchesAsync(opts_));
+  Status scan_status = CollectAsyncGenerator(batch_gen).status();
+
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       IndexError,
       testing::HasSubstr("only has " + std::to_string(kNumRowGroups) + " row groups"),
-      row_groups_fragment({kNumRowGroups + 1})->Scan(opts_));
+      scan_status);
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringColumn) {
@@ -604,9 +678,57 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
   CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
 }
 
+// Tests projection with nested/indexed FieldRefs.
+// https://github.com/apache/arrow/issues/35579
+TEST_P(TestParquetFileFormatScan, ProjectWithNonNamedFieldRefs) {
+  auto table_schema = schema(
+      {field("info", struct_({field("name", utf8()),
+                              field("data", struct_({field("amount", float64()),
+                                                     field("percent", float32())}))}))});
+  auto table = TableFromJSON(table_schema, {R"([
+    {"info": {"name": "a", "data": {"amount": 10.3, "percent": 0.1}}},
+    {"info": {"name": "b", "data": {"amount": 11.6, "percent": 0.2}}},
+    {"info": {"name": "c", "data": {"amount": 12.9, "percent": 0.3}}},
+    {"info": {"name": "d", "data": {"amount": 14.2, "percent": 0.4}}},
+    {"info": {"name": "e", "data": {"amount": 15.5, "percent": 0.5}}},
+    {"info": {"name": "f", "data": {"amount": 16.8, "percent": 0.6}}}])"});
+  ASSERT_OK_AND_ASSIGN(auto expected_batch, table->CombineChunksToBatch());
+
+  TableBatchReader reader(*table);
+  SetSchema(reader.schema()->fields());
+
+  auto source = GetFileSource(&reader);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  std::vector<FieldRef> equivalent_refs = {
+      FieldRef("info", "data", "percent"), FieldRef("info", 1, 1),
+      FieldRef(0, 1, "percent"),           FieldRef(0, 1, 1),
+      FieldRef(0, FieldRef("data", 1)),    FieldRef(FieldRef(0), FieldRef(1, 1)),
+  };
+  for (const auto& ref : equivalent_refs) {
+    ARROW_SCOPED_TRACE("ref = ", ref.ToString());
+
+    Project({field_ref(ref)}, {"value"});
+    auto batch = SingleBatch(fragment);
+    AssertBatchesEqual(*expected_batch, *batch);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);
+
+TEST(TestParquetStatistics, NullMax) {
+  auto field = ::arrow::field("x", float32());
+  ASSERT_OK_AND_ASSIGN(std::string dir_string,
+                       arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
+  auto reader =
+      parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
+  auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
+  auto stat_expression =
+      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+}
 
 }  // namespace dataset
 }  // namespace arrow

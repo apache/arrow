@@ -64,7 +64,6 @@ garrow_record_batch_builder_constructed(GObject *object)
   for (int i = 0; i < n_columns; ++i) {
     auto arrow_array_builder = arrow_builder->GetField(i);
     auto array_builder = garrow_array_builder_new_raw(arrow_array_builder);
-    garrow_array_builder_release_ownership(array_builder);
     g_ptr_array_add(priv->column_builders, array_builder);
   }
 
@@ -155,11 +154,10 @@ garrow_record_batch_builder_new(GArrowSchema *schema, GError **error)
 {
   auto arrow_schema = garrow_schema_get_raw(schema);
   auto memory_pool = arrow::default_memory_pool();
-  std::unique_ptr<arrow::RecordBatchBuilder> arrow_builder;
-  auto status = arrow::RecordBatchBuilder::Make(arrow_schema,
-                                                memory_pool,
-                                                &arrow_builder);
-  if (garrow_error_check(error, status, "[record-batch-builder][new]")) {
+  auto builder_result = arrow::RecordBatchBuilder::Make(arrow_schema, memory_pool);
+
+  if (garrow::check(error, builder_result, "[record-batch-builder][new]")) {
+    std::unique_ptr<arrow::RecordBatchBuilder> arrow_builder = std::move(builder_result).ValueOrDie();
     return garrow_record_batch_builder_new_raw(arrow_builder.release());
   } else {
     return NULL;
@@ -309,9 +307,10 @@ garrow_record_batch_builder_flush(GArrowRecordBatchBuilder *builder,
                                   GError **error)
 {
   auto arrow_builder = garrow_record_batch_builder_get_raw(builder);
-  std::shared_ptr<arrow::RecordBatch> arrow_record_batch;
-  auto status = arrow_builder->Flush(&arrow_record_batch);
-  if (garrow_error_check(error, status, "[record-batch-builder][flush]")) {
+  auto batch_result = arrow_builder->Flush();
+
+  if (garrow::check(error, batch_result, "[record-batch-builder][flush]")) {
+    std::shared_ptr<arrow::RecordBatch> arrow_record_batch = *batch_result;
     return garrow_record_batch_new_raw(&arrow_record_batch);
   } else {
     return NULL;

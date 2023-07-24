@@ -23,9 +23,21 @@
 
 #include <arrow-dataset-glib/partitioning.h>
 
+arrow::dataset::PartitioningFactoryOptions
+gadataset_partitioning_factory_options_get_raw(
+  GADatasetPartitioningFactoryOptions *options);
+
 arrow::dataset::KeyValuePartitioningOptions
-gadataset_partitioning_options_get_raw_key_value_partitioning_options(
-  GADatasetPartitioningOptions *options);
+gadataset_key_value_partitioning_options_get_raw(
+  GADatasetKeyValuePartitioningOptions *options);
+
+arrow::dataset::HivePartitioningOptions
+gadataset_hive_partitioning_options_get_raw(
+  GADatasetHivePartitioningOptions *options);
+
+GADatasetPartitioning *
+gadataset_partitioning_new_raw(
+  std::shared_ptr<arrow::dataset::Partitioning> *arrow_partitioning);
 
 std::shared_ptr<arrow::dataset::Partitioning>
 gadataset_partitioning_get_raw(GADatasetPartitioning *partitioning);

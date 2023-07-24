@@ -38,8 +38,9 @@ namespace :dependency do
                                     ArrowDataset::Version::MAJOR,
                                     ArrowDataset::Version::MINOR,
                                     ArrowDataset::Version::MICRO)
-      unless NativePackageInstaller.install(:debian => "libarrow-dataset-glib-dev",
-                                            :redhat => "arrow-dataset-glib-devel")
+      unless NativePackageInstaller.install(debian: "libarrow-dataset-glib-dev",
+                                            fedora: "libarrow-dataset-glib-devel",
+                                            redhat: "arrow-dataset-glib-devel")
         exit(false)
       end
     end

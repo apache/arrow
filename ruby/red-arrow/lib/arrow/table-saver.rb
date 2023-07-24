@@ -51,6 +51,7 @@ module Arrow
         raise ArgumentError, message
       end
       __send__(custom_save_method)
+      @table
     end
 
     private
@@ -151,14 +152,19 @@ module Arrow
       save_as_arrow_file
     end
 
+    # @since 7.0.0
+    def save_as_arrows
+      save_raw(RecordBatchStreamWriter)
+    end
+
     # @since 1.0.0
     def save_as_arrow_streaming
-      save_raw(RecordBatchStreamWriter)
+      save_as_arrows
     end
 
     # @deprecated Use `format: :arrow_streaming` instead.
     def save_as_stream
-      save_as_arrow_streaming
+      save_as_arrows
     end
 
     def csv_save(**options)

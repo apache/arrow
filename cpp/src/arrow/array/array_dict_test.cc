@@ -157,6 +157,18 @@ TYPED_TEST(TestDictionaryBuilder, MakeBuilder) {
   AssertArraysEqual(expected, *result);
 }
 
+TYPED_TEST(TestDictionaryBuilder, Empty) {
+  DictionaryBuilder<TypeParam> dictionary_builder;
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> empty_arr, dictionary_builder.Finish());
+  std::shared_ptr<DictionaryArray> empty_dict_arr =
+      checked_pointer_cast<DictionaryArray>(empty_arr);
+  // Ensure that the indices value buffer is initialized
+  ASSERT_NE(nullptr, empty_dict_arr->data()->buffers[1]);
+  // Ensure that the dictionary's value buffer is initialized
+  ASSERT_NE(nullptr, empty_dict_arr->dictionary());
+  ASSERT_NE(nullptr, empty_dict_arr->dictionary()->data()->buffers[1]);
+}
+
 TYPED_TEST(TestDictionaryBuilder, ArrayConversion) {
   auto type = std::make_shared<TypeParam>();
 
@@ -711,7 +723,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, ArrayInit) {
   // Build the dictionary Array
   auto value_type = fixed_size_binary(4);
   auto dict_array = ArrayFromJSON(value_type, R"(["abcd", "wxyz"])");
-  util::string_view test = "abcd", test2 = "wxyz";
+  std::string_view test = "abcd", test2 = "wxyz";
   DictionaryBuilder<FixedSizeBinaryType> builder(dict_array);
   ASSERT_OK(builder.Append(test));
   ASSERT_OK(builder.Append(test2));
@@ -735,7 +747,7 @@ TEST(TestFixedSizeBinaryDictionaryBuilder, MakeBuilder) {
   std::unique_ptr<ArrayBuilder> boxed_builder;
   ASSERT_OK(MakeBuilder(default_memory_pool(), dict_type, &boxed_builder));
   auto& builder = checked_cast<DictionaryBuilder<FixedSizeBinaryType>&>(*boxed_builder);
-  util::string_view test = "abcd", test2 = "wxyz";
+  std::string_view test = "abcd", test2 = "wxyz";
   ASSERT_OK(builder.Append(test));
   ASSERT_OK(builder.Append(test2));
   ASSERT_OK(builder.Append(test));
@@ -1117,12 +1129,15 @@ TEST(TestDictionary, Validate) {
   arr = std::make_shared<DictionaryArray>(dict_type, indices, MakeArray(invalid_data));
   ASSERT_RAISES(Invalid, arr->ValidateFull());
 
+#if !defined(__APPLE__)
+  // GH-35712: ASSERT_DEATH would make testing slow on MacOS.
   ASSERT_DEATH(
       {
         std::shared_ptr<Array> null_dict_arr =
             std::make_shared<DictionaryArray>(dict_type, indices, nullptr);
       },
       "");
+#endif
 }
 
 TEST(TestDictionary, FromArrays) {
@@ -1317,12 +1332,12 @@ TEST(TestDictionary, ListOfDictionary) {
 
   ASSERT_OK(list_builder->Append());
   std::vector<std::string> expected;
-  for (char a : util::string_view("abc")) {
-    for (char d : util::string_view("def")) {
-      for (char g : util::string_view("ghi")) {
-        for (char j : util::string_view("jkl")) {
-          for (char m : util::string_view("mno")) {
-            for (char p : util::string_view("pqr")) {
+  for (char a : std::string_view("abc")) {
+    for (char d : std::string_view("def")) {
+      for (char g : std::string_view("ghi")) {
+        for (char j : std::string_view("jkl")) {
+          for (char m : std::string_view("mno")) {
+            for (char p : std::string_view("pqr")) {
               if ((static_cast<int>(a) + d + g + j + m + p) % 16 == 0) {
                 ASSERT_OK(list_builder->Append());
               }

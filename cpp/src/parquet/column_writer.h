@@ -21,6 +21,7 @@
 #include <cstring>
 #include <memory>
 
+#include "arrow/util/compression.h"
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -35,6 +36,7 @@ class BitWriter;
 
 namespace util {
 class RleEncoder;
+class CodecOptions;
 }  // namespace util
 
 }  // namespace arrow
@@ -42,11 +44,13 @@ class RleEncoder;
 namespace parquet {
 
 struct ArrowWriteContext;
+class ColumnChunkMetaDataBuilder;
 class ColumnDescriptor;
+class ColumnIndexBuilder;
 class DataPage;
 class DictionaryPage;
-class ColumnChunkMetaDataBuilder;
 class Encryptor;
+class OffsetIndexBuilder;
 class WriterProperties;
 
 class PARQUET_EXPORT LevelEncoder {
@@ -85,12 +89,33 @@ class PARQUET_EXPORT PageWriter {
 
   static std::unique_ptr<PageWriter> Open(
       std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
+      ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal = -1,
+      int16_t column_chunk_ordinal = -1,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
+      bool buffered_row_group = false,
+      std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
+      std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
+      bool page_write_checksum_enabled = false,
+      // column_index_builder MUST outlive the PageWriter
+      ColumnIndexBuilder* column_index_builder = NULLPTR,
+      // offset_index_builder MUST outlive the PageWriter
+      OffsetIndexBuilder* offset_index_builder = NULLPTR,
+      const CodecOptions& codec_options = CodecOptions{});
+
+  ARROW_DEPRECATED("Deprecated in 13.0.0. Use CodecOptions-taking overload instead.")
+  static std::unique_ptr<PageWriter> Open(
+      std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
       int compression_level, ColumnChunkMetaDataBuilder* metadata,
       int16_t row_group_ordinal = -1, int16_t column_chunk_ordinal = -1,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool(),
       bool buffered_row_group = false,
       std::shared_ptr<Encryptor> header_encryptor = NULLPTR,
-      std::shared_ptr<Encryptor> data_encryptor = NULLPTR);
+      std::shared_ptr<Encryptor> data_encryptor = NULLPTR,
+      bool page_write_checksum_enabled = false,
+      // column_index_builder MUST outlive the PageWriter
+      ColumnIndexBuilder* column_index_builder = NULLPTR,
+      // offset_index_builder MUST outlive the PageWriter
+      OffsetIndexBuilder* offset_index_builder = NULLPTR);
 
   // The Column Writer decides if dictionary encoding is used if set and
   // if the dictionary encoding has fallen back to default encoding on reaching dictionary
@@ -103,12 +128,15 @@ class PARQUET_EXPORT PageWriter {
   // Return the number of uncompressed bytes written (including header size)
   virtual int64_t WriteDictionaryPage(const DictionaryPage& page) = 0;
 
+  /// \brief The total number of bytes written as serialized data and
+  /// dictionary pages to the sink so far.
+  virtual int64_t total_compressed_bytes_written() const = 0;
+
   virtual bool has_compressor() = 0;
 
   virtual void Compress(const Buffer& src_buffer, ResizableBuffer* dest_buffer) = 0;
 };
 
-static constexpr int WRITE_BATCH_SIZE = 1000;
 class PARQUET_EXPORT ColumnWriter {
  public:
   virtual ~ColumnWriter() = default;
@@ -130,13 +158,22 @@ class PARQUET_EXPORT ColumnWriter {
   /// \brief The number of rows written so far
   virtual int64_t rows_written() const = 0;
 
-  /// \brief The total size of the compressed pages + page headers. Some values
-  /// might be still buffered and not written to a page yet
+  /// \brief The total size of the compressed pages + page headers. Values
+  /// are still buffered and not written to a pager yet
+  ///
+  /// So in un-buffered mode, it always returns 0
   virtual int64_t total_compressed_bytes() const = 0;
 
   /// \brief The total number of bytes written as serialized data and
   /// dictionary pages to the ColumnChunk so far
+  /// These bytes are uncompressed bytes.
   virtual int64_t total_bytes_written() const = 0;
+
+  /// \brief The total number of bytes written as serialized data and
+  /// dictionary pages to the ColumnChunk so far.
+  /// If the column is uncompressed, the value would be equal to
+  /// total_bytes_written().
+  virtual int64_t total_compressed_bytes_written() const = 0;
 
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <cerrno>
 #include <chrono>
 #include <string>
 #include <utility>
@@ -32,6 +33,7 @@
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/vector.h"
 
@@ -84,6 +86,16 @@ void AssertAllFiles(FileSystem* fs, const std::vector<std::string>& expected_pat
 }
 
 void ValidateTimePoint(TimePoint tp) { ASSERT_GE(tp.time_since_epoch().count(), 0); }
+
+void AssertRaisesWithErrno(int expected_errno, const Status& st) {
+  ASSERT_RAISES(IOError, st);
+  ASSERT_EQ(::arrow::internal::ErrnoFromStatus(st), expected_errno);
+}
+
+template <typename T>
+void AssertRaisesWithErrno(int expected_errno, const Result<T>& result) {
+  AssertRaisesWithErrno(expected_errno, result.status());
+}
 
 };  // namespace
 
@@ -286,7 +298,12 @@ void GenericFileSystemTest::TestDeleteDirContents(FileSystem* fs) {
   // Not a directory
   CreateFile(fs, "abc", "");
   ASSERT_RAISES(IOError, fs->DeleteDirContents("abc"));
+  ASSERT_RAISES(IOError, fs->DeleteDirContents("abc", /*missing_dir_ok=*/true));
   AssertAllFiles(fs, {"AB/abc", "abc"});
+
+  // Missing directory
+  ASSERT_RAISES(IOError, fs->DeleteDirContents("missing"));
+  ASSERT_OK(fs->DeleteDirContents("missing", /*missing_dir_ok=*/true));
 }
 
 void GenericFileSystemTest::TestDeleteRootDirContents(FileSystem* fs) {
@@ -882,6 +899,9 @@ void GenericFileSystemTest::TestOpenOutputStream(FileSystem* fs) {
 
   ASSERT_RAISES(Invalid, stream->Write("x"));  // Stream is closed
 
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenOutputStream("CD/ghi/"));
+
   // Storing metadata along file
   auto metadata = KeyValueMetadata::Make({"Content-Type", "Content-Language"},
                                          {"x-arrow/filesystem-test", "fr_FR"});
@@ -913,6 +933,9 @@ void GenericFileSystemTest::TestOpenAppendStream(FileSystem* fs) {
   }
 
   std::shared_ptr<io::OutputStream> stream;
+
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenAppendStream("abc/"));
 
   if (allow_append_to_new_file()) {
     ASSERT_OK_AND_ASSIGN(stream, fs->OpenAppendStream("abc"));
@@ -948,18 +971,30 @@ void GenericFileSystemTest::TestOpenInputStream(FileSystem* fs) {
   ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream("AB/abc"));
   ASSERT_OK_AND_ASSIGN(auto metadata, stream->ReadMetadata());
   // XXX we cannot really test anything more about metadata...
+  ASSERT_OK_AND_EQ(0, stream->Tell());
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(4));
   AssertBufferEqual(*buffer, "some");
-  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6));
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6 /*Remaining + 1*/));
   AssertBufferEqual(*buffer, " data");
   ASSERT_OK_AND_ASSIGN(buffer, stream->Read(1));
   AssertBufferEqual(*buffer, "");
+  ASSERT_OK_AND_EQ(9, stream->Tell());
+  ASSERT_OK(stream->Close());
+
+  ASSERT_OK_AND_ASSIGN(stream, fs->OpenInputStream("AB/abc"));
+  ASSERT_OK(stream->Advance(4));
+  ASSERT_OK_AND_EQ(4, stream->Tell());
+  ASSERT_OK_AND_ASSIGN(buffer, stream->Read(6 /*Remaining + 1*/));
+  AssertBufferEqual(*buffer, " data");
   ASSERT_OK(stream->Close());
   ASSERT_RAISES(Invalid, stream->Read(1));  // Stream is closed
 
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenInputStream("AB/abc/"));
+
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputStream("AB/def"));
-  ASSERT_RAISES(IOError, fs->OpenInputStream("def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("AB/def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream("def"));
 
   // Cannot open directory
   if (!allow_read_dir_as_file()) {
@@ -987,10 +1022,19 @@ void GenericFileSystemTest::TestOpenInputStreamWithFileInfo(FileSystem* fs) {
 
   // File does not exist
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zzzzt"));
-  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream(info));
   // (same, with incomplete FileInfo)
   info.set_type(FileType::Unknown);
-  ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStream(info));
+
+  // Trailing slash rejected
+  auto maybe_info = fs->GetFileInfo("AB/abc/");
+  if (maybe_info.ok()) {
+    ASSERT_OK_AND_ASSIGN(info, maybe_info);
+    ASSERT_RAISES(IOError, fs->OpenInputStream(info));
+  } else {
+    ASSERT_RAISES(IOError, maybe_info);
+  }
 
   // Cannot open directory
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));
@@ -1011,7 +1055,7 @@ void GenericFileSystemTest::TestOpenInputStreamAsync(FileSystem* fs) {
   ASSERT_OK(stream->Close());
 
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputStreamAsync("AB/def").result());
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputStreamAsync("AB/def").result());
 }
 
 void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
@@ -1021,15 +1065,31 @@ void GenericFileSystemTest::TestOpenInputFile(FileSystem* fs) {
   std::shared_ptr<io::RandomAccessFile> file;
   std::shared_ptr<Buffer> buffer;
   ASSERT_OK_AND_ASSIGN(file, fs->OpenInputFile("AB/abc"));
-  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(5, 6));
+  ASSERT_OK_AND_EQ(0, file->Tell());
+  ASSERT_OK(file->Seek(10));
+  ASSERT_OK_AND_EQ(10, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buffer, file->Read(6 /*Remaining + 1*/));
+  AssertBufferEqual(*buffer, " data");
+  ASSERT_OK_AND_ASSIGN(buffer, file->Read(1));
+  AssertBufferEqual(*buffer, "");
+  ASSERT_OK_AND_EQ(15, file->Tell());
+  ASSERT_OK(file->Seek(5));
+  ASSERT_OK_AND_EQ(5, file->Tell());
+  ASSERT_OK_AND_ASSIGN(buffer, file->Read(6));
   AssertBufferEqual(*buffer, "other ");
+  // Should return the same slice independent of the current position
+  ASSERT_OK_AND_ASSIGN(buffer, file->ReadAt(2, 3));
+  AssertBufferEqual(*buffer, "me ");
   ASSERT_OK_AND_EQ(15, file->GetSize());
   ASSERT_OK(file->Close());
   ASSERT_RAISES(Invalid, file->ReadAt(1, 1));  // Stream is closed
 
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenInputFile("AB/abc/"));
+
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputFile("AB/def"));
-  ASSERT_RAISES(IOError, fs->OpenInputFile("def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("AB/def"));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile("def"));
 
   // Cannot open directory
   if (!allow_read_dir_as_file()) {
@@ -1049,7 +1109,10 @@ void GenericFileSystemTest::TestOpenInputFileAsync(FileSystem* fs) {
   ASSERT_OK(file->Close());
 
   // File does not exist
-  ASSERT_RAISES(IOError, fs->OpenInputFileAsync("AB/def").result());
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFileAsync("AB/def").result());
+
+  // Trailing slash rejected
+  ASSERT_RAISES(IOError, fs->OpenInputFileAsync("AB/abc/").result());
 }
 
 void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
@@ -1074,10 +1137,19 @@ void GenericFileSystemTest::TestOpenInputFileWithFileInfo(FileSystem* fs) {
 
   // File does not exist
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("zzzzt"));
-  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile(info));
   // (same, with incomplete FileInfo)
   info.set_type(FileType::Unknown);
-  ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  AssertRaisesWithErrno(ENOENT, fs->OpenInputFile(info));
+
+  // Trailing slash rejected
+  auto maybe_info = fs->GetFileInfo("AB/abc/");
+  if (maybe_info.ok()) {
+    ASSERT_OK_AND_ASSIGN(info, maybe_info);
+    ASSERT_RAISES(IOError, fs->OpenInputFile(info));
+  } else {
+    ASSERT_RAISES(IOError, maybe_info);
+  }
 
   // Cannot open directory
   ASSERT_OK_AND_ASSIGN(info, fs->GetFileInfo("AB"));

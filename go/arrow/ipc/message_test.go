@@ -18,12 +18,13 @@ package ipc
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestMessageReaderBodyInAllocator(t *testing.T) {
@@ -38,7 +39,7 @@ func TestMessageReaderBodyInAllocator(t *testing.T) {
 	msgs := make([]*Message, 0)
 	for {
 		m, err := r.Message()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
@@ -80,7 +81,7 @@ func writeRecordsIntoBuffer(t *testing.T, numRecords int) *bytes.Buffer {
 	return buf
 }
 
-func getTestRecords(mem memory.Allocator, numRecords int) (*arrow.Schema, []array.Record) {
+func getTestRecords(mem memory.Allocator, numRecords int) (*arrow.Schema, []arrow.Record) {
 	meta := arrow.NewMetadata([]string{}, []string{})
 	s := arrow.NewSchema([]arrow.Field{
 		{Name: "test-col", Type: arrow.PrimitiveTypes.Int64},
@@ -89,7 +90,7 @@ func getTestRecords(mem memory.Allocator, numRecords int) (*arrow.Schema, []arra
 	builder := array.NewRecordBuilder(mem, s)
 	defer builder.Release()
 
-	recs := make([]array.Record, numRecords)
+	recs := make([]arrow.Record, numRecords)
 	for i := 0; i < len(recs); i++ {
 		col := builder.Field(0).(*array.Int64Builder)
 		for i := 0; i < 10; i++ {

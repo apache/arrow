@@ -25,6 +25,14 @@
 #include <memory>
 #include <limits>
 
+// Move this vendored copy of flatbuffers to a private namespace,
+// but continue to access it through the "flatbuffers" alias.
+namespace arrow_vendored_private {
+namespace flatbuffers {
+}
+}
+namespace flatbuffers = arrow_vendored_private::flatbuffers;
+
 #if defined(_STLPORT_VERSION) && !defined(FLATBUFFERS_CPP98_STL)
   #define FLATBUFFERS_CPP98_STL
 #endif  // defined(_STLPORT_VERSION) && !defined(FLATBUFFERS_CPP98_STL)
@@ -44,6 +52,7 @@
 #endif
 
 // This header provides backwards compatibility for C++98 STLs like stlport.
+namespace arrow_vendored_private {
 namespace flatbuffers {
 
 // Retrieve ::back() from a string in a way that is compatible with pre C++11
@@ -303,5 +312,6 @@ inline void vector_emplace_back(std::vector<T> *vector, V &&data) {
 #endif  // !FLATBUFFERS_CPP98_STL
 
 }  // namespace flatbuffers
+}  // namespace arrow_vendored_private
 
 #endif  // FLATBUFFERS_STL_EMULATION_H_

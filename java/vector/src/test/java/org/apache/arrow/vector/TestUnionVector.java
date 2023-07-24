@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -494,6 +495,28 @@ public class TestUnionVector {
       srcVector.setSafe(0, holder);
 
       assertNull(srcVector.getObject(0));
+    }
+  }
+
+  @Test
+  public void testCreateNewVectorWithoutTypeExceptionThrown() {
+    try (UnionVector vector =
+        new UnionVector(EMPTY_SCHEMA_PATH, allocator, /* field type */ null, /* call-back */ null)) {
+      IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getTimeStampMilliTZVector());
+      assertEquals("No TimeStampMilliTZ present. Provide ArrowType argument to create a new vector", e1.getMessage());
+
+      IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getDurationVector());
+      assertEquals("No Duration present. Provide ArrowType argument to create a new vector", e2.getMessage());
+
+      IllegalArgumentException e3 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getFixedSizeBinaryVector());
+      assertEquals("No FixedSizeBinary present. Provide ArrowType argument to create a new vector", e3.getMessage());
+
+      IllegalArgumentException e4 = assertThrows(IllegalArgumentException.class,
+          () -> vector.getDecimalVector());
+      assertEquals("No Decimal present. Provide ArrowType argument to create a new vector", e4.getMessage());
     }
   }
 

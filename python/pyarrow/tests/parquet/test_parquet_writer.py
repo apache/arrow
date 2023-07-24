@@ -24,7 +24,8 @@ from pyarrow.tests.parquet.common import parametrize_legacy_dataset
 
 try:
     import pyarrow.parquet as pq
-    from pyarrow.tests.parquet.common import _read_table, _test_dataframe
+    from pyarrow.tests.parquet.common import (_read_table, _test_dataframe,
+                                              _range_integers)
 except ImportError:
     pq = None
 
@@ -36,6 +37,9 @@ try:
 except ImportError:
     pd = tm = None
 
+
+# Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not parquet'
 pytestmark = pytest.mark.parquet
 
 
@@ -88,6 +92,16 @@ def test_validate_schema_write_table(tempdir):
                           compression='snappy', flavor='spark') as w:
         with pytest.raises(ValueError):
             w.write_table(simple_table)
+
+
+def test_parquet_invalid_writer():
+    # avoid segfaults with invalid construction
+    with pytest.raises(TypeError):
+        some_schema = pa.schema([pa.field("x", pa.int32())])
+        pq.ParquetWriter(None, some_schema)
+
+    with pytest.raises(TypeError):
+        pq.ParquetWriter("some_path", None)
 
 
 @pytest.mark.pandas
@@ -197,6 +211,49 @@ def test_parquet_writer_write_wrappers(tempdir, filesystem):
 
     result = _read_table(path_batch).to_pandas()
     tm.assert_frame_equal(result, df)
+
+
+@pytest.mark.large_memory
+@pytest.mark.pandas
+def test_parquet_writer_chunk_size(tempdir):
+    default_chunk_size = 1024 * 1024
+    abs_max_chunk_size = 64 * 1024 * 1024
+
+    def check_chunk_size(data_size, chunk_size, expect_num_chunks):
+        table = pa.Table.from_arrays([
+            _range_integers(data_size, 'b')
+        ], names=['x'])
+        if chunk_size is None:
+            pq.write_table(table, tempdir / 'test.parquet')
+        else:
+            pq.write_table(table, tempdir / 'test.parquet', row_group_size=chunk_size)
+        metadata = pq.read_metadata(tempdir / 'test.parquet')
+        expected_chunk_size = default_chunk_size if chunk_size is None else chunk_size
+        assert metadata.num_row_groups == expect_num_chunks
+        latched_chunk_size = min(expected_chunk_size, abs_max_chunk_size)
+        # First chunks should be full size
+        for chunk_idx in range(expect_num_chunks - 1):
+            assert metadata.row_group(chunk_idx).num_rows == latched_chunk_size
+        # Last chunk may be smaller
+        remainder = data_size - (expected_chunk_size * (expect_num_chunks - 1))
+        if remainder == 0:
+            assert metadata.row_group(
+                expect_num_chunks - 1).num_rows == latched_chunk_size
+        else:
+            assert metadata.row_group(expect_num_chunks - 1).num_rows == remainder
+
+    check_chunk_size(default_chunk_size * 2, default_chunk_size - 100, 3)
+    check_chunk_size(default_chunk_size * 2, default_chunk_size, 2)
+    check_chunk_size(default_chunk_size * 2, default_chunk_size + 100, 2)
+    check_chunk_size(default_chunk_size + 100, default_chunk_size + 100, 1)
+    # Even though the chunk size requested is large enough it will be capped
+    # by the absolute max chunk size
+    check_chunk_size(abs_max_chunk_size * 2, abs_max_chunk_size * 2, 2)
+
+    # These tests don't pass a chunk_size to write_table and so the chunk size
+    # should be default_chunk_size
+    check_chunk_size(default_chunk_size, None, 1)
+    check_chunk_size(default_chunk_size + 1, None, 2)
 
 
 @pytest.mark.pandas
@@ -322,3 +379,24 @@ def test_parquet_writer_with_caller_provided_filesystem(use_legacy_dataset):
         expected_msg = ("filesystem passed but where is file-like, so"
                         " there is nothing to open with filesystem.")
         assert str(err_info) == expected_msg
+
+
+def test_parquet_writer_store_schema(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+
+    # default -> write schema information
+    path1 = tempdir / 'test_with_schema.parquet'
+    with pq.ParquetWriter(path1, table.schema) as writer:
+        writer.write_table(table)
+
+    meta = pq.read_metadata(path1)
+    assert b'ARROW:schema' in meta.metadata
+    assert meta.metadata[b'ARROW:schema']
+
+    # disable adding schema information
+    path2 = tempdir / 'test_without_schema.parquet'
+    with pq.ParquetWriter(path2, table.schema, store_schema=False) as writer:
+        writer.write_table(table)
+
+    meta = pq.read_metadata(path2)
+    assert meta.metadata is None

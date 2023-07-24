@@ -193,6 +193,35 @@ class IntegerField(PrimitiveField):
         return PrimitiveColumn(name, size, is_valid, values)
 
 
+# Integer field that fulfils the requirements for the run ends field of REE.
+# The integers are positive and in a strictly increasing sequence
+class RunEndsField(IntegerField):
+    # bit_width should only be one of 16/32/64
+    def __init__(self, name, bit_width, *, metadata=None):
+        super().__init__(name, is_signed=True, bit_width=bit_width,
+                         nullable=False, metadata=metadata, min_value=1)
+
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        rng = np.random.default_rng()
+        # generate values that are strictly increasing with a min-value of
+        # 1, but don't go higher than the max signed value for the given
+        # bit width. We sort the values to ensure they are strictly increasing
+        # and set replace to False to avoid duplicates, ensuring a valid
+        # run-ends array.
+        values = rng.choice(2 ** (self.bit_width - 1) - 1, size=size, replace=False)
+        values += 1
+        values = sorted(values)
+        values = list(map(int if self.bit_width < 64 else str, values))
+        # RunEnds cannot be null, as such self.nullable == False and this
+        # will generate a validity map of all ones.
+        is_valid = self._make_is_valid(size)
+
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
+
+
 class DateField(IntegerField):
 
     DAY = 0
@@ -220,6 +249,30 @@ class DateField(IntegerField):
             ('name', 'date'),
             ('unit', 'DAY' if self.unit == self.DAY else 'MILLISECOND')
         ])
+
+    def generate_range(self, size, lower, upper, name=None,
+                       include_extremes=False):
+        if self.unit == self.DAY:
+            return super().generate_range(size, lower, upper, name)
+
+        full_day_millis = 1000 * 60 * 60 * 24
+        lower = -1 * (abs(lower) // full_day_millis)
+        upper //= full_day_millis
+
+        values = [val * full_day_millis for val in np.random.randint(
+            lower, upper, size=size, dtype=np.int64)]
+        lower *= full_day_millis
+        upper *= full_day_millis
+
+        if include_extremes and size >= 2:
+            values[:2] = [lower, upper]
+        values = list(map(int if self.bit_width < 64 else str, values))
+
+        is_valid = self._make_is_valid(size)
+
+        if name is None:
+            name = self.name
+        return PrimitiveColumn(name, size, is_valid, values)
 
 
 TIMEUNIT_NAMES = {
@@ -260,6 +313,11 @@ class TimeField(IntegerField):
             ('unit', TIMEUNIT_NAMES[self.unit]),
             ('bitWidth', self.bit_width)
         ])
+
+    def generate_column(self, size, name=None):
+        lower_bound, upper_bound = self._get_generated_data_bounds()
+        return self.generate_range(size, lower_bound, upper_bound,
+                                   name=name)
 
 
 class TimestampField(IntegerField):
@@ -910,6 +968,33 @@ class StructField(Field):
         return StructColumn(name, size, is_valid, field_values)
 
 
+class RunEndEncodedField(Field):
+
+    def __init__(self, name, run_ends_bitwidth, values_field, *, nullable=True,
+                 metadata=None):
+        super().__init__(name, nullable=nullable, metadata=metadata)
+        self.run_ends_field = RunEndsField('run_ends', run_ends_bitwidth)
+        self.values_field = values_field
+
+    def _get_type(self):
+        return OrderedDict([
+            ('name', 'runendencoded')
+        ])
+
+    def _get_children(self):
+        return [
+            self.run_ends_field.get_json(),
+            self.values_field.get_json()
+        ]
+
+    def generate_column(self, size, name=None):
+        values = self.values_field.generate_column(size)
+        run_ends = self.run_ends_field.generate_column(size)
+        if name is None:
+            name = self.name
+        return RunEndEncodedColumn(name, size, run_ends, values)
+
+
 class _BaseUnionField(Field):
 
     def __init__(self, name, fields, type_ids=None, *, nullable=True,
@@ -1073,6 +1158,20 @@ class StructColumn(Column):
 
     def _get_children(self):
         return [field.get_json() for field in self.field_values]
+
+
+class RunEndEncodedColumn(Column):
+
+    def __init__(self, name, count, run_ends_field, values_field):
+        super().__init__(name, count)
+        self.run_ends = run_ends_field
+        self.values = values_field
+
+    def _get_buffers(self):
+        return []
+
+    def _get_children(self):
+        return [self.run_ends.get_json(), self.values.get_json()]
 
 
 class SparseUnionColumn(Column):
@@ -1349,12 +1448,20 @@ def generate_datetime_case():
     return _generate_file("datetime", fields, batch_sizes)
 
 
-def generate_interval_case():
+def generate_duration_case():
     fields = [
         DurationIntervalField('f1', 's'),
         DurationIntervalField('f2', 'ms'),
         DurationIntervalField('f3', 'us'),
         DurationIntervalField('f4', 'ns'),
+    ]
+
+    batch_sizes = [7, 10]
+    return _generate_file("duration", fields, batch_sizes)
+
+
+def generate_interval_case():
+    fields = [
         YearMonthIntervalField('f5'),
         DayTimeIntervalField('f6'),
     ]
@@ -1422,6 +1529,16 @@ def generate_recursive_nested_case():
 
     batch_sizes = [7, 10]
     return _generate_file("recursive_nested", fields, batch_sizes)
+
+
+def generate_run_end_encoded_case():
+    fields = [
+        RunEndEncodedField('ree16', 16, get_field('values', 'int32')),
+        RunEndEncodedField('ree32', 32, get_field('values', 'utf8')),
+        RunEndEncodedField('ree64', 64, get_field('values', 'float32')),
+    ]
+    batch_sizes = [0, 7, 10]
+    return _generate_file("run_end_encoded", fields, batch_sizes)
 
 
 def generate_nested_large_offsets_case():
@@ -1550,46 +1667,40 @@ def get_generated_json_files(tempdir=None):
 
         generate_primitive_large_offsets_case([17, 20])
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
         generate_null_case([10, 0])
-        .skip_category('C#')
         .skip_category('JS'),   # TODO(ARROW-7900)
 
         generate_null_trivial_case([0, 0])
-        .skip_category('C#')
         .skip_category('JS'),   # TODO(ARROW-7900)
 
-        generate_decimal128_case()
-        .skip_category('Rust'),
+        generate_decimal128_case(),
 
         generate_decimal256_case()
-        .skip_category('Go')  # TODO(ARROW-7948): Decimal + Go
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
-        generate_datetime_case()
-        .skip_category('C#'),
+        generate_datetime_case(),
+
+        generate_duration_case()
+        .skip_category('C#')
+        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_interval_case()
         .skip_category('C#')
-        .skip_category('JS')  # TODO(ARROW-5239): Intervals + JS
-        .skip_category('Rust'),
+        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_month_day_nano_interval_case()
         .skip_category('C#')
         .skip_category('JS'),
 
         generate_map_case()
-        .skip_category('C#')
-        .skip_category('Rust'),
+        .skip_category('C#'),
 
         generate_non_canonical_map_case()
         .skip_category('C#')
         .skip_category('Java')   # TODO(ARROW-8715)
-        .skip_category('JS')     # TODO(ARROW-8716)
-        .skip_category('Rust'),
+        .skip_category('JS'),     # TODO(ARROW-8716)
 
         generate_nested_case()
         .skip_category('C#'),
@@ -1599,15 +1710,11 @@ def get_generated_json_files(tempdir=None):
 
         generate_nested_large_offsets_case()
         .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
         generate_unions_case()
         .skip_category('C#')
-        .skip_category('Go')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
 
         generate_custom_metadata_case()
         .skip_category('C#')
@@ -1615,31 +1722,29 @@ def get_generated_json_files(tempdir=None):
 
         generate_duplicate_fieldnames_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('JS'),
 
-        # TODO(ARROW-3039, ARROW-5267): Dictionaries in GO
         generate_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Go'),
+        .skip_category('C#'),
 
         generate_dictionary_unsigned_case()
         .skip_category('C#')
-        .skip_category('Go')     # TODO(ARROW-9378)
         .skip_category('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
         .skip_category('C#')
-        .skip_category('Go')
         .skip_category('Java')  # TODO(ARROW-7779)
+        .skip_category('JS'),
+
+        generate_run_end_encoded_case()
+        .skip_category('C#')
+        .skip_category('Java')
         .skip_category('JS')
         .skip_category('Rust'),
 
         generate_extension_case()
         .skip_category('C#')
-        .skip_category('Go')  # TODO(ARROW-3039): requires dictionaries
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_category('JS'),
     ]
 
     generated_paths = []

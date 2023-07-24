@@ -19,13 +19,14 @@
 
 #include <sqlite3.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
-#include "arrow/api.h"
 #include "arrow/flight/sql/example/sqlite_statement.h"
 #include "arrow/flight/sql/example/sqlite_statement_batch_reader.h"
 #include "arrow/flight/sql/server.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace flight {
@@ -35,7 +36,12 @@ namespace example {
 /// \brief Convert a column type to a ArrowType.
 /// \param sqlite_type the sqlite type.
 /// \return            The equivalent ArrowType.
-std::shared_ptr<DataType> GetArrowType(const char* sqlite_type);
+arrow::Result<std::shared_ptr<DataType>> GetArrowType(const char* sqlite_type);
+
+/// \brief Convert a column type name to SQLite type.
+/// \param type_name the type name.
+/// \return          The equivalent SQLite type.
+int32_t GetSqlTypeFromTypeName(const char* type_name);
 
 /// \brief  Get the DataType used when parameter type is not known.
 /// \return DataType used when parameter type is not known.
@@ -102,6 +108,13 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTables(
       const ServerCallContext& context, const GetTables& command) override;
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoXdbcTypeInfo(
+      const ServerCallContext& context,
+      const arrow::flight::sql::GetXdbcTypeInfo& command,
+      const FlightDescriptor& descriptor) override;
+  arrow::Result<std::unique_ptr<FlightDataStream>> DoGetXdbcTypeInfo(
+      const ServerCallContext& context,
+      const arrow::flight::sql::GetXdbcTypeInfo& command) override;
   arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfoTableTypes(
       const ServerCallContext& context, const FlightDescriptor& descriptor) override;
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetTableTypes(
@@ -128,6 +141,12 @@ class SQLiteFlightSqlServer : public FlightSqlServerBase {
 
   arrow::Result<std::unique_ptr<FlightDataStream>> DoGetPrimaryKeys(
       const ServerCallContext& context, const GetPrimaryKeys& command) override;
+
+  arrow::Result<ActionBeginTransactionResult> BeginTransaction(
+      const ServerCallContext& context,
+      const ActionBeginTransactionRequest& request) override;
+  Status EndTransaction(const ServerCallContext& context,
+                        const ActionEndTransactionRequest& request) override;
 
  private:
   class Impl;

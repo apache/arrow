@@ -38,12 +38,17 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<UInt16Array>,
             IArrowArrayVisitor<UInt32Array>,
             IArrowArrayVisitor<UInt64Array>,
+#if NET5_0_OR_GREATER
+            IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
             IArrowArrayVisitor<TimestampArray>,
             IArrowArrayVisitor<Date32Array>,
             IArrowArrayVisitor<Date64Array>,
+            IArrowArrayVisitor<Time32Array>,
+            IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
@@ -51,7 +56,8 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
-            IArrowArrayVisitor<DictionaryArray>
+            IArrowArrayVisitor<DictionaryArray>,
+            IArrowArrayVisitor<NullArray>
         {
             public readonly struct Buffer
             {
@@ -85,12 +91,17 @@ namespace Apache.Arrow.Ipc
             public void Visit(UInt16Array array) => CreateBuffers(array);
             public void Visit(UInt32Array array) => CreateBuffers(array);
             public void Visit(UInt64Array array) => CreateBuffers(array);
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatArray array) => CreateBuffers(array);
+#endif
             public void Visit(FloatArray array) => CreateBuffers(array);
             public void Visit(DoubleArray array) => CreateBuffers(array);
             public void Visit(TimestampArray array) => CreateBuffers(array);
             public void Visit(BooleanArray array) => CreateBuffers(array);
             public void Visit(Date32Array array) => CreateBuffers(array);
             public void Visit(Date64Array array) => CreateBuffers(array);
+            public void Visit(Time32Array array) => CreateBuffers(array);
+            public void Visit(Time64Array array) => CreateBuffers(array);
 
             public void Visit(ListArray array)
             {
@@ -113,7 +124,7 @@ namespace Apache.Arrow.Ipc
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueBuffer));
-            }  
+            }
 
             public void Visit(Decimal128Array array)
             {
@@ -144,6 +155,11 @@ namespace Apache.Arrow.Ipc
 
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.IndicesBuffer));
+            }
+
+            public void Visit(NullArray array)
+            {
+                // There are no buffers for a NullArray
             }
 
             private void CreateBuffers(BooleanArray array)
@@ -241,10 +257,10 @@ namespace Apache.Arrow.Ipc
             Flatbuf.FieldNode.CreateFieldNode(Builder, data.Length, data.NullCount);
         }
 
-        private static int CountAllNodes(IReadOnlyDictionary<string, Field> fields)
+        private static int CountAllNodes(IReadOnlyList<Field> fields)
         {
             int count = 0;
-            foreach (Field arrowArray in fields.Values)
+            foreach (Field arrowArray in fields)
             {
                 CountSelfAndChildrenNodes(arrowArray.DataType, ref count);
             }
@@ -405,10 +421,10 @@ namespace Apache.Arrow.Ipc
 
         private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(RecordBatch recordBatch)
         {
-            return PreparingWritingRecordBatch(recordBatch.Schema.Fields, recordBatch.ArrayList);
+            return PreparingWritingRecordBatch(recordBatch.Schema.FieldsList, recordBatch.ArrayList);
         }
 
-        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyDictionary<string, Field> fields, IReadOnlyList<IArrowArray> arrays)
+        private Tuple<ArrowRecordBatchFlatBufferBuilder, VectorOffset> PreparingWritingRecordBatch(IReadOnlyList<Field> fields, IReadOnlyList<IArrowArray> arrays)
         {
             Builder.Clear();
 
@@ -452,7 +468,7 @@ namespace Apache.Arrow.Ipc
 
         private protected void WriteDictionaries(RecordBatch recordBatch)
         {
-            foreach (Field field in recordBatch.Schema.Fields.Values)
+            foreach (Field field in recordBatch.Schema.FieldsList)
             {
                 WriteDictionary(field);
             }
@@ -483,7 +499,7 @@ namespace Apache.Arrow.Ipc
 
         private protected async Task WriteDictionariesAsync(RecordBatch recordBatch, CancellationToken cancellationToken)
         {
-            foreach (Field field in recordBatch.Schema.Fields.Values)
+            foreach (Field field in recordBatch.Schema.FieldsList)
             {
                 await WriteDictionaryAsync(field, cancellationToken).ConfigureAwait(false);
             }
@@ -518,13 +534,12 @@ namespace Apache.Arrow.Ipc
             long id = DictionaryMemo.GetId(field);
             IArrowArray dictionary = DictionaryMemo.GetDictionary(id);
 
-            var fieldsDictionary = new Dictionary<string, Field> {
-                { dictionaryField.Name, dictionaryField } };
+            var fields = new Field[] { dictionaryField };
 
             var arrays = new List<IArrowArray> { dictionary };
 
             (ArrowRecordBatchFlatBufferBuilder recordBatchBuilder, VectorOffset fieldNodesVectorOffset) =
-                                                            PreparingWritingRecordBatch(fieldsDictionary, arrays);
+                PreparingWritingRecordBatch(fields, arrays);
 
             VectorOffset buffersVectorOffset = Builder.EndVector();
 
@@ -641,7 +656,7 @@ namespace Apache.Arrow.Ipc
             }
 
             // Build fields
-            var fieldOffsets = new Offset<Flatbuf.Field>[schema.Fields.Count];
+            var fieldOffsets = new Offset<Flatbuf.Field>[schema.FieldsList.Count];
             for (int i = 0; i < fieldOffsets.Length; i++)
             {
                 Field field = schema.GetFieldByIndex(i);
@@ -925,7 +940,7 @@ namespace Apache.Arrow.Ipc
         internal static void Collect(RecordBatch recordBatch, ref DictionaryMemo dictionaryMemo)
         {
             Schema schema = recordBatch.Schema;
-            for (int i = 0; i < schema.Fields.Count; i++)
+            for (int i = 0; i < schema.FieldsList.Count; i++)
             {
                 Field field = schema.GetFieldByIndex(i);
                 IArrowArray array = recordBatch.Column(i);

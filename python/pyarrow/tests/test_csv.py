@@ -25,6 +25,7 @@ import io
 import itertools
 import os
 import pickle
+import select
 import shutil
 import signal
 import string
@@ -325,7 +326,8 @@ def test_write_options():
     opts = cls()
 
     check_options_class(
-        cls, include_header=[True, False])
+        cls, include_header=[True, False], delimiter=[',', '\t', '|'],
+        quoting_style=['needed', 'none', 'all_valid'])
 
     assert opts.batch_size > 0
     opts.batch_size = 12345
@@ -652,6 +654,16 @@ class BaseTestCSV(abc.ABC):
             self.read_bytes(rows, parse_options=parse_opts)
         expected_rows = [InvalidRow(2, 1, row_num(2), "c")]
         assert parse_opts.invalid_row_handler.rows == expected_rows
+
+        # Test ser/de
+        parse_opts.invalid_row_handler = InvalidRowHandler('skip')
+        parse_opts = pickle.loads(pickle.dumps(parse_opts))
+
+        table = self.read_bytes(rows, parse_options=parse_opts)
+        assert table.to_pydict() == {
+            'a': ["d", "i"],
+            'b': ["e", "j"],
+        }
 
 
 class BaseCSVTableRead(BaseTestCSV):
@@ -1373,43 +1385,68 @@ class BaseCSVTableRead(BaseTestCSV):
             pytest.skip("test only works from main Python thread")
         # Skips test if not available
         raise_signal = util.get_raise_signal()
-
-        # Make the interruptible workload large enough to not finish
-        # before the interrupt comes, even in release mode on fast machines.
-        last_duration = 0.0
-        workload_size = 100_000
-
-        while last_duration < 1.0:
-            print("workload size:", workload_size)
-            large_csv = b"a,b,c\n" + b"1,2,3\n" * workload_size
-            t1 = time.time()
-            self.read_bytes(large_csv)
-            last_duration = time.time() - t1
-            workload_size = workload_size * 3
+        signum = signal.SIGINT
 
         def signal_from_thread():
+            # Give our workload a chance to start up
             time.sleep(0.2)
-            raise_signal(signal.SIGINT)
+            raise_signal(signum)
 
-        t1 = time.time()
-        try:
+        # We start with a small CSV reading workload and increase its size
+        # until it's large enough to get an interruption during it, even in
+        # release mode on fast machines.
+        last_duration = 0.0
+        workload_size = 100_000
+        attempts = 0
+
+        while last_duration < 5.0 and attempts < 10:
+            print("workload size:", workload_size)
+            large_csv = b"a,b,c\n" + b"1,2,3\n" * workload_size
+            exc_info = None
+
             try:
-                t = threading.Thread(target=signal_from_thread)
-                with pytest.raises(KeyboardInterrupt) as exc_info:
-                    t.start()
-                    self.read_bytes(large_csv)
-            finally:
-                t.join()
-        except KeyboardInterrupt:
-            # In case KeyboardInterrupt didn't interrupt `self.read_bytes`
-            # above, at least prevent it from stopping the test suite
-            pytest.fail("KeyboardInterrupt didn't interrupt CSV reading")
-        dt = time.time() - t1
+                # We use a signal fd to reliably ensure that the signal
+                # has been delivered to Python, regardless of how exactly
+                # it was caught.
+                with util.signal_wakeup_fd() as sigfd:
+                    try:
+                        t = threading.Thread(target=signal_from_thread)
+                        t.start()
+                        t1 = time.time()
+                        try:
+                            self.read_bytes(large_csv)
+                        except KeyboardInterrupt as e:
+                            exc_info = e
+                            last_duration = time.time() - t1
+                    finally:
+                        # Wait for signal to arrive if it didn't already,
+                        # to avoid getting a KeyboardInterrupt after the
+                        # `except` block below.
+                        select.select([sigfd], [], [sigfd], 10.0)
+
+            except KeyboardInterrupt:
+                # KeyboardInterrupt didn't interrupt `read_bytes` above.
+                pass
+
+            if exc_info is not None:
+                # We managed to get `self.read_bytes` interrupted, see if it
+                # was actually interrupted inside Arrow C++ or in the Python
+                # scaffolding.
+                if exc_info.__context__ is not None:
+                    # Interrupted inside Arrow C++, we're satisfied now
+                    break
+
+            # Increase workload size to get a better chance
+            workload_size = workload_size * 3
+
+        if exc_info is None:
+            pytest.fail("Failed to get an interruption during CSV reading")
+
         # Interruption should have arrived timely
-        assert dt <= 1.0
-        e = exc_info.value.__context__
+        assert last_duration <= 1.0
+        e = exc_info.__context__
         assert isinstance(e, pa.ArrowCancelled)
-        assert e.signum == signal.SIGINT
+        assert e.signum == signum
 
     def test_cancellation_disabled(self):
         # ARROW-12622: reader would segfault when the cancelling signal
@@ -1847,23 +1884,62 @@ def test_write_read_round_trip():
         assert t == read_csv(buf, read_options=read_options)
 
     # Test with writer
-    for read_options, write_options in [
-        (None, WriteOptions(include_header=True)),
-        (ReadOptions(column_names=t.column_names),
+    for read_options, parse_options, write_options in [
+        (None, None, WriteOptions(include_header=True)),
+        (ReadOptions(column_names=t.column_names), None,
          WriteOptions(include_header=False)),
+        (None, ParseOptions(delimiter='|'),
+         WriteOptions(include_header=True, delimiter='|')),
+        (ReadOptions(column_names=t.column_names),
+         ParseOptions(delimiter='\t'),
+         WriteOptions(include_header=False, delimiter='\t')),
     ]:
         buf = io.BytesIO()
         with CSVWriter(buf, t.schema, write_options=write_options) as writer:
             writer.write_table(t)
         buf.seek(0)
-        assert t == read_csv(buf, read_options=read_options)
-
+        assert t == read_csv(buf, read_options=read_options,
+                             parse_options=parse_options)
         buf = io.BytesIO()
         with CSVWriter(buf, t.schema, write_options=write_options) as writer:
             for batch in t.to_batches(max_chunksize=1):
                 writer.write_batch(batch)
         buf.seek(0)
-        assert t == read_csv(buf, read_options=read_options)
+        assert t == read_csv(buf, read_options=read_options,
+                             parse_options=parse_options)
+
+
+def test_write_quoting_style():
+    t = pa.Table.from_arrays([[1, 2, None], ["a", None, "c"]], ["c1", "c2"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_style='none'), b'"c1","c2"\n1,a\n2,\n,c\n'),
+        (WriteOptions(), b'"c1","c2"\n1,"a"\n2,\n,"c"\n'),
+        (WriteOptions(quoting_style='all_valid'),
+         b'"c1","c2"\n"1","a"\n"2",\n,"c"\n'),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            writer.write_table(t)
+        assert buf.getvalue() == res
+        buf.seek(0)
+
+    # Test writing special characters with different quoting styles
+    t = pa.Table.from_arrays([[",", "\""]], ["c1"])
+    buf = io.BytesIO()
+    for write_options, res in [
+        (WriteOptions(quoting_style='needed'), b'"c1"\n","\n""""\n'),
+        (WriteOptions(quoting_style='none'), pa.lib.ArrowInvalid),
+    ]:
+        with CSVWriter(buf, t.schema, write_options=write_options) as writer:
+            try:
+                writer.write_table(t)
+            except Exception as e:
+                # This will trigger when we try to write a comma (,)
+                # without quotes, which is invalid
+                assert type(e) == res
+                break
+        assert buf.getvalue() == res
+        buf.seek(0)
 
 
 def test_read_csv_reference_cycle():
@@ -1876,3 +1952,19 @@ def test_read_csv_reference_cycle():
     with util.disabled_gc():
         wr = inner()
         assert wr() is None
+
+
+@pytest.mark.parametrize("type_factory", (
+    lambda: pa.decimal128(20, 1),
+    lambda: pa.decimal128(38, 15),
+    lambda: pa.decimal256(20, 1),
+    lambda: pa.decimal256(76, 10),
+))
+def test_write_csv_decimal(tmpdir, type_factory):
+    type = type_factory()
+    table = pa.table({"col": pa.array([1, 2]).cast(type)})
+
+    write_csv(table, tmpdir / "out.csv")
+    out = read_csv(tmpdir / "out.csv")
+
+    assert out.column('col').cast(type) == table.column('col')

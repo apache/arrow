@@ -18,11 +18,14 @@ package encoding
 
 import (
 	"encoding/binary"
+	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
 )
 
 // PlainByteArrayEncoder encodes byte arrays according to the spec for Plain encoding
@@ -30,7 +33,7 @@ import (
 type PlainByteArrayEncoder struct {
 	encoder
 
-	bitSetReader utils.SetBitRunReader
+	bitSetReader bitutils.SetBitRunReader
 }
 
 // PutByteArray writes out the 4 bytes for the length followed by the data
@@ -56,7 +59,7 @@ func (enc *PlainByteArrayEncoder) Put(in []parquet.ByteArray) {
 func (enc *PlainByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []byte, validBitsOffset int64) {
 	if validBits != nil {
 		if enc.bitSetReader == nil {
-			enc.bitSetReader = utils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
+			enc.bitSetReader = bitutils.NewSetBitRunReader(validBits, validBitsOffset, int64(len(in)))
 		} else {
 			enc.bitSetReader.Reset(validBits, validBitsOffset, int64(len(in)))
 		}
@@ -92,9 +95,6 @@ func (enc *DictByteArrayEncoder) WriteDict(out []byte) {
 // PutByteArray adds a single byte array to buffer, updating the dictionary
 // and encoded size if it's a new value
 func (enc *DictByteArrayEncoder) PutByteArray(in parquet.ByteArray) {
-	if in == nil {
-		in = empty[:]
-	}
 	memoIdx, found, err := enc.memo.GetOrInsert(in)
 	if err != nil {
 		panic(err)
@@ -114,10 +114,45 @@ func (enc *DictByteArrayEncoder) Put(in []parquet.ByteArray) {
 
 // PutSpaced like with the non-dict encoder leaves out the values where the validBits bitmap is 0
 func (enc *DictByteArrayEncoder) PutSpaced(in []parquet.ByteArray, validBits []byte, validBitsOffset int64) {
-	utils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
+	bitutils.VisitSetBitRuns(validBits, validBitsOffset, int64(len(in)), func(pos, length int64) error {
 		for i := int64(0); i < length; i++ {
 			enc.PutByteArray(in[i+pos])
 		}
 		return nil
 	})
+}
+
+// PutDictionary allows pre-seeding a dictionary encoder with
+// a dictionary from an Arrow Array.
+//
+// The passed in array must not have any nulls and this can only
+// be called on an empty encoder.
+func (enc *DictByteArrayEncoder) PutDictionary(values arrow.Array) error {
+	if err := enc.canPutDictionary(values); err != nil {
+		return err
+	}
+
+	if !arrow.IsBaseBinary(values.DataType().ID()) {
+		return fmt.Errorf("%w: only binary and string arrays are supported", arrow.ErrInvalid)
+	}
+
+	arr := values.(array.BinaryLike)
+	data := arr.ValueBytes()
+	for i := 0; i < arr.Len(); i++ {
+		curOffset := arr.ValueOffset64(i)
+		var v []byte
+		if i == arr.Len()-1 {
+			v = data[curOffset:]
+		} else {
+			v = data[curOffset:arr.ValueOffset64(i+1)]
+		}
+		enc.dictEncodedSize += len(v) + arrow.Uint32SizeBytes
+		if _, _, err := enc.memo.GetOrInsert(v); err != nil {
+			return err
+		}
+	}
+
+	values.Retain()
+	enc.preservedDict = values
+	return nil
 }

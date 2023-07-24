@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Slow stream implementations, mainly for testing and benchmarking
+// Transform stream implementations
 
 #pragma once
 

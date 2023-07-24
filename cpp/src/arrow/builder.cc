@@ -17,6 +17,7 @@
 
 #include "arrow/builder.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,7 +26,6 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
-#include "arrow/util/make_unique.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -42,40 +42,42 @@ using arrow::internal::checked_cast;
 // exact_index_type case below, to reduce build time and memory usage.
 class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
  public:
-  explicit TypeErasedIntBuilder(MemoryPool* pool = default_memory_pool())
-      : ArrayBuilder(pool) {
+  explicit TypeErasedIntBuilder(MemoryPool* pool = default_memory_pool(),
+                                int64_t alignment = kDefaultBufferAlignment)
+      : ArrayBuilder(pool, alignment) {
     // Not intended to be used, but adding this is easier than adding a bunch of enable_if
     // magic to builder_dict.h
     DCHECK(false);
   }
   explicit TypeErasedIntBuilder(const std::shared_ptr<DataType>& type,
-                                MemoryPool* pool = default_memory_pool())
+                                MemoryPool* pool = default_memory_pool(),
+                                int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool), type_id_(type->id()) {
     DCHECK(is_integer(type_id_));
     switch (type_id_) {
       case Type::UINT8:
-        builder_ = internal::make_unique<UInt8Builder>(pool);
+        builder_ = std::make_unique<UInt8Builder>(pool);
         break;
       case Type::INT8:
-        builder_ = internal::make_unique<Int8Builder>(pool);
+        builder_ = std::make_unique<Int8Builder>(pool);
         break;
       case Type::UINT16:
-        builder_ = internal::make_unique<UInt16Builder>(pool);
+        builder_ = std::make_unique<UInt16Builder>(pool);
         break;
       case Type::INT16:
-        builder_ = internal::make_unique<Int16Builder>(pool);
+        builder_ = std::make_unique<Int16Builder>(pool);
         break;
       case Type::UINT32:
-        builder_ = internal::make_unique<UInt32Builder>(pool);
+        builder_ = std::make_unique<UInt32Builder>(pool);
         break;
       case Type::INT32:
-        builder_ = internal::make_unique<Int32Builder>(pool);
+        builder_ = std::make_unique<Int32Builder>(pool);
         break;
       case Type::UINT64:
-        builder_ = internal::make_unique<UInt64Builder>(pool);
+        builder_ = std::make_unique<UInt64Builder>(pool);
         break;
       case Type::INT64:
-        builder_ = internal::make_unique<Int64Builder>(pool);
+        builder_ = std::make_unique<Int64Builder>(pool);
         break;
       default:
         DCHECK(false);
@@ -119,7 +121,7 @@ class ARROW_EXPORT TypeErasedIntBuilder : public ArrayBuilder {
   Status AppendScalars(const ScalarVector& scalars) override {
     return builder_->AppendScalars(scalars);
   }
-  Status AppendArraySlice(const ArrayData& array, int64_t offset,
+  Status AppendArraySlice(const ArraySpan& array, int64_t offset,
                           int64_t length) override {
     return builder_->AppendArraySlice(array, offset, length);
   }
@@ -170,7 +172,7 @@ struct DictionaryBuilderCase {
       out->reset(new internal::DictionaryBuilderBase<TypeErasedIntBuilder, ValueType>(
           index_type, value_type, pool));
     } else {
-      auto start_int_size = internal::GetByteWidth(*index_type);
+      auto start_int_size = index_type->byte_width();
       out->reset(new AdaptiveBuilderType(start_int_size, value_type, pool));
     }
     return Status::OK();
@@ -247,6 +249,14 @@ struct MakeBuilderImpl {
   Status Visit(const DenseUnionType&) {
     ARROW_ASSIGN_OR_RAISE(auto field_builders, FieldBuilders(*type, pool));
     out.reset(new DenseUnionBuilder(pool, std::move(field_builders), type));
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& ree_type) {
+    ARROW_ASSIGN_OR_RAISE(auto run_end_builder, ChildBuilder(ree_type.run_end_type()));
+    ARROW_ASSIGN_OR_RAISE(auto value_builder, ChildBuilder(ree_type.value_type()));
+    out.reset(new RunEndEncodedBuilder(pool, std::move(run_end_builder),
+                                       std::move(value_builder), type));
     return Status::OK();
   }
 

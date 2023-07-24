@@ -4,7 +4,6 @@
 \alias{FileFormat}
 \alias{ParquetFileFormat}
 \alias{IpcFileFormat}
-\alias{CsvFileFormat}
 \title{Dataset file formats}
 \description{
 A \code{FileFormat} holds information about how to read and parse the files
@@ -26,7 +25,7 @@ delimiter for text files
 }
 \item \code{...}: Additional format-specific options
 
-`format = "parquet"``:
+\code{format = "parquet"}:
 \itemize{
 \item \code{dict_columns}: Names of columns which should be read as dictionaries.
 \item Any Parquet options from \link{FragmentScanOptions}.
@@ -40,7 +39,7 @@ you encounter one that \code{arrow} should support. Also, the following options 
 supported. From \link{CsvReadOptions}:
 \itemize{
 \item \code{skip_rows}
-\item \code{column_names}
+\item \code{column_names}. Note that if a \link{Schema} is specified, \code{column_names} must match those specified in the schema.
 \item \code{autogenerate_column_names}
 From \link{CsvFragmentScanOptions} (these values can be overridden at scan time):
 \item \code{convert_options}: a \link{CsvConvertOptions}
@@ -52,7 +51,7 @@ It returns the appropriate subclass of \code{FileFormat} (e.g. \code{ParquetFile
 }
 
 \examples{
-\dontshow{if (arrow_with_dataset() && tolower(Sys.info()[["sysname"]]) != "windows") (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_dataset()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 ## Semi-colon delimited files
 # Set up directory for examples
 tf <- tempfile()

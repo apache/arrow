@@ -25,10 +25,10 @@ platforms=([windows]=Windows
            [linux]=Linux)
 
 declare -A versions
-versions=([3.7]=3.7.9
-          [3.8]=3.8.10
-          [3.9]=3.9.9
-          [3.10]=3.10.1)
+versions=([3.8]=3.8.10
+          [3.9]=3.9.13
+          [3.10]=3.10.8
+          [3.11]=3.11.0)
 
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <platform> <version>"
@@ -45,7 +45,7 @@ full_version=${versions[$2]}
 if [ $platform = "MacOSX" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$(uname -m)" = "arm64" ] || [ "$version" = "3.10" ]; then
+    if [ "$(uname -m)" = "arm64" ] || [ "$version" = "3.10" ] || [ "$version" = "3.11" ]; then
         fname="python-${full_version}-macos11.pkg"
     else
         fname="python-${full_version}-macosx10.9.pkg"
@@ -61,7 +61,7 @@ if [ $platform = "MacOSX" ]; then
     pip="${python} -m pip"
 
     $python -m ensurepip
-    $pip install -U pip setuptools virtualenv
+    $pip install -U pip setuptools
 else
     echo "Unsupported platform: $platform"
 fi

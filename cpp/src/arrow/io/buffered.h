@@ -21,10 +21,10 @@
 
 #include <cstdint>
 #include <memory>
+#include <string_view>
 
 #include "arrow/io/concurrency.h"
 #include "arrow/io/interfaces.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -157,7 +157,7 @@ class ARROW_EXPORT BufferedInputStream
   /// \brief Return a zero-copy string view referencing buffered data,
   /// but do not advance the position of the stream. Buffers data and
   /// expands the buffer size if necessary
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
+  Result<std::string_view> DoPeek(int64_t nbytes) override;
 
   class ARROW_NO_EXPORT Impl;
   std::unique_ptr<Impl> impl_;

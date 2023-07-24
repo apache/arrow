@@ -17,7 +17,13 @@
 
 package org.apache.arrow.flight.integration.tests;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Arrays;
 import java.util.Objects;
+
+import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.FlightRuntimeException;
 
 /**
  * Utility methods to implement integration tests without using JUnit assertions.
@@ -55,6 +61,16 @@ final class IntegrationAssertions {
   }
 
   /**
+   * Assert that the two arrays are equal.
+   */
+  static void assertEquals(byte[] expected, byte[] actual) {
+    if (!Arrays.equals(expected, actual)) {
+      throw new AssertionError(
+          String.format("Expected:\n%s\nbut got:\n%s", Arrays.toString(expected), Arrays.toString(actual)));
+    }
+  }
+
+  /**
    * Assert that the value is false, using the given message as an error otherwise.
    */
   static void assertFalse(String message, boolean value) {
@@ -70,6 +86,25 @@ final class IntegrationAssertions {
     if (!value) {
       throw new AssertionError("Expected true: " + message);
     }
+  }
+
+  static void assertNotNull(Object actual) {
+    if (actual == null) {
+      throw new AssertionError("Expected: (not null)\n\nbut got: null\n");
+    }
+  }
+
+  /**
+   * Convert a throwable into a FlightRuntimeException with error details, for debugging.
+   */
+  static FlightRuntimeException toFlightRuntimeException(Throwable t) {
+    final StringWriter stringWriter = new StringWriter();
+    final PrintWriter writer = new PrintWriter(stringWriter);
+    t.printStackTrace(writer);
+    return CallStatus.UNKNOWN
+            .withCause(t)
+            .withDescription("Unknown error: " + t + "\n. Stack trace:\n" + stringWriter.toString())
+            .toRuntimeException();
   }
 
   /**

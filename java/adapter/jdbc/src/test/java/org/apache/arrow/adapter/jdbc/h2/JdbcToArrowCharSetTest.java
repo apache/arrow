@@ -109,22 +109,22 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
   @Test
   public void testJdbcToArrowValues() throws SQLException, IOException {
     testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE),
-        Calendar.getInstance()));
-    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)));
+        Calendar.getInstance()), false);
+    testDataSets(sqlToArrow(conn, table.getQuery(), new RootAllocator(Integer.MAX_VALUE)), false);
     testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()));
-    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery())));
+        new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()), false);
+    testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery())), false);
     testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        new RootAllocator(Integer.MAX_VALUE)));
+        new RootAllocator(Integer.MAX_VALUE)), false);
     testDataSets(sqlToArrow(conn.createStatement().executeQuery(table.getQuery()),
-        Calendar.getInstance()));
+        Calendar.getInstance()), false);
     testDataSets(sqlToArrow(
         conn.createStatement().executeQuery(table.getQuery()),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()), false);
     testDataSets(sqlToArrow(
         conn,
         table.getQuery(),
-        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()));
+        new JdbcToArrowConfigBuilder(new RootAllocator(Integer.MAX_VALUE), Calendar.getInstance()).build()), false);
   }
 
   @Test
@@ -139,8 +139,10 @@ public class JdbcToArrowCharSetTest extends AbstractJdbcToArrowTest {
    * This method calls the assert methods for various DataSets.
    *
    * @param root VectorSchemaRoot for test
+   * @param isIncludeMapVector is this dataset checks includes map column.
+   *          Jdbc type to 'map' mapping declared in configuration only manually
    */
-  public void testDataSets(VectorSchemaRoot root) {
+  public void testDataSets(VectorSchemaRoot root, boolean isIncludeMapVector) {
     JdbcToArrowTestHelper.assertFieldMetadataIsEmpty(root);
 
     assertVarcharVectorValues((VarCharVector) root.getVector(CLOB), table.getRowCount(),

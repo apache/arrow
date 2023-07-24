@@ -29,13 +29,11 @@ namespace Apache.Arrow.Tests
             [Fact]
             public void FieldsAreNullableByDefault()
             {
-                var b = new Schema.Builder();
-                
                 var schema = new Schema.Builder()
                     .Field(f => f.Name("f0").DataType(Int32Type.Default))
                     .Build();
 
-                Assert.True(schema.Fields["f0"].IsNullable);
+                Assert.True(schema.FieldsList[0].IsNullable);
             }
 
             [Fact]
@@ -45,7 +43,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("f0"))
                     .Build();
 
-                Assert.True(schema.Fields["f0"].DataType.GetType() == typeof(NullType));
+                Assert.Equal(typeof(NullType), schema.FieldsList[0].DataType.GetType());
             }
 
             [Fact]
@@ -60,15 +58,64 @@ namespace Apache.Arrow.Tests
             }
 
             [Fact]
+            public void FieldNamesAreCaseSensitive()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("F0").DataType(Int8Type.Default))
+                    .Build();
+
+                Assert.Equal(2, schema.FieldsList.Count);
+            }
+
+            [Fact]
+            public void FieldNamesCanBeTheSame()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f0").DataType(Int8Type.Default))
+                    .Build();
+
+                Assert.Equal(2, schema.FieldsList.Count);
+            }
+
+            [Fact]
             public void GetFieldIndex()
             {
                 var schema = new Schema.Builder()
                     .Field(f => f.Name("f0").DataType(Int32Type.Default))
                     .Field(f => f.Name("f1").DataType(Int8Type.Default))
                     .Build();
-                Assert.True(schema.GetFieldIndex("f0") == 0 && schema.GetFieldIndex("f1") == 1);
+
+                Assert.Equal(0, schema.GetFieldIndex("f0"));
+                Assert.Equal(1, schema.GetFieldIndex("f1"));
             }
 
+            [Fact]
+            public void GetFieldIndexIsCaseSensitive()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("F0").DataType(Int8Type.Default))
+                    .Build();
+
+                Assert.Equal(0, schema.GetFieldIndex("f0"));
+                Assert.Equal(1, schema.GetFieldIndex("F0"));
+            }
+
+            [Fact]
+            public void GetFieldIndexGetsFirstMatch()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f0").DataType(Int8Type.Default))
+                    .Field(f => f.Name("f1").DataType(Int32Type.Default))
+                    .Field(f => f.Name("f1").DataType(Int8Type.Default))
+                    .Build();
+
+                Assert.Equal(0, schema.GetFieldIndex("f0"));
+                Assert.Equal(2, schema.GetFieldIndex("f1"));
+            }
 
             [Fact]
             public void GetFieldByName()
@@ -80,7 +127,92 @@ namespace Apache.Arrow.Tests
                     .Field(f0)
                     .Field(f1)
                     .Build();
-                Assert.True(schema.GetFieldByName("f0") == f0 && schema.GetFieldByName("f1") == f1);
+
+                Assert.Equal(f0, schema.GetFieldByName("f0"));
+                Assert.Equal(f1, schema.GetFieldByName("f1"));
+            }
+
+            [Fact]
+            public void GetFieldByNameIsCaseSensitive()
+            {
+                var f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                var f0Uppercase = new Field.Builder().Name("F0").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f0Uppercase)
+                    .Build();
+
+                Assert.Equal(f0, schema.GetFieldByName("f0"));
+                Assert.Equal(f0Uppercase, schema.GetFieldByName("F0"));
+            }
+
+            [Fact]
+            public void GetFieldByNameGetsFirstMatch()
+            {
+                var f0First = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                var f0Second = new Field.Builder().Name("f0").DataType(Int8Type.Default).Build();
+                var f1First = new Field.Builder().Name("f1").DataType(Int32Type.Default).Build();
+                var f1Second = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0First)
+                    .Field(f0Second)
+                    .Field(f1First)
+                    .Field(f1Second)
+                    .Build();
+
+                Assert.Equal(f0First, schema.GetFieldByName("f0"));
+                Assert.Equal(f1First, schema.GetFieldByName("f1"));
+            }
+
+            [Fact]
+            public void GetFieldByNameReturnsNullWhenSchemaIsEmpty()
+            {
+                var schema = new Schema.Builder()
+                    .Build();
+
+                Assert.Null(schema.GetFieldByName("f0"));
+            }
+
+            [Fact]
+            public void GetFieldByNameReturnsNullWhenFieldDoesNotExist()
+            {
+                var schema = new Schema.Builder()
+                    .Field(f => f.Name("f0").DataType(Int32Type.Default))
+                    .Build();
+
+                Assert.Null(schema.GetFieldByName("f1"));
+            }
+
+            [Fact]
+            public void SquareBracketOperatorWithStringReturnsGetFieldByName()
+            {
+                Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                Field f1 = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Build();
+
+                Assert.Equal(schema.GetFieldByName("f0"), schema["f0"]);
+                Assert.Equal(schema.GetFieldByName("f1"), schema["f1"]);
+            }
+
+            [Fact]
+            public void SquareBracketOperatorWithIntReturnsGetFieldByIndex()
+            {
+                Field f0 = new Field.Builder().Name("f0").DataType(Int32Type.Default).Build();
+                Field f1 = new Field.Builder().Name("f1").DataType(Int8Type.Default).Build();
+
+                var schema = new Schema.Builder()
+                    .Field(f0)
+                    .Field(f1)
+                    .Build();
+
+                Assert.Equal(schema.GetFieldByIndex(0), schema[0]);
+                Assert.Equal(schema.GetFieldByIndex(1), schema[1]);
             }
 
             [Fact]
@@ -138,7 +270,7 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name(name).DataType(type).Nullable(nullable))
                     .Build();
 
-                var field = schema.Fields[name];
+                var field = schema.FieldsList[0];
 
                 Assert.Equal(name, field.Name);
                 Assert.Equal(type.Name, field.DataType.Name);

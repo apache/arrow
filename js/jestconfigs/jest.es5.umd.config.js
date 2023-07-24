@@ -15,18 +15,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-module.exports = {
-  ...require("../jest.config"),
-  rootDir: "../",
-  preset: "ts-jest",
-  moduleFileExtensions: ["js", "ts"],
-  globals: {
-    "ts-jest": {
-      diagnostics: false,
-      tsconfig: "<rootDir>/test/tsconfig/tsconfig.es5.umd.json",
+import config from "../jest.config.js";
+
+export default {
+    ...config,
+    rootDir: "../",
+    moduleFileExtensions: ["js", "ts"],
+    moduleNameMapper: {
+        "^apache-arrow": "<rootDir>/targets/es5/umd/Arrow.js",
+        "^(\\.{1,2}/.*)\\.js$": "$1",
     },
-  },
-  moduleNameMapper: {
-    "^apache-arrow(.*)": "<rootDir>/targets/es5/umd/Arrow.js",
-  },
+    transform: {
+        ...config.transform,
+        "^.+\\.js$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.es5.umd.json",
+            },
+        ],
+        "^.+\\.ts$": [
+            "ts-jest",
+            {
+                diagnostics: false,
+                tsconfig: "<rootDir>/test/tsconfig/tsconfig.es5.umd.json",
+            },
+        ],
+    },
 };

@@ -15,6 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
+if(librados_FOUND)
+  return()
+endif()
+
 find_path(LIBRADOS_INCLUDE_DIR rados/librados.hpp)
 
 find_library(LIBRADOS_LIBRARY NAMES rados)

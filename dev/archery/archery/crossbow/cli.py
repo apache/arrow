@@ -15,12 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
+from datetime import date
 from pathlib import Path
+import time
+import sys
 
 import click
 
 from .core import Config, Repo, Queue, Target, Job, CrossbowError
-from .reports import EmailReport, ConsoleReport
+from .reports import (ChatReport, Report, ReportUtils, ConsoleReport,
+                      EmailReport, CommentReport)
 from ..utils.source import ArrowSources
 
 
@@ -93,7 +97,7 @@ def check_config(obj, config_path):
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
@@ -119,7 +123,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
     # Override the detected repo url / remote, branch and sha - this aims to
     # make release procedure a bit simpler.
-    # Note, that the target resivion's crossbow templates must be
+    # Note, that the target revision's crossbow templates must be
     # compatible with the locally checked out version of crossbow (which is
     # in case of the release procedure), because the templates still
     # contain some business logic (dependency installation, deployments)
@@ -154,6 +158,63 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
 
 
 @crossbow.command()
+@click.option('--base-branch', default=None,
+              help='Set base branch for the PR.')
+@click.option('--create-pr', is_flag=True, default=False,
+              help='Create GitHub Pull Request')
+@click.option('--head-branch', default=None,
+              help='Give the branch name explicitly, e.g. release-9.0.0-rc0')
+@click.option('--pr-body', default=None,
+              help='Set body for the PR.')
+@click.option('--pr-title', default=None,
+              help='Set title for the PR.')
+@click.option('--remote', default=None,
+              help='Set GitHub remote explicitly, which is going to be used '
+                   'for the PR. Note, that no validation happens '
+                   'locally. Examples: https://github.com/apache/arrow or '
+                   'https://github.com/raulcd/arrow.')
+@click.option('--rc', default=None,
+              help='Relase Candidate number.')
+@click.option('--version', default=None,
+              help='Release version.')
+@click.option('--verify-binaries', is_flag=True, default=False,
+              help='Trigger the verify binaries jobs')
+@click.option('--verify-source', is_flag=True, default=False,
+              help='Trigger the verify source jobs')
+@click.option('--verify-wheels', is_flag=True, default=False,
+              help='Trigger the verify wheels jobs')
+@click.pass_obj
+def verify_release_candidate(obj, base_branch, create_pr,
+                             head_branch, pr_body, pr_title, remote,
+                             rc, version, verify_binaries, verify_source,
+                             verify_wheels):
+    # The verify-release-candidate command will create a PR (or find one)
+    # and add the verify-rc* comment to trigger the verify tasks
+
+    # Redefine Arrow repo to use the correct arrow remote.
+    arrow = Repo(path=obj['arrow'].path, remote_url=remote)
+
+    response = arrow.github_pr(title=pr_title, head=head_branch,
+                               base=base_branch, body=pr_body,
+                               github_token=obj['queue'].github_token,
+                               create=create_pr)
+
+    # If we want to trigger any verification job we add a comment to the PR.
+    verify_flags = [verify_source, verify_binaries, verify_wheels]
+    if any(verify_flags):
+        command = "@github-actions crossbow submit"
+        verify_groups = ["verify-rc-source",
+                         "verify-rc-binaries", "verify-rc-wheels"]
+        job_groups = ""
+        for flag, group in zip(verify_flags, verify_groups):
+            if flag:
+                job_groups += f" --group {group}"
+        response.create_comment(
+            f"{command} {job_groups} --param " +
+            f"release={version} --param rc={rc}")
+
+
+@crossbow.command()
 @click.argument('task', required=True)
 @click.option('--config-path', '-c',
               type=click.Path(exists=True), default=_default_config_path,
@@ -166,7 +227,7 @@ def submit(obj, tasks, groups, params, job_prefix, config_path, arrow_version,
                    'locally. Examples: https://github.com/apache/arrow or '
                    'https://github.com/kszucs/arrow.')
 @click.option('--arrow-branch', '-b', default=None,
-              help='Give the branch name explicitly, e.g. master, ARROW-1949.')
+              help='Give the branch name explicitly, e.g. ARROW-1949.')
 @click.option('--arrow-sha', '-t', default=None,
               help='Set commit SHA or Tag name explicitly, e.g. f67a515, '
                    'apache-arrow-0.11.1.')
@@ -213,16 +274,61 @@ def render(obj, task, config_path, arrow_version, arrow_remote, arrow_branch,
               help='Fetch references (branches and tags) from the remote')
 @click.option('--task-filter', '-f', 'task_filters', multiple=True,
               help='Glob pattern for filtering relevant tasks')
+@click.option('--validate/--no-validate', default=False,
+              help='Return non-zero exit code '
+                   'if there is any non-success task')
 @click.pass_obj
-def status(obj, job_name, fetch, task_filters):
+def status(obj, job_name, fetch, task_filters, validate):
     output = obj['output']
     queue = obj['queue']
     if fetch:
         queue.fetch()
     job = queue.get(job_name)
 
+    success = True
+
+    def asset_callback(task_name, task, asset):
+        nonlocal success
+        if task.status().combined_state in {'error', 'failure'}:
+            success = False
+        if asset is None:
+            success = False
+
     report = ConsoleReport(job, task_filters=task_filters)
-    report.show(output)
+    report.show(output, asset_callback=asset_callback)
+    if validate and not success:
+        sys.exit(1)
+
+
+@crossbow.command()
+@click.option('--arrow-remote', '-r', default=None,
+              help='Set GitHub remote explicitly, which is going to be cloned '
+                   'on the CI services. Note, that no validation happens '
+                   'locally. Examples: "https://github.com/apache/arrow" or '
+                   '"raulcd/arrow".')
+@click.option('--crossbow', '-c', default='ursacomputing/crossbow',
+              help='Crossbow repository on github to use')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.option('--job-name', required=True)
+@click.option('--pr-title', required=True,
+              help='Track the job submitted on PR with given title')
+@click.pass_obj
+def report_pr(obj, arrow_remote, crossbow, fetch, job_name, pr_title):
+    arrow = obj['arrow']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+    job = queue.get(job_name)
+
+    report = CommentReport(job, crossbow_repo=crossbow)
+    target_arrow = Repo(path=arrow.path, remote_url=arrow_remote)
+    pull_request = target_arrow.github_pr(title=pr_title,
+                                          github_token=queue.github_token,
+                                          create=False)
+    # render the response comment's content on the PR
+    pull_request.create_comment(report.show())
+    click.echo(f'Job is tracked on PR {pull_request.html_url}')
 
 
 @crossbow.command()
@@ -277,8 +383,8 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         queue.fetch()
 
     job = queue.get(job_name)
-    report = EmailReport(
-        job=job,
+    email_report = EmailReport(
+        report=Report(job),
         sender_name=sender_name,
         sender_email=sender_email,
         recipient_email=recipient_email
@@ -291,14 +397,75 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         )
 
     if send:
-        report.send(
+        ReportUtils.send_email(
             smtp_user=smtp_user,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
-            smtp_port=smtp_port
+            smtp_port=smtp_port,
+            recipient_email=recipient_email,
+            message=email_report.render("nightly_report")
         )
     else:
-        report.show(output)
+        output.write(email_report.render("nightly_report"))
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--send/--dry-run', default=False,
+              help='Just display the report, don\'t send it')
+@click.option('--webhook', '-w',
+              help='Zulip/Slack Webhook address to send the report to')
+@click.option('--extra-message-success', '-s', default=None,
+              help='Extra message, will be appended if no failures.')
+@click.option('--extra-message-failure', '-f', default=None,
+              help='Extra message, will be appended if there are failures.')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.pass_obj
+def report_chat(obj, job_name, send, webhook, extra_message_success,
+                extra_message_failure, fetch):
+    """
+    Send a chat report to a webhook showing success/failure
+    of tasks in a Crossbow run.
+    """
+    output = obj['output']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+
+    job = queue.get(job_name)
+    report_chat = ChatReport(report=Report(job),
+                             extra_message_success=extra_message_success,
+                             extra_message_failure=extra_message_failure)
+    if send:
+        ReportUtils.send_message(webhook, report_chat.render("text"))
+    else:
+        output.write(report_chat.render("text"))
+
+
+@crossbow.command()
+@click.argument('job-name', required=True)
+@click.option('--save/--dry-run', default=False,
+              help='Just display the report, don\'t save it')
+@click.option('--fetch/--no-fetch', default=True,
+              help='Fetch references (branches and tags) from the remote')
+@click.pass_obj
+def report_csv(obj, job_name, save, fetch):
+    """
+    Generates a CSV report with the different tasks information
+    from a Crossbow run.
+    """
+    output = obj['output']
+    queue = obj['queue']
+    if fetch:
+        queue.fetch()
+
+    job = queue.get(job_name)
+    report = Report(job)
+    if save:
+        ReportUtils.write_csv(report)
+    else:
+        output.write("\n".join([str(row) for row in report.rows]))
 
 
 @crossbow.command()
@@ -339,7 +506,23 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
             path = target_dir / task_name / asset.name
             path.parent.mkdir(exist_ok=True)
             if not dry_run:
-                asset.download(path)
+                import github3
+                max_n_retries = 5
+                n_retries = 0
+                while True:
+                    try:
+                        asset.download(path)
+                    except github3.exceptions.GitHubException as error:
+                        n_retries += 1
+                        if n_retries == max_n_retries:
+                            raise
+                        wait_seconds = 60
+                        click.echo(f'Failed to download {path}')
+                        click.echo(f'Retry #{n_retries} after {wait_seconds}s')
+                        click.echo(error)
+                        time.sleep(wait_seconds)
+                    else:
+                        break
 
     click.echo('Downloading {}\'s artifacts.'.format(job_name))
     click.echo('Destination directory is {}'.format(target_dir))
@@ -364,3 +547,112 @@ def upload_artifacts(obj, tag, sha, patterns, method):
     queue.github_overwrite_release_assets(
         tag_name=tag, target_commitish=sha, method=method, patterns=patterns
     )
+
+
+@crossbow.command()
+@click.option('--dry-run/--execute', default=False,
+              help='Just display process, don\'t download anything')
+@click.option('--days', default=90,
+              help='Branches older than this amount of days will be deleted')
+@click.option('--maximum', default=1000,
+              help='Maximum limit of branches to delete for a single run')
+@click.pass_obj
+def delete_old_branches(obj, dry_run, days, maximum):
+    """
+    Deletes branches on queue repository (crossbow) that are older than number
+    of days.
+    With a maximum number of branches to be deleted. This is required to avoid
+    triggering GitHub protection limits.
+    """
+    queue = obj['queue']
+    ts = time.time() - days * 24 * 3600
+    refs = []
+    for ref in queue.repo.listall_reference_objects():
+        commit = ref.peel()
+        if commit.commit_time < ts and not ref.name.startswith(
+                "refs/remotes/origin/pr/"):
+            # Check if reference is a remote reference to point
+            # to the remote head.
+            ref_name = ref.name
+            if ref_name.startswith("refs/remotes/origin"):
+                ref_name = ref_name.replace("remotes/origin", "heads")
+            refs.append(f":{ref_name}")
+
+    def batch_gen(iterable, step):
+        total_length = len(iterable)
+        to_delete = min(total_length, maximum)
+        print(f"Total number of references to be deleted: {to_delete}")
+        for index in range(0, to_delete, step):
+            yield iterable[index:min(index + step, to_delete)]
+
+    for batch in batch_gen(refs, 50):
+        if not dry_run:
+            queue.push(batch)
+        else:
+            print(batch)
+
+
+@crossbow.command()
+@click.option('--days', default=30,
+              help='Notification will be sent if expiration date is '
+                   'closer than the number of days.')
+@click.option('--sender-name', '-n',
+              help='Name to use for report e-mail.')
+@click.option('--sender-email', '-e',
+              help='E-mail to use for report e-mail.')
+@click.option('--recipient-email', '-r',
+              help='Where to send the e-mail report')
+@click.option('--smtp-user', '-u',
+              help='E-mail address to use for SMTP login')
+@click.option('--smtp-password', '-P',
+              help='SMTP password to use for report e-mail.')
+@click.option('--smtp-server', '-s', default='smtp.gmail.com',
+              help='SMTP server to use for report e-mail.')
+@click.option('--smtp-port', '-p', default=465,
+              help='SMTP port to use for report e-mail.')
+@click.option('--send/--dry-run', default=False,
+              help='Just display the report, don\'t send it')
+@click.pass_obj
+def notify_token_expiration(obj, days, sender_name, sender_email,
+                            recipient_email, smtp_user, smtp_password,
+                            smtp_server, smtp_port, send):
+    """
+    Check if token is close to expiration and send email notifying.
+    """
+    output = obj['output']
+    queue = obj['queue']
+
+    token_expiration_date = queue.token_expiration_date()
+    days_left = 0
+    if token_expiration_date:
+        days_left = (token_expiration_date - date.today()).days
+        if days_left > days:
+            output.write("Notification not sent. " +
+                         f"Token will expire in {days_left} days.")
+            return
+
+    class TokenExpirationReport:
+        def __init__(self, token_expiration_date, days_left):
+            self.token_expiration_date = token_expiration_date
+            self.days_left = days_left
+
+    email_report = EmailReport(
+        report=TokenExpirationReport(
+            token_expiration_date or "ALREADY_EXPIRED", days_left),
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
+    )
+
+    message = email_report.render("token_expiration").strip()
+    if send:
+        ReportUtils.send_email(
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+            smtp_server=smtp_server,
+            smtp_port=smtp_port,
+            recipient_email=recipient_email,
+            message=message
+        )
+    else:
+        output.write(message)

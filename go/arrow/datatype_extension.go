@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
-
-	"golang.org/x/xerrors"
 )
 
 var (
@@ -56,7 +54,7 @@ func RegisterExtensionType(typ ExtensionType) error {
 	name := typ.ExtensionName()
 	registry := getExtTypeRegistry()
 	if _, existed := registry.LoadOrStore(name, typ); existed {
-		return xerrors.Errorf("arrow: type extension with name %s already defined", name)
+		return fmt.Errorf("arrow: type extension with name %s already defined", name)
 	}
 	return nil
 }
@@ -68,7 +66,7 @@ func RegisterExtensionType(typ ExtensionType) error {
 func UnregisterExtensionType(typName string) error {
 	registry := getExtTypeRegistry()
 	if _, loaded := registry.LoadAndDelete(typName); !loaded {
-		return xerrors.Errorf("arrow: no type extension with name %s found", typName)
+		return fmt.Errorf("arrow: no type extension with name %s found", typName)
 	}
 	return nil
 }
@@ -131,11 +129,10 @@ type ExtensionType interface {
 // ExtensionBase is the base struct for user-defined Extension Types which must be
 // embedded in any user-defined types like so:
 //
-//     type UserDefinedType struct {
-//         arrow.ExtensionBase
-//         // any other data
-//     }
-//
+//	type UserDefinedType struct {
+//	    arrow.ExtensionBase
+//	    // any other data
+//	}
 type ExtensionBase struct {
 	// Storage is the underlying storage type
 	Storage DataType
@@ -164,7 +161,11 @@ func (e *ExtensionBase) Fields() []Field {
 	return nil
 }
 
+func (e *ExtensionBase) Layout() DataTypeLayout { return e.Storage.Layout() }
+
 // this no-op exists to ensure that this type must be embedded in any user-defined extension type.
+//
+//lint:ignore U1000 this function is intentionally unused as it only exists to ensure embedding happens
 func (ExtensionBase) mustEmbedExtensionBase() {}
 
 var (

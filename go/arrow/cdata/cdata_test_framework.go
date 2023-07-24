@@ -14,18 +14,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:build test
 // +build test
 
 package cdata
 
 // #include <stdlib.h>
 // #include <stdint.h>
+// #include <string.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
 //
 // void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out);
-// struct ArrowArray* get_test_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
-// struct ArrowArrayStream* get_test_stream() { return (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream)); }
+// struct ArrowArray* get_test_arr() {
+//   struct ArrowArray* array = (struct ArrowArray*)malloc(sizeof(struct ArrowArray));
+//   memset(array, 0, sizeof(*array));
+//   return array;
+// }
+// struct ArrowArrayStream* get_test_stream() {
+//	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
+//	memset(out, 0, sizeof(struct ArrowArrayStream));
+//	return out;
+// }
 //
 // void release_test_arr(struct ArrowArray* arr) {
 //  for (int i = 0; i < arr->n_buffers; ++i) {
@@ -48,12 +58,20 @@ package cdata
 // struct ArrowSchema** test_struct(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_map(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
+// struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n);
+// int test_exported_stream(struct ArrowArrayStream* stream);
+// void test_stream_schema_fallible(struct ArrowArrayStream* stream);
+// int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed);
 import "C"
 import (
+	"errors"
+	"fmt"
+	"io"
+	"math/rand"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
 )
 
 const (
@@ -173,6 +191,24 @@ func testMap(fmts, names []string, flags []int64) **CArrowSchema {
 	return C.test_map((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
 }
 
+func testUnion(fmts, names []string, flags []int64) **CArrowSchema {
+	if len(fmts) != len(names) || len(names) != len(flags) {
+		panic("testing unions must all have the same size slices in args")
+	}
+
+	cfmts := make([]*C.char, len(fmts))
+	cnames := make([]*C.char, len(names))
+	cflags := make([]C.int64_t, len(flags))
+
+	for i := range fmts {
+		cfmts[i] = C.CString(fmts[i])
+		cnames[i] = C.CString(names[i])
+		cflags[i] = C.int64_t(flags[i])
+	}
+
+	return C.test_union((**C.char)(unsafe.Pointer(&cfmts[0])), (**C.char)(unsafe.Pointer(&cnames[0])), (*C.int64_t)(unsafe.Pointer(&cflags[0])), C.int(len(fmts)))
+}
+
 func testSchema(fmts, names []string, flags []int64) **CArrowSchema {
 	if len(fmts) != len(names) || len(names) != len(flags) {
 		panic("testing structs must all have the same size slices in args")
@@ -195,7 +231,7 @@ func freeTestArr(carr *CArrowArray) {
 	C.free(unsafe.Pointer(carr))
 }
 
-func createCArr(arr array.Interface) *CArrowArray {
+func createCArr(arr arrow.Array) *CArrowArray {
 	var (
 		carr      = C.get_test_arr()
 		children  = (**CArrowArray)(nil)
@@ -204,6 +240,10 @@ func createCArr(arr array.Interface) *CArrowArray {
 
 	switch arr := arr.(type) {
 	case *array.List:
+		clist := []*CArrowArray{createCArr(arr.ListValues())}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
+		nchildren += 1
+	case *array.LargeList:
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
@@ -222,6 +262,13 @@ func createCArr(arr array.Interface) *CArrowArray {
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
+	case array.Union:
+		clist := []*CArrowArray{}
+		for i := 0; i < arr.NumFields(); i++ {
+			clist = append(clist, createCArr(arr.Field(i)))
+			nchildren += 1
+		}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 	}
 
 	carr.children = children
@@ -231,23 +278,95 @@ func createCArr(arr array.Interface) *CArrowArray {
 	carr.null_count = C.int64_t(arr.NullN())
 	carr.offset = C.int64_t(arr.Data().Offset())
 	buffers := arr.Data().Buffers()
-	cbuf := []unsafe.Pointer{}
-	for _, b := range buffers {
+	cbufs := allocateBufferPtrArr(len(buffers))
+	for i, b := range buffers {
 		if b != nil {
-			cbuf = append(cbuf, C.CBytes(b.Bytes()))
+			cbufs[i] = (*C.void)(C.CBytes(b.Bytes()))
+		} else {
+			cbufs[i] = nil
 		}
 	}
-	carr.n_buffers = C.int64_t(len(cbuf))
-	if len(cbuf) > 0 {
-		carr.buffers = &cbuf[0]
+	carr.n_buffers = C.int64_t(len(cbufs))
+	if len(cbufs) > 0 {
+		carr.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cbufs[0]))
 	}
 	carr.release = (*[0]byte)(C.release_test_arr)
 
 	return carr
 }
 
+func createTestStreamObj() *CArrowArrayStream {
+	return C.get_test_stream()
+}
+
 func arrayStreamTest() *CArrowArrayStream {
 	st := C.get_test_stream()
 	C.setup_array_stream_test(2, st)
 	return st
+}
+
+func exportedStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rc := C.test_exported_stream(out)
+	C.free(unsafe.Pointer(out))
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
+}
+
+func roundTripStreamTest(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rdr, err := ImportCRecordReader(out, nil)
+
+	if err != nil {
+		return err
+	}
+
+	for {
+		_, err = rdr.Read()
+		if errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func fallibleSchemaTestDeprecated() (err error) {
+	stream := CArrowArrayStream{}
+	C.test_stream_schema_fallible(&stream)
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Panicked: %#v", r)
+		}
+	}()
+	_ = ImportCArrayStream(&stream, nil)
+	return nil
+}
+
+func fallibleSchemaTest() error {
+	stream := CArrowArrayStream{}
+	C.test_stream_schema_fallible(&stream)
+
+	_, err := ImportCRecordReader(&stream, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func confuseGoGc(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rc := C.confuse_go_gc(out, C.uint(rand.Int()))
+	C.free(unsafe.Pointer(out))
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
 }

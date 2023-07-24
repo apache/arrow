@@ -21,3 +21,7 @@ test_that("arrow_info()", {
   options(arrow.foo = FALSE)
   expect_output(print(arrow_info()), "arrow.foo")
 })
+
+test_that("arrow_available() is deprecated", {
+  expect_deprecated(arrow_available(), "always")
+})

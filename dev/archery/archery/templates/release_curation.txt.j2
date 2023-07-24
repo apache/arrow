@@ -16,26 +16,31 @@
 # specific language governing permissions and limitations
 # under the License.
 #}
-Total number of JIRA tickets assigned to version {{ release.version }}: {{ release.issues|length }}
+{%- if not minimal -%}
+### Total number of GitHub tickets assigned to version {{ release.version }}: {{ release.issues|length }}
 
-Total number of applied patches since version {{ release.previous.version }}: {{ release.commits|length }}
+### Total number of applied patches since version {{ release.previous.version }}: {{ release.commits|length }}
 
-Patches with assigned issue in version {{ release.version }}:
+### Patches with assigned issue in version {{ release.version }}: {{ within|length }}
 {% for issue, commit in within -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-
-Patches with assigned issue outside of version {{ release.version }}:
+{% endif -%}
+### Patches with assigned issue outside of version {{ release.version }}: {{ outside|length }}
 {% for issue, commit in outside -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-
-Patches in version {{ release.version }} without a linked issue:
-{% for commit in nojira -%}
+{% if not minimal -%}
+### Minor patches in version {{ release.version }}: {{ minor|length }}
+{% for commit in minor -%}
  - {{ commit.url }} {{ commit.title }}
 {% endfor %}
-
-JIRA issues in version {{ release.version }} without a linked patch:
-{% for issue in nopatch -%}
- - https://issues.apache.org/jira/browse/{{ issue.key }}
+### Patches in version {{ release.version }} without a linked issue:
+{% for commit in noissue -%}
+ - {{ commit.url }} {{ commit.title }}
 {% endfor %}
+### JIRA issues in version {{ release.version }} without a linked patch: {{ nopatch|length }}
+{% for issue in nopatch -%}
+ - https://github.com/apache/arrow/issues/{{ issue.key }}
+{% endfor %}
+{%- endif -%}

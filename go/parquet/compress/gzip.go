@@ -18,11 +18,10 @@ package compress
 
 import (
 	"bytes"
+	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/klauspost/compress/gzip"
-	"golang.org/x/xerrors"
 )
 
 type gzipCodec struct{}
@@ -30,7 +29,7 @@ type gzipCodec struct{}
 func (gzipCodec) NewReader(r io.Reader) io.ReadCloser {
 	ret, err := gzip.NewReader(r)
 	if err != nil {
-		panic(xerrors.Errorf("codec: gzip: %w", err))
+		panic(fmt.Errorf("codec: gzip: %w", err))
 	}
 	return ret
 }
@@ -49,7 +48,7 @@ func (gzipCodec) Decode(dst, src []byte) []byte {
 		return dst[:n]
 	}
 
-	dst, err = ioutil.ReadAll(rdr)
+	dst, err = io.ReadAll(rdr)
 	if err != nil {
 		panic(err)
 	}

@@ -17,22 +17,23 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/array_base.h>
 #include <arrow/io/file.h>
 #include <arrow/io/memory.h>
 #include <arrow/ipc/reader.h>
 #include <arrow/ipc/writer.h>
 #include <arrow/type.h>
+#include <arrow/util/byte_size.h>
 #include <arrow/util/key_value_metadata.h>
+
 // [[arrow::export]]
-int RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
-  return x->num_columns();
+r_vec_size RecordBatch__num_columns(const std::shared_ptr<arrow::RecordBatch>& x) {
+  return r_vec_size(x->num_columns());
 }
 
 // [[arrow::export]]
-int RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x) {
-  return x->num_rows();
+r_vec_size RecordBatch__num_rows(const std::shared_ptr<arrow::RecordBatch>& x) {
+  return r_vec_size(x->num_rows());
 }
 
 // [[arrow::export]]
@@ -305,4 +306,8 @@ std::shared_ptr<arrow::RecordBatch> RecordBatch__from_arrays(SEXP schema_sxp, SE
   return arrow::RecordBatch::Make(schema, num_rows, arrays);
 }
 
-#endif
+// [[arrow::export]]
+r_vec_size RecordBatch__ReferencedBufferSize(
+    const std::shared_ptr<arrow::RecordBatch>& batch) {
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*batch)));
+}

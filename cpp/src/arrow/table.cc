@@ -30,6 +30,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -38,14 +39,10 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-// Get ARROW_COMPUTE definition
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
 
-#ifdef ARROW_COMPUTE
-#include "arrow/compute/cast.h"
-#endif
 
 namespace arrow {
 
@@ -283,9 +280,7 @@ Result<std::shared_ptr<Table>> Table::MakeEmpty(std::shared_ptr<Schema> schema,
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatchReader(RecordBatchReader* reader) {
-  std::shared_ptr<Table> table = nullptr;
-  RETURN_NOT_OK(reader->ReadAll(&table));
-  return table;
+  return reader->ToTable();
 }
 
 Result<std::shared_ptr<Table>> Table::FromRecordBatches(
@@ -510,7 +505,6 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
       continue;
     }
 
-#ifdef ARROW_COMPUTE
     if (!compute::CanCast(*current_field->type(), *field->type())) {
       return Status::Invalid("Unable to promote field ", field->name(),
                              ": incompatible types: ", field->type()->ToString(), " vs ",
@@ -521,13 +515,6 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
                                                      field->type(), options, &ctx));
     columns.push_back(casted.chunked_array());
-#else
-    return Status::Invalid("Unable to promote field ", field->name(),
-                           ": incompatible types: ", field->type()->ToString(), " vs ",
-                           current_field->type()->ToString(),
-                           " (Arrow must be built with ARROW_COMPUTE "
-                           "in order to cast incompatible types)");
-#endif
   }
 
   auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);
@@ -603,7 +590,14 @@ Result<std::shared_ptr<RecordBatch>> Table::CombineChunksToBatch(MemoryPool* poo
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Table> combined, CombineChunks(pool));
   std::vector<std::shared_ptr<Array>> arrays;
   for (const auto& column : combined->columns()) {
-    arrays.push_back(column->chunk(0));
+    if (column->num_chunks() == 0) {
+      DCHECK_EQ(num_rows(), 0) << "Empty chunk with more than 0 rows";
+      ARROW_ASSIGN_OR_RAISE(auto chunk,
+                            MakeArrayOfNull(column->type(), num_rows(), pool));
+      arrays.push_back(std::move(chunk));
+    } else {
+      arrays.push_back(column->chunk(0));
+    }
   }
   return RecordBatch::Make(schema_, num_rows_, std::move(arrays));
 }
@@ -611,7 +605,8 @@ Result<std::shared_ptr<RecordBatch>> Table::CombineChunksToBatch(MemoryPool* poo
 // Convert a table to a sequence of record batches
 
 TableBatchReader::TableBatchReader(const Table& table)
-    : table_(table),
+    : owned_table_(nullptr),
+      table_(table),
       column_data_(table.num_columns()),
       chunk_numbers_(table.num_columns(), 0),
       chunk_offsets_(table.num_columns(), 0),
@@ -619,6 +614,19 @@ TableBatchReader::TableBatchReader(const Table& table)
       max_chunksize_(std::numeric_limits<int64_t>::max()) {
   for (int i = 0; i < table.num_columns(); ++i) {
     column_data_[i] = table.column(i).get();
+  }
+}
+
+TableBatchReader::TableBatchReader(std::shared_ptr<Table> table)
+    : owned_table_(std::move(table)),
+      table_(*owned_table_),
+      column_data_(owned_table_->num_columns()),
+      chunk_numbers_(owned_table_->num_columns(), 0),
+      chunk_offsets_(owned_table_->num_columns(), 0),
+      absolute_row_position_(0),
+      max_chunksize_(std::numeric_limits<int64_t>::max()) {
+  for (int i = 0; i < owned_table_->num_columns(); ++i) {
+    column_data_[i] = owned_table_->column(i).get();
   }
 }
 
@@ -633,7 +641,8 @@ Status TableBatchReader::ReadNext(std::shared_ptr<RecordBatch>* out) {
   }
 
   // Determine the minimum contiguous slice across all columns
-  int64_t chunksize = std::min(table_.num_rows(), max_chunksize_);
+  int64_t chunksize =
+      std::min(table_.num_rows() - absolute_row_position_, max_chunksize_);
   std::vector<const Array*> chunks(table_.num_columns());
   for (int i = 0; i < table_.num_columns(); ++i) {
     auto chunk = column_data_[i]->chunk(chunk_numbers_[i]).get();

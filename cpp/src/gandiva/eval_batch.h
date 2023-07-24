@@ -44,13 +44,20 @@ class EvalBatch {
 
   int64_t num_records() const { return num_records_; }
 
-  uint8_t** GetBufferArray() const { return buffers_array_.get(); }
+  const uint8_t* const* GetBufferArray() const { return buffers_array_.get(); }
+  uint8_t** GetBufferArray() { return buffers_array_.get(); }
 
-  int64_t* GetBufferOffsetArray() const { return buffer_offsets_array_.get(); }
+  const int64_t* GetBufferOffsetArray() const { return buffer_offsets_array_.get(); }
+  int64_t* GetBufferOffsetArray() { return buffer_offsets_array_.get(); }
 
   int GetNumBuffers() const { return num_buffers_; }
 
-  uint8_t* GetBuffer(int idx) const {
+  const uint8_t* GetBuffer(int idx) const {
+    DCHECK(idx <= num_buffers_);
+    return (buffers_array_.get())[idx];
+  }
+
+  uint8_t* GetBuffer(int idx) {
     DCHECK(idx <= num_buffers_);
     return (buffers_array_.get())[idx];
   }
@@ -72,16 +79,21 @@ class EvalBatch {
     return local_bitmaps_holder_->GetLocalBitMapSize();
   }
 
-  uint8_t* GetLocalBitMap(int idx) const {
+  const uint8_t* GetLocalBitMap(int idx) const {
+    DCHECK(idx <= GetNumLocalBitMaps());
+    return local_bitmaps_holder_->GetLocalBitMap(idx);
+  }
+  uint8_t* GetLocalBitMap(int idx) {
     DCHECK(idx <= GetNumLocalBitMaps());
     return local_bitmaps_holder_->GetLocalBitMap(idx);
   }
 
-  uint8_t** GetLocalBitMapArray() const {
+  const uint8_t* const* GetLocalBitMapArray() const {
     return local_bitmaps_holder_->GetLocalBitMapArray();
   }
+  uint8_t** GetLocalBitMapArray() { return local_bitmaps_holder_->GetLocalBitMapArray(); }
 
-  ExecutionContext* GetExecutionContext() const { return execution_context_.get(); }
+  const ExecutionContext* GetExecutionContext() const { return execution_context_.get(); }
 
  private:
   /// number of records in the current batch.

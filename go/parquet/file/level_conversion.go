@@ -17,14 +17,16 @@
 package file
 
 import (
+	"fmt"
 	"math"
 	"math/bits"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/bmi"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	shared_utils "github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/bmi"
+	"github.com/apache/arrow/go/v13/parquet/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"golang.org/x/xerrors"
 )
 
@@ -68,10 +70,6 @@ type LevelInfo struct {
 	// struct array is only of length 3: [not-set, set, set] and
 	// the int array is also of length 3: [N/A, null, 1].
 	RepeatedAncestorDefLevel int16
-}
-
-func newDefaultLevelInfo() *LevelInfo {
-	return &LevelInfo{NullSlotUsage: 1}
 }
 
 func (l *LevelInfo) Equal(rhs *LevelInfo) bool {
@@ -136,36 +134,43 @@ type ValidityBitmapInputOutput struct {
 	ValidBitsOffset int64
 }
 
-const extractBitsSize int64 = 8 * int64(unsafe.Sizeof(uint64(0)))
-
 // create a bitmap out of the definition Levels and return the number of non-null values
-func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info LevelInfo, wr utils.BitmapWriter, hasRepeatedParent bool) uint64 {
-	definedBitmap := bmi.GreaterThanBitmap(defLevels, info.DefLevel-1)
+func defLevelsBatchToBitmap(defLevels []int16, remainingUpperBound int64, info LevelInfo, wr utils.BitmapWriter, hasRepeatedParent bool) (count uint64) {
+	const maxbatch = 8 * int(unsafe.Sizeof(uint64(0)))
 
-	if hasRepeatedParent {
-		// Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
-		// repeated_ancestor_def_level
-		presentBitmap := bmi.GreaterThanBitmap(defLevels, info.RepeatedAncestorDefLevel-1)
-		selectedBits := bmi.ExtractBits(definedBitmap, presentBitmap)
-		selectedCount := int64(bits.OnesCount64(presentBitmap))
-		if selectedCount > remainingUpperBound {
-			panic("values read exceeded upper bound")
-		}
-		wr.AppendWord(selectedBits, selectedCount)
-		return uint64(bits.OnesCount64(selectedBits))
-	}
-
-	if int64(len(defLevels)) > remainingUpperBound {
+	if !hasRepeatedParent && int64(len(defLevels)) > remainingUpperBound {
 		panic("values read exceed upper bound")
 	}
 
-	wr.AppendWord(definedBitmap, int64(len(defLevels)))
-	return uint64(bits.OnesCount64(definedBitmap))
+	var batch []int16
+	for len(defLevels) > 0 {
+		batchSize := shared_utils.MinInt(maxbatch, len(defLevels))
+		batch, defLevels = defLevels[:batchSize], defLevels[batchSize:]
+		definedBitmap := bmi.GreaterThanBitmap(batch, info.DefLevel-1)
+
+		if hasRepeatedParent {
+			// Greater than level_info.repeated_ancestor_def_level - 1 implies >= the
+			// repeated_ancestor_def_level
+			presentBitmap := bmi.GreaterThanBitmap(batch, info.RepeatedAncestorDefLevel-1)
+			selectedBits := bmi.ExtractBits(definedBitmap, presentBitmap)
+			selectedCount := int64(bits.OnesCount64(presentBitmap))
+			if selectedCount > remainingUpperBound {
+				panic("values read exceeded upper bound")
+			}
+			wr.AppendWord(selectedBits, selectedCount)
+			count += uint64(bits.OnesCount64(selectedBits))
+			continue
+		}
+
+		wr.AppendWord(definedBitmap, int64(len(batch)))
+		count += uint64(bits.OnesCount64(definedBitmap))
+	}
+	return
 }
 
 // create a bitmap out of the definition Levels
 func defLevelsToBitmapInternal(defLevels []int16, info LevelInfo, out *ValidityBitmapInputOutput, hasRepeatedParent bool) {
-	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(len(defLevels)))
+	wr := utils.NewFirstTimeBitmapWriter(out.ValidBits, out.ValidBitsOffset, int64(out.ReadUpperBound))
 	defer wr.Finish()
 	setCount := defLevelsBatchToBitmap(defLevels, out.ReadUpperBound, info, wr, hasRepeatedParent)
 	out.Read = int64(wr.Pos())
@@ -207,7 +212,7 @@ func DefRepLevelsToListInfo(defLevels, repLevels []int16, info LevelInfo, out *V
 			}
 		} else {
 			if (wr != nil && int64(wr.Pos()) >= out.ReadUpperBound) || (offsetPos >= int(out.ReadUpperBound)) {
-				return xerrors.Errorf("definition levels exceeded upper bound: %d", out.ReadUpperBound)
+				return fmt.Errorf("definition levels exceeded upper bound: %d", out.ReadUpperBound)
 			}
 
 			// current_rep < list rep_level i.e. start of a list (ancestor empty lists

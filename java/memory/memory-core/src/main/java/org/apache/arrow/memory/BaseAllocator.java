@@ -53,9 +53,10 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     if (propValue != null) {
       DEBUG = Boolean.parseBoolean(propValue);
     } else {
-      DEBUG = AssertionUtil.isAssertionsEnabled();
+      DEBUG = false;
     }
-    logger.info("Debug mode " + (DEBUG ? "enabled." : "disabled."));
+    logger.info("Debug mode " + (DEBUG ? "enabled."
+        : "disabled. Enable with the VM option -Darrow.memory.debug.allocator=true."));
   }
 
   public static final Config DEFAULT_CONFIG = ImmutableConfig.builder().build();
@@ -231,6 +232,45 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
       childAllocators.remove(childAllocator);
     }
     listener.onChildRemoved(this, childAllocator);
+  }
+
+  @Override
+  public ArrowBuf wrapForeignAllocation(ForeignAllocation allocation) {
+    assertOpen();
+    final long size = allocation.getSize();
+    listener.onPreAllocation(size);
+    AllocationOutcome outcome = this.allocateBytes(size);
+    if (!outcome.isOk()) {
+      if (listener.onFailedAllocation(size, outcome)) {
+        // Second try, in case the listener can do something about it
+        outcome = this.allocateBytes(size);
+      }
+      if (!outcome.isOk()) {
+        throw new OutOfMemoryException(createErrorMsg(this, size,
+            size), outcome.getDetails());
+      }
+    }
+    try {
+      final AllocationManager manager = new ForeignAllocationManager(this, allocation);
+      final BufferLedger ledger = manager.associate(this);
+      final ArrowBuf buf =
+          new ArrowBuf(ledger, /*bufferManager=*/null, size, allocation.memoryAddress());
+      buf.writerIndex(size);
+      listener.onAllocation(size);
+      return buf;
+    } catch (Throwable t) {
+      try {
+        releaseBytes(size);
+      } catch (Throwable e) {
+        t.addSuppressed(e);
+      }
+      try {
+        allocation.release0();
+      } catch (Throwable e) {
+        t.addSuppressed(e);
+      }
+      throw t;
+    }
   }
 
   @Override

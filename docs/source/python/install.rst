@@ -21,14 +21,13 @@ Installing PyArrow
 System Compatibility
 --------------------
 
-PyArrow is regularly built and tested on Windows, macOS and various Linux
-distributions (including Ubuntu 16.04, Ubuntu 18.04).  We strongly recommend
-using a 64-bit system.
+PyArrow is regularly built and tested on Windows, macOS and various
+Linux distributions. We strongly recommend using a 64-bit system.
 
 Python Compatibility
 --------------------
 
-PyArrow is currently compatible with Python 3.7, 3.8, 3.9 and 3.10.
+PyArrow is currently compatible with Python 3.8, 3.9, 3.10 and 3.11.
 
 Using Conda
 -----------
@@ -62,29 +61,17 @@ Installing from source
 
 See :ref:`python-development`.
 
-Installing Nightly Packages
----------------------------
+Dependencies
+------------
 
-.. warning::
-    These packages are not official releases. Use them at your own risk.
+Required dependency
 
-PyArrow has nightly wheels and conda packages for testing purposes.
+* **NumPy 1.16.6** or higher.
 
-These may be suitable for downstream libraries in their continuous integration
-setup to maintain compatibility with the upcoming PyArrow features,
-deprecations and/or feature removals.
+Optional dependencies
 
-Install the development version of PyArrow from `arrow-nightlies
-<https://anaconda.org/arrow-nightlies/pyarrow>`_ conda channel:
+* **pandas 1.0** or higher,
+* **cffi**.
 
-.. code-block:: bash
-
-    conda install -c arrow-nightlies pyarrow
-
-Install the development version from an `alternative PyPI
-<https://gemfury.com/arrow-nightlies>`_ index:
-
-.. code-block:: bash
-
-    pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ \
-        --prefer-binary --pre pyarrow
+Additional packages PyArrow is compatible with are :ref:`fsspec <filesystem-fsspec>`
+and **pytz**, **dateutil** or **tzdata** package for timezones.

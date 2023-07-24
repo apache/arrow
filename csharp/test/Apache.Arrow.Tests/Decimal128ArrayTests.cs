@@ -98,6 +98,26 @@ namespace Apache.Arrow.Tests
                 }
 
                 [Fact]
+                public void AppendMaxAndMinDecimal()
+                {
+                    // Arrange
+                    var builder = new Decimal128Array.Builder(new Decimal128Type(29, 0));
+
+                    // Act
+                    builder.Append(Decimal.MaxValue);
+                    builder.Append(Decimal.MinValue);
+                    builder.Append(Decimal.MaxValue - 10);
+                    builder.Append(Decimal.MinValue + 10);
+
+                    // Assert
+                    var array = builder.Build();
+                    Assert.Equal(Decimal.MaxValue, array.GetValue(0));
+                    Assert.Equal(Decimal.MinValue, array.GetValue(1));
+                    Assert.Equal(Decimal.MaxValue - 10, array.GetValue(2));
+                    Assert.Equal(Decimal.MinValue + 10, array.GetValue(3));
+                }
+
+                [Fact]
                 public void AppendFractionalDecimal()
                 {
                     // Arrange

@@ -21,6 +21,9 @@ set -e
 set -u
 set -o pipefail
 
+export LANG=C
+export LC_CTYPE=C
+
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 2 ]; then
@@ -37,15 +40,15 @@ crossbow_package_dir="${SOURCE_DIR}/../../packages"
 
 : ${CROSSBOW_JOB_NUMBER:="0"}
 : ${CROSSBOW_JOB_ID:="${crossbow_job_prefix}-${CROSSBOW_JOB_NUMBER}"}
-artifact_dir="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"
+: ${ARROW_ARTIFACTS_DIR:="${crossbow_package_dir}/${CROSSBOW_JOB_ID}"}
 
-if [ ! -e "$artifact_dir" ]; then
-  echo "$artifact_dir does not exist"
+if [ ! -e "${ARROW_ARTIFACTS_DIR}" ]; then
+  echo "${ARROW_ARTIFACTS_DIR} does not exist"
   exit 1
 fi
 
-if [ ! -d "$artifact_dir" ]; then
-  echo "$artifact_dir is not a directory"
+if [ ! -d "${ARROW_ARTIFACTS_DIR}" ]; then
+  echo "${ARROW_ARTIFACTS_DIR} is not a directory"
   exit 1
 fi
 
@@ -71,6 +74,7 @@ fi
 : ${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_NUGET:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}
+: ${UPLOAD_R:=${UPLOAD_DEFAULT}}
 : ${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}
 
 rake_tasks=()
@@ -101,6 +105,9 @@ fi
 if [ ${UPLOAD_PYTHON} -gt 0 ]; then
   rake_tasks+=(python:rc)
 fi
+if [ ${UPLOAD_R} -gt 0 ]; then
+  rake_tasks+=(r:rc)
+fi
 if [ ${UPLOAD_UBUNTU} -gt 0 ]; then
   rake_tasks+=(apt:rc)
   apt_targets+=(ubuntu)
@@ -111,7 +118,7 @@ tmp_dir=binary/tmp
 mkdir -p "${tmp_dir}"
 source_artifacts_dir="${tmp_dir}/artifacts"
 rm -rf "${source_artifacts_dir}"
-cp -a "${artifact_dir}" "${source_artifacts_dir}"
+cp -a "${ARROW_ARTIFACTS_DIR}" "${source_artifacts_dir}"
 
 docker_run \
   ./runner.sh \
@@ -120,7 +127,11 @@ docker_run \
     APT_TARGETS=$(IFS=,; echo "${apt_targets[*]}") \
     ARTIFACTORY_API_KEY="${ARTIFACTORY_API_KEY}" \
     ARTIFACTS_DIR="${tmp_dir}/artifacts" \
+    DEB_PACKAGE_NAME=${DEB_PACKAGE_NAME:-} \
+    DRY_RUN=${DRY_RUN:-no} \
+    GPG_KEY_ID="${GPG_KEY_ID}" \
     RC=${rc} \
     STAGING=${STAGING:-no} \
+    VERBOSE=${VERBOSE:-no} \
     VERSION=${version} \
     YUM_TARGETS=$(IFS=,; echo "${yum_targets[*]}")

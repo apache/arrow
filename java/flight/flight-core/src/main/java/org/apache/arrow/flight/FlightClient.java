@@ -17,8 +17,10 @@
 
 package org.apache.arrow.flight;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -79,7 +81,7 @@ public class FlightClient implements AutoCloseable {
   private static final int MAX_CHANNEL_TRACE_EVENTS = 0;
   private final BufferAllocator allocator;
   private final ManagedChannel channel;
-  private final Channel interceptedChannel;
+
   private final FlightServiceBlockingStub blockingStub;
   private final FlightServiceStub asyncStub;
   private final ClientAuthInterceptor authInterceptor = new ClientAuthInterceptor();
@@ -101,7 +103,7 @@ public class FlightClient implements AutoCloseable {
     interceptors = new ClientInterceptor[]{authInterceptor, new ClientInterceptorAdapter(middleware)};
 
     // Create a channel with interceptors pre-applied for DoGet and DoPut
-    this.interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
+    Channel interceptedChannel = ClientInterceptors.intercept(channel, interceptors);
 
     blockingStub = FlightServiceGrpc.newBlockingStub(interceptedChannel);
     asyncStub = FlightServiceGrpc.newStub(interceptedChannel);
@@ -255,13 +257,12 @@ public class FlightClient implements AutoCloseable {
                                        CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
     Preconditions.checkNotNull(metadataListener, "metadataListener must not be null");
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
 
     try {
+      final ClientCall<ArrowMessage, Flight.PutResult> call = asyncStubNewCall(doPutDescriptor, options);
       final SetStreamObserver resultObserver = new SetStreamObserver(allocator, metadataListener);
       ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
-          ClientCalls.asyncBidiStreamingCall(
-              interceptedChannel.newCall(doPutDescriptor, callOptions), resultObserver);
+          ClientCalls.asyncBidiStreamingCall(call, resultObserver);
       return new PutObserver(
           descriptor, observer, metadataListener::isCancelled, metadataListener::getResult);
     } catch (StatusRuntimeException sre) {
@@ -292,7 +293,12 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public SchemaResult getSchema(FlightDescriptor descriptor, CallOption... options) {
-    return SchemaResult.fromProtocol(CallOptions.wrapStub(blockingStub, options).getSchema(descriptor.toProtocol()));
+    try {
+      return SchemaResult.fromProtocol(CallOptions.wrapStub(blockingStub, options)
+          .getSchema(descriptor.toProtocol()));
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
   }
 
   /**
@@ -301,8 +307,7 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    */
   public FlightStream getStream(Ticket ticket, CallOption... options) {
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
-    ClientCall<Flight.Ticket, ArrowMessage> call = interceptedChannel.newCall(doGetDescriptor, callOptions);
+    final ClientCall<Flight.Ticket, ArrowMessage> call = asyncStubNewCall(doGetDescriptor, options);
     FlightStream stream = new FlightStream(
         allocator,
         PENDING_REQUESTS,
@@ -348,10 +353,9 @@ public class FlightClient implements AutoCloseable {
    */
   public ExchangeReaderWriter doExchange(FlightDescriptor descriptor, CallOption... options) {
     Preconditions.checkNotNull(descriptor, "descriptor must not be null");
-    final io.grpc.CallOptions callOptions = CallOptions.wrapStub(asyncStub, options).getCallOptions();
 
     try {
-      final ClientCall<ArrowMessage, ArrowMessage> call = interceptedChannel.newCall(doExchangeDescriptor, callOptions);
+      final ClientCall<ArrowMessage, ArrowMessage> call = asyncStubNewCall(doExchangeDescriptor, options);
       final FlightStream stream = new FlightStream(allocator, PENDING_REQUESTS, call::cancel, call::request);
       final ClientCallStreamObserver<ArrowMessage> observer = (ClientCallStreamObserver<ArrowMessage>)
               ClientCalls.asyncBidiStreamingCall(call, stream.asObserver());
@@ -485,6 +489,66 @@ public class FlightClient implements AutoCloseable {
     public void getResult() {
       getResult.run();
     }
+  }
+
+  /**
+   * Cancel execution of a distributed query.
+   *
+   * @param request The query to cancel.
+   * @param options Call options.
+   * @return The server response.
+   */
+  public CancelFlightInfoResult cancelFlightInfo(CancelFlightInfoRequest request, CallOption... options) {
+    Action action = new Action(FlightConstants.CANCEL_FLIGHT_INFO.getType(), request.serialize().array());
+    Iterator<Result> results = doAction(action, options);
+    if (!results.hasNext()) {
+      throw CallStatus.INTERNAL
+          .withDescription("Server did not return a response")
+          .toRuntimeException();
+    }
+
+    CancelFlightInfoResult result;
+    try {
+      result = CancelFlightInfoResult.deserialize(ByteBuffer.wrap(results.next().getBody()));
+    } catch (IOException e) {
+      throw CallStatus.INTERNAL
+          .withDescription("Failed to parse server response: " + e)
+          .withCause(e)
+          .toRuntimeException();
+    }
+    results.forEachRemaining((ignored) -> {
+    });
+    return result;
+  }
+
+  /**
+   * Request the server to extend the lifetime of a query result set.
+   *
+   * @param request The result set partition.
+   * @param options Call options.
+   * @return The new endpoint with an updated expiration time.
+   */
+  public FlightEndpoint renewFlightEndpoint(RenewFlightEndpointRequest request, CallOption... options) {
+    Action action = new Action(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType(), request.serialize().array());
+    Iterator<Result> results = doAction(action, options);
+    if (!results.hasNext()) {
+      throw CallStatus.INTERNAL
+          .withDescription("Server did not return a response")
+          .toRuntimeException();
+    }
+
+    FlightEndpoint result;
+    try {
+      result = FlightEndpoint.deserialize(ByteBuffer.wrap(results.next().getBody()));
+    } catch (IOException | URISyntaxException e) {
+      throw CallStatus.INTERNAL
+          .withDescription("Failed to parse server response: " + e)
+          .withCause(e)
+          .toRuntimeException();
+    }
+    results.forEachRemaining((ignored) -> {
+    });
+    return result;
   }
 
   /**
@@ -717,5 +781,15 @@ public class FlightClient implements AutoCloseable {
           .maxInboundMessageSize(maxInboundMessageSize);
       return new FlightClient(allocator, builder.build(), middleware);
     }
+  }
+
+  /**
+   * Helper method to create a call from the asyncStub, method descriptor, and list of calling options.
+   */
+  private <RequestT, ResponseT> ClientCall<RequestT, ResponseT> asyncStubNewCall(
+          MethodDescriptor<RequestT, ResponseT> descriptor,
+          CallOption... options) {
+    FlightServiceStub wrappedStub = CallOptions.wrapStub(asyncStub, options);
+    return wrappedStub.getChannel().newCall(descriptor, wrappedStub.getCallOptions());
   }
 }

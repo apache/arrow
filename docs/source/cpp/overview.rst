@@ -66,6 +66,9 @@ reference.
 **Kernels** are specialized computation functions running in a loop over a
 given set of datums representing input and output parameters to the functions.
 
+**Acero** (pronounced [aˈsɜɹo] / ah-SERR-oh) is a streaming execution engine that allows
+computation to be expressed as a graph of operators which can transform streams of data.
+
 The IO layer
 ------------
 

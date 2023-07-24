@@ -36,6 +36,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -529,6 +530,13 @@ TEST_F(ConcatenateTest, DenseUnionType) {
       *concat_array_type_codes);
 }
 
+TEST_F(ConcatenateTest, ExtensionType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto storage = this->GeneratePrimitive<Int16Type>(size, null_probability);
+    *out = ExtensionType::WrapArray(smallint(), storage);
+  });
+}
+
 TEST_F(ConcatenateTest, OffsetOverflow) {
   auto fake_long = ArrayFromJSON(utf8(), "[\"\"]");
   fake_long->data()->GetMutableValues<int32_t>(1)[1] =
@@ -537,6 +545,17 @@ TEST_F(ConcatenateTest, OffsetOverflow) {
   // XX since the data fake_long claims to own isn't there, this will segfault if
   // Concatenate doesn't detect overflow and raise an error.
   ASSERT_RAISES(Invalid, Concatenate({fake_long, fake_long}).status());
+}
+
+TEST_F(ConcatenateTest, DictionaryConcatenateWithEmptyUint16) {
+  // Regression test for ARROW-17733
+  auto dict_type = dictionary(uint16(), utf8());
+  auto dict_one = DictArrayFromJSON(dict_type, "[]", "[]");
+  auto dict_two =
+      DictArrayFromJSON(dict_type, "[0, 1, null, null, null, null]", "[\"A0\", \"A1\"]");
+  ASSERT_OK_AND_ASSIGN(auto concat_actual, Concatenate({dict_one, dict_two}));
+
+  AssertArraysEqual(*dict_two, *concat_actual);
 }
 
 }  // namespace arrow

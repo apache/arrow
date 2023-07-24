@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM ubuntu:bionic
+FROM ubuntu:focal
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -30,9 +30,9 @@ RUN apt-get update -y -q && \
       git \
       ninja-build \
       python3-dev \
-      python3-pip && \
+      python3-pip \
+      python3-venv \
+      && \
       apt-get clean && rm -rf /var/lib/apt/lists*
 
-RUN pip3 install wheel && \
-    pip3 install -U setuptools && \
-    pip3 install wheel virtualenv
+RUN pip3 install -U pip setuptools

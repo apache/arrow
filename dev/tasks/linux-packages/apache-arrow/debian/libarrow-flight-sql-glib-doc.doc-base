@@ -1,0 +1,9 @@
+Document: arrow-flight-sql-glib
+Title: Apache Arrow Flight SQL GLib Reference Manual
+Author: The Apache Software Foundation
+Abstract: Apache Arrow Flight SQL GLib provides a client-server framework to intract with SQL databases using Apache Arrow in-memory format and Apache Arrow Flight.
+Section: Programming
+
+Format: HTML
+Index: /usr/share/gtk-doc/html/arrow-flight-sql-glib/index.html
+Files: /usr/share/gtk-doc/html/arrow-flight-sql-glib/*.html

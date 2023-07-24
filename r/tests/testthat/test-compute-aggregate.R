@@ -281,10 +281,6 @@ test_that("quantile and median NAs, edge cases, and exceptions", {
 })
 
 test_that("median passes ... args to quantile", {
-  skip_if(
-    !"..." %in% names(formals(median)),
-    "The median generic lacks dots in R 3.3.0 and earlier"
-  )
   expect_equal(
     median(Array$create(c(1, 2)), interpolation = "higher"),
     Scalar$create(2)
@@ -381,7 +377,7 @@ test_that("value_counts", {
     type = struct(values = float64(), counts = int64())
   )
   expect_equal(value_counts(a), result)
-  expect_identical(as.data.frame(value_counts(a)), result_df)
+  expect_equal_data_frame(value_counts(a), result_df)
   expect_identical(as.vector(value_counts(a)$counts), result_df$counts)
 })
 

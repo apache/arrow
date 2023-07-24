@@ -39,6 +39,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visitor.h"
 
@@ -50,6 +51,10 @@ class ExtensionArray;
 // Base array class
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
+
+int64_t Array::ComputeLogicalNullCount() const {
+  return data_->ComputeLogicalNullCount();
+}
 
 namespace internal {
 
@@ -104,16 +109,15 @@ struct ScalarFromArraySlotImpl {
   }
 
   Status Visit(const SparseUnionArray& a) {
-    const auto type_code = a.type_code(index_);
-    // child array which stores the actual value
-    const auto arr = a.field(a.child_id(index_));
-    // no need to adjust the index
-    ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(index_));
-    if (value->is_valid) {
-      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(value, type_code, a.type()));
-    } else {
-      out_ = std::shared_ptr<Scalar>(new SparseUnionScalar(type_code, a.type()));
+    int8_t type_code = a.type_code(index_);
+
+    ScalarVector children;
+    for (int i = 0; i < a.type()->num_fields(); ++i) {
+      children.emplace_back();
+      ARROW_ASSIGN_OR_RAISE(children.back(), a.field(i)->GetScalar(index_));
     }
+
+    out_ = std::make_shared<SparseUnionScalar>(std::move(children), type_code, a.type());
     return Status::OK();
   }
 
@@ -124,11 +128,7 @@ struct ScalarFromArraySlotImpl {
     // need to look up the value based on offsets
     auto offset = a.value_offset(index_);
     ARROW_ASSIGN_OR_RAISE(auto value, arr->GetScalar(offset));
-    if (value->is_valid) {
-      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(value, type_code, a.type()));
-    } else {
-      out_ = std::shared_ptr<Scalar>(new DenseUnionScalar(type_code, a.type()));
-    }
+    out_ = std::make_shared<DenseUnionScalar>(value, type_code, a.type());
     return Status::OK();
   }
 
@@ -145,6 +145,15 @@ struct ScalarFromArraySlotImpl {
     scalar.value.dictionary = a.dictionary();
 
     out_ = std::make_shared<DictionaryScalar>(std::move(scalar));
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedArray& a) {
+    ArraySpan span{*a.data()};
+    const int64_t physical_index = ree_util::FindPhysicalIndex(span, index_, span.offset);
+    ScalarFromArraySlotImpl scalar_from_values(*a.values(), physical_index);
+    ARROW_ASSIGN_OR_RAISE(auto value, std::move(scalar_from_values).Finish());
+    out_ = std::make_shared<RunEndEncodedScalar>(std::move(value), a.type());
     return Status::OK();
   }
 
@@ -165,11 +174,16 @@ struct ScalarFromArraySlotImpl {
 
   Result<std::shared_ptr<Scalar>> Finish() && {
     if (index_ >= array_.length()) {
-      return Status::IndexError("tried to refer to element ", index_,
-                                " but array is only ", array_.length(), " long");
+      return Status::IndexError("index with value of ", index_,
+                                " is out-of-bounds for array of length ",
+                                array_.length());
     }
 
-    if (array_.IsNull(index_)) {
+    // Skip checking for nulls in RUN_END_ENCODED arrays to avoid potentially
+    // making two O(log n) searches for the physical index of the slot -- one
+    // here and another in Visit(const RunEndEncodedArray&) in case the values
+    // is not null.
+    if (array_.type()->id() != Type::RUN_END_ENCODED && array_.IsNull(index_)) {
       auto null = MakeNullScalar(array_.type());
       if (is_dictionary(array_.type()->id())) {
         auto& dict_null = checked_cast<DictionaryScalar&>(*null);
@@ -271,7 +285,7 @@ Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset, int64_t length) 
 Result<std::shared_ptr<Array>> Array::SliceSafe(int64_t offset) const {
   if (offset < 0) {
     // Avoid UBSAN in subtraction below
-    return Status::Invalid("Negative buffer slice offset");
+    return Status::IndexError("Negative array slice offset");
   }
   return SliceSafe(offset, data_->length - offset);
 }
@@ -281,6 +295,8 @@ std::string Array::ToString() const {
   ARROW_CHECK_OK(PrettyPrint(*this, 0, &ss));
   return ss.str();
 }
+
+void PrintTo(const Array& x, std::ostream* os) { *os << x.ToString(); }
 
 Result<std::shared_ptr<Array>> Array::View(
     const std::shared_ptr<DataType>& out_type) const {

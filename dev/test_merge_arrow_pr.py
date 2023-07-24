@@ -34,10 +34,10 @@ FakeVersion = namedtuple('version', ['name', 'raw'])
 
 RAW_VERSION_JSON = [
     {'name': 'JS-0.4.0', 'released': False},
-    {'name': '0.11.0', 'released': False},
-    {'name': '0.12.0', 'released': False},
-    {'name': '0.10.0', 'released': True},
-    {'name': '0.9.0', 'released': True}
+    {'name': '0.9.0', 'released': False},
+    {'name': '0.10.0', 'released': False},
+    {'name': '0.8.0', 'released': True},
+    {'name': '0.7.0', 'released': True}
 ]
 
 
@@ -77,8 +77,12 @@ class FakeJIRA:
             'fixVersions': fixVersions
         }
 
-    def get_candidate_fix_versions(self):
-        return SOURCE_VERSIONS, ['0.12.0']
+    @property
+    def current_versions(self):
+        all_versions = self._project_versions or SOURCE_VERSIONS
+        return [
+            v for v in all_versions if not v.raw.get("released")
+        ] + ['0.11.0']
 
     def project_versions(self, project):
         return self._project_versions
@@ -104,24 +108,39 @@ def test_jira_fix_versions():
                     transitions=TRANSITIONS)
 
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    all_versions, default_versions = issue.get_candidate_fix_versions()
-    assert all_versions == SOURCE_VERSIONS
-    assert default_versions == ['0.11.0']
+    fix_version = merge_arrow_pr.get_candidate_fix_version(
+        issue.current_versions
+    )
+    assert fix_version == '0.9.0'
+
+
+def test_jira_fix_versions_filters_maintenance():
+    maintenance_branches = ["maint-0.9.0"]
+    jira = FakeJIRA(project_versions=SOURCE_VERSIONS,
+                    transitions=TRANSITIONS)
+
+    issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
+    fix_version = merge_arrow_pr.get_candidate_fix_version(
+        issue.current_versions,
+        maintenance_branches=maintenance_branches
+    )
+    assert fix_version == '0.10.0'
 
 
 def test_jira_no_suggest_patch_release():
     versions_json = [
-        {'name': '0.11.1', 'released': False},
-        {'name': '0.12.0', 'released': False},
+        {'name': '0.9.1', 'released': False},
+        {'name': '0.10.0', 'released': False},
     ]
 
     versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
 
     jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    all_versions, default_versions = issue.get_candidate_fix_versions()
-    assert all_versions == versions
-    assert default_versions == ['0.12.0']
+    fix_version = merge_arrow_pr.get_candidate_fix_version(
+        issue.current_versions
+    )
+    assert fix_version == '0.10.0'
 
 
 def test_jira_parquet_no_suggest_non_cpp():
@@ -140,9 +159,10 @@ def test_jira_parquet_no_suggest_non_cpp():
     jira = FakeJIRA(project_versions=versions, transitions=TRANSITIONS)
     issue = merge_arrow_pr.JiraIssue(jira, 'PARQUET-1713', 'PARQUET',
                                      FakeCLI())
-    all_versions, default_versions = issue.get_candidate_fix_versions()
-    assert all_versions == versions
-    assert default_versions == ['cpp-1.6.0']
+    fix_version = merge_arrow_pr.get_candidate_fix_version(
+        issue.current_versions
+    )
+    assert fix_version == 'cpp-1.6.0'
 
 
 def test_jira_invalid_issue():
@@ -161,16 +181,16 @@ def test_jira_resolve():
                     transitions=TRANSITIONS)
 
     my_comment = 'my comment'
-    fix_versions = [SOURCE_VERSIONS[1].raw]
+    fix_version = "0.10.0"
 
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    issue.resolve(fix_versions, my_comment)
+    issue.resolve(fix_version, my_comment)
 
     assert jira.captured_transition == {
         'jira_id': 'ARROW-1234',
         'transition_id': 1,
         'comment': my_comment,
-        'fixVersions': fix_versions
+        'fixVersions': [{'name': '0.10.0', 'released': False}]
     }
 
 
@@ -180,16 +200,16 @@ def test_jira_resolve_non_mainline():
                     transitions=TRANSITIONS)
 
     my_comment = 'my comment'
-    fix_versions = [SOURCE_VERSIONS[0].raw]
+    fix_version = "JS-0.4.0"
 
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    issue.resolve(fix_versions, my_comment)
+    issue.resolve(fix_version, my_comment)
 
     assert jira.captured_transition == {
         'jira_id': 'ARROW-1234',
         'transition_id': 1,
         'comment': my_comment,
-        'fixVersions': fix_versions
+        'fixVersions': [{'name': 'JS-0.4.0', 'released': False}]
     }
 
 
@@ -199,9 +219,9 @@ def test_jira_resolve_released_fix_version():
                     project_versions=SOURCE_VERSIONS,
                     transitions=TRANSITIONS)
 
-    cmd = FakeCLI(responses=['0.9.0'])
+    cmd = FakeCLI(responses=['0.7.0'])
     fix_versions_json = merge_arrow_pr.prompt_for_fix_version(cmd, jira)
-    assert fix_versions_json == [RAW_VERSION_JSON[-1]]
+    assert fix_versions_json == "0.7.0"
 
 
 def test_multiple_authors_bad_input():
@@ -211,22 +231,22 @@ def test_multiple_authors_bad_input():
     distinct_authors = [a0, a1]
 
     cmd = FakeCLI(responses=[''])
-    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
-        cmd, distinct_authors)
+    primary_author, distinct_other_authors = \
+        merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a0
-    assert new_distinct_authors == [a0, a1]
+    assert distinct_other_authors == [a1]
 
     cmd = FakeCLI(responses=['oops', a1])
-    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
-        cmd, distinct_authors)
+    primary_author, distinct_other_authors = \
+        merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a1
-    assert new_distinct_authors == [a1, a0]
+    assert distinct_other_authors == [a0]
 
     cmd = FakeCLI(responses=[a2])
-    primary_author, new_distinct_authors = merge_arrow_pr.get_primary_author(
-        cmd, distinct_authors)
+    primary_author, distinct_other_authors = \
+        merge_arrow_pr.get_primary_author(cmd, distinct_authors)
     assert primary_author == a2
-    assert new_distinct_authors == [a2, a0, a1]
+    assert distinct_other_authors == [a0, a1]
 
 
 def test_jira_already_resolved():
@@ -266,11 +286,16 @@ def test_no_unset_point_release_fix_version():
                          for v in ['0.17.0', '0.15.1', '0.14.2']])
     issue = FakeIssue(fields)
 
-    jira = FakeJIRA(issue=issue, project_versions=SOURCE_VERSIONS,
-                    transitions=TRANSITIONS)
+    jira = FakeJIRA(
+        issue=issue,
+        project_versions=[
+            FakeVersion(v, vdata) for v, vdata in versions_json.items()
+        ],
+        transitions=TRANSITIONS
+    )
 
     issue = merge_arrow_pr.JiraIssue(jira, 'ARROW-1234', 'ARROW', FakeCLI())
-    issue.resolve([versions_json['0.16.0']], "a comment")
+    issue.resolve('0.16.0', "a comment")
 
     assert jira.captured_transition == {
         'jira_id': 'ARROW-1234',
@@ -294,9 +319,10 @@ def test_jira_output_no_components():
     # ARROW-5472
     status = 'Interesting work'
     components = []
-    output = merge_arrow_pr.format_jira_output(
-        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
-        components)
+    output = merge_arrow_pr.format_issue_output(
+        "jira", 'ARROW-1234', 'Resolved', status,
+        FakeAssignee('Foo Bar'), components
+    )
 
     assert output == """=== JIRA ARROW-1234 ===
 Summary\t\tInteresting work
@@ -305,9 +331,10 @@ Components\tNO COMPONENTS!!!
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
 
-    output = merge_arrow_pr.format_jira_output(
-        'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
-        [FakeComponent('C++'), FakeComponent('Python')])
+    output = merge_arrow_pr.format_issue_output(
+        "jira", 'ARROW-1234', 'Resolved', status, FakeAssignee('Foo Bar'),
+        [FakeComponent('C++'), FakeComponent('Python')]
+    )
 
     assert output == """=== JIRA ARROW-1234 ===
 Summary\t\tInteresting work
@@ -315,3 +342,14 @@ Assignee\tFoo Bar
 Components\tC++, Python
 Status\t\tResolved
 URL\t\thttps://issues.apache.org/jira/browse/ARROW-1234"""
+
+
+def test_sorting_versions():
+    versions_json = [
+        {'name': '11.0.0', 'released': False},
+        {'name': '9.0.0', 'released': False},
+        {'name': '10.0.0', 'released': False},
+    ]
+    versions = [FakeVersion(raw['name'], raw) for raw in versions_json]
+    fix_version = merge_arrow_pr.get_candidate_fix_version(versions)
+    assert fix_version == "9.0.0"

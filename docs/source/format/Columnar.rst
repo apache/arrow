@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.0*
+*Version: 1.3*
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
@@ -120,6 +120,12 @@ the different physical layouts defined by Arrow:
 * **Sparse** and **Dense Union**: a nested layout representing a
   sequence of values, each of which can have type chosen from a
   collection of child array types.
+* **Dictionary-Encoded**: a layout consisting of a sequence of
+  integers (any bit-width) which represent indexes into a dictionary
+  which could be of any type.
+* **Run-End Encoded (REE)**: a nested layout consisting of two child arrays,
+  one representing values, and one representing the logical index where
+  the run of a corresponding value ends.
 * **Null**: a sequence of all null values, having null logical type
 
 The Arrow columnar memory layout only applies to *data* and not
@@ -208,17 +214,19 @@ right-to-left: ::
               0  0  1  0  1  0  1  1
 
 Arrays having a 0 null count may choose to not allocate the validity
-bitmap. Implementations may choose to always allocate one anyway as a
-matter of convenience, but this should be noted when memory is being
-shared.
+bitmap; how this is represented depends on the implementation (for
+example, a C++ implementation may represent such an "absent" validity
+bitmap using a NULL pointer). Implementations may choose to always allocate
+a validity bitmap anyway as a matter of convenience. Consumers of Arrow
+arrays should be ready to handle those two possibilities.
 
-Nested type arrays except for union types have their own validity bitmap and
-null count regardless of the null count and valid bits of their child arrays.
+Nested type arrays (except for union types as noted above) have their own
+top-level validity bitmap and null count, regardless of the null count and
+valid bits of their child arrays.
 
-Array slots which are null are not required to have a particular
-value; any "masked" memory can have any value and need not be zeroed,
-though implementations frequently choose to zero memory for null
-values.
+Array slots which are null are not required to have a particular value;
+any "masked" memory can have any value and need not be zeroed, though
+implementations frequently choose to zero memory for null values.
 
 Fixed-size Primitive Layout
 ---------------------------
@@ -248,15 +256,15 @@ Would look like: ::
     * Length: 5, Null count: 1
     * Validity bitmap buffer:
 
-      |Byte 0 (validity bitmap) | Bytes 1-63            |
-      |-------------------------|-----------------------|
-      | 00011101                | 0 (padding)           |
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00011101                 | 0 (padding)           |
 
     * Value Buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 1          | unspecified | 2           | 4           | 8           | unspecified |
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |-------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 1           | unspecified | 2           | 4           | 8           | unspecified (padding) |
 
 **Example Layout: Non-null int32 Array**
 
@@ -271,9 +279,9 @@ Would look like: ::
 
     * Value Buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 1          | 2           | 3           | 4           | 8           | unspecified |
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |-------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 1           | 2           | 3           | 4           | 8           | unspecified (padding) |
 
 or with the bitmap elided: ::
 
@@ -281,9 +289,9 @@ or with the bitmap elided: ::
     * Validity bitmap buffer: Not required
     * Value Buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 1          | 2           | 3           | 4           | 8           | unspecified |
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63           |
+      |-------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 1           | 2           | 3           | 4           | 8           | unspecified (padding) |
 
 Variable-size Binary Layout
 ---------------------------
@@ -316,6 +324,33 @@ location for all values is valid and well defined.
 Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
+
+**Example Layout: ``VarBinary``**
+
+``['joe', null, null, 'mark']``
+
+will be represented as follows: ::
+
+  * Length: 4, Null count: 2
+  * Validity bitmap buffer:
+
+    | Byte 0 (validity bitmap) | Bytes 1-63            |
+    |--------------------------|-----------------------|
+    | 00001001                 | 0 (padding)           |
+
+  * Offsets buffer:
+
+    | Bytes 0-19     | Bytes 20-63           |
+    |----------------|-----------------------|
+    | 0, 3, 3, 3, 7  | unspecified (padding) |
+
+   * Value buffer:
+
+    | Bytes 0-6      | Bytes 7-63            |
+    |----------------|-----------------------|
+    | joemark        | unspecified (padding) |
+
+.. _variable-size-list-layout:
 
 Variable-size List Layout
 -------------------------
@@ -353,18 +388,18 @@ will have the following representation: ::
 
     * Offsets buffer (int32)
 
-      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 0          | 3           | 3           | 7           | 7           | unspecified |
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 0          | 3           | 3           | 7           | 7           | unspecified (padding) |
 
     * Values array (Int8array):
       * Length: 7,  Null count: 0
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
 
-        | Bytes 0-6                    | Bytes 7-63  |
-        |------------------------------|-------------|
-        | 12, -7, 25, 0, -127, 127, 50 | unspecified |
+        | Bytes 0-6                    | Bytes 7-63            |
+        |------------------------------|-----------------------|
+        | 12, -7, 25, 0, -127, 127, 50 | unspecified (padding) |
 
 **Example Layout: ``List<List<Int8>>``**
 
@@ -377,9 +412,9 @@ will be represented as follows: ::
     * Validity bitmap buffer: Not required
     * Offsets buffer (int32)
 
-      | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
-      |------------|------------|------------|-------------|-------------|
-      | 0          |  2         |  5         |  6          | unspecified |
+      | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63           |
+      |------------|------------|------------|-------------|-----------------------|
+      | 0          |  2         |  5         |  6          | unspecified (padding) |
 
     * Values array (`List<Int8>`)
       * Length: 6, Null count: 1
@@ -391,17 +426,17 @@ will be represented as follows: ::
 
       * Offsets buffer (int32)
 
-        | Bytes 0-27           | Bytes 28-63 |
-        |----------------------|-------------|
-        | 0, 2, 4, 7, 7, 8, 10 | unspecified |
+        | Bytes 0-27           | Bytes 28-63           |
+        |----------------------|-----------------------|
+        | 0, 2, 4, 7, 7, 8, 10 | unspecified (padding) |
 
       * Values array (Int8):
         * Length: 10, Null count: 0
         * Validity bitmap buffer: Not required
 
-          | Bytes 0-9                     | Bytes 10-63 |
-          |-------------------------------|-------------|
-          | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified |
+          | Bytes 0-9                     | Bytes 10-63           |
+          |-------------------------------|-----------------------|
+          | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified (padding) |
 
 Fixed-Size List Layout
 ----------------------
@@ -452,13 +487,10 @@ types (which can all be distinct), called its fields. Each field must
 have a UTF8-encoded name, and these field names are part of the type
 metadata.
 
-A struct array does not have any additional allocated physical storage
-for its values.  A struct array must still have an allocated validity
-bitmap, if it has one or more null values.
-
 Physically, a struct array has one child array for each field. The
 child arrays are independent and need not be adjacent to each other in
-memory.
+memory. A struct array also has a validity bitmap to encode top-level
+validity information.
 
 For example, the struct (field names shown here as strings for illustration
 purposes)::
@@ -479,9 +511,9 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
     * Length: 4, Null count: 1
     * Validity bitmap buffer:
 
-      |Byte 0 (validity bitmap) | Bytes 1-63            |
-      |-------------------------|-----------------------|
-      | 00001011                | 0 (padding)           |
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00001011                 | 0 (padding)           |
 
     * Children arrays:
       * field-0 array (`VarBinary`):
@@ -494,19 +526,15 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
         * Offsets buffer:
 
-          | Bytes 0-19     |
-          |----------------|
-          | 0, 3, 3, 3, 7  |
+          | Bytes 0-19     | Bytes 20-63           |
+          |----------------|-----------------------|
+          | 0, 3, 3, 3, 7  | unspecified (padding) |
 
-         * Values array:
-            * Length: 7, Null count: 0
-            * Validity bitmap buffer: Not required
+         * Value buffer:
 
-            * Value buffer:
-
-              | Bytes 0-6      |
-              |----------------|
-              | joemark        |
+          | Bytes 0-6      | Bytes 7-63            |
+          |----------------|-----------------------|
+          | joemark        | unspecified (padding) |
 
       * field-1 array (int32 array):
         * Length: 4, Null count: 1
@@ -518,23 +546,28 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
         * Value Buffer:
 
-          |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63 |
-          |------------|-------------|-------------|-------------|-------------|
-          | 1          | 2           | unspecified | 4           | unspecified |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63           |
+          |-------------|-------------|-------------|-------------|-----------------------|
+          | 1           | 2           | unspecified | 4           | unspecified (padding) |
 
-While a struct does not have physical storage for each of its semantic
-slots (i.e. each scalar C-like struct), an entire struct slot can be
-set to null via the validity bitmap. Any of the child field arrays can
-have null values according to their respective independent validity
-bitmaps. This implies that for a particular struct slot the validity
-bitmap for the struct array might indicate a null slot when one or
-more of its child arrays has a non-null value in their corresponding
-slot.  When reading the struct array the parent validity bitmap takes
-priority.  This is illustrated in the example above, the child arrays
-have valid entries for the null struct but are 'hidden' from the
-consumer by the parent array's validity bitmap.  However, when treated
-independently corresponding values of the children array will be
-non-null.
+Struct Validity
+~~~~~~~~~~~~~~~
+
+A struct array has its own validity bitmap that is independent of its
+child arrays' validity bitmaps. The validity bitmap for the struct
+array might indicate a null when one or more of its child arrays has
+a non-null value in its corresponding slot; or conversely, a child
+array might have a null in its validity bitmap while the struct array's
+validity bitmap shows a non-null value.
+
+Therefore, to know whether a particular child entry is valid, one must
+take the logical AND of the corresponding bits in the two validity bitmaps
+(the struct array's and the child array's).
+
+This is illustrated in the example above, the child arrays have valid entries
+for the null struct but they are "hidden" by the struct array's validity
+bitmap. However, when treated independently, corresponding entries of the
+children array will be non-null.
 
 Union Layout
 ------------
@@ -577,26 +610,26 @@ will have the following layout: ::
     * Length: 4, Null count: 0
     * Types buffer:
 
-      |Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63  |
-      |---------|-------------|----------|----------|-------------|
-      | 0       | 0           | 0        | 1        | unspecified |
+      | Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63            |
+      |----------|-------------|----------|----------|-----------------------|
+      | 0        | 0           | 0        | 1        | unspecified (padding) |
 
     * Offset buffer:
 
-      |Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
-      |----------|-------------|------------|-------------|-------------|
-      | 0        | 1           | 2          | 0           | unspecified |
+      | Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63           |
+      |-----------|-------------|------------|-------------|-----------------------|
+      | 0         | 1           | 2          | 0           | unspecified (padding) |
 
     * Children arrays:
       * Field-0 array (f: Float32):
-        * Length: 2, Null count: 1
+        * Length: 3, Null count: 1
         * Validity bitmap buffer: 00000101
 
         * Value Buffer:
 
-          | Bytes 0-11     | Bytes 12-63  |
-          |----------------|-------------|
-          | 1.2, null, 3.4 | unspecified |
+          | Bytes 0-11     | Bytes 12-63           |
+          |----------------|-----------------------|
+          | 1.2, null, 3.4 | unspecified (padding) |
 
 
       * Field-1 array (i: Int32):
@@ -605,9 +638,9 @@ will have the following layout: ::
 
         * Value Buffer:
 
-          | Bytes 0-3 | Bytes 4-63  |
-          |-----------|-------------|
-          | 5         | unspecified |
+          | Bytes 0-3 | Bytes 4-63            |
+          |-----------|-----------------------|
+          | 5         | unspecified (padding) |
 
 Sparse Union
 ~~~~~~~~~~~~
@@ -644,29 +677,29 @@ will have the following layout: ::
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
-          |Byte 0 (validity bitmap) | Bytes 1-63            |
-          |-------------------------|-----------------------|
-          |00010001                 | 0 (padding)           |
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00010001                 | 0 (padding)           |
 
         * Value buffer:
 
-          |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
-          |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
-          | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
+          |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
+          | 5           | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
       * f (Float32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
-          |Byte 0 (validity bitmap) | Bytes 1-63            |
-          |-------------------------|-----------------------|
-          | 00001010                | 0 (padding)           |
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00001010                 | 0 (padding)           |
 
         * Value buffer:
 
-          |Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
-          |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
-          | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
+          | Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-63           |
+          |--------------|-------------|-------------|-------------|-------------|-------------|-----------------------|
+          | unspecified  | 1.2         | unspecified | 3.4         | unspecified | unspecified | unspecified (padding) |
 
       * s (`VarBinary`)
         * Length: 6, Null count: 4
@@ -678,17 +711,15 @@ will have the following layout: ::
 
         * Offsets buffer (Int32)
 
-          | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63 |
-          |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
-          | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified |
+          | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63            |
+          |------------|-------------|-------------|-------------|-------------|-------------|-------------|------------------------|
+          | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified (padding)  |
 
-        * Values array (VarBinary):
-          * Length: 7,  Null count: 0
-          * Validity bitmap buffer: Not required
+        * Values buffer:
 
-            | Bytes 0-6  | Bytes 7-63            |
-            |------------|-----------------------|
-            | joemark    | unspecified (padding) |
+          | Bytes 0-6  | Bytes 7-63            |
+          |------------|-----------------------|
+          | joemark    | unspecified (padding) |
 
 Only the slot in the array corresponding to the type index is considered. All
 "unselected" values are ignored and could be any semantically correct array
@@ -761,6 +792,87 @@ application.
 We discuss dictionary encoding as it relates to serialization further
 below.
 
+.. _run-end-encoded-layout:
+
+Run-End Encoded Layout
+----------------------
+
+Run-end encoding (REE) is a variation of run-length encoding (RLE). These
+encodings are well-suited for representing data containing sequences of the
+same value, called runs. In run-end encoding, each run is represented as a
+value and an integer giving the index in the array where the run ends.
+
+Any array can be run-end encoded. A run-end encoded array has no buffers
+by itself, but has two child arrays. The first child array, called the run ends array,
+holds either 16, 32, or 64-bit signed integers. The actual values of each run
+are held in the second child array.
+For the purposes of determining field names and schemas, these child arrays
+are prescribed the standard names of **run_ends** and **values** respectively.
+
+The values in the first child array represent the accumulated length of all runs 
+from the first to the current one, i.e. the logical index where the
+current run ends. This allows relatively efficient random access from a logical
+index using binary search. The length of an individual run can be determined by
+subtracting two adjacent values. (Contrast this with run-length encoding, in
+which the lengths of the runs are represented directly, and in which random
+access is less efficient.) 
+
+.. note::
+   Because the ``run_ends`` child array cannot have nulls, it's reasonable
+   to consider why the ``run_ends`` are a child array instead of just a
+   buffer, like the offsets for a :ref:`variable-size-list-layout`. This
+   layout was considered, but it was decided to use the child arrays. 
+
+   Child arrays allow us to keep the "logical length" (the decoded length)
+   associated with the parent array and the "physical length" (the number
+   of run ends) associated with the child arrays.  If ``run_ends`` was a
+   buffer in the parent array then the size of the buffer would be unrelated
+   to the length of the array and this would be confusing.
+
+
+A run must have have a length of at least 1. This means the values in the
+run ends array all are positive and in strictly ascending order. A run end cannot be
+null.
+
+The REE parent has no validity bitmap, and it's null count field should always be 0.
+Null values are encoded as runs with the value null.
+
+As an example, you could have the following data: ::
+
+    type: Float32
+    [1.0, 1.0, 1.0, 1.0, null, null, 2.0]
+
+In Run-end-encoded form, this could appear as:
+
+::
+
+    * Length: 7, Null count: 0
+    * Child Arrays:
+
+      * run_ends (Int32):
+        * Length: 3, Null count: 0 (Run Ends cannot be null)
+        * Validity bitmap buffer: Not required (if it exists, it should be all 1s)
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 4           | 6           | 7           | unspecified (padding) |
+
+      * values (Float32):
+        * Length: 3, Null count: 1
+        * Validity bitmap buffer:
+
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00000101                 | 0 (padding)           |
+
+        * Values buffer
+
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-63           |
+          |-------------|-------------|-------------|-----------------------|
+          | 1.0         | unspecified | 2.0         | unspecified (padding) |
+
+
 Buffer Listing for Each Layout
 ------------------------------
 
@@ -780,6 +892,7 @@ of memory buffers for each layout.
    "Dense Union",type ids,offsets,
    "Null",,,
    "Dictionary-encoded",validity,data (indices),
+   "Run-end encoded",,,
 
 Logical Types
 =============
@@ -1041,7 +1154,11 @@ file. Further more, it is invalid to have more than one **non-delta**
 dictionary batch per dictionary ID (i.e. dictionary replacement is not
 supported). Delta dictionaries are applied in the order they appear in
 the file footer. We recommend the ".arrow" extension for files created with
-this format.
+this format. Note that files created with this format are sometimes called
+"Feather V2" or with the ".feather" extension, the name and the extension
+derived from "Feather (V1)", which was a proof of concept early in
+the Arrow project for language-agnostic fast data frame storage for
+Python (pandas) and R.
 
 Dictionary Messages
 -------------------
@@ -1159,6 +1276,11 @@ structure. These extension keys are:
 * ``'ARROW:extension:metadata'`` for a serialized representation
   of the ``ExtensionType`` necessary to reconstruct the custom type
 
+.. note::
+   Extension names beginning with ``arrow.`` are reserved for
+   :ref:`canonical extension types <format_canonical_extensions>`,
+   they should not be used for third-party extension types.
+
 This extension metadata can annotate any of the built-in Arrow logical
 types. The intent is that an implementation that does not support an
 extension type can still handle the underlying data. For example a
@@ -1182,6 +1304,10 @@ extension types:
   metadata indicating the market trading calendar the data corresponds
   to
 
+.. seealso::
+   :ref:`format_canonical_extensions`
+
+
 Implementation guidelines
 =========================
 
@@ -1189,8 +1315,8 @@ An execution engine (or framework, or UDF executor, or storage engine,
 etc) can implement only a subset of the Arrow spec and/or extend it
 given the following constraints:
 
-Implementing a subset the spec
-------------------------------
+Implementing a subset of the spec
+---------------------------------
 
 * **If only producing (and not consuming) arrow vectors**: Any subset
   of the vector spec and the corresponding metadata can be implemented.
@@ -1211,12 +1337,12 @@ data, these custom vectors should be converted to a type that exist in
 the Arrow spec.
 
 .. _Flatbuffers: http://github.com/google/flatbuffers
-.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/master/format
-.. _Schema.fbs: https://github.com/apache/arrow/blob/master/format/Schema.fbs
-.. _Message.fbs: https://github.com/apache/arrow/blob/master/format/Message.fbs
-.. _File.fbs: https://github.com/apache/arrow/blob/master/format/File.fbs
+.. _Flatbuffers protocol definition files: https://github.com/apache/arrow/tree/main/format
+.. _Schema.fbs: https://github.com/apache/arrow/blob/main/format/Schema.fbs
+.. _Message.fbs: https://github.com/apache/arrow/blob/main/format/Message.fbs
+.. _File.fbs: https://github.com/apache/arrow/blob/main/format/File.fbs
 .. _least-significant bit (LSB) numbering: https://en.wikipedia.org/wiki/Bit_numbering
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
-.. _Parquet: https://parquet.apache.org/documentation/latest/
+.. _Parquet: https://parquet.apache.org/docs/

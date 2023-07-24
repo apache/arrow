@@ -18,8 +18,10 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
+#include "arrow/io/caching.h"
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -66,6 +68,21 @@ struct ARROW_EXPORT IpcWriteOptions {
   /// May only be UNCOMPRESSED, LZ4_FRAME and ZSTD.
   std::shared_ptr<util::Codec> codec;
 
+  /// \brief Minimum space savings percentage required for compression to be applied
+  ///
+  /// Space savings is calculated as (1.0 - compressed_size / uncompressed_size).
+  ///
+  /// For example, if min_space_savings = 0.1, a 100-byte body buffer won't undergo
+  /// compression if its expected compressed size exceeds 90 bytes. If this option is
+  /// unset, compression will be used indiscriminately. If no codec was supplied, this
+  /// option is ignored.
+  ///
+  /// Values outside of the range [0,1] are handled as errors.
+  ///
+  /// Note that enabling this option may result in unreadable data for Arrow C++ versions
+  /// prior to 12.0.0.
+  std::optional<double> min_space_savings;
+
   /// \brief Use global CPU thread pool to parallelize any computational tasks
   /// like compression
   bool use_threads = true;
@@ -86,14 +103,14 @@ struct ARROW_EXPORT IpcWriteOptions {
 
   /// \brief Whether to unify dictionaries for the IPC file format
   ///
-  /// The IPC file format doesn't support dictionary replacements or deltas.
+  /// The IPC file format doesn't support dictionary replacements.
   /// Therefore, chunks of a column with a dictionary type must have the same
-  /// dictionary in each record batch.
+  /// dictionary in each record batch (or an extended dictionary + delta).
   ///
   /// If this option is true, RecordBatchWriter::WriteTable will attempt
   /// to unify dictionaries across each table column.  If this option is
-  /// false, unequal dictionaries across a table column will simply raise
-  /// an error.
+  /// false, incompatible dictionaries across a table column will simply
+  /// raise an error.
   ///
   /// Note that enabling this option has a runtime cost. Also, not all types
   /// currently support dictionary unification.
@@ -110,10 +127,6 @@ struct ARROW_EXPORT IpcWriteOptions {
 
   static IpcWriteOptions Defaults();
 };
-
-#ifndef ARROW_NO_DEPRECATED_API
-using IpcOptions = IpcWriteOptions;
-#endif
 
 /// \brief Options for reading Arrow IPC messages
 struct ARROW_EXPORT IpcReadOptions {
@@ -147,6 +160,11 @@ struct ARROW_EXPORT IpcReadOptions {
   /// Endianness conversion is achieved by the RecordBatchFileReader,
   /// RecordBatchStreamReader and StreamDecoder classes.
   bool ensure_native_endian = true;
+
+  /// \brief Options to control caching behavior when pre-buffering is requested
+  ///
+  /// The lazy property will always be reset to true to deliver the expected behavior
+  io::CacheOptions pre_buffer_cache_options = io::CacheOptions::LazyDefaults();
 
   static IpcReadOptions Defaults();
 };

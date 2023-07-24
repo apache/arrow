@@ -51,15 +51,19 @@ fi
 arch=${archs[$arch]}
 platform=${platforms[$platform]}
 
+# Use specific versions for minio server and client to avoid CI failures on new releases.
+minio_version="minio.RELEASE.2022-05-26T05-48-41Z"
+mc_version="mc.RELEASE.2022-05-09T04-08-26Z"
+
 if [[ ! -x ${prefix}/bin/minio ]]; then
-  url="https://dl.min.io/server/minio/release/${platform}-${arch}/minio"
+  url="https://dl.min.io/server/minio/release/${platform}-${arch}/archive/${minio_version}"
   echo "Fetching ${url}..."
-  wget -nv -P ${prefix}/bin ${url}
+  wget -nv --output-document ${prefix}/bin/minio ${url}
   chmod +x ${prefix}/bin/minio
 fi
 if [[ ! -x ${prefix}/bin/mc ]]; then
-  url="https://dl.min.io/client/mc/release/${platform}-${arch}/mc"
+  url="https://dl.min.io/client/mc/release/${platform}-${arch}/archive/${mc_version}"
   echo "Fetching ${url}..."
-  wget -nv -P ${prefix}/bin ${url}
+  wget -nv --output-document ${prefix}/bin/mc ${url}
   chmod +x ${prefix}/bin/mc
 fi

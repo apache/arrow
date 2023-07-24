@@ -22,29 +22,44 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/bitutil"
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
+
+type ListLike interface {
+	arrow.Array
+	ListValues() arrow.Array
+	ValueOffsets(i int) (start, end int64)
+}
 
 // List represents an immutable sequence of array values.
 type List struct {
 	array
-	values  Interface
+	values  arrow.Array
 	offsets []int32
 }
 
+var _ ListLike = (*List)(nil)
+
 // NewListData returns a new List array value, from data.
-func NewListData(data *Data) *List {
+func NewListData(data arrow.ArrayData) *List {
 	a := &List{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
-func (a *List) ListValues() Interface { return a.values }
+func (a *List) ListValues() arrow.Array { return a.values }
+
+func (a *List) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
 
 func (a *List) String() string {
 	o := new(strings.Builder)
@@ -54,7 +69,7 @@ func (a *List) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -65,10 +80,8 @@ func (a *List) String() string {
 	return o.String()
 }
 
-func (a *List) newListValue(i int) Interface {
-	j := i + a.array.data.offset
-	beg := int64(a.offsets[j])
-	end := int64(a.offsets[j+1])
+func (a *List) newListValue(i int) arrow.Array {
+	beg, end := a.ValueOffsets(i)
 	return NewSlice(a.values, beg, end)
 }
 
@@ -81,7 +94,7 @@ func (a *List) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
-func (a *List) getOneForMarshal(i int) interface{} {
+func (a *List) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -104,7 +117,7 @@ func (a *List) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -122,7 +135,7 @@ func arrayEqualList(left, right *List) bool {
 			defer l.Release()
 			r := right.newListValue(i)
 			defer r.Release()
-			return ArrayEqual(l, r)
+			return Equal(l, r)
 		}()
 		if !o {
 			return false
@@ -146,28 +159,246 @@ func (a *List) Release() {
 	a.values.Release()
 }
 
-type ListBuilder struct {
+func (a *List) ValueOffsets(i int) (start, end int64) {
+	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
+	j := i + a.array.data.offset
+	start, end = int64(a.offsets[j]), int64(a.offsets[j+1])
+	return
+}
+
+// LargeList represents an immutable sequence of array values.
+type LargeList struct {
+	array
+	values  arrow.Array
+	offsets []int64
+}
+
+var _ ListLike = (*LargeList)(nil)
+
+// NewLargeListData returns a new LargeList array value, from data.
+func NewLargeListData(data arrow.ArrayData) *LargeList {
+	a := new(LargeList)
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *LargeList) ListValues() arrow.Array { return a.values }
+
+func (a *LargeList) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
+
+func (a *LargeList) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		if !a.IsValid(i) {
+			o.WriteString(NullValueStr)
+			continue
+		}
+		sub := a.newListValue(i)
+		fmt.Fprintf(o, "%v", sub)
+		sub.Release()
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *LargeList) newListValue(i int) arrow.Array {
+	beg, end := a.ValueOffsets(i)
+	return NewSlice(a.values, beg, end)
+}
+
+func (a *LargeList) setData(data *Data) {
+	a.array.setData(data)
+	vals := data.buffers[1]
+	if vals != nil {
+		a.offsets = arrow.Int64Traits.CastFromBytes(vals.Bytes())
+	}
+	a.values = MakeFromData(data.childData[0])
+}
+
+func (a *LargeList) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	slice := a.newListValue(i)
+	defer slice.Release()
+	v, err := json.Marshal(slice)
+	if err != nil {
+		panic(err)
+	}
+	return json.RawMessage(v)
+}
+
+func (a *LargeList) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+			return nil, err
+		}
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
+}
+
+func arrayEqualLargeList(left, right *LargeList) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return Equal(l, r)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+// Len returns the number of elements in the array.
+func (a *LargeList) Len() int { return a.array.Len() }
+
+func (a *LargeList) Offsets() []int64 { return a.offsets }
+
+func (a *LargeList) ValueOffsets(i int) (start, end int64) {
+	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
+	j := i + a.array.data.offset
+	start, end = a.offsets[j], a.offsets[j+1]
+	return
+}
+
+func (a *LargeList) Retain() {
+	a.array.Retain()
+	a.values.Retain()
+}
+
+func (a *LargeList) Release() {
+	a.array.Release()
+	a.values.Release()
+}
+
+type baseListBuilder struct {
 	builder
 
-	etype   arrow.DataType // data type of the list's elements.
-	values  Builder        // value builder for the list's elements.
-	offsets *Int32Builder
+	values  Builder // value builder for the list's elements.
+	offsets Builder
+
+	// actual list type
+	dt              arrow.DataType
+	appendOffsetVal func(int)
+}
+
+type ListLikeBuilder interface {
+	Builder
+	ValueBuilder() Builder
+	Append(bool)
+}
+
+type ListBuilder struct {
+	baseListBuilder
+}
+
+type LargeListBuilder struct {
+	baseListBuilder
 }
 
 // NewListBuilder returns a builder, using the provided memory allocator.
 // The created list builder will create a list whose elements will be of type etype.
 func NewListBuilder(mem memory.Allocator, etype arrow.DataType) *ListBuilder {
+	offsetBldr := NewInt32Builder(mem)
 	return &ListBuilder{
-		builder: builder{refCount: 1, mem: mem},
-		etype:   etype,
-		values:  NewBuilder(mem, etype),
-		offsets: NewInt32Builder(mem),
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, etype),
+			offsets:         offsetBldr,
+			dt:              arrow.ListOf(etype),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
+		},
+	}
+}
+
+// NewListBuilderWithField takes a field to use for the child rather than just
+// a datatype to allow for more customization.
+func NewListBuilderWithField(mem memory.Allocator, field arrow.Field) *ListBuilder {
+	offsetBldr := NewInt32Builder(mem)
+	return &ListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			dt:              arrow.ListOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
+		},
+	}
+}
+
+func (b *baseListBuilder) Type() arrow.DataType {
+	switch dt := b.dt.(type) {
+	case *arrow.ListType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.ListOfField(f)
+	case *arrow.LargeListType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.LargeListOfField(f)
+	}
+	return nil
+}
+
+// NewLargeListBuilder returns a builder, using the provided memory allocator.
+// The created list builder will create a list whose elements will be of type etype.
+func NewLargeListBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListBuilder {
+	offsetBldr := NewInt64Builder(mem)
+	return &LargeListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, etype),
+			offsets:         offsetBldr,
+			dt:              arrow.LargeListOf(etype),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
+		},
+	}
+}
+
+// NewLargeListBuilderWithField takes a field rather than just an element type
+// to allow for more customization of the final type of the LargeList Array
+func NewLargeListBuilderWithField(mem memory.Allocator, field arrow.Field) *LargeListBuilder {
+	offsetBldr := NewInt64Builder(mem)
+	return &LargeListBuilder{
+		baseListBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			dt:              arrow.LargeListOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
+		},
 	}
 }
 
 // Release decreases the reference count by 1.
 // When the reference count goes to zero, the memory is freed.
-func (b *ListBuilder) Release() {
+func (b *baseListBuilder) Release() {
 	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
 
 	if atomic.AddInt64(&b.refCount, -1) == 0 {
@@ -175,40 +406,57 @@ func (b *ListBuilder) Release() {
 			b.nullBitmap.Release()
 			b.nullBitmap = nil
 		}
+		b.values.Release()
+		b.offsets.Release()
 	}
 
-	b.values.Release()
-	b.offsets.Release()
 }
 
-func (b *ListBuilder) appendNextOffset() {
-	b.offsets.Append(int32(b.values.Len()))
+func (b *baseListBuilder) appendNextOffset() {
+	b.appendOffsetVal(b.values.Len())
 }
 
-func (b *ListBuilder) Append(v bool) {
+func (b *baseListBuilder) Append(v bool) {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(v)
 	b.appendNextOffset()
 }
 
-func (b *ListBuilder) AppendNull() {
+func (b *baseListBuilder) AppendNull() {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(false)
 	b.appendNextOffset()
 }
 
+func (b *baseListBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *baseListBuilder) AppendEmptyValue() {
+	b.Append(true)
+}
+
+func (b *baseListBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
+}
+
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
 	b.Reserve(len(valid))
-	b.offsets.AppendValues(offsets, nil)
+	b.offsets.(*Int32Builder).AppendValues(offsets, nil)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *ListBuilder) unsafeAppend(v bool) {
-	bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
-	b.length++
+func (b *LargeListBuilder) AppendValues(offsets []int64, valid []bool) {
+	b.Reserve(len(valid))
+	b.offsets.(*Int64Builder).AppendValues(offsets, nil)
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *ListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
+func (b *baseListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	if isValid {
 		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
 	} else {
@@ -217,26 +465,26 @@ func (b *ListBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 	b.length++
 }
 
-func (b *ListBuilder) init(capacity int) {
+func (b *baseListBuilder) init(capacity int) {
 	b.builder.init(capacity)
 	b.offsets.init(capacity + 1)
 }
 
 // Reserve ensures there is enough space for appending n elements
 // by checking the capacity and calling Resize if necessary.
-func (b *ListBuilder) Reserve(n int) {
+func (b *baseListBuilder) Reserve(n int) {
 	b.builder.reserve(n, b.resizeHelper)
 	b.offsets.Reserve(n)
 }
 
 // Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
 // additional memory will be allocated. If n is smaller, the allocated memory may reduced.
-func (b *ListBuilder) Resize(n int) {
+func (b *baseListBuilder) Resize(n int) {
 	b.resizeHelper(n)
 	b.offsets.Resize(n)
 }
 
-func (b *ListBuilder) resizeHelper(n int) {
+func (b *baseListBuilder) resizeHelper(n int) {
 	if n < minBuilderCapacity {
 		n = minBuilderCapacity
 	}
@@ -248,46 +496,61 @@ func (b *ListBuilder) resizeHelper(n int) {
 	}
 }
 
-func (b *ListBuilder) ValueBuilder() Builder {
+func (b *baseListBuilder) ValueBuilder() Builder {
 	return b.values
 }
 
 // NewArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
 // so it can be used to build a new array.
-func (b *ListBuilder) NewArray() Interface {
+func (b *ListBuilder) NewArray() arrow.Array {
 	return b.NewListArray()
+}
+
+// NewArray creates a LargeList array from the memory buffers used by the builder and resets the LargeListBuilder
+// so it can be used to build a new array.
+func (b *LargeListBuilder) NewArray() arrow.Array {
+	return b.NewLargeListArray()
 }
 
 // NewListArray creates a List array from the memory buffers used by the builder and resets the ListBuilder
 // so it can be used to build a new array.
 func (b *ListBuilder) NewListArray() (a *List) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
 	data := b.newData()
 	a = NewListData(data)
 	data.Release()
 	return
 }
 
-func (b *ListBuilder) newData() (data *Data) {
+// NewLargeListArray creates a List array from the memory buffers used by the builder and resets the LargeListBuilder
+// so it can be used to build a new array.
+func (b *LargeListBuilder) NewLargeListArray() (a *LargeList) {
+	data := b.newData()
+	a = NewLargeListData(data)
+	data.Release()
+	return
+}
+
+func (b *baseListBuilder) newData() (data *Data) {
+	if b.offsets.Len() != b.length+1 {
+		b.appendNextOffset()
+	}
 	values := b.values.NewArray()
 	defer values.Release()
 
 	var offsets *memory.Buffer
 	if b.offsets != nil {
-		arr := b.offsets.NewInt32Array()
+		arr := b.offsets.NewArray()
 		defer arr.Release()
-		offsets = arr.Data().buffers[1]
+		offsets = arr.Data().Buffers()[1]
 	}
 
 	data = NewData(
-		arrow.ListOf(b.etype), b.length,
+		b.Type(), b.length,
 		[]*memory.Buffer{
 			b.nullBitmap,
 			offsets,
 		},
-		[]*Data{values.Data()},
+		[]arrow.ArrayData{values.Data()},
 		b.nulls,
 		0,
 	)
@@ -296,7 +559,16 @@ func (b *ListBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *ListBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *baseListBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(s)))
+}
+
+func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -305,7 +577,7 @@ func (b *ListBuilder) unmarshalOne(dec *json.Decoder) error {
 	switch t {
 	case json.Delim('['):
 		b.Append(true)
-		if err := b.values.unmarshal(dec); err != nil {
+		if err := b.values.Unmarshal(dec); err != nil {
 			return err
 		}
 		// consume ']'
@@ -316,23 +588,23 @@ func (b *ListBuilder) unmarshalOne(dec *json.Decoder) error {
 	default:
 		return &json.UnmarshalTypeError{
 			Value:  fmt.Sprint(t),
-			Struct: arrow.ListOf(b.etype).String(),
+			Struct: b.dt.String(),
 		}
 	}
 
 	return nil
 }
 
-func (b *ListBuilder) unmarshal(dec *json.Decoder) error {
+func (b *baseListBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (b *ListBuilder) UnmarshalJSON(data []byte) error {
+func (b *baseListBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
 	if err != nil {
@@ -343,10 +615,22 @@ func (b *ListBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (
-	_ Interface = (*List)(nil)
-	_ Builder   = (*ListBuilder)(nil)
+	_ arrow.Array = (*List)(nil)
+	_ arrow.Array = (*LargeList)(nil)
+	_ Builder     = (*ListBuilder)(nil)
+	_ Builder     = (*LargeListBuilder)(nil)
+
+	_ ListLike = (*List)(nil)
+	_ ListLike = (*LargeList)(nil)
+	_ ListLike = (*FixedSizeList)(nil)
+	_ ListLike = (*Map)(nil)
+
+	_ ListLikeBuilder = (*ListBuilder)(nil)
+	_ ListLikeBuilder = (*LargeListBuilder)(nil)
+	_ ListLikeBuilder = (*FixedSizeListBuilder)(nil)
+	_ ListLikeBuilder = (*MapBuilder)(nil)
 )

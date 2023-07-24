@@ -2,14 +2,23 @@
 % Please edit documentation in R/feather.R
 \name{write_feather}
 \alias{write_feather}
-\title{Write data in the Feather format}
+\alias{write_ipc_file}
+\title{Write a Feather file (an Arrow IPC file)}
 \usage{
 write_feather(
   x,
   sink,
   version = 2,
   chunk_size = 65536L,
-  compression = c("default", "lz4", "uncompressed", "zstd"),
+  compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
+  compression_level = NULL
+)
+
+write_ipc_file(
+  x,
+  sink,
+  chunk_size = 65536L,
+  compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
   compression_level = NULL
 )
 }
@@ -19,8 +28,7 @@ write_feather(
 \item{sink}{A string file path, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
 
-\item{version}{integer Feather file version. Version 2 is the current.
-Version 1 is the more limited legacy format.}
+\item{version}{integer Feather file version, Version 1 or Version 2. Version 2 is the default.}
 
 \item{chunk_size}{For V2 files, the number of rows that each chunk of data
 should have in the file. Use a smaller \code{chunk_size} when you need faster
@@ -29,8 +37,11 @@ random row access. Default is 64K. This option is not supported for V1.}
 \item{compression}{Name of compression codec to use, if any. Default is
 "lz4" if LZ4 is available in your build of the Arrow C++ library, otherwise
 "uncompressed". "zstd" is the other available codec and generally has better
-compression ratios in exchange for slower read and write performance
-See \code{\link[=codec_is_available]{codec_is_available()}}. This option is not supported for V1.}
+compression ratios in exchange for slower read and write performance.
+"lz4" is shorthand for the "lz4_frame" codec.
+See \code{\link[=codec_is_available]{codec_is_available()}} for details.
+\code{TRUE} and \code{FALSE} can also be used in place of "default" and "uncompressed".
+This option is not supported for V1.}
 
 \item{compression_level}{If \code{compression} is "zstd", you may
 specify an integer compression level. If omitted, the compression codec's
@@ -44,15 +55,27 @@ the stream will be left open.
 Feather provides binary columnar serialization for data frames.
 It is designed to make reading and writing data frames efficient,
 and to make sharing data across data analysis languages easy.
-This function writes both the original, limited specification of the format
-and the version 2 specification, which is the Apache Arrow IPC file format.
+\code{\link[=write_feather]{write_feather()}} can write both the Feather Version 1 (V1),
+a legacy version available starting in 2016, and the Version 2 (V2),
+which is the Apache Arrow IPC file format.
+The default version is V2.
+V1 files are distinct from Arrow IPC files and lack many feathures,
+such as the ability to store all Arrow data tyeps, and compression support.
+\code{\link[=write_ipc_file]{write_ipc_file()}} can only write V2 files.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
-tf <- tempfile()
-on.exit(unlink(tf))
-write_feather(mtcars, tf)
-\dontshow{\}) # examplesIf}
+# We recommend the ".arrow" extension for Arrow IPC files (Feather V2).
+tf1 <- tempfile(fileext = ".feather")
+tf2 <- tempfile(fileext = ".arrow")
+tf3 <- tempfile(fileext = ".arrow")
+on.exit({
+  unlink(tf1)
+  unlink(tf2)
+  unlink(tf3)
+})
+write_feather(mtcars, tf1, version = 1)
+write_feather(mtcars, tf2)
+write_ipc_file(mtcars, tf3)
 }
 \seealso{
 \link{RecordBatchWriter} for lower-level access to writing Arrow IPC data.

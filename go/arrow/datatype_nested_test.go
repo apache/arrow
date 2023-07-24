@@ -19,6 +19,9 @@ package arrow
 import (
 	"reflect"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestListOf(t *testing.T) {
@@ -91,14 +94,14 @@ func TestStructOf(t *testing.T) {
 			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
 			want: &StructType{
 				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32}},
-				index:  map[string]int{"f1": 0},
+				index:  map[string][]int{"f1": []int{0}},
 			},
 		},
 		{
 			fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
 			want: &StructType{
 				fields: []Field{{Name: "f1", Type: PrimitiveTypes.Int32, Nullable: true}},
-				index:  map[string]int{"f1": 0},
+				index:  map[string][]int{"f1": []int{0}},
 			},
 		},
 		{
@@ -111,7 +114,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f1", Type: PrimitiveTypes.Int32},
 					{Name: "", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string]int{"f1": 0, "": 1},
+				index: map[string][]int{"f1": []int{0}, "": []int{1}},
 			},
 		},
 		{
@@ -124,7 +127,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f1", Type: PrimitiveTypes.Int32},
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 				},
-				index: map[string]int{"f1": 0, "f2": 1},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}},
 			},
 		},
 		{
@@ -139,7 +142,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(PrimitiveTypes.Float64)},
 				},
-				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
 			},
 		},
 		{
@@ -154,7 +157,7 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
 				},
-				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
 			},
 		},
 		{
@@ -169,7 +172,22 @@ func TestStructOf(t *testing.T) {
 					{Name: "f2", Type: PrimitiveTypes.Int64},
 					{Name: "f3", Type: ListOf(ListOf(StructOf(Field{Name: "f1", Type: PrimitiveTypes.Float64})))},
 				},
-				index: map[string]int{"f1": 0, "f2": 1, "f3": 2},
+				index: map[string][]int{"f1": []int{0}, "f2": []int{1}, "f3": []int{2}},
+			},
+		},
+		{
+			fields: []Field{
+				{Name: "f1", Type: PrimitiveTypes.Int32},
+				{Name: "f2", Type: PrimitiveTypes.Int64},
+				{Name: "f1", Type: PrimitiveTypes.Int64},
+			},
+			want: &StructType{
+				fields: []Field{
+					{Name: "f1", Type: PrimitiveTypes.Int32},
+					{Name: "f2", Type: PrimitiveTypes.Int64},
+					{Name: "f1", Type: PrimitiveTypes.Int64},
+				},
+				index: map[string][]int{"f1": []int{0, 2}, "f2": []int{1}},
 			},
 		},
 	} {
@@ -214,33 +232,108 @@ func TestStructOf(t *testing.T) {
 			}
 		})
 	}
+}
 
-	for _, tc := range []struct {
-		fields []Field
-	}{
-		{
-			fields: []Field{
-				{Name: "", Type: PrimitiveTypes.Int32},
-				{Name: "", Type: PrimitiveTypes.Int32},
-			},
-		},
-		{
-			fields: []Field{
-				{Name: "x", Type: PrimitiveTypes.Int32},
-				{Name: "x", Type: PrimitiveTypes.Int32},
-			},
-		},
-	} {
-		t.Run("", func(t *testing.T) {
-			defer func() {
-				e := recover()
-				if e == nil {
-					t.Fatalf("should have panicked")
-				}
-			}()
-			_ = StructOf(tc.fields...)
-		})
+func TestStructField(t *testing.T) {
+	fields := []Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+		{Name: "f3", Type: ListOf(ListOf(PrimitiveTypes.Float64))},
 	}
+	ty := StructOf(fields...)
+
+	field, ok := ty.FieldByName("f1")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[0]))
+
+	field, ok = ty.FieldByName("f2")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[1]))
+
+	field, ok = ty.FieldByName("f3")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[2]))
+
+	_, ok = ty.FieldByName("f4")
+	assert.False(t, ok)
+
+	idx, ok := ty.FieldIdx("f1")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 0)
+
+	idx, ok = ty.FieldIdx("f2")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 1)
+
+	idx, ok = ty.FieldIdx("f3")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 2)
+
+	_, ok = ty.FieldIdx("f4")
+	assert.False(t, ok)
+
+	flds, ok := ty.FieldsByName("f1")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[0]})
+
+	flds, ok = ty.FieldsByName("f2")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[1]})
+
+	flds, ok = ty.FieldsByName("f3")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[2]})
+
+	_, ok = ty.FieldsByName("f4")
+	assert.False(t, ok)
+
+	assert.Equal(t, ty.FieldIndices("f1"), []int{0})
+	assert.Equal(t, ty.FieldIndices("f2"), []int{1})
+	assert.Equal(t, ty.FieldIndices("f3"), []int{2})
+	assert.Equal(t, ty.FieldIndices("f4"), []int(nil))
+
+	fields = []Field{
+		{Name: "f1", Type: PrimitiveTypes.Int32},
+		{Name: "f2", Type: PrimitiveTypes.Int64},
+		{Name: "f1", Type: PrimitiveTypes.Int64},
+	}
+	ty = StructOf(fields...)
+	field, ok = ty.FieldByName("f1")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[0]))
+
+	field, ok = ty.FieldByName("f2")
+	assert.True(t, ok)
+	assert.True(t, field.Equal(fields[1]))
+
+	_, ok = ty.FieldByName("f3")
+	assert.False(t, ok)
+
+	idx, ok = ty.FieldIdx("f1")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 0)
+
+	idx, ok = ty.FieldIdx("f2")
+	assert.True(t, ok)
+	assert.Equal(t, idx, 1)
+
+	_, ok = ty.FieldIdx("f3")
+	assert.False(t, ok)
+
+	flds, ok = ty.FieldsByName("f1")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[0], fields[2]})
+
+	flds, ok = ty.FieldsByName("f2")
+	assert.True(t, ok)
+	assert.Equal(t, flds, []Field{fields[1]})
+
+	_, ok = ty.FieldsByName("f3")
+	assert.False(t, ok)
+
+	assert.Equal(t, ty.FieldIndices("f1"), []int{0, 2})
+	assert.Equal(t, ty.FieldIndices("f2"), []int{1})
+	assert.Equal(t, ty.FieldIndices("f3"), []int(nil))
 }
 
 func TestFieldEqual(t *testing.T) {
@@ -368,7 +461,7 @@ func TestMapOf(t *testing.T) {
 				Field{Name: "key", Type: BinaryTypes.String},
 				Field{Name: "value", Type: PrimitiveTypes.Uint8, Nullable: true},
 			))},
-			str: "map<utf8, uint8>",
+			str: "map<utf8, uint8, items_nullable>",
 		},
 		{
 			key:  BinaryTypes.String,
@@ -381,7 +474,7 @@ func TestMapOf(t *testing.T) {
 						Field{Name: "value", Type: FixedWidthTypes.Date32, Nullable: true},
 					))}},
 			))},
-			str: "map<utf8, map<uint32, date32>>",
+			str: "map<utf8, map<uint32, date32, items_nullable>, items_nullable>",
 		},
 	} {
 		t.Run("", func(t *testing.T) {
@@ -414,13 +507,127 @@ func TestMapOf(t *testing.T) {
 				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
 			}
 
-			if got, want := got.ValueType(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+			if got, want := got.Elem(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
 				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
 			}
 
 			if got, want := got.String(), tc.str; got != want {
 				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
 			}
+		})
+	}
+}
+
+func TestMapOfWithMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		key, item                 DataType
+		keyMetadata, itemMetadata Metadata
+		want                      DataType
+		str                       string
+	}{
+		{
+			key:          BinaryTypes.String,
+			item:         PrimitiveTypes.Uint8,
+			keyMetadata:  NewMetadata([]string{"mk"}, []string{"true"}),
+			itemMetadata: NewMetadata([]string{"mi"}, []string{"true"}),
+			want: &MapType{value: ListOf(StructOf(
+				Field{Name: "key", Type: BinaryTypes.String, Metadata: NewMetadata([]string{"mk"}, []string{"true"})},
+				Field{Name: "value", Type: PrimitiveTypes.Uint8, Nullable: true, Metadata: NewMetadata([]string{"mi"}, []string{"true"})},
+			))},
+			str: "map<utf8, uint8, items_nullable>",
+		},
+	} {
+		t.Run("", func(t *testing.T) {
+			got := MapOfWithMetadata(tc.key, NewMetadata([]string{"mk"}, []string{"true"}), tc.item, NewMetadata([]string{"mi"}, []string{"true"}))
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got=%#v, want=%#v", got, tc.want)
+			}
+
+			if got, want := got.ID(), MAP; got != want {
+				t.Fatalf("invalid ID. got=%v, want=%v", got, want)
+			}
+
+			if got, want := got.Name(), "map"; got != want {
+				t.Fatalf("invalid name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.KeyField().Name, "key"; got != want {
+				t.Fatalf("invalid key field name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ItemField().Name, "value"; got != want {
+				t.Fatalf("invalid item field name. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.KeyType(), tc.key; got != want {
+				t.Fatalf("invalid key type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.ItemType(), tc.item; got != want {
+				t.Fatalf("invalid item type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.Elem(), StructOf(got.KeyField(), got.ItemField()); !TypeEqual(got, want) {
+				t.Fatalf("invalid value type. got=%q, want=%q", got, want)
+			}
+
+			if got, want := got.String(), tc.str; got != want {
+				t.Fatalf("invalid String() result. got=%q, want=%q", got, want)
+			}
+
+			if !reflect.DeepEqual(got.Elem().(*StructType).fields[0].Metadata, tc.keyMetadata) {
+				t.Fatalf("invalid key metadata. got=%v, want=%v", got.Elem().(*StructType).fields[0].Metadata, tc.keyMetadata)
+			}
+			if !reflect.DeepEqual(got.Elem().(*StructType).fields[1].Metadata, tc.itemMetadata) {
+				t.Fatalf("invalid item metadata. got=%v, want=%v", got.Elem().(*StructType).fields[1].Metadata, tc.itemMetadata)
+			}
+		})
+	}
+}
+
+func TestFieldsImmutability(t *testing.T) {
+	cases := []struct {
+		dt       NestedType
+		expected []Field
+	}{
+		{
+			dt:       ListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: ListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       LargeListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: LargeListOfField(Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       FixedSizeListOfField(1, Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: FixedSizeListOfField(1, Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       MapOf(BinaryTypes.String, PrimitiveTypes.Int64),
+			expected: MapOf(BinaryTypes.String, PrimitiveTypes.Int64).Fields(),
+		},
+		{
+			dt:       StructOf(Field{Name: "name", Type: PrimitiveTypes.Int64}),
+			expected: StructOf(Field{Name: "name", Type: PrimitiveTypes.Int64}).Fields(),
+		},
+		{
+			dt:       RunEndEncodedOf(BinaryTypes.String, PrimitiveTypes.Int64),
+			expected: RunEndEncodedOf(BinaryTypes.String, PrimitiveTypes.Int64).Fields(),
+		},
+		{
+			dt:       UnionOf(DenseMode, []Field{{Name: "name", Type: PrimitiveTypes.Int64}}, []UnionTypeCode{0}),
+			expected: UnionOf(DenseMode, []Field{{Name: "name", Type: PrimitiveTypes.Int64}}, []UnionTypeCode{0}).Fields(),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.dt.String(), func(t *testing.T) {
+			fields := tc.dt.Fields()
+			fields[0].Nullable = !fields[0].Nullable
+			fields[0].Name = uuid.NewString()
+			fields[0].Type = nil
+
+			assert.Equal(t, tc.expected, tc.dt.Fields())
 		})
 	}
 }

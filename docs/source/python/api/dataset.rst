@@ -22,11 +22,6 @@
 Dataset
 =======
 
-.. warning::
-
-    The ``pyarrow.dataset`` module is experimental (specifically the classes),
-    and a stable API is not yet guaranteed.
-
 Factory functions
 -----------------
 
@@ -51,16 +46,31 @@ Classes
    CsvFragmentScanOptions
    IpcFileFormat
    ParquetFileFormat
+   ParquetReadOptions
    ParquetFragmentScanOptions
-   ORCFileFormat
+   OrcFileFormat
    Partitioning
    PartitioningFactory
    DirectoryPartitioning
    HivePartitioning
+   FilenamePartitioning
    Dataset
    FileSystemDataset
    FileSystemFactoryOptions
    FileSystemDatasetFactory
    UnionDataset
+   Fragment
+   FragmentScanOptions
+   TaggedRecordBatch
    Scanner
    Expression
+   InMemoryDataset
+   WrittenFile
+
+Helper functions
+-----------------
+
+.. autosummary::
+   :toctree: ../generated/
+
+   get_partition_keys

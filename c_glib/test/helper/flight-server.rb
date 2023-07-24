@@ -18,6 +18,19 @@
 require_relative "flight-info-generator"
 
 module Helper
+  class FlightAuthHandler < ArrowFlight::ServerCustomAuthHandler
+    type_register
+
+    private
+    def virtual_do_authenticate(context, sender, reader)
+      true
+    end
+
+    def virtual_do_is_valid(context, token)
+      "identity"
+    end
+  end
+
   class FlightServer < ArrowFlight::Server
     type_register
 
@@ -25,6 +38,11 @@ module Helper
     def virtual_do_list_flights(context, criteria)
       generator = FlightInfoGenerator.new
       [generator.page_view]
+    end
+
+    def virtual_do_get_flight_info(command, criteria)
+      generator = FlightInfoGenerator.new
+      generator.page_view
     end
 
     def virtual_do_do_get(context, ticket)

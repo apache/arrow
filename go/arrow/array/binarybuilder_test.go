@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -50,8 +50,12 @@ func TestBinaryBuilder(t *testing.T) {
 		}
 		assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
 	}
+	// Zm9v is foo in base64
+	assert.NoError(t, ab.AppendValueFromString("Zm9v"))
 
 	ar := ab.NewBinaryArray()
+	assert.Equal(t, "Zm9v", ar.ValueStr(5))
+
 	ab.Release()
 	ar.Release()
 
@@ -71,12 +75,72 @@ func TestBinaryBuilder_ReserveData(t *testing.T) {
 	// when appending entries until that count.
 	ab.ReserveData(256)
 	expCap := ab.DataCap()
-	for i := 0; i < 256 / 8; i++ {
+	for i := 0; i < 256/8; i++ {
 		ab.Append(bytes.Repeat([]byte("a"), 8))
 	}
 	assert.Equal(t, expCap, ab.DataCap(), "unexpected BinaryArrayBuilder.DataCap()")
 
 	ar := ab.NewBinaryArray()
+	ab.Release()
+	ar.Release()
+
+	// check state of builder after NewBinaryArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+}
+
+func TestBinaryBuilderLarge(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+
+	exp := [][]byte{[]byte("foo"), []byte("bar"), nil, []byte("sydney"), []byte("cameron")}
+	for _, v := range exp {
+		if v == nil {
+			ab.AppendNull()
+		} else {
+			ab.Append(v)
+		}
+	}
+
+	assert.Equal(t, len(exp), ab.Len(), "unexpected Len()")
+	assert.Equal(t, 1, ab.NullN(), "unexpected NullN()")
+
+	for i, v := range exp {
+		if v == nil {
+			v = []byte{}
+		}
+		assert.Equal(t, v, ab.Value(i), "unexpected BinaryArrayBuilder.Value(%d)", i)
+	}
+
+	ar := ab.NewLargeBinaryArray()
+	ab.Release()
+	ar.Release()
+
+	// check state of builder after NewBinaryArray
+	assert.Zero(t, ab.Len(), "unexpected ArrayBuilder.Len(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.Cap(), "unexpected ArrayBuilder.Cap(), NewBinaryArray did not reset state")
+	assert.Zero(t, ab.NullN(), "unexpected ArrayBuilder.NullN(), NewBinaryArray did not reset state")
+}
+
+func TestBinaryBuilderLarge_ReserveData(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	ab := array.NewBinaryBuilder(mem, arrow.BinaryTypes.LargeBinary)
+
+	// call ReserveData and ensure the capacity doesn't change
+	// when appending entries until that count.
+	ab.ReserveData(256)
+	expCap := ab.DataCap()
+	for i := 0; i < 256/8; i++ {
+		ab.Append(bytes.Repeat([]byte("a"), 8))
+	}
+	assert.Equal(t, expCap, ab.DataCap(), "unexpected BinaryArrayBuilder.DataCap()")
+
+	ar := ab.NewLargeBinaryArray()
 	ab.Release()
 	ar.Release()
 

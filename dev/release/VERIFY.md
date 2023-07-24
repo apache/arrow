@@ -94,8 +94,10 @@ download of a dependency from the internet. It is possible to run
 specific verification tests by setting environment variables, for example
 
 ```console
-% TEST_DEFAULT=0 TEST_GO=1 dev/release/verify-release-candidate.sh source 6.0.0 3
-% TEST_YUM=1 dev/release/verify-release-candidate.sh binaries 6.0.0 3
+% TEST_DEFAULT=0 TEST_SOURCE=1 dev/release/verify-release-candidate.sh 6.0.0 3
+% TEST_DEFAULT=0 TEST_BINARIES=1 dev/release/verify-release-candidate.sh 6.0.0 3
+% TEST_DEFAULT=0 TEST_GO=1 dev/release/verify-release-candidate.sh 6.0.0 3
+% TEST_DEFAULT=0 TEST_YUM=1 dev/release/verify-release-candidate.sh 6.0.0 3
 ```
 
 It is also possible to use

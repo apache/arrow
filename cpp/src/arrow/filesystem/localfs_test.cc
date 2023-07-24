@@ -18,6 +18,7 @@
 #include <cerrno>
 #include <chrono>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,14 +31,18 @@
 #include "arrow/filesystem/test_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/io_util.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace fs {
 namespace internal {
 
+using ::arrow::internal::FileDescriptor;
 using ::arrow::internal::PlatformFilename;
 using ::arrow::internal::TemporaryDir;
+using ::arrow::internal::UriFromAbsolutePath;
 
 class LocalFSTestMixin : public ::testing::Test {
  public:
@@ -162,19 +167,13 @@ class TestLocalFS : public LocalFSTestMixin {
   void SetUp() {
     LocalFSTestMixin::SetUp();
     path_formatter_ = PathFormatter();
-    local_fs_ = std::make_shared<LocalFileSystem>();
     local_path_ = EnsureTrailingSlash(path_formatter_(temp_dir_->path().ToString()));
-    fs_ = std::make_shared<SubTreeFileSystem>(local_path_, local_fs_);
+    MakeFileSystem();
   }
 
-  std::string UriFromAbsolutePath(const std::string& path) {
-#ifdef _WIN32
-    // Path is supposed to start with "X:/..."
-    return "file:///" + path;
-#else
-    // Path is supposed to start with "/..."
-    return "file://" + path;
-#endif
+  void MakeFileSystem() {
+    local_fs_ = std::make_shared<LocalFileSystem>(options_);
+    fs_ = std::make_shared<SubTreeFileSystem>(local_path_, local_fs_);
   }
 
   template <typename FileSystemFromUriFunc>
@@ -185,7 +184,7 @@ class TestLocalFS : public LocalFSTestMixin {
     }
     std::string path;
     ASSERT_OK_AND_ASSIGN(fs_, fs_from_uri(uri, &path));
-    ASSERT_EQ(path, local_path_);
+    ASSERT_EQ(path, std::string(RemoveTrailingSlash(local_path_)));
 
     // Test that the right location on disk is accessed
     CreateFile(fs_.get(), local_path_ + "abc", "some data");
@@ -203,12 +202,15 @@ class TestLocalFS : public LocalFSTestMixin {
   template <typename FileSystemFromUriFunc>
   void CheckLocalUri(const std::string& uri, const std::string& expected_path,
                      FileSystemFromUriFunc&& fs_from_uri) {
+    ARROW_SCOPED_TRACE("uri = ", uri);
     if (!path_formatter_.supports_uri()) {
       return;  // skip
     }
     std::string path;
     ASSERT_OK_AND_ASSIGN(fs_, fs_from_uri(uri, &path));
     ASSERT_EQ(fs_->type_name(), "local");
+    ASSERT_EQ(path, expected_path);
+    ASSERT_OK_AND_ASSIGN(path, fs_->PathFromUri(uri));
     ASSERT_EQ(path, expected_path);
   }
 
@@ -222,6 +224,7 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void TestInvalidUri(const std::string& uri) {
+    ARROW_SCOPED_TRACE("uri = ", uri);
     if (!path_formatter_.supports_uri()) {
       return;  // skip
     }
@@ -229,17 +232,26 @@ class TestLocalFS : public LocalFSTestMixin {
   }
 
   void TestInvalidUriOrPath(const std::string& uri) {
+    ARROW_SCOPED_TRACE("uri = ", uri);
     if (!path_formatter_.supports_uri()) {
       return;  // skip
     }
     ASSERT_RAISES(Invalid, FileSystemFromUriOrPath(uri));
+    LocalFileSystem lfs;
+    ASSERT_RAISES(Invalid, lfs.PathFromUri(uri));
+  }
+
+  void TestInvalidPathFromUri(const std::string& uri, const std::string& expected_err) {
+    // Legitimate URI for the wrong filesystem
+    LocalFileSystem lfs;
+    ASSERT_THAT(lfs.PathFromUri(uri),
+                Raises(StatusCode::Invalid, testing::HasSubstr(expected_err)));
   }
 
   void CheckConcreteFile(const std::string& path, int64_t expected_size) {
     ASSERT_OK_AND_ASSIGN(auto fn, PlatformFilename::FromString(path));
-    ASSERT_OK_AND_ASSIGN(int fd, ::arrow::internal::FileOpenReadable(fn));
-    auto result = ::arrow::internal::FileGetSize(fd);
-    ASSERT_OK(::arrow::internal::FileClose(fd));
+    ASSERT_OK_AND_ASSIGN(FileDescriptor fd, ::arrow::internal::FileOpenReadable(fn));
+    auto result = ::arrow::internal::FileGetSize(fd.fd());
     ASSERT_OK_AND_ASSIGN(int64_t size, result);
     ASSERT_EQ(size, expected_size);
   }
@@ -248,6 +260,7 @@ class TestLocalFS : public LocalFSTestMixin {
 
  protected:
   PathFormatter path_formatter_;
+  LocalFileSystemOptions options_ = LocalFileSystemOptions::Defaults();
   std::shared_ptr<LocalFileSystem> local_fs_;
   std::shared_ptr<FileSystem> fs_;
   std::string local_path_;
@@ -301,23 +314,28 @@ TYPED_TEST(TestLocalFS, NormalizePathThroughSubtreeFS) {
 
 TYPED_TEST(TestLocalFS, FileSystemFromUriFile) {
   // Concrete test with actual file
-  const auto uri_string = this->UriFromAbsolutePath(this->local_path_);
+  ASSERT_OK_AND_ASSIGN(auto uri_string, UriFromAbsolutePath(this->local_path_));
   this->TestFileSystemFromUri(uri_string);
   this->TestFileSystemFromUriOrPath(uri_string);
 
   // Variations
   this->TestLocalUri("file:/foo/bar", "/foo/bar");
   this->TestLocalUri("file:///foo/bar", "/foo/bar");
+  this->TestLocalUri("file:///some%20path/%25percent", "/some path/%percent");
 #ifdef _WIN32
   this->TestLocalUri("file:/C:/foo/bar", "C:/foo/bar");
   this->TestLocalUri("file:///C:/foo/bar", "C:/foo/bar");
+  this->TestLocalUri("file:///C:/some%20path/%25percent", "C:/some path/%percent");
 #endif
 
   // Non-empty authority
 #ifdef _WIN32
   this->TestLocalUri("file://server/share/foo/bar", "//server/share/foo/bar");
+  this->TestLocalUri("file://some%20server/some%20share/some%20path",
+                     "//some server/some share/some path");
 #else
   this->TestInvalidUri("file://server/share/foo/bar");
+  this->TestInvalidUriOrPath("file://server/share/foo/bar");
 #endif
 
   // Relative paths
@@ -332,9 +350,10 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoScheme) {
 
   // Variations
   this->TestLocalUriOrPath(this->path_formatter_("/foo/bar"), "/foo/bar");
+  this->TestLocalUriOrPath(this->path_formatter_("/"), "/");
 
 #ifdef _WIN32
-  this->TestLocalUriOrPath(this->path_formatter_("C:/foo/bar/"), "C:/foo/bar/");
+  this->TestLocalUriOrPath(this->path_formatter_("C:/foo/bar/"), "C:/foo/bar");
 #endif
 
   // Relative paths
@@ -356,6 +375,11 @@ TYPED_TEST(TestLocalFS, FileSystemFromUriNoSchemeBackslashes) {
   // Relative paths
   this->TestInvalidUriOrPath("C:foo\\bar");
   this->TestInvalidUriOrPath("foo\\bar");
+}
+
+TYPED_TEST(TestLocalFS, MismatchedFilesystemPathFromUri) {
+  this->TestInvalidPathFromUri("s3://foo",
+                               "expected a URI with one of the schemes (file)");
 }
 
 TYPED_TEST(TestLocalFS, DirectoryMTime) {
@@ -396,6 +420,78 @@ TYPED_TEST(TestLocalFS, FileMTime) {
   AssertDurationBetween(infos[1].mtime() - infos[0].mtime(), 0, kTimeSlack);
   AssertDurationBetween(infos[0].mtime() - t1, -kTimeSlack, kTimeSlack);
   AssertDurationBetween(t2 - infos[1].mtime(), -kTimeSlack, kTimeSlack);
+}
+
+struct DirTreeCreator {
+  static constexpr int kFilesPerDir = 50;
+  static constexpr int kDirLevels = 2;
+  static constexpr int kSubdirsPerDir = 8;
+
+  FileSystem* fs_;
+
+  Result<FileInfoVector> Create(const std::string& base) {
+    FileInfoVector infos;
+    RETURN_NOT_OK(Create(base, 0, &infos));
+    return std::move(infos);
+  }
+
+  Status Create(const std::string& base, int depth, FileInfoVector* infos) {
+    for (int i = 0; i < kFilesPerDir; ++i) {
+      std::stringstream ss;
+      ss << "f" << i;
+      auto path = ConcatAbstractPath(base, ss.str());
+      const int data_size = i % 5;
+      std::string data(data_size, 'x');
+      CreateFile(fs_, path, data);
+      FileInfo info(std::move(path), FileType::File);
+      info.set_size(data_size);
+      infos->push_back(std::move(info));
+    }
+    if (depth < kDirLevels) {
+      for (int i = 0; i < kSubdirsPerDir; ++i) {
+        std::stringstream ss;
+        ss << "d" << i;
+        auto path = ConcatAbstractPath(base, ss.str());
+        RETURN_NOT_OK(fs_->CreateDir(path));
+        infos->push_back(FileInfo(path, FileType::Directory));
+        RETURN_NOT_OK(Create(path, depth + 1, infos));
+      }
+    }
+    return Status::OK();
+  }
+};
+
+TYPED_TEST(TestLocalFS, StressGetFileInfoGenerator) {
+  // Stress GetFileInfoGenerator with large numbers of entries
+  DirTreeCreator dir_tree_creator{this->local_fs_.get()};
+  ASSERT_OK_AND_ASSIGN(FileInfoVector expected,
+                       dir_tree_creator.Create(this->local_path_));
+  SortInfos(&expected);
+
+  for (int32_t directory_readahead : {1, 5}) {
+    for (int32_t file_info_batch_size : {3, 1000}) {
+      ARROW_SCOPED_TRACE("directory_readahead = ", directory_readahead,
+                         ", file_info_batch_size = ", file_info_batch_size);
+      this->options_.directory_readahead = directory_readahead;
+      this->options_.file_info_batch_size = file_info_batch_size;
+      this->MakeFileSystem();
+
+      FileSelector selector;
+      selector.base_dir = this->local_path_;
+      selector.recursive = true;
+
+      auto gen = this->local_fs_->GetFileInfoGenerator(selector);
+      FileInfoVector actual;
+      CollectFileInfoGenerator(gen, &actual);
+      ASSERT_EQ(actual.size(), expected.size());
+      SortInfos(&actual);
+
+      for (int64_t i = 0; i < static_cast<int64_t>(actual.size()); ++i) {
+        AssertFileInfo(actual[i], expected[i].path(), expected[i].type(),
+                       expected[i].size());
+      }
+    }
+  }
 }
 
 // TODO Should we test backslash paths on Windows?

@@ -55,18 +55,28 @@ class ARROW_EXPORT Array {
   virtual ~Array() = default;
 
   /// \brief Return true if value at index is null. Does not boundscheck
-  bool IsNull(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR
-               ? !bit_util::GetBit(null_bitmap_data_, i + data_->offset)
-               : data_->null_count == data_->length;
-  }
+  bool IsNull(int64_t i) const { return !IsValid(i); }
 
   /// \brief Return true if value at index is valid (not null). Does not
   /// boundscheck
   bool IsValid(int64_t i) const {
-    return null_bitmap_data_ != NULLPTR
-               ? bit_util::GetBit(null_bitmap_data_, i + data_->offset)
-               : data_->null_count != data_->length;
+    if (null_bitmap_data_ != NULLPTR) {
+      return bit_util::GetBit(null_bitmap_data_, i + data_->offset);
+    }
+    // Dispatching with a few conditionals like this makes IsNull more
+    // efficient for how it is used in practice. Making IsNull virtual
+    // would add a vtable lookup to every call and prevent inlining +
+    // a potential inner-branch removal.
+    if (type_id() == Type::SPARSE_UNION) {
+      return !internal::IsNullSparseUnion(*data_, i);
+    }
+    if (type_id() == Type::DENSE_UNION) {
+      return !internal::IsNullDenseUnion(*data_, i);
+    }
+    if (type_id() == Type::RUN_END_ENCODED) {
+      return !internal::IsNullRunEndEncoded(*data_, i);
+    }
+    return data_->null_count != data_->length;
   }
 
   /// \brief Return a Scalar containing the value of this array at i
@@ -85,7 +95,18 @@ class ARROW_EXPORT Array {
   /// function
   int64_t null_count() const;
 
-  std::shared_ptr<DataType> type() const { return data_->type; }
+  /// \brief Computes the logical null count for arrays of all types including
+  /// those that do not have a validity bitmap like union and run-end encoded
+  /// arrays
+  ///
+  /// If the array has a validity bitmap, this function behaves the same as
+  /// null_count(). For types that have no validity bitmap, this function will
+  /// recompute the null count every time it is called.
+  ///
+  /// \see GetNullCount
+  int64_t ComputeLogicalNullCount() const;
+
+  const std::shared_ptr<DataType>& type() const { return data_->type; }
   Type::type type_id() const { return data_->type->id(); }
 
   /// Buffer for the validity (null) bitmap, if any. Note that Union types
@@ -133,6 +154,7 @@ class ARROW_EXPORT Array {
                    int64_t end_idx, int64_t other_start_idx,
                    const EqualOptions& = EqualOptions::Defaults()) const;
 
+  /// \brief Apply the ArrayVisitor::Visit() method specialized to the array type
   Status Accept(ArrayVisitor* visitor) const;
 
   /// Construct a zero-copy view of this array with the given type.
@@ -187,10 +209,11 @@ class ARROW_EXPORT Array {
   Status ValidateFull() const;
 
  protected:
-  Array() : null_bitmap_data_(NULLPTR) {}
+  Array() = default;
+  ARROW_DEFAULT_MOVE_AND_ASSIGN(Array);
 
   std::shared_ptr<ArrayData> data_;
-  const uint8_t* null_bitmap_data_;
+  const uint8_t* null_bitmap_data_ = NULLPTR;
 
   /// Protected method for constructors
   void SetData(const std::shared_ptr<ArrayData>& data) {
@@ -204,6 +227,8 @@ class ARROW_EXPORT Array {
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Array);
+
+  ARROW_FRIEND_EXPORT friend void PrintTo(const Array& x, std::ostream* os);
 };
 
 static inline std::ostream& operator<<(std::ostream& os, const Array& x) {
@@ -226,7 +251,7 @@ class ARROW_EXPORT PrimitiveArray : public FlatArray {
                  int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
   /// Does not account for any slice offset
-  std::shared_ptr<Buffer> values() const { return data_->buffers[1]; }
+  const std::shared_ptr<Buffer>& values() const { return data_->buffers[1]; }
 
  protected:
   PrimitiveArray() : raw_values_(NULLPTR) {}

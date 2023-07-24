@@ -1,0 +1,47 @@
+apache-arrow-apt-source (12.0.1-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Wed, 07 Jun 2023 14:45:55 -0000
+
+apache-arrow-apt-source (12.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Fri, 21 Apr 2023 08:37:41 -0000
+
+apache-arrow-apt-source (11.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Raúl Cumplido <raulcumplido@gmail.com>  Wed, 18 Jan 2023 08:38:47 -0000
+
+apache-arrow-apt-source (10.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Sutou Kouhei <kou@clear-code.com>  Thu, 20 Oct 2022 21:45:17 -0000
+
+apache-arrow-apt-source (9.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Fri, 29 Jul 2022 16:41:29 -0000
+
+apache-arrow-apt-source (8.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Tue, 03 May 2022 16:56:56 -0000
+
+apache-arrow-apt-source (7.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Sat, 29 Jan 2022 00:08:24 -0000
+
+apache-arrow-apt-source (6.0.0-1) unstable; urgency=low
+
+  * New upstream release.
+
+ -- Krisztián Szűcs <szucs.krisztian@gmail.com>  Thu, 21 Oct 2021 19:01:54 -0000

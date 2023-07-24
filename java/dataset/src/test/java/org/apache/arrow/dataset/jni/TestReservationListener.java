@@ -30,6 +30,7 @@ import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.junit.Assert;
 import org.junit.ClassRule;
 import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
 import org.junit.rules.TemporaryFolder;
 
 public class TestReservationListener extends TestDataset {
@@ -54,7 +55,7 @@ public class TestReservationListener extends TestDataset {
     AutoCloseables.close(pool);
     long finalReservation = DirectReservationListener.instance().getCurrentDirectMemReservation();
     Assert.assertTrue(reservation >= initReservation);
-    Assert.assertTrue(finalReservation == initReservation);
+    Assert.assertEquals(initReservation, finalReservation);
   }
 
   @Test
@@ -83,6 +84,37 @@ public class TestReservationListener extends TestDataset {
     AutoCloseables.close(pool);
     long finalReservation = reserved.get();
     Assert.assertTrue(reservation >= initReservation);
-    Assert.assertTrue(finalReservation == initReservation);
+    Assert.assertEquals(initReservation, finalReservation);
+  }
+
+  @Test
+  public void testErrorThrownFromReservationListener() throws Exception {
+    final String errorMessage = "ERROR_MESSAGE";
+    ParquetWriteSupport writeSupport = ParquetWriteSupport.writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 1, "a");
+    final AtomicLong reserved = new AtomicLong(0L);
+    ReservationListener listener = new ReservationListener() {
+      @Override
+      public void reserve(long size) {
+        throw new IllegalArgumentException(errorMessage);
+      }
+
+      @Override
+      public void unreserve(long size) {
+        // no-op
+      }
+    };
+    NativeMemoryPool pool = NativeMemoryPool.createListenable(listener);
+    FileSystemDatasetFactory factory = new FileSystemDatasetFactory(rootAllocator(),
+        pool, FileFormat.PARQUET, writeSupport.getOutputURI());
+    ScanOptions options = new ScanOptions(100);
+    long initReservation = reserved.get();
+    Assertions.assertThrows(IllegalArgumentException.class, () -> {
+      collectResultFromFactory(factory, options);
+    }, errorMessage);
+    long reservation = reserved.get();
+    AutoCloseables.close(pool);
+    long finalReservation = reserved.get();
+    Assert.assertEquals(initReservation, reservation);
+    Assert.assertEquals(initReservation, finalReservation);
   }
 }

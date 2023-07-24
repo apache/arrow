@@ -119,9 +119,9 @@ namespace Apache.Arrow.IntegrationTest
 
         private RecordBatch CreateRecordBatch(Schema schema, JsonRecordBatch jsonRecordBatch)
         {
-            if (schema.Fields.Count != jsonRecordBatch.Columns.Count)
+            if (schema.FieldsList.Count != jsonRecordBatch.Columns.Count)
             {
-                throw new NotSupportedException($"jsonRecordBatch.Columns.Count '{jsonRecordBatch.Columns.Count}' doesn't match schema field count '{schema.Fields.Count}'");
+                throw new NotSupportedException($"jsonRecordBatch.Columns.Count '{jsonRecordBatch.Columns.Count}' doesn't match schema field count '{schema.FieldsList.Count}'");
             }
 
             List<IArrowArray> arrays = new List<IArrowArray>(jsonRecordBatch.Columns.Count);
@@ -173,6 +173,7 @@ namespace Apache.Arrow.IntegrationTest
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
+                "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
             };
         }
@@ -266,12 +267,15 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<Date32Type>,
             IArrowTypeVisitor<Date64Type>,
+            IArrowTypeVisitor<Time32Type>,
+            IArrowTypeVisitor<Time64Type>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
-            IArrowTypeVisitor<StructType>
+            IArrowTypeVisitor<StructType>,
+            IArrowTypeVisitor<NullType>
         {
             private JsonFieldData JsonFieldData { get; }
             public IArrowArray Array { get; private set; }
@@ -310,6 +314,8 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(UInt64Type type) => GenerateLongArray<ulong, UInt64Array>((v, n, c, nc, o) => new UInt64Array(v, n, c, nc, o), s => ulong.Parse(s));
             public void Visit(FloatType type) => GenerateArray<float, FloatArray>((v, n, c, nc, o) => new FloatArray(v, n, c, nc, o));
             public void Visit(DoubleType type) => GenerateArray<double, DoubleArray>((v, n, c, nc, o) => new DoubleArray(v, n, c, nc, o));
+            public void Visit(Time32Type type) => GenerateArray<int, Time32Array>((v, n, c, nc, o) => new Time32Array(type, v, n, c, nc, o));
+            public void Visit(Time64Type type) => GenerateLongArray<long, Time64Array>((v, n, c, nc, o) => new Time64Array(type, v, n, c, nc, o), s => long.Parse(s));
 
             public void Visit(Decimal128Type type)
             {
@@ -319,6 +325,11 @@ namespace Apache.Arrow.IntegrationTest
             public void Visit(Decimal256Type type)
             {
                 Array = new Decimal256Array(GetDecimalArrayData(type));
+            }
+
+            public void Visit(NullType type)
+            {
+                Array = new NullArray(JsonFieldData.Count);
             }
 
             private ArrayData GetDecimalArrayData(FixedSizeBinaryType type)
@@ -393,7 +404,21 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(TimestampType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrowBuffer.Builder<long> valueBuilder = new ArrowBuffer.Builder<long>(JsonFieldData.Count);
+                var json = JsonFieldData.Data.GetRawText();
+                string[] values = JsonSerializer.Deserialize<string[]>(json, s_options);
+
+                foreach (string value in values)
+                {
+                    valueBuilder.Append(long.Parse(value));
+                }
+                ArrowBuffer valueBuffer = valueBuilder.Build();
+
+                Array = new TimestampArray(
+                    type, valueBuffer, validityBuffer,
+                    JsonFieldData.Count, nullCount, 0);
             }
 
             public void Visit(StringType type)

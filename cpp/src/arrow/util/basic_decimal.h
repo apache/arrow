@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -37,61 +38,155 @@ enum class DecimalStatus {
   kRescaleDataLoss,
 };
 
-/// Represents a signed 128-bit integer in two's complement.
-///
-/// This class is also compiled into LLVM IR - so, it should not have cpp references like
-/// streams and boost.
-class ARROW_EXPORT BasicDecimal128 {
+template <typename Derived, int BIT_WIDTH, int NWORDS = BIT_WIDTH / 64>
+class ARROW_EXPORT GenericBasicDecimal {
+ protected:
   struct LittleEndianArrayTag {};
 
+#if ARROW_LITTLE_ENDIAN
+  static constexpr int kHighWordIndex = NWORDS - 1;
+  static constexpr int kLowWordIndex = 0;
+#else
+  static constexpr int kHighWordIndex = 0;
+  static constexpr int kLowWordIndex = NWORDS - 1;
+#endif
+
  public:
-  static constexpr int kBitWidth = 128;
-  static constexpr int kMaxPrecision = 38;
-  static constexpr int kMaxScale = 38;
+  static constexpr int kBitWidth = BIT_WIDTH;
+  static constexpr int kByteWidth = kBitWidth / 8;
+  static constexpr int kNumWords = NWORDS;
 
   // A constructor tag to introduce a little-endian encoded array
   static constexpr LittleEndianArrayTag LittleEndianArray{};
 
-  /// \brief Create a BasicDecimal128 from the two's complement representation.
-#if ARROW_LITTLE_ENDIAN
-  constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
-      : low_bits_(low), high_bits_(high) {}
-#else
-  constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
-      : high_bits_(high), low_bits_(low) {}
-#endif
+  using WordArray = std::array<uint64_t, NWORDS>;
 
-  /// \brief Create a BasicDecimal256 from the two's complement representation.
+  /// \brief Empty constructor creates a decimal with a value of 0.
+  constexpr GenericBasicDecimal() noexcept : array_({0}) {}
+
+  /// \brief Create a decimal from the two's complement representation.
   ///
   /// Input array is assumed to be in native endianness.
-#if ARROW_LITTLE_ENDIAN
-  constexpr BasicDecimal128(const std::array<uint64_t, 2>& array) noexcept
-      : low_bits_(array[0]), high_bits_(static_cast<int64_t>(array[1])) {}
-#else
-  constexpr BasicDecimal128(const std::array<uint64_t, 2>& array) noexcept
-      : high_bits_(static_cast<int64_t>(array[0])), low_bits_(array[1]) {}
-#endif
+  explicit constexpr GenericBasicDecimal(const WordArray& array) noexcept
+      : array_(array) {}
 
-  /// \brief Create a BasicDecimal128 from the two's complement representation.
+  /// \brief Create a decimal from the two's complement representation.
   ///
   /// Input array is assumed to be in little endianness, with native endian elements.
-  BasicDecimal128(LittleEndianArrayTag, const std::array<uint64_t, 2>& array) noexcept
-      : BasicDecimal128(bit_util::little_endian::ToNative(array)) {}
+  GenericBasicDecimal(LittleEndianArrayTag, const WordArray& array) noexcept
+      : GenericBasicDecimal(bit_util::little_endian::ToNative(array)) {}
 
-  /// \brief Empty constructor creates a BasicDecimal128 with a value of 0.
-  constexpr BasicDecimal128() noexcept : BasicDecimal128(0, 0) {}
-
-  /// \brief Convert any integer value into a BasicDecimal128.
+  /// \brief Create a decimal from any integer not wider than 64 bits.
   template <typename T,
             typename = typename std::enable_if<
                 std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal128(T value) noexcept
-      : BasicDecimal128(value >= T{0} ? 0 : -1, static_cast<uint64_t>(value)) {  // NOLINT
+  constexpr GenericBasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
+      : array_(WordsFromLowBits(value)) {}
+
+  /// \brief Create a decimal from an array of bytes.
+  ///
+  /// Bytes are assumed to be in native-endian byte order.
+  explicit GenericBasicDecimal(const uint8_t* bytes) {
+    memcpy(array_.data(), bytes, sizeof(array_));
   }
 
-  /// \brief Create a BasicDecimal128 from an array of bytes. Bytes are assumed to be in
-  /// native-endian byte order.
-  explicit BasicDecimal128(const uint8_t* bytes);
+  /// \brief Get the bits of the two's complement representation of the number.
+  ///
+  /// The elements are in native endian order. The bits within each uint64_t element
+  /// are in native endian order. For example, on a little endian machine,
+  /// BasicDecimal128(123).native_endian_array() = {123, 0};
+  /// but on a big endian machine,
+  /// BasicDecimal128(123).native_endian_array() = {0, 123};
+  constexpr const WordArray& native_endian_array() const { return array_; }
+
+  /// \brief Get the bits of the two's complement representation of the number.
+  ///
+  /// The elements are in little endian order. However, the bits within each
+  /// uint64_t element are in native endian order.
+  /// For example, BasicDecimal128(123).little_endian_array() = {123, 0};
+  WordArray little_endian_array() const {
+    return bit_util::little_endian::FromNative(array_);
+  }
+
+  const uint8_t* native_endian_bytes() const {
+    return reinterpret_cast<const uint8_t*>(array_.data());
+  }
+
+  uint8_t* mutable_native_endian_bytes() {
+    return reinterpret_cast<uint8_t*>(array_.data());
+  }
+
+  /// \brief Return the raw bytes of the value in native-endian byte order.
+  std::array<uint8_t, kByteWidth> ToBytes() const {
+    std::array<uint8_t, kByteWidth> out{{0}};
+    memcpy(out.data(), array_.data(), kByteWidth);
+    return out;
+  }
+
+  /// \brief Copy the raw bytes of the value in native-endian byte order.
+  void ToBytes(uint8_t* out) const { memcpy(out, array_.data(), kByteWidth); }
+
+  /// Return 1 if positive or zero, -1 if strictly negative.
+  int64_t Sign() const {
+    return 1 | (static_cast<int64_t>(array_[kHighWordIndex]) >> 63);
+  }
+
+  bool IsNegative() const { return static_cast<int64_t>(array_[kHighWordIndex]) < 0; }
+
+  explicit operator bool() const { return array_ != WordArray{}; }
+
+  friend bool operator==(const GenericBasicDecimal& left,
+                         const GenericBasicDecimal& right) {
+    return left.array_ == right.array_;
+  }
+
+  friend bool operator!=(const GenericBasicDecimal& left,
+                         const GenericBasicDecimal& right) {
+    return left.array_ != right.array_;
+  }
+
+ protected:
+  WordArray array_;
+
+  template <typename T>
+  static constexpr uint64_t SignExtend(T low_bits) noexcept {
+    return low_bits >= T{} ? uint64_t{0} : ~uint64_t{0};
+  }
+
+  template <typename T>
+  static constexpr WordArray WordsFromLowBits(T low_bits) {
+    WordArray words{};
+    if (low_bits < T{}) {
+      for (auto& word : words) {
+        word = ~uint64_t{0};
+      }
+    }
+    words[kLowWordIndex] = static_cast<uint64_t>(low_bits);
+    return words;
+  }
+};
+
+/// Represents a signed 128-bit integer in two's complement.
+///
+/// This class is also compiled into LLVM IR - so, it should not have cpp references like
+/// streams and boost.
+class ARROW_EXPORT BasicDecimal128 : public GenericBasicDecimal<BasicDecimal128, 128> {
+ public:
+  static constexpr int kMaxPrecision = 38;
+  static constexpr int kMaxScale = 38;
+
+  using GenericBasicDecimal::GenericBasicDecimal;
+
+  constexpr BasicDecimal128() noexcept : GenericBasicDecimal() {}
+
+  /// \brief Create a BasicDecimal128 from the two's complement representation.
+#if ARROW_LITTLE_ENDIAN
+  constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
+      : BasicDecimal128(WordArray{low, static_cast<uint64_t>(high)}) {}
+#else
+  constexpr BasicDecimal128(int64_t high, uint64_t low) noexcept
+      : BasicDecimal128(WordArray{static_cast<uint64_t>(high), low}) {}
+#endif
 
   /// \brief Negate the current value (in-place)
   BasicDecimal128& Negate();
@@ -137,58 +232,40 @@ class ARROW_EXPORT BasicDecimal128 {
   /// \brief Shift left by the given number of bits.
   BasicDecimal128& operator<<=(uint32_t bits);
 
-  /// \brief Shift right by the given number of bits. Negative values will
+  BasicDecimal128 operator<<(uint32_t bits) const {
+    auto res = *this;
+    res <<= bits;
+    return res;
+  }
+
+  /// \brief Shift right by the given number of bits.
+  ///
+  /// Negative values will sign-extend.
   BasicDecimal128& operator>>=(uint32_t bits);
 
+  BasicDecimal128 operator>>(uint32_t bits) const {
+    auto res = *this;
+    res >>= bits;
+    return res;
+  }
+
   /// \brief Get the high bits of the two's complement representation of the number.
-  inline constexpr int64_t high_bits() const { return high_bits_; }
+  constexpr int64_t high_bits() const {
+#if ARROW_LITTLE_ENDIAN
+    return static_cast<int64_t>(array_[1]);
+#else
+    return static_cast<int64_t>(array_[0]);
+#endif
+  }
 
   /// \brief Get the low bits of the two's complement representation of the number.
-  inline constexpr uint64_t low_bits() const { return low_bits_; }
-
-  /// \brief Get the bits of the two's complement representation of the number.
-  ///
-  /// The 2 elements are in native endian order. The bits within each uint64_t element
-  /// are in native endian order. For example, on a little endian machine,
-  /// BasicDecimal128(123).native_endian_array() = {123, 0};
-  /// but on a big endian machine,
-  /// BasicDecimal128(123).native_endian_array() = {0, 123};
-  inline std::array<uint64_t, 2> native_endian_array() const {
+  constexpr uint64_t low_bits() const {
 #if ARROW_LITTLE_ENDIAN
-    return {low_bits_, static_cast<uint64_t>(high_bits_)};
+    return array_[0];
 #else
-    return {static_cast<uint64_t>(high_bits_), low_bits_};
+    return array_[1];
 #endif
   }
-
-  /// \brief Get the bits of the two's complement representation of the number.
-  ///
-  /// The 2 elements are in little endian order. However, the bits within each
-  /// uint64_t element are in native endian order.
-  /// For example, BasicDecimal128(123).little_endian_array() = {123, 0};
-  inline std::array<uint64_t, 2> little_endian_array() const {
-    return {low_bits_, static_cast<uint64_t>(high_bits_)};
-  }
-
-  inline const uint8_t* native_endian_bytes() const {
-#if ARROW_LITTLE_ENDIAN
-    return reinterpret_cast<const uint8_t*>(&low_bits_);
-#else
-    return reinterpret_cast<const uint8_t*>(&high_bits_);
-#endif
-  }
-
-  inline uint8_t* mutable_native_endian_bytes() {
-#if ARROW_LITTLE_ENDIAN
-    return reinterpret_cast<uint8_t*>(&low_bits_);
-#else
-    return reinterpret_cast<uint8_t*>(&high_bits_);
-#endif
-  }
-
-  /// \brief Return the raw bytes of the value in native-endian byte order.
-  std::array<uint8_t, 16> ToBytes() const;
-  void ToBytes(uint8_t* out) const;
 
   /// \brief separate the integer and fractional parts for the given scale.
   void GetWholeAndFraction(int32_t scale, BasicDecimal128* whole,
@@ -218,9 +295,6 @@ class ARROW_EXPORT BasicDecimal128 {
   /// Return true if the number of significant digits is less or equal to `precision`.
   bool FitsInPrecision(int32_t precision) const;
 
-  // returns 1 for positive and zero decimal values, -1 for negative decimal values.
-  inline int64_t Sign() const { return 1 | (high_bits_ >> 63); }
-
   /// \brief count the number of leading binary zeroes.
   int32_t CountLeadingBinaryZeros() const;
 
@@ -231,28 +305,17 @@ class ARROW_EXPORT BasicDecimal128 {
   static BasicDecimal128 GetMaxValue(int32_t precision);
 
   /// \brief Get the maximum decimal value (is not a valid value).
-  static inline constexpr BasicDecimal128 GetMaxSentinel() {
+  static constexpr BasicDecimal128 GetMaxSentinel() {
     return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::max(),
                            /*low=*/std::numeric_limits<uint64_t>::max());
   }
   /// \brief Get the minimum decimal value (is not a valid value).
-  static inline constexpr BasicDecimal128 GetMinSentinel() {
+  static constexpr BasicDecimal128 GetMinSentinel() {
     return BasicDecimal128(/*high=*/std::numeric_limits<int64_t>::min(),
                            /*low=*/std::numeric_limits<uint64_t>::min());
   }
-
- private:
-#if ARROW_LITTLE_ENDIAN
-  uint64_t low_bits_;
-  int64_t high_bits_;
-#else
-  int64_t high_bits_;
-  uint64_t low_bits_;
-#endif
 };
 
-ARROW_EXPORT bool operator==(const BasicDecimal128& left, const BasicDecimal128& right);
-ARROW_EXPORT bool operator!=(const BasicDecimal128& left, const BasicDecimal128& right);
 ARROW_EXPORT bool operator<(const BasicDecimal128& left, const BasicDecimal128& right);
 ARROW_EXPORT bool operator<=(const BasicDecimal128& left, const BasicDecimal128& right);
 ARROW_EXPORT bool operator>(const BasicDecimal128& left, const BasicDecimal128& right);
@@ -271,57 +334,19 @@ ARROW_EXPORT BasicDecimal128 operator/(const BasicDecimal128& left,
 ARROW_EXPORT BasicDecimal128 operator%(const BasicDecimal128& left,
                                        const BasicDecimal128& right);
 
-class ARROW_EXPORT BasicDecimal256 {
- private:
-  // Due to a bug in clang, we have to declare the extend method prior to its
-  // usage.
-  template <typename T>
-  inline static constexpr uint64_t extend(T low_bits) noexcept {
-    return low_bits >= T() ? uint64_t{0} : ~uint64_t{0};
-  }
-
-  struct LittleEndianArrayTag {};
-
+class ARROW_EXPORT BasicDecimal256 : public GenericBasicDecimal<BasicDecimal256, 256> {
  public:
-  static constexpr int kBitWidth = 256;
+  using GenericBasicDecimal::GenericBasicDecimal;
+
   static constexpr int kMaxPrecision = 76;
   static constexpr int kMaxScale = 76;
 
-  // A constructor tag to denote a little-endian encoded array
-  static constexpr LittleEndianArrayTag LittleEndianArray{};
-
-  /// \brief Create a BasicDecimal256 from the two's complement representation.
-  ///
-  /// Input array is assumed to be in native endianness.
-  constexpr BasicDecimal256(const std::array<uint64_t, 4>& array) noexcept
-      : array_(array) {}
-
-  /// \brief Create a BasicDecimal256 from the two's complement representation.
-  ///
-  /// Input array is assumed to be in little endianness, with native endian elements.
-  BasicDecimal256(LittleEndianArrayTag, const std::array<uint64_t, 4>& array) noexcept
-      : BasicDecimal256(bit_util::little_endian::ToNative(array)) {}
-
-  /// \brief Empty constructor creates a BasicDecimal256 with a value of 0.
-  constexpr BasicDecimal256() noexcept : array_({0, 0, 0, 0}) {}
-
-  /// \brief Convert any integer value into a BasicDecimal256.
-  template <typename T,
-            typename = typename std::enable_if<
-                std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
-  constexpr BasicDecimal256(T value) noexcept
-      : array_(bit_util::little_endian::ToNative<uint64_t, 4>(
-            {static_cast<uint64_t>(value), extend(value), extend(value),
-             extend(value)})) {}
+  constexpr BasicDecimal256() noexcept : GenericBasicDecimal() {}
 
   explicit BasicDecimal256(const BasicDecimal128& value) noexcept
-      : array_(bit_util::little_endian::ToNative<uint64_t, 4>(
+      : BasicDecimal256(bit_util::little_endian::ToNative<uint64_t, 4>(
             {value.low_bits(), static_cast<uint64_t>(value.high_bits()),
-             extend(value.high_bits()), extend(value.high_bits())})) {}
-
-  /// \brief Create a BasicDecimal256 from an array of bytes. Bytes are assumed to be in
-  /// native-endian byte order.
-  explicit BasicDecimal256(const uint8_t* bytes);
+             SignExtend(value.high_bits()), SignExtend(value.high_bits())})) {}
 
   /// \brief Negate the current value (in-place)
   BasicDecimal256& Negate();
@@ -338,42 +363,12 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Subtract a number from this one. The result is truncated to 256 bits.
   BasicDecimal256& operator-=(const BasicDecimal256& right);
 
-  /// \brief Get the bits of the two's complement representation of the number.
-  ///
-  /// The 4 elements are in native endian order. The bits within each uint64_t element
-  /// are in native endian order. For example, on a little endian machine,
-  ///   BasicDecimal256(123).native_endian_array() = {123, 0, 0, 0};
-  ///   BasicDecimal256(-2).native_endian_array() = {0xFF...FE, 0xFF...FF, 0xFF...FF,
-  /// 0xFF...FF}.
-  /// while on a big endian machine,
-  ///   BasicDecimal256(123).native_endian_array() = {0, 0, 0, 123};
-  ///   BasicDecimal256(-2).native_endian_array() = {0xFF...FF, 0xFF...FF, 0xFF...FF,
-  /// 0xFF...FE}.
-  inline const std::array<uint64_t, 4>& native_endian_array() const { return array_; }
-
-  /// \brief Get the bits of the two's complement representation of the number.
-  ///
-  /// The 4 elements are in little endian order. However, the bits within each
-  /// uint64_t element are in native endian order.
-  /// For example, BasicDecimal256(123).little_endian_array() = {123, 0};
-  inline const std::array<uint64_t, 4> little_endian_array() const {
-    return bit_util::little_endian::FromNative(array_);
-  }
-
-  inline const uint8_t* native_endian_bytes() const {
-    return reinterpret_cast<const uint8_t*>(array_.data());
-  }
-
-  inline uint8_t* mutable_native_endian_bytes() {
-    return reinterpret_cast<uint8_t*>(array_.data());
-  }
-
   /// \brief Get the lowest bits of the two's complement representation of the number.
-  inline uint64_t low_bits() const { return bit_util::little_endian::Make(array_)[0]; }
+  uint64_t low_bits() const { return bit_util::little_endian::Make(array_)[0]; }
 
-  /// \brief Return the raw bytes of the value in native-endian byte order.
-  std::array<uint8_t, 32> ToBytes() const;
-  void ToBytes(uint8_t* out) const;
+  /// \brief separate the integer and fractional parts for the given scale.
+  void GetWholeAndFraction(int32_t scale, BasicDecimal256* whole,
+                           BasicDecimal256* fraction) const;
 
   /// \brief Scale multiplier for given scale value.
   static const BasicDecimal256& GetScaleMultiplier(int32_t scale);
@@ -399,14 +394,6 @@ class ARROW_EXPORT BasicDecimal256 {
   /// Return true if the number of significant digits is less or equal to `precision`.
   bool FitsInPrecision(int32_t precision) const;
 
-  inline int64_t Sign() const {
-    return 1 | (static_cast<int64_t>(bit_util::little_endian::Make(array_)[3]) >> 63);
-  }
-
-  inline int64_t IsNegative() const {
-    return static_cast<int64_t>(bit_util::little_endian::Make(array_)[3]) < 0;
-  }
-
   /// \brief Multiply this number by another number. The result is truncated to 256 bits.
   BasicDecimal256& operator*=(const BasicDecimal256& right);
 
@@ -427,6 +414,23 @@ class ARROW_EXPORT BasicDecimal256 {
   /// \brief Shift left by the given number of bits.
   BasicDecimal256& operator<<=(uint32_t bits);
 
+  BasicDecimal256 operator<<(uint32_t bits) const {
+    auto res = *this;
+    res <<= bits;
+    return res;
+  }
+
+  /// \brief Shift right by the given number of bits.
+  ///
+  /// Negative values will sign-extend.
+  BasicDecimal256& operator>>=(uint32_t bits);
+
+  BasicDecimal256 operator>>(uint32_t bits) const {
+    auto res = *this;
+    res >>= bits;
+    return res;
+  }
+
   /// \brief In-place division.
   BasicDecimal256& operator/=(const BasicDecimal256& right);
 
@@ -434,7 +438,7 @@ class ARROW_EXPORT BasicDecimal256 {
   static BasicDecimal256 GetMaxValue(int32_t precision);
 
   /// \brief Get the maximum decimal value (is not a valid value).
-  static inline constexpr BasicDecimal256 GetMaxSentinel() {
+  static constexpr BasicDecimal256 GetMaxSentinel() {
 #if ARROW_LITTLE_ENDIAN
     return BasicDecimal256({std::numeric_limits<uint64_t>::max(),
                             std::numeric_limits<uint64_t>::max(),
@@ -448,7 +452,7 @@ class ARROW_EXPORT BasicDecimal256 {
 #endif
   }
   /// \brief Get the minimum decimal value (is not a valid value).
-  static inline constexpr BasicDecimal256 GetMinSentinel() {
+  static constexpr BasicDecimal256 GetMinSentinel() {
 #if ARROW_LITTLE_ENDIAN
     return BasicDecimal256(
         {0, 0, 0, static_cast<uint64_t>(std::numeric_limits<int64_t>::min())});
@@ -457,20 +461,7 @@ class ARROW_EXPORT BasicDecimal256 {
         {static_cast<uint64_t>(std::numeric_limits<int64_t>::min()), 0, 0, 0});
 #endif
   }
-
- private:
-  std::array<uint64_t, 4> array_;
 };
-
-ARROW_EXPORT inline bool operator==(const BasicDecimal256& left,
-                                    const BasicDecimal256& right) {
-  return left.native_endian_array() == right.native_endian_array();
-}
-
-ARROW_EXPORT inline bool operator!=(const BasicDecimal256& left,
-                                    const BasicDecimal256& right) {
-  return left.native_endian_array() != right.native_endian_array();
-}
 
 ARROW_EXPORT bool operator<(const BasicDecimal256& left, const BasicDecimal256& right);
 
@@ -497,4 +488,5 @@ ARROW_EXPORT BasicDecimal256 operator*(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
 ARROW_EXPORT BasicDecimal256 operator/(const BasicDecimal256& left,
                                        const BasicDecimal256& right);
+
 }  // namespace arrow

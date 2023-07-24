@@ -241,7 +241,7 @@ class ZSTDCodec : public Codec {
 }  // namespace
 
 std::unique_ptr<Codec> MakeZSTDCodec(int compression_level) {
-  return std::unique_ptr<Codec>(new ZSTDCodec(compression_level));
+  return std::make_unique<ZSTDCodec>(compression_level);
 }
 
 }  // namespace internal

@@ -17,20 +17,15 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
 func TestIntegration(t *testing.T) {
-	tempDir, err := ioutil.TempDir("", "go-arrow-integration-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	const verbose = true
 	for name, recs := range arrdata.Records {
@@ -41,7 +36,7 @@ func TestIntegration(t *testing.T) {
 			mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 			defer mem.AssertSize(t, 0)
 
-			af1, err := ioutil.TempFile(tempDir, "go-arrow-integration-")
+			af1, err := os.CreateTemp(tempDir, "go-arrow-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -50,7 +45,7 @@ func TestIntegration(t *testing.T) {
 			arrdata.WriteFile(t, af1, mem, recs[0].Schema(), recs)
 			arrdata.CheckArrowFile(t, af1, mem, recs[0].Schema(), recs)
 
-			aj, err := ioutil.TempFile(tempDir, "arrow-json-integration-")
+			aj, err := os.CreateTemp(tempDir, "arrow-json-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -66,7 +61,7 @@ func TestIntegration(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			af2, err := ioutil.TempFile(tempDir, "go-arrow-integration-")
+			af2, err := os.CreateTemp(tempDir, "go-arrow-integration-")
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -1,0 +1,390 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+{% import 'macros.jinja' as macros with context %}
+
+{% set is_fork = macros.is_fork %}
+
+{{ macros.github_header() }}
+
+jobs:
+  source:
+    # This job will change the version to either the custom_version param or YMD format.
+    # The output allows other steps to use the exact version to prevent issues (e.g. date changes during run)
+    name: Source Package
+    runs-on: ubuntu-latest
+    outputs:
+      pkg_version: {{ '${{ steps.save-version.outputs.pkg_version }}' }}
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, arrow.no_rc_r_version)|indent }}
+      - name: Save Version
+        id: save-version
+        shell: bash
+        run: |
+          echo "pkg_version=$(grep ^Version arrow/r/DESCRIPTION | sed s/Version:\ //)" >> $GITHUB_OUTPUT
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          install-r: false
+
+      - name: Build R source package
+        shell: bash
+        run: |
+          cd arrow/r
+          # Copy in the Arrow C++ source
+          make sync-cpp
+          R CMD build --no-build-vignettes .
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-pkg__src__contrib
+          path: arrow/r/arrow_*.tar.gz
+
+  linux-cpp:
+    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
+    runs-on: ubuntu-latest
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - openssl: "3.0"
+            os: ubuntu
+            ubuntu: "22.04"
+          - extra-cmake-flags: >-
+              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
+              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
+            openssl: "1.1"
+            os: centos
+          - openssl: "1.0"
+            os: centos
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
+      {{ macros.github_install_archery()|indent }}
+
+      - name: Build libarrow
+        shell: bash
+        env:
+          UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: |
+          sudo sysctl -w kernel.core_pattern="core.%e.%p"
+          ulimit -c unlimited
+          archery docker run \
+            -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
+            {{ '${{ matrix.os }}' }}-cpp-static
+      - name: Bundle libarrow
+        shell: bash
+        env:
+          PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+          VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
+        run: |
+          cd arrow/r/libarrow/dist
+          # These files were created by the docker user so we have to sudo to get them
+          sudo -E zip -r $PKG_FILE lib/ include/
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
+          path: arrow/r/libarrow/dist/arrow-*.zip
+
+  windows-cpp:
+    name: C++ Binary Windows RTools (40 only)
+    needs: source
+    runs-on: windows-latest
+    steps:
+      - run: git config --global core.autocrlf false
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          rtools-version: 40
+          r-version: "4.0"
+          Ncpus: 2
+      - name: Install sccache
+        shell: bash
+        run: arrow/ci/scripts/install_sccache.sh pc-windows-msvc $(pwd)/sccache
+      - name: Build Arrow C++ with rtools40
+        shell: bash
+        env:
+          ARROW_HOME: "arrow"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: arrow/ci/scripts/r_windows_build.sh
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-lib__libarrow__bin__windows
+          path: build/arrow-*.zip
+
+  r-packages:
+    needs: [source, windows-cpp]
+    name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runs_on: 'windows-latest', name: "Windows"}
+          - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra"}
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur" }
+        r_version:
+          - { rtools: "{{ macros.r_release.rt }}", r: "{{ macros.r_release.ver }}" }
+          - { rtools: "{{ macros.r_oldrel.rt }}", r: "{{ macros.r_oldrel.ver }}" }
+    steps:
+      - uses: r-lib/actions/setup-r@v2
+        # expression marker prevents the ! being parsed as yaml tag
+        if: {{ "${{ !contains(matrix.platform.runs_on, 'self-hosted') }}" }}
+        with:
+          r-version: {{ '${{ matrix.r_version.r }}' }}
+          rtools-version: {{ '${{ matrix.r_version.rtools }}' }}
+      - name: Setup R Self-Hosted
+        if: contains(matrix.platform.runs_on, 'self-hosted')
+        run: |
+          if [ "{{ "${{ contains(matrix.platform.runs_on, 'arm64') }}" }}" == "true" ]; then
+            rig_arch="-arm64"
+          fi
+          # rig is a system utility that allows for switching
+          # between pre-installed R version on the self-hosted runners
+          rig default {{ '${{ matrix.r_version.r }}' }}$rig_arch
+
+          rig system setup-user-lib
+          rig system add-pak
+      {{ macros.github_setup_local_r_repo(false, true)|indent }}
+      - name: Prepare Dependency Installation
+
+        shell: bash
+        run: |
+          tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
+      - name: Install dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+           working-directory: 'arrow'
+           extra-packages: cpp11
+      - name: Install sccache
+        if: startsWith(matrix.platform, 'macos')
+        run: brew install sccache
+      - name: Build Binary
+        id: build
+        shell: Rscript {0}
+        env:
+          NOT_CRAN: "true" # actions/setup-r sets this implicitly
+          ARROW_R_DEV: "true"
+          FORCE_AUTOBREW: "true" # this is ignored on windows
+          # sccache for macos
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: |
+          on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
+
+          # Build
+          Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
+          INSTALL_opts <- "--build"
+          if (!on_windows) {
+            # Windows doesn't support the --strip arg
+            INSTALL_opts <- c(INSTALL_opts, "--strip")
+          }
+
+          # always remove arrow (mainly for self-hosted runners)
+          try(remove.packages("arrow"), silent = TRUE)
+
+          cat("Install arrow from dev repo.\n")
+          install.packages(
+            "arrow",
+            type = "source",
+            # The sub is necessary to prevent an error on windows.
+            repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
+            INSTALL_opts = INSTALL_opts
+          )
+
+          # Test
+          library(arrow)
+          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+
+          # encode contrib.url for artifact name
+          cmd <- paste0(
+            "path=",
+            gsub(
+              "/", "__",
+              contrib.url("", type = "binary")
+            ),
+            "\n"
+          )
+          cat(cmd, file = Sys.getenv("GITHUB_OUTPUT"), append = TRUE)
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
+          path: arrow_*
+
+  test-linux-binary:
+    needs: [source, linux-cpp]
+    name: Test binary {{ '${{ matrix.config.image }}' }}
+    runs-on: ubuntu-latest
+    container: {{ '${{ matrix.config.image }}' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          # If libarrow_binary is unset, we're testing that we're automatically
+          # choosing a binary on this OS. If libarrow_binary is TRUE, we're on
+          # an OS that is not in the allowlist, so we have to opt-in to use the
+          # binary. Other env vars used in r_docker_configure.sh can be added
+          # here (like devtoolset) and wired up in the later steps.
+          - {image: "rhub/debian-clang-devel", libarrow_binary: "TRUE"}
+          # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
+          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
+          - {image: "rhub/ubuntu-gcc-release"} # currently ubuntu-20.04 (focal)
+          - {image: "rocker/r-ubuntu:22.04"} # openssl3
+          - {image: "rocker/r-ver"} # whatever is latest ubuntu LTS
+          - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
+          - {image: "rocker/r-ver:3.6.3", libarrow_binary: "TRUE"} # debian:buster (10)
+          - {image: "rstudio/r-base:4.1-focal"} # ubuntu-20.04
+          - {image: "rstudio/r-base:4.2-centos7", devtoolset: "8"}
+    steps:
+      # Get the arrow checkout just for the docker config scripts
+      # Don't need submodules for this (hence false arg to macro): they fail on
+      # actions/checkout for some reason in this context
+      {{ macros.github_checkout_arrow(1, false)|indent }}
+      - name: Install system requirements
+        env:
+          ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh
+          DEVTOOLSET_VERSION: {{ '${{ matrix.config.devtoolset }}' }}
+        shell: bash
+        run: |
+          # Make sure R is on the path for the R-hub devel versions (where RPREFIX is set in its dockerfile)
+          echo "${RPREFIX}/bin" >> $GITHUB_PATH
+          export PATH="${RPREFIX}/bin:${PATH}"
+          cd arrow && ARROW_SOURCE_HOME=$(pwd) ./ci/scripts/r_docker_configure.sh
+      {{ macros.github_setup_local_r_repo(true, false)|indent }}
+      - name: Install arrow from our repo
+        env:
+          ARROW_R_DEV: "TRUE"
+          LIBARROW_BUILD: "FALSE"
+          LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
+        shell: bash
+        run: |
+          Rscript -e '
+          {{  macros.github_test_r_src_pkg()|indent(8) }}
+          '
+      - name: Upload binary artifact
+        if: matrix.config.devtoolset
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-pkg_centos7
+          path: arrow_*
+  test-centos-binary:
+    needs: test-linux-binary
+    runs-on: ubuntu-latest
+    container: "rstudio/r-base:4.2-centos7"
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: r-pkg_centos7
+      - name: Install DTS Package
+        shell: Rscript {0}
+        run: |
+          pkg <- list.files(pattern = "arrow_*")
+          if(length(pkg) > 1) {
+            pkg <- pkg[[1]]
+            warning("Multiple packages found! Using first one.")
+          }
+
+          # Install dependencies from RSPM
+          install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linux__/centos7/latest")
+          remove.packages("arrow")
+
+          install.packages(pkg)
+          library(arrow)
+          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+          print(arrow_info())
+
+  test-source:
+    needs: source
+    name: Test linux source build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          install-r: false
+      {{ macros.github_setup_local_r_repo(false, false)|indent }}
+      {{ macros.github_checkout_arrow()|indent }}
+      - name: Install sccache
+        shell: bash
+        run: |
+          arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
+      - name: Install R package system dependencies
+        run: |
+          sudo arrow/ci/scripts/r_install_system_dependencies.sh
+        env:
+          ARROW_GCS: "ON"
+          ARROW_S3: "ON"
+          ARROW_SOURCE_HOME: arrow
+      - name: Remove arrow/
+        run: |
+          rm -rf arrow/
+      - name: Enable parallel build
+        run: |
+          echo "MAKEFLAGS=-j$(nproc)" >> $GITHUB_ENV
+      - name: Install arrow from nightly repo
+        env:
+          # Test source build so be sure not to download a binary
+          LIBARROW_BINARY: "FALSE"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        shell: Rscript {0}
+        run: |
+          {{ macros.github_test_r_src_pkg()|indent(8) }}
+
+      - name: Retry with verbosity if that failed
+        if: failure()
+        env:
+          LIBARROW_BINARY: "FALSE"
+          ARROW_R_DEV: "TRUE"
+          CMAKE_FIND_DEBUG_MODE: "ON"
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        shell: Rscript {0}
+        run: |
+          {{ macros.github_test_r_src_pkg()|indent(8) }}
+
+  upload-binaries:
+    # Only upload binaries if all tests pass.
+    needs: [r-packages, test-source, test-linux-binary, test-centos-binary]
+    name: Upload artifacts
+    runs-on: ubuntu-latest
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          install-r: false
+      - name: Rename artifacts
+        shell: Rscript {0}
+        run: |
+          file_paths <- list.files("artifacts", include.dirs = FALSE, recursive = TRUE)
+          new_names <- file.path("binaries", sub("/", "__", file_paths))
+          dir.create("binaries", showWarnings = FALSE)
+          file.copy(file.path("artifacts", file_paths), new_names)
+
+      {{ macros.github_upload_releases("binaries/r-*")|indent }}

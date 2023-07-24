@@ -20,9 +20,10 @@
 #include <algorithm>
 #include <cstring>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
-#include "arrow/util/string_view.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/vendored/uriparser/Uri.h"
 
@@ -31,7 +32,7 @@ namespace internal {
 
 namespace {
 
-util::string_view TextRangeToView(const UriTextRangeStructA& range) {
+std::string_view TextRangeToView(const UriTextRangeStructA& range) {
   if (range.first == nullptr) {
     return "";
   } else {
@@ -50,7 +51,7 @@ std::string TextRangeToString(const UriTextRangeStructA& range) {
 bool IsTextRangeSet(const UriTextRangeStructA& range) { return range.first != nullptr; }
 
 #ifdef _WIN32
-bool IsDriveSpec(const util::string_view s) {
+bool IsDriveSpec(const std::string_view s) {
   return (s.length() >= 2 && s[1] == ':' &&
           ((s[0] >= 'A' && s[0] <= 'Z') || (s[0] >= 'a' && s[0] <= 'z')));
 }
@@ -58,10 +59,10 @@ bool IsDriveSpec(const util::string_view s) {
 
 }  // namespace
 
-std::string UriEscape(const std::string& s) {
+std::string UriEscape(std::string_view s) {
   if (s.empty()) {
     // Avoid passing null pointer to uriEscapeExA
-    return s;
+    return std::string(s);
   }
   std::string escaped;
   escaped.resize(3 * s.length());
@@ -72,7 +73,7 @@ std::string UriEscape(const std::string& s) {
   return escaped;
 }
 
-std::string UriUnescape(const util::string_view s) {
+std::string UriUnescape(std::string_view s) {
   std::string result(s);
   if (!result.empty()) {
     auto end = uriUnescapeInPlaceA(&result[0]);
@@ -81,7 +82,7 @@ std::string UriUnescape(const util::string_view s) {
   return result;
 }
 
-std::string UriEncodeHost(const std::string& host) {
+std::string UriEncodeHost(std::string_view host) {
   // Fairly naive check: if it contains a ':', it's IPv6 and needs
   // brackets, else it's OK
   if (host.find(":") != std::string::npos) {
@@ -90,11 +91,11 @@ std::string UriEncodeHost(const std::string& host) {
     result += ']';
     return result;
   } else {
-    return host;
+    return std::string(host);
   }
 }
 
-bool IsValidUriScheme(const arrow::util::string_view s) {
+bool IsValidUriScheme(std::string_view s) {
   auto is_alpha = [](char c) { return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'); };
   auto is_scheme_char = [&](char c) {
     return is_alpha(c) || (c >= '0' && c <= '9') || c == '+' || c == '-' || c == '.';
@@ -133,7 +134,7 @@ struct Uri::Impl {
   std::vector<std::string> data_;
   std::string string_rep_;
   int32_t port_;
-  std::vector<util::string_view> path_segments_;
+  std::vector<std::string_view> path_segments_;
   bool is_file_uri_;
   bool is_absolute_path_;
 };
@@ -151,7 +152,13 @@ Uri& Uri::operator=(Uri&& u) {
 
 std::string Uri::scheme() const { return TextRangeToString(impl_->uri_.scheme); }
 
-std::string Uri::host() const { return TextRangeToString(impl_->uri_.hostText); }
+bool Uri::is_file_scheme() const { return impl_->is_file_uri_; }
+
+std::string Uri::host() const {
+  // XXX for now we're assuming that %-encoding is expected, but this could be
+  // scheme-dependent (for example, http(s) may expect IDNA instead?)
+  return UriUnescape(TextRangeToView(impl_->uri_.hostText));
+}
 
 bool Uri::has_host() const { return IsTextRangeSet(impl_->uri_.hostText); }
 
@@ -162,7 +169,7 @@ int32_t Uri::port() const { return impl_->port_; }
 std::string Uri::username() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
-  if (sep_pos == util::string_view::npos) {
+  if (sep_pos == std::string_view::npos) {
     return UriUnescape(userpass);
   } else {
     return UriUnescape(userpass.substr(0, sep_pos));
@@ -172,7 +179,7 @@ std::string Uri::username() const {
 std::string Uri::password() const {
   auto userpass = TextRangeToView(impl_->uri_.userInfo);
   auto sep_pos = userpass.find_first_of(':');
-  if (sep_pos == util::string_view::npos) {
+  if (sep_pos == std::string_view::npos) {
     return std::string();
   } else {
     return UriUnescape(userpass.substr(sep_pos + 1));
@@ -203,7 +210,7 @@ std::string Uri::path() const {
       ss << "/";
     }
     first = false;
-    ss << seg;
+    ss << UriUnescape(seg);
   }
   return std::move(ss).str();
 }
@@ -302,6 +309,31 @@ Status Uri::Parse(const std::string& uri_string) {
   }
 
   return Status::OK();
+}
+
+Result<std::string> UriFromAbsolutePath(std::string_view path) {
+  if (path.empty()) {
+    return Status::Invalid(
+        "UriFromAbsolutePath expected an absolute path, got an empty string");
+  }
+  std::string out;
+#ifdef _WIN32
+  // Turn "/" separators into "\", as Windows recognizes both but uriparser
+  // only the latter.
+  std::string fixed_path(path);
+  std::replace(fixed_path.begin(), fixed_path.end(), '/', '\\');
+  out.resize(8 + 3 * fixed_path.length() + 1);
+  int r = uriWindowsFilenameToUriStringA(fixed_path.data(), out.data());
+  // uriWindowsFilenameToUriStringA basically only fails if a null pointer is given.
+  ARROW_CHECK_EQ(r, 0) << "uriWindowsFilenameToUriStringA unexpectedly failed";
+#else
+  out.resize(7 + 3 * path.length() + 1);
+  int r = uriUnixFilenameToUriStringA(path.data(), out.data());
+  // same as above (uriWindowsFilenameToUriStringA)
+  ARROW_CHECK_EQ(r, 0) << "uriUnixFilenameToUriStringA unexpectedly failed";
+#endif
+  out.resize(strlen(out.data()));
+  return out;
 }
 
 }  // namespace internal

@@ -19,20 +19,53 @@
 #
 #  find_package(LLVMAlt)
 
-set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
-if(LLVM_BREW_PREFIX)
-  list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+if(LLVMAlt_FOUND)
+  return()
 endif()
-foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
-  find_package(LLVM
-               ${ARROW_LLVM_VERSION}
-               CONFIG
-               HINTS
-               ${LLVM_HINTS})
-  if(LLVM_FOUND)
-    break()
-  endif()
-endforeach()
+
+if(DEFINED LLVM_ROOT)
+  # if llvm source is set to conda then prefer conda llvm over system llvm even
+  # if the system one is newer
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 NO_DEFAULT_PATH
+                 HINTS
+                 ${LLVM_ROOT})
+    if(LLVM_FOUND)
+      break()
+    endif()
+  endforeach()
+endif()
+
+if(NOT LLVM_FOUND)
+  foreach(ARROW_LLVM_VERSION ${ARROW_LLVM_VERSIONS})
+    set(LLVM_HINTS ${LLVM_ROOT} ${LLVM_DIR} /usr/lib /usr/share)
+
+    if(APPLE)
+      find_program(BREW brew)
+      if(BREW)
+        string(REGEX REPLACE "^([0-9]+)(\\..+)?" "\\1" ARROW_LLVM_VERSION_MAJOR
+                             "${ARROW_LLVM_VERSION}")
+        execute_process(COMMAND ${BREW} --prefix "llvm@${ARROW_LLVM_VERSION_MAJOR}"
+                        OUTPUT_VARIABLE LLVM_BREW_PREFIX
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+        list(APPEND LLVM_HINTS ${LLVM_BREW_PREFIX})
+      endif()
+    endif()
+
+    find_package(LLVM
+                 ${ARROW_LLVM_VERSION}
+                 CONFIG
+                 HINTS
+                 ${LLVM_HINTS})
+
+    if(LLVM_FOUND)
+      break()
+    endif()
+  endforeach()
+endif()
 
 if(LLVM_FOUND)
   # Find the libraries that correspond to the LLVM components
@@ -55,12 +88,29 @@ if(LLVM_FOUND)
                      clang-${LLVM_VERSION_MAJOR} clang
                HINTS ${LLVM_TOOLS_BINARY_DIR})
 
-  add_library(LLVM::LLVM_INTERFACE INTERFACE IMPORTED)
-
-  set_target_properties(LLVM::LLVM_INTERFACE
+  add_library(LLVM::LLVM_HEADERS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_HEADERS
                         PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${LLVM_INCLUDE_DIRS}"
-                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}"
-                                   INTERFACE_LINK_LIBRARIES "${LLVM_LIBS}")
+                                   INTERFACE_COMPILE_FLAGS "${LLVM_DEFINITIONS}")
+
+  add_library(LLVM::LLVM_LIBS INTERFACE IMPORTED)
+  set_target_properties(LLVM::LLVM_LIBS PROPERTIES INTERFACE_LINK_LIBRARIES
+                                                   "${LLVM_LIBS}")
+
+  if(TARGET LLVMSupport AND NOT ARROW_ZSTD_USE_SHARED)
+    get_target_property(LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES LLVMSupport
+                        INTERFACE_LINK_LIBRARIES)
+    list(FIND LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES zstd::libzstd_shared
+         LLVM_SUPPORT_LIBZSTD_INDEX)
+    if(NOT LLVM_SUPPORT_LIBZSTD_INDEX EQUAL -1)
+      list(REMOVE_AT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX})
+      list(INSERT LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES ${LLVM_SUPPORT_LIBZSTD_INDEX}
+           zstd::libzstd_static)
+    endif()
+    set_target_properties(LLVMSupport
+                          PROPERTIES INTERFACE_LINK_LIBRARIES
+                                     "${LLVM_SUPPORT_INTERFACE_LINK_LIBRARIES}")
+  endif()
 endif()
 
 mark_as_advanced(CLANG_EXECUTABLE LLVM_LINK_EXECUTABLE)

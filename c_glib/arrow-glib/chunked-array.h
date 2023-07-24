@@ -20,21 +20,17 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/chunked-array-definition.h>
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_CHUNKED_ARRAY (garrow_chunked_array_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowChunkedArray,
-                         garrow_chunked_array,
-                         GARROW,
-                         CHUNKED_ARRAY,
-                         GObject)
-struct _GArrowChunkedArrayClass
-{
-  GObjectClass parent_class;
-};
-
-GArrowChunkedArray *garrow_chunked_array_new(GList *chunks);
+GArrowChunkedArray *
+garrow_chunked_array_new(GList *chunks,
+                         GError **error);
+GARROW_AVAILABLE_IN_11_0
+GArrowChunkedArray *
+garrow_chunked_array_new_empty(GArrowDataType *data_type,
+                               GError **error);
 
 gboolean garrow_chunked_array_equal(GArrowChunkedArray *chunked_array,
                                     GArrowChunkedArray *other_chunked_array);

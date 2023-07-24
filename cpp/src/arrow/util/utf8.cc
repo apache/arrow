@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/utf8.h"
+
 #include <cstdint>
 #include <iterator>
 #include <mutex>
@@ -23,7 +25,7 @@
 
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/utf8.h"
+#include "arrow/util/utf8_internal.h"
 #include "arrow/vendored/utfcpp/checked.h"
 
 // Can be defined by utfcpp
@@ -90,6 +92,12 @@ void InitializeUTF8() {
   std::call_once(utf8_initialized, internal::InitializeLargeTable);
 }
 
+bool ValidateUTF8(const uint8_t* data, int64_t size) {
+  return ValidateUTF8Inline(data, size);
+}
+
+bool ValidateUTF8(std::string_view str) { return ValidateUTF8Inline(str); }
+
 static const uint8_t kBOM[] = {0xEF, 0xBB, 0xBF};
 
 Result<const uint8_t*> SkipUTF8BOM(const uint8_t* data, int64_t size) {
@@ -118,7 +126,7 @@ namespace {
 // Some platforms (such as old MinGWs) don't have the <codecvt> header,
 // so call into a vendored utf8 implementation instead.
 
-std::wstring UTF8ToWideStringInternal(const std::string& source) {
+std::wstring UTF8ToWideStringInternal(std::string_view source) {
   std::wstring ws;
 #if WCHAR_MAX > 0xFFFF
   ::utf8::utf8to32(source.begin(), source.end(), std::back_inserter(ws));
@@ -138,9 +146,21 @@ std::string WideStringToUTF8Internal(const std::wstring& source) {
   return s;
 }
 
+std::string UTF16StringToUTF8Internal(std::u16string_view source) {
+  std::string s;
+  ::utf8::utf16to8(source.begin(), source.end(), std::back_inserter(s));
+  return s;
+}
+
+std::u16string UTF8StringToUTF16Internal(std::string_view source) {
+  std::u16string s;
+  ::utf8::utf8to16(source.begin(), source.end(), std::back_inserter(s));
+  return s;
+}
+
 }  // namespace
 
-Result<std::wstring> UTF8ToWideString(const std::string& source) {
+Result<std::wstring> UTF8ToWideString(std::string_view source) {
   try {
     return UTF8ToWideStringInternal(source);
   } catch (std::exception& e) {
@@ -151,6 +171,22 @@ Result<std::wstring> UTF8ToWideString(const std::string& source) {
 ARROW_EXPORT Result<std::string> WideStringToUTF8(const std::wstring& source) {
   try {
     return WideStringToUTF8Internal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
+}
+
+Result<std::string> UTF16StringToUTF8(std::u16string_view source) {
+  try {
+    return UTF16StringToUTF8Internal(source);
+  } catch (std::exception& e) {
+    return Status::Invalid(e.what());
+  }
+}
+
+Result<std::u16string> UTF8StringToUTF16(std::string_view source) {
+  try {
+    return UTF8StringToUTF16Internal(source);
   } catch (std::exception& e) {
     return Status::Invalid(e.what());
   }

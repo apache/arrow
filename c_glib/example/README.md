@@ -32,17 +32,17 @@ Here are example codes in this directory:
   * `build.c`: It shows how to create an array by array builder.
 
 <!---
-  * `write-batch.c`: It shows how to write Arrow array to file in batch
-    mode.
+  * `write-file.c`: It shows how to write Arrow array to file in file
+    format.
 -->
 
-  * `read-batch.c`: It shows how to read Arrow array from file in batch
-    mode.
+  * `read-file.c`: It shows how to read Arrow array from file in file
+    format.
 
 <!---
   * `write-stream.c`: It shows how to write Arrow array to file in
-    stream mode.
+    stream format.
 -->
 
   * `read-stream.c`: It shows how to read Arrow array from file in
-    stream mode.
+    stream format.

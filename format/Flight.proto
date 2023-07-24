@@ -17,9 +17,10 @@
  */
 
 syntax = "proto3";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "org.apache.arrow.flight.impl";
-option go_package = "github.com/apache/arrow/go/flight;flight";
+option go_package = "github.com/apache/arrow/go/arrow/flight/internal/flight";
 option csharp_namespace = "Apache.Arrow.Flight.Protocol";
 
 package arrow.flight.protocol;
@@ -183,10 +184,58 @@ message Action {
 }
 
 /*
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+message CancelFlightInfoRequest {
+  FlightInfo info = 1;
+}
+
+/*
+ * The request of the RenewFlightEndpoint action.
+ *
+ * The request should be stored in Action.body.
+ */
+message RenewFlightEndpointRequest {
+  FlightEndpoint endpoint = 1;
+}
+
+/*
  * An opaque result returned after executing an action.
  */
 message Result {
   bytes body = 1;
+}
+
+/*
+ * The result of a cancel operation.
+ *
+ * This is used by CancelFlightInfoResult.status.
+ */
+enum CancelStatus {
+  // The cancellation status is unknown. Servers should avoid using
+  // this value (send a NOT_FOUND error if the requested query is
+  // not known). Clients can retry the request.
+  CANCEL_STATUS_UNSPECIFIED = 0;
+  // The cancellation request is complete. Subsequent requests with
+  // the same payload may return CANCELLED or a NOT_FOUND error.
+  CANCEL_STATUS_CANCELLED = 1;
+  // The cancellation request is in progress. The client may retry
+  // the cancellation request.
+  CANCEL_STATUS_CANCELLING = 2;
+  // The query is not cancellable. The client should not retry the
+  // cancellation request.
+  CANCEL_STATUS_NOT_CANCELLABLE = 3;
+}
+
+/*
+ * The result of the CancelFlightInfo action.
+ *
+ * The result should be stored in Result.body.
+ */
+message CancelFlightInfoResult {
+  CancelStatus status = 1;
 }
 
 /*
@@ -259,14 +308,39 @@ message FlightInfo {
   FlightDescriptor flight_descriptor = 2;
 
   /*
-   * A list of endpoints associated with the flight. To consume the whole
-   * flight, all endpoints must be consumed.
+   * A list of endpoints associated with the flight. To consume the
+   * whole flight, all endpoints (and hence all Tickets) must be
+   * consumed. Endpoints can be consumed in any order.
+   *
+   * In other words, an application can use multiple endpoints to
+   * represent partitioned data.
+   *
+   * If the returned data has an ordering, an application can use
+   * "FlightInfo.ordered = true" or should return the all data in a
+   * single endpoint. Otherwise, there is no ordering defined on
+   * endpoints or the data within.
+   *
+   * A client can read ordered data by reading data from returned
+   * endpoints, in order, from front to back.
+   *
+   * Note that a client may ignore "FlightInfo.ordered = true". If an
+   * ordering is important for an application, an application must
+   * choose one of them:
+   *
+   * * An application requires that all clients must read data in
+   *   returned endpoints order.
+   * * An application must return the all data in a single endpoint.
    */
   repeated FlightEndpoint endpoint = 3;
 
   // Set these to -1 if unknown.
   int64 total_records = 4;
   int64 total_bytes = 5;
+
+  /*
+   * FlightEndpoints are in the same order as the data.
+   */
+  bool ordered = 6;
 }
 
 /*
@@ -280,11 +354,29 @@ message FlightEndpoint {
   Ticket ticket = 1;
 
   /*
-   * A list of URIs where this ticket can be redeemed. If the list is
-   * empty, the expectation is that the ticket can only be redeemed on the
-   * current service where the ticket was generated.
+   * A list of URIs where this ticket can be redeemed via DoGet().
+   *
+   * If the list is empty, the expectation is that the ticket can only
+   * be redeemed on the current service where the ticket was
+   * generated.
+   *
+   * If the list is not empty, the expectation is that the ticket can
+   * be redeemed at any of the locations, and that the data returned
+   * will be equivalent. In this case, the ticket may only be redeemed
+   * at one of the given locations, and not (necessarily) on the
+   * current service.
+   *
+   * In other words, an application can use multiple locations to
+   * represent redundant and/or load balanced services.
    */
   repeated Location location = 2;
+
+  /*
+   * Expiration time of this stream. If present, clients may assume
+   * they can retry DoGet requests. Otherwise, it is
+   * application-defined whether DoGet requests may be retried.
+   */
+  google.protobuf.Timestamp expiration_time = 3;
 }
 
 /*
@@ -298,6 +390,9 @@ message Location {
 /*
  * An opaque identifier that the service can use to retrieve a particular
  * portion of a stream.
+ *
+ * Tickets are meant to be single use. It is an error/application-defined
+ * behavior to reuse a ticket.
  */
 message Ticket {
   bytes ticket = 1;

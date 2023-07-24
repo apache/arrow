@@ -40,6 +40,8 @@ constexpr char kOrcTypeName[] = "orc";
 /// \brief A FileFormat implementation that reads from and writes to ORC files
 class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
  public:
+  OrcFileFormat();
+
   std::string type_name() const override { return kOrcTypeName; }
 
   bool Equals(const FileFormat& other) const override {
@@ -51,17 +53,11 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
-  /// \brief Open a file for scanning
-  Result<ScanTaskIterator> ScanFile(
+  Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
-      const std::shared_ptr<FileFragment>& fragment) const override;
+      const std::shared_ptr<FileFragment>& file) const override;
 
-  // TODO add async version (https://issues.apache.org/jira/browse/ARROW-13795)
-  // Result<RecordBatchGenerator> ScanBatchesAsync(
-  //     const std::shared_ptr<ScanOptions>& options,
-  //     const std::shared_ptr<FileFragment>& file) const override;
-
-  Future<util::optional<int64_t>> CountRows(
+  Future<std::optional<int64_t>> CountRows(
       const std::shared_ptr<FileFragment>& file, compute::Expression predicate,
       const std::shared_ptr<ScanOptions>& options) override;
 

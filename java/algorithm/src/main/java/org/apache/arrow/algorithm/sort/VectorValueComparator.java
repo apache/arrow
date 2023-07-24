@@ -41,6 +41,18 @@ public abstract class VectorValueComparator<V extends ValueVector> {
    */
   protected int valueWidth;
 
+
+  private boolean checkNullsOnCompare = true;
+
+  /**
+   * This value is true by default and re-computed when vectors are attached to the comparator. If both vectors cannot
+   * contain nulls then this value is {@code false} and calls to {@code compare(i1, i2)} are short-circuited
+   * to {@code compareNotNull(i1, i2)} thereby speeding up comparisons resulting in faster sorts etc.
+   */
+  public boolean checkNullsOnCompare() {
+    return this.checkNullsOnCompare;
+  }
+
   /**
    * Constructor for variable-width vectors.
    */
@@ -76,6 +88,21 @@ public abstract class VectorValueComparator<V extends ValueVector> {
   public void attachVectors(V vector1, V vector2) {
     this.vector1 = vector1;
     this.vector2 = vector2;
+
+    final boolean v1MayHaveNulls = mayHaveNulls(vector1);
+    final boolean v2MayHaveNulls = mayHaveNulls(vector2);
+
+    this.checkNullsOnCompare = v1MayHaveNulls || v2MayHaveNulls;
+  }
+
+  private boolean mayHaveNulls(V v) {
+    if (v.getValueCount() == 0) {
+      return true;
+    }
+    if (! v.getField().isNullable()) {
+      return false;
+    }
+    return v.getNullCount() > 0;
   }
 
   /**
@@ -87,17 +114,19 @@ public abstract class VectorValueComparator<V extends ValueVector> {
    *     values are equal.
    */
   public int compare(int index1, int index2) {
-    boolean isNull1 = vector1.isNull(index1);
-    boolean isNull2 = vector2.isNull(index2);
+    if (checkNullsOnCompare) {
+      boolean isNull1 = vector1.isNull(index1);
+      boolean isNull2 = vector2.isNull(index2);
 
-    if (isNull1 || isNull2) {
-      if (isNull1 && isNull2) {
-        return 0;
-      } else if (isNull1) {
-        // null is smaller
-        return -1;
-      } else {
-        return 1;
+      if (isNull1 || isNull2) {
+        if (isNull1 && isNull2) {
+          return 0;
+        } else if (isNull1) {
+          // null is smaller
+          return -1;
+        } else {
+          return 1;
+        }
       }
     }
     return compareNotNull(index1, index2);

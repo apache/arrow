@@ -16,14 +16,14 @@
 # under the License.
 
 # when cpp11 is vendored:
-PKG_CPPFLAGS=@cflags@ -I../inst/include/
+# PKG_CPPFLAGS=@cflags@ -I../inst/include/
 
 # when it is not:
-# PKG_CPPFLAGS=@cflags@
+PKG_CPPFLAGS=@cflags@
 
 # `-fvisibility=hidden` does not play well with UBSAN:
 # https://bugs.llvm.org/show_bug.cgi?id=39191
 # https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg534862.html
 # PKG_CXXFLAGS=$(CXX_VISIBILITY)
-CXX_STD=CXX11
+CXX_STD=CXX17
 PKG_LIBS=@libs@

@@ -20,9 +20,9 @@ import (
 	"math"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -151,12 +151,46 @@ func TestMonthIntervalBuilder_Empty(t *testing.T) {
 	arr.Release()
 }
 
+func TestMonthIntervalStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []arrow.MonthInterval{1, 2, 3, 4}
+		valid  = []bool{true, true, false, true}
+	)
+
+	b := array.NewMonthIntervalBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.MonthInterval)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewMonthIntervalBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.MonthInterval)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestDayTimeArray(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
 	var (
-		want   = []arrow.DayTimeInterval{{1, 1}, {2, 2}, {3, 3}, {4, 4}}
+		want = []arrow.DayTimeInterval{
+			{Days: 1, Milliseconds: 1}, {Days: 2, Milliseconds: 2},
+			{Days: 3, Milliseconds: 3}, {Days: 4, Milliseconds: 4}}
 		valids = []bool{true, true, false, true}
 	)
 
@@ -240,7 +274,9 @@ func TestDayTimeIntervalBuilder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	want := []arrow.DayTimeInterval{{1, 1}, {2, 2}, {3, 3}, {4, 4}}
+	want := []arrow.DayTimeInterval{
+		{Days: 1, Milliseconds: 1}, {Days: 2, Milliseconds: 2},
+		{Days: 3, Milliseconds: 3}, {Days: 4, Milliseconds: 4}}
 
 	b := array.NewDayTimeIntervalBuilder(mem)
 	defer b.Release()
@@ -276,15 +312,54 @@ func TestDayTimeIntervalBuilder_Empty(t *testing.T) {
 	arr.Release()
 }
 
+func TestDayTimeIntervalStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []arrow.DayTimeInterval{
+			{Days: 1, Milliseconds: 1},
+			{Days: 2, Milliseconds: 2},
+			{Days: 3, Milliseconds: 3},
+			{Days: 4, Milliseconds: 4},
+		}
+		valid = []bool{true, true, false, true}
+	)
+
+	b := array.NewDayTimeIntervalBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.DayTimeInterval)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewDayTimeIntervalBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.DayTimeInterval)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
 func TestMonthDayNanoArray(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
 	var (
 		want = []arrow.MonthDayNanoInterval{
-			{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000},
-			{0, 0, 0}, {-1, -2, -300}, {math.MaxInt32, math.MinInt32, math.MaxInt64},
-			{math.MinInt32, math.MaxInt32, math.MinInt64},
+			{Months: 1, Days: 1, Nanoseconds: 1000}, {Months: 2, Days: 2, Nanoseconds: 2000},
+			{Months: 3, Days: 3, Nanoseconds: 3000}, {Months: 4, Days: 4, Nanoseconds: 4000},
+			{Months: 0, Days: 0, Nanoseconds: 0}, {Months: -1, Days: -2, Nanoseconds: -300},
+			{Months: math.MaxInt32, Days: math.MinInt32, Nanoseconds: math.MaxInt64},
+			{Months: math.MinInt32, Days: math.MaxInt32, Nanoseconds: math.MinInt64},
 		}
 		valids = []bool{true, true, false, true, true, true, false, true}
 	)
@@ -370,7 +445,11 @@ func TestMonthDayNanoIntervalBuilder_Empty(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	want := []arrow.MonthDayNanoInterval{{1, 1, 1000}, {2, 2, 2000}, {3, 3, 3000}, {4, 4, 4000}}
+	want := []arrow.MonthDayNanoInterval{
+		{Months: 1, Days: 1, Nanoseconds: 1000},
+		{Months: 2, Days: 2, Nanoseconds: 2000},
+		{Months: 3, Days: 3, Nanoseconds: 3000},
+		{Months: 4, Days: 4, Nanoseconds: 4000}}
 
 	b := array.NewMonthDayNanoIntervalBuilder(mem)
 	defer b.Release()
@@ -404,4 +483,42 @@ func TestMonthDayNanoIntervalBuilder_Empty(t *testing.T) {
 	arr = b.NewMonthDayNanoIntervalArray()
 	assert.Equal(t, want, dtValues(arr))
 	arr.Release()
+}
+
+func TestMonthDayNanoIntervalStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	var (
+		values = []arrow.MonthDayNanoInterval{
+			{Months: 1, Days: 1, Nanoseconds: 1000}, {Months: 2, Days: 2, Nanoseconds: 2000},
+			{Months: 3, Days: 3, Nanoseconds: 3000}, {Months: 4, Days: 4, Nanoseconds: 4000},
+			{Months: 0, Days: 0, Nanoseconds: 0}, {Months: -1, Days: -2, Nanoseconds: -300},
+			{Months: math.MaxInt32, Days: math.MinInt32, Nanoseconds: math.MaxInt64},
+			{Months: math.MinInt32, Days: math.MaxInt32, Nanoseconds: math.MinInt64},
+		}
+		valid = []bool{true, true, false, true, true, true, false, true}
+	)
+
+	b := array.NewMonthDayNanoIntervalBuilder(mem)
+	defer b.Release()
+
+	b.AppendValues(values, valid)
+
+	arr := b.NewArray().(*array.MonthDayNanoInterval)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewMonthDayNanoIntervalBuilder(mem)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.MonthDayNanoInterval)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }

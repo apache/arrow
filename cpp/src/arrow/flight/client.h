@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/// \brief Implementation of Flight RPC client using gRPC. API should be
-// considered experimental for now
+/// \brief Implementation of Flight RPC client. API should be
+/// considered experimental for now
 
 #pragma once
 
@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "arrow/ipc/options.h"
@@ -32,8 +33,8 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/cancel.h"
-#include "arrow/util/variant.h"
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/types.h"  // IWYU pragma: keep
 #include "arrow/flight/visibility.h"
 
@@ -43,10 +44,6 @@ class RecordBatch;
 class Schema;
 
 namespace flight {
-
-class ClientAuthHandler;
-class ClientMiddleware;
-class ClientMiddlewareFactory;
 
 /// \brief A duration type for Flight call timeouts.
 typedef std::chrono::duration<double, std::chrono::seconds::period> TimeoutDuration;
@@ -73,6 +70,9 @@ class ARROW_FLIGHT_EXPORT FlightCallOptions {
 
   /// \brief A token to enable interactive user cancellation of long-running requests.
   StopToken stop_token;
+
+  /// \brief An optional memory manager to control where to allocate incoming data.
+  std::shared_ptr<MemoryManager> memory_manager;
 };
 
 /// \brief Indicate that the client attempted to write a message
@@ -118,7 +118,7 @@ struct ARROW_FLIGHT_EXPORT FlightClientOptions {
 
   /// \brief Generic connection options, passed to the underlying
   ///     transport; interpretation is implementation-dependent.
-  std::vector<std::pair<std::string, util::Variant<int, std::string>>> generic_options;
+  std::vector<std::pair<std::string, std::variant<int, std::string>>> generic_options;
 
   /// \brief Use TLS without validating the server certificate. Use with caution.
   bool disable_server_verification = false;
@@ -133,12 +133,15 @@ class ARROW_FLIGHT_EXPORT FlightStreamReader : public MetadataRecordBatchReader 
  public:
   /// \brief Try to cancel the call.
   virtual void Cancel() = 0;
-  using MetadataRecordBatchReader::ReadAll;
+
+  using MetadataRecordBatchReader::ToRecordBatches;
   /// \brief Consume entire stream as a vector of record batches
-  virtual Status ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
-                         const StopToken& stop_token) = 0;
+  virtual arrow::Result<std::vector<std::shared_ptr<RecordBatch>>> ToRecordBatches(
+      const StopToken& stop_token) = 0;
+
+  using MetadataRecordBatchReader::ToTable;
   /// \brief Consume entire stream as a Table
-  Status ReadAll(std::shared_ptr<Table>* table, const StopToken& stop_token);
+  arrow::Result<std::shared_ptr<Table>> ToTable(const StopToken& stop_token);
 };
 
 // Silence warning
@@ -173,7 +176,7 @@ class ARROW_FLIGHT_EXPORT FlightMetadataReader {
   virtual Status ReadMetadata(std::shared_ptr<Buffer>* out) = 0;
 };
 
-/// \brief Client class for Arrow Flight RPC services (gRPC-based).
+/// \brief Client class for Arrow Flight RPC services.
 /// API experimental for now
 class ARROW_FLIGHT_EXPORT FlightClient {
  public:
@@ -181,19 +184,17 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 
   /// \brief Connect to an unauthenticated flight service
   /// \param[in] location the URI
-  /// \param[out] client the created FlightClient
-  /// \return Status OK status may not indicate that the connection was
-  /// successful
-  static Status Connect(const Location& location, std::unique_ptr<FlightClient>* client);
+  /// \return Arrow result with the created FlightClient, OK status may not indicate that
+  /// the connection was successful
+  static arrow::Result<std::unique_ptr<FlightClient>> Connect(const Location& location);
 
   /// \brief Connect to an unauthenticated flight service
   /// \param[in] location the URI
   /// \param[in] options Other options for setting up the client
-  /// \param[out] client the created FlightClient
-  /// \return Status OK status may not indicate that the connection was
-  /// successful
-  static Status Connect(const Location& location, const FlightClientOptions& options,
-                        std::unique_ptr<FlightClient>* client);
+  /// \return Arrow result with the created FlightClient, OK status may not indicate that
+  /// the connection was successful
+  static arrow::Result<std::unique_ptr<FlightClient>> Connect(
+      const Location& location, const FlightClientOptions& options);
 
   /// \brief Authenticate to the server using the given handler.
   /// \param[in] options Per-RPC options
@@ -207,7 +208,7 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] username Username to use
   /// \param[in] password Password to use
   /// \return Arrow result with bearer token and status OK if client authenticated
-  /// sucessfully
+  /// successfully
   arrow::Result<std::pair<std::string, std::string>> AuthenticateBasicToken(
       const FlightCallOptions& options, const std::string& username,
       const std::string& password);
@@ -216,21 +217,45 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// of results, if any
   /// \param[in] options Per-RPC options
   /// \param[in] action the action to be performed
-  /// \param[out] results an iterator object for reading the returned results
-  /// \return Status
-  Status DoAction(const FlightCallOptions& options, const Action& action,
-                  std::unique_ptr<ResultStream>* results);
-  Status DoAction(const Action& action, std::unique_ptr<ResultStream>* results) {
-    return DoAction({}, action, results);
+  /// \return Arrow result with an iterator object for reading the returned results
+  arrow::Result<std::unique_ptr<ResultStream>> DoAction(const FlightCallOptions& options,
+                                                        const Action& action);
+  arrow::Result<std::unique_ptr<ResultStream>> DoAction(const Action& action) {
+    return DoAction({}, action);
+  }
+
+  /// \brief Perform the CancelFlightInfo action, returning a
+  /// CancelFlightInfoResult
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The CancelFlightInfoRequest
+  /// \return Arrow result with a CancelFlightInfoResult
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request);
+  arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const CancelFlightInfoRequest& request) {
+    return CancelFlightInfo({}, request);
+  }
+
+  /// \brief Perform the RenewFlightEndpoint action, returning a renewed
+  /// FlightEndpoint
+  ///
+  /// \param[in] options Per-RPC options
+  /// \param[in] request The RenewFlightEndpointRequest
+  /// \return Arrow result with a renewed FlightEndpoint
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const FlightCallOptions& options, const RenewFlightEndpointRequest& request);
+  arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const RenewFlightEndpointRequest& request) {
+    return RenewFlightEndpoint({}, request);
   }
 
   /// \brief Retrieve a list of available Action types
   /// \param[in] options Per-RPC options
-  /// \param[out] actions the available actions
-  /// \return Status
-  Status ListActions(const FlightCallOptions& options, std::vector<ActionType>* actions);
-  Status ListActions(std::vector<ActionType>* actions) {
-    return ListActions({}, actions);
+  /// \return Arrow result with the available actions
+  arrow::Result<std::vector<ActionType>> ListActions(const FlightCallOptions& options);
+  arrow::Result<std::vector<ActionType>> ListActions() {
+    return ListActions(FlightCallOptions());
   }
 
   /// \brief Request access plan for a single flight, which may be an existing
@@ -238,14 +263,12 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
-  /// \param[out] info the FlightInfo describing where to access the dataset
-  /// \return Status
-  Status GetFlightInfo(const FlightCallOptions& options,
-                       const FlightDescriptor& descriptor,
-                       std::unique_ptr<FlightInfo>* info);
-  Status GetFlightInfo(const FlightDescriptor& descriptor,
-                       std::unique_ptr<FlightInfo>* info) {
-    return GetFlightInfo({}, descriptor, info);
+  /// \return Arrow result with the FlightInfo describing where to access the dataset
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
+  arrow::Result<std::unique_ptr<FlightInfo>> GetFlightInfo(
+      const FlightDescriptor& descriptor) {
+    return GetFlightInfo({}, descriptor);
   }
 
   /// \brief Request schema for a single flight, which may be an existing
@@ -253,40 +276,44 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request, whether a named dataset or
   /// command
-  /// \param[out] schema_result the SchemaResult describing the dataset schema
-  /// \return Status
-  Status GetSchema(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-                   std::unique_ptr<SchemaResult>* schema_result);
-  Status GetSchema(const FlightDescriptor& descriptor,
-                   std::unique_ptr<SchemaResult>* schema_result) {
-    return GetSchema({}, descriptor, schema_result);
+  /// \return Arrow result with the SchemaResult describing the dataset schema
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
+
+  arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
+      const FlightDescriptor& descriptor) {
+    return GetSchema({}, descriptor);
   }
 
   /// \brief List all available flights known to the server
-  /// \param[out] listing an iterator that returns a FlightInfo for each flight
-  /// \return Status
-  Status ListFlights(std::unique_ptr<FlightListing>* listing);
+  /// \return Arrow result with an iterator that returns a FlightInfo for each flight
+  arrow::Result<std::unique_ptr<FlightListing>> ListFlights();
 
   /// \brief List available flights given indicated filter criteria
   /// \param[in] options Per-RPC options
   /// \param[in] criteria the filter criteria (opaque)
-  /// \param[out] listing an iterator that returns a FlightInfo for each flight
-  /// \return Status
-  Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
-                     std::unique_ptr<FlightListing>* listing);
+  /// \return Arrow result with an iterator that returns a FlightInfo for each flight
+  arrow::Result<std::unique_ptr<FlightListing>> ListFlights(
+      const FlightCallOptions& options, const Criteria& criteria);
 
   /// \brief Given a flight ticket and schema, request to be sent the
   /// stream. Returns record batch stream reader
   /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
-  /// \param[out] stream the returned RecordBatchReader
-  /// \return Status
-  Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-               std::unique_ptr<FlightStreamReader>* stream);
-  Status DoGet(const Ticket& ticket, std::unique_ptr<FlightStreamReader>* stream) {
-    return DoGet({}, ticket, stream);
+  /// \return Arrow result with the returned RecordBatchReader
+  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
+      const FlightCallOptions& options, const Ticket& ticket);
+  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(const Ticket& ticket) {
+    return DoGet({}, ticket);
   }
 
+  /// \brief DoPut return value
+  struct DoPutResult {
+    /// \brief a writer to write record batches to
+    std::unique_ptr<FlightStreamWriter> writer;
+    /// \brief a reader for application metadata from the server
+    std::unique_ptr<FlightMetadataReader> reader;
+  };
   /// \brief Upload data to a Flight described by the given
   /// descriptor. The caller must call Close() on the returned stream
   /// once they are done writing.
@@ -298,32 +325,42 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the descriptor of the stream
   /// \param[in] schema the schema for the data to upload
-  /// \param[out] stream a writer to write record batches to
-  /// \param[out] reader a reader for application metadata from the server
-  /// \return Status
-  Status DoPut(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-               const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightStreamWriter>* stream,
-               std::unique_ptr<FlightMetadataReader>* reader);
-  Status DoPut(const FlightDescriptor& descriptor, const std::shared_ptr<Schema>& schema,
-               std::unique_ptr<FlightStreamWriter>* stream,
-               std::unique_ptr<FlightMetadataReader>* reader) {
-    return DoPut({}, descriptor, schema, stream, reader);
+  /// \return Arrow result with a DoPutResult struct holding a reader and a writer
+  arrow::Result<DoPutResult> DoPut(const FlightCallOptions& options,
+                                   const FlightDescriptor& descriptor,
+                                   const std::shared_ptr<Schema>& schema);
+
+  arrow::Result<DoPutResult> DoPut(const FlightDescriptor& descriptor,
+                                   const std::shared_ptr<Schema>& schema) {
+    return DoPut({}, descriptor, schema);
   }
 
-  Status DoExchange(const FlightCallOptions& options, const FlightDescriptor& descriptor,
-                    std::unique_ptr<FlightStreamWriter>* writer,
-                    std::unique_ptr<FlightStreamReader>* reader);
-  Status DoExchange(const FlightDescriptor& descriptor,
-                    std::unique_ptr<FlightStreamWriter>* writer,
-                    std::unique_ptr<FlightStreamReader>* reader) {
-    return DoExchange({}, descriptor, writer, reader);
+  struct DoExchangeResult {
+    std::unique_ptr<FlightStreamWriter> writer;
+    std::unique_ptr<FlightStreamReader> reader;
+  };
+  arrow::Result<DoExchangeResult> DoExchange(const FlightCallOptions& options,
+                                             const FlightDescriptor& descriptor);
+  arrow::Result<DoExchangeResult> DoExchange(const FlightDescriptor& descriptor) {
+    return DoExchange({}, descriptor);
   }
+
+  /// \brief Explicitly shut down and clean up the client.
+  ///
+  /// For backwards compatibility, this will be implicitly called by
+  /// the destructor if not already called, but this gives the
+  /// application no chance to handle errors, so it is recommended to
+  /// explicitly close the client.
+  ///
+  /// \since 8.0.0
+  Status Close();
 
  private:
   FlightClient();
-  class FlightClientImpl;
-  std::unique_ptr<FlightClientImpl> impl_;
+  Status CheckOpen() const;
+  std::unique_ptr<internal::ClientTransport> transport_;
+  bool closed_;
+  int64_t write_size_limit_bytes_;
 };
 
 }  // namespace flight

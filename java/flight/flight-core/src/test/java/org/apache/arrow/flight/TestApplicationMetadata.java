@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
@@ -32,9 +35,9 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.Assert;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for application-specific metadata support in Flight.
@@ -51,16 +54,16 @@ public class TestApplicationMetadata {
    */
   @Test
   // This test is consistently flaky on CI, unfortunately.
-  @Ignore
+  @Disabled
   public void retrieveMetadata() {
     test((allocator, client) -> {
       try (final FlightStream stream = client.getStream(new Ticket(new byte[0]))) {
         byte i = 0;
         while (stream.next()) {
           final IntVector vector = (IntVector) stream.getRoot().getVector("a");
-          Assert.assertEquals(1, vector.getValueCount());
-          Assert.assertEquals(10, vector.get(0));
-          Assert.assertEquals(i, stream.getLatestMetadata().getByte(0));
+          Assertions.assertEquals(1, vector.getValueCount());
+          Assertions.assertEquals(10, vector.get(0));
+          Assertions.assertEquals(i, stream.getLatestMetadata().getByte(0));
           i++;
         }
       } catch (Exception e) {
@@ -81,7 +84,7 @@ public class TestApplicationMetadata {
         final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, listener);
         // Must attempt to retrieve the result to get any server-side errors.
         final CallStatus status = FlightTestUtil.assertCode(FlightStatusCode.INTERNAL, writer::getResult);
-        Assert.assertEquals(MESSAGE_ARROW_6136, status.description());
+        Assertions.assertEquals(MESSAGE_ARROW_6136, status.description());
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -92,7 +95,7 @@ public class TestApplicationMetadata {
    * Ensure that a client can send metadata to the server.
    */
   @Test
-  @Ignore
+  @Disabled
   public void uploadMetadataAsync() {
     final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
     test((allocator, client) -> {
@@ -104,8 +107,8 @@ public class TestApplicationMetadata {
 
           @Override
           public void onNext(PutResult val) {
-            Assert.assertNotNull(val);
-            Assert.assertEquals(counter, val.getApplicationMetadata().getByte(0));
+            Assertions.assertNotNull(val);
+            Assertions.assertEquals(counter, val.getApplicationMetadata().getByte(0));
             counter++;
           }
         };
@@ -134,7 +137,7 @@ public class TestApplicationMetadata {
    * Ensure that a client can send metadata to the server. Uses the synchronous API.
    */
   @Test
-  @Ignore
+  @Disabled
   public void uploadMetadataSync() {
     final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
     test((allocator, client) -> {
@@ -153,8 +156,8 @@ public class TestApplicationMetadata {
           root.setRowCount(1);
           writer.putNext(metadata);
           try (final PutResult message = listener.poll(5000, TimeUnit.SECONDS)) {
-            Assert.assertNotNull(message);
-            Assert.assertEquals(i, message.getApplicationMetadata().getByte(0));
+            Assertions.assertNotNull(message);
+            Assertions.assertEquals(i, message.getApplicationMetadata().getByte(0));
           } catch (InterruptedException | ExecutionException e) {
             throw new RuntimeException(e);
           }
@@ -170,7 +173,7 @@ public class TestApplicationMetadata {
    * Make sure that a {@link SyncPutListener} properly reclaims memory if ignored.
    */
   @Test
-  @Ignore
+  @Disabled
   public void syncMemoryReclaimed() {
     final Schema schema = new Schema(Collections.singletonList(Field.nullable("a", new ArrowType.Int(32, true))));
     test((allocator, client) -> {
@@ -204,10 +207,8 @@ public class TestApplicationMetadata {
   public void testMetadataEndianness() throws Exception {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
          final BufferAllocator serverAllocator = allocator.newChildAllocator("flight-server", 0, Long.MAX_VALUE);
-         final FlightServer server = FlightTestUtil.getStartedServer(
-             (location) -> FlightServer
-                 .builder(serverAllocator, location, new EndianFlightProducer(serverAllocator))
-                 .build());
+         final FlightServer server = FlightServer.builder(serverAllocator, forGrpcInsecure(LOCALHOST, 0),
+             new EndianFlightProducer(serverAllocator)).build().start();
          final FlightClient client = FlightClient.builder(allocator, server.getLocation()).build()) {
       final Schema schema = new Schema(Collections.emptyList());
       final FlightDescriptor descriptor = FlightDescriptor.command(new byte[0]);
@@ -216,10 +217,10 @@ public class TestApplicationMetadata {
         final FlightClient.ClientStreamListener writer = client.startPut(descriptor, root, reader);
         writer.completed();
         try (final PutResult metadata = reader.read()) {
-          Assert.assertEquals(16, metadata.getApplicationMetadata().readableBytes());
+          Assertions.assertEquals(16, metadata.getApplicationMetadata().readableBytes());
           byte[] bytes = new byte[16];
           metadata.getApplicationMetadata().readBytes(bytes);
-          Assert.assertArrayEquals(EndianFlightProducer.EXPECTED_BYTES, bytes);
+          Assertions.assertArrayEquals(EndianFlightProducer.EXPECTED_BYTES, bytes);
         }
         writer.getResult();
       }
@@ -228,10 +229,9 @@ public class TestApplicationMetadata {
 
   private void test(BiConsumer<BufferAllocator, FlightClient> fun) {
     try (final BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-        final FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(allocator, location, new MetadataFlightProducer(allocator)).build());
-        final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
+         final FlightServer s = FlightServer.builder(allocator, forGrpcInsecure(LOCALHOST, 0),
+             new MetadataFlightProducer(allocator)).build().start();
+         final FlightClient client = FlightClient.builder(allocator, s.getLocation()).build()) {
       fun.accept(allocator, client);
     } catch (Exception e) {
       throw new RuntimeException(e);

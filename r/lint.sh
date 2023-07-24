@@ -51,4 +51,4 @@ $CPP_BUILD_SUPPORT/run_cpplint.py \
 
 # Run lintr
 R -e "if(!requireNamespace('lintr', quietly=TRUE)){stop('lintr is not installed, please install it with R -e \"install.packages(\'lintr\')\"')}"
-NOT_CRAN=true R -e "lintr::lint_package('${SOURCE_DIR}', path_prefix = 'r')"
+NOT_CRAN=true R -e "lintr::lint_package('${SOURCE_DIR}')"

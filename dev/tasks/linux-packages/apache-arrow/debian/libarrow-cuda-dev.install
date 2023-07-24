@@ -1,6 +1,4 @@
-usr/lib/*/cmake/arrow/ArrowCUDAConfig*.cmake
-usr/lib/*/cmake/arrow/ArrowCUDATargets*.cmake
-usr/lib/*/cmake/arrow/FindArrowCUDA.cmake
+usr/lib/*/cmake/ArrowCUDA/
 usr/lib/*/libarrow_cuda.a
 usr/lib/*/libarrow_cuda.so
 usr/lib/*/pkgconfig/arrow-cuda.pc

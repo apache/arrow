@@ -19,7 +19,8 @@
 
 distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   if (.keep_all == TRUE) {
-    # After ARROW-13993 is merged, we can implement this (ARROW-14045)
+    # TODO(ARROW-14045): the function is called "hash_one" (from ARROW-13993)
+    # May need to call it: `summarize(x = one(x), ...)` for x in non-group cols
     arrow_not_supported("`distinct()` with `.keep_all = TRUE`")
   }
 
@@ -27,9 +28,6 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   if (length(quos(...))) {
     # group_by() calls mutate() if there are any expressions in ...
     .data <- dplyr::group_by(.data, ..., .add = TRUE)
-    # `data %>% group_by() %>% summarise()` returns cols in order supplied
-    # but distinct() returns cols in dataset order, so sort group vars
-    .data$group_by_vars <- names(.data)[names(.data) %in% .data$group_by_vars]
   } else {
     # distinct() with no vars specified means distinct across all cols
     .data <- dplyr::group_by(.data, !!!syms(names(.data)))
@@ -43,4 +41,4 @@ distinct.arrow_dplyr_query <- function(.data, ..., .keep_all = FALSE) {
   out
 }
 
-distinct.Dataset <- distinct.ArrowTabular <- distinct.arrow_dplyr_query
+distinct.Dataset <- distinct.ArrowTabular <- distinct.RecordBatchReader <- distinct.arrow_dplyr_query

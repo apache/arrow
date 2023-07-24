@@ -17,7 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
 #include <arrow/array/data.h>
 
 // [[arrow::export]]
@@ -45,5 +44,3 @@ int ArrayData__get_offset(const std::shared_ptr<arrow::ArrayData>& x) {
 cpp11::list ArrayData__buffers(const std::shared_ptr<arrow::ArrayData>& x) {
   return arrow::r::to_r_list(x->buffers);
 }
-
-#endif

@@ -17,8 +17,6 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/c/bridge.h>
 
 // [[arrow::export]]
@@ -145,5 +143,3 @@ void ExportRecordBatchReader(const std::shared_ptr<arrow::RecordBatchReader>& re
                              arrow::r::Pointer<struct ArrowArrayStream> stream_ptr) {
   StopIfNotOk(arrow::ExportRecordBatchReader(reader, stream_ptr));
 }
-
-#endif

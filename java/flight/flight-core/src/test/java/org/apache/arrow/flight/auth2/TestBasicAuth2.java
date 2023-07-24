@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight.auth2;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.IOException;
 
 import org.apache.arrow.flight.CallStatus;
@@ -38,11 +41,11 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +62,7 @@ public class TestBasicAuth2 {
   private FlightClient client;
   private FlightClient client2;
 
-  @Before
+  @BeforeEach
   public void setup() throws Exception {
     allocator = new RootAllocator(Long.MAX_VALUE);
     startServerAndClient();
@@ -98,17 +101,16 @@ public class TestBasicAuth2 {
 
   private void startServerAndClient() throws IOException {
     final FlightProducer flightProducer = getFlightProducer();
-    this.server = FlightTestUtil.getStartedServer((location) -> FlightServer
-        .builder(allocator, location, flightProducer)
+    this.server = FlightServer
+        .builder(allocator, forGrpcInsecure(LOCALHOST, 0), flightProducer)
         .headerAuthenticator(new GeneratedBearerTokenAuthenticator(
             new BasicCallHeaderAuthenticator(this::validate)))
-        .build());
-
+        .build().start();
     this.client = FlightClient.builder(allocator, server.getLocation())
         .build();
   }
 
-  @After
+  @AfterEach
   public void shutdown() throws Exception {
     AutoCloseables.close(client, client2, server, allocator);
     client = null;
@@ -155,7 +157,7 @@ public class TestBasicAuth2 {
   }
 
   // ARROW-7722: this test occasionally leaks memory
-  @Ignore
+  @Disabled
   @Test
   public void asyncCall() throws Exception {
     final CredentialCallOption bearerToken = client
@@ -163,7 +165,7 @@ public class TestBasicAuth2 {
     client.listFlights(Criteria.ALL, bearerToken);
     try (final FlightStream s = client.getStream(new Ticket(new byte[1]))) {
       while (s.next()) {
-        Assert.assertEquals(4095, s.getRoot().getRowCount());
+        Assertions.assertEquals(4095, s.getRoot().getRowCount());
       }
     }
   }
@@ -181,7 +183,7 @@ public class TestBasicAuth2 {
   private void testValidAuth(FlightClient client) {
     final CredentialCallOption bearerToken = client
             .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
-    Assert.assertTrue(ImmutableList.copyOf(client
+    Assertions.assertTrue(ImmutableList.copyOf(client
             .listFlights(Criteria.ALL, bearerToken))
             .isEmpty());
   }
@@ -192,10 +194,10 @@ public class TestBasicAuth2 {
             .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
     final CredentialCallOption bearerToken2 = client2
             .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
-    Assert.assertTrue(ImmutableList.copyOf(client1
+    Assertions.assertTrue(ImmutableList.copyOf(client1
             .listFlights(Criteria.ALL, bearerToken1))
             .isEmpty());
-    Assert.assertTrue(ImmutableList.copyOf(client2
+    Assertions.assertTrue(ImmutableList.copyOf(client2
             .listFlights(Criteria.ALL, bearerToken2))
             .isEmpty());
   }
@@ -206,10 +208,10 @@ public class TestBasicAuth2 {
             .authenticateBasicToken(USERNAME_1, PASSWORD_1).get();
     final CredentialCallOption bearerToken2 = client2
             .authenticateBasicToken(USERNAME_2, PASSWORD_2).get();
-    Assert.assertTrue(ImmutableList.copyOf(client1
+    Assertions.assertTrue(ImmutableList.copyOf(client1
             .listFlights(Criteria.ALL, bearerToken1))
             .isEmpty());
-    Assert.assertTrue(ImmutableList.copyOf(client2
+    Assertions.assertTrue(ImmutableList.copyOf(client2
             .listFlights(Criteria.ALL, bearerToken2))
             .isEmpty());
   }
@@ -222,11 +224,11 @@ public class TestBasicAuth2 {
             client.authenticateBasicToken(NO_USERNAME, PASSWORD_1));
 
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
-            client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
+            client.listFlights(Criteria.ALL).forEach(action -> Assertions.fail()));
   }
 
   private void didntAuth(FlightClient client) {
     FlightTestUtil.assertCode(FlightStatusCode.UNAUTHENTICATED, () ->
-            client.listFlights(Criteria.ALL).forEach(action -> Assert.fail()));
+            client.listFlights(Criteria.ALL).forEach(action -> Assertions.fail()));
   }
 }

@@ -22,6 +22,13 @@ class FieldTest < Test::Unit::TestCase
                    Arrow::Field.new("visible", Arrow::BooleanDataType.new).to_s)
     end
 
+    test("String, Arrow::DataType, Boolean") do
+      assert_equal("visible: bool not null",
+                   Arrow::Field.new("visible",
+                                    Arrow::BooleanDataType.new,
+                                    false).to_s)
+    end
+
     test("Symbol, Arrow::DataType") do
       assert_equal("visible: bool",
                    Arrow::Field.new(:visible, Arrow::BooleanDataType.new).to_s)
@@ -35,6 +42,18 @@ class FieldTest < Test::Unit::TestCase
     test("String, Hash") do
       assert_equal("visible: bool",
                    Arrow::Field.new(:visible, type: :boolean).to_s)
+    end
+
+    test("String, Hash (:nullable)") do
+      assert_equal("visible: bool not null",
+                   Arrow::Field.new(:visible,
+                                    type: :boolean,
+                                    nullable: false).to_s)
+    end
+
+    test("String, Hash, Boolean)") do
+      assert_equal("visible: bool not null",
+                   Arrow::Field.new(:visible, {type: :boolean}, false).to_s)
     end
 
     test("description: String") do
@@ -53,6 +72,13 @@ class FieldTest < Test::Unit::TestCase
       assert_equal("visible: bool",
                    Arrow::Field.new(name: :visible,
                                     type: :boolean).to_s)
+    end
+
+    test("description: nullable") do
+      assert_equal("visible: bool not null",
+                   Arrow::Field.new(name: :visible,
+                                    data_type: :boolean,
+                                    nullable: false).to_s)
     end
 
     test("Hash: shortcut: additional") do

@@ -17,8 +17,6 @@
 
 #include "./r_task_group.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 namespace arrow {
 namespace r {
 
@@ -70,5 +68,3 @@ void RTasks::Reset() {
 
 }  // namespace r
 }  // namespace arrow
-
-#endif

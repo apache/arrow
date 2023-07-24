@@ -30,7 +30,9 @@ For more information see the official page at https://arrow.apache.org
 """
 
 import gc as _gc
+import importlib as _importlib
 import os as _os
+import platform as _platform
 import sys as _sys
 import warnings as _warnings
 
@@ -49,7 +51,7 @@ except ImportError:
             """
             from setuptools_scm.git import parse
             kwargs['describe_command'] = \
-                "git describe --dirty --tags --long --match 'apache-arrow-[0-9].*'"
+                "git describe --dirty --tags --long --match 'apache-arrow-[0-9]*.*'"
             return parse(root, **kwargs)
         __version__ = setuptools_scm.get_version('../',
                                                  parse=parse_git)
@@ -75,19 +77,84 @@ def show_versions():
     """
     Print various version information, to help with error reporting.
     """
-    # TODO: CPU information and flags
+    def print_entry(label, value):
+        print(f"{label: <26}: {value: <8}")
+
     print("pyarrow version info\n--------------------")
-    print("Package kind: {}".format(cpp_build_info.package_kind
-                                    if len(cpp_build_info.package_kind) > 0
-                                    else "not indicated"))
-    print("Arrow C++ library version: {0}".format(cpp_build_info.version))
-    print("Arrow C++ compiler: {0} {1}"
-          .format(cpp_build_info.compiler_id, cpp_build_info.compiler_version))
-    print("Arrow C++ compiler flags: {0}"
-          .format(cpp_build_info.compiler_flags))
-    print("Arrow C++ git revision: {0}".format(cpp_build_info.git_id))
-    print("Arrow C++ git description: {0}"
-          .format(cpp_build_info.git_description))
+    print_entry("Package kind", cpp_build_info.package_kind
+                if len(cpp_build_info.package_kind) > 0
+                else "not indicated")
+    print_entry("Arrow C++ library version", cpp_build_info.version)
+    print_entry("Arrow C++ compiler",
+                f"{cpp_build_info.compiler_id} {cpp_build_info.compiler_version}")
+    print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
+    print_entry("Arrow C++ git revision", cpp_build_info.git_id)
+    print_entry("Arrow C++ git description", cpp_build_info.git_description)
+    print_entry("Arrow C++ build type", cpp_build_info.build_type)
+
+
+def _module_is_available(module):
+    try:
+        _importlib.import_module(f'pyarrow.{module}')
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+def _filesystem_is_available(fs):
+    try:
+        import pyarrow.fs
+    except ImportError:
+        return False
+
+    try:
+        getattr(pyarrow.fs, fs)
+    except (ImportError, AttributeError):
+        return False
+    else:
+        return True
+
+
+def show_info():
+    """
+    Print detailed version and platform information, for error reporting
+    """
+    show_versions()
+
+    def print_entry(label, value):
+        print(f"  {label: <20}: {value: <8}")
+
+    print("\nPlatform:")
+    print_entry("OS / Arch", f"{_platform.system()} {_platform.machine()}")
+    print_entry("SIMD Level", runtime_info().simd_level)
+    print_entry("Detected SIMD Level", runtime_info().detected_simd_level)
+
+    pool = default_memory_pool()
+    print("\nMemory:")
+    print_entry("Default backend", pool.backend_name)
+    print_entry("Bytes allocated", f"{pool.bytes_allocated()} bytes")
+    print_entry("Max memory", f"{pool.max_memory()} bytes")
+    print_entry("Supported Backends", ', '.join(supported_memory_backends()))
+
+    print("\nOptional modules:")
+    modules = ["csv", "cuda", "dataset", "feather", "flight", "fs", "gandiva", "json",
+               "orc", "parquet"]
+    for module in modules:
+        status = "Enabled" if _module_is_available(module) else "-"
+        print(f"  {module: <20}: {status: <8}")
+
+    print("\nFilesystems:")
+    filesystems = ["GcsFileSystem", "HadoopFileSystem", "S3FileSystem"]
+    for fs in filesystems:
+        status = "Enabled" if _filesystem_is_available(fs) else "-"
+        print(f"  {fs: <20}: {status: <8}")
+
+    print("\nCompression Codecs:")
+    codecs = ["brotli", "bz2", "gzip", "lz4_frame", "lz4", "snappy", "zstd"]
+    for codec in codecs:
+        status = "Enabled" if Codec.is_available(codec) else "-"
+        print(f"  {codec: <20}: {status: <8}")
 
 
 from pyarrow.lib import (null, bool_,
@@ -102,6 +169,8 @@ from pyarrow.lib import (null, bool_,
                          list_, large_list, map_, struct,
                          union, sparse_union, dense_union,
                          dictionary,
+                         run_end_encoded,
+                         fixed_shape_tensor,
                          field,
                          type_for_alias,
                          DataType, DictionaryType, StructType,
@@ -110,6 +179,7 @@ from pyarrow.lib import (null, bool_,
                          TimestampType, Time32Type, Time64Type, DurationType,
                          FixedSizeBinaryType, Decimal128Type, Decimal256Type,
                          BaseExtensionType, ExtensionType,
+                         RunEndEncodedType, FixedShapeTensorType,
                          PyExtensionType, UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
@@ -131,6 +201,7 @@ from pyarrow.lib import (null, bool_,
                          Int16Array, UInt16Array,
                          Int32Array, UInt32Array,
                          Int64Array, UInt64Array,
+                         HalfFloatArray, FloatArray, DoubleArray,
                          ListArray, LargeListArray, MapArray,
                          FixedSizeListArray, UnionArray,
                          BinaryArray, StringArray,
@@ -141,6 +212,7 @@ from pyarrow.lib import (null, bool_,
                          Time32Array, Time64Array, DurationArray,
                          MonthDayNanoIntervalArray,
                          Decimal128Array, Decimal256Array, StructArray, ExtensionArray,
+                         RunEndEncodedArray, FixedShapeTensorArray,
                          scalar, NA, _NULL as NULL, Scalar,
                          NullScalar, BooleanScalar,
                          Int8Scalar, Int16Scalar, Int32Scalar, Int64Scalar,
@@ -156,7 +228,7 @@ from pyarrow.lib import (null, bool_,
                          StringScalar, LargeStringScalar,
                          FixedSizeBinaryScalar, DictionaryScalar,
                          MapScalar, StructScalar, UnionScalar,
-                         ExtensionScalar)
+                         RunEndEncodedScalar, ExtensionScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (Buffer, ResizableBuffer, foreign_buffer, py_buffer,
@@ -167,7 +239,8 @@ from pyarrow.lib import (MemoryPool, LoggingMemoryPool, ProxyMemoryPool,
                          default_memory_pool, system_memory_pool,
                          jemalloc_memory_pool, mimalloc_memory_pool,
                          logging_memory_pool, proxy_memory_pool,
-                         log_memory_allocations, jemalloc_set_decay_ms)
+                         log_memory_allocations, jemalloc_set_decay_ms,
+                         supported_memory_backends)
 
 # I/O
 from pyarrow.lib import (NativeFile, PythonFile,
@@ -183,7 +256,8 @@ from pyarrow.lib import (NativeFile, PythonFile,
 from pyarrow._hdfsio import HdfsFile, have_libhdfs
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
-                         concat_arrays, concat_tables, TableGroupBy)
+                         concat_arrays, concat_tables, TableGroupBy,
+                         RecordBatchReader)
 
 # Exceptions
 from pyarrow.lib import (ArrowCancelled,
@@ -198,21 +272,10 @@ from pyarrow.lib import (ArrowCancelled,
                          ArrowTypeError,
                          ArrowSerializationError)
 
-# Serialization
-from pyarrow.lib import (deserialize_from, deserialize,
-                         deserialize_components,
-                         serialize, serialize_to, read_serialized,
-                         SerializationCallbackError,
-                         DeserializationCallbackError)
-
 import pyarrow.hdfs as hdfs
 
 from pyarrow.ipc import serialize_pandas, deserialize_pandas
 import pyarrow.ipc as ipc
-
-from pyarrow.serialization import (default_serialization_context,
-                                   register_default_serialization_handlers,
-                                   register_torch_serialization_handlers)
 
 import pyarrow.types as types
 
@@ -223,9 +286,6 @@ import pyarrow.types as types
 from pyarrow.filesystem import FileSystem as _FileSystem
 from pyarrow.filesystem import LocalFileSystem as _LocalFileSystem
 from pyarrow.hdfs import HadoopFileSystem as _HadoopFileSystem
-
-from pyarrow.lib import SerializationContext as _SerializationContext
-from pyarrow.lib import SerializedPyObject as _SerializedPyObject
 
 
 _localfs = _LocalFileSystem._get_instance()
@@ -247,11 +307,6 @@ _deprecated = {
     "HadoopFileSystem": (_HadoopFileSystem, "HadoopFileSystem"),
 }
 
-_serialization_deprecatd = {
-    "SerializationContext": _SerializationContext,
-    "SerializedPyObject": _SerializedPyObject,
-}
-
 
 def __getattr__(name):
     if name in _deprecated:
@@ -259,109 +314,16 @@ def __getattr__(name):
         _warnings.warn(_msg.format(name, new_name),
                        FutureWarning, stacklevel=2)
         return obj
-    elif name in _serialization_deprecatd:
-        _warnings.warn(_serialization_msg.format(name),
-                       FutureWarning, stacklevel=2)
-        return _serialization_deprecatd[name]
 
     raise AttributeError(
         "module 'pyarrow' has no attribute '{0}'".format(name)
     )
 
 
-# Entry point for starting the plasma store
-
-
-def _plasma_store_entry_point():
-    """Entry point for starting the plasma store.
-
-    This can be used by invoking e.g.
-    ``plasma_store -s /tmp/plasma -m 1000000000``
-    from the command line and will start the plasma_store executable with the
-    given arguments.
-    """
-    import pyarrow
-    plasma_store_executable = _os.path.join(pyarrow.__path__[0],
-                                            "plasma-store-server")
-    _os.execv(plasma_store_executable, _sys.argv)
-
-
 # ----------------------------------------------------------------------
 # Deprecations
 
 from pyarrow.util import _deprecate_api, _deprecate_class
-
-read_message = _deprecate_api("read_message", "ipc.read_message",
-                              ipc.read_message, "0.17.0")
-
-read_record_batch = _deprecate_api("read_record_batch",
-                                   "ipc.read_record_batch",
-                                   ipc.read_record_batch, "0.17.0")
-
-read_schema = _deprecate_api("read_schema", "ipc.read_schema",
-                             ipc.read_schema, "0.17.0")
-
-read_tensor = _deprecate_api("read_tensor", "ipc.read_tensor",
-                             ipc.read_tensor, "0.17.0")
-
-write_tensor = _deprecate_api("write_tensor", "ipc.write_tensor",
-                              ipc.write_tensor, "0.17.0")
-
-get_record_batch_size = _deprecate_api("get_record_batch_size",
-                                       "ipc.get_record_batch_size",
-                                       ipc.get_record_batch_size, "0.17.0")
-
-get_tensor_size = _deprecate_api("get_tensor_size",
-                                 "ipc.get_tensor_size",
-                                 ipc.get_tensor_size, "0.17.0")
-
-open_stream = _deprecate_api("open_stream", "ipc.open_stream",
-                             ipc.open_stream, "0.17.0")
-
-open_file = _deprecate_api("open_file", "ipc.open_file", ipc.open_file,
-                           "0.17.0")
-
-
-def _deprecate_scalar(ty, symbol):
-    return _deprecate_class("{}Value".format(ty), symbol, "1.0.0")
-
-
-ArrayValue = _deprecate_class("ArrayValue", Scalar, "1.0.0")
-NullType = _deprecate_class("NullType", NullScalar, "1.0.0")
-
-BooleanValue = _deprecate_scalar("Boolean", BooleanScalar)
-Int8Value = _deprecate_scalar("Int8", Int8Scalar)
-Int16Value = _deprecate_scalar("Int16", Int16Scalar)
-Int32Value = _deprecate_scalar("Int32", Int32Scalar)
-Int64Value = _deprecate_scalar("Int64", Int64Scalar)
-UInt8Value = _deprecate_scalar("UInt8", UInt8Scalar)
-UInt16Value = _deprecate_scalar("UInt16", UInt16Scalar)
-UInt32Value = _deprecate_scalar("UInt32", UInt32Scalar)
-UInt64Value = _deprecate_scalar("UInt64", UInt64Scalar)
-HalfFloatValue = _deprecate_scalar("HalfFloat", HalfFloatScalar)
-FloatValue = _deprecate_scalar("Float", FloatScalar)
-DoubleValue = _deprecate_scalar("Double", DoubleScalar)
-ListValue = _deprecate_scalar("List", ListScalar)
-LargeListValue = _deprecate_scalar("LargeList", LargeListScalar)
-MapValue = _deprecate_scalar("Map", MapScalar)
-FixedSizeListValue = _deprecate_scalar("FixedSizeList", FixedSizeListScalar)
-BinaryValue = _deprecate_scalar("Binary", BinaryScalar)
-StringValue = _deprecate_scalar("String", StringScalar)
-LargeBinaryValue = _deprecate_scalar("LargeBinary", LargeBinaryScalar)
-LargeStringValue = _deprecate_scalar("LargeString", LargeStringScalar)
-FixedSizeBinaryValue = _deprecate_scalar("FixedSizeBinary",
-                                         FixedSizeBinaryScalar)
-Decimal128Value = _deprecate_scalar("Decimal128", Decimal128Scalar)
-Decimal256Value = _deprecate_scalar("Decimal256", Decimal256Scalar)
-UnionValue = _deprecate_scalar("Union", UnionScalar)
-StructValue = _deprecate_scalar("Struct", StructScalar)
-DictionaryValue = _deprecate_scalar("Dictionary", DictionaryScalar)
-Date32Value = _deprecate_scalar("Date32", Date32Scalar)
-Date64Value = _deprecate_scalar("Date64", Date64Scalar)
-Time32Value = _deprecate_scalar("Time32", Time32Scalar)
-Time64Value = _deprecate_scalar("Time64", Time64Scalar)
-TimestampValue = _deprecate_scalar("Timestamp", TimestampScalar)
-DurationValue = _deprecate_scalar("Duration", DurationScalar)
 
 
 # TODO: Deprecate these somehow in the pyarrow namespace
@@ -411,7 +373,7 @@ def get_libraries():
     Return list of library names to include in the `libraries` argument for C
     or Cython extensions using pyarrow
     """
-    return ['arrow', 'arrow_python']
+    return ['arrow_python', 'arrow']
 
 
 def create_library_symlinks():

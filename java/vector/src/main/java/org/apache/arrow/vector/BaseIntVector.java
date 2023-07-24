@@ -23,14 +23,14 @@ package org.apache.arrow.vector;
 public interface BaseIntVector extends FieldVector {
 
   /**
-   * Sets the value at index, note this value may need to be need truncated.
-   * Note this is safe version (i.e. call setSafe method in vector)
+   * Sets the value at index, note this value may need to be truncated.
+   * Note this is safe version (i.e. call setSafe(int, ...) method in vector)
    */
   void setWithPossibleTruncate(int index, long value);
 
   /**
-   * Sets the value at index, note this value may need to be need truncated.
-   * Note this is unsafe version (i.e. call set method in vector)
+   * Sets the value at index, note this value may need to be truncated.
+   * Note this is unsafe version (i.e. call set(int, ...) method in vector)
    */
   void setUnsafeWithPossibleTruncate(int index, long value);
 

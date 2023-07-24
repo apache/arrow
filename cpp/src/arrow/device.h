@@ -117,14 +117,20 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// \brief Allocate a (mutable) Buffer
   ///
   /// The buffer will be allocated in the device's memory.
-  virtual Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) = 0;
+  virtual Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) = 0;
 
-  // XXX Should this take a `const Buffer&` instead
   /// \brief Copy a Buffer to a destination MemoryManager
   ///
   /// See also the Buffer::Copy shorthand.
   static Result<std::shared_ptr<Buffer>> CopyBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+
+  /// \brief Copy a non-owned Buffer to a destination MemoryManager
+  ///
+  /// This is useful for cases where the source memory area is externally managed
+  /// (its lifetime not tied to the source Buffer), otherwise please use CopyBuffer().
+  static Result<std::unique_ptr<Buffer>> CopyNonOwned(
+      const Buffer& source, const std::shared_ptr<MemoryManager>& to);
 
   /// \brief Make a no-copy Buffer view in a destination MemoryManager
   ///
@@ -146,6 +152,10 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
       const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from);
   virtual Result<std::shared_ptr<Buffer>> CopyBufferTo(
       const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& to);
+  virtual Result<std::unique_ptr<Buffer>> CopyNonOwnedFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from);
+  virtual Result<std::unique_ptr<Buffer>> CopyNonOwnedTo(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& to);
   virtual Result<std::shared_ptr<Buffer>> ViewBufferFrom(
       const std::shared_ptr<Buffer>& buf, const std::shared_ptr<MemoryManager>& from);
   virtual Result<std::shared_ptr<Buffer>> ViewBufferTo(
@@ -184,7 +194,7 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
   Result<std::shared_ptr<io::OutputStream>> GetBufferWriter(
       std::shared_ptr<Buffer> buf) override;
 
-  Result<std::shared_ptr<Buffer>> AllocateBuffer(int64_t size) override;
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override;
 
   /// \brief Return the MemoryPool associated with this MemoryManager.
   MemoryPool* pool() const { return pool_; }
@@ -202,6 +212,10 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
   Result<std::shared_ptr<Buffer>> CopyBufferTo(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& to) override;
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from) override;
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedTo(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& to) override;
   Result<std::shared_ptr<Buffer>> ViewBufferFrom(
       const std::shared_ptr<Buffer>& buf,
       const std::shared_ptr<MemoryManager>& from) override;
@@ -212,7 +226,7 @@ class ARROW_EXPORT CPUMemoryManager : public MemoryManager {
   MemoryPool* pool_;
 
   friend std::shared_ptr<MemoryManager> CPUDevice::memory_manager(MemoryPool* pool);
-  friend ARROW_EXPORT std::shared_ptr<MemoryManager> default_cpu_memory_manager();
+  ARROW_FRIEND_EXPORT friend std::shared_ptr<MemoryManager> default_cpu_memory_manager();
 };
 
 /// \brief Return the default CPU MemoryManager instance

@@ -162,10 +162,10 @@ TEST(TestFixedSizeBufferWriter, InvalidWrites) {
 
 TEST(TestBufferReader, FromStrings) {
   // ARROW-3291: construct BufferReader from std::string or
-  // arrow::util::string_view
+  // std::string_view
 
   std::string data = "data123456";
-  auto view = util::string_view(data);
+  auto view = std::string_view(data);
 
   BufferReader reader1(data);
   BufferReader reader2(view);
@@ -208,7 +208,7 @@ TEST(TestBufferReader, Peek) {
 
   BufferReader reader(std::make_shared<Buffer>(data));
 
-  util::string_view view;
+  std::string_view view;
 
   ASSERT_OK_AND_ASSIGN(view, reader.Peek(4));
 
@@ -298,8 +298,8 @@ TEST(TestRandomAccessFile, GetStream) {
 
   std::shared_ptr<InputStream> stream1, stream2;
 
-  stream1 = RandomAccessFile::GetStream(file, 0, 10);
-  stream2 = RandomAccessFile::GetStream(file, 9, 16);
+  ASSERT_OK_AND_ASSIGN(stream1, RandomAccessFile::GetStream(file, 0, 10));
+  ASSERT_OK_AND_ASSIGN(stream2, RandomAccessFile::GetStream(file, 9, 16));
 
   ASSERT_OK_AND_EQ(0, stream1->Tell());
 
@@ -378,7 +378,7 @@ template <typename SlowStreamType>
 void TestSlowInputStream() {
   using clock = std::chrono::high_resolution_clock;
 
-  auto stream = std::make_shared<BufferReader>(util::string_view("abcdefghijkl"));
+  auto stream = std::make_shared<BufferReader>(std::string_view("abcdefghijkl"));
   const double latency = 0.6;
   auto slow = std::make_shared<SlowStreamType>(stream, latency);
 
@@ -395,8 +395,8 @@ void TestSlowInputStream() {
   ARROW_UNUSED(dt);
 #endif
 
-  ASSERT_OK_AND_ASSIGN(util::string_view view, slow->Peek(4));
-  ASSERT_EQ(view, util::string_view("ghij"));
+  ASSERT_OK_AND_ASSIGN(std::string_view view, slow->Peek(4));
+  ASSERT_EQ(view, std::string_view("ghij"));
 
   ASSERT_OK(slow->Close());
   ASSERT_TRUE(slow->closed());
@@ -493,7 +493,7 @@ class TestTransformInputStream : public ::testing::Test {
   TransformInputStream::TransformFunc transform() const { return T(); }
 
   void TestEmptyStream() {
-    auto wrapped = std::make_shared<BufferReader>(util::string_view());
+    auto wrapped = std::make_shared<BufferReader>(std::string_view());
     auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
 
     ASSERT_OK_AND_EQ(0, stream->Tell());
@@ -843,6 +843,54 @@ TEST(RangeReadCache, Lazy) {
   ASSERT_EQ(3, file->read_count());
   ASSERT_OK_AND_ASSIGN(buf, cache.Read({10, 2}));
   ASSERT_EQ(3, file->read_count());
+}
+
+TEST(RangeReadCache, LazyWithPrefetching) {
+  std::string data = "abcdefghijklmnopqrstuvwxyz";
+
+  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  CacheOptions options = CacheOptions::LazyDefaults();
+  options.hole_size_limit = 1;
+  options.range_size_limit = 3;
+  options.prefetch_limit = 2;
+  internal::ReadRangeCache cache(file, {}, options);
+
+  ASSERT_OK(cache.Cache({{1, 1}, {3, 1}, {5, 2}, {8, 2}, {20, 2}, {25, 0}}));
+
+  // Lazy cache doesn't fetch ranges until requested
+  ASSERT_EQ(0, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(auto buf, cache.Read({8, 2}));
+  AssertBufferEqual(*buf, "ij");
+  // Read {8, 2} and prefetch {20, 2}
+  ASSERT_EQ(2, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({20, 2}));
+  AssertBufferEqual(*buf, "uv");
+  // Read count remains 2 as the range {20, 2} has already been prefetched
+  ASSERT_EQ(2, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({1, 1}));
+  AssertBufferEqual(*buf, "b");
+  // Read {1, 3} and prefetch {5, 2}
+  ASSERT_EQ(4, file->read_count());
+
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({3, 1}));
+  AssertBufferEqual(*buf, "d");
+  // Already prefetched
+  ASSERT_EQ(4, file->read_count());
+
+  // Requested ranges are still cached
+  ASSERT_OK_AND_ASSIGN(buf, cache.Read({5, 1}));
+  AssertBufferEqual(*buf, "f");
+  // Already prefetched
+  ASSERT_EQ(4, file->read_count());
+
+  // Non-cached ranges
+  ASSERT_RAISES(Invalid, cache.Read({20, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({19, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({0, 3}));
+  ASSERT_RAISES(Invalid, cache.Read({25, 2}));
 }
 
 TEST(CacheOptions, Basics) {

@@ -22,14 +22,14 @@ import (
 	"math"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/internal/debug"
-	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	format "github.com/apache/arrow/go/v7/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/internal/debug"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v13/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=../internal/encoding/physical_types.tmpldata statistics_types.gen.go.tmpl
@@ -169,6 +169,20 @@ type TypedStatistics interface {
 	// Merge the min/max/nullcounts and distinct count from the passed stat object
 	// into this one.
 	Merge(TypedStatistics)
+
+	// UpdateFromArrow updates the statistics from an Arrow Array,
+	// only updating the null and num value counts if updateCounts
+	// is true.
+	UpdateFromArrow(values arrow.Array, updateCounts bool) error
+	// IncNulls increments the number of nulls in the statistics
+	// and marks HasNullCount as true
+	IncNulls(int64)
+	// IncDistinct increments the number of distinct values in
+	// the statistics and marks HasDistinctCount as true
+	IncDistinct(int64)
+	// IncNumValues increments the total number of values in
+	// the statistics
+	IncNumValues(int64)
 }
 
 type statistics struct {
@@ -184,11 +198,14 @@ type statistics struct {
 	encoder encoding.TypedEncoder
 }
 
-func (s *statistics) incNulls(n int64) {
+func (s *statistics) IncNumValues(n int64) {
+	s.nvalues += n
+}
+func (s *statistics) IncNulls(n int64) {
 	s.stats.NullCount += n
 	s.hasNullCount = true
 }
-func (s *statistics) incDistinct(n int64) {
+func (s *statistics) IncDistinct(n int64) {
 	s.stats.DistinctCount += n
 	s.hasDistinctCount = true
 }
@@ -323,7 +340,7 @@ func (BooleanStatistics) defaultMin() bool { return true }
 func (BooleanStatistics) defaultMax() bool { return false }
 func (s *Int32Statistics) defaultMin() int32 {
 	if s.order == schema.SortUNSIGNED {
-		val := math.MaxUint32
+		val := uint32(math.MaxUint32)
 		return int32(val)
 	}
 	return math.MaxInt32
@@ -432,10 +449,10 @@ func (Float64Statistics) less(a, b float64) bool { return a < b }
 func (s *Int96Statistics) less(a, b parquet.Int96) bool {
 	i96a := arrow.Uint32Traits.CastFromBytes(a[:])
 	i96b := arrow.Uint32Traits.CastFromBytes(b[:])
-	
+
 	a0, a1, a2 := utils.ToLEUint32(i96a[0]), utils.ToLEUint32(i96a[1]), utils.ToLEUint32(i96a[2])
 	b0, b1, b2 := utils.ToLEUint32(i96b[0]), utils.ToLEUint32(i96b[1]), utils.ToLEUint32(i96b[2])
-	
+
 	if a2 != b2 {
 		// only the msb bit is by signed comparison
 		if s.order == schema.SortSIGNED {

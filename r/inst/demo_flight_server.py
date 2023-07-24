@@ -17,7 +17,7 @@
 
 """
     An example Flight Python server.
-    See https://github.com/apache/arrow/blob/master/python/examples/flight/server.py
+    See https://github.com/apache/arrow/blob/main/python/examples/flight/server.py
 """
 
 import ast

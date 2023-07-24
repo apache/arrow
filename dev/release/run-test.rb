@@ -26,6 +26,6 @@ test_dir = Pathname.new(__dir__)
 require "test-unit"
 require_relative "test-helper"
 
-ENV["TEST_UNIT_MAX_DIFF_TARGET_STRING_SIZE"] = "10000"
+ENV["TEST_UNIT_MAX_DIFF_TARGET_STRING_SIZE"] = "1000000"
 
 exit(Test::Unit::AutoRunner.run(true, test_dir.to_s))

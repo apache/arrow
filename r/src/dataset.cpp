@@ -58,6 +58,8 @@ const char* r6_class_name<ds::FileFormat>::get(
     return "IpcFileFormat";
   } else if (type_name == "csv") {
     return "CsvFileFormat";
+  } else if (type_name == "json") {
+    return "JsonFileFormat";
   } else {
     return "FileFormat";
   }
@@ -165,54 +167,46 @@ std::shared_ptr<ds::DatasetFactory> dataset___UnionDatasetFactory__Make(
 }
 
 // [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make0(
-    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
-    const std::shared_ptr<ds::FileFormat>& format) {
-  // TODO(fsaintjacques): Make options configurable
+std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make(
+    const std::shared_ptr<fs::FileSystem>& fs,
+    const std::shared_ptr<fs::FileSelector>& selector,
+    const std::shared_ptr<ds::FileFormat>& format, cpp11::list fsf_options) {
   auto options = ds::FileSystemFactoryOptions{};
+  if (!Rf_isNull(fsf_options["partitioning"])) {
+    options.partitioning =
+        cpp11::as_cpp<std::shared_ptr<ds::Partitioning>>(fsf_options["partitioning"]);
+  } else if (!Rf_isNull(fsf_options["partitioning_factory"])) {
+    options.partitioning = cpp11::as_cpp<std::shared_ptr<ds::PartitioningFactory>>(
+        fsf_options["partitioning_factory"]);
+  }
+  if (!Rf_isNull(fsf_options["partition_base_dir"])) {
+    options.partition_base_dir =
+        cpp11::as_cpp<std::string>(fsf_options["partition_base_dir"]);
+  }
+  if (!Rf_isNull(fsf_options["exclude_invalid_files"])) {
+    options.exclude_invalid_files =
+        cpp11::as_cpp<bool>(fsf_options["exclude_invalid_files"]);
+  }
+  if (!Rf_isNull(fsf_options["selector_ignore_prefixes"])) {
+    options.selector_ignore_prefixes =
+        cpp11::as_cpp<std::vector<std::string>>(fsf_options["selector_ignore_prefixes"]);
+  }
+
+  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
+      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::FileSystemDatasetFactory>
+dataset___FileSystemDatasetFactory__MakePaths(
+    const std::shared_ptr<fs::FileSystem>& fs, const std::vector<std::string>& paths,
+    const std::shared_ptr<ds::FileFormat>& format, bool exclude_invalid_files) {
+  // exclude_invalid_files is the only meaningful option with a vector of paths
+  auto options = ds::FileSystemFactoryOptions{};
+  options.exclude_invalid_files = exclude_invalid_files;
 
   return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
       ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, paths, format, options)));
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make2(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector,
-    const std::shared_ptr<ds::FileFormat>& format,
-    const std::shared_ptr<ds::Partitioning>& partitioning) {
-  // TODO(fsaintjacques): Make options configurable
-  auto options = ds::FileSystemFactoryOptions{};
-  if (partitioning != nullptr) {
-    options.partitioning = partitioning;
-  }
-
-  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
-      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make1(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector,
-    const std::shared_ptr<ds::FileFormat>& format) {
-  return dataset___FileSystemDatasetFactory__Make2(fs, selector, format, nullptr);
-}
-
-// [[dataset::export]]
-std::shared_ptr<ds::FileSystemDatasetFactory> dataset___FileSystemDatasetFactory__Make3(
-    const std::shared_ptr<fs::FileSystem>& fs,
-    const std::shared_ptr<fs::FileSelector>& selector,
-    const std::shared_ptr<ds::FileFormat>& format,
-    const std::shared_ptr<ds::PartitioningFactory>& factory) {
-  // TODO(fsaintjacques): Make options configurable
-  auto options = ds::FileSystemFactoryOptions{};
-  if (factory != nullptr) {
-    options.partitioning = factory;
-  }
-
-  return arrow::internal::checked_pointer_cast<ds::FileSystemDatasetFactory>(
-      ValueOrStop(ds::FileSystemDatasetFactory::Make(fs, *selector, format, options)));
 }
 
 // FileFormat, ParquetFileFormat, IpcFileFormat
@@ -305,6 +299,18 @@ std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
   return format;
 }
 
+// [[dataset::export]]
+std::shared_ptr<ds::JsonFileFormat> dataset___JsonFileFormat__Make(
+    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
+    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
+  auto format = std::make_shared<ds::JsonFileFormat>();
+  auto scan_options = std::make_shared<ds::JsonFragmentScanOptions>();
+  if (read_options) scan_options->read_options = *read_options;
+  if (parse_options) scan_options->parse_options = *parse_options;
+  format->default_fragment_scan_options = std::move(scan_options);
+  return format;
+}
+
 // FragmentScanOptions, CsvFragmentScanOptions, ParquetFragmentScanOptions
 
 // [[dataset::export]]
@@ -319,6 +325,16 @@ std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Ma
     const std::shared_ptr<arrow::csv::ReadOptions>& read_options) {
   auto options = std::make_shared<ds::CsvFragmentScanOptions>();
   options->convert_options = *convert_options;
+  options->read_options = *read_options;
+  return options;
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(
+    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
+    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
+  auto options = std::make_shared<ds::JsonFragmentScanOptions>();
+  options->parse_options = *parse_options;
   options->read_options = *read_options;
   return options;
 }
@@ -391,6 +407,26 @@ std::shared_ptr<ds::PartitioningFactory> dataset___HivePartitioning__MakeFactory
   return ds::HivePartitioning::MakeFactory(options);
 }
 
+// [[dataset::export]]
+std::shared_ptr<arrow::Schema> dataset___PartitioningFactory__Inspect(
+    const std::shared_ptr<ds::PartitioningFactory>& factory,
+    const std::vector<std::string>& paths) {
+  return ValueOrStop(factory->Inspect(paths));
+}
+
+// [[dataset::export]]
+std::shared_ptr<ds::Partitioning> dataset___PartitioningFactory__Finish(
+    const std::shared_ptr<ds::PartitioningFactory>& factory,
+    const std::shared_ptr<arrow::Schema>& schema) {
+  return ValueOrStop(factory->Finish(schema));
+}
+
+// [[dataset::export]]
+std::string dataset___PartitioningFactory__type_name(
+    const std::shared_ptr<ds::PartitioningFactory>& factory) {
+  return factory->type_name();
+}
+
 // ScannerBuilder, Scanner
 
 // [[dataset::export]]
@@ -422,12 +458,6 @@ void dataset___ScannerBuilder__Filter(const std::shared_ptr<ds::ScannerBuilder>&
 void dataset___ScannerBuilder__UseThreads(const std::shared_ptr<ds::ScannerBuilder>& sb,
                                           bool threads) {
   StopIfNotOk(sb->UseThreads(threads));
-}
-
-// [[dataset::export]]
-void dataset___ScannerBuilder__UseAsync(const std::shared_ptr<ds::ScannerBuilder>& sb,
-                                        bool use_async) {
-  StopIfNotOk(sb->UseAsync(use_async));
 }
 
 // [[dataset::export]]
@@ -498,38 +528,6 @@ std::shared_ptr<arrow::Schema> dataset___Scanner__schema(
 }
 
 // [[dataset::export]]
-cpp11::list dataset___ScanTask__get_batches(
-    const std::shared_ptr<ds::ScanTask>& scan_task) {
-  arrow::RecordBatchIterator rbi;
-  rbi = ValueOrStop(scan_task->Execute());
-  std::vector<std::shared_ptr<arrow::RecordBatch>> out;
-  std::shared_ptr<arrow::RecordBatch> batch;
-  for (auto b : rbi) {
-    batch = ValueOrStop(b);
-    out.push_back(batch);
-  }
-  return arrow::r::to_r_list(out);
-}
-
-// [[dataset::export]]
-void dataset___Dataset__Write(
-    const std::shared_ptr<ds::FileWriteOptions>& file_write_options,
-    const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir,
-    const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template,
-    const std::shared_ptr<ds::Scanner>& scanner,
-    arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions) {
-  ds::FileSystemDatasetWriteOptions opts;
-  opts.file_write_options = file_write_options;
-  opts.existing_data_behavior = existing_data_behavior;
-  opts.filesystem = filesystem;
-  opts.base_dir = base_dir;
-  opts.partitioning = partitioning;
-  opts.basename_template = basename_template;
-  opts.max_partitions = max_partitions;
-  StopIfNotOk(ds::FileSystemDataset::Write(opts, scanner));
-}
-
-// [[dataset::export]]
 std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
     const std::shared_ptr<ds::Scanner>& scanner,
     const std::shared_ptr<arrow::Array>& indices) {
@@ -537,8 +535,8 @@ std::shared_ptr<arrow::Table> dataset___Scanner__TakeRows(
 }
 
 // [[dataset::export]]
-int64_t dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner) {
-  return ValueOrStop(scanner->CountRows());
+r_vec_size dataset___Scanner__CountRows(const std::shared_ptr<ds::Scanner>& scanner) {
+  return r_vec_size(ValueOrStop(scanner->CountRows()));
 }
 
 #endif

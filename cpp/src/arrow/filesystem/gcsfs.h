@@ -18,27 +18,77 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/filesystem/filesystem.h"
+#include "arrow/util/uri.h"
 
 namespace arrow {
 namespace fs {
-class GcsFileSystem;
-struct GcsOptions;
-struct GcsCredentials;
 namespace internal {
-// TODO(ARROW-1231) - remove, and provide a public API (static GcsFileSystem::Make()).
-std::shared_ptr<GcsFileSystem> MakeGcsFileSystemForTest(const GcsOptions& options);
+
+// Opaque wrapper for GCS's library credentials to avoid exposing in Arrow headers.
+struct GcsCredentialsHolder;
+
 }  // namespace internal
+
+class GcsFileSystem;
+
+/// \brief Container for GCS Credentials and information necessary to recreate them.
+class ARROW_EXPORT GcsCredentials {
+ public:
+  bool Equals(const GcsCredentials& other) const;
+  bool anonymous() const { return anonymous_; }
+  const std::string& access_token() const { return access_token_; }
+  TimePoint expiration() const { return expiration_; }
+  const std::string& target_service_account() const { return target_service_account_; }
+  const std::string& json_credentials() const { return json_credentials_; }
+  const std::shared_ptr<internal::GcsCredentialsHolder>& holder() const {
+    return holder_;
+  }
+
+ private:
+  GcsCredentials() = default;
+  bool anonymous_ = false;
+  std::string access_token_;
+  TimePoint expiration_;
+  std::string target_service_account_;
+  std::string json_credentials_;
+  std::shared_ptr<internal::GcsCredentialsHolder> holder_;
+  friend class GcsFileSystem;
+  friend struct GcsOptions;
+};
 
 /// Options for the GcsFileSystem implementation.
 struct ARROW_EXPORT GcsOptions {
-  std::shared_ptr<GcsCredentials> credentials;
+  /// \brief Equivalent to GcsOptions::Defaults().
+  GcsOptions();
+  GcsCredentials credentials;
 
   std::string endpoint_override;
   std::string scheme;
+  /// \brief Location to use for creating buckets.
+  std::string default_bucket_location;
+
+  /// \brief If set used to control total time allowed for retrying underlying
+  /// errors.
+  ///
+  /// The default policy is to retry for up to 15 minutes.
+  std::optional<double> retry_limit_seconds;
+
+  /// \brief Default metadata for OpenOutputStream.
+  ///
+  /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
+  std::shared_ptr<const KeyValueMetadata> default_metadata;
+
+  /// \brief The project to use for creating buckets.
+  ///
+  /// If not set, the library uses the GOOGLE_CLOUD_PROJECT environment
+  /// variable. Most I/O operations do not need a project id, only applications
+  /// that create new buckets need a project id.
+  std::optional<std::string> project_id;
 
   bool Equals(const GcsOptions& other) const;
 
@@ -65,7 +115,7 @@ struct ARROW_EXPORT GcsOptions {
   /// tokens. Note that access tokens are time limited, you will need to manually refresh
   /// the tokens created by the out-of-band mechanism.
   static GcsOptions FromAccessToken(const std::string& access_token,
-                                    std::chrono::system_clock::time_point expiration);
+                                    TimePoint expiration);
 
   /// \brief Initialize with service account impersonation
   ///
@@ -94,9 +144,13 @@ struct ARROW_EXPORT GcsOptions {
   ///
   /// [aip/4112]: https://google.aip.dev/auth/4112
   static GcsOptions FromServiceAccountCredentials(const std::string& json_object);
+
+  /// Initialize from URIs such as "gs://bucket/object".
+  static Result<GcsOptions> FromUri(const arrow::internal::Uri& uri,
+                                    std::string* out_path);
+  static Result<GcsOptions> FromUri(const std::string& uri, std::string* out_path);
 };
 
-// - TODO(ARROW-1231) - review this documentation before closing the bug.
 /// \brief GCS-backed FileSystem implementation.
 ///
 /// GCS (Google Cloud Storage - https://cloud.google.com/storage) is a scalable object
@@ -120,12 +174,8 @@ struct ARROW_EXPORT GcsOptions {
 /// - All buckets are treated as directories at the "root"
 /// - Creating a root directory results in a new bucket being created, this may be slower
 ///   than most GCS operations.
-/// - Any object with a name ending with a slash (`/`) character is treated as a
-///   directory.
-/// - The class creates marker objects for a directory, using a trailing slash in the
-///   marker names. For debugging purposes, the metadata of these marker objects indicate
-///   that they are markers created by this class. The class does not rely on this
-///   annotation.
+/// - The class creates marker objects for a directory, using a metadata attribute to
+///   annotate the file.
 /// - GCS can list all the objects with a given prefix, this is used to emulate listing
 ///   of directories.
 /// - In object lists GCS can summarize all the objects with a common prefix as a single
@@ -138,8 +188,10 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
   ~GcsFileSystem() override = default;
 
   std::string type_name() const override;
+  const GcsOptions& options() const;
 
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   Result<FileInfo> GetFileInfo(const std::string& path) override;
   Result<FileInfoVector> GetFileInfo(const FileSelector& select) override;
@@ -148,7 +200,7 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
 
   /// This is not implemented in GcsFileSystem, as it would be too dangerous.
   Status DeleteRootDirContents() override;
@@ -179,11 +231,12 @@ class ARROW_EXPORT GcsFileSystem : public FileSystem {
       const std::string& path,
       const std::shared_ptr<const KeyValueMetadata>& metadata) override;
 
- private:
   /// Create a GcsFileSystem instance from the given options.
-  friend std::shared_ptr<GcsFileSystem> internal::MakeGcsFileSystemForTest(
-      const GcsOptions& options);
+  // TODO(ARROW-16884): make this return Result for consistency
+  static std::shared_ptr<GcsFileSystem> Make(
+      const GcsOptions& options, const io::IOContext& = io::default_io_context());
 
+ private:
   explicit GcsFileSystem(const GcsOptions& options, const io::IOContext& io_context);
 
   class Impl;

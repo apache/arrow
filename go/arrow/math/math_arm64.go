@@ -18,8 +18,22 @@
 
 package math
 
+import (
+	"golang.org/x/sys/cpu"
+)
+
 func init() {
-	initGo()
+	if cpu.ARM64.HasASIMD {
+		initNEON()
+    } else {
+	    initGo()
+	}
+}
+
+func initNEON() {
+	initFloat64NEON()
+	initInt64NEON()
+	initUint64NEON()
 }
 
 func initGo() {

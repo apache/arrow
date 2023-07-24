@@ -21,7 +21,7 @@
 
 jobs:
   r-versions:
-    name: "rstudio/r-base:{{ MATRIX }}-bionic"
+    name: "rstudio/r-base:{{ MATRIX }}-focal"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -30,15 +30,15 @@ jobs:
         r_version:
           # We test devel, release, and oldrel in regular CI.
           # This is for older versions
-          # rlang and vctrs depend on R >= 3.3
-          - "3.3"
-          - "3.4"
+          # glue depends on R >= 3.4, and vctrs depends on glue
           - "3.5"
           - "3.6"
+          - "4.0"
+          - "4.1"
     env:
       R_ORG: "rstudio"
       R_IMAGE: "r-base"
-      R_TAG: "{{ MATRIX }}-bionic"
+      R_TAG: "{{ MATRIX }}-focal"
       ARROW_R_DEV: "TRUE"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -46,6 +46,8 @@ jobs:
 
       - name: Docker Run
         shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: archery docker run r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out

@@ -2,7 +2,7 @@
 % Please edit documentation in R/duckdb.R
 \name{to_arrow}
 \alias{to_arrow}
-\title{Create an Arrow object from others}
+\title{Create an Arrow object from a DuckDB connection}
 \usage{
 to_arrow(.data)
 }
@@ -10,11 +10,10 @@ to_arrow(.data)
 \item{.data}{the object to be converted}
 }
 \value{
-an \code{arrow_dplyr_query} object, to be used in dplyr pipelines.
+A \code{RecordBatchReader}.
 }
 \description{
-This can be used in pipelines that pass data back and forth between Arrow and
-other processes (like DuckDB).
+This can be used in pipelines that pass data back and forth between Arrow and DuckDB
 }
 \examples{
 \dontshow{if (getFromNamespace("run_duckdb_examples", "arrow")()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}

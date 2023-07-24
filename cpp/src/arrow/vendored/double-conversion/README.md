@@ -17,4 +17,16 @@
   under the License.
 -->
 
-The files in this directory are vendored from double-conversion git tag v3.1.5.
+The files in this directory are vendored from double-conversion git tag v3.3.0
+
+To update, run:
+
+```
+./update.sh VERSION
+```
+
+For example:
+
+```
+./update.sh 3.3.0
+```

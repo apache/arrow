@@ -47,12 +47,12 @@ class EqualityComparable {
 
   struct PtrsEqual {
     bool operator()(const std::shared_ptr<T>& l, const std::shared_ptr<T>& r) const {
-      return l->Equals(r);
+      return l->Equals(*r);
     }
   };
 
-  bool operator==(const T& other) const { return cast().Equals(other); }
-  bool operator!=(const T& other) const { return !(cast() == other); }
+  friend bool operator==(T const& a, T const& b) { return a.Equals(b); }
+  friend bool operator!=(T const& a, T const& b) { return !(a == b); }
 
  private:
   const T& cast() const { return static_cast<const T&>(*this); }

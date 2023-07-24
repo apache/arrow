@@ -28,9 +28,21 @@ class Decimal256Test < Test::Unit::TestCase
         end
       end
 
+      test("String") do
+        assert do
+          @decimal256 == "10.1"
+        end
+      end
+
+      test("Float") do
+        assert do
+          @decimal256 == 10.1
+        end
+      end
+
       test("not Arrow::Decimal256") do
         assert do
-          not (@decimal256 == 10.1)
+          not (@decimal256 == :"10.1")
         end
       end
     end
@@ -42,9 +54,21 @@ class Decimal256Test < Test::Unit::TestCase
         end
       end
 
+      test("String") do
+        assert do
+          not (@decimal256 != "10.1")
+        end
+      end
+
+      test("Float") do
+        assert do
+          not (@decimal256 != 10.1)
+        end
+      end
+
       test("not Arrow::Decimal256") do
         assert do
-          @decimal256 != 10.1
+          @decimal256 != :"10.1"
         end
       end
     end

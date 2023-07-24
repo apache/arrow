@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex;
 import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.util.Preconditions.checkArgument;
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.DATA_VECTOR_NAME;
 
 import java.util.ArrayList;
@@ -47,6 +48,7 @@ import org.apache.arrow.vector.ZeroVector;
 import org.apache.arrow.vector.compare.VectorVisitor;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListReader;
 import org.apache.arrow.vector.complex.impl.UnionFixedSizeListWriter;
+import org.apache.arrow.vector.complex.reader.FieldReader;
 import org.apache.arrow.vector.ipc.message.ArrowFieldNode;
 import org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -123,14 +125,13 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    if (children.size() != 1) {
-      throw new IllegalArgumentException("Lists have only one child. Found: " + children);
-    }
+    checkArgument(children.size() == 1,
+            "Lists have one child Field. Found: %s", children.isEmpty() ? "none" : children);
+
     Field field = children.get(0);
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
-    if (!addOrGetVector.isCreated()) {
-      throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
-    }
+    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
+
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
   }
 
@@ -182,10 +183,13 @@ public class FixedSizeListVector extends BaseValueVector implements BaseListVect
   }
 
   @Override
+  protected FieldReader getReaderImpl() {
+    return new UnionFixedSizeListReader(this);
+  }
+
+  @Override
   public UnionFixedSizeListReader getReader() {
-    if (reader == null) {
-      reader = new UnionFixedSizeListReader(this);
-    }
+    reader = (UnionFixedSizeListReader) super.getReader();
     return reader;
   }
 

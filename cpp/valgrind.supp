@@ -51,3 +51,27 @@
     ...
     fun:*re2*Prog*
 }
+{
+    <OpenTelemetry>:Thread locals don't appear to be freed
+    Memcheck:Leak
+    ...
+    fun:*opentelemetry*ThreadLocalContextStorage*GetStack*
+}
+{
+    <OpenTelemetry>:Thread locals don't appear to be freed
+    Memcheck:Leak
+    ...
+    fun:*opentelemetry*ThreadLocalContextStorage*Stack*Resize*
+}
+{
+    <OpenTelemetry>:Thread locals don't appear to be freed
+    Memcheck:Leak
+    ...
+    fun:_dl_allocate_tls
+}
+{
+    <OpenSSL>:Conditional jump or move depends on uninitialised value(s)
+    Memcheck:Cond
+    ...
+    fun:*gcm_cipher*
+}

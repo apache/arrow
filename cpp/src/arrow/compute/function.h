@@ -65,9 +65,6 @@ class ARROW_EXPORT FunctionOptions : public util::EqualityComparable<FunctionOpt
   const char* type_name() const { return options_type()->type_name(); }
 
   bool Equals(const FunctionOptions& other) const;
-  using util::EqualityComparable<FunctionOptions>::Equals;
-  using util::EqualityComparable<FunctionOptions>::operator==;
-  using util::EqualityComparable<FunctionOptions>::operator!=;
   std::string ToString() const;
   std::unique_ptr<FunctionOptions> Copy() const;
   /// \brief Serialize an options struct to a buffer.
@@ -159,6 +156,29 @@ struct ARROW_EXPORT FunctionDoc {
   static const FunctionDoc& Empty();
 };
 
+/// \brief An executor of a function with a preconfigured kernel
+class ARROW_EXPORT FunctionExecutor {
+ public:
+  virtual ~FunctionExecutor() = default;
+  /// \brief Initialize or re-initialize the preconfigured kernel
+  ///
+  /// This method may be called zero or more times. Depending on how
+  /// the FunctionExecutor was obtained, it may already have been initialized.
+  virtual Status Init(const FunctionOptions* options = NULLPTR,
+                      ExecContext* exec_ctx = NULLPTR) = 0;
+  /// \brief Execute the preconfigured kernel with arguments that must fit it
+  ///
+  /// The method requires the arguments be castable to the preconfigured types.
+  ///
+  /// \param[in] args Arguments to execute the function on
+  /// \param[in] length Length of arguments batch or -1 to default it. If the
+  /// function has no parameters, this determines the batch length, defaulting
+  /// to 0. Otherwise, if the function is scalar, this must equal the argument
+  /// batch's inferred length or be -1 to default to it. This is ignored for
+  /// vector functions.
+  virtual Result<Datum> Execute(const std::vector<Datum>& args, int64_t length = -1) = 0;
+};
+
 /// \brief Base class for compute functions. Function implementations contain a
 /// collection of "kernels" which are implementations of the function for
 /// specific argument types. Selecting a viable kernel for executing a function
@@ -205,25 +225,32 @@ class ARROW_EXPORT Function {
   const Arity& arity() const { return arity_; }
 
   /// \brief Return the function documentation
-  const FunctionDoc& doc() const { return *doc_; }
+  const FunctionDoc& doc() const { return doc_; }
 
   /// \brief Returns the number of registered kernels for this function.
   virtual int num_kernels() const = 0;
 
   /// \brief Return a kernel that can execute the function given the exact
-  /// argument types (without implicit type casts or scalar->array promotions).
+  /// argument types (without implicit type casts).
   ///
   /// NB: This function is overridden in CastFunction.
-  virtual Result<const Kernel*> DispatchExact(
-      const std::vector<ValueDescr>& values) const;
+  virtual Result<const Kernel*> DispatchExact(const std::vector<TypeHolder>& types) const;
 
   /// \brief Return a best-match kernel that can execute the function given the argument
   /// types, after implicit casts are applied.
   ///
-  /// \param[in,out] values Argument types. An element may be modified to indicate that
-  /// the returned kernel only approximately matches the input value descriptors; callers
-  /// are responsible for casting inputs to the type and shape required by the kernel.
-  virtual Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const;
+  /// \param[in,out] values Argument types. An element may be modified to
+  /// indicate that the returned kernel only approximately matches the input
+  /// value descriptors; callers are responsible for casting inputs to the type
+  /// required by the kernel.
+  virtual Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* values) const;
+
+  /// \brief Get a function executor with a best-matching kernel
+  ///
+  /// The returned executor will by default work with the default FunctionOptions
+  /// and KernelContext. If you want to change that, call `FunctionExecutor::Init`.
+  virtual Result<std::shared_ptr<FunctionExecutor>> GetBestExecutor(
+      std::vector<TypeHolder> inputs) const;
 
   /// \brief Execute the function eagerly with the passed input arguments with
   /// kernel dispatch, batch iteration, and memory allocation details taken
@@ -235,6 +262,9 @@ class ARROW_EXPORT Function {
   virtual Result<Datum> Execute(const std::vector<Datum>& args,
                                 const FunctionOptions* options, ExecContext* ctx) const;
 
+  virtual Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
+                                ExecContext* ctx) const;
+
   /// \brief Returns the default options for this function.
   ///
   /// Whatever option semantics a Function has, implementations must guarantee
@@ -244,21 +274,20 @@ class ARROW_EXPORT Function {
   virtual Status Validate() const;
 
  protected:
-  Function(std::string name, Function::Kind kind, const Arity& arity,
-           const FunctionDoc* doc, const FunctionOptions* default_options)
+  Function(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
+           const FunctionOptions* default_options)
       : name_(std::move(name)),
         kind_(kind),
         arity_(arity),
-        doc_(doc ? doc : &FunctionDoc::Empty()),
+        doc_(std::move(doc)),
         default_options_(default_options) {}
 
-  Status CheckArity(const std::vector<InputType>&) const;
-  Status CheckArity(const std::vector<ValueDescr>&) const;
+  Status CheckArity(size_t num_args) const;
 
   std::string name_;
   Function::Kind kind_;
   Arity arity_;
-  const FunctionDoc* doc_;
+  const FunctionDoc doc_;
   const FunctionOptions* default_options_ = NULLPTR;
 };
 
@@ -279,20 +308,20 @@ class FunctionImpl : public Function {
   int num_kernels() const override { return static_cast<int>(kernels_.size()); }
 
  protected:
-  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity,
-               const FunctionDoc* doc, const FunctionOptions* default_options)
-      : Function(std::move(name), kind, arity, doc, default_options) {}
+  FunctionImpl(std::string name, Function::Kind kind, const Arity& arity, FunctionDoc doc,
+               const FunctionOptions* default_options)
+      : Function(std::move(name), kind, arity, std::move(doc), default_options) {}
 
   std::vector<KernelType> kernels_;
 };
 
 /// \brief Look up a kernel in a function. If no Kernel is found, nullptr is returned.
 ARROW_EXPORT
-const Kernel* DispatchExactImpl(const Function* func, const std::vector<ValueDescr>&);
+const Kernel* DispatchExactImpl(const Function* func, const std::vector<TypeHolder>&);
 
 /// \brief Return an error message if no Kernel is found.
 ARROW_EXPORT
-Status NoMatchingKernel(const Function* func, const std::vector<ValueDescr>&);
+Status NoMatchingKernel(const Function* func, const std::vector<TypeHolder>&);
 
 }  // namespace detail
 
@@ -305,10 +334,10 @@ class ARROW_EXPORT ScalarFunction : public detail::FunctionImpl<ScalarKernel> {
  public:
   using KernelType = ScalarKernel;
 
-  ScalarFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  ScalarFunction(std::string name, const Arity& arity, FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity, doc,
-                                           default_options) {}
+      : detail::FunctionImpl<ScalarKernel>(std::move(name), Function::SCALAR, arity,
+                                           std::move(doc), default_options) {}
 
   /// \brief Add a kernel with given input/output types, no required state
   /// initialization, preallocation for fixed-width types, and default null
@@ -329,10 +358,10 @@ class ARROW_EXPORT VectorFunction : public detail::FunctionImpl<VectorKernel> {
  public:
   using KernelType = VectorKernel;
 
-  VectorFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  VectorFunction(std::string name, const Arity& arity, FunctionDoc doc,
                  const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity, doc,
-                                           default_options) {}
+      : detail::FunctionImpl<VectorKernel>(std::move(name), Function::VECTOR, arity,
+                                           std::move(doc), default_options) {}
 
   /// \brief Add a simple kernel with given input/output types, no required
   /// state initialization, no data preallocation, and no preallocation of the
@@ -350,10 +379,11 @@ class ARROW_EXPORT ScalarAggregateFunction
  public:
   using KernelType = ScalarAggregateKernel;
 
-  ScalarAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  ScalarAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
                           const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<ScalarAggregateKernel>(
-            std::move(name), Function::SCALAR_AGGREGATE, arity, doc, default_options) {}
+      : detail::FunctionImpl<ScalarAggregateKernel>(std::move(name),
+                                                    Function::SCALAR_AGGREGATE, arity,
+                                                    std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -365,10 +395,11 @@ class ARROW_EXPORT HashAggregateFunction
  public:
   using KernelType = HashAggregateKernel;
 
-  HashAggregateFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  HashAggregateFunction(std::string name, const Arity& arity, FunctionDoc doc,
                         const FunctionOptions* default_options = NULLPTR)
-      : detail::FunctionImpl<HashAggregateKernel>(
-            std::move(name), Function::HASH_AGGREGATE, arity, doc, default_options) {}
+      : detail::FunctionImpl<HashAggregateKernel>(std::move(name),
+                                                  Function::HASH_AGGREGATE, arity,
+                                                  std::move(doc), default_options) {}
 
   /// \brief Add a kernel (function implementation). Returns error if the
   /// kernel's signature does not match the function's arity.
@@ -387,14 +418,18 @@ class ARROW_EXPORT MetaFunction : public Function {
   Result<Datum> Execute(const std::vector<Datum>& args, const FunctionOptions* options,
                         ExecContext* ctx) const override;
 
+  Result<Datum> Execute(const ExecBatch& batch, const FunctionOptions* options,
+                        ExecContext* ctx) const override;
+
  protected:
   virtual Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
                                     const FunctionOptions* options,
                                     ExecContext* ctx) const = 0;
 
-  MetaFunction(std::string name, const Arity& arity, const FunctionDoc* doc,
+  MetaFunction(std::string name, const Arity& arity, FunctionDoc doc,
                const FunctionOptions* default_options = NULLPTR)
-      : Function(std::move(name), Function::META, arity, doc, default_options) {}
+      : Function(std::move(name), Function::META, arity, std::move(doc),
+                 default_options) {}
 };
 
 /// @}

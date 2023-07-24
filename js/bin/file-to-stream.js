@@ -22,7 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const eos = require('util').promisify(require('stream').finished);
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '';
+const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
 const { RecordBatchReader, RecordBatchStreamWriter } = require(`../index${extension}`);
 
 (async () => {

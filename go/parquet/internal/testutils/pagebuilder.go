@@ -18,16 +18,17 @@ package testutils
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 	"reflect"
 
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/apache/arrow/go/v7/parquet"
-	"github.com/apache/arrow/go/v7/parquet/compress"
-	"github.com/apache/arrow/go/v7/parquet/file"
-	"github.com/apache/arrow/go/v7/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v7/parquet/internal/utils"
-	"github.com/apache/arrow/go/v7/parquet/schema"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v13/parquet/compress"
+	"github.com/apache/arrow/go/v13/parquet/file"
+	"github.com/apache/arrow/go/v13/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v13/parquet/schema"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -91,6 +92,9 @@ func (d *DataPageBuilder) AppendValues(desc *schema.Column, values interface{}, 
 	enc := encoding.NewEncoder(desc.PhysicalType(), e, false, desc, mem)
 	var sz int
 	switch v := values.(type) {
+	case []bool:
+		enc.(encoding.BooleanEncoder).Put(v)
+		sz = len(v)
 	case []int32:
 		enc.(encoding.Int32Encoder).Put(v)
 		sz = len(v)
@@ -109,6 +113,8 @@ func (d *DataPageBuilder) AppendValues(desc *schema.Column, values interface{}, 
 	case []parquet.ByteArray:
 		enc.(encoding.ByteArrayEncoder).Put(v)
 		sz = len(v)
+	default:
+		panic(fmt.Sprintf("no testutil data page builder for type %T", values))
 	}
 	buf, _ := enc.FlushValues()
 	_, err := d.sink.Write(buf.Bytes())
@@ -147,6 +153,8 @@ func (d *DictionaryPageBuilder) AppendValues(values interface{}) encoding.Buffer
 		d.traits.(encoding.Float64Encoder).Put(v)
 	case []parquet.ByteArray:
 		d.traits.(encoding.ByteArrayEncoder).Put(v)
+	default:
+		panic(fmt.Sprintf("no testutil dictionary page builder for type %T", values))
 	}
 
 	d.numDictValues = int32(d.traits.NumEntries())
@@ -188,9 +196,9 @@ func MakeDataPage(dataPageVersion parquet.DataPageVersion, d *schema.Column, val
 
 	buf := stream.Finish()
 	if dataPageVersion == parquet.DataPageV1 {
-		return file.NewDataPageV1(buf, int32(num), e, builder.defLvlEncoding, builder.repLvlEncoding, int64(buf.Len()))
+		return file.NewDataPageV1(buf, int32(num), e, builder.defLvlEncoding, builder.repLvlEncoding, int32(buf.Len()))
 	}
-	return file.NewDataPageV2(buf, int32(num), 0, int32(num), e, int32(builder.defLvlBytesLen), int32(builder.repLvlBytesLen), int64(buf.Len()), false)
+	return file.NewDataPageV2(buf, int32(num), 0, int32(num), e, int32(builder.defLvlBytesLen), int32(builder.repLvlBytesLen), int32(buf.Len()), false)
 }
 
 func MakeDictPage(d *schema.Column, values interface{}, valuesPerPage []int, e parquet.Encoding) (*file.DictionaryPage, []encoding.Buffer) {
@@ -220,7 +228,7 @@ func (m *MockPageReader) Err() error {
 	return m.Called().Error(0)
 }
 
-func (m *MockPageReader) Reset(parquet.ReaderAtSeeker, int64, compress.Compression, *file.CryptoContext) {
+func (m *MockPageReader) Reset(parquet.BufferedReader, int64, compress.Compression, *file.CryptoContext) {
 }
 
 func (m *MockPageReader) SetMaxPageHeaderSize(int) {}

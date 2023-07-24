@@ -19,8 +19,9 @@ package ipc
 import (
 	"io"
 
-	"github.com/apache/arrow/go/v7/arrow/internal/debug"
-	"github.com/apache/arrow/go/v7/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v13/arrow/internal/flatbuf"
+	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
 )
@@ -82,6 +83,7 @@ func getCompressor(codec flatbuf.CompressionType) compressor {
 type decompressor interface {
 	io.Reader
 	Reset(io.Reader)
+	Close()
 }
 
 type zstdDecompressor struct {
@@ -94,10 +96,20 @@ func (z *zstdDecompressor) Reset(r io.Reader) {
 	}
 }
 
+func (z *zstdDecompressor) Close() {
+	z.Decoder.Close()
+}
+
+type lz4Decompressor struct {
+	*lz4.Reader
+}
+
+func (z *lz4Decompressor) Close() {}
+
 func getDecompressor(codec flatbuf.CompressionType) decompressor {
 	switch codec {
 	case flatbuf.CompressionTypeLZ4_FRAME:
-		return lz4.NewReader(nil)
+		return &lz4Decompressor{lz4.NewReader(nil)}
 	case flatbuf.CompressionTypeZSTD:
 		dec, err := zstd.NewReader(nil)
 		if err != nil {
@@ -106,4 +118,18 @@ func getDecompressor(codec flatbuf.CompressionType) decompressor {
 		return &zstdDecompressor{dec}
 	}
 	return nil
+}
+
+type bufferWriter struct {
+	buf *memory.Buffer
+	pos int
+}
+
+func (bw *bufferWriter) Write(p []byte) (n int, err error) {
+	if bw.pos+len(p) >= bw.buf.Cap() {
+		bw.buf.Reserve(bw.pos + len(p))
+	}
+	n = copy(bw.buf.Buf()[bw.pos:], p)
+	bw.pos += n
+	return
 }

@@ -20,9 +20,10 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestStructArray(t *testing.T) {
@@ -131,6 +132,46 @@ func TestStructArray(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestStructStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	dt := arrow.StructOf(
+		arrow.Field{Name: "nullable_bool", Type: new(arrow.BooleanType), Nullable: true},
+		arrow.Field{Name: "non_nullable_bool", Type: new(arrow.BooleanType)},
+	)
+
+	builder := array.NewStructBuilder(memory.DefaultAllocator, dt)
+	nullableBld := builder.FieldBuilder(0).(*array.BooleanBuilder)
+	nonNullableBld := builder.FieldBuilder(1).(*array.BooleanBuilder)
+
+	builder.Append(true)
+	nullableBld.Append(true)
+	nonNullableBld.Append(true)
+
+	builder.Append(true)
+	nullableBld.AppendNull()
+	nonNullableBld.Append(true)
+
+	builder.AppendNull()
+
+	arr := builder.NewArray().(*array.Struct)
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewStructBuilder(mem, dt)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.Struct)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
 }
 
 func TestStructArrayEmpty(t *testing.T) {
@@ -290,11 +331,12 @@ func TestStructArrayStringer(t *testing.T) {
 			f2b.Append(f2s[i])
 		}
 	}
-
+	assert.NoError(t, sb.AppendValueFromString(`{"f1": 1.1, "f2": 1}`))
 	arr := sb.NewArray().(*array.Struct)
 	defer arr.Release()
 
-	want := "{[1.1 (null) 1.3 1.4] [1 2 (null) 4]}"
+	assert.Equal(t, `{"f1":1.1,"f2":1}`, arr.ValueStr(4))
+	want := "{[1.1 (null) 1.3 1.4 1.1] [1 2 (null) 4 1]}"
 	got := arr.String()
 	if got != want {
 		t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, want)
@@ -402,5 +444,89 @@ func TestStructArrayNullBitmap(t *testing.T) {
 	got := arr.String()
 	if got != want {
 		t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, want)
+	}
+}
+
+func TestStructArrayUnmarshalJSONMissingFields(t *testing.T) {
+	pool := memory.NewGoAllocator()
+
+	var (
+		fields = []arrow.Field{
+			{Name: "f1", Type: arrow.PrimitiveTypes.Float64, Nullable: true},
+			{Name: "f2", Type: arrow.PrimitiveTypes.Int32},
+			{
+				Name: "f3", Type: arrow.StructOf(
+					[]arrow.Field{
+						{Name: "f3_1", Type: arrow.BinaryTypes.String, Nullable: true},
+						{Name: "f3_2", Type: arrow.BinaryTypes.String, Nullable: true},
+						{Name: "f3_3", Type: arrow.BinaryTypes.String, Nullable: false},
+					}...,
+				),
+			},
+		}
+		dtype = arrow.StructOf(fields...)
+	)
+
+	tests := []struct {
+		name      string
+		jsonInput string
+		want      string
+		panic     bool
+	}{
+		{
+			name:      "missing required field",
+			jsonInput: `[{"f2": 3, "f3": {"f3_1": "test"}}]`,
+			panic:     true,
+			want:      "",
+		},
+		{
+			name:      "missing optional fields",
+			jsonInput: `[{"f2": 3, "f3": {"f3_3": "test"}}]`,
+			panic:     false,
+			want:      `{[(null)] [3] {[(null)] [(null)] ["test"]}}`,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(
+			tc.name, func(t *testing.T) {
+
+				var val bool
+
+				sb := array.NewStructBuilder(pool, dtype)
+				defer sb.Release()
+
+				if tc.panic {
+					defer func() {
+						e := recover()
+						if e == nil {
+							t.Fatalf("this should have panicked, but did not; slice value %v", val)
+						}
+						if got, want := e.(string), "arrow/array: index out of range"; got != want {
+							t.Fatalf("invalid error. got=%q, want=%q", got, want)
+						}
+					}()
+				} else {
+					defer func() {
+						if e := recover(); e != nil {
+							t.Fatalf("unexpected panic: %v", e)
+						}
+					}()
+				}
+
+				err := sb.UnmarshalJSON([]byte(tc.jsonInput))
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				arr := sb.NewArray().(*array.Struct)
+				defer arr.Release()
+
+				got := arr.String()
+				if got != tc.want {
+					t.Fatalf("invalid string representation:\ngot = %q\nwant= %q", got, tc.want)
+				}
+			},
+		)
 	}
 }

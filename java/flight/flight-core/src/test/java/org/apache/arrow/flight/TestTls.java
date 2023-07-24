@@ -17,6 +17,9 @@
 
 package org.apache.arrow.flight;
 
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,8 +30,8 @@ import java.util.function.Consumer;
 import org.apache.arrow.flight.FlightClient.Builder;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
-import org.junit.Assert;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for TLS in Flight.
@@ -45,8 +48,8 @@ public class TestTls {
           final FlightClient client = builder.trustedCertificates(roots).build()) {
         final Iterator<Result> responses = client.doAction(new Action("hello-world"));
         final byte[] response = responses.next().getBody();
-        Assert.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
-        Assert.assertFalse(responses.hasNext());
+        Assertions.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
+        Assertions.assertFalse(responses.hasNext());
       } catch (InterruptedException | IOException e) {
         throw new RuntimeException(e);
       }
@@ -94,8 +97,8 @@ public class TestTls {
       try (final FlightClient client = builder.verifyServer(false).build()) {
         final Iterator<Result> responses = client.doAction(new Action("hello-world"));
         final byte[] response = responses.next().getBody();
-        Assert.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
-        Assert.assertFalse(responses.hasNext());
+        Assertions.assertEquals("Hello, world!", new String(response, StandardCharsets.UTF_8));
+        Assertions.assertFalse(responses.hasNext());
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -107,17 +110,9 @@ public class TestTls {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer();
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> {
-                  try {
-                    return FlightServer.builder(a, location, producer)
-                        .useTls(certKey.cert, certKey.key)
-                        .build();
-                  } catch (IOException e) {
-                    throw new RuntimeException(e);
-                  }
-                })) {
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer)
+            .useTls(certKey.cert, certKey.key)
+            .build().start()) {
       final Builder builder = FlightClient.builder(a, Location.forGrpcTls(FlightTestUtil.LOCALHOST, s.getPort()));
       testFn.accept(builder);
     } catch (InterruptedException | IOException e) {

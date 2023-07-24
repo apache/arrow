@@ -33,23 +33,31 @@ from pyarrow._compute import (  # noqa
     AssumeTimezoneOptions,
     CastOptions,
     CountOptions,
+    CumulativeOptions,
+    CumulativeOptions as CumulativeSumOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
+    RunEndEncodeOptions,
     ElementWiseAggregateOptions,
     ExtractRegexOptions,
     FilterOptions,
     IndexOptions,
     JoinOptions,
+    ListSliceOptions,
     MakeStructOptions,
+    MapLookupOptions,
     MatchSubstringOptions,
     ModeOptions,
     NullOptions,
     PadOptions,
+    PairwiseOptions,
     PartitionNthOptions,
     QuantileOptions,
     RandomOptions,
+    RankOptions,
     ReplaceSliceOptions,
     ReplaceSubstringOptions,
+    RoundBinaryOptions,
     RoundOptions,
     RoundTemporalOptions,
     RoundToMultipleOptions,
@@ -74,19 +82,38 @@ from pyarrow._compute import (  # noqa
     function_registry,
     get_function,
     list_functions,
-    _group_by
+    # Udf
+    call_tabular_function,
+    register_scalar_function,
+    register_tabular_function,
+    register_aggregate_function,
+    UdfContext,
+    # Expressions
+    Expression,
 )
 
+from collections import namedtuple
 import inspect
 from textwrap import dedent
 import warnings
 
 import pyarrow as pa
 from pyarrow import _compute_docstrings
+from pyarrow.vendored import docscrape
 
 
 def _get_arg_names(func):
     return func._doc.arg_names
+
+
+_OptionsClassDoc = namedtuple('_OptionsClassDoc', ('params',))
+
+
+def _scrape_options_class_doc(options_class):
+    if not options_class.__doc__:
+        return None
+    doc = docscrape.NumpyDocString(options_class.__doc__)
+    return _OptionsClassDoc(doc['Parameters'])
 
 
 def _decorate_compute_function(wrapper, exposed_name, func, options_class):
@@ -105,66 +132,70 @@ def _decorate_compute_function(wrapper, exposed_name, func, options_class):
     doc_pieces = []
 
     # 1. One-line summary
-    cpp_doc = func._doc
     summary = cpp_doc.summary
     if not summary:
         arg_str = "arguments" if func.arity > 1 else "argument"
         summary = ("Call compute function {!r} with the given {}"
                    .format(func.name, arg_str))
 
-    description = cpp_doc.description
-    arg_names = _get_arg_names(func)
-
-    doc_pieces.append("""\
-        {}.
-
-        """.format(summary))
+    doc_pieces.append(f"{summary}.\n\n")
 
     # 2. Multi-line description
+    description = cpp_doc.description
     if description:
-        doc_pieces.append("{}\n\n".format(description))
+        doc_pieces.append(f"{description}\n\n")
 
     doc_addition = _compute_docstrings.function_doc_additions.get(func.name)
 
     # 3. Parameter description
-    doc_pieces.append("""\
+    doc_pieces.append(dedent("""\
         Parameters
         ----------
-        """)
+        """))
 
+    # 3a. Compute function parameters
+    arg_names = _get_arg_names(func)
     for arg_name in arg_names:
         if func.kind in ('vector', 'scalar_aggregate'):
             arg_type = 'Array-like'
         else:
             arg_type = 'Array-like or scalar-like'
-        doc_pieces.append("""\
-            {} : {}
-                Argument to compute function
-            """.format(arg_name, arg_type))
+        doc_pieces.append(f"{arg_name} : {arg_type}\n")
+        doc_pieces.append("    Argument to compute function.\n")
 
+    # 3b. Compute function option values
     if options_class is not None:
-        options_sig = inspect.signature(options_class)
-        for p in options_sig.parameters.values():
-            doc_pieces.append("""\
-            {0} : optional
-                Parameter for {1} constructor. Either `options`
-                or `{0}` can be passed, but not both at the same time.
-            """.format(p.name, options_class.__name__))
-        doc_pieces.append("""\
-            options : pyarrow.compute.{0}, optional
-                Parameters altering compute function semantics.
-            """.format(options_class.__name__))
+        options_class_doc = _scrape_options_class_doc(options_class)
+        if options_class_doc:
+            for p in options_class_doc.params:
+                doc_pieces.append(f"{p.name} : {p.type}\n")
+                for s in p.desc:
+                    doc_pieces.append(f"    {s}\n")
+        else:
+            warnings.warn(f"Options class {options_class.__name__} "
+                          f"does not have a docstring", RuntimeWarning)
+            options_sig = inspect.signature(options_class)
+            for p in options_sig.parameters.values():
+                doc_pieces.append(dedent("""\
+                {0} : optional
+                    Parameter for {1} constructor. Either `options`
+                    or `{0}` can be passed, but not both at the same time.
+                """.format(p.name, options_class.__name__)))
+        doc_pieces.append(dedent(f"""\
+            options : pyarrow.compute.{options_class.__name__}, optional
+                Alternative way of passing options.
+            """))
 
-    doc_pieces.append("""\
+    doc_pieces.append(dedent("""\
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
-        """)
+        """))
 
     # 4. Custom addition (e.g. examples)
     if doc_addition is not None:
-        doc_pieces.append("\n{}\n".format(doc_addition.strip("\n")))
+        doc_pieces.append("\n{}\n".format(dedent(doc_addition).strip("\n")))
 
-    wrapper.__doc__ = "".join(dedent(s) for s in doc_pieces)
+    wrapper.__doc__ = "".join(doc_pieces)
     return wrapper
 
 
@@ -209,6 +240,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                     f"{func_name} takes {arity} positional argument(s), "
                     f"but {len(args)} were given"
                 )
+            if args and isinstance(args[0], Expression):
+                return Expression._call(func_name, list(args))
             return func.call(args, None, memory_pool)
     else:
         def wrapper(*args, memory_pool=None, options=None, **kwargs):
@@ -224,6 +257,8 @@ def _make_generic_wrapper(func_name, func, options_class, arity):
                 option_args = ()
             options = _handle_options(func_name, options_class, options,
                                       option_args, kwargs)
+            if args and isinstance(args[0], Expression):
+                return Expression._call(func_name, list(args), options)
             return func.call(args, options, memory_pool)
     return wrapper
 
@@ -271,7 +306,7 @@ def _make_global_functions():
     """
     Make global functions wrapping each compute function.
 
-    Note that some of the automatically-generated wrappers may be overriden
+    Note that some of the automatically-generated wrappers may be overridden
     by custom versions below.
     """
     g = globals()
@@ -288,6 +323,10 @@ def _make_global_functions():
             # Hash aggregate functions are not callable,
             # so let's not expose them at module level.
             continue
+        if func.kind == "scalar_aggregate" and func.arity == 0:
+            # Nullary scalar aggregate functions are not callable
+            # directly so let's not expose them at module level.
+            continue
         assert name not in g, name
         g[cpp_name] = g[name] = _wrap_function(name, func)
 
@@ -295,18 +334,22 @@ def _make_global_functions():
 _make_global_functions()
 
 
-def cast(arr, target_type, safe=True):
+def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
     """
     Cast array values to another data type. Can also be invoked as an array
     instance method.
 
     Parameters
     ----------
-    arr : Array or ChunkedArray
-    target_type : DataType or type string alias
+    arr : Array-like
+    target_type : DataType or str
         Type to cast to
     safe : bool, default True
         Check for overflows or other unsafe conversions
+    options : CastOptions, default None
+        Additional checks pass by CastOptions
+    memory_pool : MemoryPool, optional
+        memory pool to use for allocations during function execution.
 
     Examples
     --------
@@ -319,7 +362,7 @@ def cast(arr, target_type, safe=True):
     You can use ``pyarrow.DataType`` objects to specify the target type:
 
     >>> cast(arr, pa.timestamp('ms'))
-    <pyarrow.lib.TimestampArray object at 0x7fe93c0f6910>
+    <pyarrow.lib.TimestampArray object at ...>
     [
       2010-01-01 00:00:00.000,
       2015-01-01 00:00:00.000
@@ -332,10 +375,10 @@ def cast(arr, target_type, safe=True):
     types:
 
     >>> arr.cast('timestamp[ms]')
-    <pyarrow.lib.TimestampArray object at 0x10420eb88>
+    <pyarrow.lib.TimestampArray object at ...>
     [
-      1262304000000,
-      1420070400000
+      2010-01-01 00:00:00.000,
+      2015-01-01 00:00:00.000
     ]
     >>> arr.cast('timestamp[ms]').type
     TimestampType(timestamp[ms])
@@ -343,14 +386,21 @@ def cast(arr, target_type, safe=True):
     Returns
     -------
     casted : Array
+        The cast result as a new Array
     """
-    if target_type is None:
-        raise ValueError("Cast target type must not be None")
-    if safe:
-        options = CastOptions.safe(target_type)
-    else:
-        options = CastOptions.unsafe(target_type)
-    return call_function("cast", [arr], options)
+    safe_vars_passed = (safe is not None) or (target_type is not None)
+
+    if safe_vars_passed and (options is not None):
+        raise ValueError("Must either pass values for 'target_type' and 'safe'"
+                         " or pass a value for 'options'")
+
+    if options is None:
+        target_type = pa.types.lib.ensure_type(target_type)
+        if safe is False:
+            options = CastOptions.unsafe(target_type)
+        else:
+            options = CastOptions.safe(target_type)
+    return call_function("cast", [arr], options, memory_pool)
 
 
 def index(data, value, start=None, end=None, *, memory_pool=None):
@@ -359,8 +409,9 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
 
     Parameters
     ----------
-    data : Array or ChunkedArray
+    data : Array-like
     value : Scalar-like object
+        The value to search for.
     start : int, optional
     end : int, optional
     memory_pool : MemoryPool, optional
@@ -368,7 +419,8 @@ def index(data, value, start=None, end=None, *, memory_pool=None):
 
     Returns
     -------
-    index : the index, or -1 if not found
+    index : int
+        the index, or -1 if not found
     """
     if start is not None:
         if end is not None:
@@ -413,6 +465,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     Returns
     -------
     result : depends on inputs
+        Selected values for the given indices
 
     Examples
     --------
@@ -420,7 +473,7 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
     >>> indices = pa.array([0, None, 4, 3])
     >>> arr.take(indices)
-    <pyarrow.lib.StringArray object at 0x7ffa4fc7d368>
+    <pyarrow.lib.StringArray object at ...>
     [
       "a",
       null,
@@ -433,10 +486,16 @@ def take(data, indices, *, boundscheck=True, memory_pool=None):
 
 
 def fill_null(values, fill_value):
-    """
-    Replace each null element in values with fill_value. The fill_value must be
-    the same type as values or able to be implicitly casted to the array's
-    type.
+    """Replace each null element in values with a corresponding
+    element from fill_value.
+
+    If fill_value is scalar-like, then every null element in values
+    will be replaced with fill_value. If fill_value is array-like,
+    then the i-th element in values will be replaced with the i-th
+    element in fill_value.
+
+    The fill_value's type must be the same as that of values, or it
+    must be able to be implicitly casted to the array's type.
 
     This is an alias for :func:`coalesce`.
 
@@ -446,11 +505,12 @@ def fill_null(values, fill_value):
         Each null element is replaced with the corresponding value
         from fill_value.
     fill_value : Array, ChunkedArray, or Scalar-like object
-        If not same type as data will attempt to cast.
+        If not same type as values, will attempt to cast.
 
     Returns
     -------
     result : depends on inputs
+        Values with all null elements replaced
 
     Examples
     --------
@@ -458,12 +518,22 @@ def fill_null(values, fill_value):
     >>> arr = pa.array([1, 2, None, 3], type=pa.int8())
     >>> fill_value = pa.scalar(5, type=pa.int8())
     >>> arr.fill_null(fill_value)
-    pyarrow.lib.Int8Array object at 0x7f95437f01a0>
+    <pyarrow.lib.Int8Array object at ...>
     [
       1,
       2,
       5,
       3
+    ]
+    >>> arr = pa.array([1, 2, None, 4, None])
+    >>> arr.fill_null(pa.array([10, 20, 30, 40, 50]))
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      1,
+      2,
+      30,
+      4,
+      50
     ]
     """
     if not isinstance(fill_value, (pa.Array, pa.ChunkedArray, pa.Scalar)):
@@ -495,7 +565,8 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
 
     Returns
     -------
-    result : Array of indices
+    result : Array
+        Indices of the top-k ordered elements
 
     Examples
     --------
@@ -503,7 +574,7 @@ def top_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     >>> import pyarrow.compute as pc
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
     >>> pc.top_k_unstable(arr, k=3)
-    <pyarrow.lib.UInt64Array object at 0x7fdcb19d7f30>
+    <pyarrow.lib.UInt64Array object at ...>
     [
       5,
       4,
@@ -542,6 +613,7 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     Returns
     -------
     result : Array of indices
+        Indices of the bottom-k ordered elements
 
     Examples
     --------
@@ -549,7 +621,7 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
     >>> import pyarrow.compute as pc
     >>> arr = pa.array(["a", "b", "c", None, "e", "f"])
     >>> pc.bottom_k_unstable(arr, k=3)
-    <pyarrow.lib.UInt64Array object at 0x7fdcb19d7fa0>
+    <pyarrow.lib.UInt64Array object at ...>
     [
       0,
       1,
@@ -564,3 +636,95 @@ def bottom_k_unstable(values, k, sort_keys=None, *, memory_pool=None):
         sort_keys = map(lambda key_name: (key_name, "ascending"), sort_keys)
     options = SelectKOptions(k, sort_keys)
     return call_function("select_k_unstable", [values], options, memory_pool)
+
+
+def random(n, *, initializer='system', options=None, memory_pool=None):
+    """
+    Generate numbers in the range [0, 1).
+
+    Generated values are uniformly-distributed, double-precision
+    in range [0, 1). Algorithm and seed can be changed via RandomOptions.
+
+    Parameters
+    ----------
+    n : int
+        Number of values to generate, must be greater than or equal to 0
+    initializer : int or str
+        How to initialize the underlying random generator.
+        If an integer is given, it is used as a seed.
+        If "system" is given, the random generator is initialized with
+        a system-specific source of (hopefully true) randomness.
+        Other values are invalid.
+    options : pyarrow.compute.RandomOptions, optional
+        Alternative way of passing options.
+    memory_pool : pyarrow.MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
+    """
+    options = RandomOptions(initializer=initializer)
+    return call_function("random", [], options, memory_pool, length=n)
+
+
+def field(*name_or_index):
+    """Reference a column of the dataset.
+
+    Stores only the field's name. Type and other information is known only when
+    the expression is bound to a dataset having an explicit scheme.
+
+    Nested references are allowed by passing multiple names or a tuple of
+    names. For example ``('foo', 'bar')`` references the field named "bar"
+    inside the field named "foo".
+
+    Parameters
+    ----------
+    *name_or_index : string, multiple strings, tuple or int
+        The name or index of the (possibly nested) field the expression
+        references to.
+
+    Returns
+    -------
+    field_expr : Expression
+        Reference to the given field
+
+    Examples
+    --------
+    >>> import pyarrow.compute as pc
+    >>> pc.field("a")
+    <pyarrow.compute.Expression a>
+    >>> pc.field(1)
+    <pyarrow.compute.Expression FieldPath(1)>
+    >>> pc.field(("a", "b"))
+    <pyarrow.compute.Expression FieldRef.Nested(FieldRef.Name(a) ...
+    >>> pc.field("a", "b")
+    <pyarrow.compute.Expression FieldRef.Nested(FieldRef.Name(a) ...
+    """
+    n = len(name_or_index)
+    if n == 1:
+        if isinstance(name_or_index[0], (str, int)):
+            return Expression._field(name_or_index[0])
+        elif isinstance(name_or_index[0], tuple):
+            return Expression._nested_field(name_or_index[0])
+        else:
+            raise TypeError(
+                "field reference should be str, multiple str, tuple or "
+                f"integer, got {type(name_or_index[0])}"
+            )
+    # In case of multiple strings not supplied in a tuple
+    else:
+        return Expression._nested_field(name_or_index)
+
+
+def scalar(value):
+    """Expression representing a scalar value.
+
+    Parameters
+    ----------
+    value : bool, int, float or string
+        Python value of the scalar. Note that only a subset of types are
+        currently supported.
+
+    Returns
+    -------
+    scalar_expr : Expression
+        An Expression representing the scalar value
+    """
+    return Expression._scalar(value)

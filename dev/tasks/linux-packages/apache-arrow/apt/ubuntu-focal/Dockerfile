@@ -32,7 +32,6 @@ RUN \
   apt update ${quiet} && \
   apt install -y -V ${quiet} \
     build-essential \
-    ccache \
     clang \
     cmake \
     debhelper \
@@ -51,6 +50,8 @@ RUN \
     libgoogle-glog-dev \
     libgtest-dev \
     liblz4-dev \
+    libprotobuf-dev \
+    libprotoc-dev \
     libre2-dev \
     libsnappy-dev \
     libssl-dev \
@@ -59,19 +60,20 @@ RUN \
     libzstd-dev \
     llvm-dev \
     lsb-release \
+    meson \
     ninja-build \
+    nlohmann-json3-dev \
     pkg-config \
+    protobuf-compiler \
     python3-dev \
-    python3-numpy \
     python3-pip \
     python3-setuptools \
     rapidjson-dev \
     tzdata \
+    valac \
     zlib1g-dev && \
   if apt list | grep '^nvidia-cuda-toolkit/'; then \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean && \
-  python3 -m pip install --no-use-pep517 meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*

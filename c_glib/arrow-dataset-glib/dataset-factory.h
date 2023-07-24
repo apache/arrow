@@ -23,6 +23,21 @@
 
 G_BEGIN_DECLS
 
+#define GADATASET_TYPE_FINISH_OPTIONS (gadataset_finish_options_get_type())
+G_DECLARE_DERIVABLE_TYPE(GADatasetFinishOptions,
+                         gadataset_finish_options,
+                         GADATASET,
+                         FINISH_OPTIONS,
+                         GObject)
+struct _GADatasetFinishOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GADatasetFinishOptions *
+gadataset_finish_options_new(void);
+
 #define GADATASET_TYPE_DATASET_FACTORY (gadataset_dataset_factory_get_type())
 G_DECLARE_DERIVABLE_TYPE(GADatasetDatasetFactory,
                          gadataset_dataset_factory,
@@ -37,6 +52,7 @@ struct _GADatasetDatasetFactoryClass
 GARROW_AVAILABLE_IN_5_0
 GADatasetDataset *
 gadataset_dataset_factory_finish(GADatasetDatasetFactory *factory,
+                                 GADatasetFinishOptions *options,
                                  GError **error);
 
 
@@ -92,6 +108,7 @@ GARROW_AVAILABLE_IN_5_0
 GADatasetFileSystemDataset *
 gadataset_file_system_dataset_factory_finish(
   GADatasetFileSystemDatasetFactory *factory,
+  GADatasetFinishOptions *options,
   GError **error);
 
 

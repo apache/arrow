@@ -20,13 +20,12 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <string_view>
 #include <utility>
 
 #include "arrow/csv/lexing_internal.h"
 #include "arrow/status.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
-#include "arrow/util/string_view.h"
 
 namespace arrow {
 namespace csv {
@@ -269,7 +268,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
   explicit LexingBoundaryFinder(ParseOptions options)
       : options_(std::move(options)), lexer_(options_) {}
 
-  Status FindFirst(util::string_view partial, util::string_view block,
+  Status FindFirst(std::string_view partial, std::string_view block,
                    int64_t* out_pos) override {
     lexer_.Reset();
     if (lexer_.ShouldUseBulkFilter(block.data(), block.data() + block.size())) {
@@ -280,7 +279,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
   }
 
   template <bool UseBulkFilter>
-  Status FindFirstInternal(util::string_view partial, util::string_view block,
+  Status FindFirstInternal(std::string_view partial, std::string_view block,
                            int64_t* out_pos) {
     const char* line_end = lexer_.template ReadLine<UseBulkFilter>(
         partial.data(), partial.data() + partial.size());
@@ -298,7 +297,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindLast(util::string_view block, int64_t* out_pos) override {
+  Status FindLast(std::string_view block, int64_t* out_pos) override {
     lexer_.Reset();
     if (lexer_.ShouldUseBulkFilter(block.data(), block.data() + block.size())) {
       return FindLastInternal<true>(block, out_pos);
@@ -308,7 +307,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
   }
 
   template <bool UseBulkFilter>
-  Status FindLastInternal(util::string_view block, int64_t* out_pos) {
+  Status FindLastInternal(std::string_view block, int64_t* out_pos) {
     const char* data = block.data();
     const char* const data_end = block.data() + block.size();
 
@@ -331,7 +330,7 @@ class LexingBoundaryFinder : public BoundaryFinder {
     return Status::OK();
   }
 
-  Status FindNth(util::string_view partial, util::string_view block, int64_t count,
+  Status FindNth(std::string_view partial, std::string_view block, int64_t count,
                  int64_t* out_pos, int64_t* num_found) override {
     lexer_.Reset();
 
@@ -395,7 +394,7 @@ std::unique_ptr<Chunker> MakeChunker(const ParseOptions& options) {
       }
     }
   }
-  return ::arrow::internal::make_unique<Chunker>(std::move(delimiter));
+  return std::make_unique<Chunker>(std::move(delimiter));
 }
 
 }  // namespace csv

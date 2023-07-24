@@ -15,19 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/result.h"
+#include <string_view>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
-#include "arrow/util/string_view.h"
 
 #include "parquet/encryption/crypto_factory.h"
 #include "parquet/encryption/encryption_internal.h"
-#include "parquet/encryption/file_key_material_store.h"
 #include "parquet/encryption/file_key_unwrapper.h"
+#include "parquet/encryption/file_system_key_material_store.h"
 #include "parquet/encryption/key_toolkit_internal.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 void CryptoFactory::RegisterKmsClientFactory(
     std::shared_ptr<KmsClientFactory> kms_client_factory) {
@@ -36,7 +35,8 @@ void CryptoFactory::RegisterKmsClientFactory(
 
 std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    const EncryptionConfiguration& encryption_config) {
+    const EncryptionConfiguration& encryption_config, const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
     throw ParquetException("Either column_keys or uniform_encryption must be set");
   } else if (encryption_config.uniform_encryption &&
@@ -46,10 +46,16 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   const std::string& footer_key_id = encryption_config.footer_key;
   const std::string& column_key_str = encryption_config.column_keys;
 
-  std::shared_ptr<FileKeyMaterialStore> key_material_store = NULL;
+  std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr;
   if (!encryption_config.internal_key_material) {
-    // TODO: using external key material store with Hadoop file system
-    throw ParquetException("External key material store is not supported yet.");
+    try {
+      key_material_store =
+          FileSystemKeyMaterialStore::Make(file_path, file_system, false);
+    } catch (ParquetException& e) {
+      std::stringstream ss;
+      ss << "Failed to get key material store.\n" << e.what() << "\n";
+      throw ParquetException(ss.str());
+    }
   }
 
   FileKeyWrapper key_wrapper(&key_toolkit_, kms_connection_config, key_material_store,
@@ -87,6 +93,9 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     }
   }
 
+  if (key_material_store != nullptr) {
+    key_material_store->SaveMaterial();
+  }
   return properties_builder.build();
 }
 
@@ -94,7 +103,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
     int dek_length, const std::string& column_keys, FileKeyWrapper* key_wrapper) {
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
 
-  std::vector<::arrow::util::string_view> key_to_columns =
+  std::vector<::std::string_view> key_to_columns =
       ::arrow::internal::SplitString(column_keys, ';');
   for (size_t i = 0; i < key_to_columns.size(); ++i) {
     std::string cur_key_to_columns =
@@ -103,7 +112,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
       continue;
     }
 
-    std::vector<::arrow::util::string_view> parts =
+    std::vector<::std::string_view> parts =
         ::arrow::internal::SplitString(cur_key_to_columns, ':');
     if (parts.size() != 2) {
       std::ostringstream message;
@@ -118,7 +127,7 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
     }
 
     std::string column_names_str = ::arrow::internal::TrimString(std::string(parts[1]));
-    std::vector<::arrow::util::string_view> column_names =
+    std::vector<::std::string_view> column_names =
         ::arrow::internal::SplitString(column_names_str, ',');
     if (0 == column_names.size()) {
       throw ParquetException("No columns to encrypt defined for key: " + column_key_id);
@@ -161,9 +170,11 @@ ColumnPathToEncryptionPropertiesMap CryptoFactory::GetColumnEncryptionProperties
 
 std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
-    const DecryptionConfiguration& decryption_config) {
-  std::shared_ptr<DecryptionKeyRetriever> key_retriever(new FileKeyUnwrapper(
-      &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds));
+    const DecryptionConfiguration& decryption_config, const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  auto key_retriever = std::make_shared<FileKeyUnwrapper>(
+      &key_toolkit_, kms_connection_config, decryption_config.cache_lifetime_seconds,
+      file_path, file_system);
 
   return FileDecryptionProperties::Builder()
       .key_retriever(key_retriever)
@@ -171,5 +182,13 @@ std::shared_ptr<FileDecryptionProperties> CryptoFactory::GetFileDecryptionProper
       ->build();
 }
 
-}  // namespace encryption
-}  // namespace parquet
+void CryptoFactory::RotateMasterKeys(
+    const KmsConnectionConfig& kms_connection_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system, bool double_wrapping,
+    double cache_lifetime_seconds) {
+  key_toolkit_.RotateMasterKeys(kms_connection_config, parquet_file_path, file_system,
+                                double_wrapping, cache_lifetime_seconds);
+}
+
+}  // namespace parquet::encryption

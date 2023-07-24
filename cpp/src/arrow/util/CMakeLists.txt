@@ -41,10 +41,7 @@ endif()
 add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
-               async_generator_test.cc
-               async_util_test.cc
-               bit_block_counter_test.cc
-               bit_util_test.cc
+               atfork_test.cc
                byte_size_test.cc
                cache_test.cc
                checked_cast_test.cc
@@ -59,19 +56,33 @@ add_arrow_test(utility-test
                logging_test.cc
                queue_test.cc
                range_test.cc
+               ree_util_test.cc
                reflection_test.cc
-               rle_encoding_test.cc
+               rows_to_batches_test.cc
                small_vector_test.cc
+               span_test.cc
                stl_util_test.cc
                string_test.cc
                tdigest_test.cc
                test_common.cc
                time_test.cc
+               tracing_test.cc
                trie_test.cc
                uri_test.cc
                utf8_util_test.cc
-               value_parsing_test.cc
-               variant_test.cc)
+               value_parsing_test.cc)
+
+add_arrow_test(async-utility-test
+               SOURCES
+               async_generator_test.cc
+               async_util_test.cc
+               test_common.cc)
+
+add_arrow_test(bit-utility-test
+               SOURCES
+               bit_block_counter_test.cc
+               bit_util_test.cc
+               rle_encoding_test.cc)
 
 add_arrow_test(threading-utility-test
                SOURCES
@@ -79,7 +90,10 @@ add_arrow_test(threading-utility-test
                counting_semaphore_test.cc
                future_test.cc
                task_group_test.cc
+               test_common.cc
                thread_pool_test.cc)
+
+add_arrow_test(crc32-test SOURCES crc32_test.cc)
 
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
@@ -98,4 +112,3 @@ add_arrow_benchmark(thread_pool_benchmark)
 add_arrow_benchmark(trie_benchmark)
 add_arrow_benchmark(utf8_util_benchmark)
 add_arrow_benchmark(value_parsing_benchmark)
-add_arrow_benchmark(variant_benchmark)

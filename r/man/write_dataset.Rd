@@ -13,6 +13,10 @@ write_dataset(
   hive_style = TRUE,
   existing_data_behavior = c("overwrite", "error", "delete_matching"),
   max_partitions = 1024L,
+  max_open_files = 900L,
+  max_rows_per_file = 0L,
+  min_rows_per_group = 0L,
+  max_rows_per_group = bitwShiftL(1, 20),
   ...
 )
 }
@@ -34,8 +38,9 @@ use the current \code{group_by()} columns.}
 
 \item{basename_template}{string template for the names of files to be written.
 Must contain \code{"{i}"}, which will be replaced with an autoincremented
-integer to generate basenames of datafiles. For example, \code{"part-{i}.feather"}
-will yield \verb{"part-0.feather", ...}.}
+integer to generate basenames of datafiles. For example, \code{"part-{i}.arrow"}
+will yield \verb{"part-0.arrow", ...}.
+If not specified, it defaults to \code{"part-{i}.<default extension>"}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
@@ -56,14 +61,34 @@ partitions which data is not written to.
 \item{max_partitions}{maximum number of partitions any batch may be
 written into. Default is 1024L.}
 
+\item{max_open_files}{maximum number of files that can be left opened
+during a write operation. If greater than 0 then this will limit the
+maximum number of files that can be left open. If an attempt is made to open
+too many files then the least recently used file will be closed.
+If this setting is set too low you may end up fragmenting your data
+into many small files. The default is 900 which also allows some # of files to be
+open by the scanner before hitting the default Linux limit of 1024.}
+
+\item{max_rows_per_file}{maximum number of rows per file.
+If greater than 0 then this will limit how many rows are placed in any single file.
+Default is 0L.}
+
+\item{min_rows_per_group}{write the row groups to the disk when this number of
+rows have accumulated. Default is 0L.}
+
+\item{max_rows_per_group}{maximum rows allowed in a single
+group and when this number of rows is exceeded, it is split and the next set
+of rows is written to the next group. This value must be set such that it is
+greater than \code{min_rows_per_group}. Default is 1024 * 1024.}
+
 \item{...}{additional format-specific arguments. For available Parquet
-options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are
+options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are:
 \itemize{
 \item \code{use_legacy_format} logical: write data formatted so that Arrow libraries
 versions 0.14 and lower can read it. Default is \code{FALSE}. You can also
 enable this by setting the environment variable \code{ARROW_PRE_0_15_IPC_FORMAT=1}.
 \item \code{metadata_version}: A string like "V5" or the equivalent integer indicating
-the Arrow IPC MetadataVersion. Default (NULL) will use the latest version,
+the Arrow IPC MetadataVersion. Default (\code{NULL}) will use the latest version,
 unless the environment variable \code{ARROW_PRE_1_0_METADATA_VERSION=1}, in
 which case it will be V4.
 \item \code{codec}: A \link{Codec} which will be used to compress body buffers of written

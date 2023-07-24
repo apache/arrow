@@ -51,10 +51,11 @@ bool IsCodecSupported(Compression::type codec) {
 }
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec) {
-  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
+  return GetCodec(codec, CodecOptions());
 }
 
-std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options) {
   std::unique_ptr<Codec> result;
   if (codec == Compression::LZO) {
     throw ParquetException(
@@ -69,11 +70,27 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
+  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, codec_options));
   return result;
 }
 
-std::string FormatStatValue(Type::type parquet_type, ::arrow::util::string_view val) {
+// use compression level to create Codec
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  return GetCodec(codec, CodecOptions{compression_level});
+}
+
+bool PageCanUseChecksum(PageType::type pageType) {
+  switch (pageType) {
+    case PageType::type::DATA_PAGE:
+    case PageType::type::DATA_PAGE_V2:
+    case PageType::type::DICTIONARY_PAGE:
+      return true;
+    default:
+      return false;
+  }
+}
+
+std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {
   std::stringstream result;
 
   const char* bytes = val.data();
@@ -909,8 +926,14 @@ bool LogicalType::Impl::Decimal::is_applicable(parquet::Type::type primitive_typ
       }
     } break;
     case parquet::Type::FIXED_LEN_BYTE_ARRAY: {
+      // If the primitive length is larger than this we will overflow int32 when
+      // calculating precision.
+      if (primitive_length <= 0 || primitive_length > 891723282) {
+        ok = false;
+        break;
+      }
       ok = precision_ <= static_cast<int32_t>(std::floor(
-                             std::log10(std::pow(2.0, (8.0 * primitive_length) - 1.0))));
+                             std::log10(2) * ((8.0 * primitive_length) - 1.0)));
     } break;
     case parquet::Type::BYTE_ARRAY: {
       ok = true;

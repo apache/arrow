@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
+using FlatBuffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -110,6 +112,18 @@ namespace Apache.Arrow
             offset += Offset;
 
             return new ArrayData(DataType, length, RecalculateNullCount, offset, Buffers, Children, Dictionary);
+        }
+
+        public ArrayData Clone(MemoryAllocator allocator = default)
+        {
+            return new ArrayData(
+                DataType,
+                Length,
+                NullCount,
+                Offset,
+                Buffers?.Select(b => b.Clone(allocator))?.ToArray(),
+                Children?.Select(b => b.Clone(allocator))?.ToArray(),
+                Dictionary?.Clone(allocator));
         }
     }
 }

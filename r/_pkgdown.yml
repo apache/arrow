@@ -20,10 +20,74 @@
 url: https://arrow.apache.org/docs/r/
 title: Arrow R Package
 template:
-  params:
-    bootswatch: cosmo
-    ganalytics: UA-107500873-1
+  bootstrap: 5
+  bootswatch: cosmo
+  bslib:
+    font_scale: 1.1
+  includes:
+    in_header: |
+      <!-- Matomo -->
+      <script>
+        var _paq = window._paq = window._paq || [];
+        /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+        /* We explicitly disable cookie tracking to avoid privacy issues */
+        _paq.push(['disableCookies']);
+        _paq.push(['trackPageView']);
+        _paq.push(['enableLinkTracking']);
+        (function() {
+          var u="https://analytics.apache.org/";
+          _paq.push(['setTrackerUrl', u+'matomo.php']);
+          _paq.push(['setSiteId', '20']);
+          var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+          g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
+        })();
+      </script>
+      <!-- End Matomo Code -->
+  opengraph:
+    image:
+      src: https://arrow.apache.org/img/arrow-logo_horizontal_black-txt_white-bg.png
+      alt: "Apache Arrow logo, displaying the triple chevron image adjacent to the text"
+    twitter:
+      creator: "@apachearrow"
+      site: "@apachearrow"
+      card: summary_large_image
+
+home:
+  title: Arrow R Package
+  sidebar:
+    structure:
+      - project
+      - implementations
+      - links
+      - license
+      - community
+      - citation
+      - authors
+      - dev
+    components:
+      project:
+        title: Arrow Project
+        text: >
+          [Homepage](https://arrow.apache.org/) <br>
+          [Specifications](https://arrow.apache.org/docs/format/Columnar.html)
+      implementations:
+        title: Implementations
+        text: >
+          [C GLib](https://arrow.apache.org/docs/c_glib) <br>
+          [C++](https://arrow.apache.org/docs/cpp) <br>
+          [C#](https://github.com/apache/arrow/blob/main/csharp/README.md) <br>
+          [Go](https://pkg.go.dev/github.com/apache/arrow/go) <br>
+          [Java](https://arrow.apache.org/docs/java) <br>
+          [JavaScript](https://arrow.apache.org/docs/js) <br>
+          [Julia](https://github.com/apache/arrow-julia/blob/main/README.md) <br>
+          [MATLAB](https://github.com/apache/arrow/blob/main/matlab/README.md) <br>
+          [Python](https://arrow.apache.org/docs/python) <br>
+          [R](index.html) <br>
+          [Ruby](https://github.com/apache/arrow/blob/main/ruby/README.md) <br>
+          [Rust](https://docs.rs/crate/arrow/latest)
+
 navbar:
+  bg: black
   structure:
     left:
       - home
@@ -34,166 +98,247 @@ navbar:
       - project
     right: github
   components:
-    home:
-      text: ❯❯❯
-      href: https://arrow.apache.org/
     reference:
       text: Reference
       href: reference/index.html
-    project:
-      text: Project docs
-      menu:
-        - text: Specification
-          href: https://arrow.apache.org/docs/format/Columnar.html
-        - text: C GLib
-          href: https://arrow.apache.org/docs/c_glib
-        - text: C++
-          href: https://arrow.apache.org/docs/cpp
-        - text: Java
-          href: https://arrow.apache.org/docs/java
-        - text: JavaScript
-          href: https://arrow.apache.org/docs/js
-        - text: Python
-          href: https://arrow.apache.org/docs/python
-        - text: R
-          href: index.html
-    articles:
-      text: Articles
-      menu:
-        - text: Installing the Arrow Package on Linux
-          href: articles/install.html
-        - text: Working with Arrow Datasets and dplyr
-          href: articles/dataset.html
-        - text: Working with Cloud Storage (S3)
-          href: articles/fs.html
-        - text: Apache Arrow in Python and R with reticulate
-          href: articles/python.html
-        - text: Connecting to Flight RPC Servers
-          href: articles/flight.html
-        - text: Arrow R Developer Guide
-          href: articles/developing.html
-        - text: Developers
-          menu:
-          - text: Developer Environment Setup
-            href: articles/developers/setup.html
-          - text: Common Workflow Tasks
-            href: articles/developers/workflow.html
-          - text: Debugging
-            href: articles/developers/debugging.html
-          - text: Package Installation Details
-            href: articles/developers/install_details.html
-          - text: Docker
-            href: articles/developers/docker.html
-          - text: Writing Bindings
-            href: articles/developers/bindings.html
+
+articles:
+  - title: Using the package
+    navbar: Using the package
+    contents:
+      - read_write
+      - data_wrangling
+      - dataset
+      - python
+      - fs
+      - flight
+
+  - title: Arrow concepts
+    navbar: Arrow concepts
+    contents:
+      - data_objects
+      - data_types
+      - metadata
+
+  - title: Installation
+    navbar: Installation
+    contents:
+      - install
+      - install_nightly
+
+  - title: Developer guides
+    contents:
+      - developing
+      - developers/setup
+      - developers/workflow
+      - developers/debugging
+      - developers/docker
+      - developers/writing_bindings
+      - developers/install_details
+      - developers/data_object_layout
+
 reference:
-  - title: Multi-file datasets
-    contents:
-      - open_dataset
-      - write_dataset
-      - dataset_factory
-      - hive_partition
-      - Dataset
-      - Partitioning
-      - Expression
-      - Scanner
-      - FileFormat
-      - FileWriteOptions
-      - FragmentScanOptions
-      - map_batches
-  - title: Reading and writing files
-    contents:
-      - read_feather
-      - read_ipc_stream
-      - read_parquet
-      - read_delim_arrow
-      - read_json_arrow
-      - write_feather
-      - write_ipc_stream
-      - write_to_raw
-      - write_parquet
-      - write_csv_arrow
-  - title: C++ reader/writer interface
-    contents:
-      - ParquetFileReader
-      - ParquetArrowReaderProperties
-      - ParquetFileWriter
-      - ParquetWriterProperties
-      - FeatherReader
-      - CsvTableReader
-      - RecordBatchReader
-      - RecordBatchWriter
-      - CsvReadOptions
-      - CsvWriteOptions
-  - title: Arrow data containers
-    contents:
-      - array
-      - ChunkedArray
-      - Scalar
-      - RecordBatch
-      - Table
-      - ArrayData
-      - buffer
-      - read_message
-  - title: Arrow data types and schema
-    contents:
-      - Schema
-      - unify_schemas
-      - type
-      - dictionary
-      - Field
-      - read_schema
-      - data-type
-      - DataType
-      - DictionaryType
-      - FixedWidthType
-  - title: Flight
-    contents:
-      - load_flight_server
-      - flight_connect
-      - flight_get
-      - flight_put
-      - list_flights
-  - title: File systems
-    contents:
-      - s3_bucket
-      - FileSystem
-      - FileInfo
-      - FileSelector
-      - copy_files
-  - title: Input/Output
-    contents:
-      - InputStream
-      - mmap_open
-      - mmap_create
-      - OutputStream
-      - Message
-      - MessageReader
-      - compression
-      - Codec
-      - codec_is_available
-  - title: Computation
-    contents:
-      - call_function
-      - match_arrow
-      - value_counts
-      - list_compute_functions
-  - title: Connections to other systems
-    contents:
-      - to_arrow
-      - to_duckdb
-  - title: Configuration
-    contents:
-      - arrow_info
-      - cpu_count
-      - io_thread_count
-      - arrow_available
-      - install_arrow
-      - install_pyarrow
-      - create_package_with_all_dependencies
+- title: Read datasets
+  desc: >
+    Open multi-file datasets as Arrow Dataset objects.
+  contents:
+  - open_dataset
+  - open_delim_dataset
+  - open_csv_dataset
+  - open_tsv_dataset
+
+- title: Write datasets
+  desc: >
+    Write multi-file datasets to disk.
+  contents:
+  - write_dataset
+
+- title: Read files
+  desc: >
+    Read files in a variety of formats in as tibbles or Arrow Tables.
+  contents:
+  - read_delim_arrow
+  - read_parquet
+  - read_feather
+  - read_ipc_stream
+  - read_json_arrow
+
+- title: Write files
+  desc: >
+     Write to files in a variety of formats.
+  contents:
+    - write_csv_arrow
+    - write_parquet
+    - write_feather
+    - write_ipc_stream
+    - write_to_raw
+
+- title: Creating Arrow data containers
+  desc: >
+   Classes and functions for creating Arrow data containers.
+  contents:
+    - scalar
+    - arrow_array
+    - chunked_array
+    - record_batch
+    - arrow_table
+    - buffer
+    - vctrs_extension_array
+
+- title: Working with Arrow data containers
+  desc: >
+    Functions for converting R objects to Arrow data containers and combining Arrow data containers.
+  contents:
+  - as_arrow_array
+  - as_chunked_array
+  - as_record_batch
+  - as_arrow_table
+  - concat_arrays
+  - concat_tables
+
+- title: Arrow data types
+  contents:
+  - data-type
+  - dictionary
+  - new_extension_type
+  - vctrs_extension_type
+  - as_data_type
+  - infer_type
+
+- title: Fields and schemas
+  contents:
+  - field
+  - schema
+  - unify_schemas
+  - as_schema
+  - infer_schema
+  - read_schema
+
+- title: Computation
+  desc: >
+    Functionality for computing values on Arrow data objects.
+  contents:
+  - acero
+  - arrow-functions
+  - arrow-verbs
+  - arrow-dplyr
+  - call_function
+  - match_arrow
+  - value_counts
+  - list_compute_functions
+  - register_scalar_function
+  - show_exec_plan
+
+- title: DuckDB
+  desc: >
+    Pass data to and from DuckDB
+  contents:
+  - to_arrow
+  - to_duckdb
+
+- title: File systems
+  desc: >
+   Functions for working with files on S3 and GCS
+  contents:
+  - s3_bucket
+  - gs_bucket
+  - copy_files
+
+- title: Flight
+  contents:
+    - load_flight_server
+    - flight_connect
+    - flight_disconnect
+    - flight_get
+    - flight_put
+    - list_flights
+
+- title: Arrow Configuration
+  contents:
+    - arrow_info
+    - cpu_count
+    - io_thread_count
+    - install_arrow
+    - install_pyarrow
+    - create_package_with_all_dependencies
+
+- title: Input/Output
+  contents:
+    - InputStream
+    - read_message
+    - mmap_open
+    - mmap_create
+    - OutputStream
+    - Message
+    - MessageReader
+    - compression
+    - Codec
+    - codec_is_available
+
+- title: File read/writer interface
+  contents:
+  - ParquetFileReader
+  - ParquetArrowReaderProperties
+  - ParquetFileWriter
+  - ParquetWriterProperties
+  - FeatherReader
+  - CsvTableReader
+  - CsvReadOptions
+  - CsvWriteOptions
+  - RecordBatchReader
+  - RecordBatchWriter
+  - as_record_batch_reader
+
+- title: Low-level C++ wrappers
+  desc: >
+    Low-level R6 class representations of Arrow C++ objects intended for advanced users.
+  contents:
+  - Buffer
+  - Scalar
+  - Array
+  - ChunkedArray
+  - RecordBatch
+  - Schema
+  - Field
+  - Table
+  - DataType
+  - ArrayData
+  - DictionaryType
+  - FixedWidthType
+  - ExtensionType
+  - ArrayData
+  - ExtensionArray
+
+- title: Dataset and Filesystem R6 classes and helper functions
+  desc: >
+    R6 classes and helper functions useful for when working with multi-file datases in Arrow.
+  contents:
+  - Dataset
+  - dataset_factory
+  - Partitioning
+  - Expression
+  - Scanner
+  - FileFormat
+  - CsvFileFormat
+  - JsonFileFormat
+  - FileWriteOptions
+  - FragmentScanOptions
+  - hive_partition
+  - map_batches
+  - FileSystem
+  - FileInfo
+  - FileSelector
 
 repo:
-  jira_projects: [ARROW]
   url:
-    source: https://github.com/apache/arrow/blob/master/r/
-    issue: https://issues.apache.org/jira/browse/
+    home: https://github.com/apache/arrow/
+    source: https://github.com/apache/arrow/blob/main/r/
+    issue: https://github.com/apache/arrow/issues/
+    user: https://github.com/
+
+footer:
+  structure:
+    left: older_versions
+    right: built_with
+  components:
+    older_versions: "[Older versions of these docs](https://arrow.apache.org/docs/r/versions.html)"

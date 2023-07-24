@@ -17,12 +17,14 @@
 package array_test
 
 import (
+	"math"
 	"reflect"
 	"testing"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/array"
-	"github.com/apache/arrow/go/v7/arrow/memory"
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -133,6 +135,22 @@ func TestFloat64SliceDataWithNull(t *testing.T) {
 	if got, want := slice.Float64Values(), sub; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v, want=%v", got, want)
 	}
+}
+
+func TestUnmarshalSpecialFloat(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	bldr := array.NewFloat32Builder(pool)
+	defer bldr.Release()
+
+	assert.NoError(t, json.Unmarshal([]byte(`[3.4, "Inf", "-Inf"]`), bldr))
+	arr := bldr.NewFloat32Array()
+	defer arr.Release()
+
+	assert.False(t, math.IsInf(float64(arr.Value(0)), 0), arr.Value(0))
+	assert.True(t, math.IsInf(float64(arr.Value(1)), 1), arr.Value(1))
+	assert.True(t, math.IsInf(float64(arr.Value(2)), -1), arr.Value(2))
 }
 
 func TestNewTime32Data(t *testing.T) {
@@ -612,5 +630,63 @@ func TestDate64SliceDataWithNull(t *testing.T) {
 
 	if got, want := slice.Date64Values(), sub; !reflect.DeepEqual(got, want) {
 		t.Fatalf("got=%v, want=%v", got, want)
+	}
+}
+
+func TestInt64MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs = []int64{-5474557666971701248}
+	)
+
+	b := array.NewInt64Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Int64)
+	defer arr.Release()
+
+	jsonBytes, err := json.Marshal(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(jsonBytes)
+	want := `[-5474557666971701248]`
+	if got != want {
+		t.Fatalf("got=%s, want=%s", got, want)
+	}
+}
+
+func TestUInt64MarshalJSON(t *testing.T) {
+	pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer pool.AssertSize(t, 0)
+
+	var (
+		vs = []uint64{14697929703826477056}
+	)
+
+	b := array.NewUint64Builder(pool)
+	defer b.Release()
+
+	for _, v := range vs {
+		b.Append(v)
+	}
+
+	arr := b.NewArray().(*array.Uint64)
+	defer arr.Release()
+
+	jsonBytes, err := json.Marshal(arr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(jsonBytes)
+	want := `[14697929703826477056]`
+	if got != want {
+		t.Fatalf("got=%s, want=%s", got, want)
 	}
 }

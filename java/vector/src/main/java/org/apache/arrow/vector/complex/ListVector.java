@@ -20,6 +20,7 @@ package org.apache.arrow.vector.complex;
 import static java.util.Collections.singletonList;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
+import static org.apache.arrow.util.Preconditions.checkArgument;
 import static org.apache.arrow.util.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
@@ -75,13 +76,13 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   protected ArrowBuf validityBuffer;
   protected UnionListReader reader;
   private CallBack callBack;
-  private final FieldType fieldType;
-  private int validityAllocationSizeInBytes;
+  protected final FieldType fieldType;
+  protected int validityAllocationSizeInBytes;
 
   /**
    * The maximum index that is actually set.
    */
-  private int lastSet;
+  protected int lastSet;
 
   /**
    * Constructs a new instance.
@@ -102,14 +103,12 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
 
   @Override
   public void initializeChildrenFromFields(List<Field> children) {
-    if (children.size() != 1) {
-      throw new IllegalArgumentException("Lists have only one child. Found: " + children);
-    }
+    checkArgument(children.size() == 1,
+            "Lists have one child Field. Found: %s", children.isEmpty() ? "none" : children);
+
     Field field = children.get(0);
     AddOrGetResult<FieldVector> addOrGetVector = addOrGetVector(field.getFieldType());
-    if (!addOrGetVector.isCreated()) {
-      throw new IllegalArgumentException("Child vector already existed: " + addOrGetVector.getVector());
-    }
+    checkArgument(addOrGetVector.isCreated(), "Child vector already existed: %s", addOrGetVector.getVector());
 
     addOrGetVector.getVector().initializeChildrenFromFields(field.getChildren());
   }
@@ -277,7 +276,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     return true;
   }
 
-  private void allocateValidityBuffer(final long size) {
+  protected void allocateValidityBuffer(final long size) {
     final int curSize = (int) size;
     validityBuffer = allocator.buffer(curSize);
     validityBuffer.readerIndex(0);
@@ -297,7 +296,7 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
     super.reAlloc();
   }
 
-  private void reallocValidityAndOffsetBuffers() {
+  protected void reallocValidityAndOffsetBuffers() {
     reallocOffsetBuffer();
     reallocValidityBuffer();
   }
@@ -568,10 +567,13 @@ public class ListVector extends BaseRepeatedValueVector implements PromotableVec
   }
 
   @Override
+  protected FieldReader getReaderImpl() {
+    return new UnionListReader(this);
+  }
+
+  @Override
   public UnionListReader getReader() {
-    if (reader == null) {
-      reader = new UnionListReader(this);
-    }
+    reader = (UnionListReader) super.getReader();
     return reader;
   }
 

@@ -18,39 +18,46 @@
 ARG FROM=centos:7
 FROM ${FROM}
 
+ENV \
+  SCL=devtoolset-11
+
 ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   yum update -y ${quiet} && \
-  yum install -y ${quiet} epel-release && \
   yum install -y ${quiet} \
+    centos-release-scl-rh \
+    epel-release && \
+  yum install -y ${quiet} \
+    ${SCL}-gcc-c++ \
+    ${SCL}-make \
     bison \
     boost169-devel \
     brotli-devel \
     bzip2-devel \
     ccache \
     cmake3 \
+    curl-devel \
     flex \
-    gcc-c++ \
     gflags-devel \
     git \
     glog-devel \
     gobject-introspection-devel \
     gtk-doc \
+    json-devel \
     libzstd-devel \
     lz4-devel \
-    make \
     ninja-build \
     openssl-devel \
     pkg-config \
     python36 \
-    python36-devel \
-    python36-numpy \
     rapidjson-devel \
     rpmdevtools \
     snappy-devel \
     tar \
+    thrift-devel \
+    vala \
     zlib-devel && \
   yum clean ${quiet} all
 

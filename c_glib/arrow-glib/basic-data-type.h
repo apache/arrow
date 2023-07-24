@@ -19,6 +19,8 @@
 
 #pragma once
 
+#include <arrow-glib/basic-array-definition.h>
+#include <arrow-glib/chunked-array-definition.h>
 #include <arrow-glib/decimal.h>
 #include <arrow-glib/type.h>
 #include <arrow-glib/version.h>
@@ -250,6 +252,21 @@ struct _GArrowFloatingPointDataTypeClass
 {
   GArrowNumericDataTypeClass parent_class;
 };
+
+
+#define GARROW_TYPE_HALF_FLOAT_DATA_TYPE (garrow_half_float_data_type_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowHalfFloatDataType,
+                         garrow_half_float_data_type,
+                         GARROW,
+                         HALF_FLOAT_DATA_TYPE,
+                         GArrowFloatingPointDataType)
+struct _GArrowHalfFloatDataTypeClass
+{
+  GArrowFloatingPointDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_11_0
+GArrowHalfFloatDataType *garrow_half_float_data_type_new(void);
 
 
 #define GARROW_TYPE_FLOAT_DATA_TYPE (garrow_float_data_type_get_type())
@@ -619,15 +636,10 @@ GARROW_AVAILABLE_IN_3_0
 gchar *
 garrow_extension_data_type_get_extension_name(GArrowExtensionDataType *data_type);
 
-typedef struct _GArrowArray GArrowArray;
-typedef struct _GArrowExtensionArray GArrowExtensionArray;
-
 GARROW_AVAILABLE_IN_3_0
 GArrowExtensionArray *
 garrow_extension_data_type_wrap_array(GArrowExtensionDataType *data_type,
                                       GArrowArray *storage);
-
-typedef struct _GArrowChunkedArray GArrowChunkedArray;
 
 GARROW_AVAILABLE_IN_3_0
 GArrowChunkedArray *

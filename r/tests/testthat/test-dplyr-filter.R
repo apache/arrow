@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-skip_if_not_available("dataset")
-
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
+
+skip_if_not_available("acero")
 
 tbl <- example_data
 # Add some better string data
@@ -219,25 +219,11 @@ test_that("filter() with between()", {
       filter(dbl >= int, dbl <= dbl2)
   )
 
-  expect_error(
-    tbl %>%
-      record_batch() %>%
-      filter(between(dbl, 1, "2")) %>%
-      collect()
-  )
-
-  expect_error(
-    tbl %>%
-      record_batch() %>%
+  compare_dplyr_binding(
+    .input %>%
       filter(between(dbl, 1, NA)) %>%
-      collect()
-  )
-
-  expect_error(
-    tbl %>%
-      record_batch() %>%
-      filter(between(chr, 1, 2)) %>%
-      collect()
+      collect(),
+    tbl
   )
 })
 
@@ -291,7 +277,7 @@ test_that("filter environment scope", {
     tbl
   )
   isShortString <- function(x) nchar(x) < 10
-  skip("TODO: 14071")
+  skip("TODO: ARROW-14071")
   compare_dplyr_binding(
     .input %>%
       select(-fct) %>%
@@ -377,7 +363,9 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(.data$dbl > 4) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      # use "quoted" strings instead of .data pronoun where tidyselect is used
+      # .data pronoun deprecated in select in tidyselect 1.2
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )
@@ -385,7 +373,7 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(is.na(.data$lgl)) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      select("chr", "int", "lgl") %>%
       collect(),
     tbl
   )
@@ -395,18 +383,98 @@ test_that("filter() with .data pronoun", {
   compare_dplyr_binding(
     .input %>%
       filter(.data$dbl > .env$chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      select("chr", "int", "lgl") %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter() with namespaced functions", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(dplyr::between(dbl, 1, 2)) %>%
       collect(),
     tbl
   )
 
-  skip("test now faulty - code no longer gives error & outputs a empty tibble")
-  # but there is an error if we don't override the masking with `.env`
-  compare_dplyr_error(
+  skip_if_not_available("utf8proc")
+  compare_dplyr_binding(
     .input %>%
-      filter(.data$dbl > chr) %>%
-      select(.data$chr, .data$int, .data$lgl) %>%
+      filter(dbl > 2, stringr::str_length(verses) > 25) %>%
       collect(),
     tbl
+  )
+})
+
+test_that("filter() with across()", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(if_any(ends_with("l"), ~ is.na(.))) %>%
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input %>%
+      filter(
+        false == FALSE,
+        if_all(everything(), ~ !is.na(.)),
+        int > 2
+      ) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that(".by argument", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(is.na(lgl), .by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(is.na(lgl), .by = starts_with("chr")) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = c(int, chr)) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = c("int", "chr")) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  # filter should pulling not grouped data into R when using the .by argument
+  compare_dplyr_binding(
+    .input %>%
+      filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
+      collect(),
+    tbl,
+    warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
+  )
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      filter(is.na(lgl), .by = chr),
+    "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })

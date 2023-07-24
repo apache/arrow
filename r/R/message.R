@@ -15,9 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#' @include arrow-package.R
+#' @include arrow-object.R
 
-#' @title class arrow::Message
+#' @title Message class
 #'
 #' @usage NULL
 #' @format NULL
@@ -45,7 +45,7 @@ Message <- R6Class("Message",
   )
 )
 
-#' @title class arrow::MessageReader
+#' @title MessageReader class
 #'
 #' @usage NULL
 #' @format NULL

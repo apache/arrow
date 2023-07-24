@@ -66,6 +66,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
   std::string type_name() const override { return "hdfs"; }
   HdfsOptions options() const;
   bool Equals(const FileSystem& other) const override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   /// \cond FALSE
   using FileSystem::GetFileInfo;
@@ -77,7 +78,7 @@ class ARROW_EXPORT HadoopFileSystem : public FileSystem {
 
   Status DeleteDir(const std::string& path) override;
 
-  Status DeleteDirContents(const std::string& path) override;
+  Status DeleteDirContents(const std::string& path, bool missing_dir_ok = false) override;
 
   Status DeleteRootDirContents() override;
 

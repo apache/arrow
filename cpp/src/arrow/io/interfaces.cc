@@ -24,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <string_view>
 #include <typeinfo>
 #include <utility>
 
@@ -35,9 +36,9 @@
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/string_view.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -49,12 +50,14 @@ using internal::ThreadPool;
 
 namespace io {
 
-static IOContext g_default_io_context{};
-
 IOContext::IOContext(MemoryPool* pool, StopToken stop_token)
     : IOContext(pool, internal::GetIOThreadPool(), std::move(stop_token)) {}
 
-const IOContext& default_io_context() { return g_default_io_context; }
+const IOContext& default_io_context() {
+  // Avoid using a global variable because of initialization order issues (ARROW-18383)
+  static IOContext g_default_io_context{};
+  return g_default_io_context;
+}
 
 int GetIOThreadPoolCapacity() { return internal::GetIOThreadPool()->GetCapacity(); }
 
@@ -63,6 +66,11 @@ Status SetIOThreadPoolCapacity(int threads) {
 }
 
 FileInterface::~FileInterface() = default;
+
+Future<> FileInterface::CloseAsync() {
+  return DeferNotOk(
+      default_io_context().executor()->Submit([this]() { return Close(); }));
+}
 
 Status FileInterface::Abort() { return Close(); }
 
@@ -97,11 +105,11 @@ class InputStreamBlockIterator {
 
 }  // namespace
 
-const IOContext& Readable::io_context() const { return g_default_io_context; }
+const IOContext& Readable::io_context() const { return default_io_context(); }
 
 Status InputStream::Advance(int64_t nbytes) { return Read(nbytes).status(); }
 
-Result<util::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
+Result<std::string_view> InputStream::Peek(int64_t ARROW_ARG_UNUSED(nbytes)) {
   return Status::NotImplemented("Peek not implemented");
 }
 
@@ -167,12 +175,26 @@ Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(int64_t position,
   return ReadAsync(io_context(), position, nbytes);
 }
 
+std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
+    const IOContext& ctx, const std::vector<ReadRange>& ranges) {
+  std::vector<Future<std::shared_ptr<Buffer>>> ret;
+  for (auto r : ranges) {
+    ret.push_back(this->ReadAsync(ctx, r.offset, r.length));
+  }
+  return ret;
+}
+
+std::vector<Future<std::shared_ptr<Buffer>>> RandomAccessFile::ReadManyAsync(
+    const std::vector<ReadRange>& ranges) {
+  return ReadManyAsync(io_context(), ranges);
+}
+
 // Default WillNeed() implementation: no-op
 Status RandomAccessFile::WillNeed(const std::vector<ReadRange>& ranges) {
   return Status::OK();
 }
 
-Status Writable::Write(util::string_view data) {
+Status Writable::Write(std::string_view data) {
   return Write(data.data(), static_cast<int64_t>(data.size()));
 }
 
@@ -241,8 +263,14 @@ class FileSegmentReader
   int64_t nbytes_;
 };
 
-std::shared_ptr<InputStream> RandomAccessFile::GetStream(
+Result<std::shared_ptr<InputStream>> RandomAccessFile::GetStream(
     std::shared_ptr<RandomAccessFile> file, int64_t file_offset, int64_t nbytes) {
+  if (file_offset < 0) {
+    return Status::Invalid("file_offset should be a positive value, got: ", file_offset);
+  }
+  if (nbytes < 0) {
+    return Status::Invalid("nbytes should be a positive value, got: ", nbytes);
+  }
   return std::make_shared<FileSegmentReader>(std::move(file), file_offset, nbytes);
 }
 
@@ -352,13 +380,38 @@ void SharedExclusiveChecker::UnlockExclusive() {}
 
 #endif
 
-static std::shared_ptr<ThreadPool> MakeIOThreadPool() {
-  auto maybe_pool = ThreadPool::MakeEternal(/*threads=*/8);
+// -----------------------------------------------------------------------
+// Global IO thread pool
+
+namespace {
+
+constexpr int kDefaultNumIoThreads = 8;
+
+std::shared_ptr<ThreadPool> MakeIOThreadPool() {
+  int threads = 0;
+  auto maybe_env_var = ::arrow::internal::GetEnvVar("ARROW_IO_THREADS");
+  if (maybe_env_var.ok()) {
+    auto str = *std::move(maybe_env_var);
+    if (!str.empty()) {
+      try {
+        threads = std::stoi(str);
+      } catch (...) {
+      }
+      if (threads <= 0) {
+        ARROW_LOG(WARNING)
+            << "ARROW_IO_THREADS does not contain a valid number of threads "
+               "(should be an integer > 0)";
+      }
+    }
+  }
+  auto maybe_pool = ThreadPool::MakeEternal(threads > 0 ? threads : kDefaultNumIoThreads);
   if (!maybe_pool.ok()) {
     maybe_pool.status().Abort("Failed to create global IO thread pool");
   }
   return *std::move(maybe_pool);
 }
+
+}  // namespace
 
 ThreadPool* GetIOThreadPool() {
   static std::shared_ptr<ThreadPool> pool = MakeIOThreadPool();

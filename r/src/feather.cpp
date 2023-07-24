@@ -17,7 +17,8 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
+#include "./safe-call-into-r.h"
+
 #include <arrow/ipc/feather.h>
 #include <arrow/type.h>
 
@@ -48,34 +49,42 @@ int ipc___feather___Reader__version(
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Table> ipc___feather___Reader__Read(
-    const std::shared_ptr<arrow::ipc::feather::Reader>& reader, SEXP columns) {
-  std::shared_ptr<arrow::Table> table;
-
-  switch (TYPEOF(columns)) {
-    case STRSXP: {
-      R_xlen_t n = XLENGTH(columns);
-      std::vector<std::string> names(n);
-      for (R_xlen_t i = 0; i < n; i++) {
-        names[i] = CHAR(STRING_ELT(columns, i));
-      }
-      StopIfNotOk(reader->Read(names, &table));
-      break;
+    const std::shared_ptr<arrow::ipc::feather::Reader>& reader, cpp11::sexp columns) {
+  bool use_names = columns != R_NilValue;
+  std::vector<std::string> names;
+  if (use_names) {
+    cpp11::strings columns_chr(columns);
+    names.reserve(columns_chr.size());
+    for (const auto& name : columns_chr) {
+      names.push_back(name);
     }
-    case NILSXP:
-      StopIfNotOk(reader->Read(&table));
-      break;
-    default:
-      cpp11::stop("incompatible column specification");
-      break;
   }
 
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>([&]() {
+    std::shared_ptr<arrow::Table> table;
+    arrow::Status read_result;
+    if (use_names) {
+      read_result = reader->Read(names, &table);
+    } else {
+      read_result = reader->Read(&table);
+    }
+
+    if (read_result.ok()) {
+      return arrow::Result<std::shared_ptr<arrow::Table>>(table);
+    } else {
+      return arrow::Result<std::shared_ptr<arrow::Table>>(read_result);
+    }
+  });
+
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::ipc::feather::Reader> ipc___feather___Reader__Open(
     const std::shared_ptr<arrow::io::RandomAccessFile>& stream) {
-  return ValueOrStop(arrow::ipc::feather::Reader::Open(stream));
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::ipc::feather::Reader>>(
+      [&]() { return arrow::ipc::feather::Reader::Open(stream); });
+  return ValueOrStop(result);
 }
 
 // [[arrow::export]]
@@ -83,5 +92,3 @@ std::shared_ptr<arrow::Schema> ipc___feather___Reader__schema(
     const std::shared_ptr<arrow::ipc::feather::Reader>& reader) {
   return reader->schema();
 }
-
-#endif

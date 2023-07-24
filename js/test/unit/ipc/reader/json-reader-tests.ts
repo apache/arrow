@@ -15,14 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import {
-    generateRandomTables,
-    // generateDictionaryTables
-} from '../../../data/tables';
+import { generateRandomTables } from '../../../data/tables.js';
+import { ArrowIOTestHelper } from '../helpers.js';
+import { validateRecordBatchReader } from '../validate.js';
 
-import { ArrowIOTestHelper } from '../helpers';
 import { RecordBatchReader } from 'apache-arrow';
-import { validateRecordBatchReader } from '../validate';
 
 for (const table of generateRandomTables([10, 20, 30])) {
 

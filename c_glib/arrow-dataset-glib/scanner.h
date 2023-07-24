@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <arrow-dataset-glib/dataset.h>
+#include <arrow-dataset-glib/dataset-definition.h>
 #include <arrow-dataset-glib/fragment.h>
 
 G_BEGIN_DECLS

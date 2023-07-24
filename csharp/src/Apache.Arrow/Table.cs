@@ -32,18 +32,17 @@ namespace Apache.Arrow
         public static Table TableFromRecordBatches(Schema schema, IList<RecordBatch> recordBatches)
         {
             int nBatches = recordBatches.Count;
-            int nColumns = schema.Fields.Count;
+            int nColumns = schema.FieldsList.Count;
 
             List<Column> columns = new List<Column>(nColumns);
-            List<Array> columnArrays = new List<Array>(nBatches);
             for (int icol = 0; icol < nColumns; icol++)
             {
+                List<Array> columnArrays = new List<Array>(nBatches);
                 for (int jj = 0; jj < nBatches; jj++)
                 {
                     columnArrays.Add(recordBatches[jj].Column(icol) as Array);
                 }
-                columns.Add(new Arrow.Column(schema.GetFieldByIndex(icol), columnArrays));
-                columnArrays.Clear();
+                columns.Add(new Column(schema.GetFieldByIndex(icol), columnArrays));
             }
 
             return new Table(schema, columns);

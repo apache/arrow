@@ -23,17 +23,27 @@ test_that("codec_is_available", {
   expect_true(codec_is_available("GZIP"))
 })
 
-if (identical(Sys.getenv("APPVEYOR"), "True")) {
-  test_that("Compression codecs are included in the Windows build", {
-    expect_true(codec_is_available("lz4"))
-    expect_true(codec_is_available("zstd"))
-  })
-}
+test_that("Compression codecs are included in the Windows build", {
+  skip_if(tolower(Sys.info()[["sysname"]]) != "windows")
+  expect_true(codec_is_available("lz4"))
+  expect_true(codec_is_available("zstd"))
+  expect_true(codec_is_available("brotli"))
+  expect_true(codec_is_available("bz2"))
+  expect_true(codec_is_available("snappy"))
+})
 
 test_that("Codec attributes", {
   skip_if_not_available("gzip")
   cod <- Codec$create("gzip")
   expect_equal(cod$name, "gzip")
+  # TODO: implement $level
+  expect_error(cod$level)
+})
+
+test_that("Default compression_level for zstd", {
+  skip_if_not_available("zstd")
+  cod <- Codec$create("zstd")
+  expect_equal(cod$name, "zstd")
   # TODO: implement $level
   expect_error(cod$level)
 })

@@ -116,7 +116,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
     return derived()->DoRead(nbytes);
   }
 
-  Result<util::string_view> Peek(int64_t nbytes) final {
+  Result<std::string_view> Peek(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoPeek(nbytes);
   }
@@ -132,7 +132,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   And optionally:
 
   Status DoAbort() override;
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
+  Result<std::string_view> DoPeek(int64_t nbytes) override;
 
   These methods should be protected in the derived class and
   InputStreamConcurrencyWrapper declared as a friend with
@@ -145,7 +145,7 @@ class ARROW_EXPORT InputStreamConcurrencyWrapper : public InputStream {
   // have derived classes itself.
   virtual Status DoAbort() { return derived()->DoClose(); }
 
-  virtual Result<util::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
+  virtual Result<std::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
     return Status::NotImplemented("Peek not implemented");
   }
 
@@ -186,7 +186,7 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
     return derived()->DoRead(nbytes);
   }
 
-  Result<util::string_view> Peek(int64_t nbytes) final {
+  Result<std::string_view> Peek(int64_t nbytes) final {
     auto guard = lock_.exclusive_guard();
     return derived()->DoPeek(nbytes);
   }
@@ -232,7 +232,7 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   And optionally:
 
   Status DoAbort() override;
-  Result<util::string_view> DoPeek(int64_t nbytes) override;
+  Result<std::string_view> DoPeek(int64_t nbytes) override;
 
   These methods should be protected in the derived class and
   RandomAccessFileConcurrencyWrapper declared as a friend with
@@ -245,7 +245,7 @@ class ARROW_EXPORT RandomAccessFileConcurrencyWrapper : public RandomAccessFile 
   // have derived classes itself.
   virtual Status DoAbort() { return derived()->DoClose(); }
 
-  virtual Result<util::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
+  virtual Result<std::string_view> DoPeek(int64_t ARROW_ARG_UNUSED(nbytes)) {
     return Status::NotImplemented("Peek not implemented");
   }
 

@@ -19,7 +19,5 @@ the Arrow C++ library. This function lets you know which are available for
 use.
 }
 \examples{
-\dontshow{if (arrow_available()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
 codec_is_available("gzip")
-\dontshow{\}) # examplesIf}
 }

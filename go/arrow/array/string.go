@@ -19,18 +19,13 @@ package array
 import (
 	"bytes"
 	"fmt"
-	"math"
 	"reflect"
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v7/arrow"
-	"github.com/apache/arrow/go/v7/arrow/memory"
-	"github.com/goccy/go-json"
-)
-
-const (
-	stringArrayMaximumCapacity = math.MaxInt32
+	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v13/internal/json"
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -41,22 +36,29 @@ type String struct {
 }
 
 // NewStringData constructs a new String array from data.
-func NewStringData(data *Data) *String {
+func NewStringData(data arrow.ArrayData) *String {
 	a := &String{}
 	a.refCount = 1
-	a.setData(data)
+	a.setData(data.(*Data))
 	return a
 }
 
 // Reset resets the String with a different set of Data.
-func (a *String) Reset(data *Data) {
-	a.setData(data)
+func (a *String) Reset(data arrow.ArrayData) {
+	a.setData(data.(*Data))
 }
 
 // Value returns the slice at index i. This value should not be mutated.
 func (a *String) Value(i int) string {
 	i = i + a.array.data.offset
 	return a.values[a.offsets[i]:a.offsets[i+1]]
+}
+
+func (a *String) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
 }
 
 // ValueOffset returns the offset of the value at index i.
@@ -67,22 +69,23 @@ func (a *String) ValueOffset(i int) int {
 	return int(a.offsets[i+a.array.data.offset])
 }
 
+func (a *String) ValueOffset64(i int) int64 {
+	return int64(a.ValueOffset(i))
+}
+
 func (a *String) ValueOffsets() []int32 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1
 	return a.offsets[beg:end]
 }
 
-func (a *String) ValueBytes() (ret []byte) {
+func (a *String) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *String) String() string {
@@ -94,7 +97,7 @@ func (a *String) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -118,9 +121,22 @@ func (a *String) setData(data *Data) {
 	if offsets := data.buffers[1]; offsets != nil {
 		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
 	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.offsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: string offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.offsets[expNumOffsets-1]) > len(a.values) {
+		panic("arrow/array: string offsets out of bounds of data buffer")
+	}
 }
 
-func (a *String) getOneForMarshal(i int) interface{} {
+func (a *String) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -151,100 +167,195 @@ func arrayEqualString(left, right *String) bool {
 	return true
 }
 
+// String represents an immutable sequence of variable-length UTF-8 strings.
+type LargeString struct {
+	array
+	offsets []int64
+	values  string
+}
+
+// NewStringData constructs a new String array from data.
+func NewLargeStringData(data arrow.ArrayData) *LargeString {
+	a := &LargeString{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+// Reset resets the String with a different set of Data.
+func (a *LargeString) Reset(data arrow.ArrayData) {
+	a.setData(data.(*Data))
+}
+
+// Value returns the slice at index i. This value should not be mutated.
+func (a *LargeString) Value(i int) string {
+	i = i + a.array.data.offset
+	return a.values[a.offsets[i]:a.offsets[i+1]]
+}
+
+func (a *LargeString) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
+// ValueOffset returns the offset of the value at index i.
+func (a *LargeString) ValueOffset(i int) int64 {
+	if i < 0 || i > a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	return a.offsets[i+a.array.data.offset]
+}
+
+func (a *LargeString) ValueOffset64(i int) int64 {
+	return a.ValueOffset(i)
+}
+
+func (a *LargeString) ValueOffsets() []int64 {
+	beg := a.array.data.offset
+	end := beg + a.array.data.length + 1
+	return a.offsets[beg:end]
+}
+
+func (a *LargeString) ValueBytes() []byte {
+	beg := a.array.data.offset
+	end := beg + a.array.data.length
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
+}
+
+func (a *LargeString) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		switch {
+		case a.IsNull(i):
+			o.WriteString(NullValueStr)
+		default:
+			fmt.Fprintf(o, "%q", a.Value(i))
+		}
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *LargeString) setData(data *Data) {
+	if len(data.buffers) != 3 {
+		panic("arrow/array: len(data.buffers) != 3")
+	}
+
+	a.array.setData(data)
+
+	if vdata := data.buffers[2]; vdata != nil {
+		b := vdata.Bytes()
+		a.values = *(*string)(unsafe.Pointer(&b))
+	}
+
+	if offsets := data.buffers[1]; offsets != nil {
+		a.offsets = arrow.Int64Traits.CastFromBytes(offsets.Bytes())
+	}
+
+	if a.array.data.length < 1 {
+		return
+	}
+
+	expNumOffsets := a.array.data.offset + a.array.data.length + 1
+	if len(a.offsets) < expNumOffsets {
+		panic(fmt.Errorf("arrow/array: string offset buffer must have at least %d values", expNumOffsets))
+	}
+
+	if int(a.offsets[expNumOffsets-1]) > len(a.values) {
+		panic("arrow/array: string offsets out of bounds of data buffer")
+	}
+}
+
+func (a *LargeString) GetOneForMarshal(i int) interface{} {
+	if a.IsValid(i) {
+		return a.Value(i)
+	}
+	return nil
+}
+
+func (a *LargeString) MarshalJSON() ([]byte, error) {
+	vals := make([]interface{}, a.Len())
+	for i := 0; i < a.Len(); i++ {
+		vals[i] = a.GetOneForMarshal(i)
+	}
+	return json.Marshal(vals)
+}
+
+func arrayEqualLargeString(left, right *LargeString) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		if left.Value(i) != right.Value(i) {
+			return false
+		}
+	}
+	return true
+}
+
 // A StringBuilder is used to build a String array using the Append methods.
 type StringBuilder struct {
-	builder *BinaryBuilder
+	*BinaryBuilder
 }
 
 // NewStringBuilder creates a new StringBuilder.
 func NewStringBuilder(mem memory.Allocator) *StringBuilder {
 	b := &StringBuilder{
-		builder: NewBinaryBuilder(mem, arrow.BinaryTypes.String),
+		BinaryBuilder: NewBinaryBuilder(mem, arrow.BinaryTypes.String),
 	}
 	return b
 }
 
-// Release decreases the reference count by 1.
-// When the reference count goes to zero, the memory is freed.
-// Release may be called simultaneously from multiple goroutines.
-func (b *StringBuilder) Release() {
-	b.builder.Release()
+func (b *StringBuilder) Type() arrow.DataType {
+	return arrow.BinaryTypes.String
 }
-
-// Retain increases the reference count by 1.
-// Retain may be called simultaneously from multiple goroutines.
-func (b *StringBuilder) Retain() {
-	b.builder.Retain()
-}
-
-//
-// Len returns the number of elements in the array builder.
-func (b *StringBuilder) Len() int { return b.builder.Len() }
-
-// Cap returns the total number of elements that can be stored without allocating additional memory.
-func (b *StringBuilder) Cap() int { return b.builder.Cap() }
-
-// NullN returns the number of null values in the array builder.
-func (b *StringBuilder) NullN() int { return b.builder.NullN() }
 
 // Append appends a string to the builder.
 func (b *StringBuilder) Append(v string) {
-	b.builder.Append([]byte(v))
-}
-
-// AppendNull appends a null to the builder.
-func (b *StringBuilder) AppendNull() {
-	b.builder.AppendNull()
+	b.BinaryBuilder.Append([]byte(v))
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values
 // in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
 // all values in v are appended and considered valid.
 func (b *StringBuilder) AppendValues(v []string, valid []bool) {
-	b.builder.AppendStringValues(v, valid)
+	b.BinaryBuilder.AppendStringValues(v, valid)
 }
 
 // Value returns the string at index i.
 func (b *StringBuilder) Value(i int) string {
-	return string(b.builder.Value(i))
+	return string(b.BinaryBuilder.Value(i))
 }
 
-func (b *StringBuilder) init(capacity int) {
-	b.builder.init(capacity)
-}
-
-func (b *StringBuilder) resize(newBits int, init func(int)) {
-	b.builder.resize(newBits, init)
-}
-
-// Reserve ensures there is enough space for appending n elements
-// by checking the capacity and calling Resize if necessary.
-func (b *StringBuilder) Reserve(n int) {
-	b.builder.Reserve(n)
-}
-
-// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
-// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
-func (b *StringBuilder) Resize(n int) {
-	b.builder.Resize(n)
-}
+// func (b *StringBuilder) UnsafeAppend(v string) {
+// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
+// }
 
 // NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
-func (b *StringBuilder) NewArray() Interface {
+func (b *StringBuilder) NewArray() arrow.Array {
 	return b.NewStringArray()
 }
 
 // NewStringArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
 // so it can be used to build a new array.
 func (b *StringBuilder) NewStringArray() (a *String) {
-	data := b.builder.newData()
+	data := b.newData()
 	a = NewStringData(data)
 	data.Release()
 	return
 }
 
-func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *StringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -265,9 +376,9 @@ func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *StringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *StringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -285,10 +396,118 @@ func (b *StringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
+}
+
+// A LargeStringBuilder is used to build a LargeString array using the Append methods.
+// LargeString is for when you need the offset buffer to be 64-bit integers
+// instead of 32-bit integers.
+type LargeStringBuilder struct {
+	*BinaryBuilder
+}
+
+// NewStringBuilder creates a new StringBuilder.
+func NewLargeStringBuilder(mem memory.Allocator) *LargeStringBuilder {
+	b := &LargeStringBuilder{
+		BinaryBuilder: NewBinaryBuilder(mem, arrow.BinaryTypes.LargeString),
+	}
+	return b
+}
+
+func (b *LargeStringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.LargeString }
+
+// Append appends a string to the builder.
+func (b *LargeStringBuilder) Append(v string) {
+	b.BinaryBuilder.Append([]byte(v))
+}
+
+// AppendValues will append the values in the v slice. The valid slice determines which values
+// in v are valid (not null). The valid slice must either be empty or be equal in length to v. If empty,
+// all values in v are appended and considered valid.
+func (b *LargeStringBuilder) AppendValues(v []string, valid []bool) {
+	b.BinaryBuilder.AppendStringValues(v, valid)
+}
+
+// Value returns the string at index i.
+func (b *LargeStringBuilder) Value(i int) string {
+	return string(b.BinaryBuilder.Value(i))
+}
+
+// func (b *LargeStringBuilder) UnsafeAppend(v string) {
+// 	b.BinaryBuilder.UnsafeAppend([]byte(v))
+// }
+
+// NewArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
+// so it can be used to build a new array.
+func (b *LargeStringBuilder) NewArray() arrow.Array {
+	return b.NewLargeStringArray()
+}
+
+// NewStringArray creates a String array from the memory buffers used by the builder and resets the StringBuilder
+// so it can be used to build a new array.
+func (b *LargeStringBuilder) NewLargeStringArray() (a *LargeString) {
+	data := b.newData()
+	a = NewLargeStringData(data)
+	data.Release()
+	return
+}
+
+func (b *LargeStringBuilder) UnmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch v := t.(type) {
+	case nil:
+		b.AppendNull()
+	case string:
+		b.Append(v)
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(v),
+			Type:   reflect.TypeOf(string("")),
+			Offset: dec.InputOffset(),
+		}
+	}
+	return nil
+}
+
+func (b *LargeStringBuilder) Unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.UnmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
+	}
+
+	return b.Unmarshal(dec)
+}
+
+type StringLikeBuilder interface {
+	Builder
+	Append(string)
+	UnsafeAppend([]byte)
+	ReserveData(int)
 }
 
 var (
-	_ Interface = (*String)(nil)
-	_ Builder   = (*StringBuilder)(nil)
+	_ arrow.Array       = (*String)(nil)
+	_ arrow.Array       = (*LargeString)(nil)
+	_ Builder           = (*StringBuilder)(nil)
+	_ Builder           = (*LargeStringBuilder)(nil)
+	_ StringLikeBuilder = (*StringBuilder)(nil)
+	_ StringLikeBuilder = (*LargeStringBuilder)(nil)
 )

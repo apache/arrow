@@ -16,7 +16,6 @@
 // under the License.
 
 #include "./arrow_types.h"
-#if defined(ARROW_R_WITH_ARROW)
 
 #include <arrow/array.h>
 #include <arrow/builder.h>
@@ -29,6 +28,7 @@
 #include <cpp11/altrep.hpp>
 #include <type_traits>
 
+#include "./extension.h"
 #include "./r_task_group.h"
 
 namespace arrow {
@@ -365,7 +365,7 @@ struct Converter_String : public Converter {
     }
 
     if (nul_was_stripped) {
-      cpp11::warning("Stripping '\\0' (nul) from character vector");
+      cpp11::safe[Rf_warning]("Stripping '\\0' (nul) from character vector");
     }
 
     return Status::OK();
@@ -374,11 +374,11 @@ struct Converter_String : public Converter {
   bool Parallel() const { return false; }
 
  private:
-  static SEXP r_string_from_view(arrow::util::string_view view) {
+  static SEXP r_string_from_view(std::string_view view) {
     return Rf_mkCharLenCE(view.data(), view.size(), CE_UTF8);
   }
 
-  static SEXP r_string_from_view_strip_nul(arrow::util::string_view view,
+  static SEXP r_string_from_view_strip_nul(std::string_view view,
                                            bool* nul_was_stripped) {
     const char* old_string = view.data();
 
@@ -391,7 +391,7 @@ struct Converter_String : public Converter {
 
         if (nul_count == 1) {
           // first nul spotted: allocate stripped string storage
-          stripped_string = view.to_string();
+          stripped_string = std::string(view);
           stripped_len = i;
         }
 
@@ -542,6 +542,24 @@ class Converter_FixedSizeBinary : public Converter {
   int byte_width_;
 };
 
+bool DictionaryChunkArrayNeedUnification(
+    const std::shared_ptr<ChunkedArray>& chunked_array) {
+  int n = chunked_array->num_chunks();
+  if (n < 2) {
+    return false;
+  }
+  const auto& arr_first =
+      internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
+  for (int i = 1; i < n; i++) {
+    const auto& arr =
+        internal::checked_cast<const DictionaryArray&>(*chunked_array->chunk(i));
+    if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
+      return true;
+    }
+  }
+  return false;
+}
+
 class Converter_Dictionary : public Converter {
  private:
   bool need_unification_;
@@ -552,7 +570,8 @@ class Converter_Dictionary : public Converter {
 
  public:
   explicit Converter_Dictionary(const std::shared_ptr<ChunkedArray>& chunked_array)
-      : Converter(chunked_array), need_unification_(NeedUnification()) {
+      : Converter(chunked_array),
+        need_unification_(DictionaryChunkArrayNeedUnification(chunked_array)) {
     if (need_unification_) {
       const auto& arr_type = checked_cast<const DictionaryType&>(*chunked_array->type());
       unifier_ = ValueOrStop(DictionaryUnifier::Make(arr_type.value_type()));
@@ -585,8 +604,8 @@ class Converter_Dictionary : public Converter {
       }
 
       if (chunked_array->num_chunks() > 0) {
-        // NeedUnification() returned false so we can safely assume the
-        // dictionary of the first chunk applies everywhere
+        // DictionaryChunkArrayNeedUnification() returned false so we can safely assume
+        // the dictionary of the first chunk applies everywhere
         const auto& dict_array =
             checked_cast<const DictionaryArray&>(*chunked_array->chunk(0));
         dictionary_ = dict_array.dictionary();
@@ -677,22 +696,6 @@ class Converter_Dictionary : public Converter {
     }
   }
 
-  bool NeedUnification() {
-    int n = chunked_array_->num_chunks();
-    if (n < 2) {
-      return false;
-    }
-    const auto& arr_first =
-        checked_cast<const DictionaryArray&>(*chunked_array_->chunk(0));
-    for (int i = 1; i < n; i++) {
-      const auto& arr = checked_cast<const DictionaryArray&>(*chunked_array_->chunk(i));
-      if (!(arr_first.dictionary()->Equals(arr.dictionary()))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   bool GetOrdered() const {
     return checked_cast<const DictionaryType&>(*chunked_array_->type()).ordered();
   }
@@ -703,7 +706,7 @@ class Converter_Dictionary : public Converter {
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
     if (dictionary_->type_id() != Type::STRING) {
-      cpp11::warning("Coercing dictionary values to R character factor levels");
+      cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
     SEXP vec = PROTECT(Converter::Convert(dictionary_));
@@ -758,7 +761,7 @@ class Converter_Struct : public Converter {
       SEXP data_i = VECTOR_ELT(data, i);
 
       // only ingest if the column is not altrep
-      if (!altrep::is_arrow_altrep(data_i)) {
+      if (!altrep::is_unmaterialized_arrow_altrep(data_i)) {
         StopIfNotOk(converters[i]->Ingest_all_nulls(data_i, start, n));
       }
     }
@@ -775,7 +778,7 @@ class Converter_Struct : public Converter {
       SEXP data_i = VECTOR_ELT(data, i);
 
       // only ingest if the column is not altrep
-      if (!altrep::is_arrow_altrep(data_i)) {
+      if (!altrep::is_unmaterialized_arrow_altrep(data_i)) {
         StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i],
                                                      start, n, chunk_index));
       }
@@ -1004,9 +1007,14 @@ class Converter_List : public Converter {
 
   SEXP Allocate(R_xlen_t n) const {
     cpp11::writable::list res(n);
-    res.attr(R_ClassSymbol) = std::is_same<ListArrayType, ListArray>::value
-                                  ? arrow::r::data::classes_arrow_list
-                                  : arrow::r::data::classes_arrow_large_list;
+
+    if (std::is_same<ListArrayType, MapArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else if (std::is_same<ListArrayType, ListArray>::value) {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_list;
+    } else {
+      res.attr(R_ClassSymbol) = arrow::r::data::classes_arrow_large_list;
+    }
 
     std::shared_ptr<arrow::Array> array = CreateEmptyArray(value_type_);
 
@@ -1146,12 +1154,41 @@ class Converter_Null : public Converter {
   }
 };
 
+// Unlike other types, conversion of ExtensionType (chunked) arrays occurs at
+// R level via the ExtensionType (or subclass) R6 instance. We do this via Allocate,
+// since it is called once per ChunkedArray.
+class Converter_Extension : public Converter {
+ public:
+  explicit Converter_Extension(const std::shared_ptr<ChunkedArray>& chunked_array)
+      : Converter(chunked_array) {}
+
+  SEXP Allocate(R_xlen_t n) const {
+    auto extension_type =
+        dynamic_cast<const RExtensionType*>(chunked_array_->type().get());
+    if (extension_type == nullptr) {
+      Rf_error("Converter_Extension can't be used with a non-R extension type");
+    }
+
+    return extension_type->Convert(chunked_array_);
+  }
+
+  // At this point we have already done the conversion
+  Status Ingest_all_nulls(SEXP data, R_xlen_t start, R_xlen_t n) const {
+    return Status::OK();
+  }
+
+  Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
+                           R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
+    return Status::OK();
+  }
+};
+
 bool ArraysCanFitInteger(ArrayVector arrays) {
   bool all_can_fit = true;
   auto i32 = arrow::int32();
   for (const auto& array : arrays) {
     if (all_can_fit) {
-      all_can_fit = arrow::IntegersCanFit(arrow::Datum(array), *i32).ok();
+      all_can_fit = arrow::IntegersCanFit(*array->data(), *i32).ok();
     }
   }
   return all_can_fit;
@@ -1301,8 +1338,15 @@ std::shared_ptr<Converter> Converter::Make(
           checked_cast<const arrow::FixedSizeListType&>(*type).value_type(),
           checked_cast<const arrow::FixedSizeListType&>(*type).list_size());
 
+    case Type::MAP:
+      return std::make_shared<arrow::r::Converter_List<arrow::MapArray>>(
+          chunked_array, checked_cast<const arrow::MapType&>(*type).value_type());
+
     case Type::NA:
       return std::make_shared<arrow::r::Converter_Null>(chunked_array);
+
+    case Type::EXTENSION:
+      return std::make_shared<arrow::r::Converter_Extension>(chunked_array);
 
     default:
       break;
@@ -1370,5 +1414,3 @@ cpp11::writable::list Table__to_dataframe(const std::shared_ptr<arrow::Table>& t
                                           bool use_threads) {
   return arrow::r::to_data_frame(table, use_threads);
 }
-
-#endif

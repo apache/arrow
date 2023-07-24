@@ -17,7 +17,7 @@
 
 
 expect_scalar_roundtrip <- function(x, type) {
-  s <- Scalar$create(x)
+  s <- scalar(x)
   expect_r6_class(s, "Scalar")
   expect_equal(s$type, type)
   expect_identical(length(s), 1L)
@@ -40,25 +40,34 @@ test_that("Scalar object roundtrip", {
 })
 
 test_that("Scalar print", {
-  expect_output(print(Scalar$create(4)), "Scalar\n4")
+  expect_output(print(scalar(4)), "Scalar\n4")
+})
+
+test_that("ExtensionType scalar behaviour", {
+  ext_array <- vctrs_extension_array(4)
+  ext_scalar <- scalar(ext_array)
+  expect_equal(ext_scalar$as_array(), ext_array)
+  expect_identical(ext_scalar$as_vector(), 4)
+  expect_identical(ext_scalar$as_vector(10), rep(4, 10))
+  expect_output(print(ext_scalar), "Scalar\n4")
 })
 
 test_that("Creating Scalars of a different type and casting them", {
-  expect_equal(Scalar$create(4L, int8())$type, int8())
-  expect_equal(Scalar$create(4L)$cast(float32())$type, float32())
+  expect_equal(scalar(4L, int8())$type, int8())
+  expect_equal(scalar(4L)$cast(float32())$type, float32())
 })
 
 test_that("Scalar to Array", {
-  a <- Scalar$create(42)
+  a <- scalar(42)
   expect_equal(a$as_array(), Array$create(42))
   expect_equal(Array$create(a), Array$create(42))
 })
 
 test_that("Scalar$Equals", {
-  a <- Scalar$create(42)
+  a <- scalar(42)
   aa <- Array$create(42)
-  b <- Scalar$create(42)
-  d <- Scalar$create(43)
+  b <- scalar(42)
+  d <- scalar(43)
   expect_equal(a, b)
   expect_true(a$Equals(b))
   expect_false(a$Equals(d))
@@ -66,9 +75,9 @@ test_that("Scalar$Equals", {
 })
 
 test_that("Scalar$ApproxEquals", {
-  a <- Scalar$create(1.0000000000001)
+  a <- scalar(1.0000000000001)
   aa <- Array$create(1.0000000000001)
-  b <- Scalar$create(1.0)
+  b <- scalar(1.0)
   d <- 2.400000000000001
   expect_false(a$Equals(b))
   expect_true(a$ApproxEquals(b))
@@ -83,12 +92,12 @@ test_that("Handling string data with embedded nuls", {
     "embedded nul in string: 'ma\\0n'", # See?
     fixed = TRUE
   )
-  scalar_with_nul <- Scalar$create(raws, binary())$cast(utf8())
+  scalar_with_nul <- scalar(raws, binary())$cast(utf8())
 
   # The behavior of the warnings/errors is slightly different with and without
   # altrep. Without it (i.e. 3.5.0 and below, the error would trigger immediately
   # on `as.vector()` where as with it, the error only happens on materialization)
-  skip_if_r_version("3.5.0")
+  skip_on_r_older_than("3.6")
   v <- expect_error(as.vector(scalar_with_nul), NA)
   expect_error(
     v[1],

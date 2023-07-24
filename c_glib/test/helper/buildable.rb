@@ -72,6 +72,10 @@ module Helper
       build_array(Arrow::UInt64ArrayBuilder.new, values)
     end
 
+    def build_half_float_array(values)
+      build_array(Arrow::HalfFloatArrayBuilder.new, values)
+    end
+
     def build_float_array(values)
       build_array(Arrow::FloatArrayBuilder.new, values)
     end

@@ -34,7 +34,7 @@ std::string MakeCSVData(std::vector<std::string> lines);
 // Make a BlockParser from a vector of lines representing a CSV file
 ARROW_TESTING_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, ParseOptions options, int32_t num_cols,
-                   std::shared_ptr<BlockParser>* out);
+                   MemoryPool* pool, std::shared_ptr<BlockParser>* out);
 
 ARROW_TESTING_EXPORT
 void MakeCSVParser(std::vector<std::string> lines, ParseOptions options,

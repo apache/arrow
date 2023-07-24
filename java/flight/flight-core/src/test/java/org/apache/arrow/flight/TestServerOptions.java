@@ -17,8 +17,10 @@
 
 package org.apache.arrow.flight;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.apache.arrow.flight.FlightTestUtil.LOCALHOST;
+import static org.apache.arrow.flight.Location.forGrpcInsecure;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.io.File;
 import java.util.HashMap;
@@ -35,17 +37,20 @@ import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.Test;
 
+import io.grpc.Channel;
 import io.grpc.MethodDescriptor;
 import io.grpc.ServerServiceDefinition;
+import io.grpc.health.v1.HealthCheckRequest;
+import io.grpc.health.v1.HealthCheckResponse;
+import io.grpc.health.v1.HealthGrpc;
+import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.services.HealthStatusManager;
 
-@RunWith(JUnit4.class)
 public class TestServerOptions {
 
   @Test
@@ -56,12 +61,10 @@ public class TestServerOptions {
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, producer)
-                    .transportHint("grpc.builderConsumer", consumer).build()
-            )) {
-      Assert.assertTrue(consumerCalled.get());
+        FlightServer s = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), producer)
+            .transportHint("grpc.builderConsumer", consumer).build().start()
+    ) {
+      Assertions.assertTrue(consumerCalled.get());
     }
   }
 
@@ -73,15 +76,13 @@ public class TestServerOptions {
     final ExecutorService executor;
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-        FlightServer server =
-            FlightTestUtil.getStartedServer(
-                (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
-                    .build()
-            )) {
+        FlightServer server = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), new NoOpFlightProducer())
+            .build().start()
+    ) {
       assertNotNull(server.grpcExecutor);
       executor = server.grpcExecutor;
     }
-    Assert.assertTrue(executor.isShutdown());
+    Assertions.assertTrue(executor.isShutdown());
   }
 
   /**
@@ -93,15 +94,13 @@ public class TestServerOptions {
     try {
       try (
           BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
-          FlightServer server =
-              FlightTestUtil.getStartedServer(
-                  (location) -> FlightServer.builder(a, location, new NoOpFlightProducer())
-                      .executor(executor)
-                      .build()
-              )) {
-        Assert.assertNull(server.grpcExecutor);
+          FlightServer server = FlightServer.builder(a, forGrpcInsecure(LOCALHOST, 0), new NoOpFlightProducer())
+              .executor(executor)
+              .build().start()
+      ) {
+        Assertions.assertNull(server.grpcExecutor);
       }
-      Assert.assertFalse(executor.isShutdown());
+      Assertions.assertFalse(executor.isShutdown());
     } finally {
       executor.shutdown();
     }
@@ -109,20 +108,18 @@ public class TestServerOptions {
 
   @Test
   public void domainSocket() throws Exception {
-    Assume.assumeTrue("We have a native transport available", FlightTestUtil.isNativeTransportAvailable());
+    Assumptions.assumeTrue(FlightTestUtil.isNativeTransportAvailable(), "We have a native transport available");
     final File domainSocket = File.createTempFile("flight-unit-test-", ".sock");
-    Assert.assertTrue(domainSocket.delete());
+    Assertions.assertTrue(domainSocket.delete());
     // Domain socket paths have a platform-dependent limit. Set a conservative limit and skip the test if the temporary
     // file name is too long. (We do not assume a particular platform-dependent temporary directory path.)
-    Assume.assumeTrue("The domain socket path is not too long", domainSocket.getAbsolutePath().length() < 100);
+    Assumptions.assumeTrue(domainSocket.getAbsolutePath().length() < 100, "The domain socket path is not too long");
     final Location location = Location.forGrpcDomainSocket(domainSocket.getAbsolutePath());
     try (
         BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
         Producer producer = new Producer(a);
-        FlightServer s =
-            FlightTestUtil.getStartedServer(
-                (port) -> FlightServer.builder(a, location, producer).build()
-            )) {
+        FlightServer s = FlightServer.builder(a, location, producer).build().start();
+    ) {
       try (FlightClient c = FlightClient.builder(a, location).build()) {
         try (FlightStream stream = c.getStream(new Ticket(new byte[0]))) {
           VectorSchemaRoot root = stream.getRoot();
@@ -130,7 +127,7 @@ public class TestServerOptions {
           int value = 0;
           while (stream.next()) {
             for (int i = 0; i < root.getRowCount(); i++) {
-              Assert.assertEquals(value, iv.get(i));
+              Assertions.assertEquals(value, iv.get(i));
               value++;
             }
           }
@@ -161,16 +158,42 @@ public class TestServerOptions {
 
       for (final MethodDescriptor<?, ?> descriptor : FlightServiceGrpc.getServiceDescriptor().getMethods()) {
         final String methodName = descriptor.getFullMethodName();
-        Assert.assertTrue("Method is missing from ServerServiceDefinition: " + methodName,
-            definedMethods.containsKey(methodName));
-        Assert.assertTrue("Method is missing from ServiceDescriptor: " + methodName,
-            definedMethods.containsKey(methodName));
+        Assertions.assertTrue(definedMethods.containsKey(methodName),
+            "Method is missing from ServerServiceDefinition: " + methodName);
+        Assertions.assertTrue(definedMethods.containsKey(methodName),
+            "Method is missing from ServiceDescriptor: " + methodName);
 
         assertEquals(descriptor.getSchemaDescriptor(), definedMethods.get(methodName).getSchemaDescriptor());
         assertEquals(descriptor.getSchemaDescriptor(), serviceMethods.get(methodName).getSchemaDescriptor());
       }
     } finally {
       executorService.shutdown();
+    }
+  }
+
+  /*
+   * This is an extension of builderConsumer test.
+   * Test that Flight interceptors don't break other registered services
+   */
+  @Test
+  public void addHealthCheckService() throws Exception {
+    final HealthStatusManager statusManager = new HealthStatusManager();
+    final Consumer<NettyServerBuilder> consumer = (builder) -> {
+      builder.addService(statusManager.getHealthService());
+    };
+    final Location location = forGrpcInsecure(LOCALHOST, 5555);
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        Producer producer = new Producer(a);
+        FlightServer s = FlightServer.builder(a, location, producer)
+            .transportHint("grpc.builderConsumer", consumer).build().start();
+    ) {
+      Channel channel = NettyChannelBuilder.forAddress(location.toSocketAddress()).usePlaintext().build();
+      HealthCheckResponse response = HealthGrpc
+              .newBlockingStub(channel)
+              .check(HealthCheckRequest.getDefaultInstance());
+
+      assertEquals(response.getStatus(), HealthCheckResponse.ServingStatus.SERVING);
     }
   }
 }

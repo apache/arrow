@@ -58,10 +58,11 @@ takes the following arguments:
 A \code{Dataset} has the following methods:
 \itemize{
 \item \verb{$NewScan()}: Returns a \link{ScannerBuilder} for building a query
-\item \verb{$schema}: Active binding that returns the \link{Schema} of the Dataset; you
-may also replace the dataset's schema by using \code{ds$schema <- new_schema}.
+\item \verb{$WithSchema()}: Returns a new Dataset with the specified schema.
 This method currently supports only adding, removing, or reordering
 fields in the schema: you cannot alter or cast the field types.
+\item \verb{$schema}: Active binding that returns the \link{Schema} of the Dataset; you
+may also replace the dataset's schema by using \code{ds$schema <- new_schema}.
 }
 
 \code{FileSystemDataset} has the following methods:

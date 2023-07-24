@@ -15,11 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/compute/kernels/row_encoder.h"
+#include "arrow/compute/kernels/row_encoder_internal.h"
 
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/logging.h"
-#include "arrow/util/make_unique.h"
+
+#include <memory>
 
 namespace arrow {
 
@@ -61,7 +62,7 @@ Status KeyEncoder::DecodeNulls(MemoryPool* pool, int32_t length, uint8_t** encod
   return Status ::OK();
 }
 
-void BooleanKeyEncoder::AddLength(const Datum& data, int64_t batch_length,
+void BooleanKeyEncoder::AddLength(const ExecValue&, int64_t batch_length,
                                   int32_t* lengths) {
   for (int64_t i = 0; i < batch_length; ++i) {
     lengths[i] += kByteWidth + kExtraByteForNull;
@@ -72,11 +73,11 @@ void BooleanKeyEncoder::AddLengthNull(int32_t* length) {
   *length += kByteWidth + kExtraByteForNull;
 }
 
-Status BooleanKeyEncoder::Encode(const Datum& data, int64_t batch_length,
+Status BooleanKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                  uint8_t** encoded_bytes) {
   if (data.is_array()) {
-    VisitArrayDataInline<BooleanType>(
-        *data.array(),
+    VisitArraySpanInline<BooleanType>(
+        data.array,
         [&](bool value) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;
@@ -126,7 +127,7 @@ Result<std::shared_ptr<ArrayData>> BooleanKeyEncoder::Decode(uint8_t** encoded_b
                          null_count);
 }
 
-void FixedWidthKeyEncoder::AddLength(const Datum& data, int64_t batch_length,
+void FixedWidthKeyEncoder::AddLength(const ExecValue&, int64_t batch_length,
                                      int32_t* lengths) {
   for (int64_t i = 0; i < batch_length; ++i) {
     lengths[i] += byte_width_ + kExtraByteForNull;
@@ -137,16 +138,15 @@ void FixedWidthKeyEncoder::AddLengthNull(int32_t* length) {
   *length += byte_width_ + kExtraByteForNull;
 }
 
-Status FixedWidthKeyEncoder::Encode(const Datum& data, int64_t batch_length,
+Status FixedWidthKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                     uint8_t** encoded_bytes) {
   if (data.is_array()) {
-    const auto& arr = *data.array();
-    ArrayData viewed(fixed_size_binary(byte_width_), arr.length, arr.buffers,
-                     arr.null_count, arr.offset);
-
-    VisitArrayDataInline<FixedSizeBinaryType>(
+    ArraySpan viewed = data.array;
+    auto view_ty = fixed_size_binary(byte_width_);
+    viewed.type = view_ty.get();
+    VisitArraySpanInline<FixedSizeBinaryType>(
         viewed,
-        [&](util::string_view bytes) {
+        [&](std::string_view bytes) {
           auto& encoded_ptr = *encoded_bytes++;
           *encoded_ptr++ = kValidByte;
           memcpy(encoded_ptr, bytes.data(), byte_width_);
@@ -161,7 +161,7 @@ Status FixedWidthKeyEncoder::Encode(const Datum& data, int64_t batch_length,
   } else {
     const auto& scalar = data.scalar_as<arrow::internal::PrimitiveScalarBase>();
     if (scalar.is_valid) {
-      const util::string_view data = scalar.view();
+      const std::string_view data = scalar.view();
       DCHECK_EQ(data.size(), static_cast<size_t>(byte_width_));
       for (int64_t i = 0; i < batch_length; i++) {
         auto& encoded_ptr = *encoded_bytes++;
@@ -209,10 +209,15 @@ Result<std::shared_ptr<ArrayData>> FixedWidthKeyEncoder::Decode(uint8_t** encode
                          null_count);
 }
 
-Status DictionaryKeyEncoder::Encode(const Datum& data, int64_t batch_length,
+Status DictionaryKeyEncoder::Encode(const ExecValue& data, int64_t batch_length,
                                     uint8_t** encoded_bytes) {
-  auto dict = data.is_array() ? MakeArray(data.array()->dictionary)
-                              : data.scalar_as<DictionaryScalar>().value.dictionary;
+  std::shared_ptr<Array> dict;
+  if (data.is_array()) {
+    dict = data.array.dictionary().ToArray();
+  } else {
+    dict = data.scalar_as<DictionaryScalar>().value.dictionary;
+  }
+
   if (dictionary_) {
     if (!dictionary_->Equals(dict)) {
       // TODO(bkietz) unify if necessary. For now, just error if any batch's dictionary
@@ -224,9 +229,11 @@ Status DictionaryKeyEncoder::Encode(const Datum& data, int64_t batch_length,
   }
   if (data.is_array()) {
     return FixedWidthKeyEncoder::Encode(data, batch_length, encoded_bytes);
+  } else {
+    const std::shared_ptr<Scalar>& index = data.scalar_as<DictionaryScalar>().value.index;
+    return FixedWidthKeyEncoder::Encode(ExecValue(index.get()), batch_length,
+                                        encoded_bytes);
   }
-  return FixedWidthKeyEncoder::Encode(data.scalar_as<DictionaryScalar>().value.index,
-                                      batch_length, encoded_bytes);
 }
 
 Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encoded_bytes,
@@ -248,36 +255,48 @@ Result<std::shared_ptr<ArrayData>> DictionaryKeyEncoder::Decode(uint8_t** encode
   return data;
 }
 
-void RowEncoder::Init(const std::vector<ValueDescr>& column_types, ExecContext* ctx) {
+void RowEncoder::Init(const std::vector<TypeHolder>& column_types, ExecContext* ctx) {
   ctx_ = ctx;
   encoders_.resize(column_types.size());
+  extension_types_.resize(column_types.size());
 
   for (size_t i = 0; i < column_types.size(); ++i) {
-    const auto& column_type = column_types[i].type;
+    const bool is_extension = column_types[i].id() == Type::EXTENSION;
+    const TypeHolder& type = is_extension
+                                 ? arrow::internal::checked_pointer_cast<ExtensionType>(
+                                       column_types[i].GetSharedPtr())
+                                       ->storage_type()
+                                 : column_types[i];
 
-    if (column_type->id() == Type::BOOL) {
+    if (is_extension) {
+      extension_types_[i] = arrow::internal::checked_pointer_cast<ExtensionType>(
+          column_types[i].GetSharedPtr());
+    }
+    if (type.id() == Type::BOOL) {
       encoders_[i] = std::make_shared<BooleanKeyEncoder>();
       continue;
     }
 
-    if (column_type->id() == Type::DICTIONARY) {
+    if (type.id() == Type::DICTIONARY) {
       encoders_[i] =
-          std::make_shared<DictionaryKeyEncoder>(column_type, ctx->memory_pool());
+          std::make_shared<DictionaryKeyEncoder>(type.GetSharedPtr(), ctx->memory_pool());
       continue;
     }
 
-    if (is_fixed_width(column_type->id())) {
-      encoders_[i] = std::make_shared<FixedWidthKeyEncoder>(column_type);
+    if (is_fixed_width(type.id())) {
+      encoders_[i] = std::make_shared<FixedWidthKeyEncoder>(type.GetSharedPtr());
       continue;
     }
 
-    if (is_binary_like(column_type->id())) {
-      encoders_[i] = std::make_shared<VarLengthKeyEncoder<BinaryType>>(column_type);
+    if (is_binary_like(type.id())) {
+      encoders_[i] =
+          std::make_shared<VarLengthKeyEncoder<BinaryType>>(type.GetSharedPtr());
       continue;
     }
 
-    if (is_large_binary_like(column_type->id())) {
-      encoders_[i] = std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(column_type);
+    if (is_large_binary_like(type.id())) {
+      encoders_[i] =
+          std::make_shared<VarLengthKeyEncoder<LargeBinaryType>>(type.GetSharedPtr());
       continue;
     }
 
@@ -301,7 +320,7 @@ void RowEncoder::Clear() {
   bytes_.clear();
 }
 
-Status RowEncoder::EncodeAndAppend(const ExecBatch& batch) {
+Status RowEncoder::EncodeAndAppend(const ExecSpan& batch) {
   if (offsets_.empty()) {
     offsets_.resize(1);
     offsets_[0] = 0;
@@ -347,9 +366,16 @@ Result<ExecBatch> RowEncoder::Decode(int64_t num_rows, const int32_t* row_ids) {
   out.values.resize(encoders_.size());
   for (size_t i = 0; i < encoders_.size(); ++i) {
     ARROW_ASSIGN_OR_RAISE(
-        out.values[i],
+        auto column_array_data,
         encoders_[i]->Decode(buf_ptrs.data(), static_cast<int32_t>(num_rows),
                              ctx_->memory_pool()));
+
+    if (extension_types_[i] != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(out.values[i], ::arrow::internal::GetArrayView(
+                                               column_array_data, extension_types_[i]))
+    } else {
+      out.values[i] = column_array_data;
+    }
   }
 
   return out;

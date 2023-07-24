@@ -35,7 +35,7 @@
 #include "arrow/util/logging.h"
 
 #include "arrow/flight/integration_tests/test_integration.h"
-#include "arrow/flight/internal.h"
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/server_auth.h"
 #include "arrow/flight/test_util.h"
@@ -88,9 +88,9 @@ class FlightIntegrationTestServer : public FlightServerBase {
       }
       auto flight = data->second;
 
-      Location server_location;
-      RETURN_NOT_OK(Location::ForGrpcTcp("127.0.0.1", port(), &server_location));
-      FlightEndpoint endpoint1({{request.path[0]}, {server_location}});
+      ARROW_ASSIGN_OR_RAISE(auto server_location,
+                            Location::ForGrpcTcp("127.0.0.1", port()));
+      FlightEndpoint endpoint1({{request.path[0]}, {server_location}, std::nullopt});
 
       FlightInfo::Data flight_data;
       RETURN_NOT_OK(internal::SchemaToString(*flight.schema, &flight_data.schema));
@@ -103,7 +103,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
       flight_data.total_bytes = -1;
       FlightInfo value(flight_data);
 
-      *info = std::unique_ptr<FlightInfo>(new FlightInfo(value));
+      *info = std::make_unique<FlightInfo>(value);
       return Status::OK();
     } else {
       return Status::NotImplemented(request.type);
@@ -118,9 +118,10 @@ class FlightIntegrationTestServer : public FlightServerBase {
     }
     auto flight = data->second;
 
-    *data_stream = std::unique_ptr<FlightDataStream>(
-        new NumberingStream(std::unique_ptr<FlightDataStream>(new RecordBatchStream(
-            std::shared_ptr<RecordBatchReader>(new RecordBatchListReader(flight))))));
+    std::unique_ptr<FlightDataStream> record_batch_stream =
+        std::make_unique<RecordBatchStream>(
+            std::make_shared<RecordBatchListReader>(flight));
+    *data_stream = std::make_unique<NumberingStream>(std::move(record_batch_stream));
 
     return Status::OK();
   }
@@ -142,7 +143,7 @@ class FlightIntegrationTestServer : public FlightServerBase {
     ARROW_ASSIGN_OR_RAISE(dataset.schema, reader->GetSchema());
     arrow::flight::FlightStreamChunk chunk;
     while (true) {
-      RETURN_NOT_OK(reader->Next(&chunk));
+      ARROW_ASSIGN_OR_RAISE(chunk, reader->Next());
       if (chunk.data == nullptr) break;
       RETURN_NOT_OK(chunk.data->ValidateFull());
       dataset.chunks.push_back(chunk.data);
@@ -196,7 +197,8 @@ int main(int argc, char** argv) {
         std::make_shared<arrow::flight::integration_tests::IntegrationTestScenario>();
   }
   arrow::flight::Location location;
-  ARROW_CHECK_OK(arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port, &location));
+  ARROW_CHECK_OK(
+      arrow::flight::Location::ForGrpcTcp("0.0.0.0", FLAGS_port).Value(&location));
   arrow::flight::FlightServerOptions options(location);
 
   ARROW_CHECK_OK(scenario->MakeServer(&g_server, &options));

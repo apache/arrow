@@ -69,17 +69,24 @@ rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 begin
+  class ArrowFlightSQLLoader < GI::Loader
+    def should_unlock_gvl?(info, klass)
+      true
+    end
+  end
+  flight_sql_module = Module.new
+  ArrowFlightSQLLoader.load("ArrowFlightSQL", flight_sql_module)
+  ArrowFlightSQL = flight_sql_module
+rescue GObjectIntrospection::RepositoryError::TypelibNotFound
+end
+
+begin
   Gandiva = GI.load("Gandiva")
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
 begin
   Parquet = GI.load("Parquet")
-rescue GObjectIntrospection::RepositoryError::TypelibNotFound
-end
-
-begin
-  Plasma = GI.load("Plasma")
 rescue GObjectIntrospection::RepositoryError::TypelibNotFound
 end
 
@@ -93,11 +100,12 @@ require_relative "helper/buildable"
 require_relative "helper/data-type"
 require_relative "helper/fixture"
 if defined?(ArrowFlight)
-  require_relative "helper/flight-info-generator"
   require_relative "helper/flight-server"
 end
+if defined?(ArrowFlightSQL)
+  require_relative "helper/flight-sql-server"
+end
 require_relative "helper/omittable"
-require_relative "helper/plasma-store"
 require_relative "helper/readable"
 require_relative "helper/writable"
 

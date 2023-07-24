@@ -47,11 +47,20 @@ class GANDIVA_EXPORT Annotator {
   /// Returns the index of the bitmap in the list of local bitmaps.
   int AddLocalBitMap() { return local_bitmap_count_++; }
 
+  /// Add a pointer to function holder or in holder
+  /// Returns the index of the holder in the holder_pointers vector
+  int AddHolderPointer(void* holder);
+
+  /// Return a pointer to the underlying array containing the holder pointers
+  /// This should only be called after expr decomposition when all the holder
+  /// pointers are added
+  const void* const* GetHolderPointersArray() const { return holder_pointers_.data(); }
+
   /// Prepare an eval batch for the incoming record batch.
   EvalBatchPtr PrepareEvalBatch(const arrow::RecordBatch& record_batch,
-                                const ArrayDataVector& out_vector);
+                                const ArrayDataVector& out_vector) const;
 
-  int buffer_count() { return buffer_count_; }
+  int buffer_count() const { return buffer_count_; }
 
  private:
   /// Annotate a field and return the descriptor.
@@ -61,7 +70,7 @@ class GANDIVA_EXPORT Annotator {
   /// contents are represent by the annotated descriptor 'desc'.
   void PrepareBuffersForField(const FieldDescriptor& desc,
                               const arrow::ArrayData& array_data, EvalBatch* eval_batch,
-                              bool is_output);
+                              bool is_output) const;
 
   /// The list of input/output buffers (includes bitmap buffers, value buffers and
   /// offset buffers).
@@ -76,6 +85,9 @@ class GANDIVA_EXPORT Annotator {
 
   /// vector of annotated output field descriptors.
   std::vector<FieldDescriptorPtr> out_descs_;
+
+  /// vector of pointers to function holders and in holders
+  std::vector<void*> holder_pointers_;
 };
 
 }  // namespace gandiva

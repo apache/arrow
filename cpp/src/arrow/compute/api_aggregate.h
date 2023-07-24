@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "arrow/compute/function.h"
 #include "arrow/datum.h"
 #include "arrow/result.h"
@@ -46,7 +48,7 @@ class ExecContext;
 class ARROW_EXPORT ScalarAggregateOptions : public FunctionOptions {
  public:
   explicit ScalarAggregateOptions(bool skip_nulls = true, uint32_t min_count = 1);
-  constexpr static char const kTypeName[] = "ScalarAggregateOptions";
+  static constexpr char const kTypeName[] = "ScalarAggregateOptions";
   static ScalarAggregateOptions Defaults() { return ScalarAggregateOptions{}; }
 
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
@@ -70,7 +72,7 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
     ALL,
   };
   explicit CountOptions(CountMode mode = CountMode::ONLY_VALID);
-  constexpr static char const kTypeName[] = "CountOptions";
+  static constexpr char const kTypeName[] = "CountOptions";
   static CountOptions Defaults() { return CountOptions{}; }
 
   CountMode mode;
@@ -83,7 +85,7 @@ class ARROW_EXPORT CountOptions : public FunctionOptions {
 class ARROW_EXPORT ModeOptions : public FunctionOptions {
  public:
   explicit ModeOptions(int64_t n = 1, bool skip_nulls = true, uint32_t min_count = 0);
-  constexpr static char const kTypeName[] = "ModeOptions";
+  static constexpr char const kTypeName[] = "ModeOptions";
   static ModeOptions Defaults() { return ModeOptions{}; }
 
   int64_t n = 1;
@@ -101,7 +103,7 @@ class ARROW_EXPORT ModeOptions : public FunctionOptions {
 class ARROW_EXPORT VarianceOptions : public FunctionOptions {
  public:
   explicit VarianceOptions(int ddof = 0, bool skip_nulls = true, uint32_t min_count = 0);
-  constexpr static char const kTypeName[] = "VarianceOptions";
+  static constexpr char const kTypeName[] = "VarianceOptions";
   static VarianceOptions Defaults() { return VarianceOptions{}; }
 
   int ddof = 0;
@@ -133,7 +135,7 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
                            enum Interpolation interpolation = LINEAR,
                            bool skip_nulls = true, uint32_t min_count = 0);
 
-  constexpr static char const kTypeName[] = "QuantileOptions";
+  static constexpr char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
 
   /// quantile must be between 0 and 1 inclusive
@@ -157,7 +159,7 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   explicit TDigestOptions(std::vector<double> q, uint32_t delta = 100,
                           uint32_t buffer_size = 500, bool skip_nulls = true,
                           uint32_t min_count = 0);
-  constexpr static char const kTypeName[] = "TDigestOptions";
+  static constexpr char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
   /// quantile must be between 0 and 1 inclusive
@@ -179,9 +181,46 @@ class ARROW_EXPORT IndexOptions : public FunctionOptions {
   explicit IndexOptions(std::shared_ptr<Scalar> value);
   // Default constructor for serialization
   IndexOptions();
-  constexpr static char const kTypeName[] = "IndexOptions";
+  static constexpr char const kTypeName[] = "IndexOptions";
 
   std::shared_ptr<Scalar> value;
+};
+
+/// \brief Configure a grouped aggregation
+struct ARROW_EXPORT Aggregate {
+  Aggregate() = default;
+
+  Aggregate(std::string function, std::shared_ptr<FunctionOptions> options,
+            std::vector<FieldRef> target, std::string name = "")
+      : function(std::move(function)),
+        options(std::move(options)),
+        target(std::move(target)),
+        name(std::move(name)) {}
+
+  Aggregate(std::string function, std::shared_ptr<FunctionOptions> options,
+            FieldRef target, std::string name = "")
+      : Aggregate(std::move(function), std::move(options),
+                  std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
+
+  Aggregate(std::string function, FieldRef target, std::string name)
+      : Aggregate(std::move(function), /*options=*/NULLPTR,
+                  std::vector<FieldRef>{std::move(target)}, std::move(name)) {}
+
+  Aggregate(std::string function, std::string name)
+      : Aggregate(std::move(function), /*options=*/NULLPTR,
+                  /*target=*/std::vector<FieldRef>{}, std::move(name)) {}
+
+  /// the name of the aggregation function
+  std::string function;
+
+  /// options for the aggregation function
+  std::shared_ptr<FunctionOptions> options;
+
+  /// zero or more fields to which aggregations will be applied
+  std::vector<FieldRef> target;
+
+  /// optional output field name for aggregations
+  std::string name;
 };
 
 /// @}
@@ -241,6 +280,36 @@ Result<Datum> Product(
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> Sum(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the first value of an array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed first as Scalar
+///
+/// \since 13.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> First(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Calculate the last value of an array
+///
+/// \param[in] value input datum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed last as a Scalar
+///
+/// \since 13.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> Last(
     const Datum& value,
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
@@ -393,102 +462,5 @@ ARROW_EXPORT
 Result<Datum> Index(const Datum& value, const IndexOptions& options,
                     ExecContext* ctx = NULLPTR);
 
-namespace internal {
-
-/// Internal use only: streaming group identifier.
-/// Consumes batches of keys and yields batches of the group ids.
-class ARROW_EXPORT Grouper {
- public:
-  virtual ~Grouper() = default;
-
-  /// Construct a Grouper which receives the specified key types
-  static Result<std::unique_ptr<Grouper>> Make(const std::vector<ValueDescr>& descrs,
-                                               ExecContext* ctx = default_exec_context());
-
-  /// Consume a batch of keys, producing the corresponding group ids as an integer array.
-  /// Currently only uint32 indices will be produced, eventually the bit width will only
-  /// be as wide as necessary.
-  virtual Result<Datum> Consume(const ExecBatch& batch) = 0;
-
-  /// Get current unique keys. May be called multiple times.
-  virtual Result<ExecBatch> GetUniques() = 0;
-
-  /// Get the current number of groups.
-  virtual uint32_t num_groups() const = 0;
-
-  /// \brief Assemble lists of indices of identical elements.
-  ///
-  /// \param[in] ids An unsigned, all-valid integral array which will be
-  ///                used as grouping criteria.
-  /// \param[in] num_groups An upper bound for the elements of ids
-  /// \return A num_groups-long ListArray where the slot at i contains a
-  ///         list of indices where i appears in ids.
-  ///
-  ///   MakeGroupings([
-  ///       2,
-  ///       2,
-  ///       5,
-  ///       5,
-  ///       2,
-  ///       3
-  ///   ], 8) == [
-  ///       [],
-  ///       [],
-  ///       [0, 1, 4],
-  ///       [5],
-  ///       [],
-  ///       [2, 3],
-  ///       [],
-  ///       []
-  ///   ]
-  static Result<std::shared_ptr<ListArray>> MakeGroupings(
-      const UInt32Array& ids, uint32_t num_groups,
-      ExecContext* ctx = default_exec_context());
-
-  /// \brief Produce a ListArray whose slots are selections of `array` which correspond to
-  /// the provided groupings.
-  ///
-  /// For example,
-  ///   ApplyGroupings([
-  ///       [],
-  ///       [],
-  ///       [0, 1, 4],
-  ///       [5],
-  ///       [],
-  ///       [2, 3],
-  ///       [],
-  ///       []
-  ///   ], [2, 2, 5, 5, 2, 3]) == [
-  ///       [],
-  ///       [],
-  ///       [2, 2, 2],
-  ///       [3],
-  ///       [],
-  ///       [5, 5],
-  ///       [],
-  ///       []
-  ///   ]
-  static Result<std::shared_ptr<ListArray>> ApplyGroupings(
-      const ListArray& groupings, const Array& array,
-      ExecContext* ctx = default_exec_context());
-};
-
-/// \brief Configure a grouped aggregation
-struct ARROW_EXPORT Aggregate {
-  /// the name of the aggregation function
-  std::string function;
-
-  /// options for the aggregation function
-  const FunctionOptions* options;
-};
-
-/// Internal use only: helper function for testing HashAggregateKernels.
-/// This will be replaced by streaming execution operators.
-ARROW_EXPORT
-Result<Datum> GroupBy(const std::vector<Datum>& arguments, const std::vector<Datum>& keys,
-                      const std::vector<Aggregate>& aggregates, bool use_threads = false,
-                      ExecContext* ctx = default_exec_context());
-
-}  // namespace internal
 }  // namespace compute
 }  // namespace arrow

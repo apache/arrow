@@ -50,7 +50,7 @@ using internal::CopyBitmap;
 // ----------------------------------------------------------------------
 // DictionaryArray
 
-std::shared_ptr<Array> DictionaryArray::indices() const { return indices_; }
+const std::shared_ptr<Array>& DictionaryArray::indices() const { return indices_; }
 
 int64_t DictionaryArray::GetValueIndex(int64_t i) const {
   const uint8_t* indices_data = data_->buffers[1]->data();
@@ -106,8 +106,9 @@ DictionaryArray::DictionaryArray(const std::shared_ptr<DataType>& type,
   SetData(data);
 }
 
-std::shared_ptr<Array> DictionaryArray::dictionary() const {
+const std::shared_ptr<Array>& DictionaryArray::dictionary() const {
   if (!dictionary_) {
+    // TODO(GH-36503) this isn't thread safe
     dictionary_ = MakeArray(data_->dictionary);
   }
   return dictionary_;
@@ -290,8 +291,8 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
 
   Status GetResultWithIndexType(const std::shared_ptr<DataType>& index_type,
                                 std::shared_ptr<Array>* out_dict) override {
-    int64_t dict_length = memo_table_.size();
-    if (!internal::IntegersCanFit(Datum(dict_length), *index_type).ok()) {
+    Int64Scalar dict_length(memo_table_.size());
+    if (!internal::IntegersCanFit(dict_length, *index_type).ok()) {
       return Status::Invalid(
           "These dictionaries cannot be combined.  The unified dictionary requires a "
           "larger index type.");

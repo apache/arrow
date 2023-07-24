@@ -27,6 +27,7 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/builder_run_end.h"
 #include "arrow/array/data.h"
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
@@ -39,8 +40,9 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util.h"
-#include "arrow/util/int_util_internal.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/ree_util.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow {
@@ -123,9 +125,9 @@ Status ConcatenateOffsets(const BufferVector& buffers, MemoryPool* pool,
     // the first offset from buffers[i] will be adjusted to values_length
     // (the cumulative length of values spanned by offsets in previous buffers)
     RETURN_NOT_OK(PutOffsets<Offset>(buffers[i], values_length, &dst[elements_length],
-                                     &values_ranges->at(i)));
+                                     &(*values_ranges)[i]));
     elements_length += buffers[i]->size() / sizeof(Offset);
-    values_length += static_cast<Offset>(values_ranges->at(i).length);
+    values_length += static_cast<Offset>((*values_ranges)[i].length);
   }
 
   // the final element in dst is the length of all values spanned by the offsets
@@ -170,19 +172,20 @@ Status PutOffsets(const std::shared_ptr<Buffer>& src, Offset first_offset, Offse
 class ConcatenateImpl {
  public:
   ConcatenateImpl(const ArrayDataVector& in, MemoryPool* pool)
-      : in_(std::move(in)), pool_(pool), out_(std::make_shared<ArrayData>()) {
-    out_->type = in[0]->type;
-    for (size_t i = 0; i < in_.size(); ++i) {
-      out_->length = SafeSignedAdd(out_->length, in[i]->length);
+      : in_(in), pool_(pool), out_(std::make_shared<ArrayData>()) {
+    out_->type = in_[0]->type;
+    for (const auto& in_array : in_) {
+      out_->length = SafeSignedAdd(out_->length, in_array->length);
       if (out_->null_count == kUnknownNullCount ||
-          in[i]->null_count == kUnknownNullCount) {
+          in_array->null_count == kUnknownNullCount) {
         out_->null_count = kUnknownNullCount;
         continue;
       }
-      out_->null_count = SafeSignedAdd(out_->null_count.load(), in[i]->null_count.load());
+      out_->null_count =
+          SafeSignedAdd(out_->null_count.load(), in_array->null_count.load());
     }
-    out_->buffers.resize(in[0]->buffers.size());
-    out_->child_data.resize(in[0]->child_data.size());
+    out_->buffers.resize(in_[0]->buffers.size());
+    out_->child_data.resize(in_[0]->child_data.size());
     for (auto& data : out_->child_data) {
       data = std::make_shared<ArrayData>();
     }
@@ -311,8 +314,8 @@ class ConcatenateImpl {
                                                   /*dest_offset=*/position, run.length,
                                                   transpose_map));
           } else {
-            std::fill(out_data + position,
-                      out_data + position + (run.length * index_width), 0x00);
+            std::fill(out_data + (position * index_width),
+                      out_data + (position + run.length) * index_width, 0x00);
           }
 
           position += run.length;
@@ -436,9 +439,37 @@ class ConcatenateImpl {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    int64_t physical_length = 0;
+    for (const auto& input : in_) {
+      if (internal::AddWithOverflow(physical_length,
+                                    ree_util::FindPhysicalLength(ArraySpan(*input)),
+                                    &physical_length)) {
+        return Status::Invalid("Length overflow when concatenating arrays");
+      }
+    }
+    ARROW_ASSIGN_OR_RAISE(auto builder, MakeBuilder(in_[0]->type, pool_));
+    RETURN_NOT_OK(internal::checked_cast<RunEndEncodedBuilder&>(*builder).ReservePhysical(
+        physical_length));
+    for (const auto& input : in_) {
+      RETURN_NOT_OK(builder->AppendArraySlice(ArraySpan(*input), 0, input->length));
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> out_array, builder->Finish());
+    out_ = out_array->data();
+    return Status::OK();
+  }
+
   Status Visit(const ExtensionType& e) {
-    // XXX can we just concatenate their storage?
-    return Status::NotImplemented("concatenation of ", e);
+    ArrayDataVector storage_data(in_.size());
+    for (size_t i = 0; i < in_.size(); ++i) {
+      storage_data[i] = in_[i]->Copy();
+      storage_data[i]->type = e.storage_type();
+    }
+    std::shared_ptr<ArrayData> out_storage;
+    RETURN_NOT_OK(ConcatenateImpl(storage_data, pool_).Concatenate(&out_storage));
+    out_storage->type = in_[0]->type;
+    out_ = std::move(out_storage);
+    return Status::OK();
   }
 
  private:

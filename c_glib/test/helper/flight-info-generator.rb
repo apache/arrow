@@ -38,20 +38,20 @@ module Helper
       ArrowFlight::Ticket.new("page-view")
     end
 
-    def page_view_endpoints
+    def page_view_endpoints(ticket=page_view_ticket)
       locations = [
         ArrowFlight::Location.new("grpc+tcp://127.0.0.1:10000"),
         ArrowFlight::Location.new("grpc+tcp://127.0.0.1:10001"),
       ]
       [
-        ArrowFlight::Endpoint.new(page_view_ticket, locations),
+        ArrowFlight::Endpoint.new(ticket, locations),
       ]
     end
 
-    def page_view
+    def page_view(ticket=page_view_ticket)
       table = page_view_table
       descriptor = page_view_descriptor
-      endpoints = page_view_endpoints
+      endpoints = page_view_endpoints(ticket)
       output = Arrow::ResizableBuffer.new(0)
       write_table(table, output, type: :stream)
       ArrowFlight::Info.new(table.schema,

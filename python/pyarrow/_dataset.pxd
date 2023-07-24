@@ -25,7 +25,6 @@ from pyarrow.lib cimport *
 from pyarrow._fs cimport FileSystem
 
 
-cdef CExpression _bind(Expression filter, Schema schema) except *
 cdef CFileSource _make_file_source(object file, FileSystem filesystem=*)
 
 
@@ -43,24 +42,35 @@ cdef class DatasetFactory(_Weakrefable):
     cdef inline shared_ptr[CDatasetFactory] unwrap(self) nogil
 
 
-cdef class Expression(_Weakrefable):
+cdef class Dataset(_Weakrefable):
 
     cdef:
-        CExpression expr
+        shared_ptr[CDataset] wrapped
+        CDataset* dataset
+        public dict _scan_options
 
-    cdef void init(self, const CExpression& sp)
-
-    @staticmethod
-    cdef wrap(const CExpression& sp)
-
-    cdef inline CExpression unwrap(self)
+    cdef void init(self, const shared_ptr[CDataset]& sp)
 
     @staticmethod
-    cdef Expression _expr_or_scalar(object expr)
+    cdef wrap(const shared_ptr[CDataset]& sp)
+
+    cdef shared_ptr[CDataset] unwrap(self) nogil
+
+
+cdef class Scanner(_Weakrefable):
+    cdef:
+        shared_ptr[CScanner] wrapped
+        CScanner* scanner
+
+    cdef void init(self, const shared_ptr[CScanner]& sp)
 
     @staticmethod
-    cdef Expression _call(str function_name, list arguments,
-                          shared_ptr[CFunctionOptions] options=*)
+    cdef wrap(const shared_ptr[CScanner]& sp)
+
+    cdef shared_ptr[CScanner] unwrap(self)
+
+    @staticmethod
+    cdef shared_ptr[CScanOptions] _make_scan_options(Dataset dataset, dict py_scanoptions) except *
 
 
 cdef class FragmentScanOptions(_Weakrefable):
@@ -90,7 +100,7 @@ cdef class FileFormat(_Weakrefable):
     cdef _set_default_fragment_scan_options(self, FragmentScanOptions options)
 
     # Return a WrittenFile after a file was written.
-    # May be overriden by subclasses, e.g. to add metadata.
+    # May be overridden by subclasses, e.g. to add metadata.
     cdef WrittenFile _finish_write(self, path, base_dir,
                                    CFileWriter* file_writer)
 
@@ -150,11 +160,14 @@ cdef class PartitioningFactory(_Weakrefable):
     cdef:
         shared_ptr[CPartitioningFactory] wrapped
         CPartitioningFactory* factory
+        object constructor
+        object options
 
     cdef init(self, const shared_ptr[CPartitioningFactory]& sp)
 
     @staticmethod
-    cdef wrap(const shared_ptr[CPartitioningFactory]& sp)
+    cdef wrap(const shared_ptr[CPartitioningFactory]& sp,
+              object constructor, object options)
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self)
 
@@ -167,3 +180,5 @@ cdef class WrittenFile(_Weakrefable):
     # This metadata will have the file path attribute set to the path of
     # the written file.
     cdef public object metadata
+    # The size of the file in bytes
+    cdef public int64_t size

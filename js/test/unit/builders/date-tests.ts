@@ -15,18 +15,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { validateVector } from './utils';
-import { Vector, DateDay, DateMillisecond } from 'apache-arrow';
+import 'web-streams-polyfill';
 import {
+    date32sNoNulls,
+    date32sWithNulls,
+    date64sNoNulls,
+    date64sWithNulls,
     encodeAll,
     encodeEach,
     encodeEachDOM,
     encodeEachNode,
-    date32sNoNulls,
-    date64sNoNulls,
-    date32sWithNulls,
-    date64sWithNulls
-} from './utils';
+    validateVector
+} from './utils.js';
+
+import { DateDay, DateMillisecond, Vector } from 'apache-arrow';
 
 const testDOMStreams = process.env.TEST_DOM_STREAMS === 'true';
 const testNodeStreams = process.env.TEST_NODE_STREAMS === 'true';

@@ -24,6 +24,7 @@ public class JniWrapper {
   private static final JniWrapper INSTANCE = new JniWrapper();
 
   public static JniWrapper get() {
+    JniLoader.get().ensureLoaded();
     return INSTANCE;
   }
 
@@ -34,14 +35,21 @@ public class JniWrapper {
       throw new UnsupportedOperationException(
           "The Java C Data Interface implementation is currently only supported on 64-bit systems");
     }
-    JniLoader.get().ensureLoaded();
   }
 
   public native void releaseSchema(long memoryAddress);
 
   public native void releaseArray(long memoryAddress);
 
+  public native void getNextArrayStream(long streamAddress, long arrayAddress) throws CDataJniException;
+
+  public native void getSchemaArrayStream(long streamAddress, long arrayAddress) throws CDataJniException;
+
+  public native void releaseArrayStream(long memoryAddress);
+
   public native void exportSchema(long memoryAddress, PrivateData privateData);
 
   public native void exportArray(long memoryAddress, PrivateData data);
+
+  public native void exportArrayStream(long memoryAddress, PrivateData data);
 }

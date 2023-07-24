@@ -107,12 +107,7 @@ module Arrow
         description = arg
         arg = description[:field]
       end
-      if arg.is_a?(Hash)
-        field_description = arg
-        Field.new(field_description)
-      else
-        arg
-      end
+      arg
     end
   end
 end

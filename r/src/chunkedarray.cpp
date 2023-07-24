@@ -17,24 +17,26 @@
 
 #include "./arrow_types.h"
 
-#if defined(ARROW_R_WITH_ARROW)
-
 #include <arrow/builder.h>
 #include <arrow/chunked_array.h>
+#include <arrow/util/byte_size.h>
 
 // [[arrow::export]]
-int ChunkedArray__length(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return chunked_array->length();
+r_vec_size ChunkedArray__length(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return r_vec_size(chunked_array->length());
 }
 
 // [[arrow::export]]
-int ChunkedArray__null_count(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return chunked_array->null_count();
+r_vec_size ChunkedArray__null_count(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return r_vec_size(chunked_array->null_count());
 }
 
 // [[arrow::export]]
-int ChunkedArray__num_chunks(const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
-  return chunked_array->num_chunks();
+r_vec_size ChunkedArray__num_chunks(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return r_vec_size(chunked_array->num_chunks());
 }
 
 // [[arrow::export]]
@@ -140,7 +142,12 @@ std::shared_ptr<arrow::ChunkedArray> ChunkedArray__from_list(cpp11::list chunks,
     }
   }
 
-  return std::make_shared<arrow::ChunkedArray>(std::move(vec));
+  // Use Make so we validate that chunk types are all the same
+  return ValueOrStop(arrow::ChunkedArray::Make(std::move(vec)));
 }
 
-#endif
+// [[arrow::export]]
+r_vec_size ChunkedArray__ReferencedBufferSize(
+    const std::shared_ptr<arrow::ChunkedArray>& chunked_array) {
+  return r_vec_size(ValueOrStop(arrow::util::ReferencedBufferSize(*chunked_array)));
+}

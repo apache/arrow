@@ -204,7 +204,6 @@ struct SparseTensorIndexCOOBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  SparseTensorIndexCOOBuilder &operator=(const SparseTensorIndexCOOBuilder &);
   flatbuffers::Offset<SparseTensorIndexCOO> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseTensorIndexCOO>(end);
@@ -339,7 +338,6 @@ struct SparseMatrixIndexCSXBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  SparseMatrixIndexCSXBuilder &operator=(const SparseMatrixIndexCSXBuilder &);
   flatbuffers::Offset<SparseMatrixIndexCSX> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseMatrixIndexCSX>(end);
@@ -494,7 +492,6 @@ struct SparseTensorIndexCSFBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  SparseTensorIndexCSFBuilder &operator=(const SparseTensorIndexCSFBuilder &);
   flatbuffers::Offset<SparseTensorIndexCSF> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseTensorIndexCSF>(end);
@@ -626,6 +623,9 @@ struct SparseTensor FLATBUFFERS_FINAL_CLASS : private flatbuffers::Table {
   const org::apache::arrow::flatbuf::LargeList *type_as_LargeList() const {
     return type_type() == org::apache::arrow::flatbuf::Type::LargeList ? static_cast<const org::apache::arrow::flatbuf::LargeList *>(type()) : nullptr;
   }
+  const org::apache::arrow::flatbuf::RunEndEncoded *type_as_RunEndEncoded() const {
+    return type_type() == org::apache::arrow::flatbuf::Type::RunEndEncoded ? static_cast<const org::apache::arrow::flatbuf::RunEndEncoded *>(type()) : nullptr;
+  }
   /// The dimensions of the tensor, optionally named.
   const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *shape() const {
     return GetPointer<const flatbuffers::Vector<flatbuffers::Offset<org::apache::arrow::flatbuf::TensorDim>> *>(VT_SHAPE);
@@ -756,6 +756,10 @@ template<> inline const org::apache::arrow::flatbuf::LargeList *SparseTensor::ty
   return type_as_LargeList();
 }
 
+template<> inline const org::apache::arrow::flatbuf::RunEndEncoded *SparseTensor::type_as<org::apache::arrow::flatbuf::RunEndEncoded>() const {
+  return type_as_RunEndEncoded();
+}
+
 template<> inline const org::apache::arrow::flatbuf::SparseTensorIndexCOO *SparseTensor::sparseIndex_as<org::apache::arrow::flatbuf::SparseTensorIndexCOO>() const {
   return sparseIndex_as_SparseTensorIndexCOO();
 }
@@ -797,7 +801,6 @@ struct SparseTensorBuilder {
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  SparseTensorBuilder &operator=(const SparseTensorBuilder &);
   flatbuffers::Offset<SparseTensor> Finish() {
     const auto end = fbb_.EndTable(start_);
     auto o = flatbuffers::Offset<SparseTensor>(end);

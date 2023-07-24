@@ -389,8 +389,7 @@ FileEncryptionProperties::FileEncryptionProperties(
          footer_key.length() == 32);
 
   uint8_t aad_file_unique[kAadFileUniqueLength];
-  memset(aad_file_unique, 0, kAadFileUniqueLength);
-  encryption::RandBytes(aad_file_unique, sizeof(kAadFileUniqueLength));
+  encryption::RandBytes(aad_file_unique, kAadFileUniqueLength);
   std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
                                   kAadFileUniqueLength);
 

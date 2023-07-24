@@ -17,7 +17,8 @@
 
 from cpython.exc cimport PyErr_CheckSignals, PyErr_SetInterrupt
 
-from pyarrow.includes.libarrow cimport CStatus, IsPyError, RestorePyError
+from pyarrow.includes.libarrow cimport CStatus
+from pyarrow.includes.libarrow_python cimport IsPyError, RestorePyError
 from pyarrow.includes.common cimport c_string
 
 from contextlib import contextmanager
@@ -78,7 +79,7 @@ ArrowIOError = IOError
 
 # This function could be written directly in C++ if we didn't
 # define Arrow-specific subclasses (ArrowInvalid etc.)
-cdef int check_status(const CStatus& status) nogil except -1:
+cdef int check_status(const CStatus& status) except -1 nogil:
     if status.ok():
         return 0
 
@@ -139,7 +140,7 @@ cdef int check_status(const CStatus& status) nogil except -1:
 
 # This is an API function for C++ PyArrow
 cdef api int pyarrow_internal_check_status(const CStatus& status) \
-        nogil except -1:
+        except -1 nogil:
     return check_status(status)
 
 
@@ -192,10 +193,18 @@ cdef class SignalStopHandler:
             _break_traceback_cycle_from_frame(sys._getframe(0))
 
         self._stop_token = StopToken()
+
         if not self._signals.empty():
-            self._stop_token.init(GetResultValue(
-                SetSignalStopSource()).token())
-            self._enabled = True
+            maybe_source = SetSignalStopSource()
+            if not maybe_source.ok():
+                # See ARROW-11841 / ARROW-17173: in complex interaction
+                # scenarios (such as R calling into Python), SetSignalStopSource()
+                # may have already activated a signal-receiving StopSource.
+                # Just warn instead of erroring out.
+                maybe_source.status().Warn()
+            else:
+                self._stop_token.init(deref(maybe_source).token())
+                self._enabled = True
 
     def _init_signals(self):
         if (signal_handlers_enabled and
@@ -213,6 +222,12 @@ cdef class SignalStopHandler:
     def __exit__(self, exc_type, exc_value, exc_tb):
         if self._enabled:
             UnregisterCancellingSignalHandler()
+        if exc_value is None:
+            # Make sure we didn't lose a signal
+            try:
+                check_status(self._stop_token.stop_token.Poll())
+            except ArrowCancelled as e:
+                exc_value = e
         if isinstance(exc_value, ArrowCancelled):
             if exc_value.signum:
                 # Re-emit the exact same signal. We restored the Python signal
@@ -220,7 +235,8 @@ cdef class SignalStopHandler:
                 if os.name == 'nt':
                     SendSignal(exc_value.signum)
                 else:
-                    SendSignalToThread(exc_value.signum, threading.get_ident())
+                    SendSignalToThread(exc_value.signum,
+                                       threading.main_thread().ident)
             else:
                 # Simulate Python receiving a SIGINT
                 # (see https://bugs.python.org/issue43356 for why we can't

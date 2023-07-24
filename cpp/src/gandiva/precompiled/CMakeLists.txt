@@ -31,18 +31,22 @@ set(PRECOMPILED_SRCS
     ../../arrow/util/basic_decimal.cc)
 
 if(MSVC)
-  # clang pretends to be a particular version of MSVC. 191[0-9] is
-  # Visual Studio 2017, and the standard library uses C++14 features,
-  # so we have to use that -std version to get the IR compilation to work
-  if(MSVC_VERSION MATCHES "^191[0-9]$")
+  # clang pretends to be a particular version of MSVC. Thestandard
+  # library uses C++14 features, so we have to use that -std version
+  # to get the IR compilation to work.
+  # See https://cmake.org/cmake/help/latest/variable/MSVC_VERSION.html
+  # for MSVC_VERSION and Visual Studio version.
+  if(MSVC_VERSION LESS 1930)
+    set(FMS_COMPATIBILITY 19.20)
+  elseif(MSVC_VERSION LESS 1920)
     set(FMS_COMPATIBILITY 19.10)
   else()
     message(FATAL_ERROR "Unsupported MSVC_VERSION=${MSVC_VERSION}")
   endif()
-  set(PLATFORM_CLANG_OPTIONS -std=c++14 -fms-compatibility
+  set(PLATFORM_CLANG_OPTIONS -std=c++17 -fms-compatibility
                              -fms-compatibility-version=${FMS_COMPATIBILITY})
 else()
-  set(PLATFORM_CLANG_OPTIONS -std=c++11)
+  set(PLATFORM_CLANG_OPTIONS -std=c++17)
 endif()
 
 # Create bitcode for each of the source files.
@@ -79,7 +83,9 @@ foreach(SRC_FILE ${PRECOMPILED_SRCS})
        -I${ARROW_BINARY_DIR}/src)
 
   if(NOT ARROW_USE_NATIVE_INT128)
-    list(APPEND PRECOMPILE_COMMAND -I${Boost_INCLUDE_DIR})
+    foreach(boost_include_dir ${Boost_INCLUDE_DIRS})
+      list(APPEND PRECOMPILE_COMMAND -I${boost_include_dir})
+    endforeach()
   endif()
   add_custom_command(OUTPUT ${BC_FILE}
                      COMMAND ${PRECOMPILE_COMMAND}

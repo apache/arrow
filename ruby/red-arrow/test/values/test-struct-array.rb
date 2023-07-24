@@ -341,6 +341,36 @@ module ValuesStructArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_month_interval
+    values = [
+      {"field" => 1},
+      nil,
+      {"field" => nil},
+    ]
+    target = build(:month_interval, values)
+    assert_equal(values, target.values)
+  end
+
+  def test_day_time_interval
+    values = [
+      {"field" => {day: 1, millisecond: 100}},
+      nil,
+      {"field" => nil},
+    ]
+    target = build(:day_time_interval, values)
+    assert_equal(values, target.values)
+  end
+
+  def test_month_day_nano_interval
+    values = [
+      {"field" => {month: 1, day: 1, nanosecond: 100}},
+      nil,
+      {"field" => nil},
+    ]
+    target = build(:month_day_nano_interval, values)
+    assert_equal(values, target.values)
+  end
+
   def test_list
     values = [
       {"field" => [true, nil, false]},
@@ -393,12 +423,24 @@ module ValuesStructArrayTests
     assert_equal(values, target.values)
   end
 
+  def remove_union_field_names(values)
+    values.collect do |value|
+      if value.nil?
+        value
+      else
+        v = value["field"]
+        v = v.values[0] unless v.nil?
+        {"field" => v}
+      end
+    end
+  end
+
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       {"field" => {"field1" => true}},
       nil,
       {"field" => nil},
+      {"field" => {"field2" => 29}},
       {"field" => {"field2" => nil}},
     ]
     target = build({
@@ -416,15 +458,16 @@ module ValuesStructArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_union_field_names(values),
+                 target.values)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     values = [
       {"field" => {"field1" => true}},
       nil,
       {"field" => nil},
+      {"field" => {"field2" => 29}},
       {"field" => {"field2" => nil}},
     ]
     target = build({
@@ -442,23 +485,22 @@ module ValuesStructArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_union_field_names(values),
+                 target.values)
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"field" => "Ruby"},
       nil,
       {"field" => nil},
       {"field" => "GLib"},
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
-                     dictionary: dictionary,
-                     ordered: true,
+                     value_data_type: :string,
+                     ordered: false,
                    },
                    values)
     assert_equal(values, target.values)

@@ -19,16 +19,17 @@
 #include <rados/librados.hpp>
 
 #include "arrow/status.h"
-#include "arrow/util/make_unique.h"
 
 #include "skyhook/client/file_skyhook.h"
+
+#include <memory>
 
 namespace skyhook {
 namespace rados {
 
 class IoCtxInterface {
  public:
-  IoCtxInterface() { ioCtx = arrow::internal::make_unique<librados::IoCtx>(); }
+  IoCtxInterface() { ioCtx = std::make_unique<librados::IoCtx>(); }
   /// \brief Read from a RADOS object.
   ///
   /// \param[in] oid the ID of the object to read.
@@ -60,7 +61,7 @@ class IoCtxInterface {
 
 class RadosInterface {
  public:
-  RadosInterface() { cluster = arrow::internal::make_unique<librados::Rados>(); }
+  RadosInterface() { cluster = std::make_unique<librados::Rados>(); }
   /// Initializes a cluster handle.
   arrow::Status init2(const char* const name, const char* const clustername,
                       uint64_t flags);
@@ -83,8 +84,8 @@ class RadosConn {
  public:
   explicit RadosConn(std::shared_ptr<skyhook::RadosConnCtx> ctx)
       : ctx(std::move(ctx)),
-        rados(arrow::internal::make_unique<RadosInterface>()),
-        io_ctx(arrow::internal::make_unique<IoCtxInterface>()),
+        rados(std::make_unique<RadosInterface>()),
+        io_ctx(std::make_unique<IoCtxInterface>()),
         connected(false) {}
   ~RadosConn();
   /// Connect to the Ceph cluster.

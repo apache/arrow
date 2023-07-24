@@ -82,3 +82,21 @@ cpp/Brewfile.lock.json
 
 # docker volumes used for caching
 .docker
+
+# generated native binaries created by java JNI build
+java-dist/
+java-native-c/
+java-native-cpp/
+
+# archery files
+dev/archery/build
+
+swift/Arrow/.build
+
+# Go dependencies
+go/vendor
+# go debug binaries
+__debug_bin
+
+# direnv
+.envrc

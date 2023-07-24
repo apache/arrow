@@ -60,9 +60,7 @@
  *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
  */
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using FileClass = ::arrow::io::FileOutputStream;
 
@@ -227,8 +225,8 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
 
 // Set temp_dir before running the write/read tests. The encrypted files will
 // be written/read from this directory.
-void TestEncryptionConfiguration::SetUpTestCase() { temp_dir = *temp_data_dir(); }
+void TestEncryptionConfiguration::SetUpTestCase() {
+  temp_dir = temp_data_dir().ValueOrDie();
+}
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

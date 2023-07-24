@@ -30,25 +30,9 @@ set(ARROW_LIBRARY_PATH_SUFFIXES
     "Library/bin")
 set(ARROW_INCLUDE_PATH_SUFFIXES "include" "Library" "Library/include")
 
-set(ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS)
-if(WIN32 AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-  # boost/process/detail/windows/handle_workaround.hpp doesn't work
-  # without BOOST_USE_WINDOWS_H with MinGW because MinGW doesn't
-  # provide __kernel_entry without winternl.h.
-  #
-  # See also:
-  # https://github.com/boostorg/process/blob/develop/include/boost/process/detail/windows/handle_workaround.hpp
-  #
-  # You can use this like the following:
-  #
-  #   target_compile_definitions(target PRIVATE
-  #                              ${ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS})
-  list(APPEND ARROW_BOOST_PROCESS_COMPILE_DEFINITIONS "BOOST_USE_WINDOWS_H=1")
-endif()
-
-function(ADD_THIRDPARTY_LIB LIB_NAME)
+function(add_thirdparty_lib LIB_NAME LIB_TYPE LIB)
   set(options)
-  set(one_value_args SHARED_LIB STATIC_LIB)
+  set(one_value_args)
   set(multi_value_args DEPS INCLUDE_DIRECTORIES)
   cmake_parse_arguments(ARG
                         "${options}"
@@ -59,78 +43,25 @@ function(ADD_THIRDPARTY_LIB LIB_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if(ARG_STATIC_LIB AND ARG_SHARED_LIB)
-    set(AUG_LIB_NAME "${LIB_NAME}_static")
-    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                     "${ARG_STATIC_LIB}")
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    message(STATUS "Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
-
-    set(AUG_LIB_NAME "${LIB_NAME}_shared")
-    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-
-    if(WIN32)
-      # Mark the ".lib" location as part of a Windows DLL
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_IMPLIB
-                                                       "${ARG_SHARED_LIB}")
-    else()
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                       "${ARG_SHARED_LIB}")
-    endif()
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    message(STATUS "Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
-  elseif(ARG_STATIC_LIB)
-    set(AUG_LIB_NAME "${LIB_NAME}_static")
-    add_library(${AUG_LIB_NAME} STATIC IMPORTED)
-    set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                     "${ARG_STATIC_LIB}")
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    message(STATUS "Added static library dependency ${AUG_LIB_NAME}: ${ARG_STATIC_LIB}")
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
-  elseif(ARG_SHARED_LIB)
-    set(AUG_LIB_NAME "${LIB_NAME}_shared")
-    add_library(${AUG_LIB_NAME} SHARED IMPORTED)
-
-    if(WIN32)
-      # Mark the ".lib" location as part of a Windows DLL
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_IMPLIB
-                                                       "${ARG_SHARED_LIB}")
-    else()
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES IMPORTED_LOCATION
-                                                       "${ARG_SHARED_LIB}")
-    endif()
-    message(STATUS "Added shared library dependency ${AUG_LIB_NAME}: ${ARG_SHARED_LIB}")
-    if(ARG_DEPS)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                       "${ARG_DEPS}")
-    endif()
-    if(ARG_INCLUDE_DIRECTORIES)
-      set_target_properties(${AUG_LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                       "${ARG_INCLUDE_DIRECTORIES}")
-    endif()
+  add_library(${LIB_NAME} ${LIB_TYPE} IMPORTED)
+  if(${LIB_TYPE} STREQUAL "STATIC")
+    set_target_properties(${LIB_NAME} PROPERTIES IMPORTED_LOCATION "${LIB}")
+    message(STATUS "Added static library dependency ${LIB_NAME}: ${LIB}")
   else()
-    message(FATAL_ERROR "No static or shared library provided for ${LIB_NAME}")
+    if(WIN32)
+      # Mark the ".lib" location as part of a Windows DLL
+      set_target_properties(${LIB_NAME} PROPERTIES IMPORTED_IMPLIB "${LIB}")
+    else()
+      set_target_properties(${LIB_NAME} PROPERTIES IMPORTED_LOCATION "${LIB}")
+    endif()
+    message(STATUS "Added shared library dependency ${LIB_NAME}: ${LIB}")
+  endif()
+  if(ARG_DEPS)
+    set_target_properties(${LIB_NAME} PROPERTIES INTERFACE_LINK_LIBRARIES "${ARG_DEPS}")
+  endif()
+  if(ARG_INCLUDE_DIRECTORIES)
+    set_target_properties(${LIB_NAME} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                 "${ARG_INCLUDE_DIRECTORIES}")
   endif()
 endfunction()
 
@@ -142,7 +73,7 @@ endfunction()
 
 # Based on MIT-licensed
 # https://gist.github.com/cristianadam/ef920342939a89fae3e8a85ca9459b49
-function(create_merged_static_lib output_target)
+function(arrow_create_merged_static_lib output_target)
   set(options)
   set(one_value_args NAME ROOT)
   set(multi_value_args TO_MERGE)
@@ -155,6 +86,7 @@ function(create_merged_static_lib output_target)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
+  file(MAKE_DIRECTORY ${BUILD_OUTPUT_ROOT_DIRECTORY})
   set(output_lib_path
       ${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_STATIC_LIBRARY_PREFIX}${ARG_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}
   )
@@ -190,32 +122,51 @@ function(create_merged_static_lib output_target)
     set(BUNDLE_COMMAND ${ar_tool} -M < ${ar_script_path})
 
   elseif(MSVC)
-    if(NOT CMAKE_LIBTOOL)
-      find_program(lib_tool lib HINTS "${CMAKE_CXX_COMPILER}/..")
-      if("${lib_tool}" STREQUAL "lib_tool-NOTFOUND")
-        message(FATAL_ERROR "Cannot locate libtool to bundle libraries")
-      endif()
+    if(CMAKE_LIBTOOL)
+      set(BUNDLE_TOOL ${CMAKE_LIBTOOL})
     else()
-      set(${lib_tool} ${CMAKE_LIBTOOL})
+      find_program(BUNDLE_TOOL lib HINTS "${CMAKE_CXX_COMPILER}/..")
+      if(NOT BUNDLE_TOOL)
+        message(FATAL_ERROR "Cannot locate lib.exe to bundle libraries")
+      endif()
     endif()
-    set(BUNDLE_TOOL ${lib_tool})
     set(BUNDLE_COMMAND ${BUNDLE_TOOL} /NOLOGO /OUT:${output_lib_path}
                        ${all_library_paths})
   else()
     message(FATAL_ERROR "Unknown bundle scenario!")
   endif()
 
-  add_custom_command(COMMAND ${BUNDLE_COMMAND}
-                     OUTPUT ${output_lib_path}
-                     COMMENT "Bundling ${output_lib_path}"
-                     VERBATIM)
+  add_custom_target(${output_target}_merge ALL
+                    ${BUNDLE_COMMAND}
+                    DEPENDS ${ARG_ROOT} ${ARG_TO_MERGE}
+                    BYPRODUCTS ${output_lib_path}
+                    COMMENT "Bundling ${output_lib_path}"
+                    VERBATIM)
 
   message(STATUS "Creating bundled static library target ${output_target} at ${output_lib_path}"
   )
 
-  add_custom_target(${output_target} ALL DEPENDS ${output_lib_path})
-  add_dependencies(${output_target} ${ARG_ROOT} ${ARG_TO_MERGE})
-  install(FILES ${output_lib_path} DESTINATION ${CMAKE_INSTALL_LIBDIR})
+  add_library(${output_target} STATIC IMPORTED)
+  set_target_properties(${output_target} PROPERTIES IMPORTED_LOCATION ${output_lib_path})
+  add_dependencies(${output_target} ${output_target}_merge)
+endfunction()
+
+function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
+  set(CONFIG_CMAKE "${PACKAGE_NAME}Config.cmake")
+  set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
+  configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
+                                INSTALL_DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}")
+  set(CONFIG_VERSION_CMAKE "${PACKAGE_NAME}ConfigVersion.cmake")
+  set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
+  write_basic_package_version_file("${BUILT_CONFIG_VERSION_CMAKE}"
+                                   COMPATIBILITY SameMajorVersion)
+  install(FILES "${BUILT_CONFIG_CMAKE}" "${BUILT_CONFIG_VERSION_CMAKE}"
+          DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}")
+  set(TARGETS_CMAKE "${PACKAGE_NAME}Targets.cmake")
+  install(EXPORT ${EXPORT_NAME}
+          DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
+          NAMESPACE "${PACKAGE_NAME}::"
+          FILE "${TARGETS_CMAKE}")
 endfunction()
 
 # \arg OUTPUTS list to append built targets to
@@ -225,9 +176,12 @@ function(ADD_ARROW_LIB LIB_NAME)
       BUILD_SHARED
       BUILD_STATIC
       CMAKE_PACKAGE_NAME
+      INSTALL_ARCHIVE_DIR
+      INSTALL_LIBRARY_DIR
+      INSTALL_RUNTIME_DIR
       PKG_CONFIG_NAME
-      SHARED_LINK_FLAGS
-      PRECOMPILED_HEADER_LIB)
+      PRECOMPILED_HEADER_LIB
+      SHARED_LINK_FLAGS)
   set(multi_value_args
       SOURCES
       PRECOMPILED_HEADERS
@@ -238,6 +192,7 @@ function(ADD_ARROW_LIB LIB_NAME)
       EXTRA_INCLUDES
       PRIVATE_INCLUDES
       DEPENDENCIES
+      DEFINITIONS
       SHARED_INSTALL_INTERFACE_LIBS
       STATIC_INSTALL_INTERFACE_LIBS
       OUTPUT_PATH)
@@ -271,7 +226,9 @@ function(ADD_ARROW_LIB LIB_NAME)
     set(OUTPUT_PATH ${BUILD_OUTPUT_ROOT_DIRECTORY})
   endif()
 
-  if(WIN32 OR (CMAKE_GENERATOR STREQUAL Xcode))
+  if(WIN32
+     OR CMAKE_GENERATOR STREQUAL Xcode
+     OR NOT ARROW_POSITION_INDEPENDENT_CODE)
     # We need to compile C++ separately for each library kind (shared and static)
     # because of dllexport declarations on Windows.
     # The Xcode generator doesn't reliably work with Xcode as target names are not
@@ -286,9 +243,12 @@ function(ADD_ARROW_LIB LIB_NAME)
     # that "objlib" into each library kind, to avoid compiling twice
     add_library(${LIB_NAME}_objlib OBJECT ${ARG_SOURCES})
     # Necessary to make static linking into other shared libraries work properly
-    set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE 1)
+    set_property(TARGET ${LIB_NAME}_objlib PROPERTY POSITION_INDEPENDENT_CODE ON)
     if(ARG_DEPENDENCIES)
       add_dependencies(${LIB_NAME}_objlib ${ARG_DEPENDENCIES})
+    endif()
+    if(ARG_DEFINITIONS)
+      target_compile_definitions(${LIB_NAME}_objlib PRIVATE ${ARG_DEFINITIONS})
     endif()
     if(ARG_PRECOMPILED_HEADER_LIB)
       reuse_precompiled_header_lib(${LIB_NAME}_objlib ${ARG_PRECOMPILED_HEADER_LIB})
@@ -297,7 +257,6 @@ function(ADD_ARROW_LIB LIB_NAME)
       target_precompile_headers(${LIB_NAME}_objlib PRIVATE ${ARG_PRECOMPILED_HEADERS})
     endif()
     set(LIB_DEPS $<TARGET_OBJECTS:${LIB_NAME}_objlib>)
-    set(LIB_INCLUDES)
     set(EXTRA_DEPS)
 
     if(ARG_OUTPUTS)
@@ -310,23 +269,54 @@ function(ADD_ARROW_LIB LIB_NAME)
     if(ARG_PRIVATE_INCLUDES)
       target_include_directories(${LIB_NAME}_objlib PRIVATE ${ARG_PRIVATE_INCLUDES})
     endif()
+    if(BUILD_SHARED)
+      if(ARG_SHARED_LINK_LIBS)
+        target_link_libraries(${LIB_NAME}_objlib PRIVATE ${ARG_SHARED_LINK_LIBS})
+      endif()
+      if(ARG_SHARED_PRIVATE_LINK_LIBS)
+        target_link_libraries(${LIB_NAME}_objlib PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
+      endif()
+    endif()
+    if(BUILD_STATIC AND ARG_STATIC_LINK_LIBS)
+      target_link_libraries(${LIB_NAME}_objlib PRIVATE ${ARG_STATIC_LINK_LIBS})
+    endif()
   else()
     # Prepare arguments for separate compilation of static and shared libs below
     # TODO: add PCH directives
     set(LIB_DEPS ${ARG_SOURCES})
     set(EXTRA_DEPS ${ARG_DEPENDENCIES})
-
-    if(ARG_EXTRA_INCLUDES)
-      set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
-    endif()
   endif()
 
-  set(RUNTIME_INSTALL_DIR bin)
+  if(ARG_EXTRA_INCLUDES)
+    set(LIB_INCLUDES ${ARG_EXTRA_INCLUDES})
+  else()
+    set(LIB_INCLUDES "")
+  endif()
+
+  if(ARG_INSTALL_ARCHIVE_DIR)
+    set(INSTALL_ARCHIVE_DIR ${ARG_INSTALL_ARCHIVE_DIR})
+  else()
+    set(INSTALL_ARCHIVE_DIR ${CMAKE_INSTALL_LIBDIR})
+  endif()
+  if(ARG_INSTALL_LIBRARY_DIR)
+    set(INSTALL_LIBRARY_DIR ${ARG_INSTALL_LIBRARY_DIR})
+  else()
+    set(INSTALL_LIBRARY_DIR ${CMAKE_INSTALL_LIBDIR})
+  endif()
+  if(ARG_INSTALL_RUNTIME_DIR)
+    set(INSTALL_RUNTIME_DIR ${ARG_INSTALL_RUNTIME_DIR})
+  else()
+    set(INSTALL_RUNTIME_DIR bin)
+  endif()
 
   if(BUILD_SHARED)
     add_library(${LIB_NAME}_shared SHARED ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_shared ${EXTRA_DEPS})
+    endif()
+
+    if(ARG_DEFINITIONS)
+      target_compile_definitions(${LIB_NAME}_shared PRIVATE ${ARG_DEFINITIONS})
     endif()
 
     if(ARG_PRECOMPILED_HEADER_LIB)
@@ -369,11 +359,19 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      SOVERSION "${ARROW_SO_VERSION}")
 
     target_link_libraries(${LIB_NAME}_shared
-                          LINK_PUBLIC
-                          "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
-                          "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
-                          LINK_PRIVATE
-                          ${ARG_SHARED_PRIVATE_LINK_LIBS})
+                          PUBLIC "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
+                                 "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
+                          PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
+
+    if(USE_OBJLIB)
+      # Ensure that dependencies are built before compilation of objects in
+      # object library, rather than only before the final link step
+      foreach(SHARED_LINK_LIB ${ARG_SHARED_LINK_LIBS})
+        if(TARGET ${SHARED_LINK_LIB})
+          add_dependencies(${LIB_NAME}_objlib ${SHARED_LINK_LIB})
+        endif()
+      endforeach()
+    endif()
 
     if(ARROW_RPATH_ORIGIN)
       if(APPLE)
@@ -398,9 +396,9 @@ function(ADD_ARROW_LIB LIB_NAME)
 
     install(TARGETS ${LIB_NAME}_shared ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
-            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+            RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
             INCLUDES
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
@@ -409,6 +407,10 @@ function(ADD_ARROW_LIB LIB_NAME)
     add_library(${LIB_NAME}_static STATIC ${LIB_DEPS})
     if(EXTRA_DEPS)
       add_dependencies(${LIB_NAME}_static ${EXTRA_DEPS})
+    endif()
+
+    if(ARG_DEFINITIONS)
+      target_compile_definitions(${LIB_NAME}_static PRIVATE ${ARG_DEFINITIONS})
     endif()
 
     if(ARG_PRECOMPILED_HEADER_LIB)
@@ -433,8 +435,10 @@ function(ADD_ARROW_LIB LIB_NAME)
       set(LIB_NAME_STATIC ${LIB_NAME})
     endif()
 
-    if(ARROW_BUILD_STATIC AND WIN32)
+    if(WIN32)
       target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_STATIC)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_FLIGHT_STATIC)
+      target_compile_definitions(${LIB_NAME}_static PUBLIC ARROW_FLIGHT_SQL_STATIC)
     endif()
 
     set_target_properties(${LIB_NAME}_static
@@ -442,46 +446,36 @@ function(ADD_ARROW_LIB LIB_NAME)
                                      OUTPUT_NAME ${LIB_NAME_STATIC})
 
     if(ARG_STATIC_INSTALL_INTERFACE_LIBS)
-      target_link_libraries(${LIB_NAME}_static LINK_PUBLIC
-                            "$<INSTALL_INTERFACE:${ARG_STATIC_INSTALL_INTERFACE_LIBS}>")
+      target_link_libraries(${LIB_NAME}_static
+                            INTERFACE "$<INSTALL_INTERFACE:${ARG_STATIC_INSTALL_INTERFACE_LIBS}>"
+      )
     endif()
 
     if(ARG_STATIC_LINK_LIBS)
-      target_link_libraries(${LIB_NAME}_static LINK_PRIVATE
-                            "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
+      target_link_libraries(${LIB_NAME}_static
+                            PUBLIC "$<BUILD_INTERFACE:${ARG_STATIC_LINK_LIBS}>")
+      if(USE_OBJLIB)
+        # Ensure that dependencies are built before compilation of objects in
+        # object library, rather than only before the final link step
+        foreach(STATIC_LINK_LIB ${ARG_STATIC_LINK_LIBS})
+          if(TARGET ${STATIC_LINK_LIB})
+            add_dependencies(${LIB_NAME}_objlib ${STATIC_LINK_LIB})
+          endif()
+        endforeach()
+      endif()
     endif()
 
     install(TARGETS ${LIB_NAME}_static ${INSTALL_IS_OPTIONAL}
             EXPORT ${LIB_NAME}_targets
-            RUNTIME DESTINATION ${RUNTIME_INSTALL_DIR}
-            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            ARCHIVE DESTINATION ${INSTALL_ARCHIVE_DIR}
+            LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR}
+            RUNTIME DESTINATION ${INSTALL_RUNTIME_DIR}
             INCLUDES
             DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
   endif()
 
   if(ARG_CMAKE_PACKAGE_NAME)
-    arrow_install_cmake_find_module("${ARG_CMAKE_PACKAGE_NAME}")
-
-    set(TARGETS_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Targets.cmake")
-    install(EXPORT ${LIB_NAME}_targets
-            FILE "${TARGETS_CMAKE}"
-            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
-
-    set(CONFIG_CMAKE "${ARG_CMAKE_PACKAGE_NAME}Config.cmake")
-    set(BUILT_CONFIG_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_CMAKE}")
-    configure_package_config_file("${CONFIG_CMAKE}.in" "${BUILT_CONFIG_CMAKE}"
-                                  INSTALL_DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
-    install(FILES "${BUILT_CONFIG_CMAKE}" DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
-
-    set(CONFIG_VERSION_CMAKE "${ARG_CMAKE_PACKAGE_NAME}ConfigVersion.cmake")
-    set(BUILT_CONFIG_VERSION_CMAKE "${CMAKE_CURRENT_BINARY_DIR}/${CONFIG_VERSION_CMAKE}")
-    write_basic_package_version_file(
-      "${BUILT_CONFIG_VERSION_CMAKE}"
-      VERSION ${${PROJECT_NAME}_VERSION}
-      COMPATIBILITY AnyNewerVersion)
-    install(FILES "${BUILT_CONFIG_VERSION_CMAKE}"
-            DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
+    arrow_install_cmake_package(${ARG_CMAKE_PACKAGE_NAME} ${LIB_NAME}_targets)
   endif()
 
   if(ARG_PKG_CONFIG_NAME)
@@ -569,7 +563,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARROW_BENCHMARK_LINK_LIBS})
     endif()
     add_dependencies(benchmark ${BENCHMARK_NAME})
-    set(NO_COLOR "--color_print=false")
 
     if(ARG_EXTRA_LINK_LIBS)
       target_link_libraries(${BENCHMARK_NAME} PRIVATE ${ARG_EXTRA_LINK_LIBS})
@@ -577,7 +570,6 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
   else()
     # No executable, just invoke the benchmark (probably a script) directly.
     set(BENCHMARK_PATH ${CMAKE_CURRENT_SOURCE_DIR}/${REL_BENCHMARK_NAME})
-    set(NO_COLOR "")
   endif()
 
   # With OSX and conda, we need to set the correct RPATH so that dependencies
@@ -609,12 +601,16 @@ function(ADD_BENCHMARK REL_BENCHMARK_NAME)
     set(ARG_LABELS benchmark)
   endif()
 
+  if(ARROW_BUILD_DETAILED_BENCHMARKS)
+    target_compile_definitions(${BENCHMARK_NAME} PRIVATE ARROW_BUILD_DETAILED_BENCHMARKS)
+  endif()
+
   add_test(${BENCHMARK_NAME}
            ${BUILD_SUPPORT_DIR}/run-test.sh
            ${CMAKE_BINARY_DIR}
            benchmark
-           ${BENCHMARK_PATH}
-           ${NO_COLOR})
+           ${BENCHMARK_PATH})
+
   set_property(TEST ${BENCHMARK_NAME}
                APPEND
                PROPERTY LABELS ${ARG_LABELS})
@@ -660,7 +656,8 @@ function(ADD_TEST_CASE REL_TEST_NAME)
       LABELS
       EXTRA_LABELS
       TEST_ARGUMENTS
-      PREFIX)
+      PREFIX
+      DEFINITIONS)
   cmake_parse_arguments(ARG
                         "${options}"
                         "${one_value_args}"
@@ -729,6 +726,10 @@ function(ADD_TEST_CASE REL_TEST_NAME)
 
   if(ARG_EXTRA_DEPENDENCIES)
     add_dependencies(${TEST_NAME} ${ARG_EXTRA_DEPENDENCIES})
+  endif()
+
+  if(ARG_DEFINITIONS)
+    target_compile_definitions(${TEST_NAME} PRIVATE ${ARG_DEFINITIONS})
   endif()
 
   if(ARROW_TEST_MEMCHECK AND NOT ARG_NO_VALGRIND)
@@ -831,13 +832,15 @@ function(ADD_ARROW_EXAMPLE REL_EXAMPLE_NAME)
     set(EXAMPLE_NAME "${ARG_PREFIX}-${EXAMPLE_NAME}")
   endif()
 
+  # Make sure the executable name contains only hyphens, not underscores
+  string(REPLACE "_" "-" EXAMPLE_NAME ${EXAMPLE_NAME})
+
   if(EXISTS ${CMAKE_SOURCE_DIR}/examples/arrow/${REL_EXAMPLE_NAME}.cc)
     # This example has a corresponding .cc file, set it up as an executable.
     set(EXAMPLE_PATH "${EXECUTABLE_OUTPUT_PATH}/${EXAMPLE_NAME}")
     add_executable(${EXAMPLE_NAME} "${REL_EXAMPLE_NAME}.cc" ${ARG_EXTRA_SOURCES})
     target_link_libraries(${EXAMPLE_NAME} ${ARROW_EXAMPLE_LINK_LIBS})
     add_dependencies(runexample ${EXAMPLE_NAME})
-    set(NO_COLOR "--color_print=false")
 
     if(ARG_EXTRA_LINK_LIBS)
       target_link_libraries(${EXAMPLE_NAME} ${ARG_EXTRA_LINK_LIBS})
@@ -879,7 +882,7 @@ function(ADD_FUZZ_TARGET REL_FUZZING_NAME)
     message(SEND_ERROR "Error: unrecognized arguments: ${ARG_UNPARSED_ARGUMENTS}")
   endif()
 
-  if(NO_FUZZING)
+  if(NOT ARROW_FUZZING)
     return()
   endif()
 
@@ -934,14 +937,13 @@ function(ARROW_INSTALL_ALL_HEADERS PATH)
 endfunction()
 
 function(ARROW_ADD_PKG_CONFIG MODULE)
-  configure_file(${MODULE}.pc.in "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc" @ONLY)
-  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc"
+  configure_file(${MODULE}.pc.in "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc.generate.in"
+                 @ONLY)
+  file(GENERATE
+       OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${MODULE}.pc"
+       INPUT "${CMAKE_CURRENT_BINARY_DIR}/${MODULE}.pc.generate.in")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/${MODULE}.pc"
           DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig/")
-endfunction()
-
-function(ARROW_INSTALL_CMAKE_FIND_MODULE MODULE)
-  install(FILES "${ARROW_SOURCE_DIR}/cmake_modules/Find${MODULE}.cmake"
-          DESTINATION "${ARROW_CMAKE_INSTALL_DIR}")
 endfunction()
 
 # Implementations of lisp "car" and "cdr" functions

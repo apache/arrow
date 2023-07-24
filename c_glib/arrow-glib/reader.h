@@ -79,6 +79,10 @@ GArrowTable *
 garrow_record_batch_reader_read_all(GArrowRecordBatchReader *reader,
                                     GError **error);
 
+GARROW_AVAILABLE_IN_13_0
+GList *
+garrow_record_batch_reader_get_sources(GArrowRecordBatchReader *reader);
+
 #define GARROW_TYPE_TABLE_BATCH_READER (garrow_table_batch_reader_get_type())
 G_DECLARE_DERIVABLE_TYPE(GArrowTableBatchReader,
                          garrow_table_batch_reader,
@@ -91,6 +95,11 @@ struct _GArrowTableBatchReaderClass
 };
 
 GArrowTableBatchReader *garrow_table_batch_reader_new(GArrowTable *table);
+
+GARROW_AVAILABLE_IN_12_0
+void
+garrow_table_batch_reader_set_max_chunk_size(GArrowTableBatchReader *reader,
+                                             gint64 max_chunk_size);
 
 
 #define GARROW_TYPE_RECORD_BATCH_STREAM_READER          \

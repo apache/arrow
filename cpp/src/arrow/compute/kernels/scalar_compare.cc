@@ -18,18 +18,18 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <optional>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/common.h"
+#include "arrow/compute/kernels/common_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/optional.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using util::string_view;
+using std::string_view;
 
 namespace compute {
 namespace internal {
@@ -158,12 +158,145 @@ struct Maximum {
 
 // Implement Less, LessEqual by flipping arguments to Greater, GreaterEqual
 
-template <typename OutType, typename ArgType, typename Op>
-struct CompareTimestamps
-    : public applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op> {
-  using Base = applicator::ScalarBinaryEqualTypes<OutType, ArgType, Op>;
+template <typename Type, typename Op>
+struct ComparePrimitiveArrayArray {
+  using T = typename Type::c_type;
+  static void Exec(const void* left_values_void, const void* right_values_void,
+                   int64_t length, void* out_bitmap_void) {
+    const T* left_values = reinterpret_cast<const T*>(left_values_void);
+    const T* right_values = reinterpret_cast<const T*>(right_values_void);
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
+    int64_t num_batches = length / kBatchSize;
+    uint32_t temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] = Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       *right_values++, nullptr);
+      }
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(out_bitmap, bit_index++,
+                         Op::template Call<bool, T, T>(nullptr, *left_values++,
+                                                       *right_values++, nullptr));
+    }
+  }
+};
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+template <typename Type, typename Op>
+struct ComparePrimitiveArrayScalar {
+  using T = typename Type::c_type;
+  static void Exec(const void* left_values_void, const void* right_value_void,
+                   int64_t length, void* out_bitmap_void) {
+    const T* left_values = reinterpret_cast<const T*>(left_values_void);
+    const T right_value = *reinterpret_cast<const T*>(right_value_void);
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
+    int64_t num_batches = length / kBatchSize;
+    uint32_t temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] =
+            Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr);
+      }
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(
+          out_bitmap, bit_index++,
+          Op::template Call<bool, T, T>(nullptr, *left_values++, right_value, nullptr));
+    }
+  }
+};
+
+template <typename Type, typename Op>
+struct ComparePrimitiveScalarArray {
+  using T = typename Type::c_type;
+  static void Exec(const void* left_value_void, const void* right_values_void,
+                   int64_t length, void* out_bitmap_void) {
+    const T left_value = *reinterpret_cast<const T*>(left_value_void);
+    const T* right_values = reinterpret_cast<const T*>(right_values_void);
+    uint8_t* out_bitmap = reinterpret_cast<uint8_t*>(out_bitmap_void);
+    static constexpr int kBatchSize = 32;
+    int64_t num_batches = length / kBatchSize;
+    uint32_t temp_output[kBatchSize];
+    for (int64_t j = 0; j < num_batches; ++j) {
+      for (int i = 0; i < kBatchSize; ++i) {
+        temp_output[i] =
+            Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr);
+      }
+      bit_util::PackBits<kBatchSize>(temp_output, out_bitmap);
+      out_bitmap += kBatchSize / 8;
+    }
+    int64_t bit_index = 0;
+    for (int64_t j = kBatchSize * num_batches; j < length; ++j) {
+      bit_util::SetBitTo(
+          out_bitmap, bit_index++,
+          Op::template Call<bool, T, T>(nullptr, left_value, *right_values++, nullptr));
+    }
+  }
+};
+
+using BinaryKernel = void (*)(const void*, const void*, int64_t, void*);
+
+struct CompareData : public KernelState {
+  BinaryKernel func_aa;
+  BinaryKernel func_sa;
+  BinaryKernel func_as;
+  CompareData(BinaryKernel func_aa, BinaryKernel func_sa, BinaryKernel func_as)
+      : func_aa(func_aa), func_sa(func_sa), func_as(func_as) {}
+};
+
+template <typename Type>
+struct CompareKernel {
+  using T = typename Type::c_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
+    DCHECK(kernel);
+    const auto kernel_data = checked_cast<const CompareData*>(kernel->data.get());
+
+    ArraySpan* out_arr = out->array_span_mutable();
+
+    // TODO: implement path for offset not multiple of 8
+    const bool out_is_byte_aligned = out_arr->offset % 8 == 0;
+
+    std::shared_ptr<Buffer> out_buffer_tmp;
+    uint8_t* out_buffer;
+    if (out_is_byte_aligned) {
+      out_buffer = out_arr->buffers[1].data + out_arr->offset / 8;
+    } else {
+      ARROW_ASSIGN_OR_RAISE(out_buffer_tmp, ctx->AllocateBitmap(batch.length));
+      out_buffer = out_buffer_tmp->mutable_data();
+    }
+    if (batch[0].is_array() && batch[1].is_array()) {
+      kernel_data->func_aa(batch[0].array.GetValues<T>(1), batch[1].array.GetValues<T>(1),
+                           batch.length, out_buffer);
+    } else if (batch[1].is_scalar()) {
+      T value = UnboxScalar<Type>::Unbox(*batch[1].scalar);
+      kernel_data->func_as(batch[0].array.GetValues<T>(1), &value, batch.length,
+                           out_buffer);
+    } else {
+      T value = UnboxScalar<Type>::Unbox(*batch[0].scalar);
+      kernel_data->func_sa(&value, batch[1].array.GetValues<T>(1), batch.length,
+                           out_buffer);
+    }
+    if (!out_is_byte_aligned) {
+      ::arrow::internal::CopyBitmap(out_buffer, /*offset=*/0, batch.length,
+                                    out_arr->buffers[1].data, out_arr->offset);
+    }
+    return Status::OK();
+  }
+};
+
+template <typename Op>
+struct CompareTimestamps {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& lhs = checked_cast<const TimestampType&>(*batch[0].type());
     const auto& rhs = checked_cast<const TimestampType&>(*batch[1].type());
     if (lhs.timezone().empty() ^ rhs.timezone().empty()) {
@@ -171,122 +304,125 @@ struct CompareTimestamps
           "Cannot compare timestamp with timezone to timestamp without timezone, got: ",
           lhs, " and ", rhs);
     }
-    return Base::Exec(ctx, batch, out);
+    return CompareKernel<Int64Type>::Exec(ctx, batch, out);
   }
 };
 
 template <typename Op>
-void AddIntegerCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  auto exec =
-      GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(*ty);
-  DCHECK_OK(func->AddKernel({ty, ty}, boolean(), std::move(exec)));
+ScalarKernel GetCompareKernel(InputType ty, Type::type compare_type,
+                              ArrayKernelExec exec) {
+  ScalarKernel kernel;
+  kernel.signature = KernelSignature::Make({ty, ty}, boolean());
+  BinaryKernel func_aa =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayArray, Op>(
+          compare_type);
+  BinaryKernel func_sa =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveScalarArray, Op>(
+          compare_type);
+  BinaryKernel func_as =
+      GeneratePhysicalNumericGeneric<BinaryKernel, ComparePrimitiveArrayScalar, Op>(
+          compare_type);
+  kernel.data = std::make_shared<CompareData>(func_aa, func_sa, func_as);
+  kernel.exec = exec;
+  return kernel;
 }
 
-template <typename InType, typename Op>
-void AddGenericCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
-  DCHECK_OK(
-      func->AddKernel({ty, ty}, boolean(),
-                      applicator::ScalarBinaryEqualTypes<BooleanType, InType, Op>::Exec));
+template <typename Op>
+void AddPrimitiveCompare(const std::shared_ptr<DataType>& ty, ScalarFunction* func) {
+  ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(ty);
+  ScalarKernel kernel = GetCompareKernel<Op>(ty, ty->id(), exec);
+  DCHECK_OK(func->AddKernel(kernel));
 }
 
 struct CompareFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
-    if (HasDecimal(*values)) {
-      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
+    if (HasDecimal(*types)) {
+      RETURN_NOT_OK(CastBinaryDecimalArgs(DecimalPromotion::kAdd, types));
     }
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
-    ReplaceNullWithOtherType(values);
+    EnsureDictionaryDecoded(types);
+    ReplaceNullWithOtherType(types);
 
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
-    } else if (auto type = CommonTemporal(values->data(), values->size())) {
-      ReplaceTypes(type, values);
-    } else if (auto type = CommonBinary(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    if (auto type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
+    } else if (auto type = CommonTemporal(types->data(), types->size())) {
+      ReplaceTypes(type, types);
+    } else if (auto type = CommonBinary(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
 struct VarArgsCompareFunction : ScalarFunction {
   using ScalarFunction::ScalarFunction;
 
-  Result<const Kernel*> DispatchBest(std::vector<ValueDescr>* values) const override {
-    RETURN_NOT_OK(CheckArity(*values));
+  Result<const Kernel*> DispatchBest(std::vector<TypeHolder>* types) const override {
+    RETURN_NOT_OK(CheckArity(types->size()));
 
     using arrow::compute::detail::DispatchExactImpl;
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
 
-    EnsureDictionaryDecoded(values);
+    EnsureDictionaryDecoded(types);
 
-    if (auto type = CommonNumeric(*values)) {
-      ReplaceTypes(type, values);
-    } else if (auto type = CommonTemporal(values->data(), values->size())) {
-      ReplaceTypes(type, values);
+    if (auto type = CommonNumeric(*types)) {
+      ReplaceTypes(type, types);
+    } else if (auto type = CommonTemporal(types->data(), types->size())) {
+      ReplaceTypes(type, types);
     }
 
-    if (auto kernel = DispatchExactImpl(this, *values)) return kernel;
-    return arrow::compute::detail::NoMatchingKernel(this, *values);
+    if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
+    return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
 };
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
-                                                    const FunctionDoc* doc) {
-  auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
+std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name, FunctionDoc doc) {
+  auto func = std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
 
   DCHECK_OK(func->AddKernel(
       {boolean(), boolean()}, boolean(),
       applicator::ScalarBinary<BooleanType, BooleanType, BooleanType, Op>::Exec));
 
-  for (const std::shared_ptr<DataType>& ty : IntTypes()) {
-    AddIntegerCompare<Op>(ty, func.get());
+  for (const std::shared_ptr<DataType>& ty : NumericTypes()) {
+    AddPrimitiveCompare<Op>(ty, func.get());
   }
-  AddIntegerCompare<Op>(date32(), func.get());
-  AddIntegerCompare<Op>(date64(), func.get());
-
-  AddGenericCompare<FloatType, Op>(float32(), func.get());
-  AddGenericCompare<DoubleType, Op>(float64(), func.get());
+  AddPrimitiveCompare<Op>(date32(), func.get());
+  AddPrimitiveCompare<Op>(date64(), func.get());
 
   // Add timestamp kernels
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::TimestampTypeUnit(unit));
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(),
-                              CompareTimestamps<BooleanType, TimestampType, Op>::Exec));
+    ScalarKernel kernel =
+        GetCompareKernel<Op>(in_type, Type::INT64, CompareTimestamps<Op>::Exec);
+    DCHECK_OK(func->AddKernel(kernel));
   }
 
   // Duration
   for (auto unit : TimeUnit::values()) {
     InputType in_type(match::DurationTypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   // Time32 and Time64
   for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI}) {
     InputType in_type(match::Time32TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int32());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int32());
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT32, exec)));
   }
   for (auto unit : {TimeUnit::MICRO, TimeUnit::NANO}) {
     InputType in_type(match::Time64TypeUnit(unit));
-    auto exec =
-        GeneratePhysicalInteger<applicator::ScalarBinaryEqualTypes, BooleanType, Op>(
-            int64());
-    DCHECK_OK(func->AddKernel({in_type, in_type}, boolean(), std::move(exec)));
+    ArrayKernelExec exec = GeneratePhysicalNumeric<CompareKernel>(int64());
+    DCHECK_OK(func->AddKernel(GetCompareKernel<Op>(in_type, Type::INT64, exec)));
   }
 
   for (const std::shared_ptr<DataType>& ty : BaseBinaryTypes()) {
@@ -311,13 +447,37 @@ std::shared_ptr<ScalarFunction> MakeCompareFunction(std::string name,
   return func;
 }
 
-std::shared_ptr<ScalarFunction> MakeFlippedFunction(std::string name,
-                                                    const ScalarFunction& func,
-                                                    const FunctionDoc* doc) {
-  auto flipped_func = std::make_shared<CompareFunction>(name, Arity::Binary(), doc);
+struct FlippedData : public CompareData {
+  ArrayKernelExec unflipped_exec;
+  explicit FlippedData(ArrayKernelExec unflipped_exec, BinaryKernel func_aa = nullptr,
+                       BinaryKernel func_sa = nullptr, BinaryKernel func_as = nullptr)
+      : CompareData{func_aa, func_sa, func_as}, unflipped_exec(unflipped_exec) {}
+};
+
+Status FlippedCompare(KernelContext* ctx, const ExecSpan& span, ExecResult* out) {
+  const auto kernel = static_cast<const ScalarKernel*>(ctx->kernel());
+  const auto kernel_data = checked_cast<const FlippedData*>(kernel->data.get());
+  ExecSpan flipped_span = span;
+  std::swap(flipped_span.values[0], flipped_span.values[1]);
+  return kernel_data->unflipped_exec(ctx, flipped_span, out);
+}
+
+std::shared_ptr<ScalarFunction> MakeFlippedCompare(std::string name,
+                                                   const ScalarFunction& func,
+                                                   FunctionDoc doc) {
+  auto flipped_func =
+      std::make_shared<CompareFunction>(name, Arity::Binary(), std::move(doc));
   for (const ScalarKernel* kernel : func.kernels()) {
     ScalarKernel flipped_kernel = *kernel;
-    flipped_kernel.exec = MakeFlippedBinaryExec(kernel->exec);
+    if (kernel->data) {
+      auto compare_data = checked_cast<const CompareData*>(kernel->data.get());
+      flipped_kernel.data =
+          std::make_shared<FlippedData>(kernel->exec, compare_data->func_aa,
+                                        compare_data->func_sa, compare_data->func_as);
+    } else {
+      flipped_kernel.data = std::make_shared<FlippedData>(kernel->exec);
+    }
+    flipped_kernel.exec = FlippedCompare;
     DCHECK_OK(flipped_func->AddKernel(std::move(flipped_kernel)));
   }
   return flipped_func;
@@ -330,15 +490,15 @@ template <typename OutType, typename Op>
 struct ScalarMinMax {
   using OutValue = typename GetOutputType<OutType>::T;
 
-  static void ExecScalar(const ExecBatch& batch,
+  static void ExecScalar(const ExecSpan& batch,
                          const ElementWiseAggregateOptions& options, Scalar* out) {
     // All arguments are scalar
     OutValue value{};
     bool valid = false;
-    for (const auto& arg : batch.values) {
+    for (const ExecValue& arg : batch.values) {
       // Ignore non-scalar arguments so we can use it in the mixed-scalar-and-array case
       if (!arg.is_scalar()) continue;
-      const auto& scalar = *arg.scalar();
+      const Scalar& scalar = *arg.scalar;
       if (!scalar.is_valid) {
         if (options.skip_nulls) continue;
         out->is_valid = false;
@@ -358,30 +518,25 @@ struct ScalarMinMax {
     }
   }
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    const auto descrs = batch.GetDescriptors();
-    const size_t scalar_count =
-        static_cast<size_t>(std::count_if(batch.values.begin(), batch.values.end(),
-                                          [](const Datum& d) { return d.is_scalar(); }));
-    if (scalar_count == batch.values.size()) {
-      ExecScalar(batch, options, out->scalar().get());
-      return Status::OK();
-    }
+    const size_t scalar_count = static_cast<size_t>(
+        std::count_if(batch.values.begin(), batch.values.end(),
+                      [](const ExecValue& v) { return v.is_scalar(); }));
 
-    ArrayData* output = out->mutable_array();
+    ArrayData* output = out->array_data().get();
 
     // At least one array, two or more arguments
-    ArrayDataVector arrays;
-    for (const auto& arg : batch.values) {
-      if (!arg.is_array()) continue;
-      arrays.push_back(arg.array());
+    std::vector<const ArraySpan*> arrays;
+    for (const auto& value : batch.values) {
+      if (!value.is_array()) continue;
+      arrays.push_back(&value.array);
     }
 
     bool initialize_output = true;
     if (scalar_count > 0) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> temp_scalar,
-                            MakeScalar(out->type(), 0));
+                            MakeScalar(out->type()->GetSharedPtr(), 0));
       ExecScalar(batch, options, temp_scalar.get());
       if (temp_scalar->is_valid) {
         const auto value = UnboxScalar<OutType>::Unbox(*temp_scalar);
@@ -392,7 +547,7 @@ struct ScalarMinMax {
         // Abort early
         ARROW_ASSIGN_OR_RAISE(auto array, MakeArrayFromScalar(*temp_scalar, batch.length,
                                                               ctx->memory_pool()));
-        *output = *array->data();
+        out->value = std::move(array->data());
         return Status::OK();
       }
     }
@@ -406,47 +561,45 @@ struct ScalarMinMax {
     if (options.skip_nulls && initialize_output) {
       // OR together the validity buffers of all arrays
       if (std::all_of(arrays.begin(), arrays.end(),
-                      [](const std::shared_ptr<ArrayData>& arr) {
-                        return arr->MayHaveNulls();
-                      })) {
-        for (const auto& arr : arrays) {
+                      [](const ArraySpan* arr) { return arr->MayHaveNulls(); })) {
+        for (const ArraySpan* arr : arrays) {
           if (!arr->MayHaveNulls()) continue;
           if (!output->buffers[0]) {
             ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-            ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
-
-                                          batch.length,
+            ::arrow::internal::CopyBitmap(arr->buffers[0].data, arr->offset, batch.length,
                                           output->buffers[0]->mutable_data(),
                                           /*dest_offset=*/0);
           } else {
-            ::arrow::internal::BitmapOr(
-                output->buffers[0]->data(), /*left_offset=*/0, arr->buffers[0]->data(),
-                arr->offset, batch.length,
-                /*out_offset=*/0, output->buffers[0]->mutable_data());
+            ::arrow::internal::BitmapOr(output->buffers[0]->data(), /*left_offset=*/0,
+                                        arr->buffers[0].data, arr->offset, batch.length,
+                                        /*out_offset=*/0,
+                                        output->buffers[0]->mutable_data());
           }
         }
       }
     } else if (!options.skip_nulls) {
       // AND together the validity buffers of all arrays
-      for (const auto& arr : arrays) {
+      for (const ArraySpan* arr : arrays) {
         if (!arr->MayHaveNulls()) continue;
         if (!output->buffers[0]) {
           ARROW_ASSIGN_OR_RAISE(output->buffers[0], ctx->AllocateBitmap(batch.length));
-          ::arrow::internal::CopyBitmap(arr->buffers[0]->data(), arr->offset,
-                                        batch.length, output->buffers[0]->mutable_data(),
+          ::arrow::internal::CopyBitmap(arr->buffers[0].data, arr->offset, batch.length,
+                                        output->buffers[0]->mutable_data(),
                                         /*dest_offset=*/0);
         } else {
           ::arrow::internal::BitmapAnd(output->buffers[0]->data(), /*left_offset=*/0,
-                                       arr->buffers[0]->data(), arr->offset, batch.length,
+                                       arr->buffers[0].data, arr->offset, batch.length,
                                        /*out_offset=*/0,
                                        output->buffers[0]->mutable_data());
         }
       }
     }
 
-    for (const auto& array : arrays) {
-      OutputArrayWriter<OutType> writer(out->mutable_array());
-      ArrayIterator<OutType> out_it(*output);
+    for (const ArraySpan* array : arrays) {
+      // TODO(wesm): this got to be a mess in ARROW-16576, clean up
+      ArraySpan out_span(*output);
+      OutputArrayWriter<OutType> writer(&out_span);
+      ArrayIterator<OutType> out_it(out_span);
       int64_t index = 0;
       VisitArrayValuesInline<OutType>(
           *array,
@@ -472,65 +625,14 @@ struct ScalarMinMax {
   }
 };
 
-template <typename Op>
-Status ExecBinaryMinMaxScalar(KernelContext* ctx,
-                              const ElementWiseAggregateOptions& options,
-                              const ExecBatch& batch, Datum* out) {
-  if (batch.values.empty()) {
-    return Status::OK();
-  }
-  auto output = checked_cast<BaseBinaryScalar*>(out->scalar().get());
-  if (!options.skip_nulls) {
-    // any nulls in the input will produce a null output
-    for (const auto& value : batch.values) {
-      if (!value.scalar()->is_valid) {
-        output->is_valid = false;
-        return Status::OK();
-      }
-    }
-  }
-  const auto& first_scalar = *batch.values.front().scalar();
-  string_view result = checked_cast<const BaseBinaryScalar&>(first_scalar).view();
-  bool valid = first_scalar.is_valid;
-  for (size_t i = 1; i < batch.values.size(); i++) {
-    const auto& scalar = *batch[i].scalar();
-    if (!scalar.is_valid) {
-      DCHECK(options.skip_nulls);
-      continue;
-    } else {
-      string_view value = checked_cast<const BaseBinaryScalar&>(scalar).view();
-      result = !valid ? value : Op::Call(result, value);
-      valid = true;
-    }
-  }
-  if (valid) {
-    ARROW_ASSIGN_OR_RAISE(output->value, ctx->Allocate(result.size()));
-    std::copy(result.begin(), result.end(), output->value->mutable_data());
-    output->is_valid = true;
-  } else {
-    output->is_valid = false;
-  }
-  return Status::OK();
-}
-
 template <typename Type, typename Op>
 struct BinaryScalarMinMax {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   using offset_type = typename Type::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    if (std::all_of(batch.values.begin(), batch.values.end(),
-                    [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
-    }
-    return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecContainingArrays(KernelContext* ctx,
-                                     const ElementWiseAggregateOptions& options,
-                                     const ExecBatch& batch, Datum* out) {
     // Presize data to avoid reallocations, using an estimation of final size.
     int64_t estimated_final_size = EstimateOutputSize(batch);
     BuilderType builder(ctx->memory_pool());
@@ -538,64 +640,58 @@ struct BinaryScalarMinMax {
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
     for (int64_t row = 0; row < batch.length; row++) {
-      util::optional<string_view> result;
+      std::optional<string_view> result;
       auto visit_value = [&](string_view value) {
         result = !result ? value : Op::Call(*result, value);
       };
 
-      for (size_t col = 0; col < batch.values.size(); col++) {
+      for (int col = 0; col < batch.num_values(); col++) {
         if (batch[col].is_scalar()) {
-          const auto& scalar = *batch[col].scalar();
+          const Scalar& scalar = *batch[col].scalar;
           if (scalar.is_valid) {
             visit_value(UnboxScalar<Type>::Unbox(scalar));
           } else if (!options.skip_nulls) {
-            result = util::nullopt;
+            result = std::nullopt;
             break;
           }
         } else {
-          const auto& array = *batch[col].array();
+          const ArraySpan& array = batch[col].array;
           if (!array.MayHaveNulls() ||
-              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0].data, array.offset + row)) {
             const auto offsets = array.GetValues<offset_type>(1);
             const auto data = array.GetValues<uint8_t>(2, /*absolute_offset=*/0);
             const int64_t length = offsets[row + 1] - offsets[row];
             visit_value(
                 string_view(reinterpret_cast<const char*>(data + offsets[row]), length));
           } else if (!options.skip_nulls) {
-            result = util::nullopt;
+            result = std::nullopt;
             break;
           }
         }
       }
 
-      if (result) {
-        RETURN_NOT_OK(builder.Append(*result));
-      } else {
-        builder.UnsafeAppendNull();
-      }
+      RETURN_NOT_OK(builder.AppendOrNull(result));
     }
 
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
-    *out = *string_array->data();
-    out->mutable_array()->type = batch[0].type();
-    DCHECK_EQ(batch.length, out->array()->length);
+    out->value = std::move(string_array->data());
+    out->array_data()->type = batch[0].type()->GetSharedPtr();
+    DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
 
   // Compute an estimation for the length of the output batch.
-  static int64_t EstimateOutputSize(const ExecBatch& batch) {
+  static int64_t EstimateOutputSize(const ExecSpan& batch) {
     int64_t estimated_final_size = 0;
-    for (size_t col = 0; col < batch.values.size(); col++) {
-      const auto& datum = batch[col];
-      if (datum.is_scalar()) {
-        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*datum.scalar());
+    for (const ExecValue& value : batch.values) {
+      if (value.is_scalar()) {
+        const auto& scalar = checked_cast<const BaseBinaryScalar&>(*value.scalar);
         if (scalar.is_valid) {
           estimated_final_size = std::max(estimated_final_size, scalar.value->size());
         }
       } else {
-        DCHECK(datum.is_array());
-        const ArrayData& array = *datum.array();
+        const ArraySpan& array = value.array;
         const auto offsets = array.GetValues<offset_type>(1);
         int64_t estimated_current_size = offsets[array.length] - offsets[0];
         estimated_final_size = std::max(estimated_final_size, estimated_current_size);
@@ -607,58 +703,55 @@ struct BinaryScalarMinMax {
 
 template <typename Op>
 struct FixedSizeBinaryScalarMinMax {
-  static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const ElementWiseAggregateOptions& options = MinMaxState::Get(ctx);
-    if (std::all_of(batch.values.begin(), batch.values.end(),
-                    [](const Datum& d) { return d.is_scalar(); })) {
-      return ExecBinaryMinMaxScalar<Op>(ctx, options, batch, out);
-    }
-    return ExecContainingArrays(ctx, options, batch, out);
-  }
-
-  static Status ExecContainingArrays(KernelContext* ctx,
-                                     const ElementWiseAggregateOptions& options,
-                                     const ExecBatch& batch, Datum* out) {
-    const auto batch_type = batch[0].type();
-    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type.get());
+    const DataType* batch_type = batch[0].type();
+    const auto binary_type = checked_cast<const FixedSizeBinaryType*>(batch_type);
     int32_t byte_width = binary_type->byte_width();
     // Presize data to avoid reallocations.
     int64_t estimated_final_size = batch.length * byte_width;
-    FixedSizeBinaryBuilder builder(batch_type);
+    FixedSizeBinaryBuilder builder(batch_type->GetSharedPtr());
     RETURN_NOT_OK(builder.Reserve(batch.length));
     RETURN_NOT_OK(builder.ReserveData(estimated_final_size));
 
-    std::vector<string_view> valid_cols(batch.values.size());
+    std::vector<string_view> valid_cols(batch.num_values());
     for (int64_t row = 0; row < batch.length; row++) {
       string_view result;
       auto visit_value = [&](string_view value) {
         result = result.empty() ? value : Op::Call(result, value);
       };
 
-      for (size_t col = 0; col < batch.values.size(); col++) {
+      int num_valid_values = 0;
+      for (int col = 0; col < batch.num_values(); col++) {
         if (batch[col].is_scalar()) {
-          const auto& scalar = *batch[col].scalar();
+          const Scalar& scalar = *batch[col].scalar;
           if (scalar.is_valid) {
             visit_value(UnboxScalar<FixedSizeBinaryType>::Unbox(scalar));
+            num_valid_values += 1;
           } else if (!options.skip_nulls) {
-            result = string_view();
+            // If we encounter a null, exit the loop and mark num_row_values to
+            // be 0 so we append a null
+            num_valid_values = 0;
             break;
           }
         } else {
-          const auto& array = *batch[col].array();
+          const ArraySpan& array = batch[col].array;
           if (!array.MayHaveNulls() ||
-              bit_util::GetBit(array.buffers[0]->data(), array.offset + row)) {
+              bit_util::GetBit(array.buffers[0].data, array.offset + row)) {
             const auto data = array.GetValues<uint8_t>(1, /*absolute_offset=*/0);
             visit_value(string_view(
                 reinterpret_cast<const char*>(data) + row * byte_width, byte_width));
+            num_valid_values += 1;
           } else if (!options.skip_nulls) {
-            result = string_view();
+            // If we encounter a null, exit the loop and mark num_row_values to
+            // be 0 so we append a null
+            num_valid_values = 0;
             break;
           }
         }
       }
 
-      if (result.empty()) {
+      if (num_valid_values == 0) {
         builder.UnsafeAppendNull();
       } else {
         builder.UnsafeAppend(result);
@@ -667,37 +760,36 @@ struct FixedSizeBinaryScalarMinMax {
 
     std::shared_ptr<Array> string_array;
     RETURN_NOT_OK(builder.Finish(&string_array));
-    *out = *string_array->data();
-    out->mutable_array()->type = batch[0].type();
-    DCHECK_EQ(batch.length, out->array()->length);
+    out->value = std::move(string_array->data());
+    out->array_data()->type = batch[0].type()->GetSharedPtr();
+    DCHECK_EQ(batch.length, out->array_data()->length);
     return Status::OK();
   }
 };
 
-Result<ValueDescr> ResolveMinOrMaxOutputType(KernelContext*,
-                                             const std::vector<ValueDescr>& args) {
-  if (args.empty()) {
+Result<TypeHolder> ResolveMinOrMaxOutputType(KernelContext*,
+                                             const std::vector<TypeHolder>& types) {
+  if (types.empty()) {
     return null();
   }
-  auto first_type = args[0].type;
-  for (size_t i = 1; i < args.size(); ++i) {
-    auto type = args[i].type;
+  auto first_type = types[0].type;
+  for (size_t i = 1; i < types.size(); ++i) {
+    auto type = types[i].type;
     if (*type != *first_type) {
       return Status::NotImplemented(
           "Different input types not supported for {min, max}_element_wise");
     }
   }
-  return ValueDescr(first_type, GetBroadcastShape(args));
+  return first_type;
 }
 
 template <typename Op>
-std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
-                                                 const FunctionDoc* doc) {
+std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name, FunctionDoc doc) {
   static auto default_element_wise_aggregate_options =
       ElementWiseAggregateOptions::Defaults();
 
   auto func = std::make_shared<VarArgsCompareFunction>(
-      name, Arity::VarArgs(), doc, &default_element_wise_aggregate_options);
+      name, Arity::VarArgs(), std::move(doc), &default_element_wise_aggregate_options);
   for (const auto& ty : NumericTypes()) {
     auto exec = GeneratePhysicalNumeric<ScalarMinMax, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
@@ -715,7 +807,8 @@ std::shared_ptr<ScalarFunction> MakeScalarMinMax(std::string name,
     DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
   for (const auto& ty : BaseBinaryTypes()) {
-    auto exec = GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, Op>(ty);
+    auto exec =
+        GenerateTypeAgnosticVarBinaryBase<BinaryScalarMinMax, ArrayKernelExec, Op>(ty);
     ScalarKernel kernel{KernelSignature::Make({ty}, ty, /*is_varargs=*/true), exec,
                         MinMaxState::Init};
     kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
@@ -789,16 +882,16 @@ const FunctionDoc max_element_wise_doc{
 }  // namespace
 
 void RegisterScalarComparison(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal", &equal_doc)));
+  DCHECK_OK(registry->AddFunction(MakeCompareFunction<Equal>("equal", equal_doc)));
   DCHECK_OK(
-      registry->AddFunction(MakeCompareFunction<NotEqual>("not_equal", &not_equal_doc)));
+      registry->AddFunction(MakeCompareFunction<NotEqual>("not_equal", not_equal_doc)));
 
-  auto greater = MakeCompareFunction<Greater>("greater", &greater_doc);
+  auto greater = MakeCompareFunction<Greater>("greater", greater_doc);
   auto greater_equal =
-      MakeCompareFunction<GreaterEqual>("greater_equal", &greater_equal_doc);
+      MakeCompareFunction<GreaterEqual>("greater_equal", greater_equal_doc);
 
-  auto less = MakeFlippedFunction("less", *greater, &less_doc);
-  auto less_equal = MakeFlippedFunction("less_equal", *greater_equal, &less_equal_doc);
+  auto less = MakeFlippedCompare("less", *greater, less_doc);
+  auto less_equal = MakeFlippedCompare("less_equal", *greater_equal, less_equal_doc);
   DCHECK_OK(registry->AddFunction(std::move(less)));
   DCHECK_OK(registry->AddFunction(std::move(less_equal)));
   DCHECK_OK(registry->AddFunction(std::move(greater)));
@@ -808,11 +901,11 @@ void RegisterScalarComparison(FunctionRegistry* registry) {
   // Variadic element-wise functions
 
   auto min_element_wise =
-      MakeScalarMinMax<Minimum>("min_element_wise", &min_element_wise_doc);
+      MakeScalarMinMax<Minimum>("min_element_wise", min_element_wise_doc);
   DCHECK_OK(registry->AddFunction(std::move(min_element_wise)));
 
   auto max_element_wise =
-      MakeScalarMinMax<Maximum>("max_element_wise", &max_element_wise_doc);
+      MakeScalarMinMax<Maximum>("max_element_wise", max_element_wise_doc);
   DCHECK_OK(registry->AddFunction(std::move(max_element_wise)));
 }
 

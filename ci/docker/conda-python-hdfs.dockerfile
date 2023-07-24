@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda-python-${python}
 
 ARG jdk=8
 ARG maven=3.5
-RUN mamba install -q \
+RUN mamba install -q -y \
         maven=${maven} \
         openjdk=${jdk} \
         pandas && \
@@ -42,11 +42,16 @@ COPY ci/etc/hdfs-site.xml $HADOOP_HOME/etc/hadoop/
 # build cpp with tests
 ENV CC=gcc \
     CXX=g++ \
+    ARROW_ACERO=ON \
+    ARROW_BUILD_TESTS=ON \
+    ARROW_COMPUTE=ON \
+    ARROW_CSV=ON \
+    ARROW_DATASET=ON \
+    ARROW_FILESYSTEM=ON \
     ARROW_FLIGHT=OFF \
     ARROW_GANDIVA=OFF \
-    ARROW_PLASMA=OFF \
-    ARROW_PARQUET=ON \
-    ARROW_ORC=OFF \
     ARROW_HDFS=ON \
-    ARROW_PYTHON=ON \
-    ARROW_BUILD_TESTS=ON
+    ARROW_JSON=ON \
+    ARROW_ORC=OFF \
+    ARROW_PARQUET=ON \
+    PARQUET_REQUIRE_ENCRYPTION=ON

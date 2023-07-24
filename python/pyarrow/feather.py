@@ -24,12 +24,6 @@ from pyarrow.lib import (Codec, Table,  # noqa
 import pyarrow.lib as ext
 from pyarrow import _feather
 from pyarrow._feather import FeatherError  # noqa: F401
-from pyarrow.vendored.version import Version
-
-
-def _check_pandas_version():
-    if _pandas_api.loose_version < Version('0.17.0'):
-        raise ImportError("feather requires pandas >= 0.17.0")
 
 
 class FeatherDataset:
@@ -96,7 +90,6 @@ class FeatherDataset:
         pandas.DataFrame
             Content of the file as a pandas DataFrame (of columns)
         """
-        _check_pandas_version()
         return self.read_table(columns=columns).to_pandas(
             use_threads=use_threads)
 
@@ -145,13 +138,22 @@ def write_feather(df, dest, compression=None, compression_level=None,
         limited legacy format
     """
     if _pandas_api.have_pandas:
-        _check_pandas_version()
         if (_pandas_api.has_sparse and
                 isinstance(df, _pandas_api.pd.SparseDataFrame)):
             df = df.to_dense()
 
     if _pandas_api.is_data_frame(df):
-        table = Table.from_pandas(df, preserve_index=False)
+        # Feather v1 creates a new column in the resultant Table to
+        # store index information if index type is not RangeIndex
+
+        if version == 1:
+            preserve_index = False
+        elif version == 2:
+            preserve_index = None
+        else:
+            raise ValueError("Version value should either be 1 or 2")
+
+        table = Table.from_pandas(df, preserve_index=preserve_index)
 
         if version == 1:
             # Version 1 does not chunking
@@ -194,7 +196,8 @@ def write_feather(df, dest, compression=None, compression_level=None,
         raise
 
 
-def read_feather(source, columns=None, use_threads=True, memory_map=True):
+def read_feather(source, columns=None, use_threads=True,
+                 memory_map=False, **kwargs):
     """
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
@@ -202,6 +205,7 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
     Parameters
     ----------
     source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
@@ -209,37 +213,41 @@ def read_feather(source, columns=None, use_threads=True, memory_map=True):
         Whether to parallelize reading using multiple threads. If false the
         restriction is used in the conversion to Pandas as well as in the
         reading from Feather format.
-    memory_map : boolean, default True
-        Use memory mapping when opening file on disk
+    memory_map : boolean, default False
+        Use memory mapping when opening file on disk, when source is a str.
+    **kwargs
+        Additional keyword arguments passed on to `pyarrow.Table.to_pandas`.
 
     Returns
     -------
     df : pandas.DataFrame
+        The contents of the Feather file as a pandas.DataFrame
     """
-    _check_pandas_version()
     return (read_table(
         source, columns=columns, memory_map=memory_map,
-        use_threads=use_threads).to_pandas(use_threads=use_threads))
+        use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
 
 
-def read_table(source, columns=None, memory_map=True, use_threads=True):
+def read_table(source, columns=None, memory_map=False, use_threads=True):
     """
     Read a pyarrow.Table from Feather format
 
     Parameters
     ----------
     source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
     columns : sequence, optional
         Only read a specific set of columns. If not provided, all columns are
         read.
-    memory_map : boolean, default True
-        Use memory mapping when opening file on disk
+    memory_map : boolean, default False
+        Use memory mapping when opening file on disk, when source is a str
     use_threads : bool, default True
         Whether to parallelize reading using multiple threads.
 
     Returns
     -------
     table : pyarrow.Table
+        The contents of the Feather file as a pyarrow.Table
     """
     reader = _feather.FeatherReader(
         source, use_memory_map=memory_map, use_threads=use_threads)

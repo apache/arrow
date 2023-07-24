@@ -56,8 +56,9 @@
 #'
 #' @rdname RecordBatchReader
 #' @name RecordBatchReader
-#' @include arrow-package.R
-#' @examplesIf arrow_available()
+#' @export
+#' @include arrow-object.R
+#' @examples
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #'
@@ -97,21 +98,55 @@ RecordBatchReader <- R6Class("RecordBatchReader",
     read_next_batch = function() RecordBatchReader__ReadNext(self),
     batches = function() RecordBatchReader__batches(self),
     read_table = function() Table__from_RecordBatchReader(self),
-    export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr)
+    Close = function() RecordBatchReader__Close(self),
+    export_to_c = function(stream_ptr) ExportRecordBatchReader(self, stream_ptr),
+    ToString = function() self$schema$ToString(),
+    .unsafe_delete = function() {
+      RecordBatchReader__UnsafeDelete(self)
+      super$.unsafe_delete()
+    }
   ),
   active = list(
     schema = function() RecordBatchReader__schema(self)
   )
 )
+RecordBatchReader$create <- function(..., batches = list(...), schema = NULL) {
+  are_batches <- map_lgl(batches, ~ inherits(., "RecordBatch"))
+  if (!all(are_batches)) {
+    stop(
+      "All inputs to RecordBatchReader$create must be RecordBatches",
+      call. = FALSE
+    )
+  }
+  RecordBatchReader__from_batches(batches, schema)
+}
+
+#' @export
+names.RecordBatchReader <- function(x) names(x$schema)
+
+#' @export
+dim.RecordBatchReader <- function(x) c(NA_integer_, length(x$schema))
+
+#' @export
+as.data.frame.RecordBatchReader <- function(x, row.names = NULL, optional = FALSE, ...) {
+  as.data.frame(x$read_table(), row.names = row.names, optional = optional, ...)
+}
 
 #' @export
 head.RecordBatchReader <- function(x, n = 6L, ...) {
-  head(Scanner$create(x), n)
+  assert_is(n, c("numeric", "integer"))
+  assert_that(length(n) == 1)
+  # Negative n requires knowing nrow(x), which requires consuming the whole RBR
+  assert_that(n >= 0)
+  if (!is.integer(n)) {
+    n <- floor(n)
+  }
+  RecordBatchReader__Head(x, n)
 }
 
 #' @export
 tail.RecordBatchReader <- function(x, n = 6L, ...) {
-  tail(Scanner$create(x), n)
+  tail_from_batches(x$batches(), n)
 }
 
 #' @rdname RecordBatchReader
@@ -161,4 +196,77 @@ RecordBatchFileReader$create <- function(file) {
   }
   assert_is(file, "InputStream")
   ipc___RecordBatchFileReader__Open(file)
+}
+
+#' Convert an object to an Arrow RecordBatchReader
+#'
+#' @param x An object to convert to a [RecordBatchReader]
+#' @param schema The [schema()] that must match the schema returned by each
+#'   call to `x` when `x` is a function.
+#' @param ... Passed to S3 methods
+#'
+#' @return A [RecordBatchReader]
+#' @export
+#'
+#' @examplesIf arrow_with_dataset()
+#' reader <- as_record_batch_reader(data.frame(col1 = 1, col2 = "two"))
+#' reader$read_next_batch()
+#'
+as_record_batch_reader <- function(x, ...) {
+  UseMethod("as_record_batch_reader")
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.RecordBatchReader <- function(x, ...) {
+  x
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Table <- function(x, ...) {
+  RecordBatchReader__from_Table(x)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.RecordBatch <- function(x, ...) {
+  RecordBatchReader$create(x, schema = x$schema)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.data.frame <- function(x, ...) {
+  check_named_cols(x)
+  RecordBatchReader$create(as_record_batch(x))
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Dataset <- function(x, ...) {
+  Scanner$create(x)$ToRecordBatchReader()
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.function <- function(x, ..., schema) {
+  assert_that(inherits(schema, "Schema"))
+  RecordBatchReader__from_function(x, schema)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.arrow_dplyr_query <- function(x, ...) {
+  # See query-engine.R for ExecPlan/Nodes
+  plan <- ExecPlan$create()
+  final_node <- plan$Build(x)
+  on.exit(plan$.unsafe_delete())
+
+  plan$Run(final_node)
+}
+
+#' @rdname as_record_batch_reader
+#' @export
+as_record_batch_reader.Scanner <- function(x, ...) {
+  x$ToRecordBatchReader()
 }

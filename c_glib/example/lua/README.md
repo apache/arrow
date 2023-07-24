@@ -28,23 +28,23 @@ Arrow GLib based bindings.
 
 Here are command lines to install LGI on Debian GNU/Linux and Ubuntu:
 
-```text
-% sudo apt install -y luarocks
-% sudo luarocks install lgi
+```console
+$ sudo apt install -y luarocks
+$ sudo luarocks install lgi
 ```
 
 ## Lua example codes
 
 Here are example codes in this directory:
 
-  * `write-batch.lua`: It shows how to write Arrow array to file in
-    batch mode.
+  * `write-file.lua`: It shows how to write Arrow array to file in
+    file format.
 
-  * `read-batch.lua`: It shows how to read Arrow array from file in
-    batch mode.
+  * `read-file.lua`: It shows how to read Arrow array from file in
+    file format.
 
   * `write-stream.lua`: It shows how to write Arrow array to file in
-    stream mode.
+    stream format.
 
   * `read-stream.lua`: It shows how to read Arrow array from file in
-    stream mode.
+    stream format.

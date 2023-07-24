@@ -37,26 +37,15 @@ incomplete or inaccurate, share your hard-earned knowledge
 with the rest of the community.
 
 If you didn't come across something to improve in the
-documentation itself, you can search for an issue on JIRA.
+documentation itself, you can search for an issue in GitHub.
 
 .. note::
-   When searching for JIRA issue that deals with documentation,
-   try selecting **Components** from the **More** tab in JIRA search
-   and select **Documentation** from the list.
+   When searching for an issue that deals with documentation,
+   navigate to `GitHub labels <https://github.com/apache/arrow/labels>`_
+   and select **Component: Documentation** or search for **Documentation**
+   in the "Search all labels" window.
 
-   See `Example search. <https://issues.apache.org/jira/issues/?jql=project%20%3D%20ARROW%20AND%20status%20%3D%20Open%20AND%20resolution%20%3D%20Unresolved%20AND%20component%20%3D%20Documentation%20AND%20assignee%20in%20(EMPTY)%20ORDER%20BY%20priority%20DESC%2C%20updated%20DESC>`_
-
-   .. figure:: jira_search_component.jpeg
-      :scale: 40 %
-      :alt: selecting Components in JIRA search
-
-      First select Components tab in JIRA.
-
-   .. figure:: jira_search_documentation.jpeg
-      :scale: 40 %
-      :alt: selecting Documentation in JIRA search
-
-      Then choose Documentation from the Components list.
+   See `Example search. <https://github.com/apache/arrow/issues?q=is%3Aopen+is%3Aissue+label%3A%22Component%3A+Documentation%22+>`_
 
 Documentation improvements are also a great way to gain some
 experience with our submission and review process without
@@ -68,13 +57,13 @@ requiring a lot of local development environment setup.
    on the right top corner of the documentations page. This
    will handle making a fork and a pull request for you.
 
-   .. figure:: edit_page.jpeg
+   .. figure:: ../images/edit_page.jpeg
       :scale: 20 %
       :alt: click on edit this page
 
       On the right corner of the file in GitHub click on pen icon.
 
-   .. figure:: github_edit_page.jpeg
+   .. figure:: ../images/github_edit_page.jpeg
       :scale: 30 %
       :alt: edit file in GitHub.
 

@@ -41,8 +41,4 @@
 #include <arm_neon.h>
 #endif
 
-#ifdef ARROW_HAVE_ARMV8_CRC
-#include <arm_acle.h>
-#endif
-
 #endif
