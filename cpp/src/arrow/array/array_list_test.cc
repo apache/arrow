@@ -233,7 +233,7 @@ class TestListArray : public ::testing::Test {
                                                  expected->null_bitmap()));
   }
 
-  void TestFromArraysWithSlicedNullBitmap() {
+  void TestFromArraysWithSlicedNullOffsets() {
     std::vector<offset_type> offsets = {-1, -1, 0, 1, 1, 3};
     std::vector<bool> offsets_w_nulls_is_valid = {true, true, true, false, true, true};
 
@@ -606,7 +606,7 @@ TYPED_TEST(TestListArray, FromArrays) { this->TestFromArrays(); }
 
 TYPED_TEST(TestListArray, FromArraysWithNullBitMap) {
   this->TestFromArraysWithNullBitMap();
-  this->TestFromArraysWithSlicedNullBitmap();
+  this->TestFromArraysWithSlicedNullOffsets();
 }
 
 TYPED_TEST(TestListArray, AppendNull) { this->TestAppendNull(); }
