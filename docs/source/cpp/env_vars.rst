@@ -138,6 +138,10 @@ that changing their value later will have an effect.
       SIGILL (Illegal Instruction).  User must rebuild Arrow and PyArrow from
       scratch by setting cmake option ``ARROW_SIMD_LEVEL=NONE``.
 
+.. envvar:: AWS_ENDPOINT_URL
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+
 .. envvar:: GANDIVA_CACHE_SIZE
 
    The number of entries to keep in the Gandiva JIT compilation cache.
