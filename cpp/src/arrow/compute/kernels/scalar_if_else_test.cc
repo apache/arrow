@@ -135,8 +135,10 @@ Datum ArrayOrBroadcastScalar(const Datum& input, int64_t length) {
   return input;
 }
 
-Result<Datum> ExpectedFromIfElse(const Datum& cond, const Datum& left, const Datum& right,
-                                 std::shared_ptr<DataType> type) {
+Result<Datum> ExpectedFromIfElse(
+    const Datum& cond, const Datum& left, const Datum& right,
+    std::shared_ptr<DataType> type,
+    const std::shared_ptr<Array>& expected_if_all_operands_are_arrays) {
   if (cond.is_scalar() && left.is_scalar() && right.is_scalar()) {
     const auto& scalar = cond.scalar_as<BooleanScalar>();
     Datum expected;
@@ -149,6 +151,9 @@ Result<Datum> ExpectedFromIfElse(const Datum& cond, const Datum& left, const Dat
       return Cast(expected, CastOptions::Safe(std::move(type)));
     }
     return expected;
+  }
+  if (cond.is_array() && left.is_array() && right.is_array()) {
+    return expected_if_all_operands_are_arrays;
   }
   // When at least one of the inputs is an array, we expect the output
   // to be the same as if all the scalars were broadcast to arrays.
@@ -185,7 +190,8 @@ std::string CodedCallName(const Datum& cond, const Datum& left, const Datum& rig
 
 void DoCheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
                                 const std::shared_ptr<Array>& left,
-                                const std::shared_ptr<Array>& right) {
+                                const std::shared_ptr<Array>& right,
+                                const std::shared_ptr<Array>& expected) {
   auto make_trace([&](const char* name, const Datum& datum, int index) {
     std::string trace = name;
     trace += " : ";
@@ -215,8 +221,9 @@ void DoCheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
           ASSERT_OK_AND_ASSIGN(actual, IfElse(cond_in, left_in, right_in));
         }
         ASSERT_OK_AND_ASSIGN(
-            auto expected, ExpectedFromIfElse(cond_in, left_in, right_in, actual.type()));
-        AssertDatumsEqual(expected, actual, /*verbose=*/true);
+            auto adjusted_expected,
+            ExpectedFromIfElse(cond_in, left_in, right_in, actual.type(), expected));
+        AssertDatumsEqual(adjusted_expected, actual, /*verbose=*/true);
       }
     }
   }
@@ -227,7 +234,7 @@ void CheckWithDifferentShapes(const std::shared_ptr<Array>& cond,
                               const std::shared_ptr<Array>& right,
                               const std::shared_ptr<Array>& expected) {
   CheckScalar("if_else", {cond, left, right}, expected);
-  DoCheckWithDifferentShapes(cond, left, right);
+  DoCheckWithDifferentShapes(cond, left, right, expected);
 }
 
 TYPED_TEST(TestIfElsePrimitive, IfElseFixedSize) {
