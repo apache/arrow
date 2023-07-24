@@ -1486,6 +1486,7 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
     auto batch = batch_factory();
 
     ASSERT_OK(ExportDeviceRecordBatch(*batch, {nullptr, nullptr}, &c_array, &c_schema));
+    SchemaExportGuard schema_guard(&c_schema);
     ArrayExportGuard array_guard(&c_array.array);
     RecordBatchExportChecker checker{};
     checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
