@@ -17,7 +17,6 @@
 
 package org.apache.arrow.driver.jdbc.accessor.impl.calendar;
 
-import static java.util.Objects.nonNull;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorGetter.Getter;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorGetter.Holder;
 import static org.apache.arrow.driver.jdbc.accessor.impl.calendar.ArrowFlightJdbcTimeStampVectorGetter.createGetter;
@@ -92,9 +91,16 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     long value = holder.value;
 
     LocalDateTime localDateTime = this.longToLocalDateTime.fromLong(value);
-    ZoneId defaultTimeZone = TimeZone.getDefault().toZoneId();
-    ZoneId sourceTimeZone = nonNull(this.timeZone) ? this.timeZone.toZoneId() :
-            nonNull(calendar) ? calendar.getTimeZone().toZoneId() : defaultTimeZone;
+    ZoneId defaultTimeZone = Calendar.getInstance().getTimeZone().toZoneId();
+    ZoneId sourceTimeZone;
+
+    if (this.timeZone != null) {
+      sourceTimeZone = this.timeZone.toZoneId();
+    } else if (calendar != null) {
+      sourceTimeZone = calendar.getTimeZone().toZoneId();
+    } else {
+      sourceTimeZone = defaultTimeZone;
+    }
 
     return localDateTime.atZone(sourceTimeZone).withZoneSameInstant(defaultTimeZone).toLocalDateTime();
   }
