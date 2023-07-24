@@ -161,13 +161,16 @@ Result<Datum> ExpectedFromIfElse(const Datum& cond, const Datum& left, const Dat
 }
 
 bool NextScalarOrWholeArray(const std::shared_ptr<Array>& array, int* index, Datum* out) {
-  if (*index < array->length()) {
-    EXPECT_OK_AND_ASSIGN(auto scalar, array->GetScalar(*index));
-    *out = std::move(scalar);
+  if (*index <= array->length()) {
+    if (*index < array->length()) {
+      EXPECT_OK_AND_ASSIGN(auto scalar, array->GetScalar(*index));
+      *out = std::move(scalar);
+    } else {
+      *out = array;
+    }
     *index += 1;
     return true;
   }
-  *out = array;
   return false;
 }
 
