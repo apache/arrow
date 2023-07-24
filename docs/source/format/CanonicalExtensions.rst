@@ -147,3 +147,21 @@ Fixed shape tensor
   This structure has no relationship with the Fixed shape tensor extension type defined
   by this specification. Instead, this extension type lets one use fixed shape tensors
   as elements in a field of a RecordBatch or a Table.
+
+=========================
+Community Extension Types
+=========================
+
+In addition to the canonical extension types listed above, there exist Arrow
+extension types that have been established as standards within specific domain
+areas. These have not been officially designated as canonical through a
+discussion and vote on the Arrow development mailing list but are well known
+within subcommunities of Arrow developers.
+
+GeoArrow
+========
+
+`GeoArrow <https://github.com/geoarrow/geoarrow>`_ defines a collection of
+Arrow extension types for representing vector geometries. It is well known
+within the Arrow geospatial subcommunity. The GeoArrow specification is not yet
+finalized.
