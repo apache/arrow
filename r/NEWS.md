@@ -19,6 +19,36 @@
 
 # arrow 12.0.1.9000
 
+## New features
+
+* `open_dataset()` now works with ND-JSON files (#35055)
+* Calling `schema()` on multiple Arrow objects now returns the object's schema (#35543)
+* dplyr `.by`/`by` argument now supported in arrow implementation of dplyr verbs  (@eitsupi, #35667)
+
+## Minor improvements and fixes
+
+* Convenience function `arrow_array()` can be used to create Arrow Arrays (#36381)
+* Convenience function `scalar()` can be used to create Arrow Scalars  (#36265)
+* Prevent crashed when passing data between arrow and duckdb by always calling `RecordBatchReader::ReadNext()` from DuckDB from the main R thread (#36307)
+* Issue a warning for `set_io_thread_count()` with `num_threads` < 2 (#36304)
+* Ensure missing grouping variables are added to the beginning of the variable list (#36305)
+* CSV File reader options class objects can print the selected values (#35955)
+* Schema metadata can be set as a named character vector (#35954)
+* Ensure that the RStringViewer helper class does not own any Array references (#35812)
+* `strptime()` in arrow will return a timezone-aware timestamp if `%z` is part of the format string (#35671)
+* Column ordering when combining `group_by()` and `across()` now matches dplyr (@eitsupi, #35473)
+
+## Installation
+
+* Link to correct version of OpenSSL when using autobrew (#36551)
+* Require cmake 3.16 in bundled build script (#36321)
+
+## Docs
+
+* Split out R6 classes and convenience functions to improve readability (#36394)
+* Enable pkgdown built-in search (@eitsupi, #36374)
+* Re-organise reference page on pkgdown site to improve readability (#36171)
+
 # arrow 12.0.1.1
 
 * Update a package version reference to be text only instead of numeric due to CRAN update requiring this (#36353, #36364)
