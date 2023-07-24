@@ -1188,7 +1188,7 @@ class MyDevice : public Device {
   DeviceAllocationType device_type() const override {
     return static_cast<DeviceAllocationType>(kMyDeviceType);
   }
-  int64_t device_id() const { return value_; }
+  int64_t device_id() const override { return value_; }
   std::shared_ptr<MemoryManager> default_memory_manager() override {
     return std::make_shared<MyMemoryManager>(shared_from_this());
   }
