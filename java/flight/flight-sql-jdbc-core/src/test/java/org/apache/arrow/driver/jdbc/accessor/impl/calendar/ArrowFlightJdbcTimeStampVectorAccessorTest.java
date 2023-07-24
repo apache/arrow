@@ -183,11 +183,13 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
   public void testShouldGetTimestampReturnValidTimestampWithCalendar(
       Supplier<TimeStampVector> vectorSupplier) throws Exception {
     setup(vectorSupplier);
+    TimeZone.setDefault(TimeZone.getTimeZone("Asia/Hong_Kong"));
+
     TimeZone timeZone = TimeZone.getTimeZone(AMERICA_SAO_PAULO);
     Calendar calendar = Calendar.getInstance(timeZone);
 
     TimeZone finalTimeZoneForResultWithoutCalendar = ofNullable(getTimeZoneForVector(vector))
-            .orElse(TimeZone.getDefault());
+            .orElse(TimeZone.getTimeZone("Asia/Hong_Kong"));
 
     accessorIterator.iterate(vector, (accessor, currentRow) -> {
       final Timestamp resultWithoutCalendar = accessor.getTimestamp(null);
@@ -196,6 +198,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessorTest {
       assertOffsetIsConsistentWithAccessorGetters(timeZone, finalTimeZoneForResultWithoutCalendar, result.getTime(),
               resultWithoutCalendar.getTime(), accessor);
     });
+    TimeZone.setDefault(null);
   }
 
   @ParameterizedTest
