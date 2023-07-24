@@ -42,7 +42,7 @@ namespace arrow::matlab::type::proxy {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
-        const auto str_utf8 = field->name();
+        const auto& str_utf8 = field->name();
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
         auto str_mda = factory.createScalar(str_utf16);
         context.outputs[0] = str_mda;
