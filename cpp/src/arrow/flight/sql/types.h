@@ -48,11 +48,6 @@ using SqlInfoResultMap = std::unordered_map<int32_t, SqlInfoResult>;
 using SessionOptionValue =
     std::variant<std::string, bool, int32_t, int64_t, float, double, std::vector<std::string>>;
 
-// FIXME obviate & remove
-enum struct SessionOptionValueType : size_t {
-  kString, kBool, kInt32, kInt64, kFloat, kDouble, kStringList
-};
-
 /// \brief Options to be set in the SqlInfo.
 struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
   /// \brief Predefined info values for GetSqlInfo.

@@ -33,6 +33,12 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 
+// Lambda helper & CTAD
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> // CTAD will not be needed for >=C++20
+overloaded(Ts...) -> overloaded<Ts...>;
+
 #define PROPERTY_TO_OPTIONAL(COMMAND, PROPERTY) \
   COMMAND.has_##PROPERTY() ? std::make_optional(COMMAND.PROPERTY()) : std::nullopt
 
@@ -535,43 +541,30 @@ arrow::Result<Result> PackActionResult(ActionSetSessionOptionsResult result) {
   return PackActionResult(pb_result);
 }
 
-// FIXME
 arrow::Result<Result> PackActionResult(ActionGetSessionOptionsResult result) {
   pb::ActionGetSessionOptionsResult pb_result;
   auto* pb_results = pb_result.mutable_session_options();
-  for (const auto& [name, value] : result.session_options) {
-    pb::SessionOptionValue pb_opt_val;
+  for (const auto& [name, opt_value] : result.session_options) {
+    pb::SessionOptionValue pb_opt_value;
 
-    if (value.index() == std::variant_npos)
-      return Status::Invalid("Undefined SessionOptionValue type ");
+    if (opt_value.index() == std::variant_npos)
+      return Status::Invalid("Undefined SessionOptionValue type");
 
-    switch ((SessionOptionValueType)(value.index())) {
-      case SessionOptionValueType::kString:
-        pb_opt_val.set_string_value(std::get<std::string>(value));
-        break;
-      case SessionOptionValueType::kBool:
-        pb_opt_val.set_bool_value(std::get<bool>(value));
-        break;
-      case SessionOptionValueType::kInt32:
-        pb_opt_val.set_int32_value(std::get<int32_t>(value));
-        break;
-      case SessionOptionValueType::kInt64:
-        pb_opt_val.set_int64_value(std::get<int64_t>(value));
-        break;
-      case SessionOptionValueType::kFloat:
-        pb_opt_val.set_float_value(std::get<float>(value));
-        break;
-      case SessionOptionValueType::kDouble:
-        pb_opt_val.set_double_value(std::get<double>(value));
-        break;
-      case SessionOptionValueType::kStringList:
-        pb::SessionOptionValue::StringListValue* string_list_value =
-            pb_opt_val.mutable_string_list_value();
-        for (const std::string& s : std::get<std::vector<std::string>>(value))
+    std::visit(overloaded{
+      // TODO move this somewhere common that can have Proto-involved code
+      [&](std::string v) { pb_opt_value.set_string_value(v); },
+      [&](bool v) { pb_opt_value.set_bool_value(v); },
+      [&](int32_t v) { pb_opt_value.set_int32_value(v); },
+      [&](int64_t v) { pb_opt_value.set_int64_value(v); },
+      [&](float v) { pb_opt_value.set_float_value(v); },
+      [&](double v) { pb_opt_value.set_double_value(v); },
+      [&](std::vector<std::string> v) {
+        auto* string_list_value = pb_opt_value.mutable_string_list_value();
+        for (const std::string& s : v)
           string_list_value->add_values(s);
-        break;
-    }
-    (*pb_results)[name] = std::move(pb_opt_val);
+      }
+    }, opt_value);
+    (*pb_results)[name] = std::move(pb_opt_value);
   }
 
   return PackActionResult(pb_result);

@@ -31,6 +31,12 @@
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
 
+// Lambda helper & CTAD
+template<class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
+template<class... Ts> // CTAD will not be needed for >=C++20
+overloaded(Ts...) -> overloaded<Ts...>;
+
 namespace pb = arrow::flight::protocol;
 namespace flight_sql_pb = arrow::flight::protocol::sql;
 
@@ -805,37 +811,27 @@ FlightSqlClient::SetSessionOptions(
   pb::ActionSetSessionOptionsRequest request;
   auto* options_map = request.mutable_session_options();
 
-  for (const auto & [name, value] : session_options) {
-    if (value.index() == std::variant_npos)
+  for (const auto & [name, opt_value] : session_options) {
+    pb::SessionOptionValue pb_opt_value;
+
+    if (opt_value.index() == std::variant_npos)
       return Status::Invalid("Undefined SessionOptionValue type ");
 
-    pb::SessionOptionValue pb_val;
-    switch (static_cast<SessionOptionValueType>(value.index())) {
-      case SessionOptionValueType::kString:
-        pb_val.set_string_value(std::get<std::string>(value));
-        break;
-      case SessionOptionValueType::kBool:
-        pb_val.set_bool_value(std::get<bool>(value));
-        break;
-      case SessionOptionValueType::kInt32:
-        pb_val.set_int32_value(std::get<int32_t>(value));
-        break;
-      case SessionOptionValueType::kInt64:
-        pb_val.set_int64_value(std::get<int64_t>(value));
-        break;
-      case SessionOptionValueType::kFloat:
-        pb_val.set_float_value(std::get<float>(value));
-        break;
-      case SessionOptionValueType::kDouble:
-        pb_val.set_double_value(std::get<double>(value));
-        break;
-      case SessionOptionValueType::kStringList:
-        auto* string_list_value = pb_val.mutable_string_list_value();
-        for (const std::string& s : std::get<std::vector<std::string>>(value))
+    std::visit(overloaded{
+      // TODO move this somewhere common that can have Proto-involved code
+      [&](std::string v) { pb_opt_value.set_string_value(v); },
+      [&](bool v) { pb_opt_value.set_bool_value(v); },
+      [&](int32_t v) { pb_opt_value.set_int32_value(v); },
+      [&](int64_t v) { pb_opt_value.set_int64_value(v); },
+      [&](float v) { pb_opt_value.set_float_value(v); },
+      [&](double v) { pb_opt_value.set_double_value(v); },
+      [&](std::vector<std::string> v) {
+        auto* string_list_value = pb_opt_value.mutable_string_list_value();
+        for (const std::string& s : v)
           string_list_value->add_values(s);
-        break;
-    }
-    (*options_map)[name] = std::move(pb_val);
+      }
+    }, opt_value);
+    (*options_map)[name] = std::move(pb_opt_value);
   }
 
   std::unique_ptr<ResultStream> results;
