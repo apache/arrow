@@ -215,17 +215,20 @@ class TestListArray : public ::testing::Test {
     // Offsets with nulls will match.
     ASSERT_OK_AND_ASSIGN(auto result,
                          ArrayType::FromArrays(*offsets_w_nulls, *values, pool_));
+    ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *expected);
 
     // Offets without nulls, will replace null with empty list
     ASSERT_OK_AND_ASSIGN(result,
                          ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_));
+    ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *std::dynamic_pointer_cast<ArrayType>(
                                    ArrayFromJSON(type, "[[0], [], [0, null], [0]]")));
 
     // Specify non-null offsets with null_bitmap
     ASSERT_OK_AND_ASSIGN(result, ArrayType::FromArrays(*offsets_wo_nulls, *values, pool_,
                                                        expected->null_bitmap()));
+    ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *expected);
 
     // Cannot specify both null offsets with null_bitmap
@@ -248,6 +251,7 @@ class TestListArray : public ::testing::Test {
     auto sliced_offsets = offsets_wo_nulls->Slice(2, 4);
     ASSERT_OK_AND_ASSIGN(auto result,
                          ArrayType::FromArrays(*sliced_offsets, *values, pool_));
+    ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *expected);
   }
 
@@ -268,6 +272,7 @@ class TestListArray : public ::testing::Test {
     auto sliced_offsets = offsets_w_nulls->Slice(2, 4);
     ASSERT_OK_AND_ASSIGN(auto result,
                          ArrayType::FromArrays(*sliced_offsets, *values, pool_));
+    ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *expected);
   }
 
