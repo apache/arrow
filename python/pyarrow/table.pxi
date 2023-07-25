@@ -5307,11 +5307,10 @@ list[tuple(str, str, FunctionOptions)]
             # Ensure aggregate function is hash_ if needed
             if len(self.keys) > 0 and not func.startswith("hash_"):
                 func = "hash_" + func
-            import pyarrow.compute as pc
             if len(self.keys) == 0 and func.startswith("hash_"):
                 scalar_func = func[5:]
                 try:
-                    pc.get_function(scalar_func)
+                    _pac().get_function(scalar_func)
                     func = scalar_func
                 except:
                     pass

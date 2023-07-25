@@ -164,34 +164,43 @@ struct DistinctImpl : public ScalarAggregator {
   Status Consume(KernelContext* ctx, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
       const ArraySpan& input = batch[0].array;
-      this->arrays.push_back(input.ToArray());
+      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(input.ToArray()))
+      this->array = std::move(unique_array);
     } else {
       const Scalar& input = *batch[0].scalar;
-      std::shared_ptr<arrow::Array> scalar_array;
-      ARROW_ASSIGN_OR_RAISE(scalar_array,
+      ARROW_ASSIGN_OR_RAISE(auto scalar_array,
                             arrow::MakeArrayFromScalar(input, 1, ctx->memory_pool()));
-      this->arrays.push_back(scalar_array);
+      this->array = std::move(scalar_array);
     }
     return Status::OK();
   }
 
   Status MergeFrom(KernelContext* ctx, KernelState&& src) override {
     const auto& other_state = checked_cast<const DistinctImpl&>(src);
-    for (const auto& array : other_state.arrays) {
-      this->arrays.push_back(array);
+    auto this_array = this->array;
+    auto other_array = other_state.array;
+    if (other_array && this_array) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto merged_array,
+          arrow::Concatenate({this_array, other_array}, ctx->memory_pool()));
+      this->array = std::move(merged_array);
+    } else {
+      auto target_array = other_array ? other_array : this_array;
+      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(target_array));
+      this->array = std::move(unique_array);
     }
     return Status::OK();
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    ARROW_ASSIGN_OR_RAISE(auto concatenated,
-                          arrow::Concatenate(this->arrays, ctx->memory_pool()));
-    ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(concatenated));
-    *out = Datum(unique_array);
+    const auto& state = checked_cast<const DistinctImpl&>(*ctx->state());
+    if (state.array) {
+      *out = Datum(state.array);
+    }
     return Status::OK();
   }
 
-  std::vector<std::shared_ptr<Array>> arrays;
+  std::shared_ptr<Array> array;
 };
 
 Result<std::unique_ptr<KernelState>> DistinctInit(KernelContext*,
