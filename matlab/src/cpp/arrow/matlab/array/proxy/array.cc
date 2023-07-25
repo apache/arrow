@@ -83,7 +83,7 @@ namespace arrow::matlab::array::proxy {
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
                                             type::proxy::wrap(array->type()),
                                             context,
-                                            "arrow:type:UnknownTypeProxy");
+                                            error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 
         auto type_id = type_proxy->unwrap()->id();
         auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
