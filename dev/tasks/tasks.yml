@@ -1435,16 +1435,13 @@ tasks:
   {% endfor %}
 
   test-ubuntu-default-docs:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+    ci: github
+    template: docs/github.linux.yml
     params:
-      artifacts: "build/docs.tar.gz"
+      pr_number: Unset
       flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
-      post_script: |
-        cd build
-        sudo chown -R ${USER}: .
-        tar cvzf docs.tar.gz docs
+      publish: false
     artifacts:
       - docs.tar.gz
 
@@ -1565,6 +1562,6 @@ tasks:
     template: docs/github.linux.yml
     params:
       pr_number: Unset
-      artifacts: "build/docs.tar.gz"
       flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
+      publish: true

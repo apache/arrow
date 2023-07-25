@@ -21,7 +21,7 @@
 
 jobs:
   test:
-    name: Docs Preview
+    name: Build Docs
     runs-on: ubuntu-latest
 {{ macros.github_set_env(env) }}
     steps:
@@ -44,7 +44,8 @@ jobs:
           ref: {{ default_branch|default("main") }}
           path: crossbow
           fetch-depth: 1
-      - name: Prepare docs
+      {% if  publish %}
+      - name: Prepare Docs Preview
         run: |
           # build files are created by the docker user
           sudo chown -R ${USER}: build
@@ -61,3 +62,10 @@ jobs:
         run: |
           aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
           echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
+      {% endif %}
+      - name: Prepare Docs artifacts
+        run: |
+          cd build
+          sudo chown -R ${USER}: .
+          tar cvzf docs.tar.gz docs
+      {{ macros.github_upload_releases("build/docs.tar.gz")|indent }}
