@@ -120,6 +120,32 @@ TEST(TestReaderProperties, GetStreamInsufficientData) {
   }
 }
 
+TEST(TestReaderProperties, ColumnChunkSpecificBufferSize) {
+  ReaderProperties props;
+  props.set_buffer_size(8);
+  ASSERT_EQ(props.column_reader_properties(), nullptr);
+
+  props.set_buffer_size(16, /*row_group_index=*/0, /*column_index=*/1);
+  props.set_buffer_size(32, /*row_group_index=*/2, /*column_index=*/0);
+  props.set_buffer_size(64, /*row_group_index=*/2, /*column_index=*/1);
+  ASSERT_NE(props.column_reader_properties(), nullptr);
+  ASSERT_EQ(props.column_reader_properties()->size(), 2);
+
+  ASSERT_EQ(props.buffer_size(), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/0, /*column_index=*/0), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/0, /*column_index=*/1), 16);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/1, /*column_index=*/0), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/2, /*column_index=*/0), 32);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/2, /*column_index=*/1), 64);
+
+  props.set_column_reader_properties(nullptr);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/0, /*column_index=*/0), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/0, /*column_index=*/1), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/1, /*column_index=*/0), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/2, /*column_index=*/0), 8);
+  ASSERT_EQ(props.buffer_size(/*row_group_index=*/2, /*column_index=*/1), 8);
+}
+
 TEST(TestReaderProperties, GetStreamCustomizedBufferSize) {
   std::string data = "shorter than expected";
   auto buf = std::make_shared<Buffer>(data);
@@ -133,7 +159,7 @@ TEST(TestReaderProperties, GetStreamCustomizedBufferSize) {
     // Set buffer_size as 0 will not use buffered stream, although buffered stream
     // is enabled above.
     ARROW_UNUSED(props.GetStream(reader, /*start=*/12, /*num_bytes=*/15,
-                                 /*buffer_size=*/std::make_optional<int64_t>(0)));
+                                 /*custom_buffer_size=*/std::make_optional<int64_t>(0)));
     FAIL() << "No exception raised";
   } catch (const ParquetException& e) {
     std::string ex_what =
@@ -145,7 +171,7 @@ TEST(TestReaderProperties, GetStreamCustomizedBufferSize) {
   // Honor the customized buffer_size 16 over the default 8 set in props.
   std::shared_ptr<ArrowInputStream> input_stream =
       props.GetStream(reader, /*start=*/0, /*num_bytes=*/16,
-                      /*buffer_size=*/std::make_optional<int64_t>(16));
+                      /*custom_buffer_size=*/std::make_optional<int64_t>(16));
   ::arrow::io::BufferedInputStream* buffered_input_stream =
       static_cast<::arrow::io::BufferedInputStream*>(input_stream.get());
   ASSERT_EQ(buffered_input_stream->buffer_size(), 16);

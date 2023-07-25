@@ -29,17 +29,19 @@ namespace parquet {
 
 std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
     std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes,
-    std::optional<int64_t> buffer_size) {
-  if (buffered_stream_enabled_ && (!buffer_size.has_value() || *buffer_size > 0)) {
+    std::optional<int64_t> custom_buffer_size) {
+  if (buffered_stream_enabled_ &&
+      (!custom_buffer_size.has_value() || *custom_buffer_size > 0)) {
     // ARROW-6180 / PARQUET-1636 Create isolated reader that references segment
     // of source
     PARQUET_ASSIGN_OR_THROW(
         std::shared_ptr<::arrow::io::InputStream> safe_stream,
         ::arrow::io::RandomAccessFile::GetStream(source, start, num_bytes));
     PARQUET_ASSIGN_OR_THROW(
-        auto stream, ::arrow::io::BufferedInputStream::Create(
-                         buffer_size.has_value() ? *buffer_size : buffer_size_, pool_,
-                         safe_stream, num_bytes));
+        auto stream,
+        ::arrow::io::BufferedInputStream::Create(
+            custom_buffer_size.has_value() ? *custom_buffer_size : buffer_size(), pool_,
+            safe_stream, num_bytes));
     return std::move(stream);
   } else {
     PARQUET_ASSIGN_OR_THROW(auto data, source->ReadAt(start, num_bytes));

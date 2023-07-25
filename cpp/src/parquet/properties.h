@@ -68,6 +68,9 @@ class PARQUET_EXPORT ColumnReaderProperties {
 
 class PARQUET_EXPORT ReaderProperties {
  public:
+  typedef std::unordered_map<int, std::unordered_map<int, ColumnReaderProperties>>
+      ColumnReaderPropertiesMap;
+
   explicit ReaderProperties(MemoryPool* pool = ::arrow::default_memory_pool())
       : pool_(pool) {}
 
@@ -90,10 +93,45 @@ class PARQUET_EXPORT ReaderProperties {
   /// Disable buffered stream reading.
   void disable_buffered_stream() { buffered_stream_enabled_ = false; }
 
-  /// Return the size of the buffered stream buffer.
-  int64_t buffer_size() const { return buffer_size_; }
-  /// Set the size of the buffered stream buffer in bytes.
-  void set_buffer_size(int64_t size) { buffer_size_ = size; }
+  /// Return the default size of the buffered stream buffer.
+  int64_t buffer_size() const { return default_column_reader_properties_.buffer_size(); }
+  /// Set the default size of the buffered stream buffer in bytes.
+  void set_buffer_size(int64_t size) {
+    default_column_reader_properties_.set_buffer_size(size);
+  }
+
+  /// Return the size of the buffered stream buffer for a column chunk.
+  int64_t buffer_size(int row_group_index, int column_index) const {
+    if (column_reader_properties_ != nullptr) {
+      auto row_group_iter = column_reader_properties_->find(row_group_index);
+      if (row_group_iter != column_reader_properties_->end()) {
+        auto column_iter = row_group_iter->second.find(column_index);
+        if (column_iter != row_group_iter->second.end()) {
+          return column_iter->second.buffer_size();
+        }
+      }
+    }
+    return default_column_reader_properties_.buffer_size();
+  }
+
+  /// Set the size of the buffered stream buffer for a column chunk.
+  void set_buffer_size(int64_t size, int row_group_index, int column_index) {
+    if (column_reader_properties_ == nullptr) {
+      column_reader_properties_ = std::make_shared<ColumnReaderPropertiesMap>();
+    }
+    ColumnReaderProperties& column_props =
+        (*column_reader_properties_)[row_group_index][column_index];
+    column_props.set_buffer_size(size);
+  }
+
+  /// Get the column reader properties.
+  const std::shared_ptr<ColumnReaderPropertiesMap>& column_reader_properties() const {
+    return column_reader_properties_;
+  }
+  /// Set the column reader properties.
+  void set_column_reader_properties(std::shared_ptr<ColumnReaderPropertiesMap> props) {
+    column_reader_properties_ = std::move(props);
+  }
 
   /// \brief Return the size limit on thrift strings.
   ///
@@ -129,12 +167,13 @@ class PARQUET_EXPORT ReaderProperties {
 
  private:
   MemoryPool* pool_;
-  int64_t buffer_size_ = kDefaultBufferSize;
   int32_t thrift_string_size_limit_ = kDefaultThriftStringSizeLimit;
   int32_t thrift_container_size_limit_ = kDefaultThriftContainerSizeLimit;
   bool buffered_stream_enabled_ = false;
   bool page_checksum_verification_ = false;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
+  ColumnReaderProperties default_column_reader_properties_;
+  std::shared_ptr<ColumnReaderPropertiesMap> column_reader_properties_;
 };
 
 ReaderProperties PARQUET_EXPORT default_reader_properties();
