@@ -39,4 +39,11 @@ classdef TimestampType < arrow.type.FixedWidthType
             tz = obj.Proxy.timeZone();
         end
     end
+
+    methods (Access=protected)
+        function propgrp = getPropertyGroups(~)
+          proplist = {'ID', 'TimeUnit', 'TimeZone'};
+          propgrp = matlab.mixin.util.PropertyGroup(proplist);
+        end
+    end
 end
