@@ -26,6 +26,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/formatting.h"
@@ -1695,6 +1696,7 @@ TEST_F(ScalarTemporalTest, TestTemporalMultiplyDuration) {
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
+  // div(duration, integer) -> integer
   for (auto u : TimeUnit::values()) {
     for (auto numeric : NumericTypes()) {
       if (!is_integer(numeric->id())) continue;
@@ -1718,6 +1720,24 @@ TEST_F(ScalarTemporalTest, TestTemporalDivideDuration) {
                                       CallFunction("divide_checked", {durations, zeros}));
     }
   }
+
+  // div(duration, duration) -> float64
+  auto left = ArrayFromJSON(duration(TimeUnit::SECOND), "[1, 2, 3, 4]");
+  auto right = ArrayFromJSON(duration(TimeUnit::MILLI), "[4000, 300, 20, 1]");
+  auto expected_left_by_right =
+      ArrayFromJSON(float64(), "[0.25, 6.666666666666667, 150, 4000]");
+  auto expected_right_by_left =
+      ArrayFromJSON(float64(), "[4, 0.15, 0.006666666666666667, 0.00025]");
+  CheckScalarBinary("divide", left, right, expected_left_by_right);
+  CheckScalarBinary("divide_checked", left, right, expected_left_by_right);
+  CheckScalarBinary("divide", right, left, expected_right_by_left);
+  CheckScalarBinary("divide_checked", right, left, expected_right_by_left);
+
+  // Check dispatching
+  CheckDispatchBest("divide", {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::MILLI), duration(TimeUnit::MILLI)});
+  CheckDispatchBest("divide", {duration(TimeUnit::NANO), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::NANO), duration(TimeUnit::NANO)});
 }
 
 TEST_F(ScalarTemporalTest, TestTemporalDifferenceWeeks) {
