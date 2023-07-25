@@ -87,6 +87,9 @@ extern "C" void Init_arrow() {
   rb_define_method(cArrowTable, "raw_records",
                    reinterpret_cast<rb::RawMethod>(red_arrow::table_raw_records),
                    0);
+  rb_define_method(cArrowTable, "each_raw_record",
+                   reinterpret_cast<rb::RawMethod>(red_arrow::table_each_raw_record),
+                   0);
 
   red_arrow::cDate = rb_const_get(rb_cObject, rb_intern("Date"));
 
