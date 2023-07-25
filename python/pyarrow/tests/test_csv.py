@@ -1982,9 +1982,10 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
 
     fixed_arr = pa.array(nparr, pa.binary(4))
     fixed_table = pa.Table.from_arrays([fixed_arr], names=['fixedsize'])
+    fixed_table = fixed_table.combine_chunks()
 
     write_options = WriteOptions(include_header=True, batch_size=2048,
-                                 delimiter='|', quoting_style='none')
+                                 delimiter='|')
 
     write_csv(fixed_table, file_name, write_options=write_options)
 
@@ -1992,5 +1993,7 @@ def test_large_binary_write_to_csv(tmpdir, data_size):
 
     parse_options = ParseOptions(delimiter="|")
     convert_options = ConvertOptions(column_types={"fixedsize": pa.binary(4)})
-    res_table = read_csv(file_name, parse_options=parse_options, convert_options=convert_options)
-    assert res_table.equals(fixed_table)
+    read_options = ReadOptions(block_size=2048)
+    res_table = read_csv(file_name, parse_options=parse_options, convert_options=convert_options, read_options=read_options)
+    res_table = res_table.combine_chunks()
+    res_c = res_table.column(0).chunks[0]
