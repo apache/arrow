@@ -48,7 +48,7 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = str_mda;
     }
 
-    arrow::Result<std::shared_ptr<libmexclass::proxy::Proxy>> makeTypeProxy(const std::shared_ptr<arrow::DataType> datatype) {
+    arrow::Result<std::shared_ptr<libmexclass::proxy::Proxy>> makeTypeProxy(const std::shared_ptr<arrow::DataType>& datatype) {
         using arrow_type = arrow::Type::type;
         namespace type_proxy = arrow::matlab::type::proxy;
         switch (datatype->id()) {
