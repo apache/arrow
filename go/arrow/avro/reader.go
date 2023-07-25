@@ -46,15 +46,11 @@ type OCFReader struct {
 
 	mem memory.Allocator
 
-	topLevel bool
-	once     sync.Once
+	once sync.Once
 
 	fieldConverter []func(val string)
 	columnFilter   []string
 	columnTypes    map[string]arrow.DataType
-
-	stringsCanBeNull bool
-	nulls            []string
 }
 
 // NewReader returns a reader that reads from an Avro OCF file and creates
@@ -66,20 +62,17 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 	}
 
 	rr := &OCFReader{
-		r: ocfr,
-		//schema:           schema,
-		refs:             1,
-		chunk:            1,
-		stringsCanBeNull: false,
+		r:     ocfr,
+		refs:  1,
+		chunk: 1,
 	}
-	//rr.r.ReuseRecord = true
 	for _, opt := range opts {
 		opt(rr)
 	}
 
 	codec := ocfr.Codec()
 	schema := codec.Schema()
-	rr.schema, err = ArrowSchemaFromAvro([]byte(schema), rr.topLevel)
+	rr.schema, err = ArrowSchemaFromAvro([]byte(schema))
 	if err != nil {
 		panic(fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid))
 	}
@@ -89,58 +82,16 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
 	rr.next = rr.next1
-	/*
-		switch {
-		case rr.chunk < 0:
-			rr.next = rr.nextall
-		case rr.chunk > 1:
-			rr.next = rr.nextn
-		default:
-			rr.next = rr.next1
-		}
-	*/
-	return rr
-}
-
-// NewReader returns a reader that reads from the CSV file and creates
-// arrow.Records from the given schema.
-//
-// NewReader panics if the given schema contains fields that have types that are not
-// primitive types.
-/*
-func NewAvroReader(r io.Reader, schema *arrow.Schema, opts ...Option) *OCFReader {
-	validate(schema)
-
-	rr := &OCFReader{
-		r:                csv.NewReader(r),
-		schema:           schema,
-		refs:             1,
-		chunk:            1,
-		stringsCanBeNull: false,
-	}
-	rr.r.ReuseRecord = true
-	for _, opt := range opts {
-		opt(rr)
-	}
-
-	if rr.mem == nil {
-		rr.mem = memory.DefaultAllocator
-	}
-
-	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
-
 	switch {
 	case rr.chunk < 0:
 		rr.next = rr.nextall
 	case rr.chunk > 1:
 		rr.next = rr.nextn
 	default:
-		rr.next = rr.next1
+		rr.next = rr.nextall
 	}
-
 	return rr
 }
-*/
 
 // Err returns the last error encountered during the iteration over the
 // underlying Avro file.
@@ -153,9 +104,9 @@ func (r *OCFReader) Schema() *arrow.Schema { return r.schema }
 // It is valid until the next call to Next.
 func (r *OCFReader) Record() arrow.Record { return r.cur }
 
-// Next returns whether a Record could be extracted from the underlying Avro OCF file.
+// Next returns whether a Record could be extracted from the underlying Avro OCF.
 //
-// Next panics if the number of records extracted from a CSV row does not match
+// Next panics if the number of records extracted from an Avro data item does not match
 // the number of fields of the associated schema. If a parse failure occurs, Next
 // will return true and the Record will contain nulls where failures occurred.
 // Subsequent calls to Next will return false - The user should check Err() after
@@ -177,7 +128,6 @@ func (r *OCFReader) Next() bool {
 // next1 reads one row from the Avro file and creates a single Record
 // from that row.
 func (r *OCFReader) next1() bool {
-	//recs := make(map[string]interface{})
 	// Scan returns true when there is at least one more data item to be read from
 	// the Avro OCF. Scan ought to be called prior to calling the Read method each
 	// time the Read method is invoked.  See `NewOCFReader` documentation for an
@@ -204,66 +154,70 @@ func (r *OCFReader) next1() bool {
 	return true
 }
 
-/*
-// nextall reads the whole CSV file into memory and creates one single
-// Record from all the CSV rows.
+// nextall reads the whole Avro file into memory and creates one single
+// Record from all the data items.
 
-	func (r *Reader) nextall() bool {
-		defer func() {
+func (r *OCFReader) nextall() bool {
+	// Scan returns true when there is at least one more data item to be read from
+	// the Avro OCF. Scan ought to be called prior to calling the Read method each
+	// time the Read method is invoked.  See `NewOCFReader` documentation for an
+	// example.
+	for r.r.Scan() {
+		// Read consumes one datum value from the Avro OCF stream and returns it. Read
+		// is designed to be called only once after each invocation of the Scan method.
+		// See `NewOCFReader` documentation for an example.
+		recs, err := r.r.Read()
+		if err != nil {
 			r.done = true
-		}()
-
-		var (
-			recs [][]string
-		)
-
-		recs, r.err = r.r.ReadAll()
-		if r.err != nil {
+			if errors.Is(err, io.EOF) {
+				r.err = nil
+			}
+			r.err = err
 			return false
 		}
 
-		for _, rec := range recs {
-			r.validate(rec)
-			r.read(rec)
+		for idx, fb := range r.bld.Fields() {
+			appendData(fb, recs.(map[string]interface{})[fb.Type().(*arrow.StructType).Field(idx).Name])
 		}
-		r.cur = r.bld.NewRecord()
-
-		return true
 	}
+	r.cur = r.bld.NewRecord()
+	return true
+}
 
-// nextn reads n rows from the CSV file, where n is the chunk size, and creates
-// a Record from these rows.
+// nextn reads n data items from the Avro file, where n is the chunk size, and
+// creates a Record from these rows.
+func (r *OCFReader) nextn() bool {
+	var n = 0
 
-	func (r *Reader) nextn() bool {
-		var (
-			recs []string
-			n    = 0
-			err  error
-		)
-
-		for i := 0; i < r.chunk && !r.done; i++ {
-			recs, err = r.r.Read()
+	for i := 0; i < r.chunk && !r.done; i++ {
+		if r.r.Scan() {
+			// Read consumes one datum value from the Avro OCF stream and returns it. Read
+			// is designed to be called only once after each invocation of the Scan method.
+			// See `NewOCFReader` documentation for an example.
+			recs, err := r.r.Read()
 			if err != nil {
-				if !errors.Is(err, io.EOF) {
-					r.err = err
-				}
 				r.done = true
-				break
+				if errors.Is(err, io.EOF) {
+					r.err = nil
+				}
+				r.err = err
+				return false
 			}
-
-			r.validate(recs)
-			r.read(recs)
+			for idx, fb := range r.bld.Fields() {
+				appendData(fb, recs.(map[string]interface{})[fb.Type().(*arrow.StructType).Field(idx).Name])
+			}
 			n++
 		}
-
-		if r.err != nil {
-			r.done = true
-		}
-
-		r.cur = r.bld.NewRecord()
-		return n > 0
 	}
-*/
+
+	if r.err != nil {
+		r.done = true
+	}
+
+	r.cur = r.bld.NewRecord()
+	return n > 0
+}
+
 func appendData(b array.Builder, data interface{}) {
 	//		Avro					Go    			Arrow
 	//		null					nil				Null
@@ -285,95 +239,93 @@ func appendData(b array.Builder, data interface{}) {
 			bt.AppendNull()
 		case map[string]interface{}:
 			bt.Append([]byte(fmt.Sprint(data)))
+		default:
+			bt.Append([]byte(fmt.Sprint(data)))
 		}
 	case *array.BinaryDictionaryBuilder:
 		bt.AppendNull()
 	case *array.BooleanBuilder:
-		switch data.(type) {
+		switch dt := data.(type) {
 		case nil:
 			bt.AppendNull()
 		case bool:
-			bt.Append(data.(bool))
+			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(data.(map[string]interface{})["boolean"].(bool))
+			bt.Append(dt["boolean"].(bool))
 		}
 	case *array.DayTimeIntervalBuilder:
+		bt.AppendNull()
 	case *array.DayTimeDictionaryBuilder:
 		bt.AppendNull()
 	case *array.Date32Builder:
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case int32:
+			bt.Append(arrow.Date32(dt))
+		case map[string]interface{}:
+			bt.Append(arrow.Date32(dt["int"].(int32)))
+		}
 	case *array.Date32DictionaryBuilder:
 		bt.AppendNull()
 	case *array.Date64Builder:
+		bt.AppendNull()
 	case *array.Date64DictionaryBuilder:
 		bt.AppendNull()
 	//case *array.DictionaryBuilder:
 	case *array.Decimal128Builder:
+		bt.AppendNull()
 	case *array.Decimal128DictionaryBuilder:
 		bt.AppendNull()
 	case *array.Decimal256Builder:
+		bt.AppendNull()
 	case *array.Decimal256DictionaryBuilder:
 		bt.AppendNull()
 	case *array.DenseUnionBuilder:
 		b.AppendNull()
 	case *array.DurationBuilder:
+		bt.AppendNull()
 	case *array.DurationDictionaryBuilder:
-		b.AppendNull()
+		bt.AppendNull()
 	case *array.FixedSizeBinaryBuilder:
-		switch data.(type) {
+		switch dt := data.(type) {
 		case nil:
 			bt.AppendNull()
 		case []byte:
-			bt.Append(data.([]byte))
+			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(data.(map[string]interface{})["bytes"].([]byte))
+			bt.Append(dt["bytes"].([]byte))
 		}
 	case *array.FixedSizeBinaryDictionaryBuilder:
 		bt.AppendNull()
 	case *array.FixedSizeListBuilder:
+		bt.AppendNull()
 	case *array.Float16Builder:
 		bt.AppendNull()
 	case *array.Float16DictionaryBuilder:
 		bt.AppendNull()
 	case *array.Float32Builder:
-		switch data.(type) {
+		switch dt := data.(type) {
 		case nil:
 			bt.AppendNull()
 		case float32:
-			bt.Append(data.(float32))
+			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(data.(map[string]interface{})["float"].(float32))
+			bt.Append(dt["float"].(float32))
 		}
 	case *array.Float32DictionaryBuilder:
+		bt.AppendNull()
 	case *array.Float64Builder:
-		switch data.(type) {
+		switch dt := data.(type) {
 		case nil:
 			bt.AppendNull()
 		case float64:
-			bt.Append(data.(float64))
+			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(data.(map[string]interface{})["double"].(float64))
+			bt.Append(dt["double"].(float64))
 		}
 	case *array.Float64DictionaryBuilder:
-	case *array.ListBuilder:
-		vb := bt.ValueBuilder()
-		vb.Reserve(len(data.([]interface{})))
-		for _, v := range data.([]interface{}) {
-			if v == nil {
-				bt.AppendNull()
-				vb.AppendNull()
-			} else {
-				bt.Append(true)
-				appendData(vb, v)
-				//vb.Append(v)
-			}
-		}
-
-	//case *array.ListLikeBuilder:
-	//	bt.AppendNull()
-	case *array.MapBuilder:
-
-	case *array.MonthDayNanoIntervalBuilder:
-
+		bt.AppendNull()
 	case *array.Int8Builder:
 		bt.AppendNull()
 	case *array.Int8DictionaryBuilder:
@@ -392,6 +344,7 @@ func appendData(b array.Builder, data interface{}) {
 			bt.Append(dt["int"].(int32))
 		}
 	case *array.Int32DictionaryBuilder:
+		bt.AppendNull()
 	case *array.Int64Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -402,15 +355,43 @@ func appendData(b array.Builder, data interface{}) {
 			bt.Append(data.(map[string]interface{})["long"].(int64))
 		}
 	case *array.Int64DictionaryBuilder:
-		b.AppendNull()
+		bt.AppendNull()
+	case *array.ListBuilder:
+		vb := bt.ValueBuilder()
+		vb.Reserve(len(data.([]interface{})))
+		for _, v := range data.([]interface{}) {
+			if v == nil {
+				bt.AppendNull()
+				vb.AppendNull()
+			} else {
+				bt.Append(true)
+				appendData(vb, v)
+			}
+		}
+	case *array.MapBuilder:
+		kb := bt.KeyBuilder()
+		ib := bt.ItemBuilder()
+		for k, v := range data.(map[string]interface{}) {
+			appendData(kb, k)
+			appendData(ib, v)
+		}
+	// Avro Duration type is not implemented in github.com/linkedin/goavro
+	// Schema conversion falls back to Binary.
+	// A duration logical type annotates Avro fixed type of size 12, which
+	// stores three little-endian unsigned integers that represent durations
+	// at different granularities of time. The first stores a number in months,
+	// the second stores a number in days, and the third stores a number
+	// in milliseconds.
+	case *array.MonthDayNanoIntervalBuilder:
+		bt.AppendNull()
 	case *array.NullBuilder:
-		b.AppendNull()
+		bt.AppendNull()
 	case *array.NullDictionaryBuilder:
-		b.AppendNull()
+		bt.AppendNull()
 	case *array.RunEndEncodedBuilder:
-		b.AppendNull()
+		bt.AppendNull()
 	case *array.SparseUnionBuilder:
-		b.AppendNull()
+		bt.AppendNull()
 	case *array.StringBuilder:
 		switch dt := data.(type) {
 		case nil:
@@ -435,12 +416,36 @@ func appendData(b array.Builder, data interface{}) {
 			i++
 		}
 	case *array.Time32Builder:
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case int32:
+			bt.Append(arrow.Time32(dt))
+		case map[string]interface{}:
+			bt.Append(arrow.Time32(dt["int"].(int32)))
+		}
 	case *array.Time32DictionaryBuilder:
 		bt.AppendNull()
 	case *array.Time64Builder:
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case int64:
+			bt.Append(arrow.Time64(dt))
+		case map[string]interface{}:
+			bt.Append(arrow.Time64(dt["long"].(int64)))
+		}
 	case *array.Time64DictionaryBuilder:
 		bt.AppendNull()
 	case *array.TimestampBuilder:
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case int64:
+			bt.Append(arrow.Timestamp(dt))
+		case map[string]interface{}:
+			bt.Append(arrow.Timestamp(dt["long"].(int64)))
+		}
 	case *array.TimestampDictionaryBuilder:
 		bt.AppendNull()
 	case *array.Uint8Builder:

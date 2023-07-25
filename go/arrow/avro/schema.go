@@ -40,30 +40,20 @@ type schemaNode struct {
 // ArrowSchemaFromAvro returns a new Arrow schema from an Avro schema JSON.
 // If the top level is of record type, set includeTopLevel to either make
 // its fields top level fields in the resulting schema or nested in a single field.
-func ArrowSchemaFromAvro(avroSchema []byte, includeTopLevel bool) (*arrow.Schema, error) {
+func ArrowSchemaFromAvro(avroSchema []byte) (*arrow.Schema, error) {
 	var m map[string]interface{}
 	var node schemaNode
 	json.Unmarshal(avroSchema, &m)
-	if includeTopLevel {
-		if n, ok := m["name"]; ok {
-			node.name = n.(string)
-		} else {
-			return nil, fmt.Errorf("invalid avro schema: no top level record name found")
-		}
-		node.fields = append(node.fields, m)
-	} else {
-		if m["type"].(string) == "record" {
-			if _, ok := m["fields"]; ok {
-				for _, field := range m["fields"].([]interface{}) {
-					node.fields = append(node.fields, field.(map[string]interface{}))
-				}
-				if len(node.fields) == 0 {
-					return nil, fmt.Errorf("invalid avro schema: no top level record fields found")
-				}
+	if m["type"].(string) == "record" {
+		if _, ok := m["fields"]; ok {
+			for _, field := range m["fields"].([]interface{}) {
+				node.fields = append(node.fields, field.(map[string]interface{}))
+			}
+			if len(node.fields) == 0 {
+				return nil, fmt.Errorf("invalid avro schema: no top level record fields found")
 			}
 		}
 	}
-
 	fields := iterateFields(node.fields)
 	return arrow.NewSchema(fields, nil), nil
 }
@@ -160,8 +150,11 @@ func traverseNodes(node schemaNode) arrow.Field {
 				return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string))}
 
 			case "fixed":
+				// Duration type is not supported in github.com/linkedin/goavro
+				// Implementing as Binary for now.
 				if node.logicalType == "duration" {
-					return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.MonthDayNanoInterval}
+					return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.Binary}
+					//return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.MonthDayNanoInterval}
 				}
 				return arrow.Field{Name: node.name, Type: &arrow.FixedSizeBinaryType{ByteWidth: node.size}}
 			case "enum":
