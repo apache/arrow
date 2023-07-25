@@ -19,6 +19,7 @@ package array_test
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -1845,4 +1846,22 @@ func TestBinaryDictionaryPanic(t *testing.T) {
 		bldr.NewArray()
 	}()
 	assert.True(t, allocator.paniced)
+}
+
+func BenchmarkBinaryDictionaryBuilder(b *testing.B) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(b, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int32Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	randString := func() string {
+		return fmt.Sprintf("test-%d", rand.Intn(30))
+	}
+
+	builder := bldr.(*array.BinaryDictionaryBuilder)
+	for i := 0; i < b.N; i++ {
+		assert.NoError(b, builder.AppendString(randString()))
+	}
 }
