@@ -384,7 +384,8 @@ Result<std::shared_ptr<Buffer>> CudaMemoryManager::ViewBufferTo(
   if (to->is_cpu()) {
     // Device-on-CPU view
     ARROW_ASSIGN_OR_RAISE(auto address, GetHostAddress(buf->address()));
-    return std::make_shared<Buffer>(address, buf->size(), to, buf);
+    return std::make_shared<Buffer>(address, buf->size(), to, buf,
+                                    DeviceAllocationType::kCUDA_HOST);
   }
   return nullptr;
 }
