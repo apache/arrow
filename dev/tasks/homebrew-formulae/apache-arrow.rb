@@ -36,7 +36,7 @@ class ApacheArrow < Formula
 
   depends_on "boost" => :build
   depends_on "cmake" => :build
-  depends_on "llvm" => :build
+  depends_on "llvm@15" => :build
   depends_on "aws-sdk-cpp"
   depends_on "brotli"
   depends_on "bzip2"
