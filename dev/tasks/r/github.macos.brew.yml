@@ -38,7 +38,9 @@ jobs:
           # TODO(ARROW-16907): apache/arrow@main seems to be installed already
           # so this does nothing on a branch/PR
           brew install -v --HEAD {{ '$(brew --repository homebrew/core)/Formula/apache-arrow.rb' }}
-          find Library
+
+          pwd
+          find .
       - name: Save logs
         if: always()
         uses: actions/upload-artifact@v2
