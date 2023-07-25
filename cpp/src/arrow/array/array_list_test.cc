@@ -253,6 +253,12 @@ class TestListArray : public ::testing::Test {
                          ArrayType::FromArrays(*sliced_offsets, *values, pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *expected);
+
+    // Non-zero starter offset
+    sliced_offsets = offsets_wo_nulls->Slice(3, 3);
+    ASSERT_OK_AND_ASSIGN(result, ArrayType::FromArrays(*sliced_offsets, *values, pool_));
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*result, *expected->Slice(1, 2));
   }
 
   void TestFromArraysWithSlicedNullOffsets() {
@@ -274,6 +280,12 @@ class TestListArray : public ::testing::Test {
                          ArrayType::FromArrays(*sliced_offsets, *values, pool_));
     ASSERT_OK(result->ValidateFull());
     AssertArraysEqual(*result, *expected);
+
+    // Non-zero starter offset
+    sliced_offsets = offsets_w_nulls->Slice(3, 3);
+    ASSERT_OK_AND_ASSIGN(result, ArrayType::FromArrays(*sliced_offsets, *values, pool_));
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*result, *expected->Slice(1, 2));
   }
 
   void TestFromArrays() {
