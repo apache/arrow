@@ -97,12 +97,15 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.__isset.null_count,
         metadata.statistics.__isset.distinct_count);
   }
+  // GH-34139: If SortOrder is not SIGNED, ignore min and max.
+  bool can_use_legacy_min_max = descr->sort_order() == SortOrder::SIGNED;
   // Default behavior
   return MakeStatistics<DType>(
       descr, metadata.statistics.min, metadata.statistics.max,
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
-      metadata.statistics.__isset.max || metadata.statistics.__isset.min,
+      can_use_legacy_min_max &&
+          (metadata.statistics.__isset.max || metadata.statistics.__isset.min),
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
 }
 
