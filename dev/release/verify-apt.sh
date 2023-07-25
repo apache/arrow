@@ -45,7 +45,21 @@ echo "::group::Prepare repository"
 
 export DEBIAN_FRONTEND=noninteractive
 
-APT_INSTALL="apt install -y -V --no-install-recommends"
+retry()
+{
+  local n_retries=0
+  local max_n_retries=3
+  while ! "$@"; do
+    n_retries=$((n_retries + 1))
+    if [ ${n_retries} -eq ${max_n_retries} ]; then
+      echo "Failed: $@"
+      return 1
+    fi
+    echo "Retry: $@"
+  done
+}
+
+APT_INSTALL="retry apt install -y -V --no-install-recommends"
 
 apt update
 ${APT_INSTALL} \
