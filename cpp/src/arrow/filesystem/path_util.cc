@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <regex>
+#include <sstream>
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
@@ -64,6 +65,42 @@ std::vector<std::string> SplitAbstractPath(const std::string& path, char sep) {
     start = end + 1;
   }
   return parts;
+}
+
+std::string SliceAbstractPath(const std::string& s, int offset, int length, char sep) {
+  if (offset < 0 || length < 0) {
+    return "";
+  }
+  std::vector<std::string> components = SplitAbstractPath(s, sep);
+  std::stringstream combined;
+  if (offset >= static_cast<int>(components.size())) {
+    return "";
+  }
+  int end = offset + length;
+  if (end > static_cast<int>(components.size())) {
+    end = static_cast<int>(components.size());
+  }
+  for (int i = offset; i < end; i++) {
+    combined << components[i];
+    if (i < end - 1) {
+      combined << sep;
+    }
+  }
+  return combined.str();
+}
+
+int GetAbstractPathDepth(std::string_view path) {
+  if (path.empty()) {
+    return 0;
+  }
+  int depth = static_cast<int>(std::count(path.begin(), path.end(), kSep)) + 1;
+  if (path.back() == kSep) {
+    depth -= 1;
+  }
+  if (path.front() == kSep) {
+    depth -= 1;
+  }
+  return depth;
 }
 
 std::pair<std::string, std::string> GetAbstractPathParent(const std::string& s) {
