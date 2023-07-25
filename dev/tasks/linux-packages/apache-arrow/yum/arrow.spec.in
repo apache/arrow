@@ -238,27 +238,11 @@ cd -
 %package -n %{name}%{major_version}-libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	brotli
-%if %{use_gflags}
-Requires:	gflags
-%endif
-%if %{use_glog}
-Requires:	glog
-%endif
-Requires:	libzstd
 %if %{have_lz4_libs}
 Requires:	lz4-libs %{lz4_requirement}
 %else
 Requires:	lz4 %{lz4_requirement}
 %endif
-%if %{have_re2}
-Requires:	re2
-%endif
-Requires:	snappy
-%if %{have_utf8proc}
-Requires:	utf8proc
-%endif
-Requires:	zlib
 
 %description -n %{name}%{major_version}-libs
 This package contains the libraries for Apache Arrow C++.
@@ -414,8 +398,6 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	c-ares
-Requires:	openssl
 
 %description -n %{name}%{major_version}-flight-libs
 This package contains the libraries for Apache Arrow Flight.
@@ -485,7 +467,6 @@ Libraries and header files for Apache Arrow Flight SQL.
 Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	ncurses-libs
 
 %description -n gandiva%{major_version}-libs
 This package contains the libraries for Gandiva.
@@ -521,7 +502,6 @@ Libraries and header files for Gandiva.
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	openssl
 
 %description -n parquet%{major_version}-libs
 This package contains the libraries for Apache Parquet C++.
@@ -570,7 +550,6 @@ Libraries and header files for Apache Parquet C++.
 Summary:	Runtime libraries for Apache Arrow GLib
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	glib2
 
 %description -n %{name}%{major_version}-glib-libs
 This package contains the libraries for Apache Arrow GLib.
