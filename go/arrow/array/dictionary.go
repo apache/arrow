@@ -842,8 +842,20 @@ func (b *dictionaryBuilder) insertDictValue(val interface{}) error {
 	return err
 }
 
+func (b *dictionaryBuilder) insertDictBytes(val []byte) error {
+	_, _, err := b.memoTable.GetOrInsertBytes(val)
+	return err
+}
+
 func (b *dictionaryBuilder) appendValue(val interface{}) error {
 	idx, _, err := b.memoTable.GetOrInsert(val)
+	b.idxBuilder.Append(idx)
+	b.length += 1
+	return err
+}
+
+func (b *dictionaryBuilder) appendBytes(val []byte) error {
+	idx, _, err := b.memoTable.GetOrInsertBytes(val)
 	b.idxBuilder.Append(idx)
 	b.length += 1
 	return err
@@ -1285,16 +1297,18 @@ func (b *BinaryDictionaryBuilder) Append(v []byte) error {
 		b.AppendNull()
 		return nil
 	}
-	return b.appendValue(v)
+
+	return b.appendBytes(v)
 }
-func (b *BinaryDictionaryBuilder) AppendString(v string) error { return b.appendValue(v) }
+
+func (b *BinaryDictionaryBuilder) AppendString(v string) error { return b.appendBytes([]byte(v)) }
 func (b *BinaryDictionaryBuilder) InsertDictValues(arr *Binary) (err error) {
 	if !arrow.TypeEqual(arr.DataType(), b.dt.ValueType) {
 		return fmt.Errorf("dictionary insert type mismatch: cannot insert values of type %T to dictionary type %T", arr.DataType(), b.dt.ValueType)
 	}
 
 	for i := 0; i < arr.Len(); i++ {
-		if err = b.insertDictValue(arr.Value(i)); err != nil {
+		if err = b.insertDictBytes(arr.Value(i)); err != nil {
 			break
 		}
 	}
