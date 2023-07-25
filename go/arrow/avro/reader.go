@@ -47,10 +47,6 @@ type OCFReader struct {
 	mem memory.Allocator
 
 	once sync.Once
-
-	fieldConverter []func(val string)
-	columnFilter   []string
-	columnTypes    map[string]arrow.DataType
 }
 
 // NewReader returns a reader that reads from an Avro OCF file and creates
