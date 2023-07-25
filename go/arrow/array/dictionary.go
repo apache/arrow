@@ -814,11 +814,11 @@ func (b *dictionaryBuilder) newWithDictOffset(offset int) (indices, dict *Data, 
 	defer idxarr.Release()
 
 	indices = idxarr.Data().(*Data)
-	indices.Retain()
 
 	b.deltaOffset = b.memoTable.Size()
 	dict, err = GetDictArrayData(b.mem, b.dt.ValueType, b.memoTable, offset)
 	b.reset()
+	indices.Retain()
 	return
 }
 
