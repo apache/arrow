@@ -68,6 +68,7 @@ from pyarrow.tests import util
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
 ])
+
 def test_basics(value, ty, klass):
     s = pa.scalar(value, type=ty)
     s.validate()
@@ -153,6 +154,9 @@ def test_hashing_struct_scalar():
     hash2 = hash(b[0])
     assert hash1 == hash2
 
+def test_timestamp_scalar():
+    s = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
+    assert s == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
 
 def test_bool():
     false = pa.scalar(False)

@@ -113,8 +113,12 @@ cdef class Scalar(_Weakrefable):
         else:
             with nogil:
                 check_status(self.wrapped.get().Validate())
-
+ 
     def __repr__(self):
+        if isinstance(self, TimestampScalar):
+            return '<pyarrow.{}: {!r}>'.format(
+                self.__class__.__name__, str(_pc().strftime(self))
+            )
         return '<pyarrow.{}: {!r}>'.format(
             self.__class__.__name__, self.as_py()
         )
