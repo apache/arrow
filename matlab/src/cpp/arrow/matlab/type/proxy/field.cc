@@ -114,9 +114,9 @@ namespace arrow::matlab::type::proxy {
         const mda::StringArray name_mda = opts[0]["Name"];
         const mda::TypedArray<uint64_t> type_proxy_id_mda = opts[0]["TypeProxyID"];
 
-        const std::u16string& utf16_name = name_mda[0];
+        const std::u16string& name_utf16 = name_mda[0];
         MATLAB_ASSIGN_OR_ERROR(const auto name,
-                arrow::util::UTF16StringToUTF8(utf16_name),
+                arrow::util::UTF16StringToUTF8(name_utf16),
                 error::UNICODE_CONVERSION_ERROR_ID);
 
         auto proxy = std::static_pointer_cast<type::proxy::Type>(libmexclass::proxy::ProxyManager::getProxy(type_proxy_id_mda[0]));
