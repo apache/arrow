@@ -57,9 +57,6 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
-    # https://github.com/Homebrew/homebrew-core/issues/76537
-    ENV.runtime_cpu_detection if Hardware::CPU.intel?
-
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
@@ -90,6 +87,12 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZSTD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
+    # Disable runtime SIMD dispatch because ENV.runtime_cpu_detection
+    # isn't enough. Homebrew's CC disallows some compiler options such
+    # as -O*, -march and -mavx2. ENV.runtime_cpu_detection allows
+    # -march=* but -mavx2, -mvax512* and so on aren't allowed. But we
+    # use -mavx2, -mvax512* and so on for SIMD related options. If
+    # they are disallowed, our runtime SIMD dispatch is broken.
     args << "-DARROW_RUNTIME_SIMD_LEVEL=NONE" if Hardware::CPU.intel?
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
