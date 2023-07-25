@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -58,18 +59,31 @@ class ARROW_EXPORT Buffer {
   ///
   /// \note The passed memory must be kept alive through some other means
   Buffer(const uint8_t* data, int64_t size)
-      : is_mutable_(false), is_cpu_(true), data_(data), size_(size), capacity_(size) {
+      : is_mutable_(false),
+        is_cpu_(true),
+        data_(data),
+        size_(size),
+        capacity_(size),
+        device_type_(DeviceAllocationType::kCPU) {
     SetMemoryManager(default_cpu_memory_manager());
   }
 
   Buffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
-         std::shared_ptr<Buffer> parent = NULLPTR)
+         std::shared_ptr<Buffer> parent = NULLPTR,
+         std::optional<DeviceAllocationType> device_type = std::nullopt)
       : is_mutable_(false),
         data_(data),
         size_(size),
         capacity_(size),
         parent_(std::move(parent)) {
+    // SetMemoryManager will also set device_type_
     SetMemoryManager(std::move(mm));
+    // if a device type is specified, use that instead. for example:
+    // CUDA_HOST. The CudaMemoryManager will set device_type_ to CUDA,
+    // but you can specify CUDA_HOST as the device type to override it.
+    if (device_type != std::nullopt) {
+      device_type_ = device_type;
+    }
   }
 
   Buffer(uintptr_t address, int64_t size, std::shared_ptr<MemoryManager> mm,
@@ -282,6 +296,8 @@ class ARROW_EXPORT Buffer {
 
   const std::shared_ptr<MemoryManager>& memory_manager() const { return memory_manager_; }
 
+  std::optional<DeviceAllocationType> device_type() const { return device_type_; }
+
   std::shared_ptr<Buffer> parent() const { return parent_; }
 
   /// \brief Get a RandomAccessFile for reading a buffer
@@ -336,6 +352,7 @@ class ARROW_EXPORT Buffer {
   const uint8_t* data_;
   int64_t size_;
   int64_t capacity_;
+  std::optional<DeviceAllocationType> device_type_;
 
   // null by default, but may be set
   std::shared_ptr<Buffer> parent_;
@@ -353,6 +370,7 @@ class ARROW_EXPORT Buffer {
   void SetMemoryManager(std::shared_ptr<MemoryManager> mm) {
     memory_manager_ = std::move(mm);
     is_cpu_ = memory_manager_->is_cpu();
+    device_type_ = memory_manager_->device()->device_type();
   }
 };
 

@@ -29,6 +29,24 @@
 
 namespace arrow {
 
+/// \brief EXPERIMENTAL: Device type enum which matches up with C Data Device types
+enum class DeviceAllocationType : char {
+  kCPU = 1,
+  kCUDA = 2,
+  kCUDA_HOST = 3,
+  kOPENCL = 4,
+  kVULKAN = 7,
+  kMETAL = 8,
+  kVPI = 9,
+  kROCM = 10,
+  kROCM_HOST = 11,
+  kEXT_DEV = 12,
+  kCUDA_MANAGED = 13,
+  kONEAPI = 14,
+  kWEBGPU = 15,
+  kHEXAGON = 16,
+};
+
 class MemoryManager;
 
 /// \brief EXPERIMENTAL: Abstract interface for hardware devices
@@ -58,6 +76,12 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// \brief Whether this instance points to the same device as another one.
   virtual bool Equals(const Device&) const = 0;
 
+  /// \brief A device ID to identify this device if there are multiple of this type.
+  ///
+  /// If there is no "device_id" equivalent (such as for the main CPU device on
+  /// non-numa systems) returns -1.
+  virtual int64_t device_id() const { return -1; }
+
   /// \brief Whether this device is the main CPU device.
   ///
   /// This shorthand method is very useful when deciding whether a memory address
@@ -70,6 +94,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// MemoryManager implementation.  Some devices also allow constructing
   /// MemoryManager instances with non-default parameters.
   virtual std::shared_ptr<MemoryManager> default_memory_manager() = 0;
+
+  /// \brief Return the DeviceAllocationType of this device
+  virtual DeviceAllocationType device_type() const = 0;
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Device);
@@ -172,6 +199,7 @@ class ARROW_EXPORT CPUDevice : public Device {
   const char* type_name() const override;
   std::string ToString() const override;
   bool Equals(const Device&) const override;
+  DeviceAllocationType device_type() const override { return DeviceAllocationType::kCPU; }
 
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 
