@@ -79,7 +79,7 @@ namespace arrow::matlab::type::proxy {
             case arrow_type::TIMESTAMP:
                 return std::make_shared<type_proxy::TimestampType>(std::static_pointer_cast<arrow::TimestampType>(datatype));
             default:
-                return arrow::Status::Invalid("Unsupported DataType: " + datatype->ToString());
+                return arrow::Status::NotImplemented("Unsupported DataType: " + datatype->ToString());
         }
     }
 
