@@ -74,12 +74,13 @@ jobs:
             setapikey "$GITHUB_TOKEN" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
       - name: Cache nasm
-        - run: echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-        - run: New-Item -ItemType "directory" -Path "C:\vcpkg\downloads" -Force
-        - run: Invoke-WebRequest -URI "$env:BASE_URL/$env:FILE_NAME" -OutFile "C:\vcpkg\downloads\$env:FILE_NAME"
-          env:
-            BASE_URL: https://github.com/microsoft/vcpkg/files/12073957
-            FILE_NAME: nasm-2.16.01-win64.zip
+        run: |
+          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
+          New-Item -ItemType "directory" -Path "C:\vcpkg\downloads" -Force
+          Invoke-WebRequest -URI "$env:BASE_URL/$env:FILE_NAME" -OutFile "C:\vcpkg\downloads\$env:FILE_NAME"
+        env:
+          BASE_URL: https://github.com/microsoft/vcpkg/files/12073957
+          FILE_NAME: nasm-2.16.01-win64.zip
       - name: Install Dependencies with vcpkg and Build Arrow C++
         shell: cmd
         run: |
