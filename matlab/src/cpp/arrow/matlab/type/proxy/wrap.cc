@@ -53,7 +53,7 @@ namespace arrow::matlab::type::proxy {
             case ID::STRING:
                 return std::make_shared<StringType>(std::static_pointer_cast<arrow::StringType>(type));
             default:
-                return arrow::Status::Invalid("Unknown Type: " + );
+                return arrow::Status::NotImplemented("Unknown Type: " + type->ToString());
         }
     }
 }
