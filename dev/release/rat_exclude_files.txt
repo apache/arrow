@@ -63,8 +63,7 @@ docs/requirements.txt
 go.work.sum
 go/go.sum
 go/arrow/Gopkg.lock
-go/arrow/flight/internal/flight/Flight.pb.go
-go/arrow/flight/internal/flight/Flight_grpc.pb.go
+go/arrow/flight/gen/flight/*.pb.go
 go/arrow/internal/cpu/*
 go/arrow/type_string.go
 go/arrow/cdata/test/go.sum

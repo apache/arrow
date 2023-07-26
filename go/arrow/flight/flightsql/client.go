@@ -25,7 +25,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/flight"
-	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
+	pb "github.com/apache/arrow/go/v13/arrow/flight/gen/flight"
 	"github.com/apache/arrow/go/v13/arrow/ipc"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"google.golang.org/grpc"
