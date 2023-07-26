@@ -785,7 +785,7 @@ cdef class MapScalar(ListScalar):
         if arr is None:
             raise IndexError(i)
         dct = arr[_normalize_index(i, len(arr))]
-        return (dct['key'], dct['value'])
+        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
 
     def __iter__(self):
         """
@@ -794,7 +794,7 @@ cdef class MapScalar(ListScalar):
         arr = self.values
         if array is None:
             raise StopIteration
-        for k, v in zip(arr.field('key'), arr.field('value')):
+        for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 
     def as_py(self):
