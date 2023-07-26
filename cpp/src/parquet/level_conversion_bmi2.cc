@@ -17,7 +17,9 @@
 #include "parquet/level_conversion.h"
 
 #define PARQUET_IMPL_NAMESPACE bmi2
+#define PARQUET_BMI2
 #include "parquet/level_conversion_inc.h"
+#undef PARQUET_BMI2
 #undef PARQUET_IMPL_NAMESPACE
 
 namespace parquet::internal {
