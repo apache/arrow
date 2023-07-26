@@ -205,8 +205,7 @@ struct DistinctImpl : public ScalarAggregator {
     RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(ctx->memory_pool(), this->out_type,
                                                      *this->memo_table_,
                                                      0 /* start_offset */, &data));
-    auto arr = MakeArray(data);
-    *out = Datum(std::move(arr));
+    *out = Datum(MakeArray(data));
     return Status::OK();
   }
 
