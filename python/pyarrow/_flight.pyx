@@ -3016,7 +3016,7 @@ cdef class FlightServerBase(_Weakrefable):
     def serve(self):
         """Block until the server shuts down.
 
-        This method only returns if shutdown() is called or a signal a
+        This method only returns if shutdown() is called or a signal is
         received.
         """
         if self.server.get() == nullptr:
