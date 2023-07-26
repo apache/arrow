@@ -1,17 +1,15 @@
 BUILD:
 - aarch64-conda_cos7-linux-gnu
 aws_crt_cpp:
-- 0.19.8
+- 0.20.3
 aws_sdk_cpp:
 - 1.10.57
 bzip2:
 - '1'
-c_ares:
-- '1'
 c_compiler:
 - gcc
 c_compiler_version:
-- '11'
+- '12'
 cdt_arch:
 - aarch64
 cdt_name:
@@ -20,12 +18,16 @@ channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
+cuda_compiler:
+- None
 cuda_compiler_version:
 - None
+cuda_compiler_version_min:
+- '11.2'
 cxx_compiler:
 - gxx
 cxx_compiler_version:
-- '11'
+- '12'
 docker_image:
 - quay.io/condaforge/linux-anvil-cos7-x86_64
 gflags:
@@ -33,24 +35,26 @@ gflags:
 glog:
 - '0.6'
 google_cloud_cpp:
-- 2.8.0
+- '2.12'
 libabseil:
 - '20230125'
 libgrpc:
-- '1.52'
+- '1.54'
+- '1.56'
 libprotobuf:
 - '3.21'
+- 4.23.3
 lz4_c:
 - 1.9.3
 numpy:
 - '1.21'
 - '1.23'
-- '1.20'
-- '1.20'
+- '1.21'
+- '1.21'
 openssl:
 - '3'
 orc:
-- 1.8.3
+- 1.9.0
 pin_run_as_build:
   python:
     min_pin: x.x
@@ -61,7 +65,7 @@ python:
 - 3.8.* *_cpython
 - 3.9.* *_cpython
 re2:
-- 2023.02.02
+- 2023.03.02
 snappy:
 - '1'
 target_platform:
@@ -73,9 +77,12 @@ ucx:
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version
+  - cuda_compiler
   - cuda_compiler_version
   - cdt_name
   - docker_image
+- - libgrpc
+  - libprotobuf
 - - python
   - numpy
 zlib:
