@@ -26,7 +26,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/flight"
 	"github.com/apache/arrow/go/v13/arrow/flight/flightsql"
-	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
+	pb "github.com/apache/arrow/go/v13/arrow/flight/gen/flight"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
