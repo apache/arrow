@@ -222,6 +222,8 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
   /// \brief Block until server shuts down with Shutdown.
+  ///
+  /// Does not respond to signals like Serve().
   Status Wait();
 
   // Implement these methods to create your own server. The default
