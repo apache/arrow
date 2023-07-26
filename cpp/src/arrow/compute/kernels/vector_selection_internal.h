@@ -73,6 +73,7 @@ Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status DenseUnionFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status SparseUnionFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 
 Status VarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
@@ -82,6 +83,7 @@ Status ListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status DenseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
+Status SparseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status StructTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 

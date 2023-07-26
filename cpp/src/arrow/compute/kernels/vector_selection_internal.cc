@@ -741,6 +741,79 @@ struct DenseUnionSelectionImpl
   }
 };
 
+struct SparseUnionSelectionImpl
+    : public Selection<SparseUnionSelectionImpl, SparseUnionType> {
+  using Base = Selection<SparseUnionSelectionImpl, SparseUnionType>;
+  LIFT_BASE_MEMBERS();
+
+  TypedBufferBuilder<int8_t> child_id_buffer_builder_;
+  std::vector<int8_t> type_codes_;
+  std::vector<Int32Builder> child_indices_builders_;
+
+  SparseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
+                           int64_t output_length, ExecResult* out)
+      : Base(ctx, batch, output_length, out),
+        child_id_buffer_builder_(ctx->memory_pool()),
+        type_codes_(checked_cast<const UnionType&>(*this->values.type).type_codes()),
+        child_indices_builders_(type_codes_.size()) {
+    for (auto& child_indices_builder : child_indices_builders_) {
+      child_indices_builder = Int32Builder(ctx->memory_pool());
+    }
+  }
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    SparseUnionArray typed_values(this->values.ToArrayData());
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          int8_t child_id = typed_values.child_id(index);
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          // TODO(jinshang): We use a naive approach for now: apply take for each child
+          // array. There is room for optimization because the unselected child arrays can
+          // have any value at this slot.
+          for (auto& child_indices_builder : child_indices_builders_) {
+            child_indices_builder.UnsafeAppend(index);
+          }
+          return Status::OK();
+        },
+        [&]() {
+          int8_t child_id = 0;
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          for (auto& child_indices_builder : child_indices_builders_) {
+            child_indices_builder.UnsafeAppendNull();
+          }
+          return Status::OK();
+        }));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(child_id_buffer_builder_.Reserve(output_length));
+    for (auto& child_index_builder : child_indices_builders_) {
+      RETURN_NOT_OK(child_index_builder.Reserve(output_length));
+    }
+    return Status::OK();
+  }
+
+  Status Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
+    SparseUnionArray typed_values(this->values.ToArrayData());
+    auto num_fields = typed_values.num_fields();
+    auto num_rows = child_ids_buffer->size();
+    BufferVector buffers{nullptr, std::move(child_ids_buffer)};
+    *out = ArrayData(typed_values.type(), num_rows, std::move(buffers), 0);
+    for (auto i = 0; i < num_fields; i++) {
+      ARROW_ASSIGN_OR_RAISE(auto child_indices_array,
+                            child_indices_builders_[i].Finish());
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> child_array,
+                            Take(*typed_values.field(i), *child_indices_array));
+      out->child_data.push_back(child_array->data());
+    }
+    return Status::OK();
+  }
+};
+
 struct FSLSelectionImpl : public Selection<FSLSelectionImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
@@ -863,6 +936,10 @@ Status DenseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResul
   return FilterExec<DenseUnionSelectionImpl>(ctx, batch, out);
 }
 
+Status SparseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return FilterExec<SparseUnionSelectionImpl>(ctx, batch, out);
+}
+
 Status MapFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return FilterExec<ListSelectionImpl<MapType>>(ctx, batch, out);
 }
@@ -907,6 +984,10 @@ Status FSLTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
 
 Status DenseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<DenseUnionSelectionImpl>(ctx, batch, out);
+}
+
+Status SparseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return TakeExec<SparseUnionSelectionImpl>(ctx, batch, out);
 }
 
 Status StructTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {

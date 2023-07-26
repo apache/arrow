@@ -1047,6 +1047,7 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::LARGE_LIST), plain_filter, LargeListFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), plain_filter, FSLFilterExec},
       {InputType(Type::DENSE_UNION), plain_filter, DenseUnionFilterExec},
+      {InputType(Type::SPARSE_UNION), plain_filter, SparseUnionFilterExec},
       {InputType(Type::STRUCT), plain_filter, StructFilterExec},
       {InputType(Type::MAP), plain_filter, MapFilterExec},
 
@@ -1064,6 +1065,7 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(Type::LARGE_LIST), ree_filter, LargeListFilterExec},
       {InputType(Type::FIXED_SIZE_LIST), ree_filter, FSLFilterExec},
       {InputType(Type::DENSE_UNION), ree_filter, DenseUnionFilterExec},
+      {InputType(Type::SPARSE_UNION), ree_filter, SparseUnionFilterExec},
       {InputType(Type::STRUCT), ree_filter, StructFilterExec},
       {InputType(Type::MAP), ree_filter, MapFilterExec},
   };
