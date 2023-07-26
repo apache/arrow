@@ -173,5 +173,4 @@ namespace arrow::matlab::error {
     static const char* UKNOWN_TIME_UNIT_ERROR_ID = "arrow:matlab:UnknownTimeUnit";
     static const char* FIELD_FAILED_TO_CREATE_TYPE_PROXY = "arrow:field:FailedToCreateTypeProxy";
     static const char* ARRAY_FAILED_TO_CREATE_TYPE_PROXY = "arrow:array:FailedToCreateTypeProxy";
-
 }
