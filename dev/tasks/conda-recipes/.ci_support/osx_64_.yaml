@@ -1,17 +1,15 @@
 MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 aws_crt_cpp:
-- 0.19.8
+- 0.20.3
 aws_sdk_cpp:
 - 1.10.57
 bzip2:
 - '1'
-c_ares:
-- '1'
 c_compiler:
 - clang
 c_compiler_version:
-- '14'
+- '15'
 channel_sources:
 - conda-forge
 channel_targets:
@@ -21,19 +19,21 @@ cuda_compiler_version:
 cxx_compiler:
 - clangxx
 cxx_compiler_version:
-- '14'
+- '15'
 gflags:
 - '2.2'
 glog:
 - '0.6'
 google_cloud_cpp:
-- 2.8.0
+- '2.12'
 libabseil:
 - '20230125'
 libgrpc:
-- '1.52'
+- '1.54'
+- '1.56'
 libprotobuf:
 - '3.21'
+- 4.23.3
 lz4_c:
 - 1.9.3
 macos_machine:
@@ -41,12 +41,12 @@ macos_machine:
 numpy:
 - '1.21'
 - '1.23'
-- '1.20'
-- '1.20'
+- '1.21'
+- '1.21'
 openssl:
 - '3'
 orc:
-- 1.8.3
+- 1.9.0
 pin_run_as_build:
   python:
     min_pin: x.x
@@ -57,7 +57,7 @@ python:
 - 3.8.* *_cpython
 - 3.9.* *_cpython
 re2:
-- 2023.02.02
+- 2023.03.02
 snappy:
 - '1'
 target_platform:
@@ -67,6 +67,8 @@ thrift_cpp:
 zip_keys:
 - - c_compiler_version
   - cxx_compiler_version
+- - libgrpc
+  - libprotobuf
 - - python
   - numpy
 zlib:

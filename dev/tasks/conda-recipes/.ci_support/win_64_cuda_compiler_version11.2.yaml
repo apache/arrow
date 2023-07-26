@@ -4,28 +4,22 @@ aws_sdk_cpp:
 - 1.10.57
 bzip2:
 - '1'
+c_ares:
+- '1'
 c_compiler:
-- gcc
-c_compiler_version:
-- '12'
-cdt_name:
-- cos6
+- vs2019
 channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
 cuda_compiler:
-- None
+- nvcc
 cuda_compiler_version:
-- None
+- '11.2'
 cuda_compiler_version_min:
 - '11.2'
 cxx_compiler:
-- gxx
-cxx_compiler_version:
-- '12'
-docker_image:
-- quay.io/condaforge/linux-anvil-cos7-x86_64
+- vs2019
 gflags:
 - '2.2'
 glog:
@@ -34,6 +28,10 @@ google_cloud_cpp:
 - '2.12'
 libabseil:
 - '20230125'
+libcrc32c:
+- '1.1'
+libcurl:
+- '8'
 libgrpc:
 - '1.54'
 - '1.56'
@@ -65,18 +63,12 @@ re2:
 snappy:
 - '1'
 target_platform:
-- linux-64
+- win-64
 thrift_cpp:
 - 0.18.1
-ucx:
-- 1.14.0
 zip_keys:
-- - c_compiler_version
-  - cxx_compiler_version
-  - cuda_compiler
+- - cuda_compiler
   - cuda_compiler_version
-  - cdt_name
-  - docker_image
 - - libgrpc
   - libprotobuf
 - - python

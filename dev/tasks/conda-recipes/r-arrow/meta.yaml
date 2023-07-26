@@ -10,8 +10,6 @@ source:
   path: ../../../../
 
 build:
-  # 4.1 not usable anymore unless https://github.com/conda-forge/r-base-feedstock/pull/236 gets merged
-  skip: true  # [unix and (r_base == "4.1")]
   merge_build_host: true  # [win]
   number: 0
   rpaths:
