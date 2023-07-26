@@ -5010,7 +5010,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
 
 
 def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
-                  FieldMergeOptions field_merge_options=None):
+                  object field_merge_options=None):
     """
     Concatenate pyarrow.Table objects.
 
@@ -5036,9 +5036,10 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
         See field_merge_options for the type promotion behavior.
     memory_pool : MemoryPool, default None
         For memory allocations, if required, otherwise use default pool.
-    field_merge_options : FieldMergeOptions, default None
+    field_merge_options : FieldMergeOptions or str, default None
         The type promotion options; by default, null and only null can
-        be unified with another type.
+        be unified with another type. Also accepts strings "default" and
+        "permissive"
 
     Examples
     --------
@@ -5071,8 +5072,14 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
     for table in tables:
         c_tables.push_back(table.sp_table)
 
-    if field_merge_options:
-        options.field_merge_options = field_merge_options.c_options
+    if field_merge_options is not None:
+        if isinstance(field_merge_options, str):
+            if field_merge_options == "permissive":
+                options.field_merge_options = CConcatenateTablesOptions.Permissive()
+            elif field_merge_options == "default":
+                options.field_merge_options = CConcatenateTablesOptions.Defaults()
+        else:
+            options.field_merge_options = field_merge_options.c_options
 
     with nogil:
         options.unify_schemas = promote

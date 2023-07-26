@@ -1995,6 +1995,21 @@ cdef class FieldMergeOptions(_Weakrefable):
         options.c_options = CField.CMergeOptions.Permissive()
         return options
 
+    def __repr__(self) -> str:
+        return 'FieldMergeOptions(promote_nullability={},promote_decimal={},promote_decimal_to_float={},promote_integer_to_decimal={},promote_integer_to_float={},promote_integer_sign={},promote_numeric_width={},promote_binary={},promote_temporal_unit={},promote_dictionary={},promote_dictionary_ordered={})'.format(
+            self.promote_nullability,
+            self.promote_decimal,
+            self.promote_decimal_to_float,
+            self.promote_integer_to_decimal,
+            self.promote_integer_to_float,
+            self.promote_integer_sign,
+            self.promote_numeric_width,
+            self.promote_binary,
+            self.promote_temporal_unit,
+            self.promote_dictionary,
+            self.promote_dictionary_ordered
+        )
+
 
 cdef class Field(_Weakrefable):
     """

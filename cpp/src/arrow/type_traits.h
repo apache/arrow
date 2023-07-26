@@ -998,20 +998,6 @@ constexpr bool is_run_end_type(Type::type type_id) {
   return false;
 }
 
-/// \brief Check for a time type
-///
-/// \param[in] type_id the type-id to check
-/// \return whether type-id is a primitive type one
-constexpr bool is_time(Type::type type_id) {
-  switch (type_id) {
-    case Type::TIME32:
-    case Type::TIME64:
-      return true;
-    default:
-      break;
-  }
-  return false;
-}
 
 /// \brief Check for a primitive type
 ///
@@ -1140,6 +1126,36 @@ constexpr bool is_temporal(Type::type type_id) {
     case Type::TIME32:
     case Type::TIME64:
     case Type::TIMESTAMP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a time type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_time(Type::type type_id) {
+  switch (type_id) {
+    case Type::TIME32:
+    case Type::TIME64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a date type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a primitive type one
+constexpr bool is_date(Type::type type_id) {
+  switch (type_id) {
+    case Type::DATE32:
+    case Type::DATE64:
       return true;
     default:
       break;

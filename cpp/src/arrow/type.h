@@ -411,18 +411,18 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
 
     /// Allow a decimal to be promoted to a float. The float type will
     /// not itself be promoted (e.g. Decimal128 + Float32 = Float32).
-    bool promote_decimal_float = false;
+    bool promote_decimal_to_float = false;
 
     /// Allow an integer to be promoted to a decimal.
     ///
     /// May fail if the decimal has insufficient precision to
-    /// accomodate the integer. (See increase_decimal_precision.)
-    bool promote_integer_decimal = false;
+    /// accommodate the integer. (See increase_decimal_precision.)
+    bool promote_integer_to_decimal = false;
 
     /// Allow an integer of a given bit width to be promoted to a
     /// float; the result will be a float of an equal or greater bit
     /// width to both of the inputs.
-    bool promote_integer_float = false;
+    bool promote_integer_to_float = false;
 
     /// Allow an unsigned integer of a given bit width to be promoted
     /// to a signed integer of the equal or greater bit width.
@@ -435,17 +435,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
     /// Allow strings to be promoted to binary types.
     bool promote_binary = false;
 
-    /// Promote Date32 to Date64.
-    bool promote_date = false;
-
-    /// Promote second to millisecond, etc.
-    bool promote_duration = false;
-
-    /// Promote Time32 to Time64, or Time32(SECOND) to Time32(MILLI), etc.
-    bool promote_time = false;
-
-    /// Promote second to millisecond, etc.
-    bool promote_timestamp = false;
+    /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
+    bool promote_temporal_unit = false;
 
     /// Promote dictionary index types to a common type, and unify the
     /// value types.
@@ -455,12 +446,6 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
     /// error. The result will be ordered if and only if both inputs
     /// are ordered.
     bool promote_dictionary_ordered = false;
-
-    /// Allow a type to be promoted to the Large variant.
-    bool promote_large = false;
-
-    /// Recursively merge nested types.
-    bool promote_nested = false;
 
     /// Get default options. Only NullType will be merged with other types.
     static MergeOptions Defaults() { return MergeOptions(); }

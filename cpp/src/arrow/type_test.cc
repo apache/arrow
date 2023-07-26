@@ -1094,7 +1094,7 @@ TEST_F(TestUnifySchemas, MoreSchemas) {
 TEST_F(TestUnifySchemas, Numeric) {
   auto options = Field::MergeOptions::Defaults();
   options.promote_numeric_width = true;
-  options.promote_integer_float = true;
+  options.promote_integer_to_float = true;
   options.promote_integer_sign = true;
   CheckUnify(uint8(),
              {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(), float32(),
@@ -1127,24 +1127,27 @@ TEST_F(TestUnifySchemas, Numeric) {
   CheckUnifyFails(uint64(), {int64()}, options);
 
   options.promote_integer_sign = true;
-  options.promote_integer_float = false;
+  options.promote_integer_to_float = false;
   CheckUnifyFails(IntTypes(), FloatingPointTypes(), options);
 
-  options.promote_integer_float = true;
+  options.promote_integer_to_float = true;
   options.promote_numeric_width = false;
   CheckUnifyFails(int8(), {int16(), int32(), int64()}, options);
   CheckUnifyFails(int16(), {int32(), int64()}, options);
   CheckUnifyFails(int32(), {int64()}, options);
+  CheckUnify(int32(), {float32()}, options);
+  CheckUnify(int64(), {float64()}, options);
+  CheckUnifyFails(int32(), {float16(), float64()}, options);
 }
 
 TEST_F(TestUnifySchemas, Decimal) {
   auto options = Field::MergeOptions::Defaults();
 
-  options.promote_decimal_float = true;
+  options.promote_decimal_to_float = true;
   CheckUnify(decimal128(3, 2), {float32(), float64()}, options);
   CheckUnify(decimal256(3, 2), {float32(), float64()}, options);
 
-  options.promote_integer_decimal = true;
+  options.promote_integer_to_decimal = true;
   CheckUnify(int32(), decimal128(3, 2), decimal128(3, 2), options);
   CheckUnify(int32(), decimal128(3, -2), decimal128(3, -2), options);
 
@@ -1154,6 +1157,13 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(decimal128(3, 2), decimal128(5, 1), decimal128(6, 2), options);
   CheckUnify(decimal128(3, 2), decimal128(5, -2), decimal128(9, 2), options);
   CheckUnify(decimal128(3, -2), decimal128(5, -2), decimal128(5, -2), options);
+  CheckUnifyFails(decimal128(38, 10), decimal128(38, 5), options);
+
+  CheckUnify(decimal256(3, 2), decimal256(5, 2), decimal256(5, 2), options);
+  CheckUnify(decimal256(3, 2), decimal256(5, 3), decimal256(5, 3), options);
+  CheckUnify(decimal256(3, 2), decimal256(5, 1), decimal256(6, 2), options);
+  CheckUnify(decimal256(3, 2), decimal256(5, -2), decimal256(9, 2), options);
+  CheckUnify(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
   CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
@@ -1165,6 +1175,7 @@ TEST_F(TestUnifySchemas, Decimal) {
   options.promote_numeric_width = true;
   CheckUnify(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
   CheckUnify(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckUnifyFails(decimal128(38, 10), decimal256(76, 5), options);
 
   CheckUnifyFails(int64(), decimal256(76, 75), options);
 }
@@ -1172,10 +1183,9 @@ TEST_F(TestUnifySchemas, Decimal) {
 TEST_F(TestUnifySchemas, Temporal) {
   auto options = Field::MergeOptions::Defaults();
 
-  options.promote_date = true;
+  options.promote_temporal_unit = true;
   CheckUnify(date32(), {date64()}, options);
 
-  options.promote_time = true;
   CheckUnify(time32(TimeUnit::SECOND),
              {time32(TimeUnit::MILLI), time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
              options);
@@ -1183,7 +1193,6 @@ TEST_F(TestUnifySchemas, Temporal) {
              options);
   CheckUnify(time64(TimeUnit::MICRO), {time64(TimeUnit::NANO)}, options);
 
-  options.promote_duration = true;
   CheckUnify(
       duration(TimeUnit::SECOND),
       {duration(TimeUnit::MILLI), duration(TimeUnit::MICRO), duration(TimeUnit::NANO)},
@@ -1192,7 +1201,6 @@ TEST_F(TestUnifySchemas, Temporal) {
              {duration(TimeUnit::MICRO), duration(TimeUnit::NANO)}, options);
   CheckUnify(duration(TimeUnit::MICRO), {duration(TimeUnit::NANO)}, options);
 
-  options.promote_timestamp = true;
   CheckUnify(
       timestamp(TimeUnit::SECOND),
       {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)},
@@ -1205,11 +1213,13 @@ TEST_F(TestUnifySchemas, Temporal) {
                   options);
   CheckUnifyFails(timestamp(TimeUnit::SECOND, "America/New_York"),
                   timestamp(TimeUnit::SECOND, "UTC"), options);
+
+  options.promote_temporal_unit = true;
+  CheckUnifyFails(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {
   auto options = Field::MergeOptions::Defaults();
-  options.promote_large = true;
   options.promote_binary = true;
   CheckUnify(utf8(), {large_utf8(), binary(), large_binary()}, options);
   CheckUnify(binary(), {large_binary()}, options);
@@ -1217,11 +1227,9 @@ TEST_F(TestUnifySchemas, Binary) {
              options);
   CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
 
-  options.promote_large = false;
+  options.promote_binary = false;
   CheckUnifyFails({utf8(), binary()}, {large_utf8(), large_binary()});
   CheckUnifyFails(fixed_size_binary(2), BaseBinaryTypes());
-
-  options.promote_binary = false;
   CheckUnifyFails(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
@@ -1232,7 +1240,7 @@ TEST_F(TestUnifySchemas, List) {
                   {fixed_size_list(int8(), 3), list(int8()), large_list(int8())},
                   options);
 
-  options.promote_large = true;
+  options.promote_binary = true;
   CheckUnify(list(int8()), {large_list(int8())}, options);
   CheckUnify(fixed_size_list(int8(), 2), {list(int8()), large_list(int8())}, options);
 
@@ -1241,6 +1249,7 @@ TEST_F(TestUnifySchemas, List) {
   CheckUnify(fixed_size_list(int8(), 2),
              {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
              options);
+  CheckUnify(fixed_size_list(int16(), 2), list(int8), list(int16), options);
 
   auto ty = list(field("foo", int8(), /*nullable=*/false));
   CheckUnifyAsymmetric(ty, list(int8()), list(field("foo", int8(), /*nullable=*/true)),
@@ -1305,13 +1314,17 @@ TEST_F(TestUnifySchemas, Struct) {
 TEST_F(TestUnifySchemas, Dictionary) {
   auto options = Field::MergeOptions::Defaults();
   options.promote_dictionary = true;
-  options.promote_large = true;
+  options.promote_binary = true;
 
   CheckUnify(dictionary(int8(), utf8()),
              {
                  dictionary(int64(), utf8()),
                  dictionary(int8(), large_utf8()),
              },
+             options);
+  CheckUnify(dictionary(int64(), utf8()),
+             dictionary(int8(), large_utf8()),
+             dictionary(int64(), large_utf8()),
              options);
   CheckUnify(dictionary(int8(), utf8(), /*ordered=*/true),
              {

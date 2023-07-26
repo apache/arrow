@@ -729,6 +729,9 @@ def test_schema_merge():
         [b, d], options=pa.FieldMergeOptions.permissive())
     assert result.equals(d)
 
+    result = pa.unify_schemas([b, d], options="permissive")
+    assert result.equals(d)
+
     # raise proper error when passing a non-Schema value
     with pytest.raises(TypeError):
         pa.unify_schemas([a, 1])

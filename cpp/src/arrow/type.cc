@@ -46,6 +46,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/range.h"
 #include "arrow/util/string.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/vector.h"
 #include "arrow/visit_type_inline.h"
 
@@ -302,20 +303,15 @@ Field::MergeOptions Field::MergeOptions::Permissive() {
   MergeOptions options = Defaults();
   options.promote_nullability = true;
   options.promote_decimal = true;
-  options.promote_decimal_float = true;
-  options.promote_integer_decimal = true;
-  options.promote_integer_float = true;
+  options.promote_decimal_to_float = true;
+  options.promote_integer_to_decimal = true;
+  options.promote_integer_to_float = true;
   options.promote_integer_sign = true;
   options.promote_numeric_width = true;
   options.promote_binary = true;
-  options.promote_date = true;
-  options.promote_duration = true;
-  options.promote_time = true;
-  options.promote_timestamp = true;
+  options.promote_temporal_unit = true;
   options.promote_dictionary = true;
   options.promote_dictionary_ordered = false;
-  options.promote_large = true;
-  options.promote_nested = true;
   return options;
 }
 
@@ -324,18 +320,12 @@ std::string Field::MergeOptions::ToString() const {
   ss << "MergeOptions{";
   ss << "promote_nullability=" << (promote_nullability ? "true" : "false");
   ss << ", promote_numeric_width=" << (promote_numeric_width ? "true" : "false");
-  ss << ", promote_integer_float=" << (promote_integer_float ? "true" : "false");
-  ss << ", promote_integer_decimal=" << (promote_integer_decimal ? "true" : "false");
-  ss << ", promote_decimal_float=" << (promote_decimal_float ? "true" : "false");
-  ss << ", promote_date=" << (promote_date ? "true" : "false");
-  ss << ", promote_time=" << (promote_time ? "true" : "false");
-  ss << ", promote_duration=" << (promote_duration ? "true" : "false");
-  ss << ", promote_timestamp=" << (promote_timestamp ? "true" : "false");
-  ss << ", promote_nested=" << (promote_nested ? "true" : "false");
+  ss << ", promote_integer_to_float=" << (promote_integer_to_float ? "true" : "false");
+  ss << ", promote_integer_to_decimal=" << (promote_integer_to_decimal ? "true" : "false");
+  ss << ", promote_decimal_to_float=" << (promote_decimal_to_float ? "true" : "false");
+  ss << ", promote_temporal_unit=" << (promote_temporal_unit ? "true" : "false");
   ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
   ss << ", promote_integer_sign=" << (promote_integer_sign ? "true" : "false");
-  ss << ", promote_large=" << (promote_large ? "true" : "false");
-  ss << ", promote_binary=" << (promote_binary ? "true" : "false");
   ss << '}';
   return ss.str();
 }
@@ -358,9 +348,9 @@ std::shared_ptr<DataType> MakeSigned(const DataType& type) {
     case Type::UINT64:
       return int64();
     default:
-      DCHECK(false) << "unreachable";
+      Unreachable("Hit an unknown type");
   }
-  return std::shared_ptr<DataType>(nullptr);
+  return nullptr;
 }
 std::shared_ptr<DataType> MakeBinary(const DataType& type) {
   switch (type.id()) {
@@ -371,19 +361,9 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
     case Type::LARGE_STRING:
       return large_binary();
     default:
-      DCHECK(false) << "unreachable";
+      Unreachable("Hit an unknown type");
   }
-  return std::shared_ptr<DataType>(nullptr);
-}
-TimeUnit::type CommonTimeUnit(TimeUnit::type left, TimeUnit::type right) {
-  if (left == TimeUnit::NANO || right == TimeUnit::NANO) {
-    return TimeUnit::NANO;
-  } else if (left == TimeUnit::MICRO || right == TimeUnit::MICRO) {
-    return TimeUnit::MICRO;
-  } else if (left == TimeUnit::MILLI || right == TimeUnit::MILLI) {
-    return TimeUnit::MILLI;
-  }
-  return TimeUnit::SECOND;
+  return nullptr;
 }
 
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
@@ -397,7 +377,7 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
   const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
   const auto& right = checked_cast<const DictionaryType&>(*other_type);
   if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
-    return Status::Invalid(
+    return Status::TypeError(
         "Cannot merge ordered and unordered dictionary unless "
         "promote_dictionary_ordered=true");
   }
@@ -421,7 +401,7 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
 Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     const std::shared_ptr<DataType>& promoted_type,
     const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
-  if (options.promote_date) {
+  if (options.promote_temporal_unit) {
     if (promoted_type->id() == Type::DATE32 && other_type->id() == Type::DATE64) {
       return date64();
     }
@@ -430,24 +410,24 @@ Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     }
   }
 
-  if (options.promote_duration && promoted_type->id() == Type::DURATION &&
+  if (options.promote_temporal_unit && promoted_type->id() == Type::DURATION &&
       other_type->id() == Type::DURATION) {
     const auto& left = checked_cast<const DurationType&>(*promoted_type);
     const auto& right = checked_cast<const DurationType&>(*other_type);
-    return duration(CommonTimeUnit(left.unit(), right.unit()));
+    return duration(std::max(left.unit(), right.unit()));
   }
 
-  if (options.promote_time && is_time(promoted_type->id()) && is_time(other_type->id())) {
+  if (options.promote_temporal_unit && is_time(promoted_type->id()) && is_time(other_type->id())) {
     const auto& left = checked_cast<const TimeType&>(*promoted_type);
     const auto& right = checked_cast<const TimeType&>(*other_type);
-    const auto unit = CommonTimeUnit(left.unit(), right.unit());
+    const auto unit = std::max(left.unit(), right.unit());
     if (unit == TimeUnit::MICRO || unit == TimeUnit::NANO) {
       return time64(unit);
     }
     return time32(unit);
   }
 
-  if (options.promote_timestamp && promoted_type->id() == Type::TIMESTAMP &&
+  if (options.promote_temporal_unit && promoted_type->id() == Type::TIMESTAMP &&
       other_type->id() == Type::TIMESTAMP) {
     const auto& left = checked_cast<const TimestampType&>(*promoted_type);
     const auto& right = checked_cast<const TimestampType&>(*other_type);
@@ -458,18 +438,18 @@ Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     if (left.timezone() != right.timezone()) {
       return Status::Invalid("Cannot merge timestamps with differing timezones");
     }
-    return timestamp(CommonTimeUnit(left.unit(), right.unit()), left.timezone());
+    return timestamp(std::max(left.unit(), right.unit()), left.timezone());
   }
 
   return nullptr;
 }
 
-// Merge numeric types based on options. Returns nullptr for non-temporal types.
+// Merge numeric types based on options. Returns nullptr for non-numeric types.
 Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     std::shared_ptr<DataType> promoted_type, std::shared_ptr<DataType> other_type,
     const Field::MergeOptions& options) {
   bool promoted = false;
-  if (options.promote_decimal_float) {
+  if (options.promote_decimal_to_float) {
     if (is_decimal(promoted_type->id()) && is_floating(other_type->id())) {
       promoted_type = other_type;
       promoted = true;
@@ -479,16 +459,18 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     }
   }
 
-  if (options.promote_integer_decimal) {
+  if (options.promote_integer_to_decimal) {
     if (is_integer(promoted_type->id()) && is_decimal(other_type->id())) {
       promoted_type.swap(other_type);
     }
 
     if (is_decimal(promoted_type->id()) && is_integer(other_type->id())) {
+      const auto& decimal = checked_cast<const DecimalType&>(*promoted_type);
       ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                             MaxDecimalDigitsForInteger(other_type->id()));
-      ARROW_ASSIGN_OR_RAISE(other_type,
-                            DecimalType::Make(promoted_type->id(), precision, 0));
+      ARROW_ASSIGN_OR_RAISE(promoted_type,
+                            DecimalType::Make(promoted_type->id(),
+                            std::max(decimal.precision, precision), 0));
       promoted = true;
     }
   }
@@ -498,7 +480,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     const auto& left = checked_cast<const DecimalType&>(*promoted_type);
     const auto& right = checked_cast<const DecimalType&>(*other_type);
     if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
-      return Status::Invalid(
+      return Status::TypeError(
           "Cannot promote decimal128 to decimal256 without promote_numeric_width=true");
     }
     const int32_t max_scale = std::max<int32_t>(left.scale(), right.scale());
@@ -516,27 +498,31 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
   if (options.promote_integer_sign) {
     if (is_unsigned_integer(promoted_type->id()) && is_signed_integer(other_type->id())) {
       promoted = bit_width(other_type->id()) >= bit_width(promoted_type->id());
-      promoted_type = MakeSigned(*promoted_type);
+      if (promoted) {
+        promoted_type = MakeSigned(*promoted_type);
+      }
     } else if (is_signed_integer(promoted_type->id()) &&
                is_unsigned_integer(other_type->id())) {
       promoted = bit_width(promoted_type->id()) >= bit_width(other_type->id());
-      other_type = MakeSigned(*other_type);
+      if (promoted) {
+        other_type = MakeSigned(*other_type);
+      }
     }
   }
 
-  if (options.promote_integer_float &&
+  if (options.promote_integer_to_float &&
       ((is_floating(promoted_type->id()) && is_integer(other_type->id())) ||
        (is_integer(promoted_type->id()) && is_floating(other_type->id())))) {
     const int max_width =
         std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
-    if (max_width >= 64) {
-      promoted_type = float64();
-    } else if (max_width >= 32) {
-      promoted_type = float32();
-    } else {
-      promoted_type = float16();
-    }
-    promoted = true;
+      promoted = true;
+      if (max_width >= 64) {
+        promoted_type = float64();
+      } else if (max_width >= 32) {
+        promoted_type = float32();
+      } else {
+        promoted_type = float16();
+      }
   }
 
   if (options.promote_numeric_width) {
@@ -575,6 +561,137 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
   return promoted ? promoted_type : nullptr;
 }
 
+
+
+// Merge temporal types based on options. Returns nullptr for non-binary types.
+Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
+    const std::shared_ptr<DataType>& promoted_type,
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+
+  if (options.promote_binary) {
+    if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
+        is_base_binary_like(other_type->id())) {
+      promoted_type = binary();
+      promoted = true;
+    }
+    if (other_type->id() == Type::FIXED_SIZE_BINARY &&
+        is_base_binary_like(promoted_type->id())) {
+      other_type = binary();
+      promoted = true;
+    }
+
+    if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
+        is_var_length_list(other_type->id())) {
+      promoted_type = list(MergeTypes(
+        checked_cast<const BaseListType&>(*promoted_type).value_field(),
+        checked_cast<const BaseListType&>(*other_type).value_field()
+      ));
+      promoted = true;
+    }
+    if (other_type->id() == Type::FIXED_SIZE_LIST &&
+        is_var_length_list(promoted_type->id())) {
+      other_type = list(MergeTypes(
+        checked_cast<const BaseListType&>(*promoted_type).value_field(),
+        checked_cast<const BaseListType&>(*other_type).value_field()
+      ));
+      promoted = true;
+    }
+
+    if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
+        other_type->id() == Type::FIXED_SIZE_BINARY &&
+        offset_bit_width(promoted_type->id()) != offset_bit_width(other_type->id())) {
+      return binary();
+    }
+    if (is_string(promoted_type->id()) && is_binary(other_type->id())) {
+      promoted_type = MakeBinary(*promoted_type);
+      promoted =
+          offset_bit_width(promoted_type->id()) == offset_bit_width(other_type->id());
+    } else if (is_binary(promoted_type->id()) && is_string(other_type->id())) {
+      other_type = MakeBinary(*other_type);
+      promoted =
+          offset_bit_width(promoted_type->id()) == offset_bit_width(other_type->id());
+    }
+
+    if ((promoted_type->id() == Type::STRING && other_type->id() == Type::LARGE_STRING) ||
+        (promoted_type->id() == Type::LARGE_STRING && other_type->id() == Type::STRING)) {
+      return large_utf8();
+    } else if ((promoted_type->id() == Type::BINARY &&
+                other_type->id() == Type::LARGE_BINARY) ||
+               (promoted_type->id() == Type::LARGE_BINARY &&
+                other_type->id() == Type::BINARY)) {
+      return large_binary();
+    }
+    if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LARGE_LIST) ||
+        (promoted_type->id() == Type::LARGE_LIST && other_type->id() == Type::LIST)) {
+      promoted_type =
+          large_list(MergeTypes(
+            checked_cast<const BaseListType&>(*promoted_type).value_field(),
+            checked_cast<const BaseListType&>(*other_type).value_field()
+          ));
+      promoted = true;
+    }
+  }
+}
+
+
+// Merge temporal types based on options. Returns nullptr for non-list types.
+Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
+    const std::shared_ptr<DataType>& promoted_type,
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+
+  if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LIST) ||
+      (promoted_type->id() == Type::LARGE_LIST &&
+       other_type->id() == Type::LARGE_LIST) ||
+      (promoted_type->id() == Type::FIXED_SIZE_LIST &&
+       other_type->id() == Type::FIXED_SIZE_LIST)) {
+    const auto& left = checked_cast<const BaseListType&>(*promoted_type);
+    const auto& right = checked_cast<const BaseListType&>(*other_type);
+    ARROW_ASSIGN_OR_RAISE(
+        auto value_field,
+        left.value_field()->MergeWith(
+            *right.value_field()->WithName(left.value_field()->name()), options));
+    if (promoted_type->id() == Type::LIST) {
+      return list(std::move(value_field));
+    } else if (promoted_type->id() == Type::LARGE_LIST) {
+      return large_list(std::move(value_field));
+    }
+    const auto left_size =
+        checked_cast<const FixedSizeListType&>(*promoted_type).list_size();
+    const auto right_size =
+        checked_cast<const FixedSizeListType&>(*other_type).list_size();
+    if (left_size == right_size) {
+      return fixed_size_list(std::move(value_field), left_size);
+    }
+    return Status::Invalid("Cannot merge fixed_size_list of different sizes");
+  } else if (promoted_type->id() == Type::MAP && other_type->id() == Type::MAP) {
+    const auto& left = checked_cast<const MapType&>(*promoted_type);
+    const auto& right = checked_cast<const MapType&>(*other_type);
+    ARROW_ASSIGN_OR_RAISE(
+        auto key_field,
+        left.key_field()->MergeWith(
+            *right.key_field()->WithName(left.key_field()->name()), options));
+    ARROW_ASSIGN_OR_RAISE(
+        auto item_field,
+        left.item_field()->MergeWith(
+            *right.item_field()->WithName(left.item_field()->name()), options));
+    return map(std::move(key_field), std::move(item_field),
+               /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
+  } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
+    SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
+    // Add the LHS fields. Duplicates will be preserved.
+    RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
+
+    // Add the RHS fields. Duplicates will be merged, unless the field was
+    // already a duplicate, in which case we error (since we don't know which
+    // field to merge with).
+    builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
+    RETURN_NOT_OK(builder.AddFields(other_type->fields()));
+
+    ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
+    return struct_(schema->fields());
+  }
+}
+
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                              std::shared_ptr<DataType> other_type,
                                              const Field::MergeOptions& options) {
@@ -604,120 +721,13 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
                         MaybeMergeNumericTypes(promoted_type, other_type, options));
   if (maybe_promoted) return maybe_promoted;
 
-  if (options.promote_large) {
-    if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
-        is_base_binary_like(other_type->id())) {
-      promoted_type = binary();
-      promoted = other_type->id() == Type::BINARY;
-    }
-    if (other_type->id() == Type::FIXED_SIZE_BINARY &&
-        is_base_binary_like(promoted_type->id())) {
-      other_type = binary();
-      promoted = promoted_type->id() == Type::BINARY;
-    }
+  ARROW_ASSIGN_OR_RAISE(maybe_promoted,
+                        MaybeMergeBinaryTypes(promoted_type, other_type, options));
+  if (maybe_promoted) return maybe_promoted;
 
-    if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
-        is_var_length_list(other_type->id())) {
-      promoted_type =
-          list(checked_cast<const BaseListType&>(*promoted_type).value_field());
-      promoted = other_type->Equals(*promoted_type);
-    }
-    if (other_type->id() == Type::FIXED_SIZE_LIST &&
-        is_var_length_list(promoted_type->id())) {
-      other_type = list(checked_cast<const BaseListType&>(*other_type).value_field());
-      promoted = other_type->Equals(*promoted_type);
-    }
-  }
-
-  if (options.promote_binary) {
-    if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
-        other_type->id() == Type::FIXED_SIZE_BINARY) {
-      return binary();
-    }
-    if (is_string(promoted_type->id()) && is_binary(other_type->id())) {
-      promoted_type = MakeBinary(*promoted_type);
-      promoted =
-          offset_bit_width(promoted_type->id()) == offset_bit_width(other_type->id());
-    } else if (is_binary(promoted_type->id()) && is_string(other_type->id())) {
-      other_type = MakeBinary(*other_type);
-      promoted =
-          offset_bit_width(promoted_type->id()) == offset_bit_width(other_type->id());
-    }
-  }
-
-  if (options.promote_large) {
-    if ((promoted_type->id() == Type::STRING && other_type->id() == Type::LARGE_STRING) ||
-        (promoted_type->id() == Type::LARGE_STRING && other_type->id() == Type::STRING)) {
-      return large_utf8();
-    } else if ((promoted_type->id() == Type::BINARY &&
-                other_type->id() == Type::LARGE_BINARY) ||
-               (promoted_type->id() == Type::LARGE_BINARY &&
-                other_type->id() == Type::BINARY)) {
-      return large_binary();
-    }
-    if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LARGE_LIST) ||
-        (promoted_type->id() == Type::LARGE_LIST && other_type->id() == Type::LIST)) {
-      promoted_type =
-          large_list(checked_cast<const BaseListType&>(*promoted_type).value_field());
-      promoted = true;
-    }
-  }
-
-  if (options.promote_nested) {
-    if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LIST) ||
-        (promoted_type->id() == Type::LARGE_LIST &&
-         other_type->id() == Type::LARGE_LIST) ||
-        (promoted_type->id() == Type::FIXED_SIZE_LIST &&
-         other_type->id() == Type::FIXED_SIZE_LIST)) {
-      const auto& left = checked_cast<const BaseListType&>(*promoted_type);
-      const auto& right = checked_cast<const BaseListType&>(*other_type);
-      ARROW_ASSIGN_OR_RAISE(
-          auto value_field,
-          left.value_field()->MergeWith(
-              *right.value_field()->WithName(left.value_field()->name()), options));
-      if (promoted_type->id() == Type::LIST) {
-        return list(std::move(value_field));
-      } else if (promoted_type->id() == Type::LARGE_LIST) {
-        return large_list(std::move(value_field));
-      }
-      const auto left_size =
-          checked_cast<const FixedSizeListType&>(*promoted_type).list_size();
-      const auto right_size =
-          checked_cast<const FixedSizeListType&>(*other_type).list_size();
-      if (left_size == right_size) {
-        return fixed_size_list(std::move(value_field), left_size);
-      }
-      return Status::Invalid("Cannot merge fixed_size_list of different sizes");
-    } else if (promoted_type->id() == Type::MAP && other_type->id() == Type::MAP) {
-      const auto& left = checked_cast<const MapType&>(*promoted_type);
-      const auto& right = checked_cast<const MapType&>(*other_type);
-      // While we try to preserve nonstandard field names here, note that
-      // MapType comparisons ignore field name. See ARROW-7173, ARROW-14999.
-      ARROW_ASSIGN_OR_RAISE(
-          auto key_field,
-          left.key_field()->MergeWith(
-              *right.key_field()->WithName(left.key_field()->name()), options));
-      ARROW_ASSIGN_OR_RAISE(
-          auto item_field,
-          left.item_field()->MergeWith(
-              *right.item_field()->WithName(left.item_field()->name()), options));
-      return map(std::move(key_field), std::move(item_field),
-                 /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
-    } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
-      SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
-      // Add the LHS fields. Duplicates will be preserved.
-      RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
-
-      // Add the RHS fields. Duplicates will be merged, unless the field was
-      // already a duplicate, in which case we error (since we don't know which
-      // field to merge with).
-      builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
-      RETURN_NOT_OK(builder.AddFields(other_type->fields()));
-
-      ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
-      return struct_(schema->fields());
-    }
-  }
+  ARROW_ASSIGN_OR_RAISE(maybe_promoted,
+                        MaybeMergeListTypes(promoted_type, other_type, options));
+  if (maybe_promoted) return maybe_promoted;
 
   return promoted ? promoted_type : nullptr;
 }
@@ -741,7 +751,7 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
         " has incompatible types: ", type()->ToString(), " vs ", other.type()->ToString(),
         ": ", maybe_promoted_type.status().message());
   }
-  auto promoted_type = move(maybe_promoted_type).MoveValueUnsafe();
+  auto promoted_type = *std::move(maybe_promoted_type);
   if (promoted_type) {
     bool nullable = nullable_;
     if (options.promote_nullability) {

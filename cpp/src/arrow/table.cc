@@ -396,7 +396,9 @@ std::string Table::ToString() const {
 
 Result<std::shared_ptr<Table>> ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables,
-    const ConcatenateTablesOptions options, MemoryPool* memory_pool) {
+    const ConcatenateTablesOptions options,
+    MemoryPool* memory_pool,
+    const CastOptions options) {
   if (tables.size() == 0) {
     return Status::Invalid("Must pass at least one table");
   }
@@ -504,16 +506,23 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
       continue;
     }
 
+#ifdef ARROW_COMPUTE
     if (!compute::CanCast(*current_field->type(), *field->type())) {
-      return Status::Invalid("Unable to promote field ", field->name(),
-                             ": incompatible types: ", field->type()->ToString(), " vs ",
-                             current_field->type()->ToString());
+      return Status::TypeError("Unable to promote field ", field->name(),
+                               ": incompatible types: ", field->type()->ToString(), " vs ",
+                               current_field->type()->ToString());
     }
     compute::ExecContext ctx(pool);
-    auto options = compute::CastOptions::Safe();
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
                                                      field->type(), options, &ctx));
     columns.push_back(casted.chunked_array());
+#else
+    return Status::TypeError("Unable to promote field ", field->name(),
+                             ": incompatible types: ", field->type()->ToString(), " vs ",
+                             current_field->type()->ToString(),
+                             " (Arrow must be built with ARROW_COMPUTE "
+                             "in order to cast incompatible types)");
+#endif
   }
 
   auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);
