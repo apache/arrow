@@ -202,8 +202,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   Status SetShutdownOnSignals(const std::vector<int> sigs);
 
   /// \brief Start serving.
-  /// This method blocks until either Shutdown() is called or one of the signals
-  /// registered in SetShutdownOnSignals() is received.
+  /// This method blocks until the server shuts down.
+  ///
+  /// The server will start to shut down when either Shutdown() is called
+  /// or one of the signals registered in SetShutdownOnSignals() is received.
   Status Serve();
 
   /// \brief Query whether Serve() was interrupted by a signal.
