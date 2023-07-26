@@ -308,13 +308,9 @@ class RangeDataEqualsImpl {
 
   Status Visit(const LargeListType& type) { return CompareList(type); }
 
-  Status Visit(const ListViewType& type) {
-    return Status::NotImplemented("comparing ListViewType");
-  }
+  Status Visit(const ListViewType& type) { return CompareListView(type); }
 
-  Status Visit(const LargeListViewType& type) {
-    return Status::NotImplemented("comparing LargeListViewType");
-  }
+  Status Visit(const LargeListViewType& type) { return CompareListView(type); }
 
   Status Visit(const FixedSizeListType& type) {
     const auto list_size = type.list_size();
@@ -498,6 +494,38 @@ class RangeDataEqualsImpl {
     };
 
     CompareWithOffsets<typename TypeClass::offset_type>(1, compare_ranges);
+    return Status::OK();
+  }
+
+  template <typename TypeClass>
+  Status CompareListView(const TypeClass& type) {
+    const ArrayData& left_values = *left_.child_data[0];
+    const ArrayData& right_values = *right_.child_data[0];
+
+    using offset_type = typename TypeClass::offset_type;
+    const auto* left_offsets = left_.GetValues<offset_type>(1) + left_start_idx_;
+    const auto* right_offsets = right_.GetValues<offset_type>(1) + right_start_idx_;
+    const auto* left_sizes = left_.GetValues<offset_type>(2) + left_start_idx_;
+    const auto* right_sizes = right_.GetValues<offset_type>(2) + right_start_idx_;
+
+    auto compare_view = [&](int64_t i, int64_t length) -> bool {
+      for (int64_t j = i; j < i + length; ++j) {
+        if (left_sizes[j] != right_sizes[j]) {
+          return false;
+        }
+        const offset_type size = left_sizes[j];
+        if (size == 0) {
+          continue;
+        }
+        RangeDataEqualsImpl impl(options_, floating_approximate_, left_values,
+                                 right_values, left_offsets[j], right_offsets[j], size);
+        if (!impl.Compare()) {
+          return false;
+        }
+      }
+      return true;
+    };
+    VisitValidRuns(std::move(compare_view));
     return Status::OK();
   }
 

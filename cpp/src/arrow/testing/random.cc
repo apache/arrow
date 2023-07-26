@@ -499,6 +499,7 @@ std::shared_ptr<Array> RandomArrayGenerator::FixedSizeBinary(int64_t size,
 }
 
 namespace {
+
 template <typename OffsetArrayType>
 std::shared_ptr<Array> GenerateOffsets(SeedType seed, int64_t size,
                                        typename OffsetArrayType::value_type first_offset,
@@ -608,6 +609,122 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
       std::make_shared<typename OffsetArrayType::TypeClass>(), size, buffers, null_count);
   return std::make_shared<OffsetArrayType>(array_data);
 }
+
+// Helper for RandomArrayGenerator::ArrayOf: extract some C value from
+// a given metadata key.
+template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
+enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata,
+                                                   const std::string& key,
+                                                   T default_value) {
+  if (!metadata) return default_value;
+  const auto index = metadata->FindKey(key);
+  if (index < 0) return default_value;
+  const auto& value = metadata->value(index);
+  T output{};
+  if (!internal::ParseValue<ArrowType>(value.data(), value.length(), &output)) {
+    ABORT_NOT_OK(Status::Invalid("Could not parse ", key, " = ", value, " as ",
+                                 ArrowType::type_name()));
+  }
+  return output;
+}
+
+/// Try to pass sizes such that every non-null sizes[i] <= values_size.
+template <typename OffsetArrayType, typename offset_type>
+std::shared_ptr<Array> ViewOffsetsFromLengthsArray(
+    SeedType seed, offset_type avg_length, offset_type values_length,
+    OffsetArrayType& mutable_sizes_array, bool force_empty_nulls,
+    bool zero_undefined_offsets, int64_t alignment, MemoryPool* memory_pool) {
+  using TypeClass = typename OffsetArrayType::TypeClass;
+  constexpr offset_type kZero = 0;
+
+  auto* sizes = mutable_sizes_array.data()->template GetMutableValues<offset_type>(1);
+
+  BufferVector buffers{2};
+  buffers[0] = NULLPTR;  // sizes can have nulls, offsets don't have to
+  buffers[1] = *AllocateBuffer(sizeof(offset_type) * mutable_sizes_array.length(),
+                               alignment, memory_pool);
+  auto offsets = buffers[1]->mutable_data_as<offset_type>();
+
+  pcg32_fast rng(seed);
+  std::uniform_int_distribution<offset_type> offset_delta_dist(-avg_length, avg_length);
+  offset_type offset_base = 0;
+  for (int64_t i = 0; i < mutable_sizes_array.length(); ++i) {
+    // We want to always sample the offset_delta_dist(rng) to make sure
+    // different options regarding nulls and empty views don't affect
+    // the other offsets.
+    offset_type offset = offset_base + offset_delta_dist(rng);
+    if (mutable_sizes_array.IsNull(i)) {
+      if (force_empty_nulls) {
+        sizes[i] = 0;
+      }
+      offsets[i] = zero_undefined_offsets ? 0 : offset;
+      continue;
+    }
+    offset_type size = sizes[i];
+    if (size == 0) {
+      offsets[i] = zero_undefined_offsets ? 0 : offset;
+    } else {
+      // Ensure that the size is not too large.
+      if (ARROW_PREDICT_FALSE(size > values_length)) {
+        size = values_length;
+        sizes[i] = size;  // Fix the size.
+      }
+      // Ensure the offset is not negative or too large.
+      offset = std::max(offset, kZero);
+      if (offset > values_length - size) {
+        offset = values_length - size;
+      }
+      offsets[i] = offset;
+    }
+    offset_base += avg_length;
+  }
+
+  auto array_data =
+      ArrayData::Make(TypeTraits<TypeClass>::type_singleton(),
+                      mutable_sizes_array.length(), std::move(buffers), /*null_count=*/0);
+  return std::make_shared<OffsetArrayType>(std::move(array_data));
+}
+
+template <typename ArrayType, typename RAG>
+Result<std::shared_ptr<Array>> ArrayOfListView(RAG& self, const Field& field,
+                                               int64_t length, int64_t alignment,
+                                               MemoryPool* memory_pool,
+                                               double null_probability) {
+  using TypeClass = typename ArrayType::TypeClass;
+  using offset_type = typename ArrayType::offset_type;
+  using OffsetArrayType = typename CTypeTraits<offset_type>::ArrayType;
+  using OffsetArrowType = typename CTypeTraits<offset_type>::ArrowType;
+
+  const auto min_length =
+      GetMetadata<offset_type>(field.metadata().get(), "min_length", 0);
+  const auto max_length =
+      GetMetadata<offset_type>(field.metadata().get(), "max_length", 20);
+  const auto force_empty_nulls =
+      GetMetadata<bool>(field.metadata().get(), "force_empty_nulls", false);
+  const auto zero_undefined_offsets =
+      GetMetadata<bool>(field.metadata().get(), "zero_undefined_offsets", false);
+  const auto lengths = internal::checked_pointer_cast<OffsetArrayType>(
+      self.RAG::template Numeric<OffsetArrowType, offset_type>(
+          length, min_length, max_length, null_probability));
+
+  // List views don't have to be disjoint, so let's make the values_length a
+  // multiple of the average list-view size. To make sure every list view
+  // into the values array can fit, it should be at least max_length.
+  const offset_type avg_length = min_length + (max_length - min_length) / 2;
+  const int64_t values_length = std::max(avg_length * (length - lengths->null_count()),
+                                         static_cast<int64_t>(max_length));
+  DCHECK_LT(values_length, std::numeric_limits<offset_type>::max());
+  const auto values = self.RAG::ArrayOf(
+      *internal::checked_pointer_cast<TypeClass>(field.type())->value_field(),
+      values_length, alignment, memory_pool);
+
+  const auto offsets = ViewOffsetsFromLengthsArray<OffsetArrayType, offset_type>(
+      self.seed(), avg_length, static_cast<offset_type>(values_length), *lengths,
+      force_empty_nulls, zero_undefined_offsets, alignment, memory_pool);
+
+  return ArrayType::FromArrays(field.type(), *offsets, *lengths, *values);
+}
+
 }  // namespace
 
 std::shared_ptr<Array> RandomArrayGenerator::Offsets(
@@ -635,6 +752,31 @@ std::shared_ptr<Array> RandomArrayGenerator::List(const Array& values, int64_t s
                          static_cast<int32_t>(values.offset() + values.length()),
                          null_probability, force_empty_nulls, alignment, memory_pool);
   return *::arrow::ListArray::FromArrays(*offsets, values);
+}
+
+std::shared_ptr<Array> RandomArrayGenerator::ListView(
+    const Array& values, int64_t size, double null_probability, bool force_empty_nulls,
+    bool zero_undefined_offsets, int64_t alignment, MemoryPool* memory_pool) {
+  using offset_type = int32_t;
+  using OffsetArrayType = Int32Array;
+  using OffsetArrowType = Int32Type;
+
+  DCHECK_LE(values.length(), std::numeric_limits<offset_type>::max());
+  DCHECK_LE(size, std::numeric_limits<offset_type>::max());
+  const auto values_length = static_cast<offset_type>(values.length());
+
+  const offset_type avg_length = (values_length - 1) / static_cast<offset_type>(size) + 1;
+  const offset_type min_length = 0;
+  const offset_type max_length = std::min(std::max(2 * avg_length, 1), values_length);
+  const auto lengths = internal::checked_pointer_cast<OffsetArrayType>(
+      Numeric<OffsetArrowType, offset_type>(size, min_length, max_length,
+                                            null_probability));
+
+  const auto offsets = ViewOffsetsFromLengthsArray<OffsetArrayType, offset_type>(
+      seed(), avg_length, values_length, *lengths, force_empty_nulls,
+      zero_undefined_offsets, alignment, memory_pool);
+
+  return *ListViewArray::FromArrays(*offsets, *lengths, values, memory_pool);
 }
 
 std::shared_ptr<Array> RandomArrayGenerator::Map(const std::shared_ptr<Array>& keys,
@@ -713,27 +855,6 @@ std::shared_ptr<Array> RandomArrayGenerator::DenseUnion(const ArrayVector& field
   return *DenseUnionArray::Make(*type_ids, *offsets, fields, type_codes);
 }
 
-namespace {
-
-// Helper for RandomArrayGenerator::ArrayOf: extract some C value from
-// a given metadata key.
-template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
-enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata,
-                                                   const std::string& key,
-                                                   T default_value) {
-  if (!metadata) return default_value;
-  const auto index = metadata->FindKey(key);
-  if (index < 0) return default_value;
-  const auto& value = metadata->value(index);
-  T output{};
-  if (!internal::ParseValue<ArrowType>(value.data(), value.length(), &output)) {
-    ABORT_NOT_OK(Status::Invalid("Could not parse ", key, " = ", value));
-  }
-  return output;
-}
-
-}  // namespace
-
 std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(std::shared_ptr<DataType> type,
                                                      int64_t size,
                                                      double null_probability,
@@ -809,6 +930,12 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     const auto offsets = OffsetsFromLengthsArray(lengths.get(), force_empty_nulls,   \
                                                  alignment, memory_pool);            \
     return *ARRAY_TYPE::FromArrays(field.type(), *offsets, *values);                 \
+  }
+
+#define GENERATE_LIST_VIEW_CASE(ARRAY_TYPE)                                           \
+  case ARRAY_TYPE::TypeClass::type_id: {                                              \
+    return *ArrayOfListView<ARRAY_TYPE>(*this, field, length, alignment, memory_pool, \
+                                        null_probability);                            \
   }
 
   const double null_probability =
@@ -946,6 +1073,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
       GENERATE_LIST_CASE(ListArray);
+      GENERATE_LIST_VIEW_CASE(ListViewArray);
 
     case Type::type::STRUCT: {
       ArrayVector child_arrays(field.type()->num_fields());
@@ -1069,6 +1197,7 @@ std::shared_ptr<Array> RandomArrayGenerator::ArrayOf(const Field& field, int64_t
     }
 
       GENERATE_LIST_CASE(LargeListArray);
+      GENERATE_LIST_VIEW_CASE(LargeListViewArray);
 
     default:
       break;
