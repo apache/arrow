@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/array/concatenate.h"
+#include "arrow/array/dict_internal.h"
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernel.h"
@@ -160,89 +161,139 @@ Result<std::unique_ptr<KernelState>> CountInit(KernelContext*,
 // ----------------------------------------------------------------------
 // Distinct implementations
 
+template <typename Type, typename VisitorArgType>
 struct DistinctImpl : public ScalarAggregator {
+  using MemoTable = typename arrow::internal::DictionaryTraits<Type>::MemoTableType;
+  using DictTraits = typename arrow::internal::DictionaryTraits<Type>;
+
+  explicit DistinctImpl(MemoryPool* memory_pool)
+      : memo_table_(new MemoTable(memory_pool, 0)) {}
+
   Status Consume(KernelContext* ctx, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
-      const ArraySpan& input = batch[0].array;
-      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(input.ToArray()))
-      this->array = std::move(unique_array);
+      const ArraySpan& arr = batch[0].array;
+      auto type = arr.ToArray()->type();
+      this->out_type = std::move(type);
+      auto visit_null = []() { return Status::OK(); };
+      auto visit_value = [&](VisitorArgType arg) {
+        int32_t y;
+        return memo_table_->GetOrInsert(arg, &y);
+      };
+      RETURN_NOT_OK(VisitArraySpanInline<Type>(arr, visit_value, visit_null));
     } else {
       const Scalar& input = *batch[0].scalar;
-      ARROW_ASSIGN_OR_RAISE(auto scalar_array,
-                            arrow::MakeArrayFromScalar(input, 1, ctx->memory_pool()));
-      this->array = std::move(scalar_array);
+      this->out_type = input.type;
+      if (input.is_valid) {
+        int32_t unused;
+        RETURN_NOT_OK(memo_table_->GetOrInsert(UnboxScalar<Type>::Unbox(input), &unused));
+      }
     }
     return Status::OK();
   }
 
   Status MergeFrom(KernelContext* ctx, KernelState&& src) override {
     const auto& other_state = checked_cast<const DistinctImpl&>(src);
-    auto this_array = this->array;
-    auto other_array = other_state.array;
-    if (other_array && this_array) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto merged_array,
-          arrow::Concatenate({this_array, other_array}, ctx->memory_pool()));
-      this->array = std::move(merged_array);
-    } else {
-      auto target_array = other_array ? other_array : this_array;
-      ARROW_ASSIGN_OR_RAISE(auto unique_array, arrow::compute::Unique(target_array));
-      this->array = std::move(unique_array);
+    if (!this->out_type) {
+      this->out_type = other_state.out_type;
     }
+    RETURN_NOT_OK(this->memo_table_->MergeTable(*(other_state.memo_table_)));
     return Status::OK();
   }
 
   Status Finalize(KernelContext* ctx, Datum* out) override {
-    const auto& state = checked_cast<const DistinctImpl&>(*ctx->state());
-    if (state.array) {
-      *out = Datum(state.array);
-    }
+    std::shared_ptr<ArrayData> data;
+    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(ctx->memory_pool(), this->out_type,
+                                                     *this->memo_table_,
+                                                     0 /* start_offset */, &data));
+    auto arr = MakeArray(data);
+    *out = Datum(std::move(arr));
     return Status::OK();
   }
 
-  std::shared_ptr<Array> array;
+  std::vector<std::shared_ptr<Array>> arrays;
+  std::unique_ptr<MemoTable> memo_table_;
+  std::shared_ptr<DataType> out_type;
 };
 
-Result<std::unique_ptr<KernelState>> DistinctInit(KernelContext*,
+template <typename Type, typename VisitorArgType>
+Result<std::unique_ptr<KernelState>> DistinctInit(KernelContext* ctx,
                                                   const KernelInitArgs& args) {
-  return std::make_unique<DistinctImpl>();
+  auto out_type = args.kernel->signature->out_type();
+  return std::make_unique<DistinctImpl<Type, VisitorArgType>>(ctx->memory_pool());
 }
 
 namespace {
-Result<TypeHolder> DistinctType(KernelContext*, const std::vector<TypeHolder>& types) {
-  auto ty = types.front().GetSharedPtr();
-  return TypeHolder(std::move(ty));
+Result<TypeHolder> DistinctType(KernelContext* ctx,
+                                const std::vector<TypeHolder>& types) {
+  return types.front().GetSharedPtr();
 }
+
 }  // namespace
 
+template <typename Type, typename VisitorArgType = typename Type::c_type>
 void AddDistinctKernel(InputType type, ScalarAggregateFunction* func) {
   auto sig = KernelSignature::Make({type}, DistinctType);
-  AddAggKernel(std::move(sig), DistinctInit, func);
+  AddAggKernel(std::move(sig), DistinctInit<Type, VisitorArgType>, func);
 }
 
-void AddDistinctKernel(const std::vector<std::shared_ptr<DataType>> types,
-                       ScalarAggregateFunction* func) {
-  for (const auto& type : types) {
-    auto sig = KernelSignature::Make({InputType(type)}, DistinctType);
-    AddAggKernel(std::move(sig), DistinctInit, func);
-  }
-}
+// template <typename Type, typename VisitorArgType = typename Type::c_type>
+// void AddDistinctKernel(const std::vector<std::shared_ptr<DataType>> types,
+//                        ScalarAggregateFunction* func) {
+//   for (const auto& type : types) {
+//     auto sig = KernelSignature::Make({InputType(type)}, DistinctType);
+//     AddAggKernel(std::move(sig), DistinctInit<Type, VisitorArgType>, func);
+//   }
+// }
 
 void AddDistinctKernels(ScalarAggregateFunction* func) {
-  AddDistinctKernel({null(), boolean()}, func);
-  AddDistinctKernel(NumericTypes(), func);
-  AddDistinctKernel(TemporalTypes(), func);
-  AddDistinctKernel(BaseBinaryTypes(), func);
-  AddDistinctKernel(match::SameTypeId(Type::TIME32), func);
-  AddDistinctKernel(match::SameTypeId(Type::TIME64), func);
-  AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), func);
-  AddDistinctKernel(match::SameTypeId(Type::DURATION), func);
-  AddDistinctKernel(Type::FIXED_SIZE_BINARY, func);
-  AddDistinctKernel(Type::INTERVAL_MONTHS, func);
-  AddDistinctKernel(Type::INTERVAL_DAY_TIME, func);
-  AddDistinctKernel(Type::INTERVAL_MONTH_DAY_NANO, func);
-  AddDistinctKernel(Type::DECIMAL128, func);
-  AddDistinctKernel(Type::DECIMAL256, func);
+  // AddDistinctKernel({null(), boolean()}, func);
+  // AddDistinctKernel(NumericTypes(), func);
+  // AddDistinctKernel(TemporalTypes(), func);
+  // AddDistinctKernel(BaseBinaryTypes(), func);
+  // AddDistinctKernel(match::SameTypeId(Type::TIME32), func);
+  // AddDistinctKernel(match::SameTypeId(Type::TIME64), func);
+  // AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), func);
+  // AddDistinctKernel(match::SameTypeId(Type::DURATION), func);
+  // AddDistinctKernel(Type::FIXED_SIZE_BINARY, func);
+  // AddDistinctKernel(Type::INTERVAL_MONTHS, func);
+  // AddDistinctKernel(Type::INTERVAL_DAY_TIME, func);
+  // AddDistinctKernel(Type::INTERVAL_MONTH_DAY_NANO, func);
+  // AddDistinctKernel(Type::DECIMAL128, func);
+  // AddDistinctKernel(Type::DECIMAL256, func);
+
+  // Boolean
+  AddDistinctKernel<BooleanType>(boolean(), func);
+  // Number
+  AddDistinctKernel<Int8Type>(int8(), func);
+  AddDistinctKernel<Int16Type>(int16(), func);
+  AddDistinctKernel<Int32Type>(int32(), func);
+  AddDistinctKernel<Int64Type>(int64(), func);
+  AddDistinctKernel<UInt8Type>(uint8(), func);
+  AddDistinctKernel<UInt16Type>(uint16(), func);
+  AddDistinctKernel<UInt32Type>(uint32(), func);
+  AddDistinctKernel<UInt64Type>(uint64(), func);
+  AddDistinctKernel<HalfFloatType>(float16(), func);
+  AddDistinctKernel<FloatType>(float32(), func);
+  AddDistinctKernel<DoubleType>(float64(), func);
+  // Date
+  AddDistinctKernel<Date32Type>(date32(), func);
+  AddDistinctKernel<Date64Type>(date64(), func);
+
+  AddDistinctKernel<Time32Type>(match::SameTypeId(Type::TIME32), func);
+  AddDistinctKernel<Time64Type>(match::SameTypeId(Type::TIME64), func);
+  // Timestamp & Duration
+  AddDistinctKernel<TimestampType>(match::SameTypeId(Type::TIMESTAMP), func);
+  AddDistinctKernel<DurationType>(match::SameTypeId(Type::DURATION), func);
+  // Interval
+  AddDistinctKernel<MonthIntervalType>(month_interval(), func);
+  AddDistinctKernel<DayTimeIntervalType>(day_time_interval(), func);
+  AddDistinctKernel<MonthDayNanoIntervalType>(month_day_nano_interval(), func);
+  // Binary & String
+  AddDistinctKernel<BinaryType, std::string_view>(match::BinaryLike(), func);
+  AddDistinctKernel<LargeBinaryType, std::string_view>(match::LargeBinaryLike(), func);
+  // Fixed binary & Decimal
+  // AddDistinctKernel<FixedSizeBinaryType, std::string_view>(
+  //     match::FixedSizeBinaryLike(), func);
 }
 
 // ----------------------------------------------------------------------
