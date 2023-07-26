@@ -211,13 +211,10 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
-  set(AVX512_FLAGS "${ARROW_AVX512_FLAG}")
-  if(NOT MSVC)
-    string(APPEND AVX512_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
-  endif()
+  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
   set_source_files_properties(level_conversion_bmi2.cc
                               PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${AVX512_FLAGS}")
+                                                                    "${BMI2_FLAGS}")
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
