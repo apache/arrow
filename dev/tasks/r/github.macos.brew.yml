@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Show system information
         run: |
-          sysctl hw.optional
+          sysctl hw.optional machdep.cpu
 
       {{ macros.github_checkout_arrow()|indent }}
 
