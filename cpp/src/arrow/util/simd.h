@@ -27,11 +27,11 @@
 #else
 // gcc/clang (possibly others)
 
-#if defined(ARROW_HAVE_BMI2) || defined(ARROW_HAVE_RUNTIME_BMI2)
+#if defined(ARROW_HAVE_BMI2)
 #include <x86intrin.h>
 #endif
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_AVX512)
 #include <immintrin.h>
 #elif defined(ARROW_HAVE_SSE4_2)
 #include <nmmintrin.h>
