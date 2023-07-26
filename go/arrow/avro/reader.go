@@ -258,7 +258,14 @@ func appendData(b array.Builder, data interface{}) {
 			bt.Append([]byte(fmt.Sprint(data)))
 		}
 	case *array.BinaryDictionaryBuilder:
-		bt.AppendNull()
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case string:
+			bt.AppendString(dt)
+		case map[string]interface{}:
+			bt.AppendString(dt["string"].(string))
+		}
 	case *array.BooleanBuilder:
 		switch dt := data.(type) {
 		case nil:
@@ -473,7 +480,7 @@ func appendData(b array.Builder, data interface{}) {
 			bt.Append(dt)
 		case map[string]interface{}:
 			// avro uuid logical type
-			if u, ok := data.(map[string]interface{})["uuid"]; ok {
+			if u, ok := dt["uuid"]; ok {
 				bt.Append(u.(string))
 			} else {
 				bt.Append(dt["string"].(string))

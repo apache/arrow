@@ -395,7 +395,7 @@ func AvroPrimitiveToArrowType(avroFieldType string) arrow.DataType {
 		return arrow.PrimitiveTypes.Float64
 	// bytes: sequence of 8-bit unsigned bytes
 	case "bytes":
-		return &arrow.FixedSizeBinaryType{ByteWidth: 8}
+		return arrow.BinaryTypes.Binary
 	// boolean: a binary value
 	case "boolean":
 		return arrow.FixedWidthTypes.Boolean
