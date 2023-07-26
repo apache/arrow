@@ -27,7 +27,7 @@
 #else
 // gcc/clang (possibly others)
 
-#if defined(ARROW_HAVE_BMI2)
+#if defined(ARROW_HAVE_BMI2) || defined(ARROW_HAVE_RUNTIME_BMI2)
 #include <x86intrin.h>
 #endif
 
