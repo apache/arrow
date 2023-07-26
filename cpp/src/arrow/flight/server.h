@@ -215,7 +215,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   int GotSignal() const;
 
   /// \brief Shut down the server, blocking until current requests finish.
-  
+  ///
   /// Can be called from a signal handler or another thread while Serve()
   /// blocks. Optionally a deadline can be set. Once the the deadline expires
   /// server will wait until remaining running calls complete.
