@@ -23,6 +23,7 @@
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
 #include "arrow/matlab/type/proxy/string_type.h"
+#include "arrow/matlab/type/proxy/wrap.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -48,47 +49,11 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = str_mda;
     }
 
-    arrow::Result<std::shared_ptr<libmexclass::proxy::Proxy>> makeTypeProxy(const std::shared_ptr<arrow::DataType>& datatype) {
-        using arrow_type = arrow::Type::type;
-        namespace type_proxy = arrow::matlab::type::proxy;
-        switch (datatype->id()) {
-            case arrow_type::UINT8:
-                return std::make_shared<type_proxy::PrimitiveCType<uint8_t>>(std::static_pointer_cast<arrow::UInt8Type>(datatype));
-            case arrow_type::UINT16:
-                return std::make_shared<type_proxy::PrimitiveCType<uint16_t>>(std::static_pointer_cast<arrow::UInt16Type>(datatype));
-            case arrow_type::UINT32:
-                return std::make_shared<type_proxy::PrimitiveCType<uint32_t>>(std::static_pointer_cast<arrow::UInt32Type>(datatype));
-            case arrow_type::UINT64:
-                return std::make_shared<type_proxy::PrimitiveCType<uint64_t>>(std::static_pointer_cast<arrow::UInt64Type>(datatype));
-            case arrow_type::INT8:
-                return std::make_shared<type_proxy::PrimitiveCType<int8_t>>(std::static_pointer_cast<arrow::Int8Type>(datatype));
-            case arrow_type::INT16:
-                return std::make_shared<type_proxy::PrimitiveCType<int16_t>>(std::static_pointer_cast<arrow::Int16Type>(datatype));
-            case arrow_type::INT32:
-                return std::make_shared<type_proxy::PrimitiveCType<int32_t>>(std::static_pointer_cast<arrow::Int32Type>(datatype));
-            case arrow_type::INT64:
-                return std::make_shared<type_proxy::PrimitiveCType<int64_t>>(std::static_pointer_cast<arrow::Int64Type>(datatype));
-            case arrow_type::FLOAT:
-                return std::make_shared<type_proxy::PrimitiveCType<float>>(std::static_pointer_cast<arrow::FloatType>(datatype));
-            case arrow_type::DOUBLE:
-                return std::make_shared<type_proxy::PrimitiveCType<double>>(std::static_pointer_cast<arrow::DoubleType>(datatype));
-            case arrow_type::BOOL:
-                return std::make_shared<type_proxy::PrimitiveCType<bool>>(std::static_pointer_cast<arrow::BooleanType>(datatype));
-            case arrow_type::STRING:
-                return std::make_shared<type_proxy::StringType>(std::static_pointer_cast<arrow::StringType>(datatype));
-            case arrow_type::TIMESTAMP:
-                return std::make_shared<type_proxy::TimestampType>(std::static_pointer_cast<arrow::TimestampType>(datatype));
-            default:
-                return arrow::Status::NotImplemented("Unsupported DataType: " + datatype->ToString());
-        }
-    }
-
-
     void Field::type(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
 
-        auto datatype = field->type();
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto proxy, makeTypeProxy(datatype), context, "arrow:field:FailedToCreateTypeProxy");
+        const auto& datatype = field->type();
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto proxy, type::proxy::wrap(datatype), context, error::FIELD_FAILED_TO_CREATE_TYPE_PROXY); 
         const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
 
         mda::ArrayFactory factory;

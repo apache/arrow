@@ -81,12 +81,4 @@ namespace arrow::matlab::array::proxy {
             auto array_mda = factory.createArray({array_length, 1}, strings.begin(), strings.end());
             context.outputs[0] = array_mda;
         }
-
-        std::shared_ptr<type::proxy::Type> StringArray::typeProxy() {
-            using StringTypeProxy = type::proxy::StringType;
-
-            auto type = std::static_pointer_cast<arrow::StringType>(array->type());
-            return std::make_shared<StringTypeProxy>(std::move(type));
-        }
-
 }
