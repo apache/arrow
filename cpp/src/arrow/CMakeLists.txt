@@ -261,13 +261,6 @@ if(ARROW_HAVE_NEON)
   list(APPEND ARROW_SRCS util/bpacking_neon.cc)
 endif()
 
-set_source_files_properties(util/cpu_info.cc PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
-if(ARROW_HAVE_RUNTIME_AVX512)
-  set_source_files_properties(util/cpu_info.cc PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
-elseif(ARROW_HAVE_RUNTIME_AVX2)
-  set_source_files_properties(util/cpu_info.cc PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
-endif()
-
 if(APPLE)
   list(APPEND ARROW_SRCS vendored/datetime/ios.mm)
 endif()

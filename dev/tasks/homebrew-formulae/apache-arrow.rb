@@ -57,9 +57,6 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
-    # https://github.com/Homebrew/homebrew-core/issues/76537
-    ENV.runtime_cpu_detection if Hardware::CPU.intel?
-
     # link against system libc++ instead of llvm provided libc++
     ENV.remove "HOMEBREW_LIBRARY_PATHS", Formula["llvm"].opt_lib
     args = %W[
