@@ -118,7 +118,7 @@ classdef tTimestampType < hFixedWidthType
         %    TimeZone: "America/Anchorage"
         %
             type = arrow.timestamp(TimeUnit="Second", TimeZone="America/Anchorage"); %#ok<NASGU>
-            classnameLink = '<a href="matlab:helpPopup arrow.type.TimestampType" style="font-weight:bold">TimestampType</a>';
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.TimestampType"" style=""font-weight:bold"">TimestampType</a>";
             header = "  " + classnameLink + " with properties:" + newline;
             body = strjust(pad(["ID:"; "TimeUnit:"; "TimeZone:"]));
             body = body + " " + ["Timestamp"; "Second"; """America/Anchorage"""];

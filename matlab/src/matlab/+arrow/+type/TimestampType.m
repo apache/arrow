@@ -41,9 +41,9 @@ classdef TimestampType < arrow.type.FixedWidthType
     end
 
     methods (Access=protected)
-        function propgrp = getPropertyGroups(~)
-          proplist = {'ID', 'TimeUnit', 'TimeZone'};
-          propgrp = matlab.mixin.util.PropertyGroup(proplist);
+        function group = getPropertyGroups(~)
+          targets = ["ID" "TimeUnit" "TimeZone"];
+          group = matlab.mixin.util.PropertyGroup(targets);
         end
     end
 end
