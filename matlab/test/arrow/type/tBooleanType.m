@@ -17,7 +17,7 @@ classdef tBooleanType < hFixedWidthType
 % Test class for arrow.type.BooleanType
 
     properties
-        ArrowType = arrow.type.boolean
+        ArrowType = arrow.boolean
         TypeID = arrow.type.ID.Boolean
         BitWidth = int32(1)
         ClassName = "arrow.type.BooleanType"

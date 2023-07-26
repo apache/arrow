@@ -24,6 +24,6 @@ classdef tUInt8Array < hNumericArray
         MaxValue = intmax("uint8")
         MinValue = intmin("uint8")
         NullSubstitutionValue = uint8(0)
-        ArrowType = arrow.type.uint8
+        ArrowType = arrow.uint8
     end
 end

@@ -24,6 +24,6 @@ classdef tUInt32Array < hNumericArray
         MaxValue = intmax("uint32")
         MinValue = intmin("uint32")
         NullSubstitutionValue = uint32(0)
-        ArrowType = arrow.type.uint32
+        ArrowType = arrow.uint32
     end
 end

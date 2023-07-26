@@ -19,7 +19,7 @@ classdef tField < matlab.unittest.TestCase
     methods(Test)
         function TestBasic(testCase)
             name = "A";
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             field = arrow.field(name, type);
 
             testCase.verifyEqual(field.Name, name);
@@ -29,19 +29,19 @@ classdef tField < matlab.unittest.TestCase
         function TestSupportedTypes(testCase)
             name = "name";
             supportedTypes = { ...
-                                 arrow.type.uint8, ...
-                                 arrow.type.uint16, ...
-                                 arrow.type.uint32, ...
-                                 arrow.type.uint64, ...
-                                 arrow.type.int8, ...
-                                 arrow.type.int16, ...
-                                 arrow.type.int32, ...
-                                 arrow.type.int64, ...
-                                 arrow.type.boolean, ...
-                                 arrow.type.float32, ...
-                                 arrow.type.float64, ...
-                                 arrow.type.string, ...
-                                 arrow.type.timestamp, ...
+                                 arrow.uint8, ...
+                                 arrow.uint16, ...
+                                 arrow.uint32, ...
+                                 arrow.uint64, ...
+                                 arrow.int8, ...
+                                 arrow.int16, ...
+                                 arrow.int32, ...
+                                 arrow.int64, ...
+                                 arrow.boolean, ...
+                                 arrow.float32, ...
+                                 arrow.float64, ...
+                                 arrow.string, ...
+                                 arrow.timestamp, ...
                              };
             for ii = 1:numel(supportedTypes)
                 supportedType = supportedTypes{ii};
@@ -56,7 +56,7 @@ classdef tField < matlab.unittest.TestCase
             tree =  "🌲";
             mango = "🥭";
 
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             field = arrow.field(smiley, type);
 
             testCase.verifyEqual(field.Name, smiley);
@@ -75,13 +75,13 @@ classdef tField < matlab.unittest.TestCase
 
         function TestErrorIfNameStringMissing(testCase)
             name = string(missing);
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             testCase.verifyError(@() arrow.field(name, type), "MATLAB:validators:mustBeNonmissing");
         end
 
         function TestNameEmptyString(testCase)
             name = "";
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             field = arrow.field(name, type);
 
             testCase.verifyEqual(field.Name, name);
@@ -90,7 +90,7 @@ classdef tField < matlab.unittest.TestCase
 
         function TestNameCharVector(testCase)
             name = 'ABC';
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             field = arrow.field(name, type);
 
             testCase.verifyEqual(field.Name, string(name));
@@ -99,7 +99,7 @@ classdef tField < matlab.unittest.TestCase
 
         function TestNameNumber(testCase)
             name = 123;
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             field = arrow.field(name, type);
 
             testCase.verifyEqual(field.Name, string(123));
@@ -114,17 +114,17 @@ classdef tField < matlab.unittest.TestCase
 
         function TestNameUnsupportedInput(testCase)
             name = table();
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             testCase.verifyError(@() arrow.field(name, type), "MATLAB:validation:UnableToConvert");
         end
 
         function TestImmutableProperties(testCase)
             name = "A";
-            type = arrow.type.uint64;
+            type = arrow.uint64;
             field = arrow.field(name, type);
 
             testCase.verifyError(@() setfield(field, "Name", "NewValue"), "MATLAB:class:noSetMethod")
-            testCase.verifyError(@() setfield(field, "Type", arrow.type.boolean), "MATLAB:class:noSetMethod")
+            testCase.verifyError(@() setfield(field, "Type", arrow.boolean), "MATLAB:class:noSetMethod")
         end
 
     end
