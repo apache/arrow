@@ -236,31 +236,7 @@ void AddDistinctKernel(InputType type, ScalarAggregateFunction* func) {
   AddAggKernel(std::move(sig), DistinctInit<Type, VisitorArgType>, func);
 }
 
-// template <typename Type, typename VisitorArgType = typename Type::c_type>
-// void AddDistinctKernel(const std::vector<std::shared_ptr<DataType>> types,
-//                        ScalarAggregateFunction* func) {
-//   for (const auto& type : types) {
-//     auto sig = KernelSignature::Make({InputType(type)}, DistinctType);
-//     AddAggKernel(std::move(sig), DistinctInit<Type, VisitorArgType>, func);
-//   }
-// }
-
 void AddDistinctKernels(ScalarAggregateFunction* func) {
-  // AddDistinctKernel({null(), boolean()}, func);
-  // AddDistinctKernel(NumericTypes(), func);
-  // AddDistinctKernel(TemporalTypes(), func);
-  // AddDistinctKernel(BaseBinaryTypes(), func);
-  // AddDistinctKernel(match::SameTypeId(Type::TIME32), func);
-  // AddDistinctKernel(match::SameTypeId(Type::TIME64), func);
-  // AddDistinctKernel(match::SameTypeId(Type::TIMESTAMP), func);
-  // AddDistinctKernel(match::SameTypeId(Type::DURATION), func);
-  // AddDistinctKernel(Type::FIXED_SIZE_BINARY, func);
-  // AddDistinctKernel(Type::INTERVAL_MONTHS, func);
-  // AddDistinctKernel(Type::INTERVAL_DAY_TIME, func);
-  // AddDistinctKernel(Type::INTERVAL_MONTH_DAY_NANO, func);
-  // AddDistinctKernel(Type::DECIMAL128, func);
-  // AddDistinctKernel(Type::DECIMAL256, func);
-
   // Boolean
   AddDistinctKernel<BooleanType>(boolean(), func);
   // Number
@@ -292,8 +268,8 @@ void AddDistinctKernels(ScalarAggregateFunction* func) {
   AddDistinctKernel<BinaryType, std::string_view>(match::BinaryLike(), func);
   AddDistinctKernel<LargeBinaryType, std::string_view>(match::LargeBinaryLike(), func);
   // Fixed binary & Decimal
-  // AddDistinctKernel<FixedSizeBinaryType, std::string_view>(
-  //     match::FixedSizeBinaryLike(), func);
+  AddDistinctKernel<FixedSizeBinaryType, std::string_view>(match::FixedSizeBinaryLike(),
+                                                           func);
 }
 
 // ----------------------------------------------------------------------
