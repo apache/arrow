@@ -87,7 +87,7 @@ classdef tTimestampType < hFixedWidthType
             fcn = @() arrow.timestamp(TimeZone=["a", "b"]);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
 
-              fcn = @() arrow.timestamp(TimeZone=strings(0, 0));
+            fcn = @() arrow.timestamp(TimeZone=strings(0, 0));
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
@@ -104,6 +104,29 @@ classdef tTimestampType < hFixedWidthType
             units = ["second" "millisecond"];
             fcn = @() arrow.timestamp(TimeZone=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
+        end
+
+        function Display(testCase)
+        % Verify the display of TimestampType objects.
+        %
+        % Example:
+        %
+        %  TimestampType with properties:
+        %
+        %          ID: Timestamp
+        %    TimeUnit: Second
+        %    TimeZone: "America/Anchorage"
+        %
+            type = arrow.timestamp(TimeUnit="Second", TimeZone="America/Anchorage"); %#ok<NASGU>
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.TimestampType"" style=""font-weight:bold"">TimestampType</a>";
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad(["ID:"; "TimeUnit:"; "TimeZone:"]));
+            body = body + " " + ["Timestamp"; "Second"; """America/Anchorage"""];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
     end
 end
