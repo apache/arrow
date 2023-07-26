@@ -319,7 +319,7 @@ class FileReaderImpl : public FileReader {
   }
 
   Result<AsyncBatchGenerator> DoReadRowGroupsAsync(
-      const std::vector<int>& row_groups, const std::vector<int>& indices,
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices,
       ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches);
 
   AsyncBatchGenerator ReadRowGroupsAsync(const std::vector<int>& row_groups,

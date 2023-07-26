@@ -300,12 +300,12 @@ class PARQUET_EXPORT FileReader {
   /// performance.
   ///
   /// This operation is not perfectly async.  The read from disk will be done on an I/O
-  /// thread, which is correct.  However, compression and  column decoding is also done on
+  /// thread, which is correct.  However, compression and column decoding is also done on
   /// the I/O thread which may not be ideal.  The stage after that (transferring the
   /// decoded data into Arrow structures and fulfilling the future) should be done as a
   /// new task on the cpu_executor.
   ///
-  /// The returned generator will respect the batch size set in the reader properties.
+  /// The returned generator will respect the batch size set in the ArrowReaderProperties.
   /// Batches will not be larger than the given batch size.  However, batches may be
   /// smaller.  This can happen, for example, when there is not enough data or when a
   /// string column is too large to fit into a single batch.  The parameter
@@ -318,7 +318,7 @@ class PARQUET_EXPORT FileReader {
   /// a single batch.
   ///
   /// Note: If a row group has 0 rows it will effectively be ignored.  If you are only
-  /// reading empty row groups then the returned generated will immediately finish.  This
+  /// reading empty row groups then the returned generator will immediately finish.  This
   /// method should never generate an empty record batch.
   ///
   /// The I/O executor is obtained from the I/O context in the reader properties.
