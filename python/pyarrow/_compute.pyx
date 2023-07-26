@@ -2034,6 +2034,7 @@ class PairwiseOptions(_PairwiseOptions):
     def __init__(self, period=1):
         self._set_options(period)
 
+
 cdef CAdjoinAsListType unwrap_adjoin_as_list_type(list_type) except *:
     if list_type == "list":
         return CAdjoinAsListType_LIST
@@ -2048,6 +2049,7 @@ cdef class _AdjoinAsListOptions(FunctionOptions):
         self.wrapped.reset(new CAdjoinAsListOptions(
             unwrap_adjoin_as_list_type(list_type)))
 
+
 class AdjoinAsListOptions(_AdjoinAsListOptions):
     """
     Options for the `adjoin_as_list` function.
@@ -2061,6 +2063,7 @@ class AdjoinAsListOptions(_AdjoinAsListOptions):
 
     def __init__(self, list_type="list"):
         self._set_options(list_type)
+
 
 cdef class _ArraySortOptions(FunctionOptions):
     def _set_options(self, order, null_placement):

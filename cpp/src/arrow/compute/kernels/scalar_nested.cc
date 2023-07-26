@@ -866,7 +866,8 @@ struct AdjoinAsListState : public KernelState {
                                                    input_type.GetSharedPtr());
       case AdjoinAsListOptions::FIXED_SIZE_LIST:
         return std::make_unique<AdjoinAsListState>(
-            fixed_size_list(input_type.GetSharedPtr(), args.inputs.size()),
+            fixed_size_list(input_type.GetSharedPtr(),
+                            static_cast<int32_t>(args.inputs.size())),
             input_type.GetSharedPtr());
       default:
         return Status::Invalid(
