@@ -148,11 +148,13 @@ func traverseNodes(node schemaNode) arrow.Field {
 				}
 				//  Avro primitive type
 				return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string))}
-
 			case "fixed":
 				// Duration type is not supported in github.com/linkedin/goavro
 				// Implementing as Binary for now.
-				if node.logicalType == "duration" {
+				switch node.logicalType {
+				case "decimal":
+					return avroLogicalToArrowField(node)
+				case "duration":
 					return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.Binary}
 					//return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.MonthDayNanoInterval}
 				}
@@ -251,7 +253,12 @@ func avroLogicalToArrowField(node schemaNode) arrow.Field {
 	// scale, a JSON integer representing the scale (optional). If not specified the scale is 0.
 	// precision, a JSON integer representing the (maximum) precision of decimals stored in this type (required).
 	case "decimal":
-		return arrow.Field{Name: node.name, Type: &arrow.Decimal128Type{Precision: node.precision, Scale: node.scale}}
+		if node.precision <= 38 {
+			return arrow.Field{Name: node.name, Type: &arrow.Decimal128Type{Precision: node.precision, Scale: node.scale}}
+		} else {
+			return arrow.Field{Name: node.name, Type: &arrow.Decimal256Type{Precision: node.precision, Scale: node.scale}}
+		}
+
 	// The uuid logical type represents a random generated universally unique identifier (UUID).
 	// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
 	case "uuid":

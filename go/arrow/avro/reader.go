@@ -17,18 +17,37 @@
 package avro
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"sync"
 	"sync/atomic"
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/decimal128"
+	"github.com/apache/arrow/go/v13/arrow/decimal256"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/linkedin/goavro/v2"
 )
+
+type Reader interface {
+
+	// Err returns the last error encountered.
+	Err() error
+
+	Schema() *arrow.Schema
+
+	// Record returns the current record that has been extracted.
+	Record() arrow.Record
+
+	// Next returns whether a Record could be extracted.
+	Next() bool
+}
 
 // Reader wraps goavro/OCFReader and creates array.Records from a schema.
 type OCFReader struct {
@@ -67,7 +86,7 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 	}
 
 	codec := ocfr.Codec()
-	schema := codec.Schema()
+	schema := codec.CanonicalSchema()
 	rr.schema, err = ArrowSchemaFromAvro([]byte(schema))
 	if err != nil {
 		panic(fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid))
@@ -270,11 +289,69 @@ func appendData(b array.Builder, data interface{}) {
 		bt.AppendNull()
 	//case *array.DictionaryBuilder:
 	case *array.Decimal128Builder:
-		bt.AppendNull()
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case []byte:
+			if len(dt) <= 38 {
+				var intData int64
+				buf := bytes.NewBuffer(dt)
+				err := binary.Read(buf, binary.BigEndian, &intData)
+				if err != nil {
+					bt.AppendNull()
+				}
+				bt.Append(decimal128.FromI64(intData))
+			} else {
+				var bigIntData big.Int
+				buf := bytes.NewBuffer(dt)
+				err := binary.Read(buf, binary.BigEndian, &bigIntData)
+				if err != nil {
+					bt.AppendNull()
+				}
+				bt.Append(decimal128.FromBigInt(&bigIntData))
+			}
+		case map[string]interface{}:
+			if len(dt["bytes"].([]byte)) <= 38 {
+				var intData int64
+				buf := bytes.NewBuffer(dt["bytes"].([]byte))
+				err := binary.Read(buf, binary.BigEndian, &intData)
+				if err != nil {
+					bt.AppendNull()
+				}
+				bt.Append(decimal128.FromI64(intData))
+			} else {
+				var bigIntData big.Int
+				buf := bytes.NewBuffer(dt["bytes"].([]byte))
+				err := binary.Read(buf, binary.BigEndian, &bigIntData)
+				if err != nil {
+					bt.AppendNull()
+				}
+				bt.Append(decimal128.FromBigInt(&bigIntData))
+			}
+		}
 	case *array.Decimal128DictionaryBuilder:
 		bt.AppendNull()
 	case *array.Decimal256Builder:
-		bt.AppendNull()
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case []byte:
+			var bigIntData big.Int
+			buf := bytes.NewBuffer(dt)
+			err := binary.Read(buf, binary.BigEndian, &bigIntData)
+			if err != nil {
+				bt.AppendNull()
+			}
+			bt.Append(decimal256.FromBigInt(&bigIntData))
+		case map[string]interface{}:
+			var bigIntData big.Int
+			buf := bytes.NewBuffer(dt["bytes"].([]byte))
+			err := binary.Read(buf, binary.BigEndian, &bigIntData)
+			if err != nil {
+				bt.AppendNull()
+			}
+			bt.Append(decimal256.FromBigInt(&bigIntData))
+		}
 	case *array.Decimal256DictionaryBuilder:
 		bt.AppendNull()
 	case *array.DenseUnionBuilder:
