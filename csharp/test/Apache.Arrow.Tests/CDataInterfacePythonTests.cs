@@ -60,9 +60,7 @@ namespace Apache.Arrow.Tests
 
             public void Dispose()
             {
-#if !NET5_0_OR_GREATER
                 PythonEngine.Shutdown();
-#endif
             }
         }
 
