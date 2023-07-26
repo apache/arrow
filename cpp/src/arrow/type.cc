@@ -321,7 +321,8 @@ std::string Field::MergeOptions::ToString() const {
   ss << "promote_nullability=" << (promote_nullability ? "true" : "false");
   ss << ", promote_numeric_width=" << (promote_numeric_width ? "true" : "false");
   ss << ", promote_integer_to_float=" << (promote_integer_to_float ? "true" : "false");
-  ss << ", promote_integer_to_decimal=" << (promote_integer_to_decimal ? "true" : "false");
+  ss << ", promote_integer_to_decimal="
+     << (promote_integer_to_decimal ? "true" : "false");
   ss << ", promote_decimal_to_float=" << (promote_decimal_to_float ? "true" : "false");
   ss << ", promote_temporal_unit=" << (promote_temporal_unit ? "true" : "false");
   ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
@@ -333,25 +334,6 @@ std::string Field::MergeOptions::ToString() const {
 namespace {
 // Utilities for Field::MergeWith
 
-std::shared_ptr<DataType> MakeSigned(const DataType& type) {
-  switch (type.id()) {
-    case Type::INT8:
-    case Type::UINT8:
-      return int8();
-    case Type::INT16:
-    case Type::UINT16:
-      return int16();
-    case Type::INT32:
-    case Type::UINT32:
-      return int32();
-    case Type::INT64:
-    case Type::UINT64:
-      return int64();
-    default:
-      Unreachable("Hit an unknown type");
-  }
-  return nullptr;
-}
 std::shared_ptr<DataType> MakeBinary(const DataType& type) {
   switch (type.id()) {
     case Type::BINARY:
@@ -417,7 +399,8 @@ Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     return duration(std::max(left.unit(), right.unit()));
   }
 
-  if (options.promote_temporal_unit && is_time(promoted_type->id()) && is_time(other_type->id())) {
+  if (options.promote_temporal_unit && is_time(promoted_type->id()) &&
+      is_time(other_type->id())) {
     const auto& left = checked_cast<const TimeType&>(*promoted_type);
     const auto& right = checked_cast<const TimeType&>(*other_type);
     const auto unit = std::max(left.unit(), right.unit());
@@ -468,9 +451,9 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
       const auto& decimal = checked_cast<const DecimalType&>(*promoted_type);
       ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                             MaxDecimalDigitsForInteger(other_type->id()));
-      ARROW_ASSIGN_OR_RAISE(promoted_type,
-                            DecimalType::Make(promoted_type->id(),
-                            std::max(decimal.precision, precision), 0));
+      ARROW_ASSIGN_OR_RAISE(
+          promoted_type, DecimalType::Make(promoted_type->id(),
+                                           std::max(decimal.precision(), precision), decimal.scale()));
       promoted = true;
     }
   }
@@ -495,19 +478,22 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
     return DecimalType::Make(Type::DECIMAL128, common_precision, max_scale);
   }
 
-  if (options.promote_integer_sign) {
-    if (is_unsigned_integer(promoted_type->id()) && is_signed_integer(other_type->id())) {
-      promoted = bit_width(other_type->id()) >= bit_width(promoted_type->id());
-      if (promoted) {
-        promoted_type = MakeSigned(*promoted_type);
-      }
-    } else if (is_signed_integer(promoted_type->id()) &&
-               is_unsigned_integer(other_type->id())) {
-      promoted = bit_width(promoted_type->id()) >= bit_width(other_type->id());
-      if (promoted) {
-        other_type = MakeSigned(*other_type);
-      }
+  if (options.promote_integer_sign &&
+      ((is_unsigned_integer(promoted_type->id()) && is_signed_integer(other_type->id())) ||
+      (is_signed_integer(promoted_type->id()) && is_unsigned_integer(other_type->id())))) {
+
+    const int max_width = std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+
+    if (max_width >= 64) {
+      promoted_type = int64();
+    } else if (max_width >= 32) {
+      promoted_type = int32();
+    } else if (max_width >= 16) {
+      promoted_type = int16();
+    } else {
+      promoted_type = int8();
     }
+    return promoted_type;
   }
 
   if (options.promote_integer_to_float &&
@@ -515,6 +501,20 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
        (is_integer(promoted_type->id()) && is_floating(other_type->id())))) {
     const int max_width =
         std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+    promoted = true;
+    if (max_width >= 64) {
+      promoted_type = float64();
+    } else if (max_width >= 32) {
+      promoted_type = float32();
+    } else {
+      promoted_type = float16();
+    }
+  }
+
+  if (options.promote_numeric_width) {
+    const int max_width =
+        std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+    if (is_floating(promoted_type->id()) && is_floating(other_type->id())) {
       promoted = true;
       if (max_width >= 64) {
         promoted_type = float64();
@@ -523,57 +523,43 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
       } else {
         promoted_type = float16();
       }
-  }
-
-  if (options.promote_numeric_width) {
-    const int max_width =
-        std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
-    if (is_floating(promoted_type->id()) && is_floating(other_type->id())) {
-      if (max_width >= 64) {
-        return float64();
-      } else if (max_width >= 32) {
-        return float32();
-      }
-      return float16();
     } else if (is_signed_integer(promoted_type->id()) &&
                is_signed_integer(other_type->id())) {
+      promoted = true;
       if (max_width >= 64) {
-        return int64();
+        promoted_type = int64();
       } else if (max_width >= 32) {
-        return int32();
+        promoted_type = int32();
       } else if (max_width >= 16) {
-        return int16();
+        promoted_type = int16();
+      } else {
+        promoted_type = int8();
       }
-      return int8();
     } else if (is_unsigned_integer(promoted_type->id()) &&
                is_unsigned_integer(other_type->id())) {
+      promoted = true;
       if (max_width >= 64) {
-        return uint64();
+        promoted_type = uint64();
       } else if (max_width >= 32) {
-        return uint32();
+        promoted_type = uint32();
       } else if (max_width >= 16) {
-        return uint16();
+        promoted_type = uint16();
+      } else {
+        promoted_type = uint8();
       }
-      return uint8();
     }
   }
 
   return promoted ? promoted_type : nullptr;
 }
 
-
-
 // Merge temporal types based on options. Returns nullptr for non-binary types.
 Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
-    const std::shared_ptr<DataType>& promoted_type,
-    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+    std::shared_ptr<DataType>& promoted_type, std::shared_ptr<DataType>& other_type,
+    const Field::MergeOptions& options) {
+  bool promoted = false;
 
   if (options.promote_binary) {
-    if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
-        is_base_binary_like(other_type->id())) {
-      promoted_type = binary();
-      promoted = true;
-    }
     if (other_type->id() == Type::FIXED_SIZE_BINARY &&
         is_base_binary_like(promoted_type->id())) {
       other_type = binary();
@@ -582,18 +568,20 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
 
     if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
         is_var_length_list(other_type->id())) {
-      promoted_type = list(MergeTypes(
-        checked_cast<const BaseListType&>(*promoted_type).value_field(),
-        checked_cast<const BaseListType&>(*other_type).value_field()
-      ));
+      const BaseListType& left = checked_cast<const BaseListType&>(*promoted_type);
+      const BaseListType& right = checked_cast<const BaseListType&>(*other_type);
+      ARROW_ASSIGN_OR_RAISE(auto value_field,
+                            left.value_field()->MergeWith(right.value_field(), options));
+      promoted_type = list(value_field);
       promoted = true;
     }
     if (other_type->id() == Type::FIXED_SIZE_LIST &&
         is_var_length_list(promoted_type->id())) {
-      other_type = list(MergeTypes(
-        checked_cast<const BaseListType&>(*promoted_type).value_field(),
-        checked_cast<const BaseListType&>(*other_type).value_field()
-      ));
+      const BaseListType& left = checked_cast<const BaseListType&>(*promoted_type);
+      const BaseListType& right = checked_cast<const BaseListType&>(*other_type);
+      ARROW_ASSIGN_OR_RAISE(auto value_field,
+                            left.value_field()->MergeWith(right.value_field(), options));
+      other_type = list(value_field);
       promoted = true;
     }
 
@@ -623,25 +611,26 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
     }
     if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LARGE_LIST) ||
         (promoted_type->id() == Type::LARGE_LIST && other_type->id() == Type::LIST)) {
-      promoted_type =
-          large_list(MergeTypes(
-            checked_cast<const BaseListType&>(*promoted_type).value_field(),
-            checked_cast<const BaseListType&>(*other_type).value_field()
-          ));
+      const BaseListType& left = checked_cast<const BaseListType&>(*promoted_type);
+      const BaseListType& right = checked_cast<const BaseListType&>(*other_type);
+      ARROW_ASSIGN_OR_RAISE(auto value_field,
+                            left.value_field()->MergeWith(right.value_field(), options));
+      promoted_type = large_list(value_field);
       promoted = true;
     }
   }
-}
 
+  return promoted ? promoted_type : nullptr;
+}
 
 // Merge temporal types based on options. Returns nullptr for non-list types.
 Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
     const std::shared_ptr<DataType>& promoted_type,
     const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+  bool promoted = false;
 
   if ((promoted_type->id() == Type::LIST && other_type->id() == Type::LIST) ||
-      (promoted_type->id() == Type::LARGE_LIST &&
-       other_type->id() == Type::LARGE_LIST) ||
+      (promoted_type->id() == Type::LARGE_LIST && other_type->id() == Type::LARGE_LIST) ||
       (promoted_type->id() == Type::FIXED_SIZE_LIST &&
        other_type->id() == Type::FIXED_SIZE_LIST)) {
     const auto& left = checked_cast<const BaseListType&>(*promoted_type);
@@ -674,7 +663,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
         auto item_field,
         left.item_field()->MergeWith(
             *right.item_field()->WithName(left.item_field()->name()), options));
-    return map(std::move(key_field), std::move(item_field),
+    return map(std::move(key_field->type()), std::move(item_field),
                /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
   } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
     SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
@@ -690,6 +679,8 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
     ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
     return struct_(schema->fields());
   }
+
+  return promoted ? promoted_type : nullptr;
 }
 
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
@@ -758,16 +749,16 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
       nullable = nullable || other.nullable() || type_->id() == Type::NA ||
                  other.type()->id() == Type::NA;
     } else if (nullable_ != other.nullable()) {
-      return Status::Invalid("Unable to merge: Field ", name(),
-                             " has incompatible nullability: ", nullable_, " vs ",
-                             other.nullable());
+      return Status::TypeError("Unable to merge: Field ", name(),
+                               " has incompatible nullability: ", nullable_, " vs ",
+                               other.nullable());
     }
 
     return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
   }
-  return Status::Invalid("Unable to merge: Field ", name(),
-                         " has incompatible types: ", type()->ToString(), " vs ",
-                         other.type()->ToString());
+  return Status::TypeError("Unable to merge: Field ", name(),
+                           " has incompatible types: ", type()->ToString(), " vs ",
+                           other.type()->ToString());
 }
 
 Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& other,
@@ -1366,7 +1357,7 @@ Result<std::shared_ptr<DataType>> DecimalType::Make(Type::type type_id, int32_t 
   } else if (type_id == Type::DECIMAL256) {
     return Decimal256Type::Make(precision, scale);
   } else {
-    return Status::Invalid("Not a decimal type_id: ", type_id);
+    return Status::TypeError("Not a decimal type_id: ", type_id);
   }
 }
 
@@ -1403,8 +1394,8 @@ Decimal128Type::Decimal128Type(int32_t precision, int32_t scale)
 
 Result<std::shared_ptr<DataType>> Decimal128Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
+    return Status::TypeError("Decimal precision out of range [", int32_t(kMinPrecision),
+                             ", ", int32_t(kMaxPrecision), "]: ", precision);
   }
   return std::make_shared<Decimal128Type>(precision, scale);
 }
@@ -1420,8 +1411,8 @@ Decimal256Type::Decimal256Type(int32_t precision, int32_t scale)
 
 Result<std::shared_ptr<DataType>> Decimal256Type::Make(int32_t precision, int32_t scale) {
   if (precision < kMinPrecision || precision > kMaxPrecision) {
-    return Status::Invalid("Decimal precision out of range [", int32_t(kMinPrecision),
-                           ", ", int32_t(kMaxPrecision), "]: ", precision);
+    return Status::TypeError("Decimal precision out of range [", int32_t(kMinPrecision),
+                             ", ", int32_t(kMaxPrecision), "]: ", precision);
   }
   return std::make_shared<Decimal256Type>(precision, scale);
 }

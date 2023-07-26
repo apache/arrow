@@ -998,7 +998,6 @@ constexpr bool is_run_end_type(Type::type type_id) {
   return false;
 }
 
-
 /// \brief Check for a primitive type
 ///
 /// This predicate doesn't match null, decimals and binary-like types.

@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "arrow/chunked_array.h"  // IWYU pragma: keep
+#include "arrow/compute/cast.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -286,8 +287,6 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
   /// This field will be ignored if unify_schemas is false
   Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
 
-  Field::MergeOptions field_merge_options = Field::MergeOptions::Permissive();
-
   static ConcatenateTablesOptions Defaults() { return {}; }
 };
 
@@ -333,11 +332,11 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 /// \param[in] table the input Table
 /// \param[in] schema the target schema to promote to
 /// \param[in] pool The memory pool to be used if null-filled arrays need to
-/// \param[in] The cast options to allow promotion of types
+/// \param[in] options The cast options to allow promotion of types
 /// be created.
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
     MemoryPool* pool = default_memory_pool(),
-    CastOptions options = CastOptions::Safe());
+    compute::CastOptions options = compute::CastOptions::Safe());
 }  // namespace arrow

@@ -918,8 +918,8 @@ class TestUnifySchemas : public TestSchema {
     ARROW_SCOPED_TRACE("options: ", options);
     ARROW_SCOPED_TRACE("field2: ", field2->ToString());
     ARROW_SCOPED_TRACE("field1: ", field1->ToString());
-    ASSERT_RAISES(Invalid, field1->MergeWith(field2, options));
-    ASSERT_RAISES(Invalid, field2->MergeWith(field1, options));
+    ASSERT_RAISES(TypeError, field1->MergeWith(field2, options));
+    ASSERT_RAISES(TypeError, field2->MergeWith(field1, options));
   }
 
   void CheckUnify(const std::shared_ptr<DataType>& left,
@@ -1137,7 +1137,7 @@ TEST_F(TestUnifySchemas, Numeric) {
   CheckUnifyFails(int32(), {int64()}, options);
   CheckUnify(int32(), {float32()}, options);
   CheckUnify(int64(), {float64()}, options);
-  CheckUnifyFails(int32(), {float16(), float64()}, options);
+  CheckUnify(int32(), float16(), float32(), options);
 }
 
 TEST_F(TestUnifySchemas, Decimal) {
@@ -1148,8 +1148,8 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(decimal256(3, 2), {float32(), float64()}, options);
 
   options.promote_integer_to_decimal = true;
-  CheckUnify(int32(), decimal128(3, 2), decimal128(3, 2), options);
-  CheckUnify(int32(), decimal128(3, -2), decimal128(3, -2), options);
+  CheckUnify(int32(), decimal128(3, 2), decimal128(10, 2), options);
+  CheckUnify(int32(), decimal128(3, -2), decimal128(10, -2), options);
 
   options.promote_decimal = true;
   CheckUnify(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
@@ -1166,15 +1166,15 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
-  CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
-  CheckUnify(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckUnify(int32(), decimal128(3, 2), decimal128(10, 2), options);
+  CheckUnify(int32(), decimal128(3, -2), decimal128(10, -2), options);
 
   CheckUnifyFails(decimal256(1, 0), decimal128(1, 0), options);
   CheckUnifyFails(int64(), decimal128(38, 37), options);
 
   options.promote_numeric_width = true;
   CheckUnify(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
-  CheckUnify(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckUnify(int32(), decimal128(38, 37), decimal128(38, 37), options);
   CheckUnifyFails(decimal128(38, 10), decimal256(76, 5), options);
 
   CheckUnifyFails(int64(), decimal256(76, 75), options);
@@ -1244,12 +1244,11 @@ TEST_F(TestUnifySchemas, List) {
   CheckUnify(list(int8()), {large_list(int8())}, options);
   CheckUnify(fixed_size_list(int8(), 2), {list(int8()), large_list(int8())}, options);
 
-  options.promote_nested = true;
   CheckUnify(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
   CheckUnify(fixed_size_list(int8(), 2),
              {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
              options);
-  CheckUnify(fixed_size_list(int16(), 2), list(int8), list(int16), options);
+  CheckUnify(fixed_size_list(int16(), 2), list(int8()), list(int16()), options);
 
   auto ty = list(field("foo", int8(), /*nullable=*/false));
   CheckUnifyAsymmetric(ty, list(int8()), list(field("foo", int8(), /*nullable=*/true)),
@@ -1260,7 +1259,6 @@ TEST_F(TestUnifySchemas, List) {
 
 TEST_F(TestUnifySchemas, Map) {
   auto options = Field::MergeOptions::Defaults();
-  options.promote_nested = true;
   options.promote_numeric_width = true;
 
   CheckUnify(map(int8(), int32()),
@@ -1269,23 +1267,15 @@ TEST_F(TestUnifySchemas, Map) {
 
   // Do not test field names, since MapType intentionally ignores them in comparisons
   // See ARROW-7173, ARROW-14999
-  auto ty = map(field("key", int8(), /*nullable=*/false),
-                field("value", int32(), /*nullable=*/false));
+  auto ty = map(int8(), field("value", int32(), /*nullable=*/false));
   CheckUnify(ty, map(int8(), int32()),
-             map(field("key", int8(), /*nullable=*/true),
-                 field("value", int32(), /*nullable=*/true)),
-             options);
-  CheckUnify(ty,
-             map(field("key", int16(), /*nullable=*/false),
-                 field("value", int64(), /*nullable=*/false)),
-             map(field("key", int16(), /*nullable=*/false),
-                 field("value", int64(), /*nullable=*/false)),
-             options);
+             map(int8(), field("value", int32(), /*nullable=*/true)), options);
+  CheckUnify(ty, map(int16(), field("value", int64(), /*nullable=*/false)),
+             map(int16(), field("value", int64(), /*nullable=*/false)), options);
 }
 
 TEST_F(TestUnifySchemas, Struct) {
   auto options = Field::MergeOptions::Defaults();
-  options.promote_nested = true;
   options.promote_numeric_width = true;
   options.promote_binary = true;
 
@@ -1322,10 +1312,8 @@ TEST_F(TestUnifySchemas, Dictionary) {
                  dictionary(int8(), large_utf8()),
              },
              options);
-  CheckUnify(dictionary(int64(), utf8()),
-             dictionary(int8(), large_utf8()),
-             dictionary(int64(), large_utf8()),
-             options);
+  CheckUnify(dictionary(int64(), utf8()), dictionary(int8(), large_utf8()),
+             dictionary(int64(), large_utf8()), options);
   CheckUnify(dictionary(int8(), utf8(), /*ordered=*/true),
              {
                  dictionary(int64(), utf8(), /*ordered=*/true),

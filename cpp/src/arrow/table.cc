@@ -396,9 +396,7 @@ std::string Table::ToString() const {
 
 Result<std::shared_ptr<Table>> ConcatenateTables(
     const std::vector<std::shared_ptr<Table>>& tables,
-    const ConcatenateTablesOptions options,
-    MemoryPool* memory_pool,
-    const CastOptions options) {
+    const ConcatenateTablesOptions options, MemoryPool* memory_pool) {
   if (tables.size() == 0) {
     return Status::Invalid("Must pass at least one table");
   }
@@ -453,7 +451,8 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
-                                                    MemoryPool* pool) {
+                                                    MemoryPool* pool,
+                                                    const compute::CastOptions options) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
     return table->ReplaceSchemaMetadata(schema->metadata());
@@ -509,8 +508,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
 #ifdef ARROW_COMPUTE
     if (!compute::CanCast(*current_field->type(), *field->type())) {
       return Status::TypeError("Unable to promote field ", field->name(),
-                               ": incompatible types: ", field->type()->ToString(), " vs ",
-                               current_field->type()->ToString());
+                               ": incompatible types: ", field->type()->ToString(),
+                               " vs ", current_field->type()->ToString());
     }
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
