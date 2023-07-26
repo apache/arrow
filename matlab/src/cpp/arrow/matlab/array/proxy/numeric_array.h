@@ -85,12 +85,6 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             ::matlab::data::TypedArray<CType> result = factory.createArray({num_elements, 1}, data_begin, data_end);
             context.outputs[0] = result;
         }
-
-        std::shared_ptr<type::proxy::Type> typeProxy() override {
-          using TypeProxy = typename type::proxy::Traits<ArrowType>::TypeProxy;
-          auto type = std::static_pointer_cast<ArrowType>(array->type());
-          return std::make_shared<TypeProxy>(std::move(type));
-        }
 };
 
      // Specialization of NumericArray::Make for arrow::TimestampType.
