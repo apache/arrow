@@ -17,7 +17,7 @@ classdef tUInt32Type < hFixedWidthType
 % Test class for arrow.type.UInt32Type
 
     properties
-        ArrowType = arrow.type.uint32
+        ArrowType = arrow.uint32
         TypeID = arrow.type.ID.UInt32
         BitWidth = int32(32)
         ClassName = "arrow.type.UInt32Type"

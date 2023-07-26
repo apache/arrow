@@ -17,7 +17,7 @@ classdef tTimestampType < hFixedWidthType
 % Test class for arrow.type.TimestampType
 
     properties
-        ArrowType = arrow.type.timestamp
+        ArrowType = arrow.timestamp
         TypeID = arrow.type.ID.Timestamp
         BitWidth = int32(64)
         ClassName = "arrow.type.TimestampType"
@@ -32,7 +32,7 @@ classdef tTimestampType < hFixedWidthType
 
         function DefaultTimeUnit(testCase)
         % Verify the default TimeUnit is Microsecond
-            type = arrow.type.timestamp;
+            type = arrow.timestamp;
             actualUnit = type.TimeUnit;
             expectedUnit = arrow.type.TimeUnit.Microsecond; 
             testCase.verifyEqual(actualUnit, expectedUnit);
@@ -40,7 +40,7 @@ classdef tTimestampType < hFixedWidthType
 
         function DefaultTimeZone(testCase)
         % Verify the default TimeZone is ""
-            type = arrow.type.timestamp;
+            type = arrow.timestamp;
             actualTimezone = type.TimeZone;
             expectedTimezone = "";
             testCase.verifyEqual(actualTimezone, expectedTimezone);
@@ -53,7 +53,7 @@ classdef tTimestampType < hFixedWidthType
                             TimeUnit.Microsecond, TimeUnit.Nanosecond];
 
             for unit = expectedUnit
-                type = timestamp(TimeUnit=unit);
+                type = arrow.timestamp(TimeUnit=unit);
                 testCase.verifyEqual(type.TimeUnit, unit);
             end
         end
@@ -67,42 +67,42 @@ classdef tTimestampType < hFixedWidthType
                             TimeUnit.Microsecond, TimeUnit.Nanosecond];
             
             for ii = 1:numel(unitString)
-                type = timestamp(TimeUnit=unitString(ii));
+                type = arrow.timestamp(TimeUnit=unitString(ii));
                 testCase.verifyEqual(type.TimeUnit, expectedUnit(ii));
             end
         end
 
         function SupplyTimeZone(testCase)
         % Supply the TimeZone. 
-            type = arrow.type.timestamp(TimeZone="America/New_York");
+            type = arrow.timestamp(TimeZone="America/New_York");
             testCase.verifyEqual(type.TimeZone, "America/New_York");
         end
 
         function ErrorIfMissingStringTimeZone(testCase)
-            fcn = @() arrow.type.timestamp(TimeZone=string(missing));
+            fcn = @() arrow.timestamp(TimeZone=string(missing));
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonmissing");
         end
 
         function ErrorIfTimeZoneIsNonScalar(testCase)
-            fcn = @() arrow.type.timestamp(TimeZone=["a", "b"]);
+            fcn = @() arrow.timestamp(TimeZone=["a", "b"]);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
 
-              fcn = @() arrow.type.timestamp(TimeZone=strings(0, 0));
+              fcn = @() arrow.timestamp(TimeZone=strings(0, 0));
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
         function ErrorIfAmbiguousTimeUnit(testCase)
-            fcn = @() arrow.type.timestamp(TimeUnit="mi");
+            fcn = @() arrow.timestamp(TimeUnit="mi");
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
         function ErrorIfTimeUnitIsNonScalar(testCase)
             units = [arrow.type.TimeUnit.Second; arrow.type.TimeUnit.Millisecond];
-            fcn = @() arrow.type.timestamp(TimeZone=units);
+            fcn = @() arrow.timestamp(TimeZone=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
 
             units = ["second" "millisecond"];
-            fcn = @() arrow.type.timestamp(TimeZone=units);
+            fcn = @() arrow.timestamp(TimeZone=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
     end
