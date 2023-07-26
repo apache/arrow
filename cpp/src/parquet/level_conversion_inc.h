@@ -256,7 +256,7 @@ inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
   return bit_value;
 }
 
-#ifdef ARROW_HAVE_BMI2
+#ifdef ARROW_HAVE_RUNTIME_BMI2
 
 // Use _pext_u64 on 64-bit builds, _pext_u32 on 32-bit builds,
 #if UINTPTR_MAX == 0xFFFFFFFF
@@ -277,7 +277,7 @@ inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
 
 #endif
 
-#else  // !defined(ARROW_HAVE_BMI2)
+#else  // !defined(ARROW_HAVE_RUNTIME_BMI2)
 
 // Use 64-bit pext emulation when BMI2 isn't available.
 using extract_bitmap_t = uint64_t;
