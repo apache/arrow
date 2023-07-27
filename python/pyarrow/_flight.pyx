@@ -3016,7 +3016,7 @@ cdef class FlightServerBase(_Weakrefable):
     def serve(self):
         """Block until the server shuts down.
 
-        This method only returns if shutdown() is called or a signal a
+        This method only returns if shutdown() is called or a signal is
         received.
         """
         if self.server.get() == nullptr:
@@ -3041,6 +3041,8 @@ cdef class FlightServerBase(_Weakrefable):
         method, as then the server will block forever waiting for that
         request to finish. Instead, call this method from a background
         thread.
+
+        This method should only be called once.
         """
         # Must not hold the GIL: shutdown waits for pending RPCs to
         # complete. Holding the GIL means Python-implemented Flight
