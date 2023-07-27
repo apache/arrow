@@ -2862,7 +2862,6 @@ macro(build_absl)
       cordz_update_tracker
       core_headers
       counting_allocator
-      crc32c
       debugging
       dynamic_annotations
       endian
