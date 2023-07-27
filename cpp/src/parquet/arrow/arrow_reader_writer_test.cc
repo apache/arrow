@@ -35,7 +35,6 @@
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
 #include "arrow/io/api.h"
@@ -4095,6 +4094,63 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
 
   ASSERT_OK(batched_table->ValidateFull());
   AssertTablesEqual(*table, *batched_table, /*same_chunk_layout=*/false);
+}
+
+TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringValue)) {
+  // ARROW-3762
+  ::arrow::StringBuilder builder;
+  // 16 rows of 256MiB bytes each is 4GiB.  This will get put into
+  // 3 chunks of 7 rows, 7 rows, and 2 rows.
+  constexpr std::int32_t kValueSize = 1 << 28;
+  constexpr std::int32_t kNumRows = 4;
+  constexpr std::int32_t kNumChunks = 4;
+  std::vector<std::shared_ptr<Array>> chunks;
+  std::vector<uint8_t> value(kValueSize, '0');
+  for (int chunk_idx = 0; chunk_idx < kNumChunks; chunk_idx++) {
+    ASSERT_OK(builder.Resize(kNumRows));
+    ASSERT_OK(builder.ReserveData(kNumRows * kValueSize));
+    for (int64_t i = 0; i < kNumRows; ++i) {
+      builder.UnsafeAppend(value.data(), kValueSize);
+    }
+    std::shared_ptr<Array> array;
+    ASSERT_OK(builder.Finish(&array));
+    chunks.push_back(std::move(array));
+  }
+
+  // Eaglerly free up memory
+  value.clear();
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> chunk,
+                       ChunkedArray::Make(std::move(chunks)));
+
+  auto table = Table::Make(::arrow::schema({::arrow::field("x", ::arrow::utf8())}),
+                           {std::move(chunk)});
+  std::shared_ptr<SchemaDescriptor> schm;
+  ASSERT_OK_NO_THROW(
+      ToParquetSchema(table->schema().get(), *default_writer_properties(), &schm));
+
+  auto sink = CreateOutputStream();
+
+  auto schm_node = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, {schm->group_node()->field(0)}));
+
+  auto writer = ParquetFileWriter::Open(sink, schm_node);
+
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK_NO_THROW(FileWriter::Make(::arrow::default_memory_pool(), std::move(writer),
+                                      table->schema(), default_arrow_writer_properties(),
+                                      &arrow_writer));
+  ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table, table->num_rows()));
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+
+  ASSERT_OK_AND_ASSIGN(auto tables_buffer, sink->Finish());
+
+  // drop to save memory
+  arrow_writer.reset();
+  sink.reset();
+
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
+  std::unique_ptr<FileReader> arrow_reader;
+  ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
 
   // Test ReadRecordBatchesAsync
   auto batch_gen = arrow_reader->ReadRowGroupAsync(
@@ -4109,13 +4165,15 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
       /*allow_sliced_batches=*/true);
 
   std::vector<std::shared_ptr<RecordBatch>> batches;
-  fut = batch_gen();
-  ASSERT_OK_AND_ASSIGN(auto batch, fut.result());
-  batches.push_back(batch);
-  fut = batch_gen();
-  ASSERT_OK_AND_ASSIGN(batch, fut.result());
-  batches.push_back(batch);
-  ASSERT_OK_AND_ASSIGN(batched_table, ::arrow::Table::FromRecordBatches(batches));
+  while (true) {
+    fut = batch_gen();
+    ASSERT_OK_AND_ASSIGN(auto batch, fut.result());
+    if (batch == nullptr) {
+      break;
+    }
+    batches.push_back(batch);
+  }
+  ASSERT_OK_AND_ASSIGN(auto batched_table, ::arrow::Table::FromRecordBatches(batches));
   ASSERT_OK(batched_table->ValidateFull());
   AssertTablesEqual(*table, *batched_table, /*same_chunk_layout=*/false);
 }

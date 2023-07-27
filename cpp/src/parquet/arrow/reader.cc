@@ -323,11 +323,11 @@ class FileReaderImpl : public FileReader {
       ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches);
 
   AsyncBatchGenerator ReadRowGroupsAsync(const std::vector<int>& row_groups,
-                                         const std::vector<int>& indices,
+                                         const std::vector<int>& column_indices,
                                          ::arrow::internal::Executor* cpu_executor,
                                          bool allow_sliced_batches) override {
-    Result<AsyncBatchGenerator> batch_gen =
-        DoReadRowGroupsAsync(row_groups, indices, cpu_executor, allow_sliced_batches);
+    Result<AsyncBatchGenerator> batch_gen = DoReadRowGroupsAsync(
+        row_groups, column_indices, cpu_executor, allow_sliced_batches);
     if (batch_gen.ok()) {
       return batch_gen.MoveValueUnsafe();
     }
@@ -1319,7 +1319,8 @@ class AsyncBatchGeneratorImpl {
               ARROW_RETURN_NOT_OK(
                   column_reader->NextBatch(rows_in_batch, &chunked_array));
               return chunked_array;
-            });
+            },
+            state_->cpu_executor);
 
     // Grab the first batch of data and return it.  If there is more than one batch then
     // throw the reamining batches into overflow and they will be fetched on the next call
