@@ -216,6 +216,7 @@ CMake
           -DARROW_FILESYSTEM=ON \
           -DARROW_GANDIVA=ON \
           -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON \
+          -DARROW_JSON=ON \
           -DARROW_ORC=ON \
           -DARROW_PARQUET=ON \
           -DARROW_S3=ON \
@@ -256,6 +257,7 @@ CMake
           -DARROW_DATASET=ON ^
           -DARROW_DEPENDENCY_USE_SHARED=OFF ^
           -DARROW_FILESYSTEM=ON ^
+          -DARROW_JSON=ON ^
           -DARROW_ORC=OFF ^
           -DARROW_PARQUET=ON ^
           -DARROW_S3=ON ^
