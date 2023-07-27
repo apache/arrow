@@ -2780,6 +2780,7 @@ macro(build_absl)
       cordz_handle
       cordz_info
       cordz_sample_token
+      crc32c
       debugging_internal
       demangle_internal
       examine_stack
@@ -2861,6 +2862,7 @@ macro(build_absl)
       cordz_update_tracker
       core_headers
       counting_allocator
+      crc32c
       debugging
       dynamic_annotations
       endian
