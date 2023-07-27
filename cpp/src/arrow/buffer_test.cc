@@ -1014,4 +1014,13 @@ TYPED_TEST(TypedTestBuffer, ResizeOOM) {
 #endif
 }
 
+TEST(TestBufferConcatenation, EmptyBuffer) {
+  // GH-36913: UB shouldn't be triggered by copying from a null pointer
+  const std::string contents = "hello, world";
+  auto buffer = std::make_shared<Buffer>(contents);
+  auto empty_buffer = std::make_shared<Buffer>(/*data=*/nullptr, /*size=*/0);
+  ASSERT_OK_AND_ASSIGN(auto result, ConcatenateBuffers({buffer, empty_buffer}));
+  AssertMyBufferEqual(*result, contents);
+}
+
 }  // namespace arrow
