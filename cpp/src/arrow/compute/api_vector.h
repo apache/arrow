@@ -661,6 +661,16 @@ Result<Datum> CumulativeMin(
     const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Compute the cumulative mean of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative mean behavior
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMean(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Return the first order difference of an array.
 ///
 /// Computes the first order difference of an array, i.e.

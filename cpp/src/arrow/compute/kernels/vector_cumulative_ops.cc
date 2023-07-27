@@ -25,12 +25,11 @@
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/visit_type_inline.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 namespace {
 
@@ -63,19 +62,62 @@ struct CumulativeOptionsWrapper : public OptionsWrapper<OptionsType> {
   }
 };
 
-// The driver kernel for all cumulative compute functions. Op is a compute kernel
-// representing any binary associative operation with an identity element (add, product,
-// min, max, etc.), i.e. ones that form a monoid, and OptionsType the options type
-// corresponding to Op. ArgType and OutType are the input and output types, which will
-// normally be the same (e.g. the cumulative sum of an array of Int64Type will result in
-// an array of Int64Type).
-template <typename OutType, typename ArgType, typename Op, typename OptionsType>
-struct Accumulator {
+// The cumulative value is computed based on a simple arithmetic binary op
+// such as Add, Mul, Min, Max, etc.
+template <typename Op, typename ArgType>
+struct CumulativeBinaryOp {
+  using OutType = ArgType;
   using OutValue = typename GetOutputType<OutType>::T;
   using ArgValue = typename GetViewType<ArgType>::T;
 
+  OutValue current_value;
+
+  explicit CumulativeBinaryOp() {
+    current_value = Identity<Op>::template value<OutValue>;
+  }
+
+  explicit CumulativeBinaryOp(const std::shared_ptr<Scalar> start) {
+    current_value = UnboxScalar<OutType>::Unbox(*start);
+  }
+
+  OutValue Call(KernelContext* ctx, ArgValue arg, Status* st) {
+    current_value =
+        Op::template Call<OutValue, ArgValue, ArgValue>(ctx, arg, current_value, st);
+    return current_value;
+  }
+};
+
+template <typename ArgType>
+struct CumulativeMean {
+  using OutType = DoubleType;
+  using ArgValue = typename GetViewType<ArgType>::T;
+  int64_t count = 0;
+  double sum = 0;
+
+  explicit CumulativeMean() = default;
+
+  // start value is ignored for CumulativeMean
+  explicit CumulativeMean(const std::shared_ptr<Scalar> start){};
+
+  double Call(KernelContext* ctx, ArgValue arg, Status* st) {
+    sum += static_cast<double>(arg);
+    ++count;
+    return sum / count;
+  }
+};
+
+// The driver kernel for all cumulative compute functions.
+// ArgType and OutType are the input and output types, which will
+// normally be the same (e.g. the cumulative sum of an array of Int64Type will result in
+// an array of Int64Type) with the exception of CumulativeMean, which will always return
+// a double.
+template <typename ArgType, typename CumulativeState>
+struct Accumulator {
+  using OutType = typename CumulativeState::OutType;
+  using ArgValue = typename GetViewType<ArgType>::T;
+
   KernelContext* ctx;
-  ArgValue current_value;
+  CumulativeState current_state;
   bool skip_nulls;
   bool encountered_null = false;
   NumericBuilder<OutType> builder;
@@ -88,11 +130,7 @@ struct Accumulator {
     if (skip_nulls || (input.GetNullCount() == 0 && !encountered_null)) {
       VisitArrayValuesInline<ArgType>(
           input,
-          [&](ArgValue v) {
-            current_value = Op::template Call<OutValue, ArgValue, ArgValue>(
-                ctx, v, current_value, &st);
-            builder.UnsafeAppend(current_value);
-          },
+          [&](ArgValue v) { builder.UnsafeAppend(current_state.Call(ctx, v, &st)); },
           [&]() { builder.UnsafeAppendNull(); });
     } else {
       int64_t nulls_start_idx = 0;
@@ -100,9 +138,7 @@ struct Accumulator {
           input,
           [&](ArgValue v) {
             if (!encountered_null) {
-              current_value = Op::template Call<OutValue, ArgValue, ArgValue>(
-                  ctx, v, current_value, &st);
-              builder.UnsafeAppend(current_value);
+              builder.UnsafeAppend(current_state.Call(ctx, v, &st));
               ++nulls_start_idx;
             }
           },
@@ -115,16 +151,17 @@ struct Accumulator {
   }
 };
 
-template <typename OutType, typename ArgType, typename Op, typename OptionsType>
+template <typename ArgType, typename CumulativeState, typename OptionsType>
 struct CumulativeKernel {
+  using OutType = typename CumulativeState::OutType;
   using OutValue = typename GetOutputType<OutType>::T;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
-    Accumulator<OutType, ArgType, Op, OptionsType> accumulator(ctx);
+    Accumulator<ArgType, CumulativeState> accumulator(ctx);
     if (options.start.has_value()) {
-      accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start.value()));
+      accumulator.current_state = CumulativeState(options.start.value());
     } else {
-      accumulator.current_value = Identity<Op>::template value<OutValue>;
+      accumulator.current_state = CumulativeState();
     }
     accumulator.skip_nulls = options.skip_nulls;
 
@@ -138,16 +175,17 @@ struct CumulativeKernel {
   }
 };
 
-template <typename OutType, typename ArgType, typename Op, typename OptionsType>
+template <typename ArgType, typename CumulativeState, typename OptionsType>
 struct CumulativeKernelChunked {
+  using OutType = typename CumulativeState::OutType;
   using OutValue = typename GetOutputType<OutType>::T;
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = CumulativeOptionsWrapper<OptionsType>::Get(ctx);
-    Accumulator<OutType, ArgType, Op, OptionsType> accumulator(ctx);
+    Accumulator<ArgType, CumulativeState> accumulator(ctx);
     if (options.start.has_value()) {
-      accumulator.current_value = UnboxScalar<OutType>::Unbox(*(options.start.value()));
+      accumulator.current_state = CumulativeState(options.start.value());
     } else {
-      accumulator.current_value = Identity<Op>::template value<OutValue>;
+      accumulator.current_state = CumulativeState();
     }
     accumulator.skip_nulls = options.skip_nulls;
 
@@ -217,11 +255,50 @@ const FunctionDoc cumulative_min_doc{
      "start as the new minimum)."),
     {"values"},
     "CumulativeOptions"};
+
+const FunctionDoc cumulative_mean_doc{
+    "Compute the cumulative mean over a numeric input",
+    ("`values` must be numeric. Return an array/chunked array which is the\n"
+     "cumulative mean computed over `values`. CumulativeOptions::start_value is \n"
+     "ignored."),
+    {"values"},
+    "CumulativeOptions"};
 }  // namespace
 
+// Kernel generator for simple arithmetic operations.
+// Op is a compute kernel representing any binary associative operation with
+// an identity element (add, product, min, max, etc.), i.e. ones that form a monoid.
 template <typename Op, typename OptionsType>
-void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string func_name,
-                                  const FunctionDoc doc) {
+struct CumulativeBinaryOpKernelGenerator {
+  VectorKernel kernel;
+
+  CumulativeBinaryOpKernelGenerator() {
+    kernel.can_execute_chunkwise = false;
+    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
+    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
+    kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type& type) {
+    kernel.signature =
+        KernelSignature::Make({type.GetSharedPtr()}, OutputType(type.GetSharedPtr()));
+    kernel.exec = CumulativeKernel<Type, CumulativeBinaryOp<Op, Type>, OptionsType>::Exec;
+    kernel.exec_chunked =
+        CumulativeKernelChunked<Type, CumulativeBinaryOp<Op, Type>, OptionsType>::Exec;
+    return arrow::Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Cumulative kernel not implemented for type ",
+                                  type.ToString());
+  }
+};
+
+template <typename Op, typename OptionsType>
+void MakeVectorCumulativeBinaryOpFunction(FunctionRegistry* registry,
+                                          const std::string func_name,
+                                          const FunctionDoc doc) {
   static const OptionsType kDefaultOptions = OptionsType::Defaults();
   auto func =
       std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
@@ -229,41 +306,80 @@ void MakeVectorCumulativeFunction(FunctionRegistry* registry, const std::string 
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
 
+  CumulativeBinaryOpKernelGenerator<Op, OptionsType> kernel_generator;
   for (const auto& ty : types) {
-    VectorKernel kernel;
+    DCHECK_OK(VisitTypeInline(*ty, &kernel_generator));
+    DCHECK_OK(func->AddKernel(kernel_generator.kernel));
+  }
+
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+}
+
+// Kernel generator for complex stateful computations.
+template <template <typename ArgType> typename State, typename OptionsType>
+struct CumulativeStatefulKernelGenerator {
+  VectorKernel kernel;
+
+  CumulativeStatefulKernelGenerator() {
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
-    kernel.signature = KernelSignature::Make({ty}, OutputType(ty));
-    kernel.exec =
-        ArithmeticExecFromOp<CumulativeKernel, Op, ArrayKernelExec, OptionsType>(ty);
-    kernel.exec_chunked =
-        ArithmeticExecFromOp<CumulativeKernelChunked, Op, VectorKernel::ChunkedExec,
-                             OptionsType>(ty);
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
+  }
+
+  template <typename Type>
+  enable_if_number<Type, Status> Visit(const Type& type) {
+    kernel.signature =
+        KernelSignature::Make({type.GetSharedPtr()}, OutputType(float64()));
+    kernel.exec = CumulativeKernel<Type, State<Type>, OptionsType>::Exec;
+    kernel.exec_chunked = CumulativeKernelChunked<Type, State<Type>, OptionsType>::Exec;
+    return arrow::Status::OK();
+  }
+
+  Status Visit(const DataType& type) {
+    return Status::NotImplemented("Cumulative kernel not implemented for type ",
+                                  type.ToString());
+  }
+};
+
+template <template <typename ArgType> typename State, typename OptionsType>
+void MakeVectorCumulativeStatefulFunction(FunctionRegistry* registry,
+                                          const std::string func_name,
+                                          const FunctionDoc doc) {
+  static const OptionsType kDefaultOptions = OptionsType::Defaults();
+  auto func =
+      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
+
+  std::vector<std::shared_ptr<DataType>> types;
+  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
+
+  CumulativeStatefulKernelGenerator<State, OptionsType> kernel_generator;
+  for (const auto& ty : types) {
+    DCHECK_OK(VisitTypeInline(*ty, &kernel_generator));
+    DCHECK_OK(func->AddKernel(kernel_generator.kernel));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  MakeVectorCumulativeFunction<Add, CumulativeOptions>(registry, "cumulative_sum",
-                                                       cumulative_sum_doc);
-  MakeVectorCumulativeFunction<AddChecked, CumulativeOptions>(
+  MakeVectorCumulativeBinaryOpFunction<Add, CumulativeOptions>(registry, "cumulative_sum",
+                                                               cumulative_sum_doc);
+  MakeVectorCumulativeBinaryOpFunction<AddChecked, CumulativeOptions>(
       registry, "cumulative_sum_checked", cumulative_sum_checked_doc);
 
-  MakeVectorCumulativeFunction<Multiply, CumulativeOptions>(registry, "cumulative_prod",
-                                                            cumulative_prod_doc);
-  MakeVectorCumulativeFunction<MultiplyChecked, CumulativeOptions>(
+  MakeVectorCumulativeBinaryOpFunction<Multiply, CumulativeOptions>(
+      registry, "cumulative_prod", cumulative_prod_doc);
+  MakeVectorCumulativeBinaryOpFunction<MultiplyChecked, CumulativeOptions>(
       registry, "cumulative_prod_checked", cumulative_prod_checked_doc);
 
-  MakeVectorCumulativeFunction<Min, CumulativeOptions>(registry, "cumulative_min",
-                                                       cumulative_min_doc);
-  MakeVectorCumulativeFunction<Max, CumulativeOptions>(registry, "cumulative_max",
-                                                       cumulative_max_doc);
+  MakeVectorCumulativeBinaryOpFunction<Min, CumulativeOptions>(registry, "cumulative_min",
+                                                               cumulative_min_doc);
+  MakeVectorCumulativeBinaryOpFunction<Max, CumulativeOptions>(registry, "cumulative_max",
+                                                               cumulative_max_doc);
+
+  MakeVectorCumulativeStatefulFunction<CumulativeMean, CumulativeOptions>(
+      registry, "cumulative_mean", cumulative_max_doc);
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal
