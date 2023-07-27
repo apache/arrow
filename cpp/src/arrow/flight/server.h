@@ -202,8 +202,10 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   Status SetShutdownOnSignals(const std::vector<int> sigs);
 
   /// \brief Start serving.
-  /// This method blocks until either Shutdown() is called or one of the signals
-  /// registered in SetShutdownOnSignals() is received.
+  /// This method blocks until the server shuts down.
+  ///
+  /// The server will start to shut down when either Shutdown() is called
+  /// or one of the signals registered in SetShutdownOnSignals() is received.
   Status Serve();
 
   /// \brief Query whether Serve() was interrupted by a signal.
@@ -212,14 +214,18 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \return int the signal number that interrupted Serve(), if any, otherwise 0
   int GotSignal() const;
 
-  /// \brief Shut down the server. Can be called from signal handler or another
-  /// thread while Serve() blocks. Optionally a deadline can be set. Once the
-  /// the deadline expires server will wait until remaining running calls
-  /// complete.
+  /// \brief Shut down the server, blocking until current requests finish.
   ///
+  /// Can be called from a signal handler or another thread while Serve()
+  /// blocks. Optionally a deadline can be set. Once the the deadline expires
+  /// server will wait until remaining running calls complete.
+  ///
+  /// Should only be called once.
   Status Shutdown(const std::chrono::system_clock::time_point* deadline = NULLPTR);
 
-  /// \brief Block until server is terminated with Shutdown.
+  /// \brief Block until server shuts down with Shutdown.
+  ///
+  /// Does not respond to signals like Serve().
   Status Wait();
 
   // Implement these methods to create your own server. The default
