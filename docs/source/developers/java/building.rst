@@ -219,6 +219,7 @@ CMake
           -DARROW_ORC=ON \
           -DARROW_PARQUET=ON \
           -DARROW_S3=ON \
+          -DARROW_SUBSTRAIT=ON \
           -DARROW_USE_CCACHE=ON \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
@@ -258,6 +259,7 @@ CMake
           -DARROW_ORC=OFF ^
           -DARROW_PARQUET=ON ^
           -DARROW_S3=ON ^
+          -DARROW_SUBSTRAIT=ON ^
           -DARROW_USE_CCACHE=ON ^
           -DARROW_WITH_BROTLI=ON ^
           -DARROW_WITH_LZ4=ON ^
