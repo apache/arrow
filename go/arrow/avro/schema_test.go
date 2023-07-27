@@ -215,7 +215,7 @@ func TestSchemaStringEqual(t *testing.T) {
 					Type: arrow.FixedWidthTypes.Boolean,
 				},
 				{Name: "remote_ip",
-					Type: &arrow.FixedSizeBinaryType{ByteWidth: 8},
+					Type: arrow.BinaryTypes.Binary,
 				},
 				{Name: "person",
 					Type: arrow.StructOf(
@@ -259,7 +259,7 @@ func TestSchemaStringEqual(t *testing.T) {
 					Type: arrow.FixedWidthTypes.Timestamp_ms,
 				},
 				{Name: "duration",
-					Type: arrow.FixedWidthTypes.MonthDayNanoInterval,
+					Type: arrow.BinaryTypes.Binary,
 				},
 				{Name: "date",
 					Type: arrow.FixedWidthTypes.Date32,
@@ -271,7 +271,7 @@ func TestSchemaStringEqual(t *testing.T) {
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
 			want := arrow.NewSchema(test.arrowSchema, nil)
-			got, err := ArrowSchemaFromAvro([]byte(test.avroSchema), false)
+			got, err := ArrowSchemaFromAvro([]byte(test.avroSchema))
 			if err != nil {
 				t.Fatalf("%v", err)
 			}
@@ -476,7 +476,7 @@ func TestSchemaEqual(t *testing.T) {
 					Type: arrow.FixedWidthTypes.Boolean,
 				},
 				{Name: "remote_ip",
-					Type: &arrow.FixedSizeBinaryType{ByteWidth: 8},
+					Type: arrow.BinaryTypes.Binary,
 				},
 				{Name: "person",
 					Type: arrow.StructOf(
@@ -520,7 +520,7 @@ func TestSchemaEqual(t *testing.T) {
 					Type: arrow.FixedWidthTypes.Timestamp_ms,
 				},
 				{Name: "duration",
-					Type: arrow.FixedWidthTypes.MonthDayNanoInterval,
+					Type: arrow.BinaryTypes.Binary,
 				},
 				{Name: "date",
 					Type: arrow.FixedWidthTypes.Date32,
@@ -532,7 +532,7 @@ func TestSchemaEqual(t *testing.T) {
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
 			want := arrow.NewSchema(test.arrowSchema, nil)
-			got, err := ArrowSchemaFromAvro([]byte(test.avroSchema), false)
+			got, err := ArrowSchemaFromAvro([]byte(test.avroSchema))
 			if err != nil {
 				t.Fatalf("%v", err)
 			}

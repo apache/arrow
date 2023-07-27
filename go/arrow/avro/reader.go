@@ -96,6 +96,9 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 	}
 
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
+	for idx, fb := range rr.bld.Fields() {
+		addEnumSymbolsToBuilder(fb, fb.Type().(*arrow.StructType).Field(idx))
+	}
 	rr.next = rr.next1
 	switch {
 	case rr.chunk < 0:
@@ -106,6 +109,18 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 		rr.next = rr.nextall
 	}
 	return rr
+}
+
+func addEnumSymbolsToBuilder(b array.Builder, f arrow.Field) {
+	switch bt := b.(type) {
+	case *array.BinaryDictionaryBuilder:
+		sb := array.NewStringBuilder(memory.DefaultAllocator)
+		for _, v := range f.Metadata.Values() {
+			sb.Append(v)
+		}
+		sa := sb.NewStringArray()
+		bt.InsertStringDictValues(sa)
+	}
 }
 
 // Err returns the last error encountered during the iteration over the
