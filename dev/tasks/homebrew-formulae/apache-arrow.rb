@@ -95,7 +95,7 @@ class ApacheArrow < Formula
     # error on Intel Mac because of one-definition-rule violation.
     #
     # https://github.com/apache/arrow/issues/36685
-    args << "-DARROW_RUNTIME_SIMD_LEVEL=OFF" if OS.mac? and Hardware::CPU.intel?
+    args << "-DARROW_RUNTIME_SIMD_LEVEL=NONE" if OS.mac? and Hardware::CPU.intel?
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
