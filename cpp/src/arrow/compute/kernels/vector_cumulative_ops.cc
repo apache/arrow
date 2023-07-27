@@ -72,9 +72,7 @@ struct CumulativeBinaryOp {
 
   OutValue current_value;
 
-  explicit CumulativeBinaryOp() {
-    current_value = Identity<Op>::template value<OutValue>;
-  }
+  CumulativeBinaryOp() { current_value = Identity<Op>::template value<OutValue>; }
 
   explicit CumulativeBinaryOp(const std::shared_ptr<Scalar> start) {
     current_value = UnboxScalar<OutType>::Unbox(*start);
@@ -94,10 +92,10 @@ struct CumulativeMean {
   int64_t count = 0;
   double sum = 0;
 
-  explicit CumulativeMean() = default;
+  CumulativeMean() = default;
 
   // start value is ignored for CumulativeMean
-  explicit CumulativeMean(const std::shared_ptr<Scalar> start){};
+  explicit CumulativeMean(const std::shared_ptr<Scalar> start) {}
 
   double Call(KernelContext* ctx, ArgValue arg, Status* st) {
     sum += static_cast<double>(arg);
