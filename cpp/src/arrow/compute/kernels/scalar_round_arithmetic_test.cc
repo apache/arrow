@@ -1052,19 +1052,19 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
   // Test different rounding mode
   // skip int8 because of its small range
   if constexpr (!std::is_same_v<TypeParam, Int8Type>) {
-    std::string values("[0, 1, -13, -50, 115, -176, 200, 250]");
+    std::string values("[0, 1, -13, -50, 115, -150, -176, 200, 250]");
     this->SetRoundNdigits(-2);
     std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
-        {RoundMode::DOWN, "[0, 0, -100, -100, 100, -200, 200, 200]"},
-        {RoundMode::UP, "[0, 100, -0, -0, 200, -100, 200, 300]"},
-        {RoundMode::TOWARDS_ZERO, "[0, 0, -0, -0, 100, -100, 200, 200]"},
-        {RoundMode::TOWARDS_INFINITY, "[0, 100, -100, -100, 200, -200, 200, 300]"},
-        {RoundMode::HALF_DOWN, "[0, 0, -0, -100, 100, -200, 200, 200]"},
-        {RoundMode::HALF_UP, "[0, 0, -0, -0, 100, -200, 200, 300]"},
-        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, -0, -0, 100, -200, 200, 200]"},
-        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, -0, -100, 100, -200, 200, 300]"},
-        {RoundMode::HALF_TO_EVEN, "[0, 0, -0, -0, 100, -200, 200, 200]"},
-        {RoundMode::HALF_TO_ODD, "[0, 0, -0, -100, 100, -200, 200, 300]"},
+        {RoundMode::DOWN, "[0, 0, -100, -100, 100, -200, -200, 200, 200]"},
+        {RoundMode::UP, "[0, 100, -0, -0, 200, -100, -100, 200, 300]"},
+        {RoundMode::TOWARDS_ZERO, "[0, 0, -0, -0, 100, -100, -100, 200, 200]"},
+        {RoundMode::TOWARDS_INFINITY, "[0, 100, -100, -100, 200, -200, -200, 200, 300]"},
+        {RoundMode::HALF_DOWN, "[0, 0, -0, -100, 100, -200, -200, 200, 200]"},
+        {RoundMode::HALF_UP, "[0, 0, -0, -0, 100, -100, -200, 200, 300]"},
+        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, -0, -0, 100, -100, -200, 200, 200]"},
+        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, -0, -100, 100, -200, -200, 200, 300]"},
+        {RoundMode::HALF_TO_EVEN, "[0, 0, -0, -0, 100, -200, -200, 200, 200]"},
+        {RoundMode::HALF_TO_ODD, "[0, 0, -0, -100, 100, -100, -200, 200, 300]"},
     }};
     for (const auto& pair : round_modes_and_expected) {
       this->SetRoundMode(pair.first);
@@ -1074,12 +1074,9 @@ TYPED_TEST(TestUnaryRoundSigned, Round) {
   }
 
   // An overly large ndigits would cause an error
-  if constexpr (std::is_same_v<TypeParam, Int8Type>) {
-    this->SetRoundNdigits(-100);
-    this->SetRoundMode(RoundMode::UP);
-    auto values = "[1]";
-    this->AssertUnaryOpRaises(Round, values, "out of range");
-  }
+  this->SetRoundNdigits(-100);
+  this->SetRoundMode(RoundMode::UP);
+  this->AssertUnaryOpRaises(Round, "[1]", "out of range");
 
   // Overflow is also treated as error
   if constexpr (std::is_same_v<TypeParam, Int8Type>) {
@@ -1125,19 +1122,19 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
   // Test different rounding mode
   // skip uint8 because of its small range
   if constexpr (!std::is_same_v<TypeParam, UInt8Type>) {
-    std::string values("[0, 1, 13, 50, 115, 176, 200, 250]");
+    std::string values("[0, 1, 13, 50, 115, 150, 176, 200, 250]");
     this->SetRoundNdigits(-2);
     std::vector<std::pair<RoundMode, std::string>> round_modes_and_expected{{
-        {RoundMode::DOWN, "[0, 0, 0, 0, 100, 100, 200, 200]"},
-        {RoundMode::UP, "[0, 100, 100, 100, 200, 200, 200, 300]"},
-        {RoundMode::TOWARDS_ZERO, "[0, 0, 0, 0, 100, 100, 200, 200]"},
-        {RoundMode::TOWARDS_INFINITY, "[0, 100, 100, 100, 200, 200, 200, 300]"},
-        {RoundMode::HALF_DOWN, "[0, 0, 0, 0, 100, 200, 200, 200]"},
-        {RoundMode::HALF_UP, "[0, 0, 0, 100, 100, 200, 200, 300]"},
-        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, 0, 0, 100, 200, 200, 200]"},
-        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, 0, 100, 100, 200, 200, 300]"},
-        {RoundMode::HALF_TO_EVEN, "[0, 0, 0, 0, 100, 200, 200, 200]"},
-        {RoundMode::HALF_TO_ODD, "[0, 0, 0, 100, 100, 200, 200, 300]"},
+        {RoundMode::DOWN, "[0, 0, 0, 0, 100, 100, 100, 200, 200]"},
+        {RoundMode::UP, "[0, 100, 100, 100, 200, 200, 200, 200, 300]"},
+        {RoundMode::TOWARDS_ZERO, "[0, 0, 0, 0, 100, 100, 100, 200, 200]"},
+        {RoundMode::TOWARDS_INFINITY, "[0, 100, 100, 100, 200, 200, 200, 200, 300]"},
+        {RoundMode::HALF_DOWN, "[0, 0, 0, 0, 100, 100, 200, 200, 200]"},
+        {RoundMode::HALF_UP, "[0, 0, 0, 100, 100, 200, 200, 200, 300]"},
+        {RoundMode::HALF_TOWARDS_ZERO, "[0, 0, 0, 0, 100, 100, 200, 200, 200]"},
+        {RoundMode::HALF_TOWARDS_INFINITY, "[0, 0, 0, 100, 100, 200, 200, 200, 300]"},
+        {RoundMode::HALF_TO_EVEN, "[0, 0, 0, 0, 100, 200, 200, 200, 200]"},
+        {RoundMode::HALF_TO_ODD, "[0, 0, 0, 100, 100, 100, 200, 200, 300]"},
     }};
     for (const auto& pair : round_modes_and_expected) {
       this->SetRoundMode(pair.first);
@@ -1147,12 +1144,9 @@ TYPED_TEST(TestUnaryRoundUnsigned, Round) {
   }
 
   // An overly large ndigits would cause an error
-  if constexpr (std::is_same_v<TypeParam, UInt8Type>) {
-    this->SetRoundNdigits(-100);
-    this->SetRoundMode(RoundMode::UP);
-    auto values = "[1]";
-    this->AssertUnaryOpRaises(Round, values, "out of range");
-  }
+  this->SetRoundNdigits(-100);
+  this->SetRoundMode(RoundMode::UP);
+  this->AssertUnaryOpRaises(Round, "[1]", "out of range");
 
   // Overflow is also treated as error
   if constexpr (std::is_same_v<TypeParam, UInt8Type>) {

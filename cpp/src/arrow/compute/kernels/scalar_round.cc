@@ -397,7 +397,7 @@ struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
   template <typename T = Type>
   static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
                                                     const T multiple, Status* st) {
-    if ((floor / multiple) % 2 == 1) {
+    if ((floor / multiple) % 2 != 0) {
       return floor;
     }
     return RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val, floor, multiple, st);
