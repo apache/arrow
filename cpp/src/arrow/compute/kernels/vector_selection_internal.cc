@@ -748,7 +748,7 @@ struct SparseUnionSelectionImpl
 
   TypedBufferBuilder<int8_t> child_id_buffer_builder_;
   std::vector<int8_t> type_codes_;
-  std::vector<Int32Builder> child_indices_builders_;
+  std::vector<Int64Builder> child_indices_builders_;
 
   SparseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
                            int64_t output_length, ExecResult* out)
@@ -757,7 +757,7 @@ struct SparseUnionSelectionImpl
         type_codes_(checked_cast<const UnionType&>(*this->values.type).type_codes()),
         child_indices_builders_(type_codes_.size()) {
     for (auto& child_indices_builder : child_indices_builders_) {
-      child_indices_builder = Int32Builder(ctx->memory_pool());
+      child_indices_builder = Int64Builder(ctx->memory_pool());
     }
   }
 
