@@ -685,27 +685,27 @@ read_file_utf8 <- function(file) {
 }
 
 #' @export
-s3_ls <- function(bucket, path, ...){
+fs_ls <- function(bucket, path, ...){
   bucket$ls(path, ...)
 }
 
 #' @export
-s3_dir_create <- function(bucket, path, recursive = TRUE){
+fs_dir_create <- function(bucket, path, recursive = TRUE){
   bucket$CreateDir(path, recursive = recursive)
 }
 
 #' @export
-s3_dir_delete <- function(bucket, path){
+fs_dir_delete <- function(bucket, path){
   bucket$DeleteDir(path)
 }
 
 #' @export
-s3_file_copy <- function(bucket, src, dest){
+fs_file_copy <- function(bucket, src, dest){
   bucket$CopyFile(src, dest)
 }
 
 #' @export
-s3_output_stream <- function(bucket, path, append = FALSE){
+fs_output_stream <- function(bucket, path, append = FALSE){
   if (append) {
     bucket$OpenAppendStream(path)
   } else {
@@ -716,21 +716,21 @@ s3_output_stream <- function(bucket, path, append = FALSE){
 # TODO: create method close.OutputStream (or whatever object returned from bucket$OpenAppendStream)
 
 #' @export
-s3_file_delete <- function(bucket, paths){
+fs_file_delete <- function(bucket, paths){
   bucket$DeleteFiles(paths)
 }
 
 #' @export
-s3_file_info <- function(bucket, paths){
+fs_file_info <- function(bucket, paths){
   bucket$GetFileInfo(paths)
 }
 
 #' @export
-s3_path <- function(bucket, path){
+fs_path_create <- function(bucket, path){
   bucket$path(path)
 }
 
 #' @export
-s3_file_move <- function(bucket, src, dest){
+fs_file_move <- function(bucket, src, dest){
   bucket$Move(src, dest)
 }
