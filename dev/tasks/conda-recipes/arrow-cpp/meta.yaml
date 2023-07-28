@@ -403,8 +403,6 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_safe_cast_from_float_with_nans_to_int" %}  # [ppc64le]
         # gandiva tests are segfaulting on ppc
         {% set tests_to_skip = tests_to_skip + " or test_float_with_null_as_integer" %}   # [ppc64le]
-        # "Unsupported backend 'nonexistent' specified in ARROW_DEFAULT_MEMORY_POOL"
-        {% set tests_to_skip = tests_to_skip + " or (test_memory and test_env_var)" %}    # [unix]
         # test is broken; header is in $PREFIX, not $SP_DIR
         {% set tests_to_skip = tests_to_skip + " or (test_misc and test_get_include)" %}  # [unix]
         # flaky tests that fail occasionally
