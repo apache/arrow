@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,28 +17,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "c-ares"
-brew "ccache"
-brew "cmake"
-brew "flatbuffers"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "llvm@14"
-brew "lz4"
-brew "ninja"
-brew "node"
-brew "openssl@3"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "snappy"
-brew "thrift"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+set -e
+
+case "$(uname)" in
+  Darwin)
+    npm install -g azurite
+    which azurite
+    ;;
+  MINGW*)
+    choco install nodejs.install
+    npm install -g azurite
+    ;;
+  Linux)
+    npm install -g azurite
+    which azurite
+    ;;
+esac
+echo "node version = $(node --version)"
+echo "azurite version = $(azurite --version)"

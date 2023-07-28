@@ -424,6 +424,9 @@ jobs:
         run: |
           ci/scripts/install_gcs_testbench.sh default
           echo "PYTHON_BIN_DIR=$(cygpath --windows $(dirname $(which python3.exe)))" >> $GITHUB_ENV
+      - name: Install Azurite Storage Emulator
+        shell: bash
+        run: ci/scripts/install_azurite.sh
       - name: Test
         shell: msys2 {0}
         run: |
