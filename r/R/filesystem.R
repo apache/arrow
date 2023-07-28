@@ -685,52 +685,52 @@ read_file_utf8 <- function(file) {
 }
 
 #' @export
-fs_ls <- function(bucket, path, ...){
-  bucket$ls(path, ...)
+fs_ls <- function(fs, path, ...){
+  fs$ls(path, ...)
 }
 
 #' @export
-fs_dir_create <- function(bucket, path, recursive = TRUE){
-  bucket$CreateDir(path, recursive = recursive)
+fs_create_dir <- function(fs, path, recursive = TRUE){
+  fs$CreateDir(path, recursive = recursive)
 }
 
 #' @export
-fs_dir_delete <- function(bucket, path){
-  bucket$DeleteDir(path)
+fs_delete_dir <- function(fs, path){
+  fs$DeleteDir(path)
 }
 
 #' @export
-fs_file_copy <- function(bucket, src, dest){
-  bucket$CopyFile(src, dest)
+fs_copy_file <- function(fs, src, dest){
+  fs$CopyFile(src, dest)
 }
 
 #' @export
-fs_output_stream <- function(bucket, path, append = FALSE){
+fs_open_output_stream <- function(fs, path, append = FALSE){
   if (append) {
-    bucket$OpenAppendStream(path)
+    fs$OpenAppendStream(path)
   } else {
-    bucket$OpenOutputStream(path)
+    fs$OpenOutputStream(path)
   }
 }
 
 # TODO: create method close.OutputStream (or whatever object returned from bucket$OpenAppendStream)
 
 #' @export
-fs_file_delete <- function(bucket, paths){
-  bucket$DeleteFiles(paths)
+fs_delete_file <- function(fs, paths){
+  fs$DeleteFiles(paths)
 }
 
 #' @export
-fs_file_info <- function(bucket, paths){
-  bucket$GetFileInfo(paths)
+fs_get_file_info <- function(fs, paths){
+  fs$GetFileInfo(paths)
 }
 
 #' @export
-fs_path_create <- function(bucket, path){
-  bucket$path(path)
+fs_make_path <- function(fs, path){
+  fs$path(path)
 }
 
 #' @export
-fs_file_move <- function(bucket, src, dest){
-  bucket$Move(src, dest)
+fs_move_file <- function(fs, src, dest){
+  fs$Move(src, dest)
 }
