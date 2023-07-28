@@ -27,6 +27,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/s3fs.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
@@ -675,6 +676,18 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
       SchemaFromColumnNames(schema, partition_column_vector).ValueOrDie());
   options.max_partitions = max_partitions;
   JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
+  JNI_METHOD_END()
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    ensureS3Finalized
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_file_JniWrapper_ensureS3Finalized(
+    JNIEnv* env, jobject) {
+  JNI_METHOD_START
+  JniAssertOkOrThrow(arrow::fs::EnsureS3Finalized());
   JNI_METHOD_END()
 }
 
