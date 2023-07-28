@@ -269,8 +269,6 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      OPENSSL_ROOT_DIR: >-
-        C:\Program Files\OpenSSL-Win64
       NPROC: 3
     steps:
       - name: Disable Crash Dialogs
