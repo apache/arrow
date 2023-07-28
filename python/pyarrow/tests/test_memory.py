@@ -140,7 +140,7 @@ def check_env_var(name, expected, *, expect_warning=False):
             assert f"Unsupported backend '{name}'" in errlines[0]
         else:
             # ARROW_USE_GLOG=ON
-            assert f"InitGoogleLogging()" in errlines[0]
+            assert "InitGoogleLogging()" in errlines[0]
             assert f"Unsupported backend '{name}'" in errlines[1]
     else:
         assert len(errlines) == 0
