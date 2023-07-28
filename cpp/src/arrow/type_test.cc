@@ -1486,12 +1486,11 @@ TEST(TestStructType, Basics) {
 
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
-  auto t1 =  struct_({{"a", int8()}, {"b", utf8()}});
-  auto t2 =  struct_({field("a", int8()), field("b", utf8())});
-  auto t3 =  struct_({field("c", int8()), field("b", utf8())});
+  auto t1 = struct_({{"a", int8()}, {"b", utf8()}});
+  auto t2 = struct_({field("a", int8()), field("b", utf8())});
+  auto t3 = struct_({field("c", int8()), field("b", utf8())});
   ASSERT_TRUE(t1->Equals(t2));
   ASSERT_TRUE(!t1->Equals(t3));
-
 
   // TODO(wesm): out of bounds for field(...)
 }

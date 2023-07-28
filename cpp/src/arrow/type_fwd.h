@@ -562,7 +562,8 @@ ARROW_EXPORT std::shared_ptr<DataType> struct_(
 
 /// \brief Create a StructType instance by initializer_list
 ARROW_EXPORT std::shared_ptr<DataType> struct_(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>& fields);
+    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
+        fields);
 
 /// \brief Create a RunEndEncodedType instance
 ARROW_EXPORT std::shared_ptr<DataType> run_end_encoded(
@@ -633,14 +634,15 @@ std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>> fields,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
-/// \brief Create a Schema instance 
+/// \brief Create a Schema instance
 ///
 /// \param fields the schema's fields in the form of initializer_list
 /// \param metadata any custom key-value metadata, default null
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>& fields,
+    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
+        fields,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Schema instance
@@ -662,8 +664,9 @@ std::shared_ptr<Schema> schema(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>& fields, Endianness endianness,
-    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
+        fields,
+    Endianness endianness, std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}
 
