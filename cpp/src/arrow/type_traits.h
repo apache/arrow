@@ -1217,6 +1217,23 @@ constexpr bool is_var_length_list(Type::type type_id) {
   switch (type_id) {
     case Type::LIST:
     case Type::LARGE_LIST:
+    case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
+/// \brief Check for a list type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a list type one
+constexpr bool is_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::FIXED_SIZE_LIST:
       return true;
     default:
       break;

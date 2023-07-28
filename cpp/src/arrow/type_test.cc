@@ -912,7 +912,17 @@ class TestUnifySchemas : public TestSchema {
     CheckUnifyAsymmetric(field2, field1, expected, options);
   }
 
-  void CheckUnifyFails(
+  void CheckUnifyFailsInvalid(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    ARROW_SCOPED_TRACE("options: ", options);
+    ARROW_SCOPED_TRACE("field2: ", field2->ToString());
+    ARROW_SCOPED_TRACE("field1: ", field1->ToString());
+    ASSERT_RAISES(Invalid, field1->MergeWith(field2, options));
+    ASSERT_RAISES(Invalid, field2->MergeWith(field1, options));
+  }
+
+  void CheckUnifyFailsTypeError(
       const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
       const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     ARROW_SCOPED_TRACE("options: ", options);
@@ -967,14 +977,6 @@ class TestUnifySchemas : public TestSchema {
                          options);
   }
 
-  void CheckUnifyFails(
-      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
-      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
-    auto field1 = field("a", left);
-    auto field2 = field("a", right);
-    CheckUnifyFails(field1, field2, options);
-  }
-
   void CheckUnify(const std::shared_ptr<DataType>& from,
                   const std::vector<std::shared_ptr<DataType>>& to,
                   const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
@@ -983,21 +985,55 @@ class TestUnifySchemas : public TestSchema {
     }
   }
 
-  void CheckUnifyFails(
+  void CheckUnifyFailsInvalid(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyFailsInvalid(field1, field2, options);
+  }
+
+  void CheckUnifyFailsInvalid(
       const std::shared_ptr<DataType>& from,
       const std::vector<std::shared_ptr<DataType>>& to,
       const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     for (const auto& ty : to) {
-      CheckUnifyFails(from, ty, options);
+      CheckUnifyFailsInvalid(from, ty, options);
     }
   }
 
-  void CheckUnifyFails(
+  void CheckUnifyFailsInvalid(
       const std::vector<std::shared_ptr<DataType>>& from,
       const std::vector<std::shared_ptr<DataType>>& to,
       const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     for (const auto& ty : from) {
-      CheckUnifyFails(ty, to, options);
+      CheckUnifyFailsInvalid(ty, to, options);
+    }
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    auto field1 = field("a", left);
+    auto field2 = field("a", right);
+    CheckUnifyFailsTypeError(field1, field2, options);
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::shared_ptr<DataType>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : to) {
+      CheckUnifyFailsTypeError(from, ty, options);
+    }
+  }
+
+  void CheckUnifyFailsTypeError(
+      const std::vector<std::shared_ptr<DataType>>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+    for (const auto& ty : from) {
+      CheckUnifyFailsTypeError(ty, to, options);
     }
   }
 };
@@ -1117,24 +1153,24 @@ TEST_F(TestUnifySchemas, Numeric) {
   options.promote_integer_sign = false;
   CheckUnify(uint8(), {uint16(), uint32(), uint64()}, options);
   CheckUnify(int8(), {int16(), int32(), int64()}, options);
-  CheckUnifyFails(uint8(), {int8(), int16(), int32(), int64()}, options);
+  CheckUnifyFailsInvalid(uint8(), {int8(), int16(), int32(), int64()}, options);
   CheckUnify(uint16(), {uint32(), uint64()}, options);
   CheckUnify(int16(), {int32(), int64()}, options);
-  CheckUnifyFails(uint16(), {int16(), int32(), int64()}, options);
+  CheckUnifyFailsInvalid(uint16(), {int16(), int32(), int64()}, options);
   CheckUnify(uint32(), {uint64()}, options);
   CheckUnify(int32(), {int64()}, options);
-  CheckUnifyFails(uint32(), {int32(), int64()}, options);
-  CheckUnifyFails(uint64(), {int64()}, options);
+  CheckUnifyFailsInvalid(uint32(), {int32(), int64()}, options);
+  CheckUnifyFailsInvalid(uint64(), {int64()}, options);
 
   options.promote_integer_sign = true;
   options.promote_integer_to_float = false;
-  CheckUnifyFails(IntTypes(), FloatingPointTypes(), options);
+  CheckUnifyFailsInvalid(IntTypes(), FloatingPointTypes(), options);
 
   options.promote_integer_to_float = true;
   options.promote_numeric_width = false;
-  CheckUnifyFails(int8(), {int16(), int32(), int64()}, options);
-  CheckUnifyFails(int16(), {int32(), int64()}, options);
-  CheckUnifyFails(int32(), {int64()}, options);
+  CheckUnifyFailsInvalid(int8(), {int16(), int32(), int64()}, options);
+  CheckUnifyFailsInvalid(int16(), {int32(), int64()}, options);
+  CheckUnifyFailsInvalid(int32(), {int64()}, options);
   CheckUnify(int32(), {float32()}, options);
   CheckUnify(int64(), {float64()}, options);
   CheckUnify(int32(), float16(), float32(), options);
@@ -1148,8 +1184,8 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(decimal256(3, 2), {float32(), float64()}, options);
 
   options.promote_integer_to_decimal = true;
-  CheckUnify(int32(), decimal128(3, 2), decimal128(10, 2), options);
-  CheckUnify(int32(), decimal128(3, -2), decimal128(10, -2), options);
+  CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
+  CheckUnify(int32(), decimal128(3, -2), decimal128(10, 0), options);
 
   options.promote_decimal = true;
   CheckUnify(decimal128(3, 2), decimal128(5, 2), decimal128(5, 2), options);
@@ -1157,7 +1193,7 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(decimal128(3, 2), decimal128(5, 1), decimal128(6, 2), options);
   CheckUnify(decimal128(3, 2), decimal128(5, -2), decimal128(9, 2), options);
   CheckUnify(decimal128(3, -2), decimal128(5, -2), decimal128(5, -2), options);
-  CheckUnifyFails(decimal128(38, 10), decimal128(38, 5), options);
+  CheckUnify(decimal128(38, 10), decimal128(38, 5), decimal256(43, 10), options);
 
   CheckUnify(decimal256(3, 2), decimal256(5, 2), decimal256(5, 2), options);
   CheckUnify(decimal256(3, 2), decimal256(5, 3), decimal256(5, 3), options);
@@ -1166,18 +1202,18 @@ TEST_F(TestUnifySchemas, Decimal) {
   CheckUnify(decimal256(3, -2), decimal256(5, -2), decimal256(5, -2), options);
 
   // int32() is essentially decimal128(10, 0)
-  CheckUnify(int32(), decimal128(3, 2), decimal128(10, 2), options);
-  CheckUnify(int32(), decimal128(3, -2), decimal128(10, -2), options);
+  CheckUnify(int32(), decimal128(3, 2), decimal128(12, 2), options);
+  CheckUnify(int32(), decimal128(3, -2), decimal128(10, 0), options);
+  CheckUnify(int64(), decimal128(38, 37), decimal256(56, 37), options);
 
-  CheckUnifyFails(decimal256(1, 0), decimal128(1, 0), options);
-  CheckUnifyFails(int64(), decimal128(38, 37), options);
+  CheckUnifyFailsTypeError(decimal256(1, 0), decimal128(1, 0), options);
 
   options.promote_numeric_width = true;
   CheckUnify(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
-  CheckUnify(int32(), decimal128(38, 37), decimal128(38, 37), options);
-  CheckUnifyFails(decimal128(38, 10), decimal256(76, 5), options);
+  CheckUnify(int32(), decimal128(38, 37), decimal256(47, 37), options);
+  CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
 
-  CheckUnifyFails(int64(), decimal256(76, 75), options);
+  CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
 }
 
 TEST_F(TestUnifySchemas, Temporal) {
@@ -1209,13 +1245,13 @@ TEST_F(TestUnifySchemas, Temporal) {
              {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)}, options);
   CheckUnify(timestamp(TimeUnit::MICRO), {timestamp(TimeUnit::NANO)}, options);
 
-  CheckUnifyFails(timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND, "UTC"),
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND, "UTC"),
                   options);
-  CheckUnifyFails(timestamp(TimeUnit::SECOND, "America/New_York"),
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND, "America/New_York"),
                   timestamp(TimeUnit::SECOND, "UTC"), options);
 
-  options.promote_temporal_unit = true;
-  CheckUnifyFails(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
+  options.promote_temporal_unit = false;
+  CheckUnifyFailsInvalid(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {
@@ -1228,17 +1264,15 @@ TEST_F(TestUnifySchemas, Binary) {
   CheckUnify(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
 
   options.promote_binary = false;
-  CheckUnifyFails({utf8(), binary()}, {large_utf8(), large_binary()});
-  CheckUnifyFails(fixed_size_binary(2), BaseBinaryTypes());
-  CheckUnifyFails(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
+  CheckUnifyFailsInvalid({utf8(), binary()}, {large_utf8(), large_binary()});
+  CheckUnifyFailsInvalid(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsInvalid(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
 TEST_F(TestUnifySchemas, List) {
   auto options = Field::MergeOptions::Defaults();
   options.promote_numeric_width = true;
-  CheckUnifyFails(fixed_size_list(int8(), 2),
-                  {fixed_size_list(int8(), 3), list(int8()), large_list(int8())},
-                  options);
+  CheckUnifyFailsTypeError(fixed_size_list(int8(), 2), {fixed_size_list(int8(), 3)}, options);
 
   options.promote_binary = true;
   CheckUnify(list(int8()), {large_list(int8())}, options);
@@ -1320,7 +1354,7 @@ TEST_F(TestUnifySchemas, Dictionary) {
                  dictionary(int8(), large_utf8(), /*ordered=*/true),
              },
              options);
-  CheckUnifyFails(dictionary(int8(), utf8()),
+  CheckUnifyFailsTypeError(dictionary(int8(), utf8()),
                   dictionary(int8(), utf8(), /*ordered=*/true), options);
 
   options.promote_dictionary_ordered = true;

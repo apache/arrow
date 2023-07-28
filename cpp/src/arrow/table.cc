@@ -30,7 +30,6 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
-#include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -39,9 +38,14 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+// Get ARROW_COMPUTE definition
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
+
+#ifdef ARROW_COMPUTE
+#include "arrow/compute/cast.h"
+#endif
 
 namespace arrow {
 
@@ -516,11 +520,11 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
                                                      field->type(), options, &ctx));
     columns.push_back(casted.chunked_array());
 #else
-    return Status::TypeError("Unable to promote field ", field->name(),
-                             ": incompatible types: ", field->type()->ToString(), " vs ",
-                             current_field->type()->ToString(),
-                             " (Arrow must be built with ARROW_COMPUTE "
-                             "in order to cast incompatible types)");
+    return Status::Invalid("Unable to promote field ", field->name(),
+                           ": incompatible types: ", field->type()->ToString(), " vs ",
+                           current_field->type()->ToString(),
+                           " (Arrow must be built with ARROW_COMPUTE "
+                           "in order to cast incompatible types)");
 #endif
   }
 
