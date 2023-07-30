@@ -24,21 +24,33 @@ jobs:
     name: "Homebrew + R package"
     runs-on: macOS-11
     steps:
+      - name: Show system information
+        run: |
+          sysctl hw.optional machdep.cpu
+
       {{ macros.github_checkout_arrow()|indent }}
 
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Install apache-arrow
         env:
-        {{ macros.github_set_sccache_envvars()|indent(8)}}  
+        {{ macros.github_set_sccache_envvars()|indent(8)}}
         run: |
-          
           brew install sccache
           # for testing
           brew install minio
-          
+
           # TODO(ARROW-16907): apache/arrow@main seems to be installed already
           # so this does nothing on a branch/PR
-          brew install -v --HEAD apache-arrow
+          brew install -v --HEAD {{ '$(brew --repository homebrew/core)/Formula/apache-arrow.rb' }}
+
+          mkdir -p homebrew-logs
+          cp -a ~/Library/Logs/Homebrew/apache-arrow homebrew-logs/
+      - name: Save logs
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: homebrew-logs
+          path: homebrew-logs
 
       - uses: r-lib/actions/setup-r@v2
       - name: Install dependencies

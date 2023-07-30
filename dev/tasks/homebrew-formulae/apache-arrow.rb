@@ -57,7 +57,8 @@ class ApacheArrow < Formula
   fails_with gcc: "5"
 
   def install
-    # https://github.com/Homebrew/homebrew-core/issues/76537
+    # This isn't for https://github.com/Homebrew/homebrew-core/issues/76537 .
+    # This may improve performance.
     ENV.runtime_cpu_detection if Hardware::CPU.intel?
 
     # link against system libc++ instead of llvm provided libc++
@@ -90,6 +91,11 @@ class ApacheArrow < Formula
       -DARROW_WITH_ZSTD=ON
       -DPARQUET_BUILD_EXECUTABLES=ON
     ]
+    # Disable runtime SIMD dispatch. It may cause "illegal opcode"
+    # error on Intel Mac because of one-definition-rule violation.
+    #
+    # https://github.com/apache/arrow/issues/36685
+    args << "-DARROW_RUNTIME_SIMD_LEVEL=NONE" if OS.mac? and Hardware::CPU.intel?
 
     system "cmake", "-S", "cpp", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
