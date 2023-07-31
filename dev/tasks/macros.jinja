@@ -214,6 +214,7 @@ on:
       # see https://github.com/actions/runner-images/issues/6868
       brew install --overwrite python@3.11 python@3.10
 
+      set -x
       ARROW_GLIB_FORMULA=$(echo ${ARROW_FORMULA} | sed -e 's/\.rb/-glib.rb/')
       echo "ARROW_GLIB_FORMULA=${ARROW_GLIB_FORMULA}" >> ${GITHUB_ENV}
       for formula in ${ARROW_FORMULA} ${ARROW_GLIB_FORMULA}; do
@@ -223,11 +224,12 @@ on:
         # Pin the current commit in the formula to test so that
         # we're not always pulling from the tip of the default branch
         sed -i '' -E \
-          -e 's@https://github.com/apache/arrow.git"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
+          -e 's@https://github.com/apache/arrow.git", branch: "main"$@{{ arrow.remote }}.git", revision: "{{ arrow.head }}"@' \
           ${formula}
         # Sometimes crossbow gives a remote URL with .git and sometimes not.
         # Make sure there's only one
         sed -i '' -E -e 's@.git.git@.git@' ${formula}
+        cat ${formula}
         cp ${formula} $(brew --repository homebrew/core)/Formula/
       done
 {% endmacro %}

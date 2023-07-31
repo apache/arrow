@@ -24,7 +24,7 @@ classdef tFloat64Array < hNumericArray
         MaxValue = realmax("double")
         MinValue = realmin("double")
         NullSubstitutionValue = NaN
-        ArrowType = arrow.type.float64
+        ArrowType = arrow.float64
     end
 
     methods(Test)

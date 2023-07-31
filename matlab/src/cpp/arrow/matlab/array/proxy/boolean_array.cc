@@ -54,11 +54,4 @@ namespace arrow::matlab::array::proxy {
             auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length);
             context.outputs[0] = logical_array_mda;
         }
-
-        std::shared_ptr<type::proxy::Type> BooleanArray::typeProxy() {
-            using BooleanTypeProxy = type::proxy::PrimitiveCType<bool>;
-
-            auto type = std::static_pointer_cast<arrow::BooleanType>(array->type());
-            return std::make_shared<BooleanTypeProxy>(std::move(type));
-        }
 }

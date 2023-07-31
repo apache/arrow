@@ -309,7 +309,8 @@ func TestStructFromSchema(t *testing.T) {
 
 func TestStructFromSchemaWithNesting(t *testing.T) {
 	type Other struct {
-		List *[]*float32
+		List     *[]*float32
+		Excluded int32 `parquet:"-"`
 	}
 
 	type Nested struct {

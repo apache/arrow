@@ -3337,7 +3337,7 @@ cdef class Scanner(_Weakrefable):
         ----------
         dataset : Dataset
             Dataset to scan.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3416,7 +3416,7 @@ cdef class Scanner(_Weakrefable):
             fragment to scan.
         schema : Schema, optional
             The schema of the fragment.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3502,7 +3502,7 @@ cdef class Scanner(_Weakrefable):
             The iterator of Batches.
         schema : Schema
             The schema of the batches.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
