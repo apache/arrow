@@ -50,6 +50,7 @@ function arrowArray = array(data, opts)
         case "string"
             arrowArray = arrow.array.StringArray.fromMATLAB(data, args{:});
         case "datetime"
+            arrowArray = arrow.array.TimestampArray.fromMATLAB(data, args{:});
         otherwise
             errid = "arrow:array:UnsupportedMATLABType";
             msg = join(["Unable to convert MATLAB type" classname "to arrow array."]);
