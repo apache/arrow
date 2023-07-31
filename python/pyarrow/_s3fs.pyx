@@ -147,11 +147,11 @@ cdef class S3FileSystem(FileSystem):
     specified role.
 
     If neither access_key nor secret_key are provided, and role_arn is also not
-    provided, then attempts establish the credentials automatically.
+    provided, then attempts to establish the credentials automatically.
     S3FileSystem will try the following methods, in order:
 
-    * `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, and `AWS_SESSION_TOKEN` environment variables
-    * configuration files such as `~/.aws/credentials` and `~/.aws/config`
+    * ``AWS_ACCESS_KEY_ID``, ``AWS_SECRET_ACCESS_KEY``, and ``AWS_SESSION_TOKEN`` environment variables
+    * configuration files such as ``~/.aws/credentials`` and ``~/.aws/config``
     * for nodes on Amazon EC2, the EC2 Instance Metadata Service
 
     Note: S3 buckets are special and the operations available on them may be
