@@ -36,6 +36,7 @@ function arrowArray = array(data, opts)
         case "uint16"
             arrowArray = arrow.array.UInt16Array.fromMATLAB(data, args{:});
         case "int32"
+            arrowArray = arrow.array.Int32Array.fromMATLAB(data, args{:});
         case "uint32"
         case "int64"
         case "uint64"
