@@ -23,11 +23,12 @@ function arrowArray = array(data, opts)
     data = convertCharsToStrings(data);
     classname = string(class(data));
     args = namedargs2cell(opts);
-    
+
     switch (classname)
         case "logical"
             arrowArray = arrow.array.BooleanArray.fromMATLAB(data, args{:});
         case "int8"
+            arrowArray = arrow.array.Int8Array.fromMATLAB(data, args{:});
         case "uint8"
         case "int16"
         case "uint16"
