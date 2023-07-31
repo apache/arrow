@@ -935,6 +935,22 @@ Status ScannerBuilder::BatchSize(int64_t batch_size) {
   return Status::OK();
 }
 
+Status ScannerBuilder::StartOffset(int64_t start_offset) {
+  if (start_offset <= 0) {
+    return Status::Invalid("StartOffset must be greater than 0, got ", start_offset);
+  }
+  scan_options_->start_offset = start_offset;
+  return Status::OK();
+}
+
+Status ScannerBuilder::Length(int64_t length){
+  if (length <= 0) {
+    return Status::Invalid("Length must be greater than 0, got ", length);
+  }
+  scan_options_->length = length;
+  return Status::OK();
+}
+
 Status ScannerBuilder::BatchReadahead(int32_t batch_readahead) {
   if (batch_readahead < 0) {
     return Status::Invalid("BatchReadahead must be greater than or equal 0, got ",

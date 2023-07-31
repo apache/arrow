@@ -55,6 +55,7 @@ constexpr int64_t kDefaultBatchSize = 1 << 17;  // 128Ki rows
 constexpr int32_t kDefaultBatchReadahead = 16;
 constexpr int32_t kDefaultFragmentReadahead = 4;
 constexpr int32_t kDefaultBytesReadahead = 1 << 25;  // 32MiB
+constexpr int64_t kDefaultStartOffset = -1;
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
 struct ARROW_DS_EXPORT ScanOptions {
@@ -136,6 +137,9 @@ struct ARROW_DS_EXPORT ScanOptions {
   /// Parameters which control when the plan should pause for a slow consumer
   acero::BackpressureOptions backpressure =
       acero::BackpressureOptions::DefaultBackpressure();
+
+  int64_t start_offset = kDefaultStartOffset;
+  int64_t length;
 };
 
 /// Scan-specific options, which can be changed between scans of the same dataset.
@@ -495,6 +499,18 @@ class ARROW_DS_EXPORT ScannerBuilder {
   /// \return Failure if any referenced columns does not exist in the dataset's
   ///         Schema.
   Status Filter(const compute::Expression& filter);
+
+  /// \brief set the start offset of the scanner
+  /// \param[in] start_offset start offset for the scan
+  ///
+  /// \return Failure if the start_offset is not greater than 0
+  Status StartOffset(int64_t start_offset);
+
+  /// \brief set the length of the scanner
+  /// \param[in] length length for the scan
+  ///
+  /// \return Failure if the length is not greater than 0
+  Status Length(int64_t length);
 
   /// \brief Indicate if the Scanner should make use of the available
   ///        ThreadPool found in ScanOptions;

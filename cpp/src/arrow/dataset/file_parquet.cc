@@ -595,6 +595,10 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     ARROW_ASSIGN_OR_RAISE(row_groups, parquet_fragment->FilterRowGroups(options->filter));
     pre_filtered = true;
     if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
+    if (options->start_offset != kDefaultStartOffset) {
+      ARROW_ASSIGN_OR_RAISE(row_groups,
+                            parquet_fragment->FilterRangeRowGroups(options->start_offset, options->length));
+    }
   }
   // Open the reader and pay the real IO cost.
   auto make_generator =
@@ -607,6 +611,10 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
       // row groups were not already filtered; do this now
       ARROW_ASSIGN_OR_RAISE(row_groups,
                             parquet_fragment->FilterRowGroups(options->filter));
+      if (options->start_offset != kDefaultStartOffset) {
+        ARROW_ASSIGN_OR_RAISE(row_groups,
+                              parquet_fragment->FilterRangeRowGroups(options->start_offset, options->length));
+      }
       if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
     }
     ARROW_ASSIGN_OR_RAISE(auto column_projection,
@@ -876,6 +884,28 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
   for (size_t i = 0; i < expressions.size(); i++) {
     if (expressions[i].IsSatisfiable()) {
       row_groups.push_back(row_groups_->at(i));
+    }
+  }
+  return row_groups;
+}
+
+Result<std::vector<int>> ParquetFileFragment::FilterRangeRowGroups(
+    int64_t start_offset, int64_t length) {
+  std::vector<int> row_groups;
+  for (int row_group : *row_groups_) {
+    auto rg_metadata = metadata_->RowGroup(row_group);
+    std::shared_ptr<parquet::ColumnChunkMetaData> cc0 = rg_metadata->ColumnChunk(0);
+    int64_t r_start = cc0->data_page_offset();
+    if (cc0->has_dictionary_page() && r_start > cc0->dictionary_page_offset()) {
+      r_start = cc0->dictionary_page_offset();
+    }
+    int64_t r_bytes = 0L;
+    for (int col_id = 0; col_id < rg_metadata->num_columns(); col_id++) {
+      r_bytes += rg_metadata->ColumnChunk(col_id)->total_compressed_size();
+    }
+    int64_t midpoint = r_start + r_bytes / 2;
+    if (midpoint >= start_offset && midpoint < (start_offset + length)) {
+      row_groups.push_back(row_group);
     }
   }
   return row_groups;

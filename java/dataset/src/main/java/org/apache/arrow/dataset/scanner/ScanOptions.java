@@ -27,7 +27,10 @@ import org.apache.arrow.util.Preconditions;
  */
 public class ScanOptions {
   private final long batchSize;
+  private final long startOffset;
+  private final long length;
   private final Optional<String[]> columns;
+  private final Optional<String> filter;
   private final Optional<ByteBuffer> substraitProjection;
   private final Optional<ByteBuffer> substraitFilter;
 
@@ -56,11 +59,18 @@ public class ScanOptions {
    *                Only columns present in the Array will be scanned.
    */
   public ScanOptions(long batchSize, Optional<String[]> columns) {
+    this(batchSize, columns, -1, -1, Optional.empty());
+  }
+
+  public ScanOptions(long batchSize, Optional<String[]> columns, long startOffset, long length, Optional<String> filter) {
     Preconditions.checkNotNull(columns);
     this.batchSize = batchSize;
     this.columns = columns;
     this.substraitProjection = Optional.empty();
     this.substraitFilter = Optional.empty();
+    this.startOffset = startOffset;
+    this.length = length;
+    this.filter = filter;
   }
 
   public ScanOptions(long batchSize) {
@@ -69,6 +79,18 @@ public class ScanOptions {
 
   public Optional<String[]> getColumns() {
     return columns;
+  }
+
+  public Optional<String> getFilter() {
+    return filter;
+  }
+
+  public long getStartOffset() {
+    return startOffset;
+  }
+
+  public long getLength() {
+    return length;
   }
 
   public long getBatchSize() {

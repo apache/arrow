@@ -83,6 +83,22 @@ public class JniWrapper {
                                    ByteBuffer substraitFilter, long batchSize, long memoryPool);
 
   /**
+   * Create Scanner from a Dataset and get the native pointer of the Dataset.
+   * @param datasetId the native pointer of the arrow::dataset::Dataset instance.
+   * @param columns desired column names.
+   *                Columns not in this list will not be emitted when performing scan operation. Null equals
+   *                to "all columns".
+   * @param filter the filter to apply on the scan
+   * @param batchSize batch size of scanned record batches.
+   * @param startOffset start offset of the range scan
+   * @param length length of the range scan
+   * @param memoryPool identifier of memory pool used in the native scanner.
+   * @return the native pointer of the arrow::dataset::Scanner instance.
+   */
+  public native long createRangeScanner(long datasetId, String[] columns, String filter, long batchSize,
+    long startOffset, long length, long memoryPool);
+
+  /**
    * Get a serialized schema from native instance of a Scanner.
    *
    * @param scannerId the native pointer of the arrow::dataset::Scanner instance.
