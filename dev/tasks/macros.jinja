@@ -144,7 +144,6 @@ on:
   - name: Install gemfury client on ARM self-hosted
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
-      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir'))/bin:$PATH
       # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
       gem install --user-install gemfury -v 0.12.0
   - name: Instal gemfury client
@@ -156,6 +155,7 @@ on:
   - name: Upload package to Gemfury
     shell: bash
     run: |
+      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir'))/bin:$PATH
       fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
         --as=${CROSSBOW_GEMFURY_ORG} \
