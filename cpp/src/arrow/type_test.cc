@@ -1245,10 +1245,10 @@ TEST_F(TestUnifySchemas, Temporal) {
              {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)}, options);
   CheckUnify(timestamp(TimeUnit::MICRO), {timestamp(TimeUnit::NANO)}, options);
 
-  CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND, "UTC"),
-                  options);
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND),
+                           timestamp(TimeUnit::SECOND, "UTC"), options);
   CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND, "America/New_York"),
-                  timestamp(TimeUnit::SECOND, "UTC"), options);
+                           timestamp(TimeUnit::SECOND, "UTC"), options);
 
   options.promote_temporal_unit = false;
   CheckUnifyFailsInvalid(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
@@ -1272,7 +1272,8 @@ TEST_F(TestUnifySchemas, Binary) {
 TEST_F(TestUnifySchemas, List) {
   auto options = Field::MergeOptions::Defaults();
   options.promote_numeric_width = true;
-  CheckUnifyFailsTypeError(fixed_size_list(int8(), 2), {fixed_size_list(int8(), 3)}, options);
+  CheckUnifyFailsTypeError(fixed_size_list(int8(), 2), {fixed_size_list(int8(), 3)},
+                           options);
 
   options.promote_binary = true;
   CheckUnify(list(int8()), {large_list(int8())}, options);
@@ -1355,7 +1356,7 @@ TEST_F(TestUnifySchemas, Dictionary) {
              },
              options);
   CheckUnifyFailsTypeError(dictionary(int8(), utf8()),
-                  dictionary(int8(), utf8(), /*ordered=*/true), options);
+                           dictionary(int8(), utf8(), /*ordered=*/true), options);
 
   options.promote_dictionary_ordered = true;
   CheckUnify(dictionary(int8(), utf8()), dictionary(int8(), utf8(), /*ordered=*/true),
