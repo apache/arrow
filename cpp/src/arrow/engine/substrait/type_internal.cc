@@ -77,9 +77,13 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
     if (types.Get(i).has_struct_()) {
       const auto& struct_ = types.Get(i).struct_();
 
-      ARROW_ASSIGN_OR_RAISE(type, FieldsFromProto(struct_.types_size(), struct_.types(),
-                                                  next_name, ext_set, conversion_options)
-                                      .Map(arrow::struct_));
+      ARROW_ASSIGN_OR_RAISE(
+          type,
+          FieldsFromProto(struct_.types_size(), struct_.types(), next_name, ext_set,
+                          conversion_options)
+              .Map(
+                  static_cast<std::shared_ptr<::arrow::DataType> (*)(const FieldVector&)>(
+                      &::arrow::struct_)));
 
       nullable = IsNullable(struct_);
     } else {

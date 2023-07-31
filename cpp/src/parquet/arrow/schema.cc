@@ -839,7 +839,8 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
   switch (inferred_type.id()) {
     case ::arrow::Type::STRUCT:
       if (origin_type.id() == ::arrow::Type::STRUCT) {
-        return ::arrow::struct_;
+        return static_cast<std::shared_ptr<::arrow::DataType> (*)(const FieldVector&)>(
+            &::arrow::struct_);
       }
       break;
     case ::arrow::Type::LIST:
