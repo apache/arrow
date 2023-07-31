@@ -1368,8 +1368,9 @@ set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
-   OR ARROW_S3
-   OR ARROW_GANDIVA)
+   OR ARROW_GANDIVA
+   OR ARROW_GCS
+   OR ARROW_S3)
   set(OpenSSL_SOURCE "SYSTEM")
   resolve_dependency(OpenSSL
                      HAVE_ALT
@@ -4106,10 +4107,6 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  if(NOT OpenSSL_FOUND)
-    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
-                       ${ARROW_OPENSSL_REQUIRED_VERSION})
-  endif()
 
   # Build google-cloud-cpp, with only storage_client
 
