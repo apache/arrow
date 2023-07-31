@@ -43,18 +43,20 @@ classdef Schema < matlab.mixin.CustomDisplay
         end
         
         function F = field(obj, idx)
-            idx = converCharsToStrings(idx);
-            
+            import libmexclass.proxy.*
+
+            idx = convertCharsToStrings(idx);
             % idx must be a positive whole number or field name.
             if isstring(idx)
                 name = convertCharsToStrings(idx);
                 proxyID = obj.Proxy.getFieldByName(name);
-            elseif isnumeric()
-                proxyID = obj.Proxy.getFieldByIndex(idx);
+            elseif isnumeric(idx)
+                args = struct(Index=int32(idx));
+                proxyID = obj.Proxy.getFieldByIndex(args);
             end
 
-            fieldProxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
-            F = arrow.Field(fieldProxy);
+            proxy = Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
+            F = arrow.type.Field(proxy);
         end
         
     end

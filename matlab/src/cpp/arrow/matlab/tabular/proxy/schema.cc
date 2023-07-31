@@ -58,12 +58,16 @@ namespace arrow::matlab::tabular::proxy {
         using FieldProxy = arrow::matlab::type::proxy::Field;
         mda::ArrayFactory factory;
 
-        const auto index = int32_t(context.inputs[0]);
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
+        const auto index = int32_t(index_mda[0]);
         if (index > schema->num_fields()) {
             // TODO: Error if invalid index.
         }
 
-        const auto& field = schema->field(index);
+        // Note: MATLAB uses 1-based indexing, so subtract 1.
+        // arrow::Schema::field does not do any bounds checking.
+        const auto& field = schema->field(index - 1);
         auto field_proxy = std::make_shared<FieldProxy>(field);
         const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
         const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
