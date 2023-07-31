@@ -64,7 +64,7 @@ groups:
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-ubuntu-default-docs
+    - test-ubuntu-*-docs
 
 {############################# Testing tasks #################################}
 
