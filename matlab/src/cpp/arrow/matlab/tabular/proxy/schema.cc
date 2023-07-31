@@ -15,6 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/matlab/error/error.h"
+#include "arrow/matlab/tabular/proxy/schema.h"
+#include "arrow/matlab/type/proxy/field.h"
+
+#include "libmexclass/proxy/ProxyManager.h"
+
+#include "arrow/util/utf8.h"
+
 namespace arrow::matlab::tabular::proxy {
 
     Schema::Schema(std::shared_ptr<arrow::Schema> schema) : schema{std::move(schema)} {
@@ -31,10 +39,10 @@ namespace arrow::matlab::tabular::proxy {
 
         std::vector<std::shared_ptr<arrow::Field>> fields;
         for (const auto proxy_id : field_proxy_ids_mda) {
-            using libmexclass::proxy;
-            auto proxy = std::static_pointer_cast<type::proxy::Field>(ProxyManager::getProxy(proxy_id));
+            using namespace libmexclass::proxy;
+            auto proxy = std::static_pointer_cast<arrow::matlab::type::proxy::Field>(ProxyManager::getProxy(proxy_id));
             auto field = proxy->unwrap();
-            fields.push_bach(field);
+            fields.push_back(field);
         }
         auto schema = arrow::schema(fields);
         return std::make_shared<SchemaProxy>(std::move(schema));
