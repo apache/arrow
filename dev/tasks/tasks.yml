@@ -64,7 +64,7 @@ groups:
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-ubuntu-default-docs
+    - test-ubuntu-*-docs
 
 {############################# Testing tasks #################################}
 
@@ -1498,10 +1498,12 @@ tasks:
       image: debian-go
   {% endfor %}
 
-  test-ubuntu-default-docs:
+  test-ubuntu-22.04-docs:
     ci: github
     template: docs/github.linux.yml
     params:
+      env:
+        UBUNTU: 22.04
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
@@ -1625,6 +1627,8 @@ tasks:
     ci: github
     template: docs/github.linux.yml
     params:
+      env:
+        UBUNTU: 22.04
       pr_number: Unset
       flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
