@@ -47,13 +47,12 @@ classdef BooleanArray < arrow.array.Array
                 opts.Valid
             end
 
-             arrow.internal.validate.type(data, "logical");
-             arrow.internal.validate.shape(data);
-             arrow.internal.validate.nonsparse(data);
-             validElements = arrow.internal.validate.parseValidElements(data, opts);
-         
+            arrow.internal.validate.type(data, "logical");
+            arrow.internal.validate.shape(data);
+            arrow.internal.validate.nonsparse(data);
+            validElements = arrow.internal.validate.parseValidElements(data, opts);
+            
             args = struct(MatlabArray=data, Valid=validElements);
-        
             proxy = arrow.internal.proxy.create("arrow.array.proxy.BooleanArray", args);
             array = arrow.array.BooleanArray(proxy);
         end
