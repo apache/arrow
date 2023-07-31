@@ -3605,9 +3605,9 @@ def timestamp(unit, tz=None):
 
     >>> from datetime import datetime
     >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('s', tz='UTC'))
-    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0, tzinfo=<UTC>)>
+    <pyarrow.TimestampScalar: '2012-01-01T00:00:00+0000'>
     >>> pa.scalar(datetime(2012, 1, 1), type=pa.timestamp('us'))
-    <pyarrow.TimestampScalar: datetime.datetime(2012, 1, 1, 0, 0)>
+    <pyarrow.TimestampScalar: '2012-01-01T00:00:00.000000'>
 
     Returns
     -------
