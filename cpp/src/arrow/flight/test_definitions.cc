@@ -18,17 +18,22 @@
 #include "arrow/flight/test_definitions.h"
 
 #include <chrono>
+#include <memory>
+#include <mutex>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
 #include "arrow/array/util.h"
 #include "arrow/flight/api.h"
+#include "arrow/flight/client_middleware.h"
 #include "arrow/flight/test_util.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
+#include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
+#include "gmock/gmock.h"
 
 #if defined(ARROW_CUDA)
 #include "arrow/gpu/cuda_api.h"
@@ -1438,20 +1443,26 @@ class ErrorHandlingTestServer : public FlightServerBase {
  public:
   Status GetFlightInfo(const ServerCallContext& context, const FlightDescriptor& request,
                        std::unique_ptr<FlightInfo>* info) override {
-    if (request.path.size() >= 2) {
+    if (request.path.size() == 1 && request.path[0] == "metadata") {
+      context.AddHeader("x-header", "header-value");
+      context.AddHeader("x-header-bin", "header\x01value");
+      context.AddTrailer("x-trailer", "trailer-value");
+      context.AddTrailer("x-trailer-bin", "trailer\x01value");
+      return Status::Invalid("Expected");
+    } else if (request.path.size() >= 2) {
       const int raw_code = std::atoi(request.path[0].c_str());
       ARROW_ASSIGN_OR_RAISE(StatusCode code, TryConvertStatusCode(raw_code));
 
       if (request.path.size() == 2) {
-        return Status(code, request.path[1]);
+        return {code, request.path[1]};
       } else if (request.path.size() == 3) {
-        return Status(code, request.path[1], std::make_shared<TestStatusDetail>());
+        return {code, request.path[1], std::make_shared<TestStatusDetail>()};
       } else {
         const int raw_code = std::atoi(request.path[2].c_str());
         ARROW_ASSIGN_OR_RAISE(FlightStatusCode flight_code,
                               TryConvertFlightStatusCode(raw_code));
-        return Status(code, request.path[1],
-                      std::make_shared<FlightStatusDetail>(flight_code, request.path[3]));
+        return {code, request.path[1],
+                std::make_shared<FlightStatusDetail>(flight_code, request.path[3])};
       }
     }
     return Status::NotImplemented("NYI");
@@ -1469,18 +1480,68 @@ class ErrorHandlingTestServer : public FlightServerBase {
     return MakeFlightError(FlightStatusCode::Unauthorized, "Unauthorized", "extra info");
   }
 };
+
+class MetadataRecordingClientMiddleware : public ClientMiddleware {
+ public:
+  explicit MetadataRecordingClientMiddleware(
+      std::mutex& mutex, std::vector<std::pair<std::string, std::string>>& headers)
+      : mutex_(mutex), headers_(headers) {}
+  void SendingHeaders(AddCallHeaders*) override {}
+  void ReceivedHeaders(const CallHeaders& incoming_headers) override {
+    std::lock_guard<std::mutex> guard(mutex_);
+    for (const auto& [key, value] : incoming_headers) {
+      headers_.emplace_back(key, value);
+    }
+  }
+  void CallCompleted(const Status&) override {}
+
+ private:
+  std::mutex& mutex_;
+  std::vector<std::pair<std::string, std::string>>& headers_;
+};
+
+class MetadataRecordingClientMiddlewareFactory : public ClientMiddlewareFactory {
+ public:
+  void StartCall(const CallInfo&,
+                 std::unique_ptr<ClientMiddleware>* middleware) override {
+    *middleware = std::make_unique<MetadataRecordingClientMiddleware>(mutex_, headers_);
+  }
+
+  std::vector<std::pair<std::string, std::string>> GetHeaders() const {
+    std::lock_guard<std::mutex> guard(mutex_);
+    // Take copy
+    return headers_;
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  std::vector<std::pair<std::string, std::string>> headers_;
+};
 }  // namespace
 
+struct ErrorHandlingTest::Impl {
+  std::shared_ptr<MetadataRecordingClientMiddlewareFactory> metadata =
+      std::make_shared<MetadataRecordingClientMiddlewareFactory>();
+};
+
 void ErrorHandlingTest::SetUpTest() {
+  impl_ = std::make_shared<Impl>();
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
   ASSERT_OK(MakeServer<ErrorHandlingTestServer>(
       location, &server_, &client_,
       [](FlightServerOptions* options) { return Status::OK(); },
-      [](FlightClientOptions* options) { return Status::OK(); }));
+      [&](FlightClientOptions* options) {
+        options->middleware.emplace_back(impl_->metadata);
+        return Status::OK();
+      }));
 }
 void ErrorHandlingTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
+}
+
+std::vector<std::pair<std::string, std::string>> ErrorHandlingTest::GetHeaders() {
+  return impl_->metadata->GetHeaders();
 }
 
 void ErrorHandlingTest::TestGetFlightInfo() {
@@ -1516,6 +1577,20 @@ void ErrorHandlingTest::TestGetFlightInfo() {
       EXPECT_THAT(detail->extra_info(), ::testing::HasSubstr("Expected detail message"));
     }
   }
+}
+
+void ErrorHandlingTest::TestGetFlightInfoMetadata() {
+  auto descr = FlightDescriptor::Path({"metadata"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("Expected"),
+                                  client_->GetFlightInfo(descr));
+  // This is janky because we don't/can't expose grpc::CallContext.
+  // See https://github.com/apache/arrow/issues/34607
+  ASSERT_THAT(GetHeaders(), ::testing::IsSupersetOf({
+                                std::make_pair("x-header", "header-value"),
+                                std::make_pair("x-header-bin", "header\x01value"),
+                                std::make_pair("x-trailer", "trailer-value"),
+                                std::make_pair("x-trailer-bin", "trailer\x01value"),
+                            }));
 }
 
 void CheckErrorDetail(const Status& status) {

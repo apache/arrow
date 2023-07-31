@@ -122,6 +122,15 @@ class ARROW_FLIGHT_EXPORT ServerCallContext {
   virtual const std::string& peer_identity() const = 0;
   /// \brief The peer address (not validated)
   virtual const std::string& peer() const = 0;
+  /// \brief Add a response header.  This is only valid before the server
+  /// starts sending the response; generally this isn't an issue unless you
+  /// are implementing FlightDataStream, ResultStream, or similar interfaces
+  /// yourself, or during a DoExchange or DoPut.
+  virtual void AddHeader(const std::string& key, const std::string& value) const = 0;
+  /// \brief Add a response trailer.  This is only valid before the server
+  /// sends the final status; generally this isn't an issue unless your RPC
+  /// handler launches a thread or similar.
+  virtual void AddTrailer(const std::string& key, const std::string& value) const = 0;
   /// \brief Look up a middleware by key. Do not maintain a reference
   /// to the object beyond the request body.
   /// \return The middleware, or nullptr if not found.
