@@ -265,10 +265,16 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
 
   // Test methods
   void TestGetFlightInfo();
+  void TestGetFlightInfoMetadata();
   void TestDoPut();
   void TestDoExchange();
 
- private:
+ protected:
+  struct Impl;
+
+  std::vector<std::pair<std::string, std::string>> GetHeaders();
+
+  std::shared_ptr<Impl> impl_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
 };
@@ -277,6 +283,7 @@ class ARROW_FLIGHT_EXPORT ErrorHandlingTest : public FlightTest {
   static_assert(std::is_base_of<ErrorHandlingTest, FIXTURE>::value,               \
                 ARROW_STRINGIFY(FIXTURE) " must inherit from ErrorHandlingTest"); \
   TEST_F(FIXTURE, TestGetFlightInfo) { TestGetFlightInfo(); }                     \
+  TEST_F(FIXTURE, TestGetFlightInfoMetadata) { TestGetFlightInfoMetadata(); }     \
   TEST_F(FIXTURE, TestDoPut) { TestDoPut(); }                                     \
   TEST_F(FIXTURE, TestDoExchange) { TestDoExchange(); }
 

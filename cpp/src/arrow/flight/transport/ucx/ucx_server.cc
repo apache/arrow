@@ -72,6 +72,9 @@ class UcxServerCallContext : public flight::ServerCallContext {
  public:
   const std::string& peer_identity() const override { return peer_; }
   const std::string& peer() const override { return peer_; }
+  // Not supported
+  void AddHeader(const std::string& key, const std::string& value) const override {}
+  void AddTrailer(const std::string& key, const std::string& value) const override {}
   ServerMiddleware* GetMiddleware(const std::string& key) const override {
     return nullptr;
   }
