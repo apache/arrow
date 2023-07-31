@@ -18,7 +18,7 @@
 
 function type(data, classtype)
     if ~isa(data, classtype)
-        errid = "arrrow:array:InvalidType";
+        errid = "arrow:array:InvalidType";
         msg = join(["Expected data to be a", classtype, "array"]);
         error(errid, msg);
     end

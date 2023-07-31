@@ -18,7 +18,7 @@
 
 function nonsparse(data)
     if issparse(data)
-        errid = "arrrow:array:Sparse";
+        errid = "arrow:array:Sparse";
         msg = "Sparse arrays are not supported.";
         error(errid, msg);
     end

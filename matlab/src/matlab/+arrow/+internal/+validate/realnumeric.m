@@ -18,7 +18,7 @@
 
 function realnumeric(data)
     if ~isreal(data)
-        errid = "arrrow:array:ComplexNumeric";
+        errid = "arrow:array:ComplexNumeric";
         msg = "Complex numeric arrays are not supported.";
         error(errid, msg);
     end

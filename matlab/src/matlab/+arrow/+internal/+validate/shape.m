@@ -18,7 +18,7 @@
 
 function shape(data)
     if ~isvector(data) && ~isempty(data)
-        errid = "arrrow:array:InvalidShape";
+        errid = "arrow:array:InvalidShape";
         msg = "Expected input array to be a vector or empty.";
         error(errid, msg);
     end
