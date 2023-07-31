@@ -44,6 +44,7 @@ function arrowArray = array(data, opts)
         case "uint64"
             arrowArray = arrow.array.UInt64Array.fromMATLAB(data, args{:});
         case "single"
+            arrowArray = arrow.array.Float32Array.fromMATLAB(data, args{:});
         case "double"
         case "string"
         case "datetime"
