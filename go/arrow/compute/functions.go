@@ -24,7 +24,7 @@ import (
 	"strings"
 
 	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/exec"
 )
 
 type Function interface {
