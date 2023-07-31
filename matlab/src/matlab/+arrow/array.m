@@ -19,5 +19,29 @@ function arrowArray = array(data, opts)
         opts.InferNulls(1, 1) logical = true
         opts.Valid
     end
-    arrowArray = 1;
+
+    data = convertCharsToStrings(data);
+    classname = string(class(data));
+    args = namedargs2cell(opts);
+    
+    switch (classname)
+        case "logical"
+            arrowArray = arrow.array.BooleanArray.fromMATLAB(data, args{:});
+        case "int8"
+        case "uint8"
+        case "int16"
+        case "uint16"
+        case "int32"
+        case "uint32"
+        case "int64"
+        case "uint64"
+        case "single"
+        case "double"
+        case "string"
+        case "datetime"
+        otherwise
+            errid = "arrow:array:UnsupportedMATLABType";
+            msg = join(["Unable to convert MATLAB type" classname "to arrow array."]);
+            error(errid, msg);
+    end
 end
