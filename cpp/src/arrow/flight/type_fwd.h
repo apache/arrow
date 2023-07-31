@@ -38,6 +38,7 @@ struct FlightClientOptions;
 struct FlightDescriptor;
 struct FlightEndpoint;
 class FlightInfo;
+class RetryInfo;
 class FlightListing;
 class FlightMetadataReader;
 class FlightMetadataWriter;

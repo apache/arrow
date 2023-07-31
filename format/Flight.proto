@@ -66,6 +66,33 @@ service FlightService {
   rpc GetFlightInfo(FlightDescriptor) returns (FlightInfo) {}
 
   /*
+   * For a given FlightDescriptor, start a query and get information
+   * to poll the updated statuses. This is a useful interface if the
+   * query may be a long-running query. The first PollFlightInfo call
+   * should be returned as quickly as possible. (GetFlightInfo isn't
+   * returned until a query isn't completed.)
+   *
+   * A client can consume the currently available results so far
+   * before the query isn't completed yet. See RertyInfo.info for
+   * details.
+   *
+   * A client can poll the updated query status by calling
+   * PollFlightInfo() with RetryInfo.flight_descriptor. A server
+   * should not respond until the result would be different from last
+   * time. That way, the client can "long poll" for updates
+   * without constantly making requests. Clients can set a short timeout
+   * to avoid blocking calls if desired.
+   *
+   * A client can't use RetryInfo.flight_descriptor after
+   * RetryInfo.timestamp passes. A server might not accept the retry
+   * descriptor anymore and the query may be cancelled.
+   *
+   * A client may be able to use the CancelFLightInfo action with
+   * RetryInfo.info to cancel the running query.
+   */
+  rpc PollFlightInfo(FlightDescriptor) returns (RetryInfo) {}
+
+  /*
    * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
    * This is used when a consumer needs the Schema of flight stream. Similar to
    * GetFlightInfo this interface may generate a new flight that was not previously
@@ -116,7 +143,6 @@ service FlightService {
    * understand the capabilities of the flight service.
    */
   rpc ListActions(Empty) returns (stream ActionType) {}
-
 }
 
 /*
@@ -341,6 +367,43 @@ message FlightInfo {
    * FlightEndpoints are in the same order as the data.
    */
   bool ordered = 6;
+}
+
+/*
+ * The information to process a long-running query.
+ */
+message RetryInfo {
+  /*
+   * The currently available results so far.
+   *
+   * It's a complete FlightInfo each time not just the delta between
+   * the previous and current FlightInfo.
+   *
+   * A server should only append to the endpoints in the info. So the
+   * client can run DoGet(Ticket) with the Ticket in the info even
+   * when the query isn't finished yet. FlightInfo.ordered is also
+   * valid.
+   */
+  FlightInfo info = 1;
+
+  /*
+   * The descriptor the client should use on the next try.
+   * If unset, the query is complete.
+   */
+  FlightDescriptor flight_descriptor = 2;
+
+  /*
+   * Query progress. Must be in [0.0, 1.0] but need not be
+   * monotonic or nondecreasing. If unknown, do not set.
+   */
+  optional double progress = 3;
+
+  /*
+   * Expiration time for this request. After this passes, the server
+   * might not accept the retry descriptor anymore (and the query may
+   * be cancelled). This may be updated on a call to PollFlightInfo.
+   */
+  google.protobuf.Timestamp expiration_time = 4;
 }
 
 /*
