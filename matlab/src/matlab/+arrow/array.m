@@ -20,7 +20,7 @@ function arrowArray = array(data, opts)
         opts.Valid
     end
 
-    data = convertCharsToStrings(data);
+    data = convertCellstrToStrings(data);
     classname = string(class(data));
     args = namedargs2cell(opts);
 
@@ -48,10 +48,19 @@ function arrowArray = array(data, opts)
         case "double"
             arrowArray = arrow.array.Float64Array.fromMATLAB(data, args{:});
         case "string"
+            arrowArray = arrow.array.StringArray.fromMATLAB(data, args{:});
         case "datetime"
         otherwise
             errid = "arrow:array:UnsupportedMATLABType";
             msg = join(["Unable to convert MATLAB type" classname "to arrow array."]);
             error(errid, msg);
+    end
+end
+
+function data = convertCellstrToStrings(data)
+    % Support constructing a StringArray from a cell array of strings
+    % (i.e. cellstr), or a string array, but not a char array.
+    if ~ischar(data)
+        data = convertCharsToStrings(data);
     end
 end
