@@ -223,7 +223,6 @@ CMake
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_UNITY_BUILD=ON
       $ cmake --build cpp-jni --target install --config Release
-      $ export JAVA_JNI_CMAKE_ARGS="-DProtobuf_ROOT=$PWD/cpp-jni/protobuf_ep-install"
       $ cmake \
           -S java \
           -B java-jni \
@@ -234,7 +233,8 @@ CMake
           -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
-          -DProtobuf_USE_STATIC_LIBS=ON
+          -DProtobuf_USE_STATIC_LIBS=ON \
+          -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install
       $ cmake --build java-jni --target install --config Release
       $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
       |__ libarrow_dataset_jni.dylib
@@ -271,9 +271,6 @@ CMake
           -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
           -DCMAKE_INSTALL_PREFIX=java-dist ^
           -DCMAKE_UNITY_BUILD=ON ^
-          -DPARQUET_BUILD_EXAMPLES=OFF ^
-          -DPARQUET_BUILD_EXECUTABLES=OFF ^
-          -DPARQUET_REQUIRE_ENCRYPTION=OFF ^
           -GNinja
       $ cd cpp-jni
       $ ninja install
