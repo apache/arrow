@@ -512,8 +512,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
 #ifdef ARROW_COMPUTE
     if (!compute::CanCast(*current_field->type(), *field->type())) {
       return Status::Invalid("Unable to promote field ", field->name(),
-                             ": incompatible types: ", field->type()->ToString(),
-                             " vs ", current_field->type()->ToString());
+                             ": incompatible types: ", field->type()->ToString(), " vs ",
+                             current_field->type()->ToString());
     }
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),

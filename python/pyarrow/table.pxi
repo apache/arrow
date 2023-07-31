@@ -16,6 +16,7 @@
 # under the License.
 
 import warnings
+import cython
 
 
 cdef class ChunkedArray(_PandasConvertible):
@@ -5075,11 +5076,11 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
     if field_merge_options is not None:
         if isinstance(field_merge_options, str):
             if field_merge_options == "permissive":
-                options.field_merge_options = CMergeOptions.Permissive()
+                options.field_merge_options = CField.CMergeOptions.Permissive()
             elif field_merge_options == "default":
-                options.field_merge_options = CMergeOptions.Defaults()
+                options.field_merge_options = CField.CMergeOptions.Defaults()
         else:
-            options.field_merge_options = field_merge_options.c_options
+            options.field_merge_options = cython.cast(FieldMergeOptions, field_merge_options).c_options
 
     with nogil:
         options.unify_schemas = promote
