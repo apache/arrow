@@ -461,9 +461,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
 
   if (options.promote_integer_to_decimal &&
       ((is_decimal(promoted_type->id()) && is_integer(other_type->id())) ||
-       (is_decimal(other_type->id()) && is_integer(promoted_type->id()))
-
-           )) {
+       (is_decimal(other_type->id()) && is_integer(promoted_type->id())))) {
     if (is_integer(promoted_type->id()) && is_decimal(other_type->id())) {
       // Other type is always the int
       promoted_type.swap(other_type);

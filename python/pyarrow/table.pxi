@@ -5080,7 +5080,8 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
             elif field_merge_options == "default":
                 options.field_merge_options = CField.CMergeOptions.Defaults()
         else:
-            options.field_merge_options = cython.cast(FieldMergeOptions, field_merge_options).c_options
+            options.field_merge_options = cython.cast(
+                FieldMergeOptions, field_merge_options).c_options
 
     with nogil:
         options.unify_schemas = promote
