@@ -571,6 +571,18 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
 }
 
 /*
+ * Class:     org_apache_arrow_dataset_jni_JniWrapper
+ * Method:    ensureS3Finalized
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_ensureS3Finalized(
+    JNIEnv* env, jobject) {
+  JNI_METHOD_START
+  JniAssertOkOrThrow(arrow::fs::EnsureS3Finalized());
+  JNI_METHOD_END()
+}
+
+/*
  * Class:     org_apache_arrow_dataset_file_JniWrapper
  * Method:    makeFileSystemDatasetFactory
  * Signature: (Ljava/lang/String;II)J
@@ -676,18 +688,6 @@ Java_org_apache_arrow_dataset_file_JniWrapper_writeFromScannerToFile(
       SchemaFromColumnNames(schema, partition_column_vector).ValueOrDie());
   options.max_partitions = max_partitions;
   JniAssertOkOrThrow(arrow::dataset::FileSystemDataset::Write(options, scanner));
-  JNI_METHOD_END()
-}
-
-/*
- * Class:     org_apache_arrow_dataset_file_JniWrapper
- * Method:    ensureS3Finalized
- * Signature: (J)V
- */
-JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_file_JniWrapper_ensureS3Finalized(
-    JNIEnv* env, jobject) {
-  JNI_METHOD_START
-  JniAssertOkOrThrow(arrow::fs::EnsureS3Finalized());
   JNI_METHOD_END()
 }
 

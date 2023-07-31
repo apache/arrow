@@ -17,8 +17,6 @@
 
 package org.apache.arrow.dataset.file;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.apache.arrow.dataset.jni.NativeDatasetFactory;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;
 import org.apache.arrow.memory.BufferAllocator;
@@ -28,18 +26,14 @@ import org.apache.arrow.memory.BufferAllocator;
  */
 public class FileSystemDatasetFactory extends NativeDatasetFactory {
 
-  private static final AtomicBoolean addedS3ShutdownHook = new AtomicBoolean(false);
-
   public FileSystemDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format,
       String uri) {
     super(allocator, memoryPool, createNative(format, uri));
-    ensureS3FinalizedOnShutdown();
   }
 
   public FileSystemDatasetFactory(BufferAllocator allocator, NativeMemoryPool memoryPool, FileFormat format,
                                   String[] uris) {
     super(allocator, memoryPool, createNative(format, uris));
-    ensureS3FinalizedOnShutdown();
   }
 
   private static long createNative(FileFormat format, String uri) {
@@ -48,12 +42,6 @@ public class FileSystemDatasetFactory extends NativeDatasetFactory {
 
   private static long createNative(FileFormat format, String[] uris) {
     return JniWrapper.get().makeFileSystemDatasetFactory(uris, format.id());
-  }
-
-  private static void ensureS3FinalizedOnShutdown() {
-    if (addedS3ShutdownHook.compareAndSet(false, true)) {
-      Runtime.getRuntime().addShutdownHook(new Thread(() -> { JniWrapper.get().ensureS3Finalized(); }));
-    }
   }
 
 }
