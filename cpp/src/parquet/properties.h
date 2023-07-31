@@ -18,6 +18,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -135,14 +136,13 @@ static constexpr int64_t DEFAULT_WRITE_BATCH_SIZE = 1024;
 static constexpr int64_t DEFAULT_MAX_ROW_GROUP_LENGTH = 1024 * 1024;
 static constexpr bool DEFAULT_ARE_STATISTICS_ENABLED = true;
 static constexpr int64_t DEFAULT_MAX_STATISTICS_SIZE = 4096;
-static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
-  ColumnProperties(Encoding::type encoding = DEFAULT_ENCODING,
+  ColumnProperties(std::optional<Encoding::type> encoding = std::nullopt,
                    Compression::type codec = DEFAULT_COMPRESSION_TYPE,
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
@@ -186,7 +186,7 @@ class PARQUET_EXPORT ColumnProperties {
     page_index_enabled_ = page_index_enabled;
   }
 
-  Encoding::type encoding() const { return encoding_; }
+  std::optional<Encoding::type> encoding() const { return encoding_; }
 
   Compression::type compression() const { return codec_; }
 
@@ -203,7 +203,7 @@ class PARQUET_EXPORT ColumnProperties {
   bool page_index_enabled() const { return page_index_enabled_; }
 
  private:
-  Encoding::type encoding_;
+  std::optional<Encoding::type> encoding_;
   Compression::type codec_;
   bool dictionary_enabled_;
   bool statistics_enabled_;
@@ -710,7 +710,8 @@ class PARQUET_EXPORT WriterProperties {
     return default_column_properties_;
   }
 
-  Encoding::type encoding(const std::shared_ptr<schema::ColumnPath>& path) const {
+  std::optional<Encoding::type> encoding(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
     return column_properties(path).encoding();
   }
 

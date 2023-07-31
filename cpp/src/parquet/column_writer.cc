@@ -2328,7 +2328,13 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
   const ColumnDescriptor* descr = metadata->descr();
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
-  Encoding::type encoding = properties->encoding(descr->path());
+  Encoding::type default_encoding =
+      (descr->physical_type() == Type::BOOLEAN &&
+       properties->data_page_version() == ParquetDataPageVersion::V2)
+          ? Encoding::RLE
+          : Encoding::PLAIN;
+  Encoding::type encoding =
+      properties->encoding(descr->path()).value_or(default_encoding);
   if (use_dictionary) {
     encoding = properties->dictionary_index_encoding();
   }

@@ -98,7 +98,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
-      bool enable_checksum = false) {
+      bool enable_checksum = false,
+      ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version);
@@ -108,12 +109,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
     } else {
       wp_builder.disable_dictionary();
-      wp_builder.encoding(column_properties.encoding());
+      if (column_properties.encoding().has_value()) {
+        wp_builder.encoding(column_properties.encoding().value());
+      }
     }
     if (enable_checksum) {
       wp_builder.enable_page_checksum();
     }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
+    wp_builder.data_page_version(data_page_version);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -757,21 +761,37 @@ TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
   ASSERT_EQ(0, this->values_read_);
 }
 
+class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
+ public:
+  void TestWithEncoding(ParquetDataPageVersion version, Encoding::type encoding) {
+    this->SetUpSchema(Repetition::REQUIRED);
+    auto writer =
+        this->BuildWriter(SMALL_SIZE, ColumnProperties(), ParquetVersion::PARQUET_1_0,
+                          /*enable_checksum*/ false, version);
+    for (int i = 0; i < SMALL_SIZE; i++) {
+      bool value = (i % 2 == 0) ? true : false;
+      writer->WriteBatch(1, nullptr, nullptr, &value);
+    }
+    writer->Close();
+    this->ReadColumn();
+    for (int i = 0; i < SMALL_SIZE; i++) {
+      ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
+    }
+    const auto& encodings = this->metadata_encodings();
+    auto iter = std::find(encodings.begin(), encodings.end(), encoding);
+    ASSERT_TRUE(iter != encodings.end());
+  }
+};
+
 // PARQUET-764
 // Correct bitpacking for boolean write at non-byte boundaries
-using TestBooleanValuesWriter = TestPrimitiveWriter<BooleanType>;
 TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
-  this->SetUpSchema(Repetition::REQUIRED);
-  auto writer = this->BuildWriter();
-  for (int i = 0; i < SMALL_SIZE; i++) {
-    bool value = (i % 2 == 0) ? true : false;
-    writer->WriteBatch(1, nullptr, nullptr, &value);
-  }
-  writer->Close();
-  this->ReadColumn();
-  for (int i = 0; i < SMALL_SIZE; i++) {
-    ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
-  }
+  TestWithEncoding(ParquetDataPageVersion::V1, Encoding::PLAIN);
+}
+
+// Default encoding for boolean is RLE when using V2 pages
+TEST_F(TestBooleanValuesWriter, RleEncodedBooleanValues) {
+  TestWithEncoding(ParquetDataPageVersion::V2, Encoding::RLE);
 }
 
 // PARQUET-979
