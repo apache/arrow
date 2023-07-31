@@ -18,7 +18,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
 
       properties
         ArrowArrayClassName(1, 1) string = "arrow.array.BooleanArray"
-        ArrowArrayConstructor = @arrow.array.BooleanArray
+        ArrowArrayConstructor = @arrow.array.BooleanArray.fromMATLAB
         MatlabArrayFcn = @logical
         MatlabConversionFcn = @logical
         NullSubstitutionValue = false
@@ -136,19 +136,20 @@ classdef tBooleanArray < matlab.unittest.TestCase
             data = tc.MatlabArrayFcn([true false true false true false true false true]);
             data = reshape(data, 3, 1, 3);
             fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn(data));
-            tc.verifyError(fcn, "MATLAB:expectedVector");
+            tc.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
-        function ErrorIfEmptyArrayIsNotTwoDimensional(tc)
-            data = tc.MatlabArrayFcn(reshape(logical.empty(0, 0), [1 0 0]));
-            fcn = @() tc.ArrowArrayConstructor(data);
-            tc.verifyError(fcn, "MATLAB:expected2D");
+        function AllowNDEmptyArray(tc)
+            data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
+            A = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(A.Length, int64(0));
+            tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn(reshape([], [0 1])));
         end
 
         function ErrorIfSparseArray(tc)
             data = tc.MatlabArrayFcn(sparse([true false true]));
             fcn = @() tc.ArrowArrayConstructor(data);
-            tc.verifyError(fcn, "MATLAB:expectedNonsparse");
+            tc.verifyError(fcn, "arrow:array:Sparse");
         end
 
         function TestArrowType(tc)

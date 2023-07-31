@@ -18,7 +18,7 @@ classdef tStringArray < matlab.unittest.TestCase
 
       properties
         ArrowArrayClassName(1, 1) string = "arrow.array.StringArray"
-        ArrowArrayConstructor = @arrow.array.StringArray
+        ArrowArrayConstructor = @arrow.array.StringArray.fromMATLAB
         MatlabArrayFcn = @string
         MatlabConversionFcn = @string
         NullSubstitutionValue = string(missing)
@@ -136,13 +136,14 @@ classdef tStringArray < matlab.unittest.TestCase
             data = tc.MatlabArrayFcn(["A", "B", "A", "B", "A", "B", "A", "B", "A"]);
             data = reshape(data, 3, 1, 3);
             fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn(data));
-            tc.verifyError(fcn, "MATLAB:expectedVector");
+            tc.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
-        function ErrorIfEmptyArrayIsNotTwoDimensional(tc)
+        function AllowNDEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape(string.empty(0, 0), [1 0 0]));
-            fcn = @() tc.ArrowArrayConstructor(data);
-            tc.verifyError(fcn, "MATLAB:expected2D");
+            arrowArray = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(arrowArray.Length, int64(0));
+            tc.verifyEqual(toMATLAB(arrowArray), string.empty(0, 1));
         end
 
         function TestArrowType(tc)
@@ -209,23 +210,23 @@ classdef tStringArray < matlab.unittest.TestCase
 
             % Row vector
             matlabArray = 'abc';
-            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "arrow:array:InvalidType");
 
             % Column vector
             matlabArray = ['a';'b';'c'];
-            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "arrow:array:InvalidType");
 
             % Empty char (0x0)
             matlabArray = '';
-            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "arrow:array:InvalidType");
 
             % Empty char (0x1)
             matlabArray = char.empty(0, 1);
-            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "arrow:array:InvalidType");
 
             % Empty char (1x0)
             matlabArray = char.empty(1, 0);
-            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "MATLAB:invalidType");
+            tc.verifyError(@() tc.ArrowArrayConstructor(matlabArray), "arrow:array:InvalidType");
         end
     end
 end

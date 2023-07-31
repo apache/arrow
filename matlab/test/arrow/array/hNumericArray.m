@@ -92,20 +92,21 @@ classdef hNumericArray < matlab.unittest.TestCase
 
         function ErrorIfComplex(tc)
             fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn([10 + 1i, 4]));
-            tc.verifyError(fcn, "MATLAB:expectedReal");
+            tc.verifyError(fcn, "arrow:array:ComplexNumeric");
         end
 
         function ErrorIfNonVector(tc)
             data = tc.MatlabArrayFcn([1 2 3 4 5 6 7 8 9]);
             data = reshape(data, 3, 1, 3);
             fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn(data));
-            tc.verifyError(fcn, "MATLAB:expectedVector");
+            tc.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
-        function ErrorIfEmptyArrayIsNotTwoDimensional(tc)
+        function AllowNDEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
-            fcn = @() tc.ArrowArrayConstructor(data);
-            tc.verifyError(fcn, "MATLAB:expected2D");
+            A = tc.ArrowArrayConstructor(data);
+            tc.verifyEqual(A.Length, int64(0));
+            tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn(reshape([], [0 1])));
         end
 
         function LogicalValidNVPair(tc)
