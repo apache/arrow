@@ -681,7 +681,7 @@ class ARROW_FLIGHT_EXPORT RetryInfo {
                      std::optional<double> progress,
                      std::optional<Timestamp> expiration_time)
       : info(std::move(info)),
-        descriptor(descriptor),
+        descriptor(std::move(descriptor)),
         progress(progress),
         expiration_time(expiration_time) {}
 

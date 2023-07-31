@@ -69,12 +69,11 @@ service FlightService {
    * For a given FlightDescriptor, start a query and get information
    * to poll the updated statuses. This is a useful interface if the
    * query may be a long-running query. The first PollFlightInfo call
-   * should be returned as quickly as possible. (GetFlightInfo isn't
-   * returned until a query isn't completed.)
+   * should return as quickly as possible. (GetFlightInfo doesn't
+   * return until the query is complete.)
    *
-   * A client can consume the currently available results so far
-   * before the query isn't completed yet. See RertyInfo.info for
-   * details.
+   * A client can consume the current results so far before
+   * the query is completed. See RetryInfo.info for details.
    *
    * A client can poll the updated query status by calling
    * PollFlightInfo() with RetryInfo.flight_descriptor. A server
@@ -84,10 +83,10 @@ service FlightService {
    * to avoid blocking calls if desired.
    *
    * A client can't use RetryInfo.flight_descriptor after
-   * RetryInfo.timestamp passes. A server might not accept the retry
-   * descriptor anymore and the query may be cancelled.
+   * RetryInfo.expiration_time passes. A server might not accept the
+   * retry descriptor anymore and the query may be cancelled.
    *
-   * A client may be able to use the CancelFLightInfo action with
+   * A client may use the CancelFlightInfo action with
    * RetryInfo.info to cancel the running query.
    */
   rpc PollFlightInfo(FlightDescriptor) returns (RetryInfo) {}

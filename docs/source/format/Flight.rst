@@ -157,9 +157,9 @@ Downloading Data by Running a Heavy Query
 -----------------------------------------
 
 A client may need to request a heavy query to download
-data. ``GetFlightInfo`` isn't returned until the requested query is
-completed. It means that the client is blocked. The client can use
-``PollFlightInfo`` instead of ``GetFlightInfo``:
+data. However, ``GetFlightInfo`` doesn't return until the query
+completes, so the client is blocked. In this situation, the client
+can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
 
 .. figure:: ./Flight/PollFlightInfo.mmd.svg
 
@@ -198,8 +198,8 @@ completed. It means that the client is blocked. The client can use
 
    ``RetryInfo.progress`` may be set. It represents progress of the
    query. If it's set, the value must be in ``[0.0, 1.0]``. The value
-   must not be monotonic or nondecreasing. A server may respond by
-   only updating the ``RetryInfo.progress`` value though it shouldn't
+   is not necessarily monotonic or nondecreasing. A server may respond by
+   only updating the ``RetryInfo.progress`` value, though it shouldn't
    spam the client with updates.
 
    ``RetryInfo.timestamp`` is the expiration time for this
