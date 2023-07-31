@@ -15,23 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
+#include "arrow/type.h"
+#include "arrow/result.h"
 
-#include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/type/proxy/type.h"
 
-#include "libmexclass/proxy/Proxy.h"
-#include "arrow/type_fwd.h"
+namespace arrow::matlab::type::proxy {
 
-namespace arrow::matlab::array::proxy {
+arrow::Result<std::shared_ptr<Type>> wrap(const std::shared_ptr<arrow::DataType>& type);
 
-    class BooleanArray : public arrow::matlab::array::proxy::Array {
-        public:
-            BooleanArray(std::shared_ptr<arrow::BooleanArray> array);
-
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-        protected:
-            void toMATLAB(libmexclass::proxy::method::Context& context) override;
-    };
 
 }

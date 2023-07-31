@@ -33,7 +33,7 @@
     <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.94.Final</dep.netty-bom.version>
+    <dep.netty-bom.version>4.1.96.Final</dep.netty-bom.version>
     <dep.grpc-bom.version>1.56.0</dep.grpc-bom.version>
     <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.15.1</dep.jackson-bom.version>
@@ -1019,9 +1019,11 @@
                     -DARROW_FILESYSTEM=ON
                     -DARROW_GANDIVA=${ARROW_GANDIVA}
                     -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_JSON=${ARROW_DATASET}
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
                     -DARROW_S3=ON
+                    -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
@@ -1128,9 +1130,11 @@
                     -DARROW_DATASET=ON
                     -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
+                    -DARROW_JSON=${ARROW_DATASET}
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
                     -DARROW_S3=ON
+                    -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DARROW_WITH_BROTLI=ON
                     -DARROW_WITH_LZ4=ON

@@ -744,26 +744,6 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 	}
 }
 
-type panicAllocator struct {
-	n int
-	memory.Allocator
-}
-
-func (p *panicAllocator) Allocate(size int) []byte {
-	if size > p.n {
-		panic("panic allocator")
-	}
-	return p.Allocator.Allocate(size)
-}
-
-func (p *panicAllocator) Reallocate(size int, b []byte) []byte {
-	return p.Allocator.Reallocate(size, b)
-}
-
-func (p *panicAllocator) Free(b []byte) {
-	p.Allocator.Free(b)
-}
-
 func TestConcatPanic(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)

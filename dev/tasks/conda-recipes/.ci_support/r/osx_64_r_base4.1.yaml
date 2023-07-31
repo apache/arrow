@@ -19,7 +19,7 @@ pin_run_as_build:
     min_pin: x.x
     max_pin: x.x
 r_base:
-- '4.2'
+- '4.1'
 target_platform:
 - osx-64
 zip_keys:
