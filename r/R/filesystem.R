@@ -525,7 +525,8 @@ GcsFileSystem <- R6Class("GcsFileSystem",
       # Convert from nanoseconds to POSIXct w/ UTC tz
       if ("expiration" %in% names(out)) {
         out$expiration <- as.POSIXct(
-          out$expiration / 1000000000, origin = "1970-01-01", tz = "UTC"
+          out$expiration / 1000000000,
+          origin = "1970-01-01", tz = "UTC"
         )
       }
 
@@ -580,8 +581,10 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
     stop(
       paste(
         "Option 'expiration' must be of class POSIXct, not",
-        class(options$expiration)[[1]]),
-      call. = FALSE)
+        class(options$expiration)[[1]]
+      ),
+      call. = FALSE
+    )
   }
 
   options$retry_limit_seconds <- retry_limit_seconds
@@ -690,7 +693,7 @@ read_file_utf8 <- function(file) {
 #' @param path A character vector of one or more paths
 #' @param ... Additional arguments passed to [FileSelector$create()]
 #' @export
-fs_ls <- function(fs, path = ".", ...){
+fs_ls <- function(fs, path = ".", ...) {
   fs$ls(path, ...)
 }
 
@@ -700,7 +703,7 @@ fs_ls <- function(fs, path = ".", ...){
 #' @param path A character vector of one or more paths
 #' @param recursive Create intermediate directories if they do not exist
 #' @export
-fs_create_dir <- function(fs, path, recursive = TRUE){
+fs_create_dir <- function(fs, path, recursive = TRUE) {
   fs$CreateDir(path, recursive = recursive)
 }
 
@@ -709,7 +712,7 @@ fs_create_dir <- function(fs, path, recursive = TRUE){
 #' @param fs A FileSystem object
 #' @param path A character vector of one or more paths
 #' @export
-fs_delete_dir <- function(fs, path){
+fs_delete_dir <- function(fs, path) {
   fs$DeleteDir(path)
 }
 
@@ -719,27 +722,16 @@ fs_delete_dir <- function(fs, path){
 #' @param src Source path
 #' @param dest Destination path
 #' @export
-fs_copy_file <- function(fs, src, dest){
+fs_copy_file <- function(fs, src, dest) {
   fs$CopyFile(src, dest)
 }
-
-#' @export
-fs_open_output_stream <- function(fs, path, append = FALSE){
-  if (append) {
-    fs$OpenAppendStream(path)
-  } else {
-    fs$OpenOutputStream(path)
-  }
-}
-
-# TODO: create method close.OutputStream (or whatever object returned from bucket$OpenAppendStream)
 
 #' Delete a file from a file system
 #'
 #' @param fs A FileSystem object
 #' @param path A character vector of one or more paths
 #' @export
-fs_delete_file <- function(fs, path){
+fs_delete_file <- function(fs, path) {
   fs$DeleteFiles(path)
 }
 
@@ -748,12 +740,12 @@ fs_delete_file <- function(fs, path){
 #' @param fs A FileSystem object
 #' @param path A character vector of one or more paths
 #' @export
-fs_get_file_info <- function(fs, path){
+fs_get_file_info <- function(fs, path) {
   fs$GetFileInfo(path)
 }
 
 #' @export
-fs_make_path <- function(fs, path){
+fs_make_path <- function(fs, path) {
   fs$path(path)
 }
 
@@ -768,6 +760,6 @@ fs_make_path <- function(fs, path){
 #' @param src Source path
 #' @param dest Destination path
 #' @export
-fs_move_file <- function(fs, src, dest){
+fs_move_file <- function(fs, src, dest) {
   fs$Move(src, dest)
 }
