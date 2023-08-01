@@ -522,7 +522,8 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
 
   std::shared_ptr<ArrayData> data_;
 
-  RawSyncEvent sync_event_;
+  // RawSyncEvent sync_event_;
+  std::shared_ptr<DeviceSync> sync_;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -546,11 +547,11 @@ void ReleaseExportedArray(struct ArrowArray* array) {
         << "Dictionary release callback should have marked it released";
   }
   DCHECK_NE(array->private_data, nullptr);
-  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
-  if (pdata->sync_event_.sync_event != nullptr &&
-      pdata->sync_event_.release_func != nullptr) {
-    pdata->sync_event_.release_func(pdata->sync_event_.sync_event);
+  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);  
+  if (pdata->sync_) {
+    pdata->sync_->clear_event();
   }
+  
   delete pdata;
 
   ArrowArrayMarkReleased(array);
@@ -591,7 +592,7 @@ struct ArrayExporter {
     // Store owning pointer to ArrayData
     export_.data_ = data;
 
-    export_.sync_event_ = RawSyncEvent();
+    export_.sync_ = nullptr;
     return Status::OK();
   }
 
@@ -714,11 +715,11 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
   return std::make_pair(device_type, device_id);
 }
 
-Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
-  if (sync_event.sync_event != nullptr && sync_event.release_func) {
-    return Status::Invalid(
-        "Must provide a release event function if providing a non-null event");
+  void* sync_event {nullptr};
+  if (sync) {
+    ARROW_ASSIGN_OR_RAISE(sync_event, sync->get_event());
   }
 
   SchemaExportGuard guard(out_schema);
@@ -739,21 +740,21 @@ Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
   exporter.Finish(&out->array);
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
-  pdata->sync_event_ = sync_event;
-  out->sync_event = sync_event.sync_event;
+  pdata->sync_ = sync;
+  out->sync_event = sync_event;
 
   guard.Detach();
   return Status::OK();
 }
 
-Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event,
+Status ExportDeviceRecordBatch(const RecordBatch& batch, std::shared_ptr<DeviceSync>& sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
-  if (sync_event.sync_event != nullptr && sync_event.release_func == nullptr) {
-    return Status::Invalid(
-        "Must provide a release event function if providing a non-null event");
-  }
-
+  void* sync_event {nullptr};
+  if (sync) {
+    ARROW_ASSIGN_OR_RAISE(sync_event, sync->get_event());
+  }                              
+  
   // XXX perhaps bypass ToStructArray for speed?
   ARROW_ASSIGN_OR_RAISE(auto array, batch.ToStructArray());
 
@@ -776,8 +777,8 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event
   exporter.Finish(&out->array);
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
-  pdata->sync_event_ = sync_event;
-  out->sync_event = sync_event.sync_event;
+  pdata->sync_ = sync;
+  out->sync_event = sync_event;
 
   guard.Detach();
   return Status::OK();
@@ -1362,7 +1363,8 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  void* sync_event_;
+  std::shared_ptr<DeviceSync> device_sync;
+  // void* sync_event_;
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1395,6 +1397,10 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override {}
 
+  std::shared_ptr<DeviceSync> get_device_sync() override { 
+    return import_->device_sync; 
+  }
+
  protected:
   std::shared_ptr<ImportedArrayData> import_;
 };
@@ -1409,7 +1415,8 @@ struct ArrayImporter {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
-    import_->sync_event_ = src->sync_event;
+    // import_->sync_event_ = src->sync_event;
+    ARROW_ASSIGN_OR_RAISE(import_->device_sync, memory_mgr_->MakeDeviceSync(src->sync_event));
     // reset internal state before next import
     memory_mgr_.reset();
     device_type_ = DeviceAllocationType::kCPU;

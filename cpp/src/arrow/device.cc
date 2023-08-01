@@ -29,6 +29,8 @@ namespace arrow {
 
 MemoryManager::~MemoryManager() {}
 
+Result<std::shared_ptr<DeviceSync>> MemoryManager::MakeDeviceSync(void* event) { return nullptr; }
+
 Device::~Device() {}
 
 #define COPY_BUFFER_SUCCESS(maybe_buffer) \

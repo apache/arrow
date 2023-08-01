@@ -24,6 +24,7 @@
 #include "arrow/c/abi.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/device.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -198,7 +199,7 @@ struct RawSyncEvent {
 /// \param[out] out C struct to export the array to
 /// \param[out] out_schema optional C struct to export the array type to
 ARROW_EXPORT
-Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
                          struct ArrowDeviceArray* out,
                          struct ArrowSchema* out_schema = NULLPTR);
 
@@ -220,7 +221,7 @@ Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
 /// \param[out] out C struct where to export the record batch
 /// \param[out] out_schema optional C struct where to export the record batch schema
 ARROW_EXPORT
-Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event,
+Status ExportDeviceRecordBatch(const RecordBatch& batch, std::shared_ptr<DeviceSync>& sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema = NULLPTR);
 

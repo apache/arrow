@@ -1135,12 +1135,43 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
+static const void* kMyEventPtr = reinterpret_cast<void*>(0xBAADF00D);
+
+
+class MyDeviceSync final : public DeviceSync {
+ public:
+  explicit MyDeviceSync(void* sync_event) 
+    : DeviceSync(sync_event) {}
+  
+  virtual ~MyDeviceSync() = default;
+
+  virtual Status wait() override {
+    return Status::OK();
+  }
+  virtual Status stream_wait(void* stream) override {
+    return Status::OK();
+  }
+
+ protected:
+  Result<void*> create_event() override {
+    return const_cast<void*>(kMyEventPtr);
+  }
+  Status record_event_on_stream(void* event) override {
+    return Status::OK();
+  }
+  void release_event(void* event) override {}
+};
 
 class MyBuffer final : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
 
   ~MyBuffer() { default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_); }
+
+  std::shared_ptr<DeviceSync> get_device_sync() override { return device_sync_; }
+
+ protected:
+  std::shared_ptr<DeviceSync> device_sync_;
 };
 
 class MyMemoryManager : public CPUMemoryManager {
@@ -1152,6 +1183,10 @@ class MyMemoryManager : public CPUMemoryManager {
     uint8_t* data;
     RETURN_NOT_OK(pool_->Allocate(size, &data));
     return std::make_unique<MyBuffer>(data, size, shared_from_this());
+  }
+
+  Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(void* sync_event = nullptr) override {
+    return std::make_shared<MyDeviceSync>(sync_event);
   }
 
  protected:
@@ -1251,7 +1286,8 @@ class TestDeviceArrayExport : public ::testing::Test {
                        ", array data = ", arr->ToString());
     const ArrayData& data = *arr->data();  // non-owning reference
     struct ArrowDeviceArray c_export;
-    ASSERT_OK(ExportDeviceArray(*arr, {nullptr, nullptr}, &c_export));
+    std::shared_ptr<DeviceSync> sync{nullptr};
+    ASSERT_OK(ExportDeviceArray(*arr, sync, &c_export));
 
     ArrayExportGuard guard(&c_export.array);
     auto new_bytes = pool_->bytes_allocated();
@@ -1455,7 +1491,8 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   ArrayExportGuard array_guard(&c_array.array);
 
   auto array = ToDevice(mm, *ArrayFromJSON(int8(), "[1, 2, 3]")->data()).ValueOrDie();
-  ASSERT_OK(ExportDeviceArray(*array, {nullptr, nullptr}, &c_array, &c_schema));
+  auto sync = mm->MakeDeviceSync().ValueOrDie();
+  ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
   const ArrayData& data = *array->data();
   array.reset();
   ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
@@ -1463,7 +1500,7 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   ASSERT_EQ(c_schema.format, std::string("c"));
   ASSERT_EQ(c_schema.n_children, 0);
   ArrayExportChecker checker{};
-  checker(&c_array, data, kMyDeviceType, 1, nullptr);
+  checker(&c_array, data, kMyDeviceType, 1, kMyEventPtr);
 }
 
 TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
@@ -1481,25 +1518,25 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
                   .ValueOrDie();
 
   auto batch_factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
-
+  auto sync = mm->MakeDeviceSync().ValueOrDie();
   {
     auto batch = batch_factory();
 
-    ASSERT_OK(ExportDeviceRecordBatch(*batch, {nullptr, nullptr}, &c_array, &c_schema));
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
     SchemaExportGuard schema_guard(&c_schema);
     ArrayExportGuard array_guard(&c_array.array);
     RecordBatchExportChecker checker{};
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
 
     // create batch anew, with the same buffer pointers
     batch = batch_factory();
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
   }
   {
     // Check one can export both schema and record batch at once
     auto batch = batch_factory();
 
-    ASSERT_OK(ExportDeviceRecordBatch(*batch, {nullptr, nullptr}, &c_array, &c_schema));
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
     SchemaExportGuard schema_guard(&c_schema);
     ArrayExportGuard array_guard(&c_array.array);
     ASSERT_EQ(c_schema.format, std::string("+s"));
@@ -1508,11 +1545,11 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
     ASSERT_EQ(kEncodedMetadata2,
               std::string(c_schema.metadata, kEncodedMetadata2.size()));
     RecordBatchExportChecker checker{};
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
 
     // Create batch anew, with the same buffer pointers
     batch = batch_factory();
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
   }
 }
 

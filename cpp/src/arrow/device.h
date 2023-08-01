@@ -21,6 +21,8 @@
 #include <memory>
 #include <string>
 
+#include "arrow/status.h"
+#include "arrow/result.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
@@ -105,6 +107,61 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   bool is_cpu_;
 };
 
+
+class ARROW_EXPORT DeviceSync {
+ public:
+  explicit DeviceSync(void* sync_event) 
+    : sync_event_{sync_event}, owns_event_{false} {}
+  virtual ~DeviceSync() = default;
+
+  /// @brief Block until sync event is completed.
+  ///
+  /// Should be a no-op for CPU devices.  
+  virtual Status wait() = 0;
+
+  /// @brief Make the provided stream wait on the sync event.
+  ///
+  /// Tells the provided stream that it should wait until the 
+  /// synchronization event is completed without blocking the CPU.
+  /// @param stream Should be appropriate for the underlying device
+  virtual Status stream_wait(void* stream) = 0;
+
+  virtual void set_stream(void* stream) { stream_ = stream; }
+
+  Result<void*> get_event() {
+    if (!sync_event_) {
+      ARROW_ASSIGN_OR_RAISE(sync_event_, create_event());  
+      owns_event_ = true;
+    }
+    return sync_event_;
+  }
+
+  void clear_event() {
+    if (owns_event_) {
+      release_event(sync_event_);
+    }
+    sync_event_ = nullptr;
+  }  
+
+  Status record_event() {
+    if (!stream_) {
+      return Status::Invalid("Cannot record event on null stream, call set_stream first.");
+    }
+    ARROW_ASSIGN_OR_RAISE(auto ev, get_event());
+    return record_event_on_stream(ev);
+  }
+
+ protected:
+  virtual Status record_event_on_stream(void* event) = 0;
+  // allowed to gracefully receive a nullptr
+  virtual void release_event(void* event) = 0;
+  virtual Result<void*> create_event() = 0;
+
+  void* stream_;
+  void* sync_event_; 
+  bool owns_event_;
+};
+
 /// \brief EXPERIMENTAL: An object that provides memory management primitives
 ///
 /// A MemoryManager is always tied to a particular Device instance.
@@ -164,6 +221,8 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// See also the Buffer::View shorthand.
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+
+  virtual Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(void* sync_event = nullptr);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(MemoryManager);
