@@ -132,11 +132,7 @@ Maven
       $ cd arrow/java
       $ export JAVA_HOME=<absolute path to your java home>
       $ java --version
-      $ mvn generate-resources \
-          -Pgenerate-libs-jni-macos-linux \
-          -DARROW_GANDIVA=ON \
-          -DARROW_JAVA_JNI_ENABLE_GANDIVA=ON \
-          -N
+      $ mvn generate-resources -Pgenerate-libs-jni-macos-linux -N
       $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
       |__ libarrow_dataset_jni.dylib
       |__ libarrow_orc_jni.dylib
@@ -236,7 +232,9 @@ CMake
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
-          -DCMAKE_PREFIX_PATH=$PWD/java-dist
+          -DCMAKE_PREFIX_PATH=$PWD/java-dist \
+          -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
+          -DProtobuf_USE_STATIC_LIBS=ON
       $ cmake --build java-jni --target install --config Release
       $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
       |__ libarrow_dataset_jni.dylib
@@ -257,8 +255,9 @@ CMake
           -DARROW_DATASET=ON ^
           -DARROW_DEPENDENCY_USE_SHARED=OFF ^
           -DARROW_FILESYSTEM=ON ^
+          -DARROW_GANDIVA=OFF ^
           -DARROW_JSON=ON ^
-          -DARROW_ORC=OFF ^
+          -DARROW_ORC=ON ^
           -DARROW_PARQUET=ON ^
           -DARROW_S3=ON ^
           -DARROW_SUBSTRAIT=ON ^
@@ -280,9 +279,10 @@ CMake
           -S java ^
           -B java-jni ^
           -DARROW_JAVA_JNI_ENABLE_C=OFF ^
+          -DARROW_JAVA_JNI_ENABLE_DATASET=ON ^
           -DARROW_JAVA_JNI_ENABLE_DEFAULT=ON ^
           -DARROW_JAVA_JNI_ENABLE_GANDIVA=OFF ^
-          -DARROW_JAVA_JNI_ENABLE_ORC=OFF ^
+          -DARROW_JAVA_JNI_ENABLE_ORC=ON ^
           -DBUILD_TESTING=OFF ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DCMAKE_INSTALL_LIBDIR=lib/x86_64 ^
@@ -290,6 +290,7 @@ CMake
           -DCMAKE_PREFIX_PATH=$PWD/java-dist
       $ cmake --build java-jni --target install --config Release
       $ dir "java-dist/bin"
+      |__ arrow_orc_jni.dll
       |__ arrow_dataset_jni.dll
 
 Archery
