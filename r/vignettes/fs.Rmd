@@ -34,7 +34,7 @@ can be created with the `gs_bucket()` function. The resulting
 `FileSystem` will consider paths relative to the bucket's path (so for example
 you don't need to prefix the bucket path when listing a directory).
 
-With a `FileSystem` object, you can point to specific files in it with the `$path()` method
+With a `FileSystem` object, you can point to specific files in it with the `fs_make_path()` function
 and pass the result to file readers and writers (`read_parquet()`, `write_feather()`, et al.).
 
 Often the reason users work with cloud storage in real world analysis is to access large data sets. An example of this is discussed in the [datasets article](./dataset.html), but new users may prefer to work with a much smaller data set while learning how the arrow cloud storage interface works. To that end, the examples in this article rely on a multi-file Parquet dataset that stores a copy of the `diamonds` data made available through the [`ggplot2`](https://ggplot2.tidyverse.org/) package, documented in `help("diamonds", package = "ggplot2")`. The cloud storage version of this data set consists of 5 Parquet files totaling less than 1MB in size.
@@ -55,12 +55,12 @@ Note that `anonymous = TRUE` is required for GCS if credentials have not been co
 
 <!-- TODO: update GCS note above if ARROW-17097 is addressed -->
 
-Within this bucket there is a folder called `diamonds`. We can call `bucket$ls("diamonds")` to list the files stored in this folder, or `bucket$ls("diamonds", recursive = TRUE)` to recursively search subfolders. Note that on GCS, you should always set `recursive = TRUE` because directories often don't appear in the results.
+Within this bucket there is a folder called `diamonds`. We can call `fs_ls(bucket, "diamonds")` to list the files stored in this folder, or `fs_ls(bucket, "diamonds", recursive = TRUE)` to recursively search subfolders. Note that on GCS, you should always set `recursive = TRUE` because directories often don't appear in the results.
 
 Here's what we get when we list the files stored in the GCS bucket:
 
 ``` r
-bucket$ls("diamonds", recursive = TRUE)
+fs_ls(bucket, "diamonds", recursive = TRUE)
 ```
 
 ``` r
@@ -71,10 +71,10 @@ bucket$ls("diamonds", recursive = TRUE)
 ## [5] "diamonds/cut=Very Good/part-0.parquet"
 ```
 
-There are 5 Parquet files here, one corresponding to each of the "cut" categories in the `diamonds` data set. We can specify the path to a specific file by calling `bucket$path()`:
+There are 5 Parquet files here, one corresponding to each of the "cut" categories in the `diamonds` data set. We can specify the path to a specific file by calling `fs_make_path()`:
 
 ``` r
-parquet_good <- bucket$path("diamonds/cut=Good/part-0.parquet")
+parquet_good <- fs_make_path(bucket, "diamonds/cut=Good/part-0.parquet")
 ```
 
 We can use `read_parquet()` to read from this path directly into R:
@@ -175,7 +175,7 @@ bucket <- S3FileSystem$create(
   endpoint_override="https://storage.googleapis.com",
   allow_bucket_creation=TRUE
 )
-bucket$path("voltrondata-labs-datasets/")
+fs_make_path(bucket, "voltrondata-labs-datasets/")
 ```
 
 Both tell the `S3FileSystem` object that it should allow the creation of new buckets 
