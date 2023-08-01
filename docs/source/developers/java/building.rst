@@ -233,8 +233,8 @@ CMake
           -DCMAKE_INSTALL_LIBDIR=lib/<your system's architecture> \
           -DCMAKE_INSTALL_PREFIX=java-dist \
           -DCMAKE_PREFIX_PATH=$PWD/java-dist \
-          -DProtobuf_USE_STATIC_LIBS=ON \
-          -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install
+          -DProtobuf_ROOT=$PWD/../cpp-jni/protobuf_ep-install \
+          -DProtobuf_USE_STATIC_LIBS=ON
       $ cmake --build java-jni --target install --config Release
       $ ls -latr java-dist/lib/<your system's architecture>/*_{jni,java}.*
       |__ libarrow_dataset_jni.dylib
