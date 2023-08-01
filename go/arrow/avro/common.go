@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 )
 
@@ -44,6 +43,19 @@ func WithAllocator(mem memory.Allocator) Option {
 	}
 }
 
+// WithIncludeSchemaRoot specifies that the root object of the avro schema
+// should be included if the top level object is of record type
+func WithIncludeSchemaRoot() Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *OCFReader:
+			cfg.includeRoot = true
+		default:
+			panic(fmt.Errorf("arrow/avro: unknown config type %T", cfg))
+		}
+	}
+}
+
 // WithChunk specifies the chunk size used while reading Avro OCF files.
 //
 // If n is zero or 1, no chunking will take place and the reader will create
@@ -58,26 +70,6 @@ func WithChunk(n int) Option {
 			cfg.chunk = n
 		default:
 			panic(fmt.Errorf("arrow/avro: unknown config type %T", cfg))
-		}
-	}
-}
-
-func validate(schema *arrow.Schema) {
-	for i, f := range schema.Fields() {
-		switch ft := f.Type.(type) {
-		case *arrow.BooleanType:
-		case *arrow.Int32Type, *arrow.Int64Type:
-		case *arrow.Uint8Type, *arrow.Uint16Type, *arrow.Uint32Type, *arrow.Uint64Type:
-		case *arrow.Float32Type, *arrow.Float64Type:
-		case *arrow.StringType:
-		case *arrow.TimestampType:
-		case *arrow.Date32Type:
-		case *arrow.Decimal128Type:
-		case *arrow.ListType, *arrow.FixedSizeListType:
-		case *arrow.BinaryType, *arrow.FixedSizeBinaryType:
-		case *arrow.NullType:
-		default:
-			panic(fmt.Errorf("arrow/csv: field %d (%s) has invalid data type %T", i, f.Name, ft))
 		}
 	}
 }
