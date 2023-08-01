@@ -131,7 +131,6 @@ on:
 {% endmacro %}
 
 {%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
   - name: Set up Ruby by apt
     if: runner.os == 'Linux' && runner.arch != 'X64'
     run: |
@@ -147,6 +146,7 @@ on:
     run: |
       # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
       gem install --user-install gemfury -v 0.12.0
+      ruby -r rubygems -e 'puts("#{Gem.user_dir}/bin")' >> $GITHUB_PATH
   - name: Install gemfury client
     if: runner.arch == 'X64'
     run: |
@@ -155,7 +155,6 @@ on:
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir'))/bin:$PATH
       fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
         --as=${CROSSBOW_GEMFURY_ORG} \
@@ -163,7 +162,6 @@ on:
     env:
       CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
       CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-  {% endif %}
 {% endmacro %}
 
 {%- macro azure_checkout_arrow() -%}
