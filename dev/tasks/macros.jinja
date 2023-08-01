@@ -117,10 +117,12 @@ on:
       sudo rm -rf /opt/hostedtoolcache/go || :
       # 489MB
       sudo rm -rf /opt/hostedtoolcache/PyPy || :
-      # 1.2GB
-      sudo rm -rf /opt/hostedtoolcache/Python || :
       # 376MB
       sudo rm -rf /opt/hostedtoolcache/node || :
+      # Remove Web browser packages
+      sudo apt-get purge -y -f firefox \
+              google-chrome-stable \
+              microsoft-edge-stable
       df -h
 {% endmacro %}
 
