@@ -1941,7 +1941,7 @@ cdef class _CumulativeSumOptions(FunctionOptions):
             except Exception:
                 _raise_invalid_function_option(
                     start, "`start` type for CumulativeSumOptions", TypeError)
-        
+
         self.wrapped.reset(new CCumulativeOptions(pyarrow_unwrap_scalar(start), skip_nulls))
 
 
@@ -1975,7 +1975,7 @@ cdef class _CumulativeOptions(FunctionOptions):
                     pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
-                    start, "`start` type for CumulativeSumOptions", TypeError)
+                    start, "`start` type for CumulativeOptions", TypeError)
 
 
 class CumulativeOptions(_CumulativeOptions):
