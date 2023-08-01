@@ -1944,29 +1944,6 @@ cdef class _CumulativeSumOptions(FunctionOptions):
 
         self.wrapped.reset(new CCumulativeOptions(pyarrow_unwrap_scalar(start), skip_nulls))
 
-    @staticmethod
-    def deserialize(buf):
-        """
-        Deserialize _CumulativeSumOptions.
-
-        Parameters
-        ----------
-        buf : Buffer
-            The buffer containing the data to deserialize.
-        """
-        cdef:
-            shared_ptr[CBuffer] c_buf = pyarrow_unwrap_buffer(buf)
-            CResult[unique_ptr[CFunctionOptions]] maybe_options = \
-                DeserializeFunctionOptions(deref(c_buf))
-            shared_ptr[CFunctionOptions] c_options
-        c_options = to_shared(GetResultValue(move(maybe_options)))
-        type_name = frombytes(c_options.get().options_type().type_name())
-        if type_name != "CumulativeOptions":
-            raise ValueError(f'Cannot deserialize "{type_name}"')
-        options = CumulativeSumOptions.__new__(CumulativeSumOptions)
-        (<FunctionOptions> options).init(c_options)
-        return options
-
 
 class CumulativeSumOptions(_CumulativeSumOptions):
     """
