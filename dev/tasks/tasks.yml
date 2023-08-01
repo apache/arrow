@@ -1589,7 +1589,7 @@ tasks:
 {% endfor %}
 
 {% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.4.1", "false", "latest"),
-                                                                           ("3.10", "v3.4.0", "false", "1.23"),
+                                                                           ("3.10", "v3.4.1", "false", "1.23"),
                                                                            ("3.11", "master", "false", "latest")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
