@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/decimal128"
 	"github.com/apache/arrow/go/v13/arrow/decimal256"
+
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/linkedin/goavro/v2"
@@ -51,13 +52,16 @@ type Reader interface {
 
 // Reader wraps goavro/OCFReader and creates array.Records from a schema.
 type OCFReader struct {
-	r      *goavro.OCFReader
-	schema *arrow.Schema
+	r          *goavro.OCFReader
+	avroSchema string
+	schema     *arrow.Schema
 
-	refs int64
-	bld  *array.RecordBuilder
-	cur  arrow.Record
-	err  error
+	refs        int64
+	bld         *array.RecordBuilder
+	cur         arrow.Record
+	includeRoot bool
+	tlrName     string
+	err         error
 
 	chunk int
 	done  bool
@@ -86,8 +90,8 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 	}
 
 	codec := ocfr.Codec()
-	schema := codec.CanonicalSchema()
-	rr.schema, err = ArrowSchemaFromAvro([]byte(schema))
+	rr.avroSchema = codec.CanonicalSchema()
+	rr.schema, rr.tlrName, err = ArrowSchemaFromAvro([]byte(rr.avroSchema), rr.includeRoot)
 	if err != nil {
 		panic(fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid))
 	}
@@ -97,7 +101,7 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
 	for idx, fb := range rr.bld.Fields() {
-		addEnumSymbolsToBuilder(fb, fb.Type().(*arrow.StructType).Field(idx))
+		addEnumSymbolsToBuilder(fb, rr.schema.Field(idx))
 	}
 	rr.next = rr.next1
 	switch {
@@ -106,7 +110,7 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 	case rr.chunk > 1:
 		rr.next = rr.nextn
 	default:
-		rr.next = rr.nextall
+		rr.next = rr.next1
 	}
 	return rr
 }
@@ -120,6 +124,20 @@ func addEnumSymbolsToBuilder(b array.Builder, f arrow.Field) {
 		}
 		sa := sb.NewStringArray()
 		bt.InsertStringDictValues(sa)
+	case *array.StructBuilder:
+		for i := 0; i < len(f.Type.(*arrow.StructType).Fields()); i++ {
+			addEnumSymbolsToBuilder(bt.FieldBuilder(i), f.Type.(*arrow.StructType).Field(i))
+		}
+	case *array.MapBuilder:
+		addEnumSymbolsToBuilder(bt.ItemBuilder(),
+			arrow.Field{Name: bt.Type().(*arrow.MapType).Name(),
+				Type:     bt.Type().(*arrow.MapType).Elem(),
+				Metadata: f.Metadata})
+	case *array.ListBuilder:
+		addEnumSymbolsToBuilder(bt.ValueBuilder(),
+			arrow.Field{Name: bt.Type().(*arrow.ListType).Name(),
+				Type:     bt.Type().(*arrow.ListType).Elem(),
+				Metadata: f.Metadata})
 	}
 }
 
@@ -127,7 +145,11 @@ func addEnumSymbolsToBuilder(b array.Builder, f arrow.Field) {
 // underlying Avro file.
 func (r *OCFReader) Err() error { return r.err }
 
+func (r *OCFReader) AvroSchema() string { return r.avroSchema }
+
 func (r *OCFReader) Schema() *arrow.Schema { return r.schema }
+
+func (r *OCFReader) TLRName() string { return r.tlrName }
 
 // Record returns the current record that has been extracted from the
 // underlying Avro OCF file.
@@ -160,12 +182,10 @@ func (r *OCFReader) Next() bool {
 func (r *OCFReader) next1() bool {
 	// Scan returns true when there is at least one more data item to be read from
 	// the Avro OCF. Scan ought to be called prior to calling the Read method each
-	// time the Read method is invoked.  See `NewOCFReader` documentation for an
-	// example.
+	// time the Read method is invoked.
 	if r.r.Scan() {
 		// Read consumes one datum value from the Avro OCF stream and returns it. Read
 		// is designed to be called only once after each invocation of the Scan method.
-		// See `NewOCFReader` documentation for an example.
 		recs, err := r.r.Read()
 		if err != nil {
 			r.done = true
@@ -175,27 +195,19 @@ func (r *OCFReader) next1() bool {
 			r.err = err
 			return false
 		}
-
 		for idx, fb := range r.bld.Fields() {
-			appendData(fb, recs.(map[string]interface{})[fb.Type().(*arrow.StructType).Field(idx).Name])
+			appendData(fb, recs.(map[string]interface{})[r.schema.Field(idx).Name], r.schema.Field(idx))
 		}
+
 		r.cur = r.bld.NewRecord()
 	}
 	return true
 }
 
 // nextall reads the whole Avro file into memory and creates one single
-// Record from all the data items.
-
+// Record from all the data items
 func (r *OCFReader) nextall() bool {
-	// Scan returns true when there is at least one more data item to be read from
-	// the Avro OCF. Scan ought to be called prior to calling the Read method each
-	// time the Read method is invoked.  See `NewOCFReader` documentation for an
-	// example.
 	for r.r.Scan() {
-		// Read consumes one datum value from the Avro OCF stream and returns it. Read
-		// is designed to be called only once after each invocation of the Scan method.
-		// See `NewOCFReader` documentation for an example.
 		recs, err := r.r.Read()
 		if err != nil {
 			r.done = true
@@ -205,9 +217,8 @@ func (r *OCFReader) nextall() bool {
 			r.err = err
 			return false
 		}
-
 		for idx, fb := range r.bld.Fields() {
-			appendData(fb, recs.(map[string]interface{})[fb.Type().(*arrow.StructType).Field(idx).Name])
+			appendData(fb, recs.(map[string]interface{})[r.schema.Field(idx).Name], r.schema.Field(idx))
 		}
 	}
 	r.cur = r.bld.NewRecord()
@@ -215,15 +226,11 @@ func (r *OCFReader) nextall() bool {
 }
 
 // nextn reads n data items from the Avro file, where n is the chunk size, and
-// creates a Record from these rows.
+// creates a Record from these rows
 func (r *OCFReader) nextn() bool {
 	var n = 0
-
 	for i := 0; i < r.chunk && !r.done; i++ {
 		if r.r.Scan() {
-			// Read consumes one datum value from the Avro OCF stream and returns it. Read
-			// is designed to be called only once after each invocation of the Scan method.
-			// See `NewOCFReader` documentation for an example.
 			recs, err := r.r.Read()
 			if err != nil {
 				r.done = true
@@ -234,34 +241,36 @@ func (r *OCFReader) nextn() bool {
 				return false
 			}
 			for idx, fb := range r.bld.Fields() {
-				appendData(fb, recs.(map[string]interface{})[fb.Type().(*arrow.StructType).Field(idx).Name])
+				appendData(fb, recs.(map[string]interface{})[r.schema.Field(idx).Name], r.schema.Field(idx))
 			}
 			n++
 		}
 	}
-
 	if r.err != nil {
 		r.done = true
 	}
-
 	r.cur = r.bld.NewRecord()
 	return n > 0
 }
 
-func appendData(b array.Builder, data interface{}) {
-	//		Avro					Go    			Arrow
-	//		null					nil				Null
-	//		boolean					bool			Boolean
-	//		bytes					[]byte			Binary
-	//		float					float32			Float32
-	//		double					float64			Float64
-	//		long					int64			Int64
-	//		int						int32  			Int32
-	//		string					string			String
-	//		array					[]interface{}	List
-	//		enum					string			Dictionary
-	//		fixed					[]byte			FixedSizeBinary
-	// 		map and record	map[string]interface{}	Struct
+// Avro data is loaded to Arrow arrays using the following type mapping:
+//
+//		Avro					Go    					Arrow
+//	 ================================================================
+//		null					nil						Null
+//		boolean					bool					Boolean
+//		bytes					[]byte					Binary
+//		float					float32					Float32
+//		double					float64					Float64
+//		long					int64					Int64
+//		int						int32  					Int32
+//		string					string					String
+//		array					[]interface{}			List
+//		enum					string					Dictionary
+//		fixed					[]byte					FixedSizeBinary
+//		map 					map[string]interface{}	Struct
+//		record					map[string]interface{}	Struct
+func appendData(b array.Builder, data interface{}, field arrow.Field) {
 	switch bt := b.(type) {
 	case *array.BinaryBuilder:
 		switch data.(type) {
@@ -279,7 +288,12 @@ func appendData(b array.Builder, data interface{}) {
 		case string:
 			bt.AppendString(dt)
 		case map[string]interface{}:
-			bt.AppendString(dt["string"].(string))
+			switch dt["string"].(type) {
+			case nil:
+				bt.AppendNull()
+			case string:
+				bt.AppendString(dt["string"].(string))
+			}
 		}
 	case *array.BooleanBuilder:
 		switch dt := data.(type) {
@@ -288,12 +302,13 @@ func appendData(b array.Builder, data interface{}) {
 		case bool:
 			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(dt["boolean"].(bool))
+			switch dt["boolean"].(type) {
+			case nil:
+				bt.AppendNull()
+			case bool:
+				bt.Append(dt["boolean"].(bool))
+			}
 		}
-	case *array.DayTimeIntervalBuilder:
-		bt.AppendNull()
-	case *array.DayTimeDictionaryBuilder:
-		bt.AppendNull()
 	case *array.Date32Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -301,15 +316,13 @@ func appendData(b array.Builder, data interface{}) {
 		case int32:
 			bt.Append(arrow.Date32(dt))
 		case map[string]interface{}:
-			bt.Append(arrow.Date32(dt["int"].(int32)))
+			switch dt["int"].(type) {
+			case nil:
+				bt.AppendNull()
+			case int32:
+				bt.Append(arrow.Date32(dt["int"].(int32)))
+			}
 		}
-	case *array.Date32DictionaryBuilder:
-		bt.AppendNull()
-	case *array.Date64Builder:
-		bt.AppendNull()
-	case *array.Date64DictionaryBuilder:
-		bt.AppendNull()
-	//case *array.DictionaryBuilder:
 	case *array.Decimal128Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -351,8 +364,6 @@ func appendData(b array.Builder, data interface{}) {
 				bt.Append(decimal128.FromBigInt(&bigIntData))
 			}
 		}
-	case *array.Decimal128DictionaryBuilder:
-		bt.AppendNull()
 	case *array.Decimal256Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -374,14 +385,6 @@ func appendData(b array.Builder, data interface{}) {
 			}
 			bt.Append(decimal256.FromBigInt(&bigIntData))
 		}
-	case *array.Decimal256DictionaryBuilder:
-		bt.AppendNull()
-	case *array.DenseUnionBuilder:
-		b.AppendNull()
-	case *array.DurationBuilder:
-		bt.AppendNull()
-	case *array.DurationDictionaryBuilder:
-		bt.AppendNull()
 	case *array.FixedSizeBinaryBuilder:
 		switch dt := data.(type) {
 		case nil:
@@ -389,16 +392,13 @@ func appendData(b array.Builder, data interface{}) {
 		case []byte:
 			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(dt["bytes"].([]byte))
+			switch dt["bytes"].(type) {
+			case nil:
+				bt.AppendNull()
+			case []byte:
+				bt.Append(dt["bytes"].([]byte))
+			}
 		}
-	case *array.FixedSizeBinaryDictionaryBuilder:
-		bt.AppendNull()
-	case *array.FixedSizeListBuilder:
-		bt.AppendNull()
-	case *array.Float16Builder:
-		bt.AppendNull()
-	case *array.Float16DictionaryBuilder:
-		bt.AppendNull()
 	case *array.Float32Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -406,10 +406,13 @@ func appendData(b array.Builder, data interface{}) {
 		case float32:
 			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(dt["float"].(float32))
+			switch dt["float"].(type) {
+			case nil:
+				bt.AppendNull()
+			case float32:
+				bt.Append(dt["float"].(float32))
+			}
 		}
-	case *array.Float32DictionaryBuilder:
-		bt.AppendNull()
 	case *array.Float64Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -417,18 +420,18 @@ func appendData(b array.Builder, data interface{}) {
 		case float64:
 			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(dt["double"].(float64))
+			switch dt["double"].(type) {
+			case nil:
+				bt.AppendNull()
+			case float64:
+				switch dt["double"].(type) {
+				case nil:
+					bt.AppendNull()
+				case float64:
+					bt.Append(dt["double"].(float64))
+				}
+			}
 		}
-	case *array.Float64DictionaryBuilder:
-		bt.AppendNull()
-	case *array.Int8Builder:
-		bt.AppendNull()
-	case *array.Int8DictionaryBuilder:
-		bt.AppendNull()
-	case *array.Int16Builder:
-		bt.AppendNull()
-	case *array.Int16DictionaryBuilder:
-		bt.AppendNull()
 	case *array.Int32Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -436,10 +439,13 @@ func appendData(b array.Builder, data interface{}) {
 		case int32:
 			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(dt["int"].(int32))
+			switch dt["int"].(type) {
+			case nil:
+				bt.AppendNull()
+			case int32:
+				bt.Append(dt["int"].(int32))
+			}
 		}
-	case *array.Int32DictionaryBuilder:
-		bt.AppendNull()
 	case *array.Int64Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -447,46 +453,50 @@ func appendData(b array.Builder, data interface{}) {
 		case int64:
 			bt.Append(dt)
 		case map[string]interface{}:
-			bt.Append(data.(map[string]interface{})["long"].(int64))
-		}
-	case *array.Int64DictionaryBuilder:
-		bt.AppendNull()
-	case *array.ListBuilder:
-		vb := bt.ValueBuilder()
-		vb.Reserve(len(data.([]interface{})))
-		for _, v := range data.([]interface{}) {
-			if v == nil {
+			switch dt["long"].(type) {
+			case nil:
 				bt.AppendNull()
-				vb.AppendNull()
-			} else {
-				bt.Append(true)
-				appendData(vb, v)
+			case int64:
+				bt.Append(dt["long"].(int64))
+			}
+		}
+	case *array.ListBuilder:
+		bt.Append(true)
+		vb := bt.ValueBuilder()
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+		case []interface{}:
+			vb.Reserve(len(dt))
+			//bt.Append(true)
+			for _, v := range dt {
+				if v == nil {
+					vb.AppendNull()
+				} else {
+					appendData(vb, v,
+						arrow.Field{Name: bt.Type().(*arrow.ListType).Name(),
+							Type:     bt.Type().(*arrow.ListType).Elem(),
+							Metadata: field.Metadata})
+				}
 			}
 		}
 	case *array.MapBuilder:
-		kb := bt.KeyBuilder()
-		ib := bt.ItemBuilder()
-		for k, v := range data.(map[string]interface{}) {
-			appendData(kb, k)
-			appendData(ib, v)
+		switch dt := data.(type) {
+		case nil:
+			bt.AppendNull()
+			return
+		case map[string]interface{}:
+			bt.Append(true)
+			kb := bt.KeyBuilder()
+			ib := bt.ItemBuilder()
+			for k, v := range dt {
+				appendData(kb, k, arrow.Field{})
+				appendData(ib, v,
+					arrow.Field{Name: bt.Type().(*arrow.MapType).Name(),
+						Type:     bt.Type().(*arrow.MapType).Elem(),
+						Metadata: field.Metadata})
+			}
 		}
-	// Avro Duration type is not implemented in github.com/linkedin/goavro
-	// Schema conversion falls back to Binary.
-	// A duration logical type annotates Avro fixed type of size 12, which
-	// stores three little-endian unsigned integers that represent durations
-	// at different granularities of time. The first stores a number in months,
-	// the second stores a number in days, and the third stores a number
-	// in milliseconds.
-	case *array.MonthDayNanoIntervalBuilder:
-		bt.AppendNull()
-	case *array.NullBuilder:
-		bt.AppendNull()
-	case *array.NullDictionaryBuilder:
-		bt.AppendNull()
-	case *array.RunEndEncodedBuilder:
-		bt.AppendNull()
-	case *array.SparseUnionBuilder:
-		bt.AppendNull()
 	case *array.StringBuilder:
 		switch dt := data.(type) {
 		case nil:
@@ -496,19 +506,120 @@ func appendData(b array.Builder, data interface{}) {
 		case map[string]interface{}:
 			// avro uuid logical type
 			if u, ok := dt["uuid"]; ok {
-				bt.Append(u.(string))
+				switch dt["string"].(type) {
+				case nil:
+					bt.AppendNull()
+				case string:
+					bt.Append(u.(string))
+				}
 			} else {
-				bt.Append(dt["string"].(string))
+				switch dt["string"].(type) {
+				case nil:
+					bt.AppendNull()
+				case string:
+					bt.Append(dt["string"].(string))
+				}
 			}
+		default:
+			bt.Append(fmt.Sprint(data))
 		}
-	//case *array.StringLikeBuilder:
-	//	bt.AppendNull()
 	case *array.StructBuilder:
-		i := 0
-		for i < bt.NumField() {
-			n := data.(map[string]interface{})[bt.Type().(*arrow.StructType).Field(i).Name]
-			appendData(bt.FieldBuilder(i), n)
-			i++
+		bt.Append(true)
+		switch td := data.(type) {
+		case nil:
+			for i := 0; i < bt.NumField(); i++ {
+				bt.FieldBuilder(i).AppendNull()
+			}
+		default:
+			for i := 0; i < bt.NumField(); i++ {
+				switch dt := td.(type) {
+				case nil:
+					bt.FieldBuilder(i).AppendNull()
+				case map[string]interface{}:
+					// check if type union
+					if namedType, ok := field.Metadata.GetValue("typeName"); !ok {
+						// non-union type
+						switch nit := dt[bt.Type().(*arrow.StructType).Field(i).Name].(type) {
+						case nil:
+							bt.FieldBuilder(i).AppendNull()
+						// array
+						case []interface{}:
+							if len(nit) == 0 {
+								bt.FieldBuilder(i).AppendNull()
+							} else {
+								appendData(bt.FieldBuilder(i),
+									nit,
+									field.Type.(*arrow.StructType).Field(i),
+								)
+							}
+						// primitive & complex types
+						default:
+							switch bt.FieldBuilder(i).(type) {
+							case *array.StructBuilder:
+								appendData(bt.FieldBuilder(i),
+									dt[bt.Type().(*arrow.StructType).Field(i).Name],
+									field.Type.(*arrow.StructType).Field(i))
+							case *array.ListBuilder:
+								appendData(bt.FieldBuilder(i),
+									dt[bt.Type().(*arrow.StructType).Field(i).Name],
+									arrow.Field{Metadata: field.Metadata})
+							case *array.MapBuilder:
+								appendData(bt.FieldBuilder(i),
+									dt[bt.Type().(*arrow.StructType).Field(i).Name],
+									arrow.Field{})
+							default:
+								appendData(bt.FieldBuilder(i),
+									dt[bt.Type().(*arrow.StructType).Field(i).Name],
+									arrow.Field{})
+							}
+						}
+					} else {
+						// Union type
+						switch itt := dt[namedType].(type) {
+						case nil:
+							bt.FieldBuilder(i).AppendNull()
+						// array
+						case []interface{}:
+							if len(itt) == 0 {
+								bt.FieldBuilder(i).AppendNull()
+							} else {
+								appendData(bt.FieldBuilder(i),
+									itt,
+									field.Type.(*arrow.StructType).Field(i),
+								)
+							}
+						// record
+						case map[string]interface{}:
+							switch t3 := itt[bt.Type().(*arrow.StructType).Field(i).Name].(type) {
+							case nil:
+								bt.FieldBuilder(i).AppendNull()
+							case []interface{}:
+								if len(t3) == 0 {
+									bt.FieldBuilder(i).AppendNull()
+								} else {
+									appendData(bt.FieldBuilder(i),
+										itt,
+										field.Type.(*arrow.StructType).Field(i),
+									)
+								}
+							case map[string]interface{}:
+								appendData(bt.FieldBuilder(i),
+									t3,
+									field.Type.(*arrow.StructType).Field(i))
+							default:
+								appendData(bt.FieldBuilder(i),
+									t3,
+									field.Type.(*arrow.StructType).Field(i))
+							}
+						// primitive & complex (non-record) types
+						default:
+							appendData(bt.FieldBuilder(i), dt, field.Type.(*arrow.StructType).Field(i))
+						}
+					}
+				default:
+					appendData(bt.FieldBuilder(i), dt, field.Type.(*arrow.StructType).Field(i))
+				}
+			}
 		}
 	case *array.Time32Builder:
 		switch dt := data.(type) {
@@ -517,10 +628,13 @@ func appendData(b array.Builder, data interface{}) {
 		case int32:
 			bt.Append(arrow.Time32(dt))
 		case map[string]interface{}:
-			bt.Append(arrow.Time32(dt["int"].(int32)))
+			switch dt["int"].(type) {
+			case nil:
+				bt.AppendNull()
+			case int32:
+				bt.Append(arrow.Time32(dt["int"].(int32)))
+			}
 		}
-	case *array.Time32DictionaryBuilder:
-		bt.AppendNull()
 	case *array.Time64Builder:
 		switch dt := data.(type) {
 		case nil:
@@ -528,10 +642,13 @@ func appendData(b array.Builder, data interface{}) {
 		case int64:
 			bt.Append(arrow.Time64(dt))
 		case map[string]interface{}:
-			bt.Append(arrow.Time64(dt["long"].(int64)))
+			switch dt["long"].(type) {
+			case nil:
+				bt.AppendNull()
+			case int64:
+				bt.Append(arrow.Time64(dt["long"].(int64)))
+			}
 		}
-	case *array.Time64DictionaryBuilder:
-		bt.AppendNull()
 	case *array.TimestampBuilder:
 		switch dt := data.(type) {
 		case nil:
@@ -539,28 +656,13 @@ func appendData(b array.Builder, data interface{}) {
 		case int64:
 			bt.Append(arrow.Timestamp(dt))
 		case map[string]interface{}:
-			bt.Append(arrow.Timestamp(dt["long"].(int64)))
+			switch dt["long"].(type) {
+			case nil:
+				bt.AppendNull()
+			case int64:
+				bt.Append(arrow.Timestamp(dt["long"].(int64)))
+			}
 		}
-	case *array.TimestampDictionaryBuilder:
-		bt.AppendNull()
-	case *array.Uint8Builder:
-		bt.AppendNull()
-	case *array.Uint8DictionaryBuilder:
-		bt.AppendNull()
-	case *array.Uint16Builder:
-		bt.AppendNull()
-	case *array.Uint16DictionaryBuilder:
-		bt.AppendNull()
-	case *array.Uint32Builder:
-		bt.AppendNull()
-	case *array.Uint32DictionaryBuilder:
-		bt.AppendNull()
-	case *array.Uint64Builder:
-		bt.AppendNull()
-	case *array.Uint64DictionaryBuilder:
-		bt.AppendNull()
-	//case *array.UnionBuilder:
-	//	b.AppendNull()
 	default:
 		bt.AppendNull()
 	}
