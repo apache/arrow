@@ -340,6 +340,8 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       throw ParquetException("direct put to boolean from " + values.type()->ToString() +
                              " not supported");
     }
+    // Put arrow array cannot mix with PlainEncoder<BooleanType>::PutImpl.
+    DCHECK_EQ(0, bit_writer_.bytes_written());
 
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
     if (data.null_count() == 0) {
@@ -354,6 +356,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
                                                       sink_.length(), n_valid);
 
       for (int64_t i = 0; i < data.length(); i++) {
+        // Only valid boolean data will call `writer.Next`.
         if (data.IsValid(i)) {
           if (data.Value(i)) {
             writer.Set();
@@ -365,7 +368,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       }
       writer.Finish();
     }
-    sink_.UnsafeAdvance(data.length());
+    sink_.UnsafeAdvance(data.length() - data.null_count());
   }
 
  private:

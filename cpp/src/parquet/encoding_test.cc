@@ -580,7 +580,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.builder.reset(new ::arrow::StringBuilder);
+    acc.builder = std::make_unique<::arrow::StringBuilder>();
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -662,6 +662,33 @@ class EncodingAdHocTyped : public ::testing::Test {
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
     ASSERT_EQ(50, result->length());
+    ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
+  }
+
+  void PlainTwice(int seed) {
+    auto values_single = GetValues(seed);
+    auto encoder = MakeTypedEncoder<ParquetType>(
+        Encoding::PLAIN, /*use_dictionary=*/false, column_descr());
+    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN, column_descr());
+
+    ASSERT_NO_THROW(encoder->Put(*values_single));
+    ASSERT_NO_THROW(encoder->Put(*values_single));
+    auto buf = encoder->FlushValues();
+
+    EXPECT_OK_AND_ASSIGN(auto values,
+                         ::arrow::Concatenate({values_single, values_single}));
+    decoder->SetData(static_cast<int>(values->length()), buf->data(),
+                     static_cast<int>(buf->size()));
+
+    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
+    ASSERT_EQ(values->length() - values->null_count(),
+              decoder->DecodeArrow(static_cast<int>(values->length()),
+                                   static_cast<int>(values->null_count()),
+                                   values->null_bitmap_data(), values->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(100, result->length());
     ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
   }
 
@@ -879,6 +906,12 @@ TYPED_TEST_SUITE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     this->Plain(seed);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut2) {
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    this->PlainTwice(seed);
   }
 }
 
