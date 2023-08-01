@@ -19,7 +19,7 @@ test_that("LocalFilesystem", {
   fs <- LocalFileSystem$create()
   expect_identical(fs$type_name, "local")
   DESCRIPTION <- system.file("DESCRIPTION", package = "arrow")
-  info <- fs$GetFileInfo(DESCRIPTION)[[1]]
+  info <- fs_get_file_info(fs, DESCRIPTION)[[1]]
   expect_equal(info$base_name(), "DESCRIPTION")
   expect_equal(info$extension(), "")
   expect_equal(info$type, FileType$File)
@@ -30,37 +30,37 @@ test_that("LocalFilesystem", {
   expect_equal(info$mtime, info$mtime)
 
   tf <- tempfile(fileext = ".txt")
-  fs$CopyFile(DESCRIPTION, tf)
-  info <- fs$GetFileInfo(tf)[[1]]
+  fs_copy_file(fs, DESCRIPTION, tf)
+  info <- fs_get_file_info(fs, tf)[[1]]
   expect_equal(info$extension(), "txt")
   expect_equal(info$size, info$size)
   expect_equal(readLines(DESCRIPTION), readLines(tf))
 
   tf2 <- tempfile(fileext = ".txt")
-  fs$Move(tf, tf2)
-  infos <- fs$GetFileInfo(c(tf, tf2, dirname(tf)))
+  fs_move_file(fs, tf, tf2)
+  infos <- fs_get_file_info(fs, c(tf, tf2, dirname(tf)))
   expect_equal(infos[[1]]$type, FileType$NotFound)
   expect_equal(infos[[2]]$type, FileType$File)
   expect_equal(infos[[3]]$type, FileType$Directory)
 
   fs$DeleteFile(tf2)
-  expect_equal(fs$GetFileInfo(tf2)[[1L]]$type, FileType$NotFound)
+  expect_equal(fs_get_file_info(fs, tf2)[[1L]]$type, FileType$NotFound)
   expect_true(!file.exists(tf2))
 
-  expect_equal(fs$GetFileInfo(tf)[[1L]]$type, FileType$NotFound)
+  expect_equal(fs_get_file_info(fs, tf)[[1L]]$type, FileType$NotFound)
   expect_true(!file.exists(tf))
 
   td <- tempfile()
-  fs$CreateDir(td)
-  expect_equal(fs$GetFileInfo(td)[[1L]]$type, FileType$Directory)
-  fs$CopyFile(DESCRIPTION, file.path(td, "DESCRIPTION"))
+  fs_create_dir(fs, td)
+  expect_equal(fs_get_file_info(fs, td)[[1L]]$type, FileType$Directory)
+  fs_copy_file(fs, DESCRIPTION, file.path(td, "DESCRIPTION"))
   fs$DeleteDirContents(td)
   expect_equal(length(dir(td)), 0L)
-  fs$DeleteDir(td)
-  expect_equal(fs$GetFileInfo(td)[[1L]]$type, FileType$NotFound)
+  fs_delete_dir(fs, td)
+  expect_equal(fs_get_file_info(fs, td)[[1L]]$type, FileType$NotFound)
 
   tf3 <- tempfile()
-  os <- fs$OpenOutputStream(path = tf3)
+  os <- fs_open_output_stream(fs, path = tf3)
   bytes <- as.raw(1:40)
   os$write(bytes)
   os$close()
@@ -88,9 +88,9 @@ test_that("SubTreeFilesystem", {
   # FIXME windows has a trailing slash for one but not the other
   # expect_identical(normalizePath(st_fs$base_path), normalizePath(td)) # nolint
 
-  st_fs$CreateDir("test")
-  st_fs$CopyFile("DESCRIPTION", "DESC.txt")
-  infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
+  fs_create_dir(st_fs, "test")
+  fs_copy_file(st_fs, "DESCRIPTION", "DESC.txt")
+  infos <- fs_get_file_info(st_fs, c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$File)
   expect_equal(infos[[2L]]$type, FileType$Directory)
   expect_equal(infos[[3L]]$type, FileType$NotFound)
@@ -99,7 +99,7 @@ test_that("SubTreeFilesystem", {
 
   local_fs <- LocalFileSystem$create()
   local_fs$DeleteDirContents(td)
-  infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
+  infos <- fs_get_file_info(st_fs, c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$NotFound)
   expect_equal(infos[[2L]]$type, FileType$NotFound)
   expect_equal(infos[[3L]]$type, FileType$NotFound)
@@ -115,21 +115,21 @@ test_that("LocalFileSystem + Selector", {
   writeLines("...", file.path(td, "dir", "three.txt"))
 
   selector <- FileSelector$create(td, recursive = TRUE)
-  infos <- fs$GetFileInfo(selector)
+  infos <- fs_get_file_info(fs, selector)
   expect_equal(length(infos), 4L)
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 3L)
   expect_equal(sum(types == FileType$Directory), 1L)
 
   selector <- FileSelector$create(td, recursive = FALSE)
-  infos <- fs$GetFileInfo(selector)
+  infos <- fs_get_file_info(fs, selector)
   expect_equal(length(infos), 3L)
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 2L)
   expect_equal(sum(types == FileType$Directory), 1L)
 })
 
-# This test_that block must be above the two that follow it because S3FileSystem$create
+# This test_that block must be above the two that follow it because s3_fs
 # uses a slightly different set of cpp code that is R-only, so if there are bugs
 # in the initialization of S3 (e.g. ARROW-14667) they will not be caught because
 # the blocks "FileSystem$from_uri" and "SubTreeFileSystem$create() with URI" actually
@@ -138,7 +138,7 @@ test_that("S3FileSystem", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  s3fs <- S3FileSystem$create()
+  s3fs <- s3_fs()
   expect_r6_class(s3fs, "S3FileSystem")
 })
 
@@ -163,13 +163,13 @@ test_that("SubTreeFileSystem$create() with URI", {
   )
 })
 
-test_that("S3FileSystem$create() with proxy_options", {
+test_that("s3_fs() with proxy_options", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
 
   expect_error(
-    S3FileSystem$create(proxy_options = "definitely not a valid proxy URI"),
+    s3_fs(proxy_options = "definitely not a valid proxy URI"),
     "Cannot parse URI"
   )
 })
