@@ -597,7 +597,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
     if (options->start_offset != kDefaultStartOffset) {
       ARROW_ASSIGN_OR_RAISE(row_groups,
-                            parquet_fragment->FilterRangeRowGroups(options->start_offset, options->length));
+                            parquet_fragment->FilterRangeRowGroups(row_groups, options->start_offset, options->length));
     }
   }
   // Open the reader and pay the real IO cost.
@@ -613,7 +613,7 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
                             parquet_fragment->FilterRowGroups(options->filter));
       if (options->start_offset != kDefaultStartOffset) {
         ARROW_ASSIGN_OR_RAISE(row_groups,
-                              parquet_fragment->FilterRangeRowGroups(options->start_offset, options->length));
+                              parquet_fragment->FilterRangeRowGroups(row_groups, options->start_offset, options->length));
       }
       if (row_groups.empty()) return MakeEmptyGenerator<std::shared_ptr<RecordBatch>>();
     }
@@ -890,9 +890,9 @@ Result<std::vector<int>> ParquetFileFragment::FilterRowGroups(
 }
 
 Result<std::vector<int>> ParquetFileFragment::FilterRangeRowGroups(
-    int64_t start_offset, int64_t length) {
+    std::vector<int> filtered_row_groups, int64_t start_offset, int64_t length) {
   std::vector<int> row_groups;
-  for (int row_group : *row_groups_) {
+  for (int row_group : filtered_row_groups) {
     auto rg_metadata = metadata_->RowGroup(row_group);
     std::shared_ptr<parquet::ColumnChunkMetaData> cc0 = rg_metadata->ColumnChunk(0);
     int64_t r_start = cc0->data_page_offset();
