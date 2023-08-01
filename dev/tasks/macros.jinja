@@ -191,11 +191,25 @@ on:
     run: |
       sudo apt update
       sudo apt install -y ruby-full
+  - name: Set up Ruby by GitHub Actions
+    if: runner.arch == 'X64' && runner.os != 'macOS'
+    uses: ruby/setup-ruby@v1
+    with:
+      ruby-version: "ruby"
+  - name: Install gemfury client on ARM self-hosted
+    if: runner.arch != 'X64'
+    run: |
+      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
+      gem install --user-install gemfury -v 0.12.0
+      ruby -r rubygems -e 'puts("#{Gem.user_dir}/bin")' >> $GITHUB_PATH
+  - name: Install gemfury client
+    if: runner.arch == 'X64'
+    run: |
+      # GH-36692: Pin gemfury due to wrong faraday dependency declaration.
+      gem install gemfury -v 0.12.0
   - name: Upload package to Gemfury
     shell: bash
     run: |
-      PATH=$(echo $(ruby -r rubygems -e 'puts Gem.user_dir') | sed "s/C:\//\/c\//")/bin:$PATH
-      gem install --user-install gemfury
       fury push \
         --api-token=${CROSSBOW_GEMFURY_TOKEN} \
         --as=${CROSSBOW_GEMFURY_ORG} \
