@@ -95,8 +95,8 @@ TEST(AzureFileSystem, InitialiseAzurite) {
   const std::string& account_key = GetAzuriteEnv()->account_key();
   EXPECT_EQ(account_name, "devstoreaccount1");
   EXPECT_EQ(account_key,
-               "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
-               "K1SZFPTOtr/KBHBeksoGMGw==");
+            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/"
+            "K1SZFPTOtr/KBHBeksoGMGw==");
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
