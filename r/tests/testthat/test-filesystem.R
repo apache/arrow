@@ -129,7 +129,7 @@ test_that("LocalFileSystem + Selector", {
   expect_equal(sum(types == FileType$Directory), 1L)
 })
 
-# This test_that block must be above the two that follow it because s3_fs
+# This test_that block must be above the two that follow it because S3FileSystem$create
 # uses a slightly different set of cpp code that is R-only, so if there are bugs
 # in the initialization of S3 (e.g. ARROW-14667) they will not be caught because
 # the blocks "FileSystem$from_uri" and "SubTreeFileSystem$create() with URI" actually
@@ -138,7 +138,7 @@ test_that("S3FileSystem", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
-  s3fs <- s3_fs()
+  s3fs <- S3FileSystem$create()
   expect_r6_class(s3fs, "S3FileSystem")
 })
 
@@ -163,13 +163,13 @@ test_that("SubTreeFileSystem$create() with URI", {
   )
 })
 
-test_that("s3_fs() with proxy_options", {
+test_that("S3FileSystem$create() with proxy_options", {
   skip_on_cran()
   skip_if_not_available("s3")
   skip_if_offline()
 
   expect_error(
-    s3_fs(proxy_options = "definitely not a valid proxy URI"),
+    S3FileSystem$create(proxy_options = "definitely not a valid proxy URI"),
     "Cannot parse URI"
   )
 })
