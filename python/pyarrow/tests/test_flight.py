@@ -1495,7 +1495,7 @@ def test_tls_override_hostname():
     """Check that incorrectly overriding the hostname fails."""
     certs = example_tls_certs()
 
-    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s,\
+    with ConstantFlightServer(tls_certificates=certs["certificates"]) as s, \
         flight.connect(('localhost', s.port),
                        tls_root_certs=certs["root_cert"],
                        override_hostname="fakehostname") as client:

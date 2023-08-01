@@ -1936,7 +1936,7 @@ def test_write_quoting_style():
             except Exception as e:
                 # This will trigger when we try to write a comma (,)
                 # without quotes, which is invalid
-                assert type(e) == res
+                assert isinstance(e, res)
                 break
         assert buf.getvalue() == res
         buf.seek(0)

@@ -340,8 +340,8 @@ def test_ext_scalar_from_array():
     assert len(scalars_a) == 4
 
     assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
-    assert type(a[0]) == UuidScalarType
-    assert type(scalars_a[0]) == UuidScalarType
+    assert isinstance(a[0], UuidScalarType)
+    assert isinstance(scalars_a[0], UuidScalarType)
 
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
@@ -737,7 +737,7 @@ class PeriodType(pa.ExtensionType):
 
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
-            return (type(self) == type(other) and
+            return (isinstance(self, type(other)) and
                     self.freq == other.freq)
         else:
             return NotImplemented
@@ -799,7 +799,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
     # check the built array has exactly the expected clss
-    assert type(arr) == period_class
+    assert isinstance(arr, period_class)
 
     buf = ipc_write_batch(batch)
     del batch
@@ -807,7 +807,7 @@ def test_generic_ext_type_ipc(registered_period_type):
 
     result = batch.column(0)
     # check the deserialized array class is the expected one
-    assert type(result) == period_class
+    assert isinstance(result, period_class)
     assert result.type.extension_name == "test.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
@@ -830,7 +830,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     result = batch.column(0)
     assert isinstance(result.type, PeriodType)
     assert result.type.freq == 'H'
-    assert type(result) == period_class
+    assert isinstance(result, period_class)
 
 
 def test_generic_ext_type_ipc_unknown(registered_period_type):
@@ -1261,7 +1261,7 @@ def test_tensor_type_ipc(tensor_type):
 
     # check the built array has exactly the expected clss
     tensor_class = tensor_type.__arrow_ext_class__()
-    assert type(arr) == tensor_class
+    assert isinstance(arr, tensor_class)
 
     buf = ipc_write_batch(batch)
     del batch
@@ -1269,7 +1269,7 @@ def test_tensor_type_ipc(tensor_type):
 
     result = batch.column(0)
     # check the deserialized array class is the expected one
-    assert type(result) == tensor_class
+    assert isinstance(result, tensor_class)
     assert result.type.extension_name == "arrow.fixed_shape_tensor"
     assert arr.storage.to_pylist() == [[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]]
 
