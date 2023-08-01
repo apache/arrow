@@ -26,6 +26,7 @@ jobs:
 {{ macros.github_set_env(env) }}
     steps:
       {{ macros.github_checkout_arrow(fetch_depth=fetch_depth|default(1))|indent }}
+      {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
 
       - name: Execute Docker Build
