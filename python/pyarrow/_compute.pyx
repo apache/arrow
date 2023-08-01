@@ -1945,7 +1945,7 @@ cdef class _CumulativeSumOptions(FunctionOptions):
         self.wrapped.reset(new CCumulativeOptions(pyarrow_unwrap_scalar(start), skip_nulls))
 
 
-class CumulativeOptions(_CumulativeOptions):
+class CumulativeSumOptions(_CumulativeSumOptions):
     """
     Options for `cumulative_sum` function.
 
