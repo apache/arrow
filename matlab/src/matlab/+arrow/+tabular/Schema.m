@@ -48,8 +48,9 @@ classdef Schema < matlab.mixin.CustomDisplay
             idx = convertCharsToStrings(idx);
             % idx must be a positive whole number or field name.
             if isstring(idx)
-                name = convertCharsToStrings(idx);
-                proxyID = obj.Proxy.getFieldByName(name);
+                name = idx;
+                args = struct(Name=name);
+                proxyID = obj.Proxy.getFieldByName(args);
             elseif isnumeric(idx)
                 args = struct(Index=int32(idx));
                 proxyID = obj.Proxy.getFieldByIndex(args);

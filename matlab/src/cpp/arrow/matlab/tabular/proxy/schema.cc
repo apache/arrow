@@ -20,13 +20,17 @@
 #include "arrow/matlab/type/proxy/field.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
+#include "libmexclass/error/Error.h"
 
 #include "arrow/util/utf8.h"
+
+#include <sstream>
 
 namespace arrow::matlab::tabular::proxy {
 
     Schema::Schema(std::shared_ptr<arrow::Schema> schema) : schema{std::move(schema)} {
         REGISTER_METHOD(Schema, getFieldByIndex);
+        REGISTER_METHOD(Schema, getFieldByName);
         REGISTER_METHOD(Schema, toString);
     }
 
@@ -60,14 +64,59 @@ namespace arrow::matlab::tabular::proxy {
 
         mda::StructArray args = context.inputs[0];
         const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
-        const auto index = int32_t(index_mda[0]);
-        if (index > schema->num_fields()) {
-            // TODO: Error if invalid index.
-        }
-
+        const auto matlab_index = int32_t(index_mda[0]);
         // Note: MATLAB uses 1-based indexing, so subtract 1.
         // arrow::Schema::field does not do any bounds checking.
-        const auto& field = schema->field(index - 1);
+        const int32_t index = matlab_index - 1;
+        const auto num_fields = schema->num_fields();
+
+        if (matlab_index < 1 || matlab_index > num_fields) {
+            using namespace libmexclass::error;
+            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_FIELD_INDEX};
+            std::stringstream error_message_stream;
+            error_message_stream << "Invalid field index: ";
+            error_message_stream << matlab_index;
+            error_message_stream << ". Field index must be between 1 and the number of fields (";
+            error_message_stream << num_fields;
+            error_message_stream << ").";
+            const std::string& error_message = error_message_stream.str();
+            context.error = Error{error_message_id, error_message}; 
+            return;
+        }
+
+        const auto& field = schema->field(index);
+        auto field_proxy = std::make_shared<FieldProxy>(field);
+        const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
+        const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
+
+        context.outputs[0] = field_proxy_id_mda;
+    }
+
+    void Schema::getFieldByName(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        using FieldProxy = arrow::matlab::type::proxy::Field;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::StringArray name_mda = args[0]["Name"];
+        const auto name_utf16 = std::u16string(name_mda[0]);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto name, arrow::util::UTF16StringToUTF8(name_utf16), context, error::UNICODE_CONVERSION_ERROR_ID);
+        const std::vector<std::string> names = {name};
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
+        const auto field = schema->GetFieldByName(name);
+        if (!field) {
+            using namespace libmexclass::error;
+            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_FIELD_NAME};
+            std::stringstream error_message_stream;
+            error_message_stream << "Invalid field name: '";
+            error_message_stream << name;
+            error_message_stream << "'.";
+            const std::string& error_message = error_message_stream.str();
+            context.error = Error{error_message_id, error_message}; 
+            return;
+        }
+
         auto field_proxy = std::make_shared<FieldProxy>(field);
         const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
         const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
