@@ -522,6 +522,23 @@ cdef class TimestampScalar(Scalar):
 
         return _datetime_from_int(sp.value, unit=dtype.unit(), tzinfo=tzinfo)
 
+    def __repr__(self):
+        """
+        Return the representation of TimestampScalar using `strftime` to avoid
+        original repr datetime values being out of range.
+        """
+        cdef:
+            CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
+            CTimestampType* dtype = <CTimestampType*> sp.type.get()
+
+        if not dtype.timezone().empty():
+            type_format = str(_pc().strftime(self, format="%Y-%m-%dT%H:%M:%S%z"))
+        else:
+            type_format = str(_pc().strftime(self))
+        return '<pyarrow.{}: {!r}>'.format(
+            self.__class__.__name__, type_format
+        )
+
 
 cdef class DurationScalar(Scalar):
     """
@@ -785,7 +802,7 @@ cdef class MapScalar(ListScalar):
         if arr is None:
             raise IndexError(i)
         dct = arr[_normalize_index(i, len(arr))]
-        return (dct['key'], dct['value'])
+        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
 
     def __iter__(self):
         """
@@ -794,7 +811,7 @@ cdef class MapScalar(ListScalar):
         arr = self.values
         if array is None:
             raise StopIteration
-        for k, v in zip(arr.field('key'), arr.field('value')):
+        for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 
     def as_py(self):

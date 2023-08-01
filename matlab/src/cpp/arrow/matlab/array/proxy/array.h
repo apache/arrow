@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/array.h"
+#include "arrow/matlab/type/proxy/type.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
@@ -38,6 +39,8 @@ class Array : public libmexclass::proxy::Proxy {
         void length(libmexclass::proxy::method::Context& context);
 
         void valid(libmexclass::proxy::method::Context& context);
+
+        void type(libmexclass::proxy::method::Context& context);
 
         virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
 

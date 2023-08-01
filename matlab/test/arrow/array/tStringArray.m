@@ -22,7 +22,7 @@ classdef tStringArray < matlab.unittest.TestCase
         MatlabArrayFcn = @string
         MatlabConversionFcn = @string
         NullSubstitutionValue = string(missing)
-        ArrowType = arrow.type.StringType
+        ArrowType = arrow.string
     end
 
     methods(TestClassSetup)

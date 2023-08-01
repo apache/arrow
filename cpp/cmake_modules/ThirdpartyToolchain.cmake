@@ -138,6 +138,9 @@ if(ARROW_PACKAGE_PREFIX)
   if(NOT ENV{Boost_ROOT})
     set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
+  if(NOT DEFINED OPENSSL_ROOT_DIR)
+    set(OPENSSL_ROOT_DIR ${ARROW_PACKAGE_PREFIX})
+  endif()
 endif()
 
 # For each dependency, set dependency source to global default, if unset
@@ -913,6 +916,7 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
+    -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
 
 # Enable s/ccache if set by parent.
@@ -1364,8 +1368,9 @@ set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
-   OR ARROW_S3
-   OR ARROW_GANDIVA)
+   OR ARROW_GANDIVA
+   OR ARROW_GCS
+   OR ARROW_S3)
   set(OpenSSL_SOURCE "SYSTEM")
   resolve_dependency(OpenSSL
                      HAVE_ALT
@@ -4102,10 +4107,6 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  if(NOT OpenSSL_FOUND)
-    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
-                       ${ARROW_OPENSSL_REQUIRED_VERSION})
-  endif()
 
   # Build google-cloud-cpp, with only storage_client
 

@@ -32,7 +32,6 @@ namespace arrow::matlab::array::proxy {
 
         protected:
             void toMATLAB(libmexclass::proxy::method::Context& context) override;
-
     };
 
 }

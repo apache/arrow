@@ -17,8 +17,12 @@ classdef Int64Type < arrow.type.FixedWidthType
 %INT64TYPE Type class for int64 data.
 
     methods 
-        function obj = Int64Type()
-            obj@arrow.type.FixedWidthType("Name", "arrow.type.proxy.Int64Type", "ConstructorArguments", {})
+        function obj = Int64Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int64Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
         end
     end
 end

@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/boolean_array.h"
+#include "arrow/matlab/type/proxy/primitive_ctype.h"
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/bit/pack.h"
@@ -53,5 +54,4 @@ namespace arrow::matlab::array::proxy {
             auto logical_array_mda = bit::unpack(packed_logical_data_buffer, array_length);
             context.outputs[0] = logical_array_mda;
         }
-
 }

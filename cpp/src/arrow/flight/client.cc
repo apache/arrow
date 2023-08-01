@@ -79,16 +79,6 @@ arrow::Result<std::shared_ptr<Table>> FlightStreamReader::ToTable(
   return Table::FromRecordBatches(schema, std::move(batches));
 }
 
-Status FlightStreamReader::ReadAll(std::vector<std::shared_ptr<RecordBatch>>* batches,
-                                   const StopToken& stop_token) {
-  return ToRecordBatches(stop_token).Value(batches);
-}
-
-Status FlightStreamReader::ReadAll(std::shared_ptr<Table>* table,
-                                   const StopToken& stop_token) {
-  return ToTable(stop_token).Value(table);
-}
-
 /// \brief An ipc::MessageReader adapting the Flight ClientDataStream interface.
 ///
 /// In order to support app_metadata and reuse the existing IPC
@@ -520,11 +510,6 @@ arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
   return Connect(location, FlightClientOptions::Defaults());
 }
 
-Status FlightClient::Connect(const Location& location,
-                             std::unique_ptr<FlightClient>* client) {
-  return Connect(location, FlightClientOptions::Defaults()).Value(client);
-}
-
 arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
     const Location& location, const FlightClientOptions& options) {
   flight::transport::grpc::InitializeFlightGrpcClient();
@@ -536,11 +521,6 @@ arrow::Result<std::unique_ptr<FlightClient>> FlightClient::Connect(
                         internal::GetDefaultTransportRegistry()->MakeClient(scheme));
   RETURN_NOT_OK(client->transport_->Init(options, location, *location.uri_));
   return client;
-}
-
-Status FlightClient::Connect(const Location& location, const FlightClientOptions& options,
-                             std::unique_ptr<FlightClient>* client) {
-  return Connect(location, options).Value(client);
 }
 
 Status FlightClient::Authenticate(const FlightCallOptions& options,
@@ -562,11 +542,6 @@ arrow::Result<std::unique_ptr<ResultStream>> FlightClient::DoAction(
   RETURN_NOT_OK(CheckOpen());
   RETURN_NOT_OK(transport_->DoAction(options, action, &results));
   return results;
-}
-
-Status FlightClient::DoAction(const FlightCallOptions& options, const Action& action,
-                              std::unique_ptr<ResultStream>* results) {
-  return DoAction(options, action).Value(results);
 }
 
 arrow::Result<CancelFlightInfoResult> FlightClient::CancelFlightInfo(
@@ -601,11 +576,6 @@ arrow::Result<std::vector<ActionType>> FlightClient::ListActions(
   return actions;
 }
 
-Status FlightClient::ListActions(const FlightCallOptions& options,
-                                 std::vector<ActionType>* actions) {
-  return ListActions(options).Value(actions);
-}
-
 arrow::Result<std::unique_ptr<FlightInfo>> FlightClient::GetFlightInfo(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   std::unique_ptr<FlightInfo> info;
@@ -614,30 +584,14 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightClient::GetFlightInfo(
   return info;
 }
 
-Status FlightClient::GetFlightInfo(const FlightCallOptions& options,
-                                   const FlightDescriptor& descriptor,
-                                   std::unique_ptr<FlightInfo>* info) {
-  return GetFlightInfo(options, descriptor).Value(info);
-}
-
 arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   RETURN_NOT_OK(CheckOpen());
   return transport_->GetSchema(options, descriptor);
 }
 
-Status FlightClient::GetSchema(const FlightCallOptions& options,
-                               const FlightDescriptor& descriptor,
-                               std::unique_ptr<SchemaResult>* schema_result) {
-  return GetSchema(options, descriptor).Value(schema_result);
-}
-
 arrow::Result<std::unique_ptr<FlightListing>> FlightClient::ListFlights() {
   return ListFlights({}, {});
-}
-
-Status FlightClient::ListFlights(std::unique_ptr<FlightListing>* listing) {
-  return ListFlights({}, {}).Value(listing);
 }
 
 arrow::Result<std::unique_ptr<FlightListing>> FlightClient::ListFlights(
@@ -646,12 +600,6 @@ arrow::Result<std::unique_ptr<FlightListing>> FlightClient::ListFlights(
   RETURN_NOT_OK(CheckOpen());
   RETURN_NOT_OK(transport_->ListFlights(options, criteria, &listing));
   return listing;
-}
-
-Status FlightClient::ListFlights(const FlightCallOptions& options,
-                                 const Criteria& criteria,
-                                 std::unique_ptr<FlightListing>* listing) {
-  return ListFlights(options, criteria).Value(listing);
 }
 
 arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
@@ -666,11 +614,6 @@ arrow::Result<std::unique_ptr<FlightStreamReader>> FlightClient::DoGet(
   RETURN_NOT_OK(
       static_cast<ClientStreamReader*>(stream_reader.get())->EnsureDataStarted());
   return stream_reader;
-}
-
-Status FlightClient::DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                           std::unique_ptr<FlightStreamReader>* stream) {
-  return DoGet(options, ticket).Value(stream);
 }
 
 arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
@@ -689,17 +632,6 @@ arrow::Result<FlightClient::DoPutResult> FlightClient::DoPut(
   return result;
 }
 
-Status FlightClient::DoPut(const FlightCallOptions& options,
-                           const FlightDescriptor& descriptor,
-                           const std::shared_ptr<Schema>& schema,
-                           std::unique_ptr<FlightStreamWriter>* writer,
-                           std::unique_ptr<FlightMetadataReader>* reader) {
-  ARROW_ASSIGN_OR_RAISE(auto result, DoPut(options, descriptor, schema));
-  *writer = std::move(result.writer);
-  *reader = std::move(result.reader);
-  return Status::OK();
-}
-
 arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   RETURN_NOT_OK(CheckOpen());
@@ -715,16 +647,6 @@ arrow::Result<FlightClient::DoExchangeResult> FlightClient::DoExchange(
   RETURN_NOT_OK(stream_writer->Begin());
   result.writer = std::move(stream_writer);
   return result;
-}
-
-Status FlightClient::DoExchange(const FlightCallOptions& options,
-                                const FlightDescriptor& descriptor,
-                                std::unique_ptr<FlightStreamWriter>* writer,
-                                std::unique_ptr<FlightStreamReader>* reader) {
-  ARROW_ASSIGN_OR_RAISE(auto result, DoExchange(options, descriptor));
-  *writer = std::move(result.writer);
-  *reader = std::move(result.reader);
-  return Status::OK();
 }
 
 Status FlightClient::Close() {

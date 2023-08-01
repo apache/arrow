@@ -22,7 +22,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
         MatlabArrayFcn = @logical
         MatlabConversionFcn = @logical
         NullSubstitutionValue = false
-        ArrowType = arrow.type.BooleanType
+        ArrowType = arrow.boolean
     end
 
     methods(TestClassSetup)
