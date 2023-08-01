@@ -114,7 +114,7 @@
         <dependency>
             <groupId>org.apache.arrow.orc</groupId>
             <artifactId>arrow-orc</artifactId>
-            <version>12.0.0</version>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
