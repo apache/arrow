@@ -157,7 +157,6 @@ def test_option_class_equality():
         pc.PadOptions(5),
         pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
-        pc.CumulativeSumOptions(start=0, skip_nulls=False),
         pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.QuantileOptions(),
         pc.RandomOptions(),
