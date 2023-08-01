@@ -153,8 +153,9 @@ PyArrow implements natively a S3 filesystem for S3 compatible storage.
 The :class:`S3FileSystem` constructor has several options to configure the S3
 connection (e.g. credentials, the region, an endpoint override, etc). In
 addition, the constructor will also inspect configured S3 credentials as
-supported by AWS (for example the ``AWS_ACCESS_KEY_ID`` and
-``AWS_SECRET_ACCESS_KEY`` environment variables).
+supported by AWS (such as the ``AWS_ACCESS_KEY_ID`` and
+``AWS_SECRET_ACCESS_KEY`` environment variables, AWS configuration files,
+and EC2 Instance Metadata Service for EC2 nodes).
 
 
 Example how you can read contents from a S3 bucket::
