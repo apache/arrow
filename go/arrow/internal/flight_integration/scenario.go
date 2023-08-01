@@ -1204,16 +1204,14 @@ func (tester *pollFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.
 	if err != nil {
 		return err
 	}
-	if info.FlightDescriptor == nil {
+	switch {
+	case info.FlightDescriptor == nil:
 		return fmt.Errorf("description is missing: %s", info.String())
-	}
-	if info.Progress == nil {
+	case info.Progress == nil:
 		return fmt.Errorf("progress is missing: %s", info.String())
-	}
-	if !(0.0 <= *info.Progress && *info.Progress <= 1.0) {
+	case !(0.0 <= *info.Progress && *info.Progress <= 1.0):
 		return fmt.Errorf("invalid progress: %s", info.String())
-	}
-	if info.ExpirationTime == nil {
+	case info.ExpirationTime == nil:
 		return fmt.Errorf("expiration time is missing: %s", info.String())
 	}
 
@@ -1221,18 +1219,16 @@ func (tester *pollFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.
 	if err != nil {
 		return err
 	}
-	if info.FlightDescriptor != nil {
+	switch {
+	case info.FlightDescriptor != nil:
 		return fmt.Errorf("retried but no finished yet: %s", info.String())
-	}
-	if info.Progress == nil {
+	case info.Progress == nil:
 		return fmt.Errorf("progress is missing in finished query: %s",
 			info.String())
-	}
-	if math.Abs(*info.Progress-1.0) > 1e-5 {
+	case math.Abs(*info.Progress-1.0) > 1e-5:
 		return fmt.Errorf("progress for finished query isn't 1.0: %s",
 			info.String())
-	}
-	if info.ExpirationTime != nil {
+	case info.ExpirationTime != nil:
 		return fmt.Errorf("expiration time must not be set for finished query: %s",
 			info.String())
 	}
