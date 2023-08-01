@@ -34,6 +34,9 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/string.h"
 
+// Include after Flight headers
+#include <grpc/slice.h>
+
 namespace arrow {
 namespace flight {
 
@@ -649,6 +652,38 @@ TEST_F(TestCookieParsing, CookieCache) {
   AddCookieVerifyCache({"id0=0;", "id0=1;"}, "id0=1");
   AddCookieVerifyCache({"id0=0;", "id1=1;"}, "id0=0; id1=1");
   AddCookieVerifyCache({"id0=0;", "id1=1;", "id2=2"}, "id0=0; id1=1; id2=2");
+}
+
+// ----------------------------------------------------------------------
+// Protobuf tests
+
+TEST(GrpcTransport, FlightDataDeserialize) {
+#ifndef _WIN32
+  pb::FlightData raw;
+  // Tack on known and unknown fields by hand here
+  raw.GetReflection()->MutableUnknownFields(&raw)->AddFixed32(900, 1024);
+  raw.GetReflection()->MutableUnknownFields(&raw)->AddFixed64(901, 1024);
+  raw.GetReflection()->MutableUnknownFields(&raw)->AddVarint(902, 1024);
+  raw.GetReflection()->MutableUnknownFields(&raw)->AddLengthDelimited(903, "foobar");
+  // Known field comes at end
+  raw.GetReflection()->MutableUnknownFields(&raw)->AddLengthDelimited(
+      pb::FlightData::kDataBodyFieldNumber, "data");
+
+  auto serialized = raw.SerializeAsString();
+
+  grpc_slice slice = grpc_slice_from_copied_buffer(serialized.data(), serialized.size());
+  // gRPC requires that grpc_slice and grpc::Slice have the same representation
+  grpc::ByteBuffer buffer(reinterpret_cast<const grpc::Slice*>(&slice), /*nslices=*/1);
+
+  flight::internal::FlightData out;
+  auto status = flight::transport::grpc::FlightDataDeserialize(&buffer, &out);
+  ASSERT_TRUE(status.ok());
+  ASSERT_EQ("data", out.body->ToString());
+
+  grpc_slice_unref(slice);
+#else
+  GTEST_SKIP() << "Can't use Protobuf symbols on Windows";
+#endif
 }
 
 // ----------------------------------------------------------------------
