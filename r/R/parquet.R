@@ -541,12 +541,13 @@ ParquetFileReader <- R6Class("ParquetFileReader",
 ParquetFileReader$create <- function(file,
                                      props = ParquetArrowReaderProperties$create(),
                                      mmap = TRUE,
+                                     reader_props = ParquetReaderProperties$create(),
                                      ...) {
   file <- make_readable_file(file, mmap)
   assert_is(props, "ParquetArrowReaderProperties")
   assert_is(file, "RandomAccessFile")
 
-  parquet___arrow___FileReader__OpenFile(file, props)
+  parquet___arrow___FileReader__OpenFile(file, props, reader_props)
 }
 
 #' @title ParquetArrowReaderProperties class

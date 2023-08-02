@@ -1636,8 +1636,8 @@ parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit <- func
   .Call(`_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit`, properties)
 }
 
-parquet___arrow___FileReader__OpenFile <- function(file, props) {
-  .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props)
+parquet___arrow___FileReader__OpenFile <- function(file, props, reader_props) {
+  .Call(`_arrow_parquet___arrow___FileReader__OpenFile`, file, props, reader_props)
 }
 
 parquet___arrow___FileReader__ReadTable1 <- function(reader) {

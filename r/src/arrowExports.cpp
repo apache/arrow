@@ -4241,16 +4241,17 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_PARQUET)
-std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props);
-extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
+std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props, const std::shared_ptr<parquet::ReaderProperties>& reader_props);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp, SEXP reader_props_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
 	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type props(props_sexp);
-	return cpp11::as_sexp(parquet___arrow___FileReader__OpenFile(file, props));
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type reader_props(reader_props_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__OpenFile(file, props, reader_props));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
+extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp, SEXP reader_props_sexp){
 	Rf_error("Cannot call parquet___arrow___FileReader__OpenFile(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -6074,7 +6075,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary, 3}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit, 1}, 
-		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 3}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadRowGroup1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroup1, 2}, 

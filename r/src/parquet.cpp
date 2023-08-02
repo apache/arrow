@@ -115,10 +115,11 @@ parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(
 // [[parquet::export]]
 std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file,
-    const std::shared_ptr<parquet::ArrowReaderProperties>& props) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& props,
+    const std::shared_ptr<parquet::ReaderProperties>& reader_props) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   parquet::arrow::FileReaderBuilder builder;
-  PARQUET_THROW_NOT_OK(builder.Open(file));
+  PARQUET_THROW_NOT_OK(builder.Open(file, *reader_props));
   PARQUET_THROW_NOT_OK(
       builder.memory_pool(gc_memory_pool())->properties(*props)->Build(&reader));
   return std::move(reader);
