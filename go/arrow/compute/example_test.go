@@ -41,7 +41,7 @@ func Example_customFunction() {
 	add42 := compute.NewScalarFunction("add_42", compute.Arity{
 		NArgs: 1,
 	}, compute.FunctionDoc{
-		Summary:  "Returns the input values plus 42.",
+		Summary:  "Returns the input values plus 42",
 		ArgNames: []string{"input"},
 	})
 
