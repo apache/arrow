@@ -15,24 +15,12 @@
 
 using System;
 using System.Threading.Tasks;
-using Apache.Arrow.Flight.Sql;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server
 {
     public abstract class FlightServer
     {
-#if NET6_0_OR_GREATER
-        public FlightSqlProducer SqlProducer { init; protected internal get; }
-#else
-        protected internal FlightSqlProducer SqlProducer { get; }
-#endif
-
-        protected FlightServer(FlightSqlProducer flightSqlProducer = null)
-        {
-            SqlProducer = flightSqlProducer;
-        }
-
         public virtual Task DoPut(FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
         {
             throw new NotImplementedException();

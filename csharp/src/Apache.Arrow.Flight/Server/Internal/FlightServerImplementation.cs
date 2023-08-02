@@ -36,16 +36,9 @@ namespace Apache.Arrow.Flight.Server.Internal
         public override async Task DoPut(IAsyncStreamReader<Protocol.FlightData> requestStream, IServerStreamWriter<Protocol.PutResult> responseStream, ServerCallContext context)
         {
             var readStream = new FlightServerRecordBatchStreamReader(requestStream);
-            var writeStream = new StreamWriter<FlightPutResult, Protocol.PutResult>(responseStream, putResult => putResult.ToProtocol());
+            var writeStream = new StreamWriter<FlightPutResult, PutResult>(responseStream, putResult => putResult.ToProtocol());
 
-            if (_flightServer.SqlProducer != null && await FlightSqlProducer.GetCommand(readStream).ConfigureAwait(false) is { } command)
-            {
-                await _flightServer.SqlProducer.DoPut(command, readStream, writeStream, context).ConfigureAwait(false);
-            }
-            else
-            {
-                await _flightServer.DoPut(readStream, writeStream, context).ConfigureAwait(false);
-            }
+            await _flightServer.DoPut(readStream, writeStream, context).ConfigureAwait(false);
         }
 
         public override Task DoGet(Protocol.Ticket request, IServerStreamWriter<Protocol.FlightData> responseStream, ServerCallContext context)
@@ -53,18 +46,13 @@ namespace Apache.Arrow.Flight.Server.Internal
             var flightTicket = new FlightTicket(request.Ticket_);
             var flightServerRecordBatchStreamWriter = new FlightServerRecordBatchStreamWriter(responseStream);
 
-            if (_flightServer.SqlProducer != null && FlightSqlProducer.GetCommand(flightTicket) != null)
-            {
-                return _flightServer.SqlProducer.DoGet(flightTicket, flightServerRecordBatchStreamWriter, context);
-            }
-
             return _flightServer.DoGet(flightTicket, flightServerRecordBatchStreamWriter, context);
-
         }
 
         public override Task ListFlights(Protocol.Criteria request, IServerStreamWriter<Protocol.FlightInfo> responseStream, ServerCallContext context)
         {
             var writeStream = new StreamWriter<FlightInfo, Protocol.FlightInfo>(responseStream, flightInfo => flightInfo.ToProtocol());
+
             return _flightServer.ListFlights(new FlightCriteria(request), writeStream, context);
         }
 
@@ -72,11 +60,6 @@ namespace Apache.Arrow.Flight.Server.Internal
         {
             var action = new FlightAction(request);
             var writeStream = new StreamWriter<FlightResult, Protocol.Result>(responseStream, result => result.ToProtocol());
-
-            if (_flightServer.SqlProducer != null && FlightSqlProducer.SupportsAction(action))
-            {
-                return _flightServer.SqlProducer.DoAction(action, writeStream, context);
-            }
 
             return _flightServer.DoAction(action, writeStream, context);
         }
@@ -95,16 +78,7 @@ namespace Apache.Arrow.Flight.Server.Internal
         public override async Task<Protocol.FlightInfo> GetFlightInfo(Protocol.FlightDescriptor request, ServerCallContext context)
         {
             var flightDescriptor = new FlightDescriptor(request);
-            FlightInfo flightInfo;
-
-            if (_flightServer.SqlProducer != null && FlightSqlProducer.GetCommand(flightDescriptor) is {} command)
-            {
-                flightInfo = await _flightServer.SqlProducer.GetFlightInfo(command, flightDescriptor, context).ConfigureAwait(false);
-            }
-            else
-            {
-                flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context).ConfigureAwait(false);
-            }
+            FlightInfo flightInfo = await _flightServer.GetFlightInfo(flightDescriptor, context).ConfigureAwait(false);
 
             return flightInfo.ToProtocol();
         }
@@ -125,12 +99,6 @@ namespace Apache.Arrow.Flight.Server.Internal
         public override async Task ListActions(Empty request, IServerStreamWriter<Protocol.ActionType> responseStream, ServerCallContext context)
         {
             var writeStream = new StreamWriter<FlightActionType, Protocol.ActionType>(responseStream, (actionType) => actionType.ToProtocol());
-
-            if (_flightServer.SqlProducer != null)
-            {
-                await _flightServer.SqlProducer.ListActions(writeStream, context).ConfigureAwait(false);
-            }
-
             await _flightServer.ListActions(writeStream, context).ConfigureAwait(false);
         }
     }
