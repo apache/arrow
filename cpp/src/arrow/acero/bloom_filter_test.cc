@@ -468,10 +468,10 @@ TEST(BloomFilter, Basic) {
   test_params.push_back({0, true, false});
   test_params.push_back({0, false, true});
 
-  std::vector<BloomFilterBuildStrategy> strategy;
-  strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
+  std::vector<BloomFilterBuildStrategy> strategies;
+  strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 #if defined(ARROW_ENABLE_THREADING) && !defined(ARROW_VALGRIND)
-  strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
+  strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
 #endif
 
   static constexpr int64_t min_rows_for_large = 2 * 1024 * 1024;
@@ -502,12 +502,11 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(1000000);
   num_build.push_back(4000000);
 
-  std::vector<BloomFilterBuildStrategy> strategy;
+  std::vector<BloomFilterBuildStrategy> strategies;
 #ifdef ARROW_ENABLE_THREADING
-  strategy.push_back(BloomFilterBuildStrategy::PARALLEL);
-#else
-  strategy.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
+  strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
 #endif
+  strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 
   for (const auto hardware_flags : HardwareFlagsForTesting()) {
     for (const auto& strategy : strategies) {
