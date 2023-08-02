@@ -141,7 +141,7 @@ namespace arrow::matlab::tabular::proxy {
         mda::ArrayFactory factory;
 
         const auto field_names_utf8 = schema->field_names();
-        const auto num_fields = schema->num_fields();
+        const auto num_fields = static_cast<size_t>(schema->num_fields());
 
         std::vector<std::u16string> field_names_utf16;
         field_names_utf16.reserve(num_fields);
