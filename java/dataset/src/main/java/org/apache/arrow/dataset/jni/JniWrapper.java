@@ -108,4 +108,10 @@ public class JniWrapper {
    * @param bufferId the native pointer of the arrow::Buffer instance.
    */
   public native void releaseBuffer(long bufferId);
+
+  /**
+   * Ensure the S3 APIs are shutdown, but only if not already done. If the S3 APIs are unintialized,
+   * then this is a noop.
+   */
+  public native void ensureS3Finalized();
 }
