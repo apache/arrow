@@ -485,7 +485,7 @@ test_that("Can read Parquet files from a URL", {
   expect_identical(dim(pu), c(10L, 11L))
 })
 
-test_that("thrift string and size can be specified when reading Parquet files", {
+test_that("thrift string size can be specified when reading Parquet files", {
   tf <- tempfile()
   on.exit(unlink(tf))
 
