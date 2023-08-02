@@ -32,16 +32,18 @@ namespace Apache.Arrow.Flight.Sql.Tests;
 public class FlightSqlServerTests
 {
     [Theory]
-    [InlineData(FlightDescriptorType.Path, null, null)]
-    [InlineData(FlightDescriptorType.Command, "", null)]
-    [InlineData(FlightDescriptorType.Command, "CkB0eXBlLmdvb2dsZWFwaXMuY29tL2Fycm93LmZsaWdodC5wcm90b2NvbC5zcWwuQ29tbWFuZEdldENhdGFsb2dz", typeof(CommandGetCatalogs))]
-    public void EnsureGetCommandReturnsTheCorrectResponse(FlightDescriptorType type, string? command, Type? expectedResult)
+    [InlineData(FlightDescriptorType.Path, null)]
+    [InlineData(FlightDescriptorType.Command, null)]
+    [InlineData(FlightDescriptorType.Command, typeof(CommandGetCatalogs))]
+    public void EnsureGetCommandReturnsTheCorrectResponse(FlightDescriptorType type, Type? expectedResult)
     {
         //Given
         FlightDescriptor descriptor;
         if (type == FlightDescriptorType.Command)
         {
-            descriptor = command != null ? FlightDescriptor.CreateCommandDescriptor(ByteString.FromBase64(command).ToByteArray()) : FlightDescriptor.CreateCommandDescriptor(ByteString.Empty.ToStringUtf8());
+            descriptor = expectedResult != null ?
+                FlightDescriptor.CreateCommandDescriptor(((IMessage) Activator.CreateInstance(expectedResult!)!).PackAndSerialize().ToByteArray()) :
+                FlightDescriptor.CreateCommandDescriptor(ByteString.Empty.ToStringUtf8());
         }
         else
         {
