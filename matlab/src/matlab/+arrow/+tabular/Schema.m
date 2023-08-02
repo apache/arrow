@@ -29,8 +29,6 @@ classdef Schema < matlab.mixin.CustomDisplay
         FieldNames
         % Number of fields in the schema
         NumFields
-        % Types of the columns in the associated tabular type.
-        % Types
     end
 
     methods
@@ -45,8 +43,6 @@ classdef Schema < matlab.mixin.CustomDisplay
         end
         
         function F = field(obj, idx)
-            import libmexclass.proxy.*
-
             idx = convertCharsToStrings(idx);
             % idx must be a positive whole number or field name.
             if isstring(idx)
@@ -58,8 +54,15 @@ classdef Schema < matlab.mixin.CustomDisplay
                 proxyID = obj.Proxy.getFieldByIndex(args);
             end
 
-            proxy = Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
+            proxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
             F = arrow.type.Field(proxy);
+        end
+
+        function fields = get.Fields(obj)
+            fields = arrow.type.Field.empty(0, obj.NumFields);
+            for ii = 1:obj.NumFields
+                fields(ii) = obj.field(ii);
+            end
         end
 
         function fieldNames = get.FieldNames(obj)
