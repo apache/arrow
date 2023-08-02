@@ -26,7 +26,9 @@ classdef Schema < matlab.mixin.CustomDisplay
         % Underlying array of Fields that the Schema wraps.
         Fields
         % Names of the columns in the associated tabular type.
-        % Names
+        FieldNames
+        % Number of fields in the schema
+        NumFields
         % Types of the columns in the associated tabular type.
         % Types
     end
@@ -58,6 +60,14 @@ classdef Schema < matlab.mixin.CustomDisplay
 
             proxy = Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
             F = arrow.type.Field(proxy);
+        end
+
+        function fieldNames = get.FieldNames(obj)
+            fieldNames = obj.Proxy.getFieldNames();
+        end
+
+        function numFields = get.NumFields(obj)
+            numFields = obj.Proxy.getNumFields();
         end
         
     end
