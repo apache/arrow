@@ -457,6 +457,7 @@ ParquetFileWriter$create <- function(schema,
 #'    (e.g. `RandomAccessFile`).
 #' - `props` Optional [ParquetArrowReaderProperties]
 #' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `reader_props` Optional [ParquetReaderProperties]
 #' - `...` Additional arguments, currently ignored
 #'
 #' @section Methods:
@@ -634,16 +635,16 @@ calculate_chunk_size <- function(rows, columns,
 ParquetReaderProperties <- R6Class("ParquetReaderProperties",
   inherit = ArrowObject,
   public = list(
-    thrift_string_size_limit = function(){
+    thrift_string_size_limit = function() {
       parquet___arrow___ReaderProperties__get_thrift_string_size_limit(self)
     },
-    set_thrift_string_size_limt = function(size){
+    set_thrift_string_size_limit = function(size) {
       parquet___arrow___ReaderProperties__set_thrift_string_size_limit(self, size)
     },
-    thrift_container_size_limit = function(){
+    thrift_container_size_limit = function() {
       parquet___arrow___ReaderProperties__get_thrift_container_size_limit(self)
     },
-    set_thrift_container_size_limt = function(size){
+    set_thrift_container_size_limit = function(size) {
       parquet___arrow___ReaderProperties__set_thrift_container_size_limit(self, size)
     }
   )
