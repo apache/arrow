@@ -642,54 +642,38 @@ class EncodingAdHocTyped : public ::testing::Test {
 
   static std::shared_ptr<::arrow::DataType> arrow_type();
 
-  void Plain(int seed) {
-    auto values = GetValues(seed);
+  void Plain(int seed, int round = 1) {
+    auto random_array = GetValues(seed);
     auto encoder = MakeTypedEncoder<ParquetType>(
         Encoding::PLAIN, /*use_dictionary=*/false, column_descr());
     auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN, column_descr());
 
-    ASSERT_NO_THROW(encoder->Put(*values));
+    for (int i = 0; i < round; ++i) {
+      ASSERT_NO_THROW(encoder->Put(*random_array));
+    }
+    std::shared_ptr<::arrow::Array> values;
+    if (round == 1) {
+      values = random_array;
+    } else {
+      ::arrow::ArrayVector arrays;
+      arrays.resize(round, random_array);
+      EXPECT_OK_AND_ASSIGN(values,
+                           ::arrow::Concatenate(arrays, ::arrow::default_memory_pool()));
+    }
     auto buf = encoder->FlushValues();
 
-    int num_values = static_cast<int>(values->length() - values->null_count());
-    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-
-    BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
-    ASSERT_EQ(num_values,
-              decoder->DecodeArrow(static_cast<int>(values->length()),
-                                   static_cast<int>(values->null_count()),
-                                   values->null_bitmap_data(), values->offset(), &acc));
-
-    std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.Finish(&result));
-    ASSERT_EQ(50, result->length());
-    ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
-  }
-
-  void PlainTwice(int seed) {
-    auto values_single = GetValues(seed);
-    auto encoder = MakeTypedEncoder<ParquetType>(
-        Encoding::PLAIN, /*use_dictionary=*/false, column_descr());
-    auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN, column_descr());
-
-    ASSERT_NO_THROW(encoder->Put(*values_single));
-    ASSERT_NO_THROW(encoder->Put(*values_single));
-    auto buf = encoder->FlushValues();
-
-    EXPECT_OK_AND_ASSIGN(auto values,
-                         ::arrow::Concatenate({values_single, values_single}));
     decoder->SetData(static_cast<int>(values->length()), buf->data(),
                      static_cast<int>(buf->size()));
 
     BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
-    ASSERT_EQ(values->length() - values->null_count(),
+    ASSERT_EQ(static_cast<int>(values->length() - values->null_count()),
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
                                    values->null_bitmap_data(), values->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
-    ASSERT_EQ(100, result->length());
+    ASSERT_EQ(values->length(), result->length());
     ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
   }
 
@@ -910,9 +894,9 @@ TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
   }
 }
 
-TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut2) {
+TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPutMultiRound) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    this->PlainTwice(seed);
+    this->Plain(seed, /*round=*/5);
   }
 }
 
