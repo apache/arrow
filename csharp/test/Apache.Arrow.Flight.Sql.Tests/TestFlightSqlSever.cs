@@ -23,7 +23,7 @@ using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Sql.Tests;
 
-public class TestFlightSqlProducer : FlightSqlServer
+public class TestFlightSqlSever : FlightSqlServer
 {
     protected override Task<FlightInfo> GetStatementQueryFlightInfo(CommandStatementQuery commandStatementQuery, FlightDescriptor flightDescriptor, ServerCallContext serverCallContext) => Task.FromResult(new FlightInfo(null, FlightDescriptor.CreatePathDescriptor(MethodBase.GetCurrentMethod().Name), System.Array.Empty<FlightEndpoint>()));
 

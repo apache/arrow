@@ -17,7 +17,6 @@ using System;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Flight.Protocol;
-using Apache.Arrow.Flight.Sql;
 using Grpc.Core;
 
 namespace Apache.Arrow.Flight.Server.Internal

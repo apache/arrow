@@ -20,7 +20,6 @@
 
   <ItemGroup>
     <Protobuf Include="..\..\..\format\Flight.proto" Access="internal" />
-    <Protobuf Include="..\..\..\format\FlightSql.proto" Access="public" />
   </ItemGroup>
 
 </Project>

@@ -29,7 +29,7 @@ namespace Apache.Arrow.Flight.Sql;
 
 public abstract class FlightSqlServer : FlightServer
 {
-    private ILogger<FlightSqlProducer>? Logger { get; }
+    private ILogger<FlightSqlServer>? Logger { get; }
     public static readonly Schema CatalogSchema = new(new List<Field> {new("catalog_name", StringType.Default, false)}, null);
     public static readonly Schema TableTypesSchema = new(new List<Field> {new("table_type", StringType.Default, false)}, null);
     public static readonly Schema DbSchemaFlightSchema = new(new List<Field> {new("catalog_name", StringType.Default, true), new("db_schema_name", StringType.Default, false)}, null);
@@ -102,7 +102,7 @@ public abstract class FlightSqlServer : FlightServer
         // }, new []{(byte)ArrowTypeId.String, (byte)ArrowTypeId.Boolean, (byte)ArrowTypeId.Int64,/* (byte)3, (byte)4, (byte)5*/}, UnionMode.Dense), false));
     }, null);
 
-    private static readonly Schema TableSchema_ = new(new List<Field>
+    private static readonly Schema s_tableSchema = new(new List<Field>
     {
         new("catalog_name", StringType.Default, true),
         new("db_schema_name", StringType.Default, true),
@@ -114,13 +114,13 @@ public abstract class FlightSqlServer : FlightServer
     {
         if (!includeTableSchemaField)
         {
-            return TableSchema_;
+            return s_tableSchema;
         }
 
-        var fields = TableSchema_.FieldsList.ToList();
+        var fields = s_tableSchema.FieldsList.ToList();
         fields.Add(new Field("table_schema", BinaryType.Default, false));
 
-        return new Schema(fields, TableSchema_.Metadata);
+        return new Schema(fields, s_tableSchema.Metadata);
     }
 
     public static IMessage? GetCommand(FlightTicket ticket)
@@ -212,7 +212,7 @@ public abstract class FlightSqlServer : FlightServer
 
     protected FlightSqlServer(ILoggerFactory? factory = null)
     {
-        Logger = factory?.CreateLogger<FlightSqlProducer>();
+        Logger = factory?.CreateLogger<FlightSqlServer>();
     }
 
     /// <summary>
@@ -233,8 +233,8 @@ public abstract class FlightSqlServer : FlightServer
     /// </summary>
     public override Task<FlightInfo> GetFlightInfo(FlightDescriptor flightDescriptor, ServerCallContext context)
     {
-        var sqlCommand = FlightSqlProducer.GetCommand(flightDescriptor);
-        Logger?.LogTrace($"Executing Flight SQL FlightInfo command: {sqlCommand?.Descriptor.Name}");
+        var sqlCommand = GetCommand(flightDescriptor);
+        Logger?.LogTrace("Executing Flight SQL FlightInfo command: {DescriptorName}", sqlCommand?.Descriptor.Name);
         return sqlCommand switch
         {
             CommandStatementQuery command => GetStatementQueryFlightInfo(command, flightDescriptor, context),
@@ -260,7 +260,7 @@ public abstract class FlightSqlServer : FlightServer
     public override Task DoGet(FlightTicket ticket, FlightServerRecordBatchStreamWriter responseStream, ServerCallContext context)
     {
         var sqlCommand = GetCommand(ticket);
-        Logger?.LogTrace($"Executing Flight SQL DoGet command: {sqlCommand?.Descriptor}");
+        Logger?.LogTrace("Executing Flight SQL DoGet command: {SqlCommandDescriptor}", sqlCommand?.Descriptor);
         return sqlCommand switch
         {
             CommandPreparedStatementQuery command => DoGetPreparedStatementQuery(command, responseStream, context),
@@ -284,7 +284,7 @@ public abstract class FlightSqlServer : FlightServer
     /// </summary>
     public override Task DoAction(FlightAction action, IAsyncStreamWriter<FlightResult> responseStream, ServerCallContext context)
     {
-        Logger?.LogTrace($"Executing Flight SQL DoAction: {action.Type}");
+        Logger?.LogTrace("Executing Flight SQL DoAction: {ActionType}", action.Type);
         switch (action.Type)
         {
             case SqlAction.CreateRequest:
@@ -304,7 +304,7 @@ public abstract class FlightSqlServer : FlightServer
     /// </summary>
     public override async Task DoPut(FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
     {
-        if (await FlightSqlProducer.GetCommand(requestStream).ConfigureAwait(false) is { } command)
+        if (await GetCommand(requestStream).ConfigureAwait(false) is { } command)
         {
             await DoPutInternal(command, requestStream, responseStream, context).ConfigureAwait(false);
         }
@@ -316,7 +316,7 @@ public abstract class FlightSqlServer : FlightServer
 
     private Task DoPutInternal(IMessage command, FlightServerRecordBatchStreamReader requestStream, IAsyncStreamWriter<FlightPutResult> responseStream, ServerCallContext context)
     {
-        Logger?.LogTrace($"Executing Flight SQL DoAction: {command.Descriptor.Name}");
+        Logger?.LogTrace("Executing Flight SQL DoAction: {DescriptorName}", command.Descriptor.Name);
         return command switch
         {
             CommandStatementUpdate statementUpdate => PutStatementUpdate(statementUpdate, requestStream, responseStream, context),

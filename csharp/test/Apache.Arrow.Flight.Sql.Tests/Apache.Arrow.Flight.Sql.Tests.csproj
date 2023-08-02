@@ -12,8 +12,8 @@
       <PackageReference Include="coverlet.collector" Version="1.2.0" />
     </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Apache.Arrow.Flight\Apache.Arrow.Flight.csproj" />
-  </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\..\src\Apache.Arrow.Flight.Sql\Apache.Arrow.Flight.Sql.csproj" />
+    </ItemGroup>
 
 </Project>

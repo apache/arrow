@@ -29,7 +29,7 @@ using Xunit;
 
 namespace Apache.Arrow.Flight.Sql.Tests;
 
-public class FlightSqlProducerTests
+public class FlightSqlServerTests
 {
     [Theory]
     [InlineData(FlightDescriptorType.Path, null, null)]
@@ -59,7 +59,7 @@ public class FlightSqlProducerTests
     public async Task EnsureTheCorrectActionsAreGiven()
     {
         //Given
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var streamWriter = new MockServerStreamWriter<FlightActionType>();
 
         //When
@@ -117,7 +117,7 @@ public class FlightSqlProducerTests
     {
         //Given
         var command = (IMessage) Activator.CreateInstance(commandType)!;
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize().ToArray());
 
         //When
@@ -132,7 +132,7 @@ public class FlightSqlProducerTests
     public async void EnsureAnInvalidOperationExceptionIsThrownWhenACommandIsNotSupportedAndHasNoDescriptor()
     {
         //Given
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
 
         //When
         async Task<FlightInfo> Act() => await producer.GetFlightInfo(FlightDescriptor.CreatePathDescriptor(""), new MockServerCallContext());
@@ -146,7 +146,7 @@ public class FlightSqlProducerTests
     public async void EnsureAnInvalidOperationExceptionIsThrownWhenACommandIsNotSupported()
     {
         //Given
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var command = new CommandPreparedStatementUpdate();
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize().ToArray());
 
@@ -176,7 +176,7 @@ public class FlightSqlProducerTests
     public async void EnsureDoGetIsCorrectlyRoutedForADoGetCommand(Type commandType, string expectedResult)
     {
         //Given
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var command = (IMessage) Activator.CreateInstance(commandType)!;
         var ticket = new FlightTicket(command.PackAndSerialize());
         var streamWriter = new MockServerStreamWriter<FlightData>();
@@ -193,7 +193,7 @@ public class FlightSqlProducerTests
     public async void EnsureAnInvalidOperationExceptionIsThrownWhenADoGetCommandIsNotSupported()
     {
         //Given
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var ticket = new FlightTicket("");
         var streamWriter = new MockServerStreamWriter<FlightData>();
 
@@ -214,7 +214,7 @@ public class FlightSqlProducerTests
     public async void EnsureDoActionIsCorrectlyRoutedForAnActionRequest(string actionType, Type actionBodyType, string expectedResponse, bool isException = false)
     {
         //Given
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var actionBody = (IMessage) Activator.CreateInstance(actionBodyType)!;
         var action = new FlightAction(actionType, actionBody.PackAndSerialize());
         var mockStreamWriter = new MockStreamWriter<FlightResult>();
@@ -239,7 +239,7 @@ public class FlightSqlProducerTests
     {
         //Given
         var command = (IMessage) Activator.CreateInstance(commandType)!;
-        var producer = new TestFlightSqlProducer();
+        var producer = new TestFlightSqlSever();
         var descriptor = FlightDescriptor.CreateCommandDescriptor(command.PackAndSerialize().ToArray());
         var recordBatch = new RecordBatch(new Schema(new List<Field>(), null), System.Array.Empty<Int8Array>(), 0);
         var reader = new MockStreamReader<FlightData>(await recordBatch.ToFlightData(descriptor).ConfigureAwait(false));
