@@ -218,6 +218,16 @@ names and types of child fields are read from the child arrays.
 | ``+us:I,J,...``        | sparse union with type ids I,J...                 |            |
 +------------------------+---------------------------------------------------+------------+
 
+Types that are encoded in an alternative layout have format strings ending with ``>``
+followed by a character describing the alternative layout.  For example, an int32 column
+encoded in the stringy-view layout would have the format string ``I>~``.
+
++------------------------+---------------------------------------------------+------------+
+| Format string          | Alternative layout type                           | Notes      |
++========================+===================================================+============+
+| ``~``                  | stringy-view                                      |            |
++------------------------+---------------------------------------------------+------------+
+
 Notes:
 
 (1)
@@ -227,6 +237,11 @@ Notes:
 (2)
    As specified in the Arrow columnar format, the map type has a single child type
    named ``entries``, itself a 2-child struct type of ``(key, value)``.
+
+(3)
+   Format strings containing alternative layouts (``>``) should only be used if the
+   caller has specifically asked for the alternative layout.  Otherwise, the data
+   should be converted to the primary layout before being sent to the caller.
 
 Examples
 --------
