@@ -510,6 +510,11 @@ class FileFormatFixtureMixin : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(opts_->filter, filter.Bind(*opts_->dataset_schema));
   }
 
+  void SetRange(int64_t start_offset, int64_t length) {
+    opts_->start_offset = start_offset;
+    opts_->length = length;
+  }
+
   void Project(std::vector<std::string> names) {
     ASSERT_OK_AND_ASSIGN(auto projection, ProjectionDescr::FromNames(
                                               std::move(names), *opts_->dataset_schema));
