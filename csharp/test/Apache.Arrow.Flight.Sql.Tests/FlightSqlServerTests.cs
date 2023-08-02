@@ -263,17 +263,16 @@ public class FlightSqlServerTests
         protected override Task WriteResponseHeadersAsyncCore(Metadata responseHeaders) => throw new NotImplementedException();
 
         protected override ContextPropagationToken CreatePropagationTokenCore(ContextPropagationOptions? options) => throw new NotImplementedException();
-
-        protected override string? MethodCore => null;
-        protected override string? HostCore => null;
-        protected override string? PeerCore => null;
-        protected override DateTime DeadlineCore { get; }
-        protected override Metadata? RequestHeadersCore => null;
-        protected override CancellationToken CancellationTokenCore { get; }
-        protected override Metadata? ResponseTrailersCore => null;
+        protected override string MethodCore => "";
+        protected override string HostCore => "";
+        protected override string PeerCore => "";
+        protected override DateTime DeadlineCore => new();
+        protected override Metadata RequestHeadersCore => new();
+        protected override CancellationToken CancellationTokenCore => default;
+        protected override Metadata ResponseTrailersCore => new();
         protected override Status StatusCore { get; set; }
-        protected override WriteOptions? WriteOptionsCore { get; set; }
-        protected override AuthContext? AuthContextCore => null;
+        protected override WriteOptions WriteOptionsCore { get; set; } = WriteOptions.Default;
+        protected override AuthContext AuthContextCore => new("", new Dictionary<string, List<AuthProperty>>());
     }
 }
 
