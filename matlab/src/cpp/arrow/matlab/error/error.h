@@ -175,5 +175,5 @@ namespace arrow::matlab::error {
     static const char* ARRAY_FAILED_TO_CREATE_TYPE_PROXY = "arrow:array:FailedToCreateTypeProxy";
     static const char* ARROW_TABULAR_SCHEMA_INVALID_FIELD_NAME = "arrow:tabular:schema:InvalidFieldName";
     static const char* ARROW_TABULAR_SCHEMA_INVALID_FIELD_INDEX = "arrow:tabular:schema:InvalidFieldIndex";
-    static const char* ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME = "arrow:tabular:schema:AmbiguousFieldname";
+    static const char* ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME = "arrow:tabular:schema:AmbiguousFieldName";
 }
