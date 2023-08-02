@@ -29,7 +29,7 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _deprecate_class
 from libcpp cimport bool as c_bool
 
 import inspect
@@ -1933,34 +1933,6 @@ class PartitionNthOptions(_PartitionNthOptions):
         self._set_options(pivot, null_placement)
 
 
-cdef class _CumulativeSumOptions(FunctionOptions):
-    def _set_options(self, start, skip_nulls):
-        if not isinstance(start, Scalar):
-            try:
-                start = lib.scalar(start)
-            except Exception:
-                _raise_invalid_function_option(
-                    start, "`start` type for CumulativeSumOptions", TypeError)
-
-        self.wrapped.reset(new CCumulativeOptions(pyarrow_unwrap_scalar(start), skip_nulls))
-
-
-class CumulativeSumOptions(_CumulativeSumOptions):
-    """
-    Options for `cumulative_sum` function.
-
-    Parameters
-    ----------
-    start : Scalar, default 0.0
-        Starting value for sum computation
-    skip_nulls : bool, default False
-        When false, the first encountered null is propagated.
-    """
-
-    def __init__(self, start=0.0, *, skip_nulls=False):
-        self._set_options(start, skip_nulls)
-
-
 cdef class _CumulativeOptions(FunctionOptions):
     def _set_options(self, start, skip_nulls):
         if start is None:
@@ -1994,6 +1966,22 @@ class CumulativeOptions(_CumulativeOptions):
     start : Scalar, default None
         Starting value for the cumulative operation. If none is given, 
         a default value depending on the operation and input type is used.
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+@_deprecate_class("CumulativeSumOptions", CumulativeOptions, 14)
+class CumulativeSumOptions(_CumulativeOptions):
+    """
+    Options for `cumulative_sum` function.
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for sum computation
     skip_nulls : bool, default False
         When false, the first encountered null is propagated.
     """
