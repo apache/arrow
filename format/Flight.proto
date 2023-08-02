@@ -17,9 +17,10 @@
  */
 
 syntax = "proto3";
+import "google/protobuf/timestamp.proto";
 
 option java_package = "org.apache.arrow.flight.impl";
-option go_package = "github.com/apache/arrow/go/arrow/flight/internal/flight";
+option go_package = "github.com/apache/arrow/go/arrow/flight/gen/flight";
 option csharp_namespace = "Apache.Arrow.Flight.Protocol";
 
 package arrow.flight.protocol;
@@ -183,10 +184,58 @@ message Action {
 }
 
 /*
+ * The request of the CancelFlightInfo action.
+ *
+ * The request should be stored in Action.body.
+ */
+message CancelFlightInfoRequest {
+  FlightInfo info = 1;
+}
+
+/*
+ * The request of the RenewFlightEndpoint action.
+ *
+ * The request should be stored in Action.body.
+ */
+message RenewFlightEndpointRequest {
+  FlightEndpoint endpoint = 1;
+}
+
+/*
  * An opaque result returned after executing an action.
  */
 message Result {
   bytes body = 1;
+}
+
+/*
+ * The result of a cancel operation.
+ *
+ * This is used by CancelFlightInfoResult.status.
+ */
+enum CancelStatus {
+  // The cancellation status is unknown. Servers should avoid using
+  // this value (send a NOT_FOUND error if the requested query is
+  // not known). Clients can retry the request.
+  CANCEL_STATUS_UNSPECIFIED = 0;
+  // The cancellation request is complete. Subsequent requests with
+  // the same payload may return CANCELLED or a NOT_FOUND error.
+  CANCEL_STATUS_CANCELLED = 1;
+  // The cancellation request is in progress. The client may retry
+  // the cancellation request.
+  CANCEL_STATUS_CANCELLING = 2;
+  // The query is not cancellable. The client should not retry the
+  // cancellation request.
+  CANCEL_STATUS_NOT_CANCELLABLE = 3;
+}
+
+/*
+ * The result of the CancelFlightInfo action.
+ *
+ * The result should be stored in Result.body.
+ */
+message CancelFlightInfoResult {
+  CancelStatus status = 1;
 }
 
 /*
@@ -321,6 +370,13 @@ message FlightEndpoint {
    * represent redundant and/or load balanced services.
    */
   repeated Location location = 2;
+
+  /*
+   * Expiration time of this stream. If present, clients may assume
+   * they can retry DoGet requests. Otherwise, it is
+   * application-defined whether DoGet requests may be retried.
+   */
+  google.protobuf.Timestamp expiration_time = 3;
 }
 
 /*

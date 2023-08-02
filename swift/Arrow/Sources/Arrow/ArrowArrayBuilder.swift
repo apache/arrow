@@ -20,27 +20,27 @@ import Foundation
 public class ArrowArrayBuilder<T: ArrowBufferBuilder, U: ArrowArray<T.ItemType>> {
     let type: ArrowType
     let bufferBuilder: T
-    var length: UInt {get{return self.bufferBuilder.length}}
-    var capacity: UInt {get{return self.bufferBuilder.capacity}}
-    var nullCount : UInt {get{return self.bufferBuilder.nullCount}}
-    var offset: UInt {get{return self.bufferBuilder.offset}}
+    public var length: UInt {get{return self.bufferBuilder.length}}
+    public var capacity: UInt {get{return self.bufferBuilder.capacity}}
+    public var nullCount : UInt {get{return self.bufferBuilder.nullCount}}
+    public var offset: UInt {get{return self.bufferBuilder.offset}}
     
     fileprivate init(_ type: ArrowType) throws {
         self.type = type;
         self.bufferBuilder = try T()
     }
 
-    func append(_ val: T.ItemType?) {
+    public func append(_ val: T.ItemType?) {
         self.bufferBuilder.append(val)
     }
 
-    func finish() throws -> ArrowArray<T.ItemType> {
+    public func finish() throws -> ArrowArray<T.ItemType> {
         let buffers = self.bufferBuilder.finish();
         let arrowData = try ArrowData(self.type, buffers: buffers, nullCount: self.nullCount, stride: self.getStride())
         return U(arrowData)
     }
     
-    func getStride() -> Int {
+    public func getStride() -> Int {
         MemoryLayout<T.ItemType>.stride
     }
 }
@@ -74,7 +74,7 @@ public class Date32ArrayBuilder : ArrowArrayBuilder<Date32BufferBuilder, Date32A
         try self.init(ArrowType(ArrowType.ArrowDate32))
     }
     
-    override func getStride() -> Int {
+    public override func getStride() -> Int {
         MemoryLayout<Int32>.stride
     }
 }
@@ -84,7 +84,7 @@ public class Date64ArrayBuilder : ArrowArrayBuilder<Date64BufferBuilder, Date64A
         try self.init(ArrowType(ArrowType.ArrowDate64))
     }
 
-    override func getStride() -> Int {
+    public override func getStride() -> Int {
         MemoryLayout<Int64>.stride
     }
 }

@@ -75,8 +75,7 @@
 #'   Files with compressed metadata are readable by older versions of arrow, but
 #'   the metadata is dropped.
 #'
-#' @rdname schema-class
-#' @name Schema
+#' @rdname Schema-class
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
@@ -230,8 +229,6 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' Schemas
-#'
 #' Create a schema or extract one from an object.
 #'
 #' @seealso [Schema] for detailed documentation of the Schema R6 object
@@ -383,7 +380,7 @@ length.Schema <- function(x) x$num_fields
 #' @export
 as.list.Schema <- function(x, ...) x$fields
 
-#' read a Schema from a stream
+#' Read a Schema from a stream
 #'
 #' @param stream a `Message`, `InputStream`, or `Buffer`
 #' @param ... currently ignored

@@ -364,6 +364,7 @@ TEST_F(TestCudaHostBuffer, AllocateGlobal) {
 
   ASSERT_TRUE(host_buffer->is_cpu());
   ASSERT_EQ(host_buffer->memory_manager(), cpu_mm_);
+  ASSERT_EQ(host_buffer->device_type(), DeviceAllocationType::kCUDA_HOST);
 
   ASSERT_OK_AND_ASSIGN(auto device_address, host_buffer->GetDeviceAddress(context_));
   ASSERT_NE(device_address, 0);
@@ -376,6 +377,7 @@ TEST_F(TestCudaHostBuffer, ViewOnDevice) {
 
   ASSERT_TRUE(host_buffer->is_cpu());
   ASSERT_EQ(host_buffer->memory_manager(), cpu_mm_);
+  ASSERT_EQ(host_buffer->device_type(), DeviceAllocationType::kCUDA_HOST);
 
   // Try to view the host buffer on the device.  This should correspond to
   // GetDeviceAddress() in the previous test.
@@ -385,6 +387,7 @@ TEST_F(TestCudaHostBuffer, ViewOnDevice) {
   ASSERT_NE(device_buffer->address(), 0);
   ASSERT_EQ(device_buffer->size(), host_buffer->size());
   ASSERT_EQ(device_buffer->parent(), host_buffer);
+  ASSERT_EQ(device_buffer->device_type(), DeviceAllocationType::kCUDA);
 
   // View back the device buffer on the CPU.  This should roundtrip.
   ASSERT_OK_AND_ASSIGN(auto buffer, Buffer::View(device_buffer, cpu_mm_));
@@ -393,6 +396,7 @@ TEST_F(TestCudaHostBuffer, ViewOnDevice) {
   ASSERT_EQ(buffer->address(), host_buffer->address());
   ASSERT_EQ(buffer->size(), host_buffer->size());
   ASSERT_EQ(buffer->parent(), device_buffer);
+  ASSERT_EQ(buffer->device_type(), DeviceAllocationType::kCUDA_HOST);
 }
 
 // ------------------------------------------------------------------------

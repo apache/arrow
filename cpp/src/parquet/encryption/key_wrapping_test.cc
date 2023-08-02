@@ -26,9 +26,7 @@
 #include "parquet/encryption/test_encryption_util.h"
 #include "parquet/encryption/test_in_memory_kms.h"
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 class KeyWrappingTest : public ::testing::Test {
  protected:
@@ -113,6 +111,4 @@ TEST_F(KeyWrappingTest, ExternalMaterialStorage) {
   this->WrapThenUnwrap(false, false, false);
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

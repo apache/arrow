@@ -36,6 +36,8 @@ public class ArrowReader {
         public var batches = [RecordBatch]()
     }
     
+    public init() {}
+    
     private func loadSchema(_ schema: org_apache_arrow_flatbuf_Schema) -> Result<ArrowSchema, ArrowError> {
         let builder = ArrowSchema.Builder()
         for index in 0 ..< schema.fieldsCount {

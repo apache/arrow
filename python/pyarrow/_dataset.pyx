@@ -131,10 +131,18 @@ cdef CFileSource _make_file_source(object file, FileSystem filesystem=None):
 
 cdef CSegmentEncoding _get_segment_encoding(str segment_encoding):
     if segment_encoding == "none":
-        return CSegmentEncodingNone
+        return CSegmentEncoding_None
     elif segment_encoding == "uri":
-        return CSegmentEncodingUri
+        return CSegmentEncoding_Uri
     raise ValueError(f"Unknown segment encoding: {segment_encoding}")
+
+
+cdef str _wrap_segment_encoding(CSegmentEncoding segment_encoding):
+    if segment_encoding == CSegmentEncoding_None:
+        return "none"
+    elif segment_encoding == CSegmentEncoding_Uri:
+        return "uri"
+    raise ValueError("Unknown segment encoding")
 
 
 cdef Expression _true = Expression._scalar(True)
@@ -2339,6 +2347,11 @@ cdef class Partitioning(_Weakrefable):
     cdef inline shared_ptr[CPartitioning] unwrap(self):
         return self.wrapped
 
+    def __eq__(self, other):
+        if isinstance(other, Partitioning):
+            return self.partitioning.Equals(deref((<Partitioning>other).unwrap()))
+        return False
+
     def parse(self, path):
         cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))
@@ -2360,15 +2373,21 @@ cdef class PartitioningFactory(_Weakrefable):
         self.factory = sp.get()
 
     @staticmethod
-    cdef wrap(const shared_ptr[CPartitioningFactory]& sp):
+    cdef wrap(const shared_ptr[CPartitioningFactory]& sp,
+              object constructor, object options):
         cdef PartitioningFactory self = PartitioningFactory.__new__(
             PartitioningFactory
         )
         self.init(sp)
+        self.constructor = constructor
+        self.options = options
         return self
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self):
         return self.wrapped
+
+    def __reduce__(self):
+        return self.constructor, self.options
 
     @property
     def type_name(self):
@@ -2393,6 +2412,7 @@ cdef vector[shared_ptr[CArray]] _partitioning_dictionaries(
 
     return c_dictionaries
 
+
 cdef class KeyValuePartitioning(Partitioning):
 
     cdef:
@@ -2406,6 +2426,15 @@ cdef class KeyValuePartitioning(Partitioning):
         self.keyvalue_partitioning = <CKeyValuePartitioning*> sp.get()
         self.wrapped = sp
         self.partitioning = sp.get()
+
+    def __reduce__(self):
+        dictionaries = self.dictionaries
+        if dictionaries:
+            dictionaries = dict(zip(self.schema.names, dictionaries))
+        segment_encoding = _wrap_segment_encoding(
+            deref(self.keyvalue_partitioning).segment_encoding()
+        )
+        return self.__class__, (self.schema, dictionaries, segment_encoding)
 
     @property
     def dictionaries(self):
@@ -2428,6 +2457,10 @@ cdef class KeyValuePartitioning(Partitioning):
             else:
                 res.append(pyarrow_wrap_array(arr))
         return res
+
+
+def _constructor_directory_partitioning_factory(*args):
+    return DirectoryPartitioning.discover(*args)
 
 
 cdef class DirectoryPartitioning(KeyValuePartitioning):
@@ -2547,7 +2580,15 @@ cdef class DirectoryPartitioning(KeyValuePartitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
-            CDirectoryPartitioning.MakeFactory(c_field_names, c_options))
+            CDirectoryPartitioning.MakeFactory(c_field_names, c_options),
+            _constructor_directory_partitioning_factory,
+            (field_names, infer_dictionary, max_partition_dictionary_size,
+             schema, segment_encoding)
+        )
+
+
+def _constructor_hive_partitioning_factory(*args):
+    return HivePartitioning.discover(*args)
 
 
 cdef class HivePartitioning(KeyValuePartitioning):
@@ -2620,6 +2661,18 @@ cdef class HivePartitioning(KeyValuePartitioning):
         KeyValuePartitioning.init(self, sp)
         self.hive_partitioning = <CHivePartitioning*> sp.get()
 
+    def __reduce__(self):
+        dictionaries = self.dictionaries
+        if dictionaries:
+            dictionaries = dict(zip(self.schema.names, dictionaries))
+        segment_encoding = _wrap_segment_encoding(
+            deref(self.keyvalue_partitioning).segment_encoding()
+        )
+        null_fallback = frombytes(deref(self.hive_partitioning).null_fallback())
+        return HivePartitioning, (
+            self.schema, dictionaries, null_fallback, segment_encoding
+        )
+
     @staticmethod
     def discover(infer_dictionary=False,
                  max_partition_dictionary_size=0,
@@ -2678,7 +2731,15 @@ cdef class HivePartitioning(KeyValuePartitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
-            CHivePartitioning.MakeFactory(c_options))
+            CHivePartitioning.MakeFactory(c_options),
+            _constructor_hive_partitioning_factory,
+            (infer_dictionary, max_partition_dictionary_size, null_fallback,
+             schema, segment_encoding),
+        )
+
+
+def _constructor_filename_partitioning_factory(*args):
+    return FilenamePartitioning.discover(*args)
 
 
 cdef class FilenamePartitioning(KeyValuePartitioning):
@@ -2787,7 +2848,10 @@ cdef class FilenamePartitioning(KeyValuePartitioning):
         c_options.segment_encoding = _get_segment_encoding(segment_encoding)
 
         return PartitioningFactory.wrap(
-            CFilenamePartitioning.MakeFactory(c_field_names, c_options))
+            CFilenamePartitioning.MakeFactory(c_field_names, c_options),
+            _constructor_filename_partitioning_factory,
+            (field_names, infer_dictionary, schema, segment_encoding)
+        )
 
 
 cdef class DatasetFactory(_Weakrefable):
@@ -2952,7 +3016,7 @@ cdef class FileSystemFactoryOptions(_Weakrefable):
         c_factory = self.options.partitioning.factory()
         if c_factory.get() == nullptr:
             return None
-        return PartitioningFactory.wrap(c_factory)
+        return PartitioningFactory.wrap(c_factory, None, None)
 
     @partitioning_factory.setter
     def partitioning_factory(self, PartitioningFactory value):
@@ -3273,7 +3337,7 @@ cdef class Scanner(_Weakrefable):
         ----------
         dataset : Dataset
             Dataset to scan.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3352,7 +3416,7 @@ cdef class Scanner(_Weakrefable):
             fragment to scan.
         schema : Schema, optional
             The schema of the fragment.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced
@@ -3438,7 +3502,7 @@ cdef class Scanner(_Weakrefable):
             The iterator of Batches.
         schema : Schema
             The schema of the batches.
-        columns : list of str, default None
+        columns : list[str] or dict[str, Expression], default None
             The columns to project. This can be a list of column names to
             include (order and duplicates will be preserved), or a dictionary
             with {new_column_name: expression} values for more advanced

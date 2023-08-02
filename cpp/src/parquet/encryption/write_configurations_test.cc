@@ -60,9 +60,7 @@
  *                                  keys. Use the alternative (AES_GCM_CTR_V1) algorithm.
  */
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using FileClass = ::arrow::io::FileOutputStream;
 
@@ -231,6 +229,4 @@ void TestEncryptionConfiguration::SetUpTestCase() {
   temp_dir = temp_data_dir().ValueOrDie();
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

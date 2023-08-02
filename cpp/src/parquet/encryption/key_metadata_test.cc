@@ -22,9 +22,7 @@
 #include "parquet/encryption/key_material.h"
 #include "parquet/encryption/key_metadata.h"
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 TEST(KeyMetadataTest, InternalMaterialStorage) {
   bool is_footer_key = true;
@@ -72,6 +70,4 @@ TEST(KeyMetadataTest, ExternalMaterialStorage) {
   ASSERT_EQ(key_metadata.key_reference(), key_reference);
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

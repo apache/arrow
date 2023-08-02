@@ -19,7 +19,8 @@
 
 #include <iostream>
 #include <memory>
-#include "arrow/builder.h"
+
+#include "arrow/array/builder_base.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
@@ -35,9 +36,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
-#include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
+namespace {
 
 // We reuse the kernel exec function of a scalar binary function to compute pairwise
 // results. For example, for pairwise_diff, we reuse subtract's kernel exec.
@@ -55,21 +56,21 @@ Status PairwiseExecImpl(KernelContext* ctx, const ArraySpan& input,
                         ArrayData* result) {
   // We only compute values in the region where the input-with-offset overlaps
   // the original input. The margin where these do not overlap gets filled with null.
-  auto margin_length = std::min(abs(periods), input.length);
-  auto computed_length = input.length - margin_length;
-  auto margin_start = periods > 0 ? 0 : computed_length;
-  auto computed_start = periods > 0 ? margin_length : 0;
-  auto left_start = computed_start;
-  auto right_start = margin_length - computed_start;
-  // prepare bitmap
-  bit_util::ClearBitmap(result->buffers[0]->mutable_data(), margin_start, margin_length);
+  const auto margin_length = std::min(abs(periods), input.length);
+  const auto computed_length = input.length - margin_length;
+  const auto computed_start = periods > 0 ? margin_length : 0;
+  const auto left_start = computed_start;
+  const auto right_start = margin_length - computed_start;
+  // prepare null bitmap
+  int64_t null_count = margin_length;
   for (int64_t i = computed_start; i < computed_start + computed_length; i++) {
     if (input.IsValid(i) && input.IsValid(i - periods)) {
       bit_util::SetBit(result->buffers[0]->mutable_data(), i);
     } else {
-      bit_util::ClearBit(result->buffers[0]->mutable_data(), i);
+      ++null_count;
     }
   }
+  result->null_count = null_count;
   // prepare input span
   ArraySpan left(input);
   left.SetSlice(left_start, computed_length);
@@ -90,9 +91,21 @@ Status PairwiseExecImpl(KernelContext* ctx, const ArraySpan& input,
 Status PairwiseExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   const auto& state = checked_cast<const PairwiseState&>(*ctx->state());
   auto input = batch[0].array;
-  RETURN_NOT_OK(PairwiseExecImpl(ctx, batch[0].array, state.scalar_exec, state.periods,
-                                 out->array_data_mutable()));
-  return Status::OK();
+
+  // The scalar diff kernel will only write into the non-null output area.
+  // We must therefore pre-initialize the output, otherwise the left or right
+  // margin would be left uninitialized.
+  ARROW_ASSIGN_OR_RAISE(auto builder,
+                        MakeBuilder(out->type()->GetSharedPtr(), ctx->memory_pool()));
+  // Append nulls rather than empty values, so as to allocate a null bitmap.
+  RETURN_NOT_OK(builder->AppendNulls(out->length()));
+  std::shared_ptr<ArrayData> out_data;
+  RETURN_NOT_OK(builder->FinishInternal(&out_data));
+  out_data->null_count = kUnknownNullCount;
+  out->value = std::move(out_data);
+
+  return PairwiseExecImpl(ctx, batch[0].array, state.scalar_exec, state.periods,
+                          out->array_data_mutable());
 }
 
 const FunctionDoc pairwise_diff_doc(
@@ -122,19 +135,13 @@ const PairwiseOptions* GetDefaultPairwiseOptions() {
   return &kDefaultPairwiseOptions;
 }
 
-struct PairwiseKernelData {
-  InputType input;
-  OutputType output;
-  ArrayKernelExec exec;
-};
-
 void RegisterPairwiseDiffKernels(std::string_view func_name,
                                  std::string_view base_func_name, const FunctionDoc& doc,
                                  FunctionRegistry* registry) {
   VectorKernel kernel;
   kernel.can_execute_chunkwise = false;
   kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-  kernel.mem_allocation = MemAllocation::PREALLOCATE;
+  kernel.mem_allocation = MemAllocation::NO_PREALLOCATE;
   kernel.init = OptionsWrapper<PairwiseOptions>::Init;
   auto func = std::make_shared<VectorFunction>(std::string(func_name), Arity::Unary(),
                                                doc, GetDefaultPairwiseOptions());
@@ -173,6 +180,8 @@ void RegisterPairwiseDiffKernels(std::string_view func_name,
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
+}  // namespace
 
 void RegisterVectorPairwise(FunctionRegistry* registry) {
   RegisterPairwiseDiffKernels("pairwise_diff", "subtract", pairwise_diff_doc, registry);

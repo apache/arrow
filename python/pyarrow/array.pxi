@@ -700,7 +700,8 @@ cdef class _PandasConvertible(_Weakrefable):
             bint split_blocks=False,
             bint self_destruct=False,
             str maps_as_pydicts=None,
-            types_mapper=None
+            types_mapper=None,
+            bint coerce_temporal_nanoseconds=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -721,12 +722,15 @@ cdef class _PandasConvertible(_Weakrefable):
         integer_object_nulls : bool, default False
             Cast integers with nulls to objects
         date_as_object : bool, default True
-            Cast dates to objects. If False, convert to datetime64[ns] dtype.
+            Cast dates to objects. If False, convert to datetime64 dtype with
+            the equivalent time unit (if supported). Note: in pandas version
+            < 2.0, only datetime64[ns] conversion is supported.
         timestamp_as_object : bool, default False
             Cast non-nanosecond timestamps (np.datetime64) to objects. This is
-            useful if you have timestamps that don't fit in the normal date
-            range of nanosecond timestamps (1678 CE-2262 CE).
-            If False, all timestamps are converted to datetime64[ns] dtype.
+            useful in pandas version 1.x if you have timestamps that don't fit
+            in the normal date range of nanosecond timestamps (1678 CE-2262 CE).
+            Non-nanosecond timestamps are supported in pandas version 2.0.
+            If False, all timestamps are converted to datetime64 dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default True
@@ -775,6 +779,13 @@ cdef class _PandasConvertible(_Weakrefable):
             expected to return a pandas ExtensionDtype or ``None`` if the
             default conversion should be used for that type. If you have
             a dictionary mapping, you can pass ``dict.get`` as function.
+        coerce_temporal_nanoseconds : bool, default False
+            Only applicable to pandas version >= 2.0.
+            A legacy option to coerce date32, date64, duration, and timestamp
+            time units to nanoseconds when converting to pandas. This is the
+            default behavior in pandas version 1.x. Set this option to True if
+            you'd like to use this coercion when using pandas version >= 2.0
+            for backwards compatibility (not recommended otherwise).
 
         Returns
         -------
@@ -850,7 +861,8 @@ cdef class _PandasConvertible(_Weakrefable):
             safe=safe,
             split_blocks=split_blocks,
             self_destruct=self_destruct,
-            maps_as_pydicts=maps_as_pydicts
+            maps_as_pydicts=maps_as_pydicts,
+            coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -870,6 +882,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
+    result.coerce_temporal_nanoseconds = options['coerce_temporal_nanoseconds']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
 
     maps_as_pydicts = options['maps_as_pydicts']
@@ -1525,6 +1538,7 @@ cdef class Array(_PandasConvertible):
         # so it can't be done if the user requested a zero_copy.
         c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
+        c_options.to_numpy = True
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
@@ -1689,8 +1703,9 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         arr = dtype.__from_arrow__(obj)
         return pandas_api.series(arr, name=name, copy=False)
 
-    # ARROW-3789(wesm): Convert date/timestamp types to datetime64[ns]
-    c_options.coerce_temporal_nanoseconds = True
+    if pandas_api.is_v1():
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+        c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
         with nogil:

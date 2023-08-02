@@ -25,12 +25,7 @@
 #include <unordered_map>
 #include <utility>
 
-#include "arrow/util/config.h"
-#ifdef GRPCPP_PP_INCLUDE
 #include <grpcpp/grpcpp.h>
-#else
-#include <grpc++/grpc++.h>
-#endif
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
@@ -116,6 +111,7 @@ class GrpcServerAuthSender : public ServerAuthSender {
 };
 
 class GrpcServerCallContext : public ServerCallContext {
+ public:
   explicit GrpcServerCallContext(::grpc::ServerContext* context)
       : context_(context), peer_(context_->peer()) {
     for (const auto& entry : context->client_metadata()) {
@@ -146,6 +142,14 @@ class GrpcServerCallContext : public ServerCallContext {
     // Set custom headers to map the exact Arrow status for clients
     // who want it.
     return ToGrpcStatus(status, context_);
+  }
+
+  void AddHeader(const std::string& key, const std::string& value) const override {
+    context_->AddInitialMetadata(key, value);
+  }
+
+  void AddTrailer(const std::string& key, const std::string& value) const override {
+    context_->AddTrailingMetadata(key, value);
   }
 
   ServerMiddleware* GetMiddleware(const std::string& key) const override {

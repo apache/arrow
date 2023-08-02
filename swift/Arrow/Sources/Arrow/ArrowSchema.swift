@@ -52,6 +52,8 @@ public class ArrowSchema {
     public class Builder {
         private var fields: [ArrowField] = []
         
+        public init() {}
+        
         @discardableResult
         public func addField(_ field: ArrowField) -> Builder {
             fields.append(field)

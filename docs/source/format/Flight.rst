@@ -133,6 +133,26 @@ A client that wishes to download the data would:
    can also use ``FlightInfo.ordered``. See the previous item for
    details of ``FlightInfo.ordered``.
 
+   Each endpoint may have expiration time
+   (``FlightEndpoint.expiration_time``). If an endpoint has expiration
+   time, the client can get data multiple times by ``DoGet`` until the
+   expiration time is reached. Otherwise, it is application-defined
+   whether ``DoGet`` requests may be retried. The expiration time is
+   represented as `google.protobuf.Timestamp`_.
+
+   If the expiration time is short, the client may be able to extend
+   the expiration time by ``RenewFlightEndpoint`` action. The client
+   need to use ``DoAction`` with ``RenewFlightEndpoint`` action type
+   to extend the expiration time. ``Action.body`` must be
+   ``RenewFlightEndpointRequest`` that has ``FlightEndpoint`` to be
+   renewed.
+
+   The client may be able to cancel the returned ``FlightInfo`` by
+   ``CancelFlightInfo`` action. The client need to use ``DoAction``
+   with ``CancelFlightInfo`` action type to cancel the ``FlightInfo``.
+
+.. _google.protobuf.Timestamp: https://protobuf.dev/reference/protobuf/google.protobuf/#timestamp
+
 Uploading Data
 --------------
 

@@ -68,6 +68,8 @@ public class ArrowWriter {
         }
     }
     
+    public init() {}
+    
     private func writeField(_ fbb: inout FlatBufferBuilder, field: ArrowField) -> Result<Offset, ArrowError> {
         let nameOffset = fbb.create(string: field.name)
         let fieldTypeOffsetResult = toFBType(&fbb, arrowType: field.type)

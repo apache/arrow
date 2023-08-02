@@ -13,11 +13,40 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Type
+classdef (Abstract) Type < matlab.mixin.CustomDisplay
 %TYPE Abstract type class. 
 
-    properties (Abstract, SetAccess=protected)
-        ID(1, 1) arrow.type.ID
+    properties (Dependent, GetAccess=public, SetAccess=private)
+        ID
+        NumFields
     end
-end
 
+    properties (GetAccess=public, SetAccess=private, Hidden)
+        Proxy
+    end
+
+    methods
+        function obj = Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj.Proxy = proxy;
+        end
+
+        function numFields = get.NumFields(obj)
+            numFields = obj.Proxy.numFields();
+        end
+
+        function typeID = get.ID(obj)
+            typeID = arrow.type.ID(obj.Proxy.typeID());
+        end
+    end
+
+    methods (Access=protected)
+        function propgrp = getPropertyGroups(~)
+          proplist = {'ID'};
+          propgrp = matlab.mixin.util.PropertyGroup(proplist);
+        end
+    end
+    
+end

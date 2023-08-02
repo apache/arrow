@@ -192,10 +192,16 @@ func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
-	if unit == Second {
+	switch unit {
+	case Second:
 		return time.Unix(int64(t), 0).UTC()
+	case Millisecond:
+		return time.UnixMilli(int64(t)).UTC()
+	case Microsecond:
+		return time.UnixMicro(int64(t)).UTC()
+	default:
+		return time.Unix(0, int64(t)).UTC()
 	}
-	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
 }
 
 // TimestampFromTime allows converting time.Time to Timestamp
@@ -327,6 +333,8 @@ const (
 
 var TimeUnitValues = []TimeUnit{Second, Millisecond, Microsecond, Nanosecond}
 
+// Multiplier returns a time.Duration value to multiply by in order to
+// convert the value into nanoseconds
 func (u TimeUnit) Multiplier() time.Duration {
 	return [...]time.Duration{time.Second, time.Millisecond, time.Microsecond, time.Nanosecond}[uint(u)&3]
 }

@@ -31,9 +31,9 @@ classdef tTimeUnit < matlab.unittest.TestCase
             import arrow.type.TimeUnit
             units = [TimeUnit.Second, TimeUnit.Millisecond, ...
                               TimeUnit.Microsecond, TimeUnit.Nanosecond]';
-            ticksPerSecond = [1 1e3 1e6 1e9];
+            ticks = [1 1e3 1e6 1e9];
             for ii = 1:numel(units)
-                testCase.verifyEqual(units(ii).TicksPerSecond, ticksPerSecond(ii));
+                testCase.verifyEqual(ticksPerSecond(units(ii)), ticks(ii));
             end
         end
     end

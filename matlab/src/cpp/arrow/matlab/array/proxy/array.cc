@@ -15,19 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/array/proxy/array.h"
+#include "arrow/util/utf8.h"
 
+#include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/bit/unpack.h"
+#include "arrow/matlab/error/error.h"
+#include "arrow/matlab/type/proxy/wrap.h"
+#include "arrow/type_traits.h"
+
+#include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::array::proxy {
 
-    Array::Array() {
+    Array::Array(std::shared_ptr<arrow::Array> array) : array{std::move(array)} {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
         REGISTER_METHOD(Array, toMATLAB);
         REGISTER_METHOD(Array, length);
         REGISTER_METHOD(Array, valid);
+        REGISTER_METHOD(Array, type);
     }
 
     std::shared_ptr<arrow::Array> Array::getArray() {
@@ -36,9 +43,9 @@ namespace arrow::matlab::array::proxy {
 
     void Array::toString(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
-
-        // TODO: handle non-ascii characters
-        auto str_mda = factory.createScalar(array->ToString());
+        const auto str_utf8 = array->ToString();
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto str_utf16, arrow::util::UTF8StringToUTF16(str_utf8), context, error::UNICODE_CONVERSION_ERROR_ID);
+        auto str_mda = factory.createScalar(str_utf16);
         context.outputs[0] = str_mda;
     }
 
@@ -66,5 +73,22 @@ namespace arrow::matlab::array::proxy {
         auto validity_bitmap = array->null_bitmap();
         auto valid_elements_mda = bit::unpack(validity_bitmap, array_length);
         context.outputs[0] = valid_elements_mda;
+    }
+
+    void Array::type(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+
+        mda::ArrayFactory factory;
+
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
+                                            type::proxy::wrap(array->type()),
+                                            context,
+                                            error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
+
+        auto type_id = type_proxy->unwrap()->id();
+        auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
+
+        context.outputs[0] = factory.createScalar(proxy_id);
+        context.outputs[1] = factory.createScalar(static_cast<int64_t>(type_id));
     }
 }

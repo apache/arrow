@@ -38,4 +38,13 @@ namespace arrow::matlab::bit {
 
         return unpacked_matlab_logical_Array;
     }
+
+    const uint8_t* extract_ptr(const ::matlab::data::TypedArray<bool>& unpacked_validity_bitmap) {
+        if (unpacked_validity_bitmap.getNumberOfElements() > 0) {
+            const auto unpacked_validity_bitmap_iterator(unpacked_validity_bitmap.cbegin());
+            return reinterpret_cast<const uint8_t*>(unpacked_validity_bitmap_iterator.operator->());
+        } else {
+            return nullptr;
+        }
+    }
 }
