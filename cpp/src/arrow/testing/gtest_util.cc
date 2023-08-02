@@ -726,15 +726,12 @@ void TestInitialized(const ArrayData& array) {
 }
 
 void SleepFor(double seconds) {
-
-
 #ifdef ARROW_ENABLE_THREADING
   std::this_thread::sleep_for(
       std::chrono::nanoseconds(static_cast<int64_t>(seconds * 1e9)));
 #else
-    using Clock = std::chrono::steady_clock;
-    using DurationDouble = std::chrono::duration<double>;
-
+  using Clock = std::chrono::steady_clock;
+  using DurationDouble = std::chrono::duration<double>;
 
   auto secs_left = DurationDouble(seconds);
   auto start_time = Clock::now();
@@ -1070,7 +1067,7 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
           Status::Invalid("Task unlock never happened - if threads are disabled you "
                           "can't wait on gatedtask"));
       return;
-    } 
+    }
 
     SleepABit();
     auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
@@ -1091,11 +1088,9 @@ class GatingTask::Impl : public std::enable_shared_from_this<GatingTask::Impl> {
     using DurationClock = std::chrono::steady_clock::duration;
 
     auto start_time = Clock::now();
-    auto secs_left =
-        DurationDouble(timeout_seconds_);
-    auto end_time =
-        std::chrono::time_point_cast<DurationClock, Clock, DurationDouble>(start_time +
-                                                                           secs_left);
+    auto secs_left = DurationDouble(timeout_seconds_);
+    auto end_time = std::chrono::time_point_cast<DurationClock, Clock, DurationDouble>(
+        start_time + secs_left);
     auto executor = arrow::internal::GetCpuThreadPool();
     auto future = Future<>::Make();
     auto spawn_status = executor->Spawn([this, end_time, executor, future]() {
