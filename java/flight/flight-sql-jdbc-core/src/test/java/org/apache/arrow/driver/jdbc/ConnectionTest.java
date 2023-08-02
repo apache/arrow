@@ -551,4 +551,32 @@ public class ConnectionTest {
     Assert.assertTrue(connection.isValid(0));
     connection.close();
   }
+
+  /**
+   * Checks if an unencrypted connection can be established successfully when
+   * buffersize parameter is set for {@link ArrowFlightJdbcFlightStreamResultSet}.
+   *
+   * @throws SQLException on error.
+   */
+  @Test
+  public void testUnencryptedConnectionShouldOpenSuccessfullyWhenProvidedBufferSizeParameter()
+          throws Exception {
+    final Properties properties = new Properties();
+
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
+            FLIGHT_SERVER_TEST_RULE.getPort());
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(),
+            userTest);
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
+            passTest);
+    properties.put("useEncryption", false);
+    properties.put("buffersize", 1);
+
+    try (Connection connection = DriverManager.getConnection(
+            "jdbc:arrow-flight-sql://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
+                    FLIGHT_SERVER_TEST_RULE.getPort(), properties)) {
+      assert connection.isValid(300);
+    }
+  }
 }

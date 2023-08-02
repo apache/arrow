@@ -109,8 +109,8 @@ public final class ArrowFlightConnection extends AvaticaConnection {
           .build();
     } catch (final SQLException e) {
       try {
-        allocator.close();
-        allocator.getChildAllocators().forEach(BufferAllocator::close);
+        allocator.getChildAllocators().forEach(AutoCloseables::closeNoChecked);
+        AutoCloseables.close(allocator);
       } catch (final Exception allocatorCloseEx) {
         e.addSuppressed(allocatorCloseEx);
       }

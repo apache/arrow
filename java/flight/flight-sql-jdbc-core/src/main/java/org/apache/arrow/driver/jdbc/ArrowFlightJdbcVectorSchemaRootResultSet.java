@@ -24,7 +24,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -94,9 +93,7 @@ public class ArrowFlightJdbcVectorSchemaRootResultSet extends AvaticaResultSet {
   }
 
   void execute(final VectorSchemaRoot vectorSchemaRoot, final Schema schema) {
-    final List<Field> fields = Optional.ofNullable(schema)
-            .map(Schema::getFields)
-            .orElseGet(() -> vectorSchemaRoot.getSchema().getFields());
+    final List<Field> fields = schema == null ? vectorSchemaRoot.getSchema().getFields() : schema.getFields();
     final List<ColumnMetaData> columns = ConvertUtils.convertArrowFieldsToColumnMetaDataList(fields);
     signature.columns.clear();
     signature.columns.addAll(columns);
