@@ -154,6 +154,8 @@ def test_hashing_struct_scalar():
     assert hash1 == hash2
 
 
+@pytest.mark.skipif(sys.platform == "win32" and not util.windows_has_tzdata(),
+                    reason="Timezone database is not installed on Windows")
 def test_timestamp_scalar():
     a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
     assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
