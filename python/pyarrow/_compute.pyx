@@ -29,7 +29,7 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _deprecate_class
 from libcpp cimport bool as c_bool
 
 import inspect
@@ -1973,7 +1973,7 @@ class CumulativeOptions(_CumulativeOptions):
     def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
-
+CumulativeSumOptions = _deprecate_class("CumulativeSumOptions", CumulativeOptions, 14)
 class CumulativeSumOptions(_CumulativeOptions):
     """
     Options for `cumulative_sum` function.
