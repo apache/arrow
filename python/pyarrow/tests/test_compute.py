@@ -210,7 +210,8 @@ def test_option_class_equality():
         buf = option.serialize()
         deserialized = pc.FunctionOptions.deserialize(buf)
         assert option == deserialized
-        # TODO remove the check under if when the deprecated class CumulativeSumOptions is removed.
+        # TODO remove the check under if 
+        # when the deprecated class CumulativeSumOptions is removed.
         if repr(option).startswith("CumulativeSumOptions"):
             assert repr(deserialized).startswith("CumulativeOptions")
         else:
