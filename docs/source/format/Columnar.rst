@@ -873,6 +873,86 @@ In Run-end-encoded form, this could appear as:
           | 1.0         | unspecified | 2.0         | unspecified (padding) |
 
 
+.. _alternative_layouts:
+
+Alternative Layouts
+-------------------
+
+There are many different ways to physically layout values in memory.  The
+Arrow format aims to specify a small but complete set of extensible layouts
+that can represent all data types efficiently.  However, we recognize that there
+are often tradeoffs between different layouts and that there may be alternative
+layouts that can offer significant benefits in specific situations.
+
+When we feel that a layout's applicability is limited to specific use cases (for
+example, compute but not storage, or vice versa) and another layout is already defined
+that can represent the data then we may declare the layout to be an alternative layout.
+These layouts are not guaranteed to be available in every Arrow implementation and
+libraries can safely choose to ignore them if they believe the performance benefits are
+not necessary.
+
+Libraries that do choose to support an alternative layout should only expose that layout
+outside the library if the caller has specifically asked for it in some way.  Otherwise,
+the data should be converted to a non-alterantive layout, incurring a copy if needed.
+This allows tools that would like to support these alternative layouts to exchange the
+data in a zero-copy fashion while not impacting tools that do not require the alternative
+layout's benefits.
+
+For example, a file format may choose to store integer data in a column where each integer
+is represented by a variable number of bytes as this can be more efficient for storage. An
+Arrow-native I/O library that decodes this file format should not return data in this form
+unless the user requested it (e.g. via some kind of configuration option or by requesting
+a specific schema for the returned data).
+
+The following sections describe experimental and alternative layouts that have been accepted
+into the Arrow format.  Even though these layouts are not required to be implemented they
+must still go through the same review process, be clearly documented, and pass integration
+testing.  This ensures that the layouts are well-defined and that libraries that do choose
+to support these layouts can safely exchange data in a zero-copy fashion.
+
+Stringy View (THIS IS A JOKE EXAMPLE PLEASE DON'T MERGE THIS)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Stringy View layout is an alternative layout where unsigned integers are stored as "strings"
+of the ASCII character ~.  For example, the integer 7 can be stored as ~~~~~~~.  Breaks between
+integers are represented by the scissor sequence 8-<.   Thus, the array 5, 4, 2 is stored
+as ~~~~~8-<~~~~8-<~~.
+
+This layout is an alterantive for the fixed-size primitive layout.  It can be used for storing
+unsigned integers.  The primary advantage of this layout is that it's a cute and fun example
+and it should be used in situations where you need to make people groan in poor humor.
+
+Its physical layout is as follows:
+
+* Strings buffer: A buffer that only consists of the bytes 0x7E, 0x38, 0x2D, and 0x3C.  This
+  buffer represents the integer values.  Null values are not present in this buffer.
+* Offsets buffer: A buffer of signed Int32 values indicating the relative offset into the
+  strings buffer for the value in a given slot.  The bytes are undefined if the value is null.
+* Validity buffer: A validity bitmap that has the same length as the offsets buffer.
+
+**Example Layout: ``Stringy<32>``**
+
+The array: ::
+
+    [3, null, 4]
+
+will have the following layout: ::
+
+    * Length: 3, Null count: 1
+    * Strings buffer:
+
+      | Bytes 0-2 | Bytes 3-5   | Bytes 5-9 | Bytes 10-12 | Bytes 13-63           |
+      |-----------|-------------|-----------|-------------| --------------------- |
+      | ~~~       | 8-<         | ~~~~      | 8-<         | unspecified (padding) |
+
+    * Offsets buffer:
+
+      | Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63           |
+      |-----------|-------------|------------|-------------|-----------------------|
+      | 0         | 5           | 5          | 12          | unspecified (padding) |
+
+    * Validity bitmap buffer: 00000101
+
 Buffer Listing for Each Layout
 ------------------------------
 
