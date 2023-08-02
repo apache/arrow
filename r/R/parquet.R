@@ -629,7 +629,25 @@ calculate_chunk_size <- function(rows, columns,
 }
 
 #' @title ParquetReaderProperties class
-#' TODO: add in relevant methods etc using the ParquetArrowReaderProperties docs
+#' @rdname ParquetReaderProperties
+#' @name ParquetReaderProperties
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class holds settings to control how a Parquet file is read
+#' by [ParquetFileReader].
+#'
+#' @section Factory:
+#'
+#' The `ParquetReaderProperties$create()` factory method instantiates the object
+#' and takes no arguments.
+#'
+#' @section Methods:
+#'
+#' - `$thrift_string_size_limit()`
+#' - `$set_thrift_string_size_limit()`
+#' - `$thrift_container_size_limit()`
+#' - `$set_thrift_container_size_limit()`
 #'
 #' @export
 ParquetReaderProperties <- R6Class("ParquetReaderProperties",
