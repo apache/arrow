@@ -734,7 +734,6 @@ void SleepFor(double seconds) {
 #else
     using Clock = std::chrono::steady_clock;
     using DurationDouble = std::chrono::duration<double>;
-    using DurationClock = std::chrono::steady_clock::duration;
 
 
   auto secs_left = DurationDouble(seconds);
