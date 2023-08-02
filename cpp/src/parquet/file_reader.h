@@ -22,6 +22,7 @@
 #include <string>
 #include <vector>
 
+#include "parquet/column_reader.h"
 #include "arrow/io/caching.h"
 #include "arrow/util/type_fwd.h"
 #include "parquet/metadata.h"  // IWYU pragma: keep
@@ -57,6 +58,12 @@ class PARQUET_EXPORT RowGroupReader {
   // Construct a ColumnReader for the indicated row group-relative
   // column. Ownership is shared with the RowGroupReader.
   std::shared_ptr<ColumnReader> Column(int i);
+
+  // Construct a RecordReader for the indicated row group-relative column i.
+  // Ownership is shared with the RowGroupReader.
+  // Set read_dense_for_nullable to true if reading dense and not leaving space for null.
+  std::shared_ptr<::parquet::internal::RecordReader> RecordReader(
+      int i,  bool read_dictionary = false, bool read_dense_for_nullable = false);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //

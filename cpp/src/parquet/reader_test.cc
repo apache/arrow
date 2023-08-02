@@ -502,6 +502,21 @@ TEST_F(TestAllTypesPlain, ColumnSelectionOutOfRange) {
   ASSERT_THROW(printer2.DebugPrint(ss, columns), ParquetException);
 }
 
+// Tests getting a record reader from a row group reader.
+TEST_F(TestAllTypesPlain, TestRecordReader) {
+  std::shared_ptr<RowGroupReader> group = reader_->RowGroup(0);
+
+  std::shared_ptr<internal::RecordReader> col_record_reader_ =
+      group->RecordReader(0, /*read_dictionary=*/false, /*read_dense_for_null=*/false);
+
+  ASSERT_TRUE(col_record_reader_->HasMoreData());
+  auto records_read = col_record_reader_->ReadRecords(4);
+  ASSERT_EQ(records_read, 4);
+  ASSERT_EQ(4, col_record_reader_->values_written());
+  ASSERT_EQ(4, col_record_reader_->levels_position());
+  ASSERT_EQ(8, col_record_reader_->levels_written());
+}
+
 class TestLocalFile : public ::testing::Test {
  public:
   void SetUp() {
