@@ -625,3 +625,29 @@ calculate_chunk_size <- function(rows, columns,
 
   chunk_size
 }
+
+#' @title ParquetReaderProperties class
+#' TODO: add in relevant methods etc using the ParquetArrowReaderProperties docs
+#'
+#' @export
+ParquetReaderProperties <- R6Class("ParquetReaderProperties",
+  inherit = ArrowObject,
+  public = list(
+    thrift_string_size_limit = function(){
+      parquet___arrow___ReaderProperties__get_thrift_string_size_limit(self)
+    },
+    set_thrift_string_size_limt = function(size){
+      parquet___arrow___ReaderProperties__set_thrift_string_size_limit(self, size)
+    },
+    thrift_container_size_limit = function(){
+      parquet___arrow___ReaderProperties__get_thrift_container_size_limit(self)
+    },
+    set_thrift_container_size_limt = function(size){
+      parquet___arrow___ReaderProperties__set_thrift_container_size_limit(self, size)
+    }
+  )
+)
+
+ParquetReaderProperties$create <- function() {
+  parquet___arrow___ReaderProperties__Make()
+}

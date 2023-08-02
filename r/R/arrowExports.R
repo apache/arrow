@@ -1592,6 +1592,26 @@ parquet___arrow___ArrowReaderProperties__Make <- function(use_threads) {
   .Call(`_arrow_parquet___arrow___ArrowReaderProperties__Make`, use_threads)
 }
 
+parquet___arrow___ReaderProperties__Make <- function() {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__Make`)
+}
+
+parquet___arrow___ReaderProperties__get_thrift_string_size_limit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_thrift_string_size_limit <- function(properties, size) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit`, properties, size))
+}
+
+parquet___arrow___ReaderProperties__get_thrift_container_size_limit <- function(properties) {
+  .Call(`_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit`, properties)
+}
+
+parquet___arrow___ReaderProperties__set_thrift_container_size_limit <- function(properties, size) {
+  invisible(.Call(`_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit`, properties, size))
+}
+
 parquet___arrow___ArrowReaderProperties__set_use_threads <- function(properties, use_threads) {
   invisible(.Call(`_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads`, properties, use_threads))
 }
