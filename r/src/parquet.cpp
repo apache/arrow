@@ -45,6 +45,35 @@ parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
 }
 
 // [[parquet::export]]
+std::shared_ptr<parquet::ReaderProperties> parquet___arrow___ReaderProperties__Make() {
+  return std::make_shared<parquet::ReaderProperties>();
+}
+
+// [[parquet::export]]
+int parquet___arrow___ReaderProperties__get_thrift_string_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties) {
+  return properties->thrift_string_size_limit();
+}
+
+// [[parquet::export]]
+void parquet___arrow___ReaderProperties__set_thrift_string_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties, int size) {
+  properties->set_thrift_string_size_limit(size);
+}
+
+// [[parquet::export]]
+int parquet___arrow___ReaderProperties__get_thrift_container_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties) {
+  return properties->thrift_container_size_limit();
+}
+
+// [[parquet::export]]
+void parquet___arrow___ReaderProperties__set_thrift_container_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties, int size) {
+  properties->set_thrift_container_size_limit(size);
+}
+
+// [[parquet::export]]
 void parquet___arrow___ArrowReaderProperties__set_use_threads(
     const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads) {
   properties->set_use_threads(use_threads);
