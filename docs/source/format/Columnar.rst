@@ -884,12 +884,11 @@ that can represent all data types efficiently.  However, we recognize that there
 are often tradeoffs between different layouts and that there may be alternative
 layouts that can offer significant benefits in specific situations.
 
-When we feel that a layout's applicability is limited to specific use cases (for
-example, compute but not storage, or vice versa) and another layout is already defined
-that can represent the data then we may declare the layout to be an alternative layout.
-These layouts are not guaranteed to be available in every Arrow implementation and
-libraries can safely choose to ignore them if they believe the performance benefits are
-not necessary.
+When we feel that a layout's applicability is limited to specific use cases and another
+layout is already defined that can represent the data then we may declare the layout
+to be an alternative layout.  These layouts are not guaranteed to be available in every
+Arrow implementation and libraries can safely choose to ignore them if they believe the
+benefits of the alternative layout are not necessary for their application.
 
 Libraries that do choose to support an alternative layout should only expose that layout
 outside the library if the caller has specifically asked for it in some way.  Otherwise,
