@@ -18,6 +18,7 @@
 #include "ipc.h"
 
 #include <memory>
+#include <stdexcept>
 
 #include "arrow/python/pyarrow.h"
 
@@ -62,6 +63,30 @@ Result<std::shared_ptr<RecordBatchReader>> PyRecordBatchReader::Make(
   RETURN_NOT_OK(reader->Init(std::move(schema), iterable));
   return reader;
 }
+
+inline static PyObject * OnEOSName = PyUnicode_InternFromString("OnEOS");
+inline static PyObject * OnRecordBatchDecodedName = PyUnicode_InternFromString("OnRecordBatchDecoded");
+inline static PyObject * OnSchemaDecodedName = PyUnicode_InternFromString("OnSchemaDecoded");
+
+Status PyStreamListenerProxy::OnEOS() {
+  PyObject_CallMethodNoArgs(impl_.obj(), OnEOSName);
+  RETURN_IF_PYERROR();
+  return Status::OK();
+}
+Status PyStreamListenerProxy::OnRecordBatchDecoded(std::shared_ptr<RecordBatch> batch) {
+  PyObject_CallMethodObjArgs(impl_.obj(), OnRecordBatchDecodedName, wrap_batch(batch), NULL);
+  RETURN_IF_PYERROR();
+  return Status::OK();
+}
+Status PyStreamListenerProxy::OnSchemaDecoded(std::shared_ptr<Schema> schema) {
+  PyObject_CallMethodObjArgs(impl_.obj(), OnSchemaDecodedName, wrap_schema(schema), NULL);
+  RETURN_IF_PYERROR();
+  return Status::OK();
+}
+PyStreamListenerProxy::PyStreamListenerProxy(PyObject* obj):impl_{obj} {
+}
+
+
 
 }  // namespace py
 }  // namespace arrow

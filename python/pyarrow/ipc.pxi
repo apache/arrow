@@ -843,6 +843,26 @@ cdef class RecordBatchReader(_Weakrefable):
         self.reader = c_reader
         return self
 
+cdef class _StreamDecoder:
+    cdef:
+        CIpcReadOptions options
+        shared_ptr[CStreamDecoder] decoder
+        shared_ptr[CPyStreamListenerProxy] proxy
+
+    def __cinit__(self):
+        pass
+
+    def _open(self, listener, IpcReadOptions options=IpcReadOptions()):
+        self.options = options.c_options
+        self.proxy = make_shared[CPyStreamListenerProxy](<PyObject*>listener)
+        self.decoder = make_shared[CStreamDecoder](self.proxy, self.options)
+
+    def next_required_size(self):
+        return self.decoder.get().next_required_size()
+    
+    def consume_buffer(self, Buffer buffer):
+        check_status(self.decoder.get().ConsumeBuffer(pyarrow_unwrap_buffer(buffer)))
+    
 
 cdef class _RecordBatchStreamReader(RecordBatchReader):
     cdef:

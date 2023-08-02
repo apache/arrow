@@ -274,6 +274,10 @@ cdef extern from "arrow/python/ipc.h" namespace "arrow::py":
         CResult[shared_ptr[CRecordBatchReader]] Make(shared_ptr[CSchema],
                                                      object)
 
+    cdef cppclass CPyStreamListenerProxy" arrow::py::PyStreamListenerProxy" \
+            (CStreamListener):
+        CPyStreamListenerProxy(PyObject* listener_impl)
+
 
 cdef extern from "arrow/python/extension_type.h" namespace "arrow::py":
     cdef cppclass CPyExtensionType \

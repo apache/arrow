@@ -207,6 +207,38 @@ def test_open_file_from_buffer(file_fixture):
     assert reader2.stats == st1
     assert reader3.stats == st1
 
+def test_stream_decoder(stream_fixture):
+    stream_fixture.write_batches()
+    source = stream_fixture.get_source()
+    
+    class Listener(pa.ipc.StreamListener):
+        def __init__(self):
+            self._batches = []
+        def OnEOS(self):
+            pass
+
+        def OnRecordBatchDecoded(self, batch):
+            self._batches.append(batch)
+
+        def OnSchemaDecoded(self, schema):
+            pass
+    
+    standard_reader = pa.RecordBatchStreamReader(source)
+    result1 = standard_reader.read_all()
+    assert result1.num_rows == 25
+
+    listener = Listener()
+
+    decoder = pa.ipc.StreamDecoder(listener)
+    
+    with pa.input_stream(pa.BufferReader(stream_fixture.get_source())) as stream:
+        buff = stream.read_buffer()
+        decoder.consume_buffer(buff)
+
+    
+    result2 = pa.Table.from_batches(listener._batches)
+    assert result1.equals(result2)
+
 
 @pytest.mark.pandas
 def test_file_read_pandas(file_fixture):

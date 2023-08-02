@@ -24,6 +24,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
+#include "arrow/ipc/reader.h"
 
 namespace arrow {
 namespace py {
@@ -46,6 +47,17 @@ class ARROW_PYTHON_EXPORT PyRecordBatchReader : public RecordBatchReader {
 
   std::shared_ptr<Schema> schema_;
   OwnedRefNoGIL iterator_;
+};
+
+class ARROW_PYTHON_EXPORT PyStreamListenerProxy : public ::arrow::ipc::Listener {
+ public:
+  PyStreamListenerProxy(PyObject*);
+  Status OnEOS() override;
+  Status OnRecordBatchDecoded(std::shared_ptr<RecordBatch> batch) override;
+  Status OnSchemaDecoded(std::shared_ptr<Schema> schema) override;
+
+ private:
+  OwnedRefNoGIL impl_;
 };
 
 }  // namespace py
