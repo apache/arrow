@@ -62,7 +62,16 @@ public class ScanOptions {
     this(batchSize, columns, -1, -1, Optional.empty());
   }
 
-  public ScanOptions(long batchSize, Optional<String[]> columns, long startOffset, long length, Optional<String> filter) {
+  /**
+   * Constructor.
+   * @param batchSize Maximum row number each batch returned
+   * @param columns (Optional) Projected columns
+   * @param startOffset scan range start offset
+   * @param length scan range length
+   * @param filter (Optional) filter to apply with the scan
+   */
+  public ScanOptions(long batchSize, Optional<String[]> columns,
+      long startOffset, long length, Optional<String> filter) {
     Preconditions.checkNotNull(columns);
     this.batchSize = batchSize;
     this.columns = columns;

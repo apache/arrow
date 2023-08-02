@@ -943,7 +943,7 @@ Status ScannerBuilder::StartOffset(int64_t start_offset) {
   return Status::OK();
 }
 
-Status ScannerBuilder::Length(int64_t length){
+Status ScannerBuilder::Length(int64_t length) {
   if (length <= 0) {
     return Status::Invalid("Length must be greater than 0, got ", length);
   }

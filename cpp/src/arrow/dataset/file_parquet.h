@@ -194,7 +194,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
 
   /// Return a filtered subset of row group indices.
   Result<std::vector<int>> FilterRowGroups(compute::Expression predicate);
-  Result<std::vector<int>> FilterRangeRowGroups(std::vector<int> pre_filter, int64_t start_offset, int64_t length);
+  Result<std::vector<int>> FilterRangeRowGroups(
+    std::vector<int> pre_filter, int64_t start_offset, int64_t length);
   /// Simplify the predicate against the statistics of each row group.
   Result<std::vector<compute::Expression>> TestRowGroups(compute::Expression predicate);
   /// Try to count rows matching the predicate using metadata. Expects

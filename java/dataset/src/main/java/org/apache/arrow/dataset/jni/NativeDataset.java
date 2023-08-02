@@ -49,6 +49,11 @@ public class NativeDataset implements Dataset {
     return new NativeScanner(context, scannerId);
   }
 
+  /**
+   * Create a new scan with range options.
+   * @param options scan options with offset and length
+   * @return newly created native scanner
+   */
   public synchronized NativeScanner newRangeScan(ScanOptions options) {
     if (closed) {
       throw new NativeInstanceReleasedException();

@@ -96,7 +96,7 @@ public class JniWrapper {
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
   public native long createRangeScanner(long datasetId, String[] columns, String filter, long batchSize,
-    long startOffset, long length, long memoryPool);
+      long startOffset, long length, long memoryPool);
 
   /**
    * Get a serialized schema from native instance of a Scanner.
