@@ -61,9 +61,8 @@ class PARQUET_EXPORT RowGroupReader {
 
   // Construct a RecordReader for the indicated row group-relative column i.
   // Ownership is shared with the RowGroupReader.
-  // Set read_dense_for_nullable to true if reading dense and not leaving space for null.
-  std::shared_ptr<::parquet::internal::RecordReader> RecordReader(
-      int i,  bool read_dictionary = false, bool read_dense_for_nullable = false);
+  std::shared_ptr<internal::RecordReader> RecordReader(
+      int i, bool read_dictionary = false, bool read_dense_for_nullable = false);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //
