@@ -562,8 +562,14 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     } else {
       this->has_null_count_ = false;
     }
-    // Clear has_distinct_count_ as distinct count cannot be merged.
-    has_distinct_count_ = false;
+    if (has_distinct_count_ && other.HasDistinctCount() &&
+        (this->distinct_count_ == 0 || other.distinct_count() == 0)) {
+      // We can merge distinct counts if either side is zero.
+      this->distinct_count_ = std::max(this->distinct_count_, other.distinct_count());
+    } else {
+      // Otherwise clear has_distinct_count_ as distinct count cannot be merged.
+      this->has_distinct_count_ = false;
+    }
     // Do not clear min/max here if the other side does not provide
     // min/max which may happen when other is an empty stats or all
     // its values are null and/or NaN.
