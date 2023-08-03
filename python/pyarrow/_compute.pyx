@@ -1991,7 +1991,7 @@ class CumulativeSumOptions(_CumulativeOptions):
         warnings.warn(
             _DEPR_MSG.format("CumulativeSumOptions", "14.0", "CumulativeOptions"),
             FutureWarning,
-        )        
+        )
         self._set_options(start, skip_nulls)
 
 
