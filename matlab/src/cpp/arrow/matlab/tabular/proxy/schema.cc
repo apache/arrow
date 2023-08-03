@@ -121,9 +121,9 @@ namespace arrow::matlab::tabular::proxy {
             // Note: This line should never be reached because CanReferenceFieldsByNames
             //       should already handle validating whether the supplied field name is valid.
             using namespace libmexclass::error;
-            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_FIELD_NAME};
+            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME};
             std::stringstream error_message_stream;
-            error_message_stream << "Invalid field name: '";
+            error_message_stream << "Unknown field name: '";
             error_message_stream << name;
             error_message_stream << "'.";
             const std::string& error_message = error_message_stream.str();
