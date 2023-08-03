@@ -58,7 +58,7 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(RecordBatch, toString);
         REGISTER_METHOD(RecordBatch, numColumns);
         REGISTER_METHOD(RecordBatch, columnNames);
-        REGISTER_METHOD(RecordBatch, columnByIndex);
+        REGISTER_METHOD(RecordBatch, getColumnByIndex);
     }
 
     void RecordBatch::toString(libmexclass::proxy::method::Context& context) {
@@ -126,7 +126,7 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = column_names_mda;
     }
 
-    void RecordBatch::columnByIndex(libmexclass::proxy::method::Context& context) {
+    void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         using namespace libmexclass::proxy;
         mda::ArrayFactory factory;
