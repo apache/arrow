@@ -72,9 +72,19 @@ namespace arrow::matlab::tabular::proxy {
         const int32_t index = matlab_index - 1;
         const auto num_fields = schema->num_fields();
 
+        if (num_fields == 0) {
+            using namespace libmexclass::error;
+            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA};
+            std::stringstream error_message_stream;
+            error_message_stream << "Numeric indexing using the field method is not supported for schemas with no fields.";
+            const std::string& error_message = error_message_stream.str();
+            context.error = Error{error_message_id, error_message};
+            return;
+        }
+
         if (matlab_index < 1 || matlab_index > num_fields) {
             using namespace libmexclass::error;
-            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_FIELD_INDEX};
+            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_NUMERIC_FIELD_INDEX};
             std::stringstream error_message_stream;
             error_message_stream << "Invalid field index: ";
             error_message_stream << matlab_index;
@@ -108,6 +118,8 @@ namespace arrow::matlab::tabular::proxy {
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
         const auto field = schema->GetFieldByName(name);
         if (!field) {
+            // Note: This line should never be reached because CanReferenceFieldsByNames
+            //       should already handle validating whether the supplied field name is valid.
             using namespace libmexclass::error;
             const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_FIELD_NAME};
             std::stringstream error_message_stream;

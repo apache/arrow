@@ -22,22 +22,26 @@ classdef tSchema < matlab.unittest.TestCase
         function ErrorIfUnsupportedInputType(testCase)
             % Verify that an error is thrown by arrow.schema if an
             % unsupported input argument is supplied.
+            testCase.verifyError(@() arrow.schema("test"), "MATLAB:validation:UnableToConvert");
         end
 
         function ErrorIfUnsupportedConstructorInputs(testCase)
             % Verify that an error is thrown by the constructor of
             % arrow.tabular.Schema if unsupported arguments are passed to
             % the constructor.
+            testCase.verifyError(@() arrow.tabular.Schema("test"), "MATLAB:validation:UnableToConvert");
         end
 
         function ErrorIfTooFewInputs(testCase)
             % Verify that an error is thrown by arrow.schema if too few
             % input arguments are supplied.
+            testCase.verifyError(@() arrow.schema(), "MATLAB:minrhs");
         end
 
         function ErrorIfTooManyInputs(testCase)
             % Verify that an error is thrown by arrow.schema if too many
             % input arguments are supplied.
+            testCase.verifyError(@() arrow.schema("a", "b", "c"), "MATLAB:TooManyInputs");
         end
 
         function ClassType(testCase)
@@ -51,71 +55,280 @@ classdef tSchema < matlab.unittest.TestCase
             % Verify that an arrow.tabular.Schema instance can be
             % constructred directly from an existing
             % arrow.tabular.proxy.Schema Proxy instance.
+            schema1 = arrow.schema(arrow.field("a", arrow.uint8));
+            % Construct an instance of arrow.tabular.Schema directly from a
+            % Proxy of type "arrow.tabular.proxy.Schema".
+            schema2 = arrow.tabular.Schema(schema1.Proxy);
+            testCase.verifyEqual(schema1.FieldNames, schema2.FieldNames);
+            testCase.verifyEqual(schema1.NumFields, schema2.NumFields);
         end
 
         function Fields(testCase)
             % Verify that the Fields property returns an expected array of
             % Field objects.
+            f1 = arrow.field("A", arrow.uint8);
+            f2 = arrow.field("B", arrow.uint16);
+            f3 = arrow.field("C", arrow.uint32);
+            expectedFields = [f1, f2, f3];
+            schema = arrow.schema(expectedFields);
+
+            actualFields = schema.Fields;
+
+            testCase.verifyEqual(actualFields(1).Name, expectedFields(1).Name);
+            testCase.verifyEqual(actualFields(1).Type.ID, expectedFields(1).Type.ID);
+            testCase.verifyEqual(actualFields(2).Name, expectedFields(2).Name);
+            testCase.verifyEqual(actualFields(2).Type.ID, expectedFields(2).Type.ID);
+            testCase.verifyEqual(actualFields(3).Name, expectedFields(3).Name);
+            testCase.verifyEqual(actualFields(3).Type.ID, expectedFields(3).Type.ID);
         end
 
         function FieldNames(testCase)
             % Verify that the FieldNames property returns an expected
             % string array of field names.
+            expectedFieldNames = ["A"        , "B"          , "C"];
+            schema = arrow.schema([...
+                arrow.field(expectedFieldNames(1), arrow.uint8), ...
+                arrow.field(expectedFieldNames(2), arrow.uint16), ...
+                arrow.field(expectedFieldNames(3), arrow.uint32) ...
+            ]);
+            actualFieldNames = schema.FieldNames;
+            testCase.verifyEqual(actualFieldNames, expectedFieldNames);
         end
 
         function FieldNamesNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the FieldNames property.
+            schema = arrow.schema(arrow.field("A", arrow.uint8));
+            testCase.verifyError(@() setfield(schema, "FieldNames", "B"), "MATLAB:class:SetProhibited");
         end
 
         function NumFieldsNoSetter(testCase)
             % Verify than an error is thrown when trying to set the value
             % of the NumFields property.
+            schema = arrow.schema(arrow.field("A", arrow.uint8));
+            testCase.verifyError(@() setfield(schema, "NumFields", 123), "MATLAB:class:SetProhibited");
         end
 
         function FieldsNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the Fields property.
+            schema = arrow.schema(arrow.field("A", arrow.uint8));
+            testCase.verifyError(@() setfield(schema, "Fields", arrow.field("B", arrow.uint8)), "MATLAB:class:SetProhibited");
         end
 
         function NumFields(testCase)
             % Verify that the NumFields property returns an execpted number
             % of fields.
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+            expectedNumFields = int32(3);
+            actualNumFields = schema.NumFields;
+            testCase.verifyEqual(actualNumFields, expectedNumFields);
         end
 
-        function ErrorIfInvalidNumericFieldIndex(testCase)
-            % Verify that an error is thrown if an invalid numeric index is
-            % supplied to the field method (e.g. -1.1, NaN, Inf, etc.).
+        function ErrorIfUnsupportedFieldIndex(testCase)
+            % Verify that an error is thrown if an invalid field index is
+            % supplied to the field method (e.g. -1.1, NaN, {1}, etc.).
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+
+            index = [];
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            index = 0;
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            index = -1;
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            index = -1.23;
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            index = NaN;
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            index = {1};
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
         end
 
         function GetFieldByIndex(testCase)
             % Verify that Fields can be accessed using a numeric index.
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+
+            field = schema.field(1);
+            testCase.verifyEqual(field.Name, "A");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
+
+            field = schema.field(2);
+            testCase.verifyEqual(field.Name, "B");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
+
+            field = schema.field(3);
+            testCase.verifyEqual(field.Name, "C");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
         end
 
         function GetFieldByName(testCase)
             % Verify that Fields can be accessed using a field name.
+                        % Verify that Fields can be accessed using a numeric index.
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+
+            field = schema.field("A");
+            testCase.verifyEqual(field.Name, "A");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
+
+            field = schema.field("B");
+            testCase.verifyEqual(field.Name, "B");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
+
+            field = schema.field("C");
+            testCase.verifyEqual(field.Name, "C");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
         end
 
-        function ErrorIfInvalidFieldIndex(testCase)
+        function GetFieldByNameWithEmptyString(testCase)
+            % Verify that a Field whose name is the empty string ("")
+            % can be accessed using the field() method.
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+
+            field = schema.field("");
+
+            testCase.verifyEqual(field.Name, "");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
+        end
+
+        function GetFieldByNameWithWhitespace(testCase)
+            % Verify that a Field whose name contains only whitespace
+            % characters can be accessed using the field() method.
+            schema = arrow.schema([...
+                arrow.field(" ", arrow.uint8), ...
+                arrow.field("  ", arrow.uint16), ...
+                arrow.field("   ", arrow.uint32) ...
+            ]);
+
+            field = schema.field(" ");
+            testCase.verifyEqual(field.Name, " ");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
+
+            field = schema.field("  ");
+            testCase.verifyEqual(field.Name, "  ");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
+
+            field = schema.field("   ");
+            testCase.verifyEqual(field.Name, "   ");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
+        end
+
+        function ErrorIfInvalidNumericFieldIndex(testCase)
             % Verify that an error is thrown when trying to access a field
-            % with an invalid numeric index (i.e. less than 1 or greater
-            % than NumFields).
+            % with an invalid numeric index (e.g. greater than NumFields).
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+
+            % Index is greater than NumFields.
+            index = 100;
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:InvalidNumericFieldIndex");
         end
 
-        function ErrorIfInvalidFieldName(testCase)
+        function ErrorIfFieldNameDoesNotExist(testCase)
             % Verify that an error is thrown when trying to access a field
             % with a name that is not part of the schema.
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32) ...
+            ]);
+
+            % Matching should be case sensitive.
+            fieldName = "a";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
+
+            fieldName = "aA";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
+
+            fieldName = "D";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
+
+            fieldName = "";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
+
+            fieldName = " ";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
         end
 
         function ErrorIfAmbiguousFieldName(testCase)
             % Verify that an error is thrown when trying to access a field
             % with a name that is ambiguous / occurs more than once in the
-            % schema
+            % schema.
+            schema = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("A", arrow.uint16), ...
+                arrow.field("B", arrow.uint32), ...
+                arrow.field("B", arrow.uint32)
+            ]);
+
+            fieldName = "A";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
+
+            fieldName = "B";
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:AmbiguousFieldName");
         end
 
         function SupportedFieldTypes(testCase)
             % Verify that a Schema can be created from Fields with any
             % supported Type.
+            fields = [ ...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32), ...
+                arrow.field("D", arrow.uint64), ...
+                arrow.field("E", arrow.int8), ...
+                arrow.field("F", arrow.int16), ...
+                arrow.field("G", arrow.int32), ...
+                arrow.field("H", arrow.int64), ...
+                arrow.field("I", arrow.float32), ...
+                arrow.field("J", arrow.float64), ...
+                arrow.field("K", arrow.boolean), ...
+                arrow.field("L", arrow.string), ...
+                arrow.field("M", arrow.timestamp), ...
+            ];
+
+            schema = arrow.schema(fields);
+
+            testCase.verifyEqual(schema.field("A").Type.ID, arrow.type.ID.UInt8);
+            testCase.verifyEqual(schema.field("B").Type.ID, arrow.type.ID.UInt16);
+            testCase.verifyEqual(schema.field("C").Type.ID, arrow.type.ID.UInt32);
+            testCase.verifyEqual(schema.field("D").Type.ID, arrow.type.ID.UInt64);
+            testCase.verifyEqual(schema.field("E").Type.ID, arrow.type.ID.Int8);
+            testCase.verifyEqual(schema.field("F").Type.ID, arrow.type.ID.Int16);
+            testCase.verifyEqual(schema.field("G").Type.ID, arrow.type.ID.Int32);
+            testCase.verifyEqual(schema.field("H").Type.ID, arrow.type.ID.Int64);
+            testCase.verifyEqual(schema.field("I").Type.ID, arrow.type.ID.Float32);
+            testCase.verifyEqual(schema.field("J").Type.ID, arrow.type.ID.Float64);
+            testCase.verifyEqual(schema.field("K").Type.ID, arrow.type.ID.Boolean);
+            testCase.verifyEqual(schema.field("L").Type.ID, arrow.type.ID.String);
+            testCase.verifyEqual(schema.field("M").Type.ID, arrow.type.ID.Timestamp);
         end
 
         function UnicodeFieldNames(testCase)
@@ -125,24 +338,61 @@ classdef tSchema < matlab.unittest.TestCase
             tree =  "🌲";
             mango = "🥭";
             expectedFieldNames = [smiley, tree, mango];
-            f1 = arrow.field(smiley, arrow.uint8);
-            f2 = arrow.field(tree, arrow.uint16);
-            f3 = arrow.field(mango, arrow.uint32);
+
+            f1 = arrow.field(expectedFieldNames(1), arrow.uint8);
+            f2 = arrow.field(expectedFieldNames(2), arrow.uint16);
+            f3 = arrow.field(expectedFieldNames(3), arrow.uint32);
             fields = [f1, f2, f3];
+
             schema = arrow.schema(fields);
+
             actualFieldNames = schema.FieldNames;
+
             testCase.verifyEqual(actualFieldNames, expectedFieldNames);
         end
 
         function EmptyFieldNames(testCase)
             % Verify that Field names which are the empty string are 
             % preserved with the FieldNames property.
+            expectedFieldNames = ["", "B", "C"];
+            schema = arrow.schema([...
+                arrow.field("", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("C", arrow.uint32)
+            ]);
+            actualFieldNames = schema.FieldNames;
+            testCase.verifyEqual(actualFieldNames, expectedFieldNames);
         end
 
         function EmptySchema(testCase)
             % Verify that a Schema with no Fields can be created.
-            % TODO: Decide whether construction of Schema objects with no
-            % Fields should be supported.
+
+            % 0x0 empty Field array.
+            fields = arrow.type.Field.empty(0, 0);
+            schema = arrow.schema(fields);
+            testCase.verifyEqual(schema.NumFields, int32(0));
+            testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
+            testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
+            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+
+            % 0x1 empty Field array.
+            fields = arrow.type.Field.empty(0, 1);
+            schema = arrow.schema(fields);
+            testCase.verifyEqual(schema.NumFields, int32(0));
+            testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
+            testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
+            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+
+            % 1x0 empty Field array.
+            fields = arrow.type.Field.empty(1, 0);
+            schema = arrow.schema(fields);
+            testCase.verifyEqual(schema.NumFields, int32(0));
+            testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
+            testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
+            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
         end
 
     end

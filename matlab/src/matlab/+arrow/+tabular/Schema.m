@@ -44,7 +44,7 @@ classdef Schema < matlab.mixin.CustomDisplay
         
         function F = field(obj, idx)
             idx = convertCharsToStrings(idx);
-            if isnumeric(idx) && idx >= 1
+            if ~isempty(idx) && isnumeric(idx) && idx >= 1
                 args = struct(Index=int32(idx));
                 proxyID = obj.Proxy.getFieldByIndex(args);
             elseif isstring(idx)
@@ -52,8 +52,8 @@ classdef Schema < matlab.mixin.CustomDisplay
                 args = struct(Name=name);
                 proxyID = obj.Proxy.getFieldByName(args);
             else
-                error(message("arrow:tabular:schema:UnsupportedFieldIndexType", ...
-                              "Index must be a positive scalar integer or a valid field name."));
+                error("arrow:tabular:schema:UnsupportedFieldIndexType", ...
+                      "Index must be a positive scalar integer or a valid field name.");
             end
 
             proxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
