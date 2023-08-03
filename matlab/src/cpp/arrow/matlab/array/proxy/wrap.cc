@@ -15,15 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
 
-#include "arrow/array.h"
-#include "arrow/result.h"
-
+#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/array/proxy/boolean_array.h"
 #include "arrow/matlab/array/proxy/numeric_array.h"
-#include "arrow/matlab/array/proxy/string-array.h"
+#include "arrow/matlab/array/proxy/string_array.h"
 
 namespace arrow::matlab::array::proxy {
 
@@ -32,9 +29,9 @@ namespace arrow::matlab::array::proxy {
         using ID = arrow::Type::type;
         switch (array->type_id()) {
             case ID::BOOL:
-                return std::make_shared<proxy::BooleanArray>(std::static_pointer_cast<arrow::BooleanArray>(type));
+                return std::make_shared<proxy::BooleanArray>(std::static_pointer_cast<arrow::BooleanArray>(array));
             case ID::UINT8:
-                return std::make_shared<proxy::NumericArray<arrow::UInt8Type>>(std::static_pointer_cast<arrow::UInt8Array>(type));
+                return std::make_shared<proxy::NumericArray<arrow::UInt8Type>>(std::static_pointer_cast<arrow::UInt8Array>(array));
             case ID::UINT16:
                 return std::make_shared<proxy::NumericArray<arrow::UInt16Type>>(std::static_pointer_cast<arrow::UInt16Array>(array));
             case ID::UINT32:
@@ -44,15 +41,15 @@ namespace arrow::matlab::array::proxy {
             case ID::INT8:
                 return std::make_shared<proxy::NumericArray<arrow::Int8Type>>(std::static_pointer_cast<arrow::Int8Array>(array));
             case ID::INT16:
-                return std::make_shared<proxy::NumericArray<rrow::Int16Type>>(std::static_pointer_cast<arrow::Int16Array>(array));
+                return std::make_shared<proxy::NumericArray<arrow::Int16Type>>(std::static_pointer_cast<arrow::Int16Array>(array));
             case ID::INT32:
-                return std::make_shared<proxy::NumericArray<rrow::Int32Type>>(std::static_pointer_cast<arrow::Int32Array>(array));
+                return std::make_shared<proxy::NumericArray<arrow::Int32Type>>(std::static_pointer_cast<arrow::Int32Array>(array));
             case ID::INT64:
-                return std::make_shared<proxy::NumericArray<rrow::Int64Type>>(std::static_pointer_cast<arrow::Int64Array>(array));
+                return std::make_shared<proxy::NumericArray<arrow::Int64Type>>(std::static_pointer_cast<arrow::Int64Array>(array));
             case ID::FLOAT:
                 return std::make_shared<proxy::NumericArray<arrow::FloatType>>(std::static_pointer_cast<arrow::FloatArray>(array));
             case ID::DOUBLE:
-                return std::make_shared<proxy::NumericArray<arrow::DoubleArray>>(std::static_pointer_cast<arrow::DoubleArray>(array));
+                return std::make_shared<proxy::NumericArray<arrow::DoubleType>>(std::static_pointer_cast<arrow::DoubleArray>(array));
             case ID::TIMESTAMP:
                 return std::make_shared<proxy::NumericArray<arrow::TimestampType>>(std::static_pointer_cast<arrow::TimestampArray>(array));
             case ID::STRING:
