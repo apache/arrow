@@ -669,21 +669,21 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     }
 
     // Both sides have 0 for the distinct count.
-    VerifyMergedStatistics(*statistics4, *statistics4,
+    VerifyMergedStatistics(*statistics3, *statistics3,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasDistinctCount());
                              EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
                              EXPECT_EQ(merged_statistics->Encode().distinct_count, 0);
                            });
     // The rhs has 0 for the distinct count.
-    VerifyMergedStatistics(*statistics3, *statistics4,
+    VerifyMergedStatistics(*statistics4, *statistics3,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasDistinctCount());
                              EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
                              EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
                            });
     // The lhs has 0 for the distinct count.
-    VerifyMergedStatistics(*statistics4, *statistics3,
+    VerifyMergedStatistics(*statistics3, *statistics4,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasDistinctCount());
                              EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
