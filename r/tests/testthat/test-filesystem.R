@@ -30,14 +30,14 @@ test_that("LocalFilesystem", {
   expect_equal(info$mtime, info$mtime)
 
   tf <- tempfile(fileext = ".txt")
-  fs_copy_file(fs, DESCRIPTION, tf)
+  fs$CopyFile(DESCRIPTION, tf)
   info <- fs_get_file_info(fs, tf)[[1]]
   expect_equal(info$extension(), "txt")
   expect_equal(info$size, info$size)
   expect_equal(readLines(DESCRIPTION), readLines(tf))
 
   tf2 <- tempfile(fileext = ".txt")
-  fs_move_file(fs, tf, tf2)
+  fs$MoveFile(tf, tf2)
   infos <- fs_get_file_info(fs, c(tf, tf2, dirname(tf)))
   expect_equal(infos[[1]]$type, FileType$NotFound)
   expect_equal(infos[[2]]$type, FileType$File)
@@ -53,14 +53,14 @@ test_that("LocalFilesystem", {
   td <- tempfile()
   fs_create_dir(fs, td)
   expect_equal(fs_get_file_info(fs, td)[[1L]]$type, FileType$Directory)
-  fs_copy_file(fs, DESCRIPTION, file.path(td, "DESCRIPTION"))
+  fs$CopyFile(DESCRIPTION, file.path(td, "DESCRIPTION"))
   fs$DeleteDirContents(td)
   expect_equal(length(dir(td)), 0L)
-  fs_delete_dir(fs, td)
+  fs$DeleteDir(td)
   expect_equal(fs_get_file_info(fs, td)[[1L]]$type, FileType$NotFound)
 
   tf3 <- tempfile()
-  os <- fs_open_output_stream(fs, path = tf3)
+  os <- fs$OpenOutputStream(path = tf3)
   bytes <- as.raw(1:40)
   os$write(bytes)
   os$close()
@@ -88,8 +88,8 @@ test_that("SubTreeFilesystem", {
   # FIXME windows has a trailing slash for one but not the other
   # expect_identical(normalizePath(st_fs$base_path), normalizePath(td)) # nolint
 
-  fs_create_dir(st_fs, "test")
-  fs_copy_file(st_fs, "DESCRIPTION", "DESC.txt")
+  st_fs$CreateDir("test")
+  st_fs$CopyFile("DESCRIPTION", "DESC.txt")
   infos <- fs_get_file_info(st_fs, c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$File)
   expect_equal(infos[[2L]]$type, FileType$Directory)
@@ -99,7 +99,7 @@ test_that("SubTreeFilesystem", {
 
   local_fs <- LocalFileSystem$create()
   local_fs$DeleteDirContents(td)
-  infos <- fs_get_file_info(st_fs, c("DESCRIPTION", "test", "nope", "DESC.txt"))
+  infos <- fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$NotFound)
   expect_equal(infos[[2L]]$type, FileType$NotFound)
   expect_equal(infos[[3L]]$type, FileType$NotFound)
@@ -122,7 +122,7 @@ test_that("LocalFileSystem + Selector", {
   expect_equal(sum(types == FileType$Directory), 1L)
 
   selector <- FileSelector$create(td, recursive = FALSE)
-  infos <- fs_get_file_info(fs, selector)
+  infos <- fs$GetFileInfo(selector)
   expect_equal(length(infos), 3L)
   types <- sapply(infos, function(.x) .x$type)
   expect_equal(sum(types == FileType$File), 2L)

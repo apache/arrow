@@ -697,44 +697,6 @@ fs_ls <- function(fs, path = ".", ...) {
   fs$ls(path, ...)
 }
 
-#' Create a file in a file system
-#'
-#' @param fs A FileSystem object
-#' @param path A character vector of one or more paths
-#' @param recursive Create intermediate directories if they do not exist
-#' @export
-fs_create_dir <- function(fs, path, recursive = TRUE) {
-  fs$CreateDir(path, recursive = recursive)
-}
-
-#' Delete a file in a file system
-#'
-#' @param fs A FileSystem object
-#' @param path A character vector of one or more paths
-#' @export
-fs_delete_dir <- function(fs, path) {
-  fs$DeleteDir(path)
-}
-
-#' Copy a file in a file system
-#'
-#' @param fs A FileSystem object
-#' @param src Source path
-#' @param dest Destination path
-#' @export
-fs_copy_file <- function(fs, src, dest) {
-  fs$CopyFile(src, dest)
-}
-
-#' Delete a file from a file system
-#'
-#' @param fs A FileSystem object
-#' @param path A character vector of one or more paths
-#' @export
-fs_delete_file <- function(fs, path) {
-  fs$DeleteFiles(path)
-}
-
 #' Get file metadata
 #'
 #' @param fs A FileSystem object
@@ -744,22 +706,13 @@ fs_get_file_info <- function(fs, path) {
   fs$GetFileInfo(path)
 }
 
+#' Construct path to file system path or directory
+#'
+#' Create a `SubTreeFileSystem` from the current `FileSystem` rooted at the specified path.
+#'
+#' @param fs A FileSystem object
+#' @param path A character vector of one or more paths
 #' @export
 fs_make_path <- function(fs, path) {
   fs$path(path)
-}
-
-#' Move or rename a file in a file system
-#'
-#' Move / rename a file or directory. If the destination exists:
-#'  * if it is a non-empty directory, an error is returned
-#'  * otherwise, if it has the same type as the source, it is replaced
-#'  * otherwise, behavior is unspecified (implementation-dependent).
-#'
-#' @param fs A FileSystem object
-#' @param src Source path
-#' @param dest Destination path
-#' @export
-fs_move_file <- function(fs, src, dest) {
-  fs$Move(src, dest)
 }
