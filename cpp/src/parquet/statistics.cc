@@ -628,7 +628,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       // num_values_ is reliable and it means number of non-null values.
       s.all_null_value = num_values_ == 0;
     }
-    // TODO (GH-36505): distinct count is not encoded for now.
+    if (HasDistinctCount()) {
+      s.set_distinct_count(this->distinct_count());
+    }
     return s;
   }
 

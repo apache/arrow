@@ -602,8 +602,12 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
   }
 
   std::shared_ptr<TypedStatistics<TestType>> MergedStatistics(
-      const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2) {
-    auto chunk_statistics = MakeStatistics<TestType>(this->schema_.Column(0));
+      const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2,
+      const EncodedStatistics* initial_statistics) {
+    auto chunk_statistics = std::static_pointer_cast<TypedStatistics<TestType>>(
+        initial_statistics != nullptr
+            ? Statistics::Make(this->schema_.Column(0), initial_statistics)
+            : Statistics::Make(this->schema_.Column(0)));
     chunk_statistics->Merge(stats1);
     chunk_statistics->Merge(stats2);
     return chunk_statistics;
@@ -611,9 +615,12 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
 
   void VerifyMergedStatistics(
       const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2,
-      const std::function<void(TypedStatistics<TestType>*)>& test_fn) {
-    ASSERT_NO_FATAL_FAILURE(test_fn(MergedStatistics(stats1, stats2).get()));
-    ASSERT_NO_FATAL_FAILURE(test_fn(MergedStatistics(stats2, stats1).get()));
+      const std::function<void(TypedStatistics<TestType>*)>& test_fn,
+      const EncodedStatistics* initial_statistics = nullptr) {
+    ASSERT_NO_FATAL_FAILURE(
+        test_fn(MergedStatistics(stats1, stats2, initial_statistics).get()));
+    ASSERT_NO_FATAL_FAILURE(
+        test_fn(MergedStatistics(stats2, stats1, initial_statistics).get()));
   }
 
   // Distinct count should set to false when Merge is called.
@@ -668,27 +675,27 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       EXPECT_TRUE(statistics4->HasDistinctCount());
     }
 
+    EncodedStatistics initial_statistics;
+    initial_statistics.has_distinct_count = true;
+    initial_statistics.distinct_count = 0;
     // Both sides have 0 for the distinct count.
-    VerifyMergedStatistics(*statistics3, *statistics3,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
-                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
-                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 0);
-                           });
-    // The rhs has 0 for the distinct count.
-    VerifyMergedStatistics(*statistics4, *statistics3,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
-                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
-                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
-                           });
-    // The lhs has 0 for the distinct count.
-    VerifyMergedStatistics(*statistics3, *statistics4,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
-                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
-                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
-                           });
+    VerifyMergedStatistics(
+        *statistics3, *statistics3,
+        [](TypedStatistics<TestType>* merged_statistics) {
+          EXPECT_TRUE(merged_statistics->HasDistinctCount());
+          EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
+          EXPECT_EQ(merged_statistics->Encode().distinct_count, 0);
+        },
+        &initial_statistics);
+    // One side has 0 and one has 10 for the distinct count.
+    VerifyMergedStatistics(
+        *statistics4, *statistics3,
+        [](TypedStatistics<TestType>* merged_statistics) {
+          EXPECT_TRUE(merged_statistics->HasDistinctCount());
+          EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
+          EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
+        },
+        &initial_statistics);
   }
 
   // If all values in a page are null or nan, its stats should not set min-max.
