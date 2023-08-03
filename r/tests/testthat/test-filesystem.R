@@ -99,7 +99,7 @@ test_that("SubTreeFilesystem", {
 
   local_fs <- LocalFileSystem$create()
   local_fs$DeleteDirContents(td)
-  infos <- fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
+  infos <- st_fs$GetFileInfo(c("DESCRIPTION", "test", "nope", "DESC.txt"))
   expect_equal(infos[[1L]]$type, FileType$NotFound)
   expect_equal(infos[[2L]]$type, FileType$NotFound)
   expect_equal(infos[[3L]]$type, FileType$NotFound)
