@@ -37,7 +37,7 @@ test_that("LocalFilesystem", {
   expect_equal(readLines(DESCRIPTION), readLines(tf))
 
   tf2 <- tempfile(fileext = ".txt")
-  fs$MoveFile(tf, tf2)
+  fs$Move(tf, tf2)
   infos <- fs_get_file_info(fs, c(tf, tf2, dirname(tf)))
   expect_equal(infos[[1]]$type, FileType$NotFound)
   expect_equal(infos[[2]]$type, FileType$File)
