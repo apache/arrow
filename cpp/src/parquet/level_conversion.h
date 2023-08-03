@@ -129,7 +129,7 @@ struct PARQUET_EXPORT LevelInfo {
 
     int16_t min_spaced_def_level = descr->max_definition_level();
     const ::parquet::schema::Node* node = descr->schema_node().get();
-    while (node != nullptr && !node->is_repeated()) {
+    while (node && !node->is_repeated()) {
       if (node->is_optional()) {
         min_spaced_def_level--;
       }

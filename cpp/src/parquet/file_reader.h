@@ -22,9 +22,9 @@
 #include <string>
 #include <vector>
 
-#include "parquet/column_reader.h"
 #include "arrow/io/caching.h"
 #include "arrow/util/type_fwd.h"
+#include "parquet/column_reader.h"
 #include "parquet/metadata.h"  // IWYU pragma: keep
 #include "parquet/platform.h"
 #include "parquet/properties.h"
