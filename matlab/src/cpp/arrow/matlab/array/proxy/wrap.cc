@@ -25,7 +25,6 @@
 namespace arrow::matlab::array::proxy {
 
     arrow::Result<std::shared_ptr<proxy::Array>> wrap(const std::shared_ptr<arrow::Array>& array) {
-        
         using ID = arrow::Type::type;
         switch (array->type_id()) {
             case ID::BOOL:
@@ -58,5 +57,4 @@ namespace arrow::matlab::array::proxy {
                 return arrow::Status::NotImplemented("Unsupported DataType: " + array->type()->ToString());
         }
     }
-
 }
