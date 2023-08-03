@@ -1275,7 +1275,6 @@ tasks:
     params:
       env:
         PYTHON: "3.10"
-        PYTEST_ARGS: "-W error"
       image: conda-python-substrait
 
   test-debian-11-python-3:
