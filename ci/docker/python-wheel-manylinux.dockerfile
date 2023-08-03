@@ -84,7 +84,8 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
-        --x-feature=parquet
+        --x-feature=parquet \
+        --x-feature=s3
 
 # Configure Python for applications running in the bash shell of this Dockerfile
 ARG python=3.8
