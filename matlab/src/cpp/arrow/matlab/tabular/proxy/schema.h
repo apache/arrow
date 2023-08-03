@@ -17,7 +17,7 @@
 
 #pragma once
 
-// arrow::Schema
+// arrow::Schema is defined in type.h.
 #include "arrow/type.h"
 
 #include "libmexclass/proxy/Proxy.h"
