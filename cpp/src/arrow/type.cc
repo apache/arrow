@@ -2121,12 +2121,11 @@ Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& 
 }
 
 std::vector<std::shared_ptr<Field>> make_fields(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
-        init_list) {
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> init_list) {
   std::vector<std::shared_ptr<Field>> fields;
   fields.reserve(init_list.size());
-  for (const auto& pair : init_list) {
-    fields.push_back(std::make_shared<Field>(pair.first, pair.second));
+  for (const auto& [name, type] : init_list) {
+    fields.push_back(field(name, type));
   }
   return fields;
 }
@@ -2137,8 +2136,7 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
 }
 
 std::shared_ptr<Schema> schema(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
-        fields,
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
     std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(make_fields(fields), std::move(metadata));
 }
@@ -2667,8 +2665,7 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 }
 
 std::shared_ptr<DataType> struct_(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
-        fields) {
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields) {
   return std::make_shared<StructType>(make_fields(fields));
 }
 

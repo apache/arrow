@@ -78,12 +78,9 @@ Result<FieldVector> FieldsFromProto(int size, const Types& types,
       const auto& struct_ = types.Get(i).struct_();
 
       ARROW_ASSIGN_OR_RAISE(
-          type,
-          FieldsFromProto(struct_.types_size(), struct_.types(), next_name, ext_set,
-                          conversion_options)
-              .Map(
-                  static_cast<std::shared_ptr<::arrow::DataType> (*)(const FieldVector&)>(
-                      &::arrow::struct_)));
+          auto fields, FieldsFromProto(struct_.types_size(), struct_.types(), next_name,
+                                       ext_set, conversion_options));
+      type = ::arrow::struct_(std::move(fields));
 
       nullable = IsNullable(struct_);
     } else {
