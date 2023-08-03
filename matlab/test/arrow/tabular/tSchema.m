@@ -406,17 +406,30 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Should match the first field whose name is the
             % empty string ("").
-            field = schema.field('');
+            fieldName = char.empty(0, 0);
+            field = schema.field(fieldName);
+            testCase.verifyEqual(field.Name, "");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
+
+            fieldName = char.empty(0, 1);
+            field = schema.field(fieldName);
+            testCase.verifyEqual(field.Name, "");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
+
+            fieldName = char.empty(1, 0);
+            field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
 
             % Should match the second field whose name is "B".
-            field = schema.field('B');
+            fieldName = 'B';
+            field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "B");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
 
             % Should match the second field whose name is "123".
-            field = schema.field('123');
+            fieldName = '123';
+            field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "123");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
         end
