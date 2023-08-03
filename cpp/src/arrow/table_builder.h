@@ -41,24 +41,6 @@ class ARROW_EXPORT RecordBatchBuilder {
   /// \brief Create and initialize a RecordBatchBuilder
   /// \param[in] schema The schema for the record batch
   /// \param[in] pool A MemoryPool to use for allocations
-  /// \param[in] builder the created builder instance
-  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
-  static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-                     std::unique_ptr<RecordBatchBuilder>* builder);
-
-  /// \brief Create and initialize a RecordBatchBuilder
-  /// \param[in] schema The schema for the record batch
-  /// \param[in] pool A MemoryPool to use for allocations
-  /// \param[in] initial_capacity The initial capacity for the builders
-  /// \param[in] builder the created builder instance
-  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
-  static Status Make(const std::shared_ptr<Schema>& schema, MemoryPool* pool,
-                     int64_t initial_capacity,
-                     std::unique_ptr<RecordBatchBuilder>* builder);
-
-  /// \brief Create and initialize a RecordBatchBuilder
-  /// \param[in] schema The schema for the record batch
-  /// \param[in] pool A MemoryPool to use for allocations
   /// \return the created builder instance
   static Result<std::unique_ptr<RecordBatchBuilder>> Make(
       const std::shared_ptr<Schema>& schema, MemoryPool* pool);
@@ -83,19 +65,6 @@ class ARROW_EXPORT RecordBatchBuilder {
   T* GetFieldAs(int i) {
     return internal::checked_cast<T*>(raw_field_builders_[i]);
   }
-
-  /// \brief Finish current batch and optionally reset
-  /// \param[in] reset_builders the resulting RecordBatch
-  /// \param[out] batch the resulting RecordBatch
-  /// \return Status
-  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
-  Status Flush(bool reset_builders, std::shared_ptr<RecordBatch>* batch);
-
-  /// \brief Finish current batch and reset
-  /// \param[out] batch the resulting RecordBatch
-  /// \return Status
-  ARROW_DEPRECATED("Deprecated in 9.0.0. Use Result-returning variant.")
-  Status Flush(std::shared_ptr<RecordBatch>* batch);
 
   /// \brief Finish current batch and optionally reset
   /// \param[in] reset_builders the resulting RecordBatch

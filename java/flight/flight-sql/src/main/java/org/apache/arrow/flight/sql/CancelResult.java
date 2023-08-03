@@ -21,7 +21,10 @@ import org.apache.arrow.flight.sql.impl.FlightSql;
 
 /**
  * The result of cancelling a query.
+ *
+ * @deprecated Prefer {@link org.apache.arrow.flight.CancelStatus}.
  */
+@Deprecated
 public enum CancelResult {
   UNSPECIFIED,
   CANCELLED,

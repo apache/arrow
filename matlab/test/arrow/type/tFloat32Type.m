@@ -13,12 +13,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tFloat32Type < hPrimitiveType
+classdef tFloat32Type < hFixedWidthType
 % Test class for arrow.type.Float32Type
 
     properties
-        ArrowType = arrow.type.Float32Type
+        ArrowType = arrow.float32
         TypeID = arrow.type.ID.Float32
-        BitWidth = 32;
+        BitWidth = int32(32)
+        ClassName = "arrow.type.Float32Type"
     end
 end

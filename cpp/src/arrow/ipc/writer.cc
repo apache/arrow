@@ -404,7 +404,7 @@ class RecordBatchSerializer {
   }
 
   template <typename T>
-  enable_if_base_list<typename T::TypeClass, Status> Visit(const T& array) {
+  enable_if_var_size_list<typename T::TypeClass, Status> Visit(const T& array) {
     using offset_type = typename T::offset_type;
 
     std::shared_ptr<Buffer> value_offsets;

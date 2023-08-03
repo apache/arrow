@@ -35,7 +35,11 @@ namespace Apache.Arrow.C
         ///
         /// Return value: 0 if successful, an `errno`-compatible error code otherwise.
         ///</summary>
-        public delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowSchema*, int> get_schema;
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged <CArrowArrayStream*, CArrowSchema*, int> get_schema;
+#else
+        internal IntPtr get_schema;
+#endif
 
         /// <summary>
         /// Callback to get the next array. If no error and the array is released, the stream has ended.
@@ -43,7 +47,11 @@ namespace Apache.Arrow.C
         /// 
         /// Return value: 0 if successful, an `errno`-compatible error code otherwise.
         /// </summary>
-        public delegate* unmanaged[Stdcall]<CArrowArrayStream*, CArrowArray*, int> get_next;
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged<CArrowArrayStream*, CArrowArray*, int> get_next;
+#else
+        internal IntPtr get_next;
+#endif
 
         /// <summary>
         /// Callback to get optional detailed error information. This must only
@@ -54,13 +62,21 @@ namespace Apache.Arrow.C
         /// Return value: pointer to a null-terminated character array describing the last
         /// error, or NULL if no description is available.
         ///</summary>
-        public delegate* unmanaged[Stdcall]<CArrowArrayStream*, byte*> get_last_error;
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged<CArrowArrayStream*, byte*> get_last_error;
+#else
+        internal IntPtr get_last_error;
+#endif
 
         /// <summary>
         /// Release callback: release the stream's own resources. Note that arrays returned by
         /// get_next must be individually released.
         /// </summary>
-        public delegate* unmanaged[Stdcall]<CArrowArrayStream*, void> release;
+#if NET5_0_OR_GREATER
+        internal delegate* unmanaged <CArrowArrayStream*, void> release;
+#else
+        internal IntPtr release;
+#endif
 
         public void* private_data;
 
@@ -74,11 +90,7 @@ namespace Apache.Arrow.C
         {
             var ptr = (CArrowArrayStream*)Marshal.AllocHGlobal(sizeof(CArrowArrayStream));
 
-            ptr->get_schema = null;
-            ptr->get_next = null;
-            ptr->get_last_error = null;
-            ptr->release = null;
-            ptr->private_data = null;
+            *ptr = default;
 
             return ptr;
         }
@@ -91,10 +103,15 @@ namespace Apache.Arrow.C
         /// </remarks>
         public static void Free(CArrowArrayStream* arrayStream)
         {
-            if (arrayStream->release != null)
+            if (arrayStream->release != default)
             {
                 // Call release if not already called.
+#if NET5_0_OR_GREATER
+
                 arrayStream->release(arrayStream);
+#else
+                Marshal.GetDelegateForFunctionPointer<CArrowArrayStreamExporter.ReleaseArrayStream>(arrayStream->release)(arrayStream);
+#endif
             }
             Marshal.FreeHGlobal((IntPtr)arrayStream);
         }

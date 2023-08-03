@@ -1201,6 +1201,8 @@ class SliceOptions(_SliceOptions):
     def __init__(self, start, stop=None, step=1):
         if stop is None:
             stop = sys.maxsize
+            if step < 0:
+                stop = -stop
         self._set_options(start, stop, step)
 
 
@@ -1565,7 +1567,7 @@ class MapLookupOptions(_MapLookupOptions):
 
     Parameters
     ----------
-    query_key : Scalar
+    query_key : Scalar or Object can be converted to Scalar
         The key to search for.
     occurrence : str
         The occurrence(s) to return from the Map
@@ -1573,6 +1575,9 @@ class MapLookupOptions(_MapLookupOptions):
     """
 
     def __init__(self, query_key, occurrence):
+        if not isinstance(query_key, lib.Scalar):
+            query_key = lib.scalar(query_key)
+
         self._set_options(query_key, occurrence)
 
 

@@ -13,10 +13,16 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef BooleanType < arrow.type.PrimitiveType
+classdef BooleanType < arrow.type.FixedWidthType
 %BOOLEANTYPE Type class for boolean data.
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Boolean
+    methods 
+        function obj = BooleanType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.BooleanType")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
+        end
     end
 end

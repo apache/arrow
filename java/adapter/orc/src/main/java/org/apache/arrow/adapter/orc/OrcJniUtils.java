@@ -39,7 +39,7 @@ class OrcJniUtils {
     synchronized (OrcJniUtils.class) {
       if (!isLoaded) {
         final String libraryToLoad =
-            getNormalizedArch() + File.separator + System.mapLibraryName(LIBRARY_NAME);
+            getNormalizedArch() + "/" + System.mapLibraryName(LIBRARY_NAME);
         final File libraryFile =
             moveFileFromJarToTemp(System.getProperty("java.io.tmpdir"), libraryToLoad, LIBRARY_NAME);
         System.load(libraryFile.getAbsolutePath());

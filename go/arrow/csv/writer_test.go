@@ -134,18 +134,18 @@ func Example_writer() {
 
 var (
 	fullData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64", "str", "large_str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "large_list(i64)", "fixed_size_list(i64)", "binary", "large_binary", "fixed_size_binary", "uuid"},
-		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "0", "str-0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "{1,2,3}", "{1,2,3}", "AAEC", "AAEC", "AAEC", "00000000-0000-0000-0000-000000000001"},
-		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.099975586", "0.1", "0.1", "str-1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "{4,5,6}", "{4,5,6}", "AwQF", "AwQF", "AwQF", "00000000-0000-0000-0000-000000000002"},
-		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.19995117", "0.2", "0.2", "str-2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", "{7,8,9}", "{7,8,9}", "", "", "AAAA", "00000000-0000-0000-0000-000000000003"},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64", "str", "large_str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "large_list(i64)", "fixed_size_list(i64)", "binary", "large_binary", "fixed_size_binary", "uuid", "null"},
+		{"true", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "0", "str-0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "{1,2,3}", "{1,2,3}", "AAEC", "AAEC", "AAEC", "00000000-0000-0000-0000-000000000001", nullVal},
+		{"false", "0", "0", "0", "0", "1", "1", "1", "1", "0.099975586", "0.1", "0.1", "str-1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "{4,5,6}", "{4,5,6}", "AwQF", "AwQF", "AwQF", "00000000-0000-0000-0000-000000000002", nullVal},
+		{"true", "1", "1", "1", "1", "2", "2", "2", "2", "0.19995117", "0.2", "0.2", "str-2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", "{7,8,9}", "{7,8,9}", "", "", "AAAA", "00000000-0000-0000-0000-000000000003", nullVal},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 	bananaData = [][]string{
-		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64", "str", "large_str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "large_list(i64)", "fixed_size_list(i64)", "binary", "large_binary", "fixed_size_binary", "uuid"},
-		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "0", "str-0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "{1,2,3}", "{1,2,3}", "AAEC", "AAEC", "AAEC", "00000000-0000-0000-0000-000000000001"},
-		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.099975586", "0.1", "0.1", "str-1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "{4,5,6}", "{4,5,6}", "AwQF", "AwQF", "AwQF", "00000000-0000-0000-0000-000000000002"},
-		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.19995117", "0.2", "0.2", "str-2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", "{7,8,9}", "{7,8,9}", "", "", "AAAA", "00000000-0000-0000-0000-000000000003"},
-		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
+		{"bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f16", "f32", "f64", "str", "large_str", "ts_s", "d32", "d64", "dec128", "dec256", "list(i64)", "large_list(i64)", "fixed_size_list(i64)", "binary", "large_binary", "fixed_size_binary", "uuid", "null"},
+		{"BANANA", "-1", "-1", "-1", "-1", "0", "0", "0", "0", "0", "0", "0", "str-0", "str-0", "2014-07-28 15:04:05", "2017-05-18", "2028-04-26", "-123.45", "-123.45", "{1,2,3}", "{1,2,3}", "{1,2,3}", "AAEC", "AAEC", "AAEC", "00000000-0000-0000-0000-000000000001", nullVal},
+		{"MANGO", "0", "0", "0", "0", "1", "1", "1", "1", "0.099975586", "0.1", "0.1", "str-1", "str-1", "2016-09-08 15:04:05", "2022-11-08", "2031-06-28", "0", "0", "{4,5,6}", "{4,5,6}", "{4,5,6}", "AwQF", "AwQF", "AwQF", "00000000-0000-0000-0000-000000000002", nullVal},
+		{"BANANA", "1", "1", "1", "1", "2", "2", "2", "2", "0.19995117", "0.2", "0.2", "str-2", "str-2", "2021-09-18 15:04:05", "2025-08-04", "2034-08-28", "123.45", "123.45", "{7,8,9}", "{7,8,9}", "{7,8,9}", "", "", "AAAA", "00000000-0000-0000-0000-000000000003", nullVal},
+		{nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal, nullVal},
 	}
 )
 
@@ -230,6 +230,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 			{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary},
 			{Name: "fixed_size_binary", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}},
 			{Name: "uuid", Type: types.NewUUIDType()},
+			{Name: "null", Type: arrow.Null},
 		},
 		nil,
 	)
@@ -284,6 +285,7 @@ func testCSVWriter(t *testing.T, data [][]string, writeHeader bool, fmtr func(bo
 	b.Field(23).(*array.BinaryBuilder).AppendValues([][]byte{{0, 1, 2}, {3, 4, 5}, {}}, nil)
 	b.Field(24).(*array.FixedSizeBinaryBuilder).AppendValues([][]byte{{0, 1, 2}, {3, 4, 5}, {}}, nil)
 	b.Field(25).(*types.UUIDBuilder).AppendValues([]uuid.UUID{uuid.MustParse("00000000-0000-0000-0000-000000000001"), uuid.MustParse("00000000-0000-0000-0000-000000000002"), uuid.MustParse("00000000-0000-0000-0000-000000000003")}, nil)
+	b.Field(26).(*array.NullBuilder).AppendEmptyValues(3)
 
 	for _, field := range b.Fields() {
 		field.AppendNull()

@@ -185,3 +185,10 @@ GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options);
 arrow::compute::RankOptions *
 garrow_rank_options_get_raw(GArrowRankOptions *options);
+
+
+GArrowRunEndEncodeOptions *
+garrow_run_end_encode_options_new_raw(
+  const arrow::compute::RunEndEncodeOptions *arrow_options);
+arrow::compute::RunEndEncodeOptions *
+garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options);

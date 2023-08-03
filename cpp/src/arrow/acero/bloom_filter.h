@@ -17,13 +17,14 @@
 
 #pragma once
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
 #include <immintrin.h>
 #endif
 
 #include <atomic>
 #include <cstdint>
 #include <memory>
+
 #include "arrow/acero/partition_util.h"
 #include "arrow/acero/util.h"
 #include "arrow/memory_pool.h"
@@ -203,7 +204,7 @@ class ARROW_ACERO_EXPORT BlockedBloomFilter {
 
   void SingleFold(int num_folds);
 
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   inline __m256i mask_avx2(__m256i hash) const;
   inline __m256i block_id_avx2(__m256i hash) const;
   int64_t Insert_avx2(int64_t num_rows, const uint32_t* hashes);

@@ -154,6 +154,18 @@ def test_hashing_struct_scalar():
     assert hash1 == hash2
 
 
+def test_timestamp_scalar():
+    a = repr(pa.scalar("0000-01-01").cast(pa.timestamp("s")))
+    assert a == "<pyarrow.TimestampScalar: '0000-01-01T00:00:00'>"
+    b = repr(pa.scalar(datetime.datetime(2015, 1, 1), type=pa.timestamp('s', tz='UTC')))
+    assert b == "<pyarrow.TimestampScalar: '2015-01-01T00:00:00+0000'>"
+    c = repr(pa.scalar(datetime.datetime(2015, 1, 1), type=pa.timestamp('us')))
+    assert c == "<pyarrow.TimestampScalar: '2015-01-01T00:00:00.000000'>"
+    d = repr(pc.assume_timezone(
+        pa.scalar("2000-01-01").cast(pa.timestamp("s")), "America/New_York"))
+    assert d == "<pyarrow.TimestampScalar: '2000-01-01T00:00:00-0500'>"
+
+
 def test_bool():
     false = pa.scalar(False)
     true = pa.scalar(True)
@@ -791,3 +803,26 @@ def test_union():
     assert arr[0].as_py() == b'a'
     assert arr[5].type_code == 1
     assert arr[5].as_py() == 3
+
+
+def test_map_scalar_as_py_with_custom_field_name():
+    """
+    Check we can call `MapScalar.as_py` with custom field names
+
+    See https://github.com/apache/arrow/issues/36809
+    """
+    assert pa.scalar(
+        [("foo", "bar")],
+        pa.map_(
+            pa.string(),
+            pa.string()
+        ),
+    ).as_py() == [("foo", "bar")]
+
+    assert pa.scalar(
+        [("foo", "bar")],
+        pa.map_(
+            pa.field("custom_key", pa.string(), nullable=False),
+            pa.field("custom_value", pa.string()),
+        ),
+    ).as_py() == [("foo", "bar")]

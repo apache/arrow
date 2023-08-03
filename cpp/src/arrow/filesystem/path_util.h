@@ -38,9 +38,25 @@ constexpr char kSep = '/';
 ARROW_EXPORT
 std::vector<std::string> SplitAbstractPath(const std::string& path, char sep = kSep);
 
-// Return the extension of the file
+// Slice the individual components of an abstract path and combine them
+//
+// If offset or length are negative then an empty string is returned
+// If offset is >= the number of components then an empty string is returned
+// If offset + length is >= the number of components then length is truncated
 ARROW_EXPORT
-std::string GetAbstractPathExtension(const std::string& s);
+std::string SliceAbstractPath(const std::string& path, int offset, int length,
+                              char sep = kSep);
+
+// Return the extension of the file
+ARROW_EXPORT std::string GetAbstractPathExtension(const std::string& s);
+
+// Return the depth (number of components) of an abstract path
+//
+// Trailing slashes do not count towards depth
+// Leading slashes do not count towards depth
+//
+// The root path ("/") has depth 0
+ARROW_EXPORT int GetAbstractPathDepth(std::string_view path);
 
 // Return the parent directory and basename of an abstract path.  Both values may be
 // empty.

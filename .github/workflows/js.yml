@@ -80,7 +80,7 @@ jobs:
     name: AMD64 macOS 11 NodeJS ${{ matrix.node }}
     runs-on: macos-latest
     if: github.event_name == 'push'
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -90,6 +90,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Jest Cache
+        uses: actions/cache@v3
+        with:
+          path: js/.jest-cache
+          key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
+          restore-keys: js-jest-cache-${{ runner.os }}-
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:
@@ -114,6 +120,12 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Jest Cache
+        uses: actions/cache@v3
+        with:
+          path: js/.jest-cache
+          key: js-jest-cache-${{ runner.os }}-${{ hashFiles('js/src/**/*.ts', 'js/test/**/*.ts', 'js/yarn.lock') }}
+          restore-keys: js-jest-cache-${{ runner.os }}-
       - name: Install NodeJS
         uses: actions/setup-node@v3
         with:

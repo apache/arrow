@@ -23,8 +23,7 @@
 #include "arrow/util/concurrent_map.h"
 #include "arrow/util/mutex.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 using ::arrow::util::ConcurrentMap;
 
@@ -155,5 +154,4 @@ class TwoLevelCacheWithExpiration {
   ::arrow::util::Mutex mutex_;
 };
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

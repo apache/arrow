@@ -31,24 +31,6 @@ function(check_description_length name description)
   endforeach()
 endfunction()
 
-function(list_join lst glue out)
-  if("${${lst}}" STREQUAL "")
-    set(${out}
-        ""
-        PARENT_SCOPE)
-    return()
-  endif()
-
-  list(GET ${lst} 0 joined)
-  list(REMOVE_AT ${lst} 0)
-  foreach(item ${${lst}})
-    set(joined "${joined}${glue}${item}")
-  endforeach()
-  set(${out}
-      ${joined}
-      PARENT_SCOPE)
-endfunction()
-
 macro(define_option name description default)
   set(options)
   set(one_value_args)
@@ -63,7 +45,7 @@ macro(define_option name description default)
   endif()
 
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   option(${name} "${multiline_description}" ${default})
 
@@ -76,7 +58,7 @@ endmacro()
 
 macro(define_option_string name description default)
   check_description_length(${name} ${description})
-  list_join(description "\n" multiline_description)
+  list(JOIN description "\n" multiline_description)
 
   set(${name}
       ${default}
@@ -87,8 +69,12 @@ macro(define_option_string name description default)
   set("${name}_OPTION_DEFAULT" "\"${default}\"")
   set("${name}_OPTION_TYPE" "string")
   set("${name}_OPTION_POSSIBLE_VALUES" ${ARGN})
-
-  list_join("${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
+  list(FIND ${name}_OPTION_POSSIBLE_VALUES "${default}" default_value_index)
+  if(NOT ${default_value_index} EQUAL -1)
+    list(REMOVE_AT ${name}_OPTION_POSSIBLE_VALUES ${default_value_index})
+    list(PREPEND ${name}_OPTION_POSSIBLE_VALUES "${default}")
+  endif()
+  list(JOIN "${name}_OPTION_POSSIBLE_VALUES" "|" "${name}_OPTION_ENUM")
   if(NOT ("${${name}_OPTION_ENUM}" STREQUAL ""))
     set_property(CACHE ${name} PROPERTY STRINGS "${name}_OPTION_POSSIBLE_VALUES")
   endif()
@@ -300,6 +286,9 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_COMPUTE
                 ARROW_IPC)
+
+  define_option(ARROW_AZURE
+                "Build Arrow with Azure support (requires the Azure SDK for C++)" OFF)
 
   define_option(ARROW_BUILD_UTILITIES "Build Arrow commandline utilities" OFF)
 
