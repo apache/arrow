@@ -37,7 +37,7 @@ classdef tArray < matlab.unittest.TestCase
     methods(Test)        
         function ArrowArrayOutputType(testCase, MATLABDataArrayTypePair)
         % Verify arrow.array returns the expected arrow.array.<Type>Array
-        % with respect to the input data array.
+        % with respect to the input data array's MATLAB class type.
             matlabArray = MATLABDataArrayTypePair{1};
             expectedClassName = MATLABDataArrayTypePair{2};
             arrowArray = arrow.array(matlabArray);
@@ -70,7 +70,7 @@ classdef tArray < matlab.unittest.TestCase
         end
 
         function InferNullsFalse(testCase)
-        % Verify the Valid property of the arrow array when 
+        % Verify Valid is the expected logical vector when
         % InferNulls=false.
             matlabArray = [1 2 NaN 3];
             arrowArray = arrow.array(matlabArray, InferNulls=false);
@@ -78,7 +78,7 @@ classdef tArray < matlab.unittest.TestCase
         end
 
         function ValidNameValuePair(testCase)
-        % Verify the Valid property of the arrow array when the Valid
+        % Verify Valid is the expected vector when the Valid
         % name-value pair is supplied.
             matlabArray = [1 NaN NaN 3];
             arrowArray = arrow.array(matlabArray, Valid=[1 2]);

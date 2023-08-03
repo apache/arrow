@@ -76,10 +76,10 @@ classdef TimestampArray < arrow.array.Array
             arrow.internal.validate.shape(data);
 
             validElements = arrow.internal.validate.parseValidElements(data, opts);
-            ptime = arrow.array.TimestampArray.convertToEpochTime(data, opts.TimeUnit);
+            epochTime = arrow.array.TimestampArray.convertToEpochTime(data, opts.TimeUnit);
             timezone = string(data.TimeZone);
 
-            args = struct(MatlabArray=ptime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));
+            args = struct(MatlabArray=epochTime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));
             proxy = arrow.internal.proxy.create("arrow.array.proxy.TimestampArray", args);
             array = arrow.array.TimestampArray(proxy);
         end

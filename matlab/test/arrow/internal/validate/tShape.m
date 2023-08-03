@@ -1,4 +1,4 @@
-%TREALNUMERIC Unit tests for arrow.internal.validate.shape.
+%TSHAPE Unit tests for arrow.internal.validate.shape.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -18,7 +18,7 @@
 classdef tShape < matlab.unittest.TestCase
     
     methods(Test)
-        function ErrorIf2DMatrix(testCase)
+        function ErrorIf2DimensionalMatrix(testCase)
             data = [1 2; 4 5];
             fcn = @() arrow.internal.validate.shape(data);
             errID = "arrow:array:InvalidShape";

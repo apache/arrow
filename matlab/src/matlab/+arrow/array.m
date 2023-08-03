@@ -20,29 +20,29 @@ function arrowArray = array(data, opts)
         opts.Valid
     end
 
-    data = convertCellstrToStrings(data);
+    data = convertCellstrToString(data);
     classname = string(class(data));
     args = namedargs2cell(opts);
 
     switch (classname)
         case "logical"
             arrowArray = arrow.array.BooleanArray.fromMATLAB(data, args{:});
-        case "int8"
-            arrowArray = arrow.array.Int8Array.fromMATLAB(data, args{:});
         case "uint8"
             arrowArray = arrow.array.UInt8Array.fromMATLAB(data, args{:});
-        case "int16"
-            arrowArray = arrow.array.Int16Array.fromMATLAB(data, args{:});
         case "uint16"
             arrowArray = arrow.array.UInt16Array.fromMATLAB(data, args{:});
-        case "int32"
-            arrowArray = arrow.array.Int32Array.fromMATLAB(data, args{:});
         case "uint32"
             arrowArray = arrow.array.UInt32Array.fromMATLAB(data, args{:});
-        case "int64"
-            arrowArray = arrow.array.Int64Array.fromMATLAB(data, args{:});
         case "uint64"
             arrowArray = arrow.array.UInt64Array.fromMATLAB(data, args{:});
+        case "int8"
+            arrowArray = arrow.array.Int8Array.fromMATLAB(data, args{:});
+        case "int16"
+            arrowArray = arrow.array.Int16Array.fromMATLAB(data, args{:});
+        case "int32"
+            arrowArray = arrow.array.Int32Array.fromMATLAB(data, args{:});
+        case "int64"
+            arrowArray = arrow.array.Int64Array.fromMATLAB(data, args{:});
         case "single"
             arrowArray = arrow.array.Float32Array.fromMATLAB(data, args{:});
         case "double"
@@ -58,7 +58,7 @@ function arrowArray = array(data, opts)
     end
 end
 
-function data = convertCellstrToStrings(data)
+function data = convertCellstrToString(data)
     % Support constructing a StringArray from a cell array of strings
     % (i.e. cellstr), or a string array, but not a char array.
     if ~ischar(data)

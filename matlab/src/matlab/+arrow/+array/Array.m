@@ -32,9 +32,9 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
     
     methods
         function obj = Array(proxy)
-        arguments
-            proxy(1, 1) libmexclass.proxy.Proxy
-        end
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
             obj.Proxy = proxy;
         end
 
