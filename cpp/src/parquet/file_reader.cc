@@ -96,10 +96,9 @@ std::shared_ptr<internal::RecordReader> RowGroupReader::RecordReader(
 
   internal::LevelInfo level_info = internal::LevelInfo::ComputeLevelInfo(descr);
 
-  auto reader = internal::RecordReader::Make(
-      descr, level_info,
-      const_cast<ReaderProperties*>(contents_->properties())->memory_pool(),
-      read_dictionary, read_dense_for_nullable);
+  auto reader = internal::RecordReader::Make(descr, level_info,
+                                             contents_->properties()->memory_pool(),
+                                             read_dictionary, read_dense_for_nullable);
   reader->SetPageReader(std::move(page_reader));
   return reader;
 }
