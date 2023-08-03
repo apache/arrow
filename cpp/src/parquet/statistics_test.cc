@@ -622,7 +622,6 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     std::shared_ptr<TypedStatistics<TestType>> statistics1;
     {
       EncodedStatistics encoded_statistics1;
-      encoded_statistics1.distinct_count = 10;
       statistics1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
           Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
                            /*num_values=*/1000));
@@ -650,6 +649,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     // Create a statistics object with zero distinct count. Merging preserves the distinct
     // count if either side is zero.
     std::shared_ptr<TypedStatistics<TestType>> statistics3;
+    std::shared_ptr<TypedStatistics<TestType>> statistics4;
     {
       EncodedStatistics encoded_statistics3;
       encoded_statistics3.has_distinct_count = true;
@@ -658,25 +658,36 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
           Statistics::Make(this->schema_.Column(0), &encoded_statistics3,
                            /*num_values=*/0));
       EXPECT_TRUE(statistics3->HasDistinctCount());
+
+      EncodedStatistics encoded_statistics4;
+      encoded_statistics4.has_distinct_count = true;
+      encoded_statistics4.distinct_count = 10;
+      statistics4 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
+          Statistics::Make(this->schema_.Column(0), &encoded_statistics4
+                                                    /*num_values=*/10));
+      EXPECT_TRUE(statistics4->HasDistinctCount());
     }
 
-    VerifyMergedStatistics(*statistics1, *statistics3,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
-                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
-                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
-                           });
-    VerifyMergedStatistics(*statistics3, *statistics1,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
-                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
-                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
-                           });
-    VerifyMergedStatistics(*statistics3, *statistics3,
+    // Both sides have 0 for the distinct count.
+    VerifyMergedStatistics(*statistics4, *statistics4,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasDistinctCount());
                              EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
                              EXPECT_EQ(merged_statistics->Encode().distinct_count, 0);
+                           });
+    // The rhs has 0 for the distinct count.
+    VerifyMergedStatistics(*statistics3, *statistics4,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
+                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
+                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
+                           });
+    // The lhs has 0 for the distinct count.
+    VerifyMergedStatistics(*statistics4, *statistics3,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_TRUE(merged_statistics->HasDistinctCount());
+                             EXPECT_TRUE(merged_statistics->Encode().has_distinct_count);
+                             EXPECT_EQ(merged_statistics->Encode().distinct_count, 10);
                            });
   }
 
