@@ -155,6 +155,9 @@ classdef tSchema < matlab.unittest.TestCase
 
             index = {1};
             testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            index = [1; 1];
+            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
         end
 
         function GetFieldByIndex(testCase)
@@ -432,6 +435,38 @@ classdef tSchema < matlab.unittest.TestCase
             field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "123");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
+        end
+
+        function ErrorIfNumericIndexIsNonScalar(testCase)
+            % Verify that an error is thrown if a nonscalar numeric index
+            % is supplied to the field method.
+            schema = arrow.schema([...
+                arrow.field("", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+
+            fieldName = [1, 2, 3];
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            fieldName = [1; 2; 3];
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+        end
+
+        function ErrorIfFieldNameIsNonScalar(testCase)
+            % Verify that an error is thrown if a nonscalar string array is
+            % specified as a field name to the field method.
+            schema = arrow.schema([...
+                arrow.field("", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+
+            fieldName = ["A", "B", "C"];
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+
+            fieldName = ["A";  "B"; "C"];
+            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
         end
 
     end

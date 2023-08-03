@@ -44,10 +44,10 @@ classdef Schema < matlab.mixin.CustomDisplay
         
         function F = field(obj, idx)
             idx = convertCharsToStrings(idx);
-            if ~isempty(idx) && isnumeric(idx) && idx >= 1
+            if ~isempty(idx) && isscalar(idx) && isnumeric(idx) && idx >= 1
                 args = struct(Index=int32(idx));
                 proxyID = obj.Proxy.getFieldByIndex(args);
-            elseif isstring(idx)
+            elseif isscalar(idx) && isstring(idx)
                 name = idx;
                 args = struct(Name=name);
                 proxyID = obj.Proxy.getFieldByName(args);
