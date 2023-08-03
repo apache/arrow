@@ -21,13 +21,13 @@ open.}
 \link[tidyselect:eval_select]{tidy selection specification}
 of columns, as used in \code{dplyr::select()}.}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+\item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
 \item{mmap}{Logical: whether to memory-map the file (default \code{TRUE})}
 }
 \value{
-A \code{data.frame} if \code{as_data_frame} is \code{TRUE} (the default), or an
+A \code{tibble} if \code{as_data_frame} is \code{TRUE} (the default), or an
 Arrow \link{Table} otherwise
 }
 \description{
