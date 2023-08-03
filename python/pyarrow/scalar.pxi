@@ -522,6 +522,23 @@ cdef class TimestampScalar(Scalar):
 
         return _datetime_from_int(sp.value, unit=dtype.unit(), tzinfo=tzinfo)
 
+    def __repr__(self):
+        """
+        Return the representation of TimestampScalar using `strftime` to avoid
+        original repr datetime values being out of range.
+        """
+        cdef:
+            CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
+            CTimestampType* dtype = <CTimestampType*> sp.type.get()
+
+        if not dtype.timezone().empty():
+            type_format = str(_pc().strftime(self, format="%Y-%m-%dT%H:%M:%S%z"))
+        else:
+            type_format = str(_pc().strftime(self))
+        return '<pyarrow.{}: {!r}>'.format(
+            self.__class__.__name__, type_format
+        )
+
 
 cdef class DurationScalar(Scalar):
     """

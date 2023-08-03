@@ -89,47 +89,8 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             % Convert each MATLAB array into a corresponding
             % arrow.array.Array.
             for ii = 1:numColumns
-                arrowArrays{ii} = arrow.tabular.RecordBatch.makeArray(T{:, ii});
+                arrowArrays{ii} = arrow.array(T{:, ii});
             end
-        end
-
-        function arrowArray = makeArray(matlabArray)
-            % Decompose the input MATLAB table
-            % input a cell array of equivalent arrow.array.Array
-            % instances.
-
-            switch class(matlabArray)
-                case "single"
-                    arrowArray = arrow.array.Float32Array(matlabArray);
-                case "double"
-                    arrowArray = arrow.array.Float64Array(matlabArray);
-                case "uint8"
-                    arrowArray = arrow.array.UInt8Array(matlabArray);
-                case "uint16"
-                    arrowArray = arrow.array.UInt16Array(matlabArray);
-                case "uint32"
-                    arrowArray = arrow.array.UInt32Array(matlabArray);
-                case "uint64"
-                    arrowArray = arrow.array.UInt64Array(matlabArray);
-                case "int8"
-                    arrowArray = arrow.array.Int8Array(matlabArray);
-                case "int16"
-                    arrowArray = arrow.array.Int16Array(matlabArray);
-                case "int32"
-                    arrowArray = arrow.array.Int32Array(matlabArray);
-                case "int64"
-                    arrowArray = arrow.array.Int64Array(matlabArray);
-                case "logical"
-                    arrowArray = arrow.array.BooleanArray(matlabArray);
-                case "string"
-                    arrowArray = arrow.array.StringArray(matlabArray);
-                case "datetime"
-                    arrowArray = arrow.array.TimestampArray(matlabArray);
-                otherwise
-                    error("arrow:tabular:recordbatch:UnsupportedMatlabArrayType", ...
-                          "RecordBatch cannot be constructed from a MATLAB array of type '" + class(matlabArray) + "'.");
-            end
-
         end
 
         function proxyIDs = getArrowProxyIDs(arrowArrays)

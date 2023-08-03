@@ -593,13 +593,13 @@ class FileMetaData::FileMetaDataImpl {
   FileMetaDataImpl() = default;
 
   explicit FileMetaDataImpl(
-      const void* metadata, uint32_t* metadata_len, const ReaderProperties& properties,
+      const void* metadata, uint32_t* metadata_len, ReaderProperties properties,
       std::shared_ptr<InternalFileDecryptor> file_decryptor = nullptr)
-      : properties_(properties), file_decryptor_(file_decryptor) {
-    metadata_.reset(new format::FileMetaData);
+      : properties_(std::move(properties)), file_decryptor_(std::move(file_decryptor)) {
+    metadata_ = std::make_unique<format::FileMetaData>();
 
     auto footer_decryptor =
-        file_decryptor_ != nullptr ? file_decryptor->GetFooterDecryptor() : nullptr;
+        file_decryptor_ != nullptr ? file_decryptor_->GetFooterDecryptor() : nullptr;
 
     ThriftDeserializer deserializer(properties_);
     deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(metadata),
@@ -779,8 +779,8 @@ class FileMetaData::FileMetaDataImpl {
     }
 
     std::shared_ptr<FileMetaData> out(new FileMetaData());
-    out->impl_.reset(new FileMetaDataImpl());
-    out->impl_->metadata_.reset(new format::FileMetaData());
+    out->impl_ = std::make_unique<FileMetaDataImpl>();
+    out->impl_->metadata_ = std::make_unique<format::FileMetaData>();
 
     auto metadata = out->impl_->metadata_.get();
     metadata->version = metadata_->version;
@@ -834,6 +834,7 @@ class FileMetaData::FileMetaDataImpl {
     // update ColumnOrder
     std::vector<parquet::ColumnOrder> column_orders;
     if (metadata_->__isset.column_orders) {
+      column_orders.reserve(metadata_->column_orders.size());
       for (auto column_order : metadata_->column_orders) {
         if (column_order.__isset.TYPE_ORDER) {
           column_orders.push_back(ColumnOrder::type_defined_);
@@ -865,7 +866,7 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
   // This FileMetaData ctor is private, not compatible with std::make_shared
   return std::shared_ptr<FileMetaData>(
-      new FileMetaData(metadata, metadata_len, properties, file_decryptor));
+      new FileMetaData(metadata, metadata_len, properties, std::move(file_decryptor)));
 }
 
 std::shared_ptr<FileMetaData> FileMetaData::Make(

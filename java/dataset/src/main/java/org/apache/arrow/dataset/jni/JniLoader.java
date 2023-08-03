@@ -59,6 +59,7 @@ public final class JniLoader {
       return;
     }
     loadRemaining();
+    ensureS3FinalizedOnShutdown();
   }
 
   private synchronized void loadRemaining() {
@@ -108,5 +109,9 @@ public final class JniLoader {
         break;
     }
     return arch;
+  }
+
+  private void ensureS3FinalizedOnShutdown() {
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> { JniWrapper.get().ensureS3Finalized(); }));
   }
 }
