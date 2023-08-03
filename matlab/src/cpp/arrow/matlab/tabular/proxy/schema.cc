@@ -28,6 +28,30 @@
 
 namespace arrow::matlab::tabular::proxy {
 
+    namespace {
+
+        libmexclass::error::Error makeUnknownFieldNameError(const std::string& name) {
+            using namespace libmexclass::error;
+            const std::string error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME};
+            std::stringstream error_message_stream;
+            error_message_stream << "Unknown field name: '";
+            error_message_stream << name;
+            error_message_stream << "'.";
+            const std::string& error_message = error_message_stream.str();
+            return Error{error_message_id, error_message};
+        }
+
+        libmexclass::error::Error makeEmptySchemaError() {
+            using namespace libmexclass::error;
+            const std::string error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA};
+            std::stringstream error_message_stream;
+            error_message_stream << "Numeric indexing using the field method is not supported for schemas with no fields.";
+            const std::string& error_message = error_message_stream.str();
+            return Error{error_message_id, error_message};
+        }
+
+    }
+
     Schema::Schema(std::shared_ptr<arrow::Schema> schema) : schema{std::move(schema)} {
         REGISTER_METHOD(Schema, getFieldByIndex);
         REGISTER_METHOD(Schema, getFieldByName);
@@ -73,12 +97,8 @@ namespace arrow::matlab::tabular::proxy {
         const auto num_fields = schema->num_fields();
 
         if (num_fields == 0) {
-            using namespace libmexclass::error;
-            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA};
-            std::stringstream error_message_stream;
-            error_message_stream << "Numeric indexing using the field method is not supported for schemas with no fields.";
-            const std::string& error_message = error_message_stream.str();
-            context.error = Error{error_message_id, error_message};
+            const auto& error = makeEmptySchemaError();
+            context.error = error;
             return;
         }
 
@@ -120,14 +140,8 @@ namespace arrow::matlab::tabular::proxy {
         if (!field) {
             // Note: This line should never be reached because CanReferenceFieldsByNames
             //       should already handle validating whether the supplied field name is valid.
-            using namespace libmexclass::error;
-            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME};
-            std::stringstream error_message_stream;
-            error_message_stream << "Unknown field name: '";
-            error_message_stream << name;
-            error_message_stream << "'.";
-            const std::string& error_message = error_message_stream.str();
-            context.error = Error{error_message_id, error_message}; 
+            const auto& error = makeUnknownFieldNameError(name);
+            context.error = error;
             return;
         }
 
