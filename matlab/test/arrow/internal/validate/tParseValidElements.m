@@ -186,5 +186,5 @@ function validElements = parseValidElements(data, opts)
         opts.InferNulls = true;
         opts.Valid
     end
-    validElements = arrow.args.parseValidElements(data, opts);
+    validElements = arrow.internal.validate.parseValidElements(data, opts);
 end

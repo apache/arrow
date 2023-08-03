@@ -21,23 +21,33 @@ classdef NumericArray < arrow.array.Array
     end
 
     methods
-        function obj = NumericArray(data, type, proxyName, opts)
+        function obj = NumericArray(proxy)
             arguments
-                data
-                type(1, 1) string
-                proxyName(1, 1) string
-                opts.InferNulls(1, 1) logical = true
-                opts.Valid
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            arrow.args.validateTypeAndShape(data, type);
-            validElements = arrow.args.parseValidElements(data, opts);
-            opts = struct(MatlabArray=data, Valid=validElements);
-            obj@arrow.array.Array("Name", proxyName, "ConstructorArguments", {opts});
+            obj@arrow.array.Array(proxy);
         end
 
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
             matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, traits, opts)
+            arguments
+                data
+                traits(1, 1) arrow.type.traits.TypeTraits
+                opts.InferNulls(1, 1) logical = true
+                opts.Valid
+            end
+
+            arrow.internal.validate.numeric(data, traits.MatlabClassName);
+            validElements = arrow.internal.validate.parseValidElements(data, opts);
+            args = struct(MatlabArray=data, Valid=validElements);
+            proxy = arrow.internal.proxy.create(traits.ArrayProxyClassName, args);
+            array = traits.ArrayConstructor(proxy);
         end
     end
 end

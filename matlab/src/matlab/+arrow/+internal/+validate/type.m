@@ -1,3 +1,6 @@
+%TYPE Verifies data has the expected class type. Otherwise throws an 
+% error with the identifier "arrrow:array:InvalidType".
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,31 +16,10 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int8Array < arrow.array.NumericArray
-% arrow.array.Int8Array
-
-    properties (Access=protected)
-        NullSubstitutionValue = int8(0);
-    end
-
-    methods
-        function obj = Int8Array(proxy)
-            arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Int8Array")}
-            end
-            import arrow.internal.proxy.validate
-            obj@arrow.array.NumericArray(proxy);
-        end
-
-        function data = int8(obj)
-            data = obj.toMATLAB();
-        end
-    end
-
-    methods (Static)
-        function array = fromMATLAB(data, varargin)
-            traits = arrow.type.traits.Int8Traits;
-            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
-        end
+function type(data, classtype)
+    if ~isa(data, classtype)
+        errid = "arrow:array:InvalidType";
+        msg = join(["Expected data to be a", classtype, "array"]);
+        error(errid, msg);
     end
 end

@@ -21,13 +21,23 @@ classdef Int16Array < arrow.array.NumericArray
     end
 
     methods
-        function obj = Int16Array(data, varargin)
-            obj@arrow.array.NumericArray(data, "int16", ...
-                "arrow.array.proxy.Int16Array", varargin{:});
+        function obj = Int16Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Int16Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = int16(obj)
             data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.Int16Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end
