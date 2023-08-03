@@ -29,11 +29,12 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
 import numpy as np
+import warnings
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -1987,6 +1988,10 @@ class CumulativeSumOptions(_CumulativeOptions):
     """
 
     def __init__(self, start=None, *, skip_nulls=False):
+        warnings.warn(
+            _DEPR_MSG.format("CumulativeSumOptions", "14.0", "CumulativeOptions"),
+            FutureWarning,
+        )        
         self._set_options(start, skip_nulls)
 
 
