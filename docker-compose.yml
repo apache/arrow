@@ -835,6 +835,7 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
+      PYTEST_ARGS:  # inherit
     volumes: *conda-volumes
     command: &python-conda-command
       ["
