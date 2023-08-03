@@ -18,6 +18,7 @@
 import os
 import sys
 import pytest
+import warnings
 import weakref
 
 import numpy as np
@@ -82,10 +83,9 @@ def test_tensor_base_object():
 @pytest.mark.parametrize('dtype_str,arrow_type', tensor_type_pairs)
 def test_tensor_numpy_roundtrip(dtype_str, arrow_type):
     dtype = np.dtype(dtype_str)
-    if dtype in [np.uint32, np.uint64]:
-        # Casting np.float64 -> uint32 or uint64 throws a RuntimeWarning
-        data = (np.random.randint(0, 100, size=(10, 4))).astype(dtype)
-    else:
+    # Casting np.float64 -> uint32 or uint64 throws a RuntimeWarning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
         data = (100 * np.random.randn(10, 4)).astype(dtype)
     tensor = pa.Tensor.from_numpy(data)
     assert tensor.type == arrow_type
