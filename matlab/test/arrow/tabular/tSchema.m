@@ -395,6 +395,32 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
         end
 
+        function GetFieldByNameWithChar(testCase)
+            % Verify that the field method works when supplied a char
+            % vector as input.
+            schema = arrow.schema([...
+                arrow.field("", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+
+            % Should match the first field whose name is the
+            % empty string ("").
+            field = schema.field('');
+            testCase.verifyEqual(field.Name, "");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt8);
+
+            % Should match the second field whose name is "B".
+            field = schema.field('B');
+            testCase.verifyEqual(field.Name, "B");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
+
+            % Should match the second field whose name is "123".
+            field = schema.field('123');
+            testCase.verifyEqual(field.Name, "123");
+            testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
+        end
+
     end
 
 end
