@@ -1,3 +1,6 @@
+%SHAPE Verifies data is either a vector or empty. Otherwise throws an error
+% with the identifier "arrrow:array:InvalidShape".
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,31 +16,11 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int8Array < arrow.array.NumericArray
-% arrow.array.Int8Array
-
-    properties (Access=protected)
-        NullSubstitutionValue = int8(0);
-    end
-
-    methods
-        function obj = Int8Array(proxy)
-            arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Int8Array")}
-            end
-            import arrow.internal.proxy.validate
-            obj@arrow.array.NumericArray(proxy);
-        end
-
-        function data = int8(obj)
-            data = obj.toMATLAB();
-        end
-    end
-
-    methods (Static)
-        function array = fromMATLAB(data, varargin)
-            traits = arrow.type.traits.Int8Traits;
-            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
-        end
+function shape(data)
+    if ~isvector(data) && ~isempty(data)
+        errid = "arrow:array:InvalidShape";
+        msg = "Expected input array to be a vector or empty.";
+        error(errid, msg);
     end
 end
+
