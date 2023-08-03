@@ -663,8 +663,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       encoded_statistics4.has_distinct_count = true;
       encoded_statistics4.distinct_count = 10;
       statistics4 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
-          Statistics::Make(this->schema_.Column(0), &encoded_statistics4
-                                                    /*num_values=*/10));
+          Statistics::Make(this->schema_.Column(0), &encoded_statistics4,
+                           /*num_values=*/10));
       EXPECT_TRUE(statistics4->HasDistinctCount());
     }
 
