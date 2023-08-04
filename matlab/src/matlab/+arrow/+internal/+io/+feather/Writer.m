@@ -38,6 +38,12 @@ classdef Writer < matlab.mixin.Scalar
                 ConstructorArguments={args});
         end
 
+        function write(obj, T)
+            rb = arrow.recordbatch(T);
+            args = struct(RecordBatchProxyID=rb.Proxy.ID);
+            obj.Proxy.writeRecordBatch(args);
+        end
+
         function filename = get.Filename(obj)
             filename = obj.Proxy.getFilename();
         end
