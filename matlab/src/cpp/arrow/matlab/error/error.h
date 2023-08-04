@@ -177,4 +177,7 @@ namespace arrow::matlab::error {
     static const char* ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME = "arrow:tabular:schema:UnknownFieldName";
     static const char* ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME = "arrow:tabular:schema:AmbiguousFieldName";
     static const char* ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA = "arrow:tabular:schema:NumericFieldIndexWithEmptySchema";
+    static const char* UNKNOWN_PROXY_FOR_ARRAY_TYPE = "arrow:array:UnknownProxyForArrayType";
+    static const char* RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH = "arrow:tabular:recordbatch:NumericIndexWithEmptyRecordBatch";
+    static const char* RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX = "arrow:tabular:recordbatch:InvalidNumericColumnIndex";
 }

@@ -18,10 +18,6 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 %arrow.tabular.RecordBatch A tabular data structure representing
 % a set of arrow.array.Array objects with a fixed schema.
 
-    properties (Access=private)
-        ArrowArrays = {};
-    end
-
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
         ColumnNames
@@ -42,23 +38,35 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         end
 
         function arrowArray = column(obj, idx)
-            arrowArray = obj.ArrowArrays{idx};
+            if ~isempty(idx) && isscalar(idx) && isnumeric(idx) && idx >= 1
+                args = struct(Index=int32(idx));
+                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+                traits = arrow.type.traits.traits(arrow.type.ID(typeID));
+                proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+                arrowArray = traits.ArrayConstructor(proxy);
+            else
+                errid = "arrow:tabular:recordbatch:UnsupportedColumnIndexType";
+                msg = "Index must be a positive scalar integer.";
+                error(errid, msg);
+            end
         end
 
         function obj = RecordBatch(T)
-            obj.ArrowArrays = arrow.tabular.RecordBatch.decompose(T);
+            arrowArrays = arrow.tabular.RecordBatch.decompose(T);
             columnNames = string(T.Properties.VariableNames);
-            arrayProxyIDs = arrow.tabular.RecordBatch.getArrowProxyIDs(obj.ArrowArrays);
+            arrayProxyIDs = arrow.tabular.RecordBatch.getArrowProxyIDs(arrowArrays);
             opts = struct("ArrayProxyIDs", arrayProxyIDs, ...
                           "ColumnNames", columnNames);
             obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.tabular.proxy.RecordBatch", "ConstructorArguments", {opts});
         end
 
         function T = table(obj)
-            matlabArrays = cell(1, numel(obj.ArrowArrays));
+            numColumns = obj.NumColumns;
+            matlabArrays = cell(1, numColumns);
             
-            for ii = 1:numel(obj.ArrowArrays)
-                matlabArrays{ii} = toMATLAB(obj.ArrowArrays{ii});
+            for ii = 1:numColumns
+                arrowArray = obj.column(ii);
+                matlabArrays{ii} = toMATLAB(arrowArray);
             end
 
             variableNames = matlab.lang.makeUniqueStrings(obj.ColumnNames);
