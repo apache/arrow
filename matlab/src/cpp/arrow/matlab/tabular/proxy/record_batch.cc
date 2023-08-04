@@ -42,7 +42,7 @@ namespace arrow::matlab::tabular::proxy {
             std::stringstream error_message_stream;
             error_message_stream << "Invalid column index: ";
             error_message_stream << matlab_index;
-            error_message_stream << ". Column index must be between 1 and the number of fields (";
+            error_message_stream << ". Column index must be between 1 and the number of columns (";
             error_message_stream << num_columns;
             error_message_stream << ").";
             return libmexclass::error::Error{error::RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX, error_message_stream.str()};
