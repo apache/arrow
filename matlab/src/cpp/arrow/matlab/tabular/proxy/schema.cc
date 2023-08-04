@@ -32,13 +32,11 @@ namespace arrow::matlab::tabular::proxy {
 
         libmexclass::error::Error makeUnknownFieldNameError(const std::string& name) {
             using namespace libmexclass::error;
-            const std::string error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME};
             std::stringstream error_message_stream;
             error_message_stream << "Unknown field name: '";
             error_message_stream << name;
             error_message_stream << "'.";
-            const std::string& error_message = error_message_stream.str();
-            return Error{error_message_id, error_message};
+            return Error{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME, error_message_stream.str()};
         }
 
         libmexclass::error::Error makeEmptySchemaError() {
