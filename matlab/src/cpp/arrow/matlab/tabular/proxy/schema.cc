@@ -131,15 +131,8 @@ namespace arrow::matlab::tabular::proxy {
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto name, arrow::util::UTF16StringToUTF8(name_utf16), context, error::UNICODE_CONVERSION_ERROR_ID);
         const std::vector<std::string> names = {name};
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
-        const auto field = schema->GetFieldByName(name);
-        if (!field) {
-            // Note: This line should never be reached because CanReferenceFieldsByNames
-            //       should already handle validating whether the supplied field name is valid.
-            const auto& error = makeUnknownFieldNameError(name);
-            context.error = error;
-            return;
-        }
 
+        const auto field = schema->GetFieldByName(name);
         auto field_proxy = std::make_shared<FieldProxy>(field);
         const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
         const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
