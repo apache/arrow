@@ -63,7 +63,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.StringType     , arrow::matlab::type::proxy::StringType);
     REGISTER_PROXY(arrow.type.proxy.TimestampType  , arrow::matlab::type::proxy::TimestampType);
     REGISTER_PROXY(arrow.io.feather.proxy.FeatherWriter  , arrow::matlab::io::feather::proxy::FeatherWriter);
-    REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::io::feather::proxy::Reader);
+    REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };

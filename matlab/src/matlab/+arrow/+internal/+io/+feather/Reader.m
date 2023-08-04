@@ -32,33 +32,21 @@ classdef Reader
             if ~(isstring(filename) && isscalar(filename))
                 error("arrow:io:feather:FilenameUnsupportedType", "Filename must be a scalar string or char row vector.");
             end
-            obj.Filename = filename;
+            args = struct(Filename=filename);
+            obj.Proxy = arrow.internal.proxy.create("arrow.io.feather.proxy.Reader", args);
         end
 
         function T = read(obj)
-            args = struct(Filename=obj.Filename);
-            recordBatchProxyID = obj.Proxy.read(args);
+            recordBatchProxyID = obj.Proxy.read();
             proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.RecordBatch", ID=recordBatchProxyID);
             recordBatch = arrow.tabular.RecordBatch(proxy);
             T = recordBatch.toMATLAB();
         end
+
+        function filename = get.Filename(obj)
+            filename = obj.Proxy.getFilename();
+        end
         
-    end
-
-    methods (Access = private)
-
-        function str = toString(obj)
-            str = obj.Proxy.toString();
-        end
-
-    end
-
-    methods (Access=protected)
-
-        function displayScalarObject(obj)
-            disp(obj.toString());
-        end
-
     end
 
 end

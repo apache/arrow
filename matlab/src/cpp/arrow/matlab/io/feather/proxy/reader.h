@@ -19,7 +19,7 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::tabular::proxy {
+namespace arrow::matlab::io::feather::proxy {
 
     class Reader : public libmexclass::proxy::Proxy {
         public:
@@ -31,6 +31,7 @@ namespace arrow::matlab::tabular::proxy {
 
         protected:
             void read(libmexclass::proxy::method::Context& context);
+            void getFilename(libmexclass::proxy::method::Context& context);
 
             const std::string filename;
     };
