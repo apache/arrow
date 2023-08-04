@@ -34,23 +34,18 @@ namespace arrow::matlab::tabular::proxy {
 
     namespace {
         libmexclass::error::Error make_empty_record_batch_error() {
-            const std::string error_message_id = std::string{error::RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH};
-            std::stringstream error_message_stream;
-            error_message_stream << "Numeric indexing using the column method is not supported for record batches with no columns.";
-            const std::string& error_message = error_message_stream.str();
-            return libmexclass::error::Error{error_message_id, error_message};
+            const std::string error_msg =  "Numeric indexing using the column method is not supported for record batches with no columns.";
+            return libmexclass::error::Error{error::RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH, error_msg};
         }
-    
+
         libmexclass::error::Error make_invalid_numeric_index_error(const int32_t matlab_index, const int32_t num_columns) {
-            const std::string error_message_id = std::string{error::RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX};
             std::stringstream error_message_stream;
             error_message_stream << "Invalid column index: ";
             error_message_stream << matlab_index;
             error_message_stream << ". Column index must be between 1 and the number of fields (";
             error_message_stream << num_columns;
             error_message_stream << ").";
-            const std::string& error_message = error_message_stream.str();
-            return libmexclass::error::Error{error_message_id, error_message};
+            return libmexclass::error::Error{error::RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX, error_message_stream.str()};
         }
     }
 
