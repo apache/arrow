@@ -19,6 +19,7 @@
 #include "arrow/matlab/array/proxy/numeric_array.h"
 #include "arrow/matlab/array/proxy/string_array.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/string_type.h"
@@ -44,6 +45,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.StringArray   , arrow::matlab::array::proxy::StringArray);
     REGISTER_PROXY(arrow.array.proxy.TimestampArray, arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>);
     REGISTER_PROXY(arrow.tabular.proxy.RecordBatch , arrow::matlab::tabular::proxy::RecordBatch);
+    REGISTER_PROXY(arrow.tabular.proxy.Schema      , arrow::matlab::tabular::proxy::Schema);
     REGISTER_PROXY(arrow.type.proxy.Field          , arrow::matlab::type::proxy::Field);
     REGISTER_PROXY(arrow.type.proxy.Float32Type    , arrow::matlab::type::proxy::PrimitiveCType<float>);
     REGISTER_PROXY(arrow.type.proxy.Float64Type    , arrow::matlab::type::proxy::PrimitiveCType<double>);
