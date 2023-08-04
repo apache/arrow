@@ -22,6 +22,9 @@
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
 
+#include "arrow/io/file.h"
+#include "arrow/ipc/feather.h"
+
 #include "libmexclass/proxy/ProxyManager.h"
 
 namespace arrow::matlab::io::feather::proxy {
@@ -64,6 +67,13 @@ namespace arrow::matlab::io::feather::proxy {
         auto proxy = libmexclass::proxy::ProxyManager::getProxy(record_batch_proxy_id);
         auto record_batch_proxy = std::static_pointer_cast<arrow::matlab::tabular::proxy::RecordBatch>(proxy);
         auto record_batch = record_batch_proxy->unwrap();
+        
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::io::OutputStream> output_stream,
+                                            arrow::io::FileOutputStream::Open(filename),
+                                            context,
+                                            "arrow:io:feather:FailedToOpenFileForWrite");
+
+
     }
 
 
