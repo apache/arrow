@@ -41,11 +41,8 @@ namespace arrow::matlab::tabular::proxy {
 
         libmexclass::error::Error makeEmptySchemaError() {
             using namespace libmexclass::error;
-            const std::string error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA};
-            std::stringstream error_message_stream;
-            error_message_stream << "Numeric indexing using the field method is not supported for schemas with no fields.";
-            const std::string& error_message = error_message_stream.str();
-            return Error{error_message_id, error_message};
+            return Error{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA,
+                         "Numeric indexing using the field method is not supported for schemas with no fields."};
         }
 
     }
