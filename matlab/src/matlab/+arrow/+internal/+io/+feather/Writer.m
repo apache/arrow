@@ -15,8 +15,6 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 classdef Writer < matlab.mixin.Scalar
-    %UNTITLED2 Summary of this class goes here
-    %   Detailed explanation goes here
 
     properties(Hidden, SetAccess=private, GetAccess=public)
         Proxy
