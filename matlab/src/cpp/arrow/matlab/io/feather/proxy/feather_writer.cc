@@ -20,6 +20,7 @@
 #include "arrow/matlab/error/error.h"
 
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/util/utf8.h"
 
 #include "arrow/io/file.h"
@@ -68,13 +69,24 @@ namespace arrow::matlab::io::feather::proxy {
         auto record_batch_proxy = std::static_pointer_cast<arrow::matlab::tabular::proxy::RecordBatch>(proxy);
         auto record_batch = record_batch_proxy->unwrap();
         
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto table, 
+                                            arrow::Table::FromRecordBatches({record_batch}),
+                                            context,
+                                            "arrow:io:feather:FailedToCreateTableFromRecordBatch");
+        
+
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::io::OutputStream> output_stream,
                                             arrow::io::FileOutputStream::Open(filename),
                                             context,
                                             "arrow:io:feather:FailedToOpenFileForWrite");
 
+         // Specify the feather file format version as V1
+        arrow::ipc::feather::WriteProperties write_props;
+        write_props.version = arrow::ipc::feather::kFeatherV1Version;
 
+        // Write the Feather file metadata to the end of the file.
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(ipc::feather::WriteTable(*table, output_stream.get(), write_props),
+                                            context,
+                                            "arrow:io:feather:FailedToWriteTable");
     }
-
-
 }
