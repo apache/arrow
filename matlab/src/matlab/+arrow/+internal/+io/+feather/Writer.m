@@ -22,6 +22,10 @@ classdef Writer < matlab.mixin.Scalar
         Proxy
     end
 
+    properties(Dependent)
+        Filename
+    end
+
     methods
         function obj = Writer(filename)
             arguments
@@ -31,7 +35,11 @@ classdef Writer < matlab.mixin.Scalar
             args = struct(Filename=filename);
             proxyName = "arrow.io.feather.proxy.FeatherWriter";
             obj.Proxy = libmexclass.proxy.Proxy(Name=proxyName, ...
-                ConstructorArguments=args);
+                ConstructorArguments={args});
+        end
+
+        function filename = get.Filename(obj)
+            filename = obj.Proxy.getFilename();
         end
     end
 end

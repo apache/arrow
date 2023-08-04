@@ -30,6 +30,9 @@ namespace arrow::matlab::io::feather::proxy {
             ~FeatherWriter() {}
 
             static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);  
+        
+        protected:
+            void getFilename(libmexclass::proxy::method::Context& context);
 
         private:
             std::string filename; 

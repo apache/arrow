@@ -23,7 +23,9 @@
 
 namespace arrow::matlab::io::feather::proxy {
 
-    FeatherWriter::FeatherWriter(const std::string& filename) : filename{filename} {}
+    FeatherWriter::FeatherWriter(const std::string& filename) : filename{filename} {
+        REGISTER_METHOD(FeatherWriter, getFilename);
+    }
 
     libmexclass::proxy::MakeResult FeatherWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
@@ -31,10 +33,22 @@ namespace arrow::matlab::io::feather::proxy {
         const mda::StringArray filename_mda = opts[0]["Filename"];
 
         const auto filename_utf16 = std::u16string(filename_mda[0]);
-        MATLAB_ASSIGN_OR_ERROR(const auto column_name_utf8,
+        MATLAB_ASSIGN_OR_ERROR(const auto filename_utf8,
                                arrow::util::UTF16StringToUTF8(filename_utf16),
                                error::UNICODE_CONVERSION_ERROR_ID);
         
-        return libmexclass::error::Error{"arrow:NotImplemented", "Not implemented"};
+        return std::make_shared<FeatherWriter>(filename_utf8);
     }
+
+    void FeatherWriter::getFilename(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto utf16_filename,
+                                            arrow::util::UTF8StringToUTF16(filename), 
+                                            context,
+                                            error::UNICODE_CONVERSION_ERROR_ID);
+        mda::ArrayFactory factory;
+        auto str_mda = factory.createScalar(utf16_filename);
+        context.outputs[0] = str_mda;
+    }
+
 }
