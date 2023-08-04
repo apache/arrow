@@ -16,11 +16,25 @@
 // under the License.
 
 #include "arrow/matlab/io/feather/proxy/feather_writer.h"
+#include "arrow/matlab/error/error.h"
+
+#include "arrow/result.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::io::feather::proxy {
 
+    FeatherWriter::FeatherWriter(const std::string& filename) : filename{filename} {}
 
-    libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    libmexclass::proxy::MakeResult FeatherWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        namespace mda = ::matlab::data;
+        mda::StructArray opts = constructor_arguments[0];
+        const mda::StringArray filename_mda = opts[0]["Filename"];
+
+        const auto filename_utf16 = std::u16string(filename_mda[0]);
+        MATLAB_ASSIGN_OR_ERROR(const auto column_name_utf8,
+                               arrow::util::UTF16StringToUTF8(filename_utf16),
+                               error::UNICODE_CONVERSION_ERROR_ID);
+        
         return libmexclass::error::Error{"arrow:NotImplemented", "Not implemented"};
     }
 }

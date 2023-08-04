@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "arrow/ipc/feather.h"
+#include "arrow/status.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
@@ -25,10 +25,13 @@ namespace arrow::matlab::io::feather::proxy {
 
     class FeatherWriter : public libmexclass::proxy::Proxy {
         public:
-            FeatherWriter() {}
+            FeatherWriter(const std::string& filename);
         
-            virtual ~FeatherWriter() {}
+            ~FeatherWriter() {}
 
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);    
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);  
+
+        private:
+            std::string filename; 
     };
 }
