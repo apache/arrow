@@ -250,15 +250,8 @@ make_readable_file <- function(file, mmap = TRUE, random_access = TRUE) {
     }
 
     if (is_url(file)) {
-      file <- tryCatch(
-        {
-          fs_and_path <- FileSystem$from_uri(file)
-          fs_and_path$fs$OpenInputFile(fs_and_path$path)
-        },
-        error = function(e) {
-          MakeRConnectionInputStream(url(file, open = "rb"))
-        }
-      )
+      fs_and_path <- FileSystem$from_uri(file)
+      file <- fs_and_path$fs$OpenInputFile(fs_and_path$path)
     } else if (isTRUE(mmap)) {
       file <- mmap_open(file)
     } else {
