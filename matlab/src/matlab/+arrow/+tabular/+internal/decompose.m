@@ -1,4 +1,5 @@
-%RECORDBATCH Creates an arrow.tabular.RecordBatch from a table.
+%DECOMPOSE Decompose the input MATLAB table input a cell array of 
+% equivalent arrow.array.Array instances.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,18 +15,13 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function rb = recordbatch(T)
-    arguments
-        T table
+function arrowArrays = decompose(T)
+    numColumns = width(T);
+    arrowArrays = cell(1, numColumns);
+
+    % Convert each MATLAB array into a corresponding
+    % arrow.array.Array.
+    for ii = 1:numColumns
+        arrowArrays{ii} = arrow.array(T{:, ii});
     end
-
-    arrowArrays = arrow.tabular.internal.decompose(T);
-    arrayProxyIDs = arrow.tabular.internal.getArrayProxyIDs(arrowArrays);
-
-    columnNames = string(T.Properties.VariableNames);
-    args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);
-    proxyName = "arrow.tabular.proxy.RecordBatch";
-    proxy = arrow.internal.proxy.create(proxyName, args);
-
-    rb = arrow.tabular.RecordBatch(proxy);
 end

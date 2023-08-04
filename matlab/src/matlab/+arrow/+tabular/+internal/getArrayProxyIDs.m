@@ -1,4 +1,5 @@
-%RECORDBATCH Creates an arrow.tabular.RecordBatch from a table.
+%GETARRAYPROXYIDS Extract the Proxy IDs underlying a cell array of 
+% arrow.array.Array instances.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,18 +15,12 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function rb = recordbatch(T)
-    arguments
-        T table
+function proxyIDs = getArrayProxyIDs(arrowArrays)
+    proxyIDs = zeros(1, numel(arrowArrays), "uint64");
+
+    % Convert each MATLAB array into a corresponding
+    % arrow.array.Array.
+    for ii = 1:numel(arrowArrays)
+        proxyIDs(ii) = arrowArrays{ii}.Proxy.ID;
     end
-
-    arrowArrays = arrow.tabular.internal.decompose(T);
-    arrayProxyIDs = arrow.tabular.internal.getArrayProxyIDs(arrowArrays);
-
-    columnNames = string(T.Properties.VariableNames);
-    args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);
-    proxyName = "arrow.tabular.proxy.RecordBatch";
-    proxy = arrow.internal.proxy.create(proxyName, args);
-
-    rb = arrow.tabular.RecordBatch(proxy);
 end
