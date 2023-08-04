@@ -115,11 +115,11 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyError(fcn, "arrow:tabular:recordbatch:InvalidNumericColumnIndex");
         end
 
-        function UnsupportedColumndIndexType(tc)
+        function UnsupportedColumnIndexType(tc)
             TOriginal = table(1, 2, 3);
             arrowRecordBatch = arrow.tabular.RecordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(datetime(2022, 1, 3));
-            tc.verifyError(fcn, "arrow:tabular:recordbatch:UnsupportedColumndIndexType");
+            tc.verifyError(fcn, "arrow:tabular:recordbatch:UnsupportedColumnIndexType");
         end
     end
 end

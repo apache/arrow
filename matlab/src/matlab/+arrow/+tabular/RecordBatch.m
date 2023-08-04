@@ -45,7 +45,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                 proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
                 arrowArray = traits.ArrayConstructor(proxy);
             else
-                errid = "arrow:tabular:recordbatch:UnsupportedColumndIndexType";
+                errid = "arrow:tabular:recordbatch:UnsupportedColumnIndexType";
                 msg = "Index must be a positive scalar integer.";
                 error(errid, msg);
             end
