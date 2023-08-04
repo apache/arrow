@@ -28,6 +28,13 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
     end
 
     methods
+        function obj = RecordBatch(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.tabular.proxy.RecordBatch")}
+            end
+            import arrow.internal.proxy.validate
+            obj.Proxy = proxy;
+        end
 
         function numColumns = get.NumColumns(obj)
             numColumns = obj.Proxy.numColumns();
@@ -51,15 +58,6 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             end
         end
 
-        function obj = RecordBatch(T)
-            arrowArrays = arrow.tabular.RecordBatch.decompose(T);
-            columnNames = string(T.Properties.VariableNames);
-            arrayProxyIDs = arrow.tabular.RecordBatch.getArrowProxyIDs(arrowArrays);
-            opts = struct("ArrayProxyIDs", arrayProxyIDs, ...
-                          "ColumnNames", columnNames);
-            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.tabular.proxy.RecordBatch", "ConstructorArguments", {opts});
-        end
-
         function T = table(obj)
             numColumns = obj.NumColumns;
             matlabArrays = cell(1, numColumns);
@@ -78,41 +76,6 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function T = toMATLAB(obj)
             T = obj.table();
         end
-        
-    end
-
-    methods (Static)
-
-        function arrowArrays = decompose(T)
-            % Decompose the input MATLAB table
-            % input a cell array of equivalent arrow.array.Array
-            % instances.
-            arguments
-                T table
-            end
-
-            numColumns = width(T);
-            arrowArrays = cell(1, numColumns);
-
-            % Convert each MATLAB array into a corresponding
-            % arrow.array.Array.
-            for ii = 1:numColumns
-                arrowArrays{ii} = arrow.array(T{:, ii});
-            end
-        end
-
-        function proxyIDs = getArrowProxyIDs(arrowArrays)
-            % Extract the Proxy IDs underlying a cell array of 
-            % arrow.array.Array instances.
-            proxyIDs = zeros(1, numel(arrowArrays), "uint64");
-
-            % Convert each MATLAB array into a corresponding
-            % arrow.array.Array.
-            for ii = 1:numel(arrowArrays)
-                proxyIDs(ii) = arrowArrays{ii}.Proxy.ID;
-            end
-        end
-
     end
 
     methods (Access = private)
@@ -126,6 +89,4 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             disp(obj.toString());
         end
     end
-
 end
-
