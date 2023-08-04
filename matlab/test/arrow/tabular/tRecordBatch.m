@@ -46,6 +46,8 @@ classdef tRecordBatch < matlab.unittest.TestCase
             for ii = 1:arrowRecordBatch.NumColumns
                 column = arrowRecordBatch.column(ii);
                 tc.verifyEqual(column.toMATLAB(), TOriginal{:, ii});
+                traits = arrow.type.traits.traits(string(class(TOriginal{:, ii})));
+                tc.verifyInstanceOf(column, traits.ArrayClassName);
             end
         end
 
@@ -99,6 +101,25 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(TOriginal, TConverted);
         end
 
-    end
+        function EmptyRecordBatchColumnIndexError(tc)
+            TOriginal = table();
+            arrowRecordBatch = arrow.tabular.RecordBatch(TOriginal);
+            fcn = @() arrowRecordBatch.column(1);
+            tc.verifyError(fcn, "arrow:tabular:recordbatch:NumericIndexWithEmptyRecordBatch");
+        end
 
+        function InvalidNumericIndexError(tc)
+            TOriginal = table(1, 2, 3);
+            arrowRecordBatch = arrow.tabular.RecordBatch(TOriginal);
+            fcn = @() arrowRecordBatch.column(4);
+            tc.verifyError(fcn, "arrow:tabular:recordbatch:InvalidNumericColumnIndex");
+        end
+
+        function UnsupportedColumnIndexType(tc)
+            TOriginal = table(1, 2, 3);
+            arrowRecordBatch = arrow.tabular.RecordBatch(TOriginal);
+            fcn = @() arrowRecordBatch.column(datetime(2022, 1, 3));
+            tc.verifyError(fcn, "arrow:tabular:recordbatch:UnsupportedColumnIndexType");
+        end
+    end
 end
