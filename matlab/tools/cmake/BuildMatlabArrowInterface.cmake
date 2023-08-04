@@ -45,6 +45,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/boolean_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/string_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/schema.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/pack.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/bit/unpack.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/time_unit.cc"

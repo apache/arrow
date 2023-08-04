@@ -173,4 +173,8 @@ namespace arrow::matlab::error {
     static const char* UKNOWN_TIME_UNIT_ERROR_ID = "arrow:matlab:UnknownTimeUnit";
     static const char* FIELD_FAILED_TO_CREATE_TYPE_PROXY = "arrow:field:FailedToCreateTypeProxy";
     static const char* ARRAY_FAILED_TO_CREATE_TYPE_PROXY = "arrow:array:FailedToCreateTypeProxy";
+    static const char* ARROW_TABULAR_SCHEMA_INVALID_NUMERIC_FIELD_INDEX = "arrow:tabular:schema:InvalidNumericFieldIndex";
+    static const char* ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME = "arrow:tabular:schema:UnknownFieldName";
+    static const char* ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME = "arrow:tabular:schema:AmbiguousFieldName";
+    static const char* ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA = "arrow:tabular:schema:NumericFieldIndexWithEmptySchema";
 }
