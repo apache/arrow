@@ -14,14 +14,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "libmexclass/proxy/ProxyManager.h"
+
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/io/feather/proxy/reader.h"
+#include "arrow/matlab/tabular/proxy/record_batch.h"
 
 #include "arrow/util/utf8.h"
 
 #include "arrow/result.h"
 
-#include <iostream>
+#include "arrow/io/file.h"
+#include "arrow/ipc/feather.h"
+#include "arrow/table.h"
 
 namespace arrow::matlab::io::feather::proxy {
 
@@ -43,14 +48,35 @@ namespace arrow::matlab::io::feather::proxy {
     }
 
     void Reader::read(libmexclass::proxy::method::Context& context) {
-        std::cout << "Test" << std::endl;
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        using RecordBatchProxy = arrow::matlab::tabular::proxy::RecordBatch;
+
+        // Create a file input stream.
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto source, arrow::io::ReadableFile::Open(filename, arrow::default_memory_pool()), context, "test");
+        // Create a Reader.
+        // TODO: Create an error ID.
+        // TODO: Error if Feather V2.
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto reader, arrow::ipc::feather::Reader::Open(source), context, "test");
+        std::shared_ptr<arrow::Table> table = nullptr;
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(reader->Read(&table), context, "test");
+        arrow::TableBatchReader table_batch_reader{table};
+        std::shared_ptr<arrow::RecordBatch> record_batch = nullptr;
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(table_batch_reader.ReadNext(&record_batch), context, "test");
+        auto record_batch_proxy = std::make_shared<RecordBatchProxy>(record_batch);
+        const auto record_batch_proxy_id = ProxyManager::manageProxy(record_batch_proxy);
+
+        mda::ArrayFactory factory;
+        const auto record_batch_proxy_id_mda = factory.createScalar(record_batch_proxy_id);
+
+        context.outputs[0] = record_batch_proxy_id_mda;
     }
 
     void Reader::getFilename(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
-            MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto filename_utf16, arrow::util::UTF8StringToUTF16(filename), context, error::UNICODE_CONVERSION_ERROR_ID);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto filename_utf16, arrow::util::UTF8StringToUTF16(filename), context, error::UNICODE_CONVERSION_ERROR_ID);
         auto filename_utf16_mda = factory.createScalar(filename_utf16);
         context.outputs[0] = filename_utf16_mda;
     }
