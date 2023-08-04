@@ -2148,8 +2148,7 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
 }
 
 std::shared_ptr<Schema> schema(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
-        fields,
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
     Endianness endianness, std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(make_fields(fields), endianness, std::move(metadata));
 }

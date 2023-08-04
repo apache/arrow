@@ -662,8 +662,7 @@ std::shared_ptr<Schema> schema(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    const std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>>&
-        fields,
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
     Endianness endianness, std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// @}
