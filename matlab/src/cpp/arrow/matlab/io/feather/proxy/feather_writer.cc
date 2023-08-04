@@ -72,13 +72,12 @@ namespace arrow::matlab::io::feather::proxy {
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto table, 
                                             arrow::Table::FromRecordBatches({record_batch}),
                                             context,
-                                            "arrow:io:feather:FailedToCreateTableFromRecordBatch");
-        
+                                            error::TABLE_FROM_RECORD_BATCH);
 
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::io::OutputStream> output_stream,
                                             arrow::io::FileOutputStream::Open(filename),
                                             context,
-                                            "arrow:io:feather:FailedToOpenFileForWrite");
+                                            error::FAILED_TO_OPEN_FILE_FOR_WRITE);
 
          // Specify the feather file format version as V1
         arrow::ipc::feather::WriteProperties write_props;
@@ -87,6 +86,6 @@ namespace arrow::matlab::io::feather::proxy {
         // Write the Feather file metadata to the end of the file.
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(ipc::feather::WriteTable(*table, output_stream.get(), write_props),
                                             context,
-                                            "arrow:io:feather:FailedToWriteTable");
+                                            error::FEATHER_FAILED_TO_WRITE_TABLE);
     }
 }
