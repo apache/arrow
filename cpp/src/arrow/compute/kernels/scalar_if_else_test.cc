@@ -73,7 +73,7 @@ class TestIfElsePrimitive : public ::testing::Test {};
 #ifdef ARROW_VALGRIND
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt32Type, FloatType, Date32Type, Time32Type, TimestampType,
-                     MonthIntervalType>;
+                     MonthIntervalType, DurationType>;
 using BaseBinaryArrowTypes = ::testing::Types<BinaryType>;
 using ListArrowTypes = ::testing::Types<ListType>;
 using IntegralArrowTypes = ::testing::Types<Int32Type>;
@@ -81,7 +81,8 @@ using IntegralArrowTypes = ::testing::Types<Int32Type>;
 using IfElseNumericBasedTypes =
     ::testing::Types<UInt8Type, UInt16Type, UInt32Type, UInt64Type, Int8Type, Int16Type,
                      Int32Type, Int64Type, FloatType, DoubleType, Date32Type, Date64Type,
-                     Time32Type, Time64Type, TimestampType, MonthIntervalType>;
+                     Time32Type, Time64Type, TimestampType, MonthIntervalType,
+                     DurationType>;
 #endif
 
 TYPED_TEST_SUITE(TestIfElsePrimitive, IfElseNumericBasedTypes);
@@ -505,6 +506,9 @@ TEST_F(TestIfElseKernel, IfElseDispatchBest) {
                     {boolean(), timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MILLI)});
   CheckDispatchBest(name, {boolean(), date32(), timestamp(TimeUnit::MILLI)},
                     {boolean(), timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MILLI)});
+  CheckDispatchBest(name,
+                    {boolean(), duration(TimeUnit::SECOND), duration(TimeUnit::MILLI)},
+                    {boolean(), duration(TimeUnit::MILLI), duration(TimeUnit::MILLI)});
   CheckDispatchBest(name, {boolean(), date32(), date64()},
                     {boolean(), date64(), date64()});
   CheckDispatchBest(name, {boolean(), date32(), date32()},
@@ -2500,6 +2504,11 @@ TEST(TestCaseWhen, DispatchBest) {
       {struct_({field("", boolean())}), timestamp(TimeUnit::SECOND), date32()},
       {struct_({field("", boolean())}), timestamp(TimeUnit::SECOND),
        timestamp(TimeUnit::SECOND)});
+  CheckDispatchBest("case_when",
+                    {struct_({field("", boolean())}), duration(TimeUnit::SECOND),
+                     duration(TimeUnit::MILLI)},
+                    {struct_({field("", boolean())}), duration(TimeUnit::MILLI),
+                     duration(TimeUnit::MILLI)});
   CheckDispatchBest(
       "case_when", {struct_({field("", boolean())}), decimal128(38, 0), decimal128(1, 1)},
       {struct_({field("", boolean())}), decimal256(39, 1), decimal256(39, 1)});
@@ -3350,6 +3359,8 @@ TEST(TestCoalesce, DispatchBest) {
                     {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::SECOND)});
   CheckDispatchBest("coalesce", {timestamp(TimeUnit::SECOND), timestamp(TimeUnit::MILLI)},
                     {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MILLI)});
+  CheckDispatchBest("coalesce", {duration(TimeUnit::SECOND), duration(TimeUnit::MILLI)},
+                    {duration(TimeUnit::MILLI), duration(TimeUnit::MILLI)});
   CheckDispatchFails("coalesce", {
                                      sparse_union({field("a", boolean())}),
                                      dense_union({field("a", boolean())}),
