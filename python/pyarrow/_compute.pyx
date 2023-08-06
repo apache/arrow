@@ -2020,7 +2020,7 @@ class RollingOptions(_RollingOptions):
     min_periods : int, default 1
         Minimum number of valid values in window required to have a value
         (otherwise result is null).
-    ignore_nulls: bool, default True
+    ignore_nulls : bool, default True
         If True, only valid values will be used to compute the result.
         A window's result will be valid if its number of valid values is 
         larger than or equal to min_periods. If False, any null value
