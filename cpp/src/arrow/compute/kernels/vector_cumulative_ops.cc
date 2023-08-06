@@ -263,14 +263,14 @@ const FunctionDoc cumulative_mean_doc{
     "CumulativeOptions"};
 }  // namespace
 
-// Kernel generator for simple arithmetic operations.
+// Kernel factory for simple arithmetic operations.
 // Op is a compute kernel representing any binary associative operation with
 // an identity element (add, product, min, max, etc.), i.e. ones that form a monoid.
 template <typename Op, typename OptionsType>
-struct CumulativeBinaryOpKernelGenerator {
+struct CumulativeBinaryOpKernelFactory {
   VectorKernel kernel;
 
-  CumulativeBinaryOpKernelGenerator() {
+  CumulativeBinaryOpKernelFactory() {
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
@@ -291,6 +291,11 @@ struct CumulativeBinaryOpKernelGenerator {
     return Status::NotImplemented("Cumulative kernel not implemented for type ",
                                   type.ToString());
   }
+
+  Result<VectorKernel> Make(const DataType& type) {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
+    return kernel;
+  }
 };
 
 template <typename Op, typename OptionsType>
@@ -304,21 +309,21 @@ void MakeVectorCumulativeBinaryOpFunction(FunctionRegistry* registry,
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
 
-  CumulativeBinaryOpKernelGenerator<Op, OptionsType> kernel_generator;
+  CumulativeBinaryOpKernelFactory<Op, OptionsType> kernel_factory;
   for (const auto& ty : types) {
-    DCHECK_OK(VisitTypeInline(*ty, &kernel_generator));
-    DCHECK_OK(func->AddKernel(kernel_generator.kernel));
+    auto kernel = kernel_factory.Make(*ty).ValueOrDie();
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
 
-// Kernel generator for complex stateful computations.
+// Kernel factory for complex stateful computations.
 template <template <typename ArgType> typename State, typename OptionsType>
-struct CumulativeStatefulKernelGenerator {
+struct CumulativeStatefulKernelFactory {
   VectorKernel kernel;
 
-  CumulativeStatefulKernelGenerator() {
+  CumulativeStatefulKernelFactory() {
     kernel.can_execute_chunkwise = false;
     kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
     kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
@@ -327,8 +332,9 @@ struct CumulativeStatefulKernelGenerator {
 
   template <typename Type>
   enable_if_number<Type, Status> Visit(const Type& type) {
-    kernel.signature =
-        KernelSignature::Make({type.GetSharedPtr()}, OutputType(float64()));
+    kernel.signature = KernelSignature::Make(
+        {type.GetSharedPtr()},
+        OutputType(TypeTraits<typename State<Type>::OutType>::type_singleton()));
     kernel.exec = CumulativeKernel<Type, State<Type>, OptionsType>::Exec;
     kernel.exec_chunked = CumulativeKernelChunked<Type, State<Type>, OptionsType>::Exec;
     return arrow::Status::OK();
@@ -337,6 +343,11 @@ struct CumulativeStatefulKernelGenerator {
   Status Visit(const DataType& type) {
     return Status::NotImplemented("Cumulative kernel not implemented for type ",
                                   type.ToString());
+  }
+
+  Result<VectorKernel> Make(const DataType& type) {
+    RETURN_NOT_OK(VisitTypeInline(type, this));
+    return kernel;
   }
 };
 
@@ -351,10 +362,10 @@ void MakeVectorCumulativeStatefulFunction(FunctionRegistry* registry,
   std::vector<std::shared_ptr<DataType>> types;
   types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
 
-  CumulativeStatefulKernelGenerator<State, OptionsType> kernel_generator;
+  CumulativeStatefulKernelFactory<State, OptionsType> kernel_factory;
   for (const auto& ty : types) {
-    DCHECK_OK(VisitTypeInline(*ty, &kernel_generator));
-    DCHECK_OK(func->AddKernel(kernel_generator.kernel));
+    auto kernel = kernel_factory.Make(*ty).ValueOrDie();
+    DCHECK_OK(func->AddKernel(std::move(kernel)));
   }
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
