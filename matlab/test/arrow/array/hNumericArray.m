@@ -18,7 +18,7 @@ classdef hNumericArray < matlab.unittest.TestCase
 
     properties (Abstract)
         ArrowArrayClassName(1, 1) string
-        ArrowArrayConstructor
+        ArrowArrayConstructorFcn
         MatlabArrayFcn
         MatlabConversionFcn
         MaxValue (1, 1)
@@ -38,24 +38,24 @@ classdef hNumericArray < matlab.unittest.TestCase
 
     methods(Test)
         function BasicTest(tc)
-            A = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([1 2 3]));
+            A = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn([1 2 3]));
             className = string(class(A));
             tc.verifyEqual(className, tc.ArrowArrayClassName);
         end
 
         function ToMATLAB(tc)
             % Create array from a scalar
-            A1 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn(100));
+            A1 = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn(100));
             data = toMATLAB(A1);
             tc.verifyEqual(data, tc.MatlabArrayFcn(100));
 
             % Create array from a vector
-            A2 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([1 2 3]));
+            A2 = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn([1 2 3]));
             data = toMATLAB(A2);
             tc.verifyEqual(data, tc.MatlabArrayFcn([1 2 3]'));
 
             % Create a Float64Array from an empty double vector
-            A3 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([]));
+            A3 = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn([]));
             data = toMATLAB(A3);
             tc.verifyEqual(data, tc.MatlabArrayFcn(reshape([], 0, 1)));
         end
@@ -65,54 +65,55 @@ classdef hNumericArray < matlab.unittest.TestCase
         % arrow.array.Float32Array, double for array.array.Float64Array
 
             % Create array from a scalar
-            A1 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn(100));
+            A1 = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn(100));
             data = tc.MatlabConversionFcn(A1);
             tc.verifyEqual(data, tc.MatlabArrayFcn(100));
 
             % Create array from a vector
-            A2 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([1 2 3]));
+            A2 = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn([1 2 3]));
             data = tc.MatlabConversionFcn(A2);
             tc.verifyEqual(data, tc.MatlabArrayFcn([1 2 3]'));
 
             % Create an array from an empty vector
-            A3 = tc.ArrowArrayConstructor(tc.MatlabArrayFcn([]));
+            A3 = tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn([]));
             data = tc.MatlabConversionFcn(A3);
             tc.verifyEqual(data, tc.MatlabArrayFcn(reshape([], 0, 1)));
         end
 
         function MinValueTest(tc)
-            A = tc.ArrowArrayConstructor(tc.MinValue);
+            A = tc.ArrowArrayConstructorFcn(tc.MinValue);
             tc.verifyEqual(toMATLAB(A), tc.MinValue);
         end
 
         function MaxValueTest(tc)
-            A1 = tc.ArrowArrayConstructor(tc.MaxValue);
+            A1 = tc.ArrowArrayConstructorFcn(tc.MaxValue);
             tc.verifyEqual(toMATLAB(A1), tc.MaxValue);
         end
 
         function ErrorIfComplex(tc)
-            fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn([10 + 1i, 4]));
-            tc.verifyError(fcn, "MATLAB:expectedReal");
+            fcn = @() tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn([10 + 1i, 4]));
+            tc.verifyError(fcn, "arrow:array:ComplexNumeric");
         end
 
         function ErrorIfNonVector(tc)
             data = tc.MatlabArrayFcn([1 2 3 4 5 6 7 8 9]);
             data = reshape(data, 3, 1, 3);
-            fcn = @() tc.ArrowArrayConstructor(tc.MatlabArrayFcn(data));
-            tc.verifyError(fcn, "MATLAB:expectedVector");
+            fcn = @() tc.ArrowArrayConstructorFcn(tc.MatlabArrayFcn(data));
+            tc.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
-        function ErrorIfEmptyArrayIsNotTwoDimensional(tc)
+        function AllowNDimensionalEmptyArray(tc)
             data = tc.MatlabArrayFcn(reshape([], [1 0 0]));
-            fcn = @() tc.ArrowArrayConstructor(data);
-            tc.verifyError(fcn, "MATLAB:expected2D");
+            A = tc.ArrowArrayConstructorFcn(data);
+            tc.verifyEqual(A.Length, int64(0));
+            tc.verifyEqual(toMATLAB(A), tc.MatlabArrayFcn(reshape([], [0 1])));
         end
 
         function LogicalValidNVPair(tc)
             % Verify the expected elements are treated as null when Valid
             % is provided as a logical array
             data = tc.MatlabArrayFcn([1 2 3 4]);
-            arrowArray = tc.ArrowArrayConstructor(data, Valid=[false true true false]);
+            arrowArray = tc.ArrowArrayConstructorFcn(data, Valid=[false true true false]);
         
             expectedData = data';
             expectedData([1 4]) = tc.NullSubstitutionValue;
@@ -125,7 +126,7 @@ classdef hNumericArray < matlab.unittest.TestCase
             % Verify the expected elements are treated as null when Valid
             % is provided as a array of indices
             data = tc.MatlabArrayFcn([1 2 3 4]);
-            arrowArray = tc.ArrowArrayConstructor(data, Valid=[2 4]);
+            arrowArray = tc.ArrowArrayConstructorFcn(data, Valid=[2 4]);
         
             expectedData = data';
             expectedData([1 3]) = tc.NullSubstitutionValue;
@@ -136,7 +137,7 @@ classdef hNumericArray < matlab.unittest.TestCase
             % Make sure the optimization where the valid-bitmap is stored
             % as a nullptr works as expected.
             expectedData = data';
-            arrowArray = tc.ArrowArrayConstructor(data, Valid=[1, 2, 3, 4]);
+            arrowArray = tc.ArrowArrayConstructorFcn(data, Valid=[1, 2, 3, 4]);
             tc.verifyEqual(tc.MatlabConversionFcn(arrowArray), expectedData);
             tc.verifyEqual(toMATLAB(arrowArray), expectedData);
             tc.verifyEqual(arrowArray.Valid, [true; true; true; true]);
@@ -145,7 +146,7 @@ classdef hNumericArray < matlab.unittest.TestCase
         function TestArrowType(tc)
         % Verify the array has the expected arrow.type.Type object
             data = tc.MatlabArrayFcn([1 2 3 4]);
-            arrowArray = tc.ArrowArrayConstructor(data);
+            arrowArray = tc.ArrowArrayConstructorFcn(data);
             tc.verifyEqual(arrowArray.Type.ID, tc.ArrowType.ID);
         end
     end

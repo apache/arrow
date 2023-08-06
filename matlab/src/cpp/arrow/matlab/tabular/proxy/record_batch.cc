@@ -18,17 +18,42 @@
 #include "libmexclass/proxy/ProxyManager.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/array/proxy/wrap.h"
+
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
 
+#include "libmexclass/proxy/ProxyManager.h"
+#include "libmexclass/error/Error.h"
+
+#include <sstream>
+
 namespace arrow::matlab::tabular::proxy {
+
+    namespace {
+        libmexclass::error::Error makeEmptyRecordBatchError() {
+            const std::string error_msg =  "Numeric indexing using the column method is not supported for record batches with no columns.";
+            return libmexclass::error::Error{error::RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH, error_msg};
+        }
+
+        libmexclass::error::Error makeInvalidNumericIndexError(const int32_t matlab_index, const int32_t num_columns) {
+            std::stringstream error_message_stream;
+            error_message_stream << "Invalid column index: ";
+            error_message_stream << matlab_index;
+            error_message_stream << ". Column index must be between 1 and the number of columns (";
+            error_message_stream << num_columns;
+            error_message_stream << ").";
+            return libmexclass::error::Error{error::RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX, error_message_stream.str()};
+        }
+    }
 
     RecordBatch::RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch) : record_batch{record_batch} {
         REGISTER_METHOD(RecordBatch, toString);
         REGISTER_METHOD(RecordBatch, numColumns);
         REGISTER_METHOD(RecordBatch, columnNames);
+        REGISTER_METHOD(RecordBatch, getColumnByIndex);
     }
 
     void RecordBatch::toString(libmexclass::proxy::method::Context& context) {
@@ -96,4 +121,42 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = column_names_mda;
     }
 
+    void RecordBatch::getColumnByIndex(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
+        const auto matlab_index = int32_t(index_mda[0]);
+        
+        // Note: MATLAB uses 1-based indexing, so subtract 1.
+        // arrow::Schema::field does not do any bounds checking.
+        const int32_t index = matlab_index - 1;
+        const auto num_columns = record_batch->num_columns();
+        
+        if (num_columns == 0) {
+            context.error = makeEmptyRecordBatchError();
+            return;
+        }
+        
+        if (matlab_index < 1 || matlab_index > num_columns) {
+            context.error = makeInvalidNumericIndexError(matlab_index, num_columns);
+            return;
+        }
+
+        const auto array = record_batch->column(index);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
+                                            arrow::matlab::array::proxy::wrap(array),
+                                            context,
+                                            error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+        
+        
+        const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
+        const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
+        const auto array_type_id_mda = factory.createScalar(static_cast<int32_t>(array->type_id()));
+        
+        context.outputs[0] = array_proxy_id_mda;
+        context.outputs[1] = array_type_id_mda;
+    }
 }

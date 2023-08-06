@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -297,7 +298,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         const auto remainder = static_cast<int>(
             bit_util::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
         if (remainder) {
-          slices.push_back(::grpc::Slice(kPaddingBytes, remainder));
+          slices.emplace_back(kPaddingBytes, remainder);
         }
       }
     }
@@ -316,7 +317,7 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 ::grpc::Status FlightDataDeserialize(ByteBuffer* buffer,
                                      arrow::flight::internal::FlightData* out) {
   if (!buffer) {
-    return ::grpc::Status(::grpc::StatusCode::INTERNAL, "No payload");
+    return {::grpc::StatusCode::INTERNAL, "No payload"};
   }
 
   // Reset fields in case the caller reuses a single allocation
@@ -342,42 +343,45 @@ static const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         pb::FlightDescriptor pb_descriptor;
         uint32_t length;
         if (!pb_stream.ReadVarint32(&length)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to parse length of FlightDescriptor");
+          return {::grpc::StatusCode::INTERNAL,
+                  "Unable to parse length of FlightDescriptor"};
         }
         // Can't use ParseFromCodedStream as this reads the entire
         // rest of the stream into the descriptor command field.
         std::string buffer;
         pb_stream.ReadString(&buffer, length);
         if (!pb_descriptor.ParseFromString(buffer)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to parse FlightDescriptor");
+          return {::grpc::StatusCode::INTERNAL, "Unable to parse FlightDescriptor"};
         }
         arrow::flight::FlightDescriptor descriptor;
         GRPC_RETURN_NOT_OK(
             arrow::flight::internal::FromProto(pb_descriptor, &descriptor));
-        out->descriptor.reset(new arrow::flight::FlightDescriptor(descriptor));
+        out->descriptor = std::make_unique<arrow::flight::FlightDescriptor>(descriptor);
       } break;
       case pb::FlightData::kDataHeaderFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to read FlightData metadata");
+          return {::grpc::StatusCode::INTERNAL, "Unable to read FlightData metadata"};
         }
       } break;
       case pb::FlightData::kAppMetadataFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->app_metadata)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to read FlightData application metadata");
+          return {::grpc::StatusCode::INTERNAL,
+                  "Unable to read FlightData application metadata"};
         }
       } break;
       case pb::FlightData::kDataBodyFieldNumber: {
         if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-          return ::grpc::Status(::grpc::StatusCode::INTERNAL,
-                                "Unable to read FlightData body");
+          return {::grpc::StatusCode::INTERNAL, "Unable to read FlightData body"};
         }
       } break;
-      default:
-        DCHECK(false) << "cannot happen";
+      default: {
+        // Unknown field. We should skip it for compatibility.
+        if (!WireFormatLite::SkipField(&pb_stream, tag)) {
+          return {::grpc::StatusCode::INTERNAL,
+                  "Could not skip unknown field tag in FlightData"};
+        }
+        break;
+      }
     }
   }
   buffer->Clear();

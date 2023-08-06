@@ -107,9 +107,9 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
  public:
   explicit GrpcClientInterceptorAdapter(
       std::vector<std::unique_ptr<ClientMiddleware>> middleware)
-      : middleware_(std::move(middleware)), received_headers_(false) {}
+      : middleware_(std::move(middleware)) {}
 
-  void Intercept(::grpc::experimental::InterceptorBatchMethods* methods) {
+  void Intercept(::grpc::experimental::InterceptorBatchMethods* methods) override {
     using InterceptionHookPoints = ::grpc::experimental::InterceptionHookPoints;
     if (methods->QueryInterceptionHookPoint(
             InterceptionHookPoints::PRE_SEND_INITIAL_METADATA)) {
@@ -142,10 +142,6 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
  private:
   void ReceivedHeaders(
       const std::multimap<::grpc::string_ref, ::grpc::string_ref>& metadata) {
-    if (received_headers_) {
-      return;
-    }
-    received_headers_ = true;
     CallHeaders headers;
     for (const auto& entry : metadata) {
       headers.insert({std::string_view(entry.first.data(), entry.first.length()),
@@ -157,20 +153,14 @@ class GrpcClientInterceptorAdapter : public ::grpc::experimental::Interceptor {
   }
 
   std::vector<std::unique_ptr<ClientMiddleware>> middleware_;
-  // When communicating with a gRPC-Java server, the server may not
-  // send back headers if the call fails right away. Instead, the
-  // headers will be consolidated into the trailers. We don't want to
-  // call the client middleware callback twice, so instead track
-  // whether we saw headers - if not, then we need to check trailers.
-  bool received_headers_;
 };
 
 class GrpcClientInterceptorAdapterFactory
     : public ::grpc::experimental::ClientInterceptorFactoryInterface {
  public:
-  GrpcClientInterceptorAdapterFactory(
+  explicit GrpcClientInterceptorAdapterFactory(
       std::vector<std::shared_ptr<ClientMiddlewareFactory>> middleware)
-      : middleware_(middleware) {}
+      : middleware_(std::move(middleware)) {}
 
   ::grpc::experimental::Interceptor* CreateClientInterceptor(
       ::grpc::experimental::ClientRpcInfo* info) override {

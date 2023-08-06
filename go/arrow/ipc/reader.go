@@ -159,6 +159,7 @@ func (r *Reader) Release() {
 			r.r.Release()
 			r.r = nil
 		}
+		r.memo.Clear()
 	}
 }
 
