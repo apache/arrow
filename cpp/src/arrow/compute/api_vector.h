@@ -26,8 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
-namespace arrow {
-namespace compute {
+namespace arrow::compute {
 
 class ExecContext;
 
@@ -244,6 +243,25 @@ class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
 
   /// Periods to shift for applying the binary operation, accepts negative values.
   int64_t periods = 1;
+};
+
+/// \brief Options for rolling functions
+class ARROW_EXPORT RollingOptions : public FunctionOptions {
+ public:
+  explicit RollingOptions(int64_t window_length, int64_t min_periods = 1,
+                          bool ignore_nulls = true);
+  RollingOptions() : RollingOptions(1) {}
+  static constexpr char const kTypeName[] = "RollingOptions";
+
+  /// Length of the window, must be positive
+  int64_t window_length;
+  /// Minimum number of elements in window required to have a value
+  int64_t min_periods = 1;
+  /// Whether to ignore null values in the window
+  /// True: Only valid values are used to compute the result, produce valid result
+  /// if there are >= min_periods valid values in the window
+  /// False: The result is null if any value in the window is null
+  bool ignore_nulls = true;
 };
 
 /// @}
@@ -694,5 +712,4 @@ Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
                                             bool check_overflow = false,
                                             ExecContext* ctx = NULLPTR);
 
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute

@@ -59,7 +59,10 @@ using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 using internal::VisitBitBlocks;
 using internal::VisitBitBlocksVoid;
+using internal::VisitTwoBitBlocks;
+using internal::VisitTwoBitBlocksAllCases;
 using internal::VisitTwoBitBlocksVoid;
+using internal::VisitTwoBitBlocksVoidAllCases;
 
 namespace compute {
 namespace internal {
@@ -453,6 +456,41 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
   VisitTwoBitBlocksVoid(arr0.buffers[0].data, arr0.offset, arr1.buffers[0].data,
                         arr1.offset, arr0.length, std::move(visit_valid),
                         std::move(visit_null));
+}
+
+template <typename Arg0Type, typename Arg1Type, typename VisitBothNotNull,
+          typename VisitLeftNull, typename VisitRightNull, typename VisitBothNull>
+static void VisitTwoArrayValuesInlineAllCases(const ArraySpan& arr0,
+                                              const ArraySpan& arr1,
+                                              VisitBothNotNull&& visit_both_not_null,
+                                              VisitLeftNull&& visit_left_null,
+                                              VisitRightNull&& visit_right_null,
+                                              VisitBothNull&& visit_both_null) {
+  ArrayIterator<Arg0Type> arr0_it(arr0);
+  ArrayIterator<Arg1Type> arr1_it(arr1);
+
+  auto forward_visit_both_not_null = [&](int64_t i) {
+    visit_both_not_null(GetViewType<Arg0Type>::LogicalValue(arr0_it()),
+                        GetViewType<Arg1Type>::LogicalValue(arr1_it()));
+  };
+  auto forward_visit_left_null = [&](int64_t i) {
+    arr0_it();
+    visit_left_null(GetViewType<Arg1Type>::LogicalValue(arr1_it()));
+  };
+  auto forward_visit_right_null = [&](int64_t i) {
+    visit_right_null(GetViewType<Arg0Type>::LogicalValue(arr0_it()));
+    arr1_it();
+  };
+  auto forward_visit_both_null = [&]() {
+    arr0_it();
+    arr1_it();
+    visit_both_null();
+  };
+
+  VisitTwoBitBlocksVoidAllCases(
+      arr0.buffers[0].data, arr0.offset, arr1.buffers[0].data, arr1.offset, arr0.length,
+      std::move(forward_visit_both_not_null), std::move(forward_visit_left_null),
+      std::move(forward_visit_right_null), std::move(forward_visit_both_null));
 }
 
 // ----------------------------------------------------------------------

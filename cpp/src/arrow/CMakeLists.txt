@@ -483,6 +483,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_nested.cc
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
+       compute/kernels/vector_rolling.cc
        compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc)

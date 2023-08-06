@@ -1994,6 +1994,39 @@ class CumulativeOptions(_CumulativeOptions):
     def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
+cdef class _RollingOptions(FunctionOptions):
+    def _set_options(self, window_length, min_periods, ignore_nulls):
+        self.wrapped.reset(new CRollingOptions(
+            window_length, min_periods, ignore_nulls))
+
+class RollingOptions(_RollingOptions):
+    """
+    Options for `rolling_*` functions.
+
+    - rolling_sum
+    - rolling_sum_checked
+    - rolling_prod
+    - rolling_prod_checked
+    - rolling_max
+    - rolling_min
+    - rolling_mean
+
+    Parameters
+    ----------
+    window_length : int
+        length of the sliding window.
+    min_periods : int, default 1
+        Minimum number of valid values in window required to have a value
+        (otherwise result is null).
+    ignore_nulls: bool, default True
+        If True, only valid values will be used to compute the result.
+        A window's result will be valid if its number of valid values is 
+        larger than or equal to min_periods. If False, any null value
+        will cause the result to be null.
+    """
+
+    def __init__(self, window_length, min_periods=1, ignore_nulls=True):
+        self._set_options(window_length, min_periods, ignore_nulls)
 
 class CumulativeSumOptions(_CumulativeOptions):
     """

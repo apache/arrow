@@ -170,6 +170,7 @@ def test_option_class_equality():
                        null_placement="at_start", tiebreaker="max"),
         pc.ReplaceSliceOptions(0, 1, "a"),
         pc.ReplaceSubstringOptions("a", "b"),
+        pc.RollingOptions(3, 1, True),
         pc.RoundOptions(2, "towards_infinity"),
         pc.RoundBinaryOptions("towards_infinity"),
         pc.RoundTemporalOptions(1, "second", week_starts_monday=True),
@@ -3660,3 +3661,31 @@ def test_pairwise_diff():
     with pytest.raises(pa.ArrowInvalid,
                        match="overflow"):
         pa.compute.pairwise_diff_checked(arr, period=-1)
+
+
+def test_rolling():
+    arr = pa.array([None, 1, 3, 7, 5, None, 6], type=pa.int32())
+    expected = pa.array([None, 1, 4, 10, 12, 5, 6], type=pa.int32())
+    result = pa.compute.rolling_sum(
+        arr, window_length=2, min_periods=1, ignore_nulls=True)
+    assert result.equals(expected)
+
+    expected = pa.array([None, 1, 3, 21, 35, 5, 6], type=pa.int32())
+    result = pa.compute.rolling_prod(
+        arr, window_length=2, min_periods=1, ignore_nulls=True)
+    assert result.equals(expected)
+
+    expected = pa.array([None, 1, 1, 3, 5, 5, 6], type=pa.int32())
+    result = pa.compute.rolling_min(
+        arr, window_length=2, min_periods=1, ignore_nulls=True)
+    assert result.equals(expected)
+
+    expected = pa.array([None, 1, 3, 7, 7, 5, 6], type=pa.int32())
+    result = pa.compute.rolling_max(
+        arr, window_length=2, min_periods=1, ignore_nulls=True)
+    assert result.equals(expected)
+
+    expected = pa.array([None, 1, 2, 5, 6, 5, 6], type=pa.float64())
+    result = pa.compute.rolling_mean(
+        arr, window_length=2, min_periods=1, ignore_nulls=True)
+    assert result.equals(expected)

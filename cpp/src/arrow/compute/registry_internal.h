@@ -45,17 +45,18 @@ void RegisterScalarOptions(FunctionRegistry* registry);
 
 // Vector functions
 void RegisterVectorArraySort(FunctionRegistry* registry);
-void RegisterVectorCumulativeSum(FunctionRegistry* registry);
+void RegisterVectorCumulative(FunctionRegistry* registry);
 void RegisterVectorHash(FunctionRegistry* registry);
 void RegisterVectorNested(FunctionRegistry* registry);
+void RegisterVectorPairwise(FunctionRegistry* registry);
 void RegisterVectorRank(FunctionRegistry* registry);
 void RegisterVectorReplace(FunctionRegistry* registry);
+void RegisterVectorRolling(FunctionRegistry* registry);
+void RegisterVectorRunEndEncode(FunctionRegistry* registry);
+void RegisterVectorRunEndDecode(FunctionRegistry* registry);
 void RegisterVectorSelectK(FunctionRegistry* registry);
 void RegisterVectorSelection(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
-void RegisterVectorRunEndEncode(FunctionRegistry* registry);
-void RegisterVectorRunEndDecode(FunctionRegistry* registry);
-void RegisterVectorPairwise(FunctionRegistry* registry);
 void RegisterVectorOptions(FunctionRegistry* registry);
 
 // Aggregate functions

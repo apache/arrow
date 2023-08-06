@@ -1882,3 +1882,41 @@ operation to the n-th and (n+abs(p))-th inputs.
   ``Subtract``. The period can be specified in :struct:`PairwiseOptions`. 
 * \(2) Wraps around the result when overflow is detected.
 * \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.
+
+Rolling Functions
+~~~~~~~~~~~~~~~~~
+
+Rolling functions are unary vector functions that perform a rolling operation
+over a fixed length sliding window of elements in the input array. The n-th
+output is computed by applying the operation from the (n-w)-th to the n-th 
+inputs, where w is the window length. The input is expected to be of numeric 
+type. By default these functions do not detect overflow. They are also available
+in an overflow-checking variant, suffixed ``_checked``, which returns an 
+``Invalid`` :class:`Status` when overflow is detected.
+
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes |
++=========================+=======+=============+=============+================================+=======+
+| rolling_sum             | Unary | Numeric     | Numeric     | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| rolling_sum_checked     | Unary | Numeric     | Numeric     | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| rolling_prod            | Unary | Numeric     | Numeric     | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| rolling_prod_checked    | Unary | Numeric     | Numeric     | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| rolling_max             | Unary | Numeric     | Numeric     | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| rolling_min             | Unary | Numeric     | Numeric     | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+| rolling_mean            | Unary | Numeric     | Double      | :struct:`RollingOptions`       | \(1)  |
++-------------------------+-------+-------------+-------------+--------------------------------+-------+
+
+* \(1) The window length can be specified in :member:`RollingOptions::window_length`.
+  Window length is required and must be a positive integer. The parameter 
+  :member:`RollingOptions::min_periods` specifies the minimum number of
+  valid elements required in the window to compute a valid result. Default is 1. 
+  The handling of nulls is controlled by :member:`RollingOptions::ignore_nulls`. 
+  If set to true, output is computed with only non-null elements in the window,
+  and null is returned if all elements in the window are null. If set to false,
+  null is returned if any element in the window is null.

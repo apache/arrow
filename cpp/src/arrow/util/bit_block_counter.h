@@ -26,12 +26,12 @@
 #include "arrow/status.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 namespace detail {
 
 inline uint64_t LoadWord(const uint8_t* bytes) {
@@ -423,6 +423,7 @@ class ARROW_EXPORT OptionalBinaryBitBlockCounter {
 };
 
 // Functional-style bit block visitors.
+using internal::InvokeWithRequiredArgs;
 
 template <typename VisitNotNull, typename VisitNull>
 static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t length,
@@ -433,18 +434,18 @@ static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t leng
     internal::BitBlockCount block = bit_counter.NextBlock();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        ARROW_RETURN_NOT_OK(visit_not_null(position));
+        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        ARROW_RETURN_NOT_OK(visit_null());
+        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
         if (bit_util::GetBit(bitmap, offset + position)) {
-          ARROW_RETURN_NOT_OK(visit_not_null(position));
+          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
         } else {
-          ARROW_RETURN_NOT_OK(visit_null());
+          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
         }
       }
     }
@@ -461,18 +462,18 @@ static void VisitBitBlocksVoid(const uint8_t* bitmap, int64_t offset, int64_t le
     internal::BitBlockCount block = bit_counter.NextBlock();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
+        InvokeWithRequiredArgs(visit_not_null, position);
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
+        InvokeWithRequiredArgs(visit_null, position);
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
         if (bit_util::GetBit(bitmap, offset + position)) {
-          visit_not_null(position);
+          InvokeWithRequiredArgs(visit_not_null, position);
         } else {
-          visit_null();
+          InvokeWithRequiredArgs(visit_null, position);
         }
       }
     }
@@ -503,19 +504,19 @@ static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
     BitBlockCount block = bit_counter.NextAndWord();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        ARROW_RETURN_NOT_OK(visit_not_null(position));
+        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        ARROW_RETURN_NOT_OK(visit_null());
+        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
         if (bit_util::GetBit(left_bitmap, left_offset + position) &&
             bit_util::GetBit(right_bitmap, right_offset + position)) {
-          ARROW_RETURN_NOT_OK(visit_not_null(position));
+          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
         } else {
-          ARROW_RETURN_NOT_OK(visit_null());
+          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
         }
       }
     }
@@ -547,24 +548,128 @@ static void VisitTwoBitBlocksVoid(const uint8_t* left_bitmap, int64_t left_offse
     BitBlockCount block = bit_counter.NextAndWord();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_not_null(position);
+        InvokeWithRequiredArgs(visit_not_null, position);
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        visit_null();
+        InvokeWithRequiredArgs(visit_null, position);
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
         if (bit_util::GetBit(left_bitmap, left_offset + position) &&
             bit_util::GetBit(right_bitmap, right_offset + position)) {
-          visit_not_null(position);
+          InvokeWithRequiredArgs(visit_not_null, position);
         } else {
-          visit_null();
+          InvokeWithRequiredArgs(visit_null, position);
         }
       }
     }
   }
 }
 
-}  // namespace internal
-}  // namespace arrow
+template <typename VisitBothNotNull, typename VisitLeftNull, typename VisitRightNull,
+          typename VisitBothNull>
+static Status VisitTwoBitBlocksAllCases(const uint8_t* left_bitmap, int64_t left_offset,
+                                        const uint8_t* right_bitmap, int64_t right_offset,
+                                        int64_t length,
+                                        VisitBothNotNull&& visit_both_not_null,
+                                        VisitLeftNull&& visit_left_null,
+                                        VisitRightNull&& visit_right_null,
+                                        VisitBothNull&& visit_both_null) {
+  if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
+    // At most one bitmap is present
+    if (left_bitmap == NULLPTR) {
+      return VisitBitBlocks(right_bitmap, right_offset, length,
+                            std::forward<VisitBothNotNull>(visit_both_not_null),
+                            std::forward<VisitRightNull>(visit_right_null));
+    } else {
+      return VisitBitBlocks(left_bitmap, left_offset, length,
+                            std::forward<VisitBothNotNull>(visit_both_not_null),
+                            std::forward<VisitLeftNull>(visit_left_null));
+    }
+  }
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_both_not_null, position));
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_both_null, position));
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        bool left_not_null = bit_util::GetBit(left_bitmap, left_offset + position);
+        bool right_not_null = bit_util::GetBit(right_bitmap, right_offset + position);
+        if (left_not_null && right_not_null) {
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_both_not_null, position));
+        } else if (right_not_null) {
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_left_null, position));
+        } else if (left_not_null) {
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_right_null, position));
+        } else {
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_both_null, position));
+        }
+      }
+    }
+  }
+  return Status::OK();
+}
+
+template <typename VisitBothNotNull, typename VisitLeftNull, typename VisitRightNull,
+          typename VisitBothNull>
+static void VisitTwoBitBlocksVoidAllCases(const uint8_t* left_bitmap, int64_t left_offset,
+                                          const uint8_t* right_bitmap,
+                                          int64_t right_offset, int64_t length,
+                                          VisitBothNotNull&& visit_both_not_null,
+                                          VisitLeftNull&& visit_left_null,
+                                          VisitRightNull&& visit_right_null,
+                                          VisitBothNull&& visit_both_null) {
+  if (left_bitmap == NULLPTR || right_bitmap == NULLPTR) {
+    // At most one bitmap is present
+    if (left_bitmap == NULLPTR) {
+      return VisitBitBlocksVoid(right_bitmap, right_offset, length,
+                                std::forward<VisitBothNotNull>(visit_both_not_null),
+                                std::forward<VisitRightNull>(visit_right_null));
+    } else {
+      return VisitBitBlocksVoid(left_bitmap, left_offset, length,
+                                std::forward<VisitBothNotNull>(visit_both_not_null),
+                                std::forward<VisitLeftNull>(visit_left_null));
+    }
+  }
+  BinaryBitBlockCounter bit_counter(left_bitmap, left_offset, right_bitmap, right_offset,
+                                    length);
+  int64_t position = 0;
+  while (position < length) {
+    BitBlockCount block = bit_counter.NextAndWord();
+    if (block.AllSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        InvokeWithRequiredArgs(visit_both_not_null, position);
+      }
+    } else if (block.NoneSet()) {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        InvokeWithRequiredArgs(visit_both_null, position);
+      }
+    } else {
+      for (int64_t i = 0; i < block.length; ++i, ++position) {
+        bool left_not_null = bit_util::GetBit(left_bitmap, left_offset + position);
+        bool right_not_null = bit_util::GetBit(right_bitmap, right_offset + position);
+        if (left_not_null && right_not_null) {
+          InvokeWithRequiredArgs(visit_both_not_null, position);
+        } else if (right_not_null) {
+          InvokeWithRequiredArgs(visit_left_null, position);
+        } else if (left_not_null) {
+          InvokeWithRequiredArgs(visit_right_null, position);
+        } else {
+          InvokeWithRequiredArgs(visit_both_null, position);
+        }
+      }
+    }
+  }
+}
+
+}  // namespace arrow::internal

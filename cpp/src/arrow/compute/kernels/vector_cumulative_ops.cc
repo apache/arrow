@@ -331,7 +331,7 @@ struct MakeVectorCumulativeBinaryOpFunction {
 
 }  // namespace
 
-void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
+void RegisterVectorCumulative(FunctionRegistry* registry) {
   MakeVectorCumulativeBinaryOpFunction<Add, CumulativeOptions>::Call(
       registry, "cumulative_sum", cumulative_sum_doc);
   MakeVectorCumulativeBinaryOpFunction<AddChecked, CumulativeOptions>::Call(
