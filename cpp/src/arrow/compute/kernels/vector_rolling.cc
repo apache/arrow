@@ -431,10 +431,10 @@ struct ChunkedWindowAccumulator {
     Status st = Status::OK();
 
     // Use two pointers to deal with rolling window
-    int64_t left_chunk_index = 0;
+    int left_chunk_index = 0;
     int64_t left_position = 0;
     ArrayIterator<ArgType> left_iterator(*input.chunk(0)->data());
-    int64_t right_chunk_index = 0;
+    int right_chunk_index = 0;
     int64_t right_position = 0;
     ArrayIterator<ArgType> right_iterator(*input.chunk(0)->data());
 
@@ -496,7 +496,7 @@ struct ChunkedWindowAccumulator {
     RETURN_NOT_OK(st);
 
     // remove_last_start - input_length: remove, append and produce value
-    for (int i = remove_last_start; i < input_length; ++i) {
+    for (int64_t i = remove_last_start; i < input_length; ++i) {
       check_left_boundary();
       check_right_boundary();
       bool left_valid = input.chunk(left_chunk_index)->IsValid(left_position);
@@ -548,10 +548,10 @@ struct ChunkedWindowAccumulator {
     Status st = Status::OK();
 
     // Use two pointers to deal with rolling window
-    int64_t left_chunk_index = 0;
+    int left_chunk_index = 0;
     int64_t left_position = 0;
     ArrayIterator<ArgType> left_iterator(*input.chunk(0)->data());
-    int64_t right_chunk_index = 0;
+    int right_chunk_index = 0;
     int64_t right_position = 0;
     ArrayIterator<ArgType> right_iterator(*input.chunk(0)->data());
 
@@ -609,7 +609,7 @@ struct ChunkedWindowAccumulator {
     RETURN_NOT_OK(st);
 
     // remove_last_start - input_length: remove, append and produce value
-    for (int i = remove_last_start; i < input_length; ++i) {
+    for (int64_t i = remove_last_start; i < input_length; ++i) {
       check_left_boundary();
       check_right_boundary();
       bool left_valid = input.chunk(left_chunk_index)->IsValid(left_position);
