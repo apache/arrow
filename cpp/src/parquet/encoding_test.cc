@@ -1645,6 +1645,39 @@ TEST_F(TestRleBooleanEncoding, AllNull) {
       /*null_probability*/ 1));
 }
 
+class TestPlainBooleanEncoding : public TestEncodingBase<BooleanType> {};
+
+TEST(TestPlainBooleanArrayEncoding, AdHocRoundTrip) {
+  std::vector<std::shared_ptr<::arrow::Array>> arrays{
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([])"),
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([false, null, true])"),
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([null, null, null])"),
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([true, null, false])"),
+  };
+
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN,
+                                               /*use_dictionary=*/false);
+  for (const auto& array : arrays) {
+    encoder->Put(*array);
+  }
+  auto buffer = encoder->FlushValues();
+  auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+  EXPECT_OK_AND_ASSIGN(auto expected, ::arrow::Concatenate(arrays));
+  decoder->SetData(static_cast<int>(expected->length()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  ::arrow::BooleanBuilder builder;
+  ASSERT_EQ(static_cast<int>(expected->length() - expected->null_count()),
+            decoder->DecodeArrow(static_cast<int>(expected->length()),
+                                 static_cast<int>(expected->null_count()),
+                                 expected->null_bitmap_data(), 0, &builder));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(builder.Finish(&result));
+  ASSERT_EQ(expected->length(), result->length());
+  ::arrow::AssertArraysEqual(*expected, *result, /*verbose=*/true);
+}
+
 // ----------------------------------------------------------------------
 // DELTA_LENGTH_BYTE_ARRAY encode/decode tests.
 

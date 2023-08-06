@@ -340,9 +340,11 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       throw ParquetException("direct put to boolean from " + values.type()->ToString() +
                              " not supported");
     }
-    // Cannot Put arrow array when PlainEncoder<BooleanType>::PutImpl has remaining writes
-    // in `bit_writer_`.
-    DCHECK_EQ(0, bit_writer_.bytes_written());
+    if (ARROW_PREDICT_FALSE(bit_writer_.bytes_written() != 0)) {
+      throw ParquetException(
+          "Cannot Put arrow array when PlainEncoder<BooleanType> "
+          "has remaining writes in `bit_writer_`");
+    }
 
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
     if (data.null_count() == 0) {
