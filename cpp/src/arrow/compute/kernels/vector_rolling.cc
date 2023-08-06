@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <arrow/compute/kernel.h>
-#include <arrow/result.h>
 #include <functional>
 #include <set>
 #include <type_traits>

@@ -1994,10 +1994,12 @@ class CumulativeOptions(_CumulativeOptions):
     def __init__(self, start=None, *, skip_nulls=False):
         self._set_options(start, skip_nulls)
 
+
 cdef class _RollingOptions(FunctionOptions):
     def _set_options(self, window_length, min_periods, ignore_nulls):
         self.wrapped.reset(new CRollingOptions(
             window_length, min_periods, ignore_nulls))
+
 
 class RollingOptions(_RollingOptions):
     """

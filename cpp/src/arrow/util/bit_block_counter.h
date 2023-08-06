@@ -434,18 +434,18 @@ static Status VisitBitBlocks(const uint8_t* bitmap, int64_t offset, int64_t leng
     internal::BitBlockCount block = bit_counter.NextBlock();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
+        ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
+        ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
         if (bit_util::GetBit(bitmap, offset + position)) {
-          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
         } else {
-          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
         }
       }
     }
@@ -504,19 +504,19 @@ static Status VisitTwoBitBlocks(const uint8_t* left_bitmap, int64_t left_offset,
     BitBlockCount block = bit_counter.NextAndWord();
     if (block.AllSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
+        ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
       }
     } else if (block.NoneSet()) {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
-        RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
+        ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
       }
     } else {
       for (int64_t i = 0; i < block.length; ++i, ++position) {
         if (bit_util::GetBit(left_bitmap, left_offset + position) &&
             bit_util::GetBit(right_bitmap, right_offset + position)) {
-          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_not_null, position));
         } else {
-          RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
+          ARROW_RETURN_NOT_OK(InvokeWithRequiredArgs(visit_null, position));
         }
       }
     }
