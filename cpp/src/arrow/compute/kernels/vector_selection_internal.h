@@ -26,10 +26,12 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/function.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
+
+using FilterState = OptionsWrapper<FilterOptions>;
+using TakeState = OptionsWrapper<TakeOptions>;
 
 struct SelectionKernelData {
   InputType value_type;
@@ -73,7 +75,6 @@ Status ListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status LargeListFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status FSLFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status DenseUnionFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
-Status SparseUnionFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapFilterExec(KernelContext*, const ExecSpan&, ExecResult*);
 
 Status VarBinaryTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
@@ -87,6 +88,4 @@ Status SparseUnionTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status StructTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 Status MapTakeExec(KernelContext*, const ExecSpan&, ExecResult*);
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

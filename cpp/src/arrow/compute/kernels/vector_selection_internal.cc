@@ -45,8 +45,7 @@ namespace arrow {
 
 using internal::CheckIndexBounds;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel,
@@ -170,9 +169,6 @@ void VisitPlainxREEFilterOutputSegments(
 }
 
 namespace {
-
-using FilterState = OptionsWrapper<FilterOptions>;
-using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
 // Implement take for other data types where there is less performance
@@ -741,6 +737,13 @@ struct DenseUnionSelectionImpl
   }
 };
 
+// We need a slightly different approach for SparseUnion. For Take, we can
+// invoke Take on each child's data with boundschecking disabled. For
+// Filter on the other hand, if we naively call Filter on each child, then the
+// filter output length will have to be redundantly computed. Thus, for Filter
+// we instead convert the filter to selection indices and then invoke take.
+
+// SparseUnion selection implementation. ONLY used for Take
 struct SparseUnionSelectionImpl
     : public Selection<SparseUnionSelectionImpl, SparseUnionType> {
   using Base = Selection<SparseUnionSelectionImpl, SparseUnionType>;
@@ -761,16 +764,14 @@ struct SparseUnionSelectionImpl
     Adapter adapter(this);
     RETURN_NOT_OK(adapter.Generate(
         [&](int64_t index) {
-          int8_t child_id = typed_values.child_id(index);
-          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          child_id_buffer_builder_.UnsafeAppend(typed_values.type_code(index));
           // TODO(jinshang): We use a naive approach for now: apply take for each child
           // array. There is room for optimization because the unselected child arrays can
           // have any value at this slot.
           return Status::OK();
         },
         [&]() {
-          int8_t child_id = 0;
-          child_id_buffer_builder_.UnsafeAppend(type_codes_[child_id]);
+          child_id_buffer_builder_.UnsafeAppend(type_codes_[0]);
           return Status::OK();
         }));
     return Status::OK();
@@ -920,22 +921,6 @@ Status DenseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResul
   return FilterExec<DenseUnionSelectionImpl>(ctx, batch, out);
 }
 
-Status SparseUnionFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  // Transform filter to selection indices and then use Take.
-  std::shared_ptr<ArrayData> indices;
-  RETURN_NOT_OK(GetTakeIndices(batch[1].array,
-                               FilterState::Get(ctx).null_selection_behavior,
-                               ctx->memory_pool())
-                    .Value(&indices));
-
-  Datum result;
-  RETURN_NOT_OK(Take(batch[0].array.ToArrayData(), Datum(indices),
-                     TakeOptions::NoBoundsCheck(), ctx->exec_context())
-                    .Value(&result));
-  out->value = result.array();
-  return Status::OK();
-}
-
 Status MapFilterExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return FilterExec<ListSelectionImpl<MapType>>(ctx, batch, out);
 }
@@ -994,6 +979,5 @@ Status MapTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<ListSelectionImpl<MapType>>(ctx, batch, out);
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

@@ -1686,9 +1686,9 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(3)      |
+| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(4)      |
+| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 
 * \(1) Each element in the input is appended to the output iff it is non-null.
