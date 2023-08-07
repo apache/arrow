@@ -1137,28 +1137,18 @@ static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
 static const void* kMyEventPtr = reinterpret_cast<void*>(0xBAADF00D);
 
-
 class MyDeviceSync final : public DeviceSync {
  public:
-  explicit MyDeviceSync(void* sync_event) 
-    : DeviceSync(sync_event) {}
-  
+  explicit MyDeviceSync(void* sync_event) : DeviceSync(sync_event) {}
+
   virtual ~MyDeviceSync() = default;
 
-  virtual Status wait() override {
-    return Status::OK();
-  }
-  virtual Status stream_wait(void* stream) override {
-    return Status::OK();
-  }
+  virtual Status wait() override { return Status::OK(); }
+  virtual Status stream_wait(void* stream) override { return Status::OK(); }
 
  protected:
-  Result<void*> create_event() override {
-    return const_cast<void*>(kMyEventPtr);
-  }
-  Status record_event_on_stream(void* event) override {
-    return Status::OK();
-  }
+  Result<void*> create_event() override { return const_cast<void*>(kMyEventPtr); }
+  Status record_event_on_stream(void* event) override { return Status::OK(); }
   void release_event(void* event) override {}
 };
 
@@ -1185,7 +1175,8 @@ class MyMemoryManager : public CPUMemoryManager {
     return std::make_unique<MyBuffer>(data, size, shared_from_this());
   }
 
-  Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(void* sync_event = nullptr) override {
+  Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(
+      void* sync_event = nullptr) override {
     return std::make_shared<MyDeviceSync>(sync_event);
   }
 
@@ -3594,14 +3585,15 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
   using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
 
   void SetUp() override { pool_ = default_memory_pool(); }
-  
-  static Result<std::shared_ptr<MemoryManager>> DeviceMapper(ArrowDeviceType type, int64_t id) {
-      if (type != kMyDeviceType) {
-        return Status::NotImplemented("should only be MyDevice") ;
-      }
-      
-      std::shared_ptr<Device> device = std::make_shared<MyDevice>(id);
-      return device->default_memory_manager();
+
+  static Result<std::shared_ptr<MemoryManager>> DeviceMapper(ArrowDeviceType type,
+                                                             int64_t id) {
+    if (type != kMyDeviceType) {
+      return Status::NotImplemented("should only be MyDevice");
+    }
+
+    std::shared_ptr<Device> device = std::make_shared<MyDevice>(id);
+    return device->default_memory_manager();
   }
 
   static Result<std::shared_ptr<ArrayData>> ToDeviceData(
@@ -3631,18 +3623,17 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
     return MakeArray(result);
   }
-  
-  static ArrayFactory ToDeviceFactory(
-      const std::shared_ptr<MemoryManager>& mm, ArrayFactory&& factory) {
-    return [&]() -> Result<std::shared_ptr<Array>> { 
+
+  static ArrayFactory ToDeviceFactory(const std::shared_ptr<MemoryManager>& mm,
+                                      ArrayFactory&& factory) {
+    return [&]() -> Result<std::shared_ptr<Array>> {
       ARROW_ASSIGN_OR_RAISE(auto arr, factory());
-      return ToDevice(mm, *arr->data()); 
+      return ToDevice(mm, *arr->data());
     };
   }
 
-  static ArrayFactory JSONArrayFactory(
-      const std::shared_ptr<MemoryManager>& mm, std::shared_ptr<DataType> type,
-      const char* json) {
+  static ArrayFactory JSONArrayFactory(const std::shared_ptr<MemoryManager>& mm,
+                                       std::shared_ptr<DataType> type, const char* json) {
     return [=]() { return ToDevice(mm, *ArrayFromJSON(type, json)->data()); };
   }
 
@@ -3710,7 +3701,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
   void TestWithBatchFactory(BatchFactory&& factory) {
     std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
     auto mm = device->default_memory_manager();
-    
+
     std::shared_ptr<RecordBatch> batch;
     struct ArrowDeviceArray c_array {};
     struct ArrowSchema c_schema {};
@@ -3726,7 +3717,8 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     auto new_bytes = pool_->bytes_allocated();
     batch.reset();
     ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
-    ASSERT_OK_AND_ASSIGN(batch, ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK_AND_ASSIGN(batch,
+                         ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
     ASSERT_OK(batch->ValidateFull());
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
@@ -3734,7 +3726,8 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     // Re-export and re-import, now both at once
     ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
     batch.reset();
-    ASSERT_OK_AND_ASSIGN(batch, ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK_AND_ASSIGN(batch,
+                         ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
     ASSERT_OK(batch->ValidateFull());
     ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
     ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
@@ -3750,11 +3743,13 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
   }
 
-  void TestWithJSON(const std::shared_ptr<MemoryManager>& mm, std::shared_ptr<DataType> type, const char* json) {
+  void TestWithJSON(const std::shared_ptr<MemoryManager>& mm,
+                    std::shared_ptr<DataType> type, const char* json) {
     TestWithArrayFactory(JSONArrayFactory(mm, type, json));
   }
 
-  void TestWithJSONSliced(const std::shared_ptr<MemoryManager>& mm, std::shared_ptr<DataType> type, const char* json) {
+  void TestWithJSONSliced(const std::shared_ptr<MemoryManager>& mm,
+                          std::shared_ptr<DataType> type, const char* json) {
     TestWithArrayFactory(SlicedArrayFactory(JSONArrayFactory(mm, type, json)));
   }
 
