@@ -800,8 +800,8 @@ inline void GeneratePrefixedData(int num_values, ByteArray* out,
   // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
   heap->resize(num_values * max_byte_array_len);
-  prefixed_random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len,
-                             prefixed_probability);
+  prefixed_random_byte_array(num_values, /*seed=*/0, heap->data(), out, /*min_size=*/2,
+                             /*max_size=*/max_byte_array_len, prefixed_probability);
 }
 
 static constexpr int kGenerateDataFLBALength = 8;
@@ -812,8 +812,8 @@ inline void GeneratePrefixedData<FLBA>(int num_values, FLBA* out,
                                        double prefixed_probability) {
   // seed the prng so failure is deterministic
   heap->resize(num_values * kGenerateDataFLBALength);
-  prefixed_random_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out,
-                             prefixed_probability);
+  prefixed_random_byte_array(num_values, /*seed=*/0, heap->data(),
+                             kGenerateDataFLBALength, out, prefixed_probability);
 }
 
 template <>
