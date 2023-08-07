@@ -1219,6 +1219,91 @@ cdef class FlightMetadataWriter(_Weakrefable):
             check_flight_status(self.writer.get().WriteMetadata(deref(buf)))
 
 
+class AsyncioCall:
+    """State for an async RPC using asyncio."""
+
+    def __init__(self) -> None:
+        import asyncio
+
+        # Python waits on the event.  The C++ callback sets the event, waking
+        # up the Python task.
+        self._event = asyncio.Event()
+        # The result of the async call.
+        self._result = None
+        # The error raised by the async call.
+        self._exception = None
+        self._loop = asyncio.get_running_loop()
+
+    async def wait(self) -> object:
+        """Wait for the RPC call to finish."""
+        await self._event.wait()
+        if self._exception:
+            raise self._exception
+        return self._result
+
+    def wakeup(self, *, result=None, exception=None) -> None:
+        """Finish the RPC call."""
+        self._result = result
+        self._exception = exception
+        # Set the event from within the loop to avoid a race (asyncio
+        # objects are not necessarily thread-safe)
+        self._loop.call_soon_threadsafe(lambda: self._event.set())
+
+
+cdef class AsyncioFlightClient:
+    """
+    A FlightClient with an asyncio-based async interface.
+
+    This interface is EXPERIMENTAL.
+    """
+
+    cdef:
+        FlightClient _client
+
+    def __init__(self, FlightClient client) -> None:
+        self._client = client
+
+    async def get_flight_info(
+        self,
+        descriptor: FlightDescriptor,
+        *,
+        options: FlightCallOptions = None,
+    ):
+        call = AsyncioCall()
+        self._get_flight_info(call, descriptor, options)
+        return await call.wait()
+
+    cdef _get_flight_info(self, call, descriptor, options):
+        cdef:
+            CFlightCallOptions* c_options = \
+                FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+            function[cb_client_async_get_flight_info] callback = \
+                &_client_async_get_flight_info
+
+        with nogil:
+            CAsyncGetFlightInfo(
+                self._client.client.get(),
+                deref(c_options),
+                c_descriptor,
+                call,
+                callback,
+            )
+
+
+cdef void _client_async_get_flight_info(void* self, CFlightInfo* info, const CStatus& status) except *:
+    """Bridge the C++ async call with the Python side."""
+    cdef:
+        FlightInfo result = FlightInfo.__new__(FlightInfo)
+    call: AsyncioCall = <object> self
+    if status.ok():
+        result.info.reset(new CFlightInfo(move(deref(info))))
+        call.wakeup(result=result)
+    else:
+        call.wakeup(exception=convert_status(status))
+
+
 cdef class FlightClient(_Weakrefable):
     """A client to a Flight service.
 
@@ -1319,6 +1404,9 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options
                                                       ).Value(&self.client))
+
+    def as_async(self) -> None:
+        return AsyncioFlightClient(self)
 
     def wait_for_available(self, timeout=5):
         """Block until the server can be contacted.

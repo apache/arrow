@@ -496,6 +496,8 @@ ctypedef CStatus cb_client_middleware_start_call(
     const CCallInfo&,
     unique_ptr[CClientMiddleware]*)
 
+ctypedef void cb_client_async_get_flight_info(object, CFlightInfo* info, const CStatus& status)
+
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef char* CPyServerMiddlewareName\
         " arrow::py::flight::kPyServerMiddlewareName"
@@ -603,6 +605,8 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(
         shared_ptr[CSchema] schema,
         unique_ptr[CSchemaResult]* out)
+
+    cdef void CAsyncGetFlightInfo" arrow::py::flight::AsyncGetFlightInfo"(CFlightClient*, const CFlightCallOptions&, const CFlightDescriptor&, object, function[cb_client_async_get_flight_info])
 
 
 cdef extern from "<variant>" namespace "std" nogil:

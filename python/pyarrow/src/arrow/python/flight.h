@@ -345,6 +345,16 @@ ARROW_PYFLIGHT_EXPORT
 Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
                           std::unique_ptr<arrow::flight::SchemaResult>* out);
 
+typedef std::function<void(PyObject* self, arrow::flight::FlightInfo* info,
+                           const Status& status)>
+    AsyncGetFlightInfoCallback;
+
+ARROW_PYFLIGHT_EXPORT
+void AsyncGetFlightInfo(arrow::flight::FlightClient* client,
+                        const arrow::flight::FlightCallOptions& options,
+                        const arrow::flight::FlightDescriptor& descriptor,
+                        PyObject* context, AsyncGetFlightInfoCallback callback);
+
 }  // namespace flight
 }  // namespace py
 }  // namespace arrow
