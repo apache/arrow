@@ -145,7 +145,7 @@ that changing their value later will have an effect.
 .. envvar:: GANDIVA_CACHE_SIZE
 
    The number of entries to keep in the Gandiva JIT compilation cache.
-   The cache is in-memory and does not persist accross processes.
+   The cache is in-memory and does not persist across processes.
 
 .. envvar:: HADOOP_HOME
 
