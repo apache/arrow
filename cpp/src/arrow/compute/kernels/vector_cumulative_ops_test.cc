@@ -37,7 +37,7 @@
 namespace arrow {
 namespace compute {
 
-constexpr static std::array<const char*, 7> kCumulativeFunctionNames{
+static const std::vector<std::string> kCumulativeFunctionNames{
     "cumulative_sum",          "cumulative_sum_checked", "cumulative_prod",
     "cumulative_prod_checked", "cumulative_min",         "cumulative_max",
     "cumulative_mean"};

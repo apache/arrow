@@ -1636,7 +1636,7 @@ overflow is detected.
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 | cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
-| cumulative_mean         | Unary | Numeric     | Double      | :struct:`CumulativeOptions`    | \(1) \(2) |
+| cumulative_mean         | Unary | Numeric     | Float64     | :struct:`CumulativeOptions`    | \(1) \(2) |
 +-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 
 * \(1) CumulativeOptions has two optional parameters. The first parameter

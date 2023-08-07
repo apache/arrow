@@ -261,7 +261,6 @@ const FunctionDoc cumulative_mean_doc{
      "ignored."),
     {"values"},
     "CumulativeOptions"};
-}  // namespace
 
 // Kernel factory for simple arithmetic operations.
 // Op is a compute kernel representing any binary associative operation with
@@ -370,6 +369,7 @@ void MakeVectorCumulativeStatefulFunction(FunctionRegistry* registry,
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+}  // namespace
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
   MakeVectorCumulativeBinaryOpFunction<Add, CumulativeOptions>(registry, "cumulative_sum",
