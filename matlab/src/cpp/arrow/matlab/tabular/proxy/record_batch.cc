@@ -56,6 +56,10 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
     }
 
+    std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() {
+        return record_batch;
+    }
+
     void RecordBatch::toString(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto utf16_string, arrow::util::UTF8StringToUTF16(record_batch->ToString()), context, error::UNICODE_CONVERSION_ERROR_ID);

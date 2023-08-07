@@ -23,7 +23,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         ColumnNames
     end
 
-    properties (Access=protected)
+    properties (Hidden, SetAccess=private, GetAccess=public)
         Proxy
     end
 

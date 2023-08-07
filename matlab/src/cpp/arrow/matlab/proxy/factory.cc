@@ -25,6 +25,7 @@
 #include "arrow/matlab/type/proxy/string_type.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
 #include "arrow/matlab/type/proxy/field.h"
+#include "arrow/matlab/io/feather/proxy/feather_writer.h"
 
 #include "factory.h"
 
@@ -60,6 +61,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.BooleanType    , arrow::matlab::type::proxy::PrimitiveCType<bool>);
     REGISTER_PROXY(arrow.type.proxy.StringType     , arrow::matlab::type::proxy::StringType);
     REGISTER_PROXY(arrow.type.proxy.TimestampType  , arrow::matlab::type::proxy::TimestampType);
+    REGISTER_PROXY(arrow.io.feather.proxy.FeatherWriter  , arrow::matlab::io::feather::proxy::FeatherWriter);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };
