@@ -23,6 +23,7 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
       - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
@@ -34,6 +35,7 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
       - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
@@ -201,6 +203,8 @@ jobs:
             ci/scripts/install_minio.sh latest /usr/local
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
+      - name: Install Azurite Storage Emulator
+        run: ci/scripts/install_azurite.sh
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
