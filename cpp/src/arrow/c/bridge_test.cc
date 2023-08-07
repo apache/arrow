@@ -1143,8 +1143,8 @@ class MyDeviceSync final : public DeviceSync {
 
   virtual ~MyDeviceSync() = default;
 
-  virtual Status wait() override { return Status::OK(); }
-  virtual Status stream_wait(void* stream) override { return Status::OK(); }
+  Status wait() override { return Status::OK(); }
+  Status stream_wait(void* stream) override { return Status::OK(); }
 
  protected:
   Result<void*> create_event() override { return const_cast<void*>(kMyEventPtr); }
