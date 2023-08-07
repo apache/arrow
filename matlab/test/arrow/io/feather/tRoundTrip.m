@@ -47,7 +47,6 @@ classdef tRoundTrip < matlab.unittest.TestCase
 end
 
 function featherwrite(T, filename)
-    disp("hi");
     writer = arrow.internal.io.feather.Writer(filename);
     writer.write(T);
 end
