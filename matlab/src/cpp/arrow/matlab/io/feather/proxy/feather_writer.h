@@ -17,29 +17,25 @@
 
 #pragma once
 
-#include "arrow/record_batch.h"
+#include "arrow/status.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
-namespace arrow::matlab::tabular::proxy {
+namespace arrow::matlab::io::feather::proxy {
 
-    class RecordBatch : public libmexclass::proxy::Proxy {
+    class FeatherWriter : public libmexclass::proxy::Proxy {
         public:
-            RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch);
+            FeatherWriter(const std::string& filename);
         
-            virtual ~RecordBatch() {}
+            ~FeatherWriter() {}
 
-            std::shared_ptr<arrow::RecordBatch> unwrap();
-
-            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-    
+            static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);  
+        
         protected:
-            void toString(libmexclass::proxy::method::Context& context);
-            void numColumns(libmexclass::proxy::method::Context& context);
-            void columnNames(libmexclass::proxy::method::Context& context);
-            void getColumnByIndex(libmexclass::proxy::method::Context& context);
+            void getFilename(libmexclass::proxy::method::Context& context);
+            void write(libmexclass::proxy::method::Context& context);
 
-            std::shared_ptr<arrow::RecordBatch> record_batch;
+        private:
+            const std::string filename; 
     };
-
 }
