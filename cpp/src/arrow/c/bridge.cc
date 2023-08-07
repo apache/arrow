@@ -520,9 +520,7 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
-  std::shared_ptr<ArrayData> data_;
-
-  // RawSyncEvent sync_event_;
+  std::shared_ptr<ArrayData> data_;  
   std::shared_ptr<DeviceSync> sync_;
 
   ExportedArrayPrivateData() = default;
@@ -1363,8 +1361,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  std::shared_ptr<DeviceSync> device_sync;
-  // void* sync_event_;
+  std::shared_ptr<DeviceSync> device_sync;  
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1414,8 +1411,7 @@ struct ArrayImporter {
   Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
-    RETURN_NOT_OK(Import(&src->array));
-    // import_->sync_event_ = src->sync_event;
+    RETURN_NOT_OK(Import(&src->array));    
     ARROW_ASSIGN_OR_RAISE(import_->device_sync, memory_mgr_->MakeDeviceSync(src->sync_event));
     // reset internal state before next import
     memory_mgr_.reset();
