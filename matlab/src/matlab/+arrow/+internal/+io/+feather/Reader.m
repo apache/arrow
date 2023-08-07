@@ -28,10 +28,10 @@ classdef Reader
     methods
 
         function obj = Reader(filename)
-            filename = convertCharsToStrings(filename);
-            if ~(isstring(filename) && isscalar(filename))
-                error("arrow:io:feather:FilenameUnsupportedType", "Filename must be a scalar string or char row vector.");
+            arguments
+                filename(1, 1) {mustBeNonmissing, mustBeNonzeroLengthText}
             end
+
             args = struct(Filename=filename);
             obj.Proxy = arrow.internal.proxy.create("arrow.io.feather.proxy.Reader", args);
         end
@@ -46,7 +46,7 @@ classdef Reader
         function filename = get.Filename(obj)
             filename = obj.Proxy.getFilename();
         end
-        
+
     end
 
 end
