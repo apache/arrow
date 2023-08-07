@@ -3681,3 +3681,8 @@ def test_adjoin_as_list():
     result = pa.compute.adjoin_as_list(
         arrs[0], arrs[1], arrs[2], list_type="large_list")
     assert result.equals(expected)
+    expected = pa.array([[1, None, None], [2, 5, None], [
+                        None, 6, 9]], type=pa.list_(pa.int32(), 3))
+    result = pa.compute.adjoin_as_list(
+        arrs[0], arrs[1], arrs[2], list_type="fixed_size_list")
+    assert result.equals(expected)
