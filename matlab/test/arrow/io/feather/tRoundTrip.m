@@ -31,27 +31,27 @@ classdef tRoundTrip < matlab.unittest.TestCase
     methods(Test)
         function Basic(testCase)
             import matlab.unittest.fixtures.TemporaryFolderFixture
-            
+            import arrow.internal.io.feather.*
+
             fixture = testCase.applyFixture(TemporaryFolderFixture);
             filename = fullfile(fixture.Folder, "temp.feather");
 
             DoubleVar = [10; 20; 30; 40];
             SingleVar = single([10; 15; 20; 25]);
-            tWrite = table(DoubleVar, SingleVar);
-            
-            featherwrite(tWrite, filename);
-            tRead = featherread(filename);
-            testCase.verifyEqual(tWrite, tRead);
+
+            tableWrite = table(DoubleVar, SingleVar);
+            recordBatchWrite = arrow.recordbatch(tableWrite);
+
+            writer = Writer(filename);
+            writer.write(recordBatchWrite);
+
+            reader = arrow.internal.io.feather.Reader(filename);
+            recordBatchRead = reader.read();
+
+            tableRead = table(recordBatchRead);
+
+            testCase.verifyEqual(tableWrite, tableRead);
         end
     end
-end
 
-function featherwrite(T, filename)
-    writer = arrow.internal.io.feather.Writer(filename);
-    writer.write(T);
-end
-
-function T = featherread(filename)
-    reader = arrow.internal.io.feather.Reader(filename);
-    T = reader.read();
 end

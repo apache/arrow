@@ -36,11 +36,10 @@ classdef Reader
             obj.Proxy = arrow.internal.proxy.create("arrow.io.feather.proxy.Reader", args);
         end
 
-        function T = read(obj)
+        function recordBatch = read(obj)
             recordBatchProxyID = obj.Proxy.read();
             proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.RecordBatch", ID=recordBatchProxyID);
             recordBatch = arrow.tabular.RecordBatch(proxy);
-            T = recordBatch.toMATLAB();
         end
 
         function filename = get.Filename(obj)
