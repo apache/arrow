@@ -32,7 +32,7 @@ namespace arrow::matlab::io::feather::proxy {
 
     FeatherWriter::FeatherWriter(const std::string& filename) : filename{filename} {
         REGISTER_METHOD(FeatherWriter, getFilename);
-        REGISTER_METHOD(FeatherWriter, writeRecordBatch);
+        REGISTER_METHOD(FeatherWriter, write);
     }
 
     libmexclass::proxy::MakeResult FeatherWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -59,7 +59,7 @@ namespace arrow::matlab::io::feather::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void FeatherWriter::writeRecordBatch(libmexclass::proxy::method::Context& context) {
+    void FeatherWriter::write(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::StructArray opts = context.inputs[0];
         const mda::TypedArray<uint64_t> record_batch_proxy_id_mda = opts[0]["RecordBatchProxyID"];
@@ -69,7 +69,7 @@ namespace arrow::matlab::io::feather::proxy {
         auto record_batch_proxy = std::static_pointer_cast<arrow::matlab::tabular::proxy::RecordBatch>(proxy);
         auto record_batch = record_batch_proxy->unwrap();
         
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto table, 
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto table, 
                                             arrow::Table::FromRecordBatches({record_batch}),
                                             context,
                                             error::TABLE_FROM_RECORD_BATCH);
@@ -83,7 +83,6 @@ namespace arrow::matlab::io::feather::proxy {
         arrow::ipc::feather::WriteProperties write_props;
         write_props.version = arrow::ipc::feather::kFeatherV1Version;
 
-        // Write the Feather file metadata to the end of the file.
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(ipc::feather::WriteTable(*table, output_stream.get(), write_props),
                                             context,
                                             error::FEATHER_FAILED_TO_WRITE_TABLE);

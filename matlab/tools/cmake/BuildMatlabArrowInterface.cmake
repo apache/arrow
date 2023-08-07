@@ -39,8 +39,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/c
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/error"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type"
                                                       "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy"
-                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/buffer"
-                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/feather/proxy")
+                                                      "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/buffer")
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/boolean_array.cc"

@@ -33,9 +33,9 @@ namespace arrow::matlab::io::feather::proxy {
         
         protected:
             void getFilename(libmexclass::proxy::method::Context& context);
-            void writeRecordBatch(libmexclass::proxy::method::Context& context);
+            void write(libmexclass::proxy::method::Context& context);
 
         private:
-            std::string filename; 
+            const std::string filename; 
     };
 }

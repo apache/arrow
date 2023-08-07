@@ -32,14 +32,13 @@ classdef Writer < matlab.mixin.Scalar
 
             args = struct(Filename=filename);
             proxyName = "arrow.io.feather.proxy.FeatherWriter";
-            obj.Proxy = libmexclass.proxy.Proxy(Name=proxyName, ...
-                ConstructorArguments={args});
+            obj.Proxy = arrow.internal.proxy.create(proxyName, args);
         end
 
         function write(obj, T)
             rb = arrow.recordbatch(T);
             args = struct(RecordBatchProxyID=rb.Proxy.ID);
-            obj.Proxy.writeRecordBatch(args);
+            obj.Proxy.write(args);
         end
 
         function filename = get.Filename(obj)
