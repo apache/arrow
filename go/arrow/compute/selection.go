@@ -24,7 +24,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/exec"
 	"github.com/apache/arrow/go/v13/arrow/compute/internal/kernels"
 	"golang.org/x/sync/errgroup"
 )

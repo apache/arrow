@@ -19,7 +19,7 @@
 package kernels
 
 import (
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/exec"
 	"golang.org/x/exp/constraints"
 )
 
