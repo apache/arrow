@@ -52,21 +52,35 @@ namespace arrow::matlab::io::feather::proxy {
         using namespace libmexclass::proxy;
         using RecordBatchProxy = arrow::matlab::tabular::proxy::RecordBatch;
 
+        mda::ArrayFactory factory;
+
         // Create a file input stream.
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto source, arrow::io::ReadableFile::Open(filename, arrow::default_memory_pool()), context, "test");
-        // Create a Reader.
-        // TODO: Create an error ID.
-        // TODO: Error if Feather V2.
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto reader, arrow::ipc::feather::Reader::Open(source), context, "test");
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto source, arrow::io::ReadableFile::Open(filename, arrow::default_memory_pool()), context, "arrow:io:feather:reader:FailedToOpenFile");
+
+        // Create a Reader from the file input stream.
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto reader, arrow::ipc::feather::Reader::Open(source), context, "arrow:io:feather:reader:FailedToCreateReader");
+
+        // Error if not Feather V1.
+        const auto version = reader->version();
+        if (version == ipc::feather::kFeatherV2Version) {
+            MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(Status::NotImplemented("Support for Feather V2 has not been implemented."), context, "arrow:io:feather:reader:FeatherVersion2");
+        } else if (version != ipc::feather::kFeatherV1Version) {
+            MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(Status::Invalid("Unknown Feather format version."), context, "arrow:io:feather:reader:UnknownFeatherVersion");
+        }
+
+        // Read a Table from the file.
         std::shared_ptr<arrow::Table> table = nullptr;
-        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(reader->Read(&table), context, "test");
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(reader->Read(&table), context, "arrow:io:feather:reader:FailedToReadTable");
+
+        // Get the first RecordBatch from the Table.
         arrow::TableBatchReader table_batch_reader{table};
         std::shared_ptr<arrow::RecordBatch> record_batch = nullptr;
-        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(table_batch_reader.ReadNext(&record_batch), context, "test");
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(table_batch_reader.ReadNext(&record_batch), context, "arrow:io:feather:reader:FailedToReadRecordBatch");
+
+        // Create a Proxy from the first RecordBatch.
         auto record_batch_proxy = std::make_shared<RecordBatchProxy>(record_batch);
         const auto record_batch_proxy_id = ProxyManager::manageProxy(record_batch_proxy);
 
-        mda::ArrayFactory factory;
         const auto record_batch_proxy_id_mda = factory.createScalar(record_batch_proxy_id);
 
         context.outputs[0] = record_batch_proxy_id_mda;
