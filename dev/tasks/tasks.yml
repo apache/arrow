@@ -1253,6 +1253,7 @@ tasks:
     params:
       env:
         PYTHON: "{{ python_version }}"
+        PYTEST_ARGS: "-W error"
       image: conda-python
 {% endfor %}
 
@@ -1265,7 +1266,7 @@ tasks:
         HYPOTHESIS_PROFILE: ci
         PYARROW_TEST_HYPOTHESIS: ON
         # limit to execute hypothesis tests only
-        PYTEST_ARGS: "-m hypothesis"
+        PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
 
   test-conda-python-3.10-substrait:
