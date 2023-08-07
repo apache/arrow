@@ -23,21 +23,11 @@ function featherwrite(filename, t)
 % specific language governing permissions and limitations
 % under the License.
 
-import arrow.util.table2mlarrow;
+    arguments
+        filename(1, 1) string {mustBeNonmissing, mustBeNonzeroLengthText}
+        t table
+    end
 
-% Validate input arguments.
-narginchk(2, 2);
-filename = convertStringsToChars(filename);
-if ~ischar(filename)
-    error('MATLAB:arrow:InvalidFilenameDatatype', ...
-        'Filename must be a character vector or string scalar.');
-end
-if ~istable(t)
-    error('MATLAB:arrow:InvalidInputTable', 't must be a table.');
-end
-
-[variables, metadata] = table2mlarrow(t);
-
-% Write the table to a Feather file.
-arrow.cpp.call('featherwrite', filename, variables, metadata);
+    writer = arrow.internal.io.feather.Writer(filename);
+    writer.write(t);
 end
