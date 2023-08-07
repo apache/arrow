@@ -181,7 +181,13 @@ namespace arrow::matlab::error {
     static const char* RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH = "arrow:tabular:recordbatch:NumericIndexWithEmptyRecordBatch";
     static const char* RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX = "arrow:tabular:recordbatch:InvalidNumericColumnIndex";
     static const char* FAILED_TO_OPEN_FILE_FOR_WRITE = "arrow:io:FailedToOpenFileForWrite";
+    static const char* FAILED_TO_OPEN_FILE_FOR_READ = "arrow:io:FailedToOpenFileForRead";
     static const char* FEATHER_FAILED_TO_WRITE_TABLE = "arrow:io:feather:FailedToWriteTable";
     static const char* TABLE_FROM_RECORD_BATCH = "arrow:table:FromRecordBatch";
+    static const char* FEATHER_FAILED_TO_CREATE_READER = "arrow:io:feather:FailedToCreateReader";
+    static const char* FEATHER_VERSION_2 = "arrow:io:feather:FeatherVersion2";
+    static const char* FEATHER_VERSION_UNKNOWN = "arrow:io:feather:FeatherVersionUnknown";
+    static const char* FEATHER_FAILED_TO_READ_TABLE = "arrow:io:feather:FailedToReadTable";
+    static const char* FEATHER_FAILED_TO_READ_RECORD_BATCH = "arrow:io:feather:FailedToReadRecordBatch";
 
 }
