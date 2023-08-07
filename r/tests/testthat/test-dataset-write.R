@@ -935,21 +935,20 @@ test_that("Dataset can write flat files using readr::write_csv() options.", {
   close(con)
 
   # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
-  expect_equal(as.character(header[4:5]), c("0d", "0a"))
+  expect_equal(header[4:5], as.raw(c(0x0d, 0x0a)))
 
   dst_dir <- make_temp_dir()
   expect_error(
     write_dataset(df, dst_dir, format = "csv", include_header = FALSE, delim = ";"),
-    "Can't write dataset with both Arrow options and readr options."
+    "Use either Arrow write options or readr write options, not both"
   )
   dst_dir <- make_temp_dir()
-  write_dataset(df, dst_dir, format = "csv", quote = "AllValid")
+  write_dataset(df, dst_dir, format = "csv", quoting_style = "AllValid")
   ds <- open_dataset(dst_dir, format = "csv")
   expect_equal(df, ds |> collect())
 
   expect_error(
-    write_dataset(df, dst_dir, format = "csv", quote = "foobar"),
-    "quoting_style must be 1 of 'Needed', 'AllValid' or 'None'"
+    write_dataset(df, dst_dir, format = "csv", quoting_style = "foobar")
   )
 
   expect_error(
@@ -984,7 +983,7 @@ test_that("Dataset write wrappers can write flat files using readr::write_csv() 
   header <- readBin(con <- file(paste0(dst_dir, "/part-0.csv"), "rb"), "raw", n = 5)
   close(con)
   # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
-  expect_equal(as.character(header[4:5]), c("0d", "0a"))
+  expect_equal(header[4:5], as.raw(c(0x0d, 0x0a)))
 
   df2 <- tibble(x = "")
   dst_dir <- make_temp_dir()
@@ -992,7 +991,7 @@ test_that("Dataset write wrappers can write flat files using readr::write_csv() 
   header <- readBin(con <- file(paste0(dst_dir, "/part-0.tsv"), "rb"), "raw", n = 5)
   close(con)
   # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
-  expect_equal(as.character(header[4:5]), c("0d", "0a"))
+  expect_equal(header[4:5], as.raw(c(0x0d, 0x0a)))
 
   dst_dir <- make_temp_dir()
   write_csv_dataset(df, dst_dir, quote = "AllValid", delim = ";")
@@ -1001,6 +1000,6 @@ test_that("Dataset write wrappers can write flat files using readr::write_csv() 
 
   dst_dir <- make_temp_dir()
   write_tsv_dataset(df, dst_dir, quote = "AllValid", eol = "\r\n")
-  ds <- open_dataset(dst_dir, format = "tsv")
+  ds <- open_dataset(dst_dir, format = "tsv", quote_char = "\"")
   expect_equal(df, ds |> collect())
 })

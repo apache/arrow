@@ -233,50 +233,7 @@ write_dataset <- function(dataset,
 #' The `write_*_dataset()` are a family of wrappers around [write_dataset] to allow for easy switching
 #' between functions for writing datasets.
 #'
-#' @param dataset [Dataset], [RecordBatch], [Table], `arrow_dplyr_query`, or
-#' `data.frame`. If an `arrow_dplyr_query`, the query will be evaluated and
-#' the result will be written. This means that you can `select()`, `filter()`, `mutate()`,
-#' etc. to transform the data before it is written if you need to.
-#' @param path String path, URI, or `SubTreeFileSystem` referencing a directory
-#' to write to (directory will be created if it does not exist)
-#' @param partitioning `Partitioning` or a character vector of columns to
-#' use as partition keys (to be written as path segments). Default is to
-#' use the current `group_by()` columns.
-#' @param basename_template String template for the names of files to be written.
-#' Must contain `"{i}"`, which will be replaced with an autoincremented
-#' integer to generate basenames of datafiles. For example, `"part-{i}.csv"`
-#' will yield `"part-0.csv", ...`.
-#' If not specified, it defaults to `"part-{i}.csv"`.
-#' @param hive_style Write partition segments as Hive-style
-#' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
-#' @param existing_data_behavior The behavior to use when there is already data
-#' in the destination directory.  Must be one of "overwrite", "error", or
-#' "delete_matching".
-#' - `overwrite` (the default) then any new files created will overwrite
-#'   existing files
-#' - `error` then the operation will fail if the destination directory is not
-#'   empty
-#' - `delete_matching` then the writer will delete any existing partitions
-#'   if data is going to be written to those partitions and will leave alone
-#'   partitions which data is not written to.
-#' @param max_partitions Maximum number of partitions any batch may be
-#' written into. Default is 1024L.
-#' @param max_open_files Maximum number of files that can be left opened
-#' during a write operation. If greater than 0 then this will limit the
-#' maximum number of files that can be left open. If an attempt is made to open
-#' too many files then the least recently used file will be closed.
-#' If this setting is set too low you may end up fragmenting your data
-#' into many small files. The default is 900 which also allows some # of files to be
-#' open by the scanner before hitting the default Linux limit of 1024.
-#' @param max_rows_per_file Maximum number of rows per file.
-#' If greater than 0 then this will limit how many rows are placed in any single file.
-#' Default is 0L.
-#' @param min_rows_per_group Write the row groups to the disk when this number of
-#' rows have accumulated. Default is 0L.
-#' @param max_rows_per_group Maximum rows allowed in a single
-#' group and when this number of rows is exceeded, it is split and the next set
-#' of rows is written to the next group. This value must be set such that it is
-#' greater than `min_rows_per_group`. Default is 1024 * 1024.
+#' @inheritParams [write_dataset()]
 #' @param col_names Whether to write an initial header line with column names.
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024L.
 #' @param delim Delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and
@@ -312,7 +269,7 @@ write_delim_dataset <- function(dataset,
                                 delim = ",",
                                 na = "",
                                 eol = "\n",
-                                quote = "Needed") {
+                                quote = c("Needed", "AllValid", "None")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
@@ -356,7 +313,7 @@ write_csv_dataset <- function(dataset,
                               delim = ",",
                               na = "",
                               eol = "\n",
-                              quote = "Needed") {
+                              quote = c("Needed", "AllValid", "None")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
@@ -399,7 +356,7 @@ write_tsv_dataset <- function(dataset,
                               batch_size = 1024L,
                               na = "",
                               eol = "\n",
-                              quote = "Needed") {
+                              quote = c("Needed", "AllValid", "None")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
