@@ -1135,7 +1135,7 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
-static const void* kMyEventPtr = reinterpret_cast<void*>(0xBAADF00D);
+static const void* kMyEventPtr = reinterpret_cast<void*>(uintptr_t(0xBAADF00D));
 
 class MyDeviceSync final : public DeviceSync {
  public:

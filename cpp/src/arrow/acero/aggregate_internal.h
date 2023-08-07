@@ -52,8 +52,8 @@
 // segment-keys is used to refine the partitioning. However, segment-keys are different in
 // that they partition only consecutive rows into a single group. Such a partition of
 // consecutive rows is called a segment group. For example, consider a column X with
-// values [A, A, B, A] at row-indices [0, 1, 2, 3]. A regular group-by aggregation with keys
-// [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas a segmented-group-by
+// values [A, A, B, A] at row-indices [0, 1, 2, 3]. A regular group-by aggregation with
+// keys [X] yields a row-index partitioning [[0, 1, 3], [2]] whereas a segmented-group-by
 // aggregation with segment-keys [X] yields [[0, 1], [2], [3]].
 //
 // The implementation first segments the input using the segment-keys, then groups by the
