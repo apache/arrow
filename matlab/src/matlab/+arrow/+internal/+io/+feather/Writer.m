@@ -31,7 +31,7 @@ classdef Writer < matlab.mixin.Scalar
             end
 
             args = struct(Filename=filename);
-            proxyName = "arrow.io.feather.proxy.FeatherWriter";
+            proxyName = "arrow.io.feather.proxy.Writer";
             obj.Proxy = arrow.internal.proxy.create(proxyName, args);
         end
 
