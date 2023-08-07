@@ -17,7 +17,7 @@
 classdef tRoundTrip < matlab.unittest.TestCase
 
     methods(TestClassSetup)
-        % Delet once arrow.internal.io.feather.Reader is submitted.
+        % Delete once arrow.internal.io.feather.Reader is submitted.
         function addFeatherFunctionsToMATLABPath(testCase)
             import matlab.unittest.fixtures.PathFixture
             % Add Feather test utilities to the MATLAB path.
