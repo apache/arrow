@@ -21,9 +21,9 @@
 #include <memory>
 #include <string>
 
-#include "arrow/status.h"
-#include "arrow/result.h"
 #include "arrow/io/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
@@ -107,21 +107,22 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   bool is_cpu_;
 };
 
-
+/// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
+///
+///
 class ARROW_EXPORT DeviceSync {
  public:
-  explicit DeviceSync(void* sync_event) 
-    : sync_event_{sync_event}, owns_event_{false} {}
+  explicit DeviceSync(void* sync_event) : sync_event_{sync_event}, owns_event_{false} {}
   virtual ~DeviceSync() = default;
 
   /// @brief Block until sync event is completed.
   ///
-  /// Should be a no-op for CPU devices.  
+  /// Should be a no-op for CPU devices.
   virtual Status wait() = 0;
 
   /// @brief Make the provided stream wait on the sync event.
   ///
-  /// Tells the provided stream that it should wait until the 
+  /// Tells the provided stream that it should wait until the
   /// synchronization event is completed without blocking the CPU.
   /// @param stream Should be appropriate for the underlying device
   virtual Status stream_wait(void* stream) = 0;
@@ -130,7 +131,7 @@ class ARROW_EXPORT DeviceSync {
 
   Result<void*> get_event() {
     if (!sync_event_) {
-      ARROW_ASSIGN_OR_RAISE(sync_event_, create_event());  
+      ARROW_ASSIGN_OR_RAISE(sync_event_, create_event());
       owns_event_ = true;
     }
     return sync_event_;
@@ -141,11 +142,12 @@ class ARROW_EXPORT DeviceSync {
       release_event(sync_event_);
     }
     sync_event_ = nullptr;
-  }  
+  }
 
   Status record_event() {
     if (!stream_) {
-      return Status::Invalid("Cannot record event on null stream, call set_stream first.");
+      return Status::Invalid(
+          "Cannot record event on null stream, call set_stream first.");
     }
     ARROW_ASSIGN_OR_RAISE(auto ev, get_event());
     return record_event_on_stream(ev);
@@ -158,7 +160,7 @@ class ARROW_EXPORT DeviceSync {
   virtual Result<void*> create_event() = 0;
 
   void* stream_;
-  void* sync_event_; 
+  void* sync_event_;
   bool owns_event_;
 };
 

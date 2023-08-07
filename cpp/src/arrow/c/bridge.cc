@@ -520,7 +520,7 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
   SmallVector<struct ArrowArray, 1> children_;
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
-  std::shared_ptr<ArrayData> data_;  
+  std::shared_ptr<ArrayData> data_;
   std::shared_ptr<DeviceSync> sync_;
 
   ExportedArrayPrivateData() = default;
@@ -545,11 +545,11 @@ void ReleaseExportedArray(struct ArrowArray* array) {
         << "Dictionary release callback should have marked it released";
   }
   DCHECK_NE(array->private_data, nullptr);
-  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);  
+  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
   if (pdata->sync_) {
     pdata->sync_->clear_event();
   }
-  
+
   delete pdata;
 
   ArrowArrayMarkReleased(array);
@@ -715,7 +715,7 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
 
 Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
-  void* sync_event {nullptr};
+  void* sync_event{nullptr};
   if (sync) {
     ARROW_ASSIGN_OR_RAISE(sync_event, sync->get_event());
   }
@@ -745,14 +745,15 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
   return Status::OK();
 }
 
-Status ExportDeviceRecordBatch(const RecordBatch& batch, std::shared_ptr<DeviceSync>& sync,
+Status ExportDeviceRecordBatch(const RecordBatch& batch,
+                               std::shared_ptr<DeviceSync>& sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
-  void* sync_event {nullptr};
+  void* sync_event{nullptr};
   if (sync) {
     ARROW_ASSIGN_OR_RAISE(sync_event, sync->get_event());
-  }                              
-  
+  }
+
   // XXX perhaps bypass ToStructArray for speed?
   ARROW_ASSIGN_OR_RAISE(auto array, batch.ToStructArray());
 
@@ -1361,7 +1362,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  std::shared_ptr<DeviceSync> device_sync;  
+  std::shared_ptr<DeviceSync> device_sync;
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1394,9 +1395,7 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override {}
 
-  std::shared_ptr<DeviceSync> get_device_sync() override { 
-    return import_->device_sync; 
-  }
+  std::shared_ptr<DeviceSync> get_device_sync() override { return import_->device_sync; }
 
  protected:
   std::shared_ptr<ImportedArrayData> import_;
@@ -1411,8 +1410,9 @@ struct ArrayImporter {
   Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
-    RETURN_NOT_OK(Import(&src->array));    
-    ARROW_ASSIGN_OR_RAISE(import_->device_sync, memory_mgr_->MakeDeviceSync(src->sync_event));
+    RETURN_NOT_OK(Import(&src->array));
+    ARROW_ASSIGN_OR_RAISE(import_->device_sync,
+                          memory_mgr_->MakeDeviceSync(src->sync_event));
     // reset internal state before next import
     memory_mgr_.reset();
     device_type_ = DeviceAllocationType::kCPU;

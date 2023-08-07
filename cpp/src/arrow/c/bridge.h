@@ -22,9 +22,9 @@
 #include <string>
 
 #include "arrow/c/abi.h"
+#include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/device.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -221,7 +221,8 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
 /// \param[out] out C struct where to export the record batch
 /// \param[out] out_schema optional C struct where to export the record batch schema
 ARROW_EXPORT
-Status ExportDeviceRecordBatch(const RecordBatch& batch, std::shared_ptr<DeviceSync>& sync,
+Status ExportDeviceRecordBatch(const RecordBatch& batch,
+                               std::shared_ptr<DeviceSync>& sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema = NULLPTR);
 
