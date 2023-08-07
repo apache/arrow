@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/io/feather/proxy/feather_writer.h"
+#include "arrow/matlab/io/feather/proxy/writer.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/error/error.h"
 
@@ -30,12 +30,12 @@
 
 namespace arrow::matlab::io::feather::proxy {
 
-    FeatherWriter::FeatherWriter(const std::string& filename) : filename{filename} {
-        REGISTER_METHOD(FeatherWriter, getFilename);
-        REGISTER_METHOD(FeatherWriter, write);
+    Writer::Writer(const std::string& filename) : filename{filename} {
+        REGISTER_METHOD(Writer, getFilename);
+        REGISTER_METHOD(Writer, write);
     }
 
-    libmexclass::proxy::MakeResult FeatherWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    libmexclass::proxy::MakeResult Writer::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
         mda::StructArray opts = constructor_arguments[0];
         const mda::StringArray filename_mda = opts[0]["Filename"];
@@ -45,10 +45,10 @@ namespace arrow::matlab::io::feather::proxy {
                                arrow::util::UTF16StringToUTF8(filename_utf16),
                                error::UNICODE_CONVERSION_ERROR_ID);
         
-        return std::make_shared<FeatherWriter>(filename_utf8);
+        return std::make_shared<Writer>(filename_utf8);
     }
 
-    void FeatherWriter::getFilename(libmexclass::proxy::method::Context& context) {
+    void Writer::getFilename(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto utf16_filename,
                                             arrow::util::UTF8StringToUTF16(filename), 
@@ -59,7 +59,7 @@ namespace arrow::matlab::io::feather::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void FeatherWriter::write(libmexclass::proxy::method::Context& context) {
+    void Writer::write(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::StructArray opts = context.inputs[0];
         const mda::TypedArray<uint64_t> record_batch_proxy_id_mda = opts[0]["RecordBatchProxyID"];

@@ -23,11 +23,11 @@
 
 namespace arrow::matlab::io::feather::proxy {
 
-    class FeatherWriter : public libmexclass::proxy::Proxy {
+    class Writer : public libmexclass::proxy::Proxy {
         public:
-            FeatherWriter(const std::string& filename);
+            Writer(const std::string& filename);
         
-            ~FeatherWriter() {}
+            ~Writer() {}
 
             static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);  
         

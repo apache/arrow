@@ -50,3 +50,8 @@ function featherwrite(T, filename)
     writer = arrow.internal.io.feather.Writer(filename);
     writer.write(T);
 end
+
+function T = featherread(filename)
+    reader = arrow.internal.io.feather.Reader(filename);
+    T = reader.read();
+end

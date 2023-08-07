@@ -1,5 +1,3 @@
-%WRITER Class for writing feather V1 files.
-
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,35 +12,41 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef Writer < matlab.mixin.Scalar
 
-    properties(Hidden, SetAccess=private, GetAccess=public)
+classdef Reader
+%READER An internal Reader object for reading Feather files.
+
+    properties (GetAccess=public, SetAccess=private, Hidden)
         Proxy
     end
 
-    properties(Dependent)
+    properties (Dependent, SetAccess=private, GetAccess=public)
+        % Name of the file to read.
         Filename
     end
 
     methods
-        function obj = Writer(filename)
+
+        function obj = Reader(filename)
             arguments
                 filename(1, 1) {mustBeNonmissing, mustBeNonzeroLengthText}
             end
 
             args = struct(Filename=filename);
-            proxyName = "arrow.io.feather.proxy.Writer";
-            obj.Proxy = arrow.internal.proxy.create(proxyName, args);
+            obj.Proxy = arrow.internal.proxy.create("arrow.io.feather.proxy.Reader", args);
         end
 
-        function write(obj, T)
-            rb = arrow.recordbatch(T);
-            args = struct(RecordBatchProxyID=rb.Proxy.ID);
-            obj.Proxy.write(args);
+        function T = read(obj)
+            recordBatchProxyID = obj.Proxy.read();
+            proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.RecordBatch", ID=recordBatchProxyID);
+            recordBatch = arrow.tabular.RecordBatch(proxy);
+            T = recordBatch.toMATLAB();
         end
 
         function filename = get.Filename(obj)
             filename = obj.Proxy.getFilename();
         end
+
     end
+
 end
