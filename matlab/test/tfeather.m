@@ -164,7 +164,7 @@ classdef tfeather < matlab.unittest.TestCase
             
             t = createTable;
             
-            testCase.verifyError(@() featherwrite({filename}, t), 'MATLAB:arrow:InvalidFilenameDatatype');
+            testCase.verifyError(@() featherwrite({table}, t), 'MATLAB:validation:UnableToConvert');
             testCase.verifyError(@() featherread({filename}), 'MATLAB:arrow:InvalidFilenameDatatype');
         end
 
@@ -178,7 +178,7 @@ classdef tfeather < matlab.unittest.TestCase
         end
 
         function ErrorIfTooFewInputs(testCase)
-            testCase.verifyError(@() featherwrite(), 'MATLAB:narginchk:notEnoughInputs');
+            testCase.verifyError(@() featherwrite(), 'MATLAB:minrhs');
             testCase.verifyError(@() featherread(), 'MATLAB:narginchk:notEnoughInputs');
         end
         
@@ -193,7 +193,7 @@ classdef tfeather < matlab.unittest.TestCase
             
             t = table(age, smoker, height, weight, bloodPressure);
             
-            testCase.verifyError(@() featherwrite(filename, t), 'MATLAB:arrow:UnsupportedVariableType');
+            testCase.verifyError(@() featherwrite(filename, t), 'arrow:array:InvalidShape');
         end
         
         function UnsupportedMATLABDatatypes(testCase)
@@ -205,7 +205,7 @@ classdef tfeather < matlab.unittest.TestCase
                                         calendarDuration(5, 3, 2)];
             actualTable = addvars(actualTable, calendarDurationVariable);
 
-            testCase.verifyError(@() featherwrite(filename, actualTable) ,'MATLAB:arrow:UnsupportedVariableType');
+            testCase.verifyError(@() featherwrite(filename, actualTable) ,'arrow:array:UnsupportedMATLABType');
         end
         
         function NumericComplexUnsupported(testCase)
@@ -216,8 +216,7 @@ classdef tfeather < matlab.unittest.TestCase
             actualTable.double(2) = exp(9) + 5i;
             actualTable.int64(2) = 1.0418e+03;
            
-            expectedTable = featherRoundTrip(filename, actualTable);
-            testCase.verifyNotEqual(actualTable, expectedTable);
+            testCase.verifyError(@() featherwrite(filename, actualTable) ,'arrow:array:ComplexNumeric');
         end
     end
 end
