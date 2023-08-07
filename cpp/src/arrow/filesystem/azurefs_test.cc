@@ -51,7 +51,7 @@ class AzuriteEnv : public ::testing::Environment {
       status_ = Status::Invalid(error);
       return;
     }
-    auto temp_dir_ = TemporaryDir::Make("azurefs-test-").ValueOrDie();
+    auto temp_dir_ = *TemporaryDir::Make("azurefs-test-");
     server_process_ = bp::child(boost::this_process::environment(), exe_path, "--silent",
                                 "--location", temp_dir_->path().ToString(), "--debug",
                                 temp_dir_->path().ToString() + "/debug.log");
