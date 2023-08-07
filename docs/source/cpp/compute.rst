@@ -634,8 +634,8 @@ The example values are given for default values of ``ndigits`` and ``multiple``.
 |                       |                                                              | -3.5 -> -3, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 
-The following table gives examples of how ``ndigits`` (for the ``round``
-function) and ``multiple`` (for ``round_to_multiple`` and ``round_binary``) 
+The following table gives examples of how ``ndigits`` (for the ``round`` 
+and ``round_binary`` functions) and ``multiple`` (for ``round_to_multiple``) 
 influence the operation performed, respectively.
 
 +--------------------+-------------------+---------------------------+
