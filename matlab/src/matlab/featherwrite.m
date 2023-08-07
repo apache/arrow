@@ -28,6 +28,7 @@ function featherwrite(filename, t)
         t table
     end
 
+    recordBatch = arrow.recordbatch(t);
     writer = arrow.internal.io.feather.Writer(filename);
-    writer.write(t);
+    writer.write(recordBatch);
 end

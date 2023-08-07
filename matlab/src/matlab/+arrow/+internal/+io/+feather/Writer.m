@@ -35,9 +35,8 @@ classdef Writer < matlab.mixin.Scalar
             obj.Proxy = arrow.internal.proxy.create(proxyName, args);
         end
 
-        function write(obj, T)
-            rb = arrow.recordbatch(T);
-            args = struct(RecordBatchProxyID=rb.Proxy.ID);
+        function write(obj, recordBatch)
+            args = struct(RecordBatchProxyID=recordBatch.Proxy.ID);
             obj.Proxy.write(args);
         end
 
