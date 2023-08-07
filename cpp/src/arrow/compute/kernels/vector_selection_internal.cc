@@ -765,9 +765,6 @@ struct SparseUnionSelectionImpl
     RETURN_NOT_OK(adapter.Generate(
         [&](int64_t index) {
           child_id_buffer_builder_.UnsafeAppend(typed_values.type_code(index));
-          // TODO(jinshang): We use a naive approach for now: apply take for each child
-          // array. There is room for optimization because the unselected child arrays can
-          // have any value at this slot.
           return Status::OK();
         },
         [&]() {
