@@ -99,7 +99,7 @@ struct SourceNode : ExecNode, public TracedNode {
       : ExecNode(plan, {}, {}, std::move(output_schema)),
         TracedNode(this),
         generator_(std::move(generator)),
-        ordering_(ordering) {}
+        ordering_(std::move(ordering)) {}
 
   static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
                                 const ExecNodeOptions& options) {
@@ -177,7 +177,7 @@ struct SourceNode : ExecNode, public TracedNode {
 
     CallbackOptions options;
     // These options will transfer execution to the desired Executor if necessary.
-    // This can happen for in-memory scans where batches didn't require
+    // This can happen for in-memory scans where batches don't require
     // any CPU work to decode. Otherwise, parsing etc should have already
     // been placed us on the desired Executor and no queues will be pushed to.
     options.executor = plan()->query_context()->executor();
