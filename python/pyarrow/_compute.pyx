@@ -1964,7 +1964,7 @@ class CumulativeOptions(_CumulativeOptions):
     Parameters
     ----------
     start : Scalar, default None
-        Starting value for the cumulative operation. If none is given, 
+        Starting value for the cumulative operation. If none is given,
         a default value depending on the operation and input type is used.
     skip_nulls : bool, default False
         When false, the first encountered null is propagated.
@@ -2707,6 +2707,11 @@ cdef get_register_aggregate_function():
     reg.register_func = RegisterAggregateFunction
     return reg
 
+cdef get_register_vector_function():
+    cdef RegisterUdf reg = RegisterUdf.__new__(RegisterUdf)
+    reg.register_func = RegisterVectorFunction
+    return reg
+
 
 def register_scalar_function(func, function_name, function_doc, in_types, out_type,
                              func_registry=None):
@@ -2785,6 +2790,83 @@ def register_scalar_function(func, function_name, function_doc, in_types, out_ty
     ]
     """
     return _register_user_defined_function(get_register_scalar_function(),
+                                           func, function_name, function_doc, in_types,
+                                           out_type, func_registry)
+
+
+def register_vector_function(func, function_name, function_doc, in_types, out_type,
+                             func_registry=None):
+    """
+    Register a user-defined vector function.
+
+    This API is EXPERIMENTAL.
+
+    A vector function is a function that executes vector
+    operations on arrays. Vector function is often used
+    when compute doesn't fit other more specific types of
+    functions (e.g., scalar and aggregate).
+
+    Parameters
+    ----------
+    func : callable
+        A callable implementing the user-defined function.
+        The first argument is the context argument of type
+        UdfContext.
+        Then, it must take arguments equal to the number of
+        in_types defined. It must return an Array or Scalar
+        matching the out_type. It must return a Scalar if
+        all arguments are scalar, else it must return an Array.
+
+        To define a varargs function, pass a callable that takes
+        *args. The last in_type will be the type of all varargs
+        arguments.
+    function_name : str
+        Name of the function. There should only be one function
+        registered with this name in the function registry.
+    function_doc : dict
+        A dictionary object with keys "summary" (str),
+        and "description" (str).
+    in_types : Dict[str, DataType]
+        A dictionary mapping function argument names to
+        their respective DataType.
+        The argument names will be used to generate
+        documentation for the function. The number of
+        arguments specified here determines the function
+        arity.
+    out_type : DataType
+        Output type of the function.
+    func_registry : FunctionRegistry
+        Optional function registry to use instead of the default global one.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>>
+    >>> func_doc = {}
+    >>> func_doc["summary"] = "percent rank"
+    >>> func_doc["description"] = "compute percent rank"
+    >>>
+    >>> def list_flatten_udf(ctx, x):
+    ...     return pc.list_flatten(x)
+    >>>
+    >>> func_name = "list_flatten_udf"
+    >>> in_types = {"array": pa.list_(pa.int64())}
+    >>> out_type = pa.int64()
+    >>> pc.register_vector_function(list_flatten_udf, func_name, func_doc,
+    ...                   in_types, out_type)
+    >>>
+    >>> answer = pc.call_function(func_name, [pa.array([[1, 2], [3, 4]])])
+    >>> answer
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      1,
+      2,
+      3,
+      4
+    ]
+    """
+    return _register_user_defined_function(get_register_vector_function(),
                                            func, function_name, function_doc, in_types,
                                            out_type, func_registry)
 
