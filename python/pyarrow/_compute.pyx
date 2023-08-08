@@ -2802,10 +2802,9 @@ def register_vector_function(func, function_name, function_doc, in_types, out_ty
     This API is EXPERIMENTAL.
 
     A vector function is a function that executes vector
-    operations on arrays. Unlike scalar function, vector
-    function often has a grouping semantics and the output
-    for a row depends on other rows. A typical example
-    of vector function is "rank".
+    operations on arrays. Vector function is often used
+    when compute doesn't fit other more specific types of
+    functions (e.g., scalar and aggregate).
 
     Parameters
     ----------
