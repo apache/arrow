@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <exception>
+#include <optional>
 #include <random>
 #include <string>
 #include <vector>
@@ -474,7 +475,8 @@ static std::shared_ptr<Table> ToTable(const std::shared_ptr<Array>& array,
 
 template <typename T>
 static void BenchmarkFieldPathGet(benchmark::State& state,  // NOLINT non-const reference
-                                  const T& input, int num_columns) {
+                                  const T& input, int num_columns,
+                                  std::optional<int> num_chunks = {}) {
   // Reassigning a single FieldPath var within each iteration's scope seems to be costly
   // enough to influence the timings, so we preprocess them.
   std::vector<FieldPath> paths(num_columns);
@@ -489,6 +491,10 @@ static void BenchmarkFieldPathGet(benchmark::State& state,  // NOLINT non-const 
   }
 
   state.SetItemsProcessed(state.iterations() * num_columns);
+  state.counters["num_columns"] = num_columns;
+  if (num_chunks.has_value()) {
+    state.counters["num_chunks"] = num_chunks.value();
+  }
 }
 
 static void FieldPathGetFromWideArray(
@@ -519,14 +525,14 @@ static void FieldPathGetFromWideChunkedArray(
   // proportion means more chunks)
   const double chunk_proportion = state.range(0) / 100.0;
   auto chunked_array = ToChunked(GenerateTestArray(kNumColumns), chunk_proportion);
-  BenchmarkFieldPathGet(state, *chunked_array, kNumColumns);
+  BenchmarkFieldPathGet(state, *chunked_array, kNumColumns, chunked_array->num_chunks());
 }
 
 static void FieldPathGetFromWideTable(
     benchmark::State& state) {  // NOLINT non-const reference
   constexpr int kNumColumns = 10000;
   auto table = ToTable(GenerateTestArray(kNumColumns));
-  BenchmarkFieldPathGet(state, *table, kNumColumns);
+  BenchmarkFieldPathGet(state, *table, kNumColumns, table->column(0)->num_chunks());
 }
 
 BENCHMARK(TypeEqualsSimple);
