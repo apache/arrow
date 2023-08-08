@@ -1316,7 +1316,7 @@ def _test_write_to_dataset_with_partitions(base_path,
         output_df[col] = output_df[col].astype('category')
 
     if schema:
-        expected_date_type = schema.field_by_name('date').type.to_pandas_dtype()
+        expected_date_type = schema.field('date').type.to_pandas_dtype()
         output_df["date"] = output_df["date"].astype(expected_date_type)
 
     tm.assert_frame_equal(output_df, input_df)

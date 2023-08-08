@@ -29,6 +29,8 @@ namespace arrow::matlab::tabular::proxy {
         
             virtual ~RecordBatch() {}
 
+            std::shared_ptr<arrow::RecordBatch> unwrap();
+
             static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
     
         protected:

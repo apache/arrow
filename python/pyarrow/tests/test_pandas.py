@@ -2913,7 +2913,10 @@ class TestConvertMisc:
                           'f4', 'f8']
 
         for type_name in numeric_dtypes:
-            cases.append(random_numbers.astype(type_name))
+            # Casting np.float64 -> uint32 or uint64 throws a RuntimeWarning
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                cases.append(random_numbers.astype(type_name))
 
         # strings
         cases.append(np.array([random_ascii(10) for i in range(N * K)],
