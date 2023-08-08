@@ -486,7 +486,7 @@ static void BenchmarkFieldPathGet(benchmark::State& state,  // NOLINT non-const 
 
   for (auto _ : state) {
     for (const auto& path : paths) {
-      benchmark::DoNotOptimize(path.Get(input));
+      benchmark::DoNotOptimize(path.Get(input).ValueOrDie());
     }
   }
 
