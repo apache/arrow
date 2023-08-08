@@ -1870,6 +1870,7 @@ void AsyncClientTest::TestGetFlightInfo() {
   ASSERT_THAT(listener->future_.status().ToString(), ::testing::HasSubstr("Sentinel"));
   ASSERT_EQ(0, listener->counter_);
 }
+
 void AsyncClientTest::TestGetFlightInfoFuture() {
   auto descr = FlightDescriptor::Command("status-outofmemory");
   auto future = client_->GetFlightInfoAsync(descr);
@@ -1884,6 +1885,7 @@ void AsyncClientTest::TestGetFlightInfoFuture() {
   ASSERT_EQ(1000, info.total_records());
   ASSERT_EQ(100000, info.total_bytes());
 }
+
 void AsyncClientTest::TestListenerLifetime() {
   arrow::Future<FlightInfo> future = arrow::Future<FlightInfo>::Make();
 
@@ -1903,7 +1905,10 @@ void AsyncClientTest::TestListenerLifetime() {
     arrow::Future<FlightInfo> future_;
   };
 
-  // Bad client code: don't retain a reference to the listener
+  // Bad client code: don't retain a reference to the listener, which owns the
+  // RPC state. We should still be able to get the result without crashing. (The
+  // RPC state is disposed of in the background via the 'garbage bin' in the
+  // gRPC client implementation.)
   {
     auto descr = FlightDescriptor::Command("my_command");
     auto listener = std::make_shared<Listener>();

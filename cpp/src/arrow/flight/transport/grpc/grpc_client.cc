@@ -1077,6 +1077,8 @@ void InitializeFlightGrpcClient() {
   });
 }
 
+#undef LISTENER_NOT_OK
+
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight
