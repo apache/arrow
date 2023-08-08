@@ -52,7 +52,9 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/schema_ref"
 	"github.com/apache/arrow/go/v13/arrow/memory"
 	"github.com/apache/arrow/go/v13/arrow/scalar"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
 )
@@ -462,6 +464,9 @@ type dbQueryCtx interface {
 func doGetQuery(ctx context.Context, mem memory.Allocator, db dbQueryCtx, query string, schema *arrow.Schema, args ...interface{}) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
+		// Not really useful except for testing Flight SQL clients
+		trailers := metadata.Pairs("afsql-sqlite-query", query)
+		grpc.SetTrailer(ctx, trailers)
 		return nil, nil, err
 	}
 
