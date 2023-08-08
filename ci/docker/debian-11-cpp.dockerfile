@@ -117,7 +117,6 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
     AWSSDK_SOURCE=BUNDLED \
-    AZURE_SDK_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
