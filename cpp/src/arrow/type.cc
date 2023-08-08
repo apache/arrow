@@ -1066,17 +1066,29 @@ std::string FieldPath::ToString() const {
   return repr;
 }
 
-static Status NonStructError() {
-  return Status::NotImplemented("Get child data of non-struct array");
-}
+struct NestedSelectorUtil {
+  static Status NonStructError() {
+    return Status::NotImplemented("Get child data of non-struct array");
+  }
 
-// Utility class for retrieving a child field/column from a top-level Field, Array, or
-// ChunkedArray. The "root" value can either be a single parent or a vector of its
-// children.
+  template <typename T>
+  static const DataType* GetType(const T& input) {
+    if constexpr (std::is_same_v<T, ArrayData>) {
+      return input.type.get();
+    } else {
+      return input.type().get();
+    }
+  }
+};
+
+// Utility class for retrieving a child field/column from a top-level Field, Array,
+// ArrayData, or ChunkedArray. The "root" value can either be a single parent or a vector
+// of its children.
 template <typename T, bool IsFlattening = false>
 class NestedSelector {
  public:
   using ArrowType = T;
+  using Util = NestedSelectorUtil;
 
   explicit NestedSelector(const std::vector<std::shared_ptr<T>>& children)
       : parent_or_children_(&children) {}
@@ -1095,7 +1107,18 @@ class NestedSelector {
   Result<NestedSelector> GetChild(int i) const {
     std::shared_ptr<T> child;
     if (auto parent = get_parent()) {
-      ARROW_ASSIGN_OR_RAISE(child, GetChild(*parent, i, pool_));
+      const DataType* type = Util::GetType(*parent);
+      // We avoid this check for schema fields since it's inconsequential (plus there are
+      // tests elsewhere that rely on it not happening)
+      if constexpr (!std::is_same_v<T, Field>) {
+        if (ARROW_PREDICT_FALSE(type->id() != Type::STRUCT)) {
+          return Util::NonStructError();
+        }
+      }
+      // Bounds-check the index *once* using the parent's type
+      if (ARROW_PREDICT_TRUE(i >= 0 && i < type->num_fields())) {
+        ARROW_ASSIGN_OR_RAISE(child, GetChild(*parent, i, pool_));
+      }
     } else if (auto children = get_children()) {
       if (ARROW_PREDICT_TRUE(i >= 0 && static_cast<size_t>(i) < children->size())) {
         child = (*children)[i];
@@ -1129,10 +1152,10 @@ class NestedSelector {
     *os << "column types: { ";
     if (auto children = get_children()) {
       for (const auto& child : *children) {
-        *os << *child->type() << ", ";
+        *os << *Util::GetType(*child) << ", ";
       }
     } else if (auto parent = get_parent()) {
-      for (const auto& field : parent->type()->fields()) {
+      for (const auto& field : Util::GetType(*parent)->fields()) {
         *os << *field->type() << ", ";
       }
     }
@@ -1155,21 +1178,33 @@ class NestedSelector {
   }
 
   static Result<std::shared_ptr<Field>> GetChild(const Field& field, int i, MemoryPool*) {
-    if (ARROW_PREDICT_FALSE(i < 0 || i >= field.type()->num_fields())) {
-      return nullptr;
-    }
     return field.type()->field(i);
+  }
+
+  static Result<std::shared_ptr<ArrayData>> GetChild(const ArrayData& data, int i,
+                                                     MemoryPool* pool) {
+    std::shared_ptr<ArrayData> child_data;
+    if constexpr (IsFlattening) {
+      // First, convert to an Array so we can use StructArray::GetFlattenedField
+      auto array = MakeArray(data.Copy());
+      ARROW_ASSIGN_OR_RAISE(auto child_array, GetChild(*array, i, pool));
+      child_data = child_array->data();
+    } else {
+      // We could achieve the same result by converting to an Array (via MakeArray),
+      // calling StructArray::field(i), and pulling out the new ArrayData. However, this
+      // process can be very expensive when there are many columns - so we just
+      // reimplement the functionality that we need
+      child_data = data.child_data[i];
+      if (data.offset != 0 || data.child_data[i]->length != data.length) {
+        child_data = child_data->Slice(data.offset, data.length);
+      }
+    }
+
+    return std::move(child_data);
   }
 
   static Result<std::shared_ptr<Array>> GetChild(const Array& array, int i,
                                                  MemoryPool* pool) {
-    if (ARROW_PREDICT_FALSE(array.type_id() != Type::STRUCT)) {
-      return NonStructError();
-    }
-    if (ARROW_PREDICT_FALSE(i < 0 || i >= array.num_fields())) {
-      return nullptr;
-    }
-
     const auto& struct_array = checked_cast<const StructArray&>(array);
     if constexpr (IsFlattening) {
       return struct_array.GetFlattenedField(i, pool);
@@ -1181,22 +1216,15 @@ class NestedSelector {
   static Result<std::shared_ptr<ChunkedArray>> GetChild(const ChunkedArray& chunked_array,
                                                         int i, MemoryPool* pool) {
     const auto& type = *chunked_array.type();
-    if (ARROW_PREDICT_FALSE(type.id() != Type::STRUCT)) {
-      return NonStructError();
-    }
-    if (ARROW_PREDICT_FALSE(i < 0 || i >= type.num_fields())) {
-      return nullptr;
-    }
 
     ArrayVector chunks;
     chunks.reserve(chunked_array.num_chunks());
     for (const auto& parent_chunk : chunked_array.chunks()) {
       ARROW_ASSIGN_OR_RAISE(auto chunk, GetChild(*parent_chunk, i, pool));
-      if (!chunk) return nullptr;
       chunks.push_back(std::move(chunk));
     }
 
-    return ChunkedArray::Make(std::move(chunks), type.field(i)->type());
+    return std::make_shared<ChunkedArray>(std::move(chunks), type.field(i)->type());
   }
 
   std::shared_ptr<T> owned_parent_;
@@ -1289,7 +1317,11 @@ Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
 }
 
 Result<std::shared_ptr<Array>> FieldPath::Get(const RecordBatch& batch) const {
-  return FieldPathGetImpl::Get(this, ZeroCopySelector<Array>(batch.columns()));
+  // Deliberately calling `column_data` here because `RecordBatch::columns` is nontrivial
+  ARROW_ASSIGN_OR_RAISE(
+      auto data,
+      FieldPathGetImpl::Get(this, ZeroCopySelector<ArrayData>(batch.column_data())));
+  return MakeArray(data);
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(const Table& table) const {
@@ -1301,11 +1333,7 @@ Result<std::shared_ptr<Array>> FieldPath::Get(const Array& array) const {
 }
 
 Result<std::shared_ptr<ArrayData>> FieldPath::Get(const ArrayData& data) const {
-  // We indirect from ArrayData to Array rather than vice-versa because, when selecting a
-  // nested column, the StructArray::field method does the work of adjusting the data's
-  // offset/length if necessary.
-  ARROW_ASSIGN_OR_RAISE(auto array, Get(*MakeArray(data.Copy())));
-  return array->data();
+  return FieldPathGetImpl::Get(this, ZeroCopySelector<ArrayData>(data));
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::Get(
@@ -1320,8 +1348,7 @@ Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const Array& array,
 
 Result<std::shared_ptr<ArrayData>> FieldPath::GetFlattened(const ArrayData& data,
                                                            MemoryPool* pool) const {
-  ARROW_ASSIGN_OR_RAISE(auto array, GetFlattened(*MakeArray(data.Copy()), pool));
-  return array->data();
+  return FieldPathGetImpl::Get(this, FlatteningSelector<ArrayData>(data, pool));
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(
@@ -1332,7 +1359,10 @@ Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(
 
 Result<std::shared_ptr<Array>> FieldPath::GetFlattened(const RecordBatch& batch,
                                                        MemoryPool* pool) const {
-  return FieldPathGetImpl::Get(this, FlatteningSelector<Array>(batch.columns(), pool));
+  ARROW_ASSIGN_OR_RAISE(
+      auto data, FieldPathGetImpl::Get(
+                     this, FlatteningSelector<ArrayData>(batch.column_data(), pool)));
+  return MakeArray(data);
 }
 
 Result<std::shared_ptr<ChunkedArray>> FieldPath::GetFlattened(const Table& table,
