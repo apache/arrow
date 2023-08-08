@@ -531,7 +531,8 @@ static void FieldPathGetFromWideChunkedArray(
 static void FieldPathGetFromWideTable(
     benchmark::State& state) {  // NOLINT non-const reference
   constexpr int kNumColumns = 10000;
-  auto table = ToTable(GenerateTestArray(kNumColumns));
+  const double chunk_proportion = state.range(0) / 100.0;
+  auto table = ToTable(GenerateTestArray(kNumColumns), chunk_proportion);
   BenchmarkFieldPathGet(state, *table, kNumColumns, table->column(0)->num_chunks());
 }
 
@@ -556,7 +557,8 @@ BENCHMARK(ErrorSchemeExceptionNoInline);
 BENCHMARK(FieldPathGetFromWideArray);
 BENCHMARK(FieldPathGetFromWideArrayData);
 BENCHMARK(FieldPathGetFromWideBatch);
-BENCHMARK(FieldPathGetFromWideTable);
-BENCHMARK(FieldPathGetFromWideChunkedArray)->Arg(2)->Arg(8)->Arg(32)->Arg(100);
+
+BENCHMARK(FieldPathGetFromWideChunkedArray)->Arg(2)->Arg(10)->Arg(25)->Arg(100);
+BENCHMARK(FieldPathGetFromWideTable)->Arg(2)->Arg(10)->Arg(25)->Arg(100);
 
 }  // namespace arrow
