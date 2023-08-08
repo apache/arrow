@@ -340,38 +340,28 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       throw ParquetException("direct put to boolean from " + values.type()->ToString() +
                              " not supported");
     }
-    if (ARROW_PREDICT_FALSE(bit_writer_.bytes_written() != 0)) {
-      throw ParquetException(
-          "Cannot Put arrow array when PlainEncoder<BooleanType> "
-          "has remaining writes in `bit_writer_`");
-    }
-
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
-    if (data.null_count() == 0) {
-      PARQUET_THROW_NOT_OK(sink_.Reserve(bit_util::BytesForBits(data.length())));
-      // no nulls, just dump the data
-      ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
-                                    data.length(), sink_.mutable_data(), sink_.length());
-    } else {
-      auto n_valid = bit_util::BytesForBits(data.length() - data.null_count());
-      PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
-      ::arrow::internal::FirstTimeBitmapWriter writer(sink_.mutable_data(),
-                                                      sink_.length(), n_valid);
 
-      for (int64_t i = 0; i < data.length(); i++) {
-        // Only valid boolean data will call `writer.Next`.
+    if (data.null_count() == 0) {
+      ArrowPoolVector<bool> boolean_data(data.length(), this->memory_pool());
+      for (int i = 0; i < data.length(); ++i) {
+        boolean_data[i] = data.Value(i);
+      }
+      PutImpl(boolean_data, static_cast<int>(data.length()));
+    } else {
+      ArrowPoolVector<bool> boolean_data(data.length() - data.null_count(),
+                                         this->memory_pool());
+      int boolean_data_index = 0;
+      for (int i = 0; i < data.length(); ++i) {
         if (data.IsValid(i)) {
-          if (data.Value(i)) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
+          DCHECK(boolean_data_index <
+                 static_cast<int>(data.length() - data.null_count()));
+          boolean_data[boolean_data_index] = data.Value(i);
+          ++boolean_data_index;
         }
       }
-      writer.Finish();
+      PutImpl(boolean_data, static_cast<int>(data.length() - data.null_count()));
     }
-    sink_.UnsafeAdvance(data.length() - data.null_count());
   }
 
  private:
