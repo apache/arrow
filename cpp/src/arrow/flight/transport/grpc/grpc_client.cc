@@ -838,16 +838,20 @@ class GrpcClientImpl : public internal::ClientTransport {
 
   Status Close() override {
 #ifdef GRPC_ENABLE_ASYNC
-    // XXX: if there are async RPCs running when the client is
-    // stopped, then when they go to use the garbage bin, they'll
-    // instead synchronously dispose of resources from the callback
-    // thread, and will likely crash.
+    // TODO(https://github.com/apache/arrow/issues/30949): if there are async
+    // RPCs running when the client is stopped, then when they go to use the
+    // garbage bin, they'll instead synchronously dispose of resources from
+    // the callback thread, and will likely crash. We could instead cancel
+    // them first and wait for completion before stopping the thread, but
+    // tracking all of the RPCs may be unacceptable overhead for clients that
+    // are making many small concurrent RPC calls, so it remains to be seen
+    // whether there's a pressing need for this.
     garbage_bin_->Stop();
 #endif
-    // TODO(ARROW-15473): if we track ongoing RPCs, we can cancel them first
-    // gRPC does not offer a real Close(). We could reset() the gRPC
-    // client but that can cause gRPC to hang in shutdown
-    // (ARROW-15793).
+    // TODO(https://github.com/apache/arrow/issues/30949): if we track ongoing
+    // RPCs, we can cancel them first gRPC does not offer a real Close(). We
+    // could reset() the gRPC client but that can cause gRPC to hang in
+    // shutdown (https://github.com/apache/arrow/issues/31235).
     return Status::OK();
   }
 
