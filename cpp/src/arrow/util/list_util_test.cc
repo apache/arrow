@@ -26,6 +26,7 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 using ListAndListViewTypes =
     ::testing::Types<ListType, LargeListType, ListViewType, LargeListViewType>;
@@ -154,5 +155,79 @@ class TestListUtils : public ::testing::Test {
 TYPED_TEST_SUITE(TestListUtils, ListAndListViewTypes);
 
 TYPED_TEST(TestListUtils, RangeOfValuesUsed) { this->TestRangeOfValuesUsed(); }
+
+class TestListConversions : public ::testing::Test {
+ private:
+  MemoryPool* pool_;
+
+ public:
+  TestListConversions() : pool_(default_memory_pool()) {}
+
+  template <typename DestListViewType, typename SrcListType>
+  void DoTestListViewFromList() {
+    using SrcListArrayClass = typename TypeTraits<SrcListType>::ArrayType;
+    auto list_type = std::make_shared<SrcListType>(int32());
+    auto list_view_type = std::make_shared<DestListViewType>(int32());
+
+    auto expected_list_view_w_nulls =
+        ArrayFromJSON(list_view_type, "[[1, 2], [3], [], [4], null]");
+    auto expected_list_view_wo_nulls =
+        ArrayFromJSON(list_view_type, "[[1, 2], [], [100000]]");
+
+    std::shared_ptr<Array> list_w_nulls =
+        ArrayFromJSON(list_type, "[[1, 2], [3], [], [4], null]");
+    auto list_wo_nulls = ArrayFromJSON(list_type, "[[1, 2], [], [100000]]");
+
+    ASSERT_OK_AND_ASSIGN(
+        auto result, list_util::internal::ListViewFromList(
+                         *checked_pointer_cast<SrcListArrayClass>(list_w_nulls), pool_));
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*expected_list_view_w_nulls, *result, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(
+        result, list_util::internal::ListViewFromList(
+                    *checked_pointer_cast<SrcListArrayClass>(list_wo_nulls), pool_));
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*expected_list_view_wo_nulls, *result, /*verbose=*/true);
+  }
+
+  template <typename DestListType, typename SrcListViewType>
+  void DoTestListFromListView() {
+    using SrcListViewArrayClass = typename TypeTraits<SrcListViewType>::ArrayType;
+    auto list_view_type = std::make_shared<SrcListViewType>(int32());
+    auto list_type = std::make_shared<DestListType>(int32());
+
+    auto list_view_w_nulls =
+        ArrayFromJSON(list_view_type, "[[1, 2], [3], [], [4], null]");
+    auto list_view_wo_nulls = ArrayFromJSON(list_view_type, "[[1, 2], [], [100000]]");
+
+    auto expected_list_w_nulls = ArrayFromJSON(list_type, "[[1, 2], [3], [], [4], null]");
+    auto expected_list_wo_nulls = ArrayFromJSON(list_type, "[[1, 2], [], [100000]]");
+
+    ASSERT_OK_AND_ASSIGN(
+        auto result,
+        list_util::internal::ListFromListView(
+            *checked_pointer_cast<SrcListViewArrayClass>(list_view_w_nulls), pool_));
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*expected_list_w_nulls, *result, /*verbose=*/true);
+
+    ASSERT_OK_AND_ASSIGN(
+        result,
+        list_util::internal::ListFromListView(
+            *checked_pointer_cast<SrcListViewArrayClass>(list_view_wo_nulls), pool_));
+    ASSERT_OK(result->ValidateFull());
+    AssertArraysEqual(*expected_list_wo_nulls, *result, /*verbose=*/true);
+  }
+};
+
+TEST_F(TestListConversions, ListViewFromList) {
+  this->DoTestListViewFromList<ListViewType, ListType>();
+  this->DoTestListViewFromList<LargeListViewType, LargeListType>();
+}
+
+TEST_F(TestListConversions, ListFromListView) {
+  this->DoTestListFromListView<ListType, ListViewType>();
+  this->DoTestListFromListView<LargeListType, LargeListViewType>();
+}
 
 }  // namespace arrow
