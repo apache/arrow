@@ -2848,22 +2848,23 @@ def register_vector_function(func, function_name, function_doc, in_types, out_ty
     >>> func_doc["summary"] = "percent rank"
     >>> func_doc["description"] = "compute percent rank"
     >>>
-    >>> def rank_pct(ctx, x):
-    ...     return pa.array(x.to_pandas().rank(pct=True))
+    >>> def list_flatten_udf(ctx, x):
+    ...     return pc.list_flatten(x)
     >>>
-    >>> func_name = "pct_rank_func"
-    >>> in_types = {"array": pa.int64()}
-    >>> out_type = pa.float64()
-    >>> pc.register_vector_function(rank_pct, func_name, func_doc,
+    >>> func_name = "list_flatten_udf"
+    >>> in_types = {"array": pa.list_(pa.int64())}
+    >>> out_type = pa.int64()
+    >>> pc.register_vector_function(list_flatten_udf, func_name, func_doc,
     ...                   in_types, out_type)
     >>>
-    >>> answer = pc.call_function(func_name, [pa.array([20, 30, 40])])
+    >>> answer = pc.call_function(func_name, [pa.array([[1, 2], [3, 4]])])
     >>> answer
-    <pyarrow.lib.DoubleArray object at ...>
+    <pyarrow.lib.Int64Array object at ...>
     [
-      0.3333333333333333,
-      0.6666666666666666,
-      1
+      1,
+      2,
+      3,
+      4
     ]
     """
     return _register_user_defined_function(get_register_vector_function(),
