@@ -67,12 +67,12 @@ service FlightService {
 
   /*
    * For a given FlightDescriptor, start a query and get information
-   * to poll the updated statuses. This is a useful interface if the
+   * to poll its execution status. This is a useful interface if the
    * query may be a long-running query. The first PollFlightInfo call
    * should return as quickly as possible. (GetFlightInfo doesn't
    * return until the query is complete.)
    *
-   * A client can consume the current results so far before
+   * A client can consume any available results before
    * the query is completed. See RetryInfo.info for details.
    *
    * A client can poll the updated query status by calling
@@ -373,15 +373,18 @@ message FlightInfo {
  */
 message RetryInfo {
   /*
-   * The currently available results so far.
+   * The currently available results.
    *
-   * It's a complete FlightInfo each time not just the delta between
-   * the previous and current FlightInfo.
+   * If `flight_descriptor` is not specified, the query is complete and 
+   * `info` specifies all results. Otherwise, `info` contains partial query results.
    *
-   * A server should only append to the endpoints in the info. So the
-   * client can run DoGet(Ticket) with the Ticket in the info even
-   * when the query isn't finished yet. FlightInfo.ordered is also
-   * valid.
+   * Note that each `RetryInfo` response contains a complete FlightInfo 
+   * (not just the delta between the previous and current FlightInfo). 
+   *
+   * Subsequent `RetryInfo` responses may only append new endpoints to info. 
+   *
+   * Clients can begin fetching results via DoGet(Ticket) with the ticket in the info before 
+   * the query is completed. FlightInfo.ordered is also valid.
    */
   FlightInfo info = 1;
 
@@ -392,7 +395,7 @@ message RetryInfo {
   FlightDescriptor flight_descriptor = 2;
 
   /*
-   * Query progress. Must be in [0.0, 1.0] but need not be
+   * Query progress. If known, must be in [0.0, 1.0] but need not be
    * monotonic or nondecreasing. If unknown, do not set.
    */
   optional double progress = 3;
