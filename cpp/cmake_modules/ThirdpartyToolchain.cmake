@@ -58,6 +58,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     gRPC
     GTest
     jemalloc
+    LibXml2
     LLVM
     lz4
     nlohmann_json
@@ -74,7 +75,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     xsimd
     ZLIB
     zstd
-    LibXml2
 )
 
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
@@ -162,6 +162,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_absl()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "AZURE_SDK")
+    build_azuresdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
@@ -184,6 +186,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
     build_jemalloc()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "LibXml2")
+    build_libxml2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
@@ -214,10 +218,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_zlib()
   elseif("${DEPENDENCY_NAME}" STREQUAL "zstd")
     build_zstd()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "AZURE_SDK")
-    build_azuresdk()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "LibXml2")
-    build_libxml2()
   else()
     message(FATAL_ERROR "Unknown thirdparty dependency to build: ${DEPENDENCY_NAME}")
   endif()
@@ -237,8 +237,6 @@ macro(provide_find_module PACKAGE_NAME ARROW_CMAKE_PACKAGE_NAME)
 endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
-  message(STATUS "Resolving dependency ${DEPENDENCY_NAME}")
-  message(STATUS "source ${${DEPENDENCY_NAME}_SOURCE}")
   set(options)
   set(one_value_args
       ARROW_CMAKE_PACKAGE_NAME
@@ -289,15 +287,12 @@ macro(resolve_dependency DEPENDENCY_NAME)
     if(COMPATIBLE)
       set(${DEPENDENCY_NAME}_SOURCE "SYSTEM")
     else()
-      message(STATUS "Using bundled ${DEPENDENCY_NAME}")
       build_dependency(${DEPENDENCY_NAME})
       set(${DEPENDENCY_NAME}_SOURCE "BUNDLED")
     endif()
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "BUNDLED")
-    message(STATUS "Using bundled2 ${DEPENDENCY_NAME}")
     build_dependency(${DEPENDENCY_NAME})
   elseif(${DEPENDENCY_NAME}_SOURCE STREQUAL "SYSTEM")
-    message(STATUS "Using system ${DEPENDENCY_NAME}, ${FIND_PACKAGE_ARGUMENTS}")
     find_package(${FIND_PACKAGE_ARGUMENTS} REQUIRED)
     if(ARG_FORCE_ANY_NEWER_VERSION AND ARG_REQUIRED_VERSION)
       if(${${PACKAGE_NAME}_VERSION} VERSION_LESS ${ARG_REQUIRED_VERSION})
@@ -5194,7 +5189,7 @@ macro(build_azuresdk)
       "${AZURESDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-storage-files-datalake${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   externalproject_add(azuresdk_ep
-                      # ${EP_LOG_OPTIONS}
+                      ${EP_LOG_OPTIONS}
                       INSTALL_DIR ${AZURESDK_PREFIX}
                       URL ${ARROW_AZURESDK_URL}
                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}"
