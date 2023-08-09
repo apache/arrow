@@ -262,61 +262,6 @@ const FunctionDoc cumulative_mean_doc{
     {"values"},
     "CumulativeOptions"};
 
-// Kernel factory for simple arithmetic operations.
-// Op is a compute kernel representing any binary associative operation with
-// an identity element (add, product, min, max, etc.), i.e. ones that form a monoid.
-template <typename Op, typename OptionsType>
-struct CumulativeBinaryOpKernelFactory {
-  VectorKernel kernel;
-
-  CumulativeBinaryOpKernelFactory() {
-    kernel.can_execute_chunkwise = false;
-    kernel.null_handling = NullHandling::type::COMPUTED_NO_PREALLOCATE;
-    kernel.mem_allocation = MemAllocation::type::NO_PREALLOCATE;
-    kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
-  }
-
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type& type) {
-    kernel.signature =
-        KernelSignature::Make({type.GetSharedPtr()}, OutputType(type.GetSharedPtr()));
-    kernel.exec = CumulativeKernel<Type, CumulativeBinaryOp<Op, Type>, OptionsType>::Exec;
-    kernel.exec_chunked =
-        CumulativeKernelChunked<Type, CumulativeBinaryOp<Op, Type>, OptionsType>::Exec;
-    return arrow::Status::OK();
-  }
-
-  Status Visit(const DataType& type) {
-    return Status::NotImplemented("Cumulative kernel not implemented for type ",
-                                  type.ToString());
-  }
-
-  Result<VectorKernel> Make(const DataType& type) {
-    RETURN_NOT_OK(VisitTypeInline(type, this));
-    return kernel;
-  }
-};
-
-template <typename Op, typename OptionsType>
-void MakeVectorCumulativeBinaryOpFunction(FunctionRegistry* registry,
-                                          const std::string func_name,
-                                          const FunctionDoc doc) {
-  static const OptionsType kDefaultOptions = OptionsType::Defaults();
-  auto func =
-      std::make_shared<VectorFunction>(func_name, Arity::Unary(), doc, &kDefaultOptions);
-
-  std::vector<std::shared_ptr<DataType>> types;
-  types.insert(types.end(), NumericTypes().begin(), NumericTypes().end());
-
-  CumulativeBinaryOpKernelFactory<Op, OptionsType> kernel_factory;
-  for (const auto& ty : types) {
-    auto kernel = kernel_factory.Make(*ty).ValueOrDie();
-    DCHECK_OK(func->AddKernel(std::move(kernel)));
-  }
-
-  DCHECK_OK(registry->AddFunction(std::move(func)));
-}
-
 // Kernel factory for complex stateful computations.
 template <template <typename ArgType> typename State, typename OptionsType>
 struct CumulativeStatefulKernelFactory {
@@ -369,23 +314,38 @@ void MakeVectorCumulativeStatefulFunction(FunctionRegistry* registry,
 
   DCHECK_OK(registry->AddFunction(std::move(func)));
 }
+
+// A kernel factory that forwards to CumulativeBinaryOp<Op, ...> for the given type.
+// Need to use a struct because template-using declarations cannot appear in
+// function scope.
+template <typename Op, typename OptionsType>
+struct MakeVectorCumulativeBinaryOpFunction {
+  template <typename ArgType>
+  using State = CumulativeBinaryOp<Op, ArgType>;
+
+  static void Call(FunctionRegistry* registry, std::string func_name, FunctionDoc doc) {
+    MakeVectorCumulativeStatefulFunction<State, OptionsType>(
+        registry, std::move(func_name), std::move(doc));
+  }
+};
+
 }  // namespace
 
 void RegisterVectorCumulativeSum(FunctionRegistry* registry) {
-  MakeVectorCumulativeBinaryOpFunction<Add, CumulativeOptions>(registry, "cumulative_sum",
-                                                               cumulative_sum_doc);
-  MakeVectorCumulativeBinaryOpFunction<AddChecked, CumulativeOptions>(
+  MakeVectorCumulativeBinaryOpFunction<Add, CumulativeOptions>::Call(
+      registry, "cumulative_sum", cumulative_sum_doc);
+  MakeVectorCumulativeBinaryOpFunction<AddChecked, CumulativeOptions>::Call(
       registry, "cumulative_sum_checked", cumulative_sum_checked_doc);
 
-  MakeVectorCumulativeBinaryOpFunction<Multiply, CumulativeOptions>(
+  MakeVectorCumulativeBinaryOpFunction<Multiply, CumulativeOptions>::Call(
       registry, "cumulative_prod", cumulative_prod_doc);
-  MakeVectorCumulativeBinaryOpFunction<MultiplyChecked, CumulativeOptions>(
+  MakeVectorCumulativeBinaryOpFunction<MultiplyChecked, CumulativeOptions>::Call(
       registry, "cumulative_prod_checked", cumulative_prod_checked_doc);
 
-  MakeVectorCumulativeBinaryOpFunction<Min, CumulativeOptions>(registry, "cumulative_min",
-                                                               cumulative_min_doc);
-  MakeVectorCumulativeBinaryOpFunction<Max, CumulativeOptions>(registry, "cumulative_max",
-                                                               cumulative_max_doc);
+  MakeVectorCumulativeBinaryOpFunction<Min, CumulativeOptions>::Call(
+      registry, "cumulative_min", cumulative_min_doc);
+  MakeVectorCumulativeBinaryOpFunction<Max, CumulativeOptions>::Call(
+      registry, "cumulative_max", cumulative_max_doc);
 
   MakeVectorCumulativeStatefulFunction<CumulativeMean, CumulativeOptions>(
       registry, "cumulative_mean", cumulative_max_doc);
