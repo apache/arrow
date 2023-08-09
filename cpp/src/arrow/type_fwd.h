@@ -560,7 +560,7 @@ ARROW_EXPORT std::shared_ptr<DataType> time64(TimeUnit::type unit);
 ARROW_EXPORT std::shared_ptr<DataType> struct_(
     const std::vector<std::shared_ptr<Field>>& fields);
 
-/// \brief Create a StructType instance by initializer_list
+/// \brief Create a StructType instance from (name, type) pairs
 ARROW_EXPORT std::shared_ptr<DataType> struct_(
     std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields);
 
@@ -633,9 +633,11 @@ std::shared_ptr<Schema> schema(
     std::vector<std::shared_ptr<Field>> fields,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
-/// \brief Create a Schema instance
+/// \brief Create a Schema instance from (name, type) pairs
 ///
-/// \param fields the schema's fields in the form of initializer_list
+/// The schema's fields will all be nullable with no associated metadata.
+///
+/// \param fields (name, type) pairs of the schema's fields
 /// \param metadata any custom key-value metadata, default null
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
@@ -656,7 +658,9 @@ std::shared_ptr<Schema> schema(
 
 /// \brief Create a Schema instance
 ///
-/// \param fields the schema's fields in the form of initializer_list
+/// The schema's fields will all be nullable with no associated metadata.
+///
+/// \param fields (name, type) pairs of the schema's fields
 /// \param endianness the endianness of the data
 /// \param metadata any custom key-value metadata, default null
 /// \return schema shared_ptr to Schema

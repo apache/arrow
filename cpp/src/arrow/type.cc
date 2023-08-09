@@ -276,6 +276,17 @@ std::shared_ptr<Field> MaybePromoteNullTypes(const Field& existing, const Field&
   // `other` must be null.
   return existing.WithNullable(true);
 }
+
+std::vector<std::shared_ptr<Field>> MakeFields(
+    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> init_list) {
+  std::vector<std::shared_ptr<Field>> fields;
+  fields.reserve(init_list.size());
+  for (const auto& [name, type] : init_list) {
+    fields.push_back(field(name, type));
+  }
+  return fields;
+}
+
 }  // namespace
 
 Field::~Field() {}
@@ -2120,16 +2131,6 @@ Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& 
   return Merge(schemas, policy).status();
 }
 
-std::vector<std::shared_ptr<Field>> make_fields(
-    std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> init_list) {
-  std::vector<std::shared_ptr<Field>> fields;
-  fields.reserve(init_list.size());
-  for (const auto& [name, type] : init_list) {
-    fields.push_back(field(name, type));
-  }
-  return fields;
-}
-
 std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
                                std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(std::move(fields), std::move(metadata));
@@ -2138,7 +2139,7 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
 std::shared_ptr<Schema> schema(
     std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
     std::shared_ptr<const KeyValueMetadata> metadata) {
-  return std::make_shared<Schema>(make_fields(fields), std::move(metadata));
+  return std::make_shared<Schema>(MakeFields(fields), std::move(metadata));
 }
 
 std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
@@ -2150,7 +2151,7 @@ std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
 std::shared_ptr<Schema> schema(
     std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields,
     Endianness endianness, std::shared_ptr<const KeyValueMetadata> metadata) {
-  return std::make_shared<Schema>(make_fields(fields), endianness, std::move(metadata));
+  return std::make_shared<Schema>(MakeFields(fields), endianness, std::move(metadata));
 }
 
 Result<std::shared_ptr<Schema>> UnifySchemas(
@@ -2665,7 +2666,7 @@ std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fie
 
 std::shared_ptr<DataType> struct_(
     std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> fields) {
-  return std::make_shared<StructType>(make_fields(fields));
+  return std::make_shared<StructType>(MakeFields(fields));
 }
 
 std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<arrow::DataType> run_end_type,
