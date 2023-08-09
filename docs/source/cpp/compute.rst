@@ -636,7 +636,7 @@ The example values are given for default values of ``ndigits`` and ``multiple``.
 
 The following table gives examples of how ``ndigits`` (for the ``round``
 function) and ``multiple`` (for ``round_to_multiple`` and ``round_binary``) 
-influence the operance performed, respectively.
+influence the operation performed, respectively.
 
 +--------------------+-------------------+---------------------------+
 | Round ``multiple`` | Round ``ndigits`` | Operation performed       |
