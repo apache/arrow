@@ -188,7 +188,7 @@ public class JdbcToArrowUtils {
       case Types.TIME:
         return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
       case Types.TIMESTAMP:
-        return new ArrowType.Timestamp(TimeUnit.MILLISECOND);
+        return new ArrowType.Timestamp(TimeUnit.MILLISECOND, null);
       case Types.TIMESTAMP_WITH_TIMEZONE:
         final String timezone = calendar == null ? null : calendar.getTimeZone().getID();
         return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
