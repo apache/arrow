@@ -120,7 +120,6 @@ ENV absl_SOURCE=BUNDLED \
     CC=gcc \
     CXX=g++ \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
-    GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
     xsimd_SOURCE=BUNDLED
