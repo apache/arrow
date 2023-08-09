@@ -159,6 +159,34 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
+        function EmptyStrings(testCase)
+            % Verify that empty strings are mapped to Var1, ..., Vari, ...,
+            % VarN as expected and that conflicting names are resolved as
+            % expected.
+            import arrow.tabular.internal.*
+
+            original = "";
+            expected = "Var1";
+
+            actual = makeValidVariableNames(original);
+
+            testCase.verifyEqual(actual, expected);
+
+            original = ["", "Var1", ""];
+            expected = ["Var1", "Var1_1", "Var3"];
+
+            actual = makeValidVariableNames(original);
+
+            testCase.verifyEqual(actual, expected);
+
+            original = ["", "Var1", "Var1_1"];
+            expected = ["Var1", "Var1_2", "Var1_1"];
+
+            actual = makeValidVariableNames(original);
+
+            testCase.verifyEqual(actual, expected);
+        end
+
     end
     
 end
