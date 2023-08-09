@@ -224,7 +224,6 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
         function VariableNameLengthMax(testCase)
             % Verify strings whose character length exceeds 63
             % are truncated to the max variable name length (63).
-
             import arrow.tabular.internal.*
 
             original = string(repmat('a', [1 64]));

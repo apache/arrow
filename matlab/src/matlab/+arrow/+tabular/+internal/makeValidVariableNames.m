@@ -19,7 +19,7 @@ function [varnames, modified] = makeValidVariableNames(varnames)
         varnames(1, :) string
     end
 
-    reservedNames = ["Properties" "VariableNames" "RowNames", ":"];
+    reservedNames = ["Properties", "VariableNames", "RowNames", ":"];
 
     [varnames, replacedVars] = replaceEmptyVariableNames(varnames);
     [varnames, madeUnique] = matlab.lang.makeUniqueStrings(varnames, reservedNames, 63);

@@ -17,18 +17,9 @@
 % permissions and limitations under the License.
 
 classdef tMakeValidDimensionNames < matlab.unittest.TestCase
-    
-    methods(TestClassSetup)
-        % Shared setup for the entire test class
-    end
-    
-    methods(TestMethodSetup)
-        % Setup for each test
-    end
-    
+
     methods(Test)
-        % Test methods
-        
+
         function VariableNamedRow(testCase)
         % Verify the default dimension name "Row" is replaced with "Row_1"
         % if one of the variables is named "Row".
