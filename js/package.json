@@ -117,7 +117,7 @@
     "webpack": "5.86.0",
     "webpack-bundle-analyzer": "4.9.0",
     "webpack-stream": "7.0.0",
-    "xml2js": "0.6.0"
+    "xml2js": "0.6.2"
   },
   "engines": {
     "node": ">=12.0"
