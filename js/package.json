@@ -100,7 +100,7 @@
     "jest": "29.5.0",
     "jest-silent-reporter": "0.5.0",
     "lerna": "7.0.0",
-    "memfs": "3.5.3",
+    "memfs": "4.2.1",
     "mkdirp": "3.0.1",
     "multistream": "4.1.0",
     "randomatic": "3.1.1",
