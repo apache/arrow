@@ -15,6 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
+
 apache-rat-*.jar
 arrow-src.tar
 arrow-src.tar.gz
