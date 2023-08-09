@@ -538,7 +538,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       FlightClient client = null;
       try {
         ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
-        if (username != null) {
+        if (username != null && token == null) {
           authFactory =
               new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
           withMiddlewareFactories(authFactory);
