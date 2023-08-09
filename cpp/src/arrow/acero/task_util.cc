@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <mutex>
 
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 
 namespace arrow {
@@ -316,7 +317,11 @@ Status TaskSchedulerImpl::StartScheduling(size_t thread_id, ScheduleImpl schedul
                                           int num_concurrent_tasks,
                                           bool use_sync_execution) {
   schedule_impl_ = std::move(schedule_impl);
+#ifdef ARROW_ENABLE_THREADING
   use_sync_execution_ = use_sync_execution;
+#else
+  use_sync_execution_ = true;
+#endif
   num_concurrent_tasks_ = num_concurrent_tasks;
   num_tasks_to_schedule_.value += num_concurrent_tasks;
   return ScheduleMore(thread_id);
