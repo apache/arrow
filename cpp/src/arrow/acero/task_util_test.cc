@@ -27,6 +27,7 @@
 
 #include "arrow/acero/util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/thread_pool.h"
 
 namespace arrow {
@@ -101,6 +102,9 @@ TaskScheduler::TaskGroupContinuationImpl MakeFinalContinuation(
 // concurrently.  When all groups in that stage finish the next
 // stage is started.
 TEST(TaskScheduler, Stress) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   constexpr int kNumThreads = 8;
   constexpr int kNumGroups = 8;
   constexpr int kGroupsPerStage = 3;
@@ -176,6 +180,9 @@ TEST(TaskScheduler, Stress) {
 // thread starts a task group while another thread is finishing
 // the last of its tasks.
 TEST(TaskScheduler, StressTwo) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   constexpr int kNumThreads = 16;
   constexpr int kNumGroups = 8;
   constexpr int kTasksPerGroup = 1;

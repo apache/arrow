@@ -324,6 +324,9 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
 }
 
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   this->SetupCryptoFactory(true);
 
   this->WriteEncryptedParquetFiles();
@@ -331,6 +334,9 @@ TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
 }
 
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapOnServer) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   this->SetupCryptoFactory(false);
 
   this->WriteEncryptedParquetFiles();

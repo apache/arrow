@@ -29,6 +29,8 @@
 #include "arrow/acero/util.h"
 #include "arrow/compute/key_hash.h"
 #include "arrow/util/bitmap_ops.h"
+#include "arrow/util/config.h"
+#include "arrow/util/cpu_info.h"
 
 namespace arrow {
 
@@ -468,7 +470,7 @@ TEST(BloomFilter, Basic) {
 
   std::vector<BloomFilterBuildStrategy> strategies;
   strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
-#ifndef ARROW_VALGRIND
+#if defined(ARROW_ENABLE_THREADING) && !defined(ARROW_VALGRIND)
   strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
 #endif
 
@@ -501,7 +503,10 @@ TEST(BloomFilter, Scaling) {
   num_build.push_back(4000000);
 
   std::vector<BloomFilterBuildStrategy> strategies;
+#ifdef ARROW_ENABLE_THREADING
   strategies.push_back(BloomFilterBuildStrategy::PARALLEL);
+#endif
+  strategies.push_back(BloomFilterBuildStrategy::SINGLE_THREADED);
 
   for (const auto hardware_flags : HardwareFlagsForTesting()) {
     for (const auto& strategy : strategies) {

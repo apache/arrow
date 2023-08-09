@@ -1225,6 +1225,15 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
+  test-ubuntu-22.04-cpp-no-threading:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      flags: "-e ARROW_ENABLE_THREADING=OFF"
+      image: ubuntu-cpp
+
   test-ubuntu-20.04-cpp-thread-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml

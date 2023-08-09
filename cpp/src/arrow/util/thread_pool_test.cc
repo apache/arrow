@@ -37,6 +37,7 @@
 #include "arrow/testing/executor_util.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
@@ -583,6 +584,9 @@ TEST_F(TestThreadPool, StressSpawn) {
 }
 
 TEST_F(TestThreadPool, OwnsCurrentThread) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto pool = this->MakeThreadPool(30);
   std::atomic<bool> one_failed{false};
 
@@ -600,6 +604,10 @@ TEST_F(TestThreadPool, OwnsCurrentThread) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreaded) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>);
 }
@@ -616,6 +624,9 @@ TEST_F(TestThreadPool, StressSpawnSlow) {
 }
 
 TEST_F(TestThreadPool, StressSpawnSlowThreaded) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.002});
 }
@@ -627,6 +638,9 @@ TEST_F(TestThreadPool, SpawnWithStopToken) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreadedWithStopToken) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   StopSource stop_source;
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreaded(pool.get(), 20, 100, task_add<int>, stop_source.token());
@@ -639,6 +653,9 @@ TEST_F(TestThreadPool, SpawnWithStopTokenCancelled) {
 }
 
 TEST_F(TestThreadPool, StressSpawnThreadedWithStopTokenCancelled) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   StopSource stop_source;
   auto pool = this->MakeThreadPool(30);
   SpawnAddsThreadedAndCancel(pool.get(), 20, 100, task_slow_add<int>{/*seconds=*/0.02},
@@ -656,6 +673,7 @@ TEST_F(TestThreadPool, QuickShutdown) {
   add_tester.CheckNotAllComputed();
 }
 
+#ifdef ARROW_ENABLE_THREADING
 TEST_F(TestThreadPool, SetCapacity) {
   auto pool = this->MakeThreadPool(5);
 
@@ -717,7 +735,17 @@ TEST_F(TestThreadPool, SetCapacity) {
   // Ensure nothing got stuck
   ASSERT_OK(pool->Shutdown());
 }
+#else  // ARROW_ENABLE_THREADING
+TEST_F(TestThreadPool, SetCapacity) {
+  auto pool = this->MakeThreadPool(5);
 
+  ASSERT_EQ(pool->GetCapacity(), 5);
+  ASSERT_EQ(pool->GetActualCapacity(), 5);
+
+  ASSERT_OK(pool->SetCapacity(7));
+  ASSERT_EQ(pool->GetCapacity(), 7);
+}
+#endif
 // Test Submit() functionality
 
 TEST_F(TestThreadPool, Submit) {
@@ -802,6 +830,10 @@ class TestThreadPoolForkSafety : public TestThreadPool {};
 
 TEST_F(TestThreadPoolForkSafety, Basics) {
   {
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+#endif
+
     // Fork after task submission
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
@@ -845,6 +877,9 @@ TEST_F(TestThreadPoolForkSafety, Basics) {
 }
 
 TEST_F(TestThreadPoolForkSafety, MultipleChildThreads) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   // ARROW-15593: race condition in after-fork ThreadPool reinitialization
   // when SpawnReal() was called from multiple threads in a forked child.
   auto run_in_child = [](ThreadPool* pool) {
@@ -895,6 +930,9 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
 #ifdef __APPLE__
     GTEST_SKIP() << "Nested fork is not supported on macos";
 #endif
+#ifndef ARROW_ENABLE_THREADING
+    GTEST_SKIP() << "Test requires threading support";
+#endif
     auto pool = this->MakeThreadPool(3);
     ASSERT_OK_AND_ASSIGN(auto fut, pool->Submit(add<int>, 4, 5));
     ASSERT_OK_AND_EQ(9, fut.result());
@@ -928,6 +966,9 @@ TEST_F(TestThreadPoolForkSafety, NestedChild) {
 #endif
 
 TEST(TestGlobalThreadPool, Capacity) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   // Sanity check
   auto pool = GetCpuThreadPool();
   int capacity = pool->GetCapacity();

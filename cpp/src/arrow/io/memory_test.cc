@@ -42,6 +42,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
@@ -918,6 +919,9 @@ TEST(CacheOptions, Basics) {
 }
 
 TEST(IOThreadPool, Capacity) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
   // Simple sanity check
   auto pool = internal::GetIOThreadPool();
   int capacity = pool->GetCapacity();

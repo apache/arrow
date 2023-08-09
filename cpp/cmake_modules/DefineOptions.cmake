@@ -196,6 +196,8 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
 
+  define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
+
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
