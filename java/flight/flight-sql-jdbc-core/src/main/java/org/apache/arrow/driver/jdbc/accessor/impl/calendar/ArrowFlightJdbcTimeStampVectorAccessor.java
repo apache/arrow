@@ -45,13 +45,13 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
   private final TimeZone timeZone;
   private final Getter getter;
   private final TimeUnit timeUnit;
-  private final LongToLocalDateTime longToLocalDateTime;
+  private final LongToUTCDateTime longToUTCDateTime;
   private final Holder holder;
 
   /**
    * Functional interface used to convert a number (in any time resolution) to LocalDateTime.
    */
-  interface LongToLocalDateTime {
+  interface LongToUTCDateTime {
     LocalDateTime fromLong(long value);
   }
 
@@ -67,7 +67,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     this.timeZone = getTimeZoneForVector(vector);
     this.timeUnit = getTimeUnitForVector(vector);
-    this.longToLocalDateTime = getLongToUTCDateTimeForVector(vector);
+    this.longToUTCDateTime = getLongToUTCDateTimeForVector(vector);
   }
 
   @Override
@@ -90,7 +90,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     long value = holder.value;
 
-    LocalDateTime localDateTime = this.longToLocalDateTime.fromLong(value);
+    LocalDateTime localDateTime = this.longToUTCDateTime.fromLong(value);
     ZoneId defaultTimeZone = Calendar.getInstance().getTimeZone().toZoneId();
     ZoneId sourceTimeZone;
 
@@ -153,7 +153,7 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
     }
   }
 
-  protected static LongToLocalDateTime getLongToUTCDateTimeForVector(TimeStampVector vector) {
+  protected static LongToUTCDateTime getLongToUTCDateTimeForVector(TimeStampVector vector) {
     String timeZoneID = "UTC";
 
     ArrowType.Timestamp arrowType =
@@ -161,14 +161,14 @@ public class ArrowFlightJdbcTimeStampVectorAccessor extends ArrowFlightJdbcAcces
 
     switch (arrowType.getUnit()) {
       case NANOSECOND:
-        return nanoseconds -> DateUtility.getLocalDateTimeFromEpochNano(nanoseconds, timeZoneID);
+        return DateUtility::getLocalDateTimeFromEpochNano;
       case MICROSECOND:
-        return microseconds -> DateUtility.getLocalDateTimeFromEpochMicro(microseconds, timeZoneID);
+        return DateUtility::getLocalDateTimeFromEpochMicro;
       case MILLISECOND:
-        return milliseconds -> DateUtility.getLocalDateTimeFromEpochMilli(milliseconds, timeZoneID);
+        return DateUtility::getLocalDateTimeFromEpochMilli;
       case SECOND:
         return seconds -> DateUtility.getLocalDateTimeFromEpochMilli(
-            TimeUnit.SECONDS.toMillis(seconds), timeZoneID);
+            TimeUnit.SECONDS.toMillis(seconds));
       default:
         throw new UnsupportedOperationException("Invalid Arrow time unit");
     }
