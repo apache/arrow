@@ -188,12 +188,9 @@ public class JdbcToArrowUtils {
       case Types.TIME:
         return new ArrowType.Time(TimeUnit.MILLISECOND, 32);
       case Types.TIMESTAMP:
-        final String timezone;
-        if (calendar != null) {
-          timezone = calendar.getTimeZone().getID();
-        } else {
-          timezone = null;
-        }
+        return new ArrowType.Timestamp(TimeUnit.MILLISECOND);
+      case Types.TIMESTAMP_WITH_TIMEZONE:
+        final String timezone = calendar == null ? null : calendar.getTimeZone().getID();
         return new ArrowType.Timestamp(TimeUnit.MILLISECOND, timezone);
       case Types.BINARY:
       case Types.VARBINARY:
@@ -473,7 +470,7 @@ public class JdbcToArrowUtils {
       case Time:
         return TimeConsumer.createConsumer((TimeMilliVector) vector, columnIndex, nullable, calendar);
       case Timestamp:
-        if (config.getCalendar() == null) {
+        if (((ArrowType.Timestamp) arrowType).getTimezone() == null) {
           return TimestampConsumer.createConsumer((TimeStampMilliVector) vector, columnIndex, nullable);
         } else {
           return TimestampTZConsumer.createConsumer((TimeStampMilliTZVector) vector, columnIndex, nullable, calendar);
