@@ -103,6 +103,33 @@ public class ConnectionTest {
   }
 
   /**
+   * Checks if a token is provided it takes precedence over username/pass. In this case,
+   * the connection should fail if a token is passed in.
+   *
+   * @throws SQLException on error.
+   */
+  @Test(expected = SQLException.class)
+  public void testTokenOverridesUsernameAndPasswordAuth()
+      throws Exception {
+    final Properties properties = new Properties();
+
+    properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
+    properties.put(ArrowFlightConnectionProperty.PORT.camelName(),
+        FLIGHT_SERVER_TEST_RULE.getPort());
+    properties.put(ArrowFlightConnectionProperty.USER.camelName(),
+        userTest);
+    properties.put(ArrowFlightConnectionProperty.PASSWORD.camelName(),
+        passTest);
+    properties.put(ArrowFlightConnectionProperty.TOKEN.camelName(), "token");
+    properties.put("useEncryption", false);
+
+    DriverManager.getConnection(
+        "jdbc:arrow-flight-sql://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
+            FLIGHT_SERVER_TEST_RULE.getPort(), properties);
+  }
+
+
+  /**
    * Checks if the exception SQLException is thrown when trying to establish a connection without a host.
    *
    * @throws SQLException on error.
@@ -136,6 +163,7 @@ public class ConnectionTest {
                  .withPassword(passTest)
                  .withBufferAllocator(allocator)
                  .build()) {
+
       assertNotNull(client);
     }
   }
