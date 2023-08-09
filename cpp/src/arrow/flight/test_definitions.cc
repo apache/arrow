@@ -20,6 +20,7 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
@@ -27,7 +28,11 @@
 #include "arrow/flight/api.h"
 #include "arrow/flight/client_middleware.h"
 #include "arrow/flight/test_util.h"
+#include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/checked_cast.h"
@@ -123,6 +128,28 @@ void ConnectivityTest::TestBrokenConnection() {
 //------------------------------------------------------------
 // Tests of data plane methods
 
+namespace {
+class GetFlightInfoListener : public AsyncListener<FlightInfo> {
+ public:
+  void OnNext(FlightInfo message) override {
+    info = std::move(message);
+    counter++;
+  }
+  void OnFinish(Status status) override {
+    ASSERT_FALSE(future.is_finished());
+    if (status.ok()) {
+      future.MarkFinished(std::move(info));
+    } else {
+      future.MarkFinished(std::move(status));
+    }
+  }
+
+  FlightInfo info = FlightInfo(FlightInfo::Data{});
+  int counter = 0;
+  arrow::Future<FlightInfo> future = arrow::Future<FlightInfo>::Make();
+};
+}  // namespace
+
 void DataTest::SetUpTest() {
   server_ = ExampleTestServer();
 
@@ -149,6 +176,14 @@ void DataTest::CheckDoGet(
 
   ASSERT_OK_AND_ASSIGN(auto info, client_->GetFlightInfo(descr));
   check_endpoints(info->endpoints());
+
+  if (supports_async()) {
+    auto listener = std::make_shared<GetFlightInfoListener>();
+    client_->GetFlightInfoAsync(descr, listener);
+    ASSERT_FINISHES_OK(listener->future);
+    ASSERT_EQ(1, listener->counter);
+    check_endpoints(listener->future.MoveResult()->endpoints());
+  }
 
   ipc::DictionaryMemo dict_memo;
   ASSERT_OK_AND_ASSIGN(auto schema, info->GetSchema(&dict_memo));
@@ -671,11 +706,11 @@ void DoPutTest::SetUpTest() {
 void DoPutTest::TearDownTest() {
   ASSERT_OK(client_->Close());
   ASSERT_OK(server_->Shutdown());
-  reinterpret_cast<DoPutTestServer*>(server_.get())->batches_.clear();
+  checked_cast<DoPutTestServer*>(server_.get())->batches_.clear();
 }
 void DoPutTest::CheckBatches(const FlightDescriptor& expected_descriptor,
                              const RecordBatchVector& expected_batches) {
-  auto* do_put_server = (DoPutTestServer*)server_.get();
+  auto* do_put_server = static_cast<DoPutTestServer*>(server_.get());
   ASSERT_EQ(do_put_server->descriptor_, expected_descriptor);
   ASSERT_EQ(do_put_server->batches_.size(), expected_batches.size());
   for (size_t i = 0; i < expected_batches.size(); ++i) {
@@ -1410,6 +1445,26 @@ static const std::vector<StatusCode> kStatusCodes = {
     StatusCode::AlreadyExists,
 };
 
+// For each Arrow status code, what Flight code do we get?
+static const std::unordered_map<StatusCode, TransportStatusCode> kTransportStatusCodes = {
+    {StatusCode::OutOfMemory, TransportStatusCode::kUnknown},
+    {StatusCode::KeyError, TransportStatusCode::kNotFound},
+    {StatusCode::TypeError, TransportStatusCode::kUnknown},
+    {StatusCode::Invalid, TransportStatusCode::kInvalidArgument},
+    {StatusCode::IOError, TransportStatusCode::kUnknown},
+    {StatusCode::CapacityError, TransportStatusCode::kUnknown},
+    {StatusCode::IndexError, TransportStatusCode::kUnknown},
+    {StatusCode::Cancelled, TransportStatusCode::kCancelled},
+    {StatusCode::UnknownError, TransportStatusCode::kUnknown},
+    {StatusCode::NotImplemented, TransportStatusCode::kUnimplemented},
+    {StatusCode::SerializationError, TransportStatusCode::kUnknown},
+    {StatusCode::RError, TransportStatusCode::kUnknown},
+    {StatusCode::CodeGenError, TransportStatusCode::kUnknown},
+    {StatusCode::ExpressionValidationError, TransportStatusCode::kUnknown},
+    {StatusCode::ExecutionError, TransportStatusCode::kUnknown},
+    {StatusCode::AlreadyExists, TransportStatusCode::kAlreadyExists},
+};
+
 static const std::vector<FlightStatusCode> kFlightStatusCodes = {
     FlightStatusCode::Internal,     FlightStatusCode::TimedOut,
     FlightStatusCode::Cancelled,    FlightStatusCode::Unauthenticated,
@@ -1517,6 +1572,15 @@ class MetadataRecordingClientMiddlewareFactory : public ClientMiddlewareFactory 
   mutable std::mutex mutex_;
   std::vector<std::pair<std::string, std::string>> headers_;
 };
+
+class TransportStatusListener : public AsyncListener<FlightInfo> {
+ public:
+  void OnNext(FlightInfo /*message*/) override {}
+  void OnFinish(Status status) override { future.MarkFinished(std::move(status)); }
+
+  arrow::Future<> future = arrow::Future<>::Make();
+};
+
 }  // namespace
 
 struct ErrorHandlingTest::Impl {
@@ -1542,6 +1606,98 @@ void ErrorHandlingTest::TearDownTest() {
 
 std::vector<std::pair<std::string, std::string>> ErrorHandlingTest::GetHeaders() {
   return impl_->metadata->GetHeaders();
+}
+
+void ErrorHandlingTest::TestAsyncGetFlightInfo() {
+  if (!supports_async()) {
+    GTEST_SKIP() << "Transport does not support async";
+  }
+  // Server-side still does all the junk around trying to translate Arrow
+  // status codes, so this test is a little indirect
+
+  for (const auto code : kStatusCodes) {
+    ARROW_SCOPED_TRACE("C++ status code: ", static_cast<int>(code), ": ",
+                       Status::CodeAsString(code));
+
+    // Just the status code
+    {
+      auto descr = FlightDescriptor::Path(
+          {std::to_string(static_cast<int>(code)), "Expected message"});
+      auto listener = std::make_shared<TransportStatusListener>();
+
+      client_->GetFlightInfoAsync(descr, listener);
+      EXPECT_FINISHES(listener->future);
+      auto detail = TransportStatusDetail::Unwrap(listener->future.status());
+      ASSERT_TRUE(detail.has_value());
+
+      EXPECT_EQ(detail->get().code(), kTransportStatusCodes.at(code));
+      // Exact equality - should have no extra junk in the message
+      EXPECT_EQ(detail->get().message(), "Expected message");
+    }
+
+    // Custom status detail
+    {
+      auto descr = FlightDescriptor::Path(
+          {std::to_string(static_cast<int>(code)), "Expected message", ""});
+      auto listener = std::make_shared<TransportStatusListener>();
+
+      client_->GetFlightInfoAsync(descr, listener);
+      EXPECT_FINISHES(listener->future);
+      auto detail = TransportStatusDetail::Unwrap(listener->future.status());
+      ASSERT_TRUE(detail.has_value());
+
+      EXPECT_EQ(detail->get().code(), kTransportStatusCodes.at(code));
+      // The server-side arrow::Status-to-TransportStatus conversion puts the
+      // detail into the main error message.
+      EXPECT_EQ(detail->get().message(),
+                "Expected message. Detail: Custom status detail");
+
+      std::string_view arrow_code, arrow_message;
+      for (const auto& [key, value] : detail->get().details()) {
+        if (key == "x-arrow-status") {
+          arrow_code = value;
+        } else if (key == "x-arrow-status-message-bin") {
+          arrow_message = value;
+        }
+      }
+      EXPECT_EQ(arrow_code, std::to_string(static_cast<int>(code)));
+      EXPECT_EQ(arrow_message, "Expected message");
+    }
+
+    // Flight status detail
+    for (const auto flight_code : kFlightStatusCodes) {
+      ARROW_SCOPED_TRACE("Flight status code: ", static_cast<int>(flight_code));
+      auto descr = FlightDescriptor::Path(
+          {std::to_string(static_cast<int>(code)), "Expected message",
+           std::to_string(static_cast<int>(flight_code)), "Expected detail message"});
+      auto listener = std::make_shared<TransportStatusListener>();
+
+      client_->GetFlightInfoAsync(descr, listener);
+      EXPECT_FINISHES(listener->future);
+      auto detail = TransportStatusDetail::Unwrap(listener->future.status());
+      ASSERT_TRUE(detail.has_value());
+
+      // The server-side arrow::Status-to-TransportStatus conversion puts the
+      // detail into the main error message.
+      EXPECT_THAT(detail->get().message(),
+                  ::testing::HasSubstr("Expected message. Detail:"));
+
+      std::string_view arrow_code, arrow_message, binary_detail;
+      for (const auto& [key, value] : detail->get().details()) {
+        if (key == "x-arrow-status") {
+          arrow_code = value;
+        } else if (key == "x-arrow-status-message-bin") {
+          arrow_message = value;
+        } else if (key == "grpc-status-details-bin") {
+          binary_detail = value;
+        }
+      }
+
+      EXPECT_EQ(arrow_code, std::to_string(static_cast<int>(code)));
+      EXPECT_EQ(arrow_message, "Expected message");
+      EXPECT_EQ(binary_detail, "Expected detail message");
+    }
+  }
 }
 
 void ErrorHandlingTest::TestGetFlightInfo() {
@@ -1654,6 +1810,113 @@ void ErrorHandlingTest::TestDoExchange() {
   ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(status));
   ASSERT_NO_FATAL_FAILURE(CheckErrorDetail(stream.writer->Close()));
   reader_thread.join();
+}
+
+//------------------------------------------------------------
+// Test async clients
+
+void AsyncClientTest::SetUpTest() {
+  if (!supports_async()) {
+    GTEST_SKIP() << "async is not supported";
+  }
+
+  ASSERT_OK_AND_ASSIGN(auto location, Location::ForScheme(transport(), "127.0.0.1", 0));
+
+  server_ = ExampleTestServer();
+  FlightServerOptions server_options(location);
+  ASSERT_OK(server_->Init(server_options));
+
+  std::string uri = location.scheme() + "://127.0.0.1:" + std::to_string(server_->port());
+  ASSERT_OK_AND_ASSIGN(auto real_location, Location::Parse(uri));
+  FlightClientOptions client_options = FlightClientOptions::Defaults();
+  ASSERT_OK_AND_ASSIGN(client_, FlightClient::Connect(real_location, client_options));
+
+  ASSERT_TRUE(client_->supports_async());
+}
+void AsyncClientTest::TearDownTest() {
+  if (supports_async()) {
+    ASSERT_OK(client_->Close());
+    ASSERT_OK(server_->Shutdown());
+  }
+}
+
+void AsyncClientTest::TestGetFlightInfo() {
+  class Listener : public AsyncListener<FlightInfo> {
+   public:
+    void OnNext(FlightInfo info) override {
+      info_ = std::move(info);
+      counter_++;
+    }
+
+    void OnFinish(Status status) override {
+      ASSERT_FALSE(future_.is_finished());
+      if (status.ok()) {
+        future_.MarkFinished(std::move(info_));
+      } else {
+        future_.MarkFinished(std::move(status));
+      }
+    }
+
+    int counter_ = 0;
+    FlightInfo info_ = FlightInfo(FlightInfo::Data());
+    arrow::Future<FlightInfo> future_ = arrow::Future<FlightInfo>::Make();
+  };
+
+  auto descr = FlightDescriptor::Command("status-outofmemory");
+  auto listener = std::make_shared<Listener>();
+  client_->GetFlightInfoAsync(descr, listener);
+
+  ASSERT_FINISHES_AND_RAISES(UnknownError, listener->future_);
+  ASSERT_THAT(listener->future_.status().ToString(), ::testing::HasSubstr("Sentinel"));
+  ASSERT_EQ(0, listener->counter_);
+}
+
+void AsyncClientTest::TestGetFlightInfoFuture() {
+  auto descr = FlightDescriptor::Command("status-outofmemory");
+  auto future = client_->GetFlightInfoAsync(descr);
+  ASSERT_FINISHES_AND_RAISES(UnknownError, future);
+  ASSERT_THAT(future.status().ToString(), ::testing::HasSubstr("Sentinel"));
+
+  descr = FlightDescriptor::Command("my_command");
+  future = client_->GetFlightInfoAsync(descr);
+  ASSERT_FINISHES_OK_AND_ASSIGN(auto info, future);
+  // See test_util.cc:ExampleFlightInfo
+  ASSERT_EQ(descr, info.descriptor());
+  ASSERT_EQ(1000, info.total_records());
+  ASSERT_EQ(100000, info.total_bytes());
+}
+
+void AsyncClientTest::TestListenerLifetime() {
+  arrow::Future<FlightInfo> future = arrow::Future<FlightInfo>::Make();
+
+  class Listener : public AsyncListener<FlightInfo> {
+   public:
+    void OnNext(FlightInfo info) override { info_ = std::move(info); }
+
+    void OnFinish(Status status) override {
+      if (status.ok()) {
+        future_.MarkFinished(std::move(info_));
+      } else {
+        future_.MarkFinished(std::move(status));
+      }
+    }
+
+    FlightInfo info_ = FlightInfo(FlightInfo::Data());
+    arrow::Future<FlightInfo> future_;
+  };
+
+  // Bad client code: don't retain a reference to the listener, which owns the
+  // RPC state. We should still be able to get the result without crashing. (The
+  // RPC state is disposed of in the background via the 'garbage bin' in the
+  // gRPC client implementation.)
+  {
+    auto descr = FlightDescriptor::Command("my_command");
+    auto listener = std::make_shared<Listener>();
+    listener->future_ = future;
+    client_->GetFlightInfoAsync(descr, std::move(listener));
+  }
+
+  ASSERT_FINISHES_OK(future);
 }
 
 }  // namespace flight

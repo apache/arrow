@@ -24,15 +24,18 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
 
+#include "arrow/flight/type_fwd.h"
 #include "arrow/flight/visibility.h"
 #include "arrow/ipc/options.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 
 namespace arrow {
 
@@ -71,7 +74,8 @@ namespace flight {
 /// > is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z.
 using Timestamp = std::chrono::system_clock::time_point;
 
-/// \brief A Flight-specific status code.
+/// \brief A Flight-specific status code.  Used to encode some
+///   additional status codes into an Arrow Status.
 enum class FlightStatusCode : int8_t {
   /// An implementation error has occurred.
   Internal,
@@ -773,6 +777,82 @@ class ARROW_FLIGHT_EXPORT SimpleResultStream : public ResultStream {
   std::vector<Result> results_;
   size_t position_;
 };
+
+/// \defgroup flight-error Error Handling
+/// Types for handling errors from RPCs.  Flight uses a set of status
+/// codes standardized across Flight implementations, so these types
+/// let applications work directly with those codes instead of having
+/// to translate to and from Arrow Status.
+/// @{
+
+/// \brief Abstract status code for an RPC as per the Flight
+///   specification.
+enum class TransportStatusCode {
+  /// \brief No error.
+  kOk = 0,
+  /// \brief An unknown error occurred.
+  kUnknown = 1,
+  /// \brief An error occurred in the transport implementation, or an
+  ///   error internal to the service implementation occurred.
+  kInternal = 2,
+  /// \brief An argument is invalid.
+  kInvalidArgument = 3,
+  /// \brief The request timed out.
+  kTimedOut = 4,
+  /// \brief An argument is not necessarily invalid, but references
+  ///   some resource that does not exist.  Prefer over
+  ///   kInvalidArgument where applicable.
+  kNotFound = 5,
+  /// \brief The request attempted to create some resource that does
+  ///   not exist.
+  kAlreadyExists = 6,
+  /// \brief The request was explicitly cancelled.
+  kCancelled = 7,
+  /// \brief The client is not authenticated.
+  kUnauthenticated = 8,
+  /// \brief The client is not authorized to perform this request.
+  kUnauthorized = 9,
+  /// \brief The request is not implemented
+  kUnimplemented = 10,
+  /// \brief There is a network connectivity error, or some resource
+  ///   is otherwise unavailable.  Most likely a temporary condition.
+  kUnavailable = 11,
+};
+
+/// \brief Convert a code to a string.
+std::string ToString(TransportStatusCode code);
+
+/// \brief An error from an RPC call, using Flight error codes directly
+///   instead of trying to translate to Arrow Status.
+///
+/// Currently, only attached to the Status passed to AsyncListener::OnFinish.
+///
+/// This API is EXPERIMENTAL.
+class ARROW_FLIGHT_EXPORT TransportStatusDetail : public StatusDetail {
+ public:
+  constexpr static const char* kTypeId = "flight::TransportStatusDetail";
+  explicit TransportStatusDetail(TransportStatusCode code, std::string message,
+                                 std::vector<std::pair<std::string, std::string>> details)
+      : code_(code), message_(std::move(message)), details_(std::move(details)) {}
+  const char* type_id() const override { return kTypeId; }
+  std::string ToString() const override;
+
+  static std::optional<std::reference_wrapper<const TransportStatusDetail>> Unwrap(
+      const Status& status);
+
+  TransportStatusCode code() const { return code_; }
+  std::string_view message() const { return message_; }
+  const std::vector<std::pair<std::string, std::string>>& details() const {
+    return details_;
+  }
+
+ private:
+  TransportStatusCode code_;
+  std::string message_;
+  std::vector<std::pair<std::string, std::string>> details_;
+};
+
+/// @}
 
 }  // namespace flight
 }  // namespace arrow

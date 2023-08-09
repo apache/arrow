@@ -24,6 +24,7 @@
 #include "arrow/flight/client_auth.h"
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
+#include "arrow/flight/types_async.h"
 #include "arrow/ipc/message.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
@@ -74,6 +75,11 @@ Status ClientTransport::GetFlightInfo(const FlightCallOptions& options,
                                       std::unique_ptr<FlightInfo>* info) {
   return Status::NotImplemented("GetFlightInfo for this transport");
 }
+void ClientTransport::GetFlightInfoAsync(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor,
+    std::shared_ptr<AsyncListener<FlightInfo>> listener) {
+  listener->OnFinish(Status::NotImplemented("Async GetFlightInfo for this transport"));
+}
 arrow::Result<std::unique_ptr<SchemaResult>> ClientTransport::GetSchema(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetSchema for this transport");
@@ -94,6 +100,16 @@ Status ClientTransport::DoPut(const FlightCallOptions& options,
 Status ClientTransport::DoExchange(const FlightCallOptions& options,
                                    std::unique_ptr<ClientDataStream>* stream) {
   return Status::NotImplemented("DoExchange for this transport");
+}
+void ClientTransport::SetAsyncRpc(AsyncListenerBase* listener,
+                                  std::unique_ptr<AsyncRpc>&& rpc) {
+  listener->rpc_state_ = std::move(rpc);
+}
+AsyncRpc* ClientTransport::GetAsyncRpc(AsyncListenerBase* listener) {
+  return listener->rpc_state_.get();
+}
+std::unique_ptr<AsyncRpc> ClientTransport::ReleaseAsyncRpc(AsyncListenerBase* listener) {
+  return std::move(listener->rpc_state_);
 }
 
 class TransportRegistry::Impl final {

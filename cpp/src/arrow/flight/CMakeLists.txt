@@ -119,6 +119,11 @@ else()
   add_definitions(-DGRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS=grpc_impl::experimental)
 endif()
 
+# Was in a different namespace, or simply not supported, prior to this
+if(ARROW_GRPC_VERSION VERSION_GREATER_EQUAL "1.40")
+  add_definitions(-DGRPC_ENABLE_ASYNC)
+endif()
+
 # </KLUDGE> Restore the CXXFLAGS that were modified above
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_BACKUP}")
 

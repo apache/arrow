@@ -59,7 +59,7 @@ Status FromProto(const pb::FlightDescriptor& pb_descr, FlightDescriptor* descr);
 Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint);
 Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
                  RenewFlightEndpointRequest* request);
-Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info);
+arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info);
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request);
 Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
