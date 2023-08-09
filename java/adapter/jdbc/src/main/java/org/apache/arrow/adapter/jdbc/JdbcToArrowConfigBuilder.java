@@ -24,8 +24,11 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
 
+import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.Function4Arity;
+import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
@@ -44,6 +47,7 @@ public class JdbcToArrowConfigBuilder {
   private Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter;
   private RoundingMode bigDecimalRoundingMode;
 
   /**
@@ -222,6 +226,18 @@ public class JdbcToArrowConfigBuilder {
   }
 
   /**
+   * Set the function used to get a JDBC consumer for a given type.
+   * <p>
+   * Defaults to wrapping {@link
+   * JdbcToArrowUtils#getConsumer(ArrowType, Integer, Boolean, FieldVector, JdbcToArrowConfig)}.
+   */
+  public JdbcToArrowConfigBuilder setJdbcConsumerGetter(
+      Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter) {
+    this.jdbcConsumerGetter = jdbcConsumerGetter;
+    return this;
+  }
+
+  /**
    * Set whether to use the same {@link org.apache.arrow.vector.VectorSchemaRoot} instance on each iteration,
    * or to allocate a new one.
    */
@@ -274,6 +290,7 @@ public class JdbcToArrowConfigBuilder {
         arraySubTypesByColumnName,
         targetBatchSize,
         jdbcToArrowTypeConverter,
+        jdbcConsumerGetter,
         explicitTypesByColumnIndex,
         explicitTypesByColumnName,
         schemaMetadata,

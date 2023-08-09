@@ -22,8 +22,10 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
 
+import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
+import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 
 /**
@@ -76,6 +78,7 @@ public final class JdbcToArrowConfig {
   private final int targetBatchSize;
 
   private final Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
+  private final Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
@@ -102,9 +105,10 @@ public final class JdbcToArrowConfig {
           Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
           Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
           int targetBatchSize,
-          Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
+          Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+          Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter) {
     this(allocator, calendar, includeMetadata, reuseVectorSchemaRoot, arraySubTypesByColumnIndex,
-        arraySubTypesByColumnName, targetBatchSize, jdbcToArrowTypeConverter, null);
+        arraySubTypesByColumnName, targetBatchSize, jdbcToArrowTypeConverter, jdbcConsumerGetter, null);
   }
 
   /**
@@ -163,6 +167,7 @@ public final class JdbcToArrowConfig {
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter,
       RoundingMode bigDecimalRoundingMode) {
 
     this(
@@ -174,6 +179,7 @@ public final class JdbcToArrowConfig {
         arraySubTypesByColumnName,
         targetBatchSize,
         jdbcToArrowTypeConverter,
+        jdbcConsumerGetter,
         null,
         null,
         null,
@@ -190,6 +196,7 @@ public final class JdbcToArrowConfig {
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter,
       Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
       Map<String, JdbcFieldInfo> explicitTypesByColumnName,
       Map<String, String> schemaMetadata,
@@ -212,6 +219,10 @@ public final class JdbcToArrowConfig {
     // set up type converter
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
         (jdbcFieldInfo) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
+
+    this.jdbcConsumerGetter = jdbcConsumerGetter != null ? jdbcConsumerGetter :
+        (arrowType, columnIndex, nullable, vector) ->
+                JdbcToArrowUtils.getConsumer(arrowType, columnIndex, nullable, vector, this);
   }
 
   /**
@@ -262,6 +273,13 @@ public final class JdbcToArrowConfig {
    */
   public Function<JdbcFieldInfo, ArrowType> getJdbcToArrowTypeConverter() {
     return jdbcToArrowTypeConverter;
+  }
+
+  /**
+   * Gets the JDBC consumer getter.
+   */
+  public Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> getJdbcConsumerGetter() {
+    return jdbcConsumerGetter;
   }
 
   /**
@@ -337,5 +355,19 @@ public final class JdbcToArrowConfig {
 
   public RoundingMode getBigDecimalRoundingMode() {
     return bigDecimalRoundingMode;
+  }
+
+  /**
+   * Interface for a function with 4 parameters.
+   *
+     * @param <A> param 1 type
+     * @param <B> param 2 type
+     * @param <C> param 3 type
+     * @param <D> param 4 type
+     * @param <R> return type
+   */
+  @FunctionalInterface
+  interface Function4Arity<A, B, C, D, R> {
+    R apply(A a, B b, C c, D d);
   }
 }
