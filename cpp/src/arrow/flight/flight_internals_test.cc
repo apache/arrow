@@ -76,9 +76,7 @@ void TestRoundtrip(const std::vector<FlightType>& values,
     ASSERT_OK(internal::ToProto(values[i], &pb_value));
 
     if constexpr (std::is_same_v<FlightType, FlightInfo>) {
-      FlightInfo::Data data;
-      ASSERT_OK(internal::FromProto(pb_value, &data));
-      FlightInfo value(std::move(data));
+      ASSERT_OK_AND_ASSIGN(FlightInfo value, internal::FromProto(pb_value));
       EXPECT_EQ(values[i], value);
     } else if constexpr (std::is_same_v<FlightType, SchemaResult>) {
       std::string data;
@@ -741,6 +739,8 @@ TEST(TransportErrorHandling, ReconstructStatus) {
   ASSERT_NE(detail, nullptr);
   ASSERT_EQ(detail->extra_info(), "Binary error details");
 }
+
+// TODO: test TransportStatusDetail
 
 }  // namespace flight
 }  // namespace arrow

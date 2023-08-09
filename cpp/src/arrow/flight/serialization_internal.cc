@@ -230,20 +230,21 @@ Status ToProto(const FlightDescriptor& descriptor, pb::FlightDescriptor* pb_desc
 
 // FlightInfo
 
-Status FromProto(const pb::FlightInfo& pb_info, FlightInfo::Data* info) {
-  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info->descriptor));
+arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info) {
+  FlightInfo::Data info;
+  RETURN_NOT_OK(FromProto(pb_info.flight_descriptor(), &info.descriptor));
 
-  info->schema = pb_info.schema();
+  info.schema = pb_info.schema();
 
-  info->endpoints.resize(pb_info.endpoint_size());
+  info.endpoints.resize(pb_info.endpoint_size());
   for (int i = 0; i < pb_info.endpoint_size(); ++i) {
-    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info->endpoints[i]));
+    RETURN_NOT_OK(FromProto(pb_info.endpoint(i), &info.endpoints[i]));
   }
 
-  info->total_records = pb_info.total_records();
-  info->total_bytes = pb_info.total_bytes();
-  info->ordered = pb_info.ordered();
-  return Status::OK();
+  info.total_records = pb_info.total_records();
+  info.total_bytes = pb_info.total_bytes();
+  info.ordered = pb_info.ordered();
+  return FlightInfo(std::move(info));
 }
 
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* basic_auth) {
@@ -291,9 +292,8 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
 
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request) {
-  FlightInfo::Data data;
-  RETURN_NOT_OK(FromProto(pb_request.info(), &data));
-  request->info = std::make_unique<FlightInfo>(std::move(data));
+  ARROW_ASSIGN_OR_RAISE(FlightInfo info, FromProto(pb_request.info()));
+  request->info = std::make_unique<FlightInfo>(std::move(info));
   return Status::OK();
 }
 

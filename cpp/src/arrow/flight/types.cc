@@ -24,12 +24,16 @@
 
 #include "arrow/buffer.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/types_async.h"
 #include "arrow/io/memory.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/util/base64.h"
 #include "arrow/util/formatting.h"
+#include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/string_builder.h"
 #include "arrow/util/uri.h"
 
@@ -299,9 +303,8 @@ arrow::Result<std::unique_ptr<FlightInfo>> FlightInfo::Deserialize(
   if (!pb_info.ParseFromZeroCopyStream(&input)) {
     return Status::Invalid("Not a valid FlightInfo");
   }
-  FlightInfo::Data data;
-  RETURN_NOT_OK(internal::FromProto(pb_info, &data));
-  return std::make_unique<FlightInfo>(std::move(data));
+  ARROW_ASSIGN_OR_RAISE(FlightInfo info, internal::FromProto(pb_info));
+  return std::make_unique<FlightInfo>(std::move(info));
 }
 
 std::string FlightInfo::ToString() const {
@@ -871,6 +874,89 @@ arrow::Result<std::string> BasicAuth::SerializeToString() const {
     return Status::IOError("Serialized BasicAuth exceeded 2 GiB limit");
   }
   return out;
+}
+
+//------------------------------------------------------------
+// Error propagation helpers
+
+std::string ToString(TransportStatusCode code) {
+  switch (code) {
+    case TransportStatusCode::kOk:
+      return "kOk";
+    case TransportStatusCode::kUnknown:
+      return "kUnknown";
+    case TransportStatusCode::kInternal:
+      return "kInternal";
+    case TransportStatusCode::kInvalidArgument:
+      return "kInvalidArgument";
+    case TransportStatusCode::kTimedOut:
+      return "kTimedOut";
+    case TransportStatusCode::kNotFound:
+      return "kNotFound";
+    case TransportStatusCode::kAlreadyExists:
+      return "kAlreadyExists";
+    case TransportStatusCode::kCancelled:
+      return "kCancelled";
+    case TransportStatusCode::kUnauthenticated:
+      return "kUnauthenticated";
+    case TransportStatusCode::kUnauthorized:
+      return "kUnauthorized";
+    case TransportStatusCode::kUnimplemented:
+      return "kUnimplemented";
+    case TransportStatusCode::kUnavailable:
+      return "kUnavailable";
+  }
+  return "(unknown code)";
+}
+
+std::string TransportStatusDetail::ToString() const {
+  std::string repr = "TransportStatusDetail{";
+  repr += arrow::flight::ToString(code());
+  repr += ", message=\"";
+  repr += message();
+  repr += "\", details={";
+
+  bool first = true;
+  for (const auto& [key, value] : details()) {
+    if (!first) {
+      repr += ", ";
+    }
+    first = false;
+
+    repr += "{\"";
+    repr += key;
+    repr += "\", ";
+    if (arrow::internal::EndsWith(key, "-bin")) {
+      repr += arrow::util::base64_encode(value);
+    } else {
+      repr += "\"";
+      repr += value;
+      repr += "\"";
+    }
+    repr += "}";
+  }
+
+  repr += "}}";
+  return repr;
+}
+
+std::optional<std::reference_wrapper<const TransportStatusDetail>>
+TransportStatusDetail::Unwrap(const Status& status) {
+  std::shared_ptr<StatusDetail> detail = status.detail();
+  if (!detail) return std::nullopt;
+  if (detail->type_id() != kTypeId) return std::nullopt;
+  return std::cref(arrow::internal::checked_cast<const TransportStatusDetail&>(*detail));
+}
+
+//------------------------------------------------------------
+// Async types
+
+AsyncListenerBase::AsyncListenerBase() = default;
+AsyncListenerBase::~AsyncListenerBase() = default;
+void AsyncListenerBase::TryCancel() {
+  if (rpc_state_) {
+    rpc_state_->TryCancel();
+  }
 }
 
 }  // namespace flight
