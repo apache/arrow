@@ -26,9 +26,10 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = ":";
             expected = ":_1";
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function RowNames(testCase)
@@ -37,8 +38,9 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
 
             original = "RowNames";
             expected = "RowNames_1";
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function Properties(testCase)
@@ -48,9 +50,10 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = "Properties";
             expected = "Properties_1";
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function VariableNames(testCase)
@@ -60,9 +63,10 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = "VariableNames";
             expected = "VariableNames_1";
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function ValidVariableNames(testCase)
@@ -74,9 +78,10 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = ["A", "B", "C"];
             expected = original;
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyFalse(modified);
         end
 
         function ValidVariableNamesUnicode(testCase)
@@ -91,9 +96,10 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = [smiley, tree, mango];
             expected = original;
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyFalse(modified);
         end
 
         function PropertiesWithConflictingNumericSuffix(testCase)
@@ -104,16 +110,18 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = ["Properties", "Properties_1"];
             expected = ["Properties_2", "Properties_1"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
 
             original = ["Properties_1", "Properties", "Properties_4"];
             expected = ["Properties_1", "Properties_2", "Properties_4"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function RowNamesWithConflictingNumericSuffix(testCase)
@@ -124,16 +132,18 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = ["RowNames", "RowNames_1"];
             expected = ["RowNames_2", "RowNames_1"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
 
             original = ["RowNames_1", "RowNames", "RowNames_4"];
             expected = ["RowNames_1", "RowNames_2", "RowNames_4"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function VariableNamesWithConflictingNumericSuffix(testCase)
@@ -144,16 +154,18 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = ["VariableNames", "VariableNames_1"];
             expected = ["VariableNames_2", "VariableNames_1"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
 
             original = ["VariableNames_1", "VariableNames", "VariableNames_4"];
             expected = ["VariableNames_1", "VariableNames_2", "VariableNames_4"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function ColonWithConflictingSuffix(testCase)
@@ -164,16 +176,18 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = [":", ":_1"];
             expected = [":_2", ":_1"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
 
             original = [":_1", ":", ":_4"];
             expected = [":_1", ":_2", ":_4"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
         function EmptyStrings(testCase)
@@ -185,23 +199,26 @@ classdef tMakeValidVariableNames < matlab.unittest.TestCase
             original = "";
             expected = "Var1";
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
 
             original = ["", "Var1", ""];
             expected = ["Var1", "Var1_1", "Var3"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
 
             original = ["", "Var1", "Var1_1"];
             expected = ["Var1", "Var1_2", "Var1_1"];
 
-            actual = makeValidVariableNames(original);
+            [actual, modified] = makeValidVariableNames(original);
 
             testCase.verifyEqual(actual, expected);
+            testCase.verifyTrue(modified);
         end
 
     end
