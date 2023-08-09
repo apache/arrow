@@ -417,5 +417,10 @@ Result<Datum> CumulativeMin(const Datum& values, const CumulativeOptions& option
   return CallFunction("cumulative_min", {Datum(values)}, &options, ctx);
 }
 
+Result<Datum> CumulativeMean(const Datum& values, const CumulativeOptions& options,
+                             ExecContext* ctx) {
+  return CallFunction("cumulative_mean", {Datum(values)}, &options, ctx);
+}
+
 }  // namespace compute
 }  // namespace arrow
