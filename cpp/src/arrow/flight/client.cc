@@ -640,9 +640,9 @@ arrow::Future<FlightInfo> FlightClient::GetFlightInfoAsync(
   return future;
 }
 
-arrow::Result<std::unique_ptr<RetryInfo>> FlightClient::PollFlightInfo(
+arrow::Result<std::unique_ptr<PollInfo>> FlightClient::PollFlightInfo(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
-  std::unique_ptr<RetryInfo> info;
+  std::unique_ptr<PollInfo> info;
   RETURN_NOT_OK(CheckOpen());
   RETURN_NOT_OK(transport_->PollFlightInfo(options, descriptor, &info));
   return info;

@@ -73,23 +73,23 @@ service FlightService {
    * return until the query is complete.)
    *
    * A client can consume any available results before
-   * the query is completed. See RetryInfo.info for details.
+   * the query is completed. See PollInfo.info for details.
    *
    * A client can poll the updated query status by calling
-   * PollFlightInfo() with RetryInfo.flight_descriptor. A server
+   * PollFlightInfo() with PollInfo.flight_descriptor. A server
    * should not respond until the result would be different from last
    * time. That way, the client can "long poll" for updates
    * without constantly making requests. Clients can set a short timeout
    * to avoid blocking calls if desired.
    *
-   * A client can't use RetryInfo.flight_descriptor after
-   * RetryInfo.expiration_time passes. A server might not accept the
+   * A client can't use PollInfo.flight_descriptor after
+   * PollInfo.expiration_time passes. A server might not accept the
    * retry descriptor anymore and the query may be cancelled.
    *
    * A client may use the CancelFlightInfo action with
-   * RetryInfo.info to cancel the running query.
+   * PollInfo.info to cancel the running query.
    */
-  rpc PollFlightInfo(FlightDescriptor) returns (RetryInfo) {}
+  rpc PollFlightInfo(FlightDescriptor) returns (PollInfo) {}
 
   /*
    * For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
@@ -371,20 +371,24 @@ message FlightInfo {
 /*
  * The information to process a long-running query.
  */
-message RetryInfo {
+message PollInfo {
   /*
    * The currently available results.
    *
-   * If `flight_descriptor` is not specified, the query is complete and 
-   * `info` specifies all results. Otherwise, `info` contains partial query results.
+   * If "flight_descriptor" is not specified, the query is complete
+   * and "info" specifies all results. Otherwise, "info" contains
+   * partial query results.
    *
-   * Note that each `RetryInfo` response contains a complete FlightInfo 
-   * (not just the delta between the previous and current FlightInfo). 
+   * Note that each PollInfo response contains a complete
+   * FlightInfo (not just the delta between the previous and current
+   * FlightInfo).
    *
-   * Subsequent `RetryInfo` responses may only append new endpoints to info. 
+   * Subsequent PollInfo responses may only append new endpoints to
+   * info.
    *
-   * Clients can begin fetching results via DoGet(Ticket) with the ticket in the info before 
-   * the query is completed. FlightInfo.ordered is also valid.
+   * Clients can begin fetching results via DoGet(Ticket) with the
+   * ticket in the info before the query is
+   * completed. FlightInfo.ordered is also valid.
    */
   FlightInfo info = 1;
 

@@ -339,36 +339,36 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.ordered == other.data_.ordered;
 }
 
-arrow::Result<std::string> RetryInfo::SerializeToString() const {
-  pb::RetryInfo pb_info;
+arrow::Result<std::string> PollInfo::SerializeToString() const {
+  pb::PollInfo pb_info;
   RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
 
   std::string out;
   if (!pb_info.SerializeToString(&out)) {
-    return Status::IOError("Serialized RetryInfo exceeded 2 GiB limit");
+    return Status::IOError("Serialized PollInfo exceeded 2 GiB limit");
   }
   return out;
 }
 
-arrow::Result<std::unique_ptr<RetryInfo>> RetryInfo::Deserialize(
+arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
     std::string_view serialized) {
-  pb::RetryInfo pb_info;
+  pb::PollInfo pb_info;
   if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
-    return Status::Invalid("Serialized RetryInfo size should not exceed 2 GiB");
+    return Status::Invalid("Serialized PollInfo size should not exceed 2 GiB");
   }
   google::protobuf::io::ArrayInputStream input(serialized.data(),
                                                static_cast<int>(serialized.size()));
   if (!pb_info.ParseFromZeroCopyStream(&input)) {
-    return Status::Invalid("Not a valid RetryInfo");
+    return Status::Invalid("Not a valid PollInfo");
   }
-  RetryInfo info;
+  PollInfo info;
   RETURN_NOT_OK(internal::FromProto(pb_info, &info));
-  return std::make_unique<RetryInfo>(std::move(info));
+  return std::make_unique<PollInfo>(std::move(info));
 }
 
-std::string RetryInfo::ToString() const {
+std::string PollInfo::ToString() const {
   std::stringstream ss;
-  ss << "<RetryInfo info=" << info->ToString();
+  ss << "<PollInfo info=" << info->ToString();
   ss << " descriptor=";
   if (descriptor) {
     ss << descriptor->ToString();
@@ -397,7 +397,7 @@ std::string RetryInfo::ToString() const {
   return ss.str();
 }
 
-bool RetryInfo::Equals(const RetryInfo& other) const {
+bool PollInfo::Equals(const PollInfo& other) const {
   if ((info.get() != nullptr) != (other.info.get() != nullptr)) {
     return false;
   }

@@ -267,7 +267,7 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \return Status
   virtual Status PollFlightInfo(const ServerCallContext& context,
                                 const FlightDescriptor& request,
-                                std::unique_ptr<RetryInfo>* info);
+                                std::unique_ptr<PollInfo>* info);
 
   /// \brief Retrieve the schema for the indicated descriptor
   /// \param[in] context The call context.

@@ -25,7 +25,7 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.Location;
-import org.apache.arrow.flight.RetryInfo;
+import org.apache.arrow.flight.PollInfo;
 import org.apache.arrow.memory.BufferAllocator;
 
 /** Test PollFlightInfo. */
@@ -41,7 +41,7 @@ final class PollFlightInfoScenario implements Scenario {
 
   @Override
   public void client(BufferAllocator allocator, Location location, FlightClient client) throws Exception {
-    RetryInfo info = client.pollInfo(FlightDescriptor.command("heavy query".getBytes(StandardCharsets.UTF_8)));
+    PollInfo info = client.pollInfo(FlightDescriptor.command("heavy query".getBytes(StandardCharsets.UTF_8)));
     IntegrationAssertions.assertNotNull(info.getFlightInfo());
     Optional<Double> progress = info.getProgress();
     IntegrationAssertions.assertTrue("progress is missing", progress.isPresent());

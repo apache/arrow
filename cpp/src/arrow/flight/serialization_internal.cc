@@ -299,9 +299,9 @@ Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info) {
   return Status::OK();
 }
 
-// RetryInfo
+// PollInfo
 
-Status FromProto(const pb::RetryInfo& pb_info, RetryInfo* info) {
+Status FromProto(const pb::PollInfo& pb_info, PollInfo* info) {
   ARROW_ASSIGN_OR_RAISE(auto flight_info, FromProto(pb_info.info()));
   info->info = std::make_unique<FlightInfo>(std::move(flight_info));
   if (pb_info.has_flight_descriptor()) {
@@ -326,7 +326,7 @@ Status FromProto(const pb::RetryInfo& pb_info, RetryInfo* info) {
   return Status::OK();
 }
 
-Status ToProto(const RetryInfo& info, pb::RetryInfo* pb_info) {
+Status ToProto(const PollInfo& info, pb::PollInfo* pb_info) {
   RETURN_NOT_OK(ToProto(*info.info, pb_info->mutable_info()));
   if (info.descriptor) {
     RETURN_NOT_OK(ToProto(*info.descriptor, pb_info->mutable_flight_descriptor()));

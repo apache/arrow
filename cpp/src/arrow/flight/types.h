@@ -655,7 +655,7 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
 };
 
 /// \brief The information to process a long-running query.
-class ARROW_FLIGHT_EXPORT RetryInfo {
+class ARROW_FLIGHT_EXPORT PollInfo {
  public:
   /// The currently available results so far.
   std::unique_ptr<FlightInfo> info = NULLPTR;
@@ -666,26 +666,26 @@ class ARROW_FLIGHT_EXPORT RetryInfo {
   /// monotonic or nondecreasing. If unknown, do not set.
   std::optional<double> progress = std::nullopt;
   /// Expiration time for this request. After this passes, the server
-  /// might not accept the retry descriptor anymore (and the query may
+  /// might not accept the poll descriptor anymore (and the query may
   /// be cancelled). This may be updated on a call to PollFlightInfo.
   std::optional<Timestamp> expiration_time = std::nullopt;
 
-  RetryInfo()
+  PollInfo()
       : info(NULLPTR),
         descriptor(std::nullopt),
         progress(std::nullopt),
         expiration_time(std::nullopt) {}
 
-  explicit RetryInfo(std::unique_ptr<FlightInfo> info,
-                     std::optional<FlightDescriptor> descriptor,
-                     std::optional<double> progress,
-                     std::optional<Timestamp> expiration_time)
+  explicit PollInfo(std::unique_ptr<FlightInfo> info,
+                    std::optional<FlightDescriptor> descriptor,
+                    std::optional<double> progress,
+                    std::optional<Timestamp> expiration_time)
       : info(std::move(info)),
         descriptor(std::move(descriptor)),
         progress(progress),
         expiration_time(expiration_time) {}
 
-  explicit RetryInfo(const RetryInfo& other)
+  explicit PollInfo(const PollInfo& other)
       : info(other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR),
         descriptor(other.descriptor),
         progress(other.progress),
@@ -701,20 +701,20 @@ class ARROW_FLIGHT_EXPORT RetryInfo {
   ///
   /// Useful when interoperating with non-Flight systems (e.g. REST
   /// services) that may want to return Flight types.
-  static arrow::Result<std::unique_ptr<RetryInfo>> Deserialize(
+  static arrow::Result<std::unique_ptr<PollInfo>> Deserialize(
       std::string_view serialized);
 
   std::string ToString() const;
 
-  /// Compare two RetryInfo for equality. This will compare the
+  /// Compare two PollInfo for equality. This will compare the
   /// serialized schema representations, NOT the logical equality of
   /// the schemas.
-  bool Equals(const RetryInfo& other) const;
+  bool Equals(const PollInfo& other) const;
 
-  friend bool operator==(const RetryInfo& left, const RetryInfo& right) {
+  friend bool operator==(const PollInfo& left, const PollInfo& right) {
     return left.Equals(right);
   }
-  friend bool operator!=(const RetryInfo& left, const RetryInfo& right) {
+  friend bool operator!=(const PollInfo& left, const PollInfo& right) {
     return !(left == right);
   }
 };

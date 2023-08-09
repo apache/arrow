@@ -31,28 +31,28 @@ import com.google.protobuf.Timestamp;
 /**
  * A POJO representation of the execution of a long-running query.
  */
-public class RetryInfo {
+public class PollInfo {
   private final FlightInfo flightInfo;
   private final FlightDescriptor flightDescriptor;
   private final Double progress;
   private final Instant expirationTime;
 
   /**
-   * Create a new RetryInfo.
+   * Create a new PollInfo.
    *
    * @param flightInfo The FlightInfo (must not be null).
    * @param flightDescriptor The descriptor used to poll for more information; null if and only if query is finished.
    * @param progress Optional progress info in [0.0, 1.0].
    * @param expirationTime An expiration time, after which the server may no longer recognize the descriptor.
    */
-  public RetryInfo(FlightInfo flightInfo, FlightDescriptor flightDescriptor, Double progress, Instant expirationTime) {
+  public PollInfo(FlightInfo flightInfo, FlightDescriptor flightDescriptor, Double progress, Instant expirationTime) {
     this.flightInfo = Objects.requireNonNull(flightInfo);
     this.flightDescriptor = flightDescriptor;
     this.progress = progress;
     this.expirationTime = expirationTime;
   }
 
-  RetryInfo(Flight.RetryInfo flt) throws URISyntaxException {
+  PollInfo(Flight.PollInfo flt) throws URISyntaxException {
     this.flightInfo = new FlightInfo(flt.getInfo());
     this.flightDescriptor = flt.hasFlightDescriptor() ? new FlightDescriptor(flt.getFlightDescriptor()) : null;
     this.progress = flt.hasProgress() ? flt.getProgress() : null;
@@ -101,8 +101,8 @@ public class RetryInfo {
     return Optional.ofNullable(expirationTime);
   }
 
-  Flight.RetryInfo toProtocol() {
-    Flight.RetryInfo.Builder b = Flight.RetryInfo.newBuilder();
+  Flight.PollInfo toProtocol() {
+    Flight.PollInfo.Builder b = Flight.PollInfo.newBuilder();
     b.setInfo(flightInfo.toProtocol());
     if (flightDescriptor != null) {
       b.setFlightDescriptor(flightDescriptor.toProtocol());
@@ -124,8 +124,8 @@ public class RetryInfo {
     return ByteBuffer.wrap(toProtocol().toByteArray());
   }
 
-  public static RetryInfo deserialize(ByteBuffer serialized) throws IOException, URISyntaxException {
-    return new RetryInfo(Flight.RetryInfo.parseFrom(serialized));
+  public static PollInfo deserialize(ByteBuffer serialized) throws IOException, URISyntaxException {
+    return new PollInfo(Flight.PollInfo.parseFrom(serialized));
   }
 
   @Override
@@ -136,11 +136,11 @@ public class RetryInfo {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    RetryInfo retryInfo = (RetryInfo) o;
-    return Objects.equals(getFlightInfo(), retryInfo.getFlightInfo()) &&
-        Objects.equals(getFlightDescriptor(), retryInfo.getFlightDescriptor()) &&
-        Objects.equals(getProgress(), retryInfo.getProgress()) &&
-        Objects.equals(getExpirationTime(), retryInfo.getExpirationTime());
+    PollInfo pollInfo = (PollInfo) o;
+    return Objects.equals(getFlightInfo(), pollInfo.getFlightInfo()) &&
+        Objects.equals(getFlightDescriptor(), pollInfo.getFlightDescriptor()) &&
+        Objects.equals(getProgress(), pollInfo.getProgress()) &&
+        Objects.equals(getExpirationTime(), pollInfo.getExpirationTime());
   }
 
   @Override
@@ -150,7 +150,7 @@ public class RetryInfo {
 
   @Override
   public String toString() {
-    return "RetryInfo{" +
+    return "PollInfo{" +
         "flightInfo=" + flightInfo +
         ", flightDescriptor=" + flightDescriptor +
         ", progress=" + progress +

@@ -751,20 +751,20 @@ class PollFlightInfoServer : public FlightServerBase {
 
   Status PollFlightInfo(const ServerCallContext& context,
                         const FlightDescriptor& descriptor,
-                        std::unique_ptr<RetryInfo>* result) override {
+                        std::unique_ptr<PollInfo>* result) override {
     auto schema = arrow::schema({arrow::field("number", arrow::uint32(), false)});
     std::vector<FlightEndpoint> endpoints = {
         FlightEndpoint{{"long-running query"}, {}, std::nullopt}};
     ARROW_ASSIGN_OR_RAISE(
         auto info, FlightInfo::Make(*schema, descriptor, endpoints, -1, -1, false));
-    if (descriptor == FlightDescriptor::Command("retry")) {
-      *result = std::make_unique<RetryInfo>(std::make_unique<FlightInfo>(std::move(info)),
-                                            std::nullopt, 1.0, std::nullopt);
+    if (descriptor == FlightDescriptor::Command("poll")) {
+      *result = std::make_unique<PollInfo>(std::make_unique<FlightInfo>(std::move(info)),
+                                           std::nullopt, 1.0, std::nullopt);
     } else {
       *result =
-          std::make_unique<RetryInfo>(std::make_unique<FlightInfo>(std::move(info)),
-                                      FlightDescriptor::Command("retry"), 0.1,
-                                      Timestamp::clock::now() + std::chrono::seconds{10});
+          std::make_unique<PollInfo>(std::make_unique<FlightInfo>(std::move(info)),
+                                     FlightDescriptor::Command("poll"), 0.1,
+                                     Timestamp::clock::now() + std::chrono::seconds{10});
     }
     return Status::OK();
   }

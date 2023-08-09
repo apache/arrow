@@ -63,9 +63,9 @@ public interface FlightProducer {
    * @param descriptor The descriptor identifying the data stream.
    * @return Metadata about execution.
    */
-  default RetryInfo pollFlightInfo(CallContext context, FlightDescriptor descriptor) {
+  default PollInfo pollFlightInfo(CallContext context, FlightDescriptor descriptor) {
     FlightInfo info = getFlightInfo(context, descriptor);
-    return new RetryInfo(info, null, null, null);
+    return new PollInfo(info, null, null, null);
   }
 
   /**

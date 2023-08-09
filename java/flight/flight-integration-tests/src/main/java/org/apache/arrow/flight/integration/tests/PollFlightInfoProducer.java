@@ -28,7 +28,7 @@ import org.apache.arrow.flight.FlightDescriptor;
 import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.NoOpFlightProducer;
-import org.apache.arrow.flight.RetryInfo;
+import org.apache.arrow.flight.PollInfo;
 import org.apache.arrow.flight.Ticket;
 import org.apache.arrow.vector.types.Types;
 import org.apache.arrow.vector.types.pojo.Field;
@@ -36,21 +36,21 @@ import org.apache.arrow.vector.types.pojo.Schema;
 
 /** Test PollFlightInfo. */
 class PollFlightInfoProducer extends NoOpFlightProducer {
-  static final byte[] RETRY_DESCRIPTOR = "retry".getBytes(StandardCharsets.UTF_8);
+  static final byte[] POLL_DESCRIPTOR = "poll".getBytes(StandardCharsets.UTF_8);
 
   @Override
-  public RetryInfo pollFlightInfo(CallContext context, FlightDescriptor descriptor) {
+  public PollInfo pollFlightInfo(CallContext context, FlightDescriptor descriptor) {
     Schema schema = new Schema(
         Collections.singletonList(Field.notNullable("number", Types.MinorType.UINT4.getType())));
     List<FlightEndpoint> endpoints = Collections.singletonList(
         new FlightEndpoint(
             new Ticket("long-running query".getBytes(StandardCharsets.UTF_8))));
     FlightInfo info = new FlightInfo(schema, descriptor, endpoints, -1, -1 );
-    if (descriptor.isCommand() && Arrays.equals(descriptor.getCommand(), RETRY_DESCRIPTOR)) {
-      return new RetryInfo(info, null, 1.0, null);
+    if (descriptor.isCommand() && Arrays.equals(descriptor.getCommand(), POLL_DESCRIPTOR)) {
+      return new PollInfo(info, null, 1.0, null);
     } else {
-      return new RetryInfo(
-          info, FlightDescriptor.command(RETRY_DESCRIPTOR), 0.1, Instant.now().plus(10, ChronoUnit.SECONDS));
+      return new PollInfo(
+          info, FlightDescriptor.command(POLL_DESCRIPTOR), 0.1, Instant.now().plus(10, ChronoUnit.SECONDS));
     }
   }
 }

@@ -41,29 +41,28 @@ type FlightServiceClient interface {
 	// service.
 	GetFlightInfo(ctx context.Context, in *FlightDescriptor, opts ...grpc.CallOption) (*FlightInfo, error)
 	// For a given FlightDescriptor, start a query and get information
-	// to poll the updated statuses. This is a useful interface if the
+	// to poll its execution status. This is a useful interface if the
 	// query may be a long-running query. The first PollFlightInfo call
-	// should be returned as quickly as possible. (GetFlightInfo isn't
-	// returned until a query isn't completed.)
+	// should return as quickly as possible. (GetFlightInfo doesn't
+	// return until the query is complete.)
 	//
-	// A client can consume the currently available results so far
-	// before the query isn't completed yet. See RertyInfo.info for
-	// details.
+	// A client can consume any available results before
+	// the query is completed. See PollInfo.info for details.
 	//
 	// A client can poll the updated query status by calling
-	// PollFlightInfo() with RetryInfo.flight_descriptor. A server
+	// PollFlightInfo() with PollInfo.flight_descriptor. A server
 	// should not respond until the result would be different from last
 	// time. That way, the client can "long poll" for updates
 	// without constantly making requests. Clients can set a short timeout
 	// to avoid blocking calls if desired.
 	//
-	// A client can't use RetryInfo.flight_descriptor after
-	// RetryInfo.timestamp passes. A server might not accept the retry
-	// descriptor anymore and the query may be cancelled.
+	// A client can't use PollInfo.flight_descriptor after
+	// PollInfo.expiration_time passes. A server might not accept the
+	// retry descriptor anymore and the query may be cancelled.
 	//
-	// A client may be able to use the CancelFLightInfo action with
-	// RetryInfo.info to cancel the running query.
-	PollFlightInfo(ctx context.Context, in *FlightDescriptor, opts ...grpc.CallOption) (*RetryInfo, error)
+	// A client may use the CancelFlightInfo action with
+	// PollInfo.info to cancel the running query.
+	PollFlightInfo(ctx context.Context, in *FlightDescriptor, opts ...grpc.CallOption) (*PollInfo, error)
 	// For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
 	// This is used when a consumer needs the Schema of flight stream. Similar to
 	// GetFlightInfo this interface may generate a new flight that was not previously
@@ -180,8 +179,8 @@ func (c *flightServiceClient) GetFlightInfo(ctx context.Context, in *FlightDescr
 	return out, nil
 }
 
-func (c *flightServiceClient) PollFlightInfo(ctx context.Context, in *FlightDescriptor, opts ...grpc.CallOption) (*RetryInfo, error) {
-	out := new(RetryInfo)
+func (c *flightServiceClient) PollFlightInfo(ctx context.Context, in *FlightDescriptor, opts ...grpc.CallOption) (*PollInfo, error) {
+	out := new(PollInfo)
 	err := c.cc.Invoke(ctx, "/arrow.flight.protocol.FlightService/PollFlightInfo", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -384,29 +383,28 @@ type FlightServiceServer interface {
 	// service.
 	GetFlightInfo(context.Context, *FlightDescriptor) (*FlightInfo, error)
 	// For a given FlightDescriptor, start a query and get information
-	// to poll the updated statuses. This is a useful interface if the
+	// to poll its execution status. This is a useful interface if the
 	// query may be a long-running query. The first PollFlightInfo call
-	// should be returned as quickly as possible. (GetFlightInfo isn't
-	// returned until a query isn't completed.)
+	// should return as quickly as possible. (GetFlightInfo doesn't
+	// return until the query is complete.)
 	//
-	// A client can consume the currently available results so far
-	// before the query isn't completed yet. See RertyInfo.info for
-	// details.
+	// A client can consume any available results before
+	// the query is completed. See PollInfo.info for details.
 	//
 	// A client can poll the updated query status by calling
-	// PollFlightInfo() with RetryInfo.flight_descriptor. A server
+	// PollFlightInfo() with PollInfo.flight_descriptor. A server
 	// should not respond until the result would be different from last
 	// time. That way, the client can "long poll" for updates
 	// without constantly making requests. Clients can set a short timeout
 	// to avoid blocking calls if desired.
 	//
-	// A client can't use RetryInfo.flight_descriptor after
-	// RetryInfo.timestamp passes. A server might not accept the retry
-	// descriptor anymore and the query may be cancelled.
+	// A client can't use PollInfo.flight_descriptor after
+	// PollInfo.expiration_time passes. A server might not accept the
+	// retry descriptor anymore and the query may be cancelled.
 	//
-	// A client may be able to use the CancelFLightInfo action with
-	// RetryInfo.info to cancel the running query.
-	PollFlightInfo(context.Context, *FlightDescriptor) (*RetryInfo, error)
+	// A client may use the CancelFlightInfo action with
+	// PollInfo.info to cancel the running query.
+	PollFlightInfo(context.Context, *FlightDescriptor) (*PollInfo, error)
 	// For a given FlightDescriptor, get the Schema as described in Schema.fbs::Schema
 	// This is used when a consumer needs the Schema of flight stream. Similar to
 	// GetFlightInfo this interface may generate a new flight that was not previously
@@ -457,7 +455,7 @@ func (UnimplementedFlightServiceServer) ListFlights(*Criteria, FlightService_Lis
 func (UnimplementedFlightServiceServer) GetFlightInfo(context.Context, *FlightDescriptor) (*FlightInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFlightInfo not implemented")
 }
-func (UnimplementedFlightServiceServer) PollFlightInfo(context.Context, *FlightDescriptor) (*RetryInfo, error) {
+func (UnimplementedFlightServiceServer) PollFlightInfo(context.Context, *FlightDescriptor) (*PollInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PollFlightInfo not implemented")
 }
 func (UnimplementedFlightServiceServer) GetSchema(context.Context, *FlightDescriptor) (*SchemaResult, error) {

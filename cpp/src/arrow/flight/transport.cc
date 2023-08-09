@@ -82,7 +82,7 @@ void ClientTransport::GetFlightInfoAsync(
 }
 Status ClientTransport::PollFlightInfo(const FlightCallOptions& options,
                                        const FlightDescriptor& descriptor,
-                                       std::unique_ptr<RetryInfo>* info) {
+                                       std::unique_ptr<PollInfo>* info) {
   return Status::NotImplemented("PollFlightInfo for this transport");
 }
 arrow::Result<std::unique_ptr<SchemaResult>> ClientTransport::GetSchema(

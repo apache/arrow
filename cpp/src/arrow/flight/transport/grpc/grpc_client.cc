@@ -946,9 +946,9 @@ class GrpcClientImpl : public internal::ClientTransport {
 
   Status PollFlightInfo(const FlightCallOptions& options,
                         const FlightDescriptor& descriptor,
-                        std::unique_ptr<RetryInfo>* info) override {
+                        std::unique_ptr<PollInfo>* info) override {
     pb::FlightDescriptor pb_descriptor;
-    pb::RetryInfo pb_response;
+    pb::PollInfo pb_response;
 
     RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
 
@@ -958,7 +958,7 @@ class GrpcClientImpl : public internal::ClientTransport {
         stub_->PollFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
     RETURN_NOT_OK(s);
 
-    info->reset(new RetryInfo());
+    info->reset(new PollInfo());
     RETURN_NOT_OK(internal::FromProto(pb_response, info->get()));
     return Status::OK();
   }

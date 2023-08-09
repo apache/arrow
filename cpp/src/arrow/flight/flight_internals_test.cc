@@ -65,7 +65,7 @@ void TestRoundtrip(const std::vector<FlightType>& values,
     ASSERT_OK_AND_ASSIGN(std::string serialized, values[i].SerializeToString());
     ASSERT_OK_AND_ASSIGN(auto deserialized, FlightType::Deserialize(serialized));
     if constexpr (std::is_same_v<FlightType, FlightInfo> ||
-                  std::is_same_v<FlightType, RetryInfo>) {
+                  std::is_same_v<FlightType, PollInfo>) {
       ARROW_SCOPED_TRACE("Deserialized = ", deserialized->ToString());
       EXPECT_EQ(values[i], *deserialized);
     } else {
@@ -258,7 +258,7 @@ TEST(FlightTypes, FlightInfo) {
   ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::FlightInfo>(values, reprs));
 }
 
-TEST(FlightTypes, RetryInfo) {
+TEST(FlightTypes, PollInfo) {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 1234));
   Schema schema({field("ints", int64())});
   auto desc = FlightDescriptor::Command("foo");
@@ -272,22 +272,22 @@ TEST(FlightTypes, RetryInfo) {
       std::chrono::seconds{1687144446} + std::chrono::nanoseconds{4339000};
   Timestamp expiration_time(
       std::chrono::duration_cast<Timestamp::duration>(expiration_time_duration));
-  std::vector<RetryInfo> values = {
-      RetryInfo{std::make_unique<FlightInfo>(info), std::nullopt, std::nullopt,
-                std::nullopt},
-      RetryInfo{std::make_unique<FlightInfo>(info), FlightDescriptor::Command("retry"),
-                0.1, expiration_time},
+  std::vector<PollInfo> values = {
+      PollInfo{std::make_unique<FlightInfo>(info), std::nullopt, std::nullopt,
+               std::nullopt},
+      PollInfo{std::make_unique<FlightInfo>(info), FlightDescriptor::Command("poll"), 0.1,
+               expiration_time},
   };
   std::vector<std::string> reprs = {
-      "<RetryInfo info=" + info.ToString() +
+      "<PollInfo info=" + info.ToString() +
           " descriptor=null "
           "progress=null expiration_time=null>",
-      "<RetryInfo info=" + info.ToString() +
-          " descriptor=<FlightDescriptor cmd='retry'> "
+      "<PollInfo info=" + info.ToString() +
+          " descriptor=<FlightDescriptor cmd='poll'> "
           "progress=0.1 expiration_time=2023-06-19 03:14:06.004339000>",
   };
 
-  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::RetryInfo>(values, reprs));
+  ASSERT_NO_FATAL_FAILURE(TestRoundtrip<pb::PollInfo>(values, reprs));
 }
 
 TEST(FlightTypes, Result) {

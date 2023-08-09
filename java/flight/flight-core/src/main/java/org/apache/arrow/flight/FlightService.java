@@ -259,8 +259,8 @@ class FlightService extends FlightServiceImplBase {
   }
 
   @Override
-  public void pollFlightInfo(Flight.FlightDescriptor request, StreamObserver<Flight.RetryInfo> responseObserver) {
-    final RetryInfo info;
+  public void pollFlightInfo(Flight.FlightDescriptor request, StreamObserver<Flight.PollInfo> responseObserver) {
+    final PollInfo info;
     try {
       info = producer
           .pollFlightInfo(makeContext((ServerCallStreamObserver<?>) responseObserver), new FlightDescriptor(request));

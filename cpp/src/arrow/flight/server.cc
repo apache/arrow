@@ -233,7 +233,7 @@ Status FlightServerBase::GetFlightInfo(const ServerCallContext& context,
 
 Status FlightServerBase::PollFlightInfo(const ServerCallContext& context,
                                         const FlightDescriptor& request,
-                                        std::unique_ptr<RetryInfo>* info) {
+                                        std::unique_ptr<PollInfo>* info) {
   return Status::NotImplemented("NYI");
 }
 

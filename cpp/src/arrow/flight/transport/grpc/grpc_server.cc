@@ -414,7 +414,7 @@ class GrpcServiceHandler final : public FlightService::Service {
 
   ::grpc::Status PollFlightInfo(ServerContext* context,
                                 const pb::FlightDescriptor* request,
-                                pb::RetryInfo* response) {
+                                pb::PollInfo* response) {
     GrpcServerCallContext flight_context(context);
     GRPC_RETURN_NOT_GRPC_OK(
         CheckAuth(FlightMethod::PollFlightInfo, context, flight_context));
@@ -424,7 +424,7 @@ class GrpcServiceHandler final : public FlightService::Service {
     FlightDescriptor descr;
     SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
 
-    std::unique_ptr<RetryInfo> info;
+    std::unique_ptr<PollInfo> info;
     SERVICE_RETURN_NOT_OK(flight_context,
                           impl_->base()->PollFlightInfo(flight_context, descr, &info));
 

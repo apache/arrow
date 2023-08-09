@@ -395,7 +395,7 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
                          FlightDescriptor::Deserialize(std::string_view(*frame->buffer))
                              .Value(&descriptor));
 
-    std::unique_ptr<RetryInfo> info;
+    std::unique_ptr<PollInfo> info;
     std::string response;
     SERVER_RETURN_NOT_OK(driver, base_->PollFlightInfo(context, descriptor, &info));
     SERVER_RETURN_NOT_OK(driver, info->SerializeToString().Value(&response));

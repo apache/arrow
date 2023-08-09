@@ -602,7 +602,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
 
   Status PollFlightInfo(const FlightCallOptions& options,
                         const FlightDescriptor& descriptor,
-                        std::unique_ptr<RetryInfo>* info) override {
+                        std::unique_ptr<PollInfo>* info) override {
     ARROW_ASSIGN_OR_RAISE(auto connection, CheckoutConnection(options));
     UcpCallDriver* driver = connection.driver();
 
@@ -618,7 +618,7 @@ class UcxClientImpl : public arrow::flight::internal::ClientTransport {
       ARROW_ASSIGN_OR_RAISE(auto incoming_message, driver->ReadNextFrame());
       if (incoming_message->type == FrameType::kBuffer) {
         ARROW_ASSIGN_OR_RAISE(
-            *info, RetryInfo::Deserialize(std::string_view(*incoming_message->buffer)));
+            *info, PollInfo::Deserialize(std::string_view(*incoming_message->buffer)));
         ARROW_ASSIGN_OR_RAISE(incoming_message, driver->ReadNextFrame());
       }
       RETURN_NOT_OK(driver->ExpectFrameType(*incoming_message, FrameType::kHeaders));

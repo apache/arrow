@@ -1145,7 +1145,7 @@ func (tester *pollFlightInfoScenarioTester) MakeServer(port int) flight.Server {
 	return srv
 }
 
-func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.RetryInfo, error) {
+func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.PollInfo, error) {
 	schema := arrow.NewSchema(
 		[]arrow.Field{
 			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
@@ -1165,13 +1165,13 @@ func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, 
 		TotalRecords:     -1,
 		TotalBytes:       -1,
 	}
-	retryDesc := flight.FlightDescriptor{
+	pollDesc := flight.FlightDescriptor{
 		Type: flight.DescriptorCMD,
-		Cmd:  []byte("retry"),
+		Cmd:  []byte("poll"),
 	}
-	if desc.Type == retryDesc.Type && string(desc.Cmd) == string(retryDesc.Cmd) {
+	if desc.Type == pollDesc.Type && string(desc.Cmd) == string(pollDesc.Cmd) {
 		progress := float64(1.0)
-		return &flight.RetryInfo{
+		return &flight.PollInfo{
 			Info:             info,
 			FlightDescriptor: nil,
 			Progress:         &progress,
@@ -1179,9 +1179,9 @@ func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, 
 		}, nil
 	} else {
 		progress := float64(0.1)
-		return &flight.RetryInfo{
+		return &flight.PollInfo{
 			Info:             info,
-			FlightDescriptor: &retryDesc,
+			FlightDescriptor: &pollDesc,
 			Progress:         &progress,
 			ExpirationTime:   timestamppb.New(time.Now().Add(time.Second * 10)),
 		}, nil

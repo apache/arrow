@@ -300,11 +300,11 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \param[in] options Per-RPC options
   /// \param[in] descriptor the dataset request or a descriptor returned by a
   /// prioir PollFlightInfo call
-  /// \return Arrow result with the RetryInfo describing the status of
+  /// \return Arrow result with the PollInfo describing the status of
   /// the requested query
-  arrow::Result<std::unique_ptr<RetryInfo>> PollFlightInfo(
+  arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
       const FlightCallOptions& options, const FlightDescriptor& descriptor);
-  arrow::Result<std::unique_ptr<RetryInfo>> PollFlightInfo(
+  arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
       const FlightDescriptor& descriptor) {
     return PollFlightInfo({}, descriptor);
   }

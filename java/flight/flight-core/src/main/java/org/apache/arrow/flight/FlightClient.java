@@ -294,9 +294,9 @@ public class FlightClient implements AutoCloseable {
    * @param options RPC-layer hints for this call.
    * @return Metadata about execution.
    */
-  public RetryInfo pollInfo(FlightDescriptor descriptor, CallOption... options) {
+  public PollInfo pollInfo(FlightDescriptor descriptor, CallOption... options) {
     try {
-      return new RetryInfo(CallOptions.wrapStub(blockingStub, options).pollFlightInfo(descriptor.toProtocol()));
+      return new PollInfo(CallOptions.wrapStub(blockingStub, options).pollFlightInfo(descriptor.toProtocol()));
     } catch (URISyntaxException e) {
       throw new RuntimeException(e);
     } catch (StatusRuntimeException sre) {

@@ -166,28 +166,28 @@ can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
    Polling a long-running query by ``PollFlightInfo``.
 
 #. Construct or acquire a ``FlightDescriptor``, as before.
-#. Call ``PollFlightInfo(FlightDescriptor)`` to get a ``RetryInfo``
+#. Call ``PollFlightInfo(FlightDescriptor)`` to get a ``PollInfo``
    message.
 
    A server should respond as quickly as possible on the first
-   call. So the client shouldn't wait for the first ``RetryInfo``
+   call. So the client shouldn't wait for the first ``PollInfo``
    response.
 
-   If the query isn't finished, ``RetryInfo.flight_descriptor`` has a
+   If the query isn't finished, ``PollInfo.flight_descriptor`` has a
    ``FlightDescriptor``. The client should use the descriptor (not the
    original ``FlightDescriptor``) to call the next
    ``PollFlightInfo()``.  A server should recognize a
-   ``RetryInfo.flight_descriptor`` that is not necessarily the latest
+   ``PollInfo.flight_descriptor`` that is not necessarily the latest
    in case the client misses an update in between.
 
-   If the query is finished, ``RetryInfo.flight_descriptor`` is
+   If the query is finished, ``PollInfo.flight_descriptor`` is
    unset.
 
-   ``RetryInfo.info`` is the currently available results so far. It's
+   ``PollInfo.info`` is the currently available results so far. It's
    a complete ``FlightInfo`` each time not just the delta between the
    previous and current ``FlightInfo``. A server should only append to
-   the endpoints in ``RetryInfo.info`` each time. So the client can
-   run ``DoGet(Ticket)`` with the ``Ticket`` in the ``RetryInfo.info``
+   the endpoints in ``PollInfo.info`` each time. So the client can
+   run ``DoGet(Ticket)`` with the ``Ticket`` in the ``PollInfo.info``
    even when the query isn't finished yet. ``FlightInfo.ordered`` is
    also valid.
 
@@ -196,14 +196,14 @@ can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
    without constantly making requests. Clients can set a short timeout
    to avoid blocking calls if desired.
 
-   ``RetryInfo.progress`` may be set. It represents progress of the
+   ``PollInfo.progress`` may be set. It represents progress of the
    query. If it's set, the value must be in ``[0.0, 1.0]``. The value
    is not necessarily monotonic or nondecreasing. A server may respond by
-   only updating the ``RetryInfo.progress`` value, though it shouldn't
+   only updating the ``PollInfo.progress`` value, though it shouldn't
    spam the client with updates.
 
-   ``RetryInfo.timestamp`` is the expiration time for this
-   request. After this passes, a server might not accept the retry
+   ``PollInfo.timestamp`` is the expiration time for this
+   request. After this passes, a server might not accept the poll
    descriptor anymore and the query may be cancelled. This may be
    updated on a call to ``PollFlightInfo``. The expiration time is
    represented as `google.protobuf.Timestamp`_.
@@ -212,7 +212,7 @@ can use ``PollFlightInfo`` instead of ``GetFlightInfo``:
    ``CancelFlightInfo`` action.
 
    A server should return an error status instead of a response if the
-   query fails. The client should not retry the request except for
+   query fails. The client should not poll the request except for
    ``TIMED_OUT`` and ``UNAVAILABLE``, which may not originate from the
    server.
 #. Consume each endpoint returned by the server, as before.
