@@ -161,9 +161,6 @@ RUN /arrow/ci/scripts/install_azurite.sh
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_azurite.sh
-
 # Prioritize system packages and local installation
 # The following dependencies will be downloaded due to missing/invalid packages
 # provided by the distribution:
