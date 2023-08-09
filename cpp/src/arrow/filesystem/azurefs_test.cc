@@ -40,7 +40,6 @@
 #include <gmock/gmock-more-matchers.h>
 #include <gtest/gtest.h>
 
-#include <iostream>
 #include <string>
 
 #include "arrow/testing/gtest_util.h"
@@ -58,7 +57,6 @@ namespace fs {
 namespace {
 namespace bp = boost::process;
 
-namespace bp = boost::process;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::NotNull;
@@ -113,7 +111,7 @@ AzuriteEnv* GetAzuriteEnv() {
   return ::arrow::internal::checked_cast<AzuriteEnv*>(azurite_env);
 }
 
-// Placeholder tests for file structure
+// Placeholder tests
 // TODO: GH-18014 Remove once a proper test is added
 TEST(AzureFileSystem, UploadThenDownload) {
   const std::string containerName = "sample-container";
