@@ -1532,7 +1532,6 @@ TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
   auto in_flight_gating_task = GatingTask::Make();
   auto source = [&]() -> Future<TestInt> {
     auto count = counter++;
-
     return DeferNotOk(thread_pool->Submit([&, count]() -> Result<TestInt> {
       if (count == 0) {
         failure_gating_task->Task()();
