@@ -26,7 +26,7 @@ updates:
   - package-ecosystem: "npm"
     directory: "/js/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
     commit-message:
       prefix: "MINOR: [JS] "
   - package-ecosystem: "nuget"
