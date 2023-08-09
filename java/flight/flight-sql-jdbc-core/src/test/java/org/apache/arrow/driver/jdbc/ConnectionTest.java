@@ -18,6 +18,8 @@
 package org.apache.arrow.driver.jdbc;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import java.net.URISyntaxException;
 import java.sql.Connection;
@@ -105,12 +107,9 @@ public class ConnectionTest {
   /**
    * Checks if a token is provided it takes precedence over username/pass. In this case,
    * the connection should fail if a token is passed in.
-   *
-   * @throws SQLException on error.
    */
-  @Test(expected = SQLException.class)
-  public void testTokenOverridesUsernameAndPasswordAuth()
-      throws Exception {
+  @Test
+  public void testTokenOverridesUsernameAndPasswordAuth() {
     final Properties properties = new Properties();
 
     properties.put(ArrowFlightConnectionProperty.HOST.camelName(), "localhost");
@@ -123,9 +122,12 @@ public class ConnectionTest {
     properties.put(ArrowFlightConnectionProperty.TOKEN.camelName(), "token");
     properties.put("useEncryption", false);
 
-    DriverManager.getConnection(
-        "jdbc:arrow-flight-sql://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
-            FLIGHT_SERVER_TEST_RULE.getPort(), properties);
+    SQLException e = assertThrows(SQLException.class, () ->
+            DriverManager.getConnection(
+                    "jdbc:arrow-flight-sql://" + FLIGHT_SERVER_TEST_RULE.getHost() + ":" +
+                            FLIGHT_SERVER_TEST_RULE.getPort(),
+                    properties));
+    assertTrue(e.getMessage().contains("UNAUTHENTICATED"));
   }
 
 
