@@ -188,7 +188,7 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 /// \param[out] out C struct to export the array to
 /// \param[out] out_schema optional C struct to export the array type to
 ARROW_EXPORT
-Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync> sync,
                          struct ArrowDeviceArray* out,
                          struct ArrowSchema* out_schema = NULLPTR);
 
@@ -211,7 +211,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
 /// \param[out] out_schema optional C struct where to export the record batch schema
 ARROW_EXPORT
 Status ExportDeviceRecordBatch(const RecordBatch& batch,
-                               std::shared_ptr<DeviceSync>& sync,
+                               std::shared_ptr<DeviceSync> sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema = NULLPTR);
 

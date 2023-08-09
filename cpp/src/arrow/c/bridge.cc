@@ -713,7 +713,7 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
   return std::make_pair(device_type, device_id);
 }
 
-Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync> sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
   void* sync_event{nullptr};
   if (sync) {
@@ -738,7 +738,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
   exporter.Finish(&out->array);
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
-  pdata->sync_ = sync;
+  pdata->sync_ = std::move(sync);
   out->sync_event = sync_event;
 
   guard.Detach();
@@ -746,7 +746,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync>& sync,
 }
 
 Status ExportDeviceRecordBatch(const RecordBatch& batch,
-                               std::shared_ptr<DeviceSync>& sync,
+                               std::shared_ptr<DeviceSync> sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
   void* sync_event{nullptr};
@@ -776,7 +776,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
   exporter.Finish(&out->array);
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
-  pdata->sync_ = sync;
+  pdata->sync_ = std::move(sync);
   out->sync_event = sync_event;
 
   guard.Detach();
@@ -1362,7 +1362,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  std::shared_ptr<DeviceSync> device_sync;
+  std::shared_ptr<DeviceSync> device_sync_;
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1395,7 +1395,7 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override {}
 
-  std::shared_ptr<DeviceSync> get_device_sync() override { return import_->device_sync; }
+  std::shared_ptr<DeviceSync> get_device_sync() override { return import_->device_sync_; }
 
  protected:
   std::shared_ptr<ImportedArrayData> import_;
@@ -1411,7 +1411,7 @@ struct ArrayImporter {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
-    ARROW_ASSIGN_OR_RAISE(import_->device_sync,
+    ARROW_ASSIGN_OR_RAISE(import_->device_sync_,
                           memory_mgr_->MakeDeviceSync(src->sync_event));
     // reset internal state before next import
     memory_mgr_.reset();

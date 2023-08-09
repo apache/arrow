@@ -112,7 +112,6 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
 ///
 class ARROW_EXPORT DeviceSync {
  public:
-  explicit DeviceSync(void* sync_event) : sync_event_{sync_event}, owns_event_{false} {}
   virtual ~DeviceSync() = default;
 
   /// @brief Block until sync event is completed.
@@ -154,6 +153,8 @@ class ARROW_EXPORT DeviceSync {
   }
 
  protected:
+  explicit DeviceSync(void* sync_event) : sync_event_{sync_event}, owns_event_{false} {}
+
   virtual Status record_event_on_stream(void* event) = 0;
   // allowed to gracefully receive a nullptr
   virtual void release_event(void* event) = 0;
@@ -222,12 +223,13 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   ///
   /// See also the Buffer::View shorthand.
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
-      const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+      const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);  
 
   virtual Result<std::shared_ptr<DeviceSync>> MakeDeviceSync() {
     return nullptr;
   }
-  Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(void *sync_event);
+  virtual Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(void *sync_event);
+
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(MemoryManager);
