@@ -17,7 +17,7 @@
 
 #' Read a CSV or other delimited file with Arrow
 #'
-#' These functions uses the Arrow C++ CSV reader to read into a `data.frame`.
+#' These functions uses the Arrow C++ CSV reader to read into a `tibble`.
 #' Arrow C++ options have been mapped to argument names that follow those of
 #' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
@@ -127,10 +127,10 @@
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [file reader options][CsvReadOptions]
 #' @param read_options see [file reader options][CsvReadOptions]
-#' @param as_data_frame Should the function return a `data.frame` (default) or
+#' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
 #'
-#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
+#' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' tf <- tempfile()

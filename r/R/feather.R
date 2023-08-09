@@ -157,7 +157,7 @@ write_ipc_file <- function(x,
 #' @inheritParams read_delim_arrow
 #' @inheritParams make_readable_file
 #'
-#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
 #'
 #' @export

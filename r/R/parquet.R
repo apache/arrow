@@ -24,8 +24,8 @@
 #' @param props [ParquetArrowReaderProperties]
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
-#' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
-#' `TRUE` (the default).
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
+#' Arrow [Table] otherwise.
 #' @examplesIf arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
