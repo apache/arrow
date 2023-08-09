@@ -226,6 +226,7 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
   /// - prod: 1
   /// - min: maximum of the input type
   /// - max: minimum of the input type
+  /// - mean: start is ignored because it has no meaning for mean
   std::optional<std::shared_ptr<Scalar>> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
@@ -658,6 +659,16 @@ Result<Datum> CumulativeMax(
 /// \param[in] ctx the function execution context, optional
 ARROW_EXPORT
 Result<Datum> CumulativeMin(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Compute the cumulative mean of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative mean behavior, `start` is ignored
+/// \param[in] ctx the function execution context, optional
+ARROW_EXPORT
+Result<Datum> CumulativeMean(
     const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 

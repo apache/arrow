@@ -1621,21 +1621,23 @@ do not detect overflow. They are alsoavailable in an overflow-checking variant,
 suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
 overflow is detected.
 
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| Function name           | Arity | Input types | Output type | Options class                  | Notes |
-+=========================+=======+=============+=============+================================+=======+
-| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)  |
-+-------------------------+-------+-------------+-------------+--------------------------------+-------+
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes     |
++=========================+=======+=============+=============+================================+===========+
+| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_mean         | Unary | Numeric     | Float64     | :struct:`CumulativeOptions`    | \(1) \(2) |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 
 * \(1) CumulativeOptions has two optional parameters. The first parameter
   :member:`CumulativeOptions::start` is a starting value for the running
@@ -1646,6 +1648,8 @@ overflow is detected.
   false (the default), the first encountered null is propagated. When set to
   true, each null in the input produces a corresponding null in the output and
   doesn't affect the accumulation forward.
+
+* \(2) :member:`CumulativeOptions::start` is ignored.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
