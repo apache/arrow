@@ -538,6 +538,7 @@ public final class ArrowFlightSqlClientHandler implements AutoCloseable {
       FlightClient client = null;
       try {
         ClientIncomingAuthHeaderMiddleware.Factory authFactory = null;
+        // Token should take priority since some apps pass in a username/password even when a token is provided
         if (username != null && token == null) {
           authFactory =
               new ClientIncomingAuthHeaderMiddleware.Factory(new ClientBearerHeaderHandler());
