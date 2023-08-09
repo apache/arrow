@@ -199,6 +199,11 @@ template <typename T>
 using is_signed_integer_value =
     std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
 
+template <typename T>
+using is_integer_value =
+    std::integral_constant<bool, is_signed_integer_value<T>::value ||
+                                     is_unsigned_integer_value<T>::value>;
+
 template <typename T, typename R = T>
 using enable_if_signed_integer_value = enable_if_t<is_signed_integer_value<T>::value, R>;
 

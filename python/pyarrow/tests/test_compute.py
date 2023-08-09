@@ -1611,9 +1611,9 @@ def test_round_binary():
     scale = pa.scalar(-1, pa.int32())
 
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_zero") == expect_zero
+        5.0, scale, round_mode="half_towards_zero") == expect_zero
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_infinity") == expect_inf
+        5.0, scale, round_mode="half_towards_infinity") == expect_inf
 
 
 def test_is_null():
