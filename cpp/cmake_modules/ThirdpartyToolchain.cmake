@@ -238,6 +238,7 @@ endmacro()
 
 macro(resolve_dependency DEPENDENCY_NAME)
   message(STATUS "Resolving dependency ${DEPENDENCY_NAME}")
+  message(STATUS "source ${${DEPENDENCY_NAME}_SOURCE}")
   set(options)
   set(one_value_args
       ARROW_CMAKE_PACKAGE_NAME
@@ -5165,6 +5166,8 @@ macro(build_azuresdk)
       -DENABLE_UNITY_BUILD=ON
       -DWARNINGS_AS_ERRORS=OFF)
   
+  STRING(REPLACE "." ";" OPENSSL_VERSION_ELEMENTS_LIST ${OPENSSL_VERSION}) 
+  list(GET OPENSSL_VERSION_ELEMENTS_LIST 0 OPENSSL_VERSION_MAJOR)
   if(OPENSSL_VERSION_MAJOR EQUAL 1)
     list(APPEND
     AZURESDK_COMMON_CMAKE_ARGS
