@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <string_view>
+
 #include "arrow/flight/server_middleware.h"
 #include "arrow/flight/sql/types.h"
 
@@ -38,11 +40,11 @@ class FlightSqlSession {
   std::shared_mutex map_lock_;
  public:
   /// \brief Get session option by key
-  SessionOptionValue GetSessionOption(const std::string&);
+  SessionOptionValue GetSessionOption(const std::string_view);
   /// \brief Set session option by key to given value
-  void SetSessionOption(const std::string&, const SessionOptionValue&);
+  void SetSessionOption(const std::string_view, const SessionOptionValue&);
   /// \brief Idempotently remove key from this call's Session, if Session & key exist
-  void EraseSessionOption(const std::string&);
+  void EraseSessionOption(const std::string_view);
 };
 
 /// \brief A middleware to handle Session option persistence and related *Cookie headers.
