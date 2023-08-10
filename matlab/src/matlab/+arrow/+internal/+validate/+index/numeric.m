@@ -14,6 +14,7 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
+
 function index = numeric(index, intType)
 
     % This function assumes index is numeric
@@ -35,6 +36,11 @@ function index = numeric(index, intType)
         errid = "arrow:badSubscript:ExceedsIntMax";
         msg = "Index must be between 1 and intmax(""" + intType + " "").";
         error(errid, msg);
+    end
+
+    % Convert to full storage if sparse
+    if issparse(index)
+        index = full(index);
     end
 
     index = cast(index, intType);
