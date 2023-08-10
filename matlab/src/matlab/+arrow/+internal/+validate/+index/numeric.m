@@ -28,7 +28,7 @@ function index = numeric(index, intType)
         errid = "arrow:badSubscript:NonInteger";
         msg = "Numeric indices must be finite positive integers.";
         error(errid, msg);
-    elseif any(~isreal(index))
+    elseif ~isreal(index)
         errid = "arrow:badSubscript:NonReal";
         msg = "Numeric indices must be real positive integers.";
         error(errid, msg);
