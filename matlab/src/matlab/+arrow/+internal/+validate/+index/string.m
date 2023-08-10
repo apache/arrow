@@ -14,9 +14,9 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function index = string(index)
+function string(index)
 
-    % This function assumes index is numeric
+    % This function assumes index is string
     assert(isstring(index));
 
     if any(ismissing(index))
@@ -24,16 +24,8 @@ function index = string(index)
         msg = "String indices must be nonmissing";
         error(errid, msg);
     elseif any(strlength(index) == 0)
-        errid = "arrow:badSubscript:ZeroLengthString";
-        msg = "String indices must be nonzero length text";
-        error(errid, msg);
-    elseif any(~isreal(index))
-        errid = "arrow:badSubscript:NonReal";
-        msg = "Numeric indices must be real positive integers.";
-        error(errid, msg);
-    elseif any(index > intmax(intType))
-        errid = "arrow:badSubscript:ExceedsIntMax";
-        msg = "Index must be between 1 and intmax(""" + intType + " "").";
+        errid = "arrow:badSubscript:ZeroLengthText";
+        msg = "String indices must not be zero length text values.";
         error(errid, msg);
     end
 end
