@@ -750,13 +750,14 @@ struct SparseUnionSelectionImpl
   LIFT_BASE_MEMBERS();
 
   TypedBufferBuilder<int8_t> child_id_buffer_builder_;
-  std::vector<int8_t> type_codes_;
+  const int8_t type_code_for_null_;
 
   SparseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
                            int64_t output_length, ExecResult* out)
       : Base(ctx, batch, output_length, out),
         child_id_buffer_builder_(ctx->memory_pool()),
-        type_codes_(checked_cast<const UnionType&>(*this->values.type).type_codes()) {}
+        type_code_for_null_(
+            checked_cast<const UnionType&>(*this->values.type).type_codes()[0]) {}
 
   template <typename Adapter>
   Status GenerateOutput() {
@@ -768,7 +769,7 @@ struct SparseUnionSelectionImpl
           return Status::OK();
         },
         [&]() {
-          child_id_buffer_builder_.UnsafeAppend(type_codes_[0]);
+          child_id_buffer_builder_.UnsafeAppend(type_code_for_null_);
           return Status::OK();
         }));
     return Status::OK();
