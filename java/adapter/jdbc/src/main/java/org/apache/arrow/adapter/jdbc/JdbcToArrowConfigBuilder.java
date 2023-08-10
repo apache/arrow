@@ -24,8 +24,6 @@ import java.util.Calendar;
 import java.util.Map;
 import java.util.function.Function;
 
-import org.apache.arrow.adapter.jdbc.JdbcToArrowConfig.Function4Arity;
-import org.apache.arrow.adapter.jdbc.consumer.JdbcConsumer;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.util.Preconditions;
 import org.apache.arrow.vector.FieldVector;
@@ -47,7 +45,7 @@ public class JdbcToArrowConfigBuilder {
   private Map<Integer, Map<String, String>> columnMetadataByColumnIndex;
   private int targetBatchSize;
   private Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
-  private Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter;
+  private JdbcToArrowConfig.JdbcConsumerFactory jdbcConsumerGetter;
   private RoundingMode bigDecimalRoundingMode;
 
   /**
@@ -232,7 +230,7 @@ public class JdbcToArrowConfigBuilder {
    * JdbcToArrowUtils#getConsumer(ArrowType, Integer, Boolean, FieldVector, JdbcToArrowConfig)}.
    */
   public JdbcToArrowConfigBuilder setJdbcConsumerGetter(
-      Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter) {
+      JdbcToArrowConfig.JdbcConsumerFactory jdbcConsumerGetter) {
     this.jdbcConsumerGetter = jdbcConsumerGetter;
     return this;
   }

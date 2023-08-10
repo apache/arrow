@@ -78,7 +78,7 @@ public final class JdbcToArrowConfig {
   private final int targetBatchSize;
 
   private final Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter;
-  private final Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter;
+  private final JdbcConsumerFactory jdbcConsumerGetter;
 
   /**
    * Constructs a new configuration from the provided allocator and calendar.  The <code>allocator</code>
@@ -105,10 +105,9 @@ public final class JdbcToArrowConfig {
           Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
           Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
           int targetBatchSize,
-          Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
-          Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter) {
+          Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter) {
     this(allocator, calendar, includeMetadata, reuseVectorSchemaRoot, arraySubTypesByColumnIndex,
-        arraySubTypesByColumnName, targetBatchSize, jdbcToArrowTypeConverter, jdbcConsumerGetter, null);
+        arraySubTypesByColumnName, targetBatchSize, jdbcToArrowTypeConverter, null);
   }
 
   /**
@@ -167,7 +166,6 @@ public final class JdbcToArrowConfig {
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
-      Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter,
       RoundingMode bigDecimalRoundingMode) {
 
     this(
@@ -179,7 +177,6 @@ public final class JdbcToArrowConfig {
         arraySubTypesByColumnName,
         targetBatchSize,
         jdbcToArrowTypeConverter,
-        jdbcConsumerGetter,
         null,
         null,
         null,
@@ -196,7 +193,38 @@ public final class JdbcToArrowConfig {
       Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
       int targetBatchSize,
       Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
-      Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> jdbcConsumerGetter,
+      Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
+      Map<String, JdbcFieldInfo> explicitTypesByColumnName,
+      Map<String, String> schemaMetadata,
+      Map<Integer, Map<String, String>> columnMetadataByColumnIndex,
+      RoundingMode bigDecimalRoundingMode) {
+    this(
+        allocator,
+        calendar,
+        includeMetadata,
+        reuseVectorSchemaRoot,
+        arraySubTypesByColumnIndex,
+        arraySubTypesByColumnName,
+        targetBatchSize,
+        jdbcToArrowTypeConverter,
+        null,
+        null,
+        null,
+        null,
+        null,
+        bigDecimalRoundingMode);
+  }
+
+  JdbcToArrowConfig(
+      BufferAllocator allocator,
+      Calendar calendar,
+      boolean includeMetadata,
+      boolean reuseVectorSchemaRoot,
+      Map<Integer, JdbcFieldInfo> arraySubTypesByColumnIndex,
+      Map<String, JdbcFieldInfo> arraySubTypesByColumnName,
+      int targetBatchSize,
+      Function<JdbcFieldInfo, ArrowType> jdbcToArrowTypeConverter,
+      JdbcConsumerFactory jdbcConsumerGetter,
       Map<Integer, JdbcFieldInfo> explicitTypesByColumnIndex,
       Map<String, JdbcFieldInfo> explicitTypesByColumnName,
       Map<String, String> schemaMetadata,
@@ -278,7 +306,7 @@ public final class JdbcToArrowConfig {
   /**
    * Gets the JDBC consumer getter.
    */
-  public Function4Arity<ArrowType, Integer, Boolean, FieldVector, JdbcConsumer> getJdbcConsumerGetter() {
+  public JdbcConsumerFactory getJdbcConsumerGetter() {
     return jdbcConsumerGetter;
   }
 
@@ -358,16 +386,10 @@ public final class JdbcToArrowConfig {
   }
 
   /**
-   * Interface for a function with 4 parameters.
-   *
-     * @param <A> param 1 type
-     * @param <B> param 2 type
-     * @param <C> param 3 type
-     * @param <D> param 4 type
-     * @param <R> return type
+   * Interface for a function that gets a JDBC consumer for the given values.
    */
   @FunctionalInterface
-  interface Function4Arity<A, B, C, D, R> {
-    R apply(A a, B b, C c, D d);
+  protected interface JdbcConsumerFactory {
+    JdbcConsumer apply(ArrowType arrowType, int columnIndex, boolean nullable, FieldVector vector);
   }
 }

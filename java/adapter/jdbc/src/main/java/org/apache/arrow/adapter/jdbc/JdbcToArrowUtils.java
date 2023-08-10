@@ -489,7 +489,7 @@ public class JdbcToArrowUtils {
         return new NullConsumer((NullVector) vector);
       default:
         // no-op, shouldn't get here
-        throw new UnsupportedOperationException("No consumer for Arrow type: " + arrowType.getTypeID());
+        throw new UnsupportedOperationException("No consumer for Arrow type: " + arrowType);
     }
   }
 }
