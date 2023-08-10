@@ -146,7 +146,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
   /// \brief Return the children fields associated with this type.
-  const std::vector<std::shared_ptr<Field>>& fields() const { return children_; }
+  const FieldVector& fields() const { return children_; }
 
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
@@ -204,7 +204,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   std::string ComputeMetadataFingerprint() const override;
 
   Type::type id_;
-  std::vector<std::shared_ptr<Field>> children_;
+  FieldVector children_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
@@ -421,7 +421,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
       const std::shared_ptr<Field>& other,
       MergeOptions options = MergeOptions::Defaults()) const;
 
-  std::vector<std::shared_ptr<Field>> Flatten() const;
+  FieldVector Flatten() const;
 
   /// \brief Indicate if fields are equals.
   ///
@@ -1078,7 +1078,7 @@ class ARROW_EXPORT StructType : public NestedType {
 
   static constexpr const char* type_name() { return "struct"; }
 
-  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
+  explicit StructType(const FieldVector& fields);
 
   ~StructType() override;
 
@@ -1093,7 +1093,7 @@ class ARROW_EXPORT StructType : public NestedType {
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
   /// Return all fields having this name
-  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found or if there are multiple fields having the
   /// same name
@@ -1125,8 +1125,8 @@ class ARROW_EXPORT UnionType : public NestedType {
   static constexpr int kInvalidChildId = -1;
 
   static Result<std::shared_ptr<DataType>> Make(
-      const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+      const FieldVector& fields, const std::vector<int8_t>& type_codes,
+      UnionMode::type mode = UnionMode::SPARSE) {
     if (mode == UnionMode::SPARSE) {
       return sparse_union(fields, type_codes);
     } else {
@@ -1152,10 +1152,9 @@ class ARROW_EXPORT UnionType : public NestedType {
   UnionMode::type mode() const;
 
  protected:
-  UnionType(std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes,
-            Type::type id);
+  UnionType(FieldVector fields, std::vector<int8_t> type_codes, Type::type id);
 
-  static Status ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+  static Status ValidateParameters(const FieldVector& fields,
                                    const std::vector<int8_t>& type_codes,
                                    UnionMode::type mode);
 
@@ -1183,12 +1182,11 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
 
   static constexpr const char* type_name() { return "sparse_union"; }
 
-  SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                  std::vector<int8_t> type_codes);
+  SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
   // A constructor variant that validates input parameters
-  static Result<std::shared_ptr<DataType>> Make(
-      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+  static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
+                                                std::vector<int8_t> type_codes);
 
   std::string name() const override { return "sparse_union"; }
 };
@@ -1213,12 +1211,11 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 
   static constexpr const char* type_name() { return "dense_union"; }
 
-  DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                 std::vector<int8_t> type_codes);
+  DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
   // A constructor variant that validates input parameters
-  static Result<std::shared_ptr<DataType>> Make(
-      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+  static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
+                                                std::vector<int8_t> type_codes);
 
   std::string name() const override { return "dense_union"; }
 };
@@ -2141,8 +2138,7 @@ class ARROW_EXPORT SchemaBuilder {
   /// \brief Construct a SchemaBuilder from a list of fields
   /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
-      std::vector<std::shared_ptr<Field>> fields,
-      ConflictPolicy conflict_policy = CONFLICT_APPEND,
+      FieldVector fields, ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
   /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
@@ -2167,7 +2163,7 @@ class ARROW_EXPORT SchemaBuilder {
   ///
   /// \param[in] fields to add to the constructed Schema.
   /// \return The first failure encountered, if any.
-  Status AddFields(const std::vector<std::shared_ptr<Field>>& fields);
+  Status AddFields(const FieldVector& fields);
 
   /// \brief Add fields of a Schema to the constructed Schema.
   ///
