@@ -891,6 +891,108 @@ struct NullMinMaxImpl : public ScalarAggregator {
   }
 };
 
+template <SimdLevel::type SimdLevel>
+struct DictionaryMinMaxImpl : public ScalarAggregator {
+  using ThisType = DictionaryMinMaxImpl<SimdLevel>;
+
+  DictionaryMinMaxImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options)
+      : out_type(std::move(out_type)),
+        options(std::move(options)),
+        count(0),
+        min(nullptr),
+        max(nullptr),
+        has_nulls(false) {
+    this->options.min_count = std::max<uint32_t>(1, this->options.min_count);
+  }
+
+  Status Consume(KernelContext*, const ExecSpan& batch) override {
+    if (batch[0].is_scalar) {
+      return Status::NotImplemented("No min/max implemented for DictionaryScalar");
+    }
+
+    const DictionaryArray& dict_array =
+        checked_cast<const DictionaryArray&>(*batch[0].array.ToArray());
+
+    std::shared_ptr<Array> dict_values = dict_array.dictionary();
+    std::shared_ptr<Array> dict_indices = dict_array.indices();
+    has_nulls = dict_indices->null_count() > 0;
+    count += dict_indices->length() - dict_indices->null_count()
+
+                                          Datum dict_values_(*dict_values);
+    ARROW_ASSIGN_OR_RAISE(Datum result, MinMax(std::move(dict_values_)));
+    const StructScalar& struct_result =
+        checked_cast<const StructScalar&>(*result.scalar());
+    ARROW_ASSIGN_OR_RAISE(auto min_, struct_result.field(FieldRef("min")));
+    ARROW_ASSIGN_OR_RAISE(auto max_, struct_result.field(FieldRef("max")));
+    CompareMinMax(std::move(min_), std::move(max_));
+    return Status::OK();
+  }
+
+  Status MergeFrom(KernelContext*, KernelState&& src) override {
+    const auto& other = checked_cast<const ThisType&>(src);
+    CompareMinMax(other.min, other.max);
+    has_nulls = has_nulls || other.has_nulls;
+    this->count += other.count;
+    return Status::OK();
+  }
+
+  Status Finalize(KernelContext*, Datum* out) override {
+    const auto& struct_type = checked_cast<const StructType&>(*out_type);
+    const auto& child_type = struct_type.field(0)->type();
+
+    std::vector<std::shared_ptr<Scalar>> values;
+    // Physical type != result type
+    if ((has_nulls && !options.skip_nulls) || (this->count < options.min_count) ||
+        min == nullptr || min->type->id() == Type::NA) {
+      // (null, null)
+      auto null_scalar = MakeNullScalar(child_type);
+      values = {null_scalar, null_scalar};
+    } else {
+      ARROW_CHECK_EQ(child_type->id(), min->type->id());
+      ARROW_CHECK_EQ(child_type->id(), max->type->id());
+      values = {std::move(min), std::move(max)};
+    }
+    out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
+    return Status::OK();
+  }
+
+  std::shared_ptr<Scalar> min;
+  std::shared_ptr<Scalar> max;
+  bool has_nulls;
+  std::shared_ptr<DataType> out_type;
+  ScalarAggregateOptions options;
+  int64_t count;
+
+ private:
+  Status CompareMinMax(std::shared_ptr<Scalar> min_,
+                       std::shared_ptr<Scalar> max_) override {
+    if (min == nullptr || min->type->id() == Type::NA) {
+      min = min_;
+    } else if (min_ != nullptr && min_->type->id() != Type::NA) {
+      ARROW_ASSIGN_OR_RAISE(auto min_compare_result,
+                            CallFunction("greater", {min, min_}));
+      const BooleanScalar& min_compare_result_scalar =
+          checked_cast<const BooleanScalar&>(*min_compare_result.scalar());
+      if (min_compare_result_scalar.value) {
+        min = min_;
+      }
+    }
+
+    if (max == nullptr || max->type->id() == Type::NA) {
+      max = max_;
+    } else if (max_ != nullptr && max_->type->id() != Type::NA) {
+      ARROW_ASSIGN_OR_RAISE(auto max_compare_result, CallFunction("less", {max, max_}));
+      const BooleanScalar& max_compare_result_scalar =
+          checked_cast<const BooleanScalar&>(*max_compare_result.scalar());
+      if (max_compare_result_scalar.value) {
+        max = max_;
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
 // First/Last
 
 struct FirstLastInitState {
@@ -978,6 +1080,11 @@ struct MinMaxInitState {
 
   Status Visit(const BooleanType&) {
     state.reset(new BooleanMinMaxImpl<SimdLevel>(out_type, options));
+    return Status::OK();
+  }
+
+  Status Visit(const DictionaryType&) {
+    state.reset(new DictionaryMinMaxImpl<SimdLevel>(out_type, options));
     return Status::OK();
   }
 

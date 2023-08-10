@@ -1118,6 +1118,7 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddMinMaxKernels(MinMaxInit, NumericTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, TemporalTypes(), func.get());
   AddMinMaxKernels(MinMaxInit, BaseBinaryTypes(), func.get());
+  AddMinMaxKernel(MinMaxInit, Type::DICTIONARY, func.get());
   AddMinMaxKernel(MinMaxInit, Type::FIXED_SIZE_BINARY, func.get());
   AddMinMaxKernel(MinMaxInit, Type::INTERVAL_MONTHS, func.get());
   AddMinMaxKernel(MinMaxInit, Type::DECIMAL128, func.get());
