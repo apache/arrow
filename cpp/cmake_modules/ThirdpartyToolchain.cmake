@@ -5266,10 +5266,18 @@ macro(build_azuresdk)
 endmacro()
 
 if(ARROW_AZURE)
-  resolve_dependency(AZURE_SDK)
-
-  message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
-  message(STATUS "Found Azure SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
+  if(AZURE_SDK_SOURCE STREQUAL "SYSTEM")
+  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS 
+      Azure::azure-core
+      Azure::azure-identity
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-storage-files-datalake)
+  else()
+    resolve_dependency(AZURE_SDK)
+    message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
+    message(STATUS "Found Azure SDK libraries: ${AZURESDK_LINK_LIBRARIES}")
+  endif()
 endif()
 
 # ----------------------------------------------------------------------
