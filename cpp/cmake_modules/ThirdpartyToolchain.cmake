@@ -4399,6 +4399,11 @@ macro(build_orc)
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
   set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  # Protobuf generated files may use ABSL_DCHECK*() and
+  # absl::log_internal_check_op is needed for them.
+  if(TARGET absl::log_internal_check_op)
+    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+  endif()
   if(NOT MSVC)
     if(NOT APPLE)
       list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
