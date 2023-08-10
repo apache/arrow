@@ -20,6 +20,11 @@ function index = numeric(index, intType)
     % This function assumes index is numeric
     assert(isnumeric(index));
 
+    % Convert to full storage if sparse
+    if issparse(index)
+        index = full(index);
+    end
+
     if any(index < 1)
         errid = "arrow:badSubscript:NonPositive";
         msg = "Numeric indices must be positive integers.";
@@ -36,11 +41,6 @@ function index = numeric(index, intType)
         errid = "arrow:badSubscript:ExceedsIntMax";
         msg = "Index must be between 1 and intmax(""" + intType + " "").";
         error(errid, msg);
-    end
-
-    % Convert to full storage if sparse
-    if issparse(index)
-        index = full(index);
     end
 
     index = cast(index, intType);
