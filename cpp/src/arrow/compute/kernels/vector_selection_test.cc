@@ -282,11 +282,6 @@ class TestFilterKernel : public ::testing::Test {
                     const std::shared_ptr<Array>& expected) {
     DoAssertFilter(values, filter, expected);
 
-    if (values->type_id() == Type::DENSE_UNION) {
-      // Concatenation of dense union not supported
-      return;
-    }
-
     // Check slicing: add M(=3) dummy values at the start and end of `values`,
     // add N(=2) dummy values at the start and end of `filter`.
     ARROW_SCOPED_TRACE("for sliced values and filter");
@@ -759,8 +754,10 @@ TEST_F(TestFilterKernelWithStruct, FilterStruct) {
 class TestFilterKernelWithUnion : public TestFilterKernel {};
 
 TEST_F(TestFilterKernelWithUnion, FilterUnion) {
-  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
-  auto union_json = R"([
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto union_json = R"([
       [2, null],
       [2, 222],
       [5, "hello"],
@@ -769,31 +766,21 @@ TEST_F(TestFilterKernelWithUnion, FilterUnion) {
       [2, 111],
       [5, null]
     ])";
-  this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0, 0]", "[]");
-  this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1, 1]", R"([
+    this->AssertFilter(union_type, union_json, "[0, 0, 0, 0, 0, 0, 0]", "[]");
+    this->AssertFilter(union_type, union_json, "[0, 1, 1, null, 0, 1, 1]", R"([
       [2, 222],
       [5, "hello"],
       [2, null],
       [2, 111],
       [5, null]
     ])");
-  this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0, 0]", R"([
+    this->AssertFilter(union_type, union_json, "[1, 0, 1, 0, 1, 0, 0]", R"([
       [2, null],
       [5, "hello"],
       [2, null]
     ])");
-  this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
-
-  // Sliced
-  // (check this manually as concatenation of dense unions isn't supported: ARROW-4975)
-  auto values = ArrayFromJSON(union_type, union_json)->Slice(2, 4);
-  auto filter = ArrayFromJSON(boolean(), "[0, 1, 1, null, 0, 1, 1]")->Slice(2, 4);
-  auto expected = ArrayFromJSON(union_type, R"([
-      [5, "hello"],
-      [2, null],
-      [2, 111]
-    ])");
-  this->AssertFilter(values, filter, expected);
+    this->AssertFilter(union_type, union_json, "[1, 1, 1, 1, 1, 1, 1]", union_json);
+  }
 }
 
 class TestFilterKernelWithRecordBatch : public TestFilterKernel {
@@ -1026,13 +1013,11 @@ void CheckTake(const std::shared_ptr<DataType>& type, const std::string& values_
     AssertTakeArrays(values, indices, expected);
 
     // Check sliced values
-    if (type->id() != Type::DENSE_UNION) {
-      ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(type, 2));
-      ASSERT_OK_AND_ASSIGN(auto values_sliced,
-                           Concatenate({values_filler, values, values_filler}));
-      values_sliced = values_sliced->Slice(2, values->length());
-      AssertTakeArrays(values_sliced, indices, expected);
-    }
+    ASSERT_OK_AND_ASSIGN(auto values_filler, MakeArrayOfNull(type, 2));
+    ASSERT_OK_AND_ASSIGN(auto values_sliced,
+                         Concatenate({values_filler, values, values_filler}));
+    values_sliced = values_sliced->Slice(2, values->length());
+    AssertTakeArrays(values_sliced, indices, expected);
 
     // Check sliced indices
     ASSERT_OK_AND_ASSIGN(auto zero, MakeScalar(index_type, int8_t{0}));
@@ -1477,32 +1462,34 @@ TEST_F(TestTakeKernelWithStruct, TakeStruct) {
 class TestTakeKernelWithUnion : public TestTakeKernelTyped<UnionType> {};
 
 TEST_F(TestTakeKernelWithUnion, TakeUnion) {
-  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
-  auto union_json = R"([
-      [2, null],
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto union_json = R"([
       [2, 222],
+      [2, null],
       [5, "hello"],
       [5, "eh"],
       [2, null],
       [2, 111],
       [5, null]
     ])";
-  CheckTake(union_type, union_json, "[]", "[]");
-  CheckTake(union_type, union_json, "[3, 1, 3, 1, 3]", R"([
+    CheckTake(union_type, union_json, "[]", "[]");
+    CheckTake(union_type, union_json, "[3, 0, 3, 0, 3]", R"([
       [5, "eh"],
       [2, 222],
       [5, "eh"],
       [2, 222],
       [5, "eh"]
     ])");
-  CheckTake(union_type, union_json, "[4, 2, 1, 6]", R"([
+    CheckTake(union_type, union_json, "[4, 2, 0, 6]", R"([
       [2, null],
       [5, "hello"],
       [2, 222],
       [5, null]
     ])");
-  CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
-  CheckTake(union_type, union_json, "[0, 2, 2, 2, 2, 2, 2]", R"([
+    CheckTake(union_type, union_json, "[0, 1, 2, 3, 4, 5, 6]", union_json);
+    CheckTake(union_type, union_json, "[1, 2, 2, 2, 2, 2, 2]", R"([
       [2, null],
       [5, "hello"],
       [5, "hello"],
@@ -1511,6 +1498,16 @@ TEST_F(TestTakeKernelWithUnion, TakeUnion) {
       [5, "hello"],
       [5, "hello"]
     ])");
+    CheckTake(union_type, union_json, "[0, null, 1, null, 2, 2, 2]", R"([
+      [2, 222],
+      [2, null],
+      [2, null],
+      [2, null],
+      [5, "hello"],
+      [5, "hello"],
+      [5, "hello"]
+    ])");
+  }
 }
 
 class TestPermutationsWithTake : public ::testing::Test {
@@ -2162,8 +2159,10 @@ TEST_F(TestDropNullKernelWithStruct, DropNullStruct) {
 class TestDropNullKernelWithUnion : public TestDropNullKernelTyped<UnionType> {};
 
 TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
-  auto union_type = dense_union({field("a", int32()), field("b", utf8())}, {2, 5});
-  auto union_json = R"([
+  for (const auto& union_type :
+       {dense_union({field("a", int32()), field("b", utf8())}, {2, 5}),
+        sparse_union({field("a", int32()), field("b", utf8())}, {2, 5})}) {
+    auto union_json = R"([
       [2, null],
       [2, 222],
       [5, "hello"],
@@ -2172,7 +2171,8 @@ TEST_F(TestDropNullKernelWithUnion, DropNullUnion) {
       [2, 111],
       [5, null]
     ])";
-  CheckDropNull(union_type, union_json, union_json);
+    CheckDropNull(union_type, union_json, union_json);
+  }
 }
 
 class TestDropNullKernelWithRecordBatch : public TestDropNullKernelTyped<RecordBatch> {

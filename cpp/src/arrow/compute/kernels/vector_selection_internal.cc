@@ -45,8 +45,7 @@ namespace arrow {
 
 using internal::CheckIndexBounds;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 void RegisterSelectionFunction(const std::string& name, FunctionDoc doc,
                                VectorKernel base_kernel,
@@ -170,9 +169,6 @@ void VisitPlainxREEFilterOutputSegments(
 }
 
 namespace {
-
-using FilterState = OptionsWrapper<FilterOptions>;
-using TakeState = OptionsWrapper<TakeOptions>;
 
 // ----------------------------------------------------------------------
 // Implement take for other data types where there is less performance
@@ -741,6 +737,66 @@ struct DenseUnionSelectionImpl
   }
 };
 
+// We need a slightly different approach for SparseUnion. For Take, we can
+// invoke Take on each child's data with boundschecking disabled. For
+// Filter on the other hand, if we naively call Filter on each child, then the
+// filter output length will have to be redundantly computed. Thus, for Filter
+// we instead convert the filter to selection indices and then invoke take.
+
+// SparseUnion selection implementation. ONLY used for Take
+struct SparseUnionSelectionImpl
+    : public Selection<SparseUnionSelectionImpl, SparseUnionType> {
+  using Base = Selection<SparseUnionSelectionImpl, SparseUnionType>;
+  LIFT_BASE_MEMBERS();
+
+  TypedBufferBuilder<int8_t> child_id_buffer_builder_;
+  const int8_t type_code_for_null_;
+
+  SparseUnionSelectionImpl(KernelContext* ctx, const ExecSpan& batch,
+                           int64_t output_length, ExecResult* out)
+      : Base(ctx, batch, output_length, out),
+        child_id_buffer_builder_(ctx->memory_pool()),
+        type_code_for_null_(
+            checked_cast<const UnionType&>(*this->values.type).type_codes()[0]) {}
+
+  template <typename Adapter>
+  Status GenerateOutput() {
+    SparseUnionArray typed_values(this->values.ToArrayData());
+    Adapter adapter(this);
+    RETURN_NOT_OK(adapter.Generate(
+        [&](int64_t index) {
+          child_id_buffer_builder_.UnsafeAppend(typed_values.type_code(index));
+          return Status::OK();
+        },
+        [&]() {
+          child_id_buffer_builder_.UnsafeAppend(type_code_for_null_);
+          return Status::OK();
+        }));
+    return Status::OK();
+  }
+
+  Status Init() override {
+    RETURN_NOT_OK(child_id_buffer_builder_.Reserve(output_length));
+    return Status::OK();
+  }
+
+  Status Finish() override {
+    ARROW_ASSIGN_OR_RAISE(auto child_ids_buffer, child_id_buffer_builder_.Finish());
+    SparseUnionArray typed_values(this->values.ToArrayData());
+    auto num_fields = typed_values.num_fields();
+    auto num_rows = child_ids_buffer->size();
+    BufferVector buffers{nullptr, std::move(child_ids_buffer)};
+    *out = ArrayData(typed_values.type(), num_rows, std::move(buffers), 0);
+    out->child_data.reserve(num_fields);
+    for (auto i = 0; i < num_fields; i++) {
+      ARROW_ASSIGN_OR_RAISE(auto child_datum,
+                            Take(*typed_values.field(i), *this->selection.ToArrayData()));
+      out->child_data.emplace_back(std::move(child_datum).array());
+    }
+    return Status::OK();
+  }
+};
+
 struct FSLSelectionImpl : public Selection<FSLSelectionImpl, FixedSizeListType> {
   Int64Builder child_index_builder;
 
@@ -909,6 +965,10 @@ Status DenseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult*
   return TakeExec<DenseUnionSelectionImpl>(ctx, batch, out);
 }
 
+Status SparseUnionTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  return TakeExec<SparseUnionSelectionImpl>(ctx, batch, out);
+}
+
 Status StructTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<StructSelectionImpl>(ctx, batch, out);
 }
@@ -917,6 +977,5 @@ Status MapTakeExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return TakeExec<ListSelectionImpl<MapType>>(ctx, batch, out);
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow
