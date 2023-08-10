@@ -300,7 +300,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
 
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
     try {
-      return JdbcToArrowUtils.getArrowTypeFromJdbcType(new JdbcFieldInfo(jdbcDataType, precision, scale), DEFAULT_CALENDAR);
+      return JdbcToArrowUtils.getArrowTypeFromJdbcType(new JdbcFieldInfo(jdbcDataType, precision, scale),
+              DEFAULT_CALENDAR);
     } catch (UnsupportedOperationException ignored) {
       return ArrowType.Utf8.INSTANCE;
     }
