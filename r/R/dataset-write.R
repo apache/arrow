@@ -242,11 +242,11 @@ write_dataset <- function(dataset,
 #' The default is an empty string `""`.
 #' @param eol the end of line character to use for ending rows. The default is `"\n"`.
 #' @param quote How to handle fields which contain characters that need to be quoted.
-#' - `Needed` - Only enclose values in quotes which need them, because their CSV rendering can
+#' - `needed` - Only enclose values in quotes which need them, because their CSV rendering can
 #'  contain quotes itself (e.g. strings or binary values) (the default)
-#' - `AllValid` -   Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
+#' - `all` -   Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
 #' interpret all values as strings if schema is inferred.
-#' - `None` -   Do not enclose any values in quotes. Prevents values from containing quotes ("),
+#' - `none` -   Do not enclose any values in quotes. Prevents values from containing quotes ("),
 #' cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
 #' contain these characters, an error is caused when attempting to write.
 #' @return The input `dataset`, invisibly.
@@ -269,10 +269,15 @@ write_delim_dataset <- function(dataset,
                                 delim = ",",
                                 na = "",
                                 eol = "\n",
-                                quote = c("Needed", "AllValid", "None")) {
+                                quote = c("needed", "all", "none")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
+
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
   write_dataset(
     dataset = dataset,
     path = path,
@@ -313,10 +318,15 @@ write_csv_dataset <- function(dataset,
                               delim = ",",
                               na = "",
                               eol = "\n",
-                              quote = c("Needed", "AllValid", "None")) {
+                              quote = c("needed", "all", "none")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
+
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
   write_dataset(
     dataset = dataset,
     path = path,
@@ -356,10 +366,15 @@ write_tsv_dataset <- function(dataset,
                               batch_size = 1024L,
                               na = "",
                               eol = "\n",
-                              quote = c("Needed", "AllValid", "None")) {
+                              quote = c("needed", "all", "none")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
+
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
   write_dataset(
     dataset = dataset,
     path = path,

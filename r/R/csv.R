@@ -515,7 +515,11 @@ readr_to_csv_write_options <- function(col_names = TRUE,
                                        delim = ",",
                                        na = "",
                                        eol = "\n",
-                                       quote = "Needed") {
+                                       quote = c("needed", "all", "none")) {
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
   CsvWriteOptions$create(
     include_header = col_names,
     batch_size = batch_size,
