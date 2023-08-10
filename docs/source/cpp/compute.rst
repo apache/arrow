@@ -1692,28 +1692,26 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
 +===============+========+==============+==============+==============+=========================+===========+
-| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
+| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
+| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
+| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 
-* \(1) Sparse unions are unsupported.
-
-* \(2) Each element in the input is appended to the output iff it is non-null.
+* \(1) Each element in the input is appended to the output iff it is non-null.
   If the input is a record batch or table, any null value in a column drops
   the entire row.
 
-* \(3) Each element in input 1 (the values) is appended to the output iff
+* \(2) Each element in input 1 (the values) is appended to the output iff
   the corresponding element in input 2 (the filter) is true.  How
   nulls in the filter are handled can be configured using FilterOptions.
 
-* \(4) For each element *i* in input 2 (the indices), the *i*'th element
+* \(3) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
 
 Containment tests
