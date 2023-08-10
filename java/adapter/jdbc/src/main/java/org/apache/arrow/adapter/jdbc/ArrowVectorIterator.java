@@ -140,7 +140,7 @@ public class ArrowVectorIterator implements Iterator<VectorSchemaRoot>, AutoClos
       final JdbcFieldInfo columnFieldInfo = JdbcToArrowUtils.getJdbcFieldInfoForColumn(rsmd, i, config);
       ArrowType arrowType = config.getJdbcToArrowTypeConverter().apply(columnFieldInfo);
       consumers[i - 1] = config.getJdbcConsumerGetter().apply(
-          arrowType, i, isColumnNullable(resultSet.getMetaData(), i, columnFieldInfo), root.getVector(i - 1));
+          arrowType, i, isColumnNullable(resultSet.getMetaData(), i, columnFieldInfo), root.getVector(i - 1), config);
     }
   }
 

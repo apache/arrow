@@ -208,10 +208,10 @@ public final class JdbcToArrowConfig {
         targetBatchSize,
         jdbcToArrowTypeConverter,
         null,
-        null,
-        null,
-        null,
-        null,
+        explicitTypesByColumnIndex,
+        explicitTypesByColumnName,
+        schemaMetadata,
+        columnMetadataByColumnIndex,
         bigDecimalRoundingMode);
   }
 
@@ -248,9 +248,7 @@ public final class JdbcToArrowConfig {
     this.jdbcToArrowTypeConverter = jdbcToArrowTypeConverter != null ? jdbcToArrowTypeConverter :
         (jdbcFieldInfo) -> JdbcToArrowUtils.getArrowTypeFromJdbcType(jdbcFieldInfo, calendar);
 
-    this.jdbcConsumerGetter = jdbcConsumerGetter != null ? jdbcConsumerGetter :
-        (arrowType, columnIndex, nullable, vector) ->
-                JdbcToArrowUtils.getConsumer(arrowType, columnIndex, nullable, vector, this);
+    this.jdbcConsumerGetter = jdbcConsumerGetter != null ? jdbcConsumerGetter : JdbcToArrowUtils::getConsumer;
   }
 
   /**
@@ -390,6 +388,7 @@ public final class JdbcToArrowConfig {
    */
   @FunctionalInterface
   public interface JdbcConsumerFactory {
-    JdbcConsumer apply(ArrowType arrowType, int columnIndex, boolean nullable, FieldVector vector);
+    JdbcConsumer apply(ArrowType arrowType, int columnIndex, boolean nullable, FieldVector vector,
+                       JdbcToArrowConfig config);
   }
 }
