@@ -311,8 +311,8 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
         bits_available_(kInMemoryDefaultCapacity * 8),
         bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
         sink_(pool),
-        bit_writer_(bits_buffer_->mutable_data(),
-                    static_cast<int>(bits_buffer_->size())) {}
+        bit_writer_(bits_buffer_->mutable_data(), static_cast<int>(bits_buffer_->size())),
+        valid_bit_length_(0) {}
 
   int64_t EstimatedDataEncodedSize() override;
   std::shared_ptr<Buffer> FlushValues() override;
@@ -340,48 +340,51 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       throw ParquetException("direct put to boolean from " + values.type()->ToString() +
                              " not supported");
     }
+    if (ARROW_PREDICT_FALSE(bit_writer_.bytes_written() != 0)) {
+      throw ParquetException(
+          "direct put to boolean cannot be interleaved with other "
+          "operations");
+    }
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
 
     if (data.null_count() == 0) {
-      int written_bytes = 0;
-      while (written_bytes < static_cast<int>(data.length())) {
-        auto directly_copy_bits =
-            std::min(static_cast<int>(data.length() - written_bytes), bits_available_);
-        int i = 0;
-        for (; i < directly_copy_bits; i++) {
-          bit_writer_.PutValue(data.Value(i + written_bytes), 1);
-        }
-        bits_available_ -= directly_copy_bits;
-        written_bytes += directly_copy_bits;
-        if (bits_available_ == 0) {
-          bit_writer_.Flush();
-          PARQUET_THROW_NOT_OK(
-              sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
-          bit_writer_.Clear();
-          bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
-        }
-      }
+      PARQUET_THROW_NOT_OK(sink_.Reserve(bit_util::BytesForBits(data.length())));
+      // no nulls, just dump the data
+      ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
+                                    data.length(), sink_.mutable_data(),
+                                    valid_bit_length_);
     } else {
-      ArrowPoolVector<bool> boolean_data(data.length() - data.null_count(),
-                                         this->memory_pool());
-      int boolean_data_index = 0;
-      for (int i = 0; i < data.length(); ++i) {
+      auto n_valid = bit_util::BytesForBits(data.length() - data.null_count());
+      PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
+      ::arrow::internal::FirstTimeBitmapWriter writer(sink_.mutable_data(),
+                                                      valid_bit_length_, n_valid);
+
+      for (int64_t i = 0; i < data.length(); i++) {
         if (data.IsValid(i)) {
-          DCHECK(boolean_data_index <
-                 static_cast<int>(data.length() - data.null_count()));
-          boolean_data[boolean_data_index] = data.Value(i);
-          ++boolean_data_index;
+          if (data.Value(i)) {
+            writer.Set();
+          } else {
+            writer.Clear();
+          }
+          writer.Next();
         }
       }
-      PutImpl(boolean_data, static_cast<int>(data.length() - data.null_count()));
+      writer.Finish();
     }
+    valid_bit_length_ += data.length() - data.null_count();
   }
 
  private:
+  // bits_available_, bits_buffer_ and bit_writer_ is and append to
+  // `sink_` when Put using `Put` and `PutSpace`.
+  //
+  // valid_bit_length_ is used when Put using `::arrow::BooleanArray`.
+
   int bits_available_;
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
   ::arrow::bit_util::BitWriter bit_writer_;
+  int valid_bit_length_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -389,6 +392,9 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
 
 template <typename SequenceType>
 void PlainEncoder<BooleanType>::PutImpl(const SequenceType& src, int num_values) {
+  if (ARROW_PREDICT_FALSE(valid_bit_length_ != 0)) {
+    throw ParquetException("valid_bit_length_ must be zero");
+  }
   int bit_offset = 0;
   if (bits_available_ > 0) {
     int bits_to_write = std::min(bits_available_, num_values);
@@ -434,7 +440,16 @@ int64_t PlainEncoder<BooleanType>::EstimatedDataEncodedSize() {
 }
 
 std::shared_ptr<Buffer> PlainEncoder<BooleanType>::FlushValues() {
-  if (bits_available_ > 0) {
+  if (valid_bit_length_ > 0) {
+    if (ARROW_PREDICT_FALSE(bit_writer_.bytes_written() > 0)) {
+      throw ParquetException(
+          "direct put to boolean cannot be interleaved with other "
+          "operations");
+    }
+    sink_.UnsafeAdvance(::arrow::bit_util::BytesForBits(valid_bit_length_));
+    valid_bit_length_ = 0;
+  }
+  if (bits_available_ > 0 && bit_writer_.bytes_written() != 0) {
     bit_writer_.Flush();
     PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
     bit_writer_.Clear();
