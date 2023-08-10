@@ -339,7 +339,8 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
     if (data.null_count() == 0) {
       // no nulls, just dump the data
       PARQUET_THROW_NOT_OK(sink_.Reserve(data.length()));
-      sink_.UnsafeAppend(data.data()->GetValues<uint8_t>(1), /*offset=*/0, data.length());
+      sink_.UnsafeAppend(data.data()->GetValues<uint8_t>(1, 0), data.offset(),
+                         data.length());
     } else {
       PARQUET_THROW_NOT_OK(sink_.Reserve(data.length() - data.null_count()));
       for (int64_t i = 0; i < data.length(); i++) {

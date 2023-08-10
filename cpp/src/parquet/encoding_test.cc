@@ -642,21 +642,20 @@ class EncodingAdHocTyped : public ::testing::Test {
 
   static std::shared_ptr<::arrow::DataType> arrow_type();
 
-  void Plain(int seed, int round = 1) {
+  void Plain(int seed, int rounds = 1) {
     auto random_array = GetValues(seed);
     auto encoder = MakeTypedEncoder<ParquetType>(
         Encoding::PLAIN, /*use_dictionary=*/false, column_descr());
     auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN, column_descr());
 
-    for (int i = 0; i < round; ++i) {
+    for (int i = 0; i < rounds; ++i) {
       ASSERT_NO_THROW(encoder->Put(*random_array));
     }
     std::shared_ptr<::arrow::Array> values;
-    if (round == 1) {
+    if (rounds == 1) {
       values = random_array;
     } else {
-      ::arrow::ArrayVector arrays;
-      arrays.resize(round, random_array);
+      ::arrow::ArrayVector arrays(rounds, random_array);
       EXPECT_OK_AND_ASSIGN(values,
                            ::arrow::Concatenate(arrays, ::arrow::default_memory_pool()));
     }
@@ -895,8 +894,10 @@ TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
 }
 
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPutMultiRound) {
+  // Check that one can put several Arrow arrays into a given encoder
+  // and decode to the right values (see GH-36939)
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-    this->Plain(seed, /*round=*/5);
+    this->Plain(seed, /*rounds=*/5);
   }
 }
 
@@ -1645,8 +1646,8 @@ TEST_F(TestRleBooleanEncoding, AllNull) {
       /*null_probability*/ 1));
 }
 
-class TestPlainBooleanEncoding : public TestEncodingBase<BooleanType> {};
-
+// Check that one can put several Arrow arrays into a given encoder
+// and decode to the right values (see GH-36939)
 TEST(TestPlainBooleanArrayEncoding, AdHocRoundTrip) {
   std::vector<std::shared_ptr<::arrow::Array>> arrays{
       ::arrow::ArrayFromJSON(::arrow::boolean(), R"([])"),
