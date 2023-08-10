@@ -581,7 +581,10 @@ ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               pre_buffer = TRUE,
                                               thrift_string_size_limit = 100000000,
                                               thrift_container_size_limit = 1000000) {
-  dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit)
+  dataset___ParquetFragmentScanOptions__Make(
+    use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit,
+    thrift_container_size_limit
+  )
 }
 
 #' @usage NULL
