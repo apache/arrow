@@ -31,8 +31,6 @@ import (
 	hamba "github.com/hamba/avro/v2"
 )
 
-var ErrMismatchFields = errors.New("arrow/avro: number of records mismatch")
-
 // Option configures an Avro reader.
 type (
 	Option func(config)
