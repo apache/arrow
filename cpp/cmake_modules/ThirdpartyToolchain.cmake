@@ -58,7 +58,6 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     gRPC
     GTest
     jemalloc
-    LibXml2
     LLVM
     lz4
     nlohmann_json
@@ -186,8 +185,6 @@ macro(build_dependency DEPENDENCY_NAME)
     build_gtest()
   elseif("${DEPENDENCY_NAME}" STREQUAL "jemalloc")
     build_jemalloc()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "LibXml2")
-    build_libxml2()
   elseif("${DEPENDENCY_NAME}" STREQUAL "lz4")
     build_lz4()
   elseif("${DEPENDENCY_NAME}" STREQUAL "nlohmann_json")
@@ -379,7 +376,6 @@ endif()
 # Enable Azure
 if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
-  set(ARROW_WITH_LIBXML2 ON)
 endif()
 
 if(ARROW_JSON)
@@ -690,14 +686,6 @@ if(DEFINED ENV{ARROW_NLOHMANN_JSON_URL})
 else()
   set_urls(NLOHMANN_JSON_SOURCE_URL
            "https://github.com/nlohmann/json/archive/${ARROW_NLOHMANN_JSON_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
-if(DEFINED ENV{ARROW_LIBXML2_URL})
-  set(LIBXML2_SOURCE_URL "$ENV{ARROW_LIBXML2_URL}")
-else()
-  set_urls(LIBXML2_SOURCE_URL
-           "https://github.com/GNOME/libxml2/archive/refs/tags/${ARROW_LIBXML2_BUILD_VERSION}.tar.gz"
   )
 endif()
 
@@ -5082,55 +5070,6 @@ endif()
 # ----------------------------------------------------------------------
 # Azure SDK and dependencies
 
-macro(build_libxml2)
-  message(STATUS "Building libxml2 from source")
-  set(LIBXML2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xml2_ep-install")
-  set(LIBXML2_INCLUDE_DIR "${LIBXML2_PREFIX}/include")
-  
-  set(LIBXML2_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} 
-      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" 
-      -DCMAKE_INSTALL_LIBDIR=lib
-      -DBUILD_TESTING=OFF
-      -DLIBXML2_WITH_ZLIB=OFF 
-      -DLIBXML2_WITH_PYTHON=OFF 
-      -DLIBXML2_WITH_LZMA=OFF 
-      -DLIBXML2_WITH_ICONV=OFF 
-      -DBUILD_SHARED_LIBS=OFF)
-
-  set(LIBXML2_STATIC_LIBRARY
-    "${LIBXML2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}xml2${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(LIBXML2_BUILD_BYPRODUCTS ${LIBXML2_STATIC_LIBRARY})
-  
-  externalproject_add(libxml2_ep
-                      ${EP_LOG_OPTIONS}
-                      INSTALL_DIR ${LIBXML2_PREFIX}
-                      URL ${LIBXML2_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_LIBXML2_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${LIBXML2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${LIBXML2_BUILD_BYPRODUCTS})
-
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY "${LIBXML2_INCLUDE_DIR}")
-  add_library(LibXml2::LibXml2 STATIC IMPORTED)
-  set_target_properties(LibXml2::LibXml2
-                        PROPERTIES IMPORTED_LOCATION ${LIBXML2_STATIC_LIBRARY}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${LIBXML2_INCLUDE_DIR}")
-  add_dependencies(LibXml2::LibXml2 libxml2_ep)
-  set(LIBXML2_VENDORED TRUE)
-endmacro()
-
-if(ARROW_WITH_LIBXML2)
-  message(STATUS "Building LibXml2 from source")
-  resolve_dependency(LibXml2)
-  message(STATUS "Resolved LibXml2")
-  get_target_property(LIBXML2_INCLUDE_DIR LibXml2::LibXml2
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  message(STATUS "Found xml2 headers: ${LIBXML2_INCLUDE_DIR}")
-endif()
-
 macro(build_azuresdk)
   message(STATUS "Building Azure C++ SDK from source")
 
@@ -5140,10 +5079,6 @@ macro(build_azuresdk)
   if(NOT OpenSSL_FOUND)
     resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
                         ${ARROW_OPENSSL_REQUIRED_VERSION})
-  endif()
-
-  if(LIBXML2_VENDORED)
-    add_dependencies(azure_sdk_dependencies libxml2_ep)
   endif()
 
   set(AZURESDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-install")
