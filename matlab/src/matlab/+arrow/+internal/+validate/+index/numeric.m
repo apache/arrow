@@ -19,19 +19,19 @@ function index = numeric(index, intType)
     % This function assumes index is numeric
     assert(isnumeric(index));
 
-    if index < 1
+    if any(index < 1)
         errid = "arrow:badSubscript:NonPositive";
         msg = "Numeric indices must be positive integers.";
         error(errid, msg);
-    elseif floor(index) ~= index || isinf(index)
+    elseif any(floor(index) ~= index) || any(isinf(index))
         errid = "arrow:badSubscript:NonInteger";
         msg = "Numeric indices must be finite positive integers.";
         error(errid, msg);
-    elseif ~isreal(index)
+    elseif any(~isreal(index))
         errid = "arrow:badSubscript:NonReal";
         msg = "Numeric indices must be real positive integers.";
         error(errid, msg);
-    elseif index > intmax(intType)
+    elseif any(index > intmax(intType))
         errid = "arrow:badSubscript:ExceedsIntMax";
         msg = "Index must be between 1 and intmax(""" + intType + " "").";
         error(errid, msg);
