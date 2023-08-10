@@ -343,11 +343,24 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
 
     if (data.null_count() == 0) {
-      ArrowPoolVector<bool> boolean_data(data.length(), this->memory_pool());
-      for (int i = 0; i < data.length(); ++i) {
-        boolean_data[i] = data.Value(i);
+      int written_bytes = 0;
+      while (written_bytes < static_cast<int>(data.length())) {
+        auto directly_copy_bits =
+            std::min(static_cast<int>(data.length() - written_bytes), bits_available_);
+        int i = 0;
+        for (; i < directly_copy_bits; i++) {
+          bit_writer_.PutValue(data.Value(i + written_bytes), 1);
+        }
+        bits_available_ -= directly_copy_bits;
+        written_bytes += directly_copy_bits;
+        if (bits_available_ == 0) {
+          bit_writer_.Flush();
+          PARQUET_THROW_NOT_OK(
+              sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
+          bit_writer_.Clear();
+          bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
+        }
       }
-      PutImpl(boolean_data, static_cast<int>(data.length()));
     } else {
       ArrowPoolVector<bool> boolean_data(data.length() - data.null_count(),
                                          this->memory_pool());
@@ -390,6 +403,7 @@ void PlainEncoder<BooleanType>::PutImpl(const SequenceType& src, int num_values)
       PARQUET_THROW_NOT_OK(
           sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
       bit_writer_.Clear();
+      bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
     }
   }
 
