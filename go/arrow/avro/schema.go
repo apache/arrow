@@ -25,6 +25,7 @@ import (
 	"strconv"
 
 	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v13/internal/types"
 )
 
 type schemaNode struct {
@@ -38,19 +39,14 @@ type schemaNode struct {
 	fields      []interface{}
 }
 
-// ArrowSchemaFromAvro returns a new Arrow schema from an Avro schema JSON.
-// If the top level is of record type, set includeTopLevel to either make
-// its fields top level fields in the resulting schema or nested in a single field.
-func ArrowSchemaFromAvro(avroSchema []byte, includeTopLevel bool) (*arrow.Schema, string, error) {
+// ArrowSchemaFromAvro returns a new Arrow schema from an Avro schema JSON
+func ArrowSchemaFromAvro(avroSchema []byte) (*arrow.Schema, error) {
 	var m map[string]interface{}
 	var node schemaNode
-	var tlrName string
 	json.Unmarshal(avroSchema, &m)
 	if name, ok := m["name"]; ok {
-		tlrName = name.(string)
 		node.name = name.(string)
 	} else {
-		tlrName = "none"
 		node.name = "NameStub"
 	}
 	switch rt := m["type"].(type) {
@@ -62,24 +58,20 @@ func ArrowSchemaFromAvro(avroSchema []byte, includeTopLevel bool) (*arrow.Schema
 					node.fields = append(node.fields, field.(map[string]interface{}))
 				}
 				if len(node.fields) == 0 {
-					return nil, "", fmt.Errorf("invalid avro schema: no top level record fields found")
+					return nil, fmt.Errorf("invalid avro schema: no top level record fields found")
 				}
 				fields := iterateFields(node.fields)
-				if includeTopLevel {
-					ff := avroComplexToArrowField(node)
-					return arrow.NewSchema([]arrow.Field{ff}, nil), tlrName, nil
-				}
-				return arrow.NewSchema(fields, nil), tlrName, nil
+				return arrow.NewSchema(fields, nil), nil
 			}
 		default:
 			field := stringTypeOf(node)
-			return arrow.NewSchema([]arrow.Field{field}, nil), tlrName, nil
+			return arrow.NewSchema([]arrow.Field{field}, nil), nil
 		}
 	case map[string]interface{}:
 		ff := avroComplexToArrowField(node)
-		return arrow.NewSchema([]arrow.Field{ff}, nil), tlrName, nil
+		return arrow.NewSchema([]arrow.Field{ff}, nil), nil
 	}
-	return &arrow.Schema{}, "", fmt.Errorf("invalid avro schema: could not convert schema")
+	return nil, fmt.Errorf("invalid avro schema: could not convert schema")
 }
 
 func iterateFields(f []interface{}) []arrow.Field {
@@ -190,16 +182,10 @@ func stringTypeOf(node schemaNode) arrow.Field {
 			if node.logicalType != "" {
 				return avroLogicalToArrowField(node)
 			}
-			//  Avro primitive type
 			return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string)), Nullable: true}
 		case "fixed":
-			// Duration type is not supported in github.com/linkedin/goavro
-			// Implementing as Binary
-			switch node.logicalType {
-			case "decimal":
+			if node.logicalType != "" {
 				return avroLogicalToArrowField(node)
-			case "duration":
-				return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.Binary, Nullable: true}
 			}
 			return arrow.Field{Name: node.name, Type: &arrow.FixedSizeBinaryType{ByteWidth: node.size}, Nullable: true}
 		case "enum":
@@ -368,7 +354,7 @@ func avroComplexToArrowField(node schemaNode) arrow.Field {
 	if i, ok := node.ofType.(map[string]interface{})["size"]; ok {
 		return arrow.Field{Name: node.name, Type: &arrow.FixedSizeBinaryType{ByteWidth: int(i.(float64))}, Nullable: true}
 	}
-	// Avro "map" field type
+	// Avro "map" field type - KVP with value of one type - keys are strings
 	if i, ok := node.ofType.(map[string]interface{})["values"]; ok {
 		switch i.(type) {
 		case string:
@@ -422,12 +408,14 @@ func AvroPrimitiveToArrowType(avroFieldType string) arrow.DataType {
 	case "string":
 		return arrow.BinaryTypes.String
 	// fallback to binary type for any unsupported type
+	// (shouldn't happen as all types specified in avro 1.11.1 are supported)
 	default:
 		return arrow.BinaryTypes.Binary
 	}
 }
 
 func avroLogicalToArrowField(node schemaNode) arrow.Field {
+	var dt arrow.DataType
 	// Avro logical types
 	switch node.logicalType {
 	// The decimal logical type represents an arbitrary-precision signed decimal number of the form unscaled × 10-scale.
@@ -439,37 +427,37 @@ func avroLogicalToArrowField(node schemaNode) arrow.Field {
 	// scale, a JSON integer representing the scale (optional). If not specified the scale is 0.
 	// precision, a JSON integer representing the (maximum) precision of decimals stored in this type (required).
 	case "decimal":
-		if node.precision <= 38 {
-			return arrow.Field{Name: node.name, Type: &arrow.Decimal128Type{Precision: node.precision, Scale: node.scale}, Nullable: true}
-		} else {
-			return arrow.Field{Name: node.name, Type: &arrow.Decimal256Type{Precision: node.precision, Scale: node.scale}, Nullable: true}
+		id := arrow.DECIMAL128
+		if node.precision > 38 {
+			id = arrow.DECIMAL256
 		}
+		dt, _ = arrow.NewDecimalType(id, node.precision, node.scale)
 
-	// The uuid logical type represents a random generated universally unique identifier (UUID).
-	// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
+		// The uuid logical type represents a random generated universally unique identifier (UUID).
+		// A uuid logical type annotates an Avro string. The string has to conform with RFC-4122
 	case "uuid":
-		return arrow.Field{Name: node.name, Type: arrow.BinaryTypes.String, Nullable: true}
+		dt = types.NewUUIDType()
 
 	// The date logical type represents a date within the calendar, with no reference to a particular
 	// time zone or time of day.
 	// A date logical type annotates an Avro int, where the int stores the number of days from the unix epoch,
 	// 1 January 1970 (ISO calendar).
 	case "date":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Date32, Nullable: true}
+		dt = arrow.FixedWidthTypes.Date32
 
 	// The time-millis logical type represents a time of day, with no reference to a particular calendar,
 	// time zone or date, with a precision of one millisecond.
 	// A time-millis logical type annotates an Avro int, where the int stores the number of milliseconds
 	// after midnight, 00:00:00.000.
 	case "time-millis":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Time32ms, Nullable: true}
+		dt = arrow.FixedWidthTypes.Time32ms
 
 	// The time-micros logical type represents a time of day, with no reference to a particular calendar,
 	// time zone or date, with a precision of one microsecond.
 	// A time-micros logical type annotates an Avro long, where the long stores the number of microseconds
 	// after midnight, 00:00:00.000000.
 	case "time-micros":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Time64us, Nullable: true}
+		dt = arrow.FixedWidthTypes.Time64us
 
 	// The timestamp-millis logical type represents an instant on the global timeline, independent of a
 	// particular time zone or calendar, with a precision of one millisecond. Please note that time zone
@@ -479,7 +467,8 @@ func avroLogicalToArrowField(node schemaNode) arrow.Field {
 	// A timestamp-millis logical type annotates an Avro long, where the long stores the number of milliseconds
 	// from the unix epoch, 1 January 1970 00:00:00.000 UTC.
 	case "timestamp-millis":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_ms, Nullable: true}
+		dt = arrow.FixedWidthTypes.Timestamp_ms
+
 	// The timestamp-micros logical type represents an instant on the global timeline, independent of a
 	// particular time zone or calendar, with a precision of one microsecond. Please note that time zone
 	// information gets lost in this process. Upon reading a value back, we can only reconstruct the instant,
@@ -488,22 +477,36 @@ func avroLogicalToArrowField(node schemaNode) arrow.Field {
 	// A timestamp-micros logical type annotates an Avro long, where the long stores the number of microseconds
 	// from the unix epoch, 1 January 1970 00:00:00.000000 UTC.
 	case "timestamp-micros":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_us, Nullable: true}
+		dt = arrow.FixedWidthTypes.Timestamp_us
+
 	// The local-timestamp-millis logical type represents a timestamp in a local timezone, regardless of
 	// what specific time zone is considered local, with a precision of one millisecond.
 	// A local-timestamp-millis logical type annotates an Avro long, where the long stores the number of
 	// milliseconds, from 1 January 1970 00:00:00.000.
 	case "local-timestamp-millis":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_ms, Nullable: true}
+		dt = &arrow.TimestampType{Unit: arrow.Millisecond}
+
 	// The local-timestamp-micros logical type represents a timestamp in a local timezone, regardless of
 	// what specific time zone is considered local, with a precision of one microsecond.
 	// A local-timestamp-micros logical type annotates an Avro long, where the long stores the number of
 	// microseconds, from 1 January 1970 00:00:00.000000.
 	case "local-timestamp-micros":
-		return arrow.Field{Name: node.name, Type: arrow.FixedWidthTypes.Timestamp_us, Nullable: true}
+		dt = &arrow.TimestampType{Unit: arrow.Microsecond}
+
+	// The duration logical type represents an amount of time defined by a number of months, days and milliseconds.
+	// This is not equivalent to a number of milliseconds, because, depending on the moment in time from which the
+	// duration is measured, the number of days in the month and number of milliseconds in a day may differ. Other
+	// standard periods such as years, quarters, hours and minutes can be expressed through these basic periods.
+
+	// A duration logical type annotates Avro fixed type of size 12, which stores three little-endian unsigned integers
+	// that represent durations at different granularities of time. The first stores a number in months, the second
+	// stores a number in days, and the third stores a number in milliseconds.
+	case "duration":
+		dt = arrow.FixedWidthTypes.MonthDayNanoInterval
+
 	//  Avro primitive type
 	default:
-		return arrow.Field{Name: node.name, Type: AvroPrimitiveToArrowType(node.ofType.(string)), Nullable: true}
+		dt = AvroPrimitiveToArrowType(node.ofType.(string))
 	}
-	return arrow.Field{}
+	return arrow.Field{Name: node.name, Type: dt, Nullable: true}
 }
