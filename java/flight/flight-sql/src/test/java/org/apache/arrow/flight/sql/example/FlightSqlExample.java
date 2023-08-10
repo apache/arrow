@@ -299,9 +299,12 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
   }
 
   private static ArrowType getArrowTypeFromJdbcType(final int jdbcDataType, final int precision, final int scale) {
-    final ArrowType type =
-        JdbcToArrowUtils.getArrowTypeFromJdbcType(new JdbcFieldInfo(jdbcDataType, precision, scale), DEFAULT_CALENDAR);
-    return isNull(type) ? ArrowType.Utf8.INSTANCE : type;
+    try {
+      return JdbcToArrowUtils.getArrowTypeFromJdbcType(new JdbcFieldInfo(jdbcDataType, precision, scale),
+              DEFAULT_CALENDAR);
+    } catch (UnsupportedOperationException ignored) {
+      return ArrowType.Utf8.INSTANCE;
+    }
   }
 
   private static void saveToVector(final Byte data, final UInt1Vector vector, final int index) {
