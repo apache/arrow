@@ -521,7 +521,7 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
   std::shared_ptr<ArrayData> data_;
-  std::shared_ptr<DeviceSync> sync_;
+  std::shared_ptr<Device::SyncEvent> sync_;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -713,7 +713,7 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
   return std::make_pair(device_type, device_id);
 }
 
-Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync> sync,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
   void* sync_event{nullptr};
   if (sync) {
@@ -746,7 +746,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync> sync,
 }
 
 Status ExportDeviceRecordBatch(const RecordBatch& batch,
-                               std::shared_ptr<DeviceSync> sync,
+                               std::shared_ptr<Device::SyncEvent> sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
   void* sync_event{nullptr};
@@ -1362,7 +1362,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  std::shared_ptr<DeviceSync> device_sync_;
+  std::shared_ptr<Device::SyncEvent> device_sync_;
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1395,7 +1395,7 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override {}
 
-  std::shared_ptr<DeviceSync> get_device_sync() override { return import_->device_sync_; }
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return import_->device_sync_; }
 
  protected:
   std::shared_ptr<ImportedArrayData> import_;

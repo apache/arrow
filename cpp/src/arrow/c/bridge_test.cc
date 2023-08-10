@@ -1137,31 +1137,52 @@ static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
 static const void* kMyEventPtr = reinterpret_cast<void*>(uintptr_t(0xBAADF00D));
 
-class MyDeviceSync final : public DeviceSync {
- public:
-  explicit MyDeviceSync(void* sync_event) : DeviceSync(sync_event) {}
-
-  virtual ~MyDeviceSync() = default;
-
-  Status wait() override { return Status::OK(); }
-  Status stream_wait(void* stream) override { return Status::OK(); }
-
- protected:
-  Result<void*> create_event() override { return const_cast<void*>(kMyEventPtr); }
-  Status record_event_on_stream(void* event) override { return Status::OK(); }
-  void release_event(void* event) override {}
-};
-
 class MyBuffer final : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
 
   ~MyBuffer() { default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_); }
 
-  std::shared_ptr<DeviceSync> get_device_sync() override { return device_sync_; }
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return device_sync_; }
 
  protected:
-  std::shared_ptr<DeviceSync> device_sync_;
+  std::shared_ptr<Device::SyncEvent> device_sync_;
+};
+
+class MyDevice : public Device {
+ public:
+  explicit MyDevice(int value) : Device(true), value_(value) {}
+  const char* type_name() const override { return kMyDeviceTypeName; }
+  std::string ToString() const override { return kMyDeviceTypeName; }
+  bool Equals(const Device& other) const override {
+    if (other.type_name() != kMyDeviceTypeName || other.device_type() != device_type()) {
+      return false;
+    }
+    return checked_cast<const MyDevice&>(other).value_ == value_;
+  }
+  DeviceAllocationType device_type() const override {
+    return static_cast<DeviceAllocationType>(kMyDeviceType);
+  }
+  int64_t device_id() const override { return value_; }
+  std::shared_ptr<MemoryManager> default_memory_manager() override;
+
+  class MySyncEvent final : public Device::SyncEvent {
+  public:
+    explicit MySyncEvent(void* sync_event) : Device::SyncEvent(sync_event) {}
+
+    virtual ~MySyncEvent() = default;
+
+    Status wait() override { return Status::OK(); }
+    Status stream_wait(void* stream) override { return Status::OK(); }
+
+  protected:
+    Result<void*> create_event() override { return const_cast<void*>(kMyEventPtr); }
+    Status record_event_on_stream(void* event) override { return Status::OK(); }
+    void release_event(void* event) override {}
+  };
+
+ protected:
+  int value_;
 };
 
 class MyMemoryManager : public CPUMemoryManager {
@@ -1175,8 +1196,8 @@ class MyMemoryManager : public CPUMemoryManager {
     return std::make_unique<MyBuffer>(data, size, shared_from_this());
   }
 
-  Result<std::shared_ptr<DeviceSync>> MakeDeviceSync(void* sync_event) override {
-    return std::make_shared<MyDeviceSync>(sync_event);
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(void* sync_event) override {
+    return std::make_shared<MyDevice::MySyncEvent>(sync_event);
   }
 
  protected:
@@ -1199,28 +1220,10 @@ class MyMemoryManager : public CPUMemoryManager {
   }
 };
 
-class MyDevice : public Device {
- public:
-  explicit MyDevice(int value) : Device(true), value_(value) {}
-  const char* type_name() const override { return kMyDeviceTypeName; }
-  std::string ToString() const override { return kMyDeviceTypeName; }
-  bool Equals(const Device& other) const override {
-    if (other.type_name() != kMyDeviceTypeName || other.device_type() != device_type()) {
-      return false;
-    }
-    return checked_cast<const MyDevice&>(other).value_ == value_;
-  }
-  DeviceAllocationType device_type() const override {
-    return static_cast<DeviceAllocationType>(kMyDeviceType);
-  }
-  int64_t device_id() const override { return value_; }
-  std::shared_ptr<MemoryManager> default_memory_manager() override {
-    return std::make_shared<MyMemoryManager>(shared_from_this());
-  }
+std::shared_ptr<MemoryManager> MyDevice::default_memory_manager() {
+  return std::make_shared<MyMemoryManager>(shared_from_this());
+}
 
- protected:
-  int value_;
-};
 
 class TestDeviceArrayExport : public ::testing::Test {
  public:
@@ -1276,7 +1279,7 @@ class TestDeviceArrayExport : public ::testing::Test {
                        ", array data = ", arr->ToString());
     const ArrayData& data = *arr->data();  // non-owning reference
     struct ArrowDeviceArray c_export;
-    std::shared_ptr<DeviceSync> sync{nullptr};
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
     ASSERT_OK(ExportDeviceArray(*arr, sync, &c_export));
 
     ArrayExportGuard guard(&c_export.array);
@@ -3662,7 +3665,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(array, ToResult(factory()));
     ASSERT_OK(ExportType(*array->type(), &c_schema));
-    std::shared_ptr<DeviceSync> sync{nullptr};
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
     ASSERT_OK(ExportDeviceArray(*array, sync, &c_array));
 
     auto new_bytes = pool_->bytes_allocated();

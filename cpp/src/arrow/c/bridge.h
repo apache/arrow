@@ -184,11 +184,11 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 /// potentially provide an event for consumers to synchronize on.
 ///
 /// \param[in] array Array object to export
-/// \param[in] sync shared_ptr to object derived from DeviceSync or null
+/// \param[in] sync shared_ptr to object derived from Device::SyncEvent or null
 /// \param[out] out C struct to export the array to
 /// \param[out] out_schema optional C struct to export the array type to
 ARROW_EXPORT
-Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync> sync,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out,
                          struct ArrowSchema* out_schema = NULLPTR);
 
@@ -206,12 +206,12 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<DeviceSync> sync,
 /// potentially provide an event for consumers to synchronize on.
 ///
 /// \param[in] batch Record batch to export
-/// \param[in] sync shared_ptr to object derived from DeviceSync or null
+/// \param[in] sync shared_ptr to object derived from Device::SyncEvent or null
 /// \param[out] out C struct where to export the record batch
 /// \param[out] out_schema optional C struct where to export the record batch schema
 ARROW_EXPORT
 Status ExportDeviceRecordBatch(const RecordBatch& batch,
-                               std::shared_ptr<DeviceSync> sync,
+                               std::shared_ptr<Device::SyncEvent> sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema = NULLPTR);
 
