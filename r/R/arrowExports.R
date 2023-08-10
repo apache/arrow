@@ -748,8 +748,8 @@ dataset___JsonFragmentScanOptions__Make <- function(parse_options, read_options)
   .Call(`_arrow_dataset___JsonFragmentScanOptions__Make`, parse_options, read_options)
 }
 
-dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer) {
-  .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer)
+dataset___ParquetFragmentScanOptions__Make <- function(use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit) {
+  .Call(`_arrow_dataset___ParquetFragmentScanOptions__Make`, use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit)
 }
 
 dataset___DirectoryPartitioning <- function(schm, segment_encoding) {
