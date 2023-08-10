@@ -26,6 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/cast.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -580,7 +581,7 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
     decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
 
     typename EncodingTraits<ByteArrayType>::Accumulator acc;
-    acc.builder.reset(new ::arrow::StringBuilder);
+    acc.builder = std::make_unique<::arrow::StringBuilder>();
     ASSERT_EQ(num_values,
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
@@ -595,6 +596,39 @@ TEST(PlainEncodingAdHoc, ArrowBinaryDirectPut) {
   for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
     CheckSeed(seed);
   }
+}
+
+// Check that one can put several Arrow arrays into a given encoder
+// and decode to the right values (see GH-36939)
+TEST(PlainBooleanArrayEncoding, AdHocRoundTrip) {
+  std::vector<std::shared_ptr<::arrow::Array>> arrays{
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([])"),
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([false, null, true])"),
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([null, null, null])"),
+      ::arrow::ArrayFromJSON(::arrow::boolean(), R"([true, null, false])"),
+  };
+
+  auto encoder = MakeTypedEncoder<BooleanType>(Encoding::PLAIN,
+                                               /*use_dictionary=*/false);
+  for (const auto& array : arrays) {
+    encoder->Put(*array);
+  }
+  auto buffer = encoder->FlushValues();
+  auto decoder = MakeTypedDecoder<BooleanType>(Encoding::PLAIN);
+  EXPECT_OK_AND_ASSIGN(auto expected, ::arrow::Concatenate(arrays));
+  decoder->SetData(static_cast<int>(expected->length()), buffer->data(),
+                   static_cast<int>(buffer->size()));
+
+  ::arrow::BooleanBuilder builder;
+  ASSERT_EQ(static_cast<int>(expected->length() - expected->null_count()),
+            decoder->DecodeArrow(static_cast<int>(expected->length()),
+                                 static_cast<int>(expected->null_count()),
+                                 expected->null_bitmap_data(), 0, &builder));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(builder.Finish(&result));
+  ASSERT_EQ(expected->length(), result->length());
+  ::arrow::AssertArraysEqual(*expected, *result, /*verbose=*/true);
 }
 
 template <typename T>
@@ -641,27 +675,37 @@ class EncodingAdHocTyped : public ::testing::Test {
 
   static std::shared_ptr<::arrow::DataType> arrow_type();
 
-  void Plain(int seed) {
-    auto values = GetValues(seed);
+  void Plain(int seed, int rounds = 1, int offset = 0) {
+    auto random_array = GetValues(seed)->Slice(offset);
     auto encoder = MakeTypedEncoder<ParquetType>(
         Encoding::PLAIN, /*use_dictionary=*/false, column_descr());
     auto decoder = MakeTypedDecoder<ParquetType>(Encoding::PLAIN, column_descr());
 
-    ASSERT_NO_THROW(encoder->Put(*values));
+    for (int i = 0; i < rounds; ++i) {
+      ASSERT_NO_THROW(encoder->Put(*random_array));
+    }
+    std::shared_ptr<::arrow::Array> values;
+    if (rounds == 1) {
+      values = random_array;
+    } else {
+      ::arrow::ArrayVector arrays(rounds, random_array);
+      EXPECT_OK_AND_ASSIGN(values,
+                           ::arrow::Concatenate(arrays, ::arrow::default_memory_pool()));
+    }
     auto buf = encoder->FlushValues();
 
-    int num_values = static_cast<int>(values->length() - values->null_count());
-    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+    decoder->SetData(static_cast<int>(values->length()), buf->data(),
+                     static_cast<int>(buf->size()));
 
     BuilderType acc(arrow_type(), ::arrow::default_memory_pool());
-    ASSERT_EQ(num_values,
+    ASSERT_EQ(static_cast<int>(values->length() - values->null_count()),
               decoder->DecodeArrow(static_cast<int>(values->length()),
                                    static_cast<int>(values->null_count()),
                                    values->null_bitmap_data(), values->offset(), &acc));
 
     std::shared_ptr<::arrow::Array> result;
     ASSERT_OK(acc.Finish(&result));
-    ASSERT_EQ(50, result->length());
+    ASSERT_EQ(values->length(), result->length());
     ::arrow::AssertArraysEqual(*values, *result, /*verbose=*/true);
   }
 
@@ -877,9 +921,34 @@ using EncodingAdHocTypedCases =
 TYPED_TEST_SUITE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 
 TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPut) {
-  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+  for (auto seed : {0, 1, 2, 3, 4}) {
     this->Plain(seed);
   }
+  // Same, but without nulls (this could trigger different code paths)
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->Plain(seed, /*rounds=*/3);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPutMultiRound) {
+  // Check that one can put several Arrow arrays into a given encoder
+  // and decode to the right values (see GH-36939)
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->Plain(seed, /*rounds=*/3);
+  }
+  // Same, but without nulls
+  this->null_probability_ = 0.0;
+  for (auto seed : {0, 1, 2, 3, 4}) {
+    this->Plain(seed, /*rounds=*/3);
+  }
+}
+
+TYPED_TEST(EncodingAdHocTyped, PlainArrowDirectPutSliced) {
+  this->Plain(/*seed=*/0, /*rounds=*/1, /*offset=*/3);
+  // Same, but without nulls
+  this->null_probability_ = 0.0;
+  this->Plain(/*seed=*/0, /*rounds=*/1, /*offset=*/3);
 }
 
 TYPED_TEST(EncodingAdHocTyped, ByteStreamSplitArrowDirectPut) {

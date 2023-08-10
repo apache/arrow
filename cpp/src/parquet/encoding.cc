@@ -66,7 +66,6 @@ using ArrowPoolVector = std::vector<T, ::arrow::stl::allocator<T>>;
 namespace parquet {
 namespace {
 
-constexpr int64_t kInMemoryDefaultCapacity = 1024;
 // The Parquet spec isn't very clear whether ByteArray lengths are signed or
 // unsigned, but the Java implementation uses signed ints.
 constexpr size_t kMaxByteArraySize = std::numeric_limits<int32_t>::max();
@@ -307,12 +306,7 @@ template <>
 class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEncoder {
  public:
   explicit PlainEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
-      : EncoderImpl(descr, Encoding::PLAIN, pool),
-        bits_available_(kInMemoryDefaultCapacity * 8),
-        bits_buffer_(AllocateBuffer(pool, kInMemoryDefaultCapacity)),
-        sink_(pool),
-        bit_writer_(bits_buffer_->mutable_data(),
-                    static_cast<int>(bits_buffer_->size())) {}
+      : EncoderImpl(descr, Encoding::PLAIN, pool), sink_(pool) {}
 
   int64_t EstimatedDataEncodedSize() override;
   std::shared_ptr<Buffer> FlushValues() override;
@@ -340,39 +334,25 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
       throw ParquetException("direct put to boolean from " + values.type()->ToString() +
                              " not supported");
     }
-
     const auto& data = checked_cast<const ::arrow::BooleanArray&>(values);
-    if (data.null_count() == 0) {
-      PARQUET_THROW_NOT_OK(sink_.Reserve(bit_util::BytesForBits(data.length())));
-      // no nulls, just dump the data
-      ::arrow::internal::CopyBitmap(data.data()->GetValues<uint8_t>(1), data.offset(),
-                                    data.length(), sink_.mutable_data(), sink_.length());
-    } else {
-      auto n_valid = bit_util::BytesForBits(data.length() - data.null_count());
-      PARQUET_THROW_NOT_OK(sink_.Reserve(n_valid));
-      ::arrow::internal::FirstTimeBitmapWriter writer(sink_.mutable_data(),
-                                                      sink_.length(), n_valid);
 
+    if (data.null_count() == 0) {
+      // no nulls, just dump the data
+      PARQUET_THROW_NOT_OK(sink_.Reserve(data.length()));
+      sink_.UnsafeAppend(data.data()->GetValues<uint8_t>(1, 0), data.offset(),
+                         data.length());
+    } else {
+      PARQUET_THROW_NOT_OK(sink_.Reserve(data.length() - data.null_count()));
       for (int64_t i = 0; i < data.length(); i++) {
         if (data.IsValid(i)) {
-          if (data.Value(i)) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
+          sink_.UnsafeAppend(data.Value(i));
         }
       }
-      writer.Finish();
     }
-    sink_.UnsafeAdvance(data.length());
   }
 
  private:
-  int bits_available_;
-  std::shared_ptr<ResizableBuffer> bits_buffer_;
-  ::arrow::BufferBuilder sink_;
-  ::arrow::bit_util::BitWriter bit_writer_;
+  ::arrow::TypedBufferBuilder<bool> sink_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
@@ -380,57 +360,17 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
 
 template <typename SequenceType>
 void PlainEncoder<BooleanType>::PutImpl(const SequenceType& src, int num_values) {
-  int bit_offset = 0;
-  if (bits_available_ > 0) {
-    int bits_to_write = std::min(bits_available_, num_values);
-    for (int i = 0; i < bits_to_write; i++) {
-      bit_writer_.PutValue(src[i], 1);
-    }
-    bits_available_ -= bits_to_write;
-    bit_offset = bits_to_write;
-
-    if (bits_available_ == 0) {
-      bit_writer_.Flush();
-      PARQUET_THROW_NOT_OK(
-          sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
-      bit_writer_.Clear();
-    }
-  }
-
-  int bits_remaining = num_values - bit_offset;
-  while (bit_offset < num_values) {
-    bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
-
-    int bits_to_write = std::min(bits_available_, bits_remaining);
-    for (int i = bit_offset; i < bit_offset + bits_to_write; i++) {
-      bit_writer_.PutValue(src[i], 1);
-    }
-    bit_offset += bits_to_write;
-    bits_available_ -= bits_to_write;
-    bits_remaining -= bits_to_write;
-
-    if (bits_available_ == 0) {
-      bit_writer_.Flush();
-      PARQUET_THROW_NOT_OK(
-          sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
-      bit_writer_.Clear();
-    }
+  PARQUET_THROW_NOT_OK(sink_.Reserve(num_values));
+  for (int i = 0; i < num_values; ++i) {
+    sink_.UnsafeAppend(src[i]);
   }
 }
 
 int64_t PlainEncoder<BooleanType>::EstimatedDataEncodedSize() {
-  int64_t position = sink_.length();
-  return position + bit_writer_.bytes_written();
+  return ::arrow::bit_util::BytesForBits(sink_.length());
 }
 
 std::shared_ptr<Buffer> PlainEncoder<BooleanType>::FlushValues() {
-  if (bits_available_ > 0) {
-    bit_writer_.Flush();
-    PARQUET_THROW_NOT_OK(sink_.Append(bit_writer_.buffer(), bit_writer_.bytes_written()));
-    bit_writer_.Clear();
-    bits_available_ = static_cast<int>(bits_buffer_->size()) * 8;
-  }
-
   std::shared_ptr<Buffer> buffer;
   PARQUET_THROW_NOT_OK(sink_.Finish(&buffer));
   return buffer;
