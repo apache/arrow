@@ -5083,12 +5083,11 @@ endif()
 # Azure SDK and dependencies
 
 macro(build_libxml2)
-  message(STATUS "Building xml2 from source")
-  # "Build" LibXml2
+  message(STATUS "Building libxml2 from source")
   set(LIBXML2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/xml2_ep-install")
   set(LIBXML2_INCLUDE_DIR "${LIBXML2_PREFIX}/include")
   
-  set(XML2_CMAKE_ARGS
+  set(LIBXML2_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} 
       "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>" 
       -DCMAKE_INSTALL_LIBDIR=lib
@@ -5099,29 +5098,30 @@ macro(build_libxml2)
       -DLIBXML2_WITH_ICONV=OFF 
       -DBUILD_SHARED_LIBS=OFF)
 
-  set(_XML2_STATIC_LIBRARY
+  set(LIBXML2_STATIC_LIBRARY
     "${LIBXML2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}xml2${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
-  set(XML2_BUILD_BYPRODUCTS ${_XML2_STATIC_LIBRARY})
+  set(LIBXML2_BUILD_BYPRODUCTS ${LIBXML2_STATIC_LIBRARY})
   
   externalproject_add(libxml2_ep
                       ${EP_LOG_OPTIONS}
                       INSTALL_DIR ${LIBXML2_PREFIX}
                       URL ${LIBXML2_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_LIBXML2_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${XML2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${XML2_BUILD_BYPRODUCTS})
+                      CMAKE_ARGS ${LIBXML2_CMAKE_ARGS}
+                      BUILD_BYPRODUCTS ${LIBXML2_BUILD_BYPRODUCTS})
 
   # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
   file(MAKE_DIRECTORY "${LIBXML2_INCLUDE_DIR}")
   add_library(LibXml2::LibXml2 STATIC IMPORTED)
   set_target_properties(LibXml2::LibXml2
-                        PROPERTIES IMPORTED_LOCATION ${_XML2_STATIC_LIBRARY}
+                        PROPERTIES IMPORTED_LOCATION ${LIBXML2_STATIC_LIBRARY}
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    "${LIBXML2_INCLUDE_DIR}")
-  add_dependencies(LibXml2::LibXml2 xml2_ep)
+  add_dependencies(LibXml2::LibXml2 libxml2_ep)
   set(LIBXML2_VENDORED TRUE)
 endmacro()
+
 if(ARROW_WITH_LIBXML2)
   message(STATUS "Building LibXml2 from source")
   resolve_dependency(LibXml2)
