@@ -384,7 +384,7 @@ class PlainEncoder<BooleanType> : public EncoderImpl, virtual public BooleanEnco
   std::shared_ptr<ResizableBuffer> bits_buffer_;
   ::arrow::BufferBuilder sink_;
   ::arrow::bit_util::BitWriter bit_writer_;
-  int valid_bit_length_;
+  int64_t valid_bit_length_;
 
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
