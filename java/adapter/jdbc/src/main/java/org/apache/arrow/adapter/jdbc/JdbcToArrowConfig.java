@@ -389,7 +389,7 @@ public final class JdbcToArrowConfig {
    * Interface for a function that gets a JDBC consumer for the given values.
    */
   @FunctionalInterface
-  protected interface JdbcConsumerFactory {
+  public interface JdbcConsumerFactory {
     JdbcConsumer apply(ArrowType arrowType, int columnIndex, boolean nullable, FieldVector vector);
   }
 }
