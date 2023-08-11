@@ -22,6 +22,7 @@ import (
 	"log"
 
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
+	"github.com/apache/arrow/go/v13/internal/utils"
 )
 
 // WriterAtBuffer is a convenience struct for providing a WriteAt function
@@ -56,16 +57,32 @@ func (w *WriterAtBuffer) WriteAt(p []byte, off int64) (n int, err error) {
 	return
 }
 
+func (w *WriterAtBuffer) Reserve(nbytes int) {
+	if w.buf == nil {
+		w.buf = make([]byte, 0, nbytes)
+	}
+
+	newCap := utils.MaxInt(cap(w.buf), 256)
+	if newCap < len(w.buf)+nbytes {
+		temp := make([]byte, len(w.buf), bitutil.NextPowerOf2(newCap))
+		copy(temp, w.buf)
+		w.buf = temp
+	}
+
+	w.buf = w.buf[:len(w.buf)+nbytes]
+}
+
 // WriterAtWithLen is an interface for an io.WriterAt with a Len function
 type WriterAtWithLen interface {
 	io.WriterAt
 	Len() int
+	Reserve(int)
 }
 
 // BitWriter is a utility for writing values of specific bit widths to a stream
 // using a uint64 as a buffer to build up between flushing for efficiency.
 type BitWriter struct {
-	wr         io.WriterAt
+	wr         WriterAtWithLen
 	buffer     uint64
 	byteoffset int
 	bitoffset  uint
@@ -74,7 +91,7 @@ type BitWriter struct {
 
 // NewBitWriter initializes a new bit writer to write to the passed in interface
 // using WriteAt to write the appropriate offsets and values.
-func NewBitWriter(w io.WriterAt) *BitWriter {
+func NewBitWriter(w WriterAtWithLen) *BitWriter {
 	return &BitWriter{wr: w}
 }
 
@@ -85,10 +102,7 @@ func (b *BitWriter) ReserveBytes(nbytes int) (int, error) {
 	b.Flush(true)
 	ret := b.byteoffset
 	b.byteoffset += nbytes
-	if _, err := b.wr.WriteAt(b.raw[:nbytes], int64(ret)); err != nil {
-		log.Println(err)
-		return 0, err
-	}
+	b.wr.Reserve(b.byteoffset)
 	return ret, nil
 }
 
