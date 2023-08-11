@@ -73,7 +73,6 @@ if [ "${ARROW_USE_TSAN}" == "ON" ] && [ ! -x "${ASAN_SYMBOLIZER_PATH}" ]; then
     exit 1
 fi
 
-uname
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
@@ -170,7 +169,6 @@ cmake \
   -DBUILD_WARNING_LEVEL=${BUILD_WARNING_LEVEL:-CHECKIN} \
   -Dc-ares_SOURCE=${cares_SOURCE:-} \
   -DCMAKE_BUILD_TYPE=${ARROW_BUILD_TYPE:-debug} \
-  -DCMAKE_FIND_DEBUG_MODE=ON \
   -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE:-OFF} \
   -DCMAKE_C_FLAGS="${CFLAGS:-}" \
   -DCMAKE_CXX_FLAGS="${CXXFLAGS:-}" \
