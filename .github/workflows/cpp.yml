@@ -164,8 +164,7 @@ jobs:
       ARROW_HDFS: ON
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
-      # TODO(kszucs): link error in the tests
-      ARROW_ORC: OFF
+      ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_S3: ON
       ARROW_WITH_BROTLI: ON
