@@ -242,8 +242,8 @@ write_dataset <- function(dataset,
 #' The default is an empty string `""`.
 #' @param eol the end of line character to use for ending rows. The default is `"\n"`.
 #' @param quote How to handle fields which contain characters that need to be quoted.
-#' - `needed` - Only enclose values in quotes which need them, because their CSV rendering can
-#'  contain quotes itself (e.g. strings or binary values) (the default)
+#' - `needed` - Enclose all strings and binary values in quotes which need them, because their CSV rendering can
+#'  contain quotes itself  (the default)
 #' - `all` -   Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
 #' interpret all values as strings if schema is inferred.
 #' - `none` -   Do not enclose any values in quotes. Prevents values from containing quotes ("),
