@@ -895,9 +895,9 @@ template <SimdLevel::type SimdLevel>
 struct DictionaryMinMaxImpl : public ScalarAggregator {
   using ThisType = DictionaryMinMaxImpl<SimdLevel>;
 
-  explicit DictionaryMinMaxImpl(ScalarAggregateOptions options)
+  explicit DictionaryMinMaxImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options)
       : options(std::move(options)),
-        out_child_type(nullptr),
+        out_type(std::move(out_type)),
         has_nulls(false),
         count(0),
         min(nullptr),
@@ -914,7 +914,6 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     std::shared_ptr<Array> dict_values = arr.dictionary();
     std::shared_ptr<Array> dict_indices = arr.indices();
 
-    this->out_child_type = dict_values->type();
     this->has_nulls = dict_indices->null_count() > 0;
     this->count += dict_indices->length() - dict_indices->null_count();
 
@@ -934,36 +933,32 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     const auto& other = checked_cast<const ThisType&>(src);
 
     ARROW_RETURN_NOT_OK(CompareMinMax(other.min, other.max));
-    if (this->out_child_type == nullptr) {
-      this->out_child_type = other.out_child_type;
-    } else if (other.out_child_type != nullptr) {
-      ARROW_CHECK_EQ(this->out_child_type->id(), other.out_child_type->id());
-    }
     this->has_nulls = this->has_nulls || other.has_nulls;
     this->count += other.count;
     return Status::OK();
   }
 
   Status Finalize(KernelContext*, Datum* out) override {
+    const auto& struct_type = checked_cast<const StructType&>(*out_type);
+    const auto& child_type = struct_type.field(0)->type();
+
     std::vector<std::shared_ptr<Scalar>> values;
     // Physical type != result type
     if ((this->has_nulls && !options.skip_nulls) || (this->count < options.min_count) ||
         this->min == nullptr || this->min->type->id() == Type::NA) {
       // (null, null)
-      std::shared_ptr<Scalar> null_scalar = MakeNullScalar(this->out_child_type);
+      std::shared_ptr<Scalar> null_scalar = MakeNullScalar(child_type);
       values = {null_scalar, null_scalar};
     } else {
       values = {std::move(this->min), std::move(this->max)};
     }
 
-    out->value = std::make_shared<StructScalar>(
-        std::move(values), struct_({field("min", this->out_child_type),
-                                    field("max", this->out_child_type)}));
+    out->value = std::make_shared<StructScalar>(std::move(values), this->out_type);
     return Status::OK();
   }
 
   ScalarAggregateOptions options;
-  std::shared_ptr<DataType> out_child_type;
+  std::shared_ptr<DataType> out_type;
   bool has_nulls;
   int64_t count;
   std::shared_ptr<Scalar> min;
@@ -1090,7 +1085,7 @@ struct MinMaxInitState {
   }
 
   Status Visit(const DictionaryType&) {
-    state.reset(new DictionaryMinMaxImpl<SimdLevel>(options));
+    state.reset(new DictionaryMinMaxImpl<SimdLevel>(out_type, options));
     return Status::OK();
   }
 
