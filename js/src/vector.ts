@@ -99,8 +99,6 @@ export class Vector<T extends DataType = any> {
     }
 
     declare protected _offsets: number[] | Uint32Array;
-    declare protected _nullCount: number;
-    declare protected _byteLength: number;
 
     /**
      * The {@link DataType `DataType`} of this Vector.
@@ -131,20 +129,14 @@ export class Vector<T extends DataType = any> {
      * The aggregate size (in bytes) of this Vector's buffers and/or child Vectors.
      */
     public get byteLength() {
-        if (this._byteLength === -1) {
-            this._byteLength = this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
-        }
-        return this._byteLength;
+        return this.data.reduce((byteLength, data) => byteLength + data.byteLength, 0);
     }
 
     /**
      * The number of null elements in this Vector.
      */
     public get nullCount() {
-        if (this._nullCount === -1) {
-            this._nullCount = computeChunkNullCounts(this.data);
-        }
-        return this._nullCount;
+        return computeChunkNullCounts(this.data);
     }
 
     /**
@@ -352,8 +344,6 @@ export class Vector<T extends DataType = any> {
         (proto as any).length = 0;
         (proto as any).stride = 1;
         (proto as any).numChildren = 0;
-        (proto as any)._nullCount = -1;
-        (proto as any)._byteLength = -1;
         (proto as any)._offsets = new Uint32Array([0]);
         (proto as any)[Symbol.isConcatSpreadable] = true;
 

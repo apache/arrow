@@ -498,7 +498,6 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
     const typeIdsBuffer = new Int8Array(length);
     const vecs = children.flatMap(({ vector }) => vector.data);
     const cols = children.map(({ values }) => values);
-    const nullBitmap = createBitmap(length, nullCount);
     const typeIdToChildIndex = typeIds.reduce((typeIdToChildIndex, typeId, idx) => {
         return (typeIdToChildIndex[typeId] = idx) && typeIdToChildIndex || typeIdToChildIndex;
     }, Object.create(null) as { [key: number]: number });
@@ -507,37 +506,31 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
         const values = memoize(() => {
             const values = [] as any[];
             const childValues = cols.map((x) => x());
-            iterateBitmap(length, nullBitmap, (i, valid) => {
-                values[i] = !valid ? null : childValues[typeIdToChildIndex[typeIdsBuffer[i]]][i];
-            });
+            for (let i = -1; ++i < length;) {
+                values[i] = childValues[typeIdToChildIndex[typeIdsBuffer[i]]][i];
+            }
             return values;
         });
-        iterateBitmap(length, nullBitmap, (i, valid) => {
-            typeIdsBuffer[i] = !valid ? 0 : typeIds[Math.trunc(rand() * numChildren)];
-        });
-        return { values, vector: new Vector([makeData<SparseUnion>({ type: type as SparseUnion, length, nullCount, nullBitmap, typeIds: typeIdsBuffer, children: vecs })]) } as GeneratedVector<T>;
+        for (let i = -1; ++i < length;) {
+            typeIdsBuffer[i] = typeIds[Math.trunc(rand() * numChildren)];
+        }
+        return { values, vector: new Vector([makeData<SparseUnion>({ type: type as SparseUnion, length, nullCount: -1, typeIds: typeIdsBuffer, children: vecs })]) } as GeneratedVector<T>;
     }
 
     const valueOffsets = new Int32Array(length);
     const values = memoize(() => {
         const values = [] as any[];
         const childValues = cols.map((x) => x());
-        iterateBitmap(length, nullBitmap, (i, valid) => {
-            values[i] = !valid ? null : childValues[typeIdToChildIndex[typeIdsBuffer[i]]][valueOffsets[i]];
-        });
+        for (let i = -1; ++i < length;) {
+            values[i] = childValues[typeIdToChildIndex[typeIdsBuffer[i]]][valueOffsets[i]];
+        }
         return values;
     });
-    iterateBitmap(length, nullBitmap, (i, valid) => {
-        if (!valid) {
-            valueOffsets[i] = 0;
-            typeIdsBuffer[i] = 0;
-        } else {
-            const colIdx = Math.trunc(rand() * numChildren);
-            valueOffsets[i] = Math.trunc(i / numChildren);
-            typeIdsBuffer[i] = typeIds[colIdx];
-        }
-    });
-    return { values, vector: new Vector([makeData<DenseUnion>({ type: type as DenseUnion, length, nullCount, nullBitmap, typeIds: typeIdsBuffer, valueOffsets, children: vecs })]) } as GeneratedVector<T>;
+    for (let i = -1; ++i < length;) {
+        valueOffsets[i] = Math.trunc(i / numChildren);
+        typeIdsBuffer[i] = typeIds[i % numChildren];
+    }
+    return { values, vector: new Vector([makeData<DenseUnion>({ type: type as DenseUnion, length, nullCount: -1, typeIds: typeIdsBuffer, valueOffsets, children: vecs })]) } as GeneratedVector<T>;
 }
 
 function generateStruct<T extends Struct>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2), children = type.children.map((f) => this.visit(f.type, length, nullCount))): GeneratedVector<T> {

@@ -75,7 +75,8 @@ export class JSONVectorAssembler extends Visitor {
         return {
             'name': name,
             'count': length,
-            'VALIDITY': DataType.isNull(type) ? undefined
+            'VALIDITY': (DataType.isNull(type) || DataType.isUnion(type))
+                ? undefined
                 : nullCount <= 0 ? Array.from({ length }, () => 1)
                     : [...new BitIterator(nullBitmap, offset, length, null, getBit)],
             ...super.visit(data.clone(type, offset, length, 0, buffers))
