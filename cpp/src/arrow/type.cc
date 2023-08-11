@@ -779,21 +779,21 @@ std::string UnionType::ToString() const {
 }
 
 SparseUnionType::SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes)
-    : UnionType(fields, type_codes, Type::SPARSE_UNION) {}
+    : UnionType(std::move(fields), std::move(type_codes), Type::SPARSE_UNION) {}
 
 Result<std::shared_ptr<DataType>> SparseUnionType::Make(FieldVector fields,
                                                         std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::SPARSE));
-  return std::make_shared<SparseUnionType>(fields, type_codes);
+  return std::make_shared<SparseUnionType>(std::move(fields), std::move(type_codes));
 }
 
 DenseUnionType::DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes)
-    : UnionType(fields, type_codes, Type::DENSE_UNION) {}
+    : UnionType(std::move(fields), std::move(type_codes), Type::DENSE_UNION) {}
 
 Result<std::shared_ptr<DataType>> DenseUnionType::Make(FieldVector fields,
                                                        std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::DENSE));
-  return std::make_shared<DenseUnionType>(fields, type_codes);
+  return std::make_shared<DenseUnionType>(std::move(fields), std::move(type_codes));
 }
 
 // ----------------------------------------------------------------------
