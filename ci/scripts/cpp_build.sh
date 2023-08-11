@@ -89,6 +89,8 @@ case "$(uname)" in
     ;;
 esac
 
+find / | grep -i llvm
+
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
