@@ -1670,8 +1670,8 @@ services:
     #   docker-compose build oracle-java
     #   docker-compose run oracle-java
     # Parameters:
-    #   MAVEN: 3.8.5
-    #   JDK: 17
+    #   MAVEN: 3.8.5, 3.9.4
+    #   JDK: 17, 20
     image: ${ARCH}/maven:${MAVEN}-openjdk-${JDK}
     shm_size: *shm-size
     volumes: *java-volumes
