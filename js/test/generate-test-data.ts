@@ -304,7 +304,7 @@ function generateFloat<T extends Float>(this: TestDataVectorGenerator, type: T, 
 
 function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
     const nullBitmap = createBitmap(length, nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, undefined, undefined, nullCount != 0);
+    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, 10, 20, nullCount != 0);
     const values: string[] = new Array(valueOffsets.length - 1).fill(null);
     [...valueOffsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
@@ -326,7 +326,7 @@ function generateUtf8<T extends Utf8>(this: TestDataVectorGenerator, type: T, le
 
 function generateBinary<T extends Binary>(this: TestDataVectorGenerator, type: T, length = 100, nullCount = Math.trunc(length * 0.2)): GeneratedVector<T> {
     const nullBitmap = createBitmap(length, nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, undefined, undefined, nullCount != 0);
+    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, 10, 20, nullCount != 0);
     const values = [...valueOffsets.slice(1)]
         .map((o, i) => isValid(nullBitmap, i) ? o - valueOffsets[i] : null)
         .map((length) => length == null ? null : randomBytes(length));
@@ -425,7 +425,7 @@ function generateList<T extends List>(this: TestDataVectorGenerator, type: T, le
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, childVec.length, stride);
+    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, stride, stride);
     const values = memoize(() => {
         const childValues = child.values();
         const values: (T['valueType'] | null)[] = [...valueOffsets.slice(1)]
@@ -486,7 +486,8 @@ function generateUnion<T extends Union>(this: TestDataVectorGenerator, type: T, 
 
     if (!children) {
         if (type.mode === UnionMode.Sparse) {
-            children = type.children.map((f) => this.visit(f.type, length, nullCount));
+            const childNullCount = nullCount && Math.trunc(length / nullCount);
+            children = type.children.map((f) => this.visit(f.type, length, childNullCount));
         } else {
             const childLength = Math.ceil(length / numChildren);
             const childNullCount = Math.trunc(nullCount / childLength);
@@ -562,7 +563,7 @@ function generateMap<T extends Map_>(this: TestDataVectorGenerator,
     const childVec = child.vector;
     const nullBitmap = createBitmap(length, nullCount);
     const stride = childVec.length / (length - nullCount);
-    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, childVec.length, stride);
+    const valueOffsets = createVariableWidthOffsets(length, nullBitmap, stride, stride);
     const values = memoize(() => {
         const childValues: { key: K; value: V }[] = <any>child.values();
         const values: (Record<K, V> | null)[] = [...valueOffsets.slice(1)]
@@ -641,14 +642,14 @@ function createBitmap(length: number, nullCount: number) {
     return bytes;
 }
 
-function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, max = Number.POSITIVE_INFINITY, stride = 20, allowEmpty = true) {
+function createVariableWidthOffsets(length: number, nullBitmap: Uint8Array, min = 10, max = Number.POSITIVE_INFINITY, allowEmpty = true) {
     const offsets = new Int32Array(length + 1);
     iterateBitmap(length, nullBitmap, (i, valid) => {
         if (!valid) {
             offsets[i + 1] = offsets[i];
         } else {
             do {
-                offsets[i + 1] = Math.min(max, offsets[i] + Math.max(10, Math.trunc(rand() * stride)));
+                offsets[i + 1] = offsets[i] + Math.min(max, Math.max(min, Math.trunc(rand() * max)));
             } while (!allowEmpty && offsets[i + 1] === offsets[i]);
         }
     });
