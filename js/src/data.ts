@@ -431,8 +431,8 @@ interface ListDataProps<T extends List> extends DataProps_<T> { valueOffsets: Va
 interface FixedSizeListDataProps<T extends FixedSizeList> extends DataProps_<T> { child: Data<T['valueType']> }
 interface StructDataProps<T extends Struct> extends DataProps_<T> { children: Data[] }
 interface Map_DataProps<T extends Map_> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; child: Data }
-interface SparseUnionDataProps<T extends SparseUnion> extends DataProps_<T> { nullBitmap: never, typeIds: TypeIdsBuffer; children: Data[] }
-interface DenseUnionDataProps<T extends DenseUnion> extends DataProps_<T> { nullBitmap: never, typeIds: TypeIdsBuffer; children: Data[]; valueOffsets: ValueOffsetsBuffer }
+interface SparseUnionDataProps<T extends SparseUnion> extends DataProps_<T> { nullBitmap: never; typeIds: TypeIdsBuffer; children: Data[] }
+interface DenseUnionDataProps<T extends DenseUnion> extends DataProps_<T> { nullBitmap: never; typeIds: TypeIdsBuffer; children: Data[]; valueOffsets: ValueOffsetsBuffer }
 interface UnionDataProps<T extends Union> extends DataProps_<T> { typeIds: TypeIdsBuffer; children: Data[]; valueOffsets?: ValueOffsetsBuffer }
 
 export type DataProps<T extends DataType> = (
