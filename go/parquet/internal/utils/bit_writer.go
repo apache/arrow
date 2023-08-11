@@ -83,10 +83,10 @@ func NewBitWriter(w WriterAtWithLen) *BitWriter {
 	return &BitWriter{wr: w}
 }
 
-// ReserveBytes reserves the next aligned nbytes, skipping them and returning
+// SkipBytes reserves the next aligned nbytes, skipping them and returning
 // the offset to use with WriteAt to write to those reserved bytes. Used for
 // RLE encoding to fill in the indicators after encoding.
-func (b *BitWriter) ReserveBytes(nbytes int) (int, error) {
+func (b *BitWriter) SkipBytes(nbytes int) (int, error) {
 	b.Flush(true)
 	ret := b.byteoffset
 	b.byteoffset += nbytes

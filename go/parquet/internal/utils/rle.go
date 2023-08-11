@@ -520,7 +520,7 @@ func (r *RleEncoder) flushBuffered(done bool) (err error) {
 
 func (r *RleEncoder) flushLiteral(updateIndicator bool) (err error) {
 	if r.literalIndicatorOffset == -1 {
-		r.literalIndicatorOffset, err = r.w.ReserveBytes(1)
+		r.literalIndicatorOffset, err = r.w.SkipBytes(1)
 		if err != nil {
 			return
 		}
