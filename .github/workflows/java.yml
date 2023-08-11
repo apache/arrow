@@ -70,7 +70,7 @@ jobs:
           maven: 3.8.5
           image: oracle-java
         - jdk: 20
-          title: AMD64 Oracle Linux Server ??? Java JDK 20 Maven 3.9.3
+          title: AMD64 Ubuntu 22.04 Java JDK 20 Maven 3.9.3
           maven: 3.9.3
           image: eclipse-java
     env:
