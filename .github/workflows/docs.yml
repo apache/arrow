@@ -30,12 +30,12 @@ env:
 jobs:
 
   complete:
-    name: AMD64 Ubuntu 20.04 Complete Documentation
+    name: AMD64 Ubuntu 22.04 Complete Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 150
     env:
-      UBUNTU: "20.04"
+      UBUNTU: "22.04"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v3
