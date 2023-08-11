@@ -32,7 +32,7 @@ classdef tNumericOrString < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
 
             original = [1 2 5];
-            expected = int32([1 2 5]);
+            expected = int32([1 2 5])';
             actual = numericOrString(original, "int32");
             testCase.verifyEqual(actual, expected);
         end
@@ -58,7 +58,7 @@ classdef tNumericOrString < matlab.unittest.TestCase
 
             testCase.verifyEqual(numericOrString("A", "int32"), "A");
 
-            testCase.verifyEqual(numericOrString(["B" "A"], "int32"), ["B", "A"]);
+            testCase.verifyEqual(numericOrString(["B" "A"], "int32"), ["B", "A"]');
         end
     end
 end
