@@ -1196,6 +1196,10 @@ class MyMemoryManager : public CPUMemoryManager {
     return std::make_unique<MyBuffer>(data, size, shared_from_this());
   }
 
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync() override {
+    return std::make_shared<MyDevice::MySyncEvent>(nullptr);
+  }
+
   Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(void* sync_event) override {
     return std::make_shared<MyDevice::MySyncEvent>(sync_event);
   }
