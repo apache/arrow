@@ -2033,6 +2033,18 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
   }
 }
 
+TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
+  ScalarAggregateOptions options;
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    EXPECT_THAT(
+        MinMax(DictArrayFromJSON(dictionary(index_type, int64()),
+                                 "[0, 4, null, 1, null, 0, 4, 2, 3]", "[5, 4, 2, 0, 7]"),
+               options),
+        ResultWith(ScalarFromJSON(ty, R"({"min": "0", "max": "7"})")));
+  }
+}
+
 TEST(TestNullMinMaxKernel, Basics) {
   auto item_ty = null();
   auto ty = struct_({field("min", item_ty), field("max", item_ty)});
