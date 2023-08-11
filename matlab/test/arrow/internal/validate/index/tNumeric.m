@@ -120,5 +120,15 @@ classdef tNumeric < matlab.unittest.TestCase
             actual = numeric(original, "int32");
             testCase.verifyEqual(actual, expected);
         end
+
+        function AssertIfNotNumeric(testCase)
+            % Verify numeric() throws an assetion error if the input
+            % provided is not numeric.
+
+            import arrow.internal.validate.index.numeric
+
+            fcn = @() numeric(false);
+            testCase.verifyError(fcn, "MATLAB:assertion:failed");
+        end
     end
 end

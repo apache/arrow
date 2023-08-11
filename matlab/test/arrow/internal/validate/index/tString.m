@@ -39,7 +39,7 @@ classdef tString < matlab.unittest.TestCase
         function ZeroLengthTextError(testCase)
             % Verify string() throws an error whose idenitifier is 
             % "arrow:badSubscript:ZeroLengthText" if the index array 
-            % provided zero length text values.
+            % provided has zero length text values.
 
             import arrow.internal.validate.*
 
@@ -63,6 +63,16 @@ classdef tString < matlab.unittest.TestCase
 
             fcn = @() index.string(["A" "B"]);
             testCase.verifyWarningFree(fcn);
+        end
+
+        function AssertIfNotString(testCase)
+            % Verify string() throws an assertion error if the input
+            % provided is not a string.
+
+            import arrow.internal.validate.*
+
+            fcn = @() index.string(1);
+            testCase.verifyError(fcn, "MATLAB:assertion:failed");
         end
     end
 end
