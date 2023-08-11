@@ -243,12 +243,9 @@ def test_named_table_invalid_table_name():
     test_table_1 = pa.Table.from_pydict({"x": [1, 2, 3]})
 
     def table_provider(names, _):
-        if not names:
-            raise Exception("No names provided")
-        elif names[0] == "t1":
+        if names and names[0] == "t1":
             return test_table_1
-        else:
-            raise Exception("Unrecognized table name")
+        return None
 
     substrait_query = """
     {
