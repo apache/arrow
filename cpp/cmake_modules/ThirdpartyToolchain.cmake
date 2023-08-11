@@ -5074,6 +5074,7 @@ macro(build_azuresdk)
   message(STATUS "Building Azure C++ SDK from source")
 
   find_curl()
+  find_package(LibXml2)
   add_custom_target(azure_sdk_dependencies)
   
   if(NOT OpenSSL_FOUND)
