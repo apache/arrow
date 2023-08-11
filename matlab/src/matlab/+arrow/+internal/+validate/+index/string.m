@@ -16,8 +16,9 @@
 % permissions and limitations under the License.
 function string(index)
 
-    % This function assumes index is string
-    assert(isstring(index));
+    % index must be a string
+    assert(isstring(index), ...
+        "arrow.internal.validate.index.string assumes index is a string");
 
     if any(ismissing(index))
         errid = "arrow:badSubscript:MissingString";

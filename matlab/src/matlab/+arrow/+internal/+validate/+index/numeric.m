@@ -17,8 +17,9 @@
 
 function index = numeric(index, intType)
 
-    % This function assumes index is numeric
-    assert(isnumeric(index));
+    % index must be numeric
+    assert(isnumeric(index), ...
+        "arrow.internal.validate.index.numeric assumes index is numeric");
 
     % Convert to full storage if sparse
     if issparse(index)
@@ -39,7 +40,7 @@ function index = numeric(index, intType)
         error(errid, msg);
     elseif any(index > intmax(intType))
         errid = "arrow:badSubscript:ExceedsIntMax";
-        msg = "Index must be between 1 and intmax(""" + intType + " "").";
+        msg = "Index must be between 1 and intmax(""" + intType + """).";
         error(errid, msg);
     end
 
