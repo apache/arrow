@@ -1617,7 +1617,7 @@ def test_fragments_repr(tempdir, dataset):
     assert (
         repr(fragment) ==
         "<pyarrow.dataset.ParquetFileFragment path=subdir/1/xxx/file0.parquet "
-        "partition=[key=xxx, group=1]>"
+        "partition=[group=1, key=xxx]>"
     )
 
     # single-file parquet dataset (no partition information in repr)
