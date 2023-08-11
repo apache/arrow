@@ -1171,11 +1171,9 @@ int PlainBooleanDecoder::Decode(uint8_t* buffer, int max_values) {
 
 int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
   max_values = std::min(max_values, num_values_);
-  if (bit_reader_->GetBatch(1, buffer, max_values) != max_values) {
-    ParquetException::EofException();
-  }
-  num_values_ -= max_values;
-  return max_values;
+  int num_values_read = bit_reader_->GetBatch(1, buffer, max_values);
+  num_values_ -= num_values_read;
+  return num_values_read;
 }
 
 struct ArrowBinaryHelper {
