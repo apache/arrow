@@ -99,12 +99,12 @@ classdef tNumeric < matlab.unittest.TestCase
             import arrow.internal.validate.index.numeric
 
             original = [1 2 3 4];
-            expected = int32(original);
+            expected = int32(original)';
             actual = numeric(original, "int32");
             testCase.verifyEqual(actual, expected);
 
             original = uint32([1 2 3 4]);
-            expected = int64(original);
+            expected = int64(original)';
             actual = numeric(original, "int64");
             testCase.verifyEqual(actual, expected);
         end
@@ -116,7 +116,7 @@ classdef tNumeric < matlab.unittest.TestCase
             import arrow.internal.validate.index.numeric
 
             original = sparse([1 2 3 4]);
-            expected = int32(full(original));
+            expected = int32(full(original))';
             actual = numeric(original, "int32");
             testCase.verifyEqual(actual, expected);
         end
@@ -130,6 +130,36 @@ classdef tNumeric < matlab.unittest.TestCase
 
             fcn = @() numeric(false);
             testCase.verifyError(fcn, "arrow:badSubscript:NonNumeric");
+        end
+
+        function OutputShape(testCase)
+            % Verify numeric() always returns a column vector.
+
+            import arrow.internal.validate.index.numeric
+
+            % Provide a 2x2 matrix
+            original = int32([1 2; 3 4]);
+            expected = int32([1 3 2 4])';
+            actual = numeric(original, "int32");
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a 1x3 vector
+            original = int32([1 2 3]);
+            expected = int32([1 2 3])';
+            actual = numeric(original, "int32");
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a 3x1 vector
+            original = int32([1 2 3])';
+            expected = int32([1 2 3])';
+            actual = numeric(original, "int32");
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a 2x2x2 N-dimensional array
+            original = int8(reshape(1:8, 2, 2, 2));
+            expected = int32(1:8)';
+            actual = numeric(original, "int32");
+            testCase.verifyEqual(actual, expected);
         end
     end
 end

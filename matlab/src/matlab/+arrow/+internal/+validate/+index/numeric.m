@@ -28,6 +28,9 @@ function index = numeric(index, intType)
         index = full(index);
     end
 
+    % Ensure the output is a column vector
+    index = reshape(index, [], 1);
+
     if any(index < 1)
         errid = "arrow:badSubscript:NonPositive";
         msg = "Numeric indices must be positive integers.";
