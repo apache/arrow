@@ -62,7 +62,7 @@ classdef tString < matlab.unittest.TestCase
             testCase.verifyEqual(idx, "A");
 
             idx = index.string(["A", "B"]);
-            testCase.verifyEqual(idx, ["A", "B"]);
+            testCase.verifyEqual(idx, ["A"; "B"]);
 
             idx = index.string('ABC');
             testCase.verifyEqual(idx, "ABC");
@@ -74,7 +74,7 @@ classdef tString < matlab.unittest.TestCase
             testCase.verifyEqual(idx, "Var1");
 
             idx = index.string({'Var1', 'A'});
-            testCase.verifyEqual(idx, ["Var1", "A"]);
+            testCase.verifyEqual(idx, ["Var1"; "A"]);
         end
 
         function ErrorIfNonString(testCase)
@@ -86,6 +86,36 @@ classdef tString < matlab.unittest.TestCase
 
             fcn = @() index.string(1);
             testCase.verifyError(fcn, "arrow:badSubscript:NonString");
+        end
+
+        function OutputShape(testCase)
+            % Verify string() always returns a column vector.
+
+            import arrow.internal.validate.*
+
+            % Provide a 2x2 matrix
+            original = ["A" "B"; "C" "D"];
+            expected = ["A" "C" "B" "D"]';
+            actual = index.string(original);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a 1x3 vector
+            original = ["A" "B" "C"];
+            expected = ["A" "B" "C"]';
+            actual = index.string(original);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a 3x1 vector
+            original = ["A" "B" "C"]';
+            expected = ["A" "B" "C"]';
+            actual = index.string(original);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a 2x2x2 N-dimensional array
+            original = reshape(string(char(65:72)'), 2, 2, 2);
+            expected = string(char(65:72)');
+            actual = index.string(original);
+            testCase.verifyEqual(actual, expected);
         end
     end
 end

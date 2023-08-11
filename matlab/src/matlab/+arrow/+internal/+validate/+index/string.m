@@ -18,6 +18,8 @@ function index = string(index)
 
     index = convertCharsToStrings(index);
 
+    index = reshape(index, [], 1);
+
     if (~isstring(index))
         errid = "arrow:badSubscript:NonString";
         msg = "Expected string index values.";
