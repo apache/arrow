@@ -17,11 +17,13 @@
 
 function index = numeric(index, intType)
 
-    % index must be numeric
-    assert(isnumeric(index), ...
-        "arrow.internal.validate.index.numeric assumes index is numeric");
+    if (~isnumeric(index))
+        errid = "arrow:badSubscript:NonNumeric";
+        msg = "Expected numeric index values.";
+        error(errid, msg);
+    end
 
-    % Convert to full storage if sparse
+     % Convert to full storage if sparse
     if issparse(index)
         index = full(index);
     end

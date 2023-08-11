@@ -121,14 +121,15 @@ classdef tNumeric < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function AssertIfNotNumeric(testCase)
-            % Verify numeric() throws an assetion error if the input
-            % provided is not numeric.
+        function ErrorIfNotNumeric(testCase)
+            % Verify numeric() throws an error whose idenitifer is 
+            % "arrow:badSubscript:NonNumeric" if provided a non-numeric
+            % array as the index.
 
             import arrow.internal.validate.index.numeric
 
             fcn = @() numeric(false);
-            testCase.verifyError(fcn, "MATLAB:assertion:failed");
+            testCase.verifyError(fcn, "arrow:badSubscript:NonNumeric");
         end
     end
 end
