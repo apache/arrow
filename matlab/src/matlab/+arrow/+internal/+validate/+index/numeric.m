@@ -17,7 +17,7 @@
 
 function index = numeric(index, intType)
 
-    if (~isnumeric(index))
+    if ~isnumeric(index)
         errid = "arrow:badSubscript:NonNumeric";
         msg = "Expected numeric index values.";
         error(errid, msg);
