@@ -895,7 +895,7 @@ template <SimdLevel::type SimdLevel>
 struct DictionaryMinMaxImpl : public ScalarAggregator {
   using ThisType = DictionaryMinMaxImpl<SimdLevel>;
 
-  DictionaryMinMaxImpl(ScalarAggregateOptions options)
+  explicit DictionaryMinMaxImpl(ScalarAggregateOptions options)
       : options(std::move(options)),
         out_child_type(nullptr),
         has_nulls(false),
