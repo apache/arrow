@@ -36,7 +36,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
-const jestArgv = [`--reporters=jest-silent-reporter`];
+const jestArgv = [];
 const testFiles = [
     `test/unit/`,
     // `test/unit/bit-tests.ts`,
@@ -53,6 +53,8 @@ const testFiles = [
 
 if (argv.verbose) {
     jestArgv.push(`--verbose`);
+} else {
+    jestArgv.push(`--reporters=jest-silent-reporter`);
 }
 
 if (targetAndModuleCombinations.length > 1) {
