@@ -22,7 +22,7 @@
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/hashing.h"
-
+#include <iostream>
 #include <memory>
 
 namespace arrow {
@@ -492,11 +492,22 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   return visitor.Create();
 }
 
+namespace{
+
+Result<TypeHolder> DictionaryValueType(KernelContext*, const std::vector<TypeHolder>& types) {
+  // T -> T.value_type
+  auto ty = types.front().GetSharedPtr();
+  const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
+  return ty_dict.value_type();
+}
+
+} //namespace
+
 // For "min" and "max" functions: override finalize and return the actual value
 template <MinOrMax min_or_max>
 void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
                           ScalarAggregateFunction* min_max_func) {
-  auto sig = KernelSignature::Make({InputType::Any()}, FirstType);
+  std::shared_ptr<arrow::compute::KernelSignature> sig = KernelSignature::Make({InputType::Any()}, FirstType);
   auto init = [min_max_func](
                   KernelContext* ctx,
                   const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
@@ -516,7 +527,10 @@ void AddMinOrMaxAggKernel(ScalarAggregateFunction* func,
 
   // Note SIMD level is always NONE, but the convenience kernel will
   // dispatch to an appropriate implementation
-  AddAggKernel(std::move(sig), std::move(init), std::move(finalize), func);
+  AddAggKernel(sig, init, finalize, func);
+
+  sig = KernelSignature::Make({InputType(Type::DICTIONARY)}, DictionaryValueType);
+  AddAggKernel(sig, init, finalize, func);
 }
 
 // ----------------------------------------------------------------------
@@ -873,6 +887,13 @@ Result<TypeHolder> MinMaxType(KernelContext*, const std::vector<TypeHolder>& typ
   return struct_({field("min", ty), field("max", ty)});
 }
 
+Result<TypeHolder> DictionaryMinMaxType(KernelContext*, const std::vector<TypeHolder>& types) {
+  // T -> struct<min: T.value_type, max: T.value_type>
+  auto ty = types.front().GetSharedPtr();
+  const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
+  return struct_({field("min", ty_dict.value_type()), field("max", ty_dict.value_type())});
+}
+
 }  // namespace
 
 Result<TypeHolder> FirstLastType(KernelContext*, const std::vector<TypeHolder>& types) {
@@ -896,7 +917,12 @@ void AddFirstLastKernels(KernelInit init,
 
 void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
                      ScalarAggregateFunction* func, SimdLevel::type simd_level) {
-  auto sig = KernelSignature::Make({InputType(get_id.id)}, MinMaxType);
+  std::shared_ptr<arrow::compute::KernelSignature> sig;
+  if (get_id.id == Type::DICTIONARY) {
+    sig = KernelSignature::Make({InputType(get_id.id)}, DictionaryMinMaxType);
+  } else {
+    sig = KernelSignature::Make({InputType(get_id.id)}, MinMaxType);
+  }
   AddAggKernel(std::move(sig), init, func, simd_level);
 }
 
