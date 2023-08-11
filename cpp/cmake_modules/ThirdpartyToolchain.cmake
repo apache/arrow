@@ -5202,12 +5202,11 @@ endmacro()
 
 if(ARROW_WITH_AZURE_SDK)
   if(AZURE_SDK_SOURCE STREQUAL "SYSTEM")
-  list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS 
-      Azure::azure-core
-      Azure::azure-identity
-      Azure::azure-storage-blobs
-      Azure::azure-storage-common
-      Azure::azure-storage-files-datalake)
+    resolve_dependency(Azure::azure-core)
+    resolve_dependency(Azure::azure-identity)
+    resolve_dependency(Azure::azure-storage-blobs)
+    resolve_dependency(Azure::azure-storage-common)
+    resolve_dependency(Azure::azure-storage-files-datalake)
   else()
     resolve_dependency(AZURE_SDK)
     message(STATUS "Found Azure SDK headers: ${AZURESDK_INCLUDE_DIR}")
