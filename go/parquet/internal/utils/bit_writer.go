@@ -22,7 +22,6 @@ import (
 	"log"
 
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/internal/utils"
 )
 
 // WriterAtBuffer is a convenience struct for providing a WriteAt function
@@ -58,18 +57,7 @@ func (w *WriterAtBuffer) WriteAt(p []byte, off int64) (n int, err error) {
 }
 
 func (w *WriterAtBuffer) Reserve(nbytes int) {
-	if w.buf == nil {
-		w.buf = make([]byte, 0, nbytes)
-	}
-
-	newCap := utils.MaxInt(cap(w.buf), 256)
-	if newCap < len(w.buf)+nbytes {
-		temp := make([]byte, len(w.buf), bitutil.NextPowerOf2(newCap))
-		copy(temp, w.buf)
-		w.buf = temp
-	}
-
-	w.buf = w.buf[:len(w.buf)+nbytes]
+	// no-op. We should not expand or otherwise modify the underlying buffer
 }
 
 // WriterAtWithLen is an interface for an io.WriterAt with a Len function
