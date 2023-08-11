@@ -14,11 +14,15 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function string(index)
+function index = string(index)
 
-    % index must be a string
-    assert(isstring(index), ...
-        "arrow.internal.validate.index.string assumes index is a string");
+    index = convertCharsToStrings(index);
+
+    if (~isstring(index))
+        errid = "arrow:badSubscript:NonString";
+        msg = "Expected string index values.";
+        error(errid, msg);
+    end
 
     if any(ismissing(index))
         errid = "arrow:badSubscript:MissingString";

@@ -53,26 +53,39 @@ classdef tString < matlab.unittest.TestCase
         end
 
         function ValidStringIndices(testCase)
-            % Verify string() does not throw an error if given a valid
-            % string index array.
+            % Verify string() returns the expected string array if given
+            % a valid string, char, or cellstr as the index array.
 
             import arrow.internal.validate.*
 
-            fcn = @() index.string("A");
-            testCase.verifyWarningFree(fcn);
+            idx = index.string("A");
+            testCase.verifyEqual(idx, "A");
 
-            fcn = @() index.string(["A" "B"]);
-            testCase.verifyWarningFree(fcn);
+            idx = index.string(["A", "B"]);
+            testCase.verifyEqual(idx, ["A", "B"]);
+
+            idx = index.string('ABC');
+            testCase.verifyEqual(idx, "ABC");
+
+            idx = index.string(['ABC'; 'DEF']);
+            testCase.verifyEqual(idx, "ADBECF");
+
+            idx = index.string({'Var1'});
+            testCase.verifyEqual(idx, "Var1");
+
+            idx = index.string({'Var1', 'A'});
+            testCase.verifyEqual(idx, ["Var1", "A"]);
         end
 
-        function AssertIfNotString(testCase)
-            % Verify string() throws an assertion error if the input
-            % provided is not a string.
+        function ErrorIfNonString(testCase)
+            % Verify string() throws an error whose idenitifer is 
+            % "arrow:badSubscript:NonString" if neither a string array,
+            % char array, or cellstr array was provided as the index. 
 
             import arrow.internal.validate.*
 
             fcn = @() index.string(1);
-            testCase.verifyError(fcn, "MATLAB:assertion:failed");
+            testCase.verifyError(fcn, "arrow:badSubscript:NonString");
         end
     end
 end
