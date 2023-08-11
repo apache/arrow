@@ -127,6 +127,13 @@ public class JdbcFieldInfo {
     this.displaySize = rsmd.getColumnDisplaySize(column);
   }
 
+  /**
+   * Builds a <code>JdbcFieldInfo</code> from the corresponding row from a {@link java.sql.DatabaseMetaData#getColumns}
+   * ResulSet.
+   *
+   * @param rs The {@link java.sql.ResultSet} to get the field information from.
+   * @throws SQLException If the column information cannot be retrieved.
+   */
   public JdbcFieldInfo(ResultSet rs) throws SQLException {
     this.column = rs.getInt("ORDINAL_POSITION");
     this.jdbcType = rs.getInt("DATA_TYPE");
@@ -140,7 +147,9 @@ public class JdbcFieldInfo {
   /**
    * The {@link java.sql.Types} type.
    */
-  public int getJdbcType() { return jdbcType; }
+  public int getJdbcType() {
+    return jdbcType;
+  }
 
   /**
    * The nullability.
@@ -173,10 +182,14 @@ public class JdbcFieldInfo {
   /**
    * The type name as reported by the database.
    */
-  public String getTypeName() { return typeName; }
+  public String getTypeName() {
+    return typeName;
+  }
 
   /**
    * The max number of characters for the column.
    */
-  public int getDisplaySize() { return displaySize; }
+  public int getDisplaySize() {
+    return displaySize;
+  }
 }
