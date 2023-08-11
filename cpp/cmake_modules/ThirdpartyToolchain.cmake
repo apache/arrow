@@ -2769,89 +2769,71 @@ macro(build_absl)
   # refreshed using:
   #   ls -1 $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//'
   set(_ABSL_LIBS
-      bad_any_cast_impl
-      bad_optional_access
-      bad_variant_access
+      spinlock_wait
+      log_severity
+      throw_delegate
+      scoped_set_env
+      malloc_internal
       base
-      city
-      civil_time
-      cord
-      cord_internal
-      cordz_functions
-      cordz_handle
-      cordz_info
-      cordz_sample_token
-      crc32c
-      crc_cord_state
-      crc_cpu_detect
-      crc_internal
+      strerror
+      raw_logging_internal
+      periodic_sampler
+      exponential_biased
       debugging_internal
       demangle_internal
-      die_if_null
       examine_stack
-      exponential_biased
+      stacktrace
+      leak_check
+      symbolize
       failure_signal_handler
+      graphcycles_internal
+      synchronization
+      int128
+      flags_private_handle_accessor
+      flags_internal
       flags
       flags_commandlineflag
-      flags_commandlineflag_internal
-      flags_config
-      flags_internal
-      flags_marshalling
-      flags_parse
-      flags_private_handle_accessor
-      flags_program_name
       flags_reflection
       flags_usage
+      flags_config
+      flags_program_name
+      flags_parse
+      flags_commandlineflag_internal
+      flags_marshalling
       flags_usage_internal
-      graphcycles_internal
-      hash
+      statusor
+      status
+      time
+      time_zone
+      civil_time
+      bad_any_cast_impl
+      bad_variant_access
+      bad_optional_access
+      raw_hash_set
       hashtablez_sampler
-      int128
-      leak_check
-      log_entry
-      log_flags
-      log_globals
-      log_initialize
-      log_internal_check_op
-      log_internal_conditions
-      log_internal_format
-      log_internal_globals
-      log_internal_log_sink_set
-      log_internal_message
-      log_internal_nullguard
-      log_internal_proto
-      log_severity
-      log_sink
+      hash
+      city
       low_level_hash
-      malloc_internal
-      periodic_sampler
-      random_distributions
+      random_internal_randen_slow
       random_internal_distribution_test_util
-      random_internal_platform
-      random_internal_pool_urbg
-      random_internal_randen
       random_internal_randen_hwaes
       random_internal_randen_hwaes_impl
-      random_internal_randen_slow
-      random_internal_seed_material
-      random_seed_gen_exception
       random_seed_sequences
-      raw_hash_set
-      raw_logging_internal
-      scoped_set_env
-      spinlock_wait
-      stacktrace
-      status
-      statusor
-      strerror
+      random_internal_randen
+      random_internal_platform
+      random_internal_seed_material
+      random_distributions
+      random_seed_gen_exception
+      random_internal_pool_urbg
       str_format_internal
       strings
+      cordz_functions
+      cordz_sample_token
+      cordz_info
+      cord_internal
       strings_internal
-      symbolize
-      synchronization
-      throw_delegate
-      time
-      time_zone)
+      cordz_handle
+      cord)
   # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
   # The list can be refreshed using:
   #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
