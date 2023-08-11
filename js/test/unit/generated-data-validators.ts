@@ -162,6 +162,7 @@ function vectorTests(values: any[], vector: Vector<any>, keys?: number[]) {
                 actual = vector.indexOf(value);
                 expected = values.findIndex(compare(value));
                 expect(actual).toBe(expected);
+                expect(vector.includes(value)).toBe(true);
             }
             // I would be pretty surprised if randomatic ever generates these values
             expect(vector.indexOf('purple elephants')).toBe(-1);
