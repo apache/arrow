@@ -333,6 +333,7 @@ jobs:
           ) else (
             call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           )
+          dir /A-D /S /B c:\
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: bash
