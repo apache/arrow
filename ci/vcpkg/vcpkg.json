@@ -131,6 +131,31 @@
           ]
         }
       ]
+    },
+    "azure": {
+      "description": "Azure support",
+      "dependencies": [
+        {
+          "name": "azure-core-cpp",
+          "version>=": "1.10.2"
+        },
+        {
+          "name": "azure-identity-cpp",
+          "version>=": "1.5.1"
+        },
+        {
+          "name": "azure-storage-blobs-cpp",
+          "version>=": "12.8.0"
+        },
+        {
+          "name": "azure-storage-common-cpp",
+          "version>=": "12.3.3"
+        },
+        {
+          "name": "azure-storage-files-datalake-cpp",
+          "version>=": "12.7.0"
+        }
+      ]
     }
   }
 }
