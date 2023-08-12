@@ -5125,7 +5125,7 @@ macro(build_azuresdk)
       "${AZURESDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-storage-files-datalake${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   externalproject_add(azuresdk_ep
-                      ${EP_LOG_OPTIONS}
+                      ${EP_COMMON_OPTIONS}
                       INSTALL_DIR ${AZURESDK_PREFIX}
                       URL ${ARROW_AZURESDK_URL}
                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}"
