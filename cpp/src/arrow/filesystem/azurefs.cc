@@ -19,6 +19,8 @@
 
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
+#include <azure/storage/blobs.hpp>
+#include <azure/identity/default_azure_credential.hpp>
 
 namespace arrow {
 namespace fs {
@@ -47,6 +49,11 @@ class AzureFileSystem::Impl {
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
+    // TODO: Delete this once we have a proper implementation. This is just here to 
+    // ensure the build is working correctly with the Azure SDK.
+    auto defaultCredential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+    auto serviceClient = Azure::Storage::Blobs::BlobServiceClient(
+      "http://127.0.0.1:10000/devstoreaccount1", defaultCredential);
     if (options_.backend == AzureBackend::Azurite) {
       // gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled
       // throws error in azurite
