@@ -2035,16 +2035,19 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
 
 TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
   ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> item_ty;
+  std::shared_ptr<arrow::DataType> dict_ty;
   std::shared_ptr<arrow::DataType> ty; 
   for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
     
-    ty = struct_({field("min", int64()), field("max", int64())});
+    item_ty = decimal128(5, 2);
+    dict_ty = dictionary(index_type, item_ty);
+    ty = struct_({field("min", item_ty), field("max", item_ty)});
     EXPECT_THAT(
-        MinMax(DictArrayFromJSON(dictionary(index_type, int64()),
-                                 "[0, 4, null, 1, null, 0, 4, 2, 3]", "[5, 4, 2, 0, 7]"),
+        MinMax(DictArrayFromJSON(dict_ty, R"([0, 1, 1, 0])" , R"(["5.10", "-1.23"])"),
                options),
-        ResultWith(ScalarFromJSON(ty, R"({"min": "0", "max": "7"})")));
+        ResultWith(ScalarFromJSON(ty, R"({"min": "-1.23", "max": "5.10"})")));
   }
 }
 
