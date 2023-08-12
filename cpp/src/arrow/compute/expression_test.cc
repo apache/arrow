@@ -630,6 +630,12 @@ TEST(Expression, BindWithImplicitCasts) {
                       literal(std::make_shared<TimestampScalar>(0, TimeUnit::NANO))),
                   cmp(field_ref("ts_s"),
                       literal(std::make_shared<TimestampScalar>(0, TimeUnit::SECOND))));
+    // GH-37110
+    ExpectBindsTo(
+        cmp(field_ref("ts_s"),
+            literal(std::make_shared<TimestampScalar>(0, TimeUnit::NANO, "UTC"))),
+        cmp(field_ref("ts_s"),
+            literal(std::make_shared<TimestampScalar>(0, TimeUnit::SECOND, "UTC"))));
     ExpectBindsTo(
         cmp(field_ref("binary"), literal(std::make_shared<LargeBinaryScalar>("foo"))),
         cmp(field_ref("binary"), literal(std::make_shared<BinaryScalar>("foo"))));
