@@ -28,7 +28,7 @@ ENV MANYLINUX_VERSION=${manylinux}
 RUN yum install -y dnf
 
 # Install basic dependencies
-RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers
+RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget kernel-headers libxml2
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On manylinux2014 base images, system Python is 2.7.5, while
@@ -81,7 +81,6 @@ RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
-        --x-feature=azure \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
