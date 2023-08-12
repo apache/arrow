@@ -20,7 +20,6 @@
     "flatbuffers",
     "gflags",
     "glog",
-    "libxml2",
     "lz4",
     "openssl",
     "re2",
