@@ -41,6 +41,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v3
         with:
