@@ -73,8 +73,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     utf8proc
     xsimd
     ZLIB
-    zstd
-)
+    zstd)
 
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
