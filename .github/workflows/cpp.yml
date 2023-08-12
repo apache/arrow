@@ -272,7 +272,6 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      NPROC: 3
     steps:
       - name: Disable Crash Dialogs
         run: |
