@@ -2035,8 +2035,11 @@ TEST(TestDecimalMinMaxKernel, Decimals) {
 
 TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
   ScalarAggregateOptions options;
+  std::shared_ptr<arrow::DataType> ty; 
   for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    
+    ty = struct_({field("min", int64()), field("max", int64())});
     EXPECT_THAT(
         MinMax(DictArrayFromJSON(dictionary(index_type, int64()),
                                  "[0, 4, null, 1, null, 0, 4, 2, 3]", "[5, 4, 2, 0, 7]"),

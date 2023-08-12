@@ -496,7 +496,7 @@ namespace{
 
 Result<TypeHolder> DictionaryValueType(KernelContext*, const std::vector<TypeHolder>& types) {
   // T -> T.value_type
-  auto ty = types.front().GetSharedPtr();
+  auto ty = types.front();
   const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
   return ty_dict.value_type();
 }
@@ -890,7 +890,7 @@ Result<TypeHolder> MinMaxType(KernelContext*, const std::vector<TypeHolder>& typ
 
 Result<TypeHolder> DictionaryMinMaxType(KernelContext*, const std::vector<TypeHolder>& types) {
   // T -> struct<min: T.value_type, max: T.value_type>
-  auto ty = types.front().GetSharedPtr();
+  auto ty = types.front();
   const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
   return struct_({field("min", ty_dict.value_type()), field("max", ty_dict.value_type())});
 }
