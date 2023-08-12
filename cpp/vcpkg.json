@@ -37,6 +37,7 @@
     },
     "grpc",
     "gtest",
+    "libxml2",
     "lz4",
     "openssl",
     "orc",
