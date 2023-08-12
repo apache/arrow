@@ -492,16 +492,17 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   return visitor.Create();
 }
 
-namespace{
+namespace {
 
-Result<TypeHolder> DictionaryValueType(KernelContext*, const std::vector<TypeHolder>& types) {
+Result<TypeHolder> DictionaryValueType(KernelContext*,
+                                       const std::vector<TypeHolder>& types) {
   // T -> T.value_type
   auto ty = types.front();
   const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
   return ty_dict.value_type();
 }
 
-} //namespace
+}  // namespace
 
 // For "min" and "max" functions: override finalize and return the actual value
 template <MinOrMax min_or_max>
@@ -888,11 +889,13 @@ Result<TypeHolder> MinMaxType(KernelContext*, const std::vector<TypeHolder>& typ
   return struct_({field("min", ty), field("max", ty)});
 }
 
-Result<TypeHolder> DictionaryMinMaxType(KernelContext*, const std::vector<TypeHolder>& types) {
+Result<TypeHolder> DictionaryMinMaxType(KernelContext*,
+                                        const std::vector<TypeHolder>& types) {
   // T -> struct<min: T.value_type, max: T.value_type>
   auto ty = types.front();
   const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
-  return struct_({field("min", ty_dict.value_type()), field("max", ty_dict.value_type())});
+  return struct_(
+      {field("min", ty_dict.value_type()), field("max", ty_dict.value_type())});
 }
 
 }  // namespace
