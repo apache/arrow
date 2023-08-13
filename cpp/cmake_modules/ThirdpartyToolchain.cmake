@@ -365,14 +365,12 @@ if(ARROW_WITH_GRPC)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-# Enable GCS
 if(ARROW_GCS)
   set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
-# Enable Azure
 if(ARROW_AZURE)
   set(ARROW_WITH_AZURE_SDK ON)
 endif()
@@ -5067,7 +5065,7 @@ if(ARROW_S3)
 endif()
 
 # ----------------------------------------------------------------------
-# Azure SDK and dependencies
+# Azure SDK for C++
 
 macro(build_azuresdk)
   message(STATUS "Building Azure C++ SDK from source")
