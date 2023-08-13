@@ -2106,13 +2106,23 @@ TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
     dict_ty = dictionary(index_type, item_ty);
     ty = struct_({field("min", item_ty), field("max", item_ty)});
     Datum result = ScalarFromJSON(ty, "[null, null]");
-    EXPECT_THAT(
-        MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([null])"), options),
-        ResultWith(result));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
+                ResultWith(result));
     EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([])", R"([])"), options),
                 ResultWith(result));
-    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0])", R"([null])"), options),
-                ResultWith(result));
+
+    item_ty = boolean();
+    dict_ty = dictionary(index_type, item_ty);
+    ty = struct_({field("min", item_ty), field("max", item_ty)});
+    EXPECT_THAT(
+        MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 1])", R"([false, true])"), options),
+        ResultWith(ScalarFromJSON(ty, "[false, true]")));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 0])", R"([false])"), options),
+                ResultWith(ScalarFromJSON(ty, "[false, false]")));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0, 0])", R"([true])"), options),
+                ResultWith(ScalarFromJSON(ty, "[true, true]")));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([])"), options),
+                ResultWith(ScalarFromJSON(ty, "[null, null]")));
   }
 }
 
