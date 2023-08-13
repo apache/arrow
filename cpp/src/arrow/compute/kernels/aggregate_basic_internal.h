@@ -965,12 +965,12 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     if (this->min == nullptr || this->min->type->id() == Type::NA) {
       this->min = min_;
     } else if (min_ != nullptr && min_->type->id() != Type::NA) {
-      ARROW_ASSIGN_OR_RAISE(Datum min_compare_result,
-                            CallFunction("greater", {min, min_}));
+      ARROW_ASSIGN_OR_RAISE(Datum greater_result,
+                            CallFunction("greater", {this->min, min_}));
+      const BooleanScalar& greater_scalar =
+          checked_cast<const BooleanScalar&>(*greater_result.scalar());
 
-      const BooleanScalar& min_compare_result_scalar =
-          checked_cast<const BooleanScalar&>(*min_compare_result.scalar());
-      if (min_compare_result_scalar.value) {
+      if (greater_scalar.value) {
         this->min = min_;
       }
     }
@@ -978,10 +978,11 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     if (this->max == nullptr || this->max->type->id() == Type::NA) {
       this->max = max_;
     } else if (max_ != nullptr && max_->type->id() != Type::NA) {
-      ARROW_ASSIGN_OR_RAISE(Datum max_compare_result, CallFunction("less", {max, max_}));
-      const BooleanScalar& max_compare_result_scalar =
-          checked_cast<const BooleanScalar&>(*max_compare_result.scalar());
-      if (max_compare_result_scalar.value) {
+      ARROW_ASSIGN_OR_RAISE(Datum less_result, CallFunction("less", {this->max, max_}));
+      const BooleanScalar& less_scalar =
+          checked_cast<const BooleanScalar&>(*less_result.scalar());
+
+      if (less_scalar.value) {
         this->max = max_;
       }
     }
