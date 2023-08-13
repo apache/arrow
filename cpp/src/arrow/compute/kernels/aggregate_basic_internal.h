@@ -921,7 +921,7 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     ARROW_ASSIGN_OR_RAISE(auto min_, struct_result.field(FieldRef("min")));
     ARROW_ASSIGN_OR_RAISE(auto max_, struct_result.field(FieldRef("max")));
     ARROW_RETURN_NOT_OK(CompareMinMax(std::move(min_), std::move(max_)));
-    
+
     return Status::OK();
   }
 
