@@ -911,16 +911,14 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     }
 
     DictionaryArray arr(batch[0].array.ToArrayData());
+    this->has_nulls = arr.null_count() > 0;
+    this->count += arr.length() - arr.null_count();
+
     std::shared_ptr<Array> dict_values = arr.dictionary();
-    std::shared_ptr<Array> dict_indices = arr.indices();
-
-    this->has_nulls = dict_indices->null_count() > 0;
-    this->count += dict_indices->length() - dict_indices->null_count();
-
-    Datum dict_values_(*dict_values);
+    Datum dict_values_(*std::move(dict_values));
     ARROW_ASSIGN_OR_RAISE(Datum result, MinMax(std::move(dict_values_)));
     const StructScalar& struct_result =
-        checked_cast<const StructScalar&>(*result.scalar());
+        checked_cast<const StructScalar&>(*std::move(result.scalar()));
 
     ARROW_ASSIGN_OR_RAISE(auto min_, struct_result.field(FieldRef("min")));
     ARROW_ASSIGN_OR_RAISE(auto max_, struct_result.field(FieldRef("max")));

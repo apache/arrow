@@ -2101,6 +2101,18 @@ TEST(TestDictionaryMinMaxKernel, DictionaryArray) {
       EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0])", R"(["1.00"])"), options),
                   ResultWith(ScalarFromJSON(ty, R"({"min": "1.00", "max": "1.00"})")));
     }
+
+    std::shared_ptr<arrow::DataType> item_ty = null();
+    dict_ty = dictionary(index_type, item_ty);
+    ty = struct_({field("min", item_ty), field("max", item_ty)});
+    Datum result = ScalarFromJSON(ty, "[null, null]");
+    EXPECT_THAT(
+        MinMax(DictArrayFromJSON(dict_ty, R"([null, null])", R"([null])"), options),
+        ResultWith(result));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([])", R"([])"), options),
+                ResultWith(result));
+    EXPECT_THAT(MinMax(DictArrayFromJSON(dict_ty, R"([0, 0])", R"([null])"), options),
+                ResultWith(result));
   }
 }
 
