@@ -1181,7 +1181,7 @@ class MyDevice : public Device {
   };
 
  protected:
-  int value_;
+  int64_t value_;
 };
 
 class MyMemoryManager : public CPUMemoryManager {
