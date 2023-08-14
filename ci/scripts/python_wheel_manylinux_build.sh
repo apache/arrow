@@ -49,11 +49,11 @@ rm -rf /arrow/python/pyarrow/*.so.*
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_ACERO:=ON}
+: ${ARROW_AZURE:=OFF}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
 : ${ARROW_GCS:=ON}
-: ${ARROW_AZURE:=ON}
 : ${ARROW_HDFS:=ON}
 : ${ARROW_JEMALLOC:=ON}
 : ${ARROW_MIMALLOC:=ON}
