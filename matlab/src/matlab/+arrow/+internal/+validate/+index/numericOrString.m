@@ -23,7 +23,7 @@ function index = numericOrString(index, numericIndexType)
         index = arrow.internal.validate.index.string(index);
     else
         errid = "arrow:badSubscript:UnsupportedIndexType";
-        msg = "Index must be a positive scalar integer or a valid field name.";
+        msg = "Indices must be positive integers or nonmissing strings.";
         error(errid, msg);
     end
 end
