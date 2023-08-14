@@ -139,7 +139,7 @@ TEST(AzureFileSystem, UploadThenDownload) {
   EXPECT_EQ(std::string(buffer2.begin(), buffer2.end()), blobContent);
 }
 
-TEST(AzureFileSystem, InitialiseCredentials) {
+TEST(AzureFileSystem, InitializeCredentials) {
   auto defaultCredential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   auto managedIdentityCredential =
       std::make_shared<Azure::Identity::ManagedIdentityCredential>();
