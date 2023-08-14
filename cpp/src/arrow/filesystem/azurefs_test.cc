@@ -64,7 +64,7 @@ using ::testing::NotNull;
 class AzuriteEnv : public ::testing::Environment {
  public:
   AzuriteEnv() {
-    account_name_ = "account_name";
+    account_name_ = "devstoreaccount1";
     account_key_ =
         "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/"
         "KBHBeksoGMGw==";
@@ -125,7 +125,7 @@ TEST(AzureFileSystem, UploadThenDownload) {
       account_name, account_key);
 
   auto serviceClient = Azure::Storage::Blobs::BlobServiceClient(
-      "http://127.0.0.1:10000/account_name", credential);
+      "http://127.0.0.1:10000/devstoreaccount1", credential);
   auto containerClient = serviceClient.GetBlobContainerClient(containerName);
   containerClient.CreateIfNotExists();
   auto blobClient = containerClient.GetBlockBlobClient(blobName);
