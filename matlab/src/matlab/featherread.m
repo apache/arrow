@@ -35,8 +35,6 @@ function t = featherread(filename)
                    arrow.type.ID.Int16, ...
                    arrow.type.ID.Int32, ...
                    arrow.type.ID.Int64, ...
-                   arrow.type.ID.Float32, ...
-                   arrow.type.ID.Float64, ...
                    arrow.type.ID.Boolean];
 
     reader = arrow.internal.io.feather.Reader(filename);
@@ -50,9 +48,9 @@ function t = featherread(filename)
     for ii = 1:recordBatch.NumColumns
         array = recordBatch.column(ii);
         type = array.Type.ID;
-        if any(type == typesToCast)
+        if any(type == typesToCast) && any(~array.Valid)
             % Cast to double.
-            t{:, ii} = double(t{:, ii});
+            t.(ii) = double(t.(ii));
             % Substitute null values with NaN.
             t{~array.Valid, ii} = NaN;
         end
