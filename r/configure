@@ -104,10 +104,13 @@ fi
 # gcc-13. As a workaround for the 13.0.0 release, explicitly set
 # ARROW_WITH_GOOGLE_CLOUD_CPP to OFF (if not already set)
 if [ -z "$ARROW_WITH_GOOGLE_CLOUD_CPP" ]; then
-  if ${R_HOME}/bin/R CMD config CXX17 | grep -e "gcc" ; then
-    echo "*** Disabling Arrow build with GCS on gcc-13."
-    echo "*** Set ARROW_WITH_GOOGLE_CLOUD_CPP=ON to explicitly enable."
-    export ARROW_WITH_GOOGLE_CLOUD_CPP="OFF"
+  CXX17=`${R_HOME}/bin/R CMD config CXX17`
+  if echo "$CXX17" | grep -e "gcc" ; then
+    if $CXX17 --version | grep -e "13.[0-9]\+.[0-9]\+" > /dev/null ; then
+      echo "*** Disabling Arrow build with GCS on gcc-13."
+      echo "*** Set ARROW_WITH_GOOGLE_CLOUD_CPP=ON to explicitly enable."
+      export ARROW_WITH_GOOGLE_CLOUD_CPP="OFF"
+    fi
   fi
 fi
 
