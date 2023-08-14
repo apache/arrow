@@ -308,6 +308,16 @@ public class ResultSetUtility {
       return columns.get(column - 1).isNullable();
     }
 
+    @Override
+    public int getColumnDisplaySize(int column) throws SQLException {
+      return columns.get(column - 1).getDisplaySize();
+    }
+
+    @Override
+    public String getColumnTypeName(int column) throws SQLException {
+      return columns.get(column - 1).getTypeName();
+    }
+
     public static MockResultSetMetaData fromRows(ArrayList<MockRow> rows) throws SQLException {
       // Note: This attempts to dynamically construct ResultSetMetaData from the first row in a given result set.
       // If there are now rows, or the result set contains no columns, this cannot be dynamically generated and
@@ -334,6 +344,8 @@ public class ResultSetUtility {
       private int scale;
       private int nullable;
       private String label;
+      private String typeName;
+      private int displaySize;
 
 
       private MockColumnMetaData() {}
@@ -362,6 +374,14 @@ public class ResultSetUtility {
         return nullable;
       }
 
+      private String getTypeName() {
+        return typeName;
+      }
+
+      private int getDisplaySize() {
+        return displaySize;
+      }
+
       public static MockColumnMetaData fromDataElement(MockDataElement element, int i) throws SQLException {
         return MockColumnMetaData.builder()
                 .index(i)
@@ -369,6 +389,8 @@ public class ResultSetUtility {
                 .precision(element.getPrecision())
                 .scale(element.getScale())
                 .nullable(element.isNullable())
+                .setTypeName("TYPE")
+                .setDisplaySize(420)
                 .label("col_" + i)
                 .build();
       }
@@ -407,6 +429,16 @@ public class ResultSetUtility {
 
         public Builder nullable(int nullable) {
           this.columnMetaData.nullable = nullable;
+          return this;
+        }
+
+        public Builder setTypeName(String typeName) {
+          this.columnMetaData.typeName = typeName;
+          return this;
+        }
+
+        public Builder setDisplaySize(int displaySize) {
+          this.columnMetaData.displaySize = displaySize;
           return this;
         }
 
