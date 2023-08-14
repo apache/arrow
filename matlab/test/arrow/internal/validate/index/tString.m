@@ -35,20 +35,17 @@ classdef tString < matlab.unittest.TestCase
             testCase.verifyError(fcn, errid);
         end
 
-        function ZeroLengthTextError(testCase)
-            % Verify string() throws an error whose idenitifier is 
-            % "arrow:badsubscript:ZeroLengthText" if the index array 
+        function ZeroLengthText(testCase)
+            % Verify string() does not throw an error if the index array 
             % provided has zero length text values.
 
             import arrow.internal.validate.*
 
-            errid = "arrow:badsubscript:ZeroLengthText";
+            idx = index.string("");
+            testCase.verifyEqual(idx, "");
 
-            fcn = @() index.string("");
-            testCase.verifyError(fcn, errid);
-
-            fcn = @() index.string(["A" "" "B"]);
-            testCase.verifyError(fcn, errid);
+            idx = index.string(["A" "" "B"]);
+            testCase.verifyEqual(idx, ["A"; ""; "B"]);
         end
 
         function ValidStringIndices(testCase)

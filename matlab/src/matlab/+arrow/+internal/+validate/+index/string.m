@@ -30,9 +30,5 @@ function index = string(index)
         errid = "arrow:badsubscript:MissingString";
         msg = "String indices must be nonmissing";
         error(errid, msg);
-    elseif any(strlength(index) == 0)
-        errid = "arrow:badsubscript:ZeroLengthText";
-        msg = "String indices must contain at least one character.";
-        error(errid, msg);
     end
 end
