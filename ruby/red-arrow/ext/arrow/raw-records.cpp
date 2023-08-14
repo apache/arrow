@@ -26,9 +26,7 @@ namespace red_arrow {
       explicit RawRecordsBuilder(VALUE records, int n_columns)
         : Converter(),
           records_(records),
-          record_(Qnil),
-          n_columns_(n_columns),
-          is_produce_mode_(false) {
+          n_columns_(n_columns) {
       }
 
       void build(const arrow::RecordBatch& record_batch) {
@@ -65,29 +63,6 @@ namespace red_arrow {
                            "[table][raw-records]");
               row_offset_ += array->length();
             }
-          }
-          return Qnil;
-        });
-      }
-
-      void produce(const arrow::Table& table) {
-        rb::protect([&] {
-          is_produce_mode_ = true;
-          const auto n_rows = table.num_rows();
-          for (int64_t i = 0; i < n_rows; ++i) {
-            row_offset_ = i;
-            record_ = rb_ary_new_capa(n_columns_);
-
-            for (int i = 0; i < n_columns_; ++i) {
-              const auto& chunked_array = table.column(i).get();
-              column_index_ = i;
-
-              for (const auto array : chunked_array->chunks()) {
-                check_status(array->Accept(this),
-                            "[table][each-raw-record]");
-              }
-            }
-            rb_yield(record_);
           }
           return Qnil;
         });
@@ -150,22 +125,15 @@ namespace red_arrow {
             rb_ary_store(record, column_index_, value);
           }
         } else {
-          if (is_produce_mode_) {
-            rb_ary_store(record_, column_index_, convert_value(array, row_offset_));
-          } else {
-            for (int64_t i = 0, ii = row_offset_; i < n; ++i, ++ii) {
-              auto record = rb_ary_entry(records_, ii);
-              rb_ary_store(record, column_index_, convert_value(array, i));
-            }
+          for (int64_t i = 0, ii = row_offset_; i < n; ++i, ++ii) {
+            auto record = rb_ary_entry(records_, ii);
+            rb_ary_store(record, column_index_, convert_value(array, i));
           }
         }
       }
 
       // Destination for converted records.
       VALUE records_;
-
-      // Destination for converted record.
-      VALUE record_;
 
       // The current column index.
       int column_index_;
@@ -175,8 +143,6 @@ namespace red_arrow {
 
       // The number of columns.
       const int n_columns_;
-
-      bool is_produce_mode_;
     };
   }
 
@@ -214,23 +180,5 @@ namespace red_arrow {
     }
 
     return records;
-  }
-
-  VALUE
-  table_each_raw_record(VALUE rb_table) {
-    auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
-    auto table = garrow_table_get_raw(garrow_table).get();
-    const auto n_rows = table->num_rows();
-    const auto n_columns = table->num_columns();
-    auto records = rb_ary_new_capa(n_rows);
-
-    try {
-      RawRecordsBuilder builder(records, n_columns);
-      builder.produce(*table);
-    } catch (rb::State& state) {
-      state.jump();
-    }
-
-    return Qnil;
   }
 }
