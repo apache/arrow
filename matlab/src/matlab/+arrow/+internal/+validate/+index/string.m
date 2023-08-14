@@ -32,7 +32,7 @@ function index = string(index)
         error(errid, msg);
     elseif any(strlength(index) == 0)
         errid = "arrow:badsubscript:ZeroLengthText";
-        msg = "String indices must not be zero length text values.";
+        msg = "String indices must contain at least one character.";
         error(errid, msg);
     end
 end
