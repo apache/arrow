@@ -81,6 +81,7 @@ RUN vcpkg install \
         --clean-after-build \
         --x-install-root=${VCPKG_ROOT}/installed \
         --x-manifest-root=/arrow/ci/vcpkg \
+        --x-feature=azure \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
