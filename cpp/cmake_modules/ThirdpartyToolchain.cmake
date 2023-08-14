@@ -1382,6 +1382,7 @@ endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
+   OR ARROW_AZURE
    OR ARROW_FLIGHT
    OR ARROW_GANDIVA
    OR ARROW_GCS
@@ -5073,11 +5074,6 @@ macro(build_azure_sdk)
   find_curl()
   find_package(LibXml2 REQUIRED)
   add_custom_target(azure_sdk_dependencies)
-  
-  if(NOT OpenSSL_FOUND)
-    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
-                        ${ARROW_OPENSSL_REQUIRED_VERSION})
-  endif()
 
   set(AZURESDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azuresdk_ep-install")
   set(AZURESDK_INCLUDE_DIR "${AZURESDK_PREFIX}/include")
