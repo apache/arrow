@@ -20,7 +20,6 @@
     "flatbuffers",
     "gflags",
     "glog",
-    "libxml2",
     "lz4",
     "openssl",
     "re2",
@@ -40,6 +39,12 @@
   ],
   "default-features": [],
   "features": {
+    "azure" {
+      "description": "Azure support",
+      "dependencies": [
+        "libxml2"
+      ]
+    },
     "dev": {
       "description": "Development dependencies",
       "dependencies": [
