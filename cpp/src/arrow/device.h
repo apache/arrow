@@ -111,7 +111,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// @brief Block until sync event is completed.
     Status wait() {
       const std::lock_guard<std::mutex> lock(mx_);
-      wait_internal();
+      return wait_internal();
     }
 
     /// @brief Make the provided stream wait on the sync event.
@@ -121,7 +121,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// @param stream Should be appropriate for the underlying device
     Status stream_wait(void* stream) {
       const std::lock_guard<std::mutex> lock(mx_);
-      stream_wait_internal(stream);
+      return stream_wait_internal(stream);
     }
 
     void set_stream(void* stream) {
