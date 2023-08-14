@@ -17,17 +17,16 @@
 
 classdef tString < matlab.unittest.TestCase
 
-    
     methods(Test)
         
         function MissingStringError(testCase)
             % Verify string() throws an error whose idenitifier is 
-            % "arrow:badSubscript:NonPositive" if the index array provided
+            % "arrow:badsubscript:NonPositive" if the index array provided
             % has mising string values.
 
             import arrow.internal.validate.*
 
-            errid = "arrow:badSubscript:MissingString";
+            errid = "arrow:badsubscript:MissingString";
 
             fcn = @() index.string(string(missing));
             testCase.verifyError(fcn, errid);
@@ -38,12 +37,12 @@ classdef tString < matlab.unittest.TestCase
 
         function ZeroLengthTextError(testCase)
             % Verify string() throws an error whose idenitifier is 
-            % "arrow:badSubscript:ZeroLengthText" if the index array 
+            % "arrow:badsubscript:ZeroLengthText" if the index array 
             % provided has zero length text values.
 
             import arrow.internal.validate.*
 
-            errid = "arrow:badSubscript:ZeroLengthText";
+            errid = "arrow:badsubscript:ZeroLengthText";
 
             fcn = @() index.string("");
             testCase.verifyError(fcn, errid);
@@ -79,13 +78,13 @@ classdef tString < matlab.unittest.TestCase
 
         function ErrorIfNonString(testCase)
             % Verify string() throws an error whose idenitifer is 
-            % "arrow:badSubscript:NonString" if neither a string array,
+            % "arrow:badsubscript:NonString" if neither a string array,
             % char array, or cellstr array was provided as the index. 
 
             import arrow.internal.validate.*
 
             fcn = @() index.string(1);
-            testCase.verifyError(fcn, "arrow:badSubscript:NonString");
+            testCase.verifyError(fcn, "arrow:badsubscript:NonString");
         end
 
         function OutputShape(testCase)

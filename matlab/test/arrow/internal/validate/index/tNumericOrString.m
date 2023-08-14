@@ -44,10 +44,10 @@ classdef tNumericOrString < matlab.unittest.TestCase
             import arrow.internal.validate.index.numericOrString
 
             fcn = @() numericOrString(-1.1, "int8");
-            testCase.verifyError(fcn, "arrow:badSubscript:NonPositive");
+            testCase.verifyError(fcn, "arrow:badsubscript:NonPositive");
 
             fcn = @() numericOrString([2 -1.1], "int8");
-            testCase.verifyError(fcn, "arrow:badSubscript:NonPositive");
+            testCase.verifyError(fcn, "arrow:badsubscript:NonPositive");
         end
 
         function validStringArray(testCase)

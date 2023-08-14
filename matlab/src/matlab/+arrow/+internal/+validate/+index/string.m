@@ -21,17 +21,17 @@ function index = string(index)
     index = reshape(index, [], 1);
 
     if (~isstring(index))
-        errid = "arrow:badSubscript:NonString";
+        errid = "arrow:badsubscript:NonString";
         msg = "Expected string index values.";
         error(errid, msg);
     end
 
     if any(ismissing(index))
-        errid = "arrow:badSubscript:MissingString";
+        errid = "arrow:badsubscript:MissingString";
         msg = "String indices must be nonmissing";
         error(errid, msg);
     elseif any(strlength(index) == 0)
-        errid = "arrow:badSubscript:ZeroLengthText";
+        errid = "arrow:badsubscript:ZeroLengthText";
         msg = "String indices must not be zero length text values.";
         error(errid, msg);
     end

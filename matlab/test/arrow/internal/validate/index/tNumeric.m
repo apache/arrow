@@ -21,12 +21,12 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function NonPositiveError(testCase)
             % Verify numeric() throws an error whose idenitifier is 
-            % "arrow:badSubscript:NonPositive" if the index array provided
+            % "arrow:badsubscript:NonPositive" if the index array provided
             % has non-positive values.
 
             import arrow.internal.validate.index.numeric
 
-            errid = "arrow:badSubscript:NonPositive";
+            errid = "arrow:badsubscript:NonPositive";
 
             fcn = @() numeric(0, "int32");
             testCase.verifyError(fcn, errid);
@@ -40,12 +40,12 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function NonIntegerError(testCase)
             % Verify numeric() throws an error whose idenitifier is 
-            % "arrow:badSubscript:NonInteger" if the index array provided
+            % "arrow:badsubscript:NonInteger" if the index array provided
             % has non-integer values.
 
             import arrow.internal.validate.index.numeric
 
-            errid = "arrow:badSubscript:NonInteger";
+            errid = "arrow:badsubscript:NonInteger";
 
             fcn = @() numeric(1.1, "int32");
             testCase.verifyError(fcn, errid);
@@ -62,12 +62,12 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function NonRealError(testCase)
             % Verify numeric() throws an error whose idenitifier is 
-            % "arrow:badSubscript:NonInteger" if the index array is
+            % "arrow:badsubscript:NonInteger" if the index array is
             % complex.
 
             import arrow.internal.validate.index.numeric
 
-            errid = "arrow:badSubscript:NonReal";
+            errid = "arrow:badsubscript:NonReal";
 
             fcn = @() numeric(1 + 1i, "int32");
             testCase.verifyError(fcn, errid);
@@ -78,12 +78,12 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function ExceedsIntMaxError(testCase)
             % Verify numeric() throws an error whose idenitifier is 
-            % "arrow:badSubscript:NonInteger" if the index array provided
+            % "arrow:badsubscript:NonInteger" if the index array provided
             % has values that exceed the intmax of the intType provided.
 
             import arrow.internal.validate.index.numeric
 
-            errid = "arrow:badSubscript:ExceedsIntMax";
+            errid = "arrow:badsubscript:ExceedsIntMax";
 
             fcn = @() numeric(flintmax("double"), "int32");
             testCase.verifyError(fcn, errid);
@@ -123,13 +123,13 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function ErrorIfNotNumeric(testCase)
             % Verify numeric() throws an error whose idenitifer is 
-            % "arrow:badSubscript:NonNumeric" if provided a non-numeric
+            % "arrow:badsubscript:NonNumeric" if provided a non-numeric
             % array as the index.
 
             import arrow.internal.validate.index.numeric
 
             fcn = @() numeric(false);
-            testCase.verifyError(fcn, "arrow:badSubscript:NonNumeric");
+            testCase.verifyError(fcn, "arrow:badsubscript:NonNumeric");
         end
 
         function OutputShape(testCase)

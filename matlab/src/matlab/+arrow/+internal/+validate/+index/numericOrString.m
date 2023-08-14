@@ -22,7 +22,7 @@ function index = numericOrString(index, numericIndexType)
     elseif isstring(index)
         index = arrow.internal.validate.index.string(index);
     else
-        errid = "arrow:badSubscript:UnsupportedIndexType";
+        errid = "arrow:badsubscript:UnsupportedIndexType";
         msg = "Indices must be positive integers or nonmissing strings.";
         error(errid, msg);
     end

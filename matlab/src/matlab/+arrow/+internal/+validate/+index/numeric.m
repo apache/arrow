@@ -18,7 +18,7 @@
 function index = numeric(index, intType)
 
     if ~isnumeric(index)
-        errid = "arrow:badSubscript:NonNumeric";
+        errid = "arrow:badsubscript:NonNumeric";
         msg = "Expected numeric index values.";
         error(errid, msg);
     end
@@ -32,19 +32,19 @@ function index = numeric(index, intType)
     index = reshape(index, [], 1);
 
     if any(index < 1)
-        errid = "arrow:badSubscript:NonPositive";
+        errid = "arrow:badsubscript:NonPositive";
         msg = "Numeric indices must be positive integers.";
         error(errid, msg);
     elseif any(floor(index) ~= index) || any(isinf(index))
-        errid = "arrow:badSubscript:NonInteger";
+        errid = "arrow:badsubscript:NonInteger";
         msg = "Numeric indices must be finite positive integers.";
         error(errid, msg);
     elseif ~isreal(index)
-        errid = "arrow:badSubscript:NonReal";
+        errid = "arrow:badsubscript:NonReal";
         msg = "Numeric indices must be real positive integers.";
         error(errid, msg);
     elseif any(index > intmax(intType))
-        errid = "arrow:badSubscript:ExceedsIntMax";
+        errid = "arrow:badsubscript:ExceedsIntMax";
         msg = "Index must be between 1 and intmax(""" + intType + """).";
         error(errid, msg);
     end
