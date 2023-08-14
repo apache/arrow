@@ -119,7 +119,21 @@ classdef tRecordBatch < matlab.unittest.TestCase
             TOriginal = table(1, 2, 3);
             arrowRecordBatch = arrow.recordbatch(TOriginal);
             fcn = @() arrowRecordBatch.column(datetime(2022, 1, 3));
-            tc.verifyError(fcn, "arrow:tabular:recordbatch:UnsupportedColumnIndexType");
+            tc.verifyError(fcn, "arrow:badsubscript:NonNumeric");
+        end
+
+        function ErrorIfIndexIsNonScalar(tc)
+            TOriginal = table(1, 2, 3);
+            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            fcn = @() arrowRecordBatch.column([1 2]);
+            tc.verifyError(fcn, "MATLAB:expectedScalar");
+        end
+
+        function ErrorIfIndexIsNonPositive(tc)
+            TOriginal = table(1, 2, 3);
+            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            fcn = @() arrowRecordBatch.column(-1);
+            tc.verifyError(fcn, "arrow:badsubscript:NonPositive");
         end
     end
 end
