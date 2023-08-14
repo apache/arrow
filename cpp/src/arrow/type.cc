@@ -277,9 +277,9 @@ std::shared_ptr<Field> MaybePromoteNullTypes(const Field& existing, const Field&
   return existing.WithNullable(true);
 }
 
-std::vector<std::shared_ptr<Field>> MakeFields(
+FieldVector MakeFields(
     std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> init_list) {
-  std::vector<std::shared_ptr<Field>> fields;
+  FieldVector fields;
   fields.reserve(init_list.size());
   for (const auto& [name, type] : init_list) {
     fields.push_back(field(name, type));
@@ -357,8 +357,8 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& ot
   return MergeWith(*other, options);
 }
 
-std::vector<std::shared_ptr<Field>> Field::Flatten() const {
-  std::vector<std::shared_ptr<Field>> flattened;
+FieldVector Field::Flatten() const {
+  FieldVector flattened;
   if (type_->id() == Type::STRUCT) {
     for (const auto& child : type_->fields()) {
       auto flattened_child = child->Copy();
@@ -720,8 +720,7 @@ UnionMode::type UnionType::mode() const {
   return id_ == Type::SPARSE_UNION ? UnionMode::SPARSE : UnionMode::DENSE;
 }
 
-UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
-                     std::vector<int8_t> type_codes, Type::type id)
+UnionType::UnionType(FieldVector fields, std::vector<int8_t> type_codes, Type::type id)
     : NestedType(id),
       type_codes_(std::move(type_codes)),
       child_ids_(kMaxTypeCode + 1, kInvalidChildId) {
@@ -733,7 +732,7 @@ UnionType::UnionType(std::vector<std::shared_ptr<Field>> fields,
   }
 }
 
-Status UnionType::ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+Status UnionType::ValidateParameters(const FieldVector& fields,
                                      const std::vector<int8_t>& type_codes,
                                      UnionMode::type mode) {
   if (fields.size() != type_codes.size()) {
@@ -779,24 +778,22 @@ std::string UnionType::ToString() const {
   return s.str();
 }
 
-SparseUnionType::SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                                 std::vector<int8_t> type_codes)
-    : UnionType(fields, type_codes, Type::SPARSE_UNION) {}
+SparseUnionType::SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes)
+    : UnionType(std::move(fields), std::move(type_codes), Type::SPARSE_UNION) {}
 
-Result<std::shared_ptr<DataType>> SparseUnionType::Make(
-    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+Result<std::shared_ptr<DataType>> SparseUnionType::Make(FieldVector fields,
+                                                        std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::SPARSE));
-  return std::make_shared<SparseUnionType>(fields, type_codes);
+  return std::make_shared<SparseUnionType>(std::move(fields), std::move(type_codes));
 }
 
-DenseUnionType::DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                               std::vector<int8_t> type_codes)
-    : UnionType(fields, type_codes, Type::DENSE_UNION) {}
+DenseUnionType::DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes)
+    : UnionType(std::move(fields), std::move(type_codes), Type::DENSE_UNION) {}
 
-Result<std::shared_ptr<DataType>> DenseUnionType::Make(
-    std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes) {
+Result<std::shared_ptr<DataType>> DenseUnionType::Make(FieldVector fields,
+                                                       std::vector<int8_t> type_codes) {
   RETURN_NOT_OK(ValidateParameters(fields, type_codes, UnionMode::DENSE));
-  return std::make_shared<DenseUnionType>(fields, type_codes);
+  return std::make_shared<DenseUnionType>(std::move(fields), std::move(type_codes));
 }
 
 // ----------------------------------------------------------------------
@@ -829,7 +826,7 @@ bool RunEndEncodedType::RunEndTypeValid(const DataType& run_end_type) {
 namespace {
 
 std::unordered_multimap<std::string, int> CreateNameToIndexMap(
-    const std::vector<std::shared_ptr<Field>>& fields) {
+    const FieldVector& fields) {
   std::unordered_multimap<std::string, int> name_to_index;
   for (size_t i = 0; i < fields.size(); ++i) {
     name_to_index.emplace(fields[i]->name(), static_cast<int>(i));
@@ -858,13 +855,13 @@ int LookupNameIndex(const std::unordered_multimap<std::string, int>& name_to_ind
 
 class StructType::Impl {
  public:
-  explicit Impl(const std::vector<std::shared_ptr<Field>>& fields)
+  explicit Impl(const FieldVector& fields)
       : name_to_index_(CreateNameToIndexMap(fields)) {}
 
   const std::unordered_multimap<std::string, int> name_to_index_;
 };
 
-StructType::StructType(const std::vector<std::shared_ptr<Field>>& fields)
+StructType::StructType(const FieldVector& fields)
     : NestedType(Type::STRUCT), impl_(new Impl(fields)) {
   children_ = fields;
 }
@@ -906,9 +903,8 @@ std::vector<int> StructType::GetAllFieldIndices(const std::string& name) const {
   return result;
 }
 
-std::vector<std::shared_ptr<Field>> StructType::GetAllFieldsByName(
-    const std::string& name) const {
-  std::vector<std::shared_ptr<Field>> result;
+FieldVector StructType::GetAllFieldsByName(const std::string& name) const {
+  FieldVector result;
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(children_[it->second]);
@@ -1318,7 +1314,7 @@ Result<std::shared_ptr<Field>> FieldPath::Get(const FieldVector& fields) const {
 
 Result<std::shared_ptr<Schema>> FieldPath::GetAll(const Schema& schm,
                                                   const std::vector<FieldPath>& paths) {
-  std::vector<std::shared_ptr<Field>> fields;
+  FieldVector fields;
   fields.reserve(paths.size());
   for (const auto& path : paths) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Field> field, path.Get(schm));
@@ -1737,26 +1733,25 @@ std::string EndiannessToString(Endianness endianness) {
 
 class Schema::Impl {
  public:
-  Impl(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+  Impl(FieldVector fields, Endianness endianness,
        std::shared_ptr<const KeyValueMetadata> metadata)
       : fields_(std::move(fields)),
         endianness_(endianness),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)) {}
 
-  std::vector<std::shared_ptr<Field>> fields_;
+  FieldVector fields_;
   Endianness endianness_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
 };
 
-Schema::Schema(std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+Schema::Schema(FieldVector fields, Endianness endianness,
                std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
       impl_(new Impl(std::move(fields), endianness, std::move(metadata))) {}
 
-Schema::Schema(std::vector<std::shared_ptr<Field>> fields,
-               std::shared_ptr<const KeyValueMetadata> metadata)
+Schema::Schema(FieldVector fields, std::shared_ptr<const KeyValueMetadata> metadata)
     : detail::Fingerprintable(),
       impl_(new Impl(std::move(fields), Endianness::Native, std::move(metadata))) {}
 
@@ -1781,9 +1776,7 @@ const std::shared_ptr<Field>& Schema::field(int i) const {
   return impl_->fields_[i];
 }
 
-const std::vector<std::shared_ptr<Field>>& Schema::fields() const {
-  return impl_->fields_;
-}
+const FieldVector& Schema::fields() const { return impl_->fields_; }
 
 bool Schema::Equals(const Schema& other, bool check_metadata) const {
   if (this == &other) {
@@ -1865,9 +1858,8 @@ Status Schema::CanReferenceFieldsByNames(const std::vector<std::string>& names) 
   return Status::OK();
 }
 
-std::vector<std::shared_ptr<Field>> Schema::GetAllFieldsByName(
-    const std::string& name) const {
-  std::vector<std::shared_ptr<Field>> result;
+FieldVector Schema::GetAllFieldsByName(const std::string& name) const {
+  FieldVector result;
   auto p = impl_->name_to_index_.equal_range(name);
   for (auto it = p.first; it != p.second; ++it) {
     result.push_back(impl_->fields_[it->second]);
@@ -1979,9 +1971,8 @@ class SchemaBuilder::Impl {
   Impl(ConflictPolicy policy, Field::MergeOptions field_merge_options)
       : policy_(policy), field_merge_options_(field_merge_options) {}
 
-  Impl(std::vector<std::shared_ptr<Field>> fields,
-       std::shared_ptr<const KeyValueMetadata> metadata, ConflictPolicy conflict_policy,
-       Field::MergeOptions field_merge_options)
+  Impl(FieldVector fields, std::shared_ptr<const KeyValueMetadata> metadata,
+       ConflictPolicy conflict_policy, Field::MergeOptions field_merge_options)
       : fields_(std::move(fields)),
         name_to_index_(CreateNameToIndexMap(fields_)),
         metadata_(std::move(metadata)),
@@ -2046,7 +2037,7 @@ class SchemaBuilder::Impl {
   }
 
  private:
-  std::vector<std::shared_ptr<Field>> fields_;
+  FieldVector fields_;
   std::unordered_multimap<std::string, int> name_to_index_;
   std::shared_ptr<const KeyValueMetadata> metadata_;
   ConflictPolicy policy_;
@@ -2058,8 +2049,7 @@ SchemaBuilder::SchemaBuilder(ConflictPolicy policy,
   impl_ = std::make_unique<Impl>(policy, field_merge_options);
 }
 
-SchemaBuilder::SchemaBuilder(std::vector<std::shared_ptr<Field>> fields,
-                             ConflictPolicy policy,
+SchemaBuilder::SchemaBuilder(FieldVector fields, ConflictPolicy policy,
                              Field::MergeOptions field_merge_options) {
   impl_ = std::make_unique<Impl>(std::move(fields), nullptr, policy, field_merge_options);
 }
@@ -2087,7 +2077,7 @@ Status SchemaBuilder::AddField(const std::shared_ptr<Field>& field) {
   return impl_->AddField(field);
 }
 
-Status SchemaBuilder::AddFields(const std::vector<std::shared_ptr<Field>>& fields) {
+Status SchemaBuilder::AddFields(const FieldVector& fields) {
   for (const auto& field : fields) {
     RETURN_NOT_OK(AddField(field));
   }
@@ -2131,7 +2121,7 @@ Status SchemaBuilder::AreCompatible(const std::vector<std::shared_ptr<Schema>>& 
   return Merge(schemas, policy).status();
 }
 
-std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
+std::shared_ptr<Schema> schema(FieldVector fields,
                                std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(std::move(fields), std::move(metadata));
 }
@@ -2142,8 +2132,7 @@ std::shared_ptr<Schema> schema(
   return std::make_shared<Schema>(MakeFields(fields), std::move(metadata));
 }
 
-std::shared_ptr<Schema> schema(std::vector<std::shared_ptr<Field>> fields,
-                               Endianness endianness,
+std::shared_ptr<Schema> schema(FieldVector fields, Endianness endianness,
                                std::shared_ptr<const KeyValueMetadata> metadata) {
   return std::make_shared<Schema>(std::move(fields), endianness, std::move(metadata));
 }
@@ -2660,7 +2649,7 @@ std::shared_ptr<DataType> fixed_size_list(const std::shared_ptr<Field>& value_fi
   return std::make_shared<FixedSizeListType>(value_field, list_size);
 }
 
-std::shared_ptr<DataType> struct_(const std::vector<std::shared_ptr<Field>>& fields) {
+std::shared_ptr<DataType> struct_(const FieldVector& fields) {
   return std::make_shared<StructType>(fields);
 }
 

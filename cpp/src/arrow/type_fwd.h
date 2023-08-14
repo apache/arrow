@@ -557,8 +557,7 @@ ARROW_EXPORT std::shared_ptr<DataType> time32(TimeUnit::type unit);
 ARROW_EXPORT std::shared_ptr<DataType> time64(TimeUnit::type unit);
 
 /// \brief Create a StructType instance
-ARROW_EXPORT std::shared_ptr<DataType> struct_(
-    const std::vector<std::shared_ptr<Field>>& fields);
+ARROW_EXPORT std::shared_ptr<DataType> struct_(const FieldVector& fields);
 
 /// \brief Create a StructType instance from (name, type) pairs
 ARROW_EXPORT std::shared_ptr<DataType> struct_(
@@ -630,8 +629,7 @@ ARROW_EXPORT std::shared_ptr<Field> field(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>> fields,
-    std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
+    FieldVector fields, std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Schema instance from (name, type) pairs
 ///
@@ -653,7 +651,7 @@ std::shared_ptr<Schema> schema(
 /// \return schema shared_ptr to Schema
 ARROW_EXPORT
 std::shared_ptr<Schema> schema(
-    std::vector<std::shared_ptr<Field>> fields, Endianness endianness,
+    FieldVector fields, Endianness endianness,
     std::shared_ptr<const KeyValueMetadata> metadata = NULLPTR);
 
 /// \brief Create a Schema instance
