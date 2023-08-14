@@ -46,7 +46,7 @@ set(ARROW_RE2_LINKAGE
 set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
-    AZURE_SDK
+    Azure
     benchmark
     Boost
     Brotli
@@ -160,7 +160,7 @@ macro(build_dependency DEPENDENCY_NAME)
     build_absl()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
-  elseif("${DEPENDENCY_NAME}" STREQUAL "AZURE_SDK")
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Azure")
     build_azure_sdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
@@ -5180,17 +5180,9 @@ macro(build_azure_sdk)
 endmacro()
 
 if(ARROW_WITH_AZURE_SDK)
-  if(AZURE_SDK_SOURCE STREQUAL "SYSTEM")
-    resolve_dependency(Azure::azure-core)
-    resolve_dependency(Azure::azure-identity)
-    resolve_dependency(Azure::azure-storage-blobs)
-    resolve_dependency(Azure::azure-storage-common)
-    resolve_dependency(Azure::azure-storage-files-datalake)
-  else()
-    resolve_dependency(AZURE_SDK)
-    message(STATUS "Found Azure SDK headers: ${AZURE_SDK_INCLUDE_DIR}")
-    message(STATUS "Found Azure SDK libraries: ${AZURE_SDK_LINK_LIBRARIES}")
-  endif()
+  resolve_dependency(Azure)
+  message(STATUS "Found Azure SDK headers: ${AZURE_SDK_INCLUDE_DIR}")
+  message(STATUS "Found Azure SDK libraries: ${AZURE_SDK_LINK_LIBRARIES}")
 endif()
 
 # ----------------------------------------------------------------------
