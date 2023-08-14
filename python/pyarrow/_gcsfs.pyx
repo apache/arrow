@@ -182,7 +182,7 @@ cdef class GcsFileSystem(FileSystem):
         if opts.project_id.has_value():
             project_id = frombytes(opts.project_id.value())
         return (
-            GcsFileSystem._reconstruct, (dict(
+            _reconstruct_gcs_file_system, (dict(
                 access_token=frombytes(opts.credentials.access_token()),
                 anonymous=opts.credentials.anonymous(),
                 credential_token_expiration=expiration_dt,
@@ -210,3 +210,11 @@ cdef class GcsFileSystem(FileSystem):
         """
         if self.gcsfs.options().project_id.has_value():
             return frombytes(self.gcsfs.options().project_id.value())
+
+
+def _reconstruct_gcs_file_system(kwargs):
+    # __reduce__ doesn't allow passing named arguments directly to the
+    # reconstructor, hence this wrapper.
+    # In Cython >= 3.0.0, function binding is turned on by default, so
+    # a global static method is used (instead of a class method) for pickling.
+    return GcsFileSystem(**kwargs)

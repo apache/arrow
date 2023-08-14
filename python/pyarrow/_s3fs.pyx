@@ -412,7 +412,7 @@ cdef class S3FileSystem(FileSystem):
             session_token = None
 
         return (
-            S3FileSystem._reconstruct, (dict(
+            _reconstruct_s3fs_file_system, (dict(
                 access_key=access_key,
                 secret_key=secret_key,
                 session_token=session_token,
@@ -447,3 +447,11 @@ cdef class S3FileSystem(FileSystem):
         The AWS region this filesystem connects to.
         """
         return frombytes(self.s3fs.region())
+
+
+def _reconstruct_s3fs_file_system(kwargs):
+    # __reduce__ doesn't allow passing named arguments directly to the
+    # reconstructor, hence this wrapper.
+    # In Cython >= 3.0.0, function binding is turned on by default, so
+    # a global static method is used (instead of a class method) for pickling.
+    return S3FileSystem(**kwargs)

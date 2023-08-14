@@ -1116,8 +1116,16 @@ cdef class LocalFileSystem(FileSystem):
 
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()
-        return LocalFileSystem._reconstruct, (dict(
+        return _reconstruct_local_file_system, (dict(
             use_mmap=opts.use_mmap),)
+
+
+def _reconstruct_local_file_system(kwargs):
+    # __reduce__ doesn't allow passing named arguments directly to the
+    # reconstructor, hence this wrapper.
+    # In Cython >= 3.0.0, function binding is turned on by default, so
+    # a global static method is used (instead of a class method) for pickling.
+    return LocalFileSystem(**kwargs)
 
 
 cdef class SubTreeFileSystem(FileSystem):
