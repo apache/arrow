@@ -139,25 +139,25 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             index = [];
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "MATLAB:expectedScalar");
 
             index = 0;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonPositive");
 
             index = -1;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonPositive");
 
-            index = -1.23;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            index = 1.23;
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonInteger");
 
             index = NaN;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonInteger");
 
             index = {1};
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:UnsupportedIndexType");
 
             index = [1; 1];
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "MATLAB:expectedScalar");
         end
 
         function GetFieldByIndex(testCase)
@@ -375,7 +375,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.NumFields, int32(0));
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
-            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
 
             % 0x1 empty Field array.
@@ -384,7 +384,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.NumFields, int32(0));
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
-            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
 
             % 1x0 empty Field array.
@@ -393,7 +393,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.NumFields, int32(0));
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
-            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
         end
 
@@ -446,10 +446,10 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = [1, 2, 3];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
 
             fieldName = [1; 2; 3];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
         end
 
         function ErrorIfFieldNameIsNonScalar(testCase)
@@ -462,10 +462,10 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = ["A", "B", "C"];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
 
             fieldName = ["A";  "B"; "C"];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
         end
 
     end
