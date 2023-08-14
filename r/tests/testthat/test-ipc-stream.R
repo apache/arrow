@@ -50,5 +50,5 @@ test_that("Can read IPC streams from a URL", {
   ipc_url <- "https://github.com/apache/arrow-testing/raw/master/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_primitive.stream" #nolint
   ipcu <- read_ipc_stream(ipc_url)
   expect_true(tibble::is_tibble(ipcu))
-  expect_identical(dim(cu), c(37L, 30L))
+  expect_identical(dim(ipcu), c(37L, 30L))
 })
