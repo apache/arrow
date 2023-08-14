@@ -343,8 +343,8 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
 }
 
 void FileDecryptor::DecryptFile(
-    std::string file,
-    std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+    const std::string& file,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
   std::string exception_msg;
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
   if (file_decryption_properties) {
@@ -356,7 +356,7 @@ void FileDecryptor::DecryptFile(
       source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
 
   auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
-  CheckFile(file_reader.get(), file_decryption_properties.get());
+  CheckFile(file_reader.get(), file_decryption_properties);
 
   if (file_decryption_properties) {
     reader_properties.file_decryption_properties(file_decryption_properties->DeepClone());
@@ -364,14 +364,15 @@ void FileDecryptor::DecryptFile(
   auto fut = parquet::ParquetFileReader::OpenAsync(source, reader_properties);
   ASSERT_FINISHES_OK(fut);
   ASSERT_OK_AND_ASSIGN(file_reader, fut.MoveResult());
-  CheckFile(file_reader.get(), file_decryption_properties.get());
+  CheckFile(file_reader.get(), file_decryption_properties);
 
   file_reader->Close();
   PARQUET_THROW_NOT_OK(source->Close());
 }
 
-void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
-                              FileDecryptionProperties* file_decryption_properties) {
+void FileDecryptor::CheckFile(
+    parquet::ParquetFileReader* file_reader,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
   // Get the File MetaData
   std::shared_ptr<parquet::FileMetaData> file_metadata = file_reader->metadata();
 
@@ -513,8 +514,8 @@ void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
 }
 
 void FileDecryptor::DecryptPageIndex(
-    std::string file,
-    std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+    const std::string& file,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
   std::string exception_msg;
   parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
   if (file_decryption_properties) {
@@ -526,14 +527,15 @@ void FileDecryptor::DecryptPageIndex(
       source, ::arrow::io::ReadableFile::Open(file, reader_properties.memory_pool()));
 
   auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
-  CheckPageIndex(file_reader.get(), file_decryption_properties.get());
+  CheckPageIndex(file_reader.get(), file_decryption_properties);
 
-  file_reader->Close();
+  ASSERT_NO_FATAL_FAILURE(file_reader->Close());
   PARQUET_THROW_NOT_OK(source->Close());
 }
 
-void FileDecryptor::CheckPageIndex(parquet::ParquetFileReader* file_reader,
-                                   FileDecryptionProperties* file_decryption_properties) {
+void FileDecryptor::CheckPageIndex(
+    parquet::ParquetFileReader* file_reader,
+    const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
   std::shared_ptr<PageIndexReader> page_index_reader = file_reader->GetPageIndexReader();
   ASSERT_NE(page_index_reader, nullptr);
 

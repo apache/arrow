@@ -45,12 +45,13 @@ void BM_ReadOffsetIndex(::benchmark::State& state) {
   constexpr int64_t final_position = 4096;
   builder->Finish(final_position);
   auto sink = CreateOutputStream();
-  builder->WriteTo(sink.get());
+  builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
   auto buffer = sink->Finish().ValueOrDie();
   ReaderProperties properties;
   for (auto _ : state) {
-    auto offset_index = OffsetIndex::Make(
-        buffer->data() + 0, static_cast<uint32_t>(buffer->size()), properties);
+    auto offset_index =
+        OffsetIndex::Make(buffer->data() + 0, static_cast<uint32_t>(buffer->size()),
+                          properties, /*decryptor=*/nullptr);
     ::benchmark::DoNotOptimize(offset_index);
   }
   state.SetBytesProcessed(state.iterations() * buffer->size());
@@ -87,12 +88,13 @@ void BM_ReadColumnIndex(::benchmark::State& state) {
 
   builder->Finish();
   auto sink = CreateOutputStream();
-  builder->WriteTo(sink.get());
+  builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
   auto buffer = sink->Finish().ValueOrDie();
   ReaderProperties properties;
   for (auto _ : state) {
-    auto column_index = ColumnIndex::Make(*descr, buffer->data() + 0,
-                                          static_cast<int>(buffer->size()), properties);
+    auto column_index =
+        ColumnIndex::Make(*descr, buffer->data() + 0, static_cast<int>(buffer->size()),
+                          properties, /*decryptor=*/nullptr);
     ::benchmark::DoNotOptimize(column_index);
   }
   state.SetBytesProcessed(state.iterations() * buffer->size());

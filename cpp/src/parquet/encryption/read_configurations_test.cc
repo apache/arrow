@@ -167,8 +167,9 @@ class TestDecryptionConfiguration
   }
 
   void DecryptFileInternal(
-      std::string file, int decryption_config_num,
-      std::function<void(std::string file, std::shared_ptr<FileDecryptionProperties>)>
+      const std::string& file, int decryption_config_num,
+      std::function<void(const std::string& file,
+                         const std::shared_ptr<FileDecryptionProperties>&)>
           decrypt_func) {
     std::string exception_msg;
     std::shared_ptr<FileDecryptionProperties> file_decryption_properties;
@@ -182,26 +183,26 @@ class TestDecryptionConfiguration
     decrypt_func(std::move(file), std::move(file_decryption_properties));
   }
 
-  void DecryptFile(std::string file, int decryption_config_num) {
+  void DecryptFile(const std::string& file, int decryption_config_num) {
     DecryptFileInternal(
         file, decryption_config_num,
-        [&](std::string file,
-            std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+        [&](const std::string& file,
+            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
           decryptor_.DecryptFile(file, file_decryption_properties);
         });
   }
 
-  void DecryptPageIndex(std::string file, int decryption_config_num) {
+  void DecryptPageIndex(const std::string& file, int decryption_config_num) {
     DecryptFileInternal(
         file, decryption_config_num,
-        [&](std::string file,
-            std::shared_ptr<FileDecryptionProperties> file_decryption_properties) {
+        [&](const std::string& file,
+            const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
           decryptor_.DecryptPageIndex(file, file_decryption_properties);
         });
   }
 
   // Check that the decryption result is as expected.
-  void CheckResults(const std::string file_name, unsigned decryption_config_num,
+  void CheckResults(const std::string& file_name, unsigned decryption_config_num,
                     unsigned encryption_config_num, bool file_has_page_index) {
     // Encryption_configuration number five contains aad_prefix and
     // disable_aad_prefix_storage.

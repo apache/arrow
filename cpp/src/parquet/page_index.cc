@@ -194,13 +194,13 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                               const ReaderProperties& properties,
                               int32_t row_group_ordinal,
                               const RowGroupIndexReadRange& index_read_range,
-                              std::shared_ptr<InternalFileDecryptor> file_decryptor)
+                              InternalFileDecryptor* file_decryptor)
       : input_(input),
         row_group_metadata_(std::move(row_group_metadata)),
         properties_(properties),
         row_group_ordinal_(row_group_ordinal),
         index_read_range_(index_read_range),
-        file_decryptor_(std::move(file_decryptor)) {}
+        file_decryptor_(file_decryptor) {}
 
   /// Read column index of a column chunk.
   std::shared_ptr<ColumnIndex> GetColumnIndex(int32_t i) override {
@@ -316,26 +316,27 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
   std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
       const ColumnCryptoMetaData* crypto_metadata, int column_ordinal,
       int8_t module_type) const {
-    std::shared_ptr<Decryptor> decryptor;
-    if (crypto_metadata != nullptr) {
-      if (file_decryptor_ == nullptr) {
-        throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
-      }
-      if (crypto_metadata->encrypted_with_footer_key()) {
-        // The column is encrypted with footer key
-        decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
-      } else {
-        // The column is encrypted with its own key
-        const std::string column_key_metadata = crypto_metadata->key_metadata();
-        const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
-        decryptor =
-            file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);
-      }
-      ARROW_DCHECK(!decryptor->file_aad().empty());
-      decryptor->UpdateAad(encryption::CreateModuleAad(decryptor->file_aad(), module_type,
-                                                       row_group_ordinal_, column_ordinal,
-                                                       kNonPageOrdinal));
+    if (crypto_metadata == nullptr) {
+      return nullptr;
     }
+    if (file_decryptor_ == nullptr) {
+      throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
+    }
+    std::shared_ptr<Decryptor> decryptor;
+    if (crypto_metadata->encrypted_with_footer_key()) {
+      // The column is encrypted with footer key
+      decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
+    } else {
+      // The column is encrypted with its own key
+      const std::string& column_key_metadata = crypto_metadata->key_metadata();
+      const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
+      decryptor =
+          file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);
+    }
+    ARROW_DCHECK(!decryptor->file_aad().empty());
+    decryptor->UpdateAad(encryption::CreateModuleAad(decryptor->file_aad(), module_type,
+                                                     row_group_ordinal_, column_ordinal,
+                                                     kNonPageOrdinal));
     return decryptor;
   }
 
@@ -356,7 +357,7 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
   RowGroupIndexReadRange index_read_range_;
 
   /// File-level decryptor.
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+  InternalFileDecryptor* file_decryptor_;
 
   /// Buffer to hold the raw bytes of the page index.
   /// Will be set lazily when the corresponding page index is accessed for the 1st time.
@@ -369,11 +370,11 @@ class PageIndexReaderImpl : public PageIndexReader {
   PageIndexReaderImpl(::arrow::io::RandomAccessFile* input,
                       std::shared_ptr<FileMetaData> file_metadata,
                       const ReaderProperties& properties,
-                      std::shared_ptr<InternalFileDecryptor> file_decryptor)
+                      InternalFileDecryptor* file_decryptor)
       : input_(input),
         file_metadata_(std::move(file_metadata)),
         properties_(properties),
-        file_decryptor_(std::move(file_decryptor)) {}
+        file_decryptor_(file_decryptor) {}
 
   std::shared_ptr<RowGroupPageIndexReader> RowGroup(int i) override {
     if (i < 0 || i >= file_metadata_->num_row_groups()) {
@@ -449,7 +450,7 @@ class PageIndexReaderImpl : public PageIndexReader {
   const ReaderProperties& properties_;
 
   /// File-level decrypter.
-  std::shared_ptr<InternalFileDecryptor> file_decryptor_;
+  InternalFileDecryptor* file_decryptor_;
 
   /// Coalesced read ranges of page index of row groups that have been suggested by
   /// WillNeed(). Key is the row group ordinal.
@@ -802,8 +803,8 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
         const auto& column_page_index_builder = row_group_page_index_builders[column];
         if (column_page_index_builder != nullptr) {
           /// Get encryptor if encryption is enabled.
-          auto encryptor = GetColumnMetaEncryptor<Builder>(static_cast<int>(row_group),
-                                                           static_cast<int>(column));
+          std::shared_ptr<Encryptor> encryptor = GetColumnMetaEncryptor<Builder>(
+              static_cast<int>(row_group), static_cast<int>(column));
 
           /// Try serializing the page index.
           PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
@@ -943,10 +944,9 @@ std::unique_ptr<OffsetIndex> OffsetIndex::Make(
 
 std::shared_ptr<PageIndexReader> PageIndexReader::Make(
     ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-    const ReaderProperties& properties,
-    std::shared_ptr<InternalFileDecryptor> file_decryptor) {
+    const ReaderProperties& properties, InternalFileDecryptor* file_decryptor) {
   return std::make_shared<PageIndexReaderImpl>(input, std::move(file_metadata),
-                                               properties, std::move(file_decryptor));
+                                               properties, file_decryptor);
 }
 
 std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(

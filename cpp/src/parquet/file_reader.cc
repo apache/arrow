@@ -330,7 +330,7 @@ class SerializedFile : public ParquetFileReader::Contents {
     }
     if (!page_index_reader_) {
       page_index_reader_ = PageIndexReader::Make(source_.get(), file_metadata_,
-                                                 properties_, file_decryptor_);
+                                                 properties_, file_decryptor_.get());
     }
     return page_index_reader_;
   }

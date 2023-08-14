@@ -41,10 +41,11 @@ class RowGroupPageIndexReader;
 class PARQUET_EXPORT ColumnIndex {
  public:
   /// \brief Create a ColumnIndex from a serialized thrift message.
-  static std::unique_ptr<ColumnIndex> Make(
-      const ColumnDescriptor& descr, const void* serialized_index, uint32_t index_len,
-      const ReaderProperties& properties,
-      const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
+  static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
+                                           const void* serialized_index,
+                                           uint32_t index_len,
+                                           const ReaderProperties& properties,
+                                           const std::shared_ptr<Decryptor>& decryptor);
 
   virtual ~ColumnIndex() = default;
 
@@ -127,10 +128,10 @@ struct PARQUET_EXPORT PageLocation {
 class PARQUET_EXPORT OffsetIndex {
  public:
   /// \brief Create a OffsetIndex from a serialized thrift message.
-  static std::unique_ptr<OffsetIndex> Make(
-      const void* serialized_index, uint32_t index_len,
-      const ReaderProperties& properties,
-      const std::shared_ptr<Decryptor>& decryptor = NULLPTR);
+  static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
+                                           uint32_t index_len,
+                                           const ReaderProperties& properties,
+                                           const std::shared_ptr<Decryptor>& decryptor);
 
   virtual ~OffsetIndex() = default;
 
@@ -190,8 +191,7 @@ class PARQUET_EXPORT PageIndexReader {
   /// that creates this PageIndexReader.
   static std::shared_ptr<PageIndexReader> Make(
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-      const ReaderProperties& properties,
-      std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+      const ReaderProperties& properties, InternalFileDecryptor* file_decryptor);
 
   /// \brief Get the page index reader of a specific row group.
   /// \param[in] i row group ordinal to get page index reader.
@@ -289,7 +289,7 @@ class PARQUET_EXPORT ColumnIndexBuilder {
   /// \param[out] sink output stream to write the serialized message.
   /// \param[in] encryptor encryptor to encrypt the serialized column index.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
-                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const = 0;
+                       const std::shared_ptr<Encryptor>& encryptor) const = 0;
 
   /// \brief Create a ColumnIndex directly.
   ///
@@ -330,7 +330,7 @@ class PARQUET_EXPORT OffsetIndexBuilder {
   /// \param[out] sink output stream to write the serialized message.
   /// \param[in] encryptor encryptor to encrypt the serialized offset index.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
-                       const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const = 0;
+                       const std::shared_ptr<Encryptor>& encryptor) const = 0;
 
   /// \brief Create an OffsetIndex directly.
   virtual std::unique_ptr<OffsetIndex> Build() const = 0;
@@ -340,8 +340,8 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 class PARQUET_EXPORT PageIndexBuilder {
  public:
   /// \brief API convenience to create a PageIndexBuilder.
-  static std::unique_ptr<PageIndexBuilder> Make(
-      const SchemaDescriptor* schema, InternalFileEncryptor* file_encryptor = NULLPTR);
+  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema,
+                                                InternalFileEncryptor* file_encryptor);
 
   virtual ~PageIndexBuilder() = default;
 
