@@ -53,7 +53,7 @@ class AzureFileSystem::Impl {
     // ensure the build is working correctly with the Azure SDK.
     auto defaultCredential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
     auto serviceClient = Azure::Storage::Blobs::BlobServiceClient(
-      "http://127.0.0.1:10000/devstoreaccount1", defaultCredential);
+      "http://fake-blob-storage-endpoit", defaultCredential);
     if (options_.backend == AzureBackend::Azurite) {
       // gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled
       // throws error in azurite
