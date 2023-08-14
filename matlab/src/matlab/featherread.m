@@ -60,8 +60,10 @@ function t = featherread(filename)
 
     % Store original Feather table column names in the table.Properties.VariableDescriptions
     % property if they were modified to be valid MATLAB table variable names.
-    if ~all(t.Properties.VariableNames == recordBatch.ColumnNames)
-        t.Properties.VariableDescriptions = recordBatch.ColumnNames;
+    modifiedColumnNameIndices = t.Properties.VariableNames ~= recordBatch.ColumnNames;
+    if any(modifiedColumnNameIndices)
+        originalColumnNames = recordBatch.ColumnNames(modifiedColumnNameIndices);
+        t.Properties.VariableDescriptions(modifiedColumnNameIndices) = compose("Original variable name: '%s'", originalColumnNames);
     end
 
 end
