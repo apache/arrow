@@ -278,6 +278,7 @@ reference:
 - title: File read/writer interface
   contents:
   - ParquetFileReader
+  - ParquetReaderProperties
   - ParquetArrowReaderProperties
   - ParquetFileWriter
   - ParquetWriterProperties

@@ -45,6 +45,35 @@ parquet___arrow___ArrowReaderProperties__Make(bool use_threads) {
 }
 
 // [[parquet::export]]
+std::shared_ptr<parquet::ReaderProperties> parquet___arrow___ReaderProperties__Make() {
+  return std::make_shared<parquet::ReaderProperties>();
+}
+
+// [[parquet::export]]
+int parquet___arrow___ReaderProperties__get_thrift_string_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties) {
+  return properties->thrift_string_size_limit();
+}
+
+// [[parquet::export]]
+void parquet___arrow___ReaderProperties__set_thrift_string_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties, int size) {
+  properties->set_thrift_string_size_limit(size);
+}
+
+// [[parquet::export]]
+int parquet___arrow___ReaderProperties__get_thrift_container_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties) {
+  return properties->thrift_container_size_limit();
+}
+
+// [[parquet::export]]
+void parquet___arrow___ReaderProperties__set_thrift_container_size_limit(
+    const std::shared_ptr<parquet::ReaderProperties>& properties, int size) {
+  properties->set_thrift_container_size_limit(size);
+}
+
+// [[parquet::export]]
 void parquet___arrow___ArrowReaderProperties__set_use_threads(
     const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads) {
   properties->set_use_threads(use_threads);
@@ -86,10 +115,11 @@ parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit(
 // [[parquet::export]]
 std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(
     const std::shared_ptr<arrow::io::RandomAccessFile>& file,
-    const std::shared_ptr<parquet::ArrowReaderProperties>& props) {
+    const std::shared_ptr<parquet::ArrowReaderProperties>& props,
+    const std::shared_ptr<parquet::ReaderProperties>& reader_props) {
   std::unique_ptr<parquet::arrow::FileReader> reader;
   parquet::arrow::FileReaderBuilder builder;
-  PARQUET_THROW_NOT_OK(builder.Open(file));
+  PARQUET_THROW_NOT_OK(builder.Open(file, *reader_props));
   PARQUET_THROW_NOT_OK(
       builder.memory_pool(gc_memory_pool())->properties(*props)->Build(&reader));
   return std::move(reader);
