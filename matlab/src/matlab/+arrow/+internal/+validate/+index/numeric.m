@@ -1,4 +1,8 @@
-%NUMERIC Validates the numeric index value.
+%NUMERIC Validates numeric index values. Also validates that the index
+%values do not exceed intmax(intType). 
+% 
+%intType must be  one of the following values: "int8", "int16", "int32", 
+%"int64", "uint8", "uint16", "uint32", or "uint64".
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
