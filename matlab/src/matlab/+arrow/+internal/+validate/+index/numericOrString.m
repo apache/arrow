@@ -15,12 +15,14 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function index = numericOrString(index, numericIndexType)
-    index = convertCharsToStrings(index);
-    if isnumeric(index)
-        index = arrow.internal.validate.index.numeric(index, numericIndexType);
-    elseif isstring(index)
-        index = arrow.internal.validate.index.string(index);
+function idx = numericOrString(idx, numericIndexType)
+    import arrow.internal.validate.*
+
+    idx = convertCharsToStrings(idx);
+    if isnumeric(idx)
+        idx = index.numeric(idx, numericIndexType);
+    elseif isstring(idx)
+        idx = index.string(idx);
     else
         errid = "arrow:badsubscript:UnsupportedIndexType";
         msg = "Indices must be positive integers or nonmissing strings.";
