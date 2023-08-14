@@ -5120,7 +5120,7 @@ macro(build_azure_sdk)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    ${AZURESDK_INCLUDE_DIR})
   set_property(TARGET Azure::azure-core
-               PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl OpenSSL::Crypto OpenSSL::SSL)
+               PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl OpenSSL::SSL)
   add_dependencies(Azure::azure-core azuresdk_ep)
 
   add_library(Azure::azure-identity STATIC IMPORTED)
@@ -5138,7 +5138,7 @@ macro(build_azure_sdk)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    ${AZURESDK_INCLUDE_DIR})
   set_property(TARGET Azure::azure-storage-common
-               PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto LibXml2::LibXml2 Azure::azure-core)
+               PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL OpenSSL::Crypto LibXml2::LibXml2 Azure::azure-core)
   add_dependencies(Azure::azure-storage-common azuresdk_ep)
 
   add_library(Azure::azure-storage-blobs STATIC IMPORTED)
@@ -5146,8 +5146,8 @@ macro(build_azure_sdk)
                         PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY}
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    ${AZURESDK_INCLUDE_DIR})
-  set_property(TARGET Azure::azure-identity
-               PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-core Azure::azure-storage-common)
+  set_property(TARGET Azure::azure-storage-blobs
+               PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-storage-common)
   add_dependencies(Azure::azure-storage-blobs azuresdk_ep)
 
   add_library(Azure::azure-storage-files-datalake STATIC IMPORTED)
@@ -5156,7 +5156,7 @@ macro(build_azure_sdk)
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    ${AZURESDK_INCLUDE_DIR})
   set_property(TARGET Azure::azure-storage-files-datalake
-               PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-core Azure::azure-identity Azure::azure-storage-common Azure::azure-storage-blobs)
+               PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-storage-blobs)
   add_dependencies(Azure::azure-storage-files-datalake azuresdk_ep)
 
   set(AZURE_SDK_VENDORED TRUE)
