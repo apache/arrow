@@ -20,7 +20,7 @@ classdef tNumericOrString < matlab.unittest.TestCase
 
     methods (Test)
 
-        function validNumericIndex(testCase)
+        function ValidNumericIndex(testCase)
             % Verify numericOrString() returns the expected index array
             % when given a valid numeric index array.
 
@@ -37,7 +37,7 @@ classdef tNumericOrString < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function invalidNumericIndexError(testCase)
+        function InvalidNumericIndexError(testCase)
             % Verify numericOrString() errors if given an invalid numeric
             % index array.
 
@@ -50,7 +50,7 @@ classdef tNumericOrString < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:badsubscript:NonPositive");
         end
 
-        function validStringArray(testCase)
+        function ValidStringArray(testCase)
             % Verify numericOrString() returns the expected index array if
             % given a valid string index array.
 
