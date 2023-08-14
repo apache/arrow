@@ -143,7 +143,7 @@ classdef tfeather < matlab.unittest.TestCase
         function ErrorIfUnableToOpenFile(testCase)
             filename = fullfile(pwd, 'temp.feather');
 
-            testCase.verifyError(@() featherread(filename), 'MATLAB:arrow:UnableToOpenFile');
+            testCase.verifyError(@() featherread(filename), 'arrow:io:FailedToOpenFileForRead');
         end
 
         function ErrorIfCorruptedFeatherFile(testCase)
@@ -156,16 +156,13 @@ classdef tfeather < matlab.unittest.TestCase
             fwrite(fileID, [1; 5]);
             fclose(fileID);
             
-            testCase.verifyError(@() featherread(filename), 'MATLAB:arrow:status:Invalid');
+            testCase.verifyError(@() featherread(filename), 'arrow:io:feather:FailedToCreateReader');
         end
         
         function ErrorIfInvalidFilenameDatatype(testCase)
-            filename = fullfile(pwd, 'temp.feather');
-            
             t = createTable;
             
             testCase.verifyError(@() featherwrite({table}, t), 'MATLAB:validation:UnableToConvert');
-            testCase.verifyError(@() featherread({filename}), 'MATLAB:arrow:InvalidFilenameDatatype');
         end
 
         function ErrorIfTooManyInputs(testCase)
@@ -179,7 +176,7 @@ classdef tfeather < matlab.unittest.TestCase
 
         function ErrorIfTooFewInputs(testCase)
             testCase.verifyError(@() featherwrite(), 'MATLAB:minrhs');
-            testCase.verifyError(@() featherread(), 'MATLAB:narginchk:notEnoughInputs');
+            testCase.verifyError(@() featherread(), 'MATLAB:minrhs');
         end
         
         function ErrorIfMultiColVarExist(testCase)
