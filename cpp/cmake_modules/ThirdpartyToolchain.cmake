@@ -5067,7 +5067,7 @@ endif()
 # ----------------------------------------------------------------------
 # Azure SDK for C++
 
-macro(build_azuresdk)
+macro(build_azure_sdk)
   message(STATUS "Building Azure C++ SDK from source")
 
   find_curl()
