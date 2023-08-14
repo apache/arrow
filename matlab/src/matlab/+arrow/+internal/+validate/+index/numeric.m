@@ -41,7 +41,7 @@ function index = numeric(index, intType)
         error(errid, msg);
     elseif ~isreal(index)
         errid = "arrow:badsubscript:NonReal";
-        msg = "Numeric indices must be real positive integers.";
+        msg = "Numeric indices must be positive real integers.";
         error(errid, msg);
     elseif any(index > intmax(intType))
         errid = "arrow:badsubscript:ExceedsIntMax";
