@@ -106,7 +106,7 @@ fi
 if [ -z "$ARROW_GCS" ]; then
   CXX17=`${R_HOME}/bin/R CMD config CXX17`
   CXX17_VERSION=`$CXX17 --version`
-  if echo "$CXX17_VERSION" | grep -e "gcc" ; then
+  if echo "$CXX17_VERSION" | grep -e "gcc" > /dev/null ; then
     if echo "$CXX17_VERSION" | grep -e "13.[0-9]\+.[0-9]\+" > /dev/null ; then
       echo "*** Disabling Arrow build with GCS on gcc-13."
       echo "*** Set ARROW_GCS=ON to explicitly enable."
