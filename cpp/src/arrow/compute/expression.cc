@@ -480,26 +480,26 @@ TypeHolder SmallestTypeFor(const arrow::Datum& value) {
           return value.type();
         case TimeUnit::MILLI:
           if (ts % 1000 == 0) {
-            return timestamp(TimeUnit::SECOND);
+            return timestamp(TimeUnit::SECOND, ts_type->timezone());
           }
           return value.type();
         case TimeUnit::MICRO:
           if (ts % 1000000 == 0) {
-            return timestamp(TimeUnit::SECOND);
+            return timestamp(TimeUnit::SECOND, ts_type->timezone());
           }
           if (ts % 1000 == 0) {
-            return timestamp(TimeUnit::MILLI);
+            return timestamp(TimeUnit::MILLI, ts_type->timezone());
           }
           return value.type();
         case TimeUnit::NANO:
           if (ts % 1000000000 == 0) {
-            return timestamp(TimeUnit::SECOND);
+            return timestamp(TimeUnit::SECOND, ts_type->timezone());
           }
           if (ts % 1000000 == 0) {
-            return timestamp(TimeUnit::MILLI);
+            return timestamp(TimeUnit::MILLI, ts_type->timezone());
           }
           if (ts % 1000 == 0) {
-            return timestamp(TimeUnit::MICRO);
+            return timestamp(TimeUnit::MICRO, ts_type->timezone());
           }
           return value.type();
         default:

@@ -63,6 +63,7 @@ const std::shared_ptr<Schema> kBoringSchema = schema({
     field("ts_ns", timestamp(TimeUnit::NANO)),
     field("ts_s", timestamp(TimeUnit::SECOND)),
     field("binary", binary()),
+    field("ts_s_utc", timestamp(TimeUnit::SECOND, "UTC")),
 });
 
 #define EXPECT_OK ARROW_EXPECT_OK
@@ -630,6 +631,18 @@ TEST(Expression, BindWithImplicitCasts) {
                       literal(std::make_shared<TimestampScalar>(0, TimeUnit::NANO))),
                   cmp(field_ref("ts_s"),
                       literal(std::make_shared<TimestampScalar>(0, TimeUnit::SECOND))));
+    // GH-37110
+    ExpectBindsTo(
+        cmp(field_ref("ts_s_utc"),
+            literal(std::make_shared<TimestampScalar>(0, TimeUnit::NANO, "UTC"))),
+        cmp(field_ref("ts_s_utc"),
+            literal(std::make_shared<TimestampScalar>(0, TimeUnit::SECOND, "UTC"))));
+    ExpectBindsTo(
+        cmp(field_ref("ts_s_utc"),
+            literal(std::make_shared<TimestampScalar>(123000, TimeUnit::NANO, "UTC"))),
+        cmp(field_ref("ts_s_utc"),
+            literal(std::make_shared<TimestampScalar>(123, TimeUnit::MICRO, "UTC"))));
+
     ExpectBindsTo(
         cmp(field_ref("binary"), literal(std::make_shared<LargeBinaryScalar>("foo"))),
         cmp(field_ref("binary"), literal(std::make_shared<BinaryScalar>("foo"))));
