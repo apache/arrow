@@ -136,9 +136,9 @@ x-hierarchy:
     - debian-go-cgo-python
   - debian-java
   - debian-js
+  - eclipse-java
   - fedora-cpp:
     - fedora-python
-  - oracle-java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -1665,14 +1665,14 @@ services:
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
-  oracle-java:
+  eclipse-java:
     # Usage:
-    #   docker-compose build oracle-java
-    #   docker-compose run oracle-java
+    #   docker-compose build eclipse-java
+    #   docker-compose run eclipse-java
     # Parameters:
-    #   MAVEN: 3.8.5
-    #   JDK: 17
-    image: ${ARCH}/maven:${MAVEN}-openjdk-${JDK}
+    #   MAVEN: 3.9.3
+    #   JDK: 17, 20
+    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: *java-volumes
     command: *java-command
