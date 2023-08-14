@@ -1172,10 +1172,9 @@ class MyDevice : public Device {
 
     virtual ~MySyncEvent() = default;
 
-    Status wait() override { return Status::OK(); }
-    Status stream_wait(void* stream) override { return Status::OK(); }
-
   protected:
+    Status wait_internal() override { return Status::OK(); }
+    Status stream_wait_internal(void* stream) override { return Status::OK(); }
     Result<void*> create_event() override { return const_cast<void*>(kMyEventPtr); }
     Status record_event_on_stream(void* event) override { return Status::OK(); }
     void release_event(void* event) override {}
