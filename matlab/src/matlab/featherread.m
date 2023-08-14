@@ -43,8 +43,8 @@ function t = featherread(filename)
     % Convert RecordBatch to a MATLAB table.
     t = table(recordBatch);
 
-    % Cast columns with integer or boolean type containing null values
-    % to MATLAB double type. Substitute null values with NaN.
+    % Cast integer and boolean columns containing null values
+    % to double. Substitute null values with NaN.
     for ii = 1:recordBatch.NumColumns
         array = recordBatch.column(ii);
         type = array.Type.ID;
