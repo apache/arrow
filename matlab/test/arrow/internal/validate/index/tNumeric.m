@@ -62,7 +62,7 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function NonRealError(testCase)
             % Verify numeric() throws an error whose idenitifier is 
-            % "arrow:badsubscript:NonInteger" if the index array is
+            % "arrow:badsubscript:NonReal" if the index array is
             % complex.
 
             import arrow.internal.validate.index.numeric
@@ -78,8 +78,8 @@ classdef tNumeric < matlab.unittest.TestCase
 
         function ExceedsIntMaxError(testCase)
             % Verify numeric() throws an error whose idenitifier is 
-            % "arrow:badsubscript:NonInteger" if the index array provided
-            % has values that exceed the intmax of the intType provided.
+            % "arrow:badsubscript:ExceedsIntMax" if the index array 
+            % provided has values that exceed the intmax(intType).
 
             import arrow.internal.validate.index.numeric
 
@@ -121,7 +121,7 @@ classdef tNumeric < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function ErrorIfNotNumeric(testCase)
+        function ErrorIfNonNumeric(testCase)
             % Verify numeric() throws an error whose idenitifer is 
             % "arrow:badsubscript:NonNumeric" if provided a non-numeric
             % array as the index.
