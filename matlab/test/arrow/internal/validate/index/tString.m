@@ -21,8 +21,8 @@ classdef tString < matlab.unittest.TestCase
         
         function MissingStringError(testCase)
             % Verify string() throws an error whose idenitifier is 
-            % "arrow:badsubscript:NonPositive" if the index array provided
-            % has mising string values.
+            % "arrow:badsubscript:MissingString" if the index array 
+            % provided has mising string values.
 
             import arrow.internal.validate.*
 
@@ -79,7 +79,7 @@ classdef tString < matlab.unittest.TestCase
         function ErrorIfNonString(testCase)
             % Verify string() throws an error whose idenitifer is 
             % "arrow:badsubscript:NonString" if neither a string array,
-            % char array, or cellstr array was provided as the index. 
+            % char array, nor cellstr array was provided as the index. 
 
             import arrow.internal.validate.*
 
