@@ -20,7 +20,7 @@ function index = string(index)
 
     index = reshape(index, [], 1);
 
-    if (~isstring(index))
+    if ~isstring(index)
         errid = "arrow:badsubscript:NonString";
         msg = "Expected string index values.";
         error(errid, msg);
