@@ -100,6 +100,15 @@ if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
   exit 1
 fi
 
+# GH-36969: The version of Abseil used in the bundled build won't build on
+# gcc-13. As a workaround for the 13.0.0 release, explicitly set
+# ARROW_WITH_GOOGLE_CLOUD_CPP to OFF (if not already set)
+if [ -z "$ARROW_WITH_GOOGLE_CLOUD_CPP" ]; then
+  if "`${R_HOME}/bin/R CMD config CXX17`" | grep -e "gcc" ; then
+    export ARROW_WITH_GOOGLE_CLOUD_CPP="OFF"
+  fi
+fi
+
 # Test if pkg-config is available to use
 if ${PKG_CONFIG} --version >/dev/null 2>&1; then
   PKG_CONFIG_AVAILABLE="true"
