@@ -555,10 +555,10 @@ else()
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
 endif()
 
-if(DEFINED ENV{ARROW_AZURESDK_URL})
-  set(ARROW_AZURESDK_URL "$ENV{ARROW_AZURESDK_URL}")
+if(DEFINED ENV{ARROW_AZURE_SDK_URL})
+  set(ARROW_AZURE_SDK_URL "$ENV{ARROW_AZURE_SDK_URL}")
 else()
-  set_urls(ARROW_AZURESDK_URL
+  set_urls(ARROW_AZURE_SDK_URL
            "https://github.com/Azure/azure-sdk-for-cpp/archive/${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz"
   )
 endif()
@@ -5119,7 +5119,7 @@ macro(build_azure_sdk)
   externalproject_add(azuresdk_ep
                       ${EP_COMMON_OPTIONS}
                       INSTALL_DIR ${AZURESDK_PREFIX}
-                      URL ${ARROW_AZURESDK_URL}
+                      URL ${ARROW_AZURE_SDK_URL}
                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}"
                       CMAKE_ARGS ${AZURESDK_COMMON_CMAKE_ARGS}
                       BUILD_BYPRODUCTS ${AZURE_CORE_STATIC_LIBRARY}
