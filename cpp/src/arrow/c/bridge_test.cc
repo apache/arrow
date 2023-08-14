@@ -1151,7 +1151,7 @@ class MyBuffer final : public MutableBuffer {
 
 class MyDevice : public Device {
  public:
-  explicit MyDevice(int value) : Device(true), value_(value) {}
+  explicit MyDevice(int64_t value) : Device(true), value_(value) {}
   const char* type_name() const override { return kMyDeviceTypeName; }
   std::string ToString() const override { return kMyDeviceTypeName; }
   bool Equals(const Device& other) const override {
