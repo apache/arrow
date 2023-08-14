@@ -215,5 +215,41 @@ classdef tfeather < matlab.unittest.TestCase
            
             testCase.verifyError(@() featherwrite(filename, actualTable) ,'arrow:array:ComplexNumeric');
         end
+
+        function SupportedTypes(testCase)
+            filename = fullfile(pwd, 'temp.feather');
+
+            % Create a table with all supported MATLAB types.
+            expectedTable = table(int8   ([1, 2, 3]'), ...
+                                  int16  ([1, 2, 3]'), ...
+                                  int32  ([1, 2, 3]'), ...
+                                  int64  ([1, 2, 3]'), ...
+                                  uint8  ([1, 2, 3]'), ...
+                                  uint16 ([1, 2, 3]'), ...
+                                  uint32 ([1, 2, 3]'), ...
+                                  uint64 ([1, 2, 3]'), ...
+                                  logical([1, 0, 1]'), ...
+                                  single ([1, 2, 3]'), ...
+                                  double ([1, 2, 3]'), ...
+                                  string (["A", "B", "C"]'), ...
+                                  datetime(2023, 6, 28) + days(0:2)');
+
+            actualTable = featherRoundTrip(filename, expectedTable);
+            testCase.verifyEqual(actualTable, expectedTable);
+        end
+
+        function UnicodeVariableNames(testCase)
+            filename = fullfile(pwd, 'temp.feather');
+
+            smiley = "😀";
+            tree =  "🌲";
+            mango = "🥭";
+            columnNames = [smiley, tree, mango];
+            expectedTable = table(1, 2, 3, VariableNames=columnNames);
+
+            actualTable = featherRoundTrip(filename, expectedTable);
+            testCase.verifyEqual(actualTable, expectedTable);
+        end
+
     end
 end
