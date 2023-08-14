@@ -5068,7 +5068,7 @@ endif()
 # Azure SDK for C++
 
 macro(build_azure_sdk)
-  message(STATUS "Building Azure C++ SDK from source")
+  message(STATUS "Building Azure SDK for C++ from source")
 
   find_curl()
   find_package(LibXml2 REQUIRED)
