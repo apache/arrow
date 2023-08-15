@@ -27,9 +27,11 @@ classdef tRecordBatch < matlab.unittest.TestCase
 
         function SupportedTypes(tc)
             % Create a table all supported MATLAB types.
-            TOriginal = createTableWithAllSupportedTypes();
+            import arrow.internal.test.tabular.createTableWithSupportedTypes
+
+            TOriginal = createTableWithSupportedTypes();
             arrowRecordBatch = arrow.recordbatch(TOriginal);
-            expectedColumnNames = compose("Var%d", 1:13);
+            expectedColumnNames = string(TOriginal.Properties.VariableNames);
             tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, TOriginal);
         end
 
@@ -123,8 +125,9 @@ classdef tRecordBatch < matlab.unittest.TestCase
         % RecordBatch when given a comma-separated list of
         % arrow.array.Array values.
             import arrow.tabular.RecordBatch
+            import arrow.internal.test.tabular.createTableWithSupportedTypes
 
-            TOriginal = createTableWithAllSupportedTypes();
+            TOriginal = createTableWithSupportedTypes();
 
             arrowArrays = cell([1 width(TOriginal)]);
             for ii = 1:width(TOriginal)
@@ -132,7 +135,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
             end
 
             arrowRecordBatch = RecordBatch.fromArrays(arrowArrays{:});
-            expectedColumnNames = compose("Column%d", 1:13);
+            expectedColumnNames = compose("Column%d", 1:width(TOriginal));
             TOriginal.Properties.VariableNames = expectedColumnNames;
             tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, TOriginal);
         end
@@ -142,15 +145,16 @@ classdef tRecordBatch < matlab.unittest.TestCase
         % RecordBatch when given a comma-separated list of
         % arrow.array.Array values and the ColumnNames nv-pair is provided.
             import arrow.tabular.RecordBatch
+            import arrow.internal.test.tabular.createTableWithSupportedTypes
 
-            TOriginal = createTableWithAllSupportedTypes();
+            TOriginal = createTableWithSupportedTypes();
 
             arrowArrays = cell([1 width(TOriginal)]);
             for ii = 1:width(TOriginal)
                 arrowArrays{ii} = arrow.array(TOriginal.(ii));
             end
 
-            columnNames = string(char(65:77)')';
+            columnNames = compose("MyVar%d", 1:numel(arrowArrays));
             arrowRecordBatch = RecordBatch.fromArrays(arrowArrays{:}, ColumnNames=columnNames);
             TOriginal.Properties.VariableNames = columnNames;
             tc.verifyRecordBatch(arrowRecordBatch, columnNames, TOriginal);
@@ -237,18 +241,3 @@ classdef tRecordBatch < matlab.unittest.TestCase
     end
 end
 
-function T = createTableWithAllSupportedTypes()
-    T = table(int8  ([1, 2, 3]'), ...
-             int16  ([1, 2, 3]'), ...
-             int32  ([1, 2, 3]'), ...
-             int64  ([1, 2, 3]'), ...
-             uint8  ([1, 2, 3]'), ...
-             uint16 ([1, 2, 3]'), ...
-             uint32 ([1, 2, 3]'), ...
-             uint64 ([1, 2, 3]'), ...
-             logical([1, 0, 1]'), ...
-             single ([1, 2, 3]'), ...
-             double ([1, 2, 3]'), ...
-             string (["A", "B", "C"]'), ...
-             datetime(2023, 6, 28) + days(0:2)');
-end
