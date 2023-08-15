@@ -724,3 +724,12 @@ test_that("skip_rows and skip_rows_after_names option", {
     tibble::tibble(`1` = 3:4)
   )
 })
+
+test_that("Can read CSV files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  csv_url <- "https://raw.githubusercontent.com/apache/arrow-testing/master/data/csv/aggregate_test_100.csv"
+  cu <- read_csv_arrow(csv_url)
+  expect_true(tibble::is_tibble(cu))
+  expect_identical(dim(cu), c(100L, 13L))
+})
