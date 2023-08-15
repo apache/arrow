@@ -21,6 +21,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
         ColumnNames
+        Schema
     end
 
     properties (Hidden, SetAccess=private, GetAccess=public)
@@ -42,6 +43,12 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
         function columnNames = get.ColumnNames(obj)
             columnNames = obj.Proxy.columnNames();
+        end
+
+        function schema = get.Schema(obj)
+            proxyID = obj.Proxy.getSchema();
+            proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.Schema", ID=proxyID);
+            schema = arrow.tabular.Schema(proxy);
         end
 
         function arrowArray = column(obj, idx)

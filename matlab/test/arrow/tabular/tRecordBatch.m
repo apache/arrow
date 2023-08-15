@@ -191,6 +191,34 @@ classdef tRecordBatch < matlab.unittest.TestCase
             fcn = @() RecordBatch.fromArrays(A1, A2, columnNames=["A", missing]);
             tc.verifyError(fcn, "MATLAB:validators:mustBeNonmissing");
         end
+
+        function Schema(tc)
+        % Verify that the public Schema property returns an approprate
+        % instance of arrow.tabular.Schema.
+            t = table(["A"; "B"; "C"], ...
+                      [1; 2; 3], ...
+                      [true; false; true], ...
+                      VariableNames=["A", "B", "C"]);
+            recordBatch = arrow.recordbatch(t);
+            schema = recordBatch.Schema;
+            tc.verifyEqual(schema.NumFields, int32(3));
+            tc.verifyEqual(schema.field(1).Type.ID, arrow.type.ID.String);
+            tc.verifyEqual(schema.field(1).Name, "A");
+            tc.verifyEqual(schema.field(2).Type.ID, arrow.type.ID.Float64);
+            tc.verifyEqual(schema.field(2).Name, "B");
+            tc.verifyEqual(schema.field(3).Type.ID, arrow.type.ID.Boolean);
+            tc.verifyEqual(schema.field(3).Name, "C");
+        end
+
+        function SchemaNoSetter(tc)
+        % Verify that trying to set the value of the public Schema property
+        % results in an error of type "MATLAB:class:SetProhibited".
+            t = table([1; 2; 3]);
+            recordBatch = arrow.recordbatch(t);
+            tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), ...
+                "MATLAB:class:SetProhibited");
+        end
+
     end
 
     methods
@@ -210,7 +238,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
 end
 
 function T = createTableWithAllSupportedTypes()
-    T = table(int8   ([1, 2, 3]'), ...
+    T = table(int8  ([1, 2, 3]'), ...
              int16  ([1, 2, 3]'), ...
              int32  ([1, 2, 3]'), ...
              int64  ([1, 2, 3]'), ...
