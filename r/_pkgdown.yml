@@ -138,7 +138,6 @@ articles:
       - developers/data_object_layout
 
 reference:
-
 - title: Read datasets
   desc: >
     Open multi-file datasets as Arrow Dataset objects.
