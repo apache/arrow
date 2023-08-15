@@ -439,11 +439,11 @@ def allow_append_to_file(request, filesystem_config):
 
 
 @pytest.fixture(
-        params=[
-            pytest.lazy_fixture('builtin_pickle'),
-            pytest.lazy_fixture('cloudpickle')
-        ]
-    )
+    params=[
+        pytest.lazy_fixture('builtin_pickle'),
+        pytest.lazy_fixture('cloudpickle')
+    ]
+)
 def pickle(request):
     return request.param
 
