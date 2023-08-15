@@ -133,7 +133,7 @@ Development Guidelines
 Applications should generally:
 
 * Use the BufferAllocator interface in APIs instead of RootAllocator.
-* Create one RootAllocator at the start of the program.
+* Create one RootAllocator at the start of the program and explicitly passing it when it is needed.
 * ``close()`` allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
 
 
@@ -452,3 +452,5 @@ subset of that memory (e.g. through slicing) might be different. Also
 note that ArrowBuf 2 and ArrowBuf 4, 5 and 6 are also sharing the same
 underlying memory. Also note that ArrowBuf 4, 5 and 6 all share the same
 reference count and fate.
+
+.. _`Singleton Allocator`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/util/SingletonAllocator.html
