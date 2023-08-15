@@ -21,64 +21,38 @@ classdef tValidateColumnNames < matlab.unittest.TestCase
     methods(Test)
         % Test methods
         
-        function ColumnNamesProvided(testCase)
-            % Verify validateColumnNames() does not error if the input
-            % struct has the ColumnNames field and the ColumnNames has the
-            % expected number of elements.
+        function ValidColumnNames(testCase)
+            % Verify validateColumnNames() does not error column names 
+            % array has the expected number of elements.
 
             import arrow.tabular.internal.validateColumnNames
 
-            opts.ColumnNames = ["A", "B", "C"];
-            actual = validateColumnNames(opts, 3);
+            columnNames = ["A", "B", "C"];
+            actual = validateColumnNames(columnNames, 3);
             testCase.verifyEqual(actual, ["A", "B", "C"]);
 
-            opts.ColumnNames = string.empty(1, 0);
-            actual = validateColumnNames(opts, 0);
+            columnNames = string.empty(1, 0);
+            actual = validateColumnNames(columnNames, 0);
             testCase.verifyEqual(actual, string.empty(1, 0));
         end
 
-        function WrongNumberColumnNamesProvided(testCase)
-            % Verify validateColumnNames() errors if the input
-            % struct has the ColumnNames field and the ColumnNames has
-            % the wrong number of elements. The error thrown should have
-            % the identifier "arrow:tabular:WrongNumberColumnNames";
+        function WrongNumberColumnNames(testCase)
+            % Verify validateColumnNames() errors if the column names
+            % array provided does not have the correct number of elements.
+            % The error thrown should have the identifier 
+            % "arrow:tabular:WrongNumberColumnNames";
 
             import arrow.tabular.internal.validateColumnNames
 
-            opts.ColumnNames = ["A", "B", "C"];
-            fcn = @() validateColumnNames(opts, 2);
+            columnNames = ["A", "B", "C"];
+            fcn = @() validateColumnNames(columnNames, 2);
             testCase.verifyError(fcn, "arrow:tabular:WrongNumberColumnNames");
 
-            fcn = @() validateColumnNames(opts, 4);
+            fcn = @() validateColumnNames(columnNames, 4);
             testCase.verifyError(fcn, "arrow:tabular:WrongNumberColumnNames");
 
-            fcn = @() validateColumnNames(opts, 0);
+            fcn = @() validateColumnNames(columnNames, 0);
             testCase.verifyError(fcn, "arrow:tabular:WrongNumberColumnNames");
-        end
-
-        function ColumnNamesNotProvided(testCase)
-            % Verify validateColumnNames() returns the expected string
-            % array if the input struct does not have the ColumnNames
-            % fied.
-
-            import arrow.tabular.internal.validateColumnNames
-
-            opts = struct;
-            actual = validateColumnNames(opts, 0);
-            expected = string.empty(1, 0);
-            testCase.verifyEqual(actual, expected);
-
-            actual = validateColumnNames(opts, 1);
-            expected = "Column1";
-            testCase.verifyEqual(actual, expected);
-
-            actual = validateColumnNames(opts, 2);
-            expected = ["Column1" "Column2"];
-            testCase.verifyEqual(actual, expected);
-
-            actual = validateColumnNames(opts, 3);
-            expected = ["Column1", "Column2", "Column3"];
-            testCase.verifyEqual(actual, expected);
         end
     end
 end

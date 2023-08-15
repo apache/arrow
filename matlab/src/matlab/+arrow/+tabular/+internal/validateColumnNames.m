@@ -1,7 +1,5 @@
-%VAIDATECOLUMNNAMES Validates the column names array (if provided) has 
-%the expected number of elements. Otherwise returns a string array
-%whose values are "Column1", "Column2", etc. up to the number of columns in
-%record batch.
+%VAIDATECOLUMNNAMES Validates columnNames has the expected number of
+%elements.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -18,14 +16,10 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function columnNames = validateColumnNames(opts, numColumns)
-    if ~isfield(opts, "ColumnNames")
-        columnNames = compose("Column%d", 1:numColumns);
-    elseif numel(opts.ColumnNames) ~= numColumns
+function validateColumnNames(columnNames, numColumns)
+    if numel(columnNames) ~= numColumns
         errid = "arrow:tabular:WrongNumberColumnNames";
         msg = compose("Expected ColumnNames to have %d values.", numColumns);
         error(errid, msg);
-    else
-        columnNames = opts.ColumnNames;
     end
 end

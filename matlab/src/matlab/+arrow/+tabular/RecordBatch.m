@@ -102,7 +102,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                 arrowArrays(1, 1) arrow.array.Array
             end
             arguments
-                opts.ColumnNames(1, :) string
+                opts.ColumnNames(1, :) string {mustBeNonmissing} = compose("Column%d", 1:numel(arrowArrays))
             end
 
             import arrow.tabular.internal.validateArrayLengths
