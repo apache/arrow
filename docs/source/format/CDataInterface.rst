@@ -217,6 +217,8 @@ names and types of child fields are read from the child arrays.
 +------------------------+---------------------------------------------------+------------+
 | ``+us:I,J,...``        | sparse union with type ids I,J...                 |            |
 +------------------------+---------------------------------------------------+------------+
+| ``+r``                 | run-end encoded                                   |            |
++------------------------+---------------------------------------------------+------------+
 
 Notes:
 
@@ -245,6 +247,9 @@ Examples
 * A ``sparse_union<ints: int32, floats: float32>`` with type ids ``4, 5``
   has format string ``+us:4,5``; its two children have names ``ints`` and
   ``floats``, and format strings ``i`` and ``f`` respectively.
+* A ``run_end_encoded<int32, float32>`` has format string ``+r``; its two
+  children have names ``run_ends`` and ``values``, and format strings
+  ``i`` and ``f`` respectively.
 
 .. _c-data-interface-struct-defs:
 
