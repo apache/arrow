@@ -111,10 +111,10 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);
-            columnNames = validateColumnNames(opts, numColumns);
+            validateColumnNames(opts.ColumnNames, numColumns);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
-            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
             proxyName = "arrow.tabular.proxy.RecordBatch";
             proxy = arrow.internal.proxy.create(proxyName, args);
             recordBatch = arrow.tabular.RecordBatch(proxy);
