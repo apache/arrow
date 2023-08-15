@@ -441,7 +441,7 @@ int64_t StreamReader::SkipRows(int64_t num_rows_to_skip) {
   while (!eof_ && (num_rows_remaining_to_skip > 0)) {
     int64_t num_rows_in_row_group = row_group_reader_->metadata()->num_rows();
     int64_t num_rows_remaining_in_row_group =
-        num_rows_in_row_group - current_row_ - row_group_row_offset_;
+        num_rows_in_row_group - (current_row_ - row_group_row_offset_);
 
     if (num_rows_remaining_in_row_group > num_rows_remaining_to_skip) {
       for (auto reader : column_readers_) {

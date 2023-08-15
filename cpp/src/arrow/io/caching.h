@@ -43,10 +43,14 @@ struct ARROW_EXPORT CacheOptions {
   int64_t range_size_limit;
   /// \brief A lazy cache does not perform any I/O until requested.
   bool lazy;
+  /// \brief The maximum number of ranges to be prefetched. This is only used
+  ///   for lazy cache to asynchronously read some ranges after reading the target range.
+  int64_t prefetch_limit = 0;
 
   bool operator==(const CacheOptions& other) const {
     return hole_size_limit == other.hole_size_limit &&
-           range_size_limit == other.range_size_limit && lazy == other.lazy;
+           range_size_limit == other.range_size_limit && lazy == other.lazy &&
+           prefetch_limit == other.prefetch_limit;
   }
 
   /// \brief Construct CacheOptions from network storage metrics (e.g. S3).

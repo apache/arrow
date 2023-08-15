@@ -414,6 +414,13 @@ TEST_F(TestSchema, Basics) {
   ASSERT_NE(schema4->fingerprint(), schema7->fingerprint());
   ASSERT_EQ(schema6->fingerprint(), schema7->fingerprint());
 #endif
+
+  auto schema8 = ::arrow::schema({field("f0", int8()), field("f1", int32())});
+  auto schema9 = ::arrow::schema({{"f0", int8()}, {"f1", int32()}});
+  auto schema10 = ::arrow::schema({{"f2", int8()}, {"f1", int32()}});
+
+  AssertSchemaEqual(schema8, schema9);
+  AssertSchemaNotEqual(schema8, schema10);
 }
 
 TEST_F(TestSchema, ToString) {
@@ -1479,6 +1486,12 @@ TEST(TestStructType, Basics) {
 
   ASSERT_EQ(struct_type.ToString(), "struct<f0: int32, f1: string, f2: uint8>");
 
+  auto t1 = struct_({{"a", int8()}, {"b", utf8()}});
+  auto t2 = struct_({field("a", int8()), field("b", utf8())});
+  auto t3 = struct_({field("c", int8()), field("b", utf8())});
+  ASSERT_TRUE(t1->Equals(t2));
+  ASSERT_TRUE(!t1->Equals(t3));
+
   // TODO(wesm): out of bounds for field(...)
 }
 
@@ -1852,6 +1865,7 @@ TEST(TypesTest, TestMembership) {
   TEST_PREDICATE(all_types, is_dictionary);
   TEST_PREDICATE(all_types, is_fixed_size_binary);
   TEST_PREDICATE(all_types, is_fixed_width);
+  TEST_PREDICATE(all_types, is_var_length_list);
   TEST_PREDICATE(all_types, is_list_like);
   TEST_PREDICATE(all_types, is_nested);
   TEST_PREDICATE(all_types, is_union);

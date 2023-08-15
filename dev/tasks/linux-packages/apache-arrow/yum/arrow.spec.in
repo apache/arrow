@@ -61,7 +61,6 @@
 %define gcc_package gcc
 %endif
 
-%define use_boost (%{_amzn} != 2)
 %define use_flight (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_gandiva (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_gcs (%{_rhel} >= 8)
@@ -82,7 +81,6 @@
 %define have_re2 (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define have_thrift (%{_rhel} >= 8)
 %define have_utf8proc (%{_rhel} >= 9 || %{_amzn} >= 2023)
-%define have_zstd (%{_amzn} != 2)
 
 Name:		@PACKAGE@
 Version:	@VERSION@
@@ -94,9 +92,7 @@ URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
 BuildRequires:	bison
-%if %{use_boost}
 BuildRequires:	boost%{boost_version}-devel
-%endif
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
 %if %{use_flight}
@@ -120,9 +116,7 @@ BuildRequires:	grpc-plugins
 %if %{use_gcs}
 BuildRequires:	json-devel
 %endif
-%if %{have_zstd}
 BuildRequires:	libzstd-devel
-%endif
 BuildRequires:	lz4-devel %{lz4_requirement}
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
@@ -244,29 +238,11 @@ cd -
 %package -n %{name}%{major_version}-libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-Requires:	brotli
-%if %{use_gflags}
-Requires:	gflags
-%endif
-%if %{use_glog}
-Requires:	glog
-%endif
-%if %{have_zstd}
-Requires:	libzstd
-%endif
 %if %{have_lz4_libs}
 Requires:	lz4-libs %{lz4_requirement}
 %else
 Requires:	lz4 %{lz4_requirement}
 %endif
-%if %{have_re2}
-Requires:	re2
-%endif
-Requires:	snappy
-%if %{have_utf8proc}
-Requires:	utf8proc
-%endif
-Requires:	zlib
 
 %description -n %{name}%{major_version}-libs
 This package contains the libraries for Apache Arrow C++.
@@ -308,9 +284,7 @@ Requires:	grpc-plugins
 %if %{use_gcs}
 Requires:	json-devel
 %endif
-%if %{have_zstd}
 Requires:	libzstd-devel
-%endif
 Requires:	lz4-devel %{lz4_requirement}
 Requires:	openssl-devel
 %if %{have_rapidjson}
@@ -424,8 +398,6 @@ Libraries and header files for Apache Arrow dataset.
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	c-ares
-Requires:	openssl
 
 %description -n %{name}%{major_version}-flight-libs
 This package contains the libraries for Apache Arrow Flight.
@@ -495,7 +467,6 @@ Libraries and header files for Apache Arrow Flight SQL.
 Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	ncurses-libs
 
 %description -n gandiva%{major_version}-libs
 This package contains the libraries for Gandiva.
@@ -531,7 +502,6 @@ Libraries and header files for Gandiva.
 Summary:	Runtime libraries for Apache Parquet C++
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	openssl
 
 %description -n parquet%{major_version}-libs
 This package contains the libraries for Apache Parquet C++.
@@ -580,7 +550,6 @@ Libraries and header files for Apache Parquet C++.
 Summary:	Runtime libraries for Apache Arrow GLib
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
-Requires:	glib2
 
 %description -n %{name}%{major_version}-glib-libs
 This package contains the libraries for Apache Arrow GLib.

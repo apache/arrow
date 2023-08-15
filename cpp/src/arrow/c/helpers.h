@@ -17,10 +17,19 @@
 
 #pragma once
 
-#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "arrow/c/abi.h"
+
+#define ARROW_C_ASSERT(condition, msg)                          \
+  do {                                                          \
+    if (!(condition)) {                                         \
+      fprintf(stderr, "%s:%d:: %s", __FILE__, __LINE__, (msg)); \
+      abort();                                                  \
+    }                                                           \
+  } while (0)
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,7 +60,8 @@ inline void ArrowSchemaMove(struct ArrowSchema* src, struct ArrowSchema* dest) {
 inline void ArrowSchemaRelease(struct ArrowSchema* schema) {
   if (!ArrowSchemaIsReleased(schema)) {
     schema->release(schema);
-    assert(ArrowSchemaIsReleased(schema));
+    ARROW_C_ASSERT(ArrowSchemaIsReleased(schema),
+                   "ArrowSchemaRelease did not cleanup release callback");
   }
 }
 
@@ -78,7 +88,8 @@ inline void ArrowArrayMove(struct ArrowArray* src, struct ArrowArray* dest) {
 inline void ArrowArrayRelease(struct ArrowArray* array) {
   if (!ArrowArrayIsReleased(array)) {
     array->release(array);
-    assert(ArrowArrayIsReleased(array));
+    ARROW_C_ASSERT(ArrowArrayIsReleased(array),
+                   "ArrowArrayRelease did not cleanup release callback");
   }
 }
 
@@ -108,7 +119,8 @@ inline void ArrowArrayStreamMove(struct ArrowArrayStream* src,
 inline void ArrowArrayStreamRelease(struct ArrowArrayStream* stream) {
   if (!ArrowArrayStreamIsReleased(stream)) {
     stream->release(stream);
-    assert(ArrowArrayStreamIsReleased(stream));
+    ARROW_C_ASSERT(ArrowArrayStreamIsReleased(stream),
+                   "ArrowArrayStreamRelease did not cleanup release callback");
   }
 }
 

@@ -62,29 +62,32 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
-  check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
-  if(MINGW)
-    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
-    message(STATUS "Disable AVX512 support on MINGW for now")
-  else()
-    # Check for AVX512 support in the compiler.
-    set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
-    check_cxx_source_compiles("
-      #ifdef _MSC_VER
-      #include <intrin.h>
-      #else
-      #include <immintrin.h>
-      #endif
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
+    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+    if(MINGW)
+      # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
+      message(STATUS "Disable AVX512 support on MINGW for now")
+    else()
+      # Check for AVX512 support in the compiler.
+      set(OLD_CMAKE_REQURED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+      set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} ${ARROW_AVX512_FLAG}")
+      check_cxx_source_compiles("
+        #ifdef _MSC_VER
+        #include <intrin.h>
+        #else
+        #include <immintrin.h>
+        #endif
 
-      int main() {
-        __m512i mask = _mm512_set1_epi32(0x1);
-        char out[32];
-        _mm512_storeu_si512(out, mask);
-        return 0;
-      }"
-                              CXX_SUPPORTS_AVX512)
-    set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+        int main() {
+          __m512i mask = _mm512_set1_epi32(0x1);
+          char out[32];
+          _mm512_storeu_si512(out, mask);
+          return 0;
+        }"
+                                CXX_SUPPORTS_AVX512)
+      set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQURED_FLAGS})
+    endif()
   endif()
   # Runtime SIMD level it can get from compiler and ARROW_RUNTIME_SIMD_LEVEL
   if(CXX_SUPPORTS_SSE4_2 AND ARROW_RUNTIME_SIMD_LEVEL MATCHES
@@ -402,6 +405,13 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
                                                        VERSION_GREATER "7.0")
     # Without this, gcc >= 7 warns related to changes in C++17
     set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-noexcept-type")
+  endif()
+
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "13.0" OR CMAKE_CXX_COMPILER_VERSION
+                                                        VERSION_GREATER "13.0")
+    # -Wself-move added in GCC 13 warns when a value is moved to itself
+    # See https://gcc.gnu.org/gcc-13/changes.html
+    set(CXX_ONLY_FLAGS "${CXX_ONLY_FLAGS} -Wno-self-move")
   endif()
 
   # Disabling semantic interposition allows faster calling conventions

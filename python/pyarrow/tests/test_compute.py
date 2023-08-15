@@ -155,6 +155,7 @@ def test_option_class_equality():
         pc.ModeOptions(),
         pc.NullOptions(),
         pc.PadOptions(5),
+        pc.PairwiseOptions(period=1),
         pc.PartitionNthOptions(1, null_placement="at_start"),
         pc.CumulativeOptions(start=None, skip_nulls=False),
         pc.QuantileOptions(),
@@ -536,7 +537,7 @@ def test_trim():
 def test_slice_compatibility():
     arr = pa.array(["", "𝑓", "𝑓ö", "𝑓öõ", "𝑓öõḍ", "𝑓öõḍš"])
     for start in range(-6, 6):
-        for stop in range(-6, 6):
+        for stop in itertools.chain(range(-6, 6), [None]):
             for step in [-3, -2, -1, 1, 2, 3]:
                 expected = pa.array([k.as_py()[start:stop:step]
                                      for k in arr])
@@ -1610,9 +1611,9 @@ def test_round_binary():
     scale = pa.scalar(-1, pa.int32())
 
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_zero") == expect_zero
+        5.0, scale, round_mode="half_towards_zero") == expect_zero
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_infinity") == expect_inf
+        5.0, scale, round_mode="half_towards_infinity") == expect_inf
 
 
 def test_is_null():
@@ -1753,6 +1754,17 @@ def test_logical():
     assert pc.xor(a, b) == pa.array([False, True, False, None])
 
     assert pc.invert(a) == pa.array([False, True, True, None])
+
+
+def test_dictionary_decode():
+    array = pa.array(["a", "a", "b", "c", "b"])
+    dictionary_array = array.dictionary_encode()
+    dictionary_array_decode = pc.dictionary_decode(dictionary_array)
+
+    assert array != dictionary_array
+
+    assert array == dictionary_array_decode
+    assert array == pc.dictionary_decode(array)
 
 
 def test_cast():
@@ -3092,6 +3104,7 @@ def test_map_lookup():
     result_all = pa.array([[1], None, None, [5, 7], None],
                           type=pa.list_(pa.int32()))
 
+    assert pc.map_lookup(arr, 'one', 'first') == result_first
     assert pc.map_lookup(arr, pa.scalar(
         'one', type=pa.utf8()), 'first') == result_first
     assert pc.map_lookup(arr, pa.scalar(
@@ -3481,3 +3494,33 @@ def test_run_end_encode():
     check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int16()))
     check_run_end_encode_decode(pc.RunEndEncodeOptions('int32'))
     check_run_end_encode_decode(pc.RunEndEncodeOptions(pa.int64()))
+
+
+def test_pairwise_diff():
+    arr = pa.array([1, 2, 3, None, 4, 5])
+    expected = pa.array([None, 1, 1, None, None, 1])
+    result = pa.compute.pairwise_diff(arr, period=1)
+    assert result.equals(expected)
+
+    arr = pa.array([1, 2, 3, None, 4, 5])
+    expected = pa.array([None, None, 2, None, 1, None])
+    result = pa.compute.pairwise_diff(arr, period=2)
+    assert result.equals(expected)
+
+    # negative period
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.int8())
+    expected = pa.array([-1, -1, None, None, -1, None], type=pa.int8())
+    result = pa.compute.pairwise_diff(arr, period=-1)
+    assert result.equals(expected)
+
+    # wrap around overflow
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
+    expected = pa.array([255, 255, None, None, 255, None], type=pa.uint8())
+    result = pa.compute.pairwise_diff(arr, period=-1)
+    assert result.equals(expected)
+
+    # fail on overflow
+    arr = pa.array([1, 2, 3, None, 4, 5], type=pa.uint8())
+    with pytest.raises(pa.ArrowInvalid,
+                       match="overflow"):
+        pa.compute.pairwise_diff_checked(arr, period=-1)

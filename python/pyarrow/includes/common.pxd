@@ -38,9 +38,20 @@ cdef extern from * namespace "std" nogil:
 
 cdef extern from "<optional>" namespace "std" nogil:
     cdef cppclass optional[T]:
+        ctypedef T value_type
+        optional()
+        optional(nullopt_t)
+        optional(optional&) except +
+        optional(T&) except +
         c_bool has_value()
-        T value()
-        optional(T&)
+        T& value()
+        T& value_or[U](U& default_value)
+        void swap(optional&)
+        void reset()
+        T& emplace(...)
+        T& operator*()
+        # T* operator->() # Not Supported
+        optional& operator=(optional&)
         optional& operator=[U](U&)
 
 

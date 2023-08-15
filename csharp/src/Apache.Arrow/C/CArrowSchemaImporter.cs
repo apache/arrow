@@ -113,7 +113,7 @@ namespace Apache.Arrow.C
                     throw new ArgumentException("Passed null pointer for cSchema.");
                 }
                 _cSchema = cSchema;
-                if (_cSchema->release == null)
+                if (_cSchema->release == default)
                 {
                     throw new ArgumentException("Tried to import a schema that has already been released.");
                 }
@@ -128,9 +128,13 @@ namespace Apache.Arrow.C
             public void Dispose()
             {
                 // We only call release on a root-level schema, not child ones.
-                if (_isRoot && _cSchema->release != null)
+                if (_isRoot && _cSchema->release != default)
                 {
+#if NET5_0_OR_GREATER
                     _cSchema->release(_cSchema);
+#else
+                    Marshal.GetDelegateForFunctionPointer<CArrowSchemaExporter.ReleaseArrowSchema>(_cSchema->release)(_cSchema);
+#endif
                 }
             }
 

@@ -1592,6 +1592,7 @@ T GetEnvValue(const std::string& var, T default_value) {
 }  // namespace
 
 TEST(AsofJoinTest, BackpressureWithBatchesGen) {
+  GTEST_SKIP() << "Skipping - see GH-36331";
   int num_batches = GetEnvValue("ARROW_BACKPRESSURE_DEMO_NUM_BATCHES", 20);
   int batch_size = GetEnvValue("ARROW_BACKPRESSURE_DEMO_BATCH_SIZE", 1);
   return TestBackpressure(MakeIntegerBatchGenForTest, num_batches, batch_size);

@@ -19,6 +19,7 @@ package array_test
 import (
 	"fmt"
 	"math"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
@@ -1798,5 +1799,69 @@ func TestDictionaryAppendIndices(t *testing.T) {
 
 			assert.Equal(t, fmt.Sprint(indices), arrIndices.String())
 		})
+	}
+}
+
+type panicAllocator struct {
+	n       int
+	paniced bool
+	memory.Allocator
+}
+
+func (p *panicAllocator) Allocate(size int) []byte {
+	if size > p.n {
+		p.paniced = true
+		panic("panic allocator")
+	}
+	return p.Allocator.Allocate(size)
+}
+
+func (p *panicAllocator) Reallocate(size int, b []byte) []byte {
+	return p.Allocator.Reallocate(size, b)
+}
+
+func (p *panicAllocator) Free(b []byte) {
+	p.Allocator.Free(b)
+}
+
+func TestBinaryDictionaryPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	expectedType := &arrow.DictionaryType{IndexType: &arrow.Int8Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(allocator, expectedType)
+	defer bldr.Release()
+
+	bldr.AppendNull()
+	allocator.n = 0 // force panic
+	func() {
+		defer func() {
+			recover()
+		}()
+		bldr.NewArray()
+	}()
+	assert.True(t, allocator.paniced)
+}
+
+func BenchmarkBinaryDictionaryBuilder(b *testing.B) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(b, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int32Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType)
+	defer bldr.Release()
+
+	randString := func() string {
+		return fmt.Sprintf("test-%d", rand.Intn(30))
+	}
+
+	builder := bldr.(*array.BinaryDictionaryBuilder)
+	for i := 0; i < b.N; i++ {
+		assert.NoError(b, builder.AppendString(randString()))
 	}
 }

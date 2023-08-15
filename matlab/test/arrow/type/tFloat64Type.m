@@ -13,12 +13,14 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tFloat64Type < hPrimitiveType
+classdef tFloat64Type < hFixedWidthType
 % Test class for arrow.type.Float64Type
 
     properties
-        ArrowType = arrow.type.Float64Type
+        ArrowType = arrow.float64
         TypeID = arrow.type.ID.Float64
-        BitWidth = 64;
+        BitWidth = int32(64)
+        ClassName = "arrow.type.Float64Type"
+
     end
 end

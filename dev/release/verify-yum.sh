@@ -78,23 +78,7 @@ case "${distribution}-${distribution_version}" in
     distribution_prefix="almalinux"
     ruby_devel_packages+=(redhat-rpm-config)
     ;;
-  amzn-2)
-    distribution_prefix="amazon-linux"
-    cmake_package=cmake3
-    cmake_command=cmake3
-    if [ "$(arch)" != "aarch64" ]; then
-      have_arrow_libs=yes
-    fi
-    have_flight=no
-    have_gandiva=no
-    have_ruby=no
-    install_command="yum install -y"
-    uninstall_command="yum remove -y"
-    clean_command="yum clean"
-    info_command="yum info"
-    amazon-linux-extras install epel -y
-    ;;
-  amzn-2023)
+  amzn-*)
     distribution_prefix="amazon-linux"
     enablerepo_epel=""
     install_command="dnf install -y"
@@ -250,7 +234,7 @@ if [ "${have_glib}" = "yes" ]; then
 
   if [ "${have_ruby}" = "yes" ]; then
     ${install_command} "${ruby_devel_packages[@]}"
-    gem install gobject-introspection
+    MAKEFLAGS="-j$(nproc)" gem install gobject-introspection
     ruby -r gi -e "p GI.load('Arrow')"
   fi
   echo "::endgroup::"

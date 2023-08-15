@@ -275,6 +275,8 @@ class PackageTask
       # "ubuntu-focal-arm64",
       "ubuntu-jammy",
       # "ubuntu-jammy-arm64",
+      "ubuntu-lunar",
+      # "ubuntu-lunar-arm64",
     ]
   end
 
@@ -415,8 +417,6 @@ VERSION=#{@deb_upstream_version}
       # "almalinux-8-arch64",
       "amazon-linux-2023",
       # "amazon-linux-2023-arch64",
-      "amazon-linux-2",
-      # "amazon-linux-2-arch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
       "centos-8-stream",

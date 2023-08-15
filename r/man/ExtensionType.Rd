@@ -3,9 +3,9 @@
 \docType{class}
 \name{ExtensionType}
 \alias{ExtensionType}
-\title{class arrow::ExtensionType}
+\title{ExtensionType class}
 \description{
-class arrow::ExtensionType
+ExtensionType class
 }
 \section{Methods}{
 

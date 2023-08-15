@@ -72,7 +72,7 @@ export interface BuilderOptions<T extends DataType = any, TNull = any> {
  *
  * @example
  * ```ts
- * import { Builder, Utf8 } from 'apache-arrow';
+ * import { makeBuilder, Utf8 } from 'apache-arrow';
  *
  * const utf8Builder = makeBuilder({
  *     type: new Utf8(),

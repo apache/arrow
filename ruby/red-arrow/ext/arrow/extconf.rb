@@ -41,9 +41,8 @@ end
 unless required_pkg_config_package([
                                      "arrow",
                                      Arrow::Version::MAJOR,
-                                     Arrow::Version::MINOR,
-                                     Arrow::Version::MICRO,
                                    ],
+                                   conda: "libarrow",
                                    debian: "libarrow-dev",
                                    fedora: "libarrow-devel",
                                    homebrew: "apache-arrow",
@@ -58,6 +57,7 @@ unless required_pkg_config_package([
                                      Arrow::Version::MINOR,
                                      Arrow::Version::MICRO,
                                    ],
+                                   conda: "arrow-c-glib",
                                    debian: "libarrow-glib-dev",
                                    fedora: "libarrow-glib-devel",
                                    homebrew: "apache-arrow-glib",

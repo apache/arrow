@@ -28,6 +28,7 @@ namespace internal {
 void RegisterScalarArithmetic(FunctionRegistry* registry);
 void RegisterScalarBoolean(FunctionRegistry* registry);
 void RegisterScalarCast(FunctionRegistry* registry);
+void RegisterDictionaryDecode(FunctionRegistry* registry);
 void RegisterScalarComparison(FunctionRegistry* registry);
 void RegisterScalarIfElse(FunctionRegistry* registry);
 void RegisterScalarNested(FunctionRegistry* registry);
@@ -54,7 +55,7 @@ void RegisterVectorSelection(FunctionRegistry* registry);
 void RegisterVectorSort(FunctionRegistry* registry);
 void RegisterVectorRunEndEncode(FunctionRegistry* registry);
 void RegisterVectorRunEndDecode(FunctionRegistry* registry);
-
+void RegisterVectorPairwise(FunctionRegistry* registry);
 void RegisterVectorOptions(FunctionRegistry* registry);
 
 // Aggregate functions

@@ -20,6 +20,8 @@ import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 
+import numpy as np
+
 groups = [
     'acero',
     'brotli',
@@ -283,15 +285,14 @@ def unary_func_fixture():
 @pytest.fixture(scope="session")
 def unary_agg_func_fixture():
     """
-    Register a unary aggregate function
+    Register a unary aggregate function (mean)
     """
     from pyarrow import compute as pc
-    import numpy as np
 
     def func(ctx, x):
         return pa.scalar(np.nanmean(x))
 
-    func_name = "y=avg(x)"
+    func_name = "mean_udf"
     func_doc = {"summary": "y=avg(x)",
                 "description": "find mean of x"}
 
@@ -312,7 +313,6 @@ def varargs_agg_func_fixture():
     Register a unary aggregate function
     """
     from pyarrow import compute as pc
-    import numpy as np
 
     def func(ctx, *args):
         sum = 0.0
@@ -320,7 +320,7 @@ def varargs_agg_func_fixture():
             sum += np.nanmean(arg)
         return pa.scalar(sum)
 
-    func_name = "y=sum_mean(x...)"
+    func_name = "sum_mean"
     func_doc = {"summary": "Varargs aggregate",
                 "description": "Varargs aggregate"}
 

@@ -2407,6 +2407,11 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         optional[shared_ptr[CScalar]] start
         c_bool skip_nulls
 
+    cdef cppclass CPairwiseOptions \
+            "arrow::compute::PairwiseOptions"(CFunctionOptions):
+        CPairwiseOptions(int64_t period)
+        int64_t period
+
     cdef cppclass CArraySortOptions \
             "arrow::compute::ArraySortOptions"(CFunctionOptions):
         CArraySortOptions(CSortOrder, CNullPlacement)
@@ -2809,6 +2814,10 @@ cdef extern from "arrow/python/udf.h" namespace "arrow::py" nogil:
     CStatus RegisterAggregateFunction(PyObject* function,
                                       function[CallbackUdf] wrapper, const CUdfOptions& options,
                                       CFunctionRegistry* registry)
+
+    CStatus RegisterVectorFunction(PyObject* function,
+                                   function[CallbackUdf] wrapper, const CUdfOptions& options,
+                                   CFunctionRegistry* registry)
 
     CResult[shared_ptr[CRecordBatchReader]] CallTabularFunction(
         const c_string& func_name, const vector[CDatum]& args, CFunctionRegistry* registry)

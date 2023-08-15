@@ -226,6 +226,7 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
   /// - prod: 1
   /// - min: maximum of the input type
   /// - max: minimum of the input type
+  /// - mean: start is ignored because it has no meaning for mean
   std::optional<std::shared_ptr<Scalar>> start;
 
   /// If true, nulls in the input are ignored and produce a corresponding null output.
@@ -233,6 +234,17 @@ class ARROW_EXPORT CumulativeOptions : public FunctionOptions {
   bool skip_nulls = false;
 };
 using CumulativeSumOptions = CumulativeOptions;  // For backward compatibility
+
+/// \brief Options for pairwise functions
+class ARROW_EXPORT PairwiseOptions : public FunctionOptions {
+ public:
+  explicit PairwiseOptions(int64_t periods = 1);
+  static constexpr char const kTypeName[] = "PairwiseOptions";
+  static PairwiseOptions Defaults() { return PairwiseOptions(); }
+
+  /// Periods to shift for applying the binary operation, accepts negative values.
+  int64_t periods = 1;
+};
 
 /// @}
 
@@ -650,13 +662,37 @@ Result<Datum> CumulativeMin(
     const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
-// ----------------------------------------------------------------------
-// Deprecated functions
-
-ARROW_DEPRECATED("Deprecated in 3.0.0. Use SortIndices()")
+/// \brief Compute the cumulative mean of an array-like object
+///
+/// \param[in] values array-like input
+/// \param[in] options configures cumulative mean behavior, `start` is ignored
+/// \param[in] ctx the function execution context, optional
 ARROW_EXPORT
-Result<std::shared_ptr<Array>> SortToIndices(const Array& values,
-                                             ExecContext* ctx = NULLPTR);
+Result<Datum> CumulativeMean(
+    const Datum& values, const CumulativeOptions& options = CumulativeOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
+/// \brief Return the first order difference of an array.
+///
+/// Computes the first order difference of an array, i.e.
+///   output[i] = input[i] - input[i - p]  if i >= p
+///   output[i] = null                     otherwise
+/// where p is the period. For example, with p = 1,
+///   Diff([1, 4, 9, 10, 15]) = [null, 3, 5, 1, 5].
+/// With p = 2,
+///   Diff([1, 4, 9, 10, 15]) = [null, null, 8, 6, 6]
+/// p can also be negative, in which case the diff is computed in
+/// the opposite direction.
+/// \param[in] array array input
+/// \param[in] options options, specifying overflow behavior and period
+/// \param[in] check_overflow whether to return error on overflow
+/// \param[in] ctx the function execution context, optional
+/// \return result as array
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> PairwiseDiff(const Array& array,
+                                            const PairwiseOptions& options,
+                                            bool check_overflow = false,
+                                            ExecContext* ctx = NULLPTR);
 
 }  // namespace compute
 }  // namespace arrow

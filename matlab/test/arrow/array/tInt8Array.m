@@ -18,12 +18,13 @@ classdef tInt8Array < hNumericArray
     
     properties
         ArrowArrayClassName = "arrow.array.Int8Array"
-        ArrowArrayConstructor = @arrow.array.Int8Array
+        ArrowArrayConstructorFcn = @arrow.array.Int8Array.fromMATLAB
         MatlabConversionFcn = @int8 % int8 method on class
         MatlabArrayFcn = @int8 % int8 function
         MaxValue = intmax("int8")
         MinValue = intmin("int8")
         NullSubstitutionValue = int8(0)
+        ArrowType = arrow.int8
     end
 
 end

@@ -783,7 +783,29 @@ static void BM_RleDecodingSpacedBoolean(benchmark::State& state) {
 BENCHMARK(BM_RleDecodingSpacedBoolean)->Apply(BM_SpacedArgs);
 
 template <typename Type>
-static void DecodeDict(std::vector<typename Type::c_type>& values,
+static void EncodeDict(const std::vector<typename Type::c_type>& values,
+                       benchmark::State& state) {
+  using T = typename Type::c_type;
+  int num_values = static_cast<int>(values.size());
+
+  MemoryPool* allocator = default_memory_pool();
+  std::shared_ptr<ColumnDescriptor> descr = Int64Schema(Repetition::REQUIRED);
+
+  auto base_encoder = MakeEncoder(Type::type_num, Encoding::RLE_DICTIONARY,
+                                  /*use_dictionary=*/true, descr.get(), allocator);
+  auto encoder =
+      dynamic_cast<typename EncodingTraits<Type>::Encoder*>(base_encoder.get());
+  for (auto _ : state) {
+    encoder->Put(values.data(), num_values);
+    encoder->FlushValues();
+  }
+
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * num_values);
+}
+
+template <typename Type>
+static void DecodeDict(const std::vector<typename Type::c_type>& values,
                        benchmark::State& state) {
   typedef typename Type::c_type T;
   int num_values = static_cast<int>(values.size());
@@ -810,6 +832,7 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
 
   PARQUET_THROW_NOT_OK(indices->Resize(actual_bytes));
 
+  std::vector<T> decoded_values(num_values);
   for (auto _ : state) {
     auto dict_decoder = MakeTypedDecoder<Type>(Encoding::PLAIN, descr.get());
     dict_decoder->SetData(dict_traits->num_entries(), dict_buffer->data(),
@@ -818,10 +841,11 @@ static void DecodeDict(std::vector<typename Type::c_type>& values,
     auto decoder = MakeDictDecoder<Type>(descr.get());
     decoder->SetDict(dict_decoder.get());
     decoder->SetData(num_values, indices->data(), static_cast<int>(indices->size()));
-    decoder->Decode(values.data(), num_values);
+    decoder->Decode(decoded_values.data(), num_values);
   }
 
-  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(T));
+  state.SetBytesProcessed(state.iterations() * num_values * sizeof(T));
+  state.SetItemsProcessed(state.iterations() * num_values);
 }
 
 static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
@@ -834,18 +858,37 @@ static void BM_DictDecodingInt64_repeats(benchmark::State& state) {
 
 BENCHMARK(BM_DictDecodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
 
+static void BM_DictEncodingInt64_repeats(benchmark::State& state) {
+  typedef Int64Type Type;
+  typedef typename Type::c_type T;
+
+  std::vector<T> values(state.range(0), 64);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_repeats)->Range(MIN_RANGE, MAX_RANGE);
+
 static void BM_DictDecodingInt64_literals(benchmark::State& state) {
   typedef Int64Type Type;
   typedef typename Type::c_type T;
 
   std::vector<T> values(state.range(0));
-  for (size_t i = 0; i < values.size(); ++i) {
-    values[i] = i;
-  }
+  std::iota(values.begin(), values.end(), 0);
   DecodeDict<Type>(values, state);
 }
 
 BENCHMARK(BM_DictDecodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_DictEncodingInt64_literals(benchmark::State& state) {
+  using Type = Int64Type;
+  using T = typename Type::c_type;
+
+  std::vector<T> values(state.range(0));
+  std::iota(values.begin(), values.end(), 0);
+  EncodeDict<Type>(values, state);
+}
+
+BENCHMARK(BM_DictEncodingInt64_literals)->Range(MIN_RANGE, MAX_RANGE);
 
 static void BM_DictDecodingByteArray(benchmark::State& state) {
   ::arrow::random::RandomArrayGenerator rag(0);

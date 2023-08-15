@@ -18,6 +18,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using Apache.Arrow.Types;
@@ -26,8 +27,13 @@ namespace Apache.Arrow.C
 {
     public static class CArrowSchemaExporter
     {
-        private unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
+#if NET5_0_OR_GREATER
+        private static unsafe delegate* unmanaged<CArrowSchema*, void> ReleaseSchemaPtr => &ReleaseCArrowSchema;
+#else
+        internal unsafe delegate void ReleaseArrowSchema(CArrowSchema* cArray);
         private static unsafe readonly NativeDelegate<ReleaseArrowSchema> s_releaseSchema = new NativeDelegate<ReleaseArrowSchema>(ReleaseCArrowSchema);
+        private static IntPtr ReleaseSchemaPtr => s_releaseSchema.Pointer;
+#endif
 
         /// <summary>
         /// Export a type to a <see cref="CArrowSchema"/>.
@@ -63,7 +69,7 @@ namespace Apache.Arrow.C
 
             schema->dictionary = ConstructDictionary(datatype);
 
-            schema->release = (delegate* unmanaged[Stdcall]<CArrowSchema*, void>)s_releaseSchema.Pointer;
+            schema->release = ReleaseSchemaPtr;
 
             schema->private_data = null;
         }
@@ -285,10 +291,13 @@ namespace Apache.Arrow.C
             ptr += length;
         }
 
+#if NET5_0_OR_GREATER
+        [UnmanagedCallersOnly]
+#endif
         private static unsafe void ReleaseCArrowSchema(CArrowSchema* schema)
         {
             if (schema == null) return;
-            if (schema->release == null) return;
+            if (schema->release == default) return;
 
             Marshal.FreeHGlobal((IntPtr)schema->format);
             Marshal.FreeHGlobal((IntPtr)schema->name);
@@ -315,7 +324,7 @@ namespace Apache.Arrow.C
             schema->n_children = 0;
             schema->dictionary = null;
             schema->children = null;
-            schema->release = null;
+            schema->release = default;
         }
     }
 }

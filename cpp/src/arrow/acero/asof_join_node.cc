@@ -49,6 +49,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/string.h"
 
@@ -524,7 +525,7 @@ class KeyHasher {
   size_t index_;
   std::vector<col_index_t> indices_;
   std::vector<KeyColumnMetadata> metadata_;
-  const RecordBatch* batch_;
+  std::atomic<const RecordBatch*> batch_;
   std::vector<HashType> hashes_;
   LightContext ctx_;
   std::vector<KeyColumnArray> column_arrays_;
@@ -819,7 +820,6 @@ class InputState {
         have_active_batch &= !queue_.TryPop();
         if (have_active_batch) {
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
-          key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
           memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), 0));  // time changed
         }
       }
@@ -897,7 +897,8 @@ class InputState {
 
   Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
-      queue_.Push(rb);  // only after above updates - push batch for processing
+      key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
+      queue_.Push(rb);            // only now push batch for processing
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
@@ -1707,6 +1708,10 @@ class AsofJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
+#ifndef ARROW_ENABLE_THREADING
+    return Status::NotImplemented("ASOF join requires threading enabled");
+#endif
+
     ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
                                              "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {

@@ -46,6 +46,7 @@
 #include "arrow/util/decimal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/visibility.h"
 #include "arrow/visit_data_inline.h"
 
 namespace arrow {
@@ -197,6 +198,11 @@ using is_unsigned_integer_value =
 template <typename T>
 using is_signed_integer_value =
     std::integral_constant<bool, std::is_integral<T>::value && std::is_signed<T>::value>;
+
+template <typename T>
+using is_integer_value =
+    std::integral_constant<bool, is_signed_integer_value<T>::value ||
+                                     is_unsigned_integer_value<T>::value>;
 
 template <typename T, typename R = T>
 using enable_if_signed_integer_value = enable_if_t<is_signed_integer_value<T>::value, R>;
@@ -1337,7 +1343,7 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
 
 // END of kernel generator-dispatchers
 // ----------------------------------------------------------------------
-
+// BEGIN of DispatchBest helpers
 ARROW_EXPORT
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types);
 
@@ -1396,6 +1402,11 @@ Status CastDecimalArgs(TypeHolder* begin, size_t count);
 ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);
 
+ARROW_EXPORT
+void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types);
+
+// END of DispatchBest helpers
+// ----------------------------------------------------------------------
 }  // namespace internal
 }  // namespace compute
 }  // namespace arrow

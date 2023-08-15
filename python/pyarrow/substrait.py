@@ -15,7 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
-from pyarrow._substrait import (  # noqa
-    get_supported_functions,
-    run_query,
-)
+try:
+    from pyarrow._substrait import (  # noqa
+        get_supported_functions,
+        run_query,
+    )
+except ImportError as exc:
+    raise ImportError(
+        "The pyarrow installation is not built with support "
+        f"for 'substrait' ({str(exc)})"
+    ) from None
