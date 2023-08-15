@@ -98,8 +98,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       int64_t output_size = SMALL_SIZE,
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
-      bool enable_checksum = false,
-      ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1) {
+      bool enable_checksum = false) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version);
@@ -115,7 +114,6 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.enable_page_checksum();
     }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
-    wp_builder.data_page_version(data_page_version);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -205,8 +203,15 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
-      // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
-      std::set<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      std::set<Encoding::type> expected;
+      if (version == ParquetVersion::PARQUET_1_0) {
+        // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case for
+        // version 1.0. Note that RLE is used for DL/RL.
+        expected = {Encoding::PLAIN, Encoding::RLE};
+      } else {
+        // There is only 1 encoding (RLE) in a fallback case for version 2.0
+        expected = {Encoding::RLE};
+      }
       ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       // There are 3 encodings (PLAIN_DICTIONARY, PLAIN, RLE) in a fallback case
@@ -225,7 +230,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     std::vector<parquet::PageEncodingStats> encoding_stats =
         this->metadata_encoding_stats();
     if (this->type_num() == Type::BOOLEAN) {
-      ASSERT_EQ(encoding_stats[0].encoding, Encoding::PLAIN);
+      ASSERT_EQ(encoding_stats[0].encoding,
+                version == ParquetVersion::PARQUET_1_0 ? Encoding::PLAIN : Encoding::RLE);
       ASSERT_EQ(encoding_stats[0].page_type, PageType::DATA_PAGE);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       std::vector<Encoding::type> expected(
@@ -761,11 +767,10 @@ TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
 
 class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
  public:
-  void TestWithEncoding(ParquetDataPageVersion version, Encoding::type encoding) {
+  void TestWithEncoding(ParquetVersion::type version, Encoding::type encoding) {
     this->SetUpSchema(Repetition::REQUIRED);
-    auto writer =
-        this->BuildWriter(SMALL_SIZE, ColumnProperties(), ParquetVersion::PARQUET_1_0,
-                          /*enable_checksum*/ false, version);
+    auto writer = this->BuildWriter(SMALL_SIZE, ColumnProperties(), version,
+                                    /*enable_checksum*/ false);
     for (int i = 0; i < SMALL_SIZE; i++) {
       bool value = (i % 2 == 0) ? true : false;
       writer->WriteBatch(1, nullptr, nullptr, &value);
@@ -784,12 +789,12 @@ class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
 // PARQUET-764
 // Correct bitpacking for boolean write at non-byte boundaries
 TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
-  TestWithEncoding(ParquetDataPageVersion::V1, Encoding::PLAIN);
+  TestWithEncoding(ParquetVersion::PARQUET_1_0, Encoding::PLAIN);
 }
 
 // Default encoding for boolean is RLE when using V2 pages
 TEST_F(TestBooleanValuesWriter, RleEncodedBooleanValues) {
-  TestWithEncoding(ParquetDataPageVersion::V2, Encoding::RLE);
+  TestWithEncoding(ParquetVersion::PARQUET_2_4, Encoding::RLE);
 }
 
 // PARQUET-979
