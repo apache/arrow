@@ -64,6 +64,11 @@ class IntegrationTest {
   }
 
   @Test
+  void pollFlightInfo() throws Exception {
+    testScenario("poll_flight_info");
+  }
+
+  @Test
   void flightSql() throws Exception {
     testScenario("flight_sql");
   }

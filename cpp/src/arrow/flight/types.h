@@ -654,6 +654,71 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
   mutable bool reconstructed_schema_;
 };
 
+/// \brief The information to process a long-running query.
+class ARROW_FLIGHT_EXPORT PollInfo {
+ public:
+  /// The currently available results so far.
+  std::unique_ptr<FlightInfo> info = NULLPTR;
+  /// The descriptor the client should use on the next try. If unset,
+  /// the query is complete.
+  std::optional<FlightDescriptor> descriptor = std::nullopt;
+  /// Query progress. Must be in [0.0, 1.0] but need not be
+  /// monotonic or nondecreasing. If unknown, do not set.
+  std::optional<double> progress = std::nullopt;
+  /// Expiration time for this request. After this passes, the server
+  /// might not accept the poll descriptor anymore (and the query may
+  /// be cancelled). This may be updated on a call to PollFlightInfo.
+  std::optional<Timestamp> expiration_time = std::nullopt;
+
+  PollInfo()
+      : info(NULLPTR),
+        descriptor(std::nullopt),
+        progress(std::nullopt),
+        expiration_time(std::nullopt) {}
+
+  explicit PollInfo(std::unique_ptr<FlightInfo> info,
+                    std::optional<FlightDescriptor> descriptor,
+                    std::optional<double> progress,
+                    std::optional<Timestamp> expiration_time)
+      : info(std::move(info)),
+        descriptor(std::move(descriptor)),
+        progress(progress),
+        expiration_time(expiration_time) {}
+
+  explicit PollInfo(const PollInfo& other)
+      : info(other.info ? std::make_unique<FlightInfo>(*other.info) : NULLPTR),
+        descriptor(other.descriptor),
+        progress(other.progress),
+        expiration_time(other.expiration_time) {}
+
+  /// \brief Get the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  arrow::Result<std::string> SerializeToString() const;
+
+  /// \brief Parse the wire-format representation of this type.
+  ///
+  /// Useful when interoperating with non-Flight systems (e.g. REST
+  /// services) that may want to return Flight types.
+  static arrow::Result<std::unique_ptr<PollInfo>> Deserialize(
+      std::string_view serialized);
+
+  std::string ToString() const;
+
+  /// Compare two PollInfo for equality. This will compare the
+  /// serialized schema representations, NOT the logical equality of
+  /// the schemas.
+  bool Equals(const PollInfo& other) const;
+
+  friend bool operator==(const PollInfo& left, const PollInfo& right) {
+    return left.Equals(right);
+  }
+  friend bool operator!=(const PollInfo& left, const PollInfo& right) {
+    return !(left == right);
+  }
+};
+
 /// \brief The request of the CancelFlightInfoRequest action.
 struct ARROW_FLIGHT_EXPORT CancelFlightInfoRequest {
   std::unique_ptr<FlightInfo> info;

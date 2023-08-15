@@ -87,6 +87,11 @@ func (m *FlightServiceClientMock) GetFlightInfo(ctx context.Context, in *flight.
 	return args.Get(0).(*flight.FlightInfo), args.Error(1)
 }
 
+func (m *FlightServiceClientMock) PollFlightInfo(ctx context.Context, in *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.PollInfo, error) {
+	args := m.Called(in.Type, in.Cmd, opts)
+	return args.Get(0).(*flight.PollInfo), args.Error(1)
+}
+
 func (m *FlightServiceClientMock) GetSchema(ctx context.Context, in *flight.FlightDescriptor, opts ...grpc.CallOption) (*flight.SchemaResult, error) {
 	panic("not implemented") // TODO: Implement
 }

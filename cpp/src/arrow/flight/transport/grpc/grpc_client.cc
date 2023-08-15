@@ -179,6 +179,8 @@ class GrpcClientInterceptorAdapterFactory
       flight_method = FlightMethod::ListFlights;
     } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
+    } else if (EndsWith(method, "/PollFlightInfo")) {
+      flight_method = FlightMethod::PollFlightInfo;
     } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
     } else if (EndsWith(method, "/DoGet")) {
@@ -939,6 +941,25 @@ class GrpcClientImpl : public internal::ClientTransport {
 
     ARROW_ASSIGN_OR_RAISE(auto info_data, internal::FromProto(pb_response));
     *info = std::make_unique<FlightInfo>(std::move(info_data));
+    return Status::OK();
+  }
+
+  Status PollFlightInfo(const FlightCallOptions& options,
+                        const FlightDescriptor& descriptor,
+                        std::unique_ptr<PollInfo>* info) override {
+    pb::FlightDescriptor pb_descriptor;
+    pb::PollInfo pb_response;
+
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+
+    ClientRpc rpc(options);
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    Status s = FromGrpcStatus(
+        stub_->PollFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
+    RETURN_NOT_OK(s);
+
+    info->reset(new PollInfo());
+    RETURN_NOT_OK(internal::FromProto(pb_response, info->get()));
     return Status::OK();
   }
 

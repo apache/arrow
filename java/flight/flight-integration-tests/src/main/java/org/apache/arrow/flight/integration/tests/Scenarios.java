@@ -46,6 +46,7 @@ final class Scenarios {
     scenarios.put("expiration_time:list_actions", ExpirationTimeListActionsScenario::new);
     scenarios.put("middleware", MiddlewareScenario::new);
     scenarios.put("ordered", OrderedScenario::new);
+    scenarios.put("poll_flight_info", PollFlightInfoScenario::new);
     scenarios.put("flight_sql", FlightSqlScenario::new);
     scenarios.put("flight_sql:extension", FlightSqlExtensionScenario::new);
   }

@@ -412,6 +412,32 @@ class GrpcServiceHandler final : public FlightService::Service {
     RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
   }
 
+  ::grpc::Status PollFlightInfo(ServerContext* context,
+                                const pb::FlightDescriptor* request,
+                                pb::PollInfo* response) {
+    GrpcServerCallContext flight_context(context);
+    GRPC_RETURN_NOT_GRPC_OK(
+        CheckAuth(FlightMethod::PollFlightInfo, context, flight_context));
+
+    CHECK_ARG_NOT_NULL(flight_context, request, "FlightDescriptor cannot be null");
+
+    FlightDescriptor descr;
+    SERVICE_RETURN_NOT_OK(flight_context, internal::FromProto(*request, &descr));
+
+    std::unique_ptr<PollInfo> info;
+    SERVICE_RETURN_NOT_OK(flight_context,
+                          impl_->base()->PollFlightInfo(flight_context, descr, &info));
+
+    if (!info) {
+      // Treat null listing as no flights available
+      RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status(::grpc::StatusCode::NOT_FOUND,
+                                                            "Flight not found"));
+    }
+
+    SERVICE_RETURN_NOT_OK(flight_context, internal::ToProto(*info, response));
+    RETURN_WITH_MIDDLEWARE(flight_context, ::grpc::Status::OK);
+  }
+
   ::grpc::Status GetSchema(ServerContext* context, const pb::FlightDescriptor* request,
                            pb::SchemaResult* response) {
     GrpcServerCallContext flight_context(context);

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"os"
 	"reflect"
@@ -68,6 +69,8 @@ func GetScenario(name string, args ...string) Scenario {
 		return &expirationTimeCancelFlightInfoScenarioTester{}
 	case "expiration_time:renew_flight_endpoint":
 		return &expirationTimeRenewFlightEndpointScenarioTester{}
+	case "poll_flight_info":
+		return &pollFlightInfoScenarioTester{}
 	case "flight_sql":
 		return &flightSqlScenarioTester{}
 	case "flight_sql:extension":
@@ -1126,6 +1129,108 @@ func (tester *expirationTimeRenewFlightEndpointScenarioTester) RunClient(addr st
 				"Original: %s\nRenewed: %s",
 				ep, renewedEndpoint)
 		}
+	}
+
+	return nil
+}
+
+type pollFlightInfoScenarioTester struct {
+	flight.BaseFlightServer
+}
+
+func (tester *pollFlightInfoScenarioTester) MakeServer(port int) flight.Server {
+	srv := flight.NewServerWithMiddleware(nil)
+	srv.RegisterFlightService(tester)
+	initServer(port, srv)
+	return srv
+}
+
+func (tester *pollFlightInfoScenarioTester) PollFlightInfo(ctx context.Context, desc *flight.FlightDescriptor) (*flight.PollInfo, error) {
+	schema := arrow.NewSchema(
+		[]arrow.Field{
+			{Name: "number", Type: arrow.PrimitiveTypes.Uint32},
+		},
+		nil,
+	)
+	endpoints := []*flight.FlightEndpoint{
+		&flight.FlightEndpoint{
+			Ticket:   &flight.Ticket{Ticket: []byte("long-running query")},
+			Location: []*flight.Location{},
+		},
+	}
+	info := &flight.FlightInfo{
+		Schema:           flight.SerializeSchema(schema, memory.DefaultAllocator),
+		FlightDescriptor: desc,
+		Endpoint:         endpoints,
+		TotalRecords:     -1,
+		TotalBytes:       -1,
+	}
+	pollDesc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("poll"),
+	}
+	if desc.Type == pollDesc.Type && string(desc.Cmd) == string(pollDesc.Cmd) {
+		progress := float64(1.0)
+		return &flight.PollInfo{
+			Info:             info,
+			FlightDescriptor: nil,
+			Progress:         &progress,
+			ExpirationTime:   nil,
+		}, nil
+	} else {
+		progress := float64(0.1)
+		return &flight.PollInfo{
+			Info:             info,
+			FlightDescriptor: &pollDesc,
+			Progress:         &progress,
+			ExpirationTime:   timestamppb.New(time.Now().Add(time.Second * 10)),
+		}, nil
+	}
+}
+
+func (tester *pollFlightInfoScenarioTester) RunClient(addr string, opts ...grpc.DialOption) error {
+	client, err := flight.NewClientWithMiddleware(addr, nil, nil, opts...)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	ctx := context.Background()
+	desc := flight.FlightDescriptor{
+		Type: flight.DescriptorCMD,
+		Cmd:  []byte("heavy query"),
+	}
+	info, err := client.PollFlightInfo(ctx, &desc)
+	if err != nil {
+		return err
+	}
+	switch {
+	case info.FlightDescriptor == nil:
+		return fmt.Errorf("description is missing: %s", info.String())
+	case info.Progress == nil:
+		return fmt.Errorf("progress is missing: %s", info.String())
+	case !(0.0 <= *info.Progress && *info.Progress <= 1.0):
+		return fmt.Errorf("invalid progress: %s", info.String())
+	case info.ExpirationTime == nil:
+		return fmt.Errorf("expiration time is missing: %s", info.String())
+	}
+
+	info, err = client.PollFlightInfo(ctx, info.FlightDescriptor)
+	if err != nil {
+		return err
+	}
+	switch {
+	case info.FlightDescriptor != nil:
+		return fmt.Errorf("retried but no finished yet: %s", info.String())
+	case info.Progress == nil:
+		return fmt.Errorf("progress is missing in finished query: %s",
+			info.String())
+	case math.Abs(*info.Progress-1.0) > 1e-5:
+		return fmt.Errorf("progress for finished query isn't 1.0: %s",
+			info.String())
+	case info.ExpirationTime != nil:
+		return fmt.Errorf("expiration time must not be set for finished query: %s",
+			info.String())
 	}
 
 	return nil

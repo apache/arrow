@@ -339,6 +339,92 @@ bool FlightInfo::Equals(const FlightInfo& other) const {
          data_.ordered == other.data_.ordered;
 }
 
+arrow::Result<std::string> PollInfo::SerializeToString() const {
+  pb::PollInfo pb_info;
+  RETURN_NOT_OK(internal::ToProto(*this, &pb_info));
+
+  std::string out;
+  if (!pb_info.SerializeToString(&out)) {
+    return Status::IOError("Serialized PollInfo exceeded 2 GiB limit");
+  }
+  return out;
+}
+
+arrow::Result<std::unique_ptr<PollInfo>> PollInfo::Deserialize(
+    std::string_view serialized) {
+  pb::PollInfo pb_info;
+  if (serialized.size() > static_cast<size_t>(std::numeric_limits<int>::max())) {
+    return Status::Invalid("Serialized PollInfo size should not exceed 2 GiB");
+  }
+  google::protobuf::io::ArrayInputStream input(serialized.data(),
+                                               static_cast<int>(serialized.size()));
+  if (!pb_info.ParseFromZeroCopyStream(&input)) {
+    return Status::Invalid("Not a valid PollInfo");
+  }
+  PollInfo info;
+  RETURN_NOT_OK(internal::FromProto(pb_info, &info));
+  return std::make_unique<PollInfo>(std::move(info));
+}
+
+std::string PollInfo::ToString() const {
+  std::stringstream ss;
+  ss << "<PollInfo info=" << info->ToString();
+  ss << " descriptor=";
+  if (descriptor) {
+    ss << descriptor->ToString();
+  } else {
+    ss << "null";
+  }
+  ss << " progress=";
+  if (progress) {
+    ss << progress.value();
+  } else {
+    ss << "null";
+  }
+  ss << " expiration_time=";
+  if (expiration_time) {
+    auto type = timestamp(TimeUnit::NANO);
+    arrow::internal::StringFormatter<TimestampType> formatter(type.get());
+    auto expiration_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    expiration_time->time_since_epoch())
+                                    .count();
+    formatter(expiration_timestamp,
+              [&ss](std::string_view formatted) { ss << formatted; });
+  } else {
+    ss << "null";
+  }
+  ss << '>';
+  return ss.str();
+}
+
+bool PollInfo::Equals(const PollInfo& other) const {
+  if ((info.get() != nullptr) != (other.info.get() != nullptr)) {
+    return false;
+  }
+  if (info && *info != *other.info) {
+    return false;
+  }
+  if (descriptor.has_value() != other.descriptor.has_value()) {
+    return false;
+  }
+  if (descriptor && *descriptor != *other.descriptor) {
+    return false;
+  }
+  if (progress.has_value() != other.progress.has_value()) {
+    return false;
+  }
+  if (progress && fabs(*progress - *other.progress) > arrow::kDefaultAbsoluteTolerance) {
+    return false;
+  }
+  if (expiration_time.has_value() != other.expiration_time.has_value()) {
+    return false;
+  }
+  if (expiration_time && *expiration_time != *other.expiration_time) {
+    return false;
+  }
+  return true;
+}
+
 std::string CancelFlightInfoRequest::ToString() const {
   std::stringstream ss;
   ss << "<CancelFlightInfoRequest info=" << info->ToString() << ">";

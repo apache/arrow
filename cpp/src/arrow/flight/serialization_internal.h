@@ -45,6 +45,7 @@ Status SchemaToString(const Schema& schema, std::string* out);
 
 // These functions depend on protobuf types which are not exported in the Flight DLL.
 
+Status FromProto(const google::protobuf::Timestamp& pb_timestamp, Timestamp* timestamp);
 Status FromProto(const pb::ActionType& pb_type, ActionType* type);
 Status FromProto(const pb::Action& pb_action, Action* action);
 Status FromProto(const pb::Result& pb_result, Result* result);
@@ -60,16 +61,19 @@ Status FromProto(const pb::FlightEndpoint& pb_endpoint, FlightEndpoint* endpoint
 Status FromProto(const pb::RenewFlightEndpointRequest& pb_request,
                  RenewFlightEndpointRequest* request);
 arrow::Result<FlightInfo> FromProto(const pb::FlightInfo& pb_info);
+Status FromProto(const pb::PollInfo& pb_info, PollInfo* info);
 Status FromProto(const pb::CancelFlightInfoRequest& pb_request,
                  CancelFlightInfoRequest* request);
 Status FromProto(const pb::SchemaResult& pb_result, std::string* result);
 Status FromProto(const pb::BasicAuth& pb_basic_auth, BasicAuth* info);
 
+Status ToProto(const Timestamp& timestamp, google::protobuf::Timestamp* pb_timestamp);
 Status ToProto(const FlightDescriptor& descr, pb::FlightDescriptor* pb_descr);
 Status ToProto(const FlightEndpoint& endpoint, pb::FlightEndpoint* pb_endpoint);
 Status ToProto(const RenewFlightEndpointRequest& request,
                pb::RenewFlightEndpointRequest* pb_request);
 Status ToProto(const FlightInfo& info, pb::FlightInfo* pb_info);
+Status ToProto(const PollInfo& info, pb::PollInfo* pb_info);
 Status ToProto(const CancelFlightInfoRequest& request,
                pb::CancelFlightInfoRequest* pb_request);
 Status ToProto(const ActionType& type, pb::ActionType* pb_type);
