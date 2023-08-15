@@ -28,12 +28,12 @@ classdef tValidateColumnNames < matlab.unittest.TestCase
             import arrow.tabular.internal.validateColumnNames
 
             columnNames = ["A", "B", "C"];
-            actual = validateColumnNames(columnNames, 3);
-            testCase.verifyEqual(actual, ["A", "B", "C"]);
+            fcn = @() validateColumnNames(columnNames, 3);
+            testCase.verifyWarningFree(fcn);
 
             columnNames = string.empty(1, 0);
-            actual = validateColumnNames(columnNames, 0);
-            testCase.verifyEqual(actual, string.empty(1, 0));
+            fcn = @() validateColumnNames(columnNames, 0);
+            testCase.verifyWarningFree(fcn);
         end
 
         function WrongNumberColumnNames(testCase)
