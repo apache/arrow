@@ -102,41 +102,31 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   virtual DeviceAllocationType device_type() const = 0;
 
   /// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
-  ///
-  /// This class is thread-safe.
   class ARROW_EXPORT SyncEvent {
    public:
     virtual ~SyncEvent() = default;
 
     /// @brief Block until sync event is completed.
-    Status wait() {
-      const std::lock_guard<std::mutex> lock(mx_);
-      return wait_internal();
-    }
+    virtual Status wait() = 0;
 
     /// @brief Make the provided stream wait on the sync event.
     ///
     /// Tells the provided stream that it should wait until the
     /// synchronization event is completed without blocking the CPU.
     /// @param stream Should be appropriate for the underlying device
-    Status stream_wait(void* stream) {
-      const std::lock_guard<std::mutex> lock(mx_);
-      return stream_wait_internal(stream);
-    }
+    virtual Status stream_wait(void* stream) = 0;
 
     void set_stream(void* stream) {
-      const std::lock_guard<std::mutex> lock(mx_);
       stream_ = stream;
     }
 
     /// @brief Returns the stored raw event or creates a new one to return.
     ///
     /// clear_event should always be called to cleanup afterwards. If this
-    /// creates the event, then clear_event will call release_event 
+    /// creates the event, then clear_event will call release_event
     /// internally. If this doesn't own the event, then the lifetime should
     /// be controlled externally to this class.
     Result<void*> get_event() {
-      const std::lock_guard<std::mutex> lock(mx_);
       if (!sync_event_) {
         ARROW_ASSIGN_OR_RAISE(sync_event_, create_event());
         owns_event_ = true;
@@ -145,7 +135,6 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     }
 
     void clear_event() {
-      const std::lock_guard<std::mutex> lock(mx_);
       if (owns_event_) {
         release_event(sync_event_);
       }
@@ -153,7 +142,6 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     }
 
     Status record_event() {
-      const std::lock_guard<std::mutex> lock(mx_);
       if (!stream_) {
         return Status::Invalid(
             "Cannot record event on null stream, call set_stream first.");
@@ -172,17 +160,10 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     // allowed to gracefully receive a nullptr
     virtual void release_event(void* event) = 0;
     virtual Result<void*> create_event() = 0;
-    virtual Status wait_internal() = 0;
-    virtual Status stream_wait_internal(void* stream) = 0;
 
     void* stream_;
     void* sync_event_;
     bool owns_event_;
-
-   private:
-    // the mutex is private as all public interfaces lock the mutex
-    // with a guard before calling protected virtual methods.
-    std::mutex mx_;
   };
 
  protected:
