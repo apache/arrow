@@ -1,6 +1,5 @@
-function tableOut = featherRoundTrip(filename, tableIn)
-% FEATHERROUNDTRIP Helper function for round tripping a table
-% to a Feather file.
+% ROUNDTRIP Test utility for round tripping a MATLAB
+% table to a Feather V1 file.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -16,7 +15,11 @@ function tableOut = featherRoundTrip(filename, tableIn)
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-
-featherwrite(filename, tableIn);
-tableOut = featherread(filename);
+function tRead = roundtrip(filename, tWrite)
+    arguments
+        filename (1, 1) string
+        tWrite table
+    end
+    featherwrite(filename, tWrite);
+    tRead = featherread(filename);
 end
