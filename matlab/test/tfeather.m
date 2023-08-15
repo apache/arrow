@@ -178,15 +178,19 @@ classdef tfeather < matlab.unittest.TestCase
         end
         
         function ErrorIfInvalidFilenameDatatype(testCase)
-            t = createTable;
+            import arrow.internal.test.tabular.createTableWithSupportedTypes
+
+            t = createTableWithSupportedTypes;
             
             testCase.verifyError(@() featherwrite({table}, t), 'MATLAB:validation:UnableToConvert');
         end
 
         function ErrorIfTooManyInputs(testCase)
+            import arrow.internal.test.tabular.createTableWithSupportedTypes
+
             filename = fullfile(pwd, 'temp.feather');
             
-            t = createTable;
+            t = createTableWithSupportedTypes;
 
             testCase.verifyError(@() featherwrite(filename, t, 'SomeValue', 'SomeOtherValue'), 'MATLAB:TooManyInputs');
             testCase.verifyError(@() featherread(filename, 'SomeValue', 'SomeOtherValue'), 'MATLAB:TooManyInputs');
