@@ -215,7 +215,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         % results in an error of type "MATLAB:class:SetProhibited".
             t = table([1; 2; 3]);
             recordBatch = arrow.recordbatch(t);
-            tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), 
+            tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), ...
                 "MATLAB:class:SetProhibited");
         end
 
