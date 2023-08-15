@@ -95,4 +95,29 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             disp(obj.toString());
         end
     end
+
+    methods (Static, Access=public)
+        function recordBatch = fromArrays(arrowArrays, opts)
+            arguments(Repeating)
+                arrowArrays(1, 1) arrow.array.Array
+            end
+            arguments
+                opts.ColumnNames(1, :) string {mustBeNonmissing} = compose("Column%d", 1:numel(arrowArrays))
+            end
+
+            import arrow.tabular.internal.validateArrayLengths
+            import arrow.tabular.internal.validateColumnNames
+            import arrow.tabular.internal.getArrayProxyIDs
+            
+            numColumns = numel(arrowArrays);
+            validateArrayLengths(arrowArrays);
+            validateColumnNames(opts.ColumnNames, numColumns);
+
+            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            proxyName = "arrow.tabular.proxy.RecordBatch";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            recordBatch = arrow.tabular.RecordBatch(proxy);
+        end
+    end
 end
