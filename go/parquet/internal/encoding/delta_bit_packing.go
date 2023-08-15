@@ -355,7 +355,7 @@ func (enc *deltaBitPackEncoder) flushBlock() {
 
 	enc.bitWriter.WriteZigZagVlqInt(minDelta)
 	// reserve enough bytes to write out our miniblock deltas
-	offset := enc.bitWriter.ReserveBytes(int(enc.numMiniBlocks))
+	offset, _ := enc.bitWriter.SkipBytes(int(enc.numMiniBlocks))
 
 	valuesToWrite := int64(len(enc.deltas))
 	for i := 0; i < int(enc.numMiniBlocks); i++ {

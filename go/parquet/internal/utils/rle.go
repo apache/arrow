@@ -22,7 +22,6 @@ package utils
 import (
 	"bytes"
 	"encoding/binary"
-	"io"
 	"math"
 
 	"github.com/apache/arrow/go/v13/arrow/bitutil"
@@ -465,7 +464,7 @@ type RleEncoder struct {
 	indicatorBuffer [1]byte
 }
 
-func NewRleEncoder(w io.WriterAt, width int) *RleEncoder {
+func NewRleEncoder(w WriterAtWithLen, width int) *RleEncoder {
 	return &RleEncoder{
 		w:                      NewBitWriter(w),
 		buffer:                 make([]uint64, 0, 8),
@@ -521,7 +520,10 @@ func (r *RleEncoder) flushBuffered(done bool) (err error) {
 
 func (r *RleEncoder) flushLiteral(updateIndicator bool) (err error) {
 	if r.literalIndicatorOffset == -1 {
-		r.literalIndicatorOffset = r.w.ReserveBytes(1)
+		r.literalIndicatorOffset, err = r.w.SkipBytes(1)
+		if err != nil {
+			return
+		}
 	}
 
 	for _, val := range r.buffer {

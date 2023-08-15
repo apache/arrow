@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"math/bits"
 
 	"github.com/JohnCGriffin/overflow"
@@ -75,7 +74,7 @@ func (l *LevelEncoder) Reset(maxLvl int16) {
 
 // Init is called to set up the desired encoding type, max level and underlying writer for a
 // level encoder to control where the resulting encoded buffer will end up.
-func (l *LevelEncoder) Init(encoding parquet.Encoding, maxLvl int16, w io.WriterAt) {
+func (l *LevelEncoder) Init(encoding parquet.Encoding, maxLvl int16, w utils.WriterAtWithLen) {
 	l.bitWidth = bits.Len64(uint64(maxLvl))
 	l.encoding = format.Encoding(encoding)
 	switch l.encoding {

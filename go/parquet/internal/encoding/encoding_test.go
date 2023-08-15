@@ -646,6 +646,30 @@ func TestWriteDeltaBitPackedInt64(t *testing.T) {
 			assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
 		}
 	})
+
+	t.Run("GH-37102", func(t *testing.T) {
+		values := []int64{
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0,
+		}
+
+		enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int64Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		dec.(encoding.Int64Decoder).SetData(len(values), buf.Bytes())
+
+		valueBuf := make([]int64, len(values))
+
+		decoded, _ := dec.(encoding.Int64Decoder).Decode(valueBuf)
+		assert.Equal(t, len(valueBuf), decoded)
+		assert.Equal(t, values, valueBuf)
+	})
 }
 
 func TestDeltaLengthByteArrayEncoding(t *testing.T) {
