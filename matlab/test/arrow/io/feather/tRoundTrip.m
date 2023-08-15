@@ -110,7 +110,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
             testCase.verifyEqual(outputRecordBatch.ColumnNames, inputRecordBatch.ColumnNames);
             
             % Verify the VariableNames property in the table returned by
-            % featherread have been modified and that 
+            % featherread has been modified and that 
             % VariableDescriptions is set property.
             outputTable = featherread(filename);
             testCase.verifyEqual(outputTable.Properties.VariableNames, {':_1', 'Valid'});
