@@ -18,12 +18,10 @@
 
 classdef tValidateColumnNames < matlab.unittest.TestCase
     
-    methods(Test)
-        % Test methods
-        
+    methods(Test)        
         function ValidColumnNames(testCase)
-            % Verify validateColumnNames() does not error column names 
-            % array has the expected number of elements.
+            % Verify validateColumnNames() oes not error if the 
+            % column names array has the expected number of elements.
 
             import arrow.tabular.internal.validateColumnNames
 

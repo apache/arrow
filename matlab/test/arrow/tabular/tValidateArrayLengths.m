@@ -18,9 +18,7 @@
 
 classdef tValidateArrayLengths < matlab.unittest.TestCase
     
-    methods(Test)
-        % Test methods
-        
+    methods(Test)        
         function ArraysWithEqualLength(testCase)
             % Verify validateArrayLengths() does not error if all the
             % arrays have the same length.
@@ -35,19 +33,19 @@ classdef tValidateArrayLengths < matlab.unittest.TestCase
             fcn = @() validateArrayLengths({a});
             testCase.verifyWarningFree(fcn);
 
-            % cell array with two element
+            % cell array with two elements
             fcn = @() validateArrayLengths({a, b});
             testCase.verifyWarningFree(fcn);
             
-            % cell array with one element
+            % cell array with three elements
             fcn = @() validateArrayLengths({a, b, c});
             testCase.verifyWarningFree(fcn);
         end
 
         function ArraysWithUnequalLengths(testCase)
             % Verify validateArrayLengths() throws an error whose
-            % identifier is "arrow:tabular:UnequalArrayLengths" if not all
-            % the arrays have the same length.
+            % identifier is "arrow:tabular:UnequalArrayLengths" if
+            % all the arrays do not have the same length.
             
             import arrow.tabular.internal.validateArrayLengths
 
