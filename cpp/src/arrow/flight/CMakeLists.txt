@@ -83,11 +83,15 @@ set(FLIGHT_GENERATED_PROTO_FILES
 
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
+set(FLIGHT_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}")
+if(Protobuf_VERSION VERSION_LESS 3.15)
+  list(APPEND FLIGHT_PROTOC_COMMAND "--experimental_allow_proto3_optional")
+endif()
 add_custom_command(OUTPUT ${FLIGHT_GENERATED_PROTO_FILES}
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
-                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
                    DEPENDS ${PROTO_DEPENDS} ARGS
-                   COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}"
+                   COMMAND ${FLIGHT_PROTOC_COMMAND}
+                           "--cpp_out=${CMAKE_CURRENT_BINARY_DIR}" "${FLIGHT_PROTO}"
+                   COMMAND ${FLIGHT_PROTOC_COMMAND}
                            "--grpc_out=${CMAKE_CURRENT_BINARY_DIR}"
                            "--plugin=protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
                            "${FLIGHT_PROTO}")

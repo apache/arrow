@@ -80,6 +80,11 @@ void ClientTransport::GetFlightInfoAsync(
     std::shared_ptr<AsyncListener<FlightInfo>> listener) {
   listener->OnFinish(Status::NotImplemented("Async GetFlightInfo for this transport"));
 }
+Status ClientTransport::PollFlightInfo(const FlightCallOptions& options,
+                                       const FlightDescriptor& descriptor,
+                                       std::unique_ptr<PollInfo>* info) {
+  return Status::NotImplemented("PollFlightInfo for this transport");
+}
 arrow::Result<std::unique_ptr<SchemaResult>> ClientTransport::GetSchema(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   return Status::NotImplemented("GetSchema for this transport");

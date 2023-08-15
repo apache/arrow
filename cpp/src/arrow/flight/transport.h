@@ -187,6 +187,9 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
   virtual void GetFlightInfoAsync(const FlightCallOptions& options,
                                   const FlightDescriptor& descriptor,
                                   std::shared_ptr<AsyncListener<FlightInfo>> listener);
+  virtual Status PollFlightInfo(const FlightCallOptions& options,
+                                const FlightDescriptor& descriptor,
+                                std::unique_ptr<PollInfo>* info);
   virtual arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
       const FlightCallOptions& options, const FlightDescriptor& descriptor);
   virtual Status ListFlights(const FlightCallOptions& options, const Criteria& criteria,
