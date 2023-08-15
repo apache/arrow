@@ -548,6 +548,7 @@ if(ARROW_JSON)
   list(APPEND
        ARROW_SRCS
        extension/fixed_shape_tensor.cc
+       extension/variable_shape_tensor.cc
        json/options.cc
        json/chunked_builder.cc
        json/chunker.cc

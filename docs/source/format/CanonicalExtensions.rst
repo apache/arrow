@@ -148,6 +148,76 @@ Fixed shape tensor
   by this specification. Instead, this extension type lets one use fixed shape tensors
   as elements in a field of a RecordBatch or a Table.
 
+.. _variable_shape_tensor_extension:
+
+Variable shape tensor
+=====================
+
+* Extension name: `arrow.variable_shape_tensor`.
+
+* The storage type of the extension is: ``StructArray`` where struct
+  is composed of **data** and **shape** fields describing a single
+  tensor per row:
+
+  * **data** is a ``List`` holding tensor elements of a single tensor.
+    Data type of the list elements is uniform across the entire column
+    and also provided in metadata.
+  * **shape** is a ``FixedSizeList<uint32>[ndim]`` of the tensor shape where
+    the size of the list ``ndim`` is equal to the number of dimensions of the
+    tensor.
+
+* Extension type parameters:
+
+  * **value_type** = the Arrow data type of individual tensor elements.
+
+  Optional parameters describing the logical layout:
+
+  * **dim_names** = explicit names to tensor dimensions
+    as an array. The length of it should be equal to the shape
+    length and equal to the number of dimensions.
+
+    ``dim_names`` can be used if the dimensions have well-known
+    names and they map to the physical layout (row-major).
+
+  * **permutation**  = indices of the desired ordering of the
+    original dimensions, defined as an array.
+
+    The indices contain a permutation of the values [0, 1, .., N-1] where
+    N is the number of dimensions. The permutation indicates which
+    dimension of the logical layout corresponds to which dimension of the
+    physical tensor (the i-th dimension of the logical view corresponds
+    to the dimension with number ``permutations[i]`` of the physical tensor).
+
+    Permutation can be useful in case the logical order of
+    the tensor is a permutation of the physical order (row-major).
+
+    When logical and physical layout are equal, the permutation will always
+    be ([0, 1, .., N-1]) and can therefore be left out.
+
+* Description of the serialization:
+
+  The metadata must be a valid JSON object including number of
+  dimensions of the contained tensors as an integer with key **"ndim"**
+  plus optional dimension names with keys **"dim_names"** and ordering of
+  the dimensions with key **"permutation"**.
+
+  - Example with ``dim_names`` metadata for NCHW ordered data:
+
+    ``{ "dim_names": ["C", "H", "W"] }``
+
+  - Example of permuted 3-dimensional tensor:
+
+    ``{ "permutation": [2, 0, 1] }``
+
+    This is the physical layout shape and the shape of the logical
+    layout would given an individual tensor of shape [100, 200, 500]
+    be ``[500, 100, 200]``.
+
+.. note::
+
+  Elements in a variable shape tensor extension array are stored
+  in row-major/C-contiguous order.
+
 =========================
 Community Extension Types
 =========================
