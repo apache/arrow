@@ -316,6 +316,13 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCOOTensor
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            Data used to populate the rows.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -549,6 +556,14 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
@@ -781,6 +796,14 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
@@ -816,6 +839,13 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCSCMatrix
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            Data used to populate the rows.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -997,6 +1027,14 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
@@ -1040,6 +1078,13 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCSFTensor
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            Data used to populate the rows.
+        dim_names : list, optional
+            Names of the dimensions.
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -1190,6 +1235,14 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
