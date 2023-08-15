@@ -19,9 +19,29 @@ if(Azure_FOUND)
   return()
 endif()
 
-message(STATUS "find azure sdk")
-find_package(Azure::azure-core)
-find_package(Azure::azure-identity)
-find_package(Azure::azure-storage-blobs)
-find_package(Azure::azure-storage-common)
-find_package(Azure::azure-storage-files-datalake)
+set(FIND_PACKAGE_ARGUMENTS)
+list(APPEND FIND_PACKAGE_ARGUMENTS CONFIG)
+if(Azure_FIND_REQUIRED)
+  list(APPEND FIND_PACKAGE_ARGUMENTS REQUIRED)
+endif()
+
+find_package(azure-core-cpp ${FIND_PACKAGE_ARGUMENTS})
+find_package(azure-identity-cpp ${FIND_PACKAGE_ARGUMENTS})
+find_package(azure-storage-blobs-cpp ${FIND_PACKAGE_ARGUMENTS})
+find_package(azure-storage-common-cpp ${FIND_PACKAGE_ARGUMENTS})
+find_package(azure-storage-files-datalake-cpp ${FIND_PACKAGE_ARGUMENTS})
+
+if(azure-core-cpp_FOUND AND azure-identity-cpp_FOUND AND azure-storage-blobs-cpp_FOUND
+  AND azure-storage-common-cpp_FOUND AND azure-storage-files-datalake-cpp_FOUND)
+  list(APPEND
+    AZURE_SDK_LINK_LIBRARIES
+    Azure::azure-core
+    Azure::azure-identity
+    Azure::azure-storage-blobs
+    Azure::azure-storage-common
+    Azure::azure-storage-files-datalake
+  )
+  set(Azure_FOUND TRUE)
+else()
+  set(Azure_FOUND FALSE)
+endif()
