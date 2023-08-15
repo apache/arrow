@@ -210,12 +210,12 @@ classdef tRecordBatch < matlab.unittest.TestCase
             tc.verifyEqual(schema.field(3).Name, "C");
         end
 
-        function SchemaNoSetter(testCase)
+        function SchemaNoSetter(tc)
         % Verify that trying to set the value of the public Schema property
         % results in an error of type "MATLAB:class:SetProhibited".
             t = table([1; 2; 3]);
             recordBatch = arrow.recordbatch(t);
-            testCase.verifyError(@() setfield(recordBatch, "Schema", "Value"), ...
+            tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), 
                 "MATLAB:class:SetProhibited");
         end
 
