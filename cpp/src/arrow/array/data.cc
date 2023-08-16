@@ -594,65 +594,74 @@ void AccumulateArrayData(const std::shared_ptr<ArrayData>& data,
   }
 }
 
-struct ViewDataImpl {
-  std::shared_ptr<DataType> root_in_type;
-  std::shared_ptr<DataType> root_out_type;
-  std::vector<DataTypeLayout> in_layouts;
-  std::vector<std::shared_ptr<ArrayData>> in_data;
-  int64_t in_data_length;
-  size_t in_layout_idx = 0;
-  size_t in_buffer_idx = 0;
-  bool input_exhausted = false;
+class ViewDataImpl {
+ private:
+  std::shared_ptr<DataType> root_in_type_;
+  std::shared_ptr<DataType> root_out_type_;
+  std::vector<DataTypeLayout> in_layouts_;
+  std::vector<std::shared_ptr<ArrayData>> in_data_;
+  int64_t in_data_length_;
+  size_t in_layout_idx_ = 0;
+  size_t in_buffer_idx_ = 0;
+  bool input_exhausted_ = false;
+
+ public:
+  ViewDataImpl(const std::shared_ptr<ArrayData>& data, std::shared_ptr<DataType> out_type)
+      : root_in_type_(data->type), root_out_type_(std::move(out_type)) {
+    AccumulateLayouts(root_in_type_, &in_layouts_);
+    AccumulateArrayData(data, &in_data_);
+    in_data_length_ = data->length;
+  }
 
   Status InvalidView(const std::string& msg) {
-    return Status::Invalid("Can't view array of type ", root_in_type->ToString(), " as ",
-                           root_out_type->ToString(), ": ", msg);
+    return Status::Invalid("Can't view array of type ", root_in_type_->ToString(), " as ",
+                           root_out_type_->ToString(), ": ", msg);
   }
 
   void AdjustInputPointer() {
-    if (input_exhausted) {
+    if (input_exhausted_) {
       return;
     }
     while (true) {
       // Skip exhausted layout (might be empty layout)
-      while (in_buffer_idx >= in_layouts[in_layout_idx].buffers.size()) {
-        in_buffer_idx = 0;
-        ++in_layout_idx;
-        if (in_layout_idx >= in_layouts.size()) {
-          input_exhausted = true;
+      while (in_buffer_idx_ >= in_layouts_[in_layout_idx_].buffers.size()) {
+        in_buffer_idx_ = 0;
+        ++in_layout_idx_;
+        if (in_layout_idx_ >= in_layouts_.size()) {
+          input_exhausted_ = true;
           return;
         }
       }
-      const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
+      const auto& in_spec = in_layouts_[in_layout_idx_].buffers[in_buffer_idx_];
       if (in_spec.kind != DataTypeLayout::ALWAYS_NULL) {
         return;
       }
       // Skip always-null input buffers
       // (e.g. buffer 0 of a null type or buffer 2 of a sparse union)
-      ++in_buffer_idx;
+      ++in_buffer_idx_;
     }
   }
 
   Status CheckInputAvailable() {
-    if (input_exhausted) {
+    if (input_exhausted_) {
       return InvalidView("not enough buffers for view type");
     }
     return Status::OK();
   }
 
   Status CheckInputExhausted() {
-    if (!input_exhausted) {
+    if (!input_exhausted_) {
       return InvalidView("too many buffers for view type");
     }
     return Status::OK();
   }
 
   Result<std::shared_ptr<ArrayData>> GetDictionaryView(const DataType& out_type) {
-    if (in_data[in_layout_idx]->type->id() != Type::DICTIONARY) {
+    if (in_data_[in_layout_idx_]->type->id() != Type::DICTIONARY) {
       return InvalidView("Cannot get view as dictionary type");
     }
     const auto& dict_out_type = static_cast<const DictionaryType&>(out_type);
-    return internal::GetArrayView(in_data[in_layout_idx]->dictionary,
+    return internal::GetArrayView(in_data_[in_layout_idx_]->dictionary,
                                   dict_out_type.value_type());
   }
 
@@ -662,7 +671,7 @@ struct ViewDataImpl {
     const auto out_layout = out_type->layout();
 
     AdjustInputPointer();
-    int64_t out_length = in_data_length;
+    int64_t out_length = in_data_length_;
     int64_t out_offset = 0;
     int64_t out_null_count;
 
@@ -677,19 +686,19 @@ struct ViewDataImpl {
     std::vector<std::shared_ptr<Buffer>> out_buffers;
 
     // Process null bitmap
-    if (in_buffer_idx == 0 && out_layout.buffers[0].kind == DataTypeLayout::BITMAP) {
+    if (in_buffer_idx_ == 0 && out_layout.buffers[0].kind == DataTypeLayout::BITMAP) {
       // Copy input null bitmap
       RETURN_NOT_OK(CheckInputAvailable());
-      const auto& in_data_item = in_data[in_layout_idx];
+      const auto& in_data_item = in_data_[in_layout_idx_];
       if (!out_field->nullable() && in_data_item->GetNullCount() != 0) {
         return InvalidView("nulls in input cannot be viewed as non-nullable");
       }
-      DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx);
-      out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
+      DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx_);
+      out_buffers.push_back(in_data_item->buffers[in_buffer_idx_]);
       out_length = in_data_item->length;
       out_offset = in_data_item->offset;
       out_null_count = in_data_item->null_count;
-      ++in_buffer_idx;
+      ++in_buffer_idx_;
       AdjustInputPointer();
     } else {
       // No null bitmap in input, append no-nulls bitmap
@@ -712,27 +721,27 @@ struct ViewDataImpl {
       }
 
       // If input buffer is null bitmap, try to ignore it
-      while (in_buffer_idx == 0) {
+      while (in_buffer_idx_ == 0) {
         RETURN_NOT_OK(CheckInputAvailable());
-        if (in_data[in_layout_idx]->GetNullCount() != 0) {
+        if (in_data_[in_layout_idx_]->GetNullCount() != 0) {
           return InvalidView("cannot represent nested nulls");
         }
-        ++in_buffer_idx;
+        ++in_buffer_idx_;
         AdjustInputPointer();
       }
 
       RETURN_NOT_OK(CheckInputAvailable());
-      const auto& in_spec = in_layouts[in_layout_idx].buffers[in_buffer_idx];
+      const auto& in_spec = in_layouts_[in_layout_idx_].buffers[in_buffer_idx_];
       if (out_spec != in_spec) {
         return InvalidView("incompatible layouts");
       }
       // Copy input buffer
-      const auto& in_data_item = in_data[in_layout_idx];
+      const auto& in_data_item = in_data_[in_layout_idx_];
       out_length = in_data_item->length;
       out_offset = in_data_item->offset;
-      DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx);
-      out_buffers.push_back(in_data_item->buffers[in_buffer_idx]);
-      ++in_buffer_idx;
+      DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx_);
+      out_buffers.push_back(in_data_item->buffers[in_buffer_idx_]);
+      ++in_buffer_idx_;
       AdjustInputPointer();
     }
 
@@ -757,16 +766,11 @@ namespace internal {
 
 Result<std::shared_ptr<ArrayData>> GetArrayView(
     const std::shared_ptr<ArrayData>& data, const std::shared_ptr<DataType>& out_type) {
-  ViewDataImpl impl;
-  impl.root_in_type = data->type;
-  impl.root_out_type = out_type;
-  AccumulateLayouts(impl.root_in_type, &impl.in_layouts);
-  AccumulateArrayData(data, &impl.in_data);
-  impl.in_data_length = data->length;
-
-  std::shared_ptr<ArrayData> out_data;
   // Dummy field for output type
   auto out_field = field("", out_type);
+
+  ViewDataImpl impl(data, out_type);
+  std::shared_ptr<ArrayData> out_data;
   RETURN_NOT_OK(impl.MakeDataView(out_field, &out_data));
   RETURN_NOT_OK(impl.CheckInputExhausted());
   return out_data;
