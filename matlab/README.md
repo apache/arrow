@@ -27,8 +27,8 @@ This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
 Currently, the MATLAB interface supports:
 
-1. Creating a subset of Arrow `Array` types from MATLAB data (see table below)
-2. Converting MATLAB `table`s to `arrow.tabular.RecordBatch`s
+1. Converting between a subset of Arrow `Array` types and MATLAB array types (see table below)
+2. Converting between MATLAB `table`s and `arrow.tabular.RecordBatch`s
 3. Reading and writing Feather v1 files
 
 Supported `arrow.array.Array` types are included in the table below.
