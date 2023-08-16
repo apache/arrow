@@ -292,128 +292,128 @@ struct Type {
     NA = 0,
 
     /// Boolean as 1 bit, LSB bit-packed ordering
-    BOOL,
+    BOOL = 1,
 
     /// Unsigned 8-bit little-endian integer
-    UINT8,
+    UINT8 = 2,
 
     /// Signed 8-bit little-endian integer
-    INT8,
+    INT8 = 3,
 
     /// Unsigned 16-bit little-endian integer
-    UINT16,
+    UINT16 = 4,
 
     /// Signed 16-bit little-endian integer
-    INT16,
+    INT16 = 5,
 
     /// Unsigned 32-bit little-endian integer
-    UINT32,
+    UINT32 = 6,
 
     /// Signed 32-bit little-endian integer
-    INT32,
+    INT32 = 7,
 
     /// Unsigned 64-bit little-endian integer
-    UINT64,
+    UINT64 = 8,
 
     /// Signed 64-bit little-endian integer
-    INT64,
+    INT64 = 9,
 
     /// 2-byte floating point value
-    HALF_FLOAT,
+    HALF_FLOAT = 10,
 
     /// 4-byte floating point value
-    FLOAT,
+    FLOAT = 11,
 
     /// 8-byte floating point value
-    DOUBLE,
+    DOUBLE = 12,
 
     /// UTF8 variable-length string as List<Char>
-    STRING,
+    STRING = 13,
 
     /// Variable-length bytes (no guarantee of UTF8-ness)
-    BINARY,
+    BINARY = 14,
 
     /// Fixed-size binary. Each value occupies the same number of bytes
-    FIXED_SIZE_BINARY,
+    FIXED_SIZE_BINARY = 15,
 
     /// int32_t days since the UNIX epoch
-    DATE32,
+    DATE32 = 16,
 
     /// int64_t milliseconds since the UNIX epoch
-    DATE64,
+    DATE64 = 17,
 
     /// Exact timestamp encoded with int64 since UNIX epoch
     /// Default unit millisecond
-    TIMESTAMP,
+    TIMESTAMP = 18,
 
     /// Time as signed 32-bit integer, representing either seconds or
     /// milliseconds since midnight
-    TIME32,
+    TIME32 = 19,
 
     /// Time as signed 64-bit integer, representing either microseconds or
     /// nanoseconds since midnight
-    TIME64,
+    TIME64 = 20,
 
     /// YEAR_MONTH interval in SQL style
-    INTERVAL_MONTHS,
+    INTERVAL_MONTHS = 21,
 
     /// DAY_TIME interval in SQL style
-    INTERVAL_DAY_TIME,
+    INTERVAL_DAY_TIME = 22,
 
     /// Precision- and scale-based decimal type with 128 bits.
-    DECIMAL128,
+    DECIMAL128 = 23,
 
     /// Defined for backward-compatibility.
     DECIMAL = DECIMAL128,
 
     /// Precision- and scale-based decimal type with 256 bits.
-    DECIMAL256,
+    DECIMAL256 = 24,
 
     /// A list of some logical data type
-    LIST,
+    LIST = 25,
 
     /// Struct of logical types
-    STRUCT,
+    STRUCT = 26,
 
     /// Sparse unions of logical types
-    SPARSE_UNION,
+    SPARSE_UNION = 27,
 
     /// Dense unions of logical types
-    DENSE_UNION,
+    DENSE_UNION = 28,
 
     /// Dictionary-encoded type, also called "categorical" or "factor"
     /// in other programming languages. Holds the dictionary value
     /// type but not the dictionary itself, which is part of the
     /// ArrayData struct
-    DICTIONARY,
+    DICTIONARY = 29,
 
     /// Map, a repeated struct logical type
-    MAP,
+    MAP = 30,
 
     /// Custom data type, implemented by user
-    EXTENSION,
+    EXTENSION = 31,
 
     /// Fixed size list of some logical type
-    FIXED_SIZE_LIST,
+    FIXED_SIZE_LIST = 32,
 
     /// Measure of elapsed time in either seconds, milliseconds, microseconds
     /// or nanoseconds.
-    DURATION,
+    DURATION = 33,
 
     /// Like STRING, but with 64-bit offsets
-    LARGE_STRING,
+    LARGE_STRING = 34,
 
     /// Like BINARY, but with 64-bit offsets
-    LARGE_BINARY,
+    LARGE_BINARY = 35,
 
     /// Like LIST, but with 64-bit offsets
-    LARGE_LIST,
+    LARGE_LIST = 36,
 
     /// Calendar interval type with three fields.
-    INTERVAL_MONTH_DAY_NANO,
+    INTERVAL_MONTH_DAY_NANO = 37,
 
     /// Run-end encoded data.
-    RUN_END_ENCODED,
+    RUN_END_ENCODED = 38,
 
     // Leave this at the end
     MAX_ID
