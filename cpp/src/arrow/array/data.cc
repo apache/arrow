@@ -587,10 +587,14 @@ void AccumulateLayouts(const std::shared_ptr<DataType>& type,
 }
 
 void AccumulateArrayData(const std::shared_ptr<ArrayData>& data,
-                         std::vector<std::shared_ptr<ArrayData>>* out) {
+                         std::vector<std::shared_ptr<ArrayData>>* out,
+                         std::vector<std::optional<size_t>>* out_parent_indices,
+                         std::optional<size_t> parent_index = std::nullopt) {
+  const std::optional<size_t> new_parent = out->size();
   out->push_back(data);
+  out_parent_indices->push_back(parent_index);
   for (const auto& child : data->child_data) {
-    AccumulateArrayData(child, out);
+    AccumulateArrayData(child, out, out_parent_indices, new_parent);
   }
 }
 
@@ -600,6 +604,7 @@ class ViewDataImpl {
   std::shared_ptr<DataType> root_out_type_;
   std::vector<DataTypeLayout> in_layouts_;
   std::vector<std::shared_ptr<ArrayData>> in_data_;
+  std::vector<std::optional<size_t>> parent_indices_;
   int64_t in_data_length_;
   size_t in_layout_idx_ = 0;
   size_t in_buffer_idx_ = 0;
@@ -609,7 +614,7 @@ class ViewDataImpl {
   ViewDataImpl(const std::shared_ptr<ArrayData>& data, std::shared_ptr<DataType> out_type)
       : root_in_type_(data->type), root_out_type_(std::move(out_type)) {
     AccumulateLayouts(root_in_type_, &in_layouts_);
-    AccumulateArrayData(data, &in_data_);
+    AccumulateArrayData(data, &in_data_, &parent_indices_);
     in_data_length_ = data->length;
   }
 
@@ -690,7 +695,15 @@ class ViewDataImpl {
       // Copy input null bitmap
       RETURN_NOT_OK(CheckInputAvailable());
       const auto& in_data_item = in_data_[in_layout_idx_];
-      if (!out_field->nullable() && in_data_item->GetNullCount() != 0) {
+      const auto parent_layout_idx = parent_indices_[in_layout_idx_];
+      const auto* parent_data_item = parent_layout_idx.has_value()
+                                         ? in_data_[parent_layout_idx.value()].get()
+                                         : nullptr;
+      const bool parent_is_all_nulls =
+          parent_data_item &&
+          parent_data_item->GetNullCount() == parent_data_item->length;
+      if (!parent_is_all_nulls && !out_field->nullable() &&
+          in_data_item->GetNullCount() != 0) {
         return InvalidView("nulls in input cannot be viewed as non-nullable");
       }
       DCHECK_GT(in_data_item->buffers.size(), in_buffer_idx_);
