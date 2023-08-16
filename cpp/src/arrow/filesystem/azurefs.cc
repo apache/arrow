@@ -49,11 +49,12 @@ class AzureFileSystem::Impl {
       : io_context_(io_context), options_(std::move(options)) {}
 
   Status Init() {
-    // TODO: Delete this once we have a proper implementation. This is just here to 
-    // ensure the build is working correctly with the Azure SDK.
-    auto defaultCredential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
-    auto serviceClient = Azure::Storage::Blobs::BlobServiceClient(
-      "http://fake-blob-storage-endpoit", defaultCredential);
+    // TODO: GH-18014 Delete this once we have a proper implementation. This just 
+    // initializes a pointless Azure blob service client with a fake endpoint to ensure 
+    // the build will fail if the Azure SDK build is broken.
+    auto default_credential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+    auto service_client = Azure::Storage::Blobs::BlobServiceClient(
+      "http://fake-blob-storage-endpoint", default_credential);
     if (options_.backend == AzureBackend::Azurite) {
       // gen1Client_->GetAccountInfo().Value.IsHierarchicalNamespaceEnabled
       // throws error in azurite

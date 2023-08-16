@@ -114,9 +114,9 @@ AzuriteEnv* GetAzuriteEnv() {
 // Placeholder tests
 // TODO: GH-18014 Remove once a proper test is added
 TEST(AzureFileSystem, UploadThenDownload) {
-  const std::string containerName = "sample-container";
-  const std::string blobName = "sample-blob.txt";
-  const std::string blobContent = "Hello Azure!";
+  const std::string container_name = "sample-container";
+  const std::string blob_name = "sample-blob.txt";
+  const std::string blob_content = "Hello Azure!";
 
   const std::string& account_name = GetAzuriteEnv()->account_name();
   const std::string& account_key = GetAzuriteEnv()->account_key();
@@ -124,26 +124,26 @@ TEST(AzureFileSystem, UploadThenDownload) {
   auto credential = std::make_shared<Azure::Storage::StorageSharedKeyCredential>(
       account_name, account_key);
 
-  auto serviceClient = Azure::Storage::Blobs::BlobServiceClient(
+  auto service_client = Azure::Storage::Blobs::BlobServiceClient(
       "http://127.0.0.1:10000/devstoreaccount1", credential);
-  auto containerClient = serviceClient.GetBlobContainerClient(containerName);
-  containerClient.CreateIfNotExists();
-  auto blobClient = containerClient.GetBlockBlobClient(blobName);
+  auto container_client = service_client.GetBlobContainerClient(container_name);
+  container_client.CreateIfNotExists();
+  auto blob_client = container_client.GetBlockBlobClient(blob_name);
 
-  std::vector<uint8_t> buffer(blobContent.begin(), blobContent.end());
-  blobClient.UploadFrom(buffer.data(), buffer.size());
+  std::vector<uint8_t> buffer(blob_content.begin(), blob_content.end());
+  blob_client.UploadFrom(buffer.data(), buffer.size());
 
-  std::vector<uint8_t> buffer2(blobContent.size());
-  blobClient.DownloadTo(buffer2.data(), buffer2.size());
+  std::vector<uint8_t> buffer2(blob_content.size());
+  blob_client.DownloadTo(buffer2.data(), buffer2.size());
 
-  EXPECT_EQ(std::string(buffer2.begin(), buffer2.end()), blobContent);
+  EXPECT_EQ(std::string(buffer2.begin(), buffer2.end()), blob_content);
 }
 
 TEST(AzureFileSystem, InitializeCredentials) {
-  auto defaultCredential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
-  auto managedIdentityCredential =
+  auto default_credential = std::make_shared<Azure::Identity::DefaultAzureCredential>();
+  auto managed_identity_credential =
       std::make_shared<Azure::Identity::ManagedIdentityCredential>();
-  auto servicePrincipalCredential =
+  auto service_principal_credential =
       std::make_shared<Azure::Identity::ClientSecretCredential>("tenant_id", "client_id",
                                                                 "client_secret");
 }
