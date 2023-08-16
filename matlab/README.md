@@ -27,17 +27,16 @@ This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
 Currently, the MATLAB interface supports:
 
-1. Creating a subset of Arrow `Array` types (e.g. numeric and boolean) from MATLAB data
-2. Reading and writing numeric types from/to Feather v1 files.
+1. Creating a subset of Arrow `Array` types from MATLAB data (see table below)
+2. Converting MATLAB `table`s to `arrow.tabular.RecordBatch`s
+3. Reading and writing Feather v1 files
 
 Supported `arrow.array.Array` types are included in the table below.
 
-**NOTE**: All Arrow `Array` classes are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
+**NOTE**: All Arrow `Array` classes listed below are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
 
 | MATLAB Array Type | Arrow Array Type |
 | ----------------- | ---------------- |
-| `single`          | `Float32Array`   |
-| `double`          | `Float64Array`   |
 | `uint8`           | `UInt8Array`     |
 | `uint16`          | `UInt16Array`    |
 | `uint32`          | `UInt32Array`    |
@@ -46,7 +45,11 @@ Supported `arrow.array.Array` types are included in the table below.
 | `int16`           | `Int16Array`     |
 | `int32`           | `Int32Array`     |
 | `int64`           | `Int64Array`     |
+| `single`          | `Float32Array`   |
+| `double`          | `Float64Array`   |
 | `logical`         | `BooleanArray`   |
+| `string`          | `StringArray`    |
+| `datetime`        | `TimestampArray` |
 
 ## Prerequisites
 
