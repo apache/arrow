@@ -14,7 +14,7 @@
 // limitations under the License.
 
 using Apache.Arrow.Flatbuf;
-using FlatBuffers;
+using Google.FlatBuffers;
 using System;
 using System.Buffers.Binary;
 using System.IO;

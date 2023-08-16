@@ -22,7 +22,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Flight.Protocol;
 using Apache.Arrow.Ipc;
-using FlatBuffers;
+using Google.FlatBuffers;
 using Google.Protobuf;
 using Grpc.Core;
 

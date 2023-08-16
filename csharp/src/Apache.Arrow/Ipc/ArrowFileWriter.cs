@@ -144,7 +144,7 @@ namespace Apache.Arrow.Ipc
 
             // Serialize the schema
 
-            FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
+            Google.FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
 
             // Serialize all record batches
 
@@ -158,18 +158,18 @@ namespace Apache.Arrow.Ipc
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
 
-            FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
+            Google.FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
 
             // Serialize all dictionaries
             // NOTE: Currently unsupported.
 
             Flatbuf.Footer.StartDictionariesVector(Builder, 0);
 
-            FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
+            Google.FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
             // Serialize and write the footer flatbuffer
 
-            FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
+            Google.FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
                 schemaOffset, dictionaryBatchesOffset, recordBatchesVectorOffset);
 
             Builder.Finish(footerOffset.Value);
@@ -204,7 +204,7 @@ namespace Apache.Arrow.Ipc
 
             // Serialize the schema
 
-            FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
+            Google.FlatBuffers.Offset<Flatbuf.Schema> schemaOffset = SerializeSchema(schema);
 
             // Serialize all record batches
 
@@ -218,18 +218,18 @@ namespace Apache.Arrow.Ipc
                     Builder, recordBatch.Offset, recordBatch.MetadataLength, recordBatch.BodyLength);
             }
 
-            FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
+            Google.FlatBuffers.VectorOffset recordBatchesVectorOffset = Builder.EndVector();
 
             // Serialize all dictionaries
             // NOTE: Currently unsupported.
 
             Flatbuf.Footer.StartDictionariesVector(Builder, 0);
 
-            FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
+            Google.FlatBuffers.VectorOffset dictionaryBatchesOffset = Builder.EndVector();
 
             // Serialize and write the footer flatbuffer
 
-            FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
+            Google.FlatBuffers.Offset<Flatbuf.Footer> footerOffset = Flatbuf.Footer.CreateFooter(Builder, CurrentMetadataVersion,
                 schemaOffset, dictionaryBatchesOffset, recordBatchesVectorOffset);
 
             Builder.Finish(footerOffset.Value);
