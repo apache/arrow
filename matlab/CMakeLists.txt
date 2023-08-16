@@ -285,7 +285,6 @@ find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
 message(STATUS "Mex Library: ${Matlab_MEX_LIBRARY}")
 message(STATUS "Mex Include Folder: ${Matlab_INCLUDE_DIRS}")
 
-
 # ARROW_SHARED_LIB
 # On Windows, this will be ARROW_HOME/bin/arrow.dll and on Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library.
 if(NOT Arrow_FOUND)
@@ -425,7 +424,7 @@ if(NOT Arrow_FOUND)
   # folders that would be empty after installation:
   # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
 
-  set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")	
+  set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")
 
   install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
           DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
