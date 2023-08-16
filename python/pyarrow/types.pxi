@@ -1996,19 +1996,18 @@ cdef class FieldMergeOptions(_Weakrefable):
         return options
 
     def __repr__(self) -> str:
-        return 'FieldMergeOptions(promote_nullability={},promote_decimal={},promote_decimal_to_float={},promote_integer_to_decimal={},promote_integer_to_float={},promote_integer_sign={},promote_numeric_width={},promote_binary={},promote_temporal_unit={},promote_dictionary={},promote_dictionary_ordered={})'.format(
-            self.promote_nullability,
-            self.promote_decimal,
-            self.promote_decimal_to_float,
-            self.promote_integer_to_decimal,
-            self.promote_integer_to_float,
-            self.promote_integer_sign,
-            self.promote_numeric_width,
-            self.promote_binary,
-            self.promote_temporal_unit,
-            self.promote_dictionary,
-            self.promote_dictionary_ordered
-        )
+        return ('FieldMergeOptions('
+        f'promote_nullability={self.promote_nullability},'
+        f'promote_decimal={self.promote_decimal},'
+        f'promote_decimal_to_float={self.promote_decimal_to_float},'
+        f'promote_integer_to_decimal={self.promote_integer_to_decimal},'
+        f'promote_integer_to_float={self.promote_integer_to_float},'
+        f'promote_integer_sign={self.promote_integer_to_float},'
+        f'promote_numeric_width={self.promote_numeric_width},'
+        f'promote_binary={self.promote_binary},'
+        f'promote_temporal_unit={self.promote_temporal_unit},'
+        f'promote_dictionary={self.promote_dictionary},'
+        f'promote_dictionary_ordered={self.promote_dictionary_ordered})')
 
 
 cdef class Field(_Weakrefable):
@@ -3170,8 +3169,9 @@ def unify_schemas(schemas, *, options=None):
     ----------
     schemas : list of Schema
         Schemas to merge into a single one.
-    options : FieldMergeOptions, optional
+    options : FieldMergeOptions or string, optional
         Options for merging duplicate fields.
+        When passing in a string, it should be default or permissive
 
     Returns
     -------
@@ -3191,6 +3191,14 @@ def unify_schemas(schemas, *, options=None):
         if not isinstance(schema, Schema):
             raise TypeError("Expected Schema, got {}".format(type(schema)))
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
+    if isinstance(options, str):
+        if options == "default":
+            options = CField.CMergeOptions.Defaults()
+        elif options == "permissive":
+            options = CField.CMergeOptions.Permissive()
+        else:
+            raise ValueError(f"Invalid merge option: {options}")
+
     if options:
         c_options = (<FieldMergeOptions> options).c_options
     else:

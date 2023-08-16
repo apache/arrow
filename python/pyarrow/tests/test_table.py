@@ -1331,6 +1331,22 @@ def test_concat_tables():
     assert result.equals(expected)
 
 
+def test_concat_tables_permissive():
+    t1 = pa.Table.from_arrays(list(range(10)), names=('a',))
+    t2 = pa.Table.from_arrays(list(range(10, 20)), names=('a',))
+
+    result = pa.concat_tables([t1, t2], field_merge_options="permissive")
+    result.validate()
+    assert len(result) == 20
+
+
+def test_concat_tables_none_table():
+    t = pa.Table.from_arrays(list(range(10)), names=('a',))
+
+    with pytest.raises(ValueError):
+        pa.concat_tables([t, t], field_merge_options="invalid")
+
+
 def test_concat_tables_none_table():
     # ARROW-11997
     with pytest.raises(AttributeError):

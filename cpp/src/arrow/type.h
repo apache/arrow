@@ -432,18 +432,19 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
     /// promoted to an equivalent type of a greater bit width.
     bool promote_numeric_width = false;
 
-    /// Allow strings to be promoted to binary types.
+    /// Allow strings to be promoted to binary types. Promotion of fixed size
+    /// binary types to variable sized formats, and binary to large binary,
+    /// and string to large string.
     bool promote_binary = false;
 
     /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
     bool promote_temporal_unit = false;
 
-    /// Promote dictionary index types to a common type, and unify the
-    /// value types.
+    /// Unify dictionary index types and dictionary value types.
     bool promote_dictionary = false;
 
-    /// Allow merging ordered and non-ordered dictionaries, else
-    /// error. The result will be ordered if and only if both inputs
+    /// Allow merging ordered and non-ordered dictionaries.
+    /// The result will be ordered if and only if both inputs
     /// are ordered.
     bool promote_dictionary_ordered = false;
 

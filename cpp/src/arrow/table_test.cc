@@ -551,6 +551,18 @@ TEST_F(ConcatenateTablesWithPromotionTest, Unify) {
   AssertTablesEqual(*expected_int64, *actual, /*same_chunk_layout=*/false);
 }
 
+TEST_F(ConcatenateTablesWithPromotionOverflowTest, Unify) {
+  auto t1 = TableFromJSON(schema({field("f0", decimal256(76, 75))}), {"[[0.1], [0.2]]"});
+  auto t2 = TableFromJSON(schema({field("f0", int64())}), {"[[2], [3]]"});
+
+  ConcatenateTablesOptions options;
+  options.field_merge_options.promote_integer_to_decimal = true;
+
+   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                  ::testing::HasSubstr("Overflow"),
+                                  ConcatenateTables({t1, t2}, options));
+}
+
 TEST_F(TestTable, Slice) {
   const int64_t length = 10;
 

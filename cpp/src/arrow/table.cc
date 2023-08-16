@@ -455,8 +455,8 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
-                                                    MemoryPool* pool,
-                                                    const compute::CastOptions options) {
+                                                    const compute::CastOptions options,
+                                                    MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
     return table->ReplaceSchemaMetadata(schema->metadata());
@@ -494,8 +494,8 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     const int field_index = field_indices[0];
     const auto& current_field = current_schema->field(field_index);
     if (!field->nullable() && current_field->nullable()) {
-      return Status::Invalid("Unable to promote field ", current_field->name(),
-                             ": it was nullable but the target schema was not.");
+      return Status::TypeError("Unable to promote field ", current_field->name(),
+                               ": it was nullable but the target schema was not.");
     }
 
     fields_seen[field_index] = true;
@@ -511,9 +511,9 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
 
 #ifdef ARROW_COMPUTE
     if (!compute::CanCast(*current_field->type(), *field->type())) {
-      return Status::Invalid("Unable to promote field ", field->name(),
-                             ": incompatible types: ", field->type()->ToString(), " vs ",
-                             current_field->type()->ToString());
+      return Status::TypeError("Unable to promote field ", field->name(),
+                               ": incompatible types: ", field->type()->ToString(), " vs ",
+                               current_field->type()->ToString());
     }
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),

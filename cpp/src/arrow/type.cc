@@ -351,15 +351,17 @@ std::string Field::MergeOptions::ToString() const {
   std::stringstream ss;
   ss << "MergeOptions{";
   ss << "promote_nullability=" << (promote_nullability ? "true" : "false");
-  ss << ", promote_numeric_width=" << (promote_numeric_width ? "true" : "false");
-  ss << ", promote_integer_to_float=" << (promote_integer_to_float ? "true" : "false");
+  ss << ", promote_decimal=" << (promote_decimal ? "true" : "false");
+  ss << ", promote_decimal_to_float=" << (promote_decimal_to_float ? "true" : "false");
   ss << ", promote_integer_to_decimal="
      << (promote_integer_to_decimal ? "true" : "false");
-  ss << ", promote_decimal_to_float=" << (promote_decimal_to_float ? "true" : "false");
+  ss << ", promote_integer_to_float=" << (promote_integer_to_float ? "true" : "false");
+  ss << ", promote_integer_sign=" << (promote_integer_sign ? "true" : "false");
+  ss << ", promote_numeric_width=" << (promote_numeric_width ? "true" : "false");
+  ss << ", promote_binary=" << (promote_binary ? "true" : "false");
   ss << ", promote_temporal_unit=" << (promote_temporal_unit ? "true" : "false");
   ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
-  ss << ", promote_integer_sign=" << (promote_integer_sign ? "true" : "false");
-  ss << ", promote_binary=" << (promote_binary ? "true" : "false");
+  ss << ", promote_dictionary_ordered=" << (promote_dictionary_ordered ? "true" : "false");
   ss << '}';
   return ss.str();
 }
@@ -383,9 +385,14 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
 
 Result<std::shared_ptr<DataType>> WidenDecimals(
     const std::shared_ptr<DataType>& promoted_type,
-    const std::shared_ptr<DataType>& other_type) {
+    const std::shared_ptr<DataType>& other_type,
+    const Field::MergeOptions& options) {
   const auto& left = checked_cast<const DecimalType&>(*promoted_type);
   const auto& right = checked_cast<const DecimalType&>(*other_type);
+  if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
+    return Status::TypeError(
+        "Cannot promote decimal128 to decimal256 without promote_numeric_width=true");
+  }
   const int32_t max_scale = std::max<int32_t>(left.scale(), right.scale());
   const int32_t common_precision =
       std::max<int32_t>(left.precision() + max_scale - left.scale(),
@@ -416,16 +423,16 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
   index_options.promote_integer_sign = true;
   index_options.promote_numeric_width = true;
   ARROW_ASSIGN_OR_RAISE(auto indices,
-                        MergeTypes(left.index_type(), right.index_type(), index_options));
+                        MaybeMergeNumericTypes(left.index_type(), right.index_type(), index_options));
   ARROW_ASSIGN_OR_RAISE(auto values,
                         MergeTypes(left.value_type(), right.value_type(), options));
   auto ordered = left.ordered() && right.ordered();
   if (indices && values) {
     return dictionary(indices, values, ordered);
   } else if (values) {
-    return Status::Invalid("Could not merge index types");
+    return Status::TypeError("Could not merge dictionary index types");
   }
-  return Status::Invalid("Could not merge value types");
+  return Status::Invalid("Could not merge dictionary value types");
 }
 
 // Merge temporal types based on options. Returns nullptr for non-temporal types.
@@ -439,28 +446,26 @@ Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     if (promoted_type->id() == Type::DATE64 && other_type->id() == Type::DATE32) {
       return date64();
     }
-  }
 
-  if (options.promote_temporal_unit && promoted_type->id() == Type::DURATION &&
-      other_type->id() == Type::DURATION) {
-    const auto& left = checked_cast<const DurationType&>(*promoted_type);
-    const auto& right = checked_cast<const DurationType&>(*other_type);
-    return duration(std::max(left.unit(), right.unit()));
-  }
 
-  if (options.promote_temporal_unit && is_time(promoted_type->id()) &&
-      is_time(other_type->id())) {
-    const auto& left = checked_cast<const TimeType&>(*promoted_type);
-    const auto& right = checked_cast<const TimeType&>(*other_type);
-    const auto unit = std::max(left.unit(), right.unit());
-    if (unit == TimeUnit::MICRO || unit == TimeUnit::NANO) {
-      return time64(unit);
+    if (promoted_type->id() == Type::DURATION && other_type->id() == Type::DURATION) {
+      const auto& left = checked_cast<const DurationType&>(*promoted_type);
+      const auto& right = checked_cast<const DurationType&>(*other_type);
+      return duration(std::max(left.unit(), right.unit()));
     }
-    return time32(unit);
+
+    if (is_time(promoted_type->id()) && is_time(other_type->id())) {
+      const auto& left = checked_cast<const TimeType&>(*promoted_type);
+      const auto& right = checked_cast<const TimeType&>(*other_type);
+      const auto unit = std::max(left.unit(), right.unit());
+      if (unit == TimeUnit::MICRO || unit == TimeUnit::NANO) {
+        return time64(unit);
+      }
+      return time32(unit);
+    }
   }
 
-  if (options.promote_temporal_unit && promoted_type->id() == Type::TIMESTAMP &&
-      other_type->id() == Type::TIMESTAMP) {
+  if (promoted_type->id() == Type::TIMESTAMP && other_type->id() == Type::TIMESTAMP) {
     const auto& left = checked_cast<const TimestampType&>(*promoted_type);
     const auto& right = checked_cast<const TimestampType&>(*other_type);
     if (left.timezone().empty() ^ right.timezone().empty()) {
@@ -470,7 +475,9 @@ Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     if (left.timezone() != right.timezone()) {
       return Status::TypeError("Cannot merge timestamps with differing timezones");
     }
-    return timestamp(std::max(left.unit(), right.unit()), left.timezone());
+    if (options.promote_temporal_unit) {
+      return timestamp(std::max(left.unit(), right.unit()), left.timezone());
+    }
   }
 
   return nullptr;
@@ -502,19 +509,13 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
                           MaxDecimalDigitsForInteger(other_type->id()));
     ARROW_ASSIGN_OR_RAISE(const auto promoted_decimal,
                           DecimalType::Make(promoted_type->id(), precision, 0));
-    ARROW_ASSIGN_OR_RAISE(promoted_type, WidenDecimals(promoted_type, promoted_decimal));
+    ARROW_ASSIGN_OR_RAISE(promoted_type, WidenDecimals(promoted_type, promoted_decimal, options));
     return promoted_type;
   }
 
   if (options.promote_decimal && is_decimal(promoted_type->id()) &&
       is_decimal(other_type->id())) {
-    const DecimalType& left = checked_cast<const DecimalType&>(*promoted_type);
-    const DecimalType& right = checked_cast<const DecimalType&>(*other_type);
-    if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
-      return Status::TypeError(
-          "Cannot promote decimal128 to decimal256 without promote_numeric_width=true");
-    }
-    ARROW_ASSIGN_OR_RAISE(promoted_type, WidenDecimals(promoted_type, other_type));
+    ARROW_ASSIGN_OR_RAISE(promoted_type, WidenDecimals(promoted_type, other_type, options));
     return promoted_type;
   }
 
@@ -522,6 +523,11 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
                                         is_signed_integer(other_type->id())) ||
                                        (is_signed_integer(promoted_type->id()) &&
                                         is_unsigned_integer(other_type->id())))) {
+
+    if (!options.promote_numeric_width && bit_width(promoted_type->id()) != bit_width(other_type->id())) {
+      return Status::TypeError(
+          "Cannot widen (un)signed integers without promote_numeric_width=true");
+    }
     const int max_width =
         std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
 
@@ -540,15 +546,25 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
   if (options.promote_integer_to_float &&
       ((is_floating(promoted_type->id()) && is_integer(other_type->id())) ||
        (is_integer(promoted_type->id()) && is_floating(other_type->id())))) {
-    const int max_width =
-        std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+
+    if (is_integer(promoted_type->id()) && is_floating(other_type->id())) {
+      // Other type is always the int
+      promoted_type.swap(other_type);
+    }
+
+    const int int_width = bit_width(other_type->id());
     promoted = true;
-    if (max_width >= 64) {
-      promoted_type = float64();
-    } else if (max_width >= 32) {
-      promoted_type = float32();
+    if (int_width <= 8) {
+      other_type = float16();
+    } else if (int_width <= 16) {
+      other_type = float32();
     } else {
-      promoted_type = float16();
+      other_type = float64();
+    }
+
+    if (!options.promote_numeric_width && bit_width(promoted_type->id()) != bit_width(other_type->id())) {
+      return Status::TypeError(
+          "Cannot widen float without promote_numeric_width=true");
     }
   }
 
@@ -608,10 +624,6 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
     } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
                other_type->id() == Type::FIXED_SIZE_BINARY) {
       return binary();
-    } else if (is_string(promoted_type->id()) && is_binary(other_type->id())) {
-      return MakeBinary(*other_type);
-    } else if (is_binary(promoted_type->id()) && is_string(other_type->id())) {
-      return MakeBinary(*promoted_type);
     }
 
     if ((promoted_type->id() == Type::STRING && other_type->id() == Type::LARGE_STRING) ||
@@ -626,6 +638,25 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
   }
 
   return nullptr;
+}
+
+// Merge list types based on options. Returns nullptr for non-list types.
+Result<std::shared_ptr<DataType>> MergeStructs(
+    const std::shared_ptr<DataType>& promoted_type,
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+
+    SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
+    // Add the LHS fields. Duplicates will be preserved.
+    RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
+
+    // Add the RHS fields. Duplicates will be merged, unless the field was
+    // already a duplicate, in which case we error (since we don't know which
+    // field to merge with).
+    builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
+    RETURN_NOT_OK(builder.AddFields(other_type->fields()));
+
+    ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
+    return struct_(schema->fields());
 }
 
 // Merge list types based on options. Returns nullptr for non-list types.
@@ -644,8 +675,9 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
             *right.value_field()->WithName(left.value_field()->name()), options));
     if (left.list_size() == right.list_size()) {
       return fixed_size_list(std::move(value_field), left.list_size());
+    } else {
+      return list(std::move(value_field));
     }
-    return Status::TypeError("Cannot merge fixed_size_list of different sizes");
   } else if (promoted_type->id() == Type::MAP && other_type->id() == Type::MAP) {
     const auto& left = checked_cast<const MapType&>(*promoted_type);
     const auto& right = checked_cast<const MapType&>(*other_type);
@@ -672,18 +704,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
       return list(std::move(value_field));
     }
   } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
-    SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
-    // Add the LHS fields. Duplicates will be preserved.
-    RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
-
-    // Add the RHS fields. Duplicates will be merged, unless the field was
-    // already a duplicate, in which case we error (since we don't know which
-    // field to merge with).
-    builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
-    RETURN_NOT_OK(builder.AddFields(other_type->fields()));
-
-    ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
-    return struct_(schema->fields());
+    return MergeStructs(promoted_type, other_type, options);
   }
 
   return promoted ? promoted_type : nullptr;
@@ -702,7 +723,7 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
       return promoted_type;
     }
   } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
-    return Status::Invalid("Cannot merge type with null unless promote_nullability=true");
+    return Status::TypeError("Cannot merge type with null unless promote_nullability=true");
   }
 
   if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
@@ -755,14 +776,14 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
       nullable = nullable || other.nullable() || type_->id() == Type::NA ||
                  other.type()->id() == Type::NA;
     } else if (nullable_ != other.nullable()) {
-      return Status::Invalid("Unable to merge: Field ", name(),
+      return Status::TypeError("Unable to merge: Field ", name(),
                              " has incompatible nullability: ", nullable_, " vs ",
                              other.nullable());
     }
 
     return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
   }
-  return Status::Invalid("Unable to merge: Field ", name(),
+  return Status::TypeError("Unable to merge: Field ", name(),
                          " has incompatible types: ", type()->ToString(), " vs ",
                          other.type()->ToString());
 }
