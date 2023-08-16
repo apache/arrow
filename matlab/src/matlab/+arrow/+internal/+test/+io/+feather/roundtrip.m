@@ -1,5 +1,7 @@
-% ROUNDTRIP Test utility for round tripping a MATLAB
-% table to a Feather V1 file.
+% ROUNDTRIP Test utility which (1) writes a MATLAB
+% table to a Feather V1 file and then (2) reads the
+% resulting the Feather V1 file back into MATLAB
+% as a table.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
