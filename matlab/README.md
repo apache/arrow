@@ -480,6 +480,42 @@ ans =
     ID: String
 ```
 
+#### Extract an Arrow `Field` from an Arrow `Schema` by index
+
+```matlab
+>> arrowSchema
+
+arrowSchema =
+
+Letter: string
+Number: double
+
+% Specify the field to extract by its index (i.e. 2)
+>> field = arrowSchema.field(2)
+
+field =
+
+Number: double
+```
+
+#### Extract an Arrow `Field` from an Arrow `Schema` by name
+
+```matlab
+>> arrowSchema
+
+arrowSchema =
+
+Letter: string
+Number: double
+
+% Specify the field to extract by its name (i.e. "Letter")
+>> field = arrowSchema.field("Letter")
+
+field =
+
+Letter: string
+```
+
 ### Arrow `Schema` class
 
 #### Create an Arrow `Schema` from multiple Arrow `Field`s
