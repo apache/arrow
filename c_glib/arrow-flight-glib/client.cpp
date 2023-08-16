@@ -166,12 +166,17 @@ gaflight_call_options_foreach_header(GAFlightCallOptions *options,
 }
 
 
-typedef struct GAFlightClientOptionsPrivate_ {
+struct GAFlightClientOptionsPrivate {
   arrow::flight::FlightClientOptions options;
-} GAFlightClientOptionsPrivate;
+};
 
 enum {
-  PROP_DISABLE_SERVER_VERIFICATION = 1,
+  PROP_TLS_ROOT_CERTIFICATES = 1,
+  PROP_OVERRIDE_HOST_NAME,
+  PROP_CERTIFICATE_CHAIN,
+  PROP_PRIVATE_KEY,
+  PROP_WRITE_SIZE_LIMIT_BYTES,
+  PROP_DISABLE_SERVER_VERIFICATION,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightClientOptions,
@@ -202,6 +207,21 @@ gaflight_client_options_set_property(GObject *object,
   auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_TLS_ROOT_CERTIFICATES:
+    priv->options.tls_root_certs = g_value_get_string(value);
+    break;
+  case PROP_OVERRIDE_HOST_NAME:
+    priv->options.override_hostname = g_value_get_string(value);
+    break;
+  case PROP_CERTIFICATE_CHAIN:
+    priv->options.cert_chain = g_value_get_string(value);
+    break;
+  case PROP_PRIVATE_KEY:
+    priv->options.private_key = g_value_get_string(value);
+    break;
+  case PROP_WRITE_SIZE_LIMIT_BYTES:
+    priv->options.write_size_limit_bytes = g_value_get_int64(value);
+    break;
   case PROP_DISABLE_SERVER_VERIFICATION:
     priv->options.disable_server_verification = g_value_get_boolean(value);
     break;
@@ -220,6 +240,21 @@ gaflight_client_options_get_property(GObject *object,
   auto priv = GAFLIGHT_CLIENT_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
+  case PROP_TLS_ROOT_CERTIFICATES:
+    g_value_set_string(value, priv->options.tls_root_certs.c_str());
+    break;
+  case PROP_OVERRIDE_HOST_NAME:
+    g_value_set_string(value, priv->options.override_hostname.c_str());
+    break;
+  case PROP_CERTIFICATE_CHAIN:
+    g_value_set_string(value, priv->options.cert_chain.c_str());
+    break;
+  case PROP_PRIVATE_KEY:
+    g_value_set_string(value, priv->options.private_key.c_str());
+    break;
+  case PROP_WRITE_SIZE_LIMIT_BYTES:
+    g_value_set_int64(value, priv->options.write_size_limit_bytes);
+    break;
   case PROP_DISABLE_SERVER_VERIFICATION:
     g_value_set_boolean(value, priv->options.disable_server_verification);
     break;
@@ -248,6 +283,93 @@ gaflight_client_options_class_init(GAFlightClientOptionsClass *klass)
 
   auto options = arrow::flight::FlightClientOptions::Defaults();
   GParamSpec *spec;
+  /**
+   * GAFlightClientOptions:tls-root-certificates:
+   *
+   * Root certificates to use for validating server certificates.
+   *
+   * Since: 14.0.0
+   */
+  spec = g_param_spec_string("tls-root-certificates",
+                             nullptr,
+                             nullptr,
+                             options.tls_root_certs.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_TLS_ROOT_CERTIFICATES,
+                                  spec);
+
+  /**
+   * GAFlightClientOptions:override-host-name:
+   *
+   * Override the host name checked by TLS. Use with caution.
+   *
+   * Since: 14.0.0
+   */
+  spec = g_param_spec_string("override-host-name",
+                             nullptr,
+                             nullptr,
+                             options.override_hostname.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_OVERRIDE_HOST_NAME,
+                                  spec);
+
+  /**
+   * GAFlightClientOptions:certificate-chain:
+   *
+   * The client certificate to use if using Mutual TLS.
+   *
+   * Since: 14.0.0
+   */
+  spec = g_param_spec_string("certificate-chain",
+                             nullptr,
+                             nullptr,
+                             options.cert_chain.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CERTIFICATE_CHAIN,
+                                  spec);
+
+  /**
+   * GAFlightClientOptions:private-key:
+   *
+   * The private key associated with the client certificate for Mutual
+   * TLS.
+   *
+   * Since: 14.0.0
+   */
+  spec = g_param_spec_string("private-key",
+                             nullptr,
+                             nullptr,
+                             options.private_key.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_PRIVATE_KEY,
+                                  spec);
+
+  /**
+   * GAFlightClientOptions:write-size-limit-bytes:
+   *
+   * A soft limit on the number of bytes to write in a single batch
+   * when sending Arrow data to a server.
+   *
+   * Used to help limit server memory consumption. Only enabled if
+   * positive. When enabled, @GARROW_ERROR_IO may be yielded.
+   *
+   * Since: 14.0.0
+   */
+  spec = g_param_spec_int64("write-size-limit-bytes",
+                            nullptr,
+                            nullptr,
+                            INT64_MIN,
+                            INT64_MAX,
+                            options.write_size_limit_bytes,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_WRITE_SIZE_LIMIT_BYTES,
+                                  spec);
+
   /**
    * GAFlightClientOptions:disable-server-verification:
    *
