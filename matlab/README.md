@@ -30,7 +30,7 @@ Currently, the MATLAB interface supports:
 1. Converting between a subset of Arrow `Array` types and MATLAB array types (see table below)
 2. Converting between MATLAB `table`s and `arrow.tabular.RecordBatch`s
 3. Creating Arrow `Field`s, `Schema`s, and `Type`s
-4. Reading and writing Feather v1 files
+4. Reading and writing Feather V1 files
 
 Supported `arrow.array.Array` types are included in the table below.
 
@@ -583,7 +583,7 @@ Number: double
 
 ### Feather V1
 
-#### Write a MATLAB table to a Feather v1 file
+#### Write a MATLAB table to a Feather V1 file
 
 ``` matlab
 >> t = table(["A"; "B"; "C"], [1; 2; 3], [true; false; true])
@@ -604,7 +604,7 @@ t =
 >> featherwrite(filename, t)
 ```
 
-#### Read a Feather v1 file into a MATLAB table
+#### Read a Feather V1 file into a MATLAB table
 
 ``` matlab
 >> filename = "table.feather";
