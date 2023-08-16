@@ -217,7 +217,7 @@ names and types of child fields are read from the child arrays.
 +------------------------+---------------------------------------------------+------------+
 | ``+us:I,J,...``        | sparse union with type ids I,J...                 |            |
 +------------------------+---------------------------------------------------+------------+
-| ``+r``                 | run-end encoded                                   |            |
+| ``+r``                 | run-end encoded                                   | \(3)       |
 +------------------------+---------------------------------------------------+------------+
 
 Notes:
@@ -229,6 +229,11 @@ Notes:
 (2)
    As specified in the Arrow columnar format, the map type has a single child type
    named ``entries``, itself a 2-child struct type of ``(key, value)``.
+
+(3)
+   As specified in the Arrow columnar format, the run-end encoded type has two
+   children where the first is the (integral) ``run_ends`` and the second is the
+   ``values``.
 
 Examples
 --------
