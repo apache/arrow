@@ -202,12 +202,12 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   ///
   /// This version should construct the appropriate event for the device and
   /// provide the unique_ptr with the correct deleter for the event type.  
-  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync();
+  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent();
 
   /// \brief Create a SyncEvent from imported device array.
   ///   
   /// @param sync_event passed in sync_event from the imported device array.
-  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> sync_event);
+  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(MemoryManager);

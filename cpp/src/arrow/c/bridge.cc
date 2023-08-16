@@ -1409,7 +1409,7 @@ struct ArrayImporter {
     RETURN_NOT_OK(Import(&src->array));
     if (src->sync_event != nullptr) {
       ARROW_ASSIGN_OR_RAISE(import_->device_sync_,
-                            memory_mgr_->MakeDeviceSync({src->sync_event, [](void*) {}}));
+                            memory_mgr_->MakeDeviceSyncEvent({src->sync_event, [](void*) {}}));
     }
     // reset internal state before next import
     memory_mgr_.reset();

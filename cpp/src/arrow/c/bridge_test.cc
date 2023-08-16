@@ -1191,12 +1191,12 @@ class MyMemoryManager : public CPUMemoryManager {
     return std::make_unique<MyBuffer>(data, size, shared_from_this());
   }
 
-  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync() override {
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override {
     return std::make_shared<MyDevice::MySyncEvent>(
       std::unique_ptr<void, void(*)(void*)>{const_cast<void*>(kMyEventPtr), [](void*){}});
   }
 
-  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> sync_event) override {
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event) override {
     return std::make_shared<MyDevice::MySyncEvent>(std::move(sync_event));
   }
 
@@ -1484,7 +1484,7 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   ArrayExportGuard array_guard(&c_array.array);
 
   auto array = ToDevice(mm, *ArrayFromJSON(int8(), "[1, 2, 3]")->data()).ValueOrDie();
-  auto sync = mm->MakeDeviceSync().ValueOrDie();
+  auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
   ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
   const ArrayData& data = *array->data();
   array.reset();
@@ -1511,7 +1511,7 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
                   .ValueOrDie();
 
   auto batch_factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
-  auto sync = mm->MakeDeviceSync().ValueOrDie();
+  auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
   {
     auto batch = batch_factory();
 
@@ -3713,7 +3713,7 @@ class TestDeviceArrayRoundtrip : public ::testing::Test {
     auto orig_bytes = pool_->bytes_allocated();
     ASSERT_OK_AND_ASSIGN(batch, ToResult(factory()));
     ASSERT_OK(ExportSchema(*batch->schema(), &c_schema));
-    ASSERT_OK_AND_ASSIGN(auto sync, mm->MakeDeviceSync());
+    ASSERT_OK_AND_ASSIGN(auto sync, mm->MakeDeviceSyncEvent());
     ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array));
 
     auto new_bytes = pool_->bytes_allocated();

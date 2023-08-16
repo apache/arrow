@@ -293,7 +293,7 @@ std::shared_ptr<CudaDevice> CudaMemoryManager::cuda_device() const {
   return checked_pointer_cast<CudaDevice>(device_);
 }
 
-Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> sync_event) {
+Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::MakeDeviceSyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event) {
   return nullptr;
   // auto ev = reinterpret_cast<CUstream*>(sync_event);
   // return std::make_shared<CudaDeviceSync>(ev);
