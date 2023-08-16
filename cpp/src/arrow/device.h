@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <string>
 
 #include "arrow/io/type_fwd.h"
@@ -106,64 +105,30 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
    public:
     virtual ~SyncEvent() = default;
 
+    void* get_raw() { return sync_event_.get(); }
+
     /// @brief Block until sync event is completed.
-    virtual Status wait() = 0;
+    virtual Status Wait() = 0;
 
     /// @brief Make the provided stream wait on the sync event.
     ///
     /// Tells the provided stream that it should wait until the
     /// synchronization event is completed without blocking the CPU.
     /// @param stream Should be appropriate for the underlying device
-    virtual Status stream_wait(void* stream) = 0;
+    virtual Status StreamWait(void* stream) = 0;
 
-    void set_stream(void* stream) {
-      stream_ = stream;
-    }
-
-    /// @brief Returns the stored raw event or creates a new one to return.
-    ///
-    /// clear_event should always be called to cleanup afterwards. If this
-    /// creates the event, then clear_event will call release_event
-    /// internally. If this doesn't own the event, then the lifetime should
-    /// be controlled externally to this class.
-    Result<void*> get_event() {
-      if (!sync_event_) {
-        ARROW_ASSIGN_OR_RAISE(sync_event_, create_event());
-        owns_event_ = true;
-      }
-      return sync_event_;
-    }
-
-    void clear_event() {
-      if (owns_event_) {
-        release_event(sync_event_);
-      }
-      sync_event_ = nullptr;
-    }
-
-    Status record_event() {
-      if (!stream_) {
-        return Status::Invalid(
-            "Cannot record event on null stream, call set_stream first.");
-      }
-      ARROW_ASSIGN_OR_RAISE(auto ev, get_event());
-      return record_event_on_stream(ev);
-    }
+    /// @brief Record the wrapped event on the stream so it triggers
+    /// the event when the stream gets to that point in its queue.    
+    virtual Status Record(void* stream) = 0;
 
    protected:
     /// If creating this with a passed in event, the caller must ensure
     /// that the event lives until clear_event is called on this as it
     /// won't own it.
-    explicit SyncEvent(void* sync_event) : sync_event_{sync_event}, owns_event_{false} {}
+    explicit SyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event) 
+      : sync_event_{std::move(sync_event)} {}
 
-    virtual Status record_event_on_stream(void* event) = 0;
-    // allowed to gracefully receive a nullptr
-    virtual void release_event(void* event) = 0;
-    virtual Result<void*> create_event() = 0;
-
-    void* stream_;
-    void* sync_event_;
-    bool owns_event_;
+    std::unique_ptr<void, void(*)(void*)> sync_event_;
   };
 
  protected:
@@ -233,11 +198,16 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
 
-  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync() {
-    return nullptr;
-  }
-  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(void *sync_event);
+  /// \brief Create a SyncEvent for exporting
+  ///
+  /// This version should construct the appropriate event for the device and
+  /// provide the unique_ptr with the correct deleter for the event type.  
+  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync();
 
+  /// \brief Create a SyncEvent from imported device array.
+  ///   
+  /// @param sync_event passed in sync_event from the imported device array.
+  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> sync_event);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(MemoryManager);

@@ -546,10 +546,6 @@ void ReleaseExportedArray(struct ArrowArray* array) {
   }
   DCHECK_NE(array->private_data, nullptr);
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
-  if (pdata->sync_) {
-    pdata->sync_->clear_event();
-  }
-
   delete pdata;
 
   ArrowArrayMarkReleased(array);
@@ -717,7 +713,7 @@ Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> 
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
   void* sync_event{nullptr};
   if (sync) {
-    ARROW_ASSIGN_OR_RAISE(sync_event, sync->get_event());
+    sync_event = sync->get_raw();
   }
 
   SchemaExportGuard guard(out_schema);
@@ -751,7 +747,7 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch,
                                struct ArrowSchema* out_schema) {
   void* sync_event{nullptr};
   if (sync) {
-    ARROW_ASSIGN_OR_RAISE(sync_event, sync->get_event());
+    sync_event = sync->get_raw();
   }
 
   // XXX perhaps bypass ToStructArray for speed?
@@ -1411,8 +1407,10 @@ struct ArrayImporter {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
-    ARROW_ASSIGN_OR_RAISE(import_->device_sync_,
-                          memory_mgr_->MakeDeviceSync(src->sync_event));
+    if (src->sync_event != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(import_->device_sync_,
+                            memory_mgr_->MakeDeviceSync({src->sync_event, [](void*) {}}));
+    }
     // reset internal state before next import
     memory_mgr_.reset();
     device_type_ = DeviceAllocationType::kCPU;

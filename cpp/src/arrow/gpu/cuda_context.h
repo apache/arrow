@@ -179,7 +179,7 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   /// having to cast the `device()` result.
   std::shared_ptr<CudaDevice> cuda_device() const;
 
-  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(void* sync_event) override;
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> sync_event) override;
 
  protected:
   using MemoryManager::MemoryManager;

@@ -29,7 +29,9 @@ namespace arrow {
 
 MemoryManager::~MemoryManager() {}
 
-Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::MakeDeviceSync(void* event) {
+Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::MakeDeviceSync() { return nullptr; }
+
+Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> event) {
   return nullptr;
 }
 

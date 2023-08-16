@@ -1168,16 +1168,12 @@ class MyDevice : public Device {
 
   class MySyncEvent final : public Device::SyncEvent {
   public:
-    explicit MySyncEvent(void* sync_event) : Device::SyncEvent(sync_event) {}
+    explicit MySyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event) : Device::SyncEvent(std::move(sync_event)) {}    
 
     virtual ~MySyncEvent() = default;
-    Status wait() override { return Status::OK(); }
-    Status stream_wait(void* stream) override { return Status::OK(); }
-
-  protected:
-    Result<void*> create_event() override { return const_cast<void*>(kMyEventPtr); }
-    Status record_event_on_stream(void* event) override { return Status::OK(); }
-    void release_event(void* event) override {}
+    Status Wait() override { return Status::OK(); }
+    Status StreamWait(void* stream) override { return Status::OK(); }
+    Status Record(void* stream) override { return Status::OK(); }
   };
 
  protected:
@@ -1196,11 +1192,12 @@ class MyMemoryManager : public CPUMemoryManager {
   }
 
   Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync() override {
-    return std::make_shared<MyDevice::MySyncEvent>(nullptr);
+    return std::make_shared<MyDevice::MySyncEvent>(
+      std::unique_ptr<void, void(*)(void*)>{const_cast<void*>(kMyEventPtr), [](void*){}});
   }
 
-  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(void* sync_event) override {
-    return std::make_shared<MyDevice::MySyncEvent>(sync_event);
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSync(std::unique_ptr<void, void(*)(void*)> sync_event) override {
+    return std::make_shared<MyDevice::MySyncEvent>(std::move(sync_event));
   }
 
  protected:
