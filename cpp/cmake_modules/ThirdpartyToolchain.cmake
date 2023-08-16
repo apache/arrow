@@ -5125,39 +5125,27 @@ macro(build_azure_sdk)
 
   add_library(Azure::azure-identity STATIC IMPORTED)
   set_target_properties(Azure::azure-identity 
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_IDENTITY_STATIC_LIBRARY}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${AZURE_SDK_INCLUDE_DIR})
+                        PROPERTIES IMPORTED_LOCATION ${AZURE_IDENTITY_STATIC_LIBRARY})
   set_property(TARGET Azure::azure-identity
                PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto Azure::azure-core)
-  add_dependencies(Azure::azure-identity azure-sdk_ep)
 
   add_library(Azure::azure-storage-common STATIC IMPORTED)
   set_target_properties(Azure::azure-storage-common
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_COMMON_STATIC_LIBRARY}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${AZURE_SDK_INCLUDE_DIR})
+                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_COMMON_STATIC_LIBRARY})
   set_property(TARGET Azure::azure-storage-common
                PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL OpenSSL::Crypto LibXml2::LibXml2 Azure::azure-core)
-  add_dependencies(Azure::azure-storage-common azure-sdk_ep)
 
   add_library(Azure::azure-storage-blobs STATIC IMPORTED)
   set_target_properties(Azure::azure-storage-blobs
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${AZURE_SDK_INCLUDE_DIR})
+                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY})
   set_property(TARGET Azure::azure-storage-blobs
                PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-storage-common)
-  add_dependencies(Azure::azure-storage-blobs azure-sdk_ep)
 
   add_library(Azure::azure-storage-files-datalake STATIC IMPORTED)
   set_target_properties(Azure::azure-storage-files-datalake 
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${AZURE_SDK_INCLUDE_DIR})
+                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY})
   set_property(TARGET Azure::azure-storage-files-datalake
                PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-storage-blobs)
-  add_dependencies(Azure::azure-storage-files-datalake azure-sdk_ep)
 
   set(AZURE_SDK_VENDORED TRUE)
   set(AZURE_SDK_LIBRARIES)
