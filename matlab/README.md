@@ -429,6 +429,57 @@ ans =
     String
 ```
 
+### Arrow `Field` class
+
+#### Create an Arrow `Field` with type `Int8Type`
+
+```matlab
+>> field = arrow.field("Number", arrow.int8())
+
+field =
+
+Number: int8
+
+>> field.Name
+
+ans =
+
+    "Number"
+
+>> field.Type
+
+ans =
+
+  Int8Type with properties:
+
+    ID: Int8
+
+```
+
+#### Create an Arrow `Field` with type `StringType`
+
+```matlab
+>> field = arrow.field("Letter", arrow.string())
+
+field =
+
+Letter: string
+
+>> field.Name
+
+ans =
+
+    "Letter"
+
+>> field.Type
+
+ans =
+
+  StringType with properties:
+
+    ID: String
+```
+
 ### Feather V1
 
 #### Write a MATLAB table to a Feather v1 file
