@@ -252,34 +252,6 @@ class PARQUET_EXPORT FileReader {
   using AsyncBatchGenerator =
       std::function<::arrow::Future<std::shared_ptr<::arrow::RecordBatch>>()>;
 
-  /// \brief Read a single row group from the file
-  ///
-  /// \see ReadRowGroupsAsync for operation details
-  ///
-  /// \param i the index of the row group to read
-  /// \param cpu_executor an executor to use to run CPU tasks
-  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
-  ///                             data for the given batch size.  If true, smaller
-  ///                             batches will be returned instead.
-  virtual AsyncBatchGenerator ReadRowGroupAsync(int i,
-                                                ::arrow::internal::Executor* cpu_executor,
-                                                bool allow_sliced_batches = false) = 0;
-  /// \brief Read some columns from a single row group from the file
-  ///
-  /// \see ReadRowGroupsAsync for operation details
-  /// \see ReadTable for details on how column indices are resolved
-  ///
-  /// \param i the index of the row group to read
-  /// \param column_indices leaf-indices of the columns to read
-  /// \param cpu_executor an executor to use to run CPU tasks
-  /// \param allow_sliced_batches if false, an error is raised if a batch has too much
-  ///                             data for the given batch size.  If true, smaller
-  ///                             batches will be returned instead.
-  virtual AsyncBatchGenerator ReadRowGroupAsync(int i,
-                                                const std::vector<int>& column_indices,
-                                                ::arrow::internal::Executor* cpu_executor,
-                                                bool allow_sliced_batches = false) = 0;
-
   /// \brief Read row groups from the file
   ///
   /// \see ReadRowGroupsAsync for operation details
@@ -291,7 +263,7 @@ class PARQUET_EXPORT FileReader {
   ///                             batches will be returned instead.
   virtual AsyncBatchGenerator ReadRowGroupsAsync(
       const std::vector<int>& row_groups, ::arrow::internal::Executor* cpu_executor,
-      bool allow_sliced_batches = false) = 0;
+      bool allow_sliced_batches = true) = 0;
 
   /// \brief Read some columns from the given rows groups from the file
   ///
@@ -313,6 +285,9 @@ class PARQUET_EXPORT FileReader {
   /// useful when you need to know exactly how many batches you will get from the
   /// operation before you start.
   ///
+  /// The returned generator is not async-reentrant.  You must not fetch another future
+  /// from it until the previously fetched future has completed.
+  ///
   /// Note: When reading multiple row groups there is no guarantee you will get one
   /// record batch per row group.  Data from multiple row groups could get combined into
   /// a single batch.
@@ -331,7 +306,7 @@ class PARQUET_EXPORT FileReader {
   ///                             batches will be returned instead.
   virtual AsyncBatchGenerator ReadRowGroupsAsync(
       const std::vector<int>& row_groups, const std::vector<int>& column_indices,
-      ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches = false) = 0;
+      ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches = true) = 0;
 
   /// \brief Scan file contents with one thread, return number of rows
   virtual ::arrow::Status ScanContents(std::vector<int> columns,
@@ -400,6 +375,10 @@ class PARQUET_EXPORT ColumnReader {
   // the data available in the file.
   virtual ::arrow::Status NextBatch(int64_t batch_size,
                                     std::shared_ptr<::arrow::ChunkedArray>* out) = 0;
+
+  // Overload of NextBatch that returns a Result
+  virtual ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> NextBatch(
+      int64_t batch_size) = 0;
 };
 
 /// \brief Experimental helper class for bindings (like Python) that struggle

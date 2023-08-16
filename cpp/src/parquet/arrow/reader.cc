@@ -116,6 +116,13 @@ class ColumnReaderImpl : public ColumnReader {
     return Status::OK();
   }
 
+  ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> NextBatch(
+      int64_t batch_size) final {
+    std::shared_ptr<::arrow::ChunkedArray> out;
+    RETURN_NOT_OK(NextBatch(batch_size, &out));
+    return out;
+  }
+
   virtual ::arrow::Status LoadBatch(int64_t num_records) = 0;
 
   virtual ::arrow::Status BuildArray(int64_t length_upper_bound,
@@ -342,21 +349,6 @@ class FileReaderImpl : public FileReader {
 
   Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
     return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
-  }
-
-  AsyncBatchGenerator ReadRowGroupAsync(int row_group_index,
-                                        ::arrow::internal::Executor* cpu_executor,
-                                        bool allow_sliced_batches) override {
-    return ReadRowGroupsAsync({row_group_index}, Iota(reader_->metadata()->num_columns()),
-                              cpu_executor, allow_sliced_batches);
-  }
-
-  AsyncBatchGenerator ReadRowGroupAsync(int row_group_index,
-                                        const std::vector<int>& column_indices,
-                                        ::arrow::internal::Executor* cpu_executor,
-                                        bool allow_sliced_batches) override {
-    return ReadRowGroupsAsync({row_group_index}, column_indices, cpu_executor,
-                              allow_sliced_batches);
   }
 
   AsyncBatchGenerator ReadRowGroupsAsync(const std::vector<int>& row_groups,
@@ -1315,9 +1307,8 @@ class AsyncBatchGeneratorImpl {
             state_->use_threads, state_->column_readers,
             [rows_in_batch](std::size_t, std::shared_ptr<ColumnReaderImpl> column_reader)
                 -> Result<std::shared_ptr<ChunkedArray>> {
-              std::shared_ptr<ChunkedArray> chunked_array;
-              ARROW_RETURN_NOT_OK(
-                  column_reader->NextBatch(rows_in_batch, &chunked_array));
+              ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ChunkedArray> chunked_array,
+                                    column_reader->NextBatch(rows_in_batch));
               return chunked_array;
             },
             state_->cpu_executor);

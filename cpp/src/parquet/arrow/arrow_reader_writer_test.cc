@@ -4105,8 +4105,10 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringValue)) {
   constexpr std::int32_t kNumRows = 4;
   constexpr std::int32_t kNumChunks = 4;
   std::vector<std::shared_ptr<Array>> chunks;
-  std::vector<uint8_t> value(kValueSize, '0');
-  for (int chunk_idx = 0; chunk_idx < kNumChunks; chunk_idx++) {
+  {
+    // `value` is large and created with its own scope so it
+    // can be freed when as soon as we are done using it.
+    std::vector<uint8_t> value(kValueSize, '0');
     ASSERT_OK(builder.Resize(kNumRows));
     ASSERT_OK(builder.ReserveData(kNumRows * kValueSize));
     for (int64_t i = 0; i < kNumRows; ++i) {
@@ -4114,11 +4116,11 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringValue)) {
     }
     std::shared_ptr<Array> array;
     ASSERT_OK(builder.Finish(&array));
-    chunks.push_back(std::move(array));
+    for (int chunk_idx = 0; chunk_idx < kNumChunks; chunk_idx++) {
+      chunks.push_back(array);
+    }
   }
 
-  // Eaglerly free up memory
-  value.clear();
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> chunk,
                        ChunkedArray::Make(std::move(chunks)));
 
@@ -4153,15 +4155,15 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringValue)) {
   ASSERT_OK(FileReader::Make(default_memory_pool(), std::move(reader), &arrow_reader));
 
   // Test ReadRecordBatchesAsync
-  auto batch_gen = arrow_reader->ReadRowGroupAsync(
-      0, /*executor=*/::arrow::internal::GetCpuThreadPool(),
+  auto batch_gen = arrow_reader->ReadRowGroupsAsync(
+      {0}, /*executor=*/::arrow::internal::GetCpuThreadPool(),
       /*allow_sliced_batches=*/false);
 
   auto fut = batch_gen();
   ASSERT_RAISES(Invalid, fut.result());
 
-  batch_gen = arrow_reader->ReadRowGroupAsync(
-      0, /*executor=*/::arrow::internal::GetCpuThreadPool(),
+  batch_gen = arrow_reader->ReadRowGroupsAsync(
+      {0}, /*executor=*/::arrow::internal::GetCpuThreadPool(),
       /*allow_sliced_batches=*/true);
 
   std::vector<std::shared_ptr<RecordBatch>> batches;
