@@ -139,7 +139,7 @@ matlabArray =
 
      1     2     3
 
->> arrowArray = arrow.array.Float64Array(matlabArray)
+>> arrowArray = arrow.array(matlabArray)
 
 arrowArray = 
 
@@ -153,7 +153,7 @@ arrowArray =
 #### Create a MATLAB `logical` array from an Arrow `BooleanArray`
 
 ```matlab
->> arrowArray = arrow.array.BooleanArray([true, false, true])
+>> arrowArray = arrow.array([true, false, true])
 
 arrowArray = 
 
@@ -195,7 +195,7 @@ validElements =
    1   0   1   0   1
 
 % Specify which values are Null/Valid by supplying a logical validity "mask"
->> arrowArray = arrow.array.Int8Array(matlabArray, Valid=validElements)
+>> arrowArray = arrow.array(matlabArray, Valid=validElements)
 
 arrowArray = 
 
