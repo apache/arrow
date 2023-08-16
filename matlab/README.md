@@ -208,6 +208,169 @@ arrowArray =
 ]
 ```
 
+### Arrow `RecordBatch` class
+
+#### Create an Arrow `RecordBatch` from a MATLAB `table`
+
+```matlab
+>> matlabTable = table(["A"; "B"; "C"], [1; 2; 3], [true; false; true])
+
+matlabTable =
+
+  3x3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+
+>> arrowRecordBatch = arrow.recordbatch(matlabTable)
+
+arrowRecordBatch =
+
+Var1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Var2:   [
+    1,
+    2,
+    3
+  ]
+Var3:   [
+    true,
+    false,
+    true
+  ]
+```
+
+#### Create a MATLAB `table` from an Arrow `RecordBatch`
+
+```matlab
+>> arrowRecordBatch
+
+arrowRecordBatch =
+
+Var1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Var2:   [
+    1,
+    2,
+    3
+  ]
+Var3:   [
+    true,
+    false,
+    true
+  ]
+
+>> matlabTable = table(arrowRecordBatch)
+
+matlabTable =
+
+  3x3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+```
+
+#### Create an Arrow `RecordBatch` from multiple Arrow `Array`s
+
+
+```matlab
+>> stringArray = arrow.array(["A", "B", "C"])
+
+stringArray =
+
+[
+  "A",
+  "B",
+  "C"
+]
+>> timestampArray = arrow.array([datetime(1997, 01, 01), datetime(1998, 01, 01), datetime(1999, 01, 01)])
+
+timestampArray =
+
+[
+  1997-01-01 00:00:00.000000,
+  1998-01-01 00:00:00.000000,
+  1999-01-01 00:00:00.000000
+]
+>> booleanArray = arrow.array([true, false, true])
+
+booleanArray =
+
+[
+  true,
+  false,
+  true
+]
+
+>> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
+
+arrowRecordBatch =
+
+Column1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Column2:   [
+    1997-01-01 00:00:00.000000,
+    1998-01-01 00:00:00.000000,
+    1999-01-01 00:00:00.000000
+  ]
+Column3:   [
+    true,
+    false,
+    true
+  ]
+```
+
+#### Extract a column from a `RecordBatch` by index
+
+```matlab
+>> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
+
+arrowRecordBatch =
+
+Column1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Column2:   [
+    1997-01-01 00:00:00.000000,
+    1998-01-01 00:00:00.000000,
+    1999-01-01 00:00:00.000000
+  ]
+Column3:   [
+    true,
+    false,
+    true
+  ]
+
+>> timestampArray = arrowRecordBatch.column(2)
+
+timestampArray =
+
+[
+  1997-01-01 00:00:00.000000,
+  1998-01-01 00:00:00.000000,
+  1999-01-01 00:00:00.000000
+]
+```
+
 ### Feather V1
 
 #### Write a MATLAB table to a Feather v1 file
