@@ -297,6 +297,7 @@ stringArray =
   "B",
   "C"
 ]
+
 >> timestampArray = arrow.array([datetime(1997, 01, 01), datetime(1998, 01, 01), datetime(1999, 01, 01)])
 
 timestampArray =
@@ -306,6 +307,7 @@ timestampArray =
   1998-01-01 00:00:00.000000,
   1999-01-01 00:00:00.000000
 ]
+
 >> booleanArray = arrow.array([true, false, true])
 
 booleanArray =
