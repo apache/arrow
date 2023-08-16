@@ -421,7 +421,7 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
     for (const auto& t : tables) {
       promoted_tables.emplace_back();
       ARROW_ASSIGN_OR_RAISE(promoted_tables.back(),
-                            PromoteTableToSchema(t, unified_schema, memory_pool));
+                            PromoteTableToSchema(t, unified_schema, compute::CastOptions::Safe(), memory_pool));
     }
     tables_to_concat = &promoted_tables;
   } else {
@@ -451,6 +451,14 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
     columns[i] = std::make_shared<ChunkedArray>(column_arrays, schema->field(i)->type());
   }
   return Table::Make(std::move(schema), std::move(columns));
+}
+
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                                                    const std::shared_ptr<Schema>& schema,
+                                                    MemoryPool* pool) {
+    return PromoteTableToSchema(
+        table, schema, compute::CastOptions::Safe(), pool
+    );
 }
 
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,

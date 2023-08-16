@@ -265,22 +265,6 @@ namespace {
 
 using internal::checked_cast;
 
-// Merges `existing` and `other` if one of them is of NullType, otherwise
-// returns nullptr.
-//   - if `other` if of NullType or is nullable, the unified field will be nullable.
-//   - if `existing` is of NullType but other is not, the unified field will
-//     have `other`'s type and will be nullable
-std::shared_ptr<Field> MaybePromoteNullTypes(const Field& existing, const Field& other) {
-  if (existing.type()->id() != Type::NA && other.type()->id() != Type::NA) {
-    return nullptr;
-  }
-  if (existing.type()->id() == Type::NA) {
-    return other.WithNullable(true)->WithMetadata(existing.metadata());
-  }
-  // `other` must be null.
-  return existing.WithNullable(true);
-}
-
 FieldVector MakeFields(
     std::initializer_list<std::pair<std::string, std::shared_ptr<DataType>>> init_list) {
   FieldVector fields;
@@ -407,33 +391,6 @@ Result<std::shared_ptr<DataType>> WidenDecimals(
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,
                                              std::shared_ptr<DataType> other_type,
                                              const Field::MergeOptions& options);
-
-// Merge two dictionary types, or else give an error.
-Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
-    const std::shared_ptr<DataType>& promoted_type,
-    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
-  const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
-  const auto& right = checked_cast<const DictionaryType&>(*other_type);
-  if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
-    return Status::TypeError(
-        "Cannot merge ordered and unordered dictionary unless "
-        "promote_dictionary_ordered=true");
-  }
-  Field::MergeOptions index_options = options;
-  index_options.promote_integer_sign = true;
-  index_options.promote_numeric_width = true;
-  ARROW_ASSIGN_OR_RAISE(auto indices,
-                        MaybeMergeNumericTypes(left.index_type(), right.index_type(), index_options));
-  ARROW_ASSIGN_OR_RAISE(auto values,
-                        MergeTypes(left.value_type(), right.value_type(), options));
-  auto ordered = left.ordered() && right.ordered();
-  if (indices && values) {
-    return dictionary(indices, values, ordered);
-  } else if (values) {
-    return Status::TypeError("Could not merge dictionary index types");
-  }
-  return Status::Invalid("Could not merge dictionary value types");
-}
 
 // Merge temporal types based on options. Returns nullptr for non-temporal types.
 Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
@@ -608,6 +565,34 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
   }
 
   return promoted ? promoted_type : nullptr;
+}
+
+
+// Merge two dictionary types, or else give an error.
+Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
+    const std::shared_ptr<DataType>& promoted_type,
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+  const auto& left = checked_cast<const DictionaryType&>(*promoted_type);
+  const auto& right = checked_cast<const DictionaryType&>(*other_type);
+  if (!options.promote_dictionary_ordered && left.ordered() != right.ordered()) {
+    return Status::TypeError(
+        "Cannot merge ordered and unordered dictionary unless "
+        "promote_dictionary_ordered=true");
+  }
+  Field::MergeOptions index_options = options;
+  index_options.promote_integer_sign = true;
+  index_options.promote_numeric_width = true;
+  ARROW_ASSIGN_OR_RAISE(auto indices,
+                        MaybeMergeNumericTypes(left.index_type(), right.index_type(), index_options));
+  ARROW_ASSIGN_OR_RAISE(auto values,
+                        MergeTypes(left.value_type(), right.value_type(), options));
+  auto ordered = left.ordered() && right.ordered();
+  if (indices && values) {
+    return dictionary(indices, values, ordered);
+  } else if (values) {
+    return Status::TypeError("Could not merge dictionary index types");
+  }
+  return Status::Invalid("Could not merge dictionary value types");
 }
 
 // Merge temporal types based on options. Returns nullptr for non-binary types.

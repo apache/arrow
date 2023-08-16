@@ -314,7 +314,7 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
     MemoryPool* memory_pool = default_memory_pool());
 
 namespace compute {
-    class CastOptions
+    class CastOptions;
 };
 
 /// \brief Promotes a table to conform to the given schema.
@@ -341,5 +341,10 @@ ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
     const compute::CastOptions&, MemoryPool* pool = default_memory_pool());
+
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> PromoteTableToSchema(
+    const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
+    MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow
