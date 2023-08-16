@@ -42,6 +42,7 @@ type (
 	FlightEndpoint                  = flight.FlightEndpoint
 	Location                        = flight.Location
 	FlightInfo                      = flight.FlightInfo
+	PollInfo                       = flight.PollInfo
 	FlightData                      = flight.FlightData
 	PutResult                       = flight.PutResult
 	Ticket                          = flight.Ticket

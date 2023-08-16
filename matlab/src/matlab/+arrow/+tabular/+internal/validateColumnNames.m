@@ -1,6 +1,5 @@
-function [variablesOut, metadataOut] = featherMEXRoundTrip(filename, variablesIn, metadataIn)
-% FEATHERMEXROUNDTRIP Helper function for round tripping variables
-% and metadata structs to a Feather file.
+%VAIDATECOLUMNNAMES Validates columnNames has the expected number of
+%elements.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -17,6 +16,10 @@ function [variablesOut, metadataOut] = featherMEXRoundTrip(filename, variablesIn
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-arrow.cpp.call('featherwrite', filename, variablesIn, metadataIn);
-[variablesOut, metadataOut] = arrow.cpp.call('featherread', filename);
+function validateColumnNames(columnNames, numColumns)
+    if numel(columnNames) ~= numColumns
+        errid = "arrow:tabular:WrongNumberColumnNames";
+        msg = compose("Expected ColumnNames to have %d values.", numColumns);
+        error(errid, msg);
+    end
 end

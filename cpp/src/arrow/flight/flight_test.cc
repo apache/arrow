@@ -40,6 +40,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/future.h"
 #include "arrow/util/logging.h"
 
 #ifdef GRPCPP_GRPCPP_H
@@ -91,9 +92,16 @@ const char kAuthHeader[] = "authorization";
 //------------------------------------------------------------
 // Common transport tests
 
+#ifdef GRPC_ENABLE_ASYNC
+constexpr bool kGrpcSupportsAsync = true;
+#else
+constexpr bool kGrpcSupportsAsync = false;
+#endif
+
 class GrpcConnectivityTest : public ConnectivityTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -102,6 +110,7 @@ ARROW_FLIGHT_TEST_CONNECTIVITY(GrpcConnectivityTest);
 class GrpcDataTest : public DataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -110,6 +119,7 @@ ARROW_FLIGHT_TEST_DATA(GrpcDataTest);
 class GrpcDoPutTest : public DoPutTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -118,6 +128,7 @@ ARROW_FLIGHT_TEST_DO_PUT(GrpcDoPutTest);
 class GrpcAppMetadataTest : public AppMetadataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -126,6 +137,7 @@ ARROW_FLIGHT_TEST_APP_METADATA(GrpcAppMetadataTest);
 class GrpcIpcOptionsTest : public IpcOptionsTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -134,6 +146,7 @@ ARROW_FLIGHT_TEST_IPC_OPTIONS(GrpcIpcOptionsTest);
 class GrpcCudaDataTest : public CudaDataTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
@@ -142,10 +155,20 @@ ARROW_FLIGHT_TEST_CUDA_DATA(GrpcCudaDataTest);
 class GrpcErrorHandlingTest : public ErrorHandlingTest, public ::testing::Test {
  protected:
   std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
   void SetUp() override { SetUpTest(); }
   void TearDown() override { TearDownTest(); }
 };
 ARROW_FLIGHT_TEST_ERROR_HANDLING(GrpcErrorHandlingTest);
+
+class GrpcAsyncClientTest : public AsyncClientTest, public ::testing::Test {
+ protected:
+  std::string transport() const override { return "grpc"; }
+  bool supports_async() const override { return kGrpcSupportsAsync; }
+  void SetUp() override { SetUpTest(); }
+  void TearDown() override { TearDownTest(); }
+};
+ARROW_FLIGHT_TEST_ASYNC_CLIENT(GrpcAsyncClientTest);
 
 //------------------------------------------------------------
 // Ad-hoc gRPC-specific tests
@@ -443,7 +466,7 @@ class TestTls : public ::testing::Test {
   Location location_;
   std::unique_ptr<FlightClient> client_;
   std::unique_ptr<FlightServerBase> server_;
-  bool server_is_initialized_;
+  bool server_is_initialized_ = false;
 };
 
 // A server middleware that rejects all calls.

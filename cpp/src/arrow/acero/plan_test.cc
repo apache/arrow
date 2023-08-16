@@ -36,6 +36,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/util/async_generator.h"
+#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/thread_pool.h"
@@ -1619,6 +1620,9 @@ TEST(ExecPlan, SourceEnforcesBatchLimit) {
 }
 
 TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading enabled";
+#endif
   BatchesWithSchema data;
   data.batches = {ExecBatchFromJSON({int32()}, "[[1]]")};
   data.schema = schema({field("i32", int32())});

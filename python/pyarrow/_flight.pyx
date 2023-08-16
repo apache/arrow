@@ -1756,6 +1756,14 @@ cdef class ServerCallContext(_Weakrefable):
         """Check if the current RPC call has been canceled by the client."""
         return self.context.is_cancelled()
 
+    def add_header(self, key, value):
+        """Add a response header."""
+        self.context.AddHeader(tobytes(key), tobytes(value))
+
+    def add_trailer(self, key, value):
+        """Add a response trailer."""
+        self.context.AddTrailer(tobytes(key), tobytes(value))
+
     def get_middleware(self, key):
         """
         Get a middleware instance by key.

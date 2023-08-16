@@ -23,6 +23,12 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "MINOR: [CI] "
+  - package-ecosystem: "npm"
+    directory: "/js/"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "MINOR: [JS] "
   - package-ecosystem: "nuget"
     directory: "/csharp/"
     schedule:

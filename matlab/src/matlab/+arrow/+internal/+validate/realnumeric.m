@@ -1,3 +1,6 @@
+%REALNUMERIC Verifies the numeric array data is real. Otherwise throws an 
+% error with the identifier "arrrow:array:ComplexNumeric".
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,24 +16,10 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function validateTypeAndShape(data, type)
-% Validates data has the expected type and is a vector or empty 2D
-% matrix. If data is numeric, validates is real and nonsparse.
-
-    arguments
-        data
-        type(1, 1) string
+function realnumeric(data)
+    if ~isreal(data)
+        errid = "arrow:array:ComplexNumeric";
+        msg = "Complex numeric arrays are not supported.";
+        error(errid, msg);
     end
-
-    % If data is empty, only require it's shape to be 2D to support 0x0 
-    % arrays. Otherwise, require data to be a vector.
-    %
-    % TODO: Consider supporting nonvector 2D arrays. We chould reshape them
-    % to column vectors if needed.
-    
-    expectedShape = "vector";
-    if isempty(data)
-        expectedShape = "2d";
-    end
-    validateattributes(data, type, [expectedShape, "nonsparse", "real"]);
 end

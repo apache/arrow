@@ -1225,6 +1225,15 @@ tasks:
       image: ubuntu-cpp
 {% endfor %}
 
+  test-ubuntu-22.04-cpp-no-threading:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      flags: "-e ARROW_ENABLE_THREADING=OFF"
+      image: ubuntu-cpp
+
   test-ubuntu-20.04-cpp-thread-sanitizer:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1253,6 +1262,7 @@ tasks:
     params:
       env:
         PYTHON: "{{ python_version }}"
+        PYTEST_ARGS: "-W error"
       image: conda-python
 {% endfor %}
 
@@ -1265,7 +1275,7 @@ tasks:
         HYPOTHESIS_PROFILE: ci
         PYARROW_TEST_HYPOTHESIS: ON
         # limit to execute hypothesis tests only
-        PYTEST_ARGS: "-m hypothesis"
+        PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
 
   test-conda-python-3.10-substrait:
@@ -1588,9 +1598,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.1.2", "false", "latest"),
-                                                                           ("3.9", "v3.2.0", "false", "1.23"),
-                                                                           ("3.10", "master", "false", "latest")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.4.1", "false", "latest"),
+                                                                           ("3.10", "v3.4.1", "false", "1.23"),
+                                                                           ("3.11", "master", "false", "latest")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
