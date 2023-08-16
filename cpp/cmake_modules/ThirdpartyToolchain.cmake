@@ -5111,8 +5111,7 @@ macro(build_azure_sdk)
                                        ${AZURE_IDENTITY_STATIC_LIBRARY}
                                        ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY}
                                        ${AZURE_STORAGE_COMMON_STATIC_LIBRARY}
-                                       ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY}
-                      DEPENDS azure_sdk_dependencies)
+                                       ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY})
   add_library(Azure::azure-core STATIC IMPORTED)
   set_target_properties(Azure::azure-core
                         PROPERTIES IMPORTED_LOCATION ${AZURE_CORE_STATIC_LIBRARY}
