@@ -23,6 +23,7 @@
 #include <memory>
 #include <vector>
 
+#include "arrow/util/thread_pool.h"
 #include "parquet/file_reader.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -272,10 +273,8 @@ class PARQUET_EXPORT FileReader {
   /// performance.
   ///
   /// This operation is not perfectly async.  The read from disk will be done on an I/O
-  /// thread, which is correct.  However, compression and column decoding is also done on
-  /// the I/O thread which may not be ideal.  The stage after that (transferring the
-  /// decoded data into Arrow structures and fulfilling the future) should be done as a
-  /// new task on the cpu_executor.
+  /// thread, which is correct.  However, decompression is also done on the I/O thread
+  /// which may not be ideal.
   ///
   /// The returned generator will respect the batch size set in the ArrowReaderProperties.
   /// Batches will not be larger than the given batch size.  However, batches may be
@@ -379,6 +378,10 @@ class PARQUET_EXPORT ColumnReader {
   // Overload of NextBatch that returns a Result
   virtual ::arrow::Result<std::shared_ptr<::arrow::ChunkedArray>> NextBatch(
       int64_t batch_size) = 0;
+
+  virtual ::arrow::Future<std::shared_ptr<::arrow::ChunkedArray>> NextBatchAsync(
+      int64_t batch_size, ::arrow::internal::Executor* io_executor,
+      ::arrow::internal::Executor* cpu_executor) = 0;
 };
 
 /// \brief Experimental helper class for bindings (like Python) that struggle

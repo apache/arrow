@@ -123,6 +123,25 @@ class ColumnReaderImpl : public ColumnReader {
     return out;
   }
 
+  Future<std::shared_ptr<ChunkedArray>> NextBatchAsync(
+      int64_t batch_size, ::arrow::internal::Executor* io_executor,
+      ::arrow::internal::Executor* cpu_executor) final {
+    Future<> load_fut = ::arrow::DeferNotOk(
+        io_executor->Submit([this, batch_size] { return LoadBatch(batch_size); }));
+    return load_fut.Then(
+        [this, batch_size, cpu_executor]() -> Future<std::shared_ptr<ChunkedArray>> {
+          return DeferNotOk(cpu_executor->Submit(
+              [this, batch_size]() -> Result<std::shared_ptr<ChunkedArray>> {
+                std::shared_ptr<ChunkedArray> out;
+                RETURN_NOT_OK(BuildArray(batch_size, &out));
+                for (int x = 0; x < out->num_chunks(); x++) {
+                  RETURN_NOT_OK(out->chunk(x)->Validate());
+                }
+                return out;
+              }));
+        });
+  }
+
   virtual ::arrow::Status LoadBatch(int64_t num_records) = 0;
 
   virtual ::arrow::Status BuildArray(int64_t length_upper_bound,
@@ -1270,6 +1289,7 @@ struct AsyncBatchGeneratorState {
   ::arrow::internal::Executor* io_executor;
   ::arrow::internal::Executor* cpu_executor;
   std::vector<std::shared_ptr<ColumnReaderImpl>> column_readers;
+  std::vector<std::shared_ptr<ChunkedArray>> current_cols;
   std::queue<std::shared_ptr<RecordBatch>> overflow;
   std::shared_ptr<::arrow::Schema> schema;
   int64_t batch_size;
@@ -1302,25 +1322,27 @@ class AsyncBatchGeneratorImpl {
     // because we might need to chunk a column if that column is too large.  We
     // do provide a batch size but even for a small batch size it is possible that a
     // column has extremely large strings which don't fit in a single batch.
-    Future<std::vector<std::shared_ptr<ChunkedArray>>> chunked_arrays_fut =
-        ::arrow::internal::OptionalParallelForAsync(
-            state_->use_threads, state_->column_readers,
-            [rows_in_batch](std::size_t, std::shared_ptr<ColumnReaderImpl> column_reader)
-                -> Result<std::shared_ptr<ChunkedArray>> {
-              ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ChunkedArray> chunked_array,
-                                    column_reader->NextBatch(rows_in_batch));
-              return chunked_array;
-            },
-            state_->cpu_executor);
+    std::vector<Future<>> column_futs;
+    column_futs.reserve(state_->column_readers.size());
+    for (std::size_t column_index = 0; column_index < state_->column_readers.size();
+         column_index++) {
+      const auto& column_reader = state_->column_readers[column_index];
+      column_futs.push_back(
+          column_reader
+              ->NextBatchAsync(rows_in_batch, state_->io_executor, state_->cpu_executor)
+              .Then([state = state_,
+                     column_index](const std::shared_ptr<ChunkedArray>& chunked_array) {
+                state->current_cols[column_index] = chunked_array;
+              }));
+    }
+    Future<> all_columns_finished_fut = ::arrow::AllFinished(std::move(column_futs));
 
     // Grab the first batch of data and return it.  If there is more than one batch then
     // throw the reamining batches into overflow and they will be fetched on the next call
-    return chunked_arrays_fut.Then(
-        [state = state_,
-         rows_in_batch](const std::vector<std::shared_ptr<ChunkedArray>>& chunks)
-            -> Result<std::shared_ptr<RecordBatch>> {
+    return all_columns_finished_fut.Then(
+        [state = state_, rows_in_batch]() -> Result<std::shared_ptr<RecordBatch>> {
           std::shared_ptr<Table> table =
-              Table::Make(state->schema, chunks, rows_in_batch);
+              Table::Make(state->schema, state->current_cols, rows_in_batch);
           ::arrow::TableBatchReader batch_reader(*table);
           std::shared_ptr<RecordBatch> first;
           while (true) {
@@ -1372,6 +1394,7 @@ Result<FileReaderImpl::AsyncBatchGenerator> FileReaderImpl::DoReadRowGroupsAsync
   RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups,
                                 &generator_state->column_readers,
                                 &generator_state->schema));
+  generator_state->current_cols.resize(generator_state->column_readers.size());
 
   generator_state->batch_size = properties().batch_size();
   generator_state->rows_remaining = 0;
