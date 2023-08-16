@@ -285,45 +285,6 @@ find_package(Matlab REQUIRED COMPONENTS MAIN_PROGRAM)
 message(STATUS "Mex Library: ${Matlab_MEX_LIBRARY}")
 message(STATUS "Mex Include Folder: ${Matlab_INCLUDE_DIRS}")
 
-set(CPP_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp)
-set(MATLAB_SOURCE_DIR ${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab)
-
-set(arrow_matlab_sources
-    mex/mex_util.cc
-    feather/feather_reader.cc
-    feather/feather_writer.cc
-    feather/feather_functions.cc
-    feather/util/handle_status.cc
-    feather/util/unicode_conversion.cc)
-list(TRANSFORM arrow_matlab_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
-
-add_library(arrow_matlab SHARED ${arrow_matlab_sources})
-
-# Declare a dependency on arrow_shared (libarrow.so/dylib/dll).
-target_link_libraries(arrow_matlab arrow_shared)
-
-# Declare a dependency on the MEX shared library (libmex.so/dylib/dll).
-target_link_libraries(arrow_matlab ${Matlab_MX_LIBRARY})
-target_link_libraries(arrow_matlab ${Matlab_MEX_LIBRARY})
-
-# Include the MATLAB MEX headers.
-target_include_directories(arrow_matlab PRIVATE ${Matlab_INCLUDE_DIRS})
-target_include_directories(arrow_matlab PRIVATE ${CPP_SOURCE_DIR})
-target_include_directories(arrow_matlab PRIVATE ${ARROW_INCLUDE_DIR})
-target_compile_definitions(arrow_matlab PRIVATE ARROW_MATLAB_EXPORTING)
-
-set(mexcall_sources mex/call.cc)
-list(TRANSFORM mexcall_sources PREPEND ${CPP_SOURCE_DIR}/arrow/matlab/)
-
-# Build call MEX binary.
-matlab_add_mex(R2018a
-               NAME mexcall
-               OUTPUT_NAME call
-               SRC ${mexcall_sources}
-               LINK_TO arrow_matlab)
-
-target_include_directories(mexcall PRIVATE ${CPP_SOURCE_DIR})
-
 # ARROW_SHARED_LIB
 # On Windows, this will be ARROW_HOME/bin/arrow.dll and on Linux and macOS, it is the arrow.so/dylib in the newly built arrow_shared library.
 if(NOT Arrow_FOUND)
@@ -379,36 +340,13 @@ if(MATLAB_BUILD_TESTS)
   # Define a test executable target. TODO: Remove the placeholder test. This is
   # just for testing GoogleTest integration.
   add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
-  add_executable(mex_util_test ${CPP_SOURCE_DIR}/arrow/matlab/mex/mex_util_test.cc)
 
   # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
   # targets.
   target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
 
-  # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
-  # targets.
-  target_link_libraries(mex_util_test GTest::gtest GTest::gtest_main)
-  target_link_libraries(mex_util_test arrow_matlab)
-
-  # Include the MATLAB MEX headers.
-  target_include_directories(mex_util_test PRIVATE ${Matlab_INCLUDE_DIRS})
-  # Include the C++ source headers.
-  target_include_directories(mex_util_test PRIVATE ${CPP_SOURCE_DIR})
-
   # Add test targets for C++ tests.
   add_test(PlaceholderTestTarget placeholder_test)
-  add_test(CheckNumArgsTestTarget mex_util_test)
-
-  # On macOS, add the directory of libarrow.dylib to the $DYLD_LIBRARY_PATH for
-  # running CheckNumArgsTestTarget.
-  if(APPLE)
-    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
-    get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
-
-    set_tests_properties(CheckNumArgsTestTarget
-                         PROPERTIES ENVIRONMENT
-                                    "DYLD_LIBRARY_PATH=${ARROW_SHARED_LIB_DIR}")
-  endif()
 
   # On Windows:
   # Add the directory of gtest.dll and gtest_main.dll to the %PATH% for running
@@ -432,13 +370,6 @@ if(MATLAB_BUILD_TESTS)
 
     get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
     get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
-
-    set(MATLAB_DLL_DEPENDENCIES_DIR "${Matlab_ROOT_DIR}/bin/win64")
-
-    set_tests_properties(CheckNumArgsTestTarget
-                         PROPERTIES ENVIRONMENT
-                                    "PATH=${ARROW_SHARED_LIB_DIR}\;${MATLAB_DLL_DEPENDENCIES_DIR}\;${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
-    )
   endif()
 endif()
 
@@ -452,61 +383,14 @@ if(MATLAB_ARROW_INTERFACE)
   include(BuildMatlabArrowInterface)
 endif()
 
-# Create a package hierarchy at CMAKE_INSTALL_PREFIX to install the mex function
-# and dependencies.
-set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow/+cpp")
-
 # Install MATLAB source files.
 # On macOS, exclude '.DS_Store' files in the source tree from installation.
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/src/matlab/"
         DESTINATION ${CMAKE_INSTALL_DIR}
         PATTERN ".DS_Store" EXCLUDE)
 
-# Install arrow_matlab and mexcall.
-# Use the RUNTIME output artifact keyword for Windows.
-# Use the LIBRARY output artifact keyword for macOS and Linux.
-install(TARGETS arrow_matlab mexcall
-        RUNTIME DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
-        LIBRARY DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR})
-
 get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
 get_filename_component(ARROW_SHARED_LIB_FILENAME ${ARROW_SHARED_LIB} NAME_WE)
-
-# On macOS, use the RPATH values below for runtime dependency resolution. This enables
-# relocation of the installation directory.
-if(APPLE)
-  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
-  # to the RPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
-  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-  # Add @loader_path to the RPATH of mexcall so that libarrow_matlab.dylib can be found
-  # at runtime.
-  set_target_properties(mexcall PROPERTIES INSTALL_RPATH "@loader_path")
-
-  # Add @loader_path to the RPATH of arrow_matlab so that libarrow.dylib can be found
-  # at runtime.
-  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH "@loader_path")
-endif()
-
-# On Linux, use the RUNPATH values below for runtime dependency resolution. This enables
-# relocation of the installation directory.
-if(UNIX
-   AND NOT APPLE
-   AND NOT CYGWIN)
-  # Setting INSTALL_RPATH_USE_LINK_PATH to true will add the paths to external dependencies
-  # to the RUNPATH of arrow_matlab and mexcall, including the MATLAB dependencies.
-  # If Arrow_FOUND is true, this also includes the path to arrow_shared.
-  set_target_properties(arrow_matlab mexcall PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
-
-  # Add $ORIGIN to the RUNPATH of mexcall so that libarrow_matlab.so can be found
-  # at runtime.
-  set_target_properties(mexcall PROPERTIES INSTALL_RPATH $ORIGIN)
-
-  # Add $ORIGIN to the RUNPATH of arrow_matlab so that libarrow.so can be found
-  # at runtime.
-  set_target_properties(arrow_matlab PROPERTIES INSTALL_RPATH $ORIGIN)
-endif()
 
 if(NOT Arrow_FOUND)
   # If Arrow_FOUND is false, Arrow is built by the arrow_shared target and needs
@@ -539,6 +423,9 @@ if(NOT Arrow_FOUND)
   # Note: The following CMake Issue suggests enabling an option to exclude all
   # folders that would be empty after installation:
   # https://gitlab.kitware.com/cmake/cmake/-/issues/17122
+
+  set(CMAKE_PACKAGED_INSTALL_DIR "${CMAKE_INSTALL_DIR}/+arrow")
+
   install(DIRECTORY "${ARROW_SHARED_LIB_DIR}/"
           DESTINATION ${CMAKE_PACKAGED_INSTALL_DIR}
           FILES_MATCHING
