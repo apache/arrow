@@ -76,11 +76,9 @@ $ cd arrow/matlab
 To build the MATLAB interface, use [CMake](https://cmake.org/cmake/help/latest/):
 
 ```console
-$ cmake -S . -B build -D MATLAB_ARROW_INTERFACE=ON
+$ cmake -S . -B build
 $ cmake --build build --config Release
 ```
-
-**NOTE:** To build the experimental MATLAB interface code, `-D MATLAB_ARROW_INTERFACE=ON` must be specified as shown above.
 
 ## Install
 
@@ -111,7 +109,7 @@ To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call t
 To enable the C++ tests, set the `MATLAB_BUILD_TESTS` flag to `ON` at build time: 
 
 ```console
-$ cmake -S . -B build -D MATLAB_ARROW_INTERFACE=ON -D MATLAB_BUILD_TESTS=ON
+$ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
 $ cmake --build build --config Release
 ```
 
