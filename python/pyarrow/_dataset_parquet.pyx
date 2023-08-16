@@ -201,7 +201,7 @@ cdef class ParquetFileFormat(FileFormat):
         """
         Parameters
         ----------
-        other : ParquetFileFormat
+        other : pyarrow.dataset.ParquetFileFormat
 
         Returns
         -------
@@ -523,7 +523,7 @@ cdef class ParquetReadOptions(_Weakrefable):
         """
         Parameters
         ----------
-        other : ParquetReadOptions
+        other : pyarrow.dataset.ParquetReadOptions
 
         Returns
         -------
@@ -755,7 +755,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         """
         Parameters
         ----------
-        other : ParquetFragmentScanOptions
+        other : pyarrow.dataset.ParquetFragmentScanOptions
 
         Returns
         -------

@@ -197,12 +197,12 @@ cdef class Projector(_Weakrefable):
 
         Parameters
         ----------
-        batch : RecordBatch
+        batch : pyarrow.RecordBatch
         selection : pyarrow.gandiva.SelectionVector
 
         Returns
         -------
-        list[Array]
+        list[pyarrow.Array]
         """
         cdef vector[shared_ptr[CArray]] results
         if selection is None:
@@ -245,7 +245,7 @@ cdef class Filter(_Weakrefable):
 
         Parameters
         ----------
-        batch : RecordBatch
+        batch : pyarrow.RecordBatch
         pool : MemoryPool
         dtype : DataType or str, default int32
 
@@ -334,7 +334,7 @@ cdef class TreeExprBuilder(_Weakrefable):
         Parameters
         ----------
         root_node : pyarrow.gandiva.Node
-        return_field : Field
+        return_field : pyarrow.Field
 
         Returns
         -------

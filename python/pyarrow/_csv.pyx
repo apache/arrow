@@ -293,7 +293,7 @@ cdef class ReadOptions(_Weakrefable):
         """
         Parameters
         ----------
-        other : ReadOptions
+        other : pyarrow.csv.ReadOptions
 
         Returns
         -------
@@ -548,7 +548,7 @@ cdef class ParseOptions(_Weakrefable):
         """
         Parameters
         ----------
-        other : ParseOptions
+        other : pyarrow.csv.ParseOptions
 
         Returns
         -------
@@ -1063,7 +1063,7 @@ cdef class ConvertOptions(_Weakrefable):
         """
         Parameters
         ----------
-        other : ConvertOptions
+        other : pyarrow.csv.ConvertOptions
 
         Returns
         -------

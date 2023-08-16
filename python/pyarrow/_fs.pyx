@@ -508,7 +508,7 @@ cdef class FileSystem(_Weakrefable):
         """
         Parameters
         ----------
-        other : FileSystem
+        other : pyarrow.fs.FileSystem
 
         Returns
         -------

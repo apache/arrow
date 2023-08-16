@@ -1995,7 +1995,7 @@ cdef class IpcFileFormat(FileFormat):
         """
         Parameters
         ----------
-        other : IpcFileFormat
+        other : pyarrow.dataset.IpcFileFormat
 
         Returns
         -------
@@ -2123,7 +2123,7 @@ cdef class CsvFileFormat(FileFormat):
         """
         Parameters
         ----------
-        other : CsvFileFormat
+        other : pyarrow.dataset.CsvFileFormat
 
         Returns
         -------
@@ -2204,7 +2204,7 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
         """
         Parameters
         ----------
-        other : CsvFragmentScanOptions
+        other : pyarrow.dataset.CsvFragmentScanOptions
 
         Returns
         -------
@@ -2298,7 +2298,7 @@ cdef class JsonFileFormat(FileFormat):
         """
         Parameters
         ----------
-        other : JsonFileFormat
+        other : pyarrow.dataset.JsonFileFormat
 
         Returns
         -------
@@ -2365,7 +2365,7 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
         """
         Parameters
         ----------
-        other : JsonFragmentScanOptions
+        other : pyarrow.dataset.JsonFragmentScanOptions
 
         Returns
         -------
@@ -2425,7 +2425,7 @@ cdef class Partitioning(_Weakrefable):
 
         Returns
         -------
-        Expression
+        pyarrow.dataset.Expression
         """
         cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))

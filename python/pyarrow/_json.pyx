@@ -86,7 +86,7 @@ cdef class ReadOptions(_Weakrefable):
         """
         Parameters
         ----------
-        other : ReadOptions
+        other : pyarrow.json.ReadOptions
 
         Returns
         -------
@@ -224,7 +224,7 @@ cdef class ParseOptions(_Weakrefable):
         """
         Parameters
         ----------
-        other : ParseOptions
+        other : pyarrow.json.ParseOptions
 
         Returns
         -------

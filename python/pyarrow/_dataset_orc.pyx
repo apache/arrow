@@ -35,7 +35,7 @@ cdef class OrcFileFormat(FileFormat):
         """
         Parameters
         ----------
-        other : OrcFileFormat
+        other : pyarrow.dataset.OrcFileFormat
 
         Returns
         -------

@@ -1295,7 +1295,7 @@ cdef class Array(_PandasConvertible):
         """
         Parameters
         ----------
-        other : Array
+        other : pyarrow.Array
 
         Returns
         -------
@@ -2366,7 +2366,7 @@ cdef class UnionArray(Array):
 
         Returns
         -------
-        field : Array
+        field : pyarrow.Field
             The given child field.
         """
         import warnings
