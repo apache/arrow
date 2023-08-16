@@ -5073,7 +5073,6 @@ macro(build_azure_sdk)
 
   find_curl()
   find_package(LibXml2 REQUIRED)
-  add_custom_target(azure_sdk_dependencies)
 
   set(AZURE_SDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azure-sdk_ep-install")
   set(AZURE_SDK_INCLUDE_DIR "${AZURE_SDK_PREFIX}/include")
