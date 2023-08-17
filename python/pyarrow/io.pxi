@@ -897,7 +897,7 @@ cdef class PythonFile(NativeFile):
         Parameters
         ----------
         size : int
-            maximum number of bytes read
+            Maximum number of bytes read
         """
         return self.handle.readline(size)
 
