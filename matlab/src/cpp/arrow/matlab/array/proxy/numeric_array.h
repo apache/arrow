@@ -87,5 +87,5 @@ class ARROW_MATLAB_EXPORT NumericArray : public arrow::matlab::array::proxy::Arr
 
      // Specialization of NumericArray::Make for arrow::TimestampType.
     template <>
-    ARROW_MATLAB_EXPORT libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 }
