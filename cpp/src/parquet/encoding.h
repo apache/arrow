@@ -156,13 +156,9 @@ template <>
 struct EncodingTraits<FLBAType> {
   using Encoder = FLBAEncoder;
   using Decoder = FLBADecoder;
-  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
 
-  struct Accumulator {
-    std::unique_ptr<::arrow::FixedSizeBinaryBuilder> builder;
-    std::vector<std::shared_ptr<::arrow::Array>> chunks;
-  };
   using ArrowType = ::arrow::FixedSizeBinaryType;
+  using Accumulator = ::arrow::FixedSizeBinaryBuilder;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
 };
 

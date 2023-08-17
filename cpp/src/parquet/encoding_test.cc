@@ -917,7 +917,7 @@ std::shared_ptr<::arrow::Array> EncodingAdHocTyped<FLBAType>::GetValues(int seed
 }
 
 using EncodingAdHocTypedCases =
-    ::testing::Types<BooleanType, Int32Type, Int64Type, FloatType, DoubleType>;
+    ::testing::Types<BooleanType, Int32Type, Int64Type, FloatType, DoubleType, FLBAType>;
 
 TYPED_TEST_SUITE(EncodingAdHocTyped, EncodingAdHocTypedCases);
 
@@ -2030,13 +2030,16 @@ TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
 
 template <typename Type>
 class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
+  using ArrowType = typename EncodingTraits<Type>::ArrowType;
+  using IsFixedSizeBinary = ::arrow::is_fixed_size_binary_type<ArrowType>;
+
  public:
   std::unique_ptr<TypedEncoder<Type>> encoder =
       MakeTypedEncoder<Type>(Encoding::DELTA_BYTE_ARRAY);
   std::unique_ptr<TypedDecoder<Type>> decoder =
       MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY);
 
-  void CheckDirectPut(std::shared_ptr<::arrow::Array> array) {
+  void CheckDirectPutByteArray(std::shared_ptr<::arrow::Array> array) {
     ASSERT_NO_THROW(encoder->Put(*array));
     auto buf = encoder->FlushValues();
 
@@ -2058,6 +2061,36 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
     ASSERT_OK(result->ValidateFull());
 
     ::arrow::AssertArraysEqual(*array, *result);
+  }
+
+  void CheckDirectPutFLBA(std::shared_ptr<::arrow::Array> array) {
+    ASSERT_NO_THROW(encoder->Put(*array));
+    auto buf = encoder->FlushValues();
+
+    int num_values = static_cast<int>(array->length() - array->null_count());
+    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+    auto acc =
+        typename EncodingTraits<Type>::Accumulator(array->type(), default_memory_pool());
+    ASSERT_EQ(num_values,
+              decoder->DecodeArrow(static_cast<int>(array->length()),
+                                   static_cast<int>(array->null_count()),
+                                   array->null_bitmap_data(), array->offset(), &acc));
+
+    std::shared_ptr<::arrow::Array> result;
+    ASSERT_OK(acc.Finish(&result));
+    ASSERT_EQ(array->length(), result->length());
+    ASSERT_OK(result->ValidateFull());
+
+    ::arrow::AssertArraysEqual(*array, *result);
+  }
+
+  void CheckDirectPut(std::shared_ptr<::arrow::Array> array) {
+    if constexpr (IsFixedSizeBinary::value) {
+      CheckDirectPutFLBA(array);
+    } else {
+      CheckDirectPutByteArray(array);
+    }
   }
 
   void CheckRoundtripFLBA() {
@@ -2095,9 +2128,6 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   }
 
   void CheckRoundtrip() override {
-    using ArrowType = typename EncodingTraits<Type>::ArrowType;
-    using IsFixedSizeBinary = ::arrow::is_fixed_size_binary_type<ArrowType>;
-
     if constexpr (IsFixedSizeBinary::value) {
       CheckRoundtripFLBA();
     } else {

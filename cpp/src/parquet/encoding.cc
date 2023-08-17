@@ -1184,9 +1184,8 @@ template <typename DType, typename Enable = void>
 struct ArrowBinaryHelper;
 
 template <typename DType>
-struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArrayType> ||
-                                                     std::is_same_v<DType, FLBAType>,
-                                                 void>> {
+struct ArrowBinaryHelper<DType,
+                         std::enable_if_t<std::is_same_v<DType, ByteArrayType>, void>> {
   explicit ArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc) {
     builder = acc->builder.get();
     chunks = &acc->chunks;
@@ -1200,18 +1199,26 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
   Status PushChunk() {
     std::shared_ptr<::arrow::Array> result;
     RETURN_NOT_OK(builder->Finish(&result));
-    chunks->push_back(std::move(result));
+    chunks->push_back(result);
     chunk_space_remaining = ::arrow::kBinaryMemoryLimit;
     return Status::OK();
   }
 
   bool CanFit(int64_t length) const { return length <= chunk_space_remaining; }
 
-  void UnsafeAppend(const uint8_t* data, int32_t length);
+  void UnsafeAppend(const uint8_t* data, int32_t length) {
+    DCHECK(CanFit(length));
+    chunk_space_remaining -= length;
+    builder->UnsafeAppend(data, length);
+  }
 
   void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
 
-  Status Append(const uint8_t* data, int32_t length);
+  Status Append(const uint8_t* data, int32_t length) {
+    DCHECK(CanFit(length));
+    chunk_space_remaining -= length;
+    return builder->Append(data, length);
+  }
 
   Status AppendNull() { return builder->AppendNull(); }
 
@@ -1220,26 +1227,45 @@ struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, ByteArray
   int64_t chunk_space_remaining;
 };
 
-template <>
-Status ArrowBinaryHelper<ByteArrayType>::Append(const uint8_t* data, int32_t length) {
-  DCHECK(CanFit(length));
-  chunk_space_remaining -= length;
-  return builder->Append(data, length);
-}
+template <typename DType>
+struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, FLBAType>, void>> {
+  explicit ArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc) {
+    builder = acc;
+    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
+                                                 builder->value_data_length(),
+                                                 &space_remaining))) {
+      throw ParquetException("excess expansion in ArrowBinaryHelper<DType>");
+    }
+  }
 
-template <>
-Status ArrowBinaryHelper<FLBAType>::Append(const uint8_t* data, int32_t length) {
-  DCHECK(CanFit(length));
-  chunk_space_remaining -= length;
-  return builder->Append(data);
-}
+  Status PushChunk() {
+    std::shared_ptr<::arrow::Array> result;
+    RETURN_NOT_OK(builder->Finish(&result));
+    space_remaining = ::arrow::kBinaryMemoryLimit;
+    return Status::OK();
+  }
 
-template <>
-void ArrowBinaryHelper<ByteArrayType>::UnsafeAppend(const uint8_t* data, int32_t length) {
-  DCHECK(CanFit(length));
-  chunk_space_remaining -= length;
-  builder->UnsafeAppend(data, length);
-}
+  bool CanFit(int64_t length) const { return length <= space_remaining; }
+
+  void UnsafeAppend(const uint8_t* data, int32_t length) {
+    DCHECK(CanFit(length));
+    space_remaining -= length;
+    builder->UnsafeAppend(data, length);
+  }
+
+  void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
+
+  Status Append(const uint8_t* data, int32_t length) {
+    DCHECK(CanFit(length));
+    space_remaining -= length;
+    return builder->Append(data);
+  }
+
+  Status AppendNull() { return builder->AppendNull(); }
+
+  typename EncodingTraits<DType>::Accumulator* builder;
+  int64_t space_remaining;
+};
 
 template <>
 inline int PlainDecoder<ByteArrayType>::DecodeArrow(
@@ -1258,21 +1284,21 @@ inline int PlainDecoder<ByteArrayType>::DecodeArrow(
 template <>
 inline int PlainDecoder<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
-    typename EncodingTraits<FLBAType>::Accumulator* acc) {
+    typename EncodingTraits<FLBAType>::Accumulator* builder) {
   int values_decoded = num_values - null_count;
   if (ARROW_PREDICT_FALSE(len_ < descr_->type_length() * values_decoded)) {
     ParquetException::EofException();
   }
 
-  PARQUET_THROW_NOT_OK(acc->builder->Reserve(num_values));
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
   VisitNullBitmapInline(
       valid_bits, valid_bits_offset, num_values, null_count,
       [&]() {
-        acc->builder->UnsafeAppend(data_);
+        builder->UnsafeAppend(data_);
         data_ += descr_->type_length();
       },
-      [&]() { acc->builder->UnsafeAppendNull(); });
+      [&]() { builder->UnsafeAppendNull(); });
 
   num_values_ -= values_decoded;
   len_ -= descr_->type_length() * values_decoded;
@@ -1327,19 +1353,19 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType>,
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
-                  typename EncodingTraits<ByteArrayType>::Accumulator* acc) override {
+                  typename EncodingTraits<ByteArrayType>::Accumulator* out) override {
     int result = 0;
     PARQUET_THROW_NOT_OK(DecodeArrowDense(num_values, null_count, valid_bits,
-                                          valid_bits_offset, acc, &result));
+                                          valid_bits_offset, out, &result));
     return result;
   }
 
  private:
   Status DecodeArrowDense(int num_values, int null_count, const uint8_t* valid_bits,
                           int64_t valid_bits_offset,
-                          typename EncodingTraits<ByteArrayType>::Accumulator* acc,
+                          typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_values_decoded) {
-    ArrowBinaryHelper<ByteArrayType> helper(acc);
+    ArrowBinaryHelper<ByteArrayType> helper(out);
     int values_decoded = 0;
 
     RETURN_NOT_OK(helper.builder->Reserve(num_values));
@@ -1722,14 +1748,14 @@ int DictDecoderImpl<BooleanType>::DecodeArrow(
 template <>
 inline int DictDecoderImpl<FLBAType>::DecodeArrow(
     int num_values, int null_count, const uint8_t* valid_bits, int64_t valid_bits_offset,
-    typename EncodingTraits<FLBAType>::Accumulator* acc) {
-  if (acc->builder->byte_width() != descr_->type_length()) {
+    typename EncodingTraits<FLBAType>::Accumulator* builder) {
+  if (builder->byte_width() != descr_->type_length()) {
     throw ParquetException("Byte width mismatch: builder was " +
-                           std::to_string(acc->builder->byte_width()) +
-                           " but decoder was " + std::to_string(descr_->type_length()));
+                           std::to_string(builder->byte_width()) + " but decoder was " +
+                           std::to_string(descr_->type_length()));
   }
 
-  PARQUET_THROW_NOT_OK(acc->builder->Reserve(num_values));
+  PARQUET_THROW_NOT_OK(builder->Reserve(num_values));
 
   auto dict_values = reinterpret_cast<const FLBA*>(dictionary_->data());
 
@@ -1741,9 +1767,9 @@ inline int DictDecoderImpl<FLBAType>::DecodeArrow(
           throw ParquetException("");
         }
         PARQUET_THROW_NOT_OK(IndexInBounds(index));
-        acc->builder->UnsafeAppend(dict_values[index].ptr);
+        builder->UnsafeAppend(dict_values[index].ptr);
       },
-      [&]() { acc->builder->UnsafeAppendNull(); });
+      [&]() { builder->UnsafeAppendNull(); });
 
   return num_values - null_count;
 }
