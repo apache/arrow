@@ -433,7 +433,7 @@ cdef class TreeExprBuilder(_Weakrefable):
 
         Parameters
         ----------
-        children : pyarrow.gandiva.NodeVector
+        children : list[pyarrow.gandiva.Node]
 
         Returns
         -------
