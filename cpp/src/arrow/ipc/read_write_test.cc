@@ -1184,6 +1184,13 @@ struct FileWriterHelper {
     return reader->metadata();
   }
 
+  Result<std::shared_ptr<Table>> ReadAll() {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    return reader->ToTable();
+  }
+
   std::shared_ptr<ResizableBuffer> buffer_;
   std::unique_ptr<io::BufferOutputStream> sink_;
   std::shared_ptr<RecordBatchWriter> writer_;
@@ -1873,6 +1880,21 @@ TEST(TestIpcFileFormat, FooterMetaData) {
 
   ASSERT_OK_AND_ASSIGN(auto out_metadata, helper.ReadFooterMetadata());
   ASSERT_TRUE(out_metadata->Equals(*metadata));
+}
+
+TEST(TestIpcFileFormat, ReaderToTable) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto out_table, helper.ReadAll());
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch, batch}));
+  ASSERT_TABLES_EQUAL(*expected_table, *out_table);
 }
 
 TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
@@ -3012,11 +3034,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
     auto read_options = IpcReadOptions::Defaults();
     EXPECT_OK_AND_ASSIGN(auto reader,
                          RecordBatchFileReader::Open(buffer_reader.get(), read_options));
-    std::vector<std::shared_ptr<RecordBatch>> expected_batches;
-    for (int i = 0; i < reader->num_record_batches(); i++) {
-      EXPECT_OK_AND_ASSIGN(auto expected_batch, reader->ReadRecordBatch(i));
-      expected_batches.push_back(expected_batch);
-    }
+    EXPECT_OK_AND_ASSIGN(auto expected_batches, reader->ToRecordBatches());
     return expected_batches;
   }
 

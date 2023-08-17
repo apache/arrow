@@ -229,6 +229,12 @@ class ARROW_EXPORT RecordBatchFileReader
       const io::IOContext& io_context = io::default_io_context(),
       const io::CacheOptions cache_options = io::CacheOptions::LazyDefaults(),
       arrow::internal::Executor* executor = NULLPTR) = 0;
+
+  /// \brief Collect all batches as a vector of record batches
+  Result<RecordBatchVector> ToRecordBatches();
+
+  /// \brief Collect all batches and concatenate as arrow::Table
+  Result<std::shared_ptr<Table>> ToTable();
 };
 
 /// \brief A general listener class to receive events.

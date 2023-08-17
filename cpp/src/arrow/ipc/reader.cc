@@ -44,6 +44,7 @@
 #include "arrow/record_batch.h"
 #include "arrow/sparse_tensor.h"
 #include "arrow/status.h"
+#include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
@@ -1863,6 +1864,21 @@ Future<std::shared_ptr<RecordBatchFileReader>> RecordBatchFileReader::OpenAsync(
   auto result = std::make_shared<RecordBatchFileReaderImpl>();
   return result->OpenAsync(file, footer_offset, options)
       .Then([=]() -> Result<std::shared_ptr<RecordBatchFileReader>> { return result; });
+}
+
+Result<RecordBatchVector> RecordBatchFileReader::ToRecordBatches() {
+  RecordBatchVector batches;
+  const auto n = num_record_batches();
+  for (int i = 0; i < n; ++i) {
+    ARROW_ASSIGN_OR_RAISE(auto batch, ReadRecordBatch(i));
+    batches.emplace_back(std::move(batch));
+  }
+  return batches;
+}
+
+Result<std::shared_ptr<Table>> RecordBatchFileReader::ToTable() {
+  ARROW_ASSIGN_OR_RAISE(auto batches, ToRecordBatches());
+  return Table::FromRecordBatches(schema(), std::move(batches));
 }
 
 Future<SelectiveIpcFileRecordBatchGenerator::Item>
