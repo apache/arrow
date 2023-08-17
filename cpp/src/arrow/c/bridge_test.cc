@@ -456,6 +456,9 @@ TEST_F(TestSchemaExport, RunEndEncoded) {
              {"", "run_ends", "values"}, {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
   TestNested(run_end_encoded(int64(), utf8()), {"+r", "l", "u"},
              {"", "run_ends", "values"}, {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
+  TestNested(run_end_encoded(int32(), list(utf8())), {"+r", "i", "+l", "u"},
+             {"", "run_ends", "values", "item"},
+             {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE, ARROW_FLAG_NULLABLE});
 }
 #endif
 
