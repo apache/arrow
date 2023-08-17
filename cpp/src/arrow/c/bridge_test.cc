@@ -3341,6 +3341,7 @@ TEST_F(TestSchemaRoundtrip, Union) {
 #ifdef ARROW_COMPUTE
 TEST_F(TestSchemaRoundtrip, RunEndEncoded) {
   TestWithTypeFactory([]() { return run_end_encoded(int16(), float32()); });
+  TestWithTypeFactory([]() { return run_end_encoded(int32(), list(float32())); });
 }
 #endif
 
@@ -3643,6 +3644,20 @@ TEST_F(TestArrayRoundtrip, RunEndEncoded) {
                             REEFromJSON(run_end_encoded(int32(), int8()),
                                         "[1, 2, 2, 3, null, null, null, 4]"));
       return ree_array->Slice(1, 5);
+    };
+    TestWithArrayFactory(factory);
+  }
+  {
+    auto factory = []() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(
+          auto ree_array,
+          RunEndEncodedArray::Make(
+              run_end_encoded(int64(), list(utf8())), 8,
+              ArrayFromJSON(int64(), "[1, 3, 4, 7, 8]"),
+              ArrayFromJSON(list(utf8()),
+                            R"([["abc", "def"], ["efg"], [], null, ["efg", "hij"]])")));
+      RETURN_NOT_OK(ree_array->ValidateFull());
+      return ree_array;
     };
     TestWithArrayFactory(factory);
   }
