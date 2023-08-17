@@ -507,7 +507,15 @@ module EachRawRecordBasicArraysTests
   end
 end
 
-class EachRawRecordBasicArraysTest < Test::Unit::TestCase
+class EachRawRecordRecordBatchBasicArraysTest< Test::Unit::TestCase
+  include EachRawRecordBasicArraysTests
+
+  def build(schema, records)
+    Arrow::RecordBatch.new(schema, records)
+  end
+end
+
+class EachRawRecordTableBasicArraysTest < Test::Unit::TestCase
   include EachRawRecordBasicArraysTests
 
   def build(schema, records)

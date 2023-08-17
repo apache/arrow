@@ -153,6 +153,26 @@ namespace red_arrow {
           n_columns_(n_columns) {
       }
 
+      void produce(const arrow::RecordBatch& record_batch) {
+        rb::protect([&] {
+          const auto n_rows = record_batch.num_rows();
+          for (int64_t i = 0; i < n_rows; ++i) {
+            record_ = rb_ary_new_capa(n_columns_);
+            row_offset_ = i;
+
+            for (int i = 0; i < n_columns_; ++i) {
+              const auto array = record_batch.column(i).get();
+              column_index_ = i;
+
+              check_status(array->Accept(this),
+                           "[record-batch][each-raw-record]");
+            }
+            rb_yield(record_);
+          }
+          return Qnil;
+        });
+      }
+
       void produce(const arrow::Table& table) {
         rb::protect([&] {
           const auto n_rows = table.num_rows();
@@ -276,6 +296,22 @@ namespace red_arrow {
     }
 
     return records;
+  }
+
+  VALUE
+  record_batch_each_raw_record(VALUE rb_record_batch){
+    auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
+    auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
+    const auto n_columns = record_batch->num_columns();
+
+    try {
+      RawRecordsProducer producer(n_columns);
+      producer.produce(*record_batch);
+    } catch (rb::State& state) {
+      state.jump();
+    }
+
+    return Qnil;
   }
 
   VALUE
