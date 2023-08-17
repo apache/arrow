@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pramga once
+#pragma once
 
 #include "arrow/matlab/array/proxy/numeric_array.h"
 
