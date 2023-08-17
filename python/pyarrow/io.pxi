@@ -908,7 +908,7 @@ cdef class PythonFile(NativeFile):
         Parameters
         ----------
         hint : int
-            maximum number of bytes read until we stop
+            Maximum number of bytes read until we stop
         """
         return self.handle.readlines(hint)
 
