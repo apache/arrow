@@ -1950,7 +1950,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
 
         Returns
         -------
-        str
+        byte
         """
         return self.metadata.key(i)
 
