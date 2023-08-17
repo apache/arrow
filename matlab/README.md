@@ -27,17 +27,17 @@ This is a very early stage MATLAB interface to the Apache Arrow C++ libraries.
 
 Currently, the MATLAB interface supports:
 
-1. Creating a subset of Arrow `Array` types (e.g. numeric and boolean) from MATLAB data
-2. Reading and writing numeric types from/to Feather v1 files.
+1. Converting between a subset of Arrow `Array` types and MATLAB array types (see table below)
+2. Converting between MATLAB `table`s and `arrow.tabular.RecordBatch`s
+3. Creating Arrow `Field`s, `Schema`s, and `Type`s
+4. Reading and writing Feather V1 files
 
 Supported `arrow.array.Array` types are included in the table below.
 
-**NOTE**: All Arrow `Array` classes are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
+**NOTE**: All Arrow `Array` classes listed below are part of the `arrow.array` package (e.g. `arrow.array.Float64Array`).
 
 | MATLAB Array Type | Arrow Array Type |
 | ----------------- | ---------------- |
-| `single`          | `Float32Array`   |
-| `double`          | `Float64Array`   |
 | `uint8`           | `UInt8Array`     |
 | `uint16`          | `UInt16Array`    |
 | `uint32`          | `UInt32Array`    |
@@ -46,7 +46,11 @@ Supported `arrow.array.Array` types are included in the table below.
 | `int16`           | `Int16Array`     |
 | `int32`           | `Int32Array`     |
 | `int64`           | `Int64Array`     |
+| `single`          | `Float32Array`   |
+| `double`          | `Float64Array`   |
 | `logical`         | `BooleanArray`   |
+| `string`          | `StringArray`    |
+| `datetime`        | `TimestampArray` |
 
 ## Prerequisites
 
@@ -134,7 +138,7 @@ matlabArray =
 
      1     2     3
 
->> arrowArray = arrow.array.Float64Array(matlabArray)
+>> arrowArray = arrow.array(matlabArray)
 
 arrowArray = 
 
@@ -148,7 +152,7 @@ arrowArray =
 #### Create a MATLAB `logical` array from an Arrow `BooleanArray`
 
 ```matlab
->> arrowArray = arrow.array.BooleanArray([true, false, true])
+>> arrowArray = arrow.array([true, false, true])
 
 arrowArray = 
 
@@ -190,7 +194,7 @@ validElements =
    1   0   1   0   1
 
 % Specify which values are Null/Valid by supplying a logical validity "mask"
->> arrowArray = arrow.array.Int8Array(matlabArray, Valid=validElements)
+>> arrowArray = arrow.array(matlabArray, Valid=validElements)
 
 arrowArray = 
 
@@ -203,20 +207,418 @@ arrowArray =
 ]
 ```
 
-### Feather V1
+### Arrow `RecordBatch` class
 
-#### Write a MATLAB table to a Feather v1 file
+#### Create an Arrow `RecordBatch` from a MATLAB `table`
 
-``` matlab
->> t = array2table(rand(10, 10));
->> filename = 'table.feather';
->> featherwrite(filename,t);
+```matlab
+>> matlabTable = table(["A"; "B"; "C"], [1; 2; 3], [true; false; true])
+
+matlabTable =
+
+  3x3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+
+>> arrowRecordBatch = arrow.recordbatch(matlabTable)
+
+arrowRecordBatch =
+
+Var1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Var2:   [
+    1,
+    2,
+    3
+  ]
+Var3:   [
+    true,
+    false,
+    true
+  ]
 ```
 
-#### Read a Feather v1 file into a MATLAB table
+#### Create a MATLAB `table` from an Arrow `RecordBatch`
+
+```matlab
+>> arrowRecordBatch
+
+arrowRecordBatch =
+
+Var1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Var2:   [
+    1,
+    2,
+    3
+  ]
+Var3:   [
+    true,
+    false,
+    true
+  ]
+
+>> matlabTable = table(arrowRecordBatch)
+
+matlabTable =
+
+  3x3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+```
+
+#### Create an Arrow `RecordBatch` from multiple Arrow `Array`s
+
+
+```matlab
+>> stringArray = arrow.array(["A", "B", "C"])
+
+stringArray =
+
+[
+  "A",
+  "B",
+  "C"
+]
+
+>> timestampArray = arrow.array([datetime(1997, 01, 01), datetime(1998, 01, 01), datetime(1999, 01, 01)])
+
+timestampArray =
+
+[
+  1997-01-01 00:00:00.000000,
+  1998-01-01 00:00:00.000000,
+  1999-01-01 00:00:00.000000
+]
+
+>> booleanArray = arrow.array([true, false, true])
+
+booleanArray =
+
+[
+  true,
+  false,
+  true
+]
+
+>> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
+
+arrowRecordBatch =
+
+Column1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Column2:   [
+    1997-01-01 00:00:00.000000,
+    1998-01-01 00:00:00.000000,
+    1999-01-01 00:00:00.000000
+  ]
+Column3:   [
+    true,
+    false,
+    true
+  ]
+```
+
+#### Extract a column from a `RecordBatch` by index
+
+```matlab
+>> arrowRecordBatch = arrow.tabular.RecordBatch.fromArrays(stringArray, timestampArray, booleanArray)
+
+arrowRecordBatch =
+
+Column1:   [
+    "A",
+    "B",
+    "C"
+  ]
+Column2:   [
+    1997-01-01 00:00:00.000000,
+    1998-01-01 00:00:00.000000,
+    1999-01-01 00:00:00.000000
+  ]
+Column3:   [
+    true,
+    false,
+    true
+  ]
+
+>> timestampArray = arrowRecordBatch.column(2)
+
+timestampArray =
+
+[
+  1997-01-01 00:00:00.000000,
+  1998-01-01 00:00:00.000000,
+  1999-01-01 00:00:00.000000
+]
+```
+
+### Arrow `Type` classes (i.e. `arrow.type.<Type>`)
+
+#### Create an Arrow `Int8Type` object
+
+```matlab
+>> type = arrow.int8()
+
+type =
+
+  Int8Type with properties:
+
+    ID: Int8
+```
+
+#### Create an Arrow `TimestampType` object with a specific `TimeUnit` and `TimeZone`
+
+```matlab
+>> type = arrow.timestamp(TimeUnit="Second", TimeZone="Asia/Kolkata")
+
+type =
+
+  TimestampType with properties:
+
+          ID: Timestamp
+    TimeUnit: Second
+    TimeZone: "Asia/Kolkata"
+```
+
+
+#### Get the type enumeration `ID` for an Arrow `Type` object
+
+```matlab
+>> type.ID
+
+ans =
+
+  ID enumeration
+
+    Timestamp
+
+>> type = arrow.string()
+
+type =
+
+  StringType with properties:
+
+    ID: String
+
+>> type.ID
+
+ans =
+
+  ID enumeration
+
+    String
+```
+
+### Arrow `Field` class
+
+#### Create an Arrow `Field` with type `Int8Type`
+
+```matlab
+>> field = arrow.field("Number", arrow.int8())
+
+field =
+
+Number: int8
+
+>> field.Name
+
+ans =
+
+    "Number"
+
+>> field.Type
+
+ans =
+
+  Int8Type with properties:
+
+    ID: Int8
+
+```
+
+#### Create an Arrow `Field` with type `StringType`
+
+```matlab
+>> field = arrow.field("Letter", arrow.string())
+
+field =
+
+Letter: string
+
+>> field.Name
+
+ans =
+
+    "Letter"
+
+>> field.Type
+
+ans =
+
+  StringType with properties:
+
+    ID: String
+```
+
+#### Extract an Arrow `Field` from an Arrow `Schema` by index
+
+```matlab
+>> arrowSchema
+
+arrowSchema =
+
+Letter: string
+Number: double
+
+% Specify the field to extract by its index (i.e. 2)
+>> field = arrowSchema.field(2)
+
+field =
+
+Number: double
+```
+
+#### Extract an Arrow `Field` from an Arrow `Schema` by name
+
+```matlab
+>> arrowSchema
+
+arrowSchema =
+
+Letter: string
+Number: double
+
+% Specify the field to extract by its name (i.e. "Letter")
+>> field = arrowSchema.field("Letter")
+
+field =
+
+Letter: string
+```
+
+### Arrow `Schema` class
+
+#### Create an Arrow `Schema` from multiple Arrow `Field`s
+
+```matlab
+>> letter = arrow.field("Letter", arrow.string())
+
+letter =
+
+Letter: string
+
+>> number = arrow.field("Number", arrow.int8())
+
+number =
+
+Number: int8
+
+>> schema = arrow.schema([letter, number])
+
+schema =
+
+Letter: string
+Number: int8
+```
+
+#### Get the `Schema` of an Arrow `RecordBatch`
+
+```matlab
+>> matlabTable = table(["A"; "B"; "C"], [1; 2; 3], VariableNames=["Letter", "Number"])
+
+matlabTable =
+
+  3x2 table
+
+    Letter    Number
+    ______    ______
+
+     "A"        1
+     "B"        2
+     "C"        3
+
+>> arrowRecordBatch = arrow.recordbatch(matlabTable)
+
+arrowRecordBatch =
+
+Letter:   [
+    "A",
+    "B",
+    "C"
+  ]
+Number:   [
+    1,
+    2,
+    3
+  ]
+
+>> arrowSchema = arrowRecordBatch.Schema
+
+arrowSchema =
+
+Letter: string
+Number: double
+```
+
+### Feather V1
+
+#### Write a MATLAB table to a Feather V1 file
 
 ``` matlab
->> filename = 'table.feather';
->> t = featherread(filename);
+>> t = table(["A"; "B"; "C"], [1; 2; 3], [true; false; true])
+
+t =
+
+  3×3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
+
+>> filename = "table.feather";
+
+>> featherwrite(filename, t)
+```
+
+#### Read a Feather V1 file into a MATLAB table
+
+``` matlab
+>> filename = "table.feather";
+
+>> t = featherread(filename)
+
+t =
+
+  3×3 table
+
+    Var1    Var2    Var3
+    ____    ____    _____
+
+    "A"      1      true
+    "B"      2      false
+    "C"      3      true
 ```
 
