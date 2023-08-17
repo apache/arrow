@@ -1007,4 +1007,13 @@ test_that("Dataset write wrappers can write flat files using readr::write_csv() 
 
   lines <- paste(readLines(paste0(dst_dir, "/part-0.tsv")), sep = "\n")
   expect_equal(lines[2], "\"1\"\t\"1\"\t\"true\"\t\"a\"")
+  
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir, na = "NOVALUE")
+  ds <- open_dataset(dst_dir, format = "tsv") |> collect()
+
+  expect_equal(
+    ds$lgl,
+    c("true", "false", "NOVALUE", "true", "false", "true", "false", "NOVALUE", "true", "false")
+  )
 })
