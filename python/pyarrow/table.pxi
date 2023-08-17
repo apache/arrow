@@ -161,7 +161,7 @@ cdef class ChunkedArray(_PandasConvertible):
 
     def format(self, **kwargs):
         """
-        DEPRECATED
+        DEPRECATED, use pyarrow.ChunkedArray.to_string
 
         Parameters
         ----------
