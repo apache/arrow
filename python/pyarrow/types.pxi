@@ -1986,7 +1986,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
 
         Returns
         -------
-        list
+        list[byte]
         """
         key = tobytes(key)
         return [v for k, v in self.items() if k == key]
