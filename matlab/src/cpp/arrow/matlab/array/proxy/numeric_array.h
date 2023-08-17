@@ -23,7 +23,7 @@
 
 #include "arrow/type_traits.h"
 
-#include "arrow/matlab/api/visibility.hpp"
+#include "arrow/matlab/api/visibility.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/type/proxy/traits.h"
 
