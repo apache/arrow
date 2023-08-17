@@ -147,10 +147,9 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* o
     out[i].ptr = buf;
 
     bool do_prefix = dist_has_prefix(gen) && i > 0;
-    std::uniform_int_distribution<int> d4(min_size, len);
     int prefix_len = 0;
     if (do_prefix) {
-      int max_prefix_len = std::min(len, out[i - 1].len);
+      int max_prefix_len = std::min(len, static_cast<int>(out[i - 1].len));
       prefix_len = static_cast<int>(std::ceil(max_prefix_len * dist_prefix_length(gen)));
     }
     for (int j = 0; j < prefix_len; ++j) {

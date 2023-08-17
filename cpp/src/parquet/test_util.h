@@ -783,9 +783,9 @@ inline void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>
 template <>
 inline void GenerateData<ByteArray>(int num_values, ByteArray* out,
                                     std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
   heap->resize(num_values * max_byte_array_len);
+  // seed the prng so failure is deterministic
   random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
 }
 
@@ -813,16 +813,16 @@ template <>
 inline void GeneratePrefixedData<FLBA>(int num_values, FLBA* out,
                                        std::vector<uint8_t>* heap,
                                        double prefixed_probability) {
-  // seed the prng so failure is deterministic
   heap->resize(num_values * kGenerateDataFLBALength);
+  // seed the prng so failure is deterministic
   prefixed_random_byte_array(num_values, /*seed=*/0, heap->data(),
                              kGenerateDataFLBALength, out, prefixed_probability);
 }
 
 template <>
 inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
   heap->resize(num_values * kGenerateDataFLBALength);
+  // seed the prng so failure is deterministic
   random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
 }
 

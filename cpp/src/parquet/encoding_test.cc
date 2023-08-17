@@ -36,6 +36,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -181,7 +182,7 @@ class TestEncodingBase : public ::testing::Test {
 
   void TearDown() {}
 
-  void InitData(int nvalues, int repeats) {
+  virtual void InitData(int nvalues, int repeats) {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(c_type));
     output_bytes_.resize(num_values_ * sizeof(c_type));
@@ -1988,7 +1989,7 @@ class TestDeltaByteArrayEncoding : public TestDeltaLengthByteArrayEncoding<Type>
   static constexpr int TYPE = Type::type_num;
   static constexpr double prefixed_probability = 0.5;
 
-  void InitData(int nvalues, int repeats) {
+  void InitData(int nvalues, int repeats) override {
     num_values_ = nvalues * repeats;
     input_bytes_.resize(num_values_ * sizeof(c_type));
     output_bytes_.resize(num_values_ * sizeof(c_type));

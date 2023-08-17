@@ -3065,17 +3065,15 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
  protected:
   template <typename VisitorType>
-  void PutInternal(const T* src, int num_values) {
+  void PutInternal(const T* src, int num_values, const VisitorType visitor) {
     if (num_values == 0) {
       return;
     }
-    uint32_t flba_len = descr_->type_length();
 
     std::string_view last_value_view = last_value_;
     constexpr int kBatchSize = 256;
     std::array<int32_t, kBatchSize> prefix_lengths;
     std::array<ByteArray, kBatchSize> suffixes;
-    auto visitor = VisitorType{src, flba_len};
 
     for (int i = 0; i < num_values; i += kBatchSize) {
       const int batch_size = std::min(kBatchSize, num_values - i);
@@ -3083,7 +3081,7 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
       for (int j = 0; j < batch_size; ++j) {
         const int idx = i + j;
         const auto view = visitor[idx];
-        const uint32_t len = static_cast<uint32_t>(view.length());
+        const auto len = static_cast<const uint32_t>(view.length());
 
         uint32_t common_prefix_length = 0;
         const uint32_t maximum_common_prefix_length =
@@ -3121,7 +3119,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
           if (ARROW_PREDICT_FALSE(view.size() >= kMaxByteArraySize)) {
             return Status::Invalid("Parquet cannot store strings with size 2GB or more");
           }
-          // Convert to ByteArray, so it can be passed to the suffix_encoder_.
           const ByteArray src{view};
 
           uint32_t common_prefix_length = 0;
@@ -3163,8 +3160,6 @@ class DeltaByteArrayEncoder : public EncoderImpl, virtual public TypedEncoder<DT
 
 struct ByteArrayVisitor {
   const ByteArray* src;
-  // type_length is not used and only here to match the FLBAVisitor
-  const uint32_t type_length;
 
   std::string_view operator[](int i) const {
     if (ARROW_PREDICT_FALSE(src[i].len >= kMaxByteArraySize)) {
@@ -3189,12 +3184,14 @@ struct FLBAVisitor {
 
 template <>
 void DeltaByteArrayEncoder<ByteArrayType>::Put(const ByteArray* src, int num_values) {
-  PutInternal<ByteArrayVisitor>(src, num_values);
+  auto visitor = ByteArrayVisitor{src};
+  PutInternal<ByteArrayVisitor>(src, num_values, visitor);
 }
 
 template <>
 void DeltaByteArrayEncoder<FLBAType>::Put(const FLBA* src, int num_values) {
-  PutInternal<FLBAVisitor>(src, num_values);
+  auto visitor = FLBAVisitor{src, static_cast<uint32_t>(descr_->type_length())};
+  PutInternal<FLBAVisitor>(src, num_values, visitor);
 }
 
 template <typename DType>
