@@ -1774,6 +1774,19 @@ std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
   return encoder->FlushValues();
 }
 
+std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) {
+  auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
+  encoder->Put(lengths.data(), static_cast<int>(lengths.size()));
+  return encoder->FlushValues();
+}
+
+std::shared_ptr<Buffer> DeltaEncode(std::shared_ptr<::arrow::Array>& lengths) {
+  auto data = ::arrow::internal::checked_pointer_cast<const ::arrow::Int32Array>(lengths);
+  auto span = ::arrow::util::span<const int32_t>{data->raw_values(),
+                                                 static_cast<size_t>(lengths->length())};
+  return DeltaEncode(span);
+}
+
 TEST(TestDeltaLengthByteArrayEncoding, AdHocRoundTrip) {
   const std::shared_ptr<::arrow::Array> cases[] = {
       ::arrow::ArrayFromJSON(::arrow::utf8(), R"([])"),
@@ -1783,10 +1796,10 @@ TEST(TestDeltaLengthByteArrayEncoding, AdHocRoundTrip) {
   };
 
   std::string expected_encoded_vals[] = {
-      DeltaEncode({})->ToString(),
-      DeltaEncode({3, 2, 0})->ToString() + "abcde",
-      DeltaEncode({0, 0, 0})->ToString(),
-      DeltaEncode({0, 3})->ToString() + "xyz",
+      DeltaEncode(std::vector<int>({}))->ToString(),
+      DeltaEncode(std::vector<int>({3, 2, 0}))->ToString() + "abcde",
+      DeltaEncode(std::vector<int>({0, 0, 0}))->ToString(),
+      DeltaEncode(std::vector<int>({0, 3}))->ToString() + "xyz",
   };
 
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_LENGTH_BYTE_ARRAY,
@@ -2154,15 +2167,6 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     ASSERT_TRUE(encoded->Equals(*buf));
   };
 
-  auto ArrayToInt32Vector = [](const std::shared_ptr<::arrow::Array>& lengths) {
-    std::vector<int32_t> vector;
-    auto data_ptr = checked_cast<::arrow::Int32Array*>(lengths.get());
-    for (int i = 0; i < lengths->length(); ++i) {
-      vector.push_back(data_ptr->GetView(i));
-    }
-    return vector;
-  };
-
   auto CheckDecode = [](std::shared_ptr<Buffer> buf,
                         std::shared_ptr<::arrow::Array> values) {
     int num_values = static_cast<int>(values->length());
@@ -2190,25 +2194,25 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     ::arrow::AssertArraysEqual(*values, *upcast_result);
   };
 
-  auto CheckEncodeDecode =
-      [&](std::string_view values, std::shared_ptr<::arrow::Array> prefix_lengths,
-          std::shared_ptr<::arrow::Array> suffix_lengths, std::string_view suffix_data) {
-        auto encoded =
-            ::arrow::ConcatenateBuffers({DeltaEncode(ArrayToInt32Vector(prefix_lengths)),
-                                         DeltaEncode(ArrayToInt32Vector(suffix_lengths)),
-                                         std::make_shared<Buffer>(suffix_data)})
-                .ValueOrDie();
+  auto CheckEncodeDecode = [&](std::string_view values,
+                               std::shared_ptr<::arrow::Array> prefix_lengths,
+                               std::shared_ptr<::arrow::Array> suffix_lengths,
+                               std::string_view suffix_data) {
+    auto encoded = ::arrow::ConcatenateBuffers({DeltaEncode(prefix_lengths),
+                                                DeltaEncode(suffix_lengths),
+                                                std::make_shared<Buffer>(suffix_data)})
+                       .ValueOrDie();
 
-        CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), encoded);
-        CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
-        CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
-        CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::utf8(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_utf8(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::binary(), values), encoded);
+    CheckEncode(::arrow::ArrayFromJSON(::arrow::large_binary(), values), encoded);
 
-        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
-        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
-        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
-        CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
-      };
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::utf8(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_utf8(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::binary(), values));
+    CheckDecode(encoded, ::arrow::ArrayFromJSON(::arrow::large_binary(), values));
+  };
 
   {
     auto values = R"(["axis", "axle", "babble", "babyhood"])";
