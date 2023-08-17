@@ -372,7 +372,7 @@ cdef class TreeExprBuilder(_Weakrefable):
 
     def make_field(self, Field field not None):
         """
-        Create a node with an arrow field.
+        Create a node with an Arrow field.
 
         Parameters
         ----------
