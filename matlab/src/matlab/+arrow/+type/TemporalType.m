@@ -30,7 +30,7 @@ classdef TemporalType < arrow.type.FixedWidthType
         end
 
         function timeUnit = get.TimeUnit(obj)
-            timeUnitValue = obj.proxy.getTimeUnit();
+            timeUnitValue = obj.Proxy.getTimeUnit();
             timeUnit = arrow.type.TimeUnit(timeUnitValue);
         end
     end
