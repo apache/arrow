@@ -379,9 +379,8 @@ endif()
 # Create a subdirectory at CMAKE_INSTALL_PREFIX to install the interface.
 set(CMAKE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/arrow_matlab")
 
-if(MATLAB_ARROW_INTERFACE)
-  include(BuildMatlabArrowInterface)
-endif()
+# Build the MATLAB Interface to Arrow.
+include(BuildMatlabArrowInterface)
 
 # Install MATLAB source files.
 # On macOS, exclude '.DS_Store' files in the source tree from installation.
