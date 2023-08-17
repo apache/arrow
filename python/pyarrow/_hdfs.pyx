@@ -146,7 +146,7 @@ replication=1)``
     def __reduce__(self):
         cdef CHdfsOptions opts = self.hdfs.options()
         return (
-            _reconstruct_hdfs_file_system, (dict(
+            HadoopFileSystem._reconstruct, (dict(
                 host=frombytes(opts.connection_config.host),
                 port=opts.connection_config.port,
                 user=frombytes(opts.connection_config.user),
@@ -158,11 +158,3 @@ replication=1)``
                             for k, v in opts.connection_config.extra_conf},
             ),)
         )
-
-
-def _reconstruct_hdfs_file_system(kwargs):
-    # __reduce__ doesn't allow passing named arguments directly to the
-    # reconstructor, hence this wrapper.
-    # In Cython >= 3.0.0, function binding is turned on by default, so
-    # a global static method is used (instead of a class method) for pickling.
-    return HadoopFileSystem(**kwargs)

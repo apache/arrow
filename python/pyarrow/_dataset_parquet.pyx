@@ -772,15 +772,22 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         return attrs == other_attrs
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     @staticmethod
     @binding(True)  # Required for Cython < 3
+=======
+    @staticmethod
+>>>>>>> 12e6eb47d (Make _reconstruct staticmethods)
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
         return ParquetFragmentScanOptions(**kwargs)
 
+<<<<<<< HEAD
 =======
 >>>>>>> 0930ea44c (Fix cloudpickle test)
+=======
+>>>>>>> 12e6eb47d (Make _reconstruct staticmethods)
     def __reduce__(self):
         kwargs = dict(
             use_buffered_stream=self.use_buffered_stream,
@@ -789,15 +796,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
         )
-        return _reconstruct_parquet_fragment_scan_options, (kwargs,)
-
-
-def _reconstruct_parquet_fragment_scan_options(kwargs):
-    # __reduce__ doesn't allow passing named arguments directly to the
-    # reconstructor, hence this wrapper.
-    # In Cython >= 3.0.0, function binding is turned on by default, so
-    # a global static method is used (instead of a class method) for pickling.
-    return ParquetFragmentScanOptions(**kwargs)
+        return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 
 
 cdef class ParquetFactoryOptions(_Weakrefable):
