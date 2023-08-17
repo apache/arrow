@@ -19,16 +19,15 @@
 
 #include "arrow/matlab/array/proxy/numeric_array.h"
 
-namespace arrow::matlab::array::proxy {
+#include "arrow/matlab/api/visibility.h"
 
-    template<>
-    class ARROW_MATLAB_EXPORT NumericArray<arrow::TimestampType>;
+namespace arrow::matlab::array::proxy {
 
     using TimestampArray = NumericArray<arrow::TimestampType>;
 
     // Specialization of NumericArray::Make for arrow::TimestampType
     template<>
-    libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+    ARROW_MATLAB_EXPORT libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
 
 }

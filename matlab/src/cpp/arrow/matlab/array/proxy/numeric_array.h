@@ -23,7 +23,6 @@
 
 #include "arrow/type_traits.h"
 
-#include "arrow/matlab/api/visibility.h"
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/type/proxy/traits.h"
 
@@ -37,7 +36,7 @@
 namespace arrow::matlab::array::proxy {
 
 template<typename ArrowType>
-class ARROW_MATLAB_EXPORT NumericArray : public arrow::matlab::array::proxy::Array {
+class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
 
         NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array)
