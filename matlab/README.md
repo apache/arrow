@@ -404,6 +404,7 @@ type =
 
 
 #### Get the type enumeration `ID` for an Arrow `Type` object
+
 ```matlab
 >> type.ID
 
