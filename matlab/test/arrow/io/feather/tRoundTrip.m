@@ -28,7 +28,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
             SingleVar = single([10; 15; 20; 25]);
 
             tableWrite = table(DoubleVar, SingleVar);
-            recordBatchWrite = arrow.recordbatch(tableWrite);
+            recordBatchWrite = arrow.recordBatch(tableWrite);
 
             writer = Writer(filename);
             writer.write(recordBatchWrite);

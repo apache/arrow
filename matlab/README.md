@@ -225,7 +225,7 @@ matlabTable =
     "B"      2      false
     "C"      3      true
 
->> arrowRecordBatch = arrow.recordbatch(matlabTable)
+>> arrowRecordBatch = arrow.recordBatch(matlabTable)
 
 arrowRecordBatch =
 
@@ -557,7 +557,7 @@ matlabTable =
      "B"        2
      "C"        3
 
->> arrowRecordBatch = arrow.recordbatch(matlabTable)
+>> arrowRecordBatch = arrow.recordBatch(matlabTable)
 
 arrowRecordBatch =
 
