@@ -789,6 +789,9 @@ inline void GenerateData<ByteArray>(int num_values, ByteArray* out,
   random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
 }
 
+// Generate ByteArray or FLBA data where there is a given probability
+// for each value to share a common prefix with its predecessor.
+// This is useful to exercise prefix-based encodings such as DELTA_BYTE_ARRAY.
 template <typename T>
 inline void GeneratePrefixedData(int num_values, T* out, std::vector<uint8_t>* heap,
                                  double prefixed_probability);
@@ -797,9 +800,9 @@ template <>
 inline void GeneratePrefixedData(int num_values, ByteArray* out,
                                  std::vector<uint8_t>* heap,
                                  double prefixed_probability) {
-  // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
   heap->resize(num_values * max_byte_array_len);
+  // seed the prng so failure is deterministic
   prefixed_random_byte_array(num_values, /*seed=*/0, heap->data(), out, /*min_size=*/2,
                              /*max_size=*/max_byte_array_len, prefixed_probability);
 }
