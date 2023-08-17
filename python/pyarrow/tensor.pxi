@@ -321,7 +321,7 @@ shape: {0.shape}""".format(self)
         ----------
         obj : numpy.ndarray
             Data used to populate the rows.
-        dim_names : list, optional
+        dim_names : list[str], optional
             Names of the dimensions.
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
