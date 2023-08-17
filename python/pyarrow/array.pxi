@@ -1266,7 +1266,7 @@ cdef class Array(_PandasConvertible):
 
     def format(self, **kwargs):
         """
-        DEPRECATED, use Array.to_string
+        DEPRECATED, use pyarrow.Array.to_string
 
         Parameters
         ----------
