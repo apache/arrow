@@ -224,7 +224,7 @@ create_package_with_all_dependencies <- function(dest_file = NULL, source_file =
   dir.create(download_dir)
   download_script <- tempfile(fileext = ".R")
   parse_versions_success <- system2(
-    "bash", c(download_dependencies_sh, download_dir),
+    "bash", c(download_dependencies_sh, gsub("\\", "/", download_dir, fixed = TRUE)),
     stdout = download_script,
     stderr = FALSE
   ) == 0
