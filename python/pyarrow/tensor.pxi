@@ -323,6 +323,10 @@ shape: {0.shape}""".format(self)
             Data used to populate the rows.
         dim_names : list[str], optional
             Names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCOOTensor
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -563,6 +567,10 @@ shape: {0.shape}""".format(self)
         ----------
         i : int
             The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
         """
         return frombytes(self.stp.dim_name(i))
 
@@ -616,6 +624,10 @@ shape: {0.shape}""".format(self)
             The dense numpy array that should be converted.
         dim_names : list, optional
             The names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCSRMatrix
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -803,6 +815,10 @@ shape: {0.shape}""".format(self)
         ----------
         i : int
             The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
         """
         return frombytes(self.stp.dim_name(i))
 
@@ -846,6 +862,10 @@ shape: {0.shape}""".format(self)
             Data used to populate the rows.
         dim_names : list[str], optional
             Names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCSCMatrix
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -1034,6 +1054,10 @@ shape: {0.shape}""".format(self)
         ----------
         i : int
             The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
         """
         return frombytes(self.stp.dim_name(i))
 
@@ -1085,6 +1109,10 @@ shape: {0.shape}""".format(self)
             Data used to populate the rows.
         dim_names : list[str], optional
             Names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCSFTensor
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -1242,6 +1270,10 @@ shape: {0.shape}""".format(self)
         ----------
         i : int
             The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
         """
         return frombytes(self.stp.dim_name(i))
 
