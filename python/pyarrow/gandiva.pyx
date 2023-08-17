@@ -376,7 +376,7 @@ cdef class TreeExprBuilder(_Weakrefable):
 
         Parameters
         ----------
-        field : Field
+        field : pyarrow.Field
 
         Returns
         -------
