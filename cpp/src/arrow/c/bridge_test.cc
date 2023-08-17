@@ -452,7 +452,9 @@ TEST_F(TestSchemaExport, Union) {
 TEST_F(TestSchemaExport, RunEndEncoded) {
   TestNested(run_end_encoded(int16(), uint8()), {"+r", "s", "C"},
              {"", "run_ends", "values"}, {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
-  TestNested(run_end_encoded(int64(), int32()), {"+r", "l", "i"},
+  TestNested(run_end_encoded(int32(), float64()), {"+r", "i", "g"},
+             {"", "run_ends", "values"}, {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
+  TestNested(run_end_encoded(int64(), utf8()), {"+r", "l", "u"},
              {"", "run_ends", "values"}, {ARROW_FLAG_NULLABLE, 0, ARROW_FLAG_NULLABLE});
 }
 #endif
