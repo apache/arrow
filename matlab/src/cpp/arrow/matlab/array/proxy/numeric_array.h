@@ -83,8 +83,4 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             context.outputs[0] = result;
         }
 };
-
-//     // Specialization of NumericArray::Make for arrow::TimestampType.
-//    template <>
-//    libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 }

@@ -22,9 +22,9 @@
 
 namespace arrow::matlab::array::proxy {
 
-        // Specialization of NumericArray::Make for arrow::TimestampType.
-        template <>
-        libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    // Specialization of NumericArray::Make for arrow::TimestampType.
+    template <>
+    libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
        namespace mda = ::matlab::data;
        using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
        using TimestampArray = arrow::TimestampArray;
