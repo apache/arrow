@@ -185,7 +185,7 @@ cdef class ParquetFileFormat(FileFormat):
 
         Returns
         -------
-        pyarrow.dataset.ParquetFileWriteOptions
+        pyarrow.dataset.FileWriteOptions
         """
         opts = FileFormat.make_write_options(self)
         (<ParquetFileWriteOptions> opts).update(**kwargs)

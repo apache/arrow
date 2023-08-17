@@ -2348,7 +2348,7 @@ cdef class Expression(_Weakrefable):
         """
         Parameters
         ----------
-        other : pyarrow.compute.Expression
+        other : pyarrow.dataset.Expression
 
         Returns
         -------

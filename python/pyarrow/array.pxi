@@ -2357,7 +2357,7 @@ cdef class UnionArray(Array):
 
     def child(self, int pos):
         """
-        DEPRECATED, use field instead.
+        DEPRECATED, use field() instead.
 
         Parameters
         ----------

@@ -2011,7 +2011,7 @@ cdef class IpcFileFormat(FileFormat):
 
         Returns
         -------
-        pyarrow.dataset.IpcWriteOptions
+        pyarrow.ipc.IpcWriteOptions
         """
         cdef IpcFileWriteOptions opts = \
             <IpcFileWriteOptions> FileFormat.make_write_options(self)
@@ -2096,7 +2096,7 @@ cdef class CsvFileFormat(FileFormat):
 
         Returns
         -------
-        pyarrow.dataset.CsvWriteOptions
+        pyarrow.csv.WriteOptions
         """
         cdef CsvFileWriteOptions opts = \
             <CsvFileWriteOptions> FileFormat.make_write_options(self)

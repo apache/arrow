@@ -1188,7 +1188,7 @@ cdef class ParquetReader(_Weakrefable):
 
         Parameters
         ----------
-        source : str, pyarrow.Buffer, pyarrow.NativeFile, or file-like Python object
+        source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
         use_memory_map : bool, default False
         read_dictionary : iterable[int or str], optional
         metadata : FileMetaData, optional
