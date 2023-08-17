@@ -278,7 +278,8 @@ gaflightsql_server_do_put_command_statement_update(
   GAFlightServerCallContext *context,
   GAFlightSQLStatementUpdate *command,
   GError **error);
-GARROW_AVAILABLE_IN_14_0
+/* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
+/* GARROW_AVAILABLE_IN_14_0 */
 gint64
 gaflightsql_server_do_put_prepared_statement_update(
   GAFlightSQLServer *server,
@@ -286,14 +287,16 @@ gaflightsql_server_do_put_prepared_statement_update(
   GAFlightSQLPreparedStatementUpdate *command,
   GAFlightMessageReader *reader,
   GError **error);
-GARROW_AVAILABLE_IN_14_0
+/* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
+/* GARROW_AVAILABLE_IN_14_0 */
 GAFlightSQLCreatePreparedStatementResult *
 gaflightsql_server_create_prepared_statement(
   GAFlightSQLServer *server,
   GAFlightServerCallContext *context,
   GAFlightSQLCreatePreparedStatementRequest *request,
   GError **error);
-GARROW_AVAILABLE_IN_14_0
+/* We can restore this after we bump version to 14.0.0-SNAPSHOT. */
+/* GARROW_AVAILABLE_IN_14_0 */
 void
 gaflightsql_server_close_prepared_statement(
   GAFlightSQLServer *server,
