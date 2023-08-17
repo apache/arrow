@@ -15,16 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/array/proxy/numeric_array.h"
+#include "arrow/matlab/array/proxy/timestamp_array.h"
 
 #include "arrow/matlab/type/time_unit.h"
 #include "arrow/util/utf8.h"
 
 namespace arrow::matlab::array::proxy {
 
-    // Specialization of NumericArray::Make for arrow::TimestampType.
+        // Specialization of NumericArray::Make for arrow::TimestampType.
         template <>
-        libmexclass::proxy::MakeResult NumericArray<arrow::TimestampType>::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        libmexclass::proxy::MakeResult TimestampArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
        namespace mda = ::matlab::data;
        using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
        using TimestampArray = arrow::TimestampArray;
