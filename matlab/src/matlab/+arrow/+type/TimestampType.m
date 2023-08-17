@@ -30,7 +30,7 @@ classdef TimestampType < arrow.type.TemporalType
         end
 
         function tz = get.TimeZone(obj)
-            tz = obj.Proxy.timeZone();
+            tz = obj.Proxy.getTimeZone();
         end
     end
 
