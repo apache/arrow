@@ -1962,7 +1962,7 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
 
         Returns
         -------
-        Any
+        byte
         """
         return self.metadata.value(i)
 
