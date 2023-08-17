@@ -17,6 +17,9 @@
 
 #include "arrow/matlab/array/proxy/numeric_array.h"
 
+#include "arrow/matlab/type/time_unit.h"
+#include "arrow/util/utf8.h"
+
 namespace arrow::matlab::array::proxy {
 
     // Specialization of NumericArray::Make for arrow::TimestampType.

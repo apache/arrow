@@ -34,9 +34,6 @@
 
 #include "libmexclass/proxy/Proxy.h"
 
-#include "arrow/matlab/type/time_unit.h"
-#include "arrow/util/utf8.h"
-
 namespace arrow::matlab::array::proxy {
 
 template<typename ArrowType>
