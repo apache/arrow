@@ -2030,6 +2030,7 @@ class RollingOptions(_RollingOptions):
     def __init__(self, window_length, min_periods=1, ignore_nulls=True):
         self._set_options(window_length, min_periods, ignore_nulls)
 
+
 class CumulativeSumOptions(_CumulativeOptions):
     """
     Options for `cumulative_sum` function.
