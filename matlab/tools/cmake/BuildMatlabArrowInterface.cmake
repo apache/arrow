@@ -44,6 +44,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/c
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/boolean_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/string_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/timestamp_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/wrap.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/schema.cc"
@@ -106,6 +107,7 @@ libmexclass_client_add_proxy_library(
 )
 # Use C++17
 target_compile_features(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE cxx_std_17)
+target_compile_definitions(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE ARROW_MATLAB_EXPORTING)
 
 # When building Arrow from source, Arrow must be built before building the client Proxy library.
 if(TARGET arrow_ep)
