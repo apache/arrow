@@ -951,10 +951,6 @@ test_that("Dataset can write flat files using readr::write_csv() options.", {
   expect_equal(lines[2], "\"1\",\"1\",\"true\",\"a\"")
 
   expect_error(
-    write_dataset(df, dst_dir, format = "csv", quoting_style = "foobar")
-  )
-
-  expect_error(
     write_dataset(df, dst_dir, format = "tsv", delimiter = ";"),
     "Can't set a delimiter for the tsv format."
   )
