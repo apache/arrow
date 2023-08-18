@@ -1605,11 +1605,10 @@ class SchemaStructBuilder {
 
   // Create a new ArrowSchema struct with a stable C pointer
   struct ArrowSchema* AddChild() {
-    nested_structs_.emplace_back();
-    struct ArrowSchema* result = &nested_structs_.back();
-    memset(result, 0, sizeof(*result));
-    result->release = NoOpSchemaRelease;
-    return result;
+    auto& result = nested_structs_.emplace_back();
+    memset(&result, 0, sizeof(result));
+    result.release = NoOpSchemaRelease;
+    return &result;
   }
 
   // Create a stable C pointer to the N last structs in nested_structs_
