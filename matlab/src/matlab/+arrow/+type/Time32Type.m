@@ -28,4 +28,3 @@ classdef Time32Type < arrow.type.TemporalType
         end
     end
 end
-
