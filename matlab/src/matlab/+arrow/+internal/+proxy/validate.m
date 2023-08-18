@@ -24,7 +24,7 @@ function validate(proxy, expectedName)
     if proxy.Name ~= expectedName
         errid = "arrow:proxy:ProxyNameMismatch";
         msg = compose("The Name property of the Proxy provided is ""%s"", " + ...
-            "but expected it to be   ""%s"".", proxy.Name, expectedName);
+            "but expected it to be ""%s"".", proxy.Name, expectedName);
         error(errid, msg);
     end
 end
