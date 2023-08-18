@@ -25,6 +25,7 @@
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/string_type.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
+#include "arrow/matlab/type/proxy/time32_type.h"
 #include "arrow/matlab/type/proxy/field.h"
 #include "arrow/matlab/io/feather/proxy/writer.h"
 #include "arrow/matlab/io/feather/proxy/reader.h"
@@ -63,6 +64,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.BooleanType    , arrow::matlab::type::proxy::PrimitiveCType<bool>);
     REGISTER_PROXY(arrow.type.proxy.StringType     , arrow::matlab::type::proxy::StringType);
     REGISTER_PROXY(arrow.type.proxy.TimestampType  , arrow::matlab::type::proxy::TimestampType);
+    REGISTER_PROXY(arrow.type.proxy.Time32Type     , arrow::matlab::type::proxy::Time32Type);
     REGISTER_PROXY(arrow.io.feather.proxy.Writer   , arrow::matlab::io::feather::proxy::Writer);
     REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
 

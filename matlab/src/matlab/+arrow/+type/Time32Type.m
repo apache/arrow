@@ -1,3 +1,5 @@
+%TIME32TYPE Type class for time32 data.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,27 +15,24 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef ID < uint64
-%ID Data type enumeration
-    enumeration
-        Boolean (1)
-        UInt8   (2)
-        Int8    (3)
-        UInt16  (4)
-        Int16   (5)
-        UInt32  (6)
-        Int32   (7)
-        UInt64  (8)
-        Int64   (9)
-        % Float16 (10) not yet supported
-        Float32 (11)
-        Float64 (12)
-        String  (13)
-        % Binary (14)
-        % FixedSizeBinary (15)
-        % Date32 (16)
-        % Date64 (17)
-        Timestamp (18)
-        Time32    (19)
+classdef Time32Type < arrow.type.TemporalType
+
+    methods
+        function obj = Time32Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Time32Type")}
+            end
+            import arrow.internal.proxy.validate
+
+            obj@arrow.type.TemporalType(proxy);
+        end
     end
+
+    methods (Access=protected)
+        function group = getPropertyGroups(~)
+          targets = ["ID" "TimeUnit"];
+          group = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
 end

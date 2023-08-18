@@ -98,11 +98,11 @@ classdef tTimestampType < hFixedWidthType
 
         function ErrorIfTimeUnitIsNonScalar(testCase)
             units = [arrow.type.TimeUnit.Second; arrow.type.TimeUnit.Millisecond];
-            fcn = @() arrow.timestamp(TimeZone=units);
+            fcn = @() arrow.timestamp(TimeUnit=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
 
             units = ["second" "millisecond"];
-            fcn = @() arrow.timestamp(TimeZone=units);
+            fcn = @() arrow.timestamp(TimeUnit=units);
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
