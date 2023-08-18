@@ -13,27 +13,13 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef ID < uint64
-%ID Data type enumeration
-    enumeration
-        Boolean (1)
-        UInt8   (2)
-        Int8    (3)
-        UInt16  (4)
-        Int16   (5)
-        UInt32  (6)
-        Int32   (7)
-        UInt64  (8)
-        Int64   (9)
-        % Float16 (10) not yet supported
-        Float32 (11)
-        Float64 (12)
-        String  (13)
-        % Binary (14)
-        % FixedSizeBinary (15)
-        % Date32 (16)
-        % Date64 (17)
-        Timestamp (18)
-        Time32    (19)
+function type = time32(opts)
+%TIME32 Creates an arrow.type.Time32Type object
+    arguments
+        opts.TimeUnit(1, 1) arrow.type.TimeUnit {timeUnit("Time32", opts.TimeUnit)} = arrow.type.TimeUnit.Second
     end
+    import arrow.internal.validate.temporal.timeUnit
+    args = struct(TimeUnit=string(opts.TimeUnit));
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.Time32Type", args);
+    type = arrow.type.Time32Type(proxy);
 end
