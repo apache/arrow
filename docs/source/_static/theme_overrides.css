@@ -22,6 +22,7 @@
 
 :root {
   --pst-header-height: 6rem;
+  --pst-font-weight-heading: 600;
 }
 
 .footer {
