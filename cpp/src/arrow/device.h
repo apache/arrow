@@ -107,7 +107,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// should be trivially constructable from it's device-specific counterparts.
   class ARROW_EXPORT Stream {
    public:
-    virtual const void* get_raw() const { return nullptr; }
+    virtual const void* get_raw() const { return NULLPTR; }
 
    protected:
     Stream() = default;
