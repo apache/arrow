@@ -2091,8 +2091,7 @@ TEST_F(TestSchemaImport, RunEndEncodedError) {
   FillPrimitive(AddChild(), "c", "run_ends");
   FillPrimitive(AddChild(), "u", "values");
   FillRunEndEncoded("+r");
-  CheckImport(run_end_encoded(int8(), utf8()));
-  // CheckImportError();
+  CheckImportError();
 
   // REE of a REE also causes an error
   ArrowSchema* run_ends = AddChild();
@@ -2111,8 +2110,7 @@ TEST_F(TestSchemaImport, RunEndEncodedError) {
   c_struct_.name = "";
   c_struct_.n_children = 2;
   c_struct_.children = children;
-  CheckImport(run_end_encoded(int32(), run_end_encoded(int32(), utf8())));
-  // CheckImportError();
+  CheckImportError();
 }
 
 TEST_F(TestSchemaImport, DictionaryError) {

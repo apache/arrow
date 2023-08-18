@@ -1296,6 +1296,13 @@ struct SchemaImporter {
     RETURN_NOT_OK(CheckNumChildren(2));
     ARROW_ASSIGN_OR_RAISE(auto run_ends_field, MakeChildField(0));
     ARROW_ASSIGN_OR_RAISE(auto values_field, MakeChildField(1));
+    if (!is_run_end_type(run_ends_field->type()->id())) {
+      return Status::Invalid("Expected a valid run-end integer type, but struct has ",
+                             run_ends_field->type()->ToString());
+    }
+    if (values_field->type()->id() == Type::RUN_END_ENCODED) {
+      return Status::Invalid("ArrowArray struct contains a nested run-end encoded array");
+    }
     type_ = run_end_encoded(run_ends_field->type(), values_field->type());
     return Status::OK();
   }
