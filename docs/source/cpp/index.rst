@@ -29,7 +29,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
    .. grid-item-card:: Basic understanding
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Start here to gain a basic understanding of Arrow with
       an installation and linking guide, documentation of
@@ -46,7 +46,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
    .. grid-item-card:: User Guide
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Explore more specific topics and underlying concepts
       of Arrow C++
@@ -67,7 +67,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
    .. grid-item-card:: Examples of use
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Find the description and location of the examples
       using Arrow C++ library
@@ -83,7 +83,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
    .. grid-item-card:: Reference documentation
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Explore Arrow’s API reference documentation
 
@@ -103,7 +103,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
 
    .. grid-item-card:: Cookbook
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Collection of recipes which demonstrate how to
       solve many common tasks that users might need

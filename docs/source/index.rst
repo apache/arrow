@@ -44,7 +44,7 @@ target environment.**
 
    .. grid-item-card:: Format
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Read about the Apache Arrow format
       specifications and protocols.
@@ -61,7 +61,7 @@ target environment.**
 
    .. grid-item-card:: Developing
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Find the documentation on the topic of
       contributions, reviews, building of the libraries

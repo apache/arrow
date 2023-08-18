@@ -79,7 +79,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    .. grid-item-card:: Community
       :img-top: ./images/users-solid.svg
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       A good first step to getting involved in the Arrow project is to join
       the mailing lists and participate in discussions where you can.
@@ -96,7 +96,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    .. grid-item-card:: Bug reports
       :img-top: ./images/bug-solid.svg
       :class-card: contrib-card
-      :shadow: md
+      :shadow: none
 
       Alerting us to unexpected behavior and missing features, even
       if you can't solve the problems yourself, help us understand
@@ -115,7 +115,7 @@ All participation in the Apache Arrow project is governed by the ASF's
 .. dropdown:: Communicating through the mailing lists
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
-   :class-container: sd-shadow-md
+   :class-container: sd-shadow-none
 
    Projects in The Apache Software Foundation ("the ASF") use public, archived
    mailing lists to create a public record of each project's development
@@ -132,7 +132,6 @@ All participation in the Apache Arrow project is governed by the ASF's
 .. dropdown:: Improve documentation
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
-   :class-container: sd-shadow-md
 
    A great way to contribute to the project is to improve documentation. If you
    found some docs to be incomplete or inaccurate, share your hard-earned knowledge
@@ -155,7 +154,6 @@ All participation in the Apache Arrow project is governed by the ASF's
    .. grid-item-card:: New Contributors
       :img-top: ./images/book-open-solid.svg
       :class-card: contrib-card
-      :shadow: md
 
       First time contributing?
 
@@ -175,7 +173,6 @@ All participation in the Apache Arrow project is governed by the ASF's
    .. grid-item-card:: Overview
       :img-top: ./images/code-solid.svg
       :class-card: contrib-card
-      :shadow: md
 
       A short overview of the contributing process we follow
       and some additional information you might need if you are not
@@ -193,7 +190,7 @@ All participation in the Apache Arrow project is governed by the ASF's
 .. dropdown:: Continuous Integration
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
-   :class-container: sd-shadow-md
+   :class-container: sd-shadow-none
 
    Continuous Integration needs to run across different combinations of package managers, compilers, versions of multiple
    software libraries, operating systems, and other potential sources of variation.
@@ -203,14 +200,14 @@ All participation in the Apache Arrow project is governed by the ASF's
 .. dropdown:: Benchmarks
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
-   :class-container: sd-shadow-md
+   :class-container: sd-shadow-none
 
    How to use the benchmark suite can be found on the :ref:`benchmarks` page.
 
 .. dropdown:: Release Guide
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
-   :class-container: sd-shadow-md
+   :class-container: sd-shadow-none
 
    To learn about the detailed information on the steps followed to perform a release, see :ref:`release`.
 
