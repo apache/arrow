@@ -67,6 +67,8 @@ class ARROW_EXPORT VarLengthListLikeBuilder : public ArrayBuilder {
                                  std::make_shared<TYPE>(value_builder->type()),
                                  alignment) {}
 
+  ~VarLengthListLikeBuilder() override = default;
+
   Status Resize(int64_t capacity) override {
     if (ARROW_PREDICT_FALSE(capacity > maximum_elements())) {
       return Status::CapacityError(type_name(),
@@ -267,6 +269,8 @@ class ARROW_EXPORT BaseListBuilder : public VarLengthListLikeBuilder<TYPE> {
 
   using BASE::Append;
 
+  ~BaseListBuilder() override = default;
+
   /// \brief Start a new variable-length list slot
   ///
   /// This function should be called before beginning to append elements to the
@@ -396,6 +400,8 @@ class ARROW_EXPORT BaseListViewBuilder : public VarLengthListLikeBuilder<TYPE> {
   using offset_type = typename BASE::offset_type;
 
   using BASE::BASE;
+
+  ~BaseListViewBuilder() override = default;
 
   Status Resize(int64_t capacity) override {
     ARROW_RETURN_NOT_OK(BASE::Resize(capacity));
