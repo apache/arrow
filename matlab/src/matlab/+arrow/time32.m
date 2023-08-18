@@ -21,5 +21,5 @@ function type = time32(opts)
     import arrow.internal.validate.temporal.timeUnit
     args = struct(TimeUnit=string(opts.TimeUnit));
     proxy = arrow.internal.proxy.create("arrow.type.proxy.Time32Type", args);
-    type = arrow.type.TimestampType(proxy);
+    type = arrow.type.Time32Type(proxy);
 end
