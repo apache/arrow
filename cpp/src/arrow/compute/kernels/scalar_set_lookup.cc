@@ -280,10 +280,12 @@ struct IndexInVisitor {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
 
     if (data.length != 0) {
-      // skip_nulls is honored for consistency with other types
-      bit_util::SetBitsTo(out_bitmap, out->offset, out->length, state.value_set_has_null);
+      bit_util::SetBitsTo(out_bitmap, out->offset, out->length,
+                          state.null_matching_behavior == SetLookupOptions::MATCH &&
+                              state.value_set_has_null);
 
       // Set all values to 0, which will be unmasked only if null is in the value_set
+      // and null_matching_behavior is equal to MATCH
       std::memset(out->GetValues<int32_t>(1), 0x00, out->length * sizeof(int32_t));
     }
     return Status::OK();
@@ -311,7 +313,8 @@ struct IndexInVisitor {
           bitmap_writer.Next();
         },
         [&]() {
-          if (state.null_index != -1) {
+          if (state.null_index != -1 &&
+              state.null_matching_behavior == SetLookupOptions::MATCH) {
             bitmap_writer.Set();
 
             // value_set included null

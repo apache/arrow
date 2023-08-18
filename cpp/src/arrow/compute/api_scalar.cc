@@ -275,6 +275,29 @@ struct EnumTraits<compute::MapLookupOptions::Occurrence>
   }
 };
 
+template <>
+struct EnumTraits<compute::SetLookupOptions::NullMatchingBehavior>
+    : BasicEnumTraits<compute::SetLookupOptions::NullMatchingBehavior,
+                      compute::SetLookupOptions::NullMatchingBehavior::MATCH,
+                      compute::SetLookupOptions::NullMatchingBehavior::SKIP,
+                      compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL,
+                     compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE> {
+  static std::string name() { return "SetLookupOptions::NullMatchingBehavior"; }
+  static std::string value_name(compute::SetLookupOptions::NullMatchingBehavior value) {
+    switch (value) {
+      case compute::SetLookupOptions::NullMatchingBehavior::MATCH:
+        return "MATCH";
+      case compute::SetLookupOptions::NullMatchingBehavior::SKIP:
+        return "SKIP";
+      case compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL:
+        return "EMIT_NULL";
+      case compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE:
+        return "INCONCLUSIVE";
+    }
+    return "<INVALID>";
+  }
+};
+
 }  // namespace internal
 
 namespace compute {
@@ -555,13 +578,13 @@ SetLookupOptions::SetLookupOptions(
       null_matching_behavior(std::move(null_matching_behavior)) {}
 SetLookupOptions::SetLookupOptions()
     : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH) {}
-SetLookupOptions::NullMatchingBehavior SetLookupOptions::getNullMatchingBehavior() {
+SetLookupOptions::NullMatchingBehavior SetLookupOptions::getNullMatchingBehavior() const {
   if (this->skip_nulls == std::nullopt) {
     return this->null_matching_behavior;
   } else if (this->skip_nulls) {
-    return SetLookupOptions::NullMatchingBehavior::SKIP;
+    return SetLookupOptions::SKIP;
   } else {
-    return SetLookupOptions::NullMatchingBehavior::MATCH;
+    return SetLookupOptions::MATCH;
   }
 }
 constexpr char SetLookupOptions::kTypeName[];

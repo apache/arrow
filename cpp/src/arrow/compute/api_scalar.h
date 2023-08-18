@@ -271,17 +271,18 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   enum NullMatchingBehavior { MATCH, SKIP, EMIT_NULL, INCONCLUSIVE };
 
   explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls);  SetLookupOptions();
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls);
+  SetLookupOptions();
   static constexpr char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
 
   NullMatchingBehavior null_matching_behavior;
-  
+
   // DEPRECATED(will be removed after removing of skip_nulls)
-   NullMatchingBehavior const getNullMatchingBehavior();
-  
+  NullMatchingBehavior getNullMatchingBehavior() const;
+
   // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
