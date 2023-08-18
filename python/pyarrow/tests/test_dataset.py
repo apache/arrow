@@ -1679,12 +1679,8 @@ def test_partitioning_factory(mockfs, pickled, pickle_module):
 @pytest.mark.parametrize('infer_dictionary', [False, True])
 @pytest.mark.parametrize(
     "pickled", [lambda x, m: x, lambda x, m: m.loads(m.dumps(x))])
-<<<<<<< HEAD
 def test_partitioning_factory_dictionary(mockfs, infer_dictionary, pickled,
                                          pickle_module):
-=======
-def test_partitioning_factory_dictionary(mockfs, infer_dictionary, pickled, pickle_module):
->>>>>>> b4dac3a4c (Parametrize all pickling tests to use both the pickle and cloudpickle modules (caught 1 bug in DictionaryScalar))
     paths_or_selector = fs.FileSelector('subdir', recursive=True)
     format = ds.ParquetFileFormat()
     options = ds.FileSystemFactoryOptions('subdir')
