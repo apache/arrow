@@ -18,12 +18,13 @@ function validate(proxy, expectedName)
 % proxy.Name and expectedName are not equal.
     arguments
         proxy(1, 1) libmexclass.proxy.Proxy
-        expectedName(1, 1) string
+        expectedName(1, 1) string {mustBeNonmissing, mustBeNonzeroLengthText}
     end
 
     if proxy.Name ~= expectedName
         errid = "arrow:proxy:ProxyNameMismatch";
-        msg = "Proxy class name is " + proxyName + ", but expected " + expectedProxyName;
+        msg = compose("The Name property of the Proxy provided is ""%s"", " + ...
+            "but expected it to be ""%s"".", proxy.Name, expectedName);
         error(errid, msg);
     end
 end
