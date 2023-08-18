@@ -104,6 +104,11 @@ int64_t FindPhysicalLength(const RunEndCType* run_ends, int64_t run_ends_size,
                            int64_t length, int64_t offset) {
   auto [_, physical_length] =
       FindPhysicalRange<RunEndCType>(run_ends, run_ends_size, length, offset);
+  // GH-37107: This is a workaround for GCC 7. GCC 7 doesn't ignore
+  // variables in structured binding automatically from unused
+  // variables when one of these variables are used.
+  // See also: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81767
+  ARROW_UNUSED(_);
   return physical_length;
 }
 
