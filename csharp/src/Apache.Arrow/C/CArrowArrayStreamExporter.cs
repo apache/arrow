@@ -61,9 +61,9 @@ namespace Apache.Arrow.C
             {
                 throw new ArgumentNullException(nameof(arrayStream));
             }
-            if (arrayStream == null)
+            if (cArrayStream == null)
             {
-                throw new ArgumentNullException(nameof(arrayStream));
+                throw new ArgumentNullException(nameof(cArrayStream));
             }
 
             cArrayStream->private_data = ExportedArrayStream.Export(arrayStream);

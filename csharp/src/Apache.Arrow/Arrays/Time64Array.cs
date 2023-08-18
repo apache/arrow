@@ -49,7 +49,7 @@ namespace Apache.Arrow
                 : this(Time64Type.Default) { }
 
             public Builder(TimeUnit unit)
-                : this(new Time64Type(unit)) { }
+                : this((Time64Type)TimeType.FromTimeUnit(unit)) { }
 
             /// <summary>
             /// Construct a new instance of the <see cref="Builder"/> class.
