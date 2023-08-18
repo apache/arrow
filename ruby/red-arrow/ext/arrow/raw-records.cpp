@@ -184,7 +184,7 @@ namespace red_arrow {
               const auto& chunked_array = table.column(i).get();
               column_index_ = i;
 
-              for (const auto array : chunked_array->chunks()) {
+              for (const auto& array : chunked_array->chunks()) {
                 check_status(array->Accept(this),
                             "[table][each-raw-record]");
               }
