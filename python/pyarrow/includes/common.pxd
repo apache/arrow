@@ -157,11 +157,13 @@ cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
 ctypedef object PyWrapper(void*)
 
 
+cdef extern from "arrow/python/async.h" namespace "arrow::py" nogil:
+    void BindFuture[T](CFuture[T], object cb, PyWrapper wrapper)
+
+
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
     cdef function[F] BindFunction[F](void* unbound, object bound, ...)
-
-    void BindFuture[T](CFuture[T], object cb, PyWrapper wrapper)
 
 
 cdef inline object PyObject_to_object(PyObject* o):

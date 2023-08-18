@@ -25,7 +25,6 @@
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
-#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -286,23 +285,6 @@ std::function<OutFn> BindFunction(Return (*unbound)(PyObject*, Args...),
   auto bound_fn = std::make_shared<Fn>(unbound, bound_arg);
   return
       [bound_fn](Args... args) { return bound_fn->Invoke(std::forward<Args>(args)...); };
-}
-
-// XXX Put this in arrow/python/async.h to avoid adding more random stuff here?
-template <typename T, typename Wrapper = PyObject* (*)(void*)>
-void BindFuture(Future<T> future, PyObject* py_cb, Wrapper py_wrapper) {
-  Py_INCREF(py_cb);
-  OwnedRefNoGIL cb_ref(py_cb);
-
-  auto future_cb = [cb_ref = std::move(cb_ref), py_wrapper](Result<T> result) {
-    SafeCallIntoPythonVoid([&]() {
-      OwnedRef py_value_or_exc{WrapResult(std::move(result), std::move(py_wrapper))};
-      Py_XDECREF(
-          PyObject_CallFunctionObjArgs(cb_ref.obj(), py_value_or_exc.obj(), NULLPTR));
-      ARROW_WARN_NOT_OK(CheckPyError(), "Internal error in async call");
-    });
-  };
-  future.AddCallback(std::move(future_cb));
 }
 
 // A temporary conversion of a Python object to a bytes area.
