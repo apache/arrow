@@ -689,16 +689,14 @@ gaflight_client_do_get(GAFlightClient *client,
   if (options) {
     flight_options = gaflight_call_options_get_raw(options);
   }
-  std::unique_ptr<arrow::flight::FlightStreamReader> flight_reader;
   auto result = flight_client->DoGet(*flight_options, *flight_ticket);
-  auto status = std::move(result).Value(&flight_reader);
-  if (garrow::check(error,
-                    status,
-                    "[flight-client][do-get]")) {
-    return gaflight_stream_reader_new_raw(flight_reader.release());
-  } else {
-    return NULL;
+  if (!garrow::check(error,
+                     result,
+                     "[flight-client][do-get]")) {
+    return nullptr;
   }
+  auto flight_reader = std::move(*result);
+  return gaflight_stream_reader_new_raw(flight_reader.release(), TRUE);
 }
 
 
@@ -707,11 +705,13 @@ G_END_DECLS
 
 GAFlightStreamReader *
 gaflight_stream_reader_new_raw(
-  arrow::flight::FlightStreamReader *flight_reader)
+  arrow::flight::FlightStreamReader *flight_reader,
+  gboolean is_owner)
 {
   return GAFLIGHT_STREAM_READER(
     g_object_new(GAFLIGHT_TYPE_STREAM_READER,
                  "reader", flight_reader,
+                 "is-owner", is_owner,
                  NULL));
 }
 

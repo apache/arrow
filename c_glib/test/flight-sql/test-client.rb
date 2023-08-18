@@ -16,6 +16,7 @@
 # under the License.
 
 class TestFlightSQLClient < Test::Unit::TestCase
+  include Helper::Buildable
   include Helper::Omittable
 
   def setup
@@ -64,6 +65,34 @@ class TestFlightSQLClient < Test::Unit::TestCase
     def test_error
       assert_raise(Arrow::Error::Invalid) do
         @sql_client.execute_update("INSERT")
+      end
+    end
+  end
+
+  sub_test_case("#prepare") do
+    def test_success
+      insert_sql = "INSERT INTO page_view_table VALUES (?, true)"
+      statement = @sql_client.prepare(insert_sql)
+      begin
+        assert_equal([
+                       build_schema(count: :uint64, private: :boolean),
+                       build_schema(count: :uint64),
+                     ],
+                     [
+                       statement.dataset_schema,
+                       statement.parameter_schema,
+                     ])
+        parameters = build_record_batch(count: build_uint64_array([1, 2, 3]))
+        statement.set_record_batch(parameters)
+        assert_equal(3, statement.execute_update)
+      ensure
+        statement.close
+      end
+    end
+
+    def test_error
+      assert_raise(Arrow::Error::Invalid) do
+        @sql_client.prepare("INSERT")
       end
     end
   end

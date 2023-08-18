@@ -16,26 +16,19 @@
 # under the License.
 
 module ArrowFlightSQL
-  class Loader < GObjectIntrospection::Loader
-    class << self
-      def load
-        super("ArrowFlightSQL", ArrowFlightSQL)
+  class Client
+    alias_method :prepare_raw, :prepare
+    def prepare(*args)
+      statement = prepare_raw(*args)
+      if block_given?
+        begin
+          yield(statement)
+        ensure
+          statement.close unless statement.closed?
+        end
+      else
+        statement
       end
-    end
-
-    private
-    def post_load(repository, namespace)
-      require_libraries
-    end
-
-    def require_libraries
-      require_relative "client"
-      require_relative "server"
-    end
-
-    def prepare_function_info_lock_gvl(function_info, klass)
-      super
-      function_info.lock_gvl_default = false
     end
   end
 end

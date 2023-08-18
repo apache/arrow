@@ -46,5 +46,31 @@ module Helper
       end
       1
     end
+
+    def virtual_do_create_prepared_statement(context, request)
+      unless request.query == "INSERT INTO page_view_table VALUES (?, true)"
+        raise Arrow::Error::Invalid.new("invalid SQL")
+      end
+      result = ArrowFlightSQL::CreatePreparedStatementResult.new
+      generator = FlightInfoGenerator.new
+      table = generator.page_view_table
+      result.dataset_schema = table.schema
+      result.parameter_schema = table.schema.remove_field(1)
+      result.handle = "valid-handle"
+      result
+    end
+
+    def virtual_do_do_put_prepared_statement_update(context, command, reader)
+      unless command.handle.to_s == "valid-handle"
+        raise Arrow::Error::Invalid.new("invalid handle")
+      end
+      reader.read_all.n_rows
+    end
+
+    def virtual_do_close_prepared_statement(context, request)
+      unless request.handle.to_s == "valid-handle"
+        raise Arrow::Error::Invalid.new("invalid handle")
+      end
+    end
   end
 end

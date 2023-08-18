@@ -25,7 +25,9 @@
 
 
 GAFlightStreamReader *
-gaflight_stream_reader_new_raw(arrow::flight::FlightStreamReader *flight_reader);
+gaflight_stream_reader_new_raw(
+  arrow::flight::FlightStreamReader *flight_reader,
+  gboolean is_owner);
 
 arrow::flight::FlightCallOptions *
 gaflight_call_options_get_raw(GAFlightCallOptions *options);
