@@ -33,7 +33,6 @@ namespace arrow::matlab::type::proxy {
 
         mda::StructArray opts = constructor_arguments[0];
 
-        // Get the mxArray from constructor arguments
         const mda::StringArray timeunit_mda = opts[0]["TimeUnit"];
 
         // extract the time unit
