@@ -69,5 +69,6 @@ files into Arrow structures.
    benchmarks
 
 .. toctree::
+   :maxdepth: 2
 
    Python cookbook <https://arrow.apache.org/cookbook/py/>
