@@ -1391,7 +1391,9 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override {}
 
-  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return import_->device_sync_; }
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override {
+    return import_->device_sync_;
+  }
 
  protected:
   std::shared_ptr<ImportedArrayData> import_;
@@ -1408,8 +1410,8 @@ struct ArrayImporter {
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
     if (src->sync_event != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(import_->device_sync_,
-                            memory_mgr_->MakeDeviceSyncEvent({src->sync_event, [](void*) {}}));
+      ARROW_ASSIGN_OR_RAISE(import_->device_sync_, memory_mgr_->MakeDeviceSyncEvent(
+                                                       src->sync_event, [](void*) {}));
     }
     // reset internal state before next import
     memory_mgr_.reset();

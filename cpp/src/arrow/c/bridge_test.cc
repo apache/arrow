@@ -1167,13 +1167,14 @@ class MyDevice : public Device {
   std::shared_ptr<MemoryManager> default_memory_manager() override;
 
   class MySyncEvent final : public Device::SyncEvent {
-  public:
-    explicit MySyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event) : Device::SyncEvent(std::move(sync_event)) {}    
+   public:
+    explicit MySyncEvent(std::unique_ptr<void, void (*)(void*)> sync_event)
+        : Device::SyncEvent(std::move(sync_event)) {}
 
     virtual ~MySyncEvent() = default;
     Status Wait() override { return Status::OK(); }
-    Status StreamWait(void* stream) override { return Status::OK(); }
-    Status Record(void* stream) override { return Status::OK(); }
+    Status StreamWait(const Device::Stream&) override { return Status::OK(); }
+    Status Record(const Device::Stream&) override { return Status::OK(); }
   };
 
  protected:
@@ -1192,12 +1193,14 @@ class MyMemoryManager : public CPUMemoryManager {
   }
 
   Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override {
-    return std::make_shared<MyDevice::MySyncEvent>(
-      std::unique_ptr<void, void(*)(void*)>{const_cast<void*>(kMyEventPtr), [](void*){}});
+    return std::make_shared<MyDevice::MySyncEvent>(std::unique_ptr<void, void (*)(void*)>{
+        const_cast<void*>(kMyEventPtr), [](void*) {}});
   }
 
-  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(std::unique_ptr<void, void(*)(void*)> sync_event) override {
-    return std::make_shared<MyDevice::MySyncEvent>(std::move(sync_event));
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override {
+    return std::make_shared<MyDevice::MySyncEvent>(
+        std::unique_ptr<void, void (*)(void*)>{sync_event, release_sync_event});
   }
 
  protected:
@@ -1223,7 +1226,6 @@ class MyMemoryManager : public CPUMemoryManager {
 std::shared_ptr<MemoryManager> MyDevice::default_memory_manager() {
   return std::make_shared<MyMemoryManager>(shared_from_this());
 }
-
 
 class TestDeviceArrayExport : public ::testing::Test {
  public:
