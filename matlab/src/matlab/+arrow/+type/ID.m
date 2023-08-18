@@ -34,5 +34,6 @@ classdef ID < uint64
         % Date32 (16)
         % Date64 (17)
         Timestamp (18)
+        Time32    (19)
     end
 end
