@@ -148,7 +148,7 @@ gaflight_call_options_clear_headers(GAFlightCallOptions *options)
  * @func: (scope call): The user's callback function.
  * @user_data: (closure): Data for @func.
  *
- * Iterates over all header in the options.
+ * Iterates over all headers in the options.
  *
  * Since: 9.0.0
  */

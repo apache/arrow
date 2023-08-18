@@ -84,6 +84,13 @@ struct _GAFlightServerCallContextClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_14_0
+void
+gaflight_server_call_context_foreach_incoming_header(
+  GAFlightServerCallContext *context,
+  GAFlightHeaderFunc func,
+  gpointer user_data);
+
 
 #define GAFLIGHT_TYPE_SERVER_AUTH_SENDER        \
   (gaflight_server_auth_sender_get_type())

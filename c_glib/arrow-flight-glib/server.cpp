@@ -293,9 +293,11 @@ gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader)
 }
 
 
-typedef struct GAFlightServerCallContextPrivate_ {
+struct GAFlightServerCallContextPrivate {
   arrow::flight::ServerCallContext *call_context;
-} GAFlightServerCallContextPrivate;
+  std::string current_incoming_header_key;
+  std::string current_incoming_header_value;
+};
 
 enum {
   PROP_CALL_CONTEXT = 1,
@@ -309,6 +311,15 @@ G_DEFINE_TYPE_WITH_PRIVATE(GAFlightServerCallContext,
   static_cast<GAFlightServerCallContextPrivate *>(      \
     gaflight_server_call_context_get_instance_private(  \
       GAFLIGHT_SERVER_CALL_CONTEXT(obj)))
+
+static void
+gaflight_server_call_context_finalize(GObject *object)
+{
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(object);
+  priv->current_incoming_header_key.~basic_string();
+  priv->current_incoming_header_value.~basic_string();
+  G_OBJECT_CLASS(gaflight_server_call_context_parent_class)->finalize(object);
+}
 
 static void
 gaflight_server_call_context_set_property(GObject *object,
@@ -333,6 +344,9 @@ gaflight_server_call_context_set_property(GObject *object,
 static void
 gaflight_server_call_context_init(GAFlightServerCallContext *object)
 {
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(object);
+  new(&(priv->current_incoming_header_key)) std::string;
+  new(&(priv->current_incoming_header_value)) std::string;
 }
 
 static void
@@ -340,6 +354,7 @@ gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize = gaflight_server_call_context_finalize;
   gobject_class->set_property = gaflight_server_call_context_set_property;
 
   GParamSpec *spec;
@@ -349,6 +364,33 @@ gaflight_server_call_context_class_init(GAFlightServerCallContextClass *klass)
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_CALL_CONTEXT, spec);
+}
+
+/**
+ * gaflight_server_call_context_foreach_incoming_header:
+ * @context: A #GAFlightServerCallContext.
+ * @func: (scope call): The user's callback function.
+ * @user_data: (closure): Data for @func.
+ *
+ * Iterates over all incoming headers.
+ *
+ * Since: 14.0.0
+ */
+void
+gaflight_server_call_context_foreach_incoming_header(
+  GAFlightServerCallContext *context,
+  GAFlightHeaderFunc func,
+  gpointer user_data)
+{
+  auto priv = GAFLIGHT_SERVER_CALL_CONTEXT_GET_PRIVATE(context);
+  auto flight_context = gaflight_server_call_context_get_raw(context);
+  for (const auto &header : flight_context->incoming_headers()) {
+    priv->current_incoming_header_key = std::string(header.first);
+    priv->current_incoming_header_value = std::string(header.second);
+    func(priv->current_incoming_header_key.c_str(),
+         priv->current_incoming_header_value.c_str(),
+         user_data);
+  }
 }
 
 
