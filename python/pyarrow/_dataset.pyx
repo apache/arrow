@@ -1992,9 +1992,27 @@ cdef class IpcFileFormat(FileFormat):
         self.init(shared_ptr[CFileFormat](new CIpcFileFormat()))
 
     def equals(self, IpcFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.IpcFileFormat
+
+        Returns
+        -------
+        True
+        """
         return True
 
     def make_write_options(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        pyarrow.ipc.IpcWriteOptions
+        """
         cdef IpcFileWriteOptions opts = \
             <IpcFileWriteOptions> FileFormat.make_write_options(self)
         opts.write_options = IpcWriteOptions(**kwargs)
@@ -2071,6 +2089,15 @@ cdef class CsvFileFormat(FileFormat):
         self.csv_format = <CCsvFileFormat*> sp.get()
 
     def make_write_options(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        pyarrow.csv.WriteOptions
+        """
         cdef CsvFileWriteOptions opts = \
             <CsvFileWriteOptions> FileFormat.make_write_options(self)
         opts.write_options = WriteOptions(**kwargs)
@@ -2093,6 +2120,15 @@ cdef class CsvFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, CsvFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.CsvFileFormat
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.parse_options.equals(other.parse_options) and
             self.default_fragment_scan_options ==
@@ -2165,6 +2201,15 @@ cdef class CsvFragmentScanOptions(FragmentScanOptions):
                 make_streamwrap_func(read_options.encoding, 'utf-8'))
 
     def equals(self, CsvFragmentScanOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.CsvFragmentScanOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             other and
             self.convert_options.equals(other.convert_options) and
@@ -2250,6 +2295,15 @@ cdef class JsonFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, JsonFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.JsonFileFormat
+
+        Returns
+        -------
+        bool
+        """
         return (other and
                 self.default_fragment_scan_options ==
                 other.default_fragment_scan_options)
@@ -2308,6 +2362,15 @@ cdef class JsonFragmentScanOptions(FragmentScanOptions):
         self.json_options.read_options = read_options.options
 
     def equals(self, JsonFragmentScanOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.JsonFragmentScanOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             other and
             self.read_options.equals(other.read_options) and
@@ -2353,6 +2416,17 @@ cdef class Partitioning(_Weakrefable):
         return False
 
     def parse(self, path):
+        """
+        Parse a path into a partition expression.
+
+        Parameters
+        ----------
+        path : str
+
+        Returns
+        -------
+        pyarrow.dataset.Expression
+        """
         cdef CResult[CExpression] result
         result = self.partitioning.Parse(tobytes(path))
         return Expression.wrap(GetResultValue(result))

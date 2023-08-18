@@ -1183,6 +1183,22 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None):
+        """
+        Open a parquet file for reading.
+
+        Parameters
+        ----------
+        source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
+        use_memory_map : bool, default False
+        read_dictionary : iterable[int or str], optional
+        metadata : FileMetaData, optional
+        buffer_size : int, default 0
+        pre_buffer : bool, default False
+        coerce_int96_timestamp_unit : str, optional
+        decryption_properties : FileDecryptionProperties, optional
+        thrift_string_size_limit : int, optional
+        thrift_container_size_limit : int, optional
+        """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
             CReaderProperties properties = default_reader_properties()
@@ -1285,13 +1301,35 @@ cdef class ParquetReader(_Weakrefable):
         return self.reader.get().num_row_groups()
 
     def set_use_threads(self, bint use_threads):
+        """
+        Parameters
+        ----------
+        use_threads : bool
+        """
         self.reader.get().set_use_threads(use_threads)
 
     def set_batch_size(self, int64_t batch_size):
+        """
+        Parameters
+        ----------
+        batch_size : int64
+        """
         self.reader.get().set_batch_size(batch_size)
 
     def iter_batches(self, int64_t batch_size, row_groups, column_indices=None,
                      bint use_threads=True):
+        """
+        Parameters
+        ----------
+        batch_size : int64
+        row_groups : list[int]
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Yields
+        ------
+        next : RecordBatch
+        """
         cdef:
             vector[int] c_row_groups
             vector[int] c_column_indices
@@ -1336,10 +1374,32 @@ cdef class ParquetReader(_Weakrefable):
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
+        """
+        Parameters
+        ----------
+        i : int
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         return self.read_row_groups([i], column_indices, use_threads)
 
     def read_row_groups(self, row_groups not None, column_indices=None,
                         bint use_threads=True):
+        """
+        Parameters
+        ----------
+        row_groups : list[int]
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_row_groups
@@ -1366,6 +1426,16 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def read_all(self, column_indices=None, bint use_threads=True):
+        """
+        Parameters
+        ----------
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
@@ -1387,6 +1457,16 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def scan_contents(self, column_indices=None, batch_size=65536):
+        """
+        Parameters
+        ----------
+        column_indices : list[int], optional
+        batch_size : int32, default 65536
+
+        Returns
+        -------
+        num_rows : int64
+        """
         cdef:
             vector[int] c_column_indices
             int32_t c_batch_size
@@ -1434,6 +1514,18 @@ cdef class ParquetReader(_Weakrefable):
         return self._column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
+        """
+        Read the column at the specified index.
+
+        Parameters
+        ----------
+        column_index : int
+            Index of the column.
+
+        Returns
+        -------
+        column : pyarrow.ChunkedArray
+        """
         cdef shared_ptr[CChunkedArray] out
         with nogil:
             check_status(self.reader.get()

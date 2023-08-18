@@ -2345,6 +2345,15 @@ cdef class Expression(_Weakrefable):
         return self.expr
 
     def equals(self, Expression other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        bool
+        """
         return self.expr.Equals(other.unwrap())
 
     def __str__(self):

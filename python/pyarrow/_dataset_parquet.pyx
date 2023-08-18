@@ -178,6 +178,15 @@ cdef class ParquetFileFormat(FileFormat):
         return parquet_read_options
 
     def make_write_options(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        pyarrow.dataset.FileWriteOptions
+        """
         opts = FileFormat.make_write_options(self)
         (<ParquetFileWriteOptions> opts).update(**kwargs)
         return opts
@@ -189,6 +198,15 @@ cdef class ParquetFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, ParquetFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.ParquetFileFormat
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.read_options.equals(other.read_options) and
             self.default_fragment_scan_options ==
@@ -502,6 +520,15 @@ cdef class ParquetReadOptions(_Weakrefable):
             self._coerce_int96_timestamp_unit = TimeUnit_NANO
 
     def equals(self, ParquetReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.ParquetReadOptions
+
+        Returns
+        -------
+        bool
+        """
         return (self.dictionary_columns == other.dictionary_columns and
                 self.coerce_int96_timestamp_unit ==
                 other.coerce_int96_timestamp_unit)
@@ -527,6 +554,11 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         object _properties
 
     def update(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+        """
         arrow_fields = {
             "use_deprecated_int96_timestamps",
             "coerce_timestamps",
@@ -720,6 +752,15 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.reader_properties().set_thrift_container_size_limit(size)
 
     def equals(self, ParquetFragmentScanOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.ParquetFragmentScanOptions
+
+        Returns
+        -------
+        bool
+        """
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
             self.thrift_string_size_limit, self.thrift_container_size_limit)

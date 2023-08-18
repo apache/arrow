@@ -575,6 +575,14 @@ cdef class NativeFile(_Weakrefable):
         return line
 
     def read_buffer(self, nbytes=None):
+        """
+        Read from buffer.
+
+        Parameters
+        ----------
+        nbytes : int, optional
+            maximum number of bytes read
+        """
         cdef:
             int64_t c_nbytes
             int64_t bytes_read = 0
@@ -602,6 +610,14 @@ cdef class NativeFile(_Weakrefable):
         raise UnsupportedOperation()
 
     def writelines(self, lines):
+        """
+        Write lines to the file.
+
+        Parameters
+        ----------
+        lines : iterable
+            Iterable of bytes-like objects or exporters of buffer protocol
+        """
         self._assert_writable()
 
         for line in lines:
@@ -865,12 +881,35 @@ cdef class PythonFile(NativeFile):
             self.is_writable = True
 
     def truncate(self, pos=None):
+        """
+        Parameters
+        ----------
+        pos : int, optional
+        """
         self.handle.truncate(pos)
 
     def readline(self, size=None):
+        """
+        Read and return a line of bytes from the file.
+
+        If size is specified, read at most size bytes.
+
+        Parameters
+        ----------
+        size : int
+            Maximum number of bytes read
+        """
         return self.handle.readline(size)
 
     def readlines(self, hint=None):
+        """
+        Read lines of the file.
+
+        Parameters
+        ----------
+        hint : int
+            Maximum number of bytes read until we stop
+        """
         return self.handle.readlines(hint)
 
 
@@ -1146,16 +1185,31 @@ cdef class FixedSizeBufferWriter(NativeFile):
         self.is_writable = True
 
     def set_memcopy_threads(self, int num_threads):
+        """
+        Parameters
+        ----------
+        num_threads : int
+        """
         cdef CFixedSizeBufferWriter* writer = \
             <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_threads(num_threads)
 
     def set_memcopy_blocksize(self, int64_t blocksize):
+        """
+        Parameters
+        ----------
+        blocksize : int64
+        """
         cdef CFixedSizeBufferWriter* writer = \
             <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_blocksize(blocksize)
 
     def set_memcopy_threshold(self, int64_t threshold):
+        """
+        Parameters
+        ----------
+        threshold : int64
+        """
         cdef CFixedSizeBufferWriter* writer = \
             <CFixedSizeBufferWriter*> self.output_stream.get()
         writer.set_memcopy_threshold(threshold)
