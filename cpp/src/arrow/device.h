@@ -130,7 +130,6 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     ///
     /// Tells the provided stream that it should wait until the
     /// synchronization event is completed without blocking the CPU.
-    /// @param stream Should be appropriate for the underlying device
     virtual Status StreamWait(const Stream&) = 0;
 
     /// @brief Record the wrapped event on the stream so it triggers
