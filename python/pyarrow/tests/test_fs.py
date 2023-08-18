@@ -438,28 +438,6 @@ def allow_append_to_file(request, filesystem_config):
     return filesystem_config['allow_append_to_file']
 
 
-@pytest.fixture(
-    params=[
-        pytest.lazy_fixture('builtin_pickle'),
-        pytest.lazy_fixture('cloudpickle')
-    ]
-)
-def pickle(request):
-    return request.param
-
-
-@pytest.fixture
-def builtin_pickle():
-    import pickle
-    return pickle
-
-
-@pytest.fixture
-def cloudpickle():
-    cp = pytest.importorskip('cloudpickle')
-    return cp
-
-
 def check_mtime(file_info):
     assert isinstance(file_info.mtime, datetime)
     assert isinstance(file_info.mtime_ns, int)

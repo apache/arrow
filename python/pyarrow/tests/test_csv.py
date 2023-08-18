@@ -1465,6 +1465,9 @@ class TestSerialCSVTableRead(BaseCSVTableRead):
     def use_threads(self):
         return False
 
+    def test_invalid_row_handler(self, pickle_module):
+        BaseCSVTableRead.test_invalid_row_handler(self, pickle_module)
+
 
 class TestThreadedCSVTableRead(BaseCSVTableRead):
     @property
