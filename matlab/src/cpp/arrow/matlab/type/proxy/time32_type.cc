@@ -24,7 +24,6 @@ namespace arrow::matlab::type::proxy {
 
     Time32Type::Time32Type(std::shared_ptr<arrow::Time32Type> time32_type) : FixedWidthType(std::move(time32_type)) {
         REGISTER_METHOD(Time32Type, getTimeUnit);
-        REGISTER_METHOD(Time32Type, getTimeZone);
     }
 
     libmexclass::proxy::MakeResult Time32Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
