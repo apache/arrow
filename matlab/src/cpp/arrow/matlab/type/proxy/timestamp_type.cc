@@ -23,8 +23,8 @@
 namespace arrow::matlab::type::proxy {
 
     TimestampType::TimestampType(std::shared_ptr<arrow::TimestampType> timestamp_type) : FixedWidthType(std::move(timestamp_type)) {
-        REGISTER_METHOD(TimestampType, timeUnit);
-        REGISTER_METHOD(TimestampType, timeZone);
+        REGISTER_METHOD(TimestampType, getTimeUnit);
+        REGISTER_METHOD(TimestampType, getTimeZone);
     }
 
     libmexclass::proxy::MakeResult TimestampType::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -55,7 +55,7 @@ namespace arrow::matlab::type::proxy {
         return std::make_shared<TimestampTypeProxy>(std::move(time_type));
     }
 
-    void TimestampType::timeZone(libmexclass::proxy::method::Context& context) {
+    void TimestampType::getTimeZone(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
@@ -68,7 +68,7 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = timezone_mda;
     }
 
-    void TimestampType::timeUnit(libmexclass::proxy::method::Context& context) {
+    void TimestampType::getTimeUnit(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
