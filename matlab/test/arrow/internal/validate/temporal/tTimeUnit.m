@@ -65,13 +65,6 @@ classdef tTimeUnit < matlab.unittest.TestCase
             testCase.verifyError(fcn, errid);
         end
 
-        function ErrorIfNonScalar(testCase)
-            data = [1 2; 2 4];
-            fcn = @() arrow.internal.validate.numeric(data, "double");
-            errid = "arrow:array:InvalidShape";
-            testCase.verifyError(fcn, errid);
-        end
-
         function SupportedTime32TimeUnit(testCase)
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
