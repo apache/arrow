@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import pickle
 import random
 import unittest
 from io import BytesIO
@@ -92,9 +91,9 @@ class HdfsTestCases:
         cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
 
-    def test_pickle(self):
-        s = pickle.dumps(self.hdfs)
-        h2 = pickle.loads(s)
+    def test_pickle(self, pickle_module):
+        s = pickle_module.dumps(self.hdfs)
+        h2 = pickle_module.loads(s)
         assert h2.is_open
         assert h2.host == self.hdfs.host
         assert h2.port == self.hdfs.port

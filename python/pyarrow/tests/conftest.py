@@ -22,6 +22,7 @@ import sys
 from tempfile import TemporaryDirectory
 
 import pytest
+from pytest_lazyfixture import lazy_fixture
 import hypothesis as h
 from ..conftest import groups, defaults
 
@@ -202,3 +203,28 @@ def gcs_server():
         if proc is not None:
             proc.kill()
             proc.wait()
+
+
+@pytest.fixture(
+    params=[
+        lazy_fixture('builtin_pickle'),
+        lazy_fixture('cloudpickle')
+    ],
+    scope='session'
+)
+def pickle_module(request):
+    return request.param
+
+
+@pytest.fixture(scope='session')
+def builtin_pickle():
+    import pickle
+    return pickle
+
+
+@pytest.fixture(scope='session')
+def cloudpickle():
+    cp = pytest.importorskip('cloudpickle')
+    if 'HIGHEST_PROTOCOL' not in cp.__dict__:
+        cp.HIGHEST_PROTOCOL = cp.DEFAULT_PROTOCOL
+    return cp
