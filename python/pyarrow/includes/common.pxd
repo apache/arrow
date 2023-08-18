@@ -149,9 +149,19 @@ cdef extern from "arrow/result.h" namespace "arrow" nogil:
         T operator*()
 
 
+cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
+    cdef cppclass CFuture "arrow::Future"[T]:
+        CFuture()
+
+
+ctypedef object PyWrapper(void*)
+
+
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:
     T GetResultValue[T](CResult[T]) except *
     cdef function[F] BindFunction[F](void* unbound, object bound, ...)
+
+    void BindFuture[T](CFuture[T], object cb, PyWrapper wrapper)
 
 
 cdef inline object PyObject_to_object(PyObject* o):

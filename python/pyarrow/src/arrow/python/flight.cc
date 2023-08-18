@@ -383,27 +383,6 @@ Status CreateSchemaResult(const std::shared_ptr<arrow::Schema>& schema,
   return arrow::flight::SchemaResult::Make(*schema).Value(out);
 }
 
-void AsyncGetFlightInfo(arrow::flight::FlightClient* client,
-                        const arrow::flight::FlightCallOptions& options,
-                        const arrow::flight::FlightDescriptor& descriptor,
-                        PyObject* context, AsyncGetFlightInfoCallback callback) {
-  Py_INCREF(context);
-  OwnedRefNoGIL py_context(context);
-  auto future = client->GetFlightInfoAsync(options, descriptor);
-  future.AddCallback([callback, py_context = std::move(py_context)](
-                         arrow::Result<arrow::flight::FlightInfo> result) mutable {
-    auto status = SafeCallIntoPython([&] {
-      if (result.ok()) {
-        callback(py_context.obj(), &result.ValueOrDie(), result.status());
-      } else {
-        callback(py_context.obj(), nullptr, result.status());
-      }
-      return CheckPyError();
-    });
-    ARROW_WARN_NOT_OK(status, "Internal error in async get_flight_info");
-  });
-}
-
 }  // namespace flight
 }  // namespace py
 }  // namespace arrow

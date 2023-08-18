@@ -25,6 +25,7 @@
 #include "arrow/python/pyarrow.h"
 #include "arrow/python/visibility.h"
 #include "arrow/result.h"
+#include "arrow/util/future.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -70,6 +71,29 @@ T GetResultValue(Result<T> result) {
     ARROW_UNUSED(r);
     return {};
   }
+}
+
+// Wrap a Result<T> and return the corresponding Python object.
+// * If the Result<T> is successful, PyWrapper(&value) is called,
+//   which should return a PyObject*.
+// * If the Result<T> is an error, the corresponding Python exception
+//   is returned.
+template <typename T, typename PyWrapper = PyObject* (*)(void*)>
+PyObject* WrapResult(Result<T> result, PyWrapper py_wrapper) {
+  static_assert(std::is_same_v<PyObject*, decltype(py_wrapper(std::declval<T*>()))>,
+                "PyWrapper argument to WrapResult should return a PyObject* "
+                "when called with a T*");
+  Status st = result.status();
+  if (st.ok()) {
+    PyObject* py_value = py_wrapper(&result.ValueUnsafe());
+    st = CheckPyError();
+    if (st.ok()) {
+      return py_value;
+    }
+    Py_XDECREF(py_value);  // should be null, but who knows
+  }
+  // Status is an error, convert it to an exception.
+  return internal::convert_status(st);
 }
 
 // A RAII-style helper that ensures the GIL is acquired inside a lexical block.
@@ -129,6 +153,19 @@ auto SafeCallIntoPython(Function&& func) -> decltype(func()) {
     PyErr_Restore(exc_type, exc_value, exc_traceback);
   }
   return maybe_status;
+}
+
+template <typename Function>
+auto SafeCallIntoPythonVoid(Function&& func) -> decltype(func()) {
+  PyAcquireGIL lock;
+  PyObject* exc_type;
+  PyObject* exc_value;
+  PyObject* exc_traceback;
+  PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
+  func();
+  if (exc_type != NULLPTR) {
+    PyErr_Restore(exc_type, exc_value, exc_traceback);
+  }
 }
 
 // A RAII primitive that DECREFs the underlying PyObject* when it
@@ -249,6 +286,23 @@ std::function<OutFn> BindFunction(Return (*unbound)(PyObject*, Args...),
   auto bound_fn = std::make_shared<Fn>(unbound, bound_arg);
   return
       [bound_fn](Args... args) { return bound_fn->Invoke(std::forward<Args>(args)...); };
+}
+
+// XXX Put this in arrow/python/async.h to avoid adding more random stuff here?
+template <typename T, typename Wrapper = PyObject* (*)(void*)>
+void BindFuture(Future<T> future, PyObject* py_cb, Wrapper py_wrapper) {
+  Py_INCREF(py_cb);
+  OwnedRefNoGIL cb_ref(py_cb);
+
+  auto future_cb = [cb_ref = std::move(cb_ref), py_wrapper](Result<T> result) {
+    SafeCallIntoPythonVoid([&]() {
+      OwnedRef py_value_or_exc{WrapResult(std::move(result), std::move(py_wrapper))};
+      Py_XDECREF(
+          PyObject_CallFunctionObjArgs(cb_ref.obj(), py_value_or_exc.obj(), NULLPTR));
+      ARROW_WARN_NOT_OK(CheckPyError(), "Internal error in async call");
+    });
+  };
+  future.AddCallback(std::move(future_cb));
 }
 
 // A temporary conversion of a Python object to a bytes area.

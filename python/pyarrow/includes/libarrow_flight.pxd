@@ -396,6 +396,8 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[unique_ptr[CFlightListing]] ListFlights(CFlightCallOptions& options, CCriteria criteria)
         CResult[unique_ptr[CFlightInfo]] GetFlightInfo(CFlightCallOptions& options,
                                                        CFlightDescriptor& descriptor)
+        CFuture[CFlightInfo] GetFlightInfoAsync(CFlightCallOptions& options,
+                                                CFlightDescriptor& descriptor)
         CResult[unique_ptr[CSchemaResult]] GetSchema(CFlightCallOptions& options,
                                                      CFlightDescriptor& descriptor)
         CResult[unique_ptr[CFlightStreamReader]] DoGet(CFlightCallOptions& options, CTicket& ticket)
@@ -495,8 +497,6 @@ ctypedef CStatus cb_client_middleware_start_call(
     object,
     const CCallInfo&,
     unique_ptr[CClientMiddleware]*)
-
-ctypedef void cb_client_async_get_flight_info(object, CFlightInfo* info, const CStatus& status)
 
 cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef char* CPyServerMiddlewareName\
@@ -605,8 +605,6 @@ cdef extern from "arrow/python/flight.h" namespace "arrow::py::flight" nogil:
     cdef CStatus CreateSchemaResult" arrow::py::flight::CreateSchemaResult"(
         shared_ptr[CSchema] schema,
         unique_ptr[CSchemaResult]* out)
-
-    cdef void CAsyncGetFlightInfo" arrow::py::flight::AsyncGetFlightInfo"(CFlightClient*, const CFlightCallOptions&, const CFlightDescriptor&, object, function[cb_client_async_get_flight_info])
 
 
 cdef extern from "<variant>" namespace "std" nogil:

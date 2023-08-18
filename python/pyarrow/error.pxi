@@ -77,8 +77,8 @@ class ArrowCancelled(ArrowException):
 ArrowIOError = IOError
 
 
-# This function could be written directly in C++ if we didn't
-# define Arrow-specific subclasses (ArrowInvalid etc.)
+# check_status() and convert_status() could be written directly in C++
+# if we didn't define Arrow-specific subclasses (ArrowInvalid etc.)
 cdef int check_status(const CStatus& status) except -1 nogil:
     if status.ok():
         return 0
@@ -92,6 +92,12 @@ cdef int check_status(const CStatus& status) except -1 nogil:
 
 
 cdef object convert_status(const CStatus& status):
+    if IsPyError(status):
+        try:
+            RestorePyError(status)
+        except BaseException as e:
+            return e
+
     # We don't use Status::ToString() as it would redundantly include
     # the C++ class name.
     message = frombytes(status.message(), safe=True)
@@ -142,10 +148,13 @@ cdef object convert_status(const CStatus& status):
         return ArrowException(message)
 
 
-# This is an API function for C++ PyArrow
+# These are API functions for C++ PyArrow
 cdef api int pyarrow_internal_check_status(const CStatus& status) \
         except -1 nogil:
     return check_status(status)
+
+cdef api object pyarrow_internal_convert_status(const CStatus& status):
+    return convert_status(status)
 
 
 cdef class StopToken:

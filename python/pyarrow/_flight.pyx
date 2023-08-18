@@ -837,6 +837,12 @@ cdef class FlightInfo(_Weakrefable):
     cdef:
         unique_ptr[CFlightInfo] info
 
+    @staticmethod
+    cdef _wrap_unsafe(void* c_info):
+        cdef FlightInfo obj = FlightInfo.__new__(FlightInfo)
+        obj.info.reset(new CFlightInfo(move(deref(<CFlightInfo*> c_info))))
+        return obj
+
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
                  total_records, total_bytes):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
@@ -1241,10 +1247,11 @@ class AsyncioCall:
             raise self._exception
         return self._result
 
-    def wakeup(self, *, result=None, exception=None) -> None:
-        """Finish the RPC call."""
-        self._result = result
-        self._exception = exception
+    def wakeup(self, result_or_exception) -> None:
+        if isinstance(result_or_exception, BaseException):
+            self._exception = result_or_exception
+        else:
+            self._result = result_or_exception
         # Set the event from within the loop to avoid a race (asyncio
         # objects are not necessarily thread-safe)
         self._loop.call_soon_threadsafe(lambda: self._event.set())
@@ -1279,29 +1286,13 @@ cdef class AsyncioFlightClient:
                 FlightCallOptions.unwrap(options)
             CFlightDescriptor c_descriptor = \
                 FlightDescriptor.unwrap(descriptor)
-            function[cb_client_async_get_flight_info] callback = \
-                &_client_async_get_flight_info
+            CFuture[CFlightInfo] c_future
 
         with nogil:
-            CAsyncGetFlightInfo(
-                self._client.client.get(),
-                deref(c_options),
-                c_descriptor,
-                call,
-                callback,
-            )
+            c_future = self._client.client.get().GetFlightInfoAsync(
+                deref(c_options), c_descriptor)
 
-
-cdef void _client_async_get_flight_info(void* self, CFlightInfo* info, const CStatus& status) except *:
-    """Bridge the C++ async call with the Python side."""
-    cdef:
-        FlightInfo result = FlightInfo.__new__(FlightInfo)
-    call: AsyncioCall = <object> self
-    if status.ok():
-        result.info.reset(new CFlightInfo(move(deref(info))))
-        call.wakeup(result=result)
-    else:
-        call.wakeup(exception=convert_status(status))
+        BindFuture(move(c_future), call.wakeup, FlightInfo._wrap_unsafe)
 
 
 cdef class FlightClient(_Weakrefable):
