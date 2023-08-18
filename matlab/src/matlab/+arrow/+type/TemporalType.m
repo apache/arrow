@@ -1,3 +1,5 @@
+%TEMPORALTYPE Parent class of all temporal types.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,31 +15,23 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef TimestampType < arrow.type.TemporalType
-%TIMESTAMPTYPE Type class for timestamp data.
+classdef TemporalType < arrow.type.FixedWidthType
 
     properties(Dependent, GetAccess=public, SetAccess=private)
-        TimeZone
+        TimeUnit
     end
 
     methods
-        function obj = TimestampType(proxy)
+        function obj = TemporalType(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.TimestampType")}
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            import arrow.internal.proxy.validate
-            obj@arrow.type.TemporalType(proxy);
+            obj@arrow.type.FixedWidthType(proxy);
         end
 
-        function tz = get.TimeZone(obj)
-            tz = obj.Proxy.getTimeZone();
-        end
-    end
-
-    methods (Access=protected)
-        function group = getPropertyGroups(~)
-          targets = ["ID" "TimeUnit" "TimeZone"];
-          group = matlab.mixin.util.PropertyGroup(targets);
+        function timeUnit = get.TimeUnit(obj)
+            timeUnitValue = obj.Proxy.getTimeUnit();
+            timeUnit = arrow.type.TimeUnit(timeUnitValue);
         end
     end
 end
