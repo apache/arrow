@@ -17,10 +17,9 @@ function type = time32(opts)
 %TIME32 Creates an arrow.type.Time32Type object
     arguments
         opts.TimeUnit(1, 1) arrow.type.TimeUnit {timeUnit("Time32", opts.TimeUnit)} = arrow.type.TimeUnit.Second
-        opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
     end
-    import arrow.internal.validate.temporal.timeunit
-    args = struct(TimeUnit=string(opts.TimeUnit), TimeZone=opts.TimeZone);
+    import arrow.internal.validate.temporal.timeUnit
+    args = struct(TimeUnit=string(opts.TimeUnit));
     proxy = arrow.internal.proxy.create("arrow.type.proxy.Time32Type", args);
     type = arrow.type.TimestampType(proxy);
 end
