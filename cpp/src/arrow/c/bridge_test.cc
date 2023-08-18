@@ -2086,6 +2086,35 @@ TEST_F(TestSchemaImport, UnionError) {
   CheckImportError();
 }
 
+TEST_F(TestSchemaImport, RunEndEncodedError) {
+  // Bad run-end type
+  FillPrimitive(AddChild(), "c", "run_ends");
+  FillPrimitive(AddChild(), "u", "values");
+  FillRunEndEncoded("+r");
+  CheckImport(run_end_encoded(int8(), utf8()));
+  // CheckImportError();
+
+  // REE of a REE also causes an error
+  ArrowSchema* run_ends = AddChild();
+  ArrowSchema* values;
+  FillPrimitive(run_ends, "i", "run_ends");
+  {
+    FillPrimitive(AddChild(), "i", "run_ends");
+    FillPrimitive(AddChild(), "u", "values");
+    values = AddChild();
+    FillRunEndEncoded(values, "+r", "values");
+  }
+  // Fill the top-level REE
+  ArrowSchema* children[2] = {run_ends, values};
+  c_struct_.flags = kDefaultFlags;
+  c_struct_.format = "+r";
+  c_struct_.name = "";
+  c_struct_.n_children = 2;
+  c_struct_.children = children;
+  CheckImport(run_end_encoded(int32(), run_end_encoded(int32(), utf8())));
+  // CheckImportError();
+}
+
 TEST_F(TestSchemaImport, DictionaryError) {
   // Bad index type
   FillPrimitive(AddChild(), "c");
