@@ -18,34 +18,54 @@
 cmake_minimum_required(VERSION 3.16)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Compiler id for Apple Clang is now AppleClang.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
+#
+# Compiler id for Apple Clang is now AppleClang.
 cmake_policy(SET CMP0025 NEW)
 
-# Only interpret if() arguments as variables or keywords when unquoted.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
+#
+# Only interpret if() arguments as variables or keywords when unquoted.
 cmake_policy(SET CMP0054 NEW)
 
-# Support new if() IN_LIST operator.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0057.html
+#
+# Support new if() IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 
+# https://www.cmake.org/cmake/help/latest/policy/CMP0063.html
+#
 # Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
 # Honor visibility properties for all target types.
-# https://www.cmake.org/cmake/help/latest/policy/CMP0063.html
 cmake_policy(SET CMP0063 NEW)
 
-# RPATH settings on macOS do not affect install_name.
 # https://cmake.org/cmake/help/latest/policy/CMP0068.html
+#
+# RPATH settings on macOS do not affect install_name.
 cmake_policy(SET CMP0068 NEW)
 
-# find_package() uses <PackageName>_ROOT variables.
 # https://cmake.org/cmake/help/latest/policy/CMP0074.html
+#
+# find_package() uses <PackageName>_ROOT variables.
 cmake_policy(SET CMP0074 NEW)
 
-# MSVC runtime library flags are selected by an abstraction.
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
+#
+# MSVC runtime library flags are selected by an abstraction.
 cmake_policy(SET CMP0091 NEW)
+
+# https://cmake.org/cmake/help/latest/policy/CMP0135.html
+#
+# When using the URL download method with the ExternalProject_Add()
+# command, CMake 3.23 and below sets the timestamps of the extracted
+# contents to the same as the timestamps in the archive. When the URL
+# changes, the new archive is downloaded and extracted, but the
+# timestamps of the extracted contents might not be newer than the
+# previous contents. Anything that depends on the extracted contents
+# might not be rebuilt, even though the contents may change.
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
 
 set(ARROW_VERSION "14.0.0-SNAPSHOT")
 
