@@ -44,6 +44,7 @@ struct SetLookupState : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool* pool) : memory_pool(pool) {}
 
   Status Init(const SetLookupOptions& options) {
+    this->null_matching_behavior = options.getNullMatchingBehavior();
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
@@ -66,7 +67,8 @@ struct SetLookupState : public SetLookupStateBase {
     } else {
       return Status::Invalid("value_set should be an array or chunked array");
     }
-    if (!options.skip_nulls && lookup_table->GetNull() >= 0) {
+    if (this->null_matching_behavior != SetLookupOptions::SKIP &&
+        lookup_table->GetNull() >= 0) {
       null_index = memo_index_to_value_index[lookup_table->GetNull()];
     }
     value_set_type = options.value_set.type();
@@ -117,19 +119,23 @@ struct SetLookupState : public SetLookupStateBase {
   // be mapped back to indices in the value_set.
   std::vector<int32_t> memo_index_to_value_index;
   int32_t null_index = -1;
+  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
 template <>
 struct SetLookupState<NullType> : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool*) {}
 
-  Status Init(const SetLookupOptions& options) {
-    value_set_has_null = (options.value_set.length() > 0) && !options.skip_nulls;
+  Status Init(SetLookupOptions& options) {
+    null_matching_behavior = options.getNullMatchingBehavior();
+    value_set_has_null = (options.value_set.length() > 0) &&
+                         this->null_matching_behavior != SetLookupOptions::SKIP;
     value_set_type = null();
     return Status::OK();
   }
 
   bool value_set_has_null;
+  SetLookupOptions::NullMatchingBehavior null_matching_behavior;
 };
 
 // TODO: Put this concept somewhere reusable
@@ -379,16 +385,15 @@ Status ExecIndexIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   return IndexInVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
 }
 
-// ----------------------------------------------------------------------
-// In writes the results into a preallocated boolean data bitmap
-struct InVisitor {
+// IsIn writes the results into a preallocated boolean data bitmap
+struct IsInVisitor {
   KernelContext* ctx;
   const ArraySpan& data;
   ArraySpan* out;
   uint8_t* out_boolean_bitmap;
   uint8_t* out_null_bitmap;
 
-  InVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
+  IsInVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
       : ctx(ctx),
         data(data),
         out(out),
@@ -397,10 +402,20 @@ struct InVisitor {
 
   Status Visit(const DataType& type) {
     DCHECK_EQ(type.id(), Type::NA);
-    // skip_nulls is ignored in sql-compatible In
-    bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, false);
-    bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, false);
+    const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
 
+    if (state.null_matching_behavior == SetLookupOptions::MATCH &&
+        state.value_set_has_null) {
+      bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, true);
+      bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, true);
+    } else if (state.null_matching_behavior == SetLookupOptions::SKIP ||
+               (!state.value_set_has_null &&
+                state.null_matching_behavior == SetLookupOptions::MATCH)) {
+      bit_util::SetBitsTo(out_boolean_bitmap, out->offset, out->length, false);
+      bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, true);
+    } else {
+      bit_util::SetBitsTo(out_null_bitmap, out->offset, out->length, false);
+    }
     return Status::OK();
   }
 
@@ -413,13 +428,14 @@ struct InVisitor {
     VisitArraySpanInline<Type>(
         input,
         [&](T v) {
-          if (state.lookup_table->Get(v) != -1) {
+          if (state.lookup_table->Get(v) != -1) {  // true
             writer_boolean.Set();
             writer_null.Set();
-          } else if (value_set_has_null) {
+          } else if (state.null_matching_behavior == SetLookupOptions::INCONCLUSIVE &&
+                     value_set_has_null) {  // null
             writer_boolean.Clear();
             writer_null.Clear();
-          } else {
+          } else {  // false
             writer_boolean.Clear();
             writer_null.Set();
           }
@@ -427,115 +443,24 @@ struct InVisitor {
           writer_null.Next();
         },
         [&]() {
-          writer_boolean.Clear();
-          writer_null.Clear();
+          if (state.null_matching_behavior == SetLookupOptions::MATCH &&
+              value_set_has_null) {  // true
+            writer_boolean.Set();
+            writer_null.Set();
+          } else if (state.null_matching_behavior == SetLookupOptions::SKIP ||
+                     (!value_set_has_null && state.null_matching_behavior ==
+                                                 SetLookupOptions::MATCH)) {  // false
+            writer_boolean.Clear();
+            writer_null.Set();
+          } else {  // null
+            writer_boolean.Clear();
+            writer_null.Clear();
+          }
           writer_boolean.Next();
           writer_null.Next();
         });
     writer_boolean.Finish();
     writer_null.Finish();
-    return Status::OK();
-  }
-
-  template <typename Type>
-  Status ProcessIsIn() {
-    const auto& state = checked_cast<const SetLookupState<Type>&>(*ctx->state());
-
-    if (!data.type->Equals(state.value_set_type)) {
-      auto materialized_input = data.ToArrayData();
-      auto cast_result = Cast(*materialized_input, state.value_set_type,
-                              CastOptions::Safe(), ctx->exec_context());
-      if (ARROW_PREDICT_FALSE(!cast_result.ok())) {
-        if (cast_result.status().IsNotImplemented()) {
-          return Status::TypeError("Array type doesn't match type of values set: ",
-                                   *data.type, " vs ", *state.value_set_type);
-        }
-        return cast_result.status();
-      }
-      auto casted_input = *cast_result;
-      return ProcessIsIn(state, *casted_input.array());
-    }
-    return ProcessIsIn(state, data);
-  }
-
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
-    return ProcessIsIn<BooleanType>();
-  }
-
-  template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
-                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
-              Status>
-  Visit(const Type&) {
-    return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
-  }
-
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
-    return ProcessIsIn<typename Type::PhysicalType>();
-  }
-
-  // Handle Decimal128Type, FixedSizeBinaryType
-  Status Visit(const FixedSizeBinaryType& type) {
-    return ProcessIsIn<FixedSizeBinaryType>();
-  }
-
-  Status Visit(const MonthDayNanoIntervalType& type) {
-    return ProcessIsIn<MonthDayNanoIntervalType>();
-  }
-
-  Status Execute() {
-    const auto& state = checked_cast<const SetLookupStateBase&>(*ctx->state());
-    return VisitTypeInline(*state.value_set_type, this);
-  }
-};
-
-Status ExecIn(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-  return InVisitor(ctx, batch[0].array, out->array_span_mutable()).Execute();
-}
-
-// IsIn writes the results into a preallocated boolean data bitmap
-struct IsInVisitor {
-  KernelContext* ctx;
-  const ArraySpan& data;
-  ArraySpan* out;
-
-  IsInVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
-      : ctx(ctx), data(data), out(out) {}
-
-  Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
-    const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
-    // skip_nulls is honored for consistency with other types
-    bit_util::SetBitsTo(out->buffers[1].data, out->offset, out->length,
-                        state.value_set_has_null);
-    return Status::OK();
-  }
-
-  template <typename Type>
-  Status ProcessIsIn(const SetLookupState<Type>& state, const ArraySpan& input) {
-    using T = typename GetViewType<Type>::T;
-    FirstTimeBitmapWriter writer(out->buffers[1].data, out->offset, out->length);
-    VisitArraySpanInline<Type>(
-        input,
-        [&](T v) {
-          if (state.lookup_table->Get(v) != -1) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
-        },
-        [&]() {
-          if (state.null_index != -1) {
-            writer.Set();
-          } else {
-            writer.Clear();
-          }
-          writer.Next();
-        });
-    writer.Finish();
     return Status::OK();
   }
 
@@ -630,28 +555,6 @@ void AddBasicSetLookupKernels(ScalarKernel kernel,
   }
 }
 
-const FunctionDoc in_doc{
-    "Find each element in a set of values in a sql-compatible way",
-    ("For each element in `values`, return true if it is found in a given\n"
-     "set of values. null in `values` will directly return null.\n"
-     "each elelement of `values` that isn't contained in the set of values\n"
-     "will return null if the the set of values contains null and return\n"
-     "false if the the set of values doesn't contain null.\n"
-     "The set of values to look for must be given in SetLookupOptions.\n"
-     "the parameter skip_nulls in SetLookupOptions is ignored in this Function"),
-    {"values"},
-    "SetLookupOptions",
-    /*options_required=*/true};
-
-const FunctionDoc in_meta_doc{
-    "Find each element in a set of values in a sql-compatible way",
-    ("For each element in `values`, return true if it is found in `value_set`,\n"
-     "null in `values` will directly return null.\n"
-     "each elelement of `values` that isn't contained in `value_set`\n"
-     "will return null if the `value_set` contain null and return\n"
-     "false if the `value_set` doesn't contains null."),
-    {"values", "value_set"}};
-
 const FunctionDoc is_in_doc{
     "Find each element in a set of values",
     ("For each element in `values`, return true if it is found in a given\n"
@@ -685,20 +588,6 @@ const FunctionDoc index_in_meta_doc{
     ("For each element in `values`, return its index in the `value_set`,\n"
      "or null if it is not found there."),
     {"values", "value_set"}};
-
-class InMetaBinary : public MetaFunction {
- public:
-  InMetaBinary() : MetaFunction("in_meta_binary", Arity::Binary(), in_meta_doc) {}
-
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    if (options != nullptr) {
-      return Status::Invalid("Unexpected options for 'in_meta_binary' function");
-    }
-    return In(args[0], args[1], ctx);
-  }
-};
 
 // Enables calling is_in with CallFunction as though it were binary.
 class IsInMetaBinary : public MetaFunction {
@@ -743,29 +632,12 @@ struct SetLookupFunction : ScalarFunction {
 }  // namespace
 
 void RegisterScalarSetLookup(FunctionRegistry* registry) {
-  // In writes its boolean output into preallocated memory
-  {
-    ScalarKernel in_base;
-    in_base.init = InitSetLookup;
-    in_base.exec = ExecIn;
-    in_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
-    auto in = std::make_shared<SetLookupFunction>("in", Arity::Unary(), in_doc);
-
-    AddBasicSetLookupKernels(in_base, /*output_type=*/boolean(), in.get());
-
-    in_base.signature = KernelSignature::Make({null()}, boolean());
-    DCHECK_OK(in->AddKernel(in_base));
-    DCHECK_OK(registry->AddFunction(in));
-
-    DCHECK_OK(registry->AddFunction(std::make_shared<InMetaBinary>()));
-  }
-
   // IsIn writes its boolean output into preallocated memory
   {
     ScalarKernel isin_base;
     isin_base.init = InitSetLookup;
     isin_base.exec = ExecIsIn;
-    isin_base.null_handling = NullHandling::OUTPUT_NOT_NULL;
+    isin_base.null_handling = NullHandling::COMPUTED_PREALLOCATE;
     auto is_in = std::make_shared<SetLookupFunction>("is_in", Arity::Unary(), is_in_doc);
 
     AddBasicSetLookupKernels(isin_base, /*output_type=*/boolean(), is_in.get());

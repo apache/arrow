@@ -268,19 +268,28 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
-  explicit SetLookupOptions(Datum value_set, bool skip_nulls = false);
-  SetLookupOptions();
+  enum NullMatchingBehavior { MATCH, SKIP, EMIT_NULL, INCONCLUSIVE };
+
+  explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
+  explicit SetLookupOptions(Datum value_set, bool skip_nulls);  SetLookupOptions();
   static constexpr char const kTypeName[] = "SetLookupOptions";
 
   /// The set of values to look up input values into.
   Datum value_set;
+
+  NullMatchingBehavior null_matching_behavior;
+  
+  // DEPRECATED(will be removed after removing of skip_nulls)
+   NullMatchingBehavior const getNullMatchingBehavior();
+  
+  // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
-  bool skip_nulls;
+  std::optional<bool> skip_nulls;
 };
 
 /// Options for struct_field function
@@ -1088,28 +1097,6 @@ Result<Datum> AndNot(const Datum& left, const Datum& right, ExecContext* ctx = N
 ARROW_EXPORT
 Result<Datum> KleeneAndNot(const Datum& left, const Datum& right,
                            ExecContext* ctx = NULLPTR);
-
-/// \brief In returns true for each element of `values` that is contained in
-/// `value_set`.
-///  In is sql-compatible, null in `values` will directly output null,
-///  each elelement of `values` that isn't contained in `value_set`
-///  will output null if the `value_set` contains null and output
-///  false if the `value_set` doesn't contain null.
-///
-/// In ignore the parameter skip_nulls in SetLookupOptions.
-///
-/// \param[in] values array-like input to look up in value_set
-/// \param[in] options SetLookupOptions
-/// \param[in] ctx the function execution context, optional
-/// \return the resulting datum
-///
-/// \since 12.0.1
-/// \note API not yet finalized
-ARROW_EXPORT
-Result<Datum> In(const Datum& values, const SetLookupOptions& options,
-                 ExecContext* ctx = NULLPTR);
-ARROW_EXPORT
-Result<Datum> In(const Datum& values, const Datum& value_set, ExecContext* ctx = NULLPTR);
 
 /// \brief IsIn returns true for each element of `values` that is contained in
 /// `value_set`

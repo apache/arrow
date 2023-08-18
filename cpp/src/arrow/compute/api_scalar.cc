@@ -344,7 +344,8 @@ static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultiple
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
-    DataMember("skip_nulls", &SetLookupOptions::skip_nulls));
+    DataMember("skip_nulls", &SetLookupOptions::skip_nulls),
+    DataMember("null_matching_behavior", &SetLookupOptions::null_matching_behavior));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
@@ -540,8 +541,29 @@ constexpr char RoundToMultipleOptions::kTypeName[];
 SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
     : FunctionOptions(internal::kSetLookupOptionsType),
       value_set(std::move(value_set)),
-      skip_nulls(skip_nulls) {}
-SetLookupOptions::SetLookupOptions() : SetLookupOptions({}, false) {}
+      skip_nulls(skip_nulls) {
+  if (skip_nulls) {
+    this->null_matching_behavior = SetLookupOptions::NullMatchingBehavior::SKIP;
+  } else {
+    this->null_matching_behavior = SetLookupOptions::NullMatchingBehavior::MATCH;
+  }
+}
+SetLookupOptions::SetLookupOptions(
+    Datum value_set, SetLookupOptions::NullMatchingBehavior null_matching_behavior)
+    : FunctionOptions(internal::kSetLookupOptionsType),
+      value_set(std::move(value_set)),
+      null_matching_behavior(std::move(null_matching_behavior)) {}
+SetLookupOptions::SetLookupOptions()
+    : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH) {}
+SetLookupOptions::NullMatchingBehavior SetLookupOptions::getNullMatchingBehavior() {
+  if (this->skip_nulls == std::nullopt) {
+    return this->null_matching_behavior;
+  } else if (this->skip_nulls) {
+    return SetLookupOptions::NullMatchingBehavior::SKIP;
+  } else {
+    return SetLookupOptions::NullMatchingBehavior::MATCH;
+  }
+}
 constexpr char SetLookupOptions::kTypeName[];
 
 SliceOptions::SliceOptions(int64_t start, int64_t stop, int64_t step)
@@ -744,14 +766,6 @@ Result<Datum> MinElementWise(const std::vector<Datum>& args,
 
 // ----------------------------------------------------------------------
 // Set-related operations
-
-Result<Datum> In(const Datum& values, const SetLookupOptions& options, ExecContext* ctx) {
-  return CallFunction("in", {values}, &options, ctx);
-}
-
-Result<Datum> In(const Datum& values, const Datum& value_set, ExecContext* ctx) {
-  return In(values, SetLookupOptions{value_set}, ctx);
-}
 
 Result<Datum> IsIn(const Datum& values, const SetLookupOptions& options,
                    ExecContext* ctx) {
