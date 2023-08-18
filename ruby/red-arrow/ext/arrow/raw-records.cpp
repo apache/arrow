@@ -147,20 +147,20 @@ namespace red_arrow {
 
     class RawRecordsProducer : private Converter, public arrow::ArrayVisitor {
     public:
-      explicit RawRecordsProducer(int n_columns)
+      explicit RawRecordsProducer()
         : Converter(),
-          record_(Qnil),
-          n_columns_(n_columns) {
+          record_(Qnil) {
       }
 
       void produce(const arrow::RecordBatch& record_batch) {
         rb::protect([&] {
+          auto n_columns = record_batch.num_columns();
           const auto n_rows = record_batch.num_rows();
           for (int64_t i = 0; i < n_rows; ++i) {
-            record_ = rb_ary_new_capa(n_columns_);
+            record_ = rb_ary_new_capa(n_columns);
             row_offset_ = i;
 
-            for (int i = 0; i < n_columns_; ++i) {
+            for (int i = 0; i < n_columns; ++i) {
               const auto array = record_batch.column(i).get();
               column_index_ = i;
 
@@ -175,12 +175,13 @@ namespace red_arrow {
 
       void produce(const arrow::Table& table) {
         rb::protect([&] {
+          auto n_columns = table.num_columns();
           const auto n_rows = table.num_rows();
           for (int64_t i = 0; i < n_rows; ++i) {
             row_offset_ = i;
-            record_ = rb_ary_new_capa(n_columns_);
+            record_ = rb_ary_new_capa(n_columns);
 
-            for (int i = 0; i < n_columns_; ++i) {
+            for (int i = 0; i < n_columns; ++i) {
               const auto& chunked_array = table.column(i).get();
               column_index_ = i;
 
@@ -256,9 +257,6 @@ namespace red_arrow {
 
         // The current row offset.
         int64_t row_offset_;
-
-        // The number of columns.
-        const int n_columns_;
     };
   }
 
@@ -302,10 +300,9 @@ namespace red_arrow {
   record_batch_each_raw_record(VALUE rb_record_batch){
     auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
     auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
-    const auto n_columns = record_batch->num_columns();
 
     try {
-      RawRecordsProducer producer(n_columns);
+      RawRecordsProducer producer;
       producer.produce(*record_batch);
     } catch (rb::State& state) {
       state.jump();
@@ -318,10 +315,9 @@ namespace red_arrow {
   table_each_raw_record(VALUE rb_table) {
     auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
     auto table = garrow_table_get_raw(garrow_table).get();
-    const auto n_columns = table->num_columns();
 
     try {
-      RawRecordsProducer producer(n_columns);
+      RawRecordsProducer producer;
       producer.produce(*table);
     } catch (rb::State& state) {
       state.jump();
