@@ -18,6 +18,7 @@
 #include "arrow/util/thread_pool.h"
 
 #include <algorithm>
+#include <charconv>
 #include <condition_variable>
 #include <deque>
 #include <list>
@@ -695,11 +696,10 @@ static int ParseOMPEnvVar(const char* name) {
   if (first_comma != std::string::npos) {
     str = str.substr(0, first_comma);
   }
-  try {
-    return std::max(0, std::stoi(str));
-  } catch (...) {
-    return 0;
-  }
+  int env_value = 0;
+  // If parse failed, the env_value will be 0.
+  std::from_chars(str.data(), str.data() + str.size(), env_value);
+  return env_value;
 }
 
 int ThreadPool::DefaultCapacity() {

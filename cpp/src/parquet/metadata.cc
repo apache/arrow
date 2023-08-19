@@ -18,6 +18,7 @@
 #include "parquet/metadata.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cinttypes>
 #include <ostream>
 #include <string>
@@ -1210,9 +1211,12 @@ class ApplicationVersionParser {
       }
       version_parsing_position_ = version_major_end + 1;  // +1 is for '.'.
     }
-    auto version_major_string = version_string_.substr(
-        version_major_start, version_major_end - version_major_start);
-    application_version_.version.major = atoi(version_major_string.c_str());
+    auto [_, result] = std::from_chars(version_string_.data() + version_major_start,
+                                       version_string_.data() + version_major_end,
+                                       application_version_.version.major);
+    if (result != std::errc()) {
+      return false;
+    }
     return true;
   }
 
@@ -1235,9 +1239,12 @@ class ApplicationVersionParser {
       }
       version_parsing_position_ = version_minor_end + 1;  // +1 is for '.'.
     }
-    auto version_minor_string = version_string_.substr(
-        version_minor_start, version_minor_end - version_minor_start);
-    application_version_.version.minor = atoi(version_minor_string.c_str());
+    auto [_, result] = std::from_chars(version_string_.data() + version_minor_start,
+                                       version_string_.data() + version_minor_end,
+                                       application_version_.version.minor);
+    if (result != std::errc()) {
+      return false;
+    }
     return true;
   }
 
@@ -1253,9 +1260,12 @@ class ApplicationVersionParser {
     if (version_patch_end == version_patch_start) {
       return false;
     }
-    auto version_patch_string = version_string_.substr(
-        version_patch_start, version_patch_end - version_patch_start);
-    application_version_.version.patch = atoi(version_patch_string.c_str());
+    auto [_, result] = std::from_chars(version_string_.data() + version_patch_start,
+                                       version_string_.data() + version_patch_end,
+                                       application_version_.version.patch);
+    if (result != std::errc()) {
+      return false;
+    }
     version_parsing_position_ = version_patch_end;
     return true;
   }

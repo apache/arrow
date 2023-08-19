@@ -18,6 +18,7 @@
 #include "arrow/io/interfaces.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <iterator>
 #include <list>
@@ -393,10 +394,8 @@ std::shared_ptr<ThreadPool> MakeIOThreadPool() {
   if (maybe_env_var.ok()) {
     auto str = *std::move(maybe_env_var);
     if (!str.empty()) {
-      try {
-        threads = std::stoi(str);
-      } catch (...) {
-      }
+      // If parse failed, the threads will be 0.
+      std::from_chars(str.data(), str.data() + str.size(), threads);
       if (threads <= 0) {
         ARROW_LOG(WARNING)
             << "ARROW_IO_THREADS does not contain a valid number of threads "
