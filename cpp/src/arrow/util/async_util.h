@@ -383,7 +383,8 @@ bool AsyncTaskScheduler::AddAsyncGenerator(std::function<Future<T>()> generator,
           std::unique_ptr<AsyncTaskGroup> task_group, std::string_view name)
         : generator(std::move(generator)),
           visitor(std::move(visitor)),
-          task_group(std::move(task_group)) {}
+          task_group(std::move(task_group)),
+          name(name) {}
     std::function<Future<T>()> generator;
     std::function<Status(const T&)> visitor;
     std::unique_ptr<AsyncTaskGroup> task_group;
