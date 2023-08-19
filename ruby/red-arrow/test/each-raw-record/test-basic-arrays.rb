@@ -519,6 +519,10 @@ class EachRawRecordTableBasicArraysTest < Test::Unit::TestCase
   include EachRawRecordBasicArraysTests
 
   def build(schema, records)
-    Arrow::Table.new(schema, records)
+    Arrow::Table.new(schema,
+                     [
+                       Arrow::RecordBatch.new(schema, records[0, 2]),
+                       Arrow::RecordBatch.new(schema, records[2..-1]),
+                     ])
   end
 end

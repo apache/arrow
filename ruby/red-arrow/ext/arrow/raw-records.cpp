@@ -159,11 +159,9 @@ namespace red_arrow {
           for (int64_t i = 0; i < n_rows; ++i) {
             record_ = rb_ary_new_capa(n_columns);
             row_offset_ = i;
-
             for (int i = 0; i < n_columns; ++i) {
               const auto array = record_batch.column(i).get();
               column_index_ = i;
-
               check_status(array->Accept(this),
                            "[record-batch][each-raw-record]");
             }
@@ -175,23 +173,23 @@ namespace red_arrow {
 
       void produce(const arrow::Table& table) {
         rb::protect([&] {
-          auto n_columns = table.num_columns();
-          const auto n_rows = table.num_rows();
-          for (int64_t i = 0; i < n_rows; ++i) {
-            row_offset_ = i;
-            record_ = rb_ary_new_capa(n_columns);
-
-            for (int i = 0; i < n_columns; ++i) {
-              const auto& chunked_array = table.column(i).get();
-              column_index_ = i;
-
-              for (const auto& array : chunked_array->chunks()) {
+          int n_columns = table.num_columns();
+          const auto& base_column = table.column(0);
+          for (int i = 0; i < base_column->num_chunks(); ++i) {
+            int chunk_length = base_column->chunk(i)->length();
+            for (int j = 0; j < chunk_length; ++j) {
+              row_offset_ = j;
+              record_ = rb_ary_new_capa(n_columns);
+              for (int k = 0; k < n_columns; ++k) {
+                column_index_ = k;
+                const auto& array = table.column(k)->chunk(i);
                 check_status(array->Accept(this),
-                            "[table][each-raw-record]");
+                             "[table][each-raw-record]");
               }
+              rb_yield(record_);
             }
-            rb_yield(record_);
           }
+
           return Qnil;
         });
       }
