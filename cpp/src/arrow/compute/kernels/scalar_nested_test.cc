@@ -1013,6 +1013,22 @@ TEST(TestAdjoinAsList, ErrorHandling) {
 }
 
 TYPED_TEST_SUITE(TestAdjoinAsList, ListArrowTypes);
+
+TYPED_TEST(TestAdjoinAsList, EmptyInputs) {
+  // primitive
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(int32(), "[]"), ArrayFromJSON(int32(), "[]"),
+               ArrayFromJSON(int32(), "[]")},
+              ArrayFromJSON(this->MakeListType(int32(), 3), "[]"), &this->Options());
+
+  // nested
+  CheckScalar("adjoin_as_list",
+              {ArrayFromJSON(list(int32()), "[]"), ArrayFromJSON(list(int32()), "[]"),
+               ArrayFromJSON(list(int32()), "[]")},
+              ArrayFromJSON(this->MakeListType(list(int32()), 3), "[]"),
+              &this->Options());
+}
+
 TYPED_TEST(TestAdjoinAsList, NullType) {
   CheckScalar("adjoin_as_list",
               {ArrayFromJSON(null(), "[null, null, null, null]"),
@@ -1192,15 +1208,17 @@ TYPED_TEST(TestAdjoinAsList, DictionaryTypes) {
   auto expected = ArrayFromJSON(
       this->MakeListType(ty, 3),
       R"([["abc", "apple", null], [null, "banana", null], ["de", null, null], ["f", "pear", null]])");
-  auto actual = *CallFunction("adjoin_as_list",
-                              {ArrayFromJSON(ty, R"(["abc", null, "de", "f"])"),
-                               ArrayFromJSON(ty, R"(["apple", "banana", null, "pear"])"),
-                               ArrayFromJSON(ty, R"([null, null, null, null])")},
-                              &this->Options());
+  Datum actual = *CallFunction("adjoin_as_list",
+                               {ArrayFromJSON(ty, R"(["abc", null, "de", "f"])"),
+                                ArrayFromJSON(ty, R"(["apple", "banana", null, "pear"])"),
+                                ArrayFromJSON(ty, R"([null, null, null, null])")},
+                               &this->Options());
+  ASSERT_OK(actual.make_array()->ValidateFull());
+  ASSERT_TRUE(actual.make_array()->type()->Equals(this->MakeListType(ty, 3)));
+
   auto decoded_type = this->MakeListType(utf8(), 3);
 
   // we test the equivalence, not equality for dictionary arrays
-  AssertDatumsEqual(*Cast(expected, this->MakeListType(utf8(), 3)),
-                    *Cast(actual, this->MakeListType(utf8(), 3)), true);
+  AssertDatumsEqual(*Cast(expected, decoded_type), *Cast(actual, decoded_type), true);
 }
 }  // namespace arrow::compute

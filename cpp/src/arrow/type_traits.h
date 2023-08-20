@@ -22,7 +22,9 @@
 #include <type_traits>
 #include <vector>
 
+#include "arrow/array/data.h"
 #include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
@@ -106,6 +108,7 @@ struct TypeTraits<NullType> {
   using ArrayType = NullArray;
   using BuilderType = NullBuilder;
   using ScalarType = NullScalar;
+  using ArraySpanType = NullArraySpan;
 
   static constexpr int64_t bytes_required(int64_t) { return 0; }
   constexpr static bool is_parameter_free = true;
@@ -117,6 +120,7 @@ struct TypeTraits<BooleanType> {
   using ArrayType = BooleanArray;
   using BuilderType = BooleanBuilder;
   using ScalarType = BooleanScalar;
+  using ArraySpanType = BooleanArraySpan;
   using CType = bool;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -134,13 +138,16 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
 };
 
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
-                                   ArrowScalarType, ArrowTensorType, SingletonFn)        \
+                                   ArrowScalarType, ArrowTensorType, ArrowArraySpanType, \
+                                   SingletonFn)                                          \
   template <>                                                                            \
   struct TypeTraits<ArrowType_> {                                                        \
     using ArrayType = ArrowArrayType;                                                    \
     using BuilderType = ArrowBuilderType;                                                \
     using ScalarType = ArrowScalarType;                                                  \
     using TensorType = ArrowTensorType;                                                  \
+    using ArraySpanType = ArrowArraySpanType;                                            \
+                                                                                         \
     using CType = ArrowType_::c_type;                                                    \
     static constexpr int64_t bytes_required(int64_t elements) {                          \
       return elements * static_cast<int64_t>(sizeof(CType));                             \
@@ -158,7 +165,8 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
   PRIMITIVE_TYPE_TRAITS_DEF_(                                                 \
       CType, ARROW_CONCAT(ArrowShort, Type), ARROW_CONCAT(ArrowShort, Array), \
       ARROW_CONCAT(ArrowShort, Builder), ARROW_CONCAT(ArrowShort, Scalar),    \
-      ARROW_CONCAT(ArrowShort, Tensor), SingletonFn)
+      ARROW_CONCAT(ArrowShort, Tensor), ARROW_CONCAT(ArrowShort, ArraySpan),  \
+      SingletonFn)
 
 PRIMITIVE_TYPE_TRAITS_DEF(uint8_t, UInt8, uint8)
 PRIMITIVE_TYPE_TRAITS_DEF(int8_t, Int8, int8)
@@ -181,6 +189,7 @@ struct TypeTraits<Date64Type> {
   using ArrayType = Date64Array;
   using BuilderType = Date64Builder;
   using ScalarType = Date64Scalar;
+  using ArraySpanType = Date64ArraySpan;
   using CType = Date64Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -195,6 +204,7 @@ struct TypeTraits<Date32Type> {
   using ArrayType = Date32Array;
   using BuilderType = Date32Builder;
   using ScalarType = Date32Scalar;
+  using ArraySpanType = Date32ArraySpan;
   using CType = Date32Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -209,6 +219,7 @@ struct TypeTraits<TimestampType> {
   using ArrayType = TimestampArray;
   using BuilderType = TimestampBuilder;
   using ScalarType = TimestampScalar;
+  using ArraySpanType = TimestampArraySpan;
   using CType = TimestampType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -222,6 +233,7 @@ struct TypeTraits<DurationType> {
   using ArrayType = DurationArray;
   using BuilderType = DurationBuilder;
   using ScalarType = DurationScalar;
+  using ArraySpanType = DurationArraySpan;
   using CType = DurationType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -235,6 +247,7 @@ struct TypeTraits<DayTimeIntervalType> {
   using ArrayType = DayTimeIntervalArray;
   using BuilderType = DayTimeIntervalBuilder;
   using ScalarType = DayTimeIntervalScalar;
+  using ArraySpanType = DayTimeIntervalArraySpan;
   using CType = DayTimeIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -249,6 +262,7 @@ struct TypeTraits<MonthDayNanoIntervalType> {
   using ArrayType = MonthDayNanoIntervalArray;
   using BuilderType = MonthDayNanoIntervalBuilder;
   using ScalarType = MonthDayNanoIntervalScalar;
+  using ArraySpanType = MonthDayNanoIntervalArraySpan;
   using CType = MonthDayNanoIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -264,6 +278,7 @@ struct TypeTraits<MonthIntervalType> {
   using ArrayType = MonthIntervalArray;
   using BuilderType = MonthIntervalBuilder;
   using ScalarType = MonthIntervalScalar;
+  using ArraySpanType = MonthIntervalArraySpan;
   using CType = MonthIntervalType::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -278,6 +293,7 @@ struct TypeTraits<Time32Type> {
   using ArrayType = Time32Array;
   using BuilderType = Time32Builder;
   using ScalarType = Time32Scalar;
+  using ArraySpanType = Time32ArraySpan;
   using CType = Time32Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -291,6 +307,7 @@ struct TypeTraits<Time64Type> {
   using ArrayType = Time64Array;
   using BuilderType = Time64Builder;
   using ScalarType = Time64Scalar;
+  using ArraySpanType = Time64ArraySpan;
   using CType = Time64Type::c_type;
 
   static constexpr int64_t bytes_required(int64_t elements) {
@@ -305,6 +322,7 @@ struct TypeTraits<HalfFloatType> {
   using BuilderType = HalfFloatBuilder;
   using ScalarType = HalfFloatScalar;
   using TensorType = HalfFloatTensor;
+  using ArraySpanType = HalfFloatArraySpan;
 
   static constexpr int64_t bytes_required(int64_t elements) {
     return elements * static_cast<int64_t>(sizeof(uint16_t));
@@ -318,6 +336,7 @@ struct TypeTraits<Decimal128Type> {
   using ArrayType = Decimal128Array;
   using BuilderType = Decimal128Builder;
   using ScalarType = Decimal128Scalar;
+  using ArraySpanType = Decimal128ArraySpan;
   using CType = Decimal128;
   constexpr static bool is_parameter_free = false;
 };
@@ -327,6 +346,7 @@ struct TypeTraits<Decimal256Type> {
   using ArrayType = Decimal256Array;
   using BuilderType = Decimal256Builder;
   using ScalarType = Decimal256Scalar;
+  using ArraySpanType = Decimal256ArraySpan;
   using CType = Decimal256;
   constexpr static bool is_parameter_free = false;
 };
@@ -336,6 +356,7 @@ struct TypeTraits<BinaryType> {
   using ArrayType = BinaryArray;
   using BuilderType = BinaryBuilder;
   using ScalarType = BinaryScalar;
+  using ArraySpanType = BinaryArraySpan;
   using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return binary(); }
@@ -356,6 +377,7 @@ struct TypeTraits<LargeBinaryType> {
   using ArrayType = LargeBinaryArray;
   using BuilderType = LargeBinaryBuilder;
   using ScalarType = LargeBinaryScalar;
+  using ArraySpanType = LargeBinaryArraySpan;
   using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return large_binary(); }
@@ -366,6 +388,7 @@ struct TypeTraits<FixedSizeBinaryType> {
   using ArrayType = FixedSizeBinaryArray;
   using BuilderType = FixedSizeBinaryBuilder;
   using ScalarType = FixedSizeBinaryScalar;
+  using ArraySpanType = FixedSizeBinaryArraySpan;
   // FixedSizeBinary doesn't have offsets per se, but string length is int32 sized
   using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = false;
@@ -376,6 +399,7 @@ struct TypeTraits<StringType> {
   using ArrayType = StringArray;
   using BuilderType = StringBuilder;
   using ScalarType = StringScalar;
+  using ArraySpanType = StringArraySpan;
   using OffsetType = Int32Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return utf8(); }
@@ -396,6 +420,7 @@ struct TypeTraits<LargeStringType> {
   using ArrayType = LargeStringArray;
   using BuilderType = LargeStringBuilder;
   using ScalarType = LargeStringScalar;
+  using ArraySpanType = LargeStringArraySpan;
   using OffsetType = Int64Type;
   constexpr static bool is_parameter_free = true;
   static inline std::shared_ptr<DataType> type_singleton() { return large_utf8(); }

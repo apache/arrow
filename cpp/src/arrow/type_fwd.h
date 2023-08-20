@@ -97,6 +97,7 @@ class NullType;
 class NullArray;
 class NullBuilder;
 struct NullScalar;
+struct NullArraySpan;
 
 class FixedWidthType;
 
@@ -104,11 +105,19 @@ class BooleanType;
 class BooleanArray;
 class BooleanBuilder;
 struct BooleanScalar;
+struct BooleanArraySpan;
+
+template <typename TypeClass>
+struct BaseBinaryArraySpan;
+
+template <typename TypeClass>
+struct BaseFixedSizeBinaryArraySpan;
 
 class BinaryType;
 class BinaryArray;
 class BinaryBuilder;
 struct BinaryScalar;
+using BinaryArraySpan = BaseBinaryArraySpan<BinaryType>;
 
 class BinaryViewType;
 class BinaryViewArray;
@@ -119,16 +128,19 @@ class LargeBinaryType;
 class LargeBinaryArray;
 class LargeBinaryBuilder;
 struct LargeBinaryScalar;
+using LargeBinaryArraySpan = BaseBinaryArraySpan<LargeBinaryType>;
 
 class FixedSizeBinaryType;
 class FixedSizeBinaryArray;
 class FixedSizeBinaryBuilder;
 struct FixedSizeBinaryScalar;
+using FixedSizeBinaryArraySpan = BaseFixedSizeBinaryArraySpan<FixedSizeBinaryType>;
 
 class StringType;
 class StringArray;
 class StringBuilder;
 struct StringScalar;
+using StringArraySpan = BaseBinaryArraySpan<StringType>;
 
 class StringViewType;
 class StringViewArray;
@@ -139,6 +151,7 @@ class LargeStringType;
 class LargeStringArray;
 class LargeStringBuilder;
 struct LargeStringScalar;
+using LargeStringArraySpan = BaseBinaryArraySpan<LargeStringType>;
 
 class ListType;
 class ListArray;
@@ -186,6 +199,8 @@ class Decimal128Builder;
 class Decimal256Builder;
 struct Decimal128Scalar;
 struct Decimal256Scalar;
+using Decimal128ArraySpan = BaseFixedSizeBinaryArraySpan<Decimal128Type>;
+using Decimal256ArraySpan = BaseFixedSizeBinaryArraySpan<Decimal256Type>;
 
 struct UnionMode {
   enum type { SPARSE, DENSE };
@@ -215,12 +230,16 @@ class NumericBuilder;
 template <typename TypeClass>
 class NumericTensor;
 
+template <typename TypeClass>
+struct NumericArraySpan;
+
 #define _NUMERIC_TYPE_DECL(KLASS)                     \
   class KLASS##Type;                                  \
   using KLASS##Array = NumericArray<KLASS##Type>;     \
   using KLASS##Builder = NumericBuilder<KLASS##Type>; \
   struct KLASS##Scalar;                               \
-  using KLASS##Tensor = NumericTensor<KLASS##Type>;
+  using KLASS##Tensor = NumericTensor<KLASS##Type>;   \
+  using KLASS##ArraySpan = NumericArraySpan<KLASS##Type>;
 
 _NUMERIC_TYPE_DECL(Int8)
 _NUMERIC_TYPE_DECL(Int16)
@@ -243,11 +262,13 @@ class Date32Type;
 using Date32Array = NumericArray<Date32Type>;
 using Date32Builder = NumericBuilder<Date32Type>;
 struct Date32Scalar;
+using Date32ArraySpan = NumericArraySpan<Date32Type>;
 
 class Date64Type;
 using Date64Array = NumericArray<Date64Type>;
 using Date64Builder = NumericBuilder<Date64Type>;
 struct Date64Scalar;
+using Date64ArraySpan = NumericArraySpan<Date64Type>;
 
 struct ARROW_EXPORT TimeUnit {
   /// The unit for a time or timestamp DataType
@@ -262,36 +283,43 @@ class Time32Type;
 using Time32Array = NumericArray<Time32Type>;
 using Time32Builder = NumericBuilder<Time32Type>;
 struct Time32Scalar;
+using Time32ArraySpan = NumericArraySpan<Time32Type>;
 
 class Time64Type;
 using Time64Array = NumericArray<Time64Type>;
 using Time64Builder = NumericBuilder<Time64Type>;
 struct Time64Scalar;
+using Time64ArraySpan = NumericArraySpan<Time64Type>;
 
 class TimestampType;
 using TimestampArray = NumericArray<TimestampType>;
 using TimestampBuilder = NumericBuilder<TimestampType>;
 struct TimestampScalar;
+using TimestampArraySpan = NumericArraySpan<TimestampType>;
 
 class MonthIntervalType;
 using MonthIntervalArray = NumericArray<MonthIntervalType>;
 using MonthIntervalBuilder = NumericBuilder<MonthIntervalType>;
 struct MonthIntervalScalar;
+using MonthIntervalArraySpan = NumericArraySpan<MonthIntervalType>;
 
 class DayTimeIntervalType;
 class DayTimeIntervalArray;
 class DayTimeIntervalBuilder;
 struct DayTimeIntervalScalar;
+struct DayTimeIntervalArraySpan;
 
 class MonthDayNanoIntervalType;
 class MonthDayNanoIntervalArray;
 class MonthDayNanoIntervalBuilder;
 struct MonthDayNanoIntervalScalar;
+struct MonthDayNanoIntervalArraySpan;
 
 class DurationType;
 using DurationArray = NumericArray<DurationType>;
 using DurationBuilder = NumericBuilder<DurationType>;
 struct DurationScalar;
+using DurationArraySpan = NumericArraySpan<DurationType>;
 
 class ExtensionType;
 class ExtensionArray;

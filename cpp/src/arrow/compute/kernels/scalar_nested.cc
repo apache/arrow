@@ -34,6 +34,7 @@
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
+#include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
@@ -853,7 +854,7 @@ struct AdjoinAsListState : public KernelState {
     auto input_type = args.inputs[0];
     if (std::any_of(args.inputs.begin() + 1, args.inputs.end(),
                     [&input_type](const auto& arg) { return arg != input_type; })) {
-      return Status::Invalid(
+      return Status::TypeError(
           "AdjoinAsList requires all input arguments to have the same type");
     }
 
@@ -910,8 +911,9 @@ struct AdjoinAsListImpl {
           total_bytes += arr.buffers[2].size;
         }
       } else {
-        total_bytes += static_cast<const BaseBinaryScalar&>(*input.scalar).value->size() *
-                       batch.length;
+        total_bytes +=
+            checked_cast<const BaseBinaryScalar&>(*input.scalar).value->size() *
+            batch.length;
       }
     }
     return builder->ReserveData(total_bytes);
@@ -931,67 +933,36 @@ struct AdjoinAsListImpl {
   }
 
   Status Visit(const NullType& null_type, KernelContext* ctx, const ExecSpan& batch,
-               ExecResult* out) {
-    auto length = batch.length * batch.num_values();
-    auto out_data = *out->array_data_mutable();
-    out_data->child_data.emplace_back(ArrayData::Make(null(), length, {nullptr}, length));
-    out_data->type = list_type;
-    if constexpr (!is_fixed_size_list_type<OutputType>::value) {
-      ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], MakeOffsetsBuffer(batch));
-    }
+               int64_t length, std::shared_ptr<ArrayData>* out_values) {
+    *out_values = ArrayData::Make(null(), length, {nullptr}, length);
     return Status::OK();
   }
 
-  Status Visit(const BooleanType& boolean_type, KernelContext* ctx, const ExecSpan& batch,
-               ExecResult* out) {
-    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
-    auto builder = std::make_shared<BooleanBuilder>(ctx->exec_context()->memory_pool());
-    ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
-
-    RETURN_NOT_OK(builder->Reserve(batch.num_values() * batch.length));
-    RETURN_NOT_OK(list_builder.Reserve(batch.length));
-
-    for (int i = 0; i < batch.length; ++i) {
-      RETURN_NOT_OK(list_builder.Append());
-      for (const auto& input : batch.values) {
-        if (input.is_array()) {
-          const auto& arr = input.array;
-          if (arr.IsValid(i)) {
-            builder->UnsafeAppend(bit_util::GetBit(arr.buffers[1].data, arr.offset + i));
-          } else {
-            builder->UnsafeAppendNull();
-          }
-        } else {
-          builder->UnsafeAppend(UnboxScalar<BooleanType>::Unbox(*input.scalar));
-        }
-      }
-    }
-    return list_builder.FinishInternal(out->array_data_mutable());
-  }
-
-  // Numeric and temporal types
   template <typename InputType>
-  std::enable_if_t<has_c_type<InputType>::value || is_temporal_type<InputType>::value,
+  std::enable_if_t<is_primitive_ctype<InputType>::value ||
+                       is_base_binary_type<InputType>::value ||
+                       is_fixed_size_binary_type<InputType>::value ||
+                       is_temporal_type<InputType>::value,
                    Status>
-  Visit(const InputType& input_type, KernelContext* ctx, const ExecSpan& batch,
-        ExecResult* out) {
+  Visit(const InputType& type, KernelContext* ctx, const ExecSpan& batch, int64_t length,
+        std::shared_ptr<ArrayData>* out_values) {
+    using ArraySpanType = typename TypeTraits<InputType>::ArraySpanType;
     using BuilderType = typename TypeTraits<InputType>::BuilderType;
-    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
 
-    auto builder = std::make_shared<BuilderType>(input_type.GetSharedPtr(),
+    auto builder = std::make_shared<BuilderType>(type.GetSharedPtr(),
                                                  ctx->exec_context()->memory_pool());
-    ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
-
-    RETURN_NOT_OK(builder->Reserve(batch.num_values() * batch.length));
-    RETURN_NOT_OK(list_builder.Reserve(batch.length));
+    RETURN_NOT_OK(builder->Reserve(batch.num_values() * length));
+    if constexpr (is_base_binary_type<InputType>::value ||
+                  is_fixed_size_binary_type<InputType>::value) {
+      RETURN_NOT_OK(ReserveBinaryData<InputType>(batch, builder.get()));
+    }
 
     for (int i = 0; i < batch.length; ++i) {
-      RETURN_NOT_OK(list_builder.Append());
       for (const auto& input : batch.values) {
         if (input.is_array()) {
-          const auto& arr = input.array;
-          if (arr.IsValid(i)) {
-            builder->UnsafeAppend(arr.GetValues<typename InputType::c_type>(1)[i]);
+          auto concrete_span = ArraySpanType(input.array);
+          if (concrete_span.IsValid(i)) {
+            builder->UnsafeAppend(concrete_span.GetView(i));
           } else {
             builder->UnsafeAppendNull();
           }
@@ -1000,89 +971,14 @@ struct AdjoinAsListImpl {
         }
       }
     }
-    return list_builder.FinishInternal(out->array_data_mutable());
-  }
-
-  // Varlen binary types
-  template <typename InputType>
-  std::enable_if_t<is_base_binary_type<InputType>::value, Status> Visit(
-      const InputType& input_type, KernelContext* ctx, const ExecSpan& batch,
-      ExecResult* out) {
-    using BuilderType = typename TypeTraits<InputType>::BuilderType;
-    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
-    using OffsetType = typename TypeTraits<InputType>::OffsetType::c_type;
-    auto builder = std::make_shared<BuilderType>();
-    ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
-
-    RETURN_NOT_OK(builder->Reserve(batch.num_values() * batch.length));
-    RETURN_NOT_OK(ReserveBinaryData<InputType>(batch, builder.get()));
-
-    RETURN_NOT_OK(list_builder.Reserve(batch.length));
-
-    for (int i = 0; i < batch.length; ++i) {
-      RETURN_NOT_OK(list_builder.Append());
-      for (const auto& input : batch.values) {
-        if (input.is_array()) {
-          const auto& arr = input.array;
-          if (arr.IsValid(i)) {
-            auto cur_offset = arr.GetValues<OffsetType>(1)[i];
-            auto next_offset = arr.GetValues<OffsetType>(1)[i + 1];
-            std::string_view view(arr.buffers[2].data_as<char>() + cur_offset,
-                                  next_offset - cur_offset);
-            builder->UnsafeAppend(view);
-          } else {
-            builder->UnsafeAppendNull();
-          }
-        } else {
-          builder->UnsafeAppend(UnboxScalar<InputType>::Unbox(*input.scalar));
-        }
-      }
-    }
-    return list_builder.FinishInternal(out->array_data_mutable());
-  }
-
-  // Fixed-size binary types, including decimals
-  template <typename InputType>
-  std::enable_if_t<is_fixed_size_binary_type<InputType>::value, Status> Visit(
-      const InputType& input_type, KernelContext* ctx, const ExecSpan& batch,
-      ExecResult* out) {
-    using BuilderType = typename TypeTraits<InputType>::BuilderType;
-    using ListBuilderType = typename TypeTraits<OutputType>::BuilderType;
-    auto builder = std::make_shared<BuilderType>(input_type.GetSharedPtr(),
-                                                 ctx->exec_context()->memory_pool());
-    ListBuilderType list_builder(ctx->exec_context()->memory_pool(), builder, list_type);
-
-    RETURN_NOT_OK(builder->Reserve(batch.num_values() * batch.length));
-    RETURN_NOT_OK(ReserveBinaryData<InputType>(batch, builder.get()));
-
-    RETURN_NOT_OK(list_builder.Reserve(batch.length));
-
-    for (int i = 0; i < batch.length; ++i) {
-      RETURN_NOT_OK(list_builder.Append());
-      for (const auto& input : batch.values) {
-        if (input.is_array()) {
-          const auto& arr = input.array;
-          if (arr.IsValid(i)) {
-            std::string_view view(arr.buffers[1].data_as<char>() +
-                                      (i + arr.offset) * input_type.byte_width(),
-                                  input_type.byte_width());
-            builder->UnsafeAppend(view);
-          } else {
-            builder->UnsafeAppendNull();
-          }
-        } else {
-          builder->UnsafeAppend(UnboxScalar<InputType>::Unbox(*input.scalar));
-        }
-      }
-    }
-    return list_builder.FinishInternal(out->array_data_mutable());
+    return builder->FinishInternal(out_values);
   }
 
   // Deal with nested/union types with a naive approach: First concatenate the inputs,
   // then shuffle it using Take
   Status Visit(const DataType& input_type, KernelContext* ctx, const ExecSpan& batch,
-               ExecResult* out) {
-    std::vector<std::shared_ptr<ArrayData>> inputs;
+               int64_t length, std::shared_ptr<ArrayData>* out_values) {
+    std::vector<std::shared_ptr<Array>> inputs;
     inputs.reserve(batch.num_values());
     // Starting index of each input in the concatenated array
     std::vector<int64_t> input_start_index;
@@ -1091,16 +987,17 @@ struct AdjoinAsListImpl {
     for (const auto& input : batch.values) {
       input_start_index.push_back(cur_index);
       if (input.is_array()) {
-        inputs.emplace_back(input.array.ToArrayData());
+        inputs.emplace_back(input.array.ToArray());
         cur_index += input.array.length;
       } else {
         ARROW_ASSIGN_OR_RAISE(auto arr_from_scalar,
                               MakeArrayFromScalar(*input.scalar, 1));
-        inputs.emplace_back(std::move(arr_from_scalar)->data());
+        inputs.emplace_back(std::move(arr_from_scalar));
         cur_index += 1;
       }
     }
-    ARROW_ASSIGN_OR_RAISE(auto concatenated_inputs, Concatenate(inputs));
+    ARROW_ASSIGN_OR_RAISE(auto chunked_arr, ChunkedArray::Make(inputs));
+
     // Build child index for take
     Int64Builder child_indices_builder;
     RETURN_NOT_OK(child_indices_builder.Reserve(batch.num_values() * batch.length));
@@ -1116,13 +1013,21 @@ struct AdjoinAsListImpl {
     std::shared_ptr<ArrayData> child_indices;
     RETURN_NOT_OK(child_indices_builder.FinishInternal(&child_indices));
     ARROW_ASSIGN_OR_RAISE(auto shuffled_data,
-                          Take(*concatenated_inputs, *child_indices,
-                               TakeOptions::NoBoundsCheck(), ctx->exec_context()));
+                          Take(chunked_arr, *child_indices, TakeOptions::NoBoundsCheck(),
+                               ctx->exec_context()));
+    ARROW_ASSIGN_OR_RAISE(auto concatenated_arr,
+                          Concatenate(shuffled_data.chunked_array()->chunks()));
+    *out_values = std::move(concatenated_arr->data());
+    return Status::OK();
+  }
+
+  template <typename InputType>
+  Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    auto length = batch.length * batch.num_values();
     auto out_data = *out->array_data_mutable();
-    out_data->child_data.emplace_back(std::move(shuffled_data).array());
-
+    RETURN_NOT_OK(Visit(checked_cast<const InputType&>(*input_type), ctx, batch, length,
+                        &out_data->child_data.emplace_back()));
     out_data->type = list_type;
-
     if constexpr (!is_fixed_size_list_type<OutputType>::value) {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], MakeOffsetsBuffer(batch));
     }
@@ -1139,15 +1044,15 @@ Status AdjoinAsListExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   switch (list_type->id()) {
     case Type::LIST: {
       return AdjoinAsListImpl<ListType>(list_type, input_type)
-          .Visit(checked_cast<const InputType&>(*input_type), ctx, batch, out);
+          .template Exec<InputType>(ctx, batch, out);
     }
     case Type::LARGE_LIST: {
       return AdjoinAsListImpl<LargeListType>(list_type, input_type)
-          .Visit(checked_cast<const InputType&>(*input_type), ctx, batch, out);
+          .template Exec<InputType>(ctx, batch, out);
     }
     case Type::FIXED_SIZE_LIST: {
       return AdjoinAsListImpl<FixedSizeListType>(list_type, input_type)
-          .Visit(checked_cast<const InputType&>(*input_type), ctx, batch, out);
+          .template Exec<InputType>(ctx, batch, out);
     }
     default:
       return Status::Invalid(
