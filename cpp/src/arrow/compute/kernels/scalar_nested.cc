@@ -1103,7 +1103,6 @@ void AddAdjoinAsListKernels(ScalarFunction* func) {
 
 FunctionDoc adjoin_as_list_doc(
     "Adjoin multiple arrays row-wise as a list array",
-    "Combine multiple arrays row-wise as a list array.\n"
     "The input arrays must have the same type and length.\n"
     "For N arrays each with length M, the output list array will\n"
     "have length M and each list will have N elements.\n"
