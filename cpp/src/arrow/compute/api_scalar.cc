@@ -281,7 +281,7 @@ struct EnumTraits<compute::SetLookupOptions::NullMatchingBehavior>
                       compute::SetLookupOptions::NullMatchingBehavior::MATCH,
                       compute::SetLookupOptions::NullMatchingBehavior::SKIP,
                       compute::SetLookupOptions::NullMatchingBehavior::EMIT_NULL,
-                     compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE> {
+                      compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE> {
   static std::string name() { return "SetLookupOptions::NullMatchingBehavior"; }
   static std::string value_name(compute::SetLookupOptions::NullMatchingBehavior value) {
     switch (value) {
