@@ -914,10 +914,15 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     this->has_nulls = arr.null_count() > 0;
     this->count += arr.length() - arr.null_count();
 
-    Datum dict_values(arr.dictionary());
+    const std::shared_ptr<Array>& dict = arr.dictionary();
+    if (dict->length == 0) {
+      return Status::OK();
+    }
+
+    dict_values(std::move(dict));
     ARROW_ASSIGN_OR_RAISE(Datum result, MinMax(std::move(dict_values)));
     const StructScalar& struct_result =
-        checked_cast<const StructScalar&>(*std::move(result.scalar()));
+        checked_cast<const StructScalar&>(*result.scalar());
     ARROW_ASSIGN_OR_RAISE(auto min_, struct_result.field(FieldRef("min")));
     ARROW_ASSIGN_OR_RAISE(auto max_, struct_result.field(FieldRef("max")));
     ARROW_RETURN_NOT_OK(CompareMinMax(std::move(min_), std::move(max_)));
@@ -960,7 +965,8 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   std::shared_ptr<Scalar> max;
 
  private:
-  Status CompareMinMax(std::shared_ptr<Scalar> min_, std::shared_ptr<Scalar> max_) {
+  Status CompareMinMax(const std::shared_ptr<Scalar>& min_,
+                       const std::shared_ptr<Scalar>& max_) {
     if (this->min == nullptr || this->min->type->id() == Type::NA) {
       this->min = min_;
     } else if (min_ != nullptr && min_->type->id() != Type::NA) {
