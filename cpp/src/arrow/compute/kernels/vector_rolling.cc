@@ -65,8 +65,9 @@ struct RollingOptionsWrapper : public OptionsWrapper<RollingOptions> {
   }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct SumWindow {
+  using ArgType = InputType;
   using OutType = ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -83,8 +84,9 @@ struct SumWindow {
   OutValue GetValue(Status* st) const { return sum; }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct SumCheckedWindow {
+  using ArgType = InputType;
   using OutType = ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -101,8 +103,9 @@ struct SumCheckedWindow {
   OutValue GetValue(Status* st) const { return sum; }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct ProdWindow {
+  using ArgType = InputType;
   using OutType = ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -119,8 +122,9 @@ struct ProdWindow {
   OutValue GetValue(Status* st) const { return prod; }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct ProdCheckedWindow {
+  using ArgType = InputType;
   using OutType = ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -137,8 +141,9 @@ struct ProdCheckedWindow {
   OutValue GetValue(Status* st) const { return prod; }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct MinWindow {
+  using ArgType = InputType;
   using OutType = ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -154,8 +159,9 @@ struct MinWindow {
   OutValue GetValue(Status* st) const { return *values.begin(); }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct MaxWindow {
+  using ArgType = InputType;
   using OutType = ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -171,8 +177,9 @@ struct MaxWindow {
   OutValue GetValue(Status* st) const { return *values.begin(); }
 };
 
-template <typename ArgType>
+template <typename InputType>
 struct MeanWindow {
+  using ArgType = InputType;
   using OutType = DoubleType;
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
@@ -194,10 +201,11 @@ struct MeanWindow {
   }
 };
 
-template <typename ArgType, typename Window>
+template <typename Window>
 struct WindowAccumulator {
   using OutType = typename Window::OutType;
   using OutValue = typename GetOutputType<OutType>::T;
+  using ArgType = typename Window::ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
 
   KernelContext* ctx;
@@ -395,11 +403,11 @@ struct WindowAccumulator {
   }
 };
 
-template <typename ArgType, typename Window>
+template <typename Window>
 struct RollingKernel {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = RollingOptionsWrapper::Get(ctx);
-    WindowAccumulator<ArgType, Window> accumulator(ctx, options, batch.length);
+    WindowAccumulator<Window> accumulator(ctx, options, batch.length);
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(accumulator.Accumulate(batch[0].array, &result));
     out->value = std::move(result);
@@ -407,10 +415,11 @@ struct RollingKernel {
   }
 };
 
-template <typename ArgType, typename Window>
+template <typename Window>
 struct ChunkedWindowAccumulator {
   using OutType = typename Window::OutType;
   using OutValue = typename GetOutputType<OutType>::T;
+  using ArgType = typename Window::ArgType;
   using ArgValue = typename GetViewType<ArgType>::T;
 
   KernelContext* ctx;
@@ -661,13 +670,12 @@ struct ChunkedWindowAccumulator {
   }
 };
 
-template <typename ArgType, typename Window>
+template <typename Window>
 struct RollingKernelChunked {
   static Status Exec(KernelContext* ctx, const ExecBatch& batch, Datum* out) {
     const auto& options = RollingOptionsWrapper::Get(ctx);
     const ChunkedArray& chunked_input = *batch[0].chunked_array();
-    ChunkedWindowAccumulator<ArgType, Window> accumulator(ctx, options,
-                                                          chunked_input.length());
+    ChunkedWindowAccumulator<Window> accumulator(ctx, options, chunked_input.length());
     std::shared_ptr<ArrayData> result;
     RETURN_NOT_OK(accumulator.Accumulate(chunked_input, &result));
     out->value = std::move(result);
@@ -690,8 +698,8 @@ struct RollingKernelFactory {
     using OutType = typename Window<T>::OutType;
     kernel.signature = KernelSignature::Make(
         {ty.id()}, OutputType(TypeTraits<OutType>::type_singleton()));
-    kernel.exec = RollingKernel<T, Window<T>>::Exec;
-    kernel.exec_chunked = RollingKernelChunked<T, Window<T>>::Exec;
+    kernel.exec = RollingKernel<Window<T>>::Exec;
+    kernel.exec_chunked = RollingKernelChunked<Window<T>>::Exec;
     return Status::OK();
   }
 
