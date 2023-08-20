@@ -1092,10 +1092,10 @@ void AddAdjoinAsListKernels(ScalarFunction* func) {
   }
 
   // parametric types
-  for (const auto& ty : {Type::FIXED_SIZE_BINARY, Type::DECIMAL128, Type::DECIMAL256,
-                         Type::LIST, Type::LARGE_LIST, Type::FIXED_SIZE_LIST,
-                         Type::DENSE_UNION, Type::DICTIONARY, Type::STRUCT, Type::MAP}) {
-    // TODO(jinshang): add support for SparseUnion, need Take to support it first
+  for (const auto& ty :
+       {Type::FIXED_SIZE_BINARY, Type::DECIMAL128, Type::DECIMAL256, Type::LIST,
+        Type::LARGE_LIST, Type::FIXED_SIZE_LIST, Type::SPARSE_UNION, Type::DENSE_UNION,
+        Type::DICTIONARY, Type::STRUCT, Type::MAP}) {
     DCHECK_OK(VisitTypeIdInline(ty, &generator));
     DCHECK_OK(func->AddKernel(generator.kernel));
   }
@@ -1106,8 +1106,8 @@ FunctionDoc adjoin_as_list_doc(
     "The input arrays must have the same type and length.\n"
     "For N arrays each with length M, the output list array will\n"
     "have length M and each list will have N elements.\n"
-    "The output list type can be specified in AdjoinAsListOptions",
-    {"input"}, "AdjoinAsListOptions", false);
+    "The output list type can be specified in AdjoinAsListOptions.",
+    {"*args"}, "AdjoinAsListOptions", false);
 }  // namespace
 
 void RegisterScalarNested(FunctionRegistry* registry) {

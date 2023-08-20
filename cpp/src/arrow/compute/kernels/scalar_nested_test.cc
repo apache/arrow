@@ -1190,17 +1190,18 @@ TYPED_TEST(TestAdjoinAsList, StructTypes) {
 }
 
 TYPED_TEST(TestAdjoinAsList, UnionTypes) {
-  // sparse union is not supported yet
-  auto ty = dense_union({field("a", int32()), field("b", utf8())});
-  CheckScalar(
-      "adjoin_as_list",
-      {ArrayFromJSON(ty, R"([[0, 1], [1, "a"], null])"),
-       ArrayFromJSON(ty, R"([[0, 2], null, [1, "b"]])"),
-       ArrayFromJSON(ty, R"([[1, "c"], [0, 3], null])")},
-      ArrayFromJSON(
-          this->MakeListType(ty, 3),
-          R"([[[0, 1], [0, 2], [1, "c"]], [[1, "a"], null, [0, 3]], [null, [1, "b"], null]])"),
-      &this->Options());
+  for (auto ty : {sparse_union({field("a", int32()), field("b", utf8())}),
+                  dense_union({field("a", int32()), field("b", utf8())})}) {
+    CheckScalar(
+        "adjoin_as_list",
+        {ArrayFromJSON(ty, R"([[0, 1], [1, "a"], null])"),
+         ArrayFromJSON(ty, R"([[0, 2], null, [1, "b"]])"),
+         ArrayFromJSON(ty, R"([[1, "c"], [0, 3], null])")},
+        ArrayFromJSON(
+            this->MakeListType(ty, 3),
+            R"([[[0, 1], [0, 2], [1, "c"]], [[1, "a"], null, [0, 3]], [null, [1, "b"], null]])"),
+        &this->Options());
+  }
 }
 
 TYPED_TEST(TestAdjoinAsList, DictionaryTypes) {
