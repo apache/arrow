@@ -552,6 +552,19 @@ TEST_F(TestArray, TestMakeArrayOfNullUnion) {
       ASSERT_EQ(typed_union.raw_value_offsets()[i], 0);
     }
   }
+
+  // zero-length nested types should have union children with length zero
+  auto list_union = list(dense_union({field("a", utf8()), field("b", int32())}, {0, 1}));
+  ASSERT_OK_AND_ASSIGN(auto list_union_nulls, MakeArrayOfNull(list_union, 0));
+  ASSERT_OK(list_union_nulls->ValidateFull());
+  ASSERT_EQ(list_union_nulls->null_count(), 0);
+  {
+    const auto& typed_list = checked_cast<const ListArray&>(*list_union_nulls);
+    const auto& typed_union = checked_cast<const DenseUnionArray&>(*typed_list.values());
+    // Child field has length 0
+    ASSERT_EQ(typed_union.field(0)->length(), 0);
+    ASSERT_EQ(typed_union.field(0)->null_count(), 0);
+  }
 }
 
 TEST_F(TestArray, TestValidateNullCount) {

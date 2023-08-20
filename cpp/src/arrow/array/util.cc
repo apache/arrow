@@ -572,7 +572,7 @@ class NullArrayFactory {
     int64_t child_length = length_;
     if (type.mode() == UnionMode::DENSE) {
       // For dense unions, we set the offsets to all zero and create children
-      // with length 1
+      // with length 1 if length_ is non-zero
       out_->buffers.resize(3);
       out_->buffers[2] = buffer_;
 
