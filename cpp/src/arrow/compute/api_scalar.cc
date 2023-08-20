@@ -566,9 +566,9 @@ SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
       value_set(std::move(value_set)),
       skip_nulls(skip_nulls) {
   if (skip_nulls) {
-    this->null_matching_behavior = SetLookupOptions::NullMatchingBehavior::SKIP;
+    this->null_matching_behavior = SetLookupOptions::SKIP;
   } else {
-    this->null_matching_behavior = SetLookupOptions::NullMatchingBehavior::MATCH;
+    this->null_matching_behavior = SetLookupOptions::MATCH;
   }
 }
 SetLookupOptions::SetLookupOptions(
@@ -579,9 +579,9 @@ SetLookupOptions::SetLookupOptions(
 SetLookupOptions::SetLookupOptions()
     : SetLookupOptions({}, SetLookupOptions::NullMatchingBehavior::MATCH) {}
 SetLookupOptions::NullMatchingBehavior SetLookupOptions::getNullMatchingBehavior() const {
-  if (this->skip_nulls == std::nullopt) {
+  if (!this->skip_nulls.has_value()) {
     return this->null_matching_behavior;
-  } else if (this->skip_nulls) {
+  } else if (this->skip_nulls.value()) {
     return SetLookupOptions::SKIP;
   } else {
     return SetLookupOptions::MATCH;
@@ -819,34 +819,6 @@ SCALAR_EAGER_BINARY(KleeneOr, "or_kleene")
 SCALAR_EAGER_BINARY(Or, "or")
 SCALAR_EAGER_BINARY(Xor, "xor")
 SCALAR_EAGER_UNARY(Invert, "invert")
-
-// ----------------------------------------------------------------------
-
-Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
-                      ExecContext* ctx) {
-  std::string func_name;
-  switch (options.op) {
-    case CompareOperator::EQUAL:
-      func_name = "equal";
-      break;
-    case CompareOperator::NOT_EQUAL:
-      func_name = "not_equal";
-      break;
-    case CompareOperator::GREATER:
-      func_name = "greater";
-      break;
-    case CompareOperator::GREATER_EQUAL:
-      func_name = "greater_equal";
-      break;
-    case CompareOperator::LESS:
-      func_name = "less";
-      break;
-    case CompareOperator::LESS_EQUAL:
-      func_name = "less_equal";
-      break;
-  }
-  return CallFunction(func_name, {left, right}, nullptr, ctx);
-}
 
 // ----------------------------------------------------------------------
 // Validity functions

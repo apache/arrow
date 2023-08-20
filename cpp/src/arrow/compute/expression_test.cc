@@ -263,7 +263,7 @@ TEST(Expression, ToString) {
                     compute::SetLookupOptions{ArrayFromJSON(int32(), "[1,2]")});
 
   EXPECT_EQ(in_12.ToString(),
-            "index_in(beta, {value_set=int32:[\n  1,\n  2\n], skip_nulls=false})");
+            "index_in(beta, {value_set=int32:[\n  1,\n  2\n], skip_nulls=nullopt, null_matching_behavior=MATCH})");
 
   EXPECT_EQ(and_(field_ref("a"), field_ref("b")).ToString(), "(a and b)");
   EXPECT_EQ(or_(field_ref("a"), field_ref("b")).ToString(), "(a or b)");
