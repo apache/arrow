@@ -821,6 +821,34 @@ SCALAR_EAGER_BINARY(Xor, "xor")
 SCALAR_EAGER_UNARY(Invert, "invert")
 
 // ----------------------------------------------------------------------
+
+Result<Datum> Compare(const Datum& left, const Datum& right, CompareOptions options,
+                      ExecContext* ctx) {
+  std::string func_name;
+  switch (options.op) {
+    case CompareOperator::EQUAL:
+      func_name = "equal";
+      break;
+    case CompareOperator::NOT_EQUAL:
+      func_name = "not_equal";
+      break;
+    case CompareOperator::GREATER:
+      func_name = "greater";
+      break;
+    case CompareOperator::GREATER_EQUAL:
+      func_name = "greater_equal";
+      break;
+    case CompareOperator::LESS:
+      func_name = "less";
+      break;
+    case CompareOperator::LESS_EQUAL:
+      func_name = "less_equal";
+      break;
+  }
+  return CallFunction(func_name, {left, right}, nullptr, ctx);
+}
+
+// ----------------------------------------------------------------------
 // Validity functions
 
 SCALAR_EAGER_UNARY(IsNan, "is_nan")
