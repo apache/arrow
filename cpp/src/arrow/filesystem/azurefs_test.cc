@@ -125,7 +125,7 @@ TEST(AzureFileSystem, UploadThenDownload) {
       account_name, account_key);
 
   auto service_client = Azure::Storage::Blobs::BlobServiceClient(
-      "http://127.0.0.1:10000/devstoreaccount1", credential);
+      std::string("http://127.0.0.1:10000/") + account_name, credential);
   auto container_client = service_client.GetBlobContainerClient(container_name);
   container_client.CreateIfNotExists();
   auto blob_client = container_client.GetBlockBlobClient(blob_name);
