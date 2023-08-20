@@ -976,6 +976,7 @@ struct AdjoinAsListImpl {
 
   // Deal with nested/union types with a naive approach: First concatenate the inputs,
   // then shuffle it using Take
+  // TODO(GH-37430): Better implementation for struct types
   Status Visit(const DataType& input_type, KernelContext* ctx, const ExecSpan& batch,
                int64_t length, std::shared_ptr<ArrayData>* out_values) {
     std::vector<std::shared_ptr<Array>> inputs;
