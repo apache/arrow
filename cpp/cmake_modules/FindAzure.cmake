@@ -21,10 +21,7 @@ endif()
 
 set(find_package_args)
 list(APPEND find_package_args 
-  CONFIG 
-  # Avoid finding cmake files in local copies of the Azure SDK for C++. 
-  # e.g. the extracted copy from the previous build. 
-  NO_CMAKE_PACKAGE_REGISTRY
+  CONFIG
 )
 if(Azure_FIND_QUIETLY)
   list(APPEND find_package_args QUIET)
@@ -40,17 +37,11 @@ find_package(azure-storage-blobs-cpp ${find_package_args})
 find_package(azure-storage-common-cpp ${find_package_args})
 find_package(azure-storage-files-datalake-cpp ${find_package_args})
 
-if(azure-core-cpp_FOUND AND azure-identity-cpp_FOUND AND azure-storage-blobs-cpp_FOUND
-  AND azure-storage-common-cpp_FOUND AND azure-storage-files-datalake-cpp_FOUND)
-  list(APPEND
-    AZURE_SDK_LINK_LIBRARIES
-    Azure::azure-core
-    Azure::azure-identity
-    Azure::azure-storage-blobs
-    Azure::azure-storage-common
-    Azure::azure-storage-files-datalake
-  )
-  set(Azure_FOUND TRUE)
-else()
-  set(Azure_FOUND FALSE)
-endif()
+find_package_handle_standard_args(
+  Azure
+  REQUIRED_VARS azure-core-cpp_FOUND
+                azure-identity-cpp_FOUND
+                azure-storage-blobs-cpp_FOUND
+                azure-storage-common-cpp_FOUND
+                azure-storage-files-datalake-cpp_FOUND
+  VERSION_VAR azure-storage-files-datalake-cpp_VERSION)
