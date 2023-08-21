@@ -2042,9 +2042,10 @@ TYPED_TEST(TestDeltaByteArrayEncoding, BasicRoundTrip) {
 }
 
 template <typename Type>
-class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
+class TestDeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   using ArrowType = typename EncodingTraits<Type>::ArrowType;
-  using IsFixedSizeBinary = ::arrow::is_fixed_size_binary_type<ArrowType>;
+  using Accumulator = typename EncodingTraits<Type>::Accumulator;
+  using BuilderType = typename ::arrow::TypeTraits<ArrowType>::BuilderType;
 
  public:
   std::unique_ptr<TypedEncoder<Type>> encoder =
@@ -2052,109 +2053,101 @@ class DeltaByteArrayEncodingDirectPut : public TestEncodingBase<Type> {
   std::unique_ptr<TypedDecoder<Type>> decoder =
       MakeTypedDecoder<Type>(Encoding::DELTA_BYTE_ARRAY);
 
-  void CheckDirectPutByteArray(std::shared_ptr<::arrow::Array> array) {
-    ASSERT_NO_THROW(encoder->Put(*array));
-    auto buf = encoder->FlushValues();
+  void CheckDirectPut(std::shared_ptr<::arrow::Array> array);
 
-    int num_values = static_cast<int>(array->length() - array->null_count());
-    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-
-    typename EncodingTraits<Type>::Accumulator acc;
-    using BuilderType = typename EncodingTraits<Type>::BuilderType;
-    acc.builder = std::make_unique<BuilderType>(array->type(), default_memory_pool());
-
-    ASSERT_EQ(num_values,
-              decoder->DecodeArrow(static_cast<int>(array->length()),
-                                   static_cast<int>(array->null_count()),
-                                   array->null_bitmap_data(), array->offset(), &acc));
-
-    std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.builder->Finish(&result));
-    ASSERT_EQ(array->length(), result->length());
-    ASSERT_OK(result->ValidateFull());
-
-    ::arrow::AssertArraysEqual(*array, *result);
-  }
-
-  void CheckDirectPutFLBA(std::shared_ptr<::arrow::Array> array) {
-    ASSERT_NO_THROW(encoder->Put(*array));
-    auto buf = encoder->FlushValues();
-
-    int num_values = static_cast<int>(array->length() - array->null_count());
-    decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
-
-    auto acc =
-        typename EncodingTraits<Type>::Accumulator(array->type(), default_memory_pool());
-    ASSERT_EQ(num_values,
-              decoder->DecodeArrow(static_cast<int>(array->length()),
-                                   static_cast<int>(array->null_count()),
-                                   array->null_bitmap_data(), array->offset(), &acc));
-
-    std::shared_ptr<::arrow::Array> result;
-    ASSERT_OK(acc.Finish(&result));
-    ASSERT_EQ(array->length(), result->length());
-    ASSERT_OK(result->ValidateFull());
-
-    ::arrow::AssertArraysEqual(*array, *result);
-  }
-
-  void CheckDirectPut(std::shared_ptr<::arrow::Array> array) {
-    if constexpr (IsFixedSizeBinary::value) {
-      CheckDirectPutFLBA(array);
-    } else {
-      CheckDirectPutByteArray(array);
-    }
-  }
-
-  void CheckRoundtripFLBA() {
-    constexpr int64_t kSize = 50;
-    constexpr int kSeed = 42;
-    constexpr int kByteWidth = 4;
-    ::arrow::random::RandomArrayGenerator rag{kSeed};
-    std::shared_ptr<::arrow::Array> values =
-        rag.FixedSizeBinary(/*size=*/0, /*byte_width=*/kByteWidth);
-    CheckDirectPut(values);
-
-    for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
-      values = rag.FixedSizeBinary(kSize + seed, kByteWidth);
-      CheckDirectPut(values);
-    }
-  }
-
-  void CheckRoundtripByteArray() {
-    constexpr int64_t kSize = 500;
-    constexpr int32_t kMinLength = 0;
-    constexpr int32_t kMaxLength = 10;
-    constexpr int32_t kNumUnique = 10;
-    constexpr double kNullProbability = 0.25;
-    constexpr int kSeed = 42;
-    ::arrow::random::RandomArrayGenerator rag{kSeed};
-    std::shared_ptr<::arrow::Array> values = rag.BinaryWithRepeats(
-        /*size=*/1, /*unique=*/1, kMinLength, kMaxLength, kNullProbability);
-    CheckDirectPut(values);
-
-    for (int i = 0; i < 10; ++i) {
-      values = rag.BinaryWithRepeats(kSize, kNumUnique, kMinLength, kMaxLength,
-                                     kNullProbability);
-      CheckDirectPut(values);
-    }
-  }
-
-  void CheckRoundtrip() override {
-    if constexpr (IsFixedSizeBinary::value) {
-      CheckRoundtripFLBA();
-    } else {
-      CheckRoundtripByteArray();
-    }
-  }
+  void CheckRoundtrip() override;
 
  protected:
   USING_BASE_MEMBERS();
 };
 
-TYPED_TEST_SUITE(DeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
+template <>
+void TestDeltaByteArrayEncodingDirectPut<ByteArrayType>::CheckDirectPut(
+    std::shared_ptr<::arrow::Array> array) {
+  ASSERT_NO_THROW(encoder->Put(*array));
+  auto buf = encoder->FlushValues();
 
-TYPED_TEST(DeltaByteArrayEncodingDirectPut, DirectPut) {
+  int num_values = static_cast<int>(array->length() - array->null_count());
+  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+  Accumulator acc;
+  acc.builder = std::make_unique<BuilderType>(array->type(), default_memory_pool());
+
+  ASSERT_EQ(num_values,
+            decoder->DecodeArrow(static_cast<int>(array->length()),
+                                 static_cast<int>(array->null_count()),
+                                 array->null_bitmap_data(), array->offset(), &acc));
+
+  ASSERT_EQ(acc.chunks.size(), 0) << "Accumulator shouldn't have overflowed chunks";
+  ASSERT_OK_AND_ASSIGN(auto result, acc.builder->Finish());
+  ASSERT_EQ(array->length(), result->length());
+  ASSERT_OK(result->ValidateFull());
+
+  ::arrow::AssertArraysEqual(*array, *result);
+}
+
+template <>
+void TestDeltaByteArrayEncodingDirectPut<FLBAType>::CheckDirectPut(
+    std::shared_ptr<::arrow::Array> array) {
+  ASSERT_NO_THROW(encoder->Put(*array));
+  auto buf = encoder->FlushValues();
+
+  int num_values = static_cast<int>(array->length() - array->null_count());
+  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+  Accumulator acc(array->type(), default_memory_pool());
+
+  ASSERT_EQ(num_values,
+            decoder->DecodeArrow(static_cast<int>(array->length()),
+                                 static_cast<int>(array->null_count()),
+                                 array->null_bitmap_data(), array->offset(), &acc));
+
+  ASSERT_OK_AND_ASSIGN(auto result, acc.Finish());
+  ASSERT_EQ(array->length(), result->length());
+  ASSERT_OK(result->ValidateFull());
+
+  ::arrow::AssertArraysEqual(*array, *result);
+}
+
+template <>
+void TestDeltaByteArrayEncodingDirectPut<ByteArrayType>::CheckRoundtrip() {
+  constexpr int64_t kSize = 500;
+  constexpr int32_t kMinLength = 0;
+  constexpr int32_t kMaxLength = 10;
+  constexpr int32_t kNumUnique = 10;
+  constexpr double kNullProbability = 0.25;
+  constexpr int kSeed = 42;
+  ::arrow::random::RandomArrayGenerator rag{kSeed};
+  std::shared_ptr<::arrow::Array> values = rag.BinaryWithRepeats(
+      /*size=*/1, /*unique=*/1, kMinLength, kMaxLength, kNullProbability);
+  CheckDirectPut(values);
+
+  for (int i = 0; i < 10; ++i) {
+    values = rag.BinaryWithRepeats(kSize, kNumUnique, kMinLength, kMaxLength,
+                                   kNullProbability);
+    CheckDirectPut(values);
+  }
+}
+
+template <>
+void TestDeltaByteArrayEncodingDirectPut<FLBAType>::CheckRoundtrip() {
+  constexpr int64_t kSize = 50;
+  constexpr int kSeed = 42;
+  constexpr int kByteWidth = 4;
+  ::arrow::random::RandomArrayGenerator rag{kSeed};
+  std::shared_ptr<::arrow::Array> values =
+      rag.FixedSizeBinary(/*size=*/0, /*byte_width=*/kByteWidth);
+  CheckDirectPut(values);
+
+  for (auto seed : {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}) {
+    values = rag.FixedSizeBinary(kSize + seed, kByteWidth);
+    CheckDirectPut(values);
+  }
+}
+
+TYPED_TEST_SUITE(TestDeltaByteArrayEncodingDirectPut, TestDeltaByteArrayEncodingTypes);
+
+TYPED_TEST(TestDeltaByteArrayEncodingDirectPut, DirectPut) {
   ASSERT_NO_FATAL_FAILURE(this->CheckRoundtrip());
 }
 
