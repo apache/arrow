@@ -1,5 +1,5 @@
-%TIMEUNIT Validates whether the given arrow.type.TimeUnit enumeration
-% value is supported for the specified time type.
+%DATEUNIT Validates whether the given arrow.type.DateUnit enumeration
+% value is supported for the specified date type.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,24 +15,24 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function timeUnit(timeType, timeUnit)
+function dateUnit(dateType, dateUnit)
     arguments
-        timeType (1,1) string {mustBeMember(timeType, ["Time32", "Time64"])}
-        timeUnit (1,1) arrow.type.TimeUnit
+        dateType (1,1) string {mustBeMember(dateType, ["Date32", "Date64"])}
+        dateUnit (1,1) arrow.type.DateUnit
     end
-    import arrow.type.TimeUnit
+    import arrow.type.DateUnit
 
-    switch timeType
-        case "Time32"
-            if ~(timeUnit == TimeUnit.Second || timeUnit == TimeUnit.Millisecond)
-                errid = "arrow:validate:temporal:UnsupportedTime32TimeUnit";
-                msg = "Supported TimeUnit values for Time32Type are ""Second"" and ""Millisecond"".";
+    switch dateType
+        case "Date32"
+            if dateUnit ~= DateUnit.Day
+                errid = "arrow:validate:temporal:UnsupportedDate32DateUnit";
+                msg = "The DateUnit for Date32Type must be ""Day"".";
                 error(errid, msg);
             end
-        case "Time64"
-            if ~(timeUnit == TimeUnit.Microsecond || timeUnit == TimeUnit.Nanosecond)
-                errid = "arrow:validate:temporal:UnsupportedTime64TimeUnit";
-                msg = "Supported TimeUnit values for Time64Type are ""Microsecond"" and ""Nanosecond"".";
+        case "Date64"
+            if dateUnit ~= DateUnit.Millisecond
+                errid = "arrow:validate:temporal:UnsupportedDate64DateUnit";
+                msg = "The DateUnit for Date64Type must be ""Millisecond"".";
                 error(errid, msg);
             end
     end

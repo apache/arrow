@@ -19,25 +19,25 @@ classdef tTimeUnit < matlab.unittest.TestCase
 
     methods(Test)
 
-        function ErrorIfUnsupportedTemporalType(testCase)
+        function ErrorIfUnsupportedTimeType(testCase)
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
 
-            temporalType = "abc";
+            timeType = "abc";
             unit = TimeUnit.Second;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errid = "MATLAB:validators:mustBeMember";
             testCase.verifyError(fcn, errid);
 
-            temporalType = 123;
+            timeType = 123;
             unit = TimeUnit.Second;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errid = "MATLAB:validators:mustBeMember";
             testCase.verifyError(fcn, errid);
 
-            temporalType = [1, 2, 3];
+            timeType = [1, 2, 3];
             unit = TimeUnit.Second;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errid = "MATLAB:validation:IncompatibleSize";
             testCase.verifyError(fcn, errid);
         end
@@ -46,21 +46,21 @@ classdef tTimeUnit < matlab.unittest.TestCase
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
 
-            temporalType = "Time32";
+            timeType = "Time32";
             unit = "abc";
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errid = "MATLAB:validation:UnableToConvert";
             testCase.verifyError(fcn, errid);
 
-            temporalType = "Time32";
+            timeType = "Time32";
             unit = 123;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errid = "MATLAB:validation:UnableToConvert";
             testCase.verifyError(fcn, errid);
 
-            temporalType = "Time32";
+            timeType = "Time32";
             unit = [1, 2, 3];
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errid = "MATLAB:validation:IncompatibleSize";
             testCase.verifyError(fcn, errid);
         end
@@ -69,14 +69,14 @@ classdef tTimeUnit < matlab.unittest.TestCase
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
 
-            temporalType = "Time32";
+            timeType = "Time32";
 
             unit = TimeUnit.Second;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             testCase.verifyWarningFree(fcn);
 
             unit = TimeUnit.Millisecond;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             testCase.verifyWarningFree(fcn);
         end
 
@@ -84,14 +84,14 @@ classdef tTimeUnit < matlab.unittest.TestCase
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
 
-            temporalType = "Time64";
+            timeType = "Time64";
 
             unit = TimeUnit.Microsecond;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             testCase.verifyWarningFree(fcn);
 
             unit = TimeUnit.Nanosecond;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             testCase.verifyWarningFree(fcn);
         end
 
@@ -99,15 +99,15 @@ classdef tTimeUnit < matlab.unittest.TestCase
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
 
-            temporalType = "Time32";
+            timeType = "Time32";
 
             unit = TimeUnit.Microsecond;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errorID = "arrow:validate:temporal:UnsupportedTime32TimeUnit";
             testCase.verifyError(fcn, errorID);
 
             unit = TimeUnit.Nanosecond;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errorID = "arrow:validate:temporal:UnsupportedTime32TimeUnit";
             testCase.verifyError(fcn, errorID);
         end
@@ -116,18 +116,19 @@ classdef tTimeUnit < matlab.unittest.TestCase
             import arrow.internal.validate.temporal.timeUnit
             import arrow.type.TimeUnit
 
-            temporalType = "Time64";
+            timeType = "Time64";
 
             unit = TimeUnit.Second;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errorID = "arrow:validate:temporal:UnsupportedTime64TimeUnit";
             testCase.verifyError(fcn, errorID);
 
             unit = TimeUnit.Millisecond;
-            fcn = @() timeUnit(temporalType, unit);
+            fcn = @() timeUnit(timeType, unit);
             errorID = "arrow:validate:temporal:UnsupportedTime64TimeUnit";
             testCase.verifyError(fcn, errorID);
         end
 
     end
+
 end
