@@ -1,4 +1,4 @@
-%TIME32TYPE Type class for time32 data.
+%TIMETYPE Type class for time data.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,16 +15,30 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Time32Type < arrow.type.TimeType
+classdef TimeType < arrow.type.TemporalType
+
+    properties(Dependent, SetAccess=private, GetAccess=public)
+        TimeUnit
+    end
 
     methods
-        function obj = Time32Type(proxy)
+        function obj = TimeType(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Time32Type")}
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            import arrow.internal.proxy.validate
+            obj@arrow.type.TemporalType(proxy);
+        end
 
-            obj@arrow.type.TimeType(proxy);
+        function timeUnit = get.TimeUnit(obj)
+            timeUnitValue = obj.Proxy.getTimeUnit();
+            timeUnit = arrow.type.TimeUnit(timeUnitValue);
+        end
+    end
+
+    methods (Access=protected)
+        function group = getPropertyGroups(~)
+            targets = ["ID" "TimeUnit"];
+            group = matlab.mixin.util.PropertyGroup(targets);
         end
     end
 

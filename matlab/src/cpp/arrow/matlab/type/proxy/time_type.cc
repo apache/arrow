@@ -15,22 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
 #include "arrow/matlab/type/proxy/time_type.h"
 
 namespace arrow::matlab::type::proxy {
 
-class Time32Type : public arrow::matlab::type::proxy::TimeType {
+    TimeType::TimeType(std::shared_ptr<arrow::TimeType> time_type) : FixedWidthType(std::move(time_type)) {
+        REGISTER_METHOD(TimeType, getTimeUnit);
+    }
 
-    public:
-        Time32Type(std::shared_ptr<arrow::Time32Type> time32_type);
+    void TimeType::getTimeUnit(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
 
-        ~Time32Type() {}
-
-        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
-
-};
-
+        auto time_type = std::static_pointer_cast<arrow::TimeType>(data_type);
+        const auto timeunit = time_type->unit();
+        // Cast to uint8_t since there are only four supported TimeUnit enumeration values:
+        // Nanosecond, Microsecond, Millisecond, Second
+        auto timeunit_mda = factory.createScalar(static_cast<uint8_t>(timeunit));
+        context.outputs[0] = timeunit_mda;
+    }
 }
-
