@@ -145,7 +145,9 @@ class ArrayPrinter : public PrettyPrinter {
     int window = is_container ? options_.container_window : options_.window;
     for (int64_t i = 0; i < array.length(); ++i) {
       const bool is_last = (i == array.length() - 1);
-      if ((i >= window) && (i < (array.length() - window))) {
+      // check if `length == 2 * window + 1` to eliminate ellipsis for only one element
+      if ((array.length() != 2 * window + 1) && (i >= window) &&
+          (i < (array.length() - window))) {
         IndentAfterNewline();
         (*sink_) << "...";
         if (!is_last && options_.skip_new_lines) {
