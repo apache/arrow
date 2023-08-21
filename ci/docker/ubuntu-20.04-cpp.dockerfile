@@ -99,7 +99,6 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
-        libxml2-dev \
         libzstd-dev \
         make \
         ninja-build \
@@ -115,9 +114,7 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         tzdata \
-        wget \
-        zip \ 
-        unzip && \
+        wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
@@ -148,7 +145,6 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
-    ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
@@ -175,7 +171,6 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
-    Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     gRPC_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
