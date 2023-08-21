@@ -17,12 +17,11 @@
 
 #pragma once
 
-#include "arrow/matlab/type/proxy/fixed_width_type.h"
-#include "arrow/type_traits.h"
+#include "arrow/matlab/type/proxy/time_type.h"
 
 namespace arrow::matlab::type::proxy {
 
-class Time32Type : public arrow::matlab::type::proxy::FixedWidthType {
+class Time32Type : public arrow::matlab::type::proxy::TimeType {
 
     public:
         Time32Type(std::shared_ptr<arrow::Time32Type> time32_type);
@@ -31,8 +30,6 @@ class Time32Type : public arrow::matlab::type::proxy::FixedWidthType {
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
-    protected:
-        void getTimeUnit(libmexclass::proxy::method::Context& context);
 };
 
 }
