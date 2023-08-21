@@ -1371,11 +1371,7 @@ services:
       <<: [*common, *ccache, *sccache]
       PYTEST_ARGS:  # inherit
     volumes: *conda-volumes
-    command: &python-conda-command
-      ["
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+    command: *python-conda-command
 
   ################################## R ########################################
 
