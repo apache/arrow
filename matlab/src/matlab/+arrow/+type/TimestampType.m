@@ -1,3 +1,5 @@
+%TIMESTAMPTYPE Type class for timestamp data.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,9 +16,9 @@
 % permissions and limitations under the License.
 
 classdef TimestampType < arrow.type.TemporalType
-%TIMESTAMPTYPE Type class for timestamp data.
 
     properties(Dependent, GetAccess=public, SetAccess=private)
+        TimeUnit
         TimeZone
     end
 
@@ -27,6 +29,11 @@ classdef TimestampType < arrow.type.TemporalType
             end
             import arrow.internal.proxy.validate
             obj@arrow.type.TemporalType(proxy);
+        end
+
+        function timeUnit = get.TimeUnit(obj)
+            timeUnitValue = obj.Proxy.getTimeUnit();
+            timeUnit = arrow.type.TimeUnit(timeUnitValue);
         end
 
         function tz = get.TimeZone(obj)
