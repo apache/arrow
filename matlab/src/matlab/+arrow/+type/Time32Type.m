@@ -17,6 +17,10 @@
 
 classdef Time32Type < arrow.type.TemporalType
 
+    properties(Dependent, GetAccess=public, SetAccess=private)
+        TimeUnit
+    end
+
     methods
         function obj = Time32Type(proxy)
             arguments
@@ -25,6 +29,11 @@ classdef Time32Type < arrow.type.TemporalType
             import arrow.internal.proxy.validate
 
             obj@arrow.type.TemporalType(proxy);
+        end
+
+        function timeUnit = get.TimeUnit(obj)
+            timeUnitValue = obj.Proxy.getTimeUnit();
+            timeUnit = arrow.type.TimeUnit(timeUnitValue);
         end
     end
 

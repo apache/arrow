@@ -17,21 +17,12 @@
 
 classdef TemporalType < arrow.type.FixedWidthType
 
-    properties(Dependent, GetAccess=public, SetAccess=private)
-        TimeUnit
-    end
-
     methods
         function obj = TemporalType(proxy)
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy
             end
             obj@arrow.type.FixedWidthType(proxy);
-        end
-
-        function timeUnit = get.TimeUnit(obj)
-            timeUnitValue = obj.Proxy.getTimeUnit();
-            timeUnit = arrow.type.TimeUnit(timeUnitValue);
         end
     end
 end
