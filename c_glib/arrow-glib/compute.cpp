@@ -3402,10 +3402,7 @@ garrow_set_lookup_options_class_init(GArrowSetLookupOptionsClass *klass)
    *
    * Since: 6.0.0
    */
-  bool skip_nulls = false;
-  if (options.skip_nulls.has_value() && options.skip_nulls.value()) {
-  skip_nulls = true;
-  }
+  auto skip_nulls = (options.skip_nulls.has_value() && options.skip_nulls.value());
   spec =
       g_param_spec_boolean("skip-nulls", "Skip NULLs", "Whether NULLs are skipped or not",
                            skip_nulls, static_cast<GParamFlags>(G_PARAM_READWRITE));
