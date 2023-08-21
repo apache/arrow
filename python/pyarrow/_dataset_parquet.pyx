@@ -772,7 +772,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         return attrs == other_attrs
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
+    @binding(True)  # Required for Cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
