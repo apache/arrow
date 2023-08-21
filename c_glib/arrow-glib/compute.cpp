@@ -3346,11 +3346,7 @@ garrow_set_lookup_options_get_property(GObject *object,
     g_value_set_object(value, priv->value_set);
     break;
   case PROP_SET_LOOKUP_OPTIONS_SKIP_NULLS:
-    if (!options->skip_nulls.has_value() || !options->skip_nulls.value()) {
-        g_value_set_boolean(value, false);
-    } else {
-        g_value_set_boolean(value, true);
-    }
+    g_value_set_boolean(value, options->skip_nulls.has_value() && options->skip_nulls.value());
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
