@@ -156,7 +156,7 @@ namespace red_arrow {
 
       void produce(const arrow::RecordBatch& record_batch) {
         rb::protect([&] {
-          auto n_columns = record_batch.num_columns();
+          const auto n_columns = record_batch.num_columns();
           const auto n_rows = record_batch.num_rows();
           for (int64_t i = 0; i < n_rows; ++i) {
             record_ = rb_ary_new_capa(n_columns);
@@ -175,8 +175,8 @@ namespace red_arrow {
 
       void produce(const arrow::Table& table) {
         rb::protect([&] {
-          auto n_columns = table.num_columns();
-          auto n_rows = table.num_rows();
+          const auto n_columns = table.num_columns();
+          const auto n_rows = table.num_rows();
           std::vector<int> chunk_indexes(n_columns);
           std::vector<int64_t> row_offsets(n_columns);
           for (int64_t i_row = 0; i_row < n_rows; ++i_row) {
