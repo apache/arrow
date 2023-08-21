@@ -165,9 +165,9 @@ namespace Apache.Arrow.Ipc
                     switch (timeMeta.BitWidth)
                     {
                         case 32:
-                            return new Types.Time32Type(timeMeta.Unit.ToArrow());
+                            return (Time32Type)TimeType.FromTimeUnit(timeMeta.Unit.ToArrow());
                         case 64:
-                            return new Types.Time64Type(timeMeta.Unit.ToArrow());
+                            return (Time64Type)TimeType.FromTimeUnit(timeMeta.Unit.ToArrow());
                         default:
                             throw new InvalidDataException("Unsupported time bit width");
                     }
@@ -178,7 +178,7 @@ namespace Apache.Arrow.Ipc
                     return new Types.TimestampType(unit, timezone);
                 case Flatbuf.Type.Interval:
                     Flatbuf.Interval intervalMetadata = field.Type<Flatbuf.Interval>().Value;
-                    return new Types.IntervalType(intervalMetadata.Unit.ToArrow());
+                    return Types.IntervalType.FromIntervalUnit(intervalMetadata.Unit.ToArrow());
                 case Flatbuf.Type.Utf8:
                     return Types.StringType.Default;
                 case Flatbuf.Type.FixedSizeBinary:

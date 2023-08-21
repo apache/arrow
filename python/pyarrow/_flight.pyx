@@ -1756,6 +1756,14 @@ cdef class ServerCallContext(_Weakrefable):
         """Check if the current RPC call has been canceled by the client."""
         return self.context.is_cancelled()
 
+    def add_header(self, key, value):
+        """Add a response header."""
+        self.context.AddHeader(tobytes(key), tobytes(value))
+
+    def add_trailer(self, key, value):
+        """Add a response trailer."""
+        self.context.AddTrailer(tobytes(key), tobytes(value))
+
     def get_middleware(self, key):
         """
         Get a middleware instance by key.
@@ -3016,7 +3024,7 @@ cdef class FlightServerBase(_Weakrefable):
     def serve(self):
         """Block until the server shuts down.
 
-        This method only returns if shutdown() is called or a signal a
+        This method only returns if shutdown() is called or a signal is
         received.
         """
         if self.server.get() == nullptr:
@@ -3041,6 +3049,8 @@ cdef class FlightServerBase(_Weakrefable):
         method, as then the server will block forever waiting for that
         request to finish. Instead, call this method from a background
         thread.
+
+        This method should only be called once.
         """
         # Must not hold the GIL: shutdown waits for pending RPCs to
         # complete. Holding the GIL means Python-implemented Flight

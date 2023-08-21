@@ -51,6 +51,7 @@
 #cmakedefine ARROW_PARQUET
 #cmakedefine ARROW_SUBSTRAIT
 
+#cmakedefine ARROW_ENABLE_THREADING
 #cmakedefine ARROW_GCS
 #cmakedefine ARROW_S3
 #cmakedefine ARROW_USE_NATIVE_INT128

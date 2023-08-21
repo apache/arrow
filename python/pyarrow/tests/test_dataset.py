@@ -5021,8 +5021,8 @@ def test_dataset_filter(tempdir, dstype):
 
     # Ensure chained filtering works.
     result = ds1.filter(pc.field("colA") < 3).filter(pc.field("col2") == "a")
-    assert type(result) == (ds.FileSystemDataset if dstype ==
-                            "fs" else ds.InMemoryDataset)
+    expected = ds.FileSystemDataset if dstype == "fs" else ds.InMemoryDataset
+    assert isinstance(result, expected)
 
     assert result.to_table() == pa.table({
         "colA": [1],
@@ -5181,9 +5181,9 @@ def test_read_table_nested_columns(tempdir, format):
                       "a.dotted.field": [1, 2],
                       "interaction": [
         {"type": None, "element": "button",
-         "values": [1, 2], "structs":[{"foo": "bar"}, None]},
+         "values": [1, 2], "structs": [{"foo": "bar"}, None]},
         {"type": "scroll", "element": "window",
-         "values": [None, 3, 4], "structs":[{"fizz": "buzz"}]}
+         "values": [None, 3, 4], "structs": [{"fizz": "buzz"}]}
     ]})
     ds.write_dataset(table, tempdir / "table", format=format)
     ds1 = ds.dataset(tempdir / "table", format=format)

@@ -55,6 +55,23 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                                  GArrowWriteOptions *options);
 
 
+#define GAFLIGHT_TYPE_MESSAGE_READER            \
+  (gaflight_message_reader_get_type())
+G_DECLARE_DERIVABLE_TYPE(GAFlightMessageReader,
+                         gaflight_message_reader,
+                         GAFLIGHT,
+                         MESSAGE_READER,
+                         GAFlightRecordBatchReader)
+struct _GAFlightMessageReaderClass
+{
+  GAFlightRecordBatchReaderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_14_0
+GAFlightDescriptor *
+gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader);
+
+
 #define GAFLIGHT_TYPE_SERVER_CALL_CONTEXT       \
   (gaflight_server_call_context_get_type())
 G_DECLARE_DERIVABLE_TYPE(GAFlightServerCallContext,

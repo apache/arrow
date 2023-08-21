@@ -21,13 +21,23 @@ classdef Float64Array < arrow.array.NumericArray
     end
 
     methods
-        function obj = Float64Array(data, varargin)
-            obj@arrow.array.NumericArray(data, "double", ...
-                "arrow.array.proxy.Float64Array", varargin{:});
+        function obj = Float64Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Float64Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = double(obj)
             data = obj.toMATLAB();
+        end
+    end
+    
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.Float64Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

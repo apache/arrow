@@ -53,6 +53,12 @@ type MemoTable interface {
 	// the table (if false, the value was inserted). An error is returned
 	// if val is not the appropriate type for the table.
 	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	// GetOrInsertBytes returns the index of the table the specified value is,
+	// and a boolean indicating whether or not the value was found in
+	// the table (if false, the value was inserted). An error is returned
+	// if val is not the appropriate type for the table. This function is intended to be used by
+	// the BinaryMemoTable to prevent uncessary allocations of the data when converting from a []byte to interface{}.
+	GetOrInsertBytes(val []byte) (idx int, existed bool, err error)
 	// GetOrInsertNull returns the index of the null value in the table,
 	// inserting one if it hasn't already been inserted. It returns a boolean
 	// indicating if the null value already existed or not in the table.
@@ -229,6 +235,22 @@ func (b *BinaryMemoTable) Get(val interface{}) (int, bool) {
 		return int(p.payload.val), ok
 	}
 	return KeyNotFound, false
+}
+
+// GetOrInsertBytes returns the index of the given value in the table, if not found
+// it is inserted into the table. The return value 'found' indicates whether the value
+// was found in the table (true) or inserted (false) along with any possible error.
+func (b *BinaryMemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	h := Hash(val, 0)
+	p, found := b.lookup(h, val)
+	if found {
+		idx = int(p.payload.val)
+	} else {
+		idx = b.Size()
+		b.builder.Append(val)
+		b.tbl.Insert(p, h, int32(idx), -1)
+	}
+	return
 }
 
 // GetOrInsert returns the index of the given value in the table, if not found

@@ -290,6 +290,15 @@ cdef class ReadOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ReadOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.use_threads == other.use_threads and
             self.block_size == other.block_size and
@@ -536,6 +545,15 @@ cdef class ParseOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ParseOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ParseOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.delimiter == other.delimiter and
             self.quote_char == other.quote_char and
@@ -1042,6 +1060,15 @@ cdef class ConvertOptions(_Weakrefable):
         check_status(deref(self.options).Validate())
 
     def equals(self, ConvertOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.csv.ConvertOptions
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.check_utf8 == other.check_utf8 and
             self.column_types == other.column_types and

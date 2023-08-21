@@ -20,6 +20,7 @@
 #include "arrow/acero/util.h"       // PREFETCH
 #include "arrow/util/bit_util.h"    // Log2
 #include "arrow/util/bitmap_ops.h"  // CountSetBits
+#include "arrow/util/config.h"
 
 namespace arrow {
 namespace acero {
@@ -426,6 +427,9 @@ void BloomFilterBuilder_Parallel::CleanUp() {
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
     BloomFilterBuildStrategy strategy) {
+#ifndef ARROW_ENABLE_THREADING
+  strategy = BloomFilterBuildStrategy::SINGLE_THREADED;
+#endif
   switch (strategy) {
     case BloomFilterBuildStrategy::SINGLE_THREADED: {
       std::unique_ptr<BloomFilterBuilder> impl{new BloomFilterBuilder_SingleThreaded()};

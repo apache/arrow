@@ -20,8 +20,8 @@
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/bit/unpack.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/type/proxy/wrap.h"
 #include "arrow/type_traits.h"
-#include "arrow/visit_array_inline.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -80,12 +80,15 @@ namespace arrow::matlab::array::proxy {
 
         mda::ArrayFactory factory;
 
-        auto type_proxy = typeProxy();
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
+                                            type::proxy::wrap(array->type()),
+                                            context,
+                                            error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
+
         auto type_id = type_proxy->unwrap()->id();
         auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
 
         context.outputs[0] = factory.createScalar(proxy_id);
         context.outputs[1] = factory.createScalar(static_cast<int64_t>(type_id));
-
     }
 }

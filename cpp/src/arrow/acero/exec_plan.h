@@ -739,7 +739,7 @@ DeclarationToBatchesAsync(Declaration declaration, ExecContext exec_context);
 /// \brief Utility method to run a declaration and return results as a RecordBatchReader
 ///
 /// If an exec context is not provided then a default exec context will be used based
-/// on the value of `use_threads`.  If `use_threads` is false then the CPU exeuctor will
+/// on the value of `use_threads`.  If `use_threads` is false then the CPU executor will
 /// be a serial executor and all CPU work will be done on the calling thread.  I/O tasks
 /// will still happen on the I/O executor and may be multi-threaded.
 ///

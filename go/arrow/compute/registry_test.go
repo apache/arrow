@@ -25,7 +25,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/compute"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/exec"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/slices"
 )

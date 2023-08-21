@@ -21,20 +21,12 @@ classdef TimestampArray < arrow.array.Array
     end
 
     methods
-        function obj = TimestampArray(data, opts)
+        function obj = TimestampArray(proxy)
             arguments
-                data
-                opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
-                opts.InferNulls(1, 1) logical = true
-                opts.Valid
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.TimestampArray")}
             end
-            arrow.args.validateTypeAndShape(data, "datetime");
-            validElements = arrow.args.parseValidElements(data, opts);
-            ptime = arrow.array.TimestampArray.convertToEpochTime(data, opts.TimeUnit);
-            timezone = string(data.TimeZone);
-
-            args = struct(MatlabArray=ptime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));
-            obj@arrow.array.Array("Name", "arrow.array.proxy.TimestampArray", "ConstructorArguments", {args});
+            import arrow.internal.proxy.validate
+            obj@arrow.array.Array(proxy);
         end
 
         function dates = toMATLAB(obj)
@@ -68,6 +60,28 @@ classdef TimestampArray < arrow.array.Array
             % TODO: convertTo may error if the datetime is 2^63-1 before or
             % after the epoch. We should throw a custom error in this case.
             time(indices) = convertTo(dates(indices), "epochtime", TicksPerSecond=ticksPerSecond(units));
+        end
+    end
+
+    methods(Static)
+        function array = fromMATLAB(data, opts)
+            arguments
+                data
+                opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
+                opts.InferNulls(1, 1) logical = true
+                opts.Valid
+            end
+            
+            arrow.internal.validate.type(data, "datetime");
+            arrow.internal.validate.shape(data);
+
+            validElements = arrow.internal.validate.parseValidElements(data, opts);
+            epochTime = arrow.array.TimestampArray.convertToEpochTime(data, opts.TimeUnit);
+            timezone = string(data.TimeZone);
+
+            args = struct(MatlabArray=epochTime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));
+            proxy = arrow.internal.proxy.create("arrow.array.proxy.TimestampArray", args);
+            array = arrow.array.TimestampArray(proxy);
         end
     end
 end

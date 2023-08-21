@@ -24,7 +24,7 @@ import (
 	"github.com/apache/arrow/go/v13/arrow/array"
 	"github.com/apache/arrow/go/v13/arrow/flight"
 	"github.com/apache/arrow/go/v13/arrow/flight/flightsql/schema_ref"
-	pb "github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
+	pb "github.com/apache/arrow/go/v13/arrow/flight/gen/flight"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 	"github.com/apache/arrow/go/v13/arrow/ipc"
 	"github.com/apache/arrow/go/v13/arrow/memory"
