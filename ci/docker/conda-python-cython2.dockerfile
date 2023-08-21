@@ -16,7 +16,7 @@
 # under the License.
 
 ARG repo
-ARG arch=amd64
+ARG arch
 ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 

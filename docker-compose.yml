@@ -1354,6 +1354,7 @@ services:
     # Usage:
     #   docker-compose build conda
     #   docker-compose build conda-cpp
+    #   docker-compose build conda-python
     #   docker-compose build conda-python-cython2
     #   docker-compose run --rm conda-python-cython2
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-cython2
@@ -1368,7 +1369,7 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: [*common, *ccache, *sccache]
+      <<: [*common, *ccache]
       PYTEST_ARGS:  # inherit
     volumes: *conda-volumes
     command: *python-conda-command
