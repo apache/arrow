@@ -1168,8 +1168,8 @@ class MyDevice : public Device {
 
   class MySyncEvent final : public Device::SyncEvent {
    public:
-    explicit MySyncEvent(std::unique_ptr<void, void (*)(void*)> sync_event)
-        : Device::SyncEvent(std::move(sync_event)) {}
+    explicit MySyncEvent(void* sync_event, release_fn_t release_sync_event)
+        : Device::SyncEvent(sync_event, release_sync_event) {}
 
     virtual ~MySyncEvent() = default;
     Status Wait() override { return Status::OK(); }

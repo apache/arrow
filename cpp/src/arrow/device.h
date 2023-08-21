@@ -140,10 +140,10 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// If creating this with a passed in event, the caller must ensure
     /// that the event lives until clear_event is called on this as it
     /// won't own it.
-    explicit SyncEvent(std::unique_ptr<void, void (*)(void*)> sync_event)
-        : sync_event_{std::move(sync_event)} {}
+    explicit SyncEvent(void* sync_event, release_fn_t release_sync_event)
+        : sync_event_{sync_event, release_sync_event} {}
 
-    std::unique_ptr<void, void (*)(void*)> sync_event_;
+    std::unique_ptr<void, release_fn_t> sync_event_;
   };
 
  protected:
