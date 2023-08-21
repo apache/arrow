@@ -299,6 +299,7 @@ TEST_F(TestIsInKernel, NullType) {
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, "[null, null]", "[null]", "[null, null]",
             /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
+
   CheckIsIn(type, "[null, null]", "[]", "[false, false]", /*skip_nulls=*/true);
   CheckIsIn(type, "[null, null]", "[]", "[null, null]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -308,6 +309,10 @@ TEST_F(TestIsInKernel, NullType) {
   // Duplicates in right array
   CheckIsIn(type, "[null, null, null]", "[null, null]", "[true, true, true]");
   CheckIsIn(type, "[null, null]", "[null, null]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[null, null]", "[null, null]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[null, null]", "[null, null]", "[null, null]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 }
 
 TEST_F(TestIsInKernel, TimeTimestamp) {
@@ -437,6 +442,12 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
             "[true, true, false, true, true]",
@@ -444,6 +455,12 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
+            "[true, true, null, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Duplicates in right array
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
@@ -452,6 +469,12 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
             R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
+            R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
+            R"([null, "aaa", "aaa", "", "", null])", "[true, true, null, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 }
 
 TEST_F(TestIsInKernel, FixedSizeBinary) {
@@ -463,6 +486,12 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
             "[true, true, false, true, true]",
@@ -470,6 +499,12 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
+            "[true, true, null, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Duplicates in right array
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
@@ -480,6 +515,14 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
             R"(["aaa", null, "aaa", "bbb", "bbb", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
+            R"(["aaa", null, "aaa", "bbb", "bbb", null])",
+            "[true, true, false, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
+            R"(["aaa", null, "aaa", "bbb", "bbb", null])",
+            "[true, true, null, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   ASSERT_RAISES(Invalid,
                 IsIn(ArrayFromJSON(fixed_size_binary(3), R"(["abc"])"),
@@ -494,6 +537,12 @@ TEST_F(TestIsInKernel, Decimal) {
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
               "[true, false, true, false, true]",
               /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, null, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, null, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
               R"(["12.3", "78.9", null])", "[true, false, true, true, true]",
@@ -501,6 +550,12 @@ TEST_F(TestIsInKernel, Decimal) {
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
               R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
               /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, null, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, null, true, null, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
     // Duplicates in right array
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
@@ -511,6 +566,14 @@ TEST_F(TestIsInKernel, Decimal) {
               R"([null, "12.3", "12.3", "78.9", "78.9", null])",
               "[true, false, true, false, true]",
               /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, null, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, null, true, null, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
     CheckIsIn(ArrayFromJSON(decimal128(4, 2), R"(["12.30", "45.60", "78.90"])"),
               ArrayFromJSON(type, R"(["12.3", "78.9"])"), "[true, false, true]");
