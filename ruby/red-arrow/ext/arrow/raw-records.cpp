@@ -175,21 +175,29 @@ namespace red_arrow {
 
       void produce(const arrow::Table& table) {
         rb::protect([&] {
-          int n_columns = table.num_columns();
-          const auto& base_column = table.column(0);
-          for (int i = 0; i < base_column->num_chunks(); ++i) {
-            int chunk_length = base_column->chunk(i)->length();
-            for (int j = 0; j < chunk_length; ++j) {
-              row_offset_ = j;
-              record_ = rb_ary_new_capa(n_columns);
-              for (int k = 0; k < n_columns; ++k) {
-                column_index_ = k;
-                const auto& array = table.column(k)->chunk(i);
-                check_status(array->Accept(this),
-                             "[table][each-raw-record]");
+          auto n_columns = table.num_columns();
+          auto n_rows = table.num_rows();
+          std::vector<int> chunk_indexes(n_columns);
+          std::vector<int64_t> row_offsets(n_columns);
+          for (int64_t i_row = 0; i_row < n_rows; ++i_row) {
+            record_ = rb_ary_new_capa(n_columns);
+            for (int i_column = 0; i_column < n_columns; ++i_column) {
+              column_index_ = i_column;
+              const auto chunked_array = table.column(i_column).get();
+              auto& chunk_index = chunk_indexes[i_column];
+              auto& row_offset = row_offsets[i_column];
+              auto array = chunked_array->chunk(chunk_index).get();
+              while (array->length() == row_offset) {
+                ++chunk_index;
+                row_offset = 0;
+                array = chunked_array->chunk(chunk_index).get();
               }
-              rb_yield(record_);
+              row_offset_ = row_offset;
+              check_status(array->Accept(this),
+                           "[table][each-raw-record]");
+              ++row_offset;
             }
+            rb_yield(record_);
           }
 
           return Qnil;
