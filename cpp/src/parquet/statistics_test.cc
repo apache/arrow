@@ -63,22 +63,16 @@ using schema::PrimitiveNode;
 
 namespace test {
 
-class BufferedFloat16 : public ::arrow::util::Float16Base {
- public:
-  explicit BufferedFloat16(Float16 f16) : Float16Base(f16) {
-    buffer_ = *::arrow::AllocateBuffer(sizeof(value_));
-    ToLittleEndian(buffer_->mutable_data());
+struct BufferedFloat16 {
+  explicit BufferedFloat16(Float16 f16)
+      : f16(f16), buffer(*::arrow::AllocateBuffer(sizeof(uint16_t))) {
+    this->f16.ToLittleEndian(buffer->mutable_data());
   }
-  explicit BufferedFloat16(uint16_t value) : BufferedFloat16(Float16(value)) {}
+  explicit BufferedFloat16(uint16_t bits) : BufferedFloat16(Float16(bits)) {}
+  const uint8_t* bytes() const { return buffer->data(); }
 
-  const uint8_t* bytes() const { return buffer_->data(); }
-  const std::shared_ptr<::arrow::Buffer>& buffer() { return buffer_; }
-
-  BufferedFloat16 operator+() const { return *this; }
-  BufferedFloat16 operator-() const { return BufferedFloat16(value_ ^ 0x8000); }
-
- private:
-  std::shared_ptr<::arrow::Buffer> buffer_;
+  Float16 f16;
+  std::shared_ptr<::arrow::Buffer> buffer;
 };
 
 // ----------------------------------------------------------------------

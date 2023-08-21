@@ -171,7 +171,7 @@ uint32_t Binary16BitsToBinary32Bits(uint16_t h_bits) {
 
 }  // namespace
 
-float Float16Base::ToFloat() const {
+float Float16::ToFloat() const {
   const uint32_t f_bits = Binary16BitsToBinary32Bits(value_);
   return SafeCopy<float>(f_bits);
 }
@@ -181,9 +181,7 @@ Float16 Float16::FromFloat(float f) {
   return Float16{Binary32BitsToBinary16Bits(f_bits)};
 }
 
-std::ostream& operator<<(std::ostream& os, Float16Base arg) {
-  return (os << arg.ToFloat());
-}
+std::ostream& operator<<(std::ostream& os, Float16 arg) { return (os << arg.ToFloat()); }
 
 }  // namespace util
 }  // namespace arrow

@@ -31,19 +31,35 @@
 namespace arrow {
 namespace util {
 
-/// \brief Base class for an IEEE half-precision float, encoded as a `uint16_t`
+/// \brief Class representing an IEEE half-precision float, encoded as a `uint16_t`
 ///
-/// The exact format is as follows (from MSB to LSB):
-/// - bit 0:     sign
-/// - bits 1-5:  exponent
-/// - bits 6-15: mantissa
+/// The exact format is as follows (from LSB to MSB):
+/// - bits 0-10:  mantissa
+/// - bits 10-15: exponent
+/// - bit 15:     sign
 ///
-/// NOTE: Methods in the class should not mutate the unerlying value or produce copies.
-/// Such functionality is delegated to subclasses.
-class ARROW_EXPORT Float16Base {
+class ARROW_EXPORT Float16 {
  public:
-  Float16Base() = default;
-  constexpr explicit Float16Base(uint16_t value) : value_(value) {}
+  Float16() = default;
+  constexpr explicit Float16(uint16_t value) : value_(value) {}
+
+  /// \brief Create a `Float16` from a 32-bit float (may lose precision)
+  static Float16 FromFloat(float f);
+
+  /// \brief Read a `Float16` from memory in native-endian byte order
+  static Float16 FromBytes(const uint8_t* src) {
+    return Float16(SafeLoadAs<uint16_t>(src));
+  }
+
+  /// \brief Read a `Float16` from memory in little-endian byte order
+  static Float16 FromLittleEndian(const uint8_t* src) {
+    return Float16(bit_util::FromLittleEndian(SafeLoadAs<uint16_t>(src)));
+  }
+
+  /// \brief Read a `Float16` from memory in big-endian byte order
+  static Float16 FromBigEndian(const uint8_t* src) {
+    return Float16(bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
+  }
 
   /// \brief Return the value's integer representation
   constexpr uint16_t bits() const { return value_; }
@@ -61,6 +77,9 @@ class ARROW_EXPORT Float16Base {
   /// \brief Return true if the value is positive/negative zero
   constexpr bool is_zero() const { return (value_ & 0x7fff) == 0; }
 
+  /// \brief Convert to a 32-bit float
+  float ToFloat() const;
+
   /// \brief Copy the value's bytes in native-endian byte order
   void ToBytes(uint8_t* dest) const { std::memcpy(dest, &value_, sizeof(value_)); }
   /// \brief Return the value's bytes in native-endian byte order
@@ -74,7 +93,7 @@ class ARROW_EXPORT Float16Base {
 
   /// \brief Copy the value's bytes in little-endian byte order
   void ToLittleEndian(uint8_t* dest) const {
-    Float16Base{bit_util::ToLittleEndian(value_)}.ToBytes(dest);
+    Float16{bit_util::ToLittleEndian(value_)}.ToBytes(dest);
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
@@ -87,7 +106,7 @@ class ARROW_EXPORT Float16Base {
 
   /// \brief Copy the value's bytes in big-endian byte order
   void ToBigEndian(uint8_t* dest) const {
-    Float16Base{bit_util::ToBigEndian(value_)}.ToBytes(dest);
+    Float16{bit_util::ToBigEndian(value_)}.ToBytes(dest);
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
@@ -98,41 +117,38 @@ class ARROW_EXPORT Float16Base {
 #endif
   }
 
-  float ToFloat() const;
+  constexpr Float16 operator-() const { return Float16(value_ ^ 0x8000); }
+  constexpr Float16 operator+() const { return Float16(value_); }
 
-  friend constexpr bool operator==(Float16Base lhs, Float16Base rhs) {
+  friend constexpr bool operator==(Float16 lhs, Float16 rhs) {
     if (lhs.is_nan() || rhs.is_nan()) return false;
-    return Float16Base::CompareEq(lhs, rhs);
+    return Float16::CompareEq(lhs, rhs);
   }
-  friend constexpr bool operator!=(Float16Base lhs, Float16Base rhs) {
-    return !(lhs == rhs);
-  }
+  friend constexpr bool operator!=(Float16 lhs, Float16 rhs) { return !(lhs == rhs); }
 
-  friend constexpr bool operator<(Float16Base lhs, Float16Base rhs) {
+  friend constexpr bool operator<(Float16 lhs, Float16 rhs) {
     if (lhs.is_nan() || rhs.is_nan()) return false;
-    return Float16Base::CompareLt(lhs, rhs);
+    return Float16::CompareLt(lhs, rhs);
   }
-  friend constexpr bool operator>(Float16Base lhs, Float16Base rhs) { return rhs < lhs; }
+  friend constexpr bool operator>(Float16 lhs, Float16 rhs) { return rhs < lhs; }
 
-  friend constexpr bool operator<=(Float16Base lhs, Float16Base rhs) {
+  friend constexpr bool operator<=(Float16 lhs, Float16 rhs) {
     if (lhs.is_nan() || rhs.is_nan()) return false;
-    return !Float16Base::CompareLt(rhs, lhs);
+    return !Float16::CompareLt(rhs, lhs);
   }
-  friend constexpr bool operator>=(Float16Base lhs, Float16Base rhs) {
-    return rhs <= lhs;
-  }
+  friend constexpr bool operator>=(Float16 lhs, Float16 rhs) { return rhs <= lhs; }
 
-  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os, Float16Base arg);
+  ARROW_FRIEND_EXPORT friend std::ostream& operator<<(std::ostream& os, Float16 arg);
 
  protected:
   uint16_t value_;
 
  private:
   // Comparison helpers that assume neither operand is NaN
-  static constexpr bool CompareEq(Float16Base lhs, Float16Base rhs) {
+  static constexpr bool CompareEq(Float16 lhs, Float16 rhs) {
     return (lhs.bits() == rhs.bits()) || (lhs.is_zero() && rhs.is_zero());
   }
-  static constexpr bool CompareLt(Float16Base lhs, Float16Base rhs) {
+  static constexpr bool CompareLt(Float16 lhs, Float16 rhs) {
     if (lhs.signbit()) {
       if (rhs.signbit()) {
         // Both are negative
@@ -147,32 +163,6 @@ class ARROW_EXPORT Float16Base {
       // Both are positive
       return lhs.bits() < rhs.bits();
     }
-  }
-};
-
-/// \brief Wrapper class for an IEEE half-precision float, encoded as a `uint16_t`
-class ARROW_EXPORT Float16 : public Float16Base {
- public:
-  using Float16Base::Float16Base;
-
-  constexpr Float16 operator-() const { return Float16(value_ ^ 0x8000); }
-  constexpr Float16 operator+() const { return Float16(value_); }
-
-  static Float16 FromFloat(float f);
-
-  /// \brief Read a `Float16` from memory in native-endian byte order
-  static Float16 FromBytes(const uint8_t* src) {
-    return Float16(SafeLoadAs<uint16_t>(src));
-  }
-
-  /// \brief Read a `Float16` from memory in little-endian byte order
-  static Float16 FromLittleEndian(const uint8_t* src) {
-    return Float16(bit_util::FromLittleEndian(SafeLoadAs<uint16_t>(src)));
-  }
-
-  /// \brief Read a `Float16` from memory in big-endian byte order
-  static Float16 FromBigEndian(const uint8_t* src) {
-    return Float16(bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
   }
 };
 
