@@ -39,12 +39,6 @@
   ],
   "default-features": [],
   "features": {
-    "azure": {
-      "description": "Azure support",
-      "dependencies": [
-        "libxml2"
-      ]
-    },
     "dev": {
       "description": "Development dependencies",
       "dependencies": [
