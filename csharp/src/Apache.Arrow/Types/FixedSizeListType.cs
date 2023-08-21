@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+
 namespace Apache.Arrow.Types
 {
     public sealed class FixedSizeListType : NestedType
@@ -28,6 +30,9 @@ namespace Apache.Arrow.Types
         public FixedSizeListType(Field valueField, int listSize)
            : base(valueField)
         {
+            if (listSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(listSize));
+
             ListSize = listSize;
         }
 
