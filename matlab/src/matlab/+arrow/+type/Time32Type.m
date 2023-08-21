@@ -28,11 +28,4 @@ classdef Time32Type < arrow.type.TimeType
         end
     end
 
-    methods (Access=protected)
-        function group = getPropertyGroups(~)
-            targets = ["ID" "TimeUnit"];
-            group = matlab.mixin.util.PropertyGroup(targets);
-        end
-    end
-
 end
