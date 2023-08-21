@@ -158,7 +158,8 @@ struct EncodingTraits<FLBAType> {
   using Decoder = FLBADecoder;
 
   using ArrowType = ::arrow::FixedSizeBinaryType;
-  using Accumulator = ::arrow::FixedSizeBinaryBuilder;
+  using BuilderType = ::arrow::FixedSizeBinaryBuilder;
+  using Accumulator = BuilderType;
   using DictAccumulator = ::arrow::Dictionary32Builder<::arrow::FixedSizeBinaryType>;
 };
 

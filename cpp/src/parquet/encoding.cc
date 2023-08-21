@@ -1180,15 +1180,15 @@ int PlainBooleanDecoder::Decode(bool* buffer, int max_values) {
   return max_values;
 }
 
-template <typename DType, typename Enable = void>
-struct ArrowBinaryHelper;
-
 template <typename DType>
-struct ArrowBinaryHelper<DType,
-                         std::enable_if_t<std::is_same_v<DType, ByteArrayType>, void>> {
+struct ArrowBinaryHelper {
   explicit ArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc) {
-    builder = acc->builder.get();
-    chunks = &acc->chunks;
+    if constexpr (std::is_same_v<DType, ByteArrayType>) {
+      builder = acc->builder.get();
+      chunks = &acc->chunks;
+    } else {
+      builder = acc;
+    }
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
                                                  builder->value_data_length(),
                                                  &chunk_space_remaining))) {
@@ -1217,7 +1217,11 @@ struct ArrowBinaryHelper<DType,
   Status Append(const uint8_t* data, int32_t length) {
     DCHECK(CanFit(length));
     chunk_space_remaining -= length;
-    return builder->Append(data, length);
+    if constexpr (std::is_same_v<DType, FLBAType>) {
+      return builder->Append(data);
+    } else {
+      return builder->Append(data, length);
+    }
   }
 
   Status AppendNull() { return builder->AppendNull(); }
@@ -1225,46 +1229,6 @@ struct ArrowBinaryHelper<DType,
   typename EncodingTraits<DType>::BuilderType* builder;
   std::vector<std::shared_ptr<::arrow::Array>>* chunks;
   int64_t chunk_space_remaining;
-};
-
-template <typename DType>
-struct ArrowBinaryHelper<DType, std::enable_if_t<std::is_same_v<DType, FLBAType>, void>> {
-  explicit ArrowBinaryHelper(typename EncodingTraits<DType>::Accumulator* acc) {
-    builder = acc;
-    if (ARROW_PREDICT_FALSE(SubtractWithOverflow(::arrow::kBinaryMemoryLimit,
-                                                 builder->value_data_length(),
-                                                 &space_remaining))) {
-      throw ParquetException("excess expansion in ArrowBinaryHelper<DType>");
-    }
-  }
-
-  Status PushChunk() {
-    std::shared_ptr<::arrow::Array> result;
-    RETURN_NOT_OK(builder->Finish(&result));
-    space_remaining = ::arrow::kBinaryMemoryLimit;
-    return Status::OK();
-  }
-
-  bool CanFit(int64_t length) const { return length <= space_remaining; }
-
-  void UnsafeAppend(const uint8_t* data, int32_t length) {
-    DCHECK(CanFit(length));
-    space_remaining -= length;
-    builder->UnsafeAppend(data, length);
-  }
-
-  void UnsafeAppendNull() { builder->UnsafeAppendNull(); }
-
-  Status Append(const uint8_t* data, int32_t length) {
-    DCHECK(CanFit(length));
-    space_remaining -= length;
-    return builder->Append(data);
-  }
-
-  Status AppendNull() { return builder->AppendNull(); }
-
-  typename EncodingTraits<DType>::Accumulator* builder;
-  int64_t space_remaining;
 };
 
 template <>
