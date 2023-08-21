@@ -610,10 +610,9 @@ ARROW_NOINLINE Status PreallocateREEData(int64_t physical_length, bool allocate_
   ARROW_ASSIGN_OR_RAISE(
       auto run_ends_data,
       ree_util::PreallocateRunEndsArray(ree_type->run_end_type(), physical_length, pool));
-  ARROW_ASSIGN_OR_RAISE(auto values_data,
-                        ree_util::PreallocateValuesArray(
-                            ree_type->value_type(), allocate_validity, physical_length,
-                            kUnknownNullCount, pool, data_buffer_size));
+  ARROW_ASSIGN_OR_RAISE(auto values_data, ree_util::PreallocateValuesArray(
+                                              ree_type->value_type(), allocate_validity,
+                                              physical_length, pool, data_buffer_size));
 
   // out->length is set after the filter is computed
   out->null_count = 0;
