@@ -73,10 +73,11 @@ namespace internal {
 /// are not swapped by this function and should be handled separately.
 ///
 /// \param[in] data the array contents
+/// \param[in] pool the memory pool to allocate memory from
 /// \return the resulting ArrayData whose elements were swapped
 ARROW_EXPORT
 Result<std::shared_ptr<ArrayData>> SwapEndianArrayData(
-    const std::shared_ptr<ArrayData>& data);
+    const std::shared_ptr<ArrayData>& data, MemoryPool* pool = default_memory_pool());
 
 /// Given a number of ArrayVectors, treat each ArrayVector as the
 /// chunks of a chunked array.  Then rechunk each ArrayVector such that

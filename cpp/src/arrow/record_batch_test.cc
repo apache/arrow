@@ -413,6 +413,31 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   ASSERT_EQ(empty->num_rows(), 0);
 }
 
+// See: https://github.com/apache/arrow/issues/35450
+TEST_F(TestRecordBatch, ToStructArrayMismatchedColumnLengths) {
+  constexpr int kNumRows = 5;
+  FieldVector fields = {field("x", int64()), field("y", int64())};
+  ArrayVector columns = {
+      ArrayFromJSON(int64(), "[0, 1, 2, 3, 4]"),
+      ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"),
+  };
+
+  // Sanity check
+  auto batch = RecordBatch::Make(schema({fields[0]}), kNumRows, {columns[0]});
+  ASSERT_OK_AND_ASSIGN(auto array, batch->ToStructArray());
+  ASSERT_EQ(array->length(), kNumRows);
+
+  // One column with a mismatched length
+  batch = RecordBatch::Make(schema({fields[1]}), kNumRows, {columns[1]});
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+  // Mix of columns with matching and non-matching lengths
+  batch = RecordBatch::Make(schema(fields), kNumRows, columns);
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+  std::swap(columns[0], columns[1]);
+  batch = RecordBatch::Make(schema(fields), kNumRows, columns);
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+}
+
 class TestRecordBatchReader : public ::testing::Test {
  public:
   void SetUp() override { MakeBatchesAndReader(100); }
@@ -495,33 +520,5 @@ TEST_F(TestRecordBatchReader, ToTable) {
   ASSERT_OK_AND_ASSIGN(table, reader_->ToTable());
   ASSERT_EQ(table->column(0)->chunks().size(), 0);
 }
-
-ARROW_SUPPRESS_DEPRECATION_WARNING
-TEST_F(TestRecordBatchReader, DeprecatedReadAllToRecordBatches) {
-  RecordBatchVector batches;
-  ASSERT_OK(reader_->ReadAll(&batches));
-  ASSERT_EQ(batches.size(), batches_.size());
-  for (size_t index = 0; index < batches.size(); index++) {
-    AssertBatchesEqual(*batches[index], *batches_[index]);
-  }
-
-  ASSERT_OK(reader_->ReadAll(&batches));
-  ASSERT_EQ(batches.size(), 0);
-}
-
-TEST_F(TestRecordBatchReader, DeprecatedReadAllToTable) {
-  std::shared_ptr<Table> table;
-
-  ASSERT_OK(reader_->ReadAll(&table));
-  const auto& chunks = table->column(0)->chunks();
-  ASSERT_EQ(chunks.size(), batches_.size());
-  for (size_t index = 0; index < batches_.size(); index++) {
-    AssertArraysEqual(*chunks[index], *batches_[index]->column(0));
-  }
-
-  ASSERT_OK(reader_->ReadAll(&table));
-  ASSERT_EQ(table->column(0)->chunks().size(), 0);
-}
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace arrow

@@ -32,22 +32,8 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
+      {{ macros.github_free_space()|indent }}
 
-      - name: Free up disk space
-        if: |
-          env.ARCHITECTURE == 'amd64'
-        run: |
-          df -h
-          du -hsc /opt/hostedtoolcache/*
-          # 5.3GB
-          sudo rm -rf /opt/hostedtoolcache/CodeQL || :
-          # 1.4GB
-          sudo rm -rf /opt/hostedtoolcache/go || :
-          # 489MB
-          sudo rm -rf /opt/hostedtoolcache/PyPy || :
-          # 376MB
-          sudo rm -rf /opt/hostedtoolcache/node || :
-          df -h
       - name: Set up Ruby
         run: |
           sudo apt update

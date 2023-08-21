@@ -35,6 +35,15 @@ class PARQUET_EXPORT XxHasher : public Hasher {
   uint64_t Hash(const ByteArray* value) const override;
   uint64_t Hash(const FLBA* val, uint32_t len) const override;
 
+  void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const override;
+  void Hashes(const int64_t* values, int num_values, uint64_t* hashes) const override;
+  void Hashes(const float* values, int num_values, uint64_t* hashes) const override;
+  void Hashes(const double* values, int num_values, uint64_t* hashes) const override;
+  void Hashes(const Int96* values, int num_values, uint64_t* hashes) const override;
+  void Hashes(const ByteArray* values, int num_values, uint64_t* hashes) const override;
+  void Hashes(const FLBA* values, uint32_t type_len, int num_values,
+              uint64_t* hashes) const override;
+
   static constexpr int kParquetBloomXxHashSeed = 0;
 };
 

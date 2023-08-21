@@ -72,6 +72,11 @@ class CsvFileWriter;
 class CsvFileWriteOptions;
 struct CsvFragmentScanOptions;
 
+class JsonFileFormat;
+class JsonFileWriter;
+class JsonFileWriteOptions;
+struct JsonFragmentScanOptions;
+
 class IpcFileFormat;
 class IpcFileWriter;
 class IpcFileWriteOptions;

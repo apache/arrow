@@ -87,6 +87,7 @@ namespace parquet {
 
 using Buffer = ::arrow::Buffer;
 using Codec = ::arrow::util::Codec;
+using CodecOptions = ::arrow::util::CodecOptions;
 using Compression = ::arrow::Compression;
 using MemoryPool = ::arrow::MemoryPool;
 using MutableBuffer = ::arrow::MutableBuffer;

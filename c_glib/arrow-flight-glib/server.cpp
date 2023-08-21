@@ -41,6 +41,10 @@ G_BEGIN_DECLS
  * IPC payloads to be sent in `FlightData` protobuf messages by
  * #GArrowRecordBatchReader`.
  *
+ * #GAFlightMessageReader is a class for IPC payloads uploaded by a
+ * client. Also allows reading application-defined metadata via the
+ * Flight protocol.
+ *
  * #GAFlightServerAuthSender is a class for sending messages to the
  * client during an authentication handshake.
  *
@@ -255,6 +259,37 @@ gaflight_record_batch_stream_new(GArrowRecordBatchReader *reader,
                  "stream", stream.release(),
                  "reader", reader,
                  NULL));
+}
+
+
+G_DEFINE_TYPE(GAFlightMessageReader,
+              gaflight_message_reader,
+              GAFLIGHT_TYPE_RECORD_BATCH_READER)
+
+static void
+gaflight_message_reader_init(GAFlightMessageReader *object)
+{
+}
+
+static void
+gaflight_message_reader_class_init(GAFlightMessageReaderClass *klass)
+{
+}
+
+/**
+ * gaflight_message_reader_get_descriptor:
+ * @reader: A #GAFlightMessageReader.
+ *
+ * Returns: (transfer full): The descriptor for this upload.
+ *
+ * Since: 14.0.0
+ */
+GAFlightDescriptor *
+gaflight_message_reader_get_descriptor(GAFlightMessageReader *reader)
+{
+  auto flight_reader = gaflight_message_reader_get_raw(reader);
+  const auto &flight_descriptor = flight_reader->descriptor();
+  return gaflight_descriptor_new_raw(&flight_descriptor);
 }
 
 
@@ -1214,6 +1249,28 @@ gaflight_data_stream_get_raw(GAFlightDataStream *stream)
   auto priv = GAFLIGHT_DATA_STREAM_GET_PRIVATE(stream);
   return priv->stream;
 }
+
+
+GAFlightMessageReader *
+gaflight_message_reader_new_raw(
+  arrow::flight::FlightMessageReader *flight_reader,
+  gboolean is_owner)
+{
+  return GAFLIGHT_MESSAGE_READER(
+    g_object_new(GAFLIGHT_TYPE_MESSAGE_READER,
+                 "reader", flight_reader,
+                 "is-owner", is_owner,
+                 NULL));
+}
+
+arrow::flight::FlightMessageReader *
+gaflight_message_reader_get_raw(GAFlightMessageReader *reader)
+{
+  auto flight_reader =
+    gaflight_record_batch_reader_get_raw(GAFLIGHT_RECORD_BATCH_READER(reader));
+  return static_cast<arrow::flight::FlightMessageReader *>(flight_reader);
+}
+
 
 GAFlightServerCallContext *
 gaflight_server_call_context_new_raw(

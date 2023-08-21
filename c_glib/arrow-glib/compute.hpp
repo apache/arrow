@@ -59,7 +59,9 @@ garrow_execute_node_options_get_raw(GArrowExecuteNodeOptions *options);
 
 
 GArrowExecuteNode *
-garrow_execute_node_new_raw(arrow::acero::ExecNode *arrow_node);
+garrow_execute_node_new_raw(
+  arrow::acero::ExecNode* arrow_node,
+  GArrowExecuteNodeOptions *options);
 arrow::acero::ExecNode *
 garrow_execute_node_get_raw(GArrowExecuteNode *node);
 
@@ -183,3 +185,10 @@ GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options);
 arrow::compute::RankOptions *
 garrow_rank_options_get_raw(GArrowRankOptions *options);
+
+
+GArrowRunEndEncodeOptions *
+garrow_run_end_encode_options_new_raw(
+  const arrow::compute::RunEndEncodeOptions *arrow_options);
+arrow::compute::RunEndEncodeOptions *
+garrow_run_end_encode_options_get_raw(GArrowRunEndEncodeOptions *options);

@@ -22,6 +22,7 @@ import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
@@ -57,7 +58,7 @@ public class TestArrowReaderWriterWithCompression {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     try (final ArrowFileWriter writer =
            new ArrowFileWriter(root, null, Channels.newChannel(out), new HashMap<>(),
-             IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD)) {
+             IpcOption.DEFAULT, CommonsCompressionFactory.INSTANCE, CompressionUtil.CodecType.ZSTD, Optional.of(7))) {
       writer.start();
       writer.writeBatch();
       writer.end();

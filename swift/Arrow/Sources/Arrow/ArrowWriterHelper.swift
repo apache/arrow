@@ -24,53 +24,70 @@ extension Data {
     }
 }
 
-func toFBTypeEnum(_ infoType: ArrowType.Info) throws -> org_apache_arrow_flatbuf_Type_ {
+func toFBTypeEnum(_ arrowType: ArrowType) -> Result<org_apache_arrow_flatbuf_Type_, ArrowError> {
+    let infoType = arrowType.info
     if infoType == ArrowType.ArrowInt8 || infoType == ArrowType.ArrowInt16 ||
         infoType == ArrowType.ArrowInt64 || infoType == ArrowType.ArrowUInt8 ||
         infoType == ArrowType.ArrowUInt16 || infoType == ArrowType.ArrowUInt32 ||
         infoType == ArrowType.ArrowUInt64 || infoType == ArrowType.ArrowInt32 {
-        return org_apache_arrow_flatbuf_Type_.int
+        return .success(org_apache_arrow_flatbuf_Type_.int)
     } else if infoType == ArrowType.ArrowFloat || infoType == ArrowType.ArrowDouble {
-        return org_apache_arrow_flatbuf_Type_.floatingpoint
+        return .success(org_apache_arrow_flatbuf_Type_.floatingpoint)
     } else if infoType == ArrowType.ArrowString {
-        return org_apache_arrow_flatbuf_Type_.utf8
+        return .success(org_apache_arrow_flatbuf_Type_.utf8)
+    } else if infoType == ArrowType.ArrowBinary {
+        return .success(org_apache_arrow_flatbuf_Type_.binary)
     } else if infoType == ArrowType.ArrowBool {
-        return org_apache_arrow_flatbuf_Type_.bool
+        return .success(org_apache_arrow_flatbuf_Type_.bool)
     } else if infoType == ArrowType.ArrowDate32 || infoType == ArrowType.ArrowDate64 {
-        return org_apache_arrow_flatbuf_Type_.date
+        return .success(org_apache_arrow_flatbuf_Type_.date)
+    } else if infoType == ArrowType.ArrowTime32 || infoType == ArrowType.ArrowTime64 {
+        return .success(org_apache_arrow_flatbuf_Type_.time)
     }
-
-    throw ValidationError.unknownType
+    return .failure(.unknownType("Unable to find flatbuf type for Arrow type: \(infoType)"))
 }
 
-func toFBType(_ fbb: inout FlatBufferBuilder, infoType: ArrowType.Info) throws -> Offset {
+func toFBType(_ fbb: inout FlatBufferBuilder, arrowType: ArrowType) -> Result<Offset, ArrowError> {
+    let infoType = arrowType.info
     if infoType == ArrowType.ArrowInt8 || infoType == ArrowType.ArrowUInt8 {
-        return org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 8, isSigned: infoType == ArrowType.ArrowInt8);
+        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 8, isSigned: infoType == ArrowType.ArrowInt8))
     } else if infoType == ArrowType.ArrowInt16 || infoType == ArrowType.ArrowUInt16 {
-        return org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 16, isSigned: infoType == ArrowType.ArrowInt16);
+        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 16, isSigned: infoType == ArrowType.ArrowInt16))
     } else if infoType == ArrowType.ArrowInt32 || infoType == ArrowType.ArrowUInt32 {
-        return org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 32, isSigned: infoType == ArrowType.ArrowInt32);
+        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 32, isSigned: infoType == ArrowType.ArrowInt32))
     } else if infoType == ArrowType.ArrowInt64 || infoType == ArrowType.ArrowUInt64 {
-        return org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 64, isSigned: infoType == ArrowType.ArrowInt64);
+        return .success(org_apache_arrow_flatbuf_Int.createInt(&fbb, bitWidth: 64, isSigned: infoType == ArrowType.ArrowInt64))
     } else if infoType == ArrowType.ArrowFloat {
-        return org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .single)
+        return .success(org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .single))
     } else if infoType == ArrowType.ArrowDouble {
-        return org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .double)
+        return .success(org_apache_arrow_flatbuf_FloatingPoint.createFloatingPoint(&fbb, precision: .double))
     } else if infoType == ArrowType.ArrowString {
-        return org_apache_arrow_flatbuf_Utf8.endUtf8(&fbb, start: org_apache_arrow_flatbuf_Utf8.startUtf8(&fbb))
+        return .success(org_apache_arrow_flatbuf_Utf8.endUtf8(&fbb, start: org_apache_arrow_flatbuf_Utf8.startUtf8(&fbb)))
+    } else if infoType == ArrowType.ArrowBinary {
+        return .success(org_apache_arrow_flatbuf_Binary.endBinary(&fbb, start: org_apache_arrow_flatbuf_Binary.startBinary(&fbb)))
     } else if infoType == ArrowType.ArrowBool {
-        return org_apache_arrow_flatbuf_Bool.endBool(&fbb, start: org_apache_arrow_flatbuf_Bool.startBool(&fbb))
+        return .success(org_apache_arrow_flatbuf_Bool.endBool(&fbb, start: org_apache_arrow_flatbuf_Bool.startBool(&fbb)))
     } else if infoType == ArrowType.ArrowDate32 {
         let startOffset = org_apache_arrow_flatbuf_Date.startDate(&fbb)
         org_apache_arrow_flatbuf_Date.add(unit: .day, &fbb)
-        return org_apache_arrow_flatbuf_Date.endDate(&fbb, start: startOffset)
+        return .success(org_apache_arrow_flatbuf_Date.endDate(&fbb, start: startOffset))
     } else if infoType == ArrowType.ArrowDate64 {
         let startOffset = org_apache_arrow_flatbuf_Date.startDate(&fbb)
         org_apache_arrow_flatbuf_Date.add(unit: .millisecond, &fbb)
-        return org_apache_arrow_flatbuf_Date.endDate(&fbb, start: startOffset)
+        return .success(org_apache_arrow_flatbuf_Date.endDate(&fbb, start: startOffset))
+    } else if infoType == ArrowType.ArrowTime32 {
+        let startOffset = org_apache_arrow_flatbuf_Time.startTime(&fbb)
+        let timeType = arrowType as! ArrowTypeTime32
+        org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .Seconds ? .second : .millisecond, &fbb)
+        return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
+    } else if infoType == ArrowType.ArrowTime64 {
+        let startOffset = org_apache_arrow_flatbuf_Time.startTime(&fbb)
+        let timeType = arrowType as! ArrowTypeTime64
+        org_apache_arrow_flatbuf_Time.add(unit: timeType.unit == .Microseconds ? .microsecond : .nanosecond, &fbb)
+        return .success(org_apache_arrow_flatbuf_Time.endTime(&fbb, start: startOffset))
     }
 
-    throw ValidationError.unknownType
+    return .failure(.unknownType("Unable to add flatbuf type for Arrow type: \(infoType)"))
 }
 
 func addPadForAlignment(_ data: inout Data, alignment: Int = 8) {

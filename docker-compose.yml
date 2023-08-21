@@ -55,6 +55,9 @@
 
 version: '3.5'
 
+x-common: &common
+  GITHUB_ACTIONS:
+
 x-ccache: &ccache
   CCACHE_COMPILERCHECK: content
   CCACHE_COMPRESS: 1
@@ -66,7 +69,12 @@ x-sccache: &sccache
   AWS_ACCESS_KEY_ID:
   AWS_SECRET_ACCESS_KEY:
   SCCACHE_BUCKET:
+  SCCACHE_REGION:
   SCCACHE_S3_KEY_PREFIX: ${SCCACHE_S3_KEY_PREFIX:-sccache}
+
+x-cpp: &cpp
+  ARROW_RUNTIME_SIMD_LEVEL:
+  ARROW_SIMD_LEVEL:
 
 # CPU/memory limit presets to pass to Docker.
 #
@@ -128,9 +136,9 @@ x-hierarchy:
     - debian-go-cgo-python
   - debian-java
   - debian-js
+  - eclipse-java
   - fedora-cpp:
     - fedora-python
-  - oracle-java
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -223,7 +231,7 @@ services:
     ulimits: &ulimits
       core: ${ULIMIT_CORE}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &alpine-linux-volumes
@@ -274,7 +282,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_BENCHMARKS: "ON"
       ARROW_BUILD_EXAMPLES: "ON"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
@@ -309,15 +317,16 @@ services:
         arch: ${ARCH}
     shm_size: *shm-size
     environment:
-      <<: [*ccache, *sccache]
-      ARROW_CXXFLAGS: "-Og"  # Shrink test runtime by enabling minimal optimizations
+      <<: [*common, *ccache, *sccache, *cpp]
+      # Shrink test runtime by enabling minimal optimizations
+      ARROW_C_FLAGS_DEBUG: "-g1 -Og"
+      ARROW_CXX_FLAGS_DEBUG: "-g1 -Og"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JEMALLOC: "OFF"
       ARROW_RUNTIME_SIMD_LEVEL: "AVX2"  # AVX512 not supported by Valgrind (ARROW-9851)
-      ARROW_S3: "OFF"
       ARROW_TEST_MEMCHECK: "ON"
       ARROW_USE_LD_GOLD: "ON"
       BUILD_WARNING_LEVEL: "PRODUCTION"
@@ -331,7 +340,7 @@ services:
     #   docker-compose run --rm debian-cpp
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 10, 11
+    #   DEBIAN: 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     build:
       context: .
@@ -344,7 +353,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &debian-volumes
@@ -385,7 +394,7 @@ services:
       - apparmor:unconfined
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
     volumes: &ubuntu-volumes
@@ -421,7 +430,7 @@ services:
       - apparmor:unconfined
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
@@ -443,7 +452,7 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_HOME: /arrow
       LIBARROW_MINIMAL: "false"
@@ -465,7 +474,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       CMAKE_GENERATOR: "Unix Makefiles"
     volumes: *ubuntu-volumes
@@ -486,7 +495,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_UTILITIES: "OFF"
       ARROW_COMPUTE: "OFF"
       ARROW_CSV: "OFF"
@@ -533,7 +542,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [ *ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_UTILITIES: "OFF"
       ARROW_COMPUTE: "OFF"
       ARROW_CSV: "OFF"
@@ -583,9 +592,11 @@ services:
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
-      <<: *ccache
+      <<: [*common, *ccache, *cpp]
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
+      # Avoid creating huge static libraries
+      ARROW_BUILD_STATIC: "OFF"
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       # GH-33920: Disable Flight SQL to reduce build time.
       # We'll be able to re-enable this with Ubuntu 24.04 because
@@ -598,6 +609,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_USE_ASAN: "ON"
       ARROW_USE_UBSAN: "ON"
+      # 1 GB isn't enough for a single sanitizer build
+      CCACHE_MAXSIZE: 2G
       Protobuf_SOURCE: "AUTO"
     command: *cpp-command
 
@@ -621,7 +634,7 @@ services:
     shm_size: *shm-size
     volumes: *ubuntu-volumes
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       CC: clang-${CLANG_TOOLS}
       CXX: clang++-${CLANG_TOOLS}
       ARROW_BUILD_STATIC: "OFF"
@@ -653,7 +666,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache, *cpp]
       ARROW_ENABLE_TIMING_TESTS:  # inherit
       ARROW_MIMALLOC: "ON"
       Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
@@ -676,7 +689,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *sccache
+      <<: [*common, *sccache]
     volumes:
       - .:/arrow:delegated
     command: >-
@@ -694,7 +707,7 @@ services:
     #   docker-compose run --rm debian-c-glib
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 10, 11
+    #   DEBIAN: 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-c-glib
     build:
       context: .
@@ -706,7 +719,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       BUILD_DOCS_C_GLIB: "ON"
     volumes: *debian-volumes
     command: &c-glib-command >
@@ -734,7 +747,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *ubuntu-volumes
     command: *c-glib-command
 
@@ -752,7 +765,7 @@ services:
     #   docker-compose run --rm debian-ruby
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 10, 11
+    #   DEBIAN: 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-ruby
     build:
       context: .
@@ -764,7 +777,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       BUILD_DOCS_C_GLIB: "ON"
     volumes: *debian-volumes
     command: &ruby-command >
@@ -794,7 +807,7 @@ services:
     shm_size: *shm-size
     ulimits: *ulimits
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *ubuntu-volumes
     command: *ruby-command
 
@@ -808,7 +821,7 @@ services:
     #   docker-compose run --rm conda-python
     # Parameters:
     #   ARCH: amd64, arm32v7
-    #   PYTHON: 3.7, 3.8, 3.9, 3.10
+    #   PYTHON: 3.8, 3.9, 3.10, 3.11
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}
     build:
       context: .
@@ -821,7 +834,8 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache]
+      PYTEST_ARGS:  # inherit
     volumes: *conda-volumes
     command: &python-conda-command
       ["
@@ -848,7 +862,7 @@ services:
         numba: ${NUMBA}
     shm_size: *shm-size
     environment:
-      <<: [ *ccache, *sccache ] 
+      <<: [*common, *ccache, *sccache]
       ARROW_BUILD_UTILITIES: "OFF"
       ARROW_COMPUTE: "ON"
       ARROW_CSV: "ON"
@@ -882,7 +896,7 @@ services:
     #   docker-compose run --rm debian-python
     # Parameters:
     #   ARCH: amd64, arm64v8, ...
-    #   DEBIAN: 10, 11
+    #   DEBIAN: 11
     image: ${REPO}:${ARCH}-debian-${DEBIAN}-python-3
     build:
       context: .
@@ -893,7 +907,7 @@ services:
         base: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *debian-volumes
     command: *python-command
 
@@ -915,7 +929,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *ubuntu-volumes
     command: *python-command
 
@@ -952,7 +966,7 @@ services:
         base: ${REPO}:${ARCH}-fedora-${FEDORA}-cpp
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *fedora-volumes
     command: *python-command
@@ -996,7 +1010,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       # Bundled build of OpenTelemetry needs a git client
       ARROW_WITH_OPENTELEMETRY: "OFF"
       PYARROW_VERSION: ${PYARROW_VERSION:-}
@@ -1026,7 +1040,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2014-vcpkg-${VCPKG}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux2014-ccache:/ccache:delegated
@@ -1049,7 +1063,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-python-${PYTHON}-wheel-manylinux-2-28-vcpkg-${VCPKG}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}python-wheel-manylinux-2-28-ccache:/ccache:delegated
@@ -1061,6 +1075,7 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
+      <<: *common
       CHECK_IMPORTS: "ON"
       CHECK_UNITTESTS: "OFF"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
@@ -1079,6 +1094,7 @@ services:
     volumes:
       - .:/arrow:delegated
     environment:
+      <<: *common
       CHECK_IMPORTS: "OFF"
       CHECK_UNITTESTS: "ON"
     command: /arrow/ci/scripts/python_wheel_unix_test.sh /arrow
@@ -1128,7 +1144,7 @@ services:
       cache_from:
         - ${REPO}:${ARCH}-java-jni-manylinux-2014-vcpkg-${VCPKG}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}maven-cache:/root/.m2:delegated
@@ -1136,7 +1152,6 @@ services:
     command:
       ["pip install -e /arrow/dev/archery && \
         /arrow/ci/scripts/java_jni_manylinux_build.sh /arrow /build /arrow/java-dist && \
-        source /opt/rh/rh-maven35/enable && \
         /arrow/ci/scripts/java_build.sh /arrow /build /arrow/java-dist && \
         /arrow/ci/scripts/java_test.sh /arrow /build /arrow/java-dist"]
 
@@ -1167,7 +1182,7 @@ services:
         pandas: ${PANDAS}
     shm_size: *shm-size
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
       PYTEST_ARGS:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
@@ -1184,7 +1199,7 @@ services:
     # the CI pipeline.
     image: ${REPO}:${ARCH}-conda-python-${PYTHON}-pandas-${PANDAS}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       ARROW_SUBSTRAIT: "ON"
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
@@ -1226,7 +1241,7 @@ services:
         dask: ${DASK}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1252,7 +1267,7 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       ARROW_SUBSTRAIT: "ON"
     volumes: *conda-volumes
     command:
@@ -1279,7 +1294,7 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
@@ -1310,7 +1325,7 @@ services:
         llvm: ${LLVM}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       ARROW_DATASET: "OFF"
       ARROW_FLIGHT: "OFF"
       ARROW_GANDIVA: "OFF"
@@ -1354,7 +1369,7 @@ services:
         r_duckdb_dev: ${R_DUCKDB_DEV:-}
     shm_size: *shm-size
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache]
       ARROW_R_CXXFLAGS: '-Werror'
       ARROW_FLIGHT: 'ON'
       LIBARROW_BUILD: 'false'
@@ -1370,6 +1385,7 @@ services:
 
   ubuntu-r-only-r:
     environment:
+      <<: *common
       ARROW_DEPENDENCY_SOURCE: ''
       ARROW_SOURCE_HOME: '/arrow'
       FORCE_BUNDLED_BUILD: 'true'
@@ -1401,7 +1417,7 @@ services:
         r_custom_ccache: ${R_CUSTOM_CCACHE}
     shm_size: *shm-size
     environment:
-      <<: *sccache
+      <<: [*common, *sccache]
       LIBARROW_DOWNLOAD: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
@@ -1433,7 +1449,7 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       ARROW_SOURCE_HOME: "/arrow"
     volumes: *ubuntu-volumes
     command: >
@@ -1456,6 +1472,7 @@ services:
         r_prune_deps: ${R_PRUNE_DEPS}
     shm_size: *shm-size
     environment:
+      <<: *common
       LIBARROW_DOWNLOAD: "false"
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
@@ -1483,7 +1500,7 @@ services:
         r_bin: RDvalgrind
         tz: ${TZ}
     environment:
-      <<: [*ccache, *sccache]
+      <<: [*common, *ccache, *sccache]
       ARROW_R_DEV: ${ARROW_R_DEV}
       # AVX512 not supported by Valgrind (similar to ARROW-9851) some runners support AVX512 and some do not
       # so some build might pass without this setting, but we want to ensure that we stay to AVX2 regardless of runner.
@@ -1510,6 +1527,7 @@ services:
         tz: ${TZ}
     shm_size: *shm-size
     environment:
+      <<: *common
       N_JOBS:
       ARROW_REVDEP_WORKERS:
       ARROW_R_DEV: "true"
@@ -1556,6 +1574,7 @@ services:
     shm_size: *shm-size
     volumes: *debian-volumes
     environment:
+      <<: *common
       ARROW_GO_TESTCGO: "1"
     command: *go-command
 
@@ -1596,6 +1615,7 @@ services:
     shm_size: *shm-size
     volumes: *debian-volumes
     environment:
+      <<: *common
       BUILD_DOCS_JS: "ON"
     command: &js-command >
       /bin/bash -c "
@@ -1645,14 +1665,14 @@ services:
         /arrow/ci/scripts/java_build.sh /arrow /build &&
         /arrow/ci/scripts/java_test.sh /arrow /build"
 
-  oracle-java:
+  eclipse-java:
     # Usage:
-    #   docker-compose build oracle-java
-    #   docker-compose run oracle-java
+    #   docker-compose build eclipse-java
+    #   docker-compose run eclipse-java
     # Parameters:
-    #   MAVEN: 3.8.5
-    #   JDK: 17
-    image: ${ARCH}/maven:${MAVEN}-openjdk-${JDK}
+    #   MAVEN: 3.9.3
+    #   JDK: 17, 20
+    image: ${ARCH}/maven:${MAVEN}-eclipse-temurin-${JDK}
     shm_size: *shm-size
     volumes: *java-volumes
     command: *java-command
@@ -1681,7 +1701,7 @@ services:
         go: ${GO}
     volumes: *conda-volumes
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       # tell archery where the arrow binaries are located
       ARROW_CPP_EXE_PATH: /build/cpp/debug
       ARCHERY_INTEGRATION_WITH_RUST: 0
@@ -1714,9 +1734,11 @@ services:
         node: ${NODE}
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
     environment:
-      <<: *ccache
-      ARROW_JAVA_SKIP_GIT_PLUGIN:
+      <<: [*common, *ccache]
       ARROW_CUDA: "ON"
+      ARROW_CXX_FLAGS_DEBUG: "-g1"
+      ARROW_C_FLAGS_DEBUG: "-g1"
+      ARROW_JAVA_SKIP_GIT_PLUGIN:
       ARROW_SUBSTRAIT: "ON"
       BUILD_DOCS_C_GLIB: "ON"
       BUILD_DOCS_CPP: "ON"
@@ -1724,7 +1746,6 @@ services:
       BUILD_DOCS_JS: "ON"
       BUILD_DOCS_PYTHON: "ON"
       BUILD_DOCS_R: "ON"
-      Protobuf_SOURCE: "BUNDLED"  # Need Protobuf >= 3.15
     volumes: *ubuntu-volumes
     command: &docs-command >
       /bin/bash -c "
@@ -1752,7 +1773,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
         clang_tools: ${CLANG_TOOLS}
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *ubuntu-volumes
     command: >
       /bin/bash -c "
@@ -1817,7 +1838,7 @@ services:
     links:
       - impala:impala
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       ARROW_ENGINE: "OFF"
       ARROW_FLIGHT: "OFF"
       ARROW_FLIGHT_SQL: "OFF"
@@ -1861,7 +1882,7 @@ services:
         numpy: ${NUMPY}
     shm_size: *shm-size
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
     volumes: *conda-maven-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
@@ -1878,7 +1899,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       CMAKE_GENERATOR: Ninja
       DEBIAN_FRONTEND: "noninteractive"
       DOTNET_SYSTEM_GLOBALIZATION_INVARIANT: 1
@@ -1911,7 +1932,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}almalinux-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       CMAKE_GENERATOR: Ninja
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
@@ -1939,7 +1960,7 @@ services:
       - ${DOCKER_VOLUME_PREFIX}ubuntu-ccache:/ccache:delegated
     shm_size: '1gb'
     environment:
-      <<: *ccache
+      <<: [*common, *ccache]
       CMAKE_GENERATOR: Ninja
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0

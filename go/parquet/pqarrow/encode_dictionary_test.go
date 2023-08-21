@@ -400,7 +400,7 @@ func (ar *ArrowReadDictSuite) writeSimple() {
 		pqarrow.DefaultWriterProps()))
 }
 
-func (ArrowReadDictSuite) NullProbabilities() []float64 {
+func (*ArrowReadDictSuite) NullProbabilities() []float64 {
 	return []float64{0.0, 0.5, 1}
 }
 
@@ -543,6 +543,7 @@ func (ar *ArrowReadDictSuite) TestIncrementalReads() {
 	for i := 0; i < numReads; i++ {
 		chunk, err := col.NextBatch(int64(batchSize))
 		ar.Require().NoError(err)
+		defer chunk.Release()
 		// no need to manually release chunk, like other record readers
 		// the col reader holds onto the current record and will release it
 		// when the next is requested or when the reader is released

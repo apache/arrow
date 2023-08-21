@@ -2798,6 +2798,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, NumericTypes());
     AddPrimitiveIfElseKernels(func, TemporalTypes());
     AddPrimitiveIfElseKernels(func, IntervalTypes());
+    AddPrimitiveIfElseKernels(func, DurationTypes());
     AddPrimitiveIfElseKernels(func, {boolean()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
@@ -2813,6 +2814,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, NumericTypes());
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
+    AddPrimitiveCaseWhenKernels(func, DurationTypes());
     AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
@@ -2836,6 +2838,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, NumericTypes());
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
     AddPrimitiveCoalesceKernels(func, IntervalTypes());
+    AddPrimitiveCoalesceKernels(func, DurationTypes());
     AddPrimitiveCoalesceKernels(func, {boolean(), null()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
@@ -2861,6 +2864,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveChooseKernels(func, NumericTypes());
     AddPrimitiveChooseKernels(func, TemporalTypes());
     AddPrimitiveChooseKernels(func, IntervalTypes());
+    AddPrimitiveChooseKernels(func, DurationTypes());
     AddPrimitiveChooseKernels(func, {boolean(), null()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);

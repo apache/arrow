@@ -55,7 +55,7 @@ class ARROW_EXPORT FunctionRegistry {
   /// \brief Construct a new nested registry with the given parent.
   ///
   /// Most users only need to use the global registry. The returned registry never changes
-  /// its parent, even when an operation allows overwritting.
+  /// its parent, even when an operation allows overwriting.
   static std::unique_ptr<FunctionRegistry> Make(FunctionRegistry* parent);
 
   /// \brief Check whether a new function can be added to the registry.

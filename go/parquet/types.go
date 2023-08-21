@@ -131,6 +131,10 @@ func (b ByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
+func (b ByteArray) Bytes() []byte {
+	return b
+}
+
 type byteArrayTraits struct{}
 
 func (byteArrayTraits) BytesRequired(n int) int {
@@ -160,6 +164,10 @@ func (b FixedLenByteArray) Len() int {
 // String returns a string representation of the FixedLenByteArray
 func (b FixedLenByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (b FixedLenByteArray) Bytes() []byte {
+	return b
 }
 
 type fixedLenByteArrayTraits struct{}

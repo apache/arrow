@@ -24,14 +24,16 @@ import (
 	"math"
 	"reflect"
 	"unsafe"
-
-	"github.com/apache/arrow/go/v13/parquet"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl
 
 type TypeTraits interface {
 	BytesRequired(n int) int
+}
+
+type ByteSlice interface {
+	Bytes() []byte
 }
 
 // MemoTable interface for hash tables and dictionary encoding.
@@ -51,6 +53,12 @@ type MemoTable interface {
 	// the table (if false, the value was inserted). An error is returned
 	// if val is not the appropriate type for the table.
 	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	// GetOrInsertBytes returns the index of the table the specified value is,
+	// and a boolean indicating whether or not the value was found in
+	// the table (if false, the value was inserted). An error is returned
+	// if val is not the appropriate type for the table. This function is intended to be used by
+	// the BinaryMemoTable to prevent uncessary allocations of the data when converting from a []byte to interface{}.
+	GetOrInsertBytes(val []byte) (idx int, existed bool, err error)
 	// GetOrInsertNull returns the index of the null value in the table,
 	// inserting one if it hasn't already been inserted. It returns a boolean
 	// indicating if the null value already existed or not in the table.
@@ -166,16 +174,14 @@ func (s *BinaryMemoTable) Size() int {
 }
 
 // helper function to easily return a byte slice for any given value
-// regardless of the type if it's a []byte, parquet.ByteArray,
-// parquet.FixedLenByteArray or string.
+// regardless of the type if it's a []byte, string, or fulfills the
+// ByteSlice interface.
 func (BinaryMemoTable) valAsByteSlice(val interface{}) []byte {
 	switch v := val.(type) {
 	case []byte:
 		return v
-	case parquet.ByteArray:
-		return *(*[]byte)(unsafe.Pointer(&v))
-	case parquet.FixedLenByteArray:
-		return *(*[]byte)(unsafe.Pointer(&v))
+	case ByteSlice:
+		return v.Bytes()
 	case string:
 		var out []byte
 		h := (*reflect.StringHeader)(unsafe.Pointer(&v))
@@ -195,11 +201,9 @@ func (BinaryMemoTable) getHash(val interface{}) uint64 {
 	case string:
 		return hashString(v, 0)
 	case []byte:
-		return hash(v, 0)
-	case parquet.ByteArray:
-		return hash(*(*[]byte)(unsafe.Pointer(&v)), 0)
-	case parquet.FixedLenByteArray:
-		return hash(*(*[]byte)(unsafe.Pointer(&v)), 0)
+		return Hash(v, 0)
+	case ByteSlice:
+		return Hash(v.Bytes(), 0)
 	default:
 		panic("invalid type for binarymemotable")
 	}
@@ -213,10 +217,8 @@ func (b *BinaryMemoTable) appendVal(val interface{}) {
 		b.builder.AppendString(v)
 	case []byte:
 		b.builder.Append(v)
-	case parquet.ByteArray:
-		b.builder.Append(*(*[]byte)(unsafe.Pointer(&v)))
-	case parquet.FixedLenByteArray:
-		b.builder.Append(*(*[]byte)(unsafe.Pointer(&v)))
+	case ByteSlice:
+		b.builder.Append(v.Bytes())
 	}
 }
 
@@ -233,6 +235,22 @@ func (b *BinaryMemoTable) Get(val interface{}) (int, bool) {
 		return int(p.payload.val), ok
 	}
 	return KeyNotFound, false
+}
+
+// GetOrInsertBytes returns the index of the given value in the table, if not found
+// it is inserted into the table. The return value 'found' indicates whether the value
+// was found in the table (true) or inserted (false) along with any possible error.
+func (b *BinaryMemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	h := Hash(val, 0)
+	p, found := b.lookup(h, val)
+	if found {
+		idx = int(p.payload.val)
+	} else {
+		idx = b.Size()
+		b.builder.Append(val)
+		b.tbl.Insert(p, h, int32(idx), -1)
+	}
+	return
 }
 
 // GetOrInsert returns the index of the given value in the table, if not found
@@ -262,6 +280,10 @@ func (b *BinaryMemoTable) GetOrInsertNull() (idx int, found bool) {
 		b.builder.AppendNull()
 	}
 	return
+}
+
+func (b *BinaryMemoTable) Value(i int) []byte {
+	return b.builder.Value(i)
 }
 
 // helper function to get the offset into the builder data for a given

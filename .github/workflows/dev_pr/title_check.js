@@ -19,7 +19,7 @@ const fs = require("fs");
 const helpers = require("./helpers.js");
 
 async function commentOpenGitHubIssue(github, context, pullRequestNumber) {
-  const {data: comments} = await github.issues.listComments({
+  const {data: comments} = await github.rest.issues.listComments({
     owner: context.repo.owner,
     repo: context.repo.repo,
     issue_number: pullRequestNumber,
@@ -30,7 +30,7 @@ async function commentOpenGitHubIssue(github, context, pullRequestNumber) {
   }
   const commentPath = ".github/workflows/dev_pr/title_check.md";
   const comment = fs.readFileSync(commentPath).toString();
-  await github.issues.createComment({
+  await github.rest.issues.createComment({
     owner: context.repo.owner,
     repo: context.repo.repo,
     issue_number: pullRequestNumber,

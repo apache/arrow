@@ -71,12 +71,12 @@ class BaseListArray : public Array {
   /// \brief Return array object containing the list's values
   ///
   /// Note that this buffer does not account for any slice offset or length.
-  std::shared_ptr<Array> values() const { return values_; }
+  const std::shared_ptr<Array>& values() const { return values_; }
 
   /// Note that this buffer does not account for any slice offset or length.
-  std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[1]; }
+  const std::shared_ptr<Buffer>& value_offsets() const { return data_->buffers[1]; }
 
-  std::shared_ptr<DataType> value_type() const { return list_type_->value_type(); }
+  const std::shared_ptr<DataType>& value_type() const { return list_type_->value_type(); }
 
   /// Return pointer to raw value offsets accounting for any slice offset
   const offset_type* raw_value_offsets() const {
@@ -234,6 +234,10 @@ class ARROW_EXPORT MapArray : public ListArray {
            const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
            int64_t null_count = kUnknownNullCount, int64_t offset = 0);
 
+  MapArray(const std::shared_ptr<DataType>& type, int64_t length, BufferVector buffers,
+           const std::shared_ptr<Array>& keys, const std::shared_ptr<Array>& items,
+           int64_t null_count = kUnknownNullCount, int64_t offset = 0);
+
   MapArray(const std::shared_ptr<DataType>& type, int64_t length,
            const std::shared_ptr<Buffer>& value_offsets,
            const std::shared_ptr<Array>& values,
@@ -265,10 +269,10 @@ class ARROW_EXPORT MapArray : public ListArray {
   const MapType* map_type() const { return map_type_; }
 
   /// \brief Return array object containing all map keys
-  std::shared_ptr<Array> keys() const { return keys_; }
+  const std::shared_ptr<Array>& keys() const { return keys_; }
 
   /// \brief Return array object containing all mapped items
-  std::shared_ptr<Array> items() const { return items_; }
+  const std::shared_ptr<Array>& items() const { return items_; }
 
   /// Validate child data before constructing the actual MapArray.
   static Status ValidateChildData(
@@ -306,9 +310,9 @@ class ARROW_EXPORT FixedSizeListArray : public Array {
   const FixedSizeListType* list_type() const;
 
   /// \brief Return array object containing the list's values
-  std::shared_ptr<Array> values() const;
+  const std::shared_ptr<Array>& values() const;
 
-  std::shared_ptr<DataType> value_type() const;
+  const std::shared_ptr<DataType>& value_type() const;
 
   // The following functions will not perform boundschecking
   int64_t value_offset(int64_t i) const {
@@ -428,7 +432,7 @@ class ARROW_EXPORT UnionArray : public Array {
   using type_code_t = int8_t;
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> type_codes() const { return data_->buffers[1]; }
+  const std::shared_ptr<Buffer>& type_codes() const { return data_->buffers[1]; }
 
   const type_code_t* raw_type_codes() const { return raw_type_codes_ + data_->offset; }
 
@@ -567,7 +571,7 @@ class ARROW_EXPORT DenseUnionArray : public UnionArray {
   }
 
   /// Note that this buffer does not account for any slice offset
-  std::shared_ptr<Buffer> value_offsets() const { return data_->buffers[2]; }
+  const std::shared_ptr<Buffer>& value_offsets() const { return data_->buffers[2]; }
 
   int32_t value_offset(int64_t i) const { return raw_value_offsets_[i + data_->offset]; }
 

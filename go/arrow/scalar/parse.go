@@ -512,7 +512,7 @@ func MakeScalarParam(val interface{}, dt arrow.DataType) (Scalar, error) {
 			}
 			return NewFixedSizeListScalarWithType(v, dt), nil
 		case arrow.MAP:
-			if !arrow.TypeEqual(dt.(*arrow.MapType).ValueType(), v.DataType()) {
+			if !arrow.TypeEqual(dt.(*arrow.MapType).Elem(), v.DataType()) {
 				return nil, fmt.Errorf("inconsistent type for map scalar type")
 			}
 			return NewMapScalar(v), nil

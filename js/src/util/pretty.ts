@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { BigInt64Array, BigUint64Array } from './compat.js';
-
 /** @ignore */ const undf = void (0);
 
 /** @ignore */

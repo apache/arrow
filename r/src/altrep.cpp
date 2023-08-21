@@ -743,6 +743,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
   // Helper class to convert to R strings. We declare one of these for the
   // class to avoid having to stack-allocate one for every STRING_ELT call.
+  // This class does not own a reference to any arrays: it is the caller's
+  // responsibility to ensure the Array lifetime exeeds that of the viewer.
   struct RStringViewer {
     RStringViewer() : strip_out_nuls_(false), nul_was_stripped_(false) {}
 
@@ -821,11 +823,11 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
     }
 
     void SetArray(const std::shared_ptr<Array>& array) {
-      array_ = array;
+      array_ = array.get();
       string_array_ = internal::checked_cast<const StringArrayType*>(array.get());
     }
 
-    std::shared_ptr<Array> array_;
+    const Array* array_;
     const StringArrayType* string_array_;
     std::string stripped_string_;
     bool strip_out_nuls_;

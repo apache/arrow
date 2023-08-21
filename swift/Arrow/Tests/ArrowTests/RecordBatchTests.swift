@@ -27,25 +27,29 @@ final class RecordBatchTests: XCTestCase {
         stringBuilder.append("test10")
         stringBuilder.append("test22")
         
-        let intHolder = ChunkedArrayHolder(try ChunkedArray([uint8Builder.finish()]))
-        let stringHolder = ChunkedArrayHolder(try ChunkedArray([stringBuilder.finish()]))
-        let recordBatch = RecordBatch.Builder()
-            .addColumn("col1", chunked: intHolder)
-            .addColumn("col2", chunked: stringHolder)
+        let intHolder = ArrowArrayHolder(try uint8Builder.finish())
+        let stringHolder = ArrowArrayHolder(try stringBuilder.finish())
+        let result = RecordBatch.Builder()
+            .addColumn("col1", arrowArray: intHolder)
+            .addColumn("col2", arrowArray: stringHolder)
             .finish()
-
-        let schema = recordBatch.schema
-        XCTAssertEqual(schema.fields.count, 2)
-        XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type, ArrowType.ArrowUInt8)
-        XCTAssertEqual(schema.fields[0].isNullable, false)
-        XCTAssertEqual(schema.fields[1].name, "col2")
-        XCTAssertEqual(schema.fields[1].type, ArrowType.ArrowString)
-        XCTAssertEqual(schema.fields[1].isNullable, false)
-        XCTAssertEqual(recordBatch.columns.count, 2)
-        let col1: ChunkedArray<UInt8> = recordBatch.data(for: 0);
-        let col2: ChunkedArray<String> = recordBatch.data(for: 1);
-        XCTAssertEqual(col1.length, 2)
-        XCTAssertEqual(col2.length, 2)
+        switch result {
+        case .success(let recordBatch):
+            let schema = recordBatch.schema
+            XCTAssertEqual(schema.fields.count, 2)
+            XCTAssertEqual(schema.fields[0].name, "col1")
+            XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowUInt8)
+            XCTAssertEqual(schema.fields[0].isNullable, false)
+            XCTAssertEqual(schema.fields[1].name, "col2")
+            XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
+            XCTAssertEqual(schema.fields[1].isNullable, false)
+            XCTAssertEqual(recordBatch.columns.count, 2)
+            let col1: ArrowArray<UInt8> = recordBatch.data(for: 0);
+            let col2: ArrowArray<String> = recordBatch.data(for: 1);
+            XCTAssertEqual(col1.length, 2)
+            XCTAssertEqual(col2.length, 2)
+        case .failure(let error):
+            throw error
+        }
     }
 }

@@ -23,7 +23,7 @@ import (
 	"fmt"
 
 	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/compute/internal/exec"
+	"github.com/apache/arrow/go/v13/arrow/compute/exec"
 	"github.com/apache/arrow/go/v13/arrow/internal/debug"
 )
 
@@ -77,20 +77,20 @@ func execInternal(ctx context.Context, fn Function, opts FunctionOptions, passed
 
 	var (
 		k        exec.Kernel
-		executor kernelExecutor
+		executor KernelExecutor
 	)
 
 	switch fn.Kind() {
 	case FuncScalar:
 		executor = scalarExecPool.Get().(*scalarExecutor)
 		defer func() {
-			executor.clear()
+			executor.Clear()
 			scalarExecPool.Put(executor.(*scalarExecutor))
 		}()
 	case FuncVector:
 		executor = vectorExecPool.Get().(*vectorExecutor)
 		defer func() {
-			executor.clear()
+			executor.Clear()
 			vectorExecPool.Put(executor.(*vectorExecutor))
 		}()
 	default:

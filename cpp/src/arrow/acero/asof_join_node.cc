@@ -17,6 +17,7 @@
 
 #include "arrow/acero/asof_join_node.h"
 
+#include <atomic>
 #include <condition_variable>
 #include <limits>
 #include <memory>
@@ -29,11 +30,17 @@
 
 #include "arrow/acero/exec_plan.h"
 #include "arrow/acero/options.h"
+#ifndef NDEBUG
+#include "arrow/acero/options_internal.h"
+#endif
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/schema_util.h"
 #include "arrow/acero/util.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#ifndef NDEBUG
+#include "arrow/compute/function_internal.h"
+#endif
 #include "arrow/compute/key_hash.h"
 #include "arrow/compute/light_array.h"
 #include "arrow/record_batch.h"
@@ -42,6 +49,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/string.h"
 
@@ -200,8 +208,104 @@ class ConcurrentQueue {
   std::condition_variable cond_;
 };
 
+class AsofJoinNode;
+
+#ifndef NDEBUG
+// Get the debug-stream associated with the as-of-join node
+std::ostream* GetDebugStream(AsofJoinNode* node);
+
+// Get the debug-mutex associated with the as-of-join node
+std::mutex* GetDebugMutex(AsofJoinNode* node);
+
+// A debug-facility that wraps output-stream insertions with synchronization. Code like
+//
+//   DebugSync(as_of_join_node) << ... << ... << ... ;
+//
+// will insert to the node's debug-stream and guard all insertions as one operation using
+// the node's debug-mutex.
+//
+// However, it is recommended to use the DEBUG_SYNC macro, defined below it. Code like
+//
+//   DEBUG_SYNC(as_of_join_node, ..., ..., ...);
+//
+// will do the same if NDEBUG is not defined, and otherwise it will be preprocessed-out.
+// A IO manipulator used within DEBUG_SYNC must be wrapped by DEBUG_MANIP, for example:
+//
+//   DEBUG_SYNC(as_of_join_node, ... , DEBUG_MANIP(std::endl) , ...);
+class DebugSync {
+ public:
+  explicit DebugSync(AsofJoinNode* node)
+      : debug_os_(GetDebugStream(node)),
+        debug_mutex_(GetDebugMutex(node)),
+        alt_debug_mutex_(),  // an alternative debug-mutex, if the node has none
+        debug_lock_(debug_mutex_ ? *debug_mutex_ : alt_debug_mutex_) {
+    if (debug_os_) {
+      std::ios state(NULL);
+      state.copyfmt(*debug_os_);
+      (*debug_os_) << "AsofjoinNode(" << std::hex << &node << "): ";
+      debug_os_->copyfmt(state);
+    }
+  }
+
+  DebugSync& operator<<(std::ostream& (*pf)(std::ostream&)) {
+    if (debug_os_) pf(*debug_os_);
+    return *this;
+  }
+  DebugSync& operator<<(std::ios& (*pf)(std::ios&)) {
+    if (debug_os_) pf(*debug_os_);
+    return *this;
+  }
+  DebugSync& operator<<(std::ios_base& (*pf)(std::ios_base&)) {
+    if (debug_os_) pf(*debug_os_);
+    return *this;
+  }
+
+  // used by DEBUG_MANIP macro below
+  using Manip = std::function<DebugSync&(DebugSync&)>;
+  DebugSync& operator<<(Manip f) { return f(*this); }
+
+  template <typename T>
+  DebugSync& operator<<(T&& value) {
+    if (debug_os_) (*debug_os_) << value;
+    return *this;
+  }
+
+  // used by DEBUG_SYNC macro below
+  template <typename... Args>
+  DebugSync& insert(Args&&... args) {
+    return (*this << ... << args);
+  }
+
+ private:
+  std::ostream* debug_os_;
+  std::mutex* debug_mutex_;
+  std::mutex alt_debug_mutex_;
+  std::unique_lock<std::mutex> debug_lock_;
+};
+
+#define DEBUG_SYNC(node, ...) DebugSync(node).insert(__VA_ARGS__)
+#define DEBUG_MANIP(manip) \
+  DebugSync::Manip([](DebugSync& d) -> DebugSync& { return d << manip; })
+#define NDEBUG_EXPLICIT
+#define DEBUG_ADD(ndebug, ...) ndebug, __VA_ARGS__
+#else
+#define DEBUG_SYNC(...)
+#define DEBUG_MANIP(...)
+#define NDEBUG_EXPLICIT explicit
+#define DEBUG_ADD(ndebug, ...) ndebug
+#endif
+
 struct MemoStore {
-  // Stores last known values for all the keys
+  // A MemoStore is associated with an input of the as-of-join node.
+  // Stores the current time as well as the last-known values for all the keys.
+  // In case of a future as-of-join, also stores:
+  //   1. known future values for all keys
+  //   2. known distinct future times
+  //
+  // Keeping future values and times allows the as-of-join node's to look ahead to the
+  // horizon (i.e., the left input's time plus future tolerance) of a right input.
+  //
+  // A key's value is captured in an entry, which describes a row of the input's batch.
 
   struct Entry {
     Entry() = default;
@@ -226,8 +330,10 @@ struct MemoStore {
     row_index_t row;
   };
 
-  explicit MemoStore(bool no_future)
-      : no_future_(no_future), current_time_(std::numeric_limits<OnType>::lowest()) {}
+  NDEBUG_EXPLICIT MemoStore(DEBUG_ADD(bool no_future, AsofJoinNode* node, size_t index))
+      : no_future_(no_future),
+        DEBUG_ADD(current_time_(std::numeric_limits<OnType>::lowest()), node_(node),
+                  index_(index)) {}
 
   // true when there are no future entries, which is the case for the LHS table and the
   // case for when the tolerance is non-positive. A non-positive-tolerance as-of-join
@@ -246,8 +352,18 @@ struct MemoStore {
   std::unordered_map<ByType, std::queue<Entry>> future_entries_;
   // current and future (distinct) times of existing entries
   std::deque<OnType> times_;
+#ifndef NDEBUG
+  // Owning node
+  AsofJoinNode* node_;
+  // Index of owning input
+  size_t index_;
+#endif
 
   void swap(MemoStore& memo) {
+#ifndef NDEBUG
+    std::swap(node_, memo.node_);
+    std::swap(index_, memo.index_);
+#endif
     std::swap(no_future_, memo.no_future_);
     std::swap(current_time_, memo.current_time_);
     entries_.swap(memo.entries_);
@@ -255,8 +371,17 @@ struct MemoStore {
     times_.swap(memo.times_);
   }
 
-  void Store(OnType for_time, const std::shared_ptr<RecordBatch>& batch, row_index_t row,
-             OnType time, ByType key) {
+  // Updates the current time to `ts` if it is less. Returns true if updated.
+  bool UpdateTime(OnType ts) {
+    bool update = current_time_ < ts;
+    if (update) current_time_ = ts;
+    return update;
+  }
+
+  void Store(const std::shared_ptr<RecordBatch>& batch, row_index_t row, OnType time,
+             DEBUG_ADD(ByType key, OnType for_time)) {
+    DEBUG_SYNC(node_, "memo ", index_, " store: for_time=", for_time, " row=", row,
+               " time=", time, " key=", key, DEBUG_MANIP(std::endl));
     if (no_future_ || entries_.count(key) == 0) {
       auto& e = entries_[key];
       // that we can do this assignment optionally, is why we
@@ -268,11 +393,19 @@ struct MemoStore {
     } else {
       future_entries_[key].emplace(time, batch, row);
     }
-    if (!no_future_ || times_.empty() || times_.front() != time) {
+    // Maintain distinct times:
+    // If no times are currently maintained then the given time is distinct and hence
+    // pushed. Otherwise, the invariant is that the latest time is at the back. If no
+    // future times are maintained, then only one time is maintained, and hence it is
+    // overwritten with the given time. Otherwise, the given time must be no less than the
+    // latest time, due to time ordering, so it is pushed back only if it is distinct.
+    if (times_.empty() || (!no_future_ && times_.back() != time)) {
       times_.push_back(time);
     } else {
-      times_.front() = time;
+      times_.back() = time;
     }
+    // `time` is the most advanced seen yet - `UpdateTime(time)` would work but not needed
+    current_time_ = time;
   }
 
   std::optional<const Entry*> GetEntryForKey(ByType key) const {
@@ -281,17 +414,26 @@ struct MemoStore {
   }
 
   bool RemoveEntriesWithLesserTime(OnType ts) {
+    DEBUG_SYNC(node_, "memo ", index_, " remove: ts=", ts, DEBUG_MANIP(std::endl));
+    bool updated = false;
+    // remove future entries with lesser time
     for (auto fe = future_entries_.begin(); fe != future_entries_.end();) {
       auto& queue = fe->second;
-      while (!queue.empty() && queue.front().time < ts) queue.pop();
+      while (!queue.empty() && queue.front().time < ts) {
+        queue.pop();
+        updated = true;  // queue changed
+      }
+      // remove entry if its queue was just emptied
       if (queue.empty()) {
         fe = future_entries_.erase(fe);
       } else {
         ++fe;
       }
     }
+    // remove last-known entries with lesser time
     for (auto e = entries_.begin(); e != entries_.end();) {
       if (e->second.time < ts) {
+        // drop last-known entry and move next future entry, if exists, in its place
         auto fe = future_entries_.find(e->first);
         if (fe != future_entries_.end() && !fe->second.empty()) {
           auto& queue = fe->second;
@@ -301,39 +443,33 @@ struct MemoStore {
         } else {
           e = entries_.erase(e);
         }
+        updated = true;  // entry changed
       } else {
         ++e;
       }
     }
-    bool updated = false;
+    // remove known lesser times
     while (!times_.empty() && times_.front() < ts) {
-      current_time_ = times_.front();
       times_.pop_front();
-      updated = true;
     }
-    for (auto times_it = times_.begin(); times_it != times_.end(); times_it++) {
-      if (current_time_ < *times_it) {
-        current_time_ = *times_it;
-        updated = true;
-      }
-      if (*times_it > ts) break;
-    }
-    if (current_time_ < ts) {
-      current_time_ = ts;
-      updated = true;
-    }
-    return updated;
+    // update current time
+    return UpdateTime(ts) || updated;
   }
 };
 
 // a specialized higher-performance variation of Hashing64 logic from hash_join_node
 // the code here avoids recreating objects that are independent of each batch processed
 class KeyHasher {
+  friend class AsofJoinNode;
+
   static constexpr int kMiniBatchLength = arrow::util::MiniBatch::kMiniBatchLength;
 
  public:
-  explicit KeyHasher(const std::vector<col_index_t>& indices)
-      : indices_(indices),
+  // the key hasher is not thread-safe and is only used in sequential batch processing
+  // of the input it is associated with
+  KeyHasher(size_t index, const std::vector<col_index_t>& indices)
+      : index_(index),
+        indices_(indices),
         metadata_(indices.size()),
         batch_(NULLPTR),
         hashes_(),
@@ -355,11 +491,16 @@ class KeyHasher {
                        4 * kMiniBatchLength * sizeof(uint32_t));
   }
 
+  // invalidate cached hashes for batch - required when it changes
+  // only this method can be called concurrently with HashesFor
+  void Invalidate() { batch_ = NULLPTR; }
+
+  // compute and cache a hash for each row of the given batch
   const std::vector<HashType>& HashesFor(const RecordBatch* batch) {
     if (batch_ == batch) {
-      return hashes_;
+      return hashes_;  // cache hit - return cached hashes
     }
-    batch_ = NULLPTR;  // invalidate cached hashes for batch
+    Invalidate();
     size_t batch_length = batch->num_rows();
     hashes_.resize(batch_length);
     for (int64_t i = 0; i < static_cast<int64_t>(batch_length); i += kMiniBatchLength) {
@@ -370,16 +511,21 @@ class KeyHasher {
         column_arrays_[k] =
             ColumnArrayFromArrayDataAndMetadata(array_data, metadata_[k], i, length);
       }
+      // write directly to the cache
       Hashing64::HashMultiColumn(column_arrays_, &ctx_, hashes_.data() + i);
     }
-    batch_ = batch;
+    DEBUG_SYNC(node_, "key hasher ", index_, " got hashes ",
+               compute::internal::GenericToString(hashes_), DEBUG_MANIP(std::endl));
+    batch_ = batch;  // associate cache with current batch
     return hashes_;
   }
 
  private:
+  AsofJoinNode* node_ = nullptr;  // avoids circular dependency during initialization
+  size_t index_;
   std::vector<col_index_t> indices_;
   std::vector<KeyColumnMetadata> metadata_;
-  const RecordBatch* batch_;
+  std::atomic<const RecordBatch*> batch_;
   std::vector<HashType> hashes_;
   LightContext ctx_;
   std::vector<KeyColumnArray> column_arrays_;
@@ -494,7 +640,7 @@ class InputState {
 
  public:
   InputState(size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-             KeyHasher* key_hasher, BackpressureHandler handler,
+             KeyHasher* key_hasher, AsofJoinNode* node, BackpressureHandler handler,
              const std::shared_ptr<arrow::Schema>& schema,
              const col_index_t time_col_index,
              const std::vector<col_index_t>& key_col_index)
@@ -505,10 +651,12 @@ class InputState {
         time_type_id_(schema_->fields()[time_col_index_]->type()->id()),
         key_type_id_(key_col_index.size()),
         key_hasher_(key_hasher),
+        node_(node),
+        index_(index),
         must_hash_(must_hash),
         may_rehash_(may_rehash),
         tolerance_(tolerance),
-        memo_(/*no_future=*/index == 0 || !tolerance.positive) {
+        memo_(DEBUG_ADD(/*no_future=*/index == 0 || !tolerance.positive, node, index)) {
     for (size_t k = 0; k < key_col_index_.size(); k++) {
       key_type_id_[k] = schema_->fields()[key_col_index_[k]]->type()->id();
     }
@@ -516,18 +664,19 @@ class InputState {
 
   static Result<std::unique_ptr<InputState>> Make(
       size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-      KeyHasher* key_hasher, ExecNode* node, ExecNode* output,
+      KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
       std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
       const std::vector<col_index_t>& key_col_index) {
     constexpr size_t low_threshold = 4, high_threshold = 8;
     std::unique_ptr<BackpressureControl> backpressure_control =
-        std::make_unique<BackpressureController>(node, output, backpressure_counter);
+        std::make_unique<BackpressureController>(
+            /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                        key_hasher, std::move(handler), schema,
+                                        key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
   }
 
@@ -569,7 +718,7 @@ class InputState {
   // returns the latest time (which is current); otherwise, returns the current time.
   // used when checking whether RHS is up to date with LHS.
   OnType GetCurrentTime() const {
-    return memo_.no_future_ ? GetLatestTime() : memo_.current_time_;
+    return memo_.no_future_ ? GetLatestTime() : static_cast<OnType>(memo_.current_time_);
   }
 
   int total_batches() const { return total_batches_; }
@@ -592,6 +741,9 @@ class InputState {
 
   inline ByType GetKey(const RecordBatch* batch, row_index_t row) const {
     if (must_hash_) {
+      // Query the key hasher. This may hit cache, which must be valid for the batch.
+      // Therefore, the key hasher is invalidated when a new batch is pushed - see
+      // `InputState::Push`.
       return key_hasher_->HashesFor(batch)[row];
     }
     if (key_col_index_.size() == 0) {
@@ -666,8 +818,10 @@ class InputState {
         ++batches_processed_;
         latest_ref_row_ = 0;
         have_active_batch &= !queue_.TryPop();
-        if (have_active_batch)
+        if (have_active_batch) {
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
+          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), 0));  // time changed
+        }
       }
     }
     return have_active_batch;
@@ -680,6 +834,7 @@ class InputState {
   Result<bool> AdvanceAndMemoize(OnType ts) {
     // Advance the right side row index until we reach the latest right row (for each key)
     // for the given left timestamp.
+    DEBUG_SYNC(node_, "Advancing input ", index_, DEBUG_MANIP(std::endl));
 
     // Check if already updated for TS (or if there is no latest)
     if (Empty()) {  // can't advance if empty and no future entries
@@ -688,14 +843,19 @@ class InputState {
 
     // Not updated.  Try to update and possibly advance.
     bool advanced, updated = false;
+    OnType latest_time;
     do {
-      auto latest_time = GetLatestTime();
+      latest_time = GetLatestTime();
       // if Advance() returns true, then the latest_ts must also be valid
       // Keep advancing right table until we hit the latest row that has
       // timestamp <= ts. This is because we only need the latest row for the
       // match given a left ts.
-      if (latest_time > tolerance_.Horizon(ts)) {              // hit a distant timestamp
-        if (memo_.no_future_ || !memo_.times_.empty()) break;  // no future entries
+      if (latest_time > tolerance_.Horizon(ts)) {  // hit a distant timestamp
+        DEBUG_SYNC(node_, "Advancing input ", index_, " hit distant time=", latest_time,
+                   " at=", ts, DEBUG_MANIP(std::endl));
+        // if no future entries, which would have been earlier than the distant time, no
+        // need to queue it
+        if (memo_.future_entries_.empty()) break;
       }
       auto rb = GetLatestBatch();
       if (may_rehash_ && rb->column_data(key_col_index_[0])->GetNullCount() > 0) {
@@ -703,22 +863,28 @@ class InputState {
         may_rehash_ = false;
         Rehash();
       }
-      memo_.Store(ts, rb, latest_ref_row_, latest_time, GetLatestKey());
+      memo_.Store(rb, latest_ref_row_, latest_time, DEBUG_ADD(GetLatestKey(), ts));
+      // negative tolerance means a last-known entry was stored - set `updated` to `true`
       updated = memo_.no_future_;
       ARROW_ASSIGN_OR_RAISE(advanced, Advance());
     } while (advanced);
-    if (!memo_.no_future_) {  // "updated" was not modified in the loop; set it here
+    if (!memo_.no_future_ && latest_time >= ts) {
+      // `updated` was not modified in the loop from the initial `false` value; set it now
       updated = memo_.RemoveEntriesWithLesserTime(ts);
     }
+    DEBUG_SYNC(node_, "Advancing input ", index_, " updated=", updated,
+               DEBUG_MANIP(std::endl));
     return updated;
   }
 
   void Rehash() {
-    MemoStore new_memo(memo_.no_future_);
-    new_memo.current_time_ = memo_.current_time_;
+    DEBUG_SYNC(node_, "rehashing for input ", index_, ":", DEBUG_MANIP(std::endl));
+    MemoStore new_memo(DEBUG_ADD(memo_.no_future_, node_, index_));
+    new_memo.current_time_ = (OnType)memo_.current_time_;
     for (auto e = memo_.entries_.begin(); e != memo_.entries_.end(); ++e) {
       auto& entry = e->second;
       auto new_key = GetKey(entry.batch.get(), entry.row);
+      DEBUG_SYNC(node_, "  ", e->first, " to ", new_key, DEBUG_MANIP(std::endl));
       new_memo.entries_[new_key].swap(entry);
       auto fe = memo_.future_entries_.find(e->first);
       if (fe != memo_.future_entries_.end()) {
@@ -731,7 +897,8 @@ class InputState {
 
   Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
-      queue_.Push(rb);
+      key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
+      queue_.Push(rb);            // only now push batch for processing
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
@@ -782,6 +949,10 @@ class InputState {
   std::vector<Type::type> key_type_id_;
   // Hasher for key elements
   mutable KeyHasher* key_hasher_;
+  // Owning node
+  AsofJoinNode* node_;
+  // Index of this input
+  size_t index_;
   // True if hashing is mandatory
   bool must_hash_;
   // True if by-key values may be rehashed
@@ -821,7 +992,8 @@ struct CompositeReferenceRow {
 template <size_t MAX_TABLES>
 class CompositeReferenceTable {
  public:
-  explicit CompositeReferenceTable(size_t n_tables) : n_tables_(n_tables) {
+  NDEBUG_EXPLICIT CompositeReferenceTable(DEBUG_ADD(size_t n_tables, AsofJoinNode* node))
+      : DEBUG_ADD(n_tables_(n_tables), node_(node)) {
     DCHECK_GE(n_tables_, 1);
     DCHECK_LE(n_tables_, MAX_TABLES);
   }
@@ -856,10 +1028,23 @@ class CompositeReferenceTable {
     row.refs[0].row = lhs_latest_row;
     AddRecordBatchRef(lhs_latest_batch);
 
+    DEBUG_SYNC(node_, "Emplace: key=", key, " lhs_latest_row=", lhs_latest_row,
+               " lhs_latest_time=", lhs_latest_time, DEBUG_MANIP(std::endl));
+
     // Get the state for that key from all on the RHS -- assumes it's up to date
     // (the RHS state comes from the memoized row references)
     for (size_t i = 1; i < in.size(); ++i) {
       std::optional<const MemoStore::Entry*> opt_entry = in[i]->GetMemoEntryForKey(key);
+#ifndef NDEBUG
+      {
+        bool has_entry = opt_entry.has_value();
+        OnType entry_time = has_entry ? (*opt_entry)->time : TolType::kMinValue;
+        row_index_t entry_row = has_entry ? (*opt_entry)->row : 0;
+        bool accepted = has_entry && tolerance.Accepts(lhs_latest_time, entry_time);
+        DEBUG_SYNC(node_, "  i=", i, " has_entry=", has_entry, " time=", entry_time,
+                   " row=", entry_row, " accepted=", accepted, DEBUG_MANIP(std::endl));
+      }
+#endif
       if (opt_entry.has_value()) {
         DCHECK(*opt_entry);
         if (tolerance.Accepts(lhs_latest_time, (*opt_entry)->time)) {
@@ -963,6 +1148,11 @@ class CompositeReferenceTable {
   // Total number of tables in the composite table
   size_t n_tables_;
 
+#ifndef NDEBUG
+  // Owning node
+  AsofJoinNode* node_;
+#endif
+
   // Adds a RecordBatch ref to the mapping, if needed
   void AddRecordBatchRef(const std::shared_ptr<RecordBatch>& ref) {
     if (!_ptr2ref.count((uintptr_t)ref.get())) _ptr2ref[(uintptr_t)ref.get()] = ref;
@@ -1059,7 +1249,7 @@ class AsofJoinNode : public ExecNode {
         // If RHS is finished, then we know it's up to date
         if (rhs.CurrentEmpty())
           return false;  // RHS isn't finished, but is empty --> not up to date
-        if (lhs_ts >= rhs.GetCurrentTime())
+        if (lhs_ts > rhs.GetCurrentTime())
           return false;  // RHS isn't up to date (and not finished)
       }
     }
@@ -1071,7 +1261,7 @@ class AsofJoinNode : public ExecNode {
     auto& lhs = *state_.at(0);
 
     // Construct new target table if needed
-    CompositeReferenceTable<MAX_JOIN_TABLES> dst(state_.size());
+    CompositeReferenceTable<MAX_JOIN_TABLES> dst(DEBUG_ADD(state_.size(), this));
 
     // Generate rows into the dst table until we either run out of data or hit the row
     // limit, or run out of input
@@ -1159,6 +1349,8 @@ class AsofJoinNode : public ExecNode {
         if (!out_rb) break;
         ExecBatch out_b(*out_rb);
         out_b.index = batches_produced_++;
+        DEBUG_SYNC(this, "produce batch ", out_b.index, ":", DEBUG_MANIP(std::endl),
+                   out_rb->ToString(), DEBUG_MANIP(std::endl));
         Status st = output_->InputReceived(this, std::move(out_b));
         if (!st.ok()) {
           EndFromProcessThread(std::move(st));
@@ -1201,7 +1393,7 @@ class AsofJoinNode : public ExecNode {
   AsofJoinNode(ExecPlan* plan, NodeVector inputs, std::vector<std::string> input_labels,
                const std::vector<col_index_t>& indices_of_on_key,
                const std::vector<std::vector<col_index_t>>& indices_of_by_key,
-               TolType tolerance, std::shared_ptr<Schema> output_schema,
+               AsofJoinNodeOptions join_options, std::shared_ptr<Schema> output_schema,
                std::vector<std::unique_ptr<KeyHasher>> key_hashers, bool must_hash,
                bool may_rehash);
 
@@ -1469,7 +1661,7 @@ class AsofJoinNode : public ExecNode {
 
     std::vector<std::unique_ptr<KeyHasher>> key_hashers;
     for (size_t i = 0; i < n_input; i++) {
-      key_hashers.push_back(std::make_unique<KeyHasher>(indices_of_by_key[i]));
+      key_hashers.push_back(std::make_unique<KeyHasher>(i, indices_of_by_key[i]));
     }
     bool must_hash =
         n_by > 1 ||
@@ -1479,8 +1671,8 @@ class AsofJoinNode : public ExecNode {
     bool may_rehash = n_by == 1 && !must_hash;
     return plan->EmplaceNode<AsofJoinNode>(
         plan, inputs, std::move(input_labels), std::move(indices_of_on_key),
-        std::move(indices_of_by_key), TolType(join_options.tolerance),
-        std::move(output_schema), std::move(key_hashers), must_hash, may_rehash);
+        std::move(indices_of_by_key), std::move(join_options), std::move(output_schema),
+        std::move(key_hashers), must_hash, may_rehash);
   }
 
   const char* kind_name() const override { return "AsofJoinNode"; }
@@ -1493,6 +1685,8 @@ class AsofJoinNode : public ExecNode {
 
     // Put into the queue
     auto rb = *batch.ToRecordBatch(input->output_schema());
+    DEBUG_SYNC(this, "received batch from input ", k, ":", DEBUG_MANIP(std::endl),
+               rb->ToString(), DEBUG_MANIP(std::endl));
     ARROW_RETURN_NOT_OK(state_.at(k)->Push(rb));
     process_.Push(true);
     return Status::OK();
@@ -1514,6 +1708,10 @@ class AsofJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
+#ifndef ARROW_ENABLE_THREADING
+    return Status::NotImplemented("ASOF join requires threading enabled");
+#endif
+
     ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
                                              "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {
@@ -1533,6 +1731,12 @@ class AsofJoinNode : public ExecNode {
     return Status::OK();
   }
 
+#ifndef NDEBUG
+  std::ostream* GetDebugStream() { return debug_os_; }
+
+  std::mutex* GetDebugMutex() { return debug_mutex_; }
+#endif
+
  private:
   // Outputs from this node are always in ascending order according to the on key
   const Ordering ordering_;
@@ -1546,6 +1750,10 @@ class AsofJoinNode : public ExecNode {
   std::vector<std::unique_ptr<InputState>> state_;
   std::mutex gate_;
   TolType tolerance_;
+#ifndef NDEBUG
+  std::ostream* debug_os_;
+  std::mutex* debug_mutex_;
+#endif
 
   // Backpressure counter common to all inputs
   std::atomic<int32_t> backpressure_counter_;
@@ -1564,7 +1772,8 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
                            std::vector<std::string> input_labels,
                            const std::vector<col_index_t>& indices_of_on_key,
                            const std::vector<std::vector<col_index_t>>& indices_of_by_key,
-                           TolType tolerance, std::shared_ptr<Schema> output_schema,
+                           AsofJoinNodeOptions join_options,
+                           std::shared_ptr<Schema> output_schema,
                            std::vector<std::unique_ptr<KeyHasher>> key_hashers,
                            bool must_hash, bool may_rehash)
     : ExecNode(plan, inputs, input_labels,
@@ -1575,10 +1784,18 @@ AsofJoinNode::AsofJoinNode(ExecPlan* plan, NodeVector inputs,
       key_hashers_(std::move(key_hashers)),
       must_hash_(must_hash),
       may_rehash_(may_rehash),
-      tolerance_(tolerance),
+      tolerance_(TolType(join_options.tolerance)),
+#ifndef NDEBUG
+      debug_os_(join_options.debug_opts ? join_options.debug_opts->os : nullptr),
+      debug_mutex_(join_options.debug_opts ? join_options.debug_opts->mutex : nullptr),
+#endif
       backpressure_counter_(1),
       process_(),
-      process_thread_() {}
+      process_thread_() {
+  for (auto& key_hasher : key_hashers_) {
+    key_hasher->node_ = this;
+  }
+}
 
 namespace internal {
 void RegisterAsofJoinNode(ExecFactoryRegistry* registry) {
@@ -1600,6 +1817,17 @@ Result<std::shared_ptr<Schema>> MakeOutputSchema(
 }
 
 }  // namespace asofjoin
+
+#ifndef NDEBUG
+std::ostream* GetDebugStream(AsofJoinNode* node) { return node->GetDebugStream(); }
+
+std::mutex* GetDebugMutex(AsofJoinNode* node) { return node->GetDebugMutex(); }
+#endif
+
+#undef DEBUG_SYNC
+#undef DEBUG_MANIP
+#undef NDEBUG_EXPLICIT
+#undef DEBUG_ADD
 
 }  // namespace acero
 }  // namespace arrow

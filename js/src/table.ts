@@ -91,7 +91,7 @@ export class Table<T extends TypeMap = any> {
             schema = args.shift() as Schema<T>;
         }
 
-        if (args[args.length - 1] instanceof Uint32Array) {
+        if (args.at(-1) instanceof Uint32Array) {
             offsets = args.pop();
         }
 

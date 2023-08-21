@@ -23,10 +23,19 @@ namespace arrow {
 using arrow::internal::CpuInfo;
 namespace acero {
 
+namespace {
+io::IOContext GetIoContext(const QueryOptions& opts, const ExecContext& exec_context) {
+  if (opts.custom_io_executor == nullptr) {
+    return io::IOContext(exec_context.memory_pool());
+  }
+  return io::IOContext(exec_context.memory_pool(), opts.custom_io_executor);
+}
+}  // namespace
+
 QueryContext::QueryContext(QueryOptions opts, ExecContext exec_context)
-    : options_(opts),
+    : options_(std::move(opts)),
       exec_context_(exec_context),
-      io_context_(exec_context_.memory_pool()) {}
+      io_context_(GetIoContext(options_, exec_context_)) {}
 
 const CpuInfo* QueryContext::cpu_info() const { return CpuInfo::GetInstance(); }
 int64_t QueryContext::hardware_flags() const { return cpu_info()->hardware_flags(); }

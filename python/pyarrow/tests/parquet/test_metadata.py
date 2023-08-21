@@ -128,7 +128,7 @@ def test_parquet_metadata_api():
     assert col_meta.is_stats_set is True
     assert isinstance(col_meta.statistics, pq.Statistics)
     assert col_meta.compression == 'SNAPPY'
-    assert col_meta.encodings == ('PLAIN', 'RLE')
+    assert set(col_meta.encodings) == {'PLAIN', 'RLE'}
     assert col_meta.has_dictionary_page is False
     assert col_meta.dictionary_page_offset is None
     assert col_meta.data_page_offset > 0
@@ -161,33 +161,33 @@ def test_parquet_metadata_lifetime(tempdir):
         'distinct_count'
     ),
     [
-        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, 0),
-        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, 0),
-        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, 0),
+        ([1, 2, 2, None, 4], pa.uint8(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint16(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint32(), 'INT32', 1, 4, 1, 4, None),
+        ([1, 2, 2, None, 4], pa.uint64(), 'INT64', 1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int8(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int16(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int32(), 'INT32', -1, 4, 1, 4, None),
+        ([-1, 2, 2, None, 4], pa.int64(), 'INT64', -1, 4, 1, 4, None),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float32(),
-            'FLOAT', -1.1, 4.4, 1, 4, 0
+            'FLOAT', -1.1, 4.4, 1, 4, None
         ),
         (
             [-1.1, 2.2, 2.3, None, 4.4], pa.float64(),
-            'DOUBLE', -1.1, 4.4, 1, 4, 0
+            'DOUBLE', -1.1, 4.4, 1, 4, None
         ),
         (
             ['', 'b', chr(1000), None, 'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, 0
+            'BYTE_ARRAY', b'', chr(1000).encode('utf-8'), 1, 4, None
         ),
         (
             [True, False, False, True, True], pa.bool_(),
-            'BOOLEAN', False, True, 0, 5, 0
+            'BOOLEAN', False, True, 0, 5, None
         ),
         (
             [b'\x00', b'b', b'12', None, b'aaa'], pa.binary(),
-            'BYTE_ARRAY', b'\x00', b'b', 1, 4, 0
+            'BYTE_ARRAY', b'\x00', b'b', 1, 4, None
         ),
     ]
 )
@@ -355,6 +355,21 @@ def test_field_id_metadata():
     # have field_id in parquet (not tested)
     assert schema[4].metadata[field_id] == b'xyz'
     assert schema[5].metadata[field_id] == b'-1000'
+
+
+def test_parquet_file_page_index():
+    for write_page_index in (False, True):
+        table = pa.table({'a': [1, 2, 3]})
+
+        writer = pa.BufferOutputStream()
+        _write_table(table, writer, write_page_index=write_page_index)
+        reader = pa.BufferReader(writer.getvalue())
+
+        # Can retrieve sorting columns from metadata
+        metadata = pq.read_metadata(reader)
+        cc = metadata.row_group(0).column(0)
+        assert cc.has_offset_index is write_page_index
+        assert cc.has_column_index is write_page_index
 
 
 @pytest.mark.pandas

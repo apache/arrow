@@ -49,6 +49,11 @@ class PARQUET_EXPORT BloomFilter {
   /// @param hash the hash of value to insert into Bloom filter.
   virtual void InsertHash(uint64_t hash) = 0;
 
+  /// Insert elements to set represented by Bloom filter bitset.
+  /// @param hashes the hash values to insert into Bloom filter.
+  /// @param num_values the number of hash values to insert.
+  virtual void InsertHashes(const uint64_t* hashes, int num_values) = 0;
+
   /// Write this Bloom filter to an output stream. A Bloom filter structure should
   /// include bitset length, hash strategy, algorithm, and bitset.
   ///
@@ -101,7 +106,66 @@ class PARQUET_EXPORT BloomFilter {
   /// @return hash result.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
 
-  virtual ~BloomFilter() {}
+  /// Batch compute hashes for 32 bits values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const = 0;
+
+  /// Batch compute hashes for 64 bits values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const int64_t* values, int num_values, uint64_t* hashes) const = 0;
+
+  /// Batch compute hashes for float values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const float* values, int num_values, uint64_t* hashes) const = 0;
+
+  /// Batch compute hashes for double values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const double* values, int num_values, uint64_t* hashes) const = 0;
+
+  /// Batch compute hashes for Int96 values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const Int96* values, int num_values, uint64_t* hashes) const = 0;
+
+  /// Batch compute hashes for ByteArray values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const ByteArray* values, int num_values,
+                      uint64_t* hashes) const = 0;
+
+  /// Batch compute hashes for fixed byte array values by using its plain encoding result.
+  ///
+  /// @param values values a pointer to the values to hash.
+  /// @param type_len the value length.
+  /// @param num_values the number of values to hash.
+  /// @param hashes a pointer to the output hash values, its length should be equal to
+  /// num_values.
+  virtual void Hashes(const FLBA* values, uint32_t type_len, int num_values,
+                      uint64_t* hashes) const = 0;
+
+  virtual ~BloomFilter() = default;
 
  protected:
   // Hash strategy available for Bloom filter.
@@ -200,18 +264,47 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
 
   bool FindHash(uint64_t hash) const override;
   void InsertHash(uint64_t hash) override;
+  void InsertHashes(const uint64_t* hashes, int num_values) override;
   void WriteTo(ArrowOutputStream* sink) const override;
   uint32_t GetBitsetSize() const override { return num_bytes_; }
 
+  uint64_t Hash(int32_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(int64_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(float value) const override { return hasher_->Hash(value); }
   uint64_t Hash(double value) const override { return hasher_->Hash(value); }
   uint64_t Hash(const Int96* value) const override { return hasher_->Hash(value); }
   uint64_t Hash(const ByteArray* value) const override { return hasher_->Hash(value); }
-  uint64_t Hash(int32_t value) const override { return hasher_->Hash(value); }
   uint64_t Hash(const FLBA* value, uint32_t len) const override {
     return hasher_->Hash(value, len);
   }
+
+  void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const override {
+    hasher_->Hashes(values, num_values, hashes);
+  }
+  void Hashes(const int64_t* values, int num_values, uint64_t* hashes) const override {
+    hasher_->Hashes(values, num_values, hashes);
+  }
+  void Hashes(const float* values, int num_values, uint64_t* hashes) const override {
+    hasher_->Hashes(values, num_values, hashes);
+  }
+  void Hashes(const double* values, int num_values, uint64_t* hashes) const override {
+    hasher_->Hashes(values, num_values, hashes);
+  }
+  void Hashes(const Int96* values, int num_values, uint64_t* hashes) const override {
+    hasher_->Hashes(values, num_values, hashes);
+  }
+  void Hashes(const ByteArray* values, int num_values, uint64_t* hashes) const override {
+    hasher_->Hashes(values, num_values, hashes);
+  }
+  void Hashes(const FLBA* values, uint32_t type_len, int num_values,
+              uint64_t* hashes) const override {
+    hasher_->Hashes(values, type_len, num_values, hashes);
+  }
+
+  uint64_t Hash(const int32_t* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const int64_t* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const float* value) const { return hasher_->Hash(*value); }
+  uint64_t Hash(const double* value) const { return hasher_->Hash(*value); }
 
   /// Deserialize the Bloom filter from an input stream. It is used when reconstructing
   /// a Bloom filter from a parquet filter.
@@ -223,6 +316,8 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
                                            ArrowInputStream* input_stream);
 
  private:
+  inline void InsertHashImpl(uint64_t hash);
+
   // Bytes in a tiny Bloom filter block.
   static constexpr int kBytesPerFilterBlock = 32;
 
@@ -239,11 +334,6 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   static constexpr uint32_t SALT[kBitsSetPerBlock] = {
       0x47b6137bU, 0x44974d91U, 0x8824ad5bU, 0xa2b7289dU,
       0x705495c7U, 0x2df1424bU, 0x9efc4947U, 0x5c6bfb31U};
-
-  /// Set bits in mask array according to input key.
-  /// @param key the value to calculate mask values.
-  /// @param mask the mask array is used to set inside a block
-  void SetMask(uint32_t key, BlockMask& mask) const;
 
   // Memory pool to allocate aligned buffer for bitset
   ::arrow::MemoryPool* pool_;

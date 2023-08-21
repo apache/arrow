@@ -97,6 +97,7 @@
       "inherits": "features-basic",
       "hidden": true,
       "cacheVariables": {
+        "ARROW_AZURE": "ON",
         "ARROW_GCS": "ON",
         "ARROW_HDFS": "ON",
         "ARROW_S3": "ON"

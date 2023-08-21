@@ -236,7 +236,7 @@ void Hashing32::HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t
                            const uint32_t* offsets, const uint8_t* concatenated_keys,
                            uint32_t* hashes, uint32_t* hashes_temp_for_combine) {
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     num_processed = HashVarLen_avx2(combine_hashes, num_rows, offsets, concatenated_keys,
                                     hashes, hashes_temp_for_combine);
@@ -255,7 +255,7 @@ void Hashing32::HashVarLen(int64_t hardware_flags, bool combine_hashes, uint32_t
                            const uint64_t* offsets, const uint8_t* concatenated_keys,
                            uint32_t* hashes, uint32_t* hashes_temp_for_combine) {
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     num_processed = HashVarLen_avx2(combine_hashes, num_rows, offsets, concatenated_keys,
                                     hashes, hashes_temp_for_combine);
@@ -361,7 +361,7 @@ void Hashing32::HashFixed(int64_t hardware_flags, bool combine_hashes, uint32_t 
   }
 
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (hardware_flags & arrow::internal::CpuInfo::AVX2) {
     num_processed = HashFixedLen_avx2(combine_hashes, num_rows, length, keys, hashes,
                                       hashes_temp_for_combine);

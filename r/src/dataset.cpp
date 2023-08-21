@@ -58,6 +58,8 @@ const char* r6_class_name<ds::FileFormat>::get(
     return "IpcFileFormat";
   } else if (type_name == "csv") {
     return "CsvFileFormat";
+  } else if (type_name == "json") {
+    return "JsonFileFormat";
   } else {
     return "FileFormat";
   }
@@ -297,6 +299,18 @@ std::shared_ptr<ds::CsvFileFormat> dataset___CsvFileFormat__Make(
   return format;
 }
 
+// [[dataset::export]]
+std::shared_ptr<ds::JsonFileFormat> dataset___JsonFileFormat__Make(
+    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
+    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
+  auto format = std::make_shared<ds::JsonFileFormat>();
+  auto scan_options = std::make_shared<ds::JsonFragmentScanOptions>();
+  if (read_options) scan_options->read_options = *read_options;
+  if (parse_options) scan_options->parse_options = *parse_options;
+  format->default_fragment_scan_options = std::move(scan_options);
+  return format;
+}
+
 // FragmentScanOptions, CsvFragmentScanOptions, ParquetFragmentScanOptions
 
 // [[dataset::export]]
@@ -316,9 +330,21 @@ std::shared_ptr<ds::CsvFragmentScanOptions> dataset___CsvFragmentScanOptions__Ma
 }
 
 // [[dataset::export]]
+std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__Make(
+    const std::shared_ptr<arrow::json::ParseOptions>& parse_options,
+    const std::shared_ptr<arrow::json::ReadOptions>& read_options) {
+  auto options = std::make_shared<ds::JsonFragmentScanOptions>();
+  options->parse_options = *parse_options;
+  options->read_options = *read_options;
+  return options;
+}
+
+// [[dataset::export]]
 std::shared_ptr<ds::ParquetFragmentScanOptions>
 dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
-                                           bool pre_buffer) {
+                                           bool pre_buffer,
+                                           int64_t thrift_string_size_limit,
+                                           int64_t thrift_container_size_limit) {
   auto options = std::make_shared<ds::ParquetFragmentScanOptions>();
   if (use_buffered_stream) {
     options->reader_properties->enable_buffered_stream();
@@ -331,6 +357,9 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
     options->arrow_reader_properties->set_cache_options(
         arrow::io::CacheOptions::LazyDefaults());
   }
+  options->reader_properties->set_thrift_string_size_limit(thrift_string_size_limit);
+  options->reader_properties->set_thrift_container_size_limit(
+      thrift_container_size_limit);
   return options;
 }
 

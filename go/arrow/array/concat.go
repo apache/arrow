@@ -41,17 +41,6 @@ func Concatenate(arrs []arrow.Array, mem memory.Allocator) (result arrow.Array, 
 		return nil, errors.New("array/concat: must pass at least one array")
 	}
 
-	defer func() {
-		if pErr := recover(); pErr != nil {
-			switch e := pErr.(type) {
-			case error:
-				err = fmt.Errorf("arrow/concat: %w", e)
-			default:
-				err = fmt.Errorf("arrow/concat: %v", pErr)
-			}
-		}
-	}()
-
 	// gather Data of inputs
 	data := make([]arrow.ArrayData, len(arrs))
 	for i, ar := range arrs {
@@ -368,8 +357,21 @@ func concatOffsets(buffers []*memory.Buffer, byteWidth int, mem memory.Allocator
 
 // concat is the implementation for actually performing the concatenation of the arrow.ArrayData
 // objects that we can call internally for nested types.
-func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, error) {
+func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, err error) {
 	out := &Data{refCount: 1, dtype: data[0].DataType(), nulls: 0}
+	defer func() {
+		if pErr := recover(); pErr != nil {
+			switch e := pErr.(type) {
+			case error:
+				err = fmt.Errorf("arrow/concat: %w", e)
+			default:
+				err = fmt.Errorf("arrow/concat: %v", pErr)
+			}
+		}
+		if err != nil {
+			out.Release()
+		}
+	}()
 	for _, d := range data {
 		out.length += d.Len()
 		if out.nulls == UnknownNullCount || d.NullN() == UnknownNullCount {
@@ -445,8 +447,8 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arrow.ArrayData, erro
 		if err != nil {
 			return nil, err
 		}
-		out.buffers[2] = concatBuffers(gatherBufferRanges(data, 2, valueRanges), mem)
 		out.buffers[1] = offsetBuffer
+		out.buffers[2] = concatBuffers(gatherBufferRanges(data, 2, valueRanges), mem)
 	case *arrow.ListType:
 		offsetWidth := dt.Layout().Buffers[1].ByteWidth
 		offsetBuffer, valueRanges, err := concatOffsets(gatherFixedBuffers(data, 1, offsetWidth), offsetWidth, mem)

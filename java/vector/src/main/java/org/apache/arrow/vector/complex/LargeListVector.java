@@ -696,10 +696,13 @@ public class LargeListVector extends BaseValueVector implements RepeatedValueVec
   }
 
   @Override
+  protected FieldReader getReaderImpl() {
+    return new UnionLargeListReader(this);
+  }
+
+  @Override
   public UnionLargeListReader getReader() {
-    if (reader == null) {
-      reader = new UnionLargeListReader(this);
-    }
+    reader = (UnionLargeListReader) super.getReader();
     return reader;
   }
 
