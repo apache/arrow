@@ -6463,10 +6463,7 @@ garrow_set_lookup_options_new_raw(
       arrow_copied_options.get());
   auto value_set =
     garrow_datum_new_raw(&(arrow_copied_set_lookup_options->value_set));
-  bool skip_nulls = false;
-  if (arrow_options->skip_nulls.has_value() && arrow_options->skip_nulls.value()) {
-    skip_nulls = true;
-  }
+  auto skip_nulls = (arrow_options->skip_nulls.has_value() && arrow_options->skip_nulls.value());
   auto options = g_object_new(GARROW_TYPE_SET_LOOKUP_OPTIONS,
                               "value-set", value_set,
                               "skip-nulls", skip_nulls,
