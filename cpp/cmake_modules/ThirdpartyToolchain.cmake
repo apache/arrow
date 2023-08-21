@@ -975,6 +975,8 @@ else()
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
+include(FetchContent)
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -5068,92 +5070,25 @@ endif()
 # ----------------------------------------------------------------------
 # Azure SDK for C++
 
-macro(build_azure_sdk)
+function(build_azure_sdk)
   message(STATUS "Building Azure SDK for C++ from source")
-
-  find_curl()
-  find_package(LibXml2 REQUIRED)
-
-  set(AZURE_SDK_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/azure-sdk_ep-install")
-  set(AZURE_SDK_INCLUDE_DIR "${AZURE_SDK_PREFIX}/include")
-
-  set(AZURE_SDK_COMMON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      "-DCMAKE_PREFIX_PATH=${AZURE_SDK_PREFIX}"
-      -DDISABLE_AZURE_CORE_OPENTELEMETRY=ON
-      -DWARNINGS_AS_ERRORS=OFF 
-      -DVCPKG_OVERLAY_PORTS=${CMAKE_SOURCE_DIR}/overlays)
-
-  file(MAKE_DIRECTORY ${AZURE_SDK_INCLUDE_DIR})
-  set(AZURE_CORE_STATIC_LIBRARY
-      "${AZURE_SDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-core${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(AZURE_IDENTITY_STATIC_LIBRARY
-      "${AZURE_SDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-identity${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(AZURE_STORAGE_BLOBS_STATIC_LIBRARY
-      "${AZURE_SDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-storage-blobs${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(AZURE_STORAGE_COMMON_STATIC_LIBRARY
-      "${AZURE_SDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-storage-common${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY
-      "${AZURE_SDK_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}azure-storage-files-datalake${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  externalproject_add(azure-sdk_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${AZURE_SDK_PREFIX}
-                      URL ${ARROW_AZURE_SDK_URL}
-                      URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${AZURE_SDK_COMMON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${AZURE_CORE_STATIC_LIBRARY}
-                                       ${AZURE_IDENTITY_STATIC_LIBRARY}
-                                       ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY}
-                                       ${AZURE_STORAGE_COMMON_STATIC_LIBRARY}
-                                       ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY})
-  add_library(Azure::azure-core STATIC IMPORTED)
-  set_target_properties(Azure::azure-core
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_CORE_STATIC_LIBRARY}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${AZURE_SDK_INCLUDE_DIR})
-  set_property(TARGET Azure::azure-core
-               PROPERTY INTERFACE_LINK_LIBRARIES CURL::libcurl OpenSSL::SSL)
-  add_dependencies(Azure::azure-core azure-sdk_ep)
-
-  add_library(Azure::azure-identity STATIC IMPORTED)
-  set_target_properties(Azure::azure-identity 
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_IDENTITY_STATIC_LIBRARY})
-  set_property(TARGET Azure::azure-identity
-               PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::Crypto Azure::azure-core)
-
-  add_library(Azure::azure-storage-common STATIC IMPORTED)
-  set_target_properties(Azure::azure-storage-common
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_COMMON_STATIC_LIBRARY})
-  set_property(TARGET Azure::azure-storage-common
-               PROPERTY INTERFACE_LINK_LIBRARIES OpenSSL::SSL OpenSSL::Crypto LibXml2::LibXml2 Azure::azure-core)
-
-  add_library(Azure::azure-storage-blobs STATIC IMPORTED)
-  set_target_properties(Azure::azure-storage-blobs
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_BLOBS_STATIC_LIBRARY})
-  set_property(TARGET Azure::azure-storage-blobs
-               PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-storage-common)
-
-  add_library(Azure::azure-storage-files-datalake STATIC IMPORTED)
-  set_target_properties(Azure::azure-storage-files-datalake 
-                        PROPERTIES IMPORTED_LOCATION ${AZURE_STORAGE_FILES_DATALAKE_STATIC_LIBRARY})
-  set_property(TARGET Azure::azure-storage-files-datalake
-               PROPERTY INTERFACE_LINK_LIBRARIES Azure::azure-storage-blobs)
-
-  set(AZURE_SDK_VENDORED TRUE)
-  set(AZURE_SDK_LIBRARIES)
-  list(APPEND
-       AZURE_SDK_LIBRARIES
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
+  fetchcontent_declare(azure_sdk
+                       URL ${ARROW_AZURE_SDK_URL}
+                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
+  fetchcontent_getproperties(azure_sdk)
+  if(NOT azure_sdk_POPULATED)
+    fetchcontent_populate(azure_sdk)
+    set(BUILD_PERFORMANCE_TESTS FALSE)
+    set(BUILD_SAMPLES FALSE)
+    set(BUILD_TESTING FALSE)
+    set(BUILD_WINDOWS_UWP TRUE)
+    set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+    set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
+    add_subdirectory(${azure_sdk_SOURCE_DIR} ${azure_sdk_BINARY_DIR} EXCLUDE_FROM_ALL)
+  endif()
+  set(AZURE_SDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
        Azure::azure-core
@@ -5161,16 +5096,20 @@ macro(build_azure_sdk)
        Azure::azure-storage-blobs
        Azure::azure-storage-common
        Azure::azure-storage-files-datalake)
-
-  set(AZURE_SDK_LINK_LIBRARIES ${AZURE_SDK_LIBRARIES})
-endmacro()
+set(ARROW_BUNDLED_STATIC_LIBS
+   ${ARROW_BUNDLED_STATIC_LIBS}
+   PARENT_SCOPE)
+endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
   resolve_dependency(Azure)
-  message(STATUS "Found Azure SDK headers: ${AZURE_SDK_INCLUDE_DIR}")
-  message(STATUS "Found Azure SDK libraries: ${AZURE_SDK_LINK_LIBRARIES}")
+  set(AZURE_SDK_LINK_LIBRARIES
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-common
+      Azure::azure-storage-blobs
+      Azure::azure-identity
+      Azure::azure-core)
 endif()
-
 # ----------------------------------------------------------------------
 # ucx - communication framework for modern, high-bandwidth and low-latency networks
 
