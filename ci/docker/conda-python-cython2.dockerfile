@@ -20,5 +20,5 @@ ARG arch
 ARG python=3.8
 FROM ${repo}:${arch}-conda-python-${python}
 
-RUN mamba install -q -y cython<3 && \
+RUN mamba install -q -y cython"<3" && \
     mamba clean --all
