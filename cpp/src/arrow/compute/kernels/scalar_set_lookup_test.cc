@@ -643,6 +643,52 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*expected_json=*/"[false, false, false, true, false]",
                         /*skip_nulls=*/true);
 
+    // With nulls and null_matching_behavior=EMIT_NULL
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, null, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[null, false, null, true, null]",
+                        /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[null, false, null, true, null]",
+                        /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+
+    // With nulls and null_matching_behavior=INCONCLUSIVE
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, null, null, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[null, null, null, true, null]",
+                        /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[null, false, null, true, null]",
+                        /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
+
     // With duplicates in value_set
     CheckIsInDictionary(/*type=*/utf8(),
                         /*index_type=*/index_ty,
@@ -665,6 +711,20 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
                         /*expected_json=*/"[true, false, false, true, true]",
                         /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
+                        /*expected_json=*/"[true, false, null, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
+                        /*expected_json=*/"[true, null, null, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
   }
 }
 
