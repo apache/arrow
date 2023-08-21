@@ -130,8 +130,7 @@ void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_j
 
 void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
                       const std::shared_ptr<ChunkedArray>& value_set,
-                      const std::shared_ptr<ChunkedArray>& expected,
-                      bool skip_nulls) {
+                      const std::shared_ptr<ChunkedArray>& expected, bool skip_nulls) {
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
                        IsIn(input, SetLookupOptions(value_set, skip_nulls)));
   auto actual = actual_datum.chunked_array();
@@ -329,7 +328,7 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, null, null, true, true]",
               /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
-    
+
     // Duplicates in right array
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, true, false, true, true]", /*skip_nulls=*/false);
