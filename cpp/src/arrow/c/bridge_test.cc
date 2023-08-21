@@ -1193,14 +1193,13 @@ class MyMemoryManager : public CPUMemoryManager {
   }
 
   Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override {
-    return std::make_shared<MyDevice::MySyncEvent>(std::unique_ptr<void, void (*)(void*)>{
-        const_cast<void*>(kMyEventPtr), [](void*) {}});
+    return std::make_shared<MyDevice::MySyncEvent>(const_cast<void*>(kMyEventPtr),
+                                                   [](void*) {});
   }
 
   Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(
       void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override {
-    return std::make_shared<MyDevice::MySyncEvent>(
-        std::unique_ptr<void, void (*)(void*)>{sync_event, release_sync_event});
+    return std::make_shared<MyDevice::MySyncEvent>(sync_event, release_sync_event);
   }
 
  protected:
