@@ -511,7 +511,7 @@ def test_recordbatch_basics():
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -949,7 +949,7 @@ def test_table_basics():
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     columns = []
     for col in table.itercolumns():
@@ -2422,3 +2422,28 @@ def test_numpy_asarray(constructor):
     result = np.asarray(table3, dtype="int32")
     np.testing.assert_allclose(result, expected)
     assert result.dtype == "int32"
+
+
+@pytest.mark.acero
+def test_invalid_non_join_column():
+    NUM_ITEMS = 30
+    t1 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'array_column': [[z for z in range(3)] for x in range(NUM_ITEMS)],
+    })
+    t2 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'value': [x for x in range(NUM_ITEMS)]
+    })
+
+    # check as left table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t1.join(t2, 'id', join_type='inner')
+    exp_error_msg = "Data type list<item: int64> is not supported " \
+        + "in join non-key field array_column"
+    assert exp_error_msg in str(excinfo.value)
+
+    # check as right table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t2.join(t1, 'id', join_type='inner')
+    assert exp_error_msg in str(excinfo.value)

@@ -26,6 +26,29 @@ Arrow C++ at runtime.  Many of these variables are inspected only once per
 process (for example, when the Arrow C++ DLL is loaded), so you cannot assume
 that changing their value later will have an effect.
 
+.. envvar:: ACERO_ALIGNMENT_HANDLING
+
+   Arrow C++'s Acero module performs computation on streams of data.  This
+   computation may involve a form of "type punning" that is technically
+   undefined behavior if the underlying array is not properly aligned.  On
+   most modern CPUs this is not an issue, but some older CPUs may crash or
+   suffer poor performance.  For this reason it is recommended that all
+   incoming array buffers are properly aligned, but some data sources
+   such as :ref:`Flight <flight-rpc>` may produce unaligned buffers.
+
+   The value of this environment variable controls what will happen when
+   Acero detects an unaligned buffer:
+
+   - ``warn``: a warning is emitted
+   - ``ignore``: nothing, alignment checking is disabled
+   - ``reallocate``: the buffer is reallocated to a properly aligned address
+   - ``error``: the operation fails with an error
+
+   The default behavior is ``warn``.  On modern hardware it is usually safe
+   to change this to ``ignore``.  Changing to ``reallocate`` is the safest
+   option but this will have a significant performance impact as the buffer
+   will need to be copied.
+
 .. envvar:: ARROW_DEBUG_MEMORY_POOL
 
    Enable rudimentary memory checks to guard against buffer overflows.
@@ -115,10 +138,14 @@ that changing their value later will have an effect.
       SIGILL (Illegal Instruction).  User must rebuild Arrow and PyArrow from
       scratch by setting cmake option ``ARROW_SIMD_LEVEL=NONE``.
 
+.. envvar:: AWS_ENDPOINT_URL
+
+   Endpoint URL used for S3-like storage, for example Minio or s3.scality.
+
 .. envvar:: GANDIVA_CACHE_SIZE
 
    The number of entries to keep in the Gandiva JIT compilation cache.
-   The cache is in-memory and does not persist accross processes.
+   The cache is in-memory and does not persist across processes.
 
 .. envvar:: HADOOP_HOME
 

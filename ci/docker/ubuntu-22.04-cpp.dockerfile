@@ -102,6 +102,7 @@ RUN apt-get update -y -q && \
         make \
         ninja-build \
         nlohmann-json3-dev \
+        npm \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
@@ -153,6 +154,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
@@ -164,6 +168,7 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # - libgtest-dev only provide sources
 ENV absl_SOURCE=BUNDLED \
     ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \

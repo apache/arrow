@@ -301,7 +301,7 @@ def test_asarray():
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert type(np_arr[0]) == pa.lib.Int64Value
+    assert isinstance(np_arr[0], pa.lib.Int64Value)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)

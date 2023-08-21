@@ -13,29 +13,31 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef TimestampType < arrow.type.PrimitiveType
+classdef TimestampType < arrow.type.TemporalType
 %TIMESTAMPTYPE Type class for timestamp data.
 
-    
-    properties(SetAccess=private)
-        TimeZone(1, 1) string
-        TimeUnit(1, 1) arrow.type.TimeUnit
-    end
-
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Timestamp
+    properties(Dependent, GetAccess=public, SetAccess=private)
+        TimeZone
     end
 
     methods
-        function obj = TimestampType(opts)
-        %TIMESTAMPTYPE Construct an instance of this class
+        function obj = TimestampType(proxy)
             arguments
-                opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
-                opts.TimeZone(1, 1) string {mustBeNonmissing} = "" 
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.TimestampType")}
             end
-            obj.TimeUnit = opts.TimeUnit;
-            obj.TimeZone = opts.TimeZone;
+            import arrow.internal.proxy.validate
+            obj@arrow.type.TemporalType(proxy);
+        end
+
+        function tz = get.TimeZone(obj)
+            tz = obj.Proxy.getTimeZone();
+        end
+    end
+
+    methods (Access=protected)
+        function group = getPropertyGroups(~)
+          targets = ["ID" "TimeUnit" "TimeZone"];
+          group = matlab.mixin.util.PropertyGroup(targets);
         end
     end
 end
-

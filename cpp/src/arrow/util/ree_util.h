@@ -73,24 +73,43 @@ int64_t FindPhysicalIndex(const RunEndCType* run_ends, int64_t run_ends_size, in
   return result;
 }
 
+/// \brief Uses binary-search to calculate the range of physical values (and
+/// run-ends) necessary to represent the logical range of values from
+/// offset to length
+///
+/// \return a pair of physical offset and physical length
+template <typename RunEndCType>
+std::pair<int64_t, int64_t> FindPhysicalRange(const RunEndCType* run_ends,
+                                              int64_t run_ends_size, int64_t length,
+                                              int64_t offset) {
+  const int64_t physical_offset =
+      FindPhysicalIndex<RunEndCType>(run_ends, run_ends_size, 0, offset);
+  // The physical length is calculated by finding the offset of the last element
+  // and adding 1 to it, so first we ensure there is at least one element.
+  if (length == 0) {
+    return {physical_offset, 0};
+  }
+  const int64_t physical_index_of_last = FindPhysicalIndex<RunEndCType>(
+      run_ends + physical_offset, run_ends_size - physical_offset, length - 1, offset);
+
+  assert(physical_index_of_last < run_ends_size - physical_offset);
+  return {physical_offset, physical_index_of_last + 1};
+}
+
 /// \brief Uses binary-search to calculate the number of physical values (and
 /// run-ends) necessary to represent the logical range of values from
 /// offset to length
 template <typename RunEndCType>
 int64_t FindPhysicalLength(const RunEndCType* run_ends, int64_t run_ends_size,
                            int64_t length, int64_t offset) {
-  // The physical length is calculated by finding the offset of the last element
-  // and adding 1 to it, so first we ensure there is at least one element.
-  if (length == 0) {
-    return 0;
-  }
-  const int64_t physical_offset =
-      FindPhysicalIndex<RunEndCType>(run_ends, run_ends_size, 0, offset);
-  const int64_t physical_index_of_last = FindPhysicalIndex<RunEndCType>(
-      run_ends + physical_offset, run_ends_size - physical_offset, length - 1, offset);
-
-  assert(physical_index_of_last < run_ends_size - physical_offset);
-  return physical_index_of_last + 1;
+  auto [_, physical_length] =
+      FindPhysicalRange<RunEndCType>(run_ends, run_ends_size, length, offset);
+  // GH-37107: This is a workaround for GCC 7. GCC 7 doesn't ignore
+  // variables in structured binding automatically from unused
+  // variables when one of these variables are used.
+  // See also: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81767
+  ARROW_UNUSED(_);
+  return physical_length;
 }
 
 /// \brief Find the physical index into the values array of the REE ArraySpan
@@ -125,7 +144,8 @@ int64_t FindPhysicalLength(const ArraySpan& span) {
 /// \brief Find the physical index into the values array of the REE ArraySpan
 ///
 /// This function uses binary-search, so it has a O(log N) cost.
-int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_offset);
+ARROW_EXPORT int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i,
+                                       int64_t absolute_offset);
 
 /// \brief Find the physical length of an REE ArraySpan
 ///
@@ -136,7 +156,15 @@ int64_t FindPhysicalIndex(const ArraySpan& span, int64_t i, int64_t absolute_off
 /// Avoid calling this function if the physical length can be estabilished in
 /// some other way (e.g. when iterating over the runs sequentially until the
 /// end). This function uses binary-search, so it has a O(log N) cost.
-int64_t FindPhysicalLength(const ArraySpan& span);
+ARROW_EXPORT int64_t FindPhysicalLength(const ArraySpan& span);
+
+/// \brief Find the physical range of physical values referenced by the REE in
+/// the logical range from offset to offset + length
+///
+/// \return a pair of physical offset and physical length
+ARROW_EXPORT std::pair<int64_t, int64_t> FindPhysicalRange(const ArraySpan& span,
+                                                           int64_t offset,
+                                                           int64_t length);
 
 template <typename RunEndCType>
 class RunEndEncodedArraySpan {

@@ -20,18 +20,24 @@ classdef UInt64Array < arrow.array.NumericArray
         NullSubstitutionValue = uint64(0)
     end
 
-    properties(SetAccess=private, GetAccess=public)
-        Type = arrow.type.UInt64Type
-    end
-
     methods
-        function obj = UInt64Array(data, varargin)
-            obj@arrow.array.NumericArray(data, "uint64", ...
-                "arrow.array.proxy.UInt64Array", varargin{:});
+        function obj = UInt64Array(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.UInt64Array")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = uint64(obj)
             data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.UInt64Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

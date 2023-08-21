@@ -138,6 +138,9 @@ if(ARROW_PACKAGE_PREFIX)
   if(NOT ENV{Boost_ROOT})
     set(ENV{Boost_ROOT} ${ARROW_PACKAGE_PREFIX})
   endif()
+  if(NOT DEFINED OPENSSL_ROOT_DIR)
+    set(OPENSSL_ROOT_DIR ${ARROW_PACKAGE_PREFIX})
+  endif()
 endif()
 
 # For each dependency, set dependency source to global default, if unset
@@ -913,6 +916,7 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_EXPORT_NO_PACKAGE_REGISTRY=${CMAKE_EXPORT_NO_PACKAGE_REGISTRY}
     -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=${CMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY}
     -DCMAKE_INSTALL_LIBDIR=lib
+    -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
 
 # Enable s/ccache if set by parent.
@@ -1224,7 +1228,7 @@ if(ARROW_USE_BOOST)
     target_compile_definitions(Boost::headers INTERFACE "BOOST_USE_WINDOWS_H=1")
   endif()
 
-  message(STATUS "Boost include dir: ${Boost_INCLUDE_DIR}")
+  message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
 endif()
 
 # ----------------------------------------------------------------------
@@ -1364,8 +1368,9 @@ set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
-   OR ARROW_S3
-   OR ARROW_GANDIVA)
+   OR ARROW_GANDIVA
+   OR ARROW_GCS
+   OR ARROW_S3)
   set(OpenSSL_SOURCE "SYSTEM")
   resolve_dependency(OpenSSL
                      HAVE_ALT
@@ -1710,7 +1715,17 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
+  # We need to use FORCE_ANY_NEWER_VERSION here to accept Protobuf
+  # newer version such as 23.4. If we don't use it, 23.4 is processed
+  # as an incompatible version with 3.12.0 with protobuf-config.cmake
+  # provided by Protobuf. Because protobuf-config-version.cmake
+  # requires the same major version. In the example, "23" for 23.4 and
+  # "3" for 3.12.0 are different. So 23.4 is rejected with 3.12.0. If
+  # we use FORCE_ANY_NEWER_VERSION here, we can bypass the check and
+  # use 23.4.
   resolve_dependency(Protobuf
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
@@ -1853,7 +1868,7 @@ macro(build_substrait)
   add_library(substrait STATIC ${SUBSTRAIT_SOURCES})
   set_target_properties(substrait PROPERTIES POSITION_INDEPENDENT_CODE ON)
   target_include_directories(substrait PUBLIC ${SUBSTRAIT_INCLUDES})
-  target_link_libraries(substrait INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
+  target_link_libraries(substrait PUBLIC ${ARROW_PROTOBUF_LIBPROTOBUF})
   add_dependencies(substrait substrait_gen)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS substrait)
@@ -3988,7 +4003,6 @@ if(ARROW_WITH_GRPC)
   if(GRPC_VENDORED)
     # Remove "v" from "vX.Y.Z"
     string(SUBSTRING ${ARROW_GRPC_BUILD_VERSION} 1 -1 ARROW_GRPC_VERSION)
-    set(GRPCPP_PP_INCLUDE TRUE)
     # Examples need to link to static Arrow if we're using static gRPC
     set(ARROW_GRPC_USE_SHARED OFF)
   else()
@@ -3996,18 +4010,6 @@ if(ARROW_WITH_GRPC)
       set(ARROW_GRPC_VERSION ${gRPCAlt_VERSION})
     else()
       set(ARROW_GRPC_VERSION ${gRPC_VERSION})
-    endif()
-    # grpc++ headers may reside in ${GRPC_INCLUDE_DIR}/grpc++ or ${GRPC_INCLUDE_DIR}/grpcpp
-    # depending on the gRPC version.
-    get_target_property(GRPC_INCLUDE_DIR gRPC::grpc++ INTERFACE_INCLUDE_DIRECTORIES)
-    if(GRPC_INCLUDE_DIR MATCHES "^\\$<"
-       OR # generator expression
-          EXISTS "${GRPC_INCLUDE_DIR}/grpcpp/impl/codegen/config_protobuf.h")
-      set(GRPCPP_PP_INCLUDE TRUE)
-    elseif(EXISTS "${GRPC_INCLUDE_DIR}/grpc++/impl/codegen/config_protobuf.h")
-      set(GRPCPP_PP_INCLUDE FALSE)
-    else()
-      message(FATAL_ERROR "Cannot find grpc++ headers in ${GRPC_INCLUDE_DIR}")
     endif()
     if(ARROW_USE_ASAN)
       # Disable ASAN in system gRPC.
@@ -4105,10 +4107,6 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  if(NOT OpenSSL_FOUND)
-    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
-                       ${ARROW_OPENSSL_REQUIRED_VERSION})
-  endif()
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -4401,6 +4399,11 @@ macro(build_orc)
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
   set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  # Protobuf generated files may use ABSL_DCHECK*() and
+  # absl::log_internal_check_op is needed for them.
+  if(TARGET absl::log_internal_check_op)
+    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+  endif()
   if(NOT MSVC)
     if(NOT APPLE)
       list(APPEND ORC_LINK_LIBRARIES Threads::Threads)

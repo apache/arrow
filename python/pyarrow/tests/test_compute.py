@@ -1611,9 +1611,9 @@ def test_round_binary():
     scale = pa.scalar(-1, pa.int32())
 
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_zero") == expect_zero
+        5.0, scale, round_mode="half_towards_zero") == expect_zero
     assert pc.round_binary(
-        5, scale, round_mode="half_towards_infinity") == expect_inf
+        5.0, scale, round_mode="half_towards_infinity") == expect_inf
 
 
 def test_is_null():
@@ -1754,6 +1754,17 @@ def test_logical():
     assert pc.xor(a, b) == pa.array([False, True, False, None])
 
     assert pc.invert(a) == pa.array([False, True, True, None])
+
+
+def test_dictionary_decode():
+    array = pa.array(["a", "a", "b", "c", "b"])
+    dictionary_array = array.dictionary_encode()
+    dictionary_array_decode = pc.dictionary_decode(dictionary_array)
+
+    assert array != dictionary_array
+
+    assert array == dictionary_array_decode
+    assert array == pc.dictionary_decode(array)
 
 
 def test_cast():

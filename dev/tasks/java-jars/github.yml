@@ -22,10 +22,31 @@
 jobs:
 
   build-cpp-ubuntu:
-    name: Build C++ libraries Ubuntu
-    runs-on: ubuntu-latest
+    {% set arch = '${{ matrix.platform.arch }}' %}
+    name: Build C++ libraries Ubuntu {{ arch }}
+    runs-on: {{ '${{ matrix.platform.runs_on }}' }}
+    env:
+      # architecture name used for archery build
+      ARCH: {{ '${{ matrix.platform.archery_arch }}' }}
+      ARCH_ALIAS: {{ '${{ matrix.platform.archery_arch_alias }}' }}
+      ARCH_SHORT: {{ '${{ matrix.platform.archery_arch_short }}' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - runs_on: ["ubuntu-latest"]
+            arch: "x86_64"
+            archery_arch: "amd64"
+            archery_arch_alias: "x86_64"
+            archery_arch_short: "amd64"
+          - runs_on: ["self-hosted", "Linux", "arm64"]
+            arch: "aarch_64"
+            archery_arch: "arm64v8"
+            archery_arch_alias: "aarch64"
+            archery_arch_short: "arm64"
     steps:
       {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
       - name: Build C++ libraries
         env:
@@ -36,12 +57,12 @@ jobs:
             -e ARROW_JAVA_TEST=OFF \
             java-jni-manylinux-2014
       - name: Compress into single artifact to keep directory structure
-        run: tar -cvzf arrow-shared-libs-linux.tar.gz arrow/java-dist/
+        run: tar -cvzf arrow-shared-libs-linux-{{ arch }}.tar.gz arrow/java-dist/
       - name: Upload artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: ubuntu-shared-lib
-          path: arrow-shared-libs-linux.tar.gz
+          name: ubuntu-shared-lib-{{ arch }}
+          path: arrow-shared-libs-linux-{{ arch }}.tar.gz
     {% if arrow.is_default_branch() %}
       {{ macros.github_login_dockerhub()|indent }}
       - name: Push Docker image
@@ -178,7 +199,8 @@ jobs:
       - name: Decompress artifacts
         run: |
           mv artifacts/*/*.tar.gz .
-          tar -xvzf arrow-shared-libs-linux.tar.gz
+          tar -xvzf arrow-shared-libs-linux-x86_64.tar.gz
+          tar -xvzf arrow-shared-libs-linux-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-macos-x86_64.tar.gz
           tar -xvzf arrow-shared-libs-macos-aarch_64.tar.gz
           tar -xvzf arrow-shared-libs-windows.tar.gz
@@ -190,6 +212,11 @@ jobs:
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.so
           test -f arrow/java-dist/x86_64/libarrow_orc_jni.so
           test -f arrow/java-dist/x86_64/libgandiva_jni.so
+
+          test -f arrow/java-dist/aarch_64/libarrow_cdata_jni.so
+          test -f arrow/java-dist/aarch_64/libarrow_dataset_jni.so
+          test -f arrow/java-dist/aarch_64/libarrow_orc_jni.so
+          test -f arrow/java-dist/aarch_64/libgandiva_jni.so
 
           test -f arrow/java-dist/x86_64/libarrow_cdata_jni.dylib
           test -f arrow/java-dist/x86_64/libarrow_dataset_jni.dylib

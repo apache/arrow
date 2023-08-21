@@ -43,7 +43,6 @@
 /java/ @lidavidm
 /js/ @domoritz @trxcllnt
 /matlab/ @kevingurney @kou
-/python/ @AlenkaF
 /python/pyarrow/_flight.pyx @lidavidm
 /python/pyarrow/**/*gandiva* @wjones127
 /r/ @paleolimbot @thisisnic

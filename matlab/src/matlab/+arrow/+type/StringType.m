@@ -16,14 +16,14 @@
 classdef StringType < arrow.type.Type
 %STRINGTYPE Type class for string data.
 
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.String
-    end
-
-    properties(Constant)
-        NumFields = 0
-        NumBuffers = 3
-    end
-
+    methods
+        function obj = StringType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.StringType")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.Type(proxy);
+        end
+   end
 end
 

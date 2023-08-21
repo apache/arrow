@@ -6,7 +6,8 @@ namespace Apache.Arrow.Flatbuf
 {
 
 using global::System;
-using global::FlatBuffers;
+using global::System.Collections.Generic;
+using global::Google.FlatBuffers;
 
 /// ----------------------------------------------------------------------
 /// A Schema describes the columns in a row batch
@@ -14,9 +15,11 @@ internal struct Schema : IFlatbufferObject
 {
   private Table __p;
   public ByteBuffer ByteBuffer { get { return __p.bb; } }
+  public static void ValidateVersion() { FlatBufferConstants.FLATBUFFERS_23_5_9(); }
   public static Schema GetRootAsSchema(ByteBuffer _bb) { return GetRootAsSchema(_bb, new Schema()); }
   public static Schema GetRootAsSchema(ByteBuffer _bb, Schema obj) { return (obj.__assign(_bb.GetInt(_bb.Position) + _bb.Position, _bb)); }
-  public void __init(int _i, ByteBuffer _bb) { __p.bb_pos = _i; __p.bb = _bb; }
+  public static bool VerifySchema(ByteBuffer _bb) {Google.FlatBuffers.Verifier verifier = new Google.FlatBuffers.Verifier(_bb); return verifier.VerifyBuffer("", false, SchemaVerify.Verify); }
+  public void __init(int _i, ByteBuffer _bb) { __p = new Table(_i, _bb); }
   public Schema __assign(int _i, ByteBuffer _bb) { __init(_i, _bb); return this; }
 
   /// endianness of the buffer
@@ -31,18 +34,18 @@ internal struct Schema : IFlatbufferObject
   public Feature Features(int j) { int o = __p.__offset(10); return o != 0 ? (Feature)__p.bb.GetLong(__p.__vector(o) + j * 8) : (Feature)0; }
   public int FeaturesLength { get { int o = __p.__offset(10); return o != 0 ? __p.__vector_len(o) : 0; } }
 #if ENABLE_SPAN_T
-  public Span<byte> GetFeaturesBytes() { return __p.__vector_as_span(10); }
+  public Span<Feature> GetFeaturesBytes() { return __p.__vector_as_span<Feature>(10, 8); }
 #else
   public ArraySegment<byte>? GetFeaturesBytes() { return __p.__vector_as_arraysegment(10); }
 #endif
-  public Feature[] GetFeaturesArray() { return __p.__vector_as_array<Feature>(10); }
+  public Feature[] GetFeaturesArray() { int o = __p.__offset(10); if (o == 0) return null; int p = __p.__vector(o); int l = __p.__vector_len(o); Feature[] a = new Feature[l]; for (int i = 0; i < l; i++) { a[i] = (Feature)__p.bb.GetLong(p + i * 8); } return a; }
 
   public static Offset<Schema> CreateSchema(FlatBufferBuilder builder,
       Endianness endianness = Endianness.Little,
       VectorOffset fieldsOffset = default(VectorOffset),
       VectorOffset custom_metadataOffset = default(VectorOffset),
       VectorOffset featuresOffset = default(VectorOffset)) {
-    builder.StartObject(4);
+    builder.StartTable(4);
     Schema.AddFeatures(builder, featuresOffset);
     Schema.AddCustomMetadata(builder, custom_metadataOffset);
     Schema.AddFields(builder, fieldsOffset);
@@ -50,27 +53,46 @@ internal struct Schema : IFlatbufferObject
     return Schema.EndSchema(builder);
   }
 
-  public static void StartSchema(FlatBufferBuilder builder) { builder.StartObject(4); }
+  public static void StartSchema(FlatBufferBuilder builder) { builder.StartTable(4); }
   public static void AddEndianness(FlatBufferBuilder builder, Endianness endianness) { builder.AddShort(0, (short)endianness, 0); }
   public static void AddFields(FlatBufferBuilder builder, VectorOffset fieldsOffset) { builder.AddOffset(1, fieldsOffset.Value, 0); }
   public static VectorOffset CreateFieldsVector(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateFieldsVectorBlock(FlatBufferBuilder builder, Offset<Field>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateFieldsVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<Field>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateFieldsVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<Field>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartFieldsVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddCustomMetadata(FlatBufferBuilder builder, VectorOffset customMetadataOffset) { builder.AddOffset(2, customMetadataOffset.Value, 0); }
   public static VectorOffset CreateCustomMetadataVector(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); for (int i = data.Length - 1; i >= 0; i--) builder.AddOffset(data[i].Value); return builder.EndVector(); }
   public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, Offset<KeyValue>[] data) { builder.StartVector(4, data.Length, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, ArraySegment<Offset<KeyValue>> data) { builder.StartVector(4, data.Count, 4); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateCustomMetadataVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Offset<KeyValue>>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartCustomMetadataVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(4, numElems, 4); }
   public static void AddFeatures(FlatBufferBuilder builder, VectorOffset featuresOffset) { builder.AddOffset(3, featuresOffset.Value, 0); }
   public static VectorOffset CreateFeaturesVector(FlatBufferBuilder builder, Feature[] data) { builder.StartVector(8, data.Length, 8); for (int i = data.Length - 1; i >= 0; i--) builder.AddLong((long)data[i]); return builder.EndVector(); }
   public static VectorOffset CreateFeaturesVectorBlock(FlatBufferBuilder builder, Feature[] data) { builder.StartVector(8, data.Length, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateFeaturesVectorBlock(FlatBufferBuilder builder, ArraySegment<Feature> data) { builder.StartVector(8, data.Count, 8); builder.Add(data); return builder.EndVector(); }
+  public static VectorOffset CreateFeaturesVectorBlock(FlatBufferBuilder builder, IntPtr dataPtr, int sizeInBytes) { builder.StartVector(1, sizeInBytes, 1); builder.Add<Feature>(dataPtr, sizeInBytes); return builder.EndVector(); }
   public static void StartFeaturesVector(FlatBufferBuilder builder, int numElems) { builder.StartVector(8, numElems, 8); }
   public static Offset<Schema> EndSchema(FlatBufferBuilder builder) {
-    int o = builder.EndObject();
+    int o = builder.EndTable();
     return new Offset<Schema>(o);
   }
   public static void FinishSchemaBuffer(FlatBufferBuilder builder, Offset<Schema> offset) { builder.Finish(offset.Value); }
   public static void FinishSizePrefixedSchemaBuffer(FlatBufferBuilder builder, Offset<Schema> offset) { builder.FinishSizePrefixed(offset.Value); }
-};
+}
 
+
+static internal class SchemaVerify
+{
+  static public bool Verify(Google.FlatBuffers.Verifier verifier, uint tablePos)
+  {
+    return verifier.VerifyTableStart(tablePos)
+      && verifier.VerifyField(tablePos, 4 /*Endianness*/, 2 /*Endianness*/, 2, false)
+      && verifier.VerifyVectorOfTables(tablePos, 6 /*Fields*/, FieldVerify.Verify, false)
+      && verifier.VerifyVectorOfTables(tablePos, 8 /*CustomMetadata*/, KeyValueVerify.Verify, false)
+      && verifier.VerifyVectorOfData(tablePos, 10 /*Features*/, 8 /*Feature*/, false)
+      && verifier.VerifyTableEnd(tablePos);
+  }
+}
 
 }

@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/matlab/array/proxy/string_array.h"
+#include "arrow/matlab/type/proxy/string_type.h"
 
 #include "arrow/array/builder_binary.h"
 
@@ -25,6 +26,9 @@
 #include "arrow/util/utf8.h"
 
 namespace arrow::matlab::array::proxy {
+
+        StringArray::StringArray(const std::shared_ptr<arrow::StringArray> string_array) 
+            : arrow::matlab::array::proxy::Array(std::move(string_array)) {}
 
         libmexclass::proxy::MakeResult StringArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
             namespace mda = ::matlab::data;
@@ -53,8 +57,8 @@ namespace arrow::matlab::array::proxy {
             arrow::StringBuilder builder;
             MATLAB_ERROR_IF_NOT_OK(builder.AppendValues(strings, unpacked_validity_bitmap_ptr), error::STRING_BUILDER_APPEND_FAILED);
             MATLAB_ASSIGN_OR_ERROR(auto array, builder.Finish(), error::STRING_BUILDER_FINISH_FAILED);
-
-            return std::make_shared<arrow::matlab::array::proxy::StringArray>(array);
+            auto typed_array = std::static_pointer_cast<arrow::StringArray>(array);
+            return std::make_shared<arrow::matlab::array::proxy::StringArray>(std::move(typed_array));
         }
 
         void StringArray::toMATLAB(libmexclass::proxy::method::Context& context) {
@@ -77,5 +81,4 @@ namespace arrow::matlab::array::proxy {
             auto array_mda = factory.createArray({array_length, 1}, strings.begin(), strings.end());
             context.outputs[0] = array_mda;
         }
-
 }

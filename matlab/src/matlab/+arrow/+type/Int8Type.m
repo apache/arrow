@@ -13,11 +13,17 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int8Type < arrow.type.PrimitiveType
+classdef Int8Type < arrow.type.FixedWidthType
 %INT8TYPE Type class for int8 data. 
     
-    properties(SetAccess = protected)
-        ID = arrow.type.ID.Int8
+    methods 
+        function obj = Int8Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int8Type")}
+            end
+            import arrow.internal.proxy.validate
+            obj@arrow.type.FixedWidthType(proxy);
+        end
     end
 end
 

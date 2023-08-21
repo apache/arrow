@@ -231,6 +231,12 @@ Status FlightServerBase::GetFlightInfo(const ServerCallContext& context,
   return Status::NotImplemented("NYI");
 }
 
+Status FlightServerBase::PollFlightInfo(const ServerCallContext& context,
+                                        const FlightDescriptor& request,
+                                        std::unique_ptr<PollInfo>* info) {
+  return Status::NotImplemented("NYI");
+}
+
 Status FlightServerBase::DoGet(const ServerCallContext& context, const Ticket& request,
                                std::unique_ptr<FlightDataStream>* data_stream) {
   return Status::NotImplemented("NYI");

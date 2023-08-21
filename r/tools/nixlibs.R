@@ -30,7 +30,7 @@ if (test_mode && is.na(VERSION)) {
 dev_version <- package_version(VERSION)[1, 4]
 
 # Small dev versions are added for R-only changes during CRAN submission.
-if (is.na(dev_version) || dev_version < 100) {
+if (is.na(dev_version) || dev_version < "100") {
   VERSION <- package_version(VERSION)[1, 1:3]
   arrow_repo <- paste0(getOption("arrow.repo", sprintf("https://apache.jfrog.io/artifactory/arrow/r/%s", VERSION)), "/libarrow/")
 } else {

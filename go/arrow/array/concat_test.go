@@ -743,3 +743,23 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 		})
 	}
 }
+
+func TestConcatPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	g := gen.NewRandomArrayGenerator(0, memory.DefaultAllocator)
+	ar1 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar1.Release()
+	ar2 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar2.Release()
+
+	concat, err := array.Concatenate([]arrow.Array{ar1, ar2}, allocator)
+	assert.Error(t, err)
+	assert.Nil(t, concat)
+}

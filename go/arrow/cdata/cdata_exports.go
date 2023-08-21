@@ -283,7 +283,7 @@ func (exp *schemaExporter) export(field arrow.Field) {
 
 func allocateArrowSchemaArr(n int) (out []CArrowSchema) {
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.malloc(C.sizeof_struct_ArrowSchema * C.size_t(n)))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.sizeof_struct_ArrowSchema))
 	s.Len = n
 	s.Cap = n
 
@@ -292,7 +292,7 @@ func allocateArrowSchemaArr(n int) (out []CArrowSchema) {
 
 func allocateArrowSchemaPtrArr(n int) (out []*CArrowSchema) {
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.malloc(C.size_t(unsafe.Sizeof((*CArrowSchema)(nil))) * C.size_t(n)))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof((*CArrowSchema)(nil)))))
 	s.Len = n
 	s.Cap = n
 
@@ -301,7 +301,7 @@ func allocateArrowSchemaPtrArr(n int) (out []*CArrowSchema) {
 
 func allocateArrowArrayArr(n int) (out []CArrowArray) {
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.malloc(C.sizeof_struct_ArrowArray * C.size_t(n)))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.sizeof_struct_ArrowArray))
 	s.Len = n
 	s.Cap = n
 
@@ -310,7 +310,7 @@ func allocateArrowArrayArr(n int) (out []CArrowArray) {
 
 func allocateArrowArrayPtrArr(n int) (out []*CArrowArray) {
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.malloc(C.size_t(unsafe.Sizeof((*CArrowArray)(nil))) * C.size_t(n)))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof((*CArrowArray)(nil)))))
 	s.Len = n
 	s.Cap = n
 
@@ -319,7 +319,7 @@ func allocateArrowArrayPtrArr(n int) (out []*CArrowArray) {
 
 func allocateBufferPtrArr(n int) (out []*C.void) {
 	s := (*reflect.SliceHeader)(unsafe.Pointer(&out))
-	s.Data = uintptr(C.malloc(C.size_t(unsafe.Sizeof((*C.void)(nil))) * C.size_t(n)))
+	s.Data = uintptr(C.calloc(C.size_t(n), C.size_t(unsafe.Sizeof((*C.void)(nil)))))
 	s.Len = n
 	s.Cap = n
 
