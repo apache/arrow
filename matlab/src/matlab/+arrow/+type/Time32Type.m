@@ -15,11 +15,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Time32Type < arrow.type.TemporalType
-
-    properties(Dependent, GetAccess=public, SetAccess=private)
-        TimeUnit
-    end
+classdef Time32Type < arrow.type.TimeType
 
     methods
         function obj = Time32Type(proxy)
@@ -28,19 +24,14 @@ classdef Time32Type < arrow.type.TemporalType
             end
             import arrow.internal.proxy.validate
 
-            obj@arrow.type.TemporalType(proxy);
-        end
-
-        function timeUnit = get.TimeUnit(obj)
-            timeUnitValue = obj.Proxy.getTimeUnit();
-            timeUnit = arrow.type.TimeUnit(timeUnitValue);
+            obj@arrow.type.TimeType(proxy);
         end
     end
 
     methods (Access=protected)
         function group = getPropertyGroups(~)
-          targets = ["ID" "TimeUnit"];
-          group = matlab.mixin.util.PropertyGroup(targets);
+            targets = ["ID" "TimeUnit"];
+            group = matlab.mixin.util.PropertyGroup(targets);
         end
     end
 
