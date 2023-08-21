@@ -185,6 +185,9 @@ namespace Apache.Arrow.IntegrationTest
                 "date" => ToDateArrowType(type),
                 "time" => ToTimeArrowType(type),
                 "timestamp" => ToTimestampArrowType(type),
+                "list" => ToListArrowType(type, children),
+                "fixedsizelist" => ToFixedSizeListArrowType(type, children),
+                "struct" => ToStructArrowType(type, children),
                 "union" => ToUnionArrowType(type, children),
                 "null" => NullType.Default,
                 _ => throw new NotSupportedException($"JsonArrowType not supported: {type.Name}")
@@ -264,6 +267,21 @@ namespace Apache.Arrow.IntegrationTest
             };
         }
 
+        private static IArrowType ToListArrowType(JsonArrowType type, Field[] children)
+        {
+            return new ListType(children[0]);
+        }
+
+        private static IArrowType ToFixedSizeListArrowType(JsonArrowType type, Field[] children)
+        {
+            return new FixedSizeListType(children[0], type.ListSize);
+        }
+
+        private static IArrowType ToStructArrowType(JsonArrowType type, Field[] children)
+        {
+            return new StructType(children);
+        }
+
         private static IArrowType ToUnionArrowType(JsonArrowType type, Field[] children)
         {
             UnionMode mode = type.Mode switch
@@ -298,6 +316,7 @@ namespace Apache.Arrow.IntegrationTest
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<FixedSizeBinaryType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<NullType>
@@ -503,12 +522,51 @@ namespace Apache.Arrow.IntegrationTest
 
             public void Visit(ListType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+                ArrowBuffer offsetBuffer = GetOffsetBuffer();
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer, offsetBuffer }, new[] { Array.Data });
+                Array = new ListArray(arrayData);
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                var data = JsonFieldData;
+                JsonFieldData = data.Children[0];
+                type.ValueDataType.Accept(this);
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer }, new[] { Array.Data });
+                Array = new FixedSizeListArray(arrayData);
             }
 
             public void Visit(StructType type)
             {
-                throw new NotImplementedException();
+                ArrowBuffer validityBuffer = GetValidityBuffer(out int nullCount);
+
+                ArrayData[] children = new ArrayData[type.Fields.Count];
+
+                var data = JsonFieldData;
+                for (int i = 0; i < children.Length; i++)
+                {
+                    JsonFieldData = data.Children[i];
+                    type.Fields[i].DataType.Accept(this);
+                    children[i] = Array.Data;
+                }
+                JsonFieldData = data;
+
+                ArrayData arrayData = new ArrayData(type, JsonFieldData.Count, nullCount, 0,
+                    new[] { validityBuffer }, children);
+                Array = new StructArray(arrayData);
             }
 
             public void Visit(UnionType type)

@@ -59,6 +59,7 @@ namespace Apache.Arrow.Tests
                 {
                     builder.Field(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
                     builder.Field(CreateField(new FixedSizeBinaryType(16), i));
+                    builder.Field(CreateField(new FixedSizeListType(Int32Type.Default, 3), i));
                     builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Sparse), i));
                     builder.Field(CreateField(new UnionType(new[] { CreateField(StringType.Default, i), CreateField(Int32Type.Default, i) }, new[] { 0, 1 }, UnionMode.Dense), -i));
                 }
@@ -124,6 +125,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<Decimal128Type>,
@@ -269,6 +271,32 @@ namespace Apache.Arrow.Tests
                 }
                 //Add a value to check if Values.Length can exceed ListArray.Length
                 valueBuilder.Append(0);
+
+                Array = builder.Build();
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                var builder = new FixedSizeListArray.Builder(type.ValueField, type.ListSize).Reserve(Length);
+
+                //Todo : Support various types
+                var valueBuilder = (Int32Array.Builder)builder.ValueBuilder;
+
+                for (var i = 0; i < Length; i++)
+                {
+                    if (type.Fields[0].IsNullable && (i % 3) == 0)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        builder.Append();
+                        for (var j = 0; j < type.ListSize; j++)
+                        {
+                            valueBuilder.Append(i * type.ListSize + j);
+                        }
+                    }
+                }
 
                 Array = builder.Build();
             }

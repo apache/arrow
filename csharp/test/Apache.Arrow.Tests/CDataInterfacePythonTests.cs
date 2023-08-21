@@ -106,6 +106,8 @@ namespace Apache.Arrow.Tests
                     .Field(f => f.Name("list_string").DataType(new ListType(StringType.Default)).Nullable(false))
                     .Field(f => f.Name("list_list_i32").DataType(new ListType(new ListType(Int32Type.Default))).Nullable(false))
 
+                    .Field(f => f.Name("fixed_length_list_i64").DataType(new FixedSizeListType(Int64Type.Default, 10)).Nullable(true))
+
                     .Field(f => f.Name("dict_string").DataType(new DictionaryType(Int32Type.Default, StringType.Default, false)).Nullable(false))
                     .Field(f => f.Name("dict_string_ordered").DataType(new DictionaryType(Int32Type.Default, StringType.Default, true)).Nullable(false))
                     .Field(f => f.Name("list_dict_string").DataType(new ListType(new DictionaryType(Int32Type.Default, StringType.Default, false))).Nullable(false))
@@ -166,6 +168,8 @@ namespace Apache.Arrow.Tests
 
                 yield return pa.field("list_string", pa.list_(pa.utf8()), false);
                 yield return pa.field("list_list_i32", pa.list_(pa.list_(pa.int32())), false);
+
+                yield return pa.field("fixed_length_list_i64", pa.list_(pa.int64(), 10), true);
 
                 yield return pa.field("dict_string", pa.dictionary(pa.int32(), pa.utf8(), false), false);
                 yield return pa.field("dict_string_ordered", pa.dictionary(pa.int32(), pa.utf8(), true), false);
@@ -496,6 +500,9 @@ namespace Apache.Arrow.Tests
                         pa.DictionaryArray.from_arrays(
                             pa.array(List(1, 0, 1, 1, null)),
                             pa.array(List("foo", "bar"))),
+                        pa.FixedSizeListArray.from_arrays(
+                            pa.array(List(1, 2, 3, 4, null, 6, 7, null, null, null)),
+                            2),
                         pa.UnionArray.from_dense(
                             pa.array(List(0, 1, 1, 0, 0), type: "int8"),
                             pa.array(List(0, 0, 1, 1, 2), type: "int32"),
@@ -506,7 +513,7 @@ namespace Apache.Arrow.Tests
                             /* field name */ List("i32", "s"),
                             /* type codes */ List(3, 2)),
                     }),
-                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8" });
+                    new[] { "col1", "col2", "col3", "col4", "col5", "col6", "col7", "col8", "col9" });
 
                 dynamic batch = table.to_batches()[0];
 
@@ -568,9 +575,16 @@ namespace Apache.Arrow.Tests
             Assert.Equal("foo", col7b.GetString(0));
             Assert.Equal("bar", col7b.GetString(1));
 
-            UnionArray col8 = (UnionArray)recordBatch.Column("col8");
+            FixedSizeListArray col8 = (FixedSizeListArray)recordBatch.Column("col8");
             Assert.Equal(5, col8.Length);
-            Assert.True(col8 is DenseUnionArray);
+            Int64Array col8a = (Int64Array)col8.Values;
+            Assert.Equal(new long[] { 1, 2, 3, 4, 0, 6, 7, 0, 0, 0 }, col8a.Values.ToArray());
+            Assert.True(col8a.IsValid(3));
+            Assert.False(col8a.IsValid(9));
+
+            UnionArray col9 = (UnionArray)recordBatch.Column("col9");
+            Assert.Equal(5, col9.Length);
+            Assert.True(col9 is DenseUnionArray);
         }
 
         [SkippableFact]

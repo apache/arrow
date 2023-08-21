@@ -60,6 +60,7 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
@@ -108,6 +109,13 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.List,
                     Flatbuf.List.EndList(Builder));
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FixedSizeList,
+                    Flatbuf.FixedSizeList.CreateFixedSizeList(Builder, type.ListSize));
             }
 
             public void Visit(UnionType type)
