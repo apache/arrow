@@ -392,9 +392,13 @@ def test_byte_stream_split(use_legacy_dataset):
 def test_column_encoding(use_legacy_dataset):
     arr_float = pa.array(list(map(float, range(100))))
     arr_int = pa.array(list(map(int, range(100))))
-    arr_bin = pa.array([str(x) for x in range(100)])
-    mixed_table = pa.Table.from_arrays([arr_float, arr_int, arr_bin],
-                                       names=['a', 'b', 'c'])
+    arr_bin = pa.array([str(x) for x in range(100)], type=pa.binary())
+    arr_flba = pa.array(
+        [str(x).zfill(10) for x in range(100)], type=pa.binary(10))
+    arr_bool = pa.array([False, True, False, False] * 25)
+    mixed_table = pa.Table.from_arrays(
+        [arr_float, arr_int, arr_bin, arr_flba, arr_bool],
+        names=['a', 'b', 'c', 'd', 'e'])
 
     # Check "BYTE_STREAM_SPLIT" for column 'a' and "PLAIN" column_encoding for
     # column 'b' and 'c'.
@@ -424,6 +428,21 @@ def test_column_encoding(use_legacy_dataset):
                      column_encoding={'a': "PLAIN",
                                       'b': "DELTA_BINARY_PACKED",
                                       'c': "DELTA_LENGTH_BYTE_ARRAY"},
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check "DELTA_BYTE_ARRAY" for byte columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'a': "PLAIN",
+                                      'b': "DELTA_BINARY_PACKED",
+                                      'c': "DELTA_BYTE_ARRAY",
+                                      'd': "DELTA_BYTE_ARRAY"},
+                     use_legacy_dataset=use_legacy_dataset)
+
+    # Check "RLE" for boolean columns.
+    _check_roundtrip(mixed_table, expected=mixed_table,
+                     use_dictionary=False,
+                     column_encoding={'e': "RLE"},
                      use_legacy_dataset=use_legacy_dataset)
 
     # Try to pass "BYTE_STREAM_SPLIT" column encoding for integer column 'b'.

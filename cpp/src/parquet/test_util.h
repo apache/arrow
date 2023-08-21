@@ -155,6 +155,12 @@ void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int m
 
 void random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out, int max_size);
 
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out,
+                                int min_size, int max_size, double prefixed_probability);
+
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, int len, FLBA* out,
+                                double prefixed_probability);
+
 template <typename Type, typename Sequence>
 std::shared_ptr<Buffer> EncodeValues(Encoding::type encoding, bool use_dictionary,
                                      const Sequence& values, int length,
@@ -777,18 +783,46 @@ inline void GenerateData<Int96>(int num_values, Int96* out, std::vector<uint8_t>
 template <>
 inline void GenerateData<ByteArray>(int num_values, ByteArray* out,
                                     std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
   int max_byte_array_len = 12;
   heap->resize(num_values * max_byte_array_len);
+  // seed the prng so failure is deterministic
   random_byte_array(num_values, 0, heap->data(), out, 2, max_byte_array_len);
+}
+
+// Generate ByteArray or FLBA data where there is a given probability
+// for each value to share a common prefix with its predecessor.
+// This is useful to exercise prefix-based encodings such as DELTA_BYTE_ARRAY.
+template <typename T>
+inline void GeneratePrefixedData(int num_values, T* out, std::vector<uint8_t>* heap,
+                                 double prefixed_probability);
+
+template <>
+inline void GeneratePrefixedData(int num_values, ByteArray* out,
+                                 std::vector<uint8_t>* heap,
+                                 double prefixed_probability) {
+  int max_byte_array_len = 12;
+  heap->resize(num_values * max_byte_array_len);
+  // seed the prng so failure is deterministic
+  prefixed_random_byte_array(num_values, /*seed=*/0, heap->data(), out, /*min_size=*/2,
+                             /*max_size=*/max_byte_array_len, prefixed_probability);
 }
 
 static constexpr int kGenerateDataFLBALength = 8;
 
 template <>
-inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
-  // seed the prng so failure is deterministic
+inline void GeneratePrefixedData<FLBA>(int num_values, FLBA* out,
+                                       std::vector<uint8_t>* heap,
+                                       double prefixed_probability) {
   heap->resize(num_values * kGenerateDataFLBALength);
+  // seed the prng so failure is deterministic
+  prefixed_random_byte_array(num_values, /*seed=*/0, heap->data(),
+                             kGenerateDataFLBALength, out, prefixed_probability);
+}
+
+template <>
+inline void GenerateData<FLBA>(int num_values, FLBA* out, std::vector<uint8_t>* heap) {
+  heap->resize(num_values * kGenerateDataFLBALength);
+  // seed the prng so failure is deterministic
   random_fixed_byte_array(num_values, 0, heap->data(), kGenerateDataFLBALength, out);
 }
 
