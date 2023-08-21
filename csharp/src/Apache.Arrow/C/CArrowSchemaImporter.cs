@@ -268,14 +268,14 @@ namespace Apache.Arrow.C
                     // Date and time
                     "tdD" => Date32Type.Default,
                     "tdm" => Date64Type.Default,
-                    "tts" => new Time32Type(TimeUnit.Second),
-                    "ttm" => new Time32Type(TimeUnit.Millisecond),
-                    "ttu" => new Time64Type(TimeUnit.Microsecond),
-                    "ttn" => new Time64Type(TimeUnit.Nanosecond),
+                    "tts" => TimeType.Second,
+                    "ttm" => TimeType.Millisecond,
+                    "ttu" => TimeType.Microsecond,
+                    "ttn" => TimeType.Nanosecond,
                     // TODO: duration not yet implemented
-                    "tiM" => new IntervalType(IntervalUnit.YearMonth),
-                    "tiD" => new IntervalType(IntervalUnit.DayTime),
-                    //"tin" => new IntervalType(IntervalUnit.MonthDayNanosecond), // Not yet implemented
+                    "tiM" => IntervalType.YearMonth,
+                    "tiD" => IntervalType.DayTime,
+                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }

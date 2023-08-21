@@ -32,6 +32,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/async_util.h"
+#include "arrow/util/config.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/vector.h"
 
@@ -994,6 +995,9 @@ TEST(TestAsyncUtil, GeneratorIterator) {
 }
 
 TEST(TestAsyncUtil, MakeTransferredGenerator) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   std::mutex mutex;
   std::condition_variable cv;
   std::atomic<bool> finished(false);
@@ -1478,6 +1482,10 @@ TEST(TestAsyncUtil, ReadaheadMove) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailed) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
+
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   std::atomic<int32_t> counter(0);
   auto gating_task = GatingTask::Make();
@@ -1512,6 +1520,9 @@ TEST(TestAsyncUtil, ReadaheadFailed) {
 }
 
 TEST(TestAsyncUtil, ReadaheadFailedWaitForInFlight) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   ASSERT_OK_AND_ASSIGN(auto thread_pool, internal::ThreadPool::Make(20));
   // If a failure causes an early end then we should not emit that failure
   // until all in-flight futures have completed.  This is to prevent tasks from

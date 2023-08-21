@@ -49,6 +49,7 @@ static constexpr char kMethodDoExchange[] = "DoExchange";
 static constexpr char kMethodDoGet[] = "DoGet";
 static constexpr char kMethodDoPut[] = "DoPut";
 static constexpr char kMethodGetFlightInfo[] = "GetFlightInfo";
+static constexpr char kMethodPollFlightInfo[] = "PollFlightInfo";
 
 /// The header encoding the transport status.
 static constexpr char kHeaderStatus[] = "flight-status";

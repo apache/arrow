@@ -72,10 +72,8 @@ namespace arrow::matlab::io::feather::proxy {
         std::shared_ptr<arrow::Table> table = nullptr;
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(reader->Read(&table), context, error::FEATHER_FAILED_TO_READ_TABLE);
 
-        // Get the first RecordBatch from the Table.
-        arrow::TableBatchReader table_batch_reader{table};
-        std::shared_ptr<arrow::RecordBatch> record_batch = nullptr;
-        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(table_batch_reader.ReadNext(&record_batch), context, error::FEATHER_FAILED_TO_READ_RECORD_BATCH);
+        // Combine all the chunks of the Table into a single RecordBatch.
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto record_batch, table->CombineChunksToBatch(arrow::default_memory_pool()), context, error::FEATHER_FAILED_TO_READ_RECORD_BATCH);
 
         // Create a Proxy from the first RecordBatch.
         auto record_batch_proxy = std::make_shared<RecordBatchProxy>(record_batch);

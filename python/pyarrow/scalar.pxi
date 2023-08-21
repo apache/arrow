@@ -123,6 +123,15 @@ cdef class Scalar(_Weakrefable):
         return str(self.as_py())
 
     def equals(self, Scalar other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Scalar
+
+        Returns
+        -------
+        bool
+        """
         return self.wrapped.get().Equals(other.unwrap().get()[0])
 
     def __eq__(self, other):

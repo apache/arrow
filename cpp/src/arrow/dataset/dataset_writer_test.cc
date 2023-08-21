@@ -31,6 +31,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "gtest/gtest.h"
 
 using namespace std::string_view_literals;  // NOLINT
@@ -380,6 +381,9 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   // Use a gated filesystem to queue up many writes behind a file open to make sure the
   // file isn't opened multiple times.
   auto gated_fs = UseGatedFs();
@@ -394,6 +398,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   // NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
   constexpr int NBATCHES = 6;
   auto gated_fs = UseGatedFs();
@@ -412,6 +419,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   auto gated_fs = UseGatedFs();
   std::atomic<bool> paused = false;
   write_options_.max_open_files = 2;

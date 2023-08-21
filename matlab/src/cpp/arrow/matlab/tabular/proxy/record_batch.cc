@@ -22,6 +22,7 @@
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
 
@@ -54,6 +55,7 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(RecordBatch, numColumns);
         REGISTER_METHOD(RecordBatch, columnNames);
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
+        REGISTER_METHOD(RecordBatch, getSchema);
     }
 
     std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() {
@@ -163,4 +165,19 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = array_proxy_id_mda;
         context.outputs[1] = array_type_id_mda;
     }
+
+    void RecordBatch::getSchema(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        using SchemaProxy = arrow::matlab::tabular::proxy::Schema;
+        mda::ArrayFactory factory;
+
+        const auto schema = record_batch->schema();
+        const auto schema_proxy = std::make_shared<SchemaProxy>(std::move(schema));
+        const auto schema_proxy_id = ProxyManager::manageProxy(schema_proxy);
+        const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
+
+        context.outputs[0] = schema_proxy_id_mda;
+    }
+
 }
