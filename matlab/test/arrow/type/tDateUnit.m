@@ -12,40 +12,28 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef tTimeUnit < matlab.unittest.TestCase
-% Tests for the arrow.type.TimeUnit enumeration class
+classdef tDateUnit < matlab.unittest.TestCase
+% Tests for the arrow.type.DateUnit enumeration class
 
     properties (Constant)
-        ClassName = "arrow.type.TimeUnit";
+        ClassName = "arrow.type.DateUnit";
         EnumerationValues = [ ...
-            arrow.type.TimeUnit.Second; ...
-            arrow.type.TimeUnit.Millisecond; ...
-            arrow.type.TimeUnit.Microsecond; ...
-            arrow.type.TimeUnit.Nanosecond ...
+            arrow.type.DateUnit.Day; ...
+            arrow.type.DateUnit.Millisecond ...
         ];
     end
     
     methods (Test)
 
         function SupportedValues(testCase)
-            % Verify there are four supported TimeUnit enumeration values.
+            % Verify there are two supported DateUnit enumeration values.
 
             actualEnumerationValues = enumeration(testCase.ClassName);
 
             testCase.verifyEqual(actualEnumerationValues, testCase.EnumerationValues);
         end
 
-        function TicksPerSecond(testCase)
-            % Verify the TicksPerSecond property has the right value for
-            % each TimeUnit enumeration value.
-
-            expectedTicksPerSecond = [1 1e3 1e6 1e9];
-            for ii = 1:numel(testCase.EnumerationValues)
-                actualTicksPerSecond = ticksPerSecond(testCase.EnumerationValues(ii));
-                testCase.verifyEqual(actualTicksPerSecond, expectedTicksPerSecond(ii));
-            end
-        end
-
     end
 
 end
+
