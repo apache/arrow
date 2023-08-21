@@ -31,38 +31,10 @@
 
 namespace arrow::compute::internal {
 
-/// \brief Common virtual base class for filter functions that involve run-end
-/// encoded arrays on one or both operands.
-class ARROW_EXPORT REEFilterExec {
- public:
-  virtual ~REEFilterExec() = default;
-
-  /// \brief Calculate the physical size of the values nested in the run-end
-  /// encoded output.
-  virtual Result<int64_t> CalculateOutputSize() = 0;
-
-  virtual Status Exec(ArrayData* out) = 0;
-};
-
-ARROW_EXPORT Result<std::unique_ptr<REEFilterExec>> MakeREExREEFilterExec(
-    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    const FilterOptions& options);
-
-ARROW_EXPORT Result<std::unique_ptr<REEFilterExec>> MakeREExPlainFilterExec(
-    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    const FilterOptions& options);
-
-ARROW_EXPORT Result<std::unique_ptr<REEFilterExec>> MakePlainxREEFilterExec(
-    MemoryPool* pool, const ArraySpan& values, const ArraySpan& filter,
-    const FilterOptions& options);
-
 ARROW_EXPORT Status REExREEFilterExec(KernelContext* ctx, const ExecSpan& span,
                                       ExecResult* result);
 
 ARROW_EXPORT Status REExPlainFilterExec(KernelContext* ctx, const ExecSpan& span,
-                                        ExecResult* result);
-
-ARROW_EXPORT Status PlainxREEFilterExec(KernelContext* ctx, const ExecSpan& span,
                                         ExecResult* result);
 
 }  // namespace arrow::compute::internal
