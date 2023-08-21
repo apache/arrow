@@ -55,6 +55,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/fixed_width_type.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/string_type.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/timestamp_type.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/time_type.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/time32_type.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/field.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/wrap.cc"
