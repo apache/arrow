@@ -254,6 +254,7 @@ namespace Apache.Arrow.Ipc
                     buffers = ((UnionType)field.DataType).Mode == Types.UnionMode.Dense ? 2 : 1;
                     break;
                 case ArrowTypeId.Struct:
+                case ArrowTypeId.FixedSizeList:
                     buffers = 1;
                     break;
                 default:
