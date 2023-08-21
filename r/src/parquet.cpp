@@ -17,6 +17,8 @@
 
 #include "./arrow_types.h"
 
+#include "./safe-call-into-r.h"
+
 #if defined(ARROW_R_WITH_PARQUET)
 
 #include <arrow/table.h>
@@ -129,7 +131,10 @@ std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFi
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
   std::shared_ptr<arrow::Table> table;
-  PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
+  auto result =
+      RunWithCapturedRIfPossibleVoid([&]() { return reader->ReadTable(&table); });
+
+  StopIfNotOk(result);
   return table;
 }
 
@@ -138,7 +143,8 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& column_indices) {
   std::shared_ptr<arrow::Table> table;
-  PARQUET_THROW_NOT_OK(reader->ReadTable(column_indices, &table));
+  auto result = RunWithCapturedRIfPossibleVoid(
+      [&]() { return reader->ReadTable(column_indices, &table); });
   return table;
 }
 
