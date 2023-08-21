@@ -50,7 +50,67 @@ namespace compute {
 
 void CheckIsIn(const std::shared_ptr<Array> input,
                const std::shared_ptr<Array>& value_set, const std::string& expected_json,
-               bool skip_nulls = false) {
+               SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                   SetLookupOptions::MATCH) {
+  auto expected = ArrayFromJSON(boolean(), expected_json);
+
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum,
+                       IsIn(input, SetLookupOptions(value_set, null_matching_behavior)));
+  std::shared_ptr<Array> actual = actual_datum.make_array();
+  ValidateOutput(actual_datum);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
+               const std::string& value_set_json, const std::string& expected_json,
+               SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                   SetLookupOptions::MATCH) {
+  auto input = ArrayFromJSON(type, input_json);
+  auto value_set = ArrayFromJSON(type, value_set_json);
+  CheckIsIn(input, value_set, expected_json, null_matching_behavior);
+}
+
+void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
+                      const std::shared_ptr<ChunkedArray>& value_set,
+                      const std::shared_ptr<ChunkedArray>& expected,
+                      SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                          SetLookupOptions::MATCH) {
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum,
+                       IsIn(input, SetLookupOptions(value_set, null_matching_behavior)));
+  auto actual = actual_datum.chunked_array();
+  ValidateOutput(actual_datum);
+
+  // Output contiguous in a single chunk
+  ASSERT_EQ(1, actual->num_chunks());
+  ASSERT_TRUE(actual->Equals(*expected));
+}
+
+void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
+                         const std::shared_ptr<DataType>& index_type,
+                         const std::string& input_dictionary_json,
+                         const std::string& input_index_json,
+                         const std::string& value_set_json,
+                         const std::string& expected_json,
+                         SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                             SetLookupOptions::MATCH) {
+  auto dict_type = dictionary(index_type, type);
+  auto indices = ArrayFromJSON(index_type, input_index_json);
+  auto dict = ArrayFromJSON(type, input_dictionary_json);
+
+  ASSERT_OK_AND_ASSIGN(auto input, DictionaryArray::FromArrays(dict_type, indices, dict));
+  auto value_set = ArrayFromJSON(type, value_set_json);
+  auto expected = ArrayFromJSON(boolean(), expected_json);
+
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum,
+                       IsIn(input, SetLookupOptions(value_set, null_matching_behavior)));
+  std::shared_ptr<Array> actual = actual_datum.make_array();
+  ValidateOutput(actual_datum);
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void CheckIsIn(const std::shared_ptr<Array> input,
+               const std::shared_ptr<Array>& value_set, const std::string& expected_json,
+               bool skip_nulls) {
   auto expected = ArrayFromJSON(boolean(), expected_json);
 
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
@@ -62,7 +122,7 @@ void CheckIsIn(const std::shared_ptr<Array> input,
 
 void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
                const std::string& value_set_json, const std::string& expected_json,
-               bool skip_nulls = false) {
+               bool skip_nulls) {
   auto input = ArrayFromJSON(type, input_json);
   auto value_set = ArrayFromJSON(type, value_set_json);
   CheckIsIn(input, value_set, expected_json, skip_nulls);
@@ -71,7 +131,7 @@ void CheckIsIn(const std::shared_ptr<DataType>& type, const std::string& input_j
 void CheckIsInChunked(const std::shared_ptr<ChunkedArray>& input,
                       const std::shared_ptr<ChunkedArray>& value_set,
                       const std::shared_ptr<ChunkedArray>& expected,
-                      bool skip_nulls = false) {
+                      bool skip_nulls) {
   ASSERT_OK_AND_ASSIGN(Datum actual_datum,
                        IsIn(input, SetLookupOptions(value_set, skip_nulls)));
   auto actual = actual_datum.chunked_array();
@@ -87,7 +147,7 @@ void CheckIsInDictionary(const std::shared_ptr<DataType>& type,
                          const std::string& input_dictionary_json,
                          const std::string& input_index_json,
                          const std::string& value_set_json,
-                         const std::string& expected_json, bool skip_nulls = false) {
+                         const std::string& expected_json, bool skip_nulls) {
   auto dict_type = dictionary(index_type, type);
   auto indices = ArrayFromJSON(index_type, input_index_json);
   auto dict = ArrayFromJSON(type, input_dictionary_json);
@@ -185,18 +245,30 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
             /*skip_nulls=*/false);
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, 1]", "[false, true, true, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, 1]", "[null, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, 1]", "[null, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Nulls in right array
   CheckIsIn(type, "[0, 1, 2, 3, 2]", "[2, null, 1]", "[false, true, true, false, true]",
             /*skip_nulls=*/false);
   CheckIsIn(type, "[0, 1, 2, 3, 2]", "[2, null, 1]", "[false, true, true, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, "[0, 1, 2, 3, 2]", "[2, null, 1]", "[false, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[0, 1, 2, 3, 2]", "[2, null, 1]", "[null, true, true, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Nulls in both the arrays
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]", "[true, true, true, false, true]",
             /*skip_nulls=*/false);
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]",
             "[false, true, true, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]", "[null, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]", "[null, true, true, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Duplicates in right array
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[null, 2, 2, null, 1, 1]",
@@ -204,6 +276,12 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
             /*skip_nulls=*/false);
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[null, 2, 2, null, 1, 1]",
             "[false, true, true, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[null, 2, 2, null, 1, 1]",
+            "[null, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[null, 1, 2, 3, 2]", "[null, 2, 2, null, 1, 1]",
+            "[null, true, true, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Empty Arrays
   CheckIsIn(type, "[]", "[]", "[]");
@@ -217,7 +295,15 @@ TEST_F(TestIsInKernel, NullType) {
   CheckIsIn(type, "[]", "[]", "[]");
 
   CheckIsIn(type, "[null, null]", "[null]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[null]", "[null, null]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[null, null]", "[null]", "[null, null]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
   CheckIsIn(type, "[null, null]", "[]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[]", "[null, null]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[null, null]", "[]", "[null, null]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Duplicates in right array
   CheckIsIn(type, "[null, null, null]", "[null, null]", "[true, true, true]");
@@ -232,12 +318,24 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
-
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, null, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, null, null, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
+    
     // Duplicates in right array
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, null, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, null, null, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
   }
 
   // Disallow mixing timezone-aware and timezone-naive values
@@ -260,12 +358,24 @@ TEST_F(TestIsInKernel, TimeDuration) {
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, null, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, null, null, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
     // Duplicates in right array
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, null, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, null, null, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
   }
 
   // Different units, cast value_set to values will fail, then cast values to value_set
@@ -285,17 +395,35 @@ TEST_F(TestIsInKernel, Boolean) {
             "[false, true, false, false, true]", /*skip_nulls=*/false);
   CheckIsIn(type, "[true, false, null, true, false]", "[false]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false]",
+            "[false, true, null, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false]",
+            "[false, true, null, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
             "[false, true, true, false, true]", /*skip_nulls=*/false);
   CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
+            "[false, true, null, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
+            "[null, true, null, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Duplicates in right array
   CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
             "[false, true, true, false, true]", /*skip_nulls=*/false);
   CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
+            "[false, true, null, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
+            "[null, true, null, null, true]",
+            /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 }
 
 TYPED_TEST_SUITE(TestIsInKernelBinary, BaseBinaryArrowTypes);
