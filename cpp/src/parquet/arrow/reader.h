@@ -276,6 +276,10 @@ class PARQUET_EXPORT FileReader {
   /// thread, which is correct.  However, decompression is also done on the I/O thread
   /// which may not be ideal.
   ///
+  /// This method ignores the use_threads property of the ArrowReaderProperties.  It will
+  /// always create a task for each column.  To run without threads you should use a
+  /// serial executor as the CPU executor.
+  ///
   /// The returned generator will respect the batch size set in the ArrowReaderProperties.
   /// Batches will not be larger than the given batch size.  However, batches may be
   /// smaller.  This can happen, for example, when there is not enough data or when a
