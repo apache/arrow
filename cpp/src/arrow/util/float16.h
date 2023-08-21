@@ -40,7 +40,7 @@ namespace util {
 ///
 /// NOTE: Methods in the class should not mutate the unerlying value or produce copies.
 /// Such functionality is delegated to subclasses.
-class Float16Base {
+class ARROW_EXPORT Float16Base {
  public:
   Float16Base() = default;
   constexpr explicit Float16Base(uint16_t value) : value_(value) {}
@@ -98,6 +98,8 @@ class Float16Base {
 #endif
   }
 
+  float ToFloat() const;
+
   friend constexpr bool operator==(Float16Base lhs, Float16Base rhs) {
     if (lhs.is_nan() || rhs.is_nan()) return false;
     return Float16Base::CompareEq(lhs, rhs);
@@ -149,12 +151,14 @@ class Float16Base {
 };
 
 /// \brief Wrapper class for an IEEE half-precision float, encoded as a `uint16_t`
-class Float16 : public Float16Base {
+class ARROW_EXPORT Float16 : public Float16Base {
  public:
   using Float16Base::Float16Base;
 
   constexpr Float16 operator-() const { return Float16(value_ ^ 0x8000); }
   constexpr Float16 operator+() const { return Float16(value_); }
+
+  static Float16 FromFloat(float f);
 
   /// \brief Read a `Float16` from memory in native-endian byte order
   static Float16 FromBytes(const uint8_t* src) {

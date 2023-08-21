@@ -16,6 +16,7 @@
 // under the License.
 
 #include <array>
+#include <cmath>
 #include <utility>
 #include <vector>
 
@@ -32,6 +33,96 @@ namespace {
 
 template <typename T>
 using Limits = std::numeric_limits<T>;
+
+float F32(uint32_t bits) { return SafeCopy<float>(bits); }
+
+TEST(Float16Test, RoundTripFromFloat32) {
+  struct TestCase {
+    float f32;
+    uint16_t b16;
+    float f16_as_f32;
+  };
+  // Expected values were also manually validated with numpy-1.24.3
+  const TestCase test_cases[] = {
+      // +/-0.0f
+      {F32(0x80000000u), 0b1000000000000000u, -0.0f},
+      {F32(0x00000000u), 0b0000000000000000u, +0.0f},
+      // 32-bit exp is 102 => 2^-25. Rounding to nearest.
+      {F32(0xb3000001u), 0b1000000000000001u, -5.96046447754e-8f},
+      // 32-bit exp is 102 => 2^-25. Rounding to even.
+      {F32(0xb3000000u), 0b1000000000000000u, -0.0f},
+      // 32-bit exp is 101 => 2^-26. Underflow to zero.
+      {F32(0xb2800001u), 0b1000000000000000u, -0.0f},
+      // 32-bit exp is 108 => 2^-19.
+      {F32(0xb61a0000u), 0b1000000000100110u, -2.26497650146e-6f},
+      // 32-bit exp is 108 => 2^-19.
+      {F32(0xb61e0000u), 0b1000000000101000u, -2.38418579102e-6f},
+      // 32-bit exp is 112 => 2^-15. Rounding to nearest.
+      {F32(0xb87fa001u), 0b1000001111111111u, -6.09755516052e-5f},
+      // 32-bit exp is 112 => 2^-15. Rounds to 16-bit exp of 1 => 2^-14
+      {F32(0xb87fe001u), 0b1000010000000000u, -6.103515625e-5f},
+      // 32-bit exp is 142 => 2^15. Rounding to nearest.
+      {F32(0xc7001001u), 0b1111100000000001u, -32800.0f},
+      // 32-bit exp is 142 => 2^15. Rounding to even.
+      {F32(0xc7001000u), 0b1111100000000000u, -32768.0f},
+      // 65520.0f rounds to inf
+      {F32(0x477ff000u), 0b0111110000000000u, Limits<float>::infinity()},
+      // 65488.0039062f rounds to 65504.0 (float16 max)
+      {F32(0x477fd001u), 0b0111101111111111u, 65504.0f},
+      // 32-bit exp is 127 => 2^0, rounds to 16-bit exp of 16 => 2^1.
+      {F32(0xbffff000u), 0b1100000000000000u, -2.0f},
+  };
+
+  for (size_t index = 0; index < std::size(test_cases); ++index) {
+    ARROW_SCOPED_TRACE("index=", index);
+    const auto& tc = test_cases[index];
+    const auto f16 = Float16::FromFloat(tc.f32);
+    EXPECT_EQ(tc.b16, f16.bits());
+    EXPECT_EQ(tc.f16_as_f32, f16.ToFloat());
+  }
+}
+
+TEST(Float16Test, RoundTripFromFloat32Nan) {
+  const float nan_test_cases[] = {
+      Limits<float>::quiet_NaN(), F32(0x7f800001u), F32(0xff800001u), F32(0x7fc00000u),
+      F32(0xff800001u),           F32(0x7fffffffu), F32(0xffffffffu)};
+
+  for (size_t i = 0; i < std::size(nan_test_cases); ++i) {
+    ARROW_SCOPED_TRACE("i=", i);
+    const auto f32 = nan_test_cases[i];
+
+    ASSERT_TRUE(std::isnan(f32));
+    const bool sign = std::signbit(f32);
+
+    const auto f16 = Float16::FromFloat(f32);
+    EXPECT_TRUE(f16.is_nan());
+    EXPECT_EQ(sign, f16.signbit());
+
+    const auto f16_as_f32 = f16.ToFloat();
+    EXPECT_TRUE(std::isnan(f16_as_f32));
+    EXPECT_EQ(sign, std::signbit(f16_as_f32));
+  }
+}
+
+TEST(Float16Test, RoundTripFromFloat32Inf) {
+  const float test_cases[] = {+Limits<float>::infinity(), -Limits<float>::infinity()};
+
+  for (size_t i = 0; i < std::size(test_cases); ++i) {
+    ARROW_SCOPED_TRACE("i=", i);
+    const auto f32 = test_cases[i];
+
+    ASSERT_TRUE(std::isinf(f32));
+    const bool sign = std::signbit(f32);
+
+    const auto f16 = Float16::FromFloat(f32);
+    EXPECT_TRUE(f16.is_infinity());
+    EXPECT_EQ(sign, f16.signbit());
+
+    const auto f16_as_f32 = f16.ToFloat();
+    EXPECT_TRUE(std::isinf(f16_as_f32));
+    EXPECT_EQ(sign, std::signbit(f16_as_f32));
+  }
+}
 
 // Holds a float16 and its equivalent float32
 struct TestValue {
