@@ -19,7 +19,6 @@ import os
 import pathlib
 import subprocess
 import sys
-from tempfile import TemporaryDirectory
 
 import pytest
 from pytest_lazyfixture import lazy_fixture
@@ -148,7 +147,8 @@ def s3_connection():
 
 
 @pytest.fixture(scope='session')
-def s3_server(s3_connection):
+def s3_server(s3_connection, tmpdir_factory):
+    tmpdir = tmpdir_factory.getbasetemp()
     host, port, access_key, secret_key = s3_connection
 
     address = '{}:{}'.format(host, port)
@@ -158,24 +158,23 @@ def s3_server(s3_connection):
         'MINIO_SECRET_KEY': secret_key
     })
 
-    with TemporaryDirectory() as tempdir:
-        args = ['minio', '--compat', 'server', '--quiet', '--address',
-                address, tempdir]
-        proc = None
-        try:
-            proc = subprocess.Popen(args, env=env)
-        except OSError:
-            pytest.skip('`minio` command cannot be located')
-        else:
-            yield {
-                'connection': s3_connection,
-                'process': proc,
-                'tempdir': tempdir
-            }
-        finally:
-            if proc is not None:
-                proc.kill()
-                proc.wait()
+    args = ['minio', '--compat', 'server', '--quiet', '--address',
+            address, tmpdir]
+    proc = None
+    try:
+        proc = subprocess.Popen(args, env=env)
+    except OSError:
+        pytest.skip('`minio` command cannot be located')
+    else:
+        yield {
+            'connection': s3_connection,
+            'process': proc,
+            'tempdir': tmpdir
+        }
+    finally:
+        if proc is not None:
+            proc.kill()
+            proc.wait()
 
 
 @pytest.fixture(scope='session')

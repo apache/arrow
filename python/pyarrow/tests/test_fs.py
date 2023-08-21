@@ -245,7 +245,8 @@ def s3fs(request, s3_server):
         endpoint_override='{}:{}'.format(host, port),
         scheme='http',
         allow_bucket_creation=True,
-        allow_bucket_deletion=True
+        allow_bucket_deletion=True,
+        connect_timeout=10
     )
     fs.create_dir(bucket)
 
