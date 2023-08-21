@@ -83,6 +83,8 @@ namespace Apache.Arrow
 #else
                     throw new NotSupportedException("Half-float arrays are not supported by this target framework.");
 #endif
+                case ArrowTypeId.FixedSizeList:
+                    return new FixedSizeListArray(data);
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Map:
                 default:

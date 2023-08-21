@@ -35,24 +35,24 @@ namespace Apache.Arrow
 
         public Field(string name, IArrowType dataType, bool nullable,
             IEnumerable<KeyValuePair<string, string>> metadata = default)
-            : this(name, dataType, nullable)
+            : this(name, dataType, nullable, false)
         {
             Metadata = metadata?.ToDictionary(kv => kv.Key, kv => kv.Value);
 
         }
 
         internal Field(string name, IArrowType dataType, bool nullable,
-            IReadOnlyDictionary<string, string> metadata, bool copyCollections)
-            : this(name, dataType, nullable)
+            IReadOnlyDictionary<string, string> metadata, bool copyCollections, bool allowBlankName)
+            : this(name, dataType, nullable, allowBlankName)
         {
             Debug.Assert(copyCollections == false, "This internal constructor is to not copy the collections.");
 
             Metadata = metadata;
         }
 
-        private Field(string name, IArrowType dataType, bool nullable)
+        private Field(string name, IArrowType dataType, bool nullable, bool allowBlankName)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            if (name == null || (!allowBlankName && string.IsNullOrWhiteSpace(name)))
             {
                 throw new ArgumentNullException(nameof(name));
             }

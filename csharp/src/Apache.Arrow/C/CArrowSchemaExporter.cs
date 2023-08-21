@@ -167,6 +167,8 @@ namespace Apache.Arrow.C
                     return String.Format("ts{0}:{1}", FormatTimeUnit(timestampType.Unit), timestampType.Timezone);
                 // Nested
                 case ListType _: return "+l";
+                case FixedSizeListType fixedListType:
+                    return $"+w:{fixedListType.ListSize}";
                 case StructType _: return "+s";
                 // Dictionary
                 case DictionaryType dictionaryType:

@@ -26,6 +26,7 @@ namespace Apache.Arrow
         IArrowTypeVisitor<Time64Type>,
         IArrowTypeVisitor<FixedSizeBinaryType>,
         IArrowTypeVisitor<ListType>,
+        IArrowTypeVisitor<FixedSizeListType>,
         IArrowTypeVisitor<StructType>
     {
         private readonly IArrowType _expectedType;
@@ -96,6 +97,16 @@ namespace Apache.Arrow
         public void Visit(ListType actualType)
         {
             if (_expectedType is ListType expectedType
+                && CompareNested(expectedType, actualType))
+            {
+                _dataTypeMatch = true;
+            }
+        }
+
+        public void Visit(FixedSizeListType actualType)
+        {
+            if (_expectedType is FixedSizeListType expectedType
+                && actualType.ListSize == expectedType.ListSize
                 && CompareNested(expectedType, actualType))
             {
                 _dataTypeMatch = true;
