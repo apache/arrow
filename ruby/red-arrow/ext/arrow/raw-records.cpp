@@ -149,7 +149,9 @@ namespace red_arrow {
     public:
       explicit RawRecordsProducer()
         : Converter(),
-          record_(Qnil) {
+          record_(Qnil),
+          column_index_(0),
+          row_offset_(0) {
       }
 
       void produce(const arrow::RecordBatch& record_batch) {
