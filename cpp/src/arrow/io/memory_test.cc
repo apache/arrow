@@ -291,6 +291,60 @@ TEST(TestBufferReader, WillNeed) {
   }
 }
 
+void TestBufferReaderLifetime(std::function<BufferReader(std::string&)> fn,
+                              bool supports_zero_copy) {
+  std::shared_ptr<Buffer> result;
+  std::string data = "data12345678910111213";
+  {
+    std::string data_inner = data;
+    BufferReader reader = fn(data_inner);
+    EXPECT_EQ(supports_zero_copy, reader.supports_zero_copy());
+    ASSERT_OK_AND_ASSIGN(result, reader.Read(data.length()));
+  }
+  EXPECT_EQ(std::string_view(data), std::string_view(*result));
+}
+
+TEST(TestBufferReader, Lifetime) {
+  std::shared_ptr<Buffer> result;
+  std::string data = "data12345678910111213";
+
+  // BufferReader(std::string_view)
+  TestBufferReaderLifetime(
+      [](std::string& data) -> BufferReader {
+        return BufferReader(std::string_view(data.data(), data.size()));
+      },
+      /*supports_zero_copy=*/false);
+
+  // BufferReader(const Buffer&)
+  TestBufferReaderLifetime(
+      [](std::string& data) -> BufferReader {
+        auto buffer = Buffer::FromString(std::move(data));
+        return BufferReader(*buffer);
+      },
+      /*supports_zero_copy=*/false);
+
+  // BufferReader(const uint8_t* data, int64_t size)
+  TestBufferReaderLifetime(
+      [](std::string& data) -> BufferReader {
+        return BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
+                            static_cast<int64_t>(data.size()));
+      },
+      /*supports_zero_copy=*/false);
+
+  // BufferReader(std::shared_ptr<Buffer>)
+  TestBufferReaderLifetime(
+      [](std::string& data) -> BufferReader {
+        auto buffer = Buffer::FromString(std::move(data));
+        return BufferReader(std::move(buffer));
+      },
+      /*supports_zero_copy=*/true);
+
+  // BufferReader(std::string)
+  TestBufferReaderLifetime(
+      [](std::string& data) -> BufferReader { return BufferReader(std::move(data)); },
+      /*supports_zero_copy=*/true);
+}
+
 TEST(TestRandomAccessFile, GetStream) {
   std::string data = "data1data2data3data4data5";
 
