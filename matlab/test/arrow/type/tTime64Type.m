@@ -88,7 +88,7 @@ classdef tTime64Type < hFixedWidthType
             %
             % Example:
             %
-            %  Time32Type with properties:
+            %  Time64Type with properties:
             %
             %          ID: Time64
             %    TimeUnit: Microsecond
@@ -135,7 +135,7 @@ classdef tTime64Type < hFixedWidthType
 
         function InvalidProxy(testCase)
             % Verify that an error is thrown when a Proxy of an unexpected
-            % type is passed to the arrow.type.Time32Type constructor.
+            % type is passed to the arrow.type.Time64Type constructor.
             array = arrow.array([1, 2, 3]);
             proxy = array.Proxy;
             testCase.verifyError(@() arrow.type.Time64Type(proxy), "arrow:proxy:ProxyNameMismatch");
