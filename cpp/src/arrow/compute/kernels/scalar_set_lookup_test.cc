@@ -678,6 +678,14 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
 
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/false);
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[true, true, true, true, false]", "[true, null, true, false]"});
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[true, true, true, true, false]", "[true, null, true, false]"});
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   value_set = ChunkedArrayFromJSON(utf8(), {R"(["", "def"])", R"([null])"});
   expected = ChunkedArrayFromJSON(
@@ -686,6 +694,14 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, false, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[false, true, true, false, false]", "[true, null, false, false]"});
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[null, true, true, null, null]", "[true, null, null, null]"});
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   // Duplicates in value_set
   value_set =
@@ -696,6 +712,14 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, false, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[false, true, true, false, false]", "[true, null, false, false]"});
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
+  expected = ChunkedArrayFromJSON(
+      boolean(), {"[null, true, true, null, null]", "[true, null, null, null]"});
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 }
 
 // ----------------------------------------------------------------------
@@ -705,7 +729,70 @@ class TestIndexInKernel : public ::testing::Test {
  public:
   void CheckIndexIn(const std::shared_ptr<Array>& input,
                     const std::shared_ptr<Array>& value_set,
-                    const std::string& expected_json, bool skip_nulls = false) {
+                    const std::string& expected_json,
+                    SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                        SetLookupOptions::MATCH) {
+    std::shared_ptr<Array> expected = ArrayFromJSON(int32(), expected_json);
+
+    SetLookupOptions options(value_set, null_matching_behavior);
+    ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(input, options));
+    std::shared_ptr<Array> actual = actual_datum.make_array();
+    ValidateOutput(actual_datum);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
+  void CheckIndexIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
+                    const std::string& value_set_json, const std::string& expected_json,
+                    SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                        SetLookupOptions::MATCH) {
+    std::shared_ptr<Array> input = ArrayFromJSON(type, input_json);
+    std::shared_ptr<Array> value_set = ArrayFromJSON(type, value_set_json);
+    return CheckIndexIn(input, value_set, expected_json, null_matching_behavior);
+  }
+
+  void CheckIndexInChunked(const std::shared_ptr<ChunkedArray>& input,
+                           const std::shared_ptr<ChunkedArray>& value_set,
+                           const std::shared_ptr<ChunkedArray>& expected,
+                           SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+                               SetLookupOptions::MATCH) {
+    ASSERT_OK_AND_ASSIGN(
+        Datum actual,
+        IndexIn(input, SetLookupOptions(value_set, null_matching_behavior)));
+    ASSERT_EQ(Datum::CHUNKED_ARRAY, actual.kind());
+    ValidateOutput(actual);
+
+    auto actual_chunked = actual.chunked_array();
+
+    // Output contiguous in a single chunk
+    ASSERT_EQ(1, actual_chunked->num_chunks());
+    ASSERT_TRUE(actual_chunked->Equals(*expected));
+  }
+
+  void CheckIndexInDictionary(
+      const std::shared_ptr<DataType>& type, const std::shared_ptr<DataType>& index_type,
+      const std::string& input_dictionary_json, const std::string& input_index_json,
+      const std::string& value_set_json, const std::string& expected_json,
+      SetLookupOptions::NullMatchingBehavior null_matching_behavior =
+          SetLookupOptions::MATCH) {
+    auto dict_type = dictionary(index_type, type);
+    auto indices = ArrayFromJSON(index_type, input_index_json);
+    auto dict = ArrayFromJSON(type, input_dictionary_json);
+
+    ASSERT_OK_AND_ASSIGN(auto input,
+                         DictionaryArray::FromArrays(dict_type, indices, dict));
+    auto value_set = ArrayFromJSON(type, value_set_json);
+    auto expected = ArrayFromJSON(int32(), expected_json);
+
+    SetLookupOptions options(value_set, null_matching_behavior);
+    ASSERT_OK_AND_ASSIGN(Datum actual_datum, IndexIn(input, options));
+    std::shared_ptr<Array> actual = actual_datum.make_array();
+    ValidateOutput(actual_datum);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
+  void CheckIndexIn(const std::shared_ptr<Array>& input,
+                    const std::shared_ptr<Array>& value_set,
+                    const std::string& expected_json, bool skip_nulls) {
     std::shared_ptr<Array> expected = ArrayFromJSON(int32(), expected_json);
 
     SetLookupOptions options(value_set, skip_nulls);
@@ -717,7 +804,7 @@ class TestIndexInKernel : public ::testing::Test {
 
   void CheckIndexIn(const std::shared_ptr<DataType>& type, const std::string& input_json,
                     const std::string& value_set_json, const std::string& expected_json,
-                    bool skip_nulls = false) {
+                    bool skip_nulls) {
     std::shared_ptr<Array> input = ArrayFromJSON(type, input_json);
     std::shared_ptr<Array> value_set = ArrayFromJSON(type, value_set_json);
     return CheckIndexIn(input, value_set, expected_json, skip_nulls);
@@ -744,7 +831,7 @@ class TestIndexInKernel : public ::testing::Test {
                               const std::string& input_dictionary_json,
                               const std::string& input_index_json,
                               const std::string& value_set_json,
-                              const std::string& expected_json, bool skip_nulls = false) {
+                              const std::string& expected_json, bool skip_nulls) {
     auto dict_type = dictionary(index_type, type);
     auto indices = ArrayFromJSON(index_type, input_index_json);
     auto dict = ArrayFromJSON(type, input_dictionary_json);
