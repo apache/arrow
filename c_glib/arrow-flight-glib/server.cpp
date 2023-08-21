@@ -672,9 +672,8 @@ namespace gaflight {
       auto klass = GAFLIGHT_SERVER_CUSTOM_AUTH_HANDLER_GET_CLASS(handler_);
       auto gacontext = gaflight_server_call_context_new_raw(&context);
       auto gtoken = g_bytes_new_static(token.data(), token.size());
-      GBytes *gpeer_identity = nullptr;
       GError *error = nullptr;
-      klass->is_valid(handler_, gacontext, gtoken, &gpeer_identity, &error);
+      auto gpeer_identity = klass->is_valid(handler_, gacontext, gtoken, &error);
       g_bytes_unref(gtoken);
       g_object_unref(gacontext);
       if (gpeer_identity) {
@@ -760,20 +759,20 @@ gaflight_server_custom_auth_handler_authenticate(
  * @context: A #GAFlightServerCallContext.
  * @token: The client token. May be the empty string if the client does not
  *   provide a token.
- * @peer_identity: (out): The identity of the peer, if this authentication
- *   method supports it.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Validates a per-call client token.
  *
+ * Returns: (nullable) (transfer full): The identity of the peer, if
+ *   this authentication method supports it.
+ *
  * Since: 12.0.0
  */
-void
+GBytes *
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
   GAFlightServerCallContext *context,
   GBytes *token,
-  GBytes **peer_identity,
   GError **error)
 {
   auto flight_handler =
@@ -791,8 +790,10 @@ gaflight_server_custom_auth_handler_is_valid(
                     status,
                     "[flight-server-custom-auth-handler]"
                     "[is-valid]")) {
-    *peer_identity = g_bytes_new(flight_peer_identity.data(),
-                                 flight_peer_identity.size());
+    return g_bytes_new(flight_peer_identity.data(),
+                       flight_peer_identity.size());
+  } else {
+    return nullptr;
   }
 }
 
