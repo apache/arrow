@@ -24,7 +24,7 @@ namespace arrow::matlab::type::proxy {
 class TimeType : public arrow::matlab::type::proxy::FixedWidthType {
 
     public:
-        TimeType(std::shared_ptr<arrow::Time32Type> time_type);
+        TimeType(std::shared_ptr<arrow::TimeType> time_type);
 
         ~TimeType() {}
 
