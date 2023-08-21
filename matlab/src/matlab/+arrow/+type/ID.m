@@ -1,3 +1,5 @@
+%ID Data type enumeration
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,7 +16,6 @@
 % permissions and limitations under the License.
 
 classdef ID < uint64
-%ID Data type enumeration
     enumeration
         Boolean (1)
         UInt8   (2)
