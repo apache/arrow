@@ -81,7 +81,9 @@ esac
 mkdir -p ${build_dir}
 pushd ${build_dir}
 
+# CMAKE_ARGS is passed first because of GH-37266
 cmake \
+  ${CMAKE_ARGS} \
   -Dabsl_SOURCE=${absl_SOURCE:-} \
   -DARROW_ACERO=${ARROW_ACERO:-OFF} \
   -DARROW_AZURE=${ARROW_AZURE:-OFF} \
@@ -183,7 +185,6 @@ cmake \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
   -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
-  ${CMAKE_ARGS} \
   ${source_dir}
 
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
