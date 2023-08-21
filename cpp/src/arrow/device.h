@@ -104,7 +104,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   ///
   /// In essence this is just a wrapper around a void* to represent the
   /// standard concept of a stream/queue on a device. Derived classes
-  /// should be trivially constructable from it's device-specific counterparts.
+  /// should be trivially constructible from it's device-specific counterparts.
   class ARROW_EXPORT Stream {
    public:
     virtual const void* get_raw() const { return NULLPTR; }
