@@ -1,4 +1,4 @@
-% Enumeration class representing Time Units.
+% Enumeration class representing Date Units.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,28 +14,11 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef TimeUnit < uint8
+classdef DateUnit < uint8
 
     enumeration
-        Second       (0)
+        Day          (0)
         Millisecond  (1)
-        Microsecond  (2)
-        Nanosecond   (3)
     end
 
-    methods (Hidden)
-        function ticks = ticksPerSecond(obj)
-            import arrow.type.TimeUnit
-            switch obj
-                case TimeUnit.Second
-                    ticks = 1;
-                case TimeUnit.Millisecond
-                    ticks = 1e3;
-                case TimeUnit.Microsecond
-                    ticks = 1e6;
-                case TimeUnit.Nanosecond
-                    ticks = 1e9;
-            end
-        end
-    end
 end
