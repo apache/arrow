@@ -165,11 +165,10 @@ struct _GAFlightServerCustomAuthHandlerClass
                        GAFlightServerAuthSender *sender,
                        GAFlightServerAuthReader *reader,
                        GError **error);
-  void (*is_valid)(GAFlightServerCustomAuthHandler *handler,
-                   GAFlightServerCallContext *context,
-                   GBytes *token,
-                   GBytes **peer_identity,
-                   GError **error);
+  GBytes *(*is_valid)(GAFlightServerCustomAuthHandler *handler,
+                      GAFlightServerCallContext *context,
+                      GBytes *token,
+                      GError **error);
 };
 
 GARROW_AVAILABLE_IN_12_0
@@ -182,12 +181,11 @@ gaflight_server_custom_auth_handler_authenticate(
   GError **error);
 
 GARROW_AVAILABLE_IN_12_0
-void
+GBytes *
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
   GAFlightServerCallContext *context,
   GBytes *token,
-  GBytes **peer_identity,
   GError **error);
 
 
