@@ -618,16 +618,311 @@ func (b *baseListBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+// ListView represents an immutable sequence of array values defined by an
+// offset into a child array and a length.
+type ListView struct {
+	array
+	values  arrow.Array
+	offsets []int32
+	sizes   []int32
+}
+
+var _ ListLike = (*ListView)(nil)
+
+func NewListViewData(data arrow.ArrayData) *ListView {
+	a := &ListView{}
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *ListView) ListValues() arrow.Array { return a.values }
+
+func (a *ListView) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
+
+func (a *ListView) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		if !a.IsValid(i) {
+			o.WriteString(NullValueStr)
+			continue
+		}
+		sub := a.newListValue(i)
+		fmt.Fprintf(o, "%v", sub)
+		sub.Release()
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *ListView) newListValue(i int) arrow.Array {
+	beg, end := a.ValueOffsets(i)
+	return NewSlice(a.values, beg, end)
+}
+
+func (a *ListView) setData(data *Data) {
+	a.array.setData(data)
+	offsets := data.buffers[1]
+	if offsets != nil {
+		a.offsets = arrow.Int32Traits.CastFromBytes(offsets.Bytes())
+	}
+	sizes := data.buffers[2]
+	if sizes != nil {
+		a.sizes = arrow.Int32Traits.CastFromBytes(sizes.Bytes())
+	}
+	a.values = MakeFromData(data.childData[0])
+}
+
+func (a *ListView) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	slice := a.newListValue(i)
+	defer slice.Release()
+	v, err := json.Marshal(slice)
+	if err != nil {
+		panic(err)
+	}
+	return json.RawMessage(v)
+}
+
+func (a *ListView) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+			return nil, err
+		}
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
+}
+
+func arrayEqualListView(left, right *ListView) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return Equal(l, r)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+// Len returns the number of elements in the array.
+func (a *ListView) Len() int { return a.array.Len() }
+
+func (a *ListView) Offsets() []int32 { return a.offsets }
+
+func (a *ListView) Sizes() []int32 { return a.sizes }
+
+func (a *ListView) Retain() {
+	a.array.Retain()
+	a.values.Retain()
+}
+
+func (a *ListView) Release() {
+	a.array.Release()
+	a.values.Release()
+}
+
+func (a *ListView) ValueOffsets(i int) (start, end int64) {
+	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
+	j := i + a.array.data.offset
+	size := int64(a.sizes[j])
+	// If size is 0, skip accessing offsets.
+	if size == 0 {
+		start, end = 0, 0
+		return
+	}
+	start = int64(a.offsets[j])
+	end = start + size
+	return
+}
+
+// LargeListView represents an immutable sequence of array values defined by an
+// offset into a child array and a length.
+type LargeListView struct {
+	array
+	values  arrow.Array
+	offsets []int64
+	sizes   []int64
+}
+
+var _ ListLike = (*LargeListView)(nil)
+
+// NewLargeListViewData returns a new LargeListView array value, from data.
+func NewLargeListViewData(data arrow.ArrayData) *LargeListView {
+	a := new(LargeListView)
+	a.refCount = 1
+	a.setData(data.(*Data))
+	return a
+}
+
+func (a *LargeListView) ListValues() arrow.Array { return a.values }
+
+func (a *LargeListView) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
+
+func (a *LargeListView) String() string {
+	o := new(strings.Builder)
+	o.WriteString("[")
+	for i := 0; i < a.Len(); i++ {
+		if i > 0 {
+			o.WriteString(" ")
+		}
+		if !a.IsValid(i) {
+			o.WriteString(NullValueStr)
+			continue
+		}
+		sub := a.newListValue(i)
+		fmt.Fprintf(o, "%v", sub)
+		sub.Release()
+	}
+	o.WriteString("]")
+	return o.String()
+}
+
+func (a *LargeListView) newListValue(i int) arrow.Array {
+	beg, end := a.ValueOffsets(i)
+	return NewSlice(a.values, beg, end)
+}
+
+func (a *LargeListView) setData(data *Data) {
+	a.array.setData(data)
+	offsets := data.buffers[1]
+	if offsets != nil {
+		a.offsets = arrow.Int64Traits.CastFromBytes(offsets.Bytes())
+	}
+	sizes := data.buffers[2]
+	if sizes != nil {
+		a.sizes = arrow.Int64Traits.CastFromBytes(sizes.Bytes())
+	}
+	a.values = MakeFromData(data.childData[0])
+}
+
+func (a *LargeListView) GetOneForMarshal(i int) interface{} {
+	if a.IsNull(i) {
+		return nil
+	}
+
+	slice := a.newListValue(i)
+	defer slice.Release()
+	v, err := json.Marshal(slice)
+	if err != nil {
+		panic(err)
+	}
+	return json.RawMessage(v)
+}
+
+func (a *LargeListView) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+
+	buf.WriteByte('[')
+	for i := 0; i < a.Len(); i++ {
+		if i != 0 {
+			buf.WriteByte(',')
+		}
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
+			return nil, err
+		}
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
+}
+
+func arrayEqualLargeListView(left, right *LargeListView) bool {
+	for i := 0; i < left.Len(); i++ {
+		if left.IsNull(i) {
+			continue
+		}
+		o := func() bool {
+			l := left.newListValue(i)
+			defer l.Release()
+			r := right.newListValue(i)
+			defer r.Release()
+			return Equal(l, r)
+		}()
+		if !o {
+			return false
+		}
+	}
+	return true
+}
+
+// Len returns the number of elements in the array.
+func (a *LargeListView) Len() int { return a.array.Len() }
+
+func (a *LargeListView) Offsets() []int64 { return a.offsets }
+
+func (a *LargeListView) Sizes() []int64 { return a.sizes }
+
+func (a *LargeListView) ValueOffsets(i int) (start, end int64) {
+	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
+	j := i + a.array.data.offset
+	size := a.sizes[j]
+	// If size is 0, skip accessing offsets.
+	if size == 0 {
+		return 0, 0
+	}
+	start = a.offsets[j]
+	end = start + size
+	return
+}
+
+func (a *LargeListView) Retain() {
+	a.array.Retain()
+	a.values.Retain()
+}
+
+func (a *LargeListView) Release() {
+	a.array.Release()
+	a.values.Release()
+}
+
 var (
 	_ arrow.Array = (*List)(nil)
 	_ arrow.Array = (*LargeList)(nil)
-	_ Builder     = (*ListBuilder)(nil)
-	_ Builder     = (*LargeListBuilder)(nil)
+	_ arrow.Array = (*ListView)(nil)
+	_ arrow.Array = (*LargeListView)(nil)
+
+	_ Builder = (*ListBuilder)(nil)
+	_ Builder = (*LargeListBuilder)(nil)
 
 	_ ListLike = (*List)(nil)
 	_ ListLike = (*LargeList)(nil)
 	_ ListLike = (*FixedSizeList)(nil)
 	_ ListLike = (*Map)(nil)
+	_ ListLike = (*ListView)(nil)
+	_ ListLike = (*LargeListView)(nil)
 
 	_ ListLikeBuilder = (*ListBuilder)(nil)
 	_ ListLikeBuilder = (*LargeListBuilder)(nil)
