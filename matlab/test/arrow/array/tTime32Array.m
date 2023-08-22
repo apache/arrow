@@ -174,7 +174,7 @@ classdef tTime32Array < matlab.unittest.TestCase
             testCase.verifyEqual(array.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(array), duration.empty(0, 1));
 
-            % test with NDimensional empty array
+            % Test with an N-Dimensional empty array
             times = duration.empty(0, 1, 0);
             array = testCase.ArrowArrayConstructorFcn(times);
             testCase.verifyEqual(array.Length, int64(0));
