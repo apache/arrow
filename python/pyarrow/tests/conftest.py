@@ -15,10 +15,13 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import functools
 import os
 import pathlib
 import subprocess
 import sys
+import time
+import urllib.request
 
 import pytest
 from pytest_lazyfixture import lazy_fixture
@@ -146,8 +149,48 @@ def s3_connection():
     return host, port, access_key, secret_key
 
 
+def retry(attempts=3, delay=1.0, max_delay=None, backoff=1):
+    """
+    Retry decorator
+
+    Parameters
+    ----------
+    attempts : int, default 3
+        The number of attempts.
+    delay : float, default 1
+        Initial delay in seconds.
+    max_delay : float, optional
+        The max delay between attempts.
+    backoff : float, default 1
+        The multiplier to delay after each attempt.
+    """
+    def decorate(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            remaining_attempts = attempts
+            curr_delay = delay
+            while remaining_attempts > 0:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as err:
+                    remaining_attempts -= 1
+                    last_exception = err
+                    curr_delay *= backoff
+                    if max_delay:
+                        curr_delay = min(curr_delay, max_delay)
+                    time.sleep(curr_delay)
+            raise last_exception
+        return wrapper
+    return decorate
+
+
 @pytest.fixture(scope='session')
 def s3_server(s3_connection, tmpdir_factory):
+    @retry(attempts=5, delay=0.1, backoff=2)
+    def minio_server_health_check(address):
+        resp = urllib.request.urlopen(f"http://{address}/minio/health/cluster")
+        assert resp.getcode() == 200
+
     tmpdir = tmpdir_factory.getbasetemp()
     host, port, access_key, secret_key = s3_connection
 
@@ -166,6 +209,9 @@ def s3_server(s3_connection, tmpdir_factory):
     except OSError:
         pytest.skip('`minio` command cannot be located')
     else:
+        # Wait for the server to startup before yielding
+        minio_server_health_check(address)
+
         yield {
             'connection': s3_connection,
             'process': proc,
