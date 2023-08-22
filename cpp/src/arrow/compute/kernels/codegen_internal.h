@@ -461,6 +461,8 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
 Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
 Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
 Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>& types);
+Result<TypeHolder> DictionaryValueType(KernelContext*,
+                                       const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to

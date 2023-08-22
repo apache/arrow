@@ -492,18 +492,6 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   return visitor.Create();
 }
 
-namespace {
-
-Result<TypeHolder> DictionaryValueType(KernelContext*,
-                                       const std::vector<TypeHolder>& types) {
-  // T -> T.value_type
-  auto ty = types.front();
-  const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
-  return ty_dict.value_type();
-}
-
-}  // namespace
-
 // For "min" and "max" functions: override finalize and return the actual value
 template <MinOrMax min_or_max>
 void AddMinOrMaxAggKernels(ScalarAggregateFunction* func,

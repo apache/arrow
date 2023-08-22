@@ -923,9 +923,9 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
     ARROW_ASSIGN_OR_RAISE(Datum result, MinMax(std::move(dict_values)));
     const StructScalar& struct_result =
         checked_cast<const StructScalar&>(*result.scalar());
-    ARROW_ASSIGN_OR_RAISE(auto min_, struct_result.field(FieldRef("min")));
-    ARROW_ASSIGN_OR_RAISE(auto max_, struct_result.field(FieldRef("max")));
-    ARROW_RETURN_NOT_OK(CompareMinMax(std::move(min_), std::move(max_)));
+    ARROW_ASSIGN_OR_RAISE(auto dict_min, struct_result.field(FieldRef("min")));
+    ARROW_ASSIGN_OR_RAISE(auto dict_max, struct_result.field(FieldRef("max")));
+    ARROW_RETURN_NOT_OK(CompareMinMax(std::move(dict_min), std::move(dict_max)));
     return Status::OK();
   }
 
@@ -965,30 +965,31 @@ struct DictionaryMinMaxImpl : public ScalarAggregator {
   std::shared_ptr<Scalar> max;
 
  private:
-  Status CompareMinMax(const std::shared_ptr<Scalar>& min_,
-                       const std::shared_ptr<Scalar>& max_) {
+  Status CompareMinMax(const std::shared_ptr<Scalar>& other_min,
+                       const std::shared_ptr<Scalar>& other_max) {
     if (this->min == nullptr || this->min->type->id() == Type::NA) {
-      this->min = min_;
-    } else if (min_ != nullptr && min_->type->id() != Type::NA) {
+      this->min = other_min;
+    } else if (other_min != nullptr && other_min->type->id() != Type::NA) {
       ARROW_ASSIGN_OR_RAISE(Datum greater_result,
-                            CallFunction("greater", {this->min, min_}));
+                            CallFunction("greater", {this->min, other_min}));
       const BooleanScalar& greater_scalar =
           checked_cast<const BooleanScalar&>(*greater_result.scalar());
 
       if (greater_scalar.value) {
-        this->min = min_;
+        this->min = other_min;
       }
     }
 
     if (this->max == nullptr || this->max->type->id() == Type::NA) {
-      this->max = max_;
-    } else if (max_ != nullptr && max_->type->id() != Type::NA) {
-      ARROW_ASSIGN_OR_RAISE(Datum less_result, CallFunction("less", {this->max, max_}));
+      this->max = other_max;
+    } else if (other_max != nullptr && other_max->type->id() != Type::NA) {
+      ARROW_ASSIGN_OR_RAISE(Datum less_result,
+                            CallFunction("less", {this->max, other_max}));
       const BooleanScalar& less_scalar =
           checked_cast<const BooleanScalar&>(*less_result.scalar());
 
       if (less_scalar.value) {
-        this->max = max_;
+        this->max = other_max;
       }
     }
 

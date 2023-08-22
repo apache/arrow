@@ -61,6 +61,14 @@ Result<TypeHolder> ListValuesType(KernelContext*, const std::vector<TypeHolder>&
   return list_type.value_type().get();
 }
 
+Result<TypeHolder> DictionaryValueType(KernelContext*,
+                                       const std::vector<TypeHolder>& types) {
+  // T -> T.value_type
+  auto ty = types.front();
+  const DictionaryType& ty_dict = checked_cast<const DictionaryType&>(*ty);
+  return ty_dict.value_type();
+}
+
 void EnsureDictionaryDecoded(std::vector<TypeHolder>* types) {
   EnsureDictionaryDecoded(types->data(), types->size());
 }
