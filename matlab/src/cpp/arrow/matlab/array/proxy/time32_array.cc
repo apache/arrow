@@ -33,7 +33,7 @@ namespace arrow::matlab::array::proxy {
        mda::StructArray opts = constructor_arguments[0];
 
        // Get the mxArray from constructor arguments
-       const mda::TypedArray<int32_t> timestamp_mda = opts[0]["MatlabArray"];
+       const mda::TypedArray<int32_t> time32_mda = opts[0]["MatlabArray"];
        const mda::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
        
        const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
@@ -44,11 +44,11 @@ namespace arrow::matlab::array::proxy {
                               arrow::matlab::type::timeUnitFromString(u16_timeunit),
                               error::UKNOWN_TIME_UNIT_ERROR_ID)
 
-       // create the timestamp_type
+       // create the Time32Type
        auto data_type = arrow::time32(time_unit);
-       auto array_length = static_cast<int32_t>(timestamp_mda.getNumberOfElements()); // cast size_t to int64_t
+       auto array_length = static_cast<int32_t>(time32_mda.getNumberOfElements()); // cast size_t to int64_t
 
-       auto data_buffer = std::make_shared<MatlabBuffer>(timestamp_mda);
+       auto data_buffer = std::make_shared<MatlabBuffer>(time32_mda);
 
        // Pack the validity bitmap values.
        MATLAB_ASSIGN_OR_ERROR(auto packed_validity_bitmap,
@@ -56,7 +56,7 @@ namespace arrow::matlab::array::proxy {
                               error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
        auto array_data = arrow::ArrayData::Make(data_type, array_length, {packed_validity_bitmap, data_buffer});
-       auto timestamp_array = std::static_pointer_cast<Time32Array>(arrow::MakeArray(array_data));
-       return std::make_shared<Time32ArrayProxy>(std::move(timestamp_array));
+       auto time32_array = std::static_pointer_cast<Time32Array>(arrow::MakeArray(array_data));
+       return std::make_shared<Time32ArrayProxy>(std::move(time32_array));
     }
 }
