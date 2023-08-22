@@ -1135,12 +1135,49 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
 
 static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
 static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
+static const void* kMyEventPtr = reinterpret_cast<void*>(uintptr_t(0xBAADF00D));
 
 class MyBuffer final : public MutableBuffer {
  public:
   using MutableBuffer::MutableBuffer;
 
   ~MyBuffer() { default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_); }
+
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return device_sync_; }
+
+ protected:
+  std::shared_ptr<Device::SyncEvent> device_sync_;
+};
+
+class MyDevice : public Device {
+ public:
+  explicit MyDevice(int64_t value) : Device(true), value_(value) {}
+  const char* type_name() const override { return kMyDeviceTypeName; }
+  std::string ToString() const override { return kMyDeviceTypeName; }
+  bool Equals(const Device& other) const override {
+    if (other.type_name() != kMyDeviceTypeName || other.device_type() != device_type()) {
+      return false;
+    }
+    return checked_cast<const MyDevice&>(other).value_ == value_;
+  }
+  DeviceAllocationType device_type() const override {
+    return static_cast<DeviceAllocationType>(kMyDeviceType);
+  }
+  int64_t device_id() const override { return value_; }
+  std::shared_ptr<MemoryManager> default_memory_manager() override;
+
+  class MySyncEvent final : public Device::SyncEvent {
+   public:
+    explicit MySyncEvent(void* sync_event, release_fn_t release_sync_event)
+        : Device::SyncEvent(sync_event, release_sync_event) {}
+
+    virtual ~MySyncEvent() = default;
+    Status Wait() override { return Status::OK(); }
+    Status Record(const Device::Stream&) override { return Status::OK(); }
+  };
+
+ protected:
+  int64_t value_;
 };
 
 class MyMemoryManager : public CPUMemoryManager {
@@ -1152,6 +1189,16 @@ class MyMemoryManager : public CPUMemoryManager {
     uint8_t* data;
     RETURN_NOT_OK(pool_->Allocate(size, &data));
     return std::make_unique<MyBuffer>(data, size, shared_from_this());
+  }
+
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override {
+    return std::make_shared<MyDevice::MySyncEvent>(const_cast<void*>(kMyEventPtr),
+                                                   [](void*) {});
+  }
+
+  Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override {
+    return std::make_shared<MyDevice::MySyncEvent>(sync_event, release_sync_event);
   }
 
  protected:
@@ -1174,28 +1221,9 @@ class MyMemoryManager : public CPUMemoryManager {
   }
 };
 
-class MyDevice : public Device {
- public:
-  explicit MyDevice(int value) : Device(true), value_(value) {}
-  const char* type_name() const override { return kMyDeviceTypeName; }
-  std::string ToString() const override { return kMyDeviceTypeName; }
-  bool Equals(const Device& other) const override {
-    if (other.type_name() != kMyDeviceTypeName || other.device_type() != device_type()) {
-      return false;
-    }
-    return checked_cast<const MyDevice&>(other).value_ == value_;
-  }
-  DeviceAllocationType device_type() const override {
-    return static_cast<DeviceAllocationType>(kMyDeviceType);
-  }
-  int64_t device_id() const override { return value_; }
-  std::shared_ptr<MemoryManager> default_memory_manager() override {
-    return std::make_shared<MyMemoryManager>(shared_from_this());
-  }
-
- protected:
-  int value_;
-};
+std::shared_ptr<MemoryManager> MyDevice::default_memory_manager() {
+  return std::make_shared<MyMemoryManager>(shared_from_this());
+}
 
 class TestDeviceArrayExport : public ::testing::Test {
  public:
@@ -1251,7 +1279,8 @@ class TestDeviceArrayExport : public ::testing::Test {
                        ", array data = ", arr->ToString());
     const ArrayData& data = *arr->data();  // non-owning reference
     struct ArrowDeviceArray c_export;
-    ASSERT_OK(ExportDeviceArray(*arr, {nullptr, nullptr}, &c_export));
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
+    ASSERT_OK(ExportDeviceArray(*arr, sync, &c_export));
 
     ArrayExportGuard guard(&c_export.array);
     auto new_bytes = pool_->bytes_allocated();
@@ -1455,7 +1484,8 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   ArrayExportGuard array_guard(&c_array.array);
 
   auto array = ToDevice(mm, *ArrayFromJSON(int8(), "[1, 2, 3]")->data()).ValueOrDie();
-  ASSERT_OK(ExportDeviceArray(*array, {nullptr, nullptr}, &c_array, &c_schema));
+  auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
+  ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
   const ArrayData& data = *array->data();
   array.reset();
   ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
@@ -1463,7 +1493,7 @@ TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
   ASSERT_EQ(c_schema.format, std::string("c"));
   ASSERT_EQ(c_schema.n_children, 0);
   ArrayExportChecker checker{};
-  checker(&c_array, data, kMyDeviceType, 1, nullptr);
+  checker(&c_array, data, kMyDeviceType, 1, kMyEventPtr);
 }
 
 TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
@@ -1481,25 +1511,25 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
                   .ValueOrDie();
 
   auto batch_factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
-
+  auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
   {
     auto batch = batch_factory();
 
-    ASSERT_OK(ExportDeviceRecordBatch(*batch, {nullptr, nullptr}, &c_array, &c_schema));
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
     SchemaExportGuard schema_guard(&c_schema);
     ArrayExportGuard array_guard(&c_array.array);
     RecordBatchExportChecker checker{};
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
 
     // create batch anew, with the same buffer pointers
     batch = batch_factory();
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
   }
   {
     // Check one can export both schema and record batch at once
     auto batch = batch_factory();
 
-    ASSERT_OK(ExportDeviceRecordBatch(*batch, {nullptr, nullptr}, &c_array, &c_schema));
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
     SchemaExportGuard schema_guard(&c_schema);
     ArrayExportGuard array_guard(&c_array.array);
     ASSERT_EQ(c_schema.format, std::string("+s"));
@@ -1508,11 +1538,11 @@ TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
     ASSERT_EQ(kEncodedMetadata2,
               std::string(c_schema.metadata, kEncodedMetadata2.size()));
     RecordBatchExportChecker checker{};
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
 
     // Create batch anew, with the same buffer pointers
     batch = batch_factory();
-    checker(&c_array, *batch, kMyDeviceType, 1, nullptr);
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
   }
 }
 
@@ -3550,6 +3580,190 @@ TEST_F(TestArrayRoundtrip, RecordBatch) {
     };
     TestWithBatchFactory(factory);
   }
+}
+
+class TestDeviceArrayRoundtrip : public ::testing::Test {
+ public:
+  using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
+
+  void SetUp() override { pool_ = default_memory_pool(); }
+
+  static Result<std::shared_ptr<MemoryManager>> DeviceMapper(ArrowDeviceType type,
+                                                             int64_t id) {
+    if (type != kMyDeviceType) {
+      return Status::NotImplemented("should only be MyDevice");
+    }
+
+    std::shared_ptr<Device> device = std::make_shared<MyDevice>(id);
+    return device->default_memory_manager();
+  }
+
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+
+  static ArrayFactory ToDeviceFactory(const std::shared_ptr<MemoryManager>& mm,
+                                      ArrayFactory&& factory) {
+    return [&]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, factory());
+      return ToDevice(mm, *arr->data());
+    };
+  }
+
+  static ArrayFactory JSONArrayFactory(const std::shared_ptr<MemoryManager>& mm,
+                                       std::shared_ptr<DataType> type, const char* json) {
+    return [=]() { return ToDevice(mm, *ArrayFromJSON(type, json)->data()); };
+  }
+
+  static ArrayFactory SlicedArrayFactory(ArrayFactory factory) {
+    return [=]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, factory());
+      DCHECK_GE(arr->length(), 2);
+      return arr->Slice(1, arr->length() - 2);
+    };
+  }
+
+  template <typename ArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory) {
+    TestWithArrayFactory(factory, factory);
+  }
+
+  template <typename ArrayFactory, typename ExpectedArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory,
+                            ExpectedArrayFactory&& factory_expected) {
+    std::shared_ptr<Array> array;
+    struct ArrowDeviceArray c_array {};
+    struct ArrowSchema c_schema {};
+    ArrayExportGuard array_guard(&c_array.array);
+    SchemaExportGuard schema_guard(&c_schema);
+
+    auto orig_bytes = pool_->bytes_allocated();
+
+    ASSERT_OK_AND_ASSIGN(array, ToResult(factory()));
+    ASSERT_OK(ExportType(*array->type(), &c_schema));
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
+    ASSERT_OK(ExportDeviceArray(*array, sync, &c_array));
+
+    auto new_bytes = pool_->bytes_allocated();
+    if (array->type_id() != Type::NA) {
+      ASSERT_GT(new_bytes, orig_bytes);
+    }
+
+    array.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+    ASSERT_OK_AND_ASSIGN(array, ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Re-export and re-import, now both at once
+    ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
+    array.reset();
+    ASSERT_OK_AND_ASSIGN(array, ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Check value of imported array
+    {
+      std::shared_ptr<Array> expected;
+      ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
+      AssertTypeEqual(*expected->type(), *array->type());
+      AssertArraysEqual(*expected, *array, true);
+    }
+    array.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  template <typename BatchFactory>
+  void TestWithBatchFactory(BatchFactory&& factory) {
+    std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+    auto mm = device->default_memory_manager();
+
+    std::shared_ptr<RecordBatch> batch;
+    struct ArrowDeviceArray c_array {};
+    struct ArrowSchema c_schema {};
+    ArrayExportGuard array_guard(&c_array.array);
+    SchemaExportGuard schema_guard(&c_schema);
+
+    auto orig_bytes = pool_->bytes_allocated();
+    ASSERT_OK_AND_ASSIGN(batch, ToResult(factory()));
+    ASSERT_OK(ExportSchema(*batch->schema(), &c_schema));
+    ASSERT_OK_AND_ASSIGN(auto sync, mm->MakeDeviceSyncEvent());
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array));
+
+    auto new_bytes = pool_->bytes_allocated();
+    batch.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+    ASSERT_OK_AND_ASSIGN(batch,
+                         ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Re-export and re-import, now both at once
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
+    batch.reset();
+    ASSERT_OK_AND_ASSIGN(batch,
+                         ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Check value of imported record batch
+    {
+      std::shared_ptr<RecordBatch> expected;
+      ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
+      AssertSchemaEqual(*expected->schema(), *batch->schema());
+      AssertBatchesEqual(*expected, *batch);
+    }
+    batch.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  void TestWithJSON(const std::shared_ptr<MemoryManager>& mm,
+                    std::shared_ptr<DataType> type, const char* json) {
+    TestWithArrayFactory(JSONArrayFactory(mm, type, json));
+  }
+
+  void TestWithJSONSliced(const std::shared_ptr<MemoryManager>& mm,
+                          std::shared_ptr<DataType> type, const char* json) {
+    TestWithArrayFactory(SlicedArrayFactory(JSONArrayFactory(mm, type, json)));
+  }
+
+ protected:
+  MemoryPool* pool_;
+};
+
+TEST_F(TestDeviceArrayRoundtrip, Primitive) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestWithJSON(mm, int32(), "[4, 5, null]");
 }
 
 // TODO C -> C++ -> C roundtripping tests?

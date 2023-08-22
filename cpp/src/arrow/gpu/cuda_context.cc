@@ -293,6 +293,13 @@ std::shared_ptr<CudaDevice> CudaMemoryManager::cuda_device() const {
   return checked_pointer_cast<CudaDevice>(device_);
 }
 
+Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::WrapDeviceSyncEvent(
+    void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) {
+  return nullptr;
+  // auto ev = reinterpret_cast<CUstream*>(sync_event);
+  // return std::make_shared<CudaDeviceSync>(ev);
+}
+
 Result<std::shared_ptr<io::RandomAccessFile>> CudaMemoryManager::GetBufferReader(
     std::shared_ptr<Buffer> buf) {
   if (*buf->device() != *device_) {
