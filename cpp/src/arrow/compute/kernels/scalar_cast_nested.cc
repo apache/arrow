@@ -199,22 +199,21 @@ template <typename SrcType>
 struct CastVarToFixedList {
   using src_offset_type = typename SrcType::offset_type;
 
-  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    const CastOptions& options = CastState::Get(ctx);
-
-    auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
-
-    const ArraySpan& in_array = batch[0].array;
-
-    const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
-    const int32_t list_size = out_type.list_size();
-
-    // Validate lengths by comparing to the expected offsets.
+  // Validate the lengths of each list are equal to the list size.
+  // Additionally, checks if the null slots are all the list size. Returns true
+  // if so, which can be used to optimize the cast.
+  static Result<bool> ValidateLengths(const ArraySpan& in_array, int32_t list_size) {
     const auto* offsets = in_array.GetValues<src_offset_type>(1);
     src_offset_type expected_offset = offsets[0] + list_size;
+    // If there are nulls, it's possible that the null slots are the correct
+    // size. That enables an optimization later in this function.
+    bool nulls_have_correct_length = true;
     if (in_array.GetNullCount() > 0) {
-      for (int64_t i = 1; i <= batch.length; ++i) {
+      for (int64_t i = 1; i <= in_array.length; ++i) {
         if (in_array.IsNull(i - 1)) {
+          if (offsets[i] != expected_offset) {
+            nulls_have_correct_length = false;
+          }
           // If element is null, it can be any size, so the next offset is valid.
           expected_offset = offsets[i] + list_size;
         } else {
@@ -227,7 +226,7 @@ struct CastVarToFixedList {
       }
     } else {
       // Don't need to check null slots if there are no nulls
-      for (int64_t i = 1; i <= batch.length; ++i) {
+      for (int64_t i = 1; i <= in_array.length; ++i) {
         if (offsets[i] != expected_offset) {
           return Status::Invalid("ListType can only be casted to FixedSizeListType ",
                                  "if the lists are all the expected size.");
@@ -235,6 +234,46 @@ struct CastVarToFixedList {
         expected_offset += list_size;
       }
     }
+    return nulls_have_correct_length;
+  }
+
+  // Build take indices for the values. This is used to fill in the null slots
+  // if they aren't already the correct size.
+  static Result<std::shared_ptr<Array>> BuildTakeIndices(const ArraySpan& in_array,
+                                                         int32_t list_size,
+                                                         KernelContext* ctx) {
+    const auto* offsets = in_array.GetValues<src_offset_type>(1);
+    // We need to fill in the null slots, so we'll use Take on the values.
+    auto builder = Int64Builder(ctx->memory_pool());
+    RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
+    for (int64_t offset_i = 0; offset_i < in_array.length; ++offset_i) {
+      if (in_array.IsNull(offset_i)) {
+        // If element is null, just fill in the null slots with first value.
+        for (int64_t j = 0; j < list_size; ++j) {
+          builder.UnsafeAppend(0);
+        }
+      } else {
+        int64_t value_i = offsets[offset_i];
+        for (int64_t j = 0; j < list_size; ++j) {
+          builder.UnsafeAppend(value_i++);
+        }
+      }
+    }
+    return builder.Finish();
+  }
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
+    const int32_t list_size = out_type.list_size();
+
+    ARROW_ASSIGN_OR_RAISE(bool nulls_have_correct_length,
+                          ValidateLengths(in_array, list_size));
 
     ArrayData* out_array = out->array_data().get();
     ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
@@ -248,31 +287,17 @@ struct CastVarToFixedList {
     DCHECK(cast_values_datum.is_array());
     std::shared_ptr<ArrayData> cast_values = cast_values_datum.array();
 
-    if (in_array.GetNullCount() > 0) {
+    const auto* offsets = in_array.GetValues<src_offset_type>(1);
+    if (in_array.GetNullCount() > 0 && !nulls_have_correct_length) {
       // We need to fill in the null slots, so we'll use Take on the values.
-      auto builder = Int64Builder(ctx->memory_pool());
-      RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
-      for (int64_t offset_i = 0; offset_i < in_array.length; ++offset_i) {
-        if (in_array.IsNull(offset_i)) {
-          // If element is null, just fill in the null slots with first value.
-          for (int64_t j = 0; j < list_size; ++j) {
-            builder.UnsafeAppend(0);
-          }
-        } else {
-          int64_t value_i = offsets[offset_i];
-          for (int64_t j = 0; j < list_size; ++j) {
-            builder.UnsafeAppend(value_i++);
-          }
-        }
-      }
-      ARROW_ASSIGN_OR_RAISE(auto indices, builder.Finish());
+      ARROW_ASSIGN_OR_RAISE(auto indices, BuildTakeIndices(in_array, list_size, ctx));
       ARROW_ASSIGN_OR_RAISE(auto take_result,
                             Take(cast_values, Datum(indices),
                                  TakeOptions::NoBoundsCheck(), ctx->exec_context()));
       DCHECK(take_result.is_array());
       cast_values = take_result.array();
-    } else {
-      // No nulls, so we can just slice the values.
+    } else if (offsets[0] != 0) {
+      // No nulls, but we need to slice the values
       cast_values = cast_values->Slice(offsets[0], in_array.length * list_size);
     }
 
