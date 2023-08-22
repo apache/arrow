@@ -45,6 +45,8 @@ echo "== Running example project"
 echo "=="
 echo
 
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+
 ${EXAMPLE_BUILD_DIR}/arrow_example
 ${EXAMPLE_BUILD_DIR}/compute_example
 ${EXAMPLE_BUILD_DIR}/file_access_example

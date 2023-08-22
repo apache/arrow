@@ -23,6 +23,7 @@ find_package(Arrow REQUIRED)
 
 get_filename_component(ARROW_CONFIG_PATH ${Arrow_CONFIG} DIRECTORY)
 find_package(Parquet REQUIRED HINTS ${ARROW_CONFIG_PATH})
+find_package(ArrowAcero REQUIRED HINTS ${ARROW_CONFIG_PATH})
 find_package(ArrowDataset REQUIRED HINTS ${ARROW_CONFIG_PATH})
 
 set(CMAKE_CXX_STANDARD 17)
@@ -45,4 +46,5 @@ target_link_libraries(compute_example PRIVATE Arrow::arrow_shared)
 
 add_executable(dataset_example dataset_example.cc)
 target_link_libraries(dataset_example PRIVATE Arrow::arrow_shared Parquet::parquet_shared
+                                              ArrowAcero::arrow_acero_shared
                                               ArrowDataset::arrow_dataset_shared)
