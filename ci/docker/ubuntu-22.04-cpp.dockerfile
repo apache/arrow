@@ -113,9 +113,7 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         tzdata \
-        wget \
-        zip \
-        unzip && \
+        wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
 
