@@ -37,7 +37,7 @@ call activate arrow
 @rem The "main" C++ build script for Windows CI
 @rem (i.e. for usual configurations)
 
-set CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
+set ARROW_CMAKE_ARGS=-DARROW_DEPENDENCY_SOURCE=CONDA -DARROW_WITH_BZ2=ON
 
 @rem Enable warnings-as-errors
 set ARROW_CXXFLAGS=/WX /MP
@@ -58,7 +58,7 @@ pushd cpp\build
 @rem In release mode, disable optimizations (/Od) for faster compiling
 @rem and enable runtime assertions.
 
-cmake -G "%GENERATOR%" %CMAKE_ARGS% ^
+cmake -G "%GENERATOR%" %ARROW_CMAKE_ARGS% ^
       -DARROW_ACERO=ON ^
       -DARROW_BOOST_USE_SHARED=ON ^
       -DARROW_BUILD_EXAMPLES=ON ^
