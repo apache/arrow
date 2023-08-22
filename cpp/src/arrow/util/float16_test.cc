@@ -124,92 +124,79 @@ TEST(Float16Test, RoundTripFromFloat32Inf) {
   }
 }
 
-// Holds a float16 and its equivalent float32
-struct TestValue {
-  TestValue(Float16 f16, float f32) : f16(f16), f32(f32) {}
-  TestValue(uint16_t u16, float f32) : TestValue(Float16(u16), f32) {}
+TEST(Float16Test, Compare) {
+  constexpr float f32_inf = Limits<float>::infinity();
+  constexpr float f32_nan = Limits<float>::quiet_NaN();
 
-  Float16 f16;
-  float f32;
-};
+  const struct {
+    Float16 f16;
+    float f32;
+  } test_values[] = {
+      {Limits<Float16>::min(), +6.103515625e-05f},
+      {Limits<Float16>::max(), +65504.0f},
+      {Limits<Float16>::lowest(), -65504.0f},
+      {+Limits<Float16>::infinity(), +f32_inf},
+      {-Limits<Float16>::infinity(), -f32_inf},
+      // Multiple (semantically equivalent) NaN representations
+      {Float16(0x7e00), f32_nan},
+      {Float16(0xfe00), f32_nan},
+      {Float16(0x7fff), f32_nan},
+      {Float16(0xffff), f32_nan},
+      // Positive/negative zeros
+      {Float16(0x0000), +0.0f},
+      {Float16(0x8000), -0.0f},
+      // Miscellaneous values. In general, they're chosen to test the sign/exponent and
+      // exponent/mantissa boundaries
+      {Float16(0x101c), +0.00050163269043f},
+      {Float16(0x901c), -0.00050163269043f},
+      {Float16(0x101d), +0.000502109527588f},
+      {Float16(0x901d), -0.000502109527588f},
+      {Float16(0x121c), +0.00074577331543f},
+      {Float16(0x921c), -0.00074577331543f},
+      {Float16(0x141c), +0.00100326538086f},
+      {Float16(0x941c), -0.00100326538086f},
+      {Float16(0x501c), +32.875f},
+      {Float16(0xd01c), -32.875f},
+      // A few subnormals for good measure
+      {Float16(0x001c), +1.66893005371e-06f},
+      {Float16(0x801c), -1.66893005371e-06f},
+      {Float16(0x021c), +3.21865081787e-05f},
+      {Float16(0x821c), -3.21865081787e-05f},
+  };
 
-#define GENERATE_OPERATOR(NAME, OP)                              \
-  struct NAME {                                                  \
-    std::pair<bool, bool> operator()(TestValue l, TestValue r) { \
-      return std::make_pair((l.f32 OP r.f32), (l.f16 OP r.f16)); \
-    }                                                            \
-  }
-
-GENERATE_OPERATOR(CompareEq, ==);
-GENERATE_OPERATOR(CompareNe, !=);
-GENERATE_OPERATOR(CompareLt, <);
-GENERATE_OPERATOR(CompareGt, >);
-GENERATE_OPERATOR(CompareLe, <=);
-GENERATE_OPERATOR(CompareGe, >=);
-
-#undef GENERATE_OPERATOR
-
-const std::vector<TestValue> g_test_values = {
-    TestValue(Limits<Float16>::min(), +0.00006104f),
-    TestValue(Limits<Float16>::max(), +65504.0f),
-    TestValue(Limits<Float16>::lowest(), -65504.0f),
-    TestValue(+Limits<Float16>::infinity(), +Limits<float>::infinity()),
-    TestValue(-Limits<Float16>::infinity(), -Limits<float>::infinity()),
-    // Multiple (semantically equivalent) NaN representations
-    TestValue(0x7fff, Limits<float>::quiet_NaN()),
-    TestValue(0xffff, Limits<float>::quiet_NaN()),
-    TestValue(0x7e00, Limits<float>::quiet_NaN()),
-    TestValue(0xfe00, Limits<float>::quiet_NaN()),
-    // Positive/negative zeroes
-    TestValue(0x0000, +0.0f),
-    TestValue(0x8000, -0.0f),
-    // Miscellaneous values. In general, they're chosen to test the sign/exponent and
-    // exponent/mantissa boundaries
-    TestValue(0x101c, +0.000502f),
-    TestValue(0x901c, -0.000502f),
-    TestValue(0x101d, +0.0005022f),
-    TestValue(0x901d, -0.0005022f),
-    TestValue(0x121c, +0.000746f),
-    TestValue(0x921c, -0.000746f),
-    TestValue(0x141c, +0.001004f),
-    TestValue(0x941c, -0.001004f),
-    TestValue(0x501c, +32.9f),
-    TestValue(0xd01c, -32.9f),
-    // A few subnormals for good measure
-    TestValue(0x001c, +0.0000017f),
-    TestValue(0x801c, -0.0000017f),
-    TestValue(0x021c, +0.0000332f),
-    TestValue(0x821c, -0.0000332f),
-};
-
-template <typename Operator>
-class Float16OperatorTest : public ::testing::Test {
- public:
-  void TestCompare(const std::vector<TestValue>& test_values) {
-    const auto num_values = static_cast<int>(test_values.size());
+  auto expect_op = [&](std::string op_name, auto op) {
+    ARROW_SCOPED_TRACE(op_name);
+    const auto num_values = static_cast<int>(std::size(test_values));
 
     // Check all combinations of operands in both directions
     for (int i = 0; i < num_values; ++i) {
       for (int j = 0; j < num_values; ++j) {
-        ARROW_SCOPED_TRACE(i, ",", j);
-
-        auto a = test_values[i];
-        auto b = test_values[j];
+        auto [a16, a32] = test_values[i];
+        auto [b16, b32] = test_values[j];
+        ARROW_SCOPED_TRACE("[", i, ",", j, "] = ", a16, ",", b16);
 
         // Results for float16 and float32 should be the same
-        auto ret = Operator{}(a, b);
-        ASSERT_EQ(ret.first, ret.second);
+        ASSERT_EQ(op(a16, b16), op(a32, b32));
       }
     }
+  };
+
+  // Verify that our "equivalent" 16/32-bit values actually are
+  for (const auto& v : test_values) {
+    if (std::isnan(v.f32)) {
+      ASSERT_TRUE(std::isnan(v.f16.ToFloat()));
+    } else {
+      ASSERT_EQ(v.f32, v.f16.ToFloat());
+    }
   }
-};
 
-using OperatorTypes =
-    ::testing::Types<CompareEq, CompareNe, CompareLt, CompareGt, CompareLe, CompareGe>;
-
-TYPED_TEST_SUITE(Float16OperatorTest, OperatorTypes);
-
-TYPED_TEST(Float16OperatorTest, Compare) { this->TestCompare(g_test_values); }
+  expect_op("equal", [](auto l, auto r) { return l == r; });
+  expect_op("not_equal", [](auto l, auto r) { return l != r; });
+  expect_op("less", [](auto l, auto r) { return l < r; });
+  expect_op("greater", [](auto l, auto r) { return l > r; });
+  expect_op("less_equal", [](auto l, auto r) { return l <= r; });
+  expect_op("greater_equal", [](auto l, auto r) { return l >= r; });
+}
 
 TEST(Float16Test, ToBytes) {
   constexpr auto f16 = Float16(0xd01c);
