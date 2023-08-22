@@ -4944,3 +4944,62 @@ def test_array_conversion_for_datetime():
 
     result = arr.to_pandas()
     tm.assert_series_equal(result, series)
+
+
+@pytest.mark.large_memory
+def test_nested_chunking_valid():
+    # GH-32439
+    # https://github.com/apache/arrow/issues/32439
+    # Chunking can cause arrays to be in invalid state
+    # when nested types are involved.
+    # Here we simply ensure we validate correctly.
+
+    x = "0" * 720000000
+    df = pd.DataFrame({"strings": [x, x, x]})
+    tab = pa.Table.from_pandas(df)
+    # we expect to trigger chunking internally
+    # an assertion failure here may just mean this threshold has changed
+    assert tab.column(0).num_chunks > 1
+    tm.assert_frame_equal(tab.to_pandas(self_destruct=True), df)
+
+    struct = {"struct_field": x}
+    df = pd.DataFrame({"structs": [struct, struct, struct]})
+    tab = pa.Table.from_pandas(df)
+    assert tab.column(0).num_chunks > 1
+    tm.assert_frame_equal(tab.to_pandas(self_destruct=True), df)
+
+    lists = [x]
+    df = pd.DataFrame({"lists": [lists, lists, lists]})
+    tab = pa.Table.from_pandas(df)
+    assert tab.column(0).num_chunks > 1
+    tm.assert_frame_equal(tab.to_pandas(self_destruct=True), df)
+
+    los = [struct]
+    df = pd.DataFrame({"los": [los, los, los]})
+    tab = pa.Table.from_pandas(df)
+    assert tab.column(0).num_chunks > 1
+    tm.assert_frame_equal(tab.to_pandas(self_destruct=True), df)
+
+    sol = {"struct_field": lists}
+    df = pd.DataFrame({"sol": [sol, sol, sol]})
+    tab = pa.Table.from_pandas(df)
+    assert tab.column(0).num_chunks > 1
+    tm.assert_frame_equal(tab.to_pandas(self_destruct=True), df)
+
+    map_of_los = {"a": los}
+    df = pd.DataFrame({"maps": [map_of_los, map_of_los, map_of_los]})
+    tab = pa.Table.from_pandas(
+        df,
+        schema=pa.schema(
+            [(
+                "maps",
+                pa.map_(
+                    pa.string(),
+                    pa.list_(
+                        pa.struct([pa.field("struct_field", pa.string())])
+                    )
+                )
+            )]))
+    assert tab.column(0).num_chunks > 1
+    tm.assert_frame_equal(tab.to_pandas(
+        self_destruct=True, maps_as_pydicts="strict"), df)
