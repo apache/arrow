@@ -146,11 +146,6 @@ class ARROW_EXPORT BufferReader
     : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
  public:
   explicit BufferReader(std::shared_ptr<Buffer> buffer);
-  explicit BufferReader(const Buffer& buffer);
-  BufferReader(const uint8_t* data, int64_t size);
-
-  /// \brief Instantiate from std::string_view. Does not own data.
-  explicit BufferReader(std::string_view data);
 
   /// \brief Instantiate from std::string. Own data.
   explicit BufferReader(std::string data);
@@ -190,7 +185,6 @@ class ARROW_EXPORT BufferReader
   std::shared_ptr<Buffer> buffer_;
   const uint8_t* data_;
   int64_t size_;
-  const bool supports_zero_copy_;
   int64_t position_;
   bool is_open_;
 };

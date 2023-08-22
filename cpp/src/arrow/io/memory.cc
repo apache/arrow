@@ -265,24 +265,8 @@ BufferReader::BufferReader(std::shared_ptr<Buffer> buffer)
     : buffer_(std::move(buffer)),
       data_(buffer_ ? buffer_->data() : reinterpret_cast<const uint8_t*>("")),
       size_(buffer_ ? buffer_->size() : 0),
-      supports_zero_copy_(true),
       position_(0),
       is_open_(true) {}
-
-BufferReader::BufferReader(const uint8_t* data, int64_t size)
-    : buffer_(nullptr),
-      data_(data),
-      size_(size),
-      supports_zero_copy_(false),
-      position_(0),
-      is_open_(true) {}
-
-BufferReader::BufferReader(const Buffer& buffer)
-    : BufferReader(buffer.data(), buffer.size()) {}
-
-BufferReader::BufferReader(std::string_view data)
-    : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
-                   static_cast<int64_t>(data.size())) {}
 
 BufferReader::BufferReader(std::string buffer)
     : BufferReader(Buffer::FromString(std::move(buffer))) {}
@@ -307,7 +291,7 @@ Result<std::string_view> BufferReader::DoPeek(int64_t nbytes) {
                           static_cast<size_t>(bytes_available));
 }
 
-bool BufferReader::supports_zero_copy() const { return supports_zero_copy_; }
+bool BufferReader::supports_zero_copy() const { return true; }
 
 Status BufferReader::WillNeed(const std::vector<ReadRange>& ranges) {
   using ::arrow::internal::MemoryRegion;
@@ -356,12 +340,6 @@ Result<std::shared_ptr<Buffer>> BufferReader::DoReadAt(int64_t position, int64_t
   // RETURN_NOT_OK(::arrow::internal::MemoryAdviseWillNeed(
   //     {{const_cast<uint8_t*>(data_ + position), static_cast<size_t>(nbytes)}}));
 
-  if (!supports_zero_copy_) {
-    ARROW_ASSIGN_OR_RAISE(auto buffer,
-                          AllocateResizableBuffer(nbytes, this->io_context().pool()));
-    ARROW_RETURN_NOT_OK(DoReadAt(position, nbytes, buffer->mutable_data()));
-    return buffer;
-  }
   if (nbytes > 0 && buffer_ != nullptr) {
     return SliceBuffer(buffer_, position, nbytes);
   } else {

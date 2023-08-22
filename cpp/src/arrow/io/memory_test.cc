@@ -162,22 +162,15 @@ TEST(TestFixedSizeBufferWriter, InvalidWrites) {
 }
 
 TEST(TestBufferReader, FromStrings) {
-  // ARROW-3291: construct BufferReader from std::string or
-  // std::string_view
+  // ARROW-3291: construct BufferReader from std::string
 
   std::string data = "data123456";
-  auto view = std::string_view(data);
 
   BufferReader reader1(data);
-  BufferReader reader2(view);
 
   std::shared_ptr<Buffer> piece;
   ASSERT_OK_AND_ASSIGN(piece, reader1.Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data(), 4));
-
-  ASSERT_OK(reader2.Seek(2));
-  ASSERT_OK_AND_ASSIGN(piece, reader2.Read(4));
-  ASSERT_EQ(0, memcmp(piece->data(), data.data() + 2, 4));
 }
 
 TEST(TestBufferReader, FromNullBuffer) {
@@ -283,8 +276,7 @@ TEST(TestBufferReader, WillNeed) {
   }
   {
     std::string data = "data123456";
-    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
-                        static_cast<int64_t>(data.size()));
+    BufferReader reader(data);
 
     ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
     ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
@@ -305,32 +297,6 @@ void TestBufferReaderLifetime(std::function<BufferReader(std::string&)> fn,
 }
 
 TEST(TestBufferReader, Lifetime) {
-  std::shared_ptr<Buffer> result;
-  std::string data = "data12345678910111213";
-
-  // BufferReader(std::string_view)
-  TestBufferReaderLifetime(
-      [](std::string& data) -> BufferReader {
-        return BufferReader(std::string_view(data.data(), data.size()));
-      },
-      /*supports_zero_copy=*/false);
-
-  // BufferReader(const Buffer&)
-  TestBufferReaderLifetime(
-      [](std::string& data) -> BufferReader {
-        auto buffer = Buffer::FromString(std::move(data));
-        return BufferReader(*buffer);
-      },
-      /*supports_zero_copy=*/false);
-
-  // BufferReader(const uint8_t* data, int64_t size)
-  TestBufferReaderLifetime(
-      [](std::string& data) -> BufferReader {
-        return BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
-                            static_cast<int64_t>(data.size()));
-      },
-      /*supports_zero_copy=*/false);
-
   // BufferReader(std::shared_ptr<Buffer>)
   TestBufferReaderLifetime(
       [](std::string& data) -> BufferReader {
@@ -433,7 +399,7 @@ template <typename SlowStreamType>
 void TestSlowInputStream() {
   using clock = std::chrono::high_resolution_clock;
 
-  auto stream = std::make_shared<BufferReader>(std::string_view("abcdefghijkl"));
+  auto stream = std::make_shared<BufferReader>("abcdefghijkl");
   const double latency = 0.6;
   auto slow = std::make_shared<SlowStreamType>(stream, latency);
 
@@ -548,7 +514,7 @@ class TestTransformInputStream : public ::testing::Test {
   TransformInputStream::TransformFunc transform() const { return T(); }
 
   void TestEmptyStream() {
-    auto wrapped = std::make_shared<BufferReader>(std::string_view());
+    auto wrapped = std::make_shared<BufferReader>(std::string());
     auto stream = std::make_shared<TransformInputStream>(wrapped, transform());
 
     ASSERT_OK_AND_EQ(0, stream->Tell());
@@ -784,7 +750,7 @@ TEST(RangeReadCache, Basics) {
   for (auto lazy : std::vector<bool>{false, true}) {
     SCOPED_TRACE(lazy);
     options.lazy = lazy;
-    auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+    auto file = std::make_shared<CountingBufferReader>(data);
     internal::ReadRangeCache cache(file, {}, options);
 
     ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
@@ -826,7 +792,7 @@ TEST(RangeReadCache, Basics) {
 TEST(RangeReadCache, Concurrency) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<BufferReader>(Buffer(data));
+  auto file = std::make_shared<BufferReader>(data);
   std::vector<ReadRange> ranges{{1, 2},  {3, 2},  {8, 2},  {20, 2},
                                 {25, 0}, {10, 4}, {14, 0}, {15, 4}};
 
@@ -862,7 +828,7 @@ TEST(RangeReadCache, Concurrency) {
 TEST(RangeReadCache, Lazy) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(data);
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
@@ -903,7 +869,7 @@ TEST(RangeReadCache, Lazy) {
 TEST(RangeReadCache, LazyWithPrefetching) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(data);
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 1;
   options.range_size_limit = 3;

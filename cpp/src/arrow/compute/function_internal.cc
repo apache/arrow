@@ -83,7 +83,8 @@ Result<std::unique_ptr<FunctionOptions>> GenericOptionsType::Deserialize(
 
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
     const Buffer& buffer) {
-  io::BufferReader stream(buffer);
+  // FIXME: Would ToString to heavy?
+  io::BufferReader stream(buffer.ToString());
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
   ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
   if (batch->num_rows() != 1) {
