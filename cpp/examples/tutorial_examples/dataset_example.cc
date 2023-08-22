@@ -25,8 +25,8 @@
 #include <parquet/arrow/reader.h>
 #include <parquet/arrow/writer.h>
 
-#include <iostream>
 #include <unistd.h>
+#include <iostream>
 // (Doc section: Includes)
 
 // (Doc section: Helper Functions)

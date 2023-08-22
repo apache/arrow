@@ -45,6 +45,7 @@ add_executable(compute_example compute_example.cc)
 target_link_libraries(compute_example PRIVATE Arrow::arrow_shared)
 
 add_executable(dataset_example dataset_example.cc)
-target_link_libraries(dataset_example PRIVATE Arrow::arrow_shared Parquet::parquet_shared
-                                              ArrowAcero::arrow_acero_shared
-                                              ArrowDataset::arrow_dataset_shared)
+target_link_libraries(dataset_example
+                      PRIVATE Arrow::arrow_shared Parquet::parquet_shared
+                              ArrowAcero::arrow_acero_shared
+                              ArrowDataset::arrow_dataset_shared)
