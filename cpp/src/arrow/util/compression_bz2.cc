@@ -34,9 +34,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 namespace {
 
@@ -282,6 +280,5 @@ std::unique_ptr<Codec> MakeBZ2Codec(int compression_level) {
   return std::make_unique<BZ2Codec>(compression_level);
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}
+

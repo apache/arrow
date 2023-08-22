@@ -31,9 +31,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 namespace {
 
@@ -519,6 +517,4 @@ std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat format,
                                      window_bits.value_or(kGZipDefaultWindowBits));
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}

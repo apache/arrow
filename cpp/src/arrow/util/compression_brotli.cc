@@ -30,9 +30,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 namespace {
 
@@ -256,6 +254,5 @@ std::unique_ptr<Codec> MakeBrotliCodec(int compression_level,
                                        window_bits.value_or(BROTLI_DEFAULT_WINDOW));
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}
+

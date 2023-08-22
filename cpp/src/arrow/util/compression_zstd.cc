@@ -30,9 +30,7 @@
 
 using std::size_t;
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 namespace {
 
@@ -244,6 +242,4 @@ std::unique_ptr<Codec> MakeZSTDCodec(int compression_level) {
   return std::make_unique<ZSTDCodec>(compression_level);
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}

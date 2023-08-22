@@ -28,9 +28,7 @@
 #define ARROW_HAVE_SIMD_SPLIT
 #endif  // ARROW_HAVE_SSE4_2
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 #if defined(ARROW_HAVE_SSE4_2)
 template <typename T>
@@ -625,6 +623,5 @@ void inline ByteStreamSplitDecode(const uint8_t* data, int64_t num_values, int64
 #endif
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}
+

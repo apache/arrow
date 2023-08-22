@@ -30,10 +30,7 @@
 
 using std::size_t;
 
-namespace arrow {
-namespace util {
-namespace internal {
-
+namespace arrow::util::internal {
 namespace {
 
 // ----------------------------------------------------------------------
@@ -95,6 +92,5 @@ class SnappyCodec : public Codec {
 
 std::unique_ptr<Codec> MakeSnappyCodec() { return std::make_unique<SnappyCodec>(); }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+} 
+

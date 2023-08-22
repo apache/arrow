@@ -33,9 +33,7 @@
 #undef NOEXCEPT
 #endif
 
-namespace arrow {
-namespace util {
-namespace internal {
+namespace arrow::util::internal {
 
 // Copyright (c) 2008-2010 Bjoern Hoehrmann <bjoern@hoehrmann.de>
 // See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
@@ -83,8 +81,6 @@ ARROW_EXPORT void CheckUTF8Initialized() {
   DCHECK_EQ(utf8_large_table[0], 0)
       << "InitializeUTF8() must be called before calling UTF8 routines";
 }
-
-}  // namespace internal
 
 static std::once_flag utf8_initialized;
 
@@ -192,5 +188,4 @@ Result<std::u16string> UTF8StringToUTF16(std::string_view source) {
   }
 }
 
-}  // namespace util
-}  // namespace arrow
+}

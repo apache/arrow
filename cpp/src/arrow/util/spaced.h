@@ -23,10 +23,7 @@
 
 #include "arrow/util/bit_run_reader.h"
 
-namespace arrow {
-namespace util {
-namespace internal {
-
+namespace arrow::util::internal {
 /// \brief Compress the buffer to spaced, excluding the null entries.
 ///
 /// \param[in] src the source buffer
@@ -93,6 +90,4 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
   return num_values;
 }
 
-}  // namespace internal
-}  // namespace util
-}  // namespace arrow
+}
