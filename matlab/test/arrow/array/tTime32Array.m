@@ -116,7 +116,7 @@ classdef tTime32Array < matlab.unittest.TestCase
 
         function InferNullsTrueNVPair(testCase, Unit)
             % Verify arrow.array.Time32Array.fromMATLAB() behaves as
-            % expected by InferNulls=true is provided.
+            % expected when InferNulls=true is provided.
 
             times = seconds([1 2 NaN 4 5 NaN 7]);
             array = testCase.ArrowArrayConstructorFcn(times, InferNulls=true, TimeUnit=Unit);
@@ -128,7 +128,7 @@ classdef tTime32Array < matlab.unittest.TestCase
 
         function InferNullsFalseNVPair(testCase, Unit)
             % Verify arrow.array.Time32Array.fromMATLAB() behaves as
-            % expected by InferNulls=false is provided.
+            % expected when InferNulls=false is provided.
 
             times = seconds([1 2 NaN 4 5 NaN 7]);
             array = testCase.ArrowArrayConstructorFcn(times, InferNulls=false, TimeUnit=Unit);
