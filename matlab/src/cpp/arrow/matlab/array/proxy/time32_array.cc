@@ -46,7 +46,7 @@ namespace arrow::matlab::array::proxy {
 
        // create the Time32Type
        auto data_type = arrow::time32(time_unit);
-       auto array_length = static_cast<int32_t>(time32_mda.getNumberOfElements()); // cast size_t to int64_t
+       auto array_length = static_cast<int32_t>(time32_mda.getNumberOfElements()); // cast size_t to int32_t
 
        auto data_buffer = std::make_shared<MatlabBuffer>(time32_mda);
 
