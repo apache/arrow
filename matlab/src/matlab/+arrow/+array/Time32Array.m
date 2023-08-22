@@ -48,11 +48,11 @@ classdef Time32Array < arrow.array.Array
     end
 
     methods(Static, Access=private)
-        function time = convertDurationToTicks(data, timeUnit)
+        function ticks = convertDurationToTicks(data, timeUnit)
             if (timeUnit == arrow.type.TimeUnit.Second)
-                time = cast(seconds(data), "int32");
+                ticks = cast(seconds(data), "int32");
             else
-                time = cast(milliseconds(data), "int32");
+                ticks = cast(milliseconds(data), "int32");
             end
         end
     end
@@ -74,9 +74,9 @@ classdef Time32Array < arrow.array.Array
             arrow.internal.validate.shape(data);
 
             validElements = arrow.internal.validate.parseValidElements(data, opts);
-            time = Time32Array.convertDurationToTicks(data, opts.TimeUnit);
+            ticks = Time32Array.convertDurationToTicks(data, opts.TimeUnit);
 
-            args = struct(MatlabArray=time, Valid=validElements, TimeUnit=string(opts.TimeUnit));
+            args = struct(MatlabArray=ticks, Valid=validElements, TimeUnit=string(opts.TimeUnit));
             proxy = arrow.internal.proxy.create("arrow.array.proxy.Time32Array", args);
             array = Time32Array(proxy);
         end
