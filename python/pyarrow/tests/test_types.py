@@ -1192,7 +1192,7 @@ def test_is_boolean_value():
 @h.example(
     pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
 )
-def test_pickling(field, pickle_module):
+def test_pickling(pickle_module, field):
     data = pickle_module.dumps(field)
     assert pickle_module.loads(data) == field
 

@@ -2026,7 +2026,7 @@ def test_array_pickle_dictionary(pickle_module):
         size=st.integers(min_value=0, max_value=10)
     )
 )
-def test_pickling(arr, pickle_module):
+def test_pickling(pickle_module, arr):
     data = pickle_module.dumps(arr)
     restored = pickle_module.loads(data)
     assert arr.equals(restored)
