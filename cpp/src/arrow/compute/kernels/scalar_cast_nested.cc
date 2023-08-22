@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/array/builder_nested.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -33,10 +34,23 @@ namespace arrow {
 
 using internal::CopyBitmap;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
 
 namespace {
+
+Result<std::shared_ptr<Buffer>> GetNullBitmapBuffer(const ArraySpan& in_array,
+                                                    MemoryPool* pool) {
+  if (in_array.buffers[0].data == nullptr) {
+    return nullptr;
+  }
+
+  if (in_array.offset == 0) {
+    return in_array.GetBuffer(0);
+  }
+
+  // If a non-zero offset, we need to shift the bitmap
+  return CopyBitmap(pool, in_array.buffers[0].data, in_array.offset, in_array.length);
+}
 
 // (Large)List<T> -> (Large)List<U>
 
@@ -111,17 +125,11 @@ struct CastList {
     const ArraySpan& in_array = batch[0].array;
 
     ArrayData* out_array = out->array_data().get();
-    out_array->buffers[0] = in_array.GetBuffer(0);
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
     out_array->buffers[1] = in_array.GetBuffer(1);
 
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-
-    // Shift bitmap in case the source offset is non-zero
-    if (in_array.offset != 0 && in_array.buffers[0].data != nullptr) {
-      ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
-                            CopyBitmap(ctx->memory_pool(), in_array.buffers[0].data,
-                                       in_array.offset, in_array.length));
-    }
 
     RETURN_NOT_OK(HandleOffsets(ctx, in_array, out_array, &values));
 
@@ -144,6 +152,135 @@ void AddListCast(CastFunction* func) {
   kernel.null_handling = NullHandling::COMPUTED_NO_PREALLOCATE;
   DCHECK_OK(func->AddKernel(SrcType::type_id, std::move(kernel)));
 }
+
+template <typename DestType>
+struct CastFixedToVarList {
+  using dest_offset_type = typename DestType::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    auto child_type = checked_cast<const DestType&>(*out->type()).value_type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    ArrayData* out_array = out->array_data().get();
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+
+    const auto& in_type = checked_cast<const FixedSizeListType&>(*in_array.type);
+    const int32_t list_size = in_type.list_size();
+
+    // Allocate a new offsets buffer
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[1],
+                          ctx->Allocate(sizeof(dest_offset_type) * (batch.length + 1)));
+    auto* offsets = out_array->GetMutableValues<dest_offset_type>(1);
+    dest_offset_type offset = 0;
+    for (int64_t i = 0; i <= batch.length; ++i) {
+      offsets[i] = offset;
+      offset += list_size;
+    }
+
+    // Handle values
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    if (in_array.offset > 0 || (in_array.length * list_size < batch.length)) {
+      values = values->Slice(in_array.offset * list_size, in_array.length * list_size);
+    }
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values,
+                          Cast(values, child_type, options, ctx->exec_context()));
+    DCHECK(cast_values.is_array());
+    out_array->child_data.push_back(cast_values.array());
+
+    return Status::OK();
+  }
+};
+
+template <typename SrcType>
+struct CastVarToFixedList {
+  using src_offset_type = typename SrcType::offset_type;
+
+  static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+    const CastOptions& options = CastState::Get(ctx);
+
+    auto child_type = checked_cast<const FixedSizeListType&>(*out->type()).value_type();
+
+    const ArraySpan& in_array = batch[0].array;
+
+    const auto& out_type = checked_cast<const FixedSizeListType&>(*out->type());
+    const int32_t list_size = out_type.list_size();
+
+    // Validate lengths by comparing to the expected offsets.
+    const auto* offsets = in_array.GetValues<src_offset_type>(1);
+    src_offset_type expected_offset = offsets[0];
+    if (in_array.GetNullCount() > 0) {
+      for (int64_t i = 0; i <= batch.length; ++i) {
+        if (in_array.IsNull(i)) {
+          expected_offset += offsets[i + 1] + list_size;
+        } else {
+          if (offsets[i] != expected_offset) {
+            return Status::Invalid("ListType can only be casted to FixedSizeListType ",
+                                   "if the lists are all the expected size.");
+          }
+          expected_offset += list_size;
+        }
+      }
+    } else {
+      // Don't need to check null slots if there are no nulls
+      for (int64_t i = 0; i <= batch.length; ++i) {
+        if (offsets[i] != expected_offset) {
+          return Status::Invalid("ListType can only be casted to FixedSizeListType ",
+                                 "if the lists are all the expected size.");
+        }
+        expected_offset += list_size;
+      }
+    }
+
+    ArrayData* out_array = out->array_data().get();
+    ARROW_ASSIGN_OR_RAISE(out_array->buffers[0],
+                          GetNullBitmapBuffer(in_array, ctx->memory_pool()));
+
+    // Handle values
+    std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
+    ARROW_ASSIGN_OR_RAISE(Datum cast_values_datum,
+                          Cast(values, child_type, options, ctx->exec_context()));
+
+    DCHECK(cast_values_datum.is_array());
+    std::shared_ptr<ArrayData> cast_values = cast_values_datum.array();
+
+    if (in_array.GetNullCount() > 0 && in_array.length > 0) {
+      // We need to fill in the null slots, so we'll use Take on the values.
+      auto builder = Int64Builder(ctx->memory_pool());
+      RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
+      for (int64_t offset_i = 0; offset_i < in_array.length; ++offset_i) {
+        if (in_array.IsNull(offset_i)) {
+          // If element is null, just fill in the null slots with first value.
+          for (int64_t j = 0; j < list_size; ++j) {
+            builder.UnsafeAppend(0);
+          }
+        } else {
+          int64_t value_i = offsets[offset_i];
+          for (int64_t j = 0; j < list_size; ++j) {
+            builder.UnsafeAppend(value_i++);
+          }
+        }
+      }
+      ARROW_ASSIGN_OR_RAISE(auto indices, builder.Finish());
+      // Use Take to fill in the null slots
+      ARROW_ASSIGN_OR_RAISE(auto take_result,
+                            Take(cast_values, Datum(indices),
+                                 TakeOptions::NoBoundsCheck(), ctx->exec_context()));
+      DCHECK(take_result.is_array());
+      cast_values = take_result.array();
+    } else {
+      // No nulls, so we can just slice the values.
+      cast_values = cast_values->Slice(offsets[0], in_array.length * list_size);
+    }
+
+    out_array->child_data.emplace_back(std::move(cast_values));
+
+    return Status::OK();
+  }
+};
 
 struct CastFixedList {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -319,12 +456,15 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   AddCommonCasts(Type::LIST, kOutputTargetType, cast_list.get());
   AddListCast<ListType, ListType>(cast_list.get());
   AddListCast<LargeListType, ListType>(cast_list.get());
+  AddTypeToTypeCast<CastFixedToVarList<ListType>, FixedSizeListType>(cast_list.get());
 
   auto cast_large_list =
       std::make_shared<CastFunction>("cast_large_list", Type::LARGE_LIST);
   AddCommonCasts(Type::LARGE_LIST, kOutputTargetType, cast_large_list.get());
   AddListCast<ListType, LargeListType>(cast_large_list.get());
   AddListCast<LargeListType, LargeListType>(cast_large_list.get());
+  AddTypeToTypeCast<CastFixedToVarList<LargeListType>, FixedSizeListType>(
+      cast_large_list.get());
 
   auto cast_map = std::make_shared<CastFunction>("cast_map", Type::MAP);
   AddCommonCasts(Type::MAP, kOutputTargetType, cast_map.get());
@@ -337,6 +477,8 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
       std::make_shared<CastFunction>("cast_fixed_size_list", Type::FIXED_SIZE_LIST);
   AddCommonCasts(Type::FIXED_SIZE_LIST, kOutputTargetType, cast_fsl.get());
   AddTypeToTypeCast<CastFixedList, FixedSizeListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<ListType>, ListType>(cast_fsl.get());
+  AddTypeToTypeCast<CastVarToFixedList<LargeListType>, LargeListType>(cast_fsl.get());
 
   // So is struct
   auto cast_struct = std::make_shared<CastFunction>("cast_struct", Type::STRUCT);
@@ -351,6 +493,5 @@ std::vector<std::shared_ptr<CastFunction>> GetNestedCasts() {
   return {cast_list, cast_large_list, cast_map, cast_fsl, cast_struct, cast_dictionary};
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow
