@@ -107,29 +107,8 @@ classdef tTime32Type < hFixedWidthType
         function TimeUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the TimeUnit property.
-            schema = arrow.time32(TimeUnit="Millisecond");
-            testCase.verifyError(@() setfield(schema, "TimeUnit", "Second"), "MATLAB:class:SetProhibited");
-        end
-
-        function BitWidthNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
-            % of the BitWidth property.
-            schema = arrow.time32(TimeUnit="Millisecond");
-            testCase.verifyError(@() setfield(schema, "BitWidth", 64), "MATLAB:class:SetProhibited");
-        end
-
-        function IDNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
-            % of the ID property.
-            schema = arrow.time32(TimeUnit="Millisecond");
-            testCase.verifyError(@() setfield(schema, "ID", 15), "MATLAB:class:SetProhibited");
-        end
-
-        function NumFieldsNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
-            % of the NumFields property.
-            schema = arrow.time32(TimeUnit="Millisecond");
-            testCase.verifyError(@() setfield(schema, "NumFields", 2), "MATLAB:class:SetProhibited");
+            type = arrow.time32(TimeUnit="Millisecond");
+            testCase.verifyError(@() setfield(type, "TimeUnit", "Second"), "MATLAB:class:SetProhibited");
         end
 
         function InvalidProxy(testCase)
