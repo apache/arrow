@@ -23,7 +23,7 @@ classdef Time32Traits < arrow.type.traits.TypeTraits
         TypeClassName = "arrow.type.Time32Type"
         TypeProxyClassName = "arrow.type.proxy.Time32Type"
         MatlabConstructor = @duration
-        MatlabClassName = "datetime"
+        MatlabClassName = "duration"
     end
 
 end
