@@ -262,6 +262,11 @@ func createCArr(arr arrow.Array) *CArrowArray {
 		clist := []*CArrowArray{createCArr(arr.ListValues())}
 		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
 		nchildren += 1
+	case *array.RunEndEncoded:
+		clist := []*CArrowArray{createCArr(arr.RunEndsArr()),
+			createCArr(arr.Values())}
+		children = (**CArrowArray)(unsafe.Pointer(&clist[0]))
+		nchildren += 2
 	case array.Union:
 		clist := []*CArrowArray{}
 		for i := 0; i < arr.NumFields(); i++ {
@@ -277,6 +282,12 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.length = C.int64_t(arr.Len())
 	carr.null_count = C.int64_t(arr.NullN())
 	carr.offset = C.int64_t(arr.Data().Offset())
+	carr.release = (*[0]byte)(C.release_test_arr)
+
+	if arr.DataType().ID() == arrow.RUN_END_ENCODED {
+		return carr
+	}
+
 	buffers := arr.Data().Buffers()
 	cbufs := allocateBufferPtrArr(len(buffers))
 	for i, b := range buffers {
@@ -290,7 +301,6 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	if len(cbufs) > 0 {
 		carr.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cbufs[0]))
 	}
-	carr.release = (*[0]byte)(C.release_test_arr)
 
 	return carr
 }
