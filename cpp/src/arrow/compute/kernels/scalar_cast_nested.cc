@@ -183,7 +183,7 @@ struct CastFixedToVarList {
 
     // Handle values
     std::shared_ptr<ArrayData> values = in_array.child_data[0].ToArrayData();
-    if (in_array.offset > 0 || (in_array.length * list_size < batch.length)) {
+    if (in_array.offset > 0) {
       values = values->Slice(in_array.offset * list_size, in_array.length * list_size);
     }
     ARROW_ASSIGN_OR_RAISE(Datum cast_values,
@@ -211,11 +211,12 @@ struct CastVarToFixedList {
 
     // Validate lengths by comparing to the expected offsets.
     const auto* offsets = in_array.GetValues<src_offset_type>(1);
-    src_offset_type expected_offset = offsets[0];
+    src_offset_type expected_offset = offsets[0] + list_size;
     if (in_array.GetNullCount() > 0) {
-      for (int64_t i = 0; i <= batch.length; ++i) {
-        if (in_array.IsNull(i)) {
-          expected_offset += offsets[i + 1] + list_size;
+      for (int64_t i = 1; i <= batch.length; ++i) {
+        if (in_array.IsNull(i - 1)) {
+          // If element is null, it can be any size, so the next offset is valid.
+          expected_offset = offsets[i] + list_size;
         } else {
           if (offsets[i] != expected_offset) {
             return Status::Invalid("ListType can only be casted to FixedSizeListType ",
@@ -226,7 +227,7 @@ struct CastVarToFixedList {
       }
     } else {
       // Don't need to check null slots if there are no nulls
-      for (int64_t i = 0; i <= batch.length; ++i) {
+      for (int64_t i = 1; i <= batch.length; ++i) {
         if (offsets[i] != expected_offset) {
           return Status::Invalid("ListType can only be casted to FixedSizeListType ",
                                  "if the lists are all the expected size.");
@@ -247,7 +248,7 @@ struct CastVarToFixedList {
     DCHECK(cast_values_datum.is_array());
     std::shared_ptr<ArrayData> cast_values = cast_values_datum.array();
 
-    if (in_array.GetNullCount() > 0 && in_array.length > 0) {
+    if (in_array.GetNullCount() > 0) {
       // We need to fill in the null slots, so we'll use Take on the values.
       auto builder = Int64Builder(ctx->memory_pool());
       RETURN_NOT_OK(builder.Reserve(in_array.length * list_size));
@@ -265,7 +266,6 @@ struct CastVarToFixedList {
         }
       }
       ARROW_ASSIGN_OR_RAISE(auto indices, builder.Finish());
-      // Use Take to fill in the null slots
       ARROW_ASSIGN_OR_RAISE(auto take_result,
                             Take(cast_values, Datum(indices),
                                  TakeOptions::NoBoundsCheck(), ctx->exec_context()));
