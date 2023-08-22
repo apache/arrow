@@ -1196,7 +1196,7 @@ class MyMemoryManager : public CPUMemoryManager {
                                                    [](void*) {});
   }
 
-  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(
+  Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
       void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override {
     return std::make_shared<MyDevice::MySyncEvent>(sync_event, release_sync_event);
   }

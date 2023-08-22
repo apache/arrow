@@ -33,7 +33,7 @@ Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::MakeDeviceSyncEvent() 
   return nullptr;
 }
 
-Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::MakeDeviceSyncEvent(
+Result<std::shared_ptr<Device::SyncEvent>> MemoryManager::WrapDeviceSyncEvent(
     void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) {
   return nullptr;
 }

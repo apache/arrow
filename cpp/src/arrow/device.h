@@ -215,18 +215,20 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
 
-  /// \brief Create a SyncEvent for exporting
+  /// \brief Create a new SyncEvent.
   ///
   /// This version should construct the appropriate event for the device and
   /// provide the unique_ptr with the correct deleter for the event type.
+  /// If the device does not require or work with any synchronization, it is
+  /// allowed for it to return a nullptr.
   virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent();
 
-  /// \brief Create a SyncEvent from imported device array.
+  /// \brief Wrap an event into a SyncEvent.
   ///
   /// @param sync_event passed in sync_event from the imported device array.
   /// @param release_sync_event destructor to free sync_event. `nullptr` may be
   ///        passed to indicate that no destruction/freeing is necessary
-  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent(
+  virtual Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
       void* sync_event, Device::SyncEvent::release_fn_t release_sync_event);
 
  protected:
