@@ -58,8 +58,7 @@ the output table.
 
       // Instantiate TableReader from input stream and options
       std::shared_ptr<arrow::json::TableReader> reader;
-      auto maybe_reader = arrow::json::TableReader::Make(pool, input, read_options,
-                                          parse_options);
+      auto maybe_reader = arrow::json::TableReader::Make(pool, input, read_options, parse_options);
       if (!maybe_reader.ok()) {
          // Handle TableReader instantiation error...
       }
