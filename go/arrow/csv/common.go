@@ -118,6 +118,18 @@ func WithHeader(useHeader bool) Option {
 	}
 }
 
+// WithLazyQuotes sets csv parsing option to LazyQuotes
+func WithLazyQuotes(useLazyQuotes bool) Option {
+	return func(cfg config) {
+		switch cfg := cfg.(type) {
+		case *Reader:
+			cfg.r.LazyQuotes = useLazyQuotes
+		default:
+			panic(fmt.Errorf("arrow/csv: unknown config type %T", cfg))
+		}
+	}
+}
+
 // DefaultNullValues is the set of values considered as NULL values by default
 // when Reader is configured to handle NULL values.
 var DefaultNullValues = []string{"", "NULL", "null"}
