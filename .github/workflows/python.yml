@@ -69,6 +69,7 @@ jobs:
             image: conda-python
             title: AMD64 Conda Python 3.9 Without Pandas
             python: 3.9
+            pytest_args: -W error
           - name: conda-python-3.8-pandas-1.0
             cache: conda-python-3.8
             image: conda-python-pandas
@@ -81,13 +82,14 @@ jobs:
             image: conda-python-pandas
             title: AMD64 Conda Python 3.10 Pandas latest
             python: "3.10"
+            pytest_args: -W error
             pandas: latest
     env:
       PYTHON: ${{ matrix.python || 3.8 }}
       UBUNTU: ${{ matrix.ubuntu || 20.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
-      PYTEST_ARGS: -W error
+      PYTEST_ARGS: ${{ matrix.pytest_args || '' }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4

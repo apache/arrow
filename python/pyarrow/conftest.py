@@ -16,7 +16,6 @@
 # under the License.
 
 import pytest
-import warnings
 
 import pyarrow as pa
 from pyarrow import Codec
@@ -121,9 +120,7 @@ except ImportError:
     pass
 
 try:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        import pandas  # noqa
+    import pandas  # noqa
     defaults['pandas'] = True
 except ImportError:
     defaults['nopandas'] = True
