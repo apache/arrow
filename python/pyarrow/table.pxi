@@ -739,6 +739,8 @@ cdef class ChunkedArray(_PandasConvertible):
         """
         if self.num_chunks == 0:
             return array([], type=self.type)
+        elif self.num_chunks == 1:
+            return self.chunk(0)
         else:
             return concat_arrays(self.chunks)
 
