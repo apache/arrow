@@ -87,7 +87,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu || 20.04 }}
       PANDAS: ${{ matrix.pandas || 'latest' }}
       NUMPY: ${{ matrix.numpy || 'latest' }}
-      PYTEST_ARGS: -W Error
+      PYTEST_ARGS: -W error
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
@@ -153,7 +153,7 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ON
-      PYTEST_ARGS: -W Error
+      PYTEST_ARGS: -W error
       # Current oldest supported version according to https://endoflife.date/macos
       MACOSX_DEPLOYMENT_TARGET: 10.15
     steps:
