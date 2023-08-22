@@ -1172,8 +1172,7 @@ class MyDevice : public Device {
         : Device::SyncEvent(sync_event, release_sync_event) {}
 
     virtual ~MySyncEvent() = default;
-    Status Wait() override { return Status::OK(); }
-    Status StreamWait(const Device::Stream&) override { return Status::OK(); }
+    Status Wait() override { return Status::OK(); }    
     Status Record(const Device::Stream&) override { return Status::OK(); }
   };
 

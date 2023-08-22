@@ -100,6 +100,8 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// \brief Return the DeviceAllocationType of this device
   virtual DeviceAllocationType device_type() const = 0;
 
+  class SyncEvent;
+
   /// \brief EXPERIMENTAL: An opaque wrapper for Device-specific streams
   ///
   /// In essence this is just a wrapper around a void* to represent the
@@ -108,6 +110,12 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   class ARROW_EXPORT Stream {
    public:
     virtual const void* get_raw() const { return NULLPTR; }
+
+    /// \brief Make the stream wait on the provided event.
+    ///
+    /// Tells the stream that it should wait until the synchronization
+    /// event is completed without blocking the CPU.
+    virtual Status WaitEvent(const SyncEvent&) = 0;
 
    protected:
     Stream() = default;
@@ -125,12 +133,6 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
 
     /// @brief Block until sync event is completed.
     virtual Status Wait() = 0;
-
-    /// @brief Make the provided stream wait on the sync event.
-    ///
-    /// Tells the provided stream that it should wait until the
-    /// synchronization event is completed without blocking the CPU.
-    virtual Status StreamWait(const Stream&) = 0;
 
     /// @brief Record the wrapped event on the stream so it triggers
     /// the event when the stream gets to that point in its queue.
