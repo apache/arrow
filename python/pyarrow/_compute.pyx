@@ -29,11 +29,12 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
 import numpy as np
+import warnings
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -1947,7 +1948,7 @@ cdef class _CumulativeOptions(FunctionOptions):
                     pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
-                    start, "`start` type for CumulativeSumOptions", TypeError)
+                    start, "`start` type for CumulativeOptions", TypeError)
 
 
 class CumulativeOptions(_CumulativeOptions):
@@ -1971,6 +1972,27 @@ class CumulativeOptions(_CumulativeOptions):
     """
 
     def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
+class CumulativeSumOptions(_CumulativeOptions):
+    """
+    Options for `cumulative_sum` function.
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for sum computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        warnings.warn(
+            _DEPR_MSG.format("CumulativeSumOptions", "14.0", "CumulativeOptions"),
+            FutureWarning,
+            stacklevel=2
+        )
         self._set_options(start, skip_nulls)
 
 
