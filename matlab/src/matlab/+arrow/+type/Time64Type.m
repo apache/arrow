@@ -1,4 +1,4 @@
-%TIME32TYPE Type class for time32 data.
+%TIME64TYPE Type class for time64 data.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,15 +15,14 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Time32Type < arrow.type.TimeType
+classdef Time64Type < arrow.type.TimeType
 
     methods
-        function obj = Time32Type(proxy)
+        function obj = Time64Type(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Time32Type")}
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Time64Type")}
             end
             import arrow.internal.proxy.validate
-
             obj@arrow.type.TimeType(proxy);
         end
     end

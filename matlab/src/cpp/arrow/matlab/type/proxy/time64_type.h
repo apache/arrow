@@ -21,12 +21,12 @@
 
 namespace arrow::matlab::type::proxy {
 
-class Time32Type : public arrow::matlab::type::proxy::TimeType {
+class Time64Type : public arrow::matlab::type::proxy::TimeType {
 
     public:
-        Time32Type(std::shared_ptr<arrow::Time32Type> time32_type);
+        Time64Type(std::shared_ptr<arrow::Time64Type> time64_type);
 
-        ~Time32Type() {}
+        ~Time64Type() {}
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 

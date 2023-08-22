@@ -1,4 +1,4 @@
-%TIME32TYPE Type class for time32 data.
+% Enumeration class representing Date Units.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,18 +14,11 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
+classdef DateUnit < uint8
 
-classdef Time32Type < arrow.type.TimeType
-
-    methods
-        function obj = Time32Type(proxy)
-            arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Time32Type")}
-            end
-            import arrow.internal.proxy.validate
-
-            obj@arrow.type.TimeType(proxy);
-        end
+    enumeration
+        Day          (0)
+        Millisecond  (1)
     end
 
 end

@@ -200,6 +200,27 @@ namespace Apache.Arrow.C
 
                     return new StructType(childFields);
                 }
+                else if (format.StartsWith("+w:"))
+                {
+                    // Fixed-width list
+                    int width = Int32.Parse(format.Substring(3));
+
+                    if (_cSchema->n_children != 1)
+                    {
+                        throw new InvalidDataException("Expected fixed-length list type to have exactly one child.");
+                    }
+                    ImportedArrowSchema childSchema;
+                    if (_cSchema->GetChild(0) == null)
+                    {
+                        throw new InvalidDataException("Expected fixed-length list type child to be non-null.");
+                    }
+                    childSchema = new ImportedArrowSchema(_cSchema->GetChild(0), isRoot: false);
+
+                    Field childField = childSchema.GetAsField();
+
+                    return new FixedSizeListType(childField, width);
+                }
+
                 // TODO: Map type and large list type
 
                 // Decimals

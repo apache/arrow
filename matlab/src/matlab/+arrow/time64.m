@@ -1,4 +1,4 @@
-%TIME32TYPE Type class for time32 data.
+%TIME64 Creates an arrow.type.Time64Type object
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,17 +15,12 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Time32Type < arrow.type.TimeType
-
-    methods
-        function obj = Time32Type(proxy)
-            arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Time32Type")}
-            end
-            import arrow.internal.proxy.validate
-
-            obj@arrow.type.TimeType(proxy);
-        end
+function type = time64(opts)
+    arguments
+        opts.TimeUnit(1, 1) arrow.type.TimeUnit {timeUnit("Time64", opts.TimeUnit)} = arrow.type.TimeUnit.Microsecond
     end
-
+    import arrow.internal.validate.temporal.timeUnit
+    args = struct(TimeUnit=string(opts.TimeUnit));
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.Time64Type", args);
+    type = arrow.type.Time64Type(proxy);
 end
