@@ -15,7 +15,7 @@
 
 using Apache.Arrow.Memory;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 using System;
 using System.Collections.Generic;
 using System.Linq;

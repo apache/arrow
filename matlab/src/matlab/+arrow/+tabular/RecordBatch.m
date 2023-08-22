@@ -21,6 +21,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
         ColumnNames
+        Schema
     end
 
     properties (Hidden, SetAccess=private, GetAccess=public)
@@ -42,6 +43,12 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
         function columnNames = get.ColumnNames(obj)
             columnNames = obj.Proxy.columnNames();
+        end
+
+        function schema = get.Schema(obj)
+            proxyID = obj.Proxy.getSchema();
+            proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.Schema", ID=proxyID);
+            schema = arrow.tabular.Schema(proxy);
         end
 
         function arrowArray = column(obj, idx)
@@ -93,6 +100,31 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
     methods (Access=protected)
         function displayScalarObject(obj)
             disp(obj.toString());
+        end
+    end
+
+    methods (Static, Access=public)
+        function recordBatch = fromArrays(arrowArrays, opts)
+            arguments(Repeating)
+                arrowArrays(1, 1) arrow.array.Array
+            end
+            arguments
+                opts.ColumnNames(1, :) string {mustBeNonmissing} = compose("Column%d", 1:numel(arrowArrays))
+            end
+
+            import arrow.tabular.internal.validateArrayLengths
+            import arrow.tabular.internal.validateColumnNames
+            import arrow.tabular.internal.getArrayProxyIDs
+            
+            numColumns = numel(arrowArrays);
+            validateArrayLengths(arrowArrays);
+            validateColumnNames(opts.ColumnNames, numColumns);
+
+            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            proxyName = "arrow.tabular.proxy.RecordBatch";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            recordBatch = arrow.tabular.RecordBatch(proxy);
         end
     end
 end
