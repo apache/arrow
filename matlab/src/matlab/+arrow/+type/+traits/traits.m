@@ -49,7 +49,7 @@ function typeTraits = traits(type)
             case ID.Timestamp
                 typeTraits = TimestampTraits();
             case ID.Time32
-                typeTraits = Time32Type();
+                typeTraits = Time32Traits();
             otherwise
                 error("arrow:type:traits:UnsupportedArrowTypeID", "Unsupported Arrow type ID: " + type);
         end
