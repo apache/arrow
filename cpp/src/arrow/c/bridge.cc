@@ -1623,17 +1623,11 @@ struct ArrayImporter {
 
   Status Visit(const RunEndEncodedType& type) {
     RETURN_NOT_OK(CheckNumChildren(2));
-    if (c_struct_->n_buffers == 1) {
-      // REE arrays are not required to have any buffer,
-      // but an empty validity bitmap buffer is allowed.
-      RETURN_NOT_OK(AllocateArrayData());
-    } else {
-      RETURN_NOT_OK(CheckNumBuffers(0));
-      RETURN_NOT_OK(AllocateArrayData());
-      // Always have a null bitmap buffer as much of the code in arrow assumes
-      // the buffers vector to have at least one entry on every array format.
-      data_->buffers.emplace_back(nullptr);
-    }
+    RETURN_NOT_OK(CheckNumBuffers(0));
+    RETURN_NOT_OK(AllocateArrayData());
+    // Always have a null bitmap buffer as much of the code in arrow assumes
+    // the buffers vector to have at least one entry on every array format.
+    data_->buffers.emplace_back(nullptr);
     data_->null_count = 0;
     return Status::OK();
   }
