@@ -197,7 +197,7 @@ void CheckGetTakeIndicesCase(const Array& untyped_filter) {
   // Verify DROP indices
   {
     IndexArrayType indices(drop_indices);
-    IndexArrayType indices_from_ree(drop_indices);
+    IndexArrayType indices_from_ree(drop_indices_from_ree);
     ValidateOutput(indices);
     ValidateOutput(indices_from_ree);
 
