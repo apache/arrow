@@ -3291,7 +3291,6 @@ def test_rank_options():
                        tiebreaker="NonExisting")
 
 
-<<<<<<< HEAD
 def create_sample_expressions():
     # We need a schema for substrait conversion
     schema = pa.schema([pa.field("i64", pa.int64()), pa.field(
@@ -3300,9 +3299,6 @@ def create_sample_expressions():
     # Creates a bunch of sample expressions for testing
     # serialization and deserialization. The expressions are categorized
     # to reflect certain nuances in Substrait conversion.
-=======
-def test_expression_serialization(pickle_module):
->>>>>>> e89e7dc19 (Parametrize all pickling tests to use both the pickle and cloudpickle modules)
     a = pc.scalar(1)
     b = pc.scalar(1.1)
     c = pc.scalar(True)
@@ -3369,7 +3365,7 @@ def test_expression_serialization(pickle_module):
 # Tests the Arrow-specific serialization mechanism
 
 
-def test_expression_serialization_arrow():
+def test_expression_serialization_arrow(pickle_module):
     for expr in create_sample_expressions()["all"]:
         assert isinstance(expr, pc.Expression)
         restored = pickle_module.loads(pickle_module.dumps(expr))
