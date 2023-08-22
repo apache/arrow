@@ -17,7 +17,6 @@
 
 import os
 import random
-import unittest
 from io import BytesIO
 from os.path import join as pjoin
 
@@ -80,14 +79,14 @@ class HdfsTestCases:
         return full_path
 
     @classmethod
-    def setUpClass(cls):
+    def setup_class(cls):
         cls.check_driver()
         cls.hdfs = hdfs_test_client()
         cls.tmp_path = '/tmp/pyarrow-test-{}'.format(random.randint(0, 1000))
         cls.hdfs.mkdir(cls.tmp_path)
 
     @classmethod
-    def tearDownClass(cls):
+    def teardown_class(cls):
         cls.hdfs.delete(cls.tmp_path, recursive=True)
         cls.hdfs.close()
 
@@ -391,7 +390,7 @@ class HdfsTestCases:
             tmpdir, filesystem=self.hdfs)
 
 
-class TestLibHdfs(HdfsTestCases, unittest.TestCase):
+class TestLibHdfs(HdfsTestCases):
 
     @classmethod
     def check_driver(cls):
