@@ -711,10 +711,7 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
 
 Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
-  void* sync_event{nullptr};
-  if (sync) {
-    sync_event = sync->get_raw();
-  }
+  void* sync_event = sync ? sync->get_raw() : nullptr;
 
   SchemaExportGuard guard(out_schema);
   if (out_schema != nullptr) {
