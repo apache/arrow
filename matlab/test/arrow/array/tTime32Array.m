@@ -29,8 +29,7 @@ classdef tTime32Array < matlab.unittest.TestCase
         function Basic(tc)
             times = seconds(1:4);
             array = tc.ArrowArrayConstructorFcn(times);
-            className = string(class(array));
-            tc.verifyEqual(className, "arrow.array.Time32Array");
+            tc.verifyInstanceOf(array, "arrow.array.Time32Array");
         end
 
         function TypeIsTime32(tc)
