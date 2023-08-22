@@ -499,7 +499,7 @@ Result<std::string> SubTreeFileSystem::PathFromUri(const std::string& uri_string
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
                                std::shared_ptr<io::LatencyGenerator> latencies)
     : FileSystem(base_fs->io_context()),
-      base_fs_(base_fs),
+      base_fs_(std::move(base_fs)),
       latencies_(std::move(latencies)) {}
 
 SlowFileSystem::SlowFileSystem(std::shared_ptr<FileSystem> base_fs,
