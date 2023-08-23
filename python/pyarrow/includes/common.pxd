@@ -154,11 +154,13 @@ cdef extern from "arrow/util/future.h" namespace "arrow" nogil:
         CFuture()
 
 
-ctypedef object PyWrapper(void*)
-
-
 cdef extern from "arrow/python/async.h" namespace "arrow::py" nogil:
-    void BindFuture[T](CFuture[T], object cb, PyWrapper wrapper)
+    # BindFuture's third argument is really a C++ callable with
+    # the signature `object(T*)`, but Cython does not allow declaring that.
+    # We use an ellipsis as a workaround.
+    # Another possibility is to type-erase the argument by making it
+    # `object(void*)`, but it would lose compile-time C++ type safety.
+    void BindFuture[T](CFuture[T], object cb, ...)
 
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py" nogil:

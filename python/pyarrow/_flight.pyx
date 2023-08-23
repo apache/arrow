@@ -838,9 +838,9 @@ cdef class FlightInfo(_Weakrefable):
         unique_ptr[CFlightInfo] info
 
     @staticmethod
-    cdef _wrap_unsafe(void* c_info):
+    cdef wrap(CFlightInfo c_info):
         cdef FlightInfo obj = FlightInfo.__new__(FlightInfo)
-        obj.info.reset(new CFlightInfo(move(deref(<CFlightInfo*> c_info))))
+        obj.info.reset(new CFlightInfo(move(c_info)))
         return obj
 
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
@@ -1292,7 +1292,7 @@ cdef class AsyncioFlightClient:
             c_future = self._client.client.get().GetFlightInfoAsync(
                 deref(c_options), c_descriptor)
 
-        BindFuture(move(c_future), call.wakeup, FlightInfo._wrap_unsafe)
+        BindFuture(move(c_future), call.wakeup, FlightInfo.wrap)
 
 
 cdef class FlightClient(_Weakrefable):

@@ -72,19 +72,27 @@ T GetResultValue(Result<T> result) {
   }
 }
 
-// Wrap a Result<T> and return the corresponding Python object.
-// * If the Result<T> is successful, PyWrapper(&value) is called,
-//   which should return a PyObject*.
-// * If the Result<T> is an error, the corresponding Python exception
-//   is returned.
-template <typename T, typename PyWrapper = PyObject* (*)(void*)>
-PyObject* WrapResult(Result<T> result, PyWrapper py_wrapper) {
-  static_assert(std::is_same_v<PyObject*, decltype(py_wrapper(std::declval<T*>()))>,
+/// \brief Wrap a Result and return the corresponding Python object.
+///
+/// If the Result is successful, py_wrapper is called with its result value
+/// and should return a PyObject*. If py_wrapper is successful (returns
+/// a non-NULL value), its return value is returned.
+///
+/// If either the Result or py_wrapper fails, the associated Python exception
+/// is raised and NULL is returned.
+//
+/// \param result The Result whose value to wrap in a Python object.
+/// \param py_wrapper A function (likely defined in Cython) to convert the C++
+///   value of the Result to a Python object.
+/// \return A new Python reference, or NULL if an exception occurred
+template <typename T, typename PyWrapper = PyObject* (*)(T)>
+PyObject* WrapResult(Result<T> result, PyWrapper&& py_wrapper) {
+  static_assert(std::is_same_v<PyObject*, decltype(py_wrapper(std::declval<T>()))>,
                 "PyWrapper argument to WrapResult should return a PyObject* "
                 "when called with a T*");
   Status st = result.status();
   if (st.ok()) {
-    PyObject* py_value = py_wrapper(&result.ValueUnsafe());
+    PyObject* py_value = py_wrapper(result.MoveValueUnsafe());
     st = CheckPyError();
     if (st.ok()) {
       return py_value;

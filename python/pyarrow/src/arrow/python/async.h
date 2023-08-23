@@ -24,7 +24,15 @@
 #include "arrow/util/future.h"
 
 namespace arrow::py {
+
 /// \brief Bind a Python callback to an arrow::Future.
+///
+/// If the Future finishes successfully, py_wrapper is called with its
+/// result value and should return a PyObject*. If py_wrapper is successful,
+/// py_cb is called with its return value.
+///
+/// If either the Future or py_wrapper fails, py_cb is called with the
+/// associated Python exception.
 ///
 /// \param future The future to bind to.
 /// \param py_cb The Python callback function. Will be passed the result of
@@ -32,12 +40,13 @@ namespace arrow::py {
 ///   raised by py_wrapper.
 /// \param py_wrapper A function (likely defined in Cython) to convert the C++
 ///   result of the future to a Python object.
-template <typename T, typename Wrapper = PyObject* (*)(void*)>
-void BindFuture(Future<T> future, PyObject* py_cb, Wrapper py_wrapper) {
+template <typename T, typename PyWrapper = PyObject* (*)(T)>
+void BindFuture(Future<T> future, PyObject* py_cb, PyWrapper py_wrapper) {
   Py_INCREF(py_cb);
   OwnedRefNoGIL cb_ref(py_cb);
 
-  auto future_cb = [cb_ref = std::move(cb_ref), py_wrapper](Result<T> result) {
+  auto future_cb = [cb_ref = std::move(cb_ref),
+                    py_wrapper = std::move(py_wrapper)](Result<T> result) {
     SafeCallIntoPythonVoid([&]() {
       OwnedRef py_value_or_exc{WrapResult(std::move(result), std::move(py_wrapper))};
       Py_XDECREF(
@@ -47,4 +56,5 @@ void BindFuture(Future<T> future, PyObject* py_cb, Wrapper py_wrapper) {
   };
   future.AddCallback(std::move(future_cb));
 }
+
 }  // namespace arrow::py
