@@ -32,7 +32,7 @@ classdef Time64Array < arrow.array.Array
 
         function times = toMATLAB(obj)
             import arrow.type.TimeUnit
-            divider = ticksPerSecond(obj.Type.TimeUnit) / ticksPerSecond(timeUnit.Millisecond);
+            divider = ticksPerSecond(obj.Type.TimeUnit) / ticksPerSecond(TimeUnit.Millisecond);
             matlabArray = obj.Proxy.toMATLAB();
             % TODO: This conversion may be lossy. Is it better to cast the
             % int64 array to a double before dividing by 1e3 or 1e6? 
@@ -48,7 +48,7 @@ classdef Time64Array < arrow.array.Array
     methods(Static, Access=private)
         function ticks = convertDurationToTicks(data, timeUnit)
             import arrow.type.TimeUnit
-            multiplier = ticksPerSecond(timeUnit) / ticksPerSecond(timeUnit.Millisecond);
+            multiplier = ticksPerSecond(timeUnit) / ticksPerSecond(TimeUnit.Millisecond);
             ticks = cast(milliseconds(data) * multiplier, "int64");
         end
     end
