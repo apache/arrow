@@ -15,7 +15,8 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function arrowArrays = createSupportedArrays(opts)
+
+function [arrowArrays, matlabData] = createSupportedArrays(opts)
     arguments
         opts.NumRows(1, 1) {mustBeFinite, mustBeNonnegative} = 3;  
     end
@@ -24,21 +25,49 @@ function arrowArrays = createSupportedArrays(opts)
     import arrow.array.*
 
     arrowArrays = cell(14, 1);
+    matlabData  = cell(14, 1);
 
-    arrowArrays{1}  = BooleanArray.fromMATLAB(randomLogicals(opts.NumRows));
-    arrowArrays{2}  = UInt8Array.fromMATLAB(randomNumbers("uint8", opts.NumRows));
-    arrowArrays{3}  = UInt16Array.fromMATLAB(randomNumbers("uint16", opts.NumRows));
-    arrowArrays{4}  = UInt32Array.fromMATLAB(randomNumbers("uint32", opts.NumRows));
-    arrowArrays{5}  = UInt64Array.fromMATLAB(randomNumbers("uint64", opts.NumRows));
-    arrowArrays{6}  = Int8Array.fromMATLAB(randomNumbers("int8", opts.NumRows));
-    arrowArrays{7}  = Int16Array.fromMATLAB(randomNumbers("int16", opts.NumRows));
-    arrowArrays{8}  = Int32Array.fromMATLAB(randomNumbers("int32", opts.NumRows));
-    arrowArrays{9}  = Int64Array.fromMATLAB(randomNumbers("int64", opts.NumRows));
-    arrowArrays{10} = Float32Array.fromMATLAB(randomNumbers("single", opts.NumRows));
-    arrowArrays{11} = Float64Array.fromMATLAB(randomNumbers("double", opts.NumRows));
-    arrowArrays{12} = StringArray.fromMATLAB(randomStrings(opts.NumRows));
-    arrowArrays{13} = TimestampArray.fromMATLAB(randomDatetimes(opts.NumRows));
-    arrowArrays{14} = Time32Array.fromMATLAB(randomDurations(opts.NumRows));
+    matlabData{1}   = randomLogicals(opts.NumRows); 
+    arrowArrays{1}  = BooleanArray.fromMATLAB(matlabData{1});
+
+    matlabData{2}   = randomNumbers("uint8", opts.NumRows);
+    arrowArrays{2}  = UInt8Array.fromMATLAB(matlabData{2});
+
+    matlabData{3}   = randomNumbers("uint16", opts.NumRows);
+    arrowArrays{3}  = UInt16Array.fromMATLAB(matlabData{3});
+
+    matlabData{4}   = randomNumbers("uint32", opts.NumRows);
+    arrowArrays{4}  = UInt32Array.fromMATLAB(matlabData{4});
+
+    matlabData{5}   = randomNumbers("uint64", opts.NumRows);
+    arrowArrays{5}  = UInt64Array.fromMATLAB(matlabData{5});
+
+    matlabData{6}   = randomNumbers("int8", opts.NumRows);
+    arrowArrays{6}  = Int8Array.fromMATLAB(matlabData{6});
+
+    matlabData{7}   = randomNumbers("int16", opts.NumRows);
+    arrowArrays{7}  = Int16Array.fromMATLAB(matlabData{7});
+
+    matlabData{8}   = randomNumbers("int32", opts.NumRows);
+    arrowArrays{8}  = Int32Array.fromMATLAB(matlabData{8});
+
+    matlabData{9}   = randomNumbers("int64", opts.NumRows);
+    arrowArrays{9}  = Int64Array.fromMATLAB(matlabData{9});
+
+    matlabData{10}   = randomNumbers("single", opts.NumRows);
+    arrowArrays{10} = Float32Array.fromMATLAB(matlabData{10});
+
+    matlabData{11}  = randomNumbers("double", opts.NumRows);
+    arrowArrays{11} = Float64Array.fromMATLAB(matlabData{11});
+
+    matlabData{12}  = randomStrings(opts.NumRows);
+    arrowArrays{12} = StringArray.fromMATLAB(matlabData{12});
+
+    matlabData{13}  = randomDatetimes(opts.NumRows);
+    arrowArrays{13} = TimestampArray.fromMATLAB(matlabData{13});
+
+    matlabData{14}  = randomDurations(opts.NumRows);
+    arrowArrays{14} = Time32Array.fromMATLAB(matlabData{14});
 end
 
 
