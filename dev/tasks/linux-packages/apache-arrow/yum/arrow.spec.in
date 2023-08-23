@@ -866,6 +866,9 @@ Documentation for Apache Parquet GLib.
 %{_datadir}/gtk-doc/html/parquet-glib/
 
 %changelog
+* Thu Aug 17 2023 Raúl Cumplido <raulcumplido@gmail.com> - 13.0.0-1
+- New upstream release.
+
 * Wed Jun 07 2023 Raúl Cumplido <raulcumplido@gmail.com> - 12.0.1-1
 - New upstream release.
 
