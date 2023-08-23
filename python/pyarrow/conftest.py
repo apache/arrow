@@ -16,7 +16,6 @@
 # under the License.
 
 import pytest
-
 import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
