@@ -236,7 +236,7 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                                             encryption::kColumnIndex);
 
     return ColumnIndex::Make(*descr, column_index_buffer_->data() + buffer_offset, length,
-                             properties_, decryptor);
+                             properties_, decryptor.get());
   }
 
   /// Read offset index of a column chunk.
@@ -272,7 +272,7 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                                             encryption::kOffsetIndex);
 
     return OffsetIndex::Make(offset_index_buffer_->data() + buffer_offset, length,
-                             properties_, decryptor);
+                             properties_, decryptor.get());
   }
 
  private:
@@ -556,8 +556,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
     column_index_.__set_boundary_order(ToThrift(boundary_order));
   }
 
-  void WriteTo(::arrow::io::OutputStream* sink,
-               const std::shared_ptr<Encryptor>& encryptor) const override {
+  void WriteTo(::arrow::io::OutputStream* sink, Encryptor* encryptor) const override {
     if (state_ == BuilderState::kFinished) {
       ThriftSerializer{}.Serialize(&column_index_, sink, encryptor);
     }
@@ -667,8 +666,7 @@ class OffsetIndexBuilderImpl final : public OffsetIndexBuilder {
     }
   }
 
-  void WriteTo(::arrow::io::OutputStream* sink,
-               const std::shared_ptr<Encryptor>& encryptor) const override {
+  void WriteTo(::arrow::io::OutputStream* sink, Encryptor* encryptor) const override {
     if (state_ == BuilderState::kFinished) {
       ThriftSerializer{}.Serialize(&offset_index_, sink, encryptor);
     }
@@ -804,7 +802,7 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
 
           /// Try serializing the page index.
           PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
-          column_page_index_builder->WriteTo(sink, encryptor);
+          column_page_index_builder->WriteTo(sink, encryptor.get());
           PARQUET_ASSIGN_OR_THROW(int64_t pos_after_write, sink->Tell());
           int64_t len = pos_after_write - pos_before_write;
 
@@ -889,9 +887,11 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 // ----------------------------------------------------------------------
 // Public factory functions
 
-std::unique_ptr<ColumnIndex> ColumnIndex::Make(
-    const ColumnDescriptor& descr, const void* serialized_index, uint32_t index_len,
-    const ReaderProperties& properties, const std::shared_ptr<Decryptor>& decryptor) {
+std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
+                                               const void* serialized_index,
+                                               uint32_t index_len,
+                                               const ReaderProperties& properties,
+                                               Decryptor* decryptor) {
   format::ColumnIndex column_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
@@ -928,9 +928,10 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(
   return nullptr;
 }
 
-std::unique_ptr<OffsetIndex> OffsetIndex::Make(
-    const void* serialized_index, uint32_t index_len, const ReaderProperties& properties,
-    const std::shared_ptr<Decryptor>& decryptor) {
+std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
+                                               uint32_t index_len,
+                                               const ReaderProperties& properties,
+                                               Decryptor* decryptor) {
   format::OffsetIndex offset_index;
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
