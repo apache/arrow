@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function [arrowArrays, matlabData] = createSupportedArrays(opts)
+function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
     arguments
         opts.NumRows(1, 1) {mustBeFinite, mustBeNonnegative} = 3;  
     end
