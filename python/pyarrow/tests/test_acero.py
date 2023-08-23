@@ -196,6 +196,20 @@ def test_aggregate_scalar(table_source):
     with pytest.raises(ValueError, match="is a hash aggregate function"):
         _ = decl.to_table()
 
+    aggr_opts = AggregateNodeOptions([("a", "hash_list", None, "a_list")])
+    decl = Declaration.from_sequence(
+        [table_source, Declaration("aggregate", aggr_opts)]
+    )
+    with pytest.raises(pa.lib.ArrowInvalid, match="is a hash aggregate function"):
+        _ = decl.to_table()
+
+    aggr_opts = AggregateNodeOptions([("a", "hash_one", None, "a_one")])
+    decl = Declaration.from_sequence(
+        [table_source, Declaration("aggregate", aggr_opts)]
+    )
+    with pytest.raises(pa.lib.ArrowInvalid, match="is a hash aggregate function"):
+        _ = decl.to_table()
+
 
 def test_aggregate_hash():
     table = pa.table({'a': [1, 2, None], 'b': ["foo", "bar", "foo"]})

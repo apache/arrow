@@ -35,6 +35,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/config.h"
 #include "arrow/util/logging.h"
@@ -1438,6 +1439,134 @@ TEST(ExecPlanExecution, ScalarSourceScalarAggSink) {
           R"([[false, true, 6, 6, 5.5, 26250, 0.7637626158259734, 33, 5.0, 0.5833333333333334]])"),
   };
   ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
+}
+
+class ScalarAggregateDistinctArrayTest
+    : public ::testing::TestWithParam<
+          std::tuple<std::shared_ptr<arrow::DataType>, std::shared_ptr<arrow::DataType>,
+                     std::string, std::string, std::string>> {};
+
+class ScalarAggregateDistinctScalarTest
+    : public ::testing::TestWithParam<
+          std::tuple<std::shared_ptr<arrow::DataType>, std::shared_ptr<arrow::DataType>,
+                     std::string, std::string, std::string, std::string, std::string>> {};
+
+// Order of parameters: Key Type, Value Type, Batch 1, Batch 2, Output
+static std::vector<
+    std::tuple<std::shared_ptr<arrow::DataType>, std::shared_ptr<arrow::DataType>,
+               std::string, std::string, std::string>>
+GetDistinctBatchOfArray() {
+  return std::vector<
+      std::tuple<std::shared_ptr<arrow::DataType>, std::shared_ptr<arrow::DataType>,
+                 std::string, std::string, std::string>>{
+      {arrow::int32(), arrow::boolean(), "[[1, false], [2, false], [3, false]]",
+       "[[4, true], [5, true], [6, false]]", "[[false], [true]]"},
+      {arrow::int32(), arrow::int32(), "[[1, 10], [2, 20], [3, 10]]",
+       "[[4, 10], [5, 30], [6, 20]]", "[[10], [20], [30]]"},
+      {arrow::int32(), arrow::timestamp(arrow::TimeUnit::SECOND),
+       "[[1, 1609459200], [2, 1609545600], [3, 1609632000]]",
+       "[[4, 1609545600], [5, 1609459200], [6, 1609459200]]",
+       "[[1609459200], [1609545600], [1609632000]]"},
+      {arrow::int32(), arrow::time32(arrow::TimeUnit::SECOND),
+       "[[1, 48615], [2, 48615], [3, 48735]]", "[[4, 48615], [5, 48735], [6, 48675]]",
+       "[[48615], [48675], [48735]]"},
+      {arrow::int32(), arrow::duration(arrow::TimeUnit::SECOND),
+       "[[1, 20], [2, 40], [3, 20]]", "[[4, 60], [5, 40], [6, 30]]",
+       "[[20], [30], [40], [60]]"},
+      {arrow::int32(), arrow::utf8(),
+       std::string(R"([[1, "abcd"], [2, "efgh"], [3, "abcd"]])"),
+       std::string(R"([[4, "efgh"], [5, "hijk"], [6, "abcd"]])"),
+       std::string(R"([["abcd"], ["efgh"], ["hijk"]])")}};
+}
+
+// Order of parameters: Key Type, Value Type, Batch 1, Batch 2, Output
+static std::vector<
+    std::tuple<std::shared_ptr<arrow::DataType>, std::shared_ptr<arrow::DataType>,
+               std::string, std::string, std::string, std::string, std::string>>
+GetDistinctBatchOfScalar() {
+  return std::vector<
+      std::tuple<std::shared_ptr<arrow::DataType>, std::shared_ptr<arrow::DataType>,
+                 std::string, std::string, std::string, std::string, std::string>>{
+      {arrow::int32(), arrow::boolean(), "[[1, false]]", "[[2, false]]", "[[3, true]]",
+       "[[4, false]]", "[[false], [true]]"},
+      {arrow::int32(), arrow::int32(), "[[1, 10]]", "[[2, 20]]", "[[3, 10]]", "[[4, 30]]",
+       "[[10], [20], [30]]"},
+      {arrow::int32(), arrow::timestamp(arrow::TimeUnit::SECOND), "[[1, 1609459200]]",
+       "[[2, 1609545600]]", "[[3, 1609632000]]", "[[4, 1609545600]]",
+       "[[1609459200], [1609545600], [1609632000]]"},
+      {arrow::int32(), arrow::time32(arrow::TimeUnit::SECOND), "[[1, 48615]]",
+       "[[2, 48675]]", "[[3, 48675]]", "[[4, 48735]]", "[[48615], [48675], [48735]]"},
+      {arrow::int32(), arrow::duration(arrow::TimeUnit::SECOND), "[[1, 20]]", "[[2, 60]]",
+       "[[3, 20]]", "[[4, 60]]", "[[20], [60]]"},
+      {arrow::int32(), arrow::utf8(), std::string(R"([[1, "abcd"]])"),
+       std::string(R"([[2, "efgh"]])"), std::string(R"([[3, "hijk"]])"),
+       std::string(R"([[4, "efgh"]])"),
+       std::string(R"([["abcd"], ["efgh"], ["hijk"]])")}};
+}
+
+INSTANTIATE_TEST_SUITE_P(ScalarAggregatorArrayTest, ScalarAggregateDistinctArrayTest,
+                         ::testing::ValuesIn(GetDistinctBatchOfArray()));
+
+INSTANTIATE_TEST_SUITE_P(ScalarAggregatorScalarTest, ScalarAggregateDistinctScalarTest,
+                         ::testing::ValuesIn(GetDistinctBatchOfScalar()));
+
+TEST_P(ScalarAggregateDistinctArrayTest, WithArray) {
+  BatchesWithSchema scalar_data;
+  auto param = GetParam();
+  std::shared_ptr<arrow::DataType> key_type = std::get<0>(param);
+  std::shared_ptr<arrow::DataType> val_type = std::get<1>(param);
+  std::string first_batch = std::get<2>(param);
+  std::string second_batch = std::get<3>(param);
+  std::string output_batch = std::get<4>(param);
+
+  scalar_data.batches = {
+      ExecBatchFromJSON({key_type, val_type}, {ArgShape::ARRAY, ArgShape::ARRAY},
+                        first_batch),
+      ExecBatchFromJSON({key_type, val_type}, {ArgShape::ARRAY, ArgShape::ARRAY},
+                        second_batch),
+  };
+
+  scalar_data.schema = schema({field("key", key_type), field("value", val_type)});
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{scalar_data.schema,
+                                    scalar_data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                         {"distinct", nullptr, "value", "distinct(value)"}}}}});
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
+  auto exp_batches = {ExecBatchFromJSON({val_type}, {ArgShape::ARRAY}, output_batch)};
+  AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
+}
+
+TEST_P(ScalarAggregateDistinctScalarTest, WithScalar) {
+  BatchesWithSchema scalar_data;
+  auto param = GetParam();
+  std::shared_ptr<arrow::DataType> key_type = std::get<0>(param);
+  std::shared_ptr<arrow::DataType> val_type = std::get<1>(param);
+  std::string first_batch = std::get<2>(param);
+  std::string second_batch = std::get<3>(param);
+  std::string third_batch = std::get<4>(param);
+  std::string fourth_batch = std::get<5>(param);
+  std::string output_batch = std::get<6>(param);
+
+  scalar_data.batches = {
+      ExecBatchFromJSON({key_type, val_type}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        first_batch),
+      ExecBatchFromJSON({key_type, val_type}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        second_batch),
+      ExecBatchFromJSON({key_type, val_type}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        third_batch),
+      ExecBatchFromJSON({key_type, val_type}, {ArgShape::SCALAR, ArgShape::SCALAR},
+                        fourth_batch),
+  };
+  scalar_data.schema = schema({field("key", key_type), field("value", val_type)});
+  Declaration plan = Declaration::Sequence(
+      {{"source", SourceNodeOptions{scalar_data.schema,
+                                    scalar_data.gen(/*parallel=*/false, /*slow=*/false)}},
+       {"aggregate", AggregateNodeOptions{/*aggregates=*/{
+                         {"distinct", nullptr, "value", "distinct(value)"}}}}});
+  ASSERT_OK_AND_ASSIGN(auto result, DeclarationToExecBatches(std::move(plan)));
+  auto exp_batches = {ExecBatchFromJSON({val_type}, {ArgShape::ARRAY}, output_batch)};
   AssertExecBatchesEqualIgnoringOrder(result.schema, result.batches, exp_batches);
 }
 

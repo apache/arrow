@@ -5319,7 +5319,12 @@ list[tuple(str, str, FunctionOptions)]
             if len(self.keys) > 0 and not func.startswith("hash_"):
                 func = "hash_" + func
             if len(self.keys) == 0 and func.startswith("hash_"):
-                func = func[5:]
+                scalar_func = func[5:]
+                try:
+                    _pac().get_function(scalar_func)
+                    func = scalar_func
+                except:
+                    pass
             # Determine output field name
             func_nohash = func if not func.startswith("hash_") else func[5:]
             if len(target) == 0:
