@@ -61,6 +61,8 @@ end
 
 function classes = getArrayClassNames()
     metaClass = meta.package.fromName("arrow.array").ClassList;
+
+    % Removes all Abstract classes from the list of all subclasses
     abstract = [metaClass.Abstract];
     metaClass(abstract) = [];
     classes = string({metaClass.Name});
