@@ -326,6 +326,7 @@ Field::MergeOptions Field::MergeOptions::Permissive() {
   options.promote_numeric_width = true;
   options.promote_binary = true;
   options.promote_temporal_unit = true;
+  options.promote_list = true;
   options.promote_dictionary = true;
   options.promote_dictionary_ordered = false;
   return options;
@@ -344,6 +345,7 @@ std::string Field::MergeOptions::ToString() const {
   ss << ", promote_numeric_width=" << (promote_numeric_width ? "true" : "false");
   ss << ", promote_binary=" << (promote_binary ? "true" : "false");
   ss << ", promote_temporal_unit=" << (promote_temporal_unit ? "true" : "false");
+  ss << ", promote_list=" << (promote_list ? "true" : "false");
   ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
   ss << ", promote_dictionary_ordered=" << (promote_dictionary_ordered ? "true" : "false");
   ss << '}';
@@ -403,7 +405,6 @@ Result<std::shared_ptr<DataType>> MaybeMergeTemporalTypes(
     if (promoted_type->id() == Type::DATE64 && other_type->id() == Type::DATE32) {
       return date64();
     }
-
 
     if (promoted_type->id() == Type::DURATION && other_type->id() == Type::DURATION) {
       const auto& left = checked_cast<const DurationType&>(*promoted_type);
@@ -592,7 +593,7 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
   } else if (values) {
     return Status::TypeError("Could not merge dictionary index types");
   }
-  return Status::Invalid("Could not merge dictionary value types");
+  return Status::TypeError("Could not merge dictionary value types");
 }
 
 // Merge temporal types based on options. Returns nullptr for non-binary types.
@@ -600,17 +601,39 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
     std::shared_ptr<DataType>& promoted_type, std::shared_ptr<DataType>& other_type,
     const Field::MergeOptions& options) {
   if (options.promote_binary) {
-    if (other_type->id() == Type::FIXED_SIZE_BINARY &&
-        is_base_binary_like(promoted_type->id())) {
+    if (other_type->id() == Type::FIXED_SIZE_BINARY &&is_base_binary_like(promoted_type->id())) {
       return MakeBinary(*promoted_type);
-    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
-               is_base_binary_like(other_type->id())) {
+    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY && is_base_binary_like(other_type->id())) {
       return MakeBinary(*other_type);
-    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
-               other_type->id() == Type::FIXED_SIZE_BINARY) {
+    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY && other_type->id() == Type::FIXED_SIZE_BINARY) {
       return binary();
     }
 
+
+    if (
+        (
+            other_type->id() == Type::LARGE_STRING ||
+            other_type->id() == Type::LARGE_BINARY
+            ) &&
+        (
+            promoted_type->id() == Type::STRING ||
+            promoted_type->id() == Type::BINARY
+            )
+
+
+        ) {
+      // Promoted type is always large in case there are regular and large types
+      promoted_type.swap(other_type);
+    }
+
+    // When one field is binary and the other a string
+    if (is_string(promoted_type->id()) && is_binary(other_type->id())) {
+      return MakeBinary(*promoted_type);
+    } else if (is_binary(promoted_type->id()) && is_string(other_type->id())) {
+      return MakeBinary(*promoted_type);
+    }
+
+    // When the types are the same, but one is large
     if ((promoted_type->id() == Type::STRING && other_type->id() == Type::LARGE_STRING) ||
         (promoted_type->id() == Type::LARGE_STRING && other_type->id() == Type::STRING)) {
       return large_utf8();
@@ -648,7 +671,6 @@ Result<std::shared_ptr<DataType>> MergeStructs(
 Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
     const std::shared_ptr<DataType>& promoted_type,
     const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
-  bool promoted = false;
 
   if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
       other_type->id() == Type::FIXED_SIZE_LIST) {
@@ -660,6 +682,23 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
             *right.value_field()->WithName(left.value_field()->name()), options));
     if (left.list_size() == right.list_size()) {
       return fixed_size_list(std::move(value_field), left.list_size());
+    } else {
+      return list(std::move(value_field));
+    }
+  } else if (is_list(promoted_type->id()) && is_list(other_type->id())) {
+    const auto& left = checked_cast<const BaseListType&>(*promoted_type);
+    const auto& right = checked_cast<const BaseListType&>(*other_type);
+    ARROW_ASSIGN_OR_RAISE(
+        auto value_field,
+        left.value_field()->MergeWith(
+            *right.value_field()->WithName(left.value_field()->name()), options));
+
+    if (promoted_type->id() != other_type->id()) {
+      return Status::TypeError("Cannot merge lists unless promote_list=true");
+    }
+
+    if (promoted_type->id() == Type::LARGE_LIST || other_type->id() == Type::LARGE_LIST) {
+      return large_list(std::move(value_field));
     } else {
       return list(std::move(value_field));
     }
@@ -676,23 +715,11 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
             *right.item_field()->WithName(left.item_field()->name()), options));
     return map(std::move(key_field->type()), std::move(item_field),
                /*keys_sorted=*/left.keys_sorted() && right.keys_sorted());
-  } else if (is_list(promoted_type->id()) && is_list(other_type->id())) {
-    const auto& left = checked_cast<const BaseListType&>(*promoted_type);
-    const auto& right = checked_cast<const BaseListType&>(*other_type);
-    ARROW_ASSIGN_OR_RAISE(
-        auto value_field,
-        left.value_field()->MergeWith(
-            *right.value_field()->WithName(left.value_field()->name()), options));
-    if (promoted_type->id() == Type::LARGE_LIST || other_type->id() == Type::LARGE_LIST) {
-      return large_list(std::move(value_field));
-    } else {
-      return list(std::move(value_field));
-    }
   } else if (promoted_type->id() == Type::STRUCT && other_type->id() == Type::STRUCT) {
     return MergeStructs(promoted_type, other_type, options);
   }
 
-  return promoted ? promoted_type : nullptr;
+  return nullptr;
 }
 
 Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_type,

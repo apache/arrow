@@ -440,6 +440,9 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
     /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
     bool promote_temporal_unit = false;
 
+    /// Allow promotion from a list to a large-list
+    bool promote_list = false;
+
     /// Unify dictionary index types and dictionary value types.
     bool promote_dictionary = false;
 

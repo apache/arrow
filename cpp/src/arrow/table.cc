@@ -421,7 +421,7 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
     for (const auto& t : tables) {
       promoted_tables.emplace_back();
       ARROW_ASSIGN_OR_RAISE(promoted_tables.back(),
-                            PromoteTableToSchema(t, unified_schema, compute::CastOptions::Safe(), memory_pool));
+                            PromoteTableToSchema(t, unified_schema, memory_pool));
     }
     tables_to_concat = &promoted_tables;
   } else {
@@ -456,14 +456,15 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
                                                     MemoryPool* pool) {
-    return PromoteTableToSchema(
-        table, schema, compute::CastOptions::Safe(), pool
-    );
+  const compute::CastOptions options = compute::CastOptions::Safe();
+  return PromoteTableToSchema(
+      table, schema, &options, pool
+  );
 }
 
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
-                                                    const compute::CastOptions options,
+                                                    const compute::CastOptions* options,
                                                     MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
@@ -518,6 +519,11 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     }
 
 #ifdef ARROW_COMPUTE
+    if (options == NULLPTR) {
+      const compute::CastOptions safe_options = compute::CastOptions::Safe();
+      options = &safe_options;
+    }
+
     if (!compute::CanCast(*current_field->type(), *field->type())) {
       return Status::TypeError("Unable to promote field ", field->name(),
                                ": incompatible types: ", field->type()->ToString(), " vs ",
@@ -525,7 +531,7 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     }
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
-                                                     field->type(), options, &ctx));
+                                                     field->type(), *options, &ctx));
     columns.push_back(casted.chunked_array());
 #else
     return Status::Invalid("Unable to promote field ", field->name(),

@@ -319,7 +319,10 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
     ConcatenateTablesOptions options = ConcatenateTablesOptions::Defaults(),
     MemoryPool* memory_pool = default_memory_pool());
 
-#ifdef ARROW_COMPUTE
+namespace compute {
+  class CastOptions;
+};
+
 /// \brief Promotes a table to conform to the given schema.
 ///
 /// If a field in the schema does not have a corresponding column in
@@ -343,8 +346,7 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
-    const compute::CastOptions&, MemoryPool* pool = default_memory_pool());
-#endif
+    const compute::CastOptions* options = NULLPTR, MemoryPool* pool = default_memory_pool());
 
 /// \brief Promotes a table to conform to the given schema.
 ///

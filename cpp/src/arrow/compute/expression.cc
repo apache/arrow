@@ -738,8 +738,6 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
       compute::StructFieldOptions options(std::move(indices));
       ARROW_ASSIGN_OR_RAISE(
           field, compute::CallFunction("struct_field", {std::move(field)}, &options));
-      field.nullable = field->nullable();
-      field.metadata = field->metadata();
     }
     if (!field.type()->Equals(*param->type.type)) {
       return Status::Invalid("Referenced field ", expr.ToString(), " was ",

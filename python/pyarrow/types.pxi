@@ -2051,6 +2051,7 @@ cdef class FieldMergeOptions(_Weakrefable):
         f'promote_numeric_width={self.promote_numeric_width},'
         f'promote_binary={self.promote_binary},'
         f'promote_temporal_unit={self.promote_temporal_unit},'
+        f'promote_list={self.promote_list},'
         f'promote_dictionary={self.promote_dictionary},'
         f'promote_dictionary_ordered={self.promote_dictionary_ordered})')
 
