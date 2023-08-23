@@ -72,6 +72,7 @@ import (
 
 	"github.com/apache/arrow/go/v13/arrow"
 	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v13/arrow/internal"
 )
 
 const (
@@ -284,7 +285,7 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.offset = C.int64_t(arr.Data().Offset())
 	carr.release = (*[0]byte)(C.release_test_arr)
 
-	if arr.DataType().ID() == arrow.RUN_END_ENCODED {
+	if !arrow.IsUnion(arr.DataType().ID()) && !internal.DefaultHasValidityBitmap(arr.DataType().ID()) {
 		return carr
 	}
 
