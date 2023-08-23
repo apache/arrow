@@ -64,6 +64,10 @@ describe('Generated Test Data', () => {
     describe('DictionaryBuilder', () => { validateBuilder(generate.dictionary); });
     describe('IntervalDayTimeBuilder', () => { validateBuilder(generate.intervalDayTime); });
     describe('IntervalYearMonthBuilder', () => { validateBuilder(generate.intervalYearMonth); });
+    describe('DurationSecondBuilder', () => { validateBuilder(generate.durationSecond); });
+    describe('DurationMillisecondBuilder', () => { validateBuilder(generate.durationMillisecond); });
+    describe('DurationMicrosecondBuilder', () => { validateBuilder(generate.durationMicrosecond); });
+    describe('DurationNanosecondBuilder', () => { validateBuilder(generate.durationNanosecond); });
     describe('FixedSizeListBuilder', () => { validateBuilder(generate.fixedSizeList); });
     describe('MapBuilder', () => { validateBuilder(generate.map); });
 });
