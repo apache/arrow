@@ -3077,8 +3077,10 @@ def test_numpy_binary_overflow_to_chunked(large_types):
     unicode_values += [unicode_unique_strings[i % 10]
                        for i in range(1 << 11)]
 
-    for case, ex_type in [(values, pa.large_binary() if large_types else pa.binary()),
-                          (unicode_values, pa.large_utf8() if large_types else pa.utf8())]:
+    binary_type = pa.large_binary() if large_types else pa.binary()
+    string_type = pa.large_utf8() if large_types else pa.utf8()
+    for case, ex_type in [(values, binary_type),
+                          (unicode_values, string_type)]:
         arr = np.array(case)
         arrow_arr = pa.array(arr, ex_type)
         arr = None
