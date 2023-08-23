@@ -45,11 +45,11 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/endian"
-	"github.com/apache/arrow/go/v13/arrow/internal"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/endian"
+	"github.com/apache/arrow/go/v14/arrow/internal"
+	"github.com/apache/arrow/go/v14/arrow/ipc"
 )
 
 func encodeCMetadata(keys, values []string) []byte {
