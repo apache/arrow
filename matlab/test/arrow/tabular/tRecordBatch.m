@@ -20,7 +20,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
 
         function Basic(tc)
             T = table([1, 2, 3]');
-            arrowRecordBatch = arrow.recordbatch(T);
+            arrowRecordBatch = arrow.recordBatch(T);
             className = string(class(arrowRecordBatch));
             tc.verifyEqual(className, "arrow.tabular.RecordBatch");
         end
@@ -30,21 +30,21 @@ classdef tRecordBatch < matlab.unittest.TestCase
             import arrow.internal.test.tabular.createTableWithSupportedTypes
 
             TOriginal = createTableWithSupportedTypes();
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             expectedColumnNames = string(TOriginal.Properties.VariableNames);
             tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, TOriginal);
         end
 
         function ToMATLAB(tc)
             TOriginal = table([1, 2, 3]');
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             TConverted = arrowRecordBatch.toMATLAB();
             tc.verifyEqual(TOriginal, TConverted);
         end
 
         function Table(tc)
             TOriginal = table([1, 2, 3]');
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             TConverted = table(arrowRecordBatch);
             tc.verifyEqual(TOriginal, TConverted);
         end
@@ -52,7 +52,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         function ColumnNames(tc)
             columnNames = ["A", "B", "C"];
             TOriginal = table(1, 2, 3, VariableNames=columnNames);
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             tc.verifyEqual(arrowRecordBatch.ColumnNames, columnNames);
         end
 
@@ -61,7 +61,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
 
             for nc = numColumns
                 T = array2table(ones(1, nc));
-                arrowRecordBatch = arrow.recordbatch(T);
+                arrowRecordBatch = arrow.recordBatch(T);
                 tc.verifyEqual(arrowRecordBatch.NumColumns, nc);
             end
         end
@@ -72,7 +72,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
             mango = "🥭";
             columnNames = [smiley, tree, mango];
             TOriginal = table(1, 2, 3, VariableNames=columnNames);
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             tc.verifyEqual(arrowRecordBatch.ColumnNames, columnNames);
             TConverted = arrowRecordBatch.toMATLAB();
             tc.verifyEqual(TOriginal, TConverted);
@@ -80,42 +80,42 @@ classdef tRecordBatch < matlab.unittest.TestCase
 
         function EmptyTable(tc)
             TOriginal = table();
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             TConverted = arrowRecordBatch.toMATLAB();
             tc.verifyEqual(TOriginal, TConverted);
         end
 
         function EmptyRecordBatchColumnIndexError(tc)
             TOriginal = table();
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(1);
             tc.verifyError(fcn, "arrow:tabular:recordbatch:NumericIndexWithEmptyRecordBatch");
         end
 
         function InvalidNumericIndexError(tc)
             TOriginal = table(1, 2, 3);
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(4);
             tc.verifyError(fcn, "arrow:tabular:recordbatch:InvalidNumericColumnIndex");
         end
 
         function UnsupportedColumnIndexType(tc)
             TOriginal = table(1, 2, 3);
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(datetime(2022, 1, 3));
             tc.verifyError(fcn, "arrow:badsubscript:NonNumeric");
         end
 
         function ErrorIfIndexIsNonScalar(tc)
             TOriginal = table(1, 2, 3);
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column([1 2]);
             tc.verifyError(fcn, "MATLAB:expectedScalar");
         end
 
         function ErrorIfIndexIsNonPositive(tc)
             TOriginal = table(1, 2, 3);
-            arrowRecordBatch = arrow.recordbatch(TOriginal);
+            arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(-1);
             tc.verifyError(fcn, "arrow:badsubscript:NonPositive");
         end
@@ -203,7 +203,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
                       [1; 2; 3], ...
                       [true; false; true], ...
                       VariableNames=["A", "B", "C"]);
-            recordBatch = arrow.recordbatch(t);
+            recordBatch = arrow.recordBatch(t);
             schema = recordBatch.Schema;
             tc.verifyEqual(schema.NumFields, int32(3));
             tc.verifyEqual(schema.field(1).Type.ID, arrow.type.ID.String);
@@ -218,7 +218,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         % Verify that trying to set the value of the public Schema property
         % results in an error of type "MATLAB:class:SetProhibited".
             t = table([1; 2; 3]);
-            recordBatch = arrow.recordbatch(t);
+            recordBatch = arrow.recordBatch(t);
             tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), ...
                 "MATLAB:class:SetProhibited");
         end

@@ -1,5 +1,3 @@
-%RECORDBATCH Creates an arrow.tabular.RecordBatch from a table.
-
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,18 +12,14 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function rb = recordbatch(T)
+
+function type = time32(opts)
+%TIME32 Creates an arrow.type.Time32Type object
     arguments
-        T table
+        opts.TimeUnit(1, 1) arrow.type.TimeUnit {timeUnit("Time32", opts.TimeUnit)} = arrow.type.TimeUnit.Second
     end
-
-    arrowArrays = arrow.tabular.internal.decompose(T);
-    arrayProxyIDs = arrow.tabular.internal.getArrayProxyIDs(arrowArrays);
-
-    columnNames = string(T.Properties.VariableNames);
-    args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);
-    proxyName = "arrow.tabular.proxy.RecordBatch";
-    proxy = arrow.internal.proxy.create(proxyName, args);
-
-    rb = arrow.tabular.RecordBatch(proxy);
+    import arrow.internal.validate.temporal.timeUnit
+    args = struct(TimeUnit=string(opts.TimeUnit));
+    proxy = arrow.internal.proxy.create("arrow.type.proxy.Time32Type", args);
+    type = arrow.type.Time32Type(proxy);
 end

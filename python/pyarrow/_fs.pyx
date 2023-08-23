@@ -505,6 +505,15 @@ cdef class FileSystem(_Weakrefable):
         return self.wrapped
 
     def equals(self, FileSystem other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.fs.FileSystem
+
+        Returns
+        -------
+        bool
+        """
         return self.fs.Equals(other.unwrap())
 
     def __eq__(self, other):

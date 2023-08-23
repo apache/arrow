@@ -34,7 +34,7 @@ if [ ! -z "${CONDA_PREFIX}" ]; then
   echo -e "===\n=== Conda environment for build\n==="
   conda list
 
-  export CMAKE_ARGS="${CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
+  export ARROW_CMAKE_ARGS="${ARROW_CMAKE_ARGS} -DCMAKE_AR=${AR} -DCMAKE_RANLIB=${RANLIB}"
   export ARROW_GANDIVA_PC_CXX_FLAGS=$(echo | ${CXX} -E -Wp,-v -xc++ - 2>&1 | grep '^ ' | awk '{print "-isystem;" substr($1, 1)}' | tr '\n' ';')
 elif [ -x "$(command -v xcrun)" ]; then
   export ARROW_GANDIVA_PC_CXX_FLAGS="-isysroot;$(xcrun --show-sdk-path)"
@@ -183,7 +183,7 @@ cmake \
   -Dzstd_SOURCE=${zstd_SOURCE:-} \
   -Dxsimd_SOURCE=${xsimd_SOURCE:-} \
   -G "${CMAKE_GENERATOR:-Ninja}" \
-  ${CMAKE_ARGS} \
+  ${ARROW_CMAKE_ARGS} \
   ${source_dir}
 
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}

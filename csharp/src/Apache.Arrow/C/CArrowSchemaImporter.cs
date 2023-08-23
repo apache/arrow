@@ -200,6 +200,27 @@ namespace Apache.Arrow.C
 
                     return new StructType(childFields);
                 }
+                else if (format.StartsWith("+w:"))
+                {
+                    // Fixed-width list
+                    int width = Int32.Parse(format.Substring(3));
+
+                    if (_cSchema->n_children != 1)
+                    {
+                        throw new InvalidDataException("Expected fixed-length list type to have exactly one child.");
+                    }
+                    ImportedArrowSchema childSchema;
+                    if (_cSchema->GetChild(0) == null)
+                    {
+                        throw new InvalidDataException("Expected fixed-length list type child to be non-null.");
+                    }
+                    childSchema = new ImportedArrowSchema(_cSchema->GetChild(0), isRoot: false);
+
+                    Field childField = childSchema.GetAsField();
+
+                    return new FixedSizeListType(childField, width);
+                }
+
                 // TODO: Map type and large list type
 
                 // Decimals
@@ -268,14 +289,14 @@ namespace Apache.Arrow.C
                     // Date and time
                     "tdD" => Date32Type.Default,
                     "tdm" => Date64Type.Default,
-                    "tts" => new Time32Type(TimeUnit.Second),
-                    "ttm" => new Time32Type(TimeUnit.Millisecond),
-                    "ttu" => new Time64Type(TimeUnit.Microsecond),
-                    "ttn" => new Time64Type(TimeUnit.Nanosecond),
+                    "tts" => TimeType.Second,
+                    "ttm" => TimeType.Millisecond,
+                    "ttu" => TimeType.Microsecond,
+                    "ttn" => TimeType.Nanosecond,
                     // TODO: duration not yet implemented
-                    "tiM" => new IntervalType(IntervalUnit.YearMonth),
-                    "tiD" => new IntervalType(IntervalUnit.DayTime),
-                    //"tin" => new IntervalType(IntervalUnit.MonthDayNanosecond), // Not yet implemented
+                    "tiM" => IntervalType.YearMonth,
+                    "tiD" => IntervalType.DayTime,
+                    //"tin" => IntervalType.MonthDayNanosecond, // Not yet implemented
                     _ => throw new NotSupportedException("Data type is not yet supported in import.")
                 };
             }

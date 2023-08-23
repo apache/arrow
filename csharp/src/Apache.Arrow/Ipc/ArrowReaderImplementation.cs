@@ -257,7 +257,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ArrowBuffer[] arrowBuff;
-            if (field.DataType.TypeId == ArrowTypeId.Struct)
+            if (field.DataType.TypeId == ArrowTypeId.Struct || field.DataType.TypeId == ArrowTypeId.FixedSizeList)
             {
                 arrowBuff = new[] { nullArrowBuffer };
             }

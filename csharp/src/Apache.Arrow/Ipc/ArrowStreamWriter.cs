@@ -50,6 +50,7 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
@@ -107,6 +108,13 @@ namespace Apache.Arrow.Ipc
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+
+                array.Values.Accept(this);
+            }
+
+            public void Visit(FixedSizeListArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
 
                 array.Values.Accept(this);
             }
