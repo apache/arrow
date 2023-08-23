@@ -160,7 +160,7 @@ export class JSONVectorLoader extends VectorLoader {
         const { sources } = this;
         if (DataType.isTimestamp(type)) {
             return toArrayBufferView(Uint8Array, Int64.convertArray(sources[offset] as string[]));
-        } else if ((DataType.isInt(type) || DataType.isTime(type)) && type.bitWidth === 64) {
+        } else if ((DataType.isInt(type) || DataType.isTime(type)) && type.bitWidth === 64 || DataType.isDuration(type)) {
             return toArrayBufferView(Uint8Array, Int64.convertArray(sources[offset] as string[]));
         } else if (DataType.isDate(type) && type.unit === DateUnit.MILLISECOND) {
             return toArrayBufferView(Uint8Array, Int64.convertArray(sources[offset] as string[]));
