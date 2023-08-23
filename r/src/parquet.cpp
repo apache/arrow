@@ -145,6 +145,7 @@ std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
   std::shared_ptr<arrow::Table> table;
   auto result = RunWithCapturedRIfPossibleVoid(
       [&]() { return reader->ReadTable(column_indices, &table); });
+  StopIfNotOk(result);
   return table;
 }
 
