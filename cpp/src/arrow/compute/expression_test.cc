@@ -862,6 +862,64 @@ TEST(Expression, ExecuteCall) {
   ])"));
 }
 
+void ExpectDistinctTo(Expression expr, Datum in, Datum expected) {
+  std::shared_ptr<Schema> schm;
+  if (in.is_value()) {
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(in.type()));
+    schm = schema(in.type()->fields());
+  } else {
+    ASSERT_OK_AND_ASSIGN(expr, expr.Bind(*in.schema()));
+    schm = in.schema();
+  }
+
+  ASSERT_OK_AND_ASSIGN(Datum actual, ExecuteScalarExpression(expr, *schm, in));
+  AssertDatumsEqual(actual, expected, /*verbose=*/true);
+}
+
+TEST(Expression, IsDistinct) {
+  ExpectDistinctTo(is_distinct(field_ref("a"), field_ref("b")),
+                   ArrayFromJSON(struct_({field("a", int64()), field("b", int64())}), R"([
+                     {"a": 6, "b": 3},
+                     {"a": 0, "b": 1},
+                     {"a": 1, "b": 4},
+                     {"a": 5, "b": 5},
+                     {"a": null, "b": 5},
+                     {"a": 6,    "b": null},
+                     {"a": null, "b": null}
+                   ])"),
+                   ArrayFromJSON(boolean(), R"([
+                     true,
+                     true,
+                     true,
+                     false,
+                     true,
+                     true,
+                     false
+                   ])"));
+}
+
+TEST(Expression, IsNotDistinct) {
+  ExpectDistinctTo(is_not_distinct(field_ref("a"), field_ref("b")),
+                   ArrayFromJSON(struct_({field("a", int64()), field("b", int64())}), R"([
+                     {"a": 6, "b": 3},
+                     {"a": 0, "b": 1},
+                     {"a": 1, "b": 4},
+                     {"a": 5, "b": 5},
+                     {"a": null, "b": 5},
+                     {"a": 6,    "b": null},
+                     {"a": null, "b": null}
+                   ])"),
+                   ArrayFromJSON(boolean(), R"([
+                     false,
+                     false,
+                     false,
+                     true,
+                     false,
+                     false,
+                     true
+                   ])"));
+}
+
 TEST(Expression, ExecuteDictionaryTransparent) {
   ExpectExecute(
       equal(field_ref("a"), field_ref("b")),

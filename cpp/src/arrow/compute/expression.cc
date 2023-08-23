@@ -1651,5 +1651,16 @@ Expression or_(const std::vector<Expression>& operands) {
 
 Expression not_(Expression operand) { return call("invert", {std::move(operand)}); }
 
+Expression is_distinct(Expression lhs, Expression rhs) {
+  Expression not_equal_expr = not_equal(lhs, rhs);
+  Expression or_expr = or_(and_(is_null(lhs, true), is_valid(rhs)),
+                           and_(is_null(rhs, true), is_valid(lhs)));
+  return call("coalesce", {std::move(not_equal_expr), std::move(or_expr)});
+}
+
+Expression is_not_distinct(Expression lhs, Expression rhs) {
+  return not_(is_distinct(lhs, rhs));
+}
+
 }  // namespace compute
 }  // namespace arrow

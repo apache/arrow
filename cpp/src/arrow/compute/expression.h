@@ -289,6 +289,9 @@ ARROW_EXPORT Expression or_(Expression lhs, Expression rhs);
 ARROW_EXPORT Expression or_(const std::vector<Expression>&);
 ARROW_EXPORT Expression not_(Expression operand);
 
+ARROW_EXPORT Expression is_distinct(Expression lhs, Expression rhs);
+ARROW_EXPORT Expression is_not_distinct(Expression lhs, Expression rhs);
+
 /// @}
 
 }  // namespace compute
