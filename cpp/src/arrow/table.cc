@@ -453,7 +453,8 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
   return Table::Make(std::move(schema), std::move(columns));
 }
 
-Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
+                                                    const std::shared_ptr<Schema>& schema,
                                                     MemoryPool* pool) {
   return PromoteTableToSchema(table, schema, compute::CastOptions::Safe(), pool);
 }

@@ -1157,8 +1157,8 @@ TEST_F(TestUnifySchemas, Numeric) {
                  {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
                  options);
   CheckPromoteTo(int16(), {int32(), int64(), float32(), float64()}, options);
-  CheckPromoteTo(uint32(), {int32(), uint64(), int64(), float32(), float64()}, options);
-  CheckPromoteTo(int32(), {int64(), float32(), float64()}, options);
+  CheckPromoteTo(uint32(), {int32(), uint64(), int64(), float64()}, options);
+  CheckPromoteTo(int32(), {int64(), float64()}, options);
   CheckPromoteTo(uint64(), {int64(), float64()}, options);
   CheckPromoteTo(int64(), {float64()}, options);
   CheckPromoteTo(float16(), {float32(), float64()}, options);
@@ -1187,9 +1187,9 @@ TEST_F(TestUnifySchemas, Numeric) {
   CheckUnifyFailsTypeError(int8(), {int16(), int32(), int64()}, options);
   CheckUnifyFailsTypeError(int16(), {int32(), int64()}, options);
   CheckUnifyFailsTypeError(int32(), {int64()}, options);
-  CheckPromoteTo(int32(), {float32()}, options);
+  CheckUnifyFailsTypeError(int32(), {float16(), float32()}, options);
+  CheckPromoteTo(int32(), {float64()}, options);
   CheckPromoteTo(int64(), {float64()}, options);
-  CheckPromoteTo(int32(), float16(), float32(), options);
 }
 
 TEST_F(TestUnifySchemas, Decimal) {
@@ -1227,9 +1227,9 @@ TEST_F(TestUnifySchemas, Decimal) {
   options.promote_numeric_width = true;
   CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
   CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
-  CheckUnifyFailsTypeError(decimal128(38, 10), decimal256(76, 5), options);
+  CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
 
-  CheckUnifyFailsTypeError(int64(), decimal256(76, 75), options);
+  CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
 }
 
 TEST_F(TestUnifySchemas, Temporal) {
@@ -1268,7 +1268,8 @@ TEST_F(TestUnifySchemas, Temporal) {
                            timestamp(TimeUnit::SECOND, "UTC"), options);
 
   options.promote_temporal_unit = false;
-  CheckUnifyFailsTypeError(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO),
+                           options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {
@@ -1288,13 +1289,14 @@ TEST_F(TestUnifySchemas, Binary) {
 
 TEST_F(TestUnifySchemas, List) {
   auto options = Field::MergeOptions::Defaults();
-  options.promote_numeric_width = true;
-  CheckUnifyFailsTypeError(fixed_size_list(int8(), 2), {fixed_size_list(int8(), 3)},
-                           options);
+  options.promote_list = true;
+
+  CheckPromoteTo(fixed_size_list(int8(), 2), fixed_size_list(int8(), 3), list(int8()));
 
   CheckPromoteTo(list(int8()), {large_list(int8())}, options);
   CheckPromoteTo(fixed_size_list(int8(), 2), {list(int8()), large_list(int8())}, options);
 
+  options.promote_numeric_width = true;
   CheckPromoteTo(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
   CheckPromoteTo(
       fixed_size_list(int8(), 2),
@@ -1307,6 +1309,9 @@ TEST_F(TestUnifySchemas, List) {
                        options);
   CheckUnifyAsymmetric(ty, list(field("bar", int16(), /*nullable=*/false)),
                        list(field("foo", int16(), /*nullable=*/false)), options);
+
+  options.promote_list = false;
+  CheckUnifyFailsTypeError(list(int8()), large_list(int8()));
 }
 
 TEST_F(TestUnifySchemas, Map) {

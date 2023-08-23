@@ -687,7 +687,7 @@ Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
         left.value_field()->MergeWith(
             *right.value_field()->WithName(left.value_field()->name()), options));
 
-    if (promoted_type->id() != other_type->id()) {
+    if (!options.promote_list && promoted_type->id() != other_type->id()) {
       return Status::TypeError("Cannot merge lists unless promote_list=true");
     }
 
