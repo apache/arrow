@@ -2057,8 +2057,6 @@ cdef class ListArray(BaseListArray):
         Return the underlying array of values which backs the ListArray
         ignoring the array's offset.
 
-        This is logically a concatenation of all the sub-lists in this array.
-
         If any of the list elements are null, but are backed by a
         non-empty sub-list, those elements will be included in the
         output.
@@ -2211,8 +2209,6 @@ cdef class LargeListArray(BaseListArray):
         """
         Return the underlying array of values which backs the LargeListArray
         ignoring the array's offset.
-
-        This is logically a concatenation of all the sub-lists in this array.
 
         If any of the list elements are null, but are backed by a
         non-empty sub-list, those elements will be included in the
@@ -2437,8 +2433,6 @@ cdef class FixedSizeListArray(BaseListArray):
         """
         Return the underlying array of values which backs the
         FixedSizeListArray.
-
-        This is logically a concatenation of all the sub-lists in this array.
 
         Note even null elements are included.
 
