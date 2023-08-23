@@ -1,4 +1,4 @@
-%ID Data type enumeration
+%DATETYPE Type class for date data.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,27 +15,31 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef ID < uint64
-    enumeration
-        Boolean (1)
-        UInt8   (2)
-        Int8    (3)
-        UInt16  (4)
-        Int16   (5)
-        UInt32  (6)
-        Int32   (7)
-        UInt64  (8)
-        Int64   (9)
-        % Float16 (10) not yet supported
-        Float32 (11)
-        Float64 (12)
-        String  (13)
-        % Binary (14)
-        % FixedSizeBinary (15)
-        Date32 (16)
-        % Date64 (17)
-        Timestamp (18)
-        Time32    (19)
-        Time64    (20)
+classdef DateType < arrow.type.TemporalType
+
+    properties(Dependent, SetAccess=private, GetAccess=public)
+        DateUnit
     end
+
+    methods
+        function obj = DateType(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy
+            end
+            obj@arrow.type.TemporalType(proxy);
+        end
+
+        function dateUnit = get.DateUnit(obj)
+            dateUnitvalue = obj.Proxy.getDateUnit();
+            dateUnit = arrow.type.DateUnit(dateUnitvalue);
+        end
+    end
+
+    methods (Access=protected)
+        function group = getPropertyGroups(~)
+            targets = ["ID" "DateUnit"];
+            group = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
 end
