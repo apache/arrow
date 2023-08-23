@@ -16,18 +16,6 @@
 % permissions and limitations under the License.
 classdef tRoundTrip < matlab.unittest.TestCase
 
-    methods(TestClassSetup)
-        % Delete once arrow.internal.io.feather.Reader is submitted.
-        function addFeatherFunctionsToMATLABPath(testCase)
-            import matlab.unittest.fixtures.PathFixture
-            % Add Feather test utilities to the MATLAB path.
-            testCase.applyFixture(PathFixture('../../../util'));
-            % arrow.cpp.call must be on the MATLAB path.
-            testCase.assertTrue(~isempty(which('arrow.cpp.call')), ...
-                '''arrow.cpp.call'' must be on the MATLAB path. Use ''addpath'' to add folders to the MATLAB path.');
-        end
-    end
-
     methods(Test)
         function Basic(testCase)
             import matlab.unittest.fixtures.TemporaryFolderFixture
@@ -40,7 +28,7 @@ classdef tRoundTrip < matlab.unittest.TestCase
             SingleVar = single([10; 15; 20; 25]);
 
             tableWrite = table(DoubleVar, SingleVar);
-            recordBatchWrite = arrow.recordbatch(tableWrite);
+            recordBatchWrite = arrow.recordBatch(tableWrite);
 
             writer = Writer(filename);
             writer.write(recordBatchWrite);

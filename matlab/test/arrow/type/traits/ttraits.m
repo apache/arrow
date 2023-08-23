@@ -151,6 +151,18 @@ classdef ttraits < matlab.unittest.TestCase
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
+        function TestTime32(testCase)
+            import arrow.type.traits.*
+            import arrow.type.*
+
+            type = ID.Time32;
+            expectedTraits = Time32Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits); 
+        end
+
         function TestMatlabUInt8(testCase)
             import arrow.type.traits.*
 

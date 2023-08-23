@@ -21,8 +21,10 @@ import pathlib
 import pytest
 
 import pyarrow as pa
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
 from pyarrow.lib import tobytes
-from pyarrow.lib import ArrowInvalid
+from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 
 try:
     import pyarrow.substrait as substrait
@@ -923,3 +925,106 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
     # Ordering of k is deterministic because this is running with serial execution
     assert res_tb == expected_tb
+
+
+@pytest.mark.parametrize("expr", [
+    pc.equal(ds.field("x"), 7),
+    pc.equal(ds.field("x"), ds.field("y")),
+    ds.field("x") > 50
+])
+def test_serializing_expressions(expr):
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+
+    buf = pa.substrait.serialize_expressions([expr], ["test_expr"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+    assert "test_expr" in returned.expressions
+
+
+def test_invalid_expression_ser_des():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    expr = pc.equal(ds.field("x"), 7)
+    bad_expr = pc.equal(ds.field("z"), 7)
+    # Invalid number of names
+    with pytest.raises(ValueError) as excinfo:
+        pa.substrait.serialize_expressions([expr], [], schema)
+    assert 'need to have the same length' in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        pa.substrait.serialize_expressions([expr], ["foo", "bar"], schema)
+    assert 'need to have the same length' in str(excinfo.value)
+    # Expression doesn't match schema
+    with pytest.raises(ValueError) as excinfo:
+        pa.substrait.serialize_expressions([bad_expr], ["expr"], schema)
+    assert 'No match for FieldRef' in str(excinfo.value)
+
+
+def test_serializing_multiple_expressions():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    exprs = [pc.equal(ds.field("x"), 7), pc.equal(ds.field("x"), ds.field("y"))]
+    buf = pa.substrait.serialize_expressions(exprs, ["first", "second"], schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 2
+
+    norm_exprs = [pc.equal(ds.field(0), 7), pc.equal(ds.field(0), ds.field(1))]
+    assert str(returned.expressions["first"]) == str(norm_exprs[0])
+    assert str(returned.expressions["second"]) == str(norm_exprs[1])
+
+
+def test_serializing_with_compute():
+    schema = pa.schema([
+        pa.field("x", pa.int32()),
+        pa.field("y", pa.int32())
+    ])
+    expr = pc.equal(ds.field("x"), 7)
+    expr_norm = pc.equal(ds.field(0), 7)
+    buf = expr.to_substrait(schema)
+    returned = pa.substrait.deserialize_expressions(buf)
+
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+
+    assert str(returned.expressions["expression"]) == str(expr_norm)
+
+    # Compute can't deserialize messages with multiple expressions
+    buf = pa.substrait.serialize_expressions([expr, expr], ["first", "second"], schema)
+    with pytest.raises(ValueError) as excinfo:
+        pc.Expression.from_substrait(buf)
+    assert 'contained multiple expressions' in str(excinfo.value)
+
+    # Deserialization should be possible regardless of the expression name
+    buf = pa.substrait.serialize_expressions([expr], ["weirdname"], schema)
+    expr2 = pc.Expression.from_substrait(buf)
+    assert str(expr2) == str(expr_norm)
+
+
+def test_serializing_udfs():
+    # Note, UDF in this context means a function that is not
+    # recognized by Substrait.  It might still be a builtin pyarrow
+    # function.
+    schema = pa.schema([
+        pa.field("x", pa.uint32())
+    ])
+    a = pc.scalar(10)
+    b = pc.scalar(4)
+    exprs = [pc.shift_left(a, b)]
+
+    with pytest.raises(ArrowNotImplementedError):
+        pa.substrait.serialize_expressions(exprs, ["expr"], schema)
+
+    buf = pa.substrait.serialize_expressions(
+        exprs, ["expr"], schema, allow_arrow_extensions=True)
+    returned = pa.substrait.deserialize_expressions(buf)
+    assert schema == returned.schema
+    assert len(returned.expressions) == 1
+    assert str(returned.expressions["expr"]) == str(exprs[0])

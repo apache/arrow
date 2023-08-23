@@ -29,11 +29,29 @@ from pyarrow.lib cimport *
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 import pyarrow.lib as lib
-
+from pyarrow.util import _DEPR_MSG
 from libcpp cimport bool as c_bool
 
 import inspect
 import numpy as np
+import warnings
+
+
+__pas = None
+_substrait_msg = (
+    "The pyarrow installation is not built with support for Substrait."
+)
+
+
+def _pas():
+    global __pas
+    if __pas is None:
+        try:
+            import pyarrow.substrait as pas
+            __pas = pas
+        except ImportError:
+            raise ImportError(_substrait_msg)
+    return __pas
 
 
 def _forbid_instantiation(klass, subclasses_instead=True):
@@ -1947,7 +1965,7 @@ cdef class _CumulativeOptions(FunctionOptions):
                     pyarrow_unwrap_scalar(start), skip_nulls))
             except Exception:
                 _raise_invalid_function_option(
-                    start, "`start` type for CumulativeSumOptions", TypeError)
+                    start, "`start` type for CumulativeOptions", TypeError)
 
 
 class CumulativeOptions(_CumulativeOptions):
@@ -1971,6 +1989,27 @@ class CumulativeOptions(_CumulativeOptions):
     """
 
     def __init__(self, start=None, *, skip_nulls=False):
+        self._set_options(start, skip_nulls)
+
+
+class CumulativeSumOptions(_CumulativeOptions):
+    """
+    Options for `cumulative_sum` function.
+
+    Parameters
+    ----------
+    start : Scalar, default None
+        Starting value for sum computation
+    skip_nulls : bool, default False
+        When false, the first encountered null is propagated.
+    """
+
+    def __init__(self, start=None, *, skip_nulls=False):
+        warnings.warn(
+            _DEPR_MSG.format("CumulativeSumOptions", "14.0", "CumulativeOptions"),
+            FutureWarning,
+            stacklevel=2
+        )
         self._set_options(start, skip_nulls)
 
 
@@ -2345,6 +2384,15 @@ cdef class Expression(_Weakrefable):
         return self.expr
 
     def equals(self, Expression other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.Expression
+
+        Returns
+        -------
+        bool
+        """
         return self.expr.Equals(other.unwrap())
 
     def __str__(self):
@@ -2354,6 +2402,58 @@ cdef class Expression(_Weakrefable):
         return "<pyarrow.compute.{0} {1}>".format(
             self.__class__.__name__, str(self)
         )
+
+    @staticmethod
+    def from_substrait(object buffer not None):
+        """
+        Deserialize an expression from Substrait
+
+        The serialized message must be an ExtendedExpression message that has
+        only a single expression.  The name of the expression and the schema
+        the expression was bound to will be ignored.  Use
+        pyarrow.substrait.deserialize_expressions if this information is needed
+        or if the message might contain multiple expressions.
+
+        Parameters
+        ----------
+        buffer : bytes or Buffer
+            The Substrait message to deserialize
+
+        Returns
+        -------
+        Expression
+            The deserialized expression
+        """
+        expressions = _pas().deserialize_expressions(buffer).expressions
+        if len(expressions) == 0:
+            raise ValueError("Substrait message did not contain any expressions")
+        if len(expressions) > 1:
+            raise ValueError(
+                "Substrait message contained multiple expressions.  Use pyarrow.substrait.deserialize_expressions instead")
+        return next(iter(expressions.values()))
+
+    def to_substrait(self, Schema schema not None, c_bool allow_arrow_extensions=False):
+        """
+        Serialize the expression using Substrait
+
+        The expression will be serialized as an ExtendedExpression message that has a
+        single expression named "expression"
+
+        Parameters
+        ----------
+        schema : Schema
+            The input schema the expression will be bound to
+        allow_arrow_extensions : bool, default False
+            If False then only functions that are part of the core Substrait function
+            definitions will be allowed.  Set this to True to allow pyarrow-specific functions
+            but the result may not be accepted by other compute libraries.
+
+        Returns
+        -------
+        Buffer
+            A buffer containing the serialized Protobuf plan.
+        """
+        return _pas().serialize_expressions([self], ["expression"], schema, allow_arrow_extensions=allow_arrow_extensions)
 
     @staticmethod
     def _deserialize(Buffer buffer not None):
