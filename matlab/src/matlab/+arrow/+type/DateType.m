@@ -31,7 +31,7 @@ classdef DateType < arrow.type.TemporalType
 
         function dateUnit = get.DateUnit(obj)
             dateUnitvalue = obj.Proxy.getDateUnit();
-            dateUnit = arrow.type.TimeUnit(dateUnitvalue);
+            dateUnit = arrow.type.DateUnit(dateUnitvalue);
         end
     end
 
