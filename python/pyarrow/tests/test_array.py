@@ -3058,8 +3058,9 @@ def test_array_from_numpy_str_utf8():
 
 @pytest.mark.slow
 @pytest.mark.large_memory
-def test_numpy_binary_overflow_to_chunked():
-    # ARROW-3762, ARROW-5966
+@pytest.mark.parametrize('large_types', [False, True])
+def test_numpy_binary_overflow_to_chunked(large_types):
+    # ARROW-3762, ARROW-5966, GH-35289
 
     # 2^31 + 1 bytes
     values = [b'x']
@@ -3076,58 +3077,32 @@ def test_numpy_binary_overflow_to_chunked():
     unicode_values += [unicode_unique_strings[i % 10]
                        for i in range(1 << 11)]
 
-    for case, ex_type in [(values, pa.binary()),
-                          (unicode_values, pa.utf8())]:
+    for case, ex_type in [(values, pa.large_binary() if large_types else pa.binary()),
+                          (unicode_values, pa.large_utf8() if large_types else pa.utf8())]:
         arr = np.array(case)
-        arrow_arr = pa.array(arr)
+        arrow_arr = pa.array(arr, ex_type)
         arr = None
 
-        assert isinstance(arrow_arr, pa.ChunkedArray)
         assert arrow_arr.type == ex_type
+        if large_types:
+            # Large types shouldn't be chunked
+            assert isinstance(arrow_arr, pa.Array)
 
-        # Split up into 16MB chunks. 128 * 16 = 2048, so 129
-        assert arrow_arr.num_chunks == 129
+            for i in range(len(arrow_arr)):
+                val = arrow_arr[i]
+                assert val.as_py() == case[i]
+        else:
+            assert isinstance(arrow_arr, pa.ChunkedArray)
 
-        value_index = 0
-        for i in range(arrow_arr.num_chunks):
-            chunk = arrow_arr.chunk(i)
-            for val in chunk:
-                assert val.as_py() == case[value_index]
-                value_index += 1
+            # Split up into 16MB chunks. 128 * 16 = 2048, so 129
+            assert arrow_arr.num_chunks == 129
 
-
-@pytest.mark.slow
-@pytest.mark.large_memory
-def test_numpy_large_binary():
-    # 2^31 + 1 bytes
-    values = [b'x']
-    unicode_values = ['x']
-
-    # Make 10 unique 1MB strings then repeat then 2048 times
-    unique_strings = {
-        i: b'x' * ((1 << 20) - 1) + str(i % 10).encode('utf8')
-        for i in range(10)
-    }
-    unicode_unique_strings = {i: x.decode('utf8')
-                              for i, x in unique_strings.items()}
-    values += [unique_strings[i % 10] for i in range(1 << 11)]
-    unicode_values += [unicode_unique_strings[i % 10]
-                       for i in range(1 << 11)]
-
-    for case, ex_type, in [(values, pa.large_binary()),
-                           (unicode_values, pa.large_utf8())]:
-        arr = np.array(case)
-        arrow_arr = pa.array(arr, type=ex_type)
-        arr = None
-
-        assert isinstance(arrow_arr, pa.Array)
-        assert arrow_arr.type == ex_type
-
-        value_index = 0
-        for i in range(len(arrow_arr)):
-            val = arrow_arr[i]
-            assert val.as_py() == case[value_index]
-            value_index += 1
+            value_index = 0
+            for i in range(arrow_arr.num_chunks):
+                chunk = arrow_arr.chunk(i)
+                for val in chunk:
+                    assert val.as_py() == case[value_index]
+                    value_index += 1
 
 
 @pytest.mark.large_memory
