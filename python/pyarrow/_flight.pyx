@@ -1230,31 +1230,21 @@ class AsyncioCall:
 
     def __init__(self) -> None:
         import asyncio
+        self._future = asyncio.get_running_loop().create_future()
 
-        # Python waits on the event.  The C++ callback sets the event, waking
-        # up the Python task.
-        self._event = asyncio.Event()
-        # The result of the async call.
-        self._result = None
-        # The error raised by the async call.
-        self._exception = None
-        self._loop = asyncio.get_running_loop()
-
-    async def wait(self) -> object:
-        """Wait for the RPC call to finish."""
-        await self._event.wait()
-        if self._exception:
-            raise self._exception
-        return self._result
+    def as_awaitable(self) -> object:
+        return self._future
 
     def wakeup(self, result_or_exception) -> None:
+        # Mark the Future done from within its loop (asyncio
+        # objects are generally not thread-safe)
+        loop = self._future.get_loop()
         if isinstance(result_or_exception, BaseException):
-            self._exception = result_or_exception
+            loop.call_soon_threadsafe(
+                self._future.set_exception, result_or_exception)
         else:
-            self._result = result_or_exception
-        # Set the event from within the loop to avoid a race (asyncio
-        # objects are not necessarily thread-safe)
-        self._loop.call_soon_threadsafe(lambda: self._event.set())
+            loop.call_soon_threadsafe(
+                self._future.set_result, result_or_exception)
 
 
 cdef class AsyncioFlightClient:
@@ -1278,7 +1268,7 @@ cdef class AsyncioFlightClient:
     ):
         call = AsyncioCall()
         self._get_flight_info(call, descriptor, options)
-        return await call.wait()
+        return await call.as_awaitable()
 
     cdef _get_flight_info(self, call, descriptor, options):
         cdef:
