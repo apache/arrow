@@ -23,7 +23,7 @@ namespace arrow::matlab::type::proxy {
         REGISTER_METHOD(DateType, getDateUnit);
     }
 
-    void Datetype::getDateUnit(libmexclass::proxy::method::Context& context) {
+    void DateType::getDateUnit(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
