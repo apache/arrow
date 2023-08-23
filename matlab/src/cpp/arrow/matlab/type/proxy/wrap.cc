@@ -55,7 +55,7 @@ namespace arrow::matlab::type::proxy {
             case ID::TIME32:
                 return std::make_shared<Time32Type>(std::static_pointer_cast<arrow::Time32Type>(type));
             case ID::TIME64:
-                return std::make_shared<Time64Type>(std::static_pointer_cast<arrow::Tim64Type>(type));
+                return std::make_shared<Time64Type>(std::static_pointer_cast<arrow::Time64Type>(type));
             case ID::STRING:
                 return std::make_shared<StringType>(std::static_pointer_cast<arrow::StringType>(type));
             default:
