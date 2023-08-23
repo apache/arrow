@@ -28,11 +28,17 @@ classdef tRecordBatch < matlab.unittest.TestCase
         function SupportedTypes(tc)
             % Create a table all supported MATLAB types.
             import arrow.internal.test.tabular.createTableWithSupportedTypes
+            import arrow.type.traits.traits
 
             TOriginal = createTableWithSupportedTypes();
             arrowRecordBatch = arrow.recordBatch(TOriginal);
             expectedColumnNames = string(TOriginal.Properties.VariableNames);
-            tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, TOriginal);
+
+            % For each variable in the input MATLAB table, look up the 
+            % corresponding Arrow Array type using type traits.
+            expectedArrayClasses = varfun(@(var) traits(string(class(var))).ArrayClassName, ...
+                TOriginal, OutputFormat="uniform");
+            tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, expectedArrayClasses, TOriginal);
         end
 
         function ToMATLAB(tc)
@@ -125,19 +131,16 @@ classdef tRecordBatch < matlab.unittest.TestCase
         % RecordBatch when given a comma-separated list of
         % arrow.array.Array values.
             import arrow.tabular.RecordBatch
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
+            import arrow.internal.test.tabular.createAllSupportedArrayTypes
 
-            TOriginal = createTableWithSupportedTypes();
-
-            arrowArrays = cell([1 width(TOriginal)]);
-            for ii = 1:width(TOriginal)
-                arrowArrays{ii} = arrow.array(TOriginal.(ii));
-            end
+            [arrowArrays, matlabData] = createAllSupportedArrayTypes();
+            TOriginal = table(matlabData{:});
 
             arrowRecordBatch = RecordBatch.fromArrays(arrowArrays{:});
             expectedColumnNames = compose("Column%d", 1:width(TOriginal));
             TOriginal.Properties.VariableNames = expectedColumnNames;
-            tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, TOriginal);
+            expectedArrayClasses = cellfun(@(c) string(class(c)), arrowArrays, UniformOutput=true);
+            tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, expectedArrayClasses, TOriginal);
         end
 
         function FromArraysWithColumnNamesProvided(tc)
@@ -145,19 +148,16 @@ classdef tRecordBatch < matlab.unittest.TestCase
         % RecordBatch when given a comma-separated list of
         % arrow.array.Array values and the ColumnNames nv-pair is provided.
             import arrow.tabular.RecordBatch
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
+            import arrow.internal.test.tabular.createAllSupportedArrayTypes
 
-            TOriginal = createTableWithSupportedTypes();
-
-            arrowArrays = cell([1 width(TOriginal)]);
-            for ii = 1:width(TOriginal)
-                arrowArrays{ii} = arrow.array(TOriginal.(ii));
-            end
+            [arrowArrays, matlabData] = createAllSupportedArrayTypes();
+            TOriginal = table(matlabData{:});
 
             columnNames = compose("MyVar%d", 1:numel(arrowArrays));
             arrowRecordBatch = RecordBatch.fromArrays(arrowArrays{:}, ColumnNames=columnNames);
             TOriginal.Properties.VariableNames = columnNames;
-            tc.verifyRecordBatch(arrowRecordBatch, columnNames, TOriginal);
+            expectedArrayClasses = cellfun(@(c) string(class(c)), arrowArrays, UniformOutput=true);
+            tc.verifyRecordBatch(arrowRecordBatch, columnNames, expectedArrayClasses, TOriginal);
         end
 
         function FromArraysUnequalArrayLengthsError(tc)
@@ -226,7 +226,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
     end
 
     methods
-        function verifyRecordBatch(tc, recordBatch, expectedColumnNames, expectedTable)
+        function verifyRecordBatch(tc, recordBatch, expectedColumnNames, expectedArrayClasses, expectedTable)
             tc.verifyEqual(recordBatch.NumColumns, int32(width(expectedTable)));
             tc.verifyEqual(recordBatch.ColumnNames, expectedColumnNames);
             convertedTable = recordBatch.table();
@@ -234,8 +234,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
              for ii = 1:recordBatch.NumColumns
                 column = recordBatch.column(ii);
                 tc.verifyEqual(column.toMATLAB(), expectedTable{:, ii});
-                traits = arrow.type.traits.traits(string(class(expectedTable{:, ii})));
-                tc.verifyInstanceOf(column, traits.ArrayClassName);
+                tc.verifyInstanceOf(column, expectedArrayClasses(ii));
              end
         end
     end
