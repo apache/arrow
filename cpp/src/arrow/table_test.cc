@@ -364,8 +364,7 @@ TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
 
   ASSERT_OK_AND_ASSIGN(auto result,
-                       PromoteTableToSchema(table, schema_->WithMetadata(metadata),
-                                            compute::CastOptions::Safe()));
+                       PromoteTableToSchema(table, schema_->WithMetadata(metadata)));
 
   std::shared_ptr<Table> expected = table->ReplaceSchemaMetadata(metadata);
 
@@ -420,17 +419,17 @@ TEST_F(TestPromoteTableToSchema, IncompatibleTypes) {
   auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
 
   // Invalid promotion: int32 to null.
-  ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", null())})));
+  ASSERT_RAISES(TypeError, PromoteTableToSchema(table, schema({field("field", null())})));
 
   // Invalid promotion: int32 to list.
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 PromoteTableToSchema(table, schema({field("field", list(int32()))})));
 }
 
 TEST_F(TestPromoteTableToSchema, IncompatibleNullity) {
   const int length = 10;
   auto table = MakeTableWithOneNullFilledColumn("field", int32(), length);
-  ASSERT_RAISES(Invalid,
+  ASSERT_RAISES(TypeError,
                 PromoteTableToSchema(
                     table, schema({field("field", uint32())->WithNullable(false)})));
 }
@@ -524,9 +523,9 @@ TEST_F(ConcatenateTablesWithPromotionTest, Simple) {
 }
 
 TEST_F(ConcatenateTablesWithPromotionTest, Unify) {
-  auto t1 = TableFromJSON(schema({field("f0", int32())}), {"[[0], [1]]"});
-  auto t2 = TableFromJSON(schema({field("f0", int64())}), {"[[2], [3]]"});
-  auto t3 = TableFromJSON(schema({field("f0", null())}), {"[[null], [null]]"});
+  auto t_i32 = TableFromJSON(schema({field("f0", int32())}), {"[[0], [1]]"});
+  auto t_i64 = TableFromJSON(schema({field("f0", int64())}), {"[[2], [3]]"});
+  auto t_null = TableFromJSON(schema({field("f0", null())}), {"[[null], [null]]"});
 
   auto expected_int64 =
       TableFromJSON(schema({field("f0", int64())}), {"[[0], [1], [2], [3]]"});
@@ -536,20 +535,20 @@ TEST_F(ConcatenateTablesWithPromotionTest, Unify) {
   ConcatenateTablesOptions options;
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Schema at index 1 was different"),
-                                  ConcatenateTables({t1, t2}, options));
+                                  ConcatenateTables({t_i32, t_i64}, options));
   EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
                                   ::testing::HasSubstr("Schema at index 1 was different"),
-                                  ConcatenateTables({t1, t3}, options));
+                                  ConcatenateTables({t_i32, t_null}, options));
 
   options.unify_schemas = true;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+  EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
                                   ::testing::HasSubstr("Field f0 has incompatible types"),
-                                  ConcatenateTables({t1, t2}, options));
-  ASSERT_OK_AND_ASSIGN(auto actual, ConcatenateTables({t1, t3}, options));
+                                  ConcatenateTables({t_i64, t_i32}, options));
+  ASSERT_OK_AND_ASSIGN(auto actual, ConcatenateTables({t_i32, t_null}, options));
   AssertTablesEqual(*expected_null, *actual, /*same_chunk_layout=*/false);
 
   options.field_merge_options.promote_numeric_width = true;
-  ASSERT_OK_AND_ASSIGN(actual, ConcatenateTables({t1, t2}, options));
+  ASSERT_OK_AND_ASSIGN(actual, ConcatenateTables({t_i32, t_i64}, options));
   AssertTablesEqual(*expected_int64, *actual, /*same_chunk_layout=*/false);
 }
 

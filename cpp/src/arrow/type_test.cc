@@ -328,11 +328,11 @@ TEST(TestField, TestMerge) {
     auto null_field = field("f", null());
     Field::MergeOptions options;
     options.promote_nullability = false;
-    ASSERT_RAISES(Invalid, f->MergeWith(null_field, options));
-    ASSERT_RAISES(Invalid, null_field->MergeWith(f, options));
+    ASSERT_RAISES(TypeError, f->MergeWith(null_field, options));
+    ASSERT_RAISES(TypeError, null_field->MergeWith(f, options));
 
     // Also rejects fields with different nullability.
-    ASSERT_RAISES(Invalid,
+    ASSERT_RAISES(TypeError,
                   f->WithNullable(true)->MergeWith(f->WithNullable(false), options));
   }
   {
@@ -349,7 +349,7 @@ TEST(TestField, TestMerge) {
     ASSERT_TRUE(result->Equals(f->WithNullable(true)->WithMetadata(metadata2)));
   }
   {
-    // promote_nullability == true; merge a nullable field and a in-nullable field.
+    // promote_nullability == true; merge a nullable field and an in-nullable field.
     Field::MergeOptions options;
     options.promote_nullability = true;
     auto f1 = field("f", int32())->WithNullable(false);
@@ -822,7 +822,7 @@ TEST(TestSchemaBuilder, PolicyMerge) {
   AssertSchemaBuilderYield(builder, schema({f0_opt, f1}));
 
   // Unsupported merge with a different type
-  ASSERT_RAISES(Invalid, builder.AddField(f0_other));
+  ASSERT_RAISES(TypeError, builder.AddField(f0_other));
   // Builder should still contain state
   AssertSchemaBuilderYield(builder, schema({f0, f1}));
 
@@ -877,8 +877,8 @@ TEST(TestSchemaBuilder, Merge) {
   ASSERT_OK_AND_ASSIGN(schema, SchemaBuilder::Merge({s2, s3, s1}));
   AssertSchemaEqual(schema, ::arrow::schema({f1, f0_opt}));
 
-  ASSERT_RAISES(Invalid, SchemaBuilder::Merge({s3, broken}));
-  ASSERT_RAISES(Invalid, SchemaBuilder::AreCompatible({s3, broken}));
+  ASSERT_RAISES(TypeError, SchemaBuilder::Merge({s3, broken}));
+  ASSERT_RAISES(TypeError, SchemaBuilder::AreCompatible({s3, broken}));
 }
 
 class TestUnifySchemas : public TestSchema {
@@ -1169,24 +1169,24 @@ TEST_F(TestUnifySchemas, Numeric) {
   options.promote_integer_sign = false;
   CheckPromoteTo(uint8(), {uint16(), uint32(), uint64()}, options);
   CheckPromoteTo(int8(), {int16(), int32(), int64()}, options);
-  CheckUnifyFailsInvalid(uint8(), {int8(), int16(), int32(), int64()}, options);
+  CheckUnifyFailsTypeError(uint8(), {int8(), int16(), int32(), int64()}, options);
   CheckPromoteTo(uint16(), {uint32(), uint64()}, options);
   CheckPromoteTo(int16(), {int32(), int64()}, options);
-  CheckUnifyFailsInvalid(uint16(), {int16(), int32(), int64()}, options);
+  CheckUnifyFailsTypeError(uint16(), {int16(), int32(), int64()}, options);
   CheckPromoteTo(uint32(), {uint64()}, options);
   CheckPromoteTo(int32(), {int64()}, options);
-  CheckUnifyFailsInvalid(uint32(), {int32(), int64()}, options);
-  CheckUnifyFailsInvalid(uint64(), {int64()}, options);
+  CheckUnifyFailsTypeError(uint32(), {int32(), int64()}, options);
+  CheckUnifyFailsTypeError(uint64(), {int64()}, options);
 
   options.promote_integer_sign = true;
   options.promote_integer_to_float = false;
-  CheckUnifyFailsInvalid(IntTypes(), FloatingPointTypes(), options);
+  CheckUnifyFailsTypeError(IntTypes(), FloatingPointTypes(), options);
 
   options.promote_integer_to_float = true;
   options.promote_numeric_width = false;
-  CheckUnifyFailsInvalid(int8(), {int16(), int32(), int64()}, options);
-  CheckUnifyFailsInvalid(int16(), {int32(), int64()}, options);
-  CheckUnifyFailsInvalid(int32(), {int64()}, options);
+  CheckUnifyFailsTypeError(int8(), {int16(), int32(), int64()}, options);
+  CheckUnifyFailsTypeError(int16(), {int32(), int64()}, options);
+  CheckUnifyFailsTypeError(int32(), {int64()}, options);
   CheckPromoteTo(int32(), {float32()}, options);
   CheckPromoteTo(int64(), {float64()}, options);
   CheckPromoteTo(int32(), float16(), float32(), options);
@@ -1227,9 +1227,9 @@ TEST_F(TestUnifySchemas, Decimal) {
   options.promote_numeric_width = true;
   CheckPromoteTo(decimal128(3, 2), decimal256(5, 2), decimal256(5, 2), options);
   CheckPromoteTo(int32(), decimal128(38, 37), decimal256(47, 37), options);
-  CheckUnifyFailsInvalid(decimal128(38, 10), decimal256(76, 5), options);
+  CheckUnifyFailsTypeError(decimal128(38, 10), decimal256(76, 5), options);
 
-  CheckUnifyFailsInvalid(int64(), decimal256(76, 75), options);
+  CheckUnifyFailsTypeError(int64(), decimal256(76, 75), options);
 }
 
 TEST_F(TestUnifySchemas, Temporal) {
@@ -1268,7 +1268,7 @@ TEST_F(TestUnifySchemas, Temporal) {
                            timestamp(TimeUnit::SECOND, "UTC"), options);
 
   options.promote_temporal_unit = false;
-  CheckUnifyFailsInvalid(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
+  CheckUnifyFailsTypeError(timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO), options);
 }
 
 TEST_F(TestUnifySchemas, Binary) {
@@ -1281,9 +1281,9 @@ TEST_F(TestUnifySchemas, Binary) {
   CheckPromoteTo(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
 
   options.promote_binary = false;
-  CheckUnifyFailsInvalid({utf8(), binary()}, {large_utf8(), large_binary()});
-  CheckUnifyFailsInvalid(fixed_size_binary(2), BaseBinaryTypes());
-  CheckUnifyFailsInvalid(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
+  CheckUnifyFailsTypeError({utf8(), binary()}, {large_utf8(), large_binary()});
+  CheckUnifyFailsTypeError(fixed_size_binary(2), BaseBinaryTypes());
+  CheckUnifyFailsTypeError(utf8(), {binary(), large_binary(), fixed_size_binary(2)});
 }
 
 TEST_F(TestUnifySchemas, List) {
@@ -1387,7 +1387,7 @@ TEST_F(TestUnifySchemas, IncompatibleTypes) {
   auto schema1 = schema({int32_field});
   auto schema2 = schema({uint8_field});
 
-  ASSERT_RAISES(Invalid, UnifySchemas({schema1, schema2}));
+  ASSERT_RAISES(TypeError, UnifySchemas({schema1, schema2}));
 }
 
 TEST_F(TestUnifySchemas, DuplicateFieldNames) {

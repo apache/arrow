@@ -3239,13 +3239,13 @@ def unify_schemas(schemas, *, options=None):
         c_schemas.push_back(pyarrow_unwrap_schema(schema))
     if isinstance(options, str):
         if options == "default":
-            options = CField.CMergeOptions.Defaults()
+            c_options = CField.CMergeOptions.Defaults()
         elif options == "permissive":
-            options = CField.CMergeOptions.Permissive()
+            c_options = CField.CMergeOptions.Permissive()
         else:
             raise ValueError(f"Invalid merge option: {options}")
 
-    if options:
+    elif c_options:
         c_options = (<FieldMergeOptions> options).c_options
     else:
         c_options = CField.CMergeOptions.Defaults()

@@ -320,8 +320,34 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
     MemoryPool* memory_pool = default_memory_pool());
 
 namespace compute {
-class CastOptions;
+  class CastOptions;
 };
+
+
+/// \brief Promotes a table to conform to the given schema.
+///
+/// If a field in the schema does not have a corresponding column in
+/// the table, a column of nulls will be added to the resulting table.
+/// If the corresponding column is of type Null, it will be promoted
+/// to the type specified by schema, with null values filled. If Arrow
+/// was built with ARROW_COMPUTE, then the column will be casted to
+/// the type specified by the schema.
+///
+/// Returns an error:
+/// - if the corresponding column's type is not compatible with the
+///   schema.
+/// - if there is a column in the table that does not exist in the schema.
+/// - if the cast fails or casting would be required but is not available.
+///
+/// \param[in] table the input Table
+/// \param[in] schema the target schema to promote to
+/// \param[in] pool The memory pool to be used if null-filled arrays need to
+/// be created.
+ARROW_EXPORT
+Result<std::shared_ptr<Table>> PromoteTableToSchema(
+    const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
+    MemoryPool* pool = default_memory_pool());
+
 
 /// \brief Promotes a table to conform to the given schema.
 ///
@@ -346,31 +372,6 @@ class CastOptions;
 ARROW_EXPORT
 Result<std::shared_ptr<Table>> PromoteTableToSchema(
     const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
-    const std::shared_ptr<compute::CastOptions>& options = NULLPTR,
-    MemoryPool* pool = default_memory_pool());
-
-/// \brief Promotes a table to conform to the given schema.
-///
-/// If a field in the schema does not have a corresponding column in
-/// the table, a column of nulls will be added to the resulting table.
-/// If the corresponding column is of type Null, it will be promoted
-/// to the type specified by schema, with null values filled. If Arrow
-/// was built with ARROW_COMPUTE, then the column will be casted to
-/// the type specified by the schema.
-///
-/// Returns an error:
-/// - if the corresponding column's type is not compatible with the
-///   schema.
-/// - if there is a column in the table that does not exist in the schema.
-/// - if the cast fails or casting would be required but is not available.
-///
-/// \param[in] table the input Table
-/// \param[in] schema the target schema to promote to
-/// \param[in] pool The memory pool to be used if null-filled arrays need to
-/// be created.
-ARROW_EXPORT
-Result<std::shared_ptr<Table>> PromoteTableToSchema(
-    const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
-    MemoryPool* pool = default_memory_pool());
+    const compute::CastOptions& options, MemoryPool* pool = default_memory_pool());
 
 }  // namespace arrow

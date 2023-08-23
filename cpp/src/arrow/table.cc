@@ -453,15 +453,14 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
   return Table::Make(std::move(schema), std::move(columns));
 }
 
-Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
-                                                    const std::shared_ptr<Schema>& schema,
+Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table, const std::shared_ptr<Schema>& schema,
                                                     MemoryPool* pool) {
-  return PromoteTableToSchema(table, schema, nullptr, pool);
+  return PromoteTableToSchema(table, schema, compute::CastOptions::Safe(), pool);
 }
 
 Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>& table,
                                                     const std::shared_ptr<Schema>& schema,
-                                                    const std::shared_ptr<compute::CastOptions>& options,
+                                                    const compute::CastOptions& options,
                                                     MemoryPool* pool) {
   const std::shared_ptr<Schema> current_schema = table->schema();
   if (current_schema->Equals(*schema, /*check_metadata=*/false)) {
@@ -523,7 +522,7 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     }
     compute::ExecContext ctx(pool);
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
-                                                     field->type(), *options, &ctx));
+                                                     field->type(), options, &ctx));
     columns.push_back(casted.chunked_array());
 #else
     return Status::Invalid("Unable to promote field ", field->name(),
