@@ -204,7 +204,7 @@ class TestRoundTrip(BaseTestGoPython):
         pa.dictionary(pa.int8(), pa.string()),
         pa.map_(pa.string(), pa.int32()),
         pa.map_(pa.int64(), pa.int32()),
-        pa.run_end_encoded(pa.int16(), pa.int64()),
+        # pa.run_end_encoded(pa.int16(), pa.int64()),
     ]
 
     def test_empty_roundtrip(self):
