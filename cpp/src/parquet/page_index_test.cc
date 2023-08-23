@@ -637,7 +637,7 @@ TEST(PageIndex, TestPageIndexBuilderWithZeroRowGroup) {
   SchemaDescriptor schema;
   schema.Init(root);
 
-  auto builder = PageIndexBuilder::Make(&schema, /*file_encryptor=*/nullptr);
+  auto builder = PageIndexBuilder::Make(&schema);
 
   // AppendRowGroup() is not called and expect throw.
   ASSERT_THROW(builder->GetColumnIndexBuilder(0), ParquetException);
@@ -662,7 +662,7 @@ class PageIndexBuilderTest : public ::testing::Test {
                         const std::vector<std::vector<EncodedStatistics>>& page_stats,
                         const std::vector<std::vector<PageLocation>>& page_locations,
                         int final_position) {
-    auto builder = PageIndexBuilder::Make(&schema_, /*file_encryptor=*/nullptr);
+    auto builder = PageIndexBuilder::Make(&schema_);
     for (int row_group = 0; row_group < num_row_groups; ++row_group) {
       ASSERT_NO_THROW(builder->AppendRowGroup());
 

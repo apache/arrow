@@ -533,6 +533,34 @@ void FileDecryptor::DecryptPageIndex(
   PARQUET_THROW_NOT_OK(source->Close());
 }
 
+template <typename DType, typename c_type = typename DType::c_type>
+void AssertColumnIndex(const std::shared_ptr<ColumnIndex>& column_index,
+                       const std::vector<int64_t>& expected_null_counts,
+                       const std::vector<c_type>& expected_min_values,
+                       const std::vector<c_type>& expected_max_values) {
+  auto typed_column_index =
+      std::dynamic_pointer_cast<TypedColumnIndex<DType>>(column_index);
+  ASSERT_NE(typed_column_index, nullptr);
+  ASSERT_EQ(typed_column_index->null_counts(), expected_null_counts);
+  if constexpr (std::is_same_v<FLBAType, DType>) {
+    ASSERT_EQ(typed_column_index->min_values().size(), expected_min_values.size());
+    ASSERT_EQ(typed_column_index->max_values().size(), expected_max_values.size());
+    for (size_t i = 0; i < expected_min_values.size(); ++i) {
+      ASSERT_EQ(
+          FixedLenByteArrayToString(typed_column_index->min_values()[i], kFixedLength),
+          FixedLenByteArrayToString(expected_min_values[i], kFixedLength));
+    }
+    for (size_t i = 0; i < expected_max_values.size(); ++i) {
+      ASSERT_EQ(
+          FixedLenByteArrayToString(typed_column_index->max_values()[i], kFixedLength),
+          FixedLenByteArrayToString(expected_max_values[i], kFixedLength));
+    }
+  } else {
+    ASSERT_EQ(typed_column_index->min_values(), expected_min_values);
+    ASSERT_EQ(typed_column_index->max_values(), expected_max_values);
+  }
+}
+
 void FileDecryptor::CheckPageIndex(
     parquet::ParquetFileReader* file_reader,
     const std::shared_ptr<FileDecryptionProperties>& file_decryption_properties) {
@@ -546,8 +574,7 @@ void FileDecryptor::CheckPageIndex(
 
   // We cannot read page index of encrypted columns in the plaintext mode
   std::vector<int32_t> need_row_groups(num_row_groups);
-  std::for_each(need_row_groups.begin(), need_row_groups.end(),
-                [i = 0](int32_t& v) mutable { v = i++; });
+  std::iota(need_row_groups.begin(), need_row_groups.end(), 0);
   std::vector<int32_t> need_columns;
   if (file_decryption_properties == nullptr) {
     need_columns = {0, 1, 2, 3, 6, 7};
@@ -598,87 +625,43 @@ void FileDecryptor::CheckPageIndex(
 
       switch (c) {
         case 0: {
-          auto bool_column_index =
-              std::dynamic_pointer_cast<BoolColumnIndex>(column_index);
-          ASSERT_NE(bool_column_index, nullptr);
-          constexpr int kExpectedNullCount = 0;
-          constexpr bool kExpectedMin = false;
-          constexpr bool kExpectedMax = true;
-          ASSERT_EQ(bool_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_EQ(static_cast<bool>(bool_column_index->min_values()[0]), kExpectedMin);
-          ASSERT_EQ(static_cast<bool>(bool_column_index->max_values()[0]), kExpectedMax);
+          AssertColumnIndex<BooleanType>(column_index, /*expected_null_counts=*/{0},
+                                         /*expected_min_values=*/{false},
+                                         /*expected_max_values=*/{true});
         } break;
         case 1: {
-          auto int32_column_index =
-              std::dynamic_pointer_cast<Int32ColumnIndex>(column_index);
-          ASSERT_NE(int32_column_index, nullptr);
-          constexpr int kExpectedNullCount = 0;
-          constexpr int32_t kExpectedMin = 0;
-          constexpr int32_t kExpectedMax = 49;
-          ASSERT_EQ(int32_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_EQ(int32_column_index->min_values()[0], kExpectedMin);
-          ASSERT_EQ(int32_column_index->max_values()[0], kExpectedMax);
+          AssertColumnIndex<Int32Type>(column_index, /*expected_null_counts=*/{0},
+                                       /*expected_min_values=*/{0},
+                                       /*expected_max_values=*/{49});
         } break;
         case 2: {
-          auto int64_column_index =
-              std::dynamic_pointer_cast<Int64ColumnIndex>(column_index);
-          ASSERT_NE(int64_column_index, nullptr);
-          constexpr int kExpectedNullCount = 0;
-          constexpr int64_t kExpectedMin = 0;
-          constexpr int64_t kExpectedMax = 99000000000000;
-          ASSERT_EQ(int64_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_EQ(int64_column_index->min_values()[0], kExpectedMin);
-          ASSERT_EQ(int64_column_index->max_values()[0], kExpectedMax);
+          AssertColumnIndex<Int64Type>(column_index, /*expected_null_counts=*/{0},
+                                       /*expected_min_values=*/{0},
+                                       /*expected_max_values=*/{99000000000000});
         } break;
         case 4: {
-          auto float_column_index =
-              std::dynamic_pointer_cast<FloatColumnIndex>(column_index);
-          ASSERT_NE(float_column_index, nullptr);
-          constexpr int kExpectedNullCount = 0;
-          constexpr float kExpectedMin = 0.0F;
-          constexpr float kExpectedMax = 53.9F;
-          ASSERT_EQ(float_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_FLOAT_EQ(float_column_index->min_values()[0], kExpectedMin);
-          ASSERT_FLOAT_EQ(float_column_index->max_values()[0], kExpectedMax);
+          AssertColumnIndex<FloatType>(column_index, /*expected_null_counts=*/{0},
+                                       /*expected_min_values=*/{0.0F},
+                                       /*expected_max_values=*/{53.9F});
         } break;
         case 5: {
-          auto double_column_index =
-              std::dynamic_pointer_cast<DoubleColumnIndex>(column_index);
-          ASSERT_NE(double_column_index, nullptr);
-          constexpr int kExpectedNullCount = 0;
-          constexpr double kExpectedMin = 0.0;
-          constexpr double kExpectedMax = 54.4444439;
-          ASSERT_EQ(double_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_DOUBLE_EQ(double_column_index->min_values()[0], kExpectedMin);
-          ASSERT_DOUBLE_EQ(double_column_index->max_values()[0], kExpectedMax);
+          AssertColumnIndex<DoubleType>(column_index, /*expected_null_counts=*/{0},
+                                        /*expected_min_values=*/{0.0},
+                                        /*expected_max_values=*/{54.4444439});
         } break;
         case 6: {
-          auto byte_array_column_index =
-              std::dynamic_pointer_cast<ByteArrayColumnIndex>(column_index);
-          ASSERT_NE(byte_array_column_index, nullptr);
-          constexpr int kExpectedNullCount = 25;
-          const std::string kExpectedMin = "parquet000";
-          const std::string kExpectedMax = "parquet048";
-          ASSERT_EQ(byte_array_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_EQ(ByteArrayToString(byte_array_column_index->min_values()[0]),
-                    kExpectedMin);
-          ASSERT_EQ(ByteArrayToString(byte_array_column_index->max_values()[0]),
-                    kExpectedMax);
+          AssertColumnIndex<ByteArrayType>(
+              column_index, /*expected_null_counts=*/{25},
+              /*expected_min_values=*/{ByteArray("parquet000")},
+              /*expected_max_values=*/{ByteArray("parquet048")});
         } break;
         case 7: {
-          auto flba_column_index =
-              std::dynamic_pointer_cast<FLBAColumnIndex>(column_index);
-          ASSERT_NE(flba_column_index, nullptr);
-          constexpr int kExpectedNullCount = 0;
-          const std::string kExpectedMin = "0 0 0 0 0 0 0 0 0 0 ";
-          const std::string kExpectedMax = "49 49 49 49 49 49 49 49 49 49 ";
-          ASSERT_EQ(flba_column_index->null_counts().at(0), kExpectedNullCount);
-          ASSERT_EQ(
-              FixedLenByteArrayToString(flba_column_index->min_values()[0], kFixedLength),
-              kExpectedMin);
-          ASSERT_EQ(
-              FixedLenByteArrayToString(flba_column_index->max_values()[0], kFixedLength),
-              kExpectedMax);
+          const std::vector<uint8_t> kExpectedMinValue(kFixedLength, 0);
+          const std::vector<uint8_t> kExpectedMaxValue(kFixedLength, 49);
+          AssertColumnIndex<FLBAType>(
+              column_index, /*expected_null_counts=*/{0},
+              /*expected_min_values=*/{FLBA(kExpectedMinValue.data())},
+              /*expected_max_values=*/{FLBA(kExpectedMaxValue.data())});
         } break;
         default:
           ::arrow::Unreachable("Unexpected column index " + std::to_string(c));

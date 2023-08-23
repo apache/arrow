@@ -760,21 +760,14 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     }
   }
 
-  template <typename Builder>
   std::shared_ptr<Encryptor> GetColumnMetaEncryptor(int row_group_ordinal,
-                                                    int column_ordinal) const {
+                                                    int column_ordinal,
+                                                    int8_t module_type) const {
     std::shared_ptr<Encryptor> encryptor;
     if (file_encryptor_ != nullptr) {
       const auto column_path = schema_->Column(column_ordinal)->path()->ToDotString();
       encryptor = file_encryptor_->GetColumnMetaEncryptor(column_path);
       if (encryptor != nullptr) {
-        int8_t module_type;
-        if constexpr (std::is_same_v<Builder, ColumnIndexBuilder>) {
-          module_type = encryption::kColumnIndex;
-        } else {
-          static_assert(std::is_same_v<Builder, OffsetIndexBuilder>);
-          module_type = encryption::kOffsetIndex;
-        }
         encryptor->UpdateAad(encryption::CreateModuleAad(
             encryptor->file_aad(), module_type, row_group_ordinal, column_ordinal,
             kNonPageOrdinal));
@@ -789,6 +782,9 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
       ::arrow::io::OutputStream* sink,
       std::map<size_t, std::vector<std::optional<IndexLocation>>>* location) const {
     const auto num_columns = static_cast<size_t>(schema_->num_columns());
+    constexpr int8_t module_type = std::is_same_v<Builder, ColumnIndexBuilder>
+                                       ? encryption::kColumnIndex
+                                       : encryption::kOffsetIndex;
 
     /// Serialize the same kind of page index row group by row group.
     for (size_t row_group = 0; row_group < page_index_builders.size(); ++row_group) {
@@ -803,8 +799,8 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
         const auto& column_page_index_builder = row_group_page_index_builders[column];
         if (column_page_index_builder != nullptr) {
           /// Get encryptor if encryption is enabled.
-          std::shared_ptr<Encryptor> encryptor = GetColumnMetaEncryptor<Builder>(
-              static_cast<int>(row_group), static_cast<int>(column));
+          std::shared_ptr<Encryptor> encryptor = GetColumnMetaEncryptor(
+              static_cast<int>(row_group), static_cast<int>(column), module_type);
 
           /// Try serializing the page index.
           PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
@@ -944,6 +940,13 @@ std::unique_ptr<OffsetIndex> OffsetIndex::Make(
 
 std::shared_ptr<PageIndexReader> PageIndexReader::Make(
     ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
+    const ReaderProperties& properties) {
+  return std::make_shared<PageIndexReaderImpl>(input, file_metadata, properties,
+                                               /*file_decryptor=*/nullptr);
+}
+
+std::shared_ptr<PageIndexReader> PageIndexReader::Make(
+    ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
     const ReaderProperties& properties, InternalFileDecryptor* file_decryptor) {
   return std::make_shared<PageIndexReaderImpl>(input, std::move(file_metadata),
                                                properties, file_decryptor);
@@ -977,6 +980,10 @@ std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(
 
 std::unique_ptr<OffsetIndexBuilder> OffsetIndexBuilder::Make() {
   return std::make_unique<OffsetIndexBuilderImpl>();
+}
+
+std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(const SchemaDescriptor* schema) {
+  return std::make_unique<PageIndexBuilderImpl>(schema, /*file_encryptor=*/nullptr);
 }
 
 std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(

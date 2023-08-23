@@ -193,6 +193,10 @@ class PARQUET_EXPORT PageIndexReader {
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
       const ReaderProperties& properties, InternalFileDecryptor* file_decryptor);
 
+  static std::shared_ptr<PageIndexReader> Make(
+      ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
+      const ReaderProperties& properties);
+
   /// \brief Get the page index reader of a specific row group.
   /// \param[in] i row group ordinal to get page index reader.
   /// \returns RowGroupPageIndexReader of the specified row group. A nullptr may or may
@@ -340,6 +344,8 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 class PARQUET_EXPORT PageIndexBuilder {
  public:
   /// \brief API convenience to create a PageIndexBuilder.
+  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema);
+
   static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema,
                                                 InternalFileEncryptor* file_encryptor);
 
