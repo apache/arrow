@@ -492,12 +492,32 @@ Result<std::unique_ptr<KernelState>> MinMaxInit(KernelContext* ctx,
   return visitor.Create();
 }
 
+struct AnyExceptDictionaryMatcher : TypeMatcher {
+ public:
+  AnyExceptDictionaryMatcher() {}
+
+  bool Matches(const DataType& type) const override {
+    return type.id() != Type::DICTIONARY;
+  }
+
+  std::string ToString() const override { return "Any Type except the Dictionary Type"; }
+
+  bool Equals(const TypeMatcher& other) const override {
+    if (this == &other) {
+      return true;
+    }
+    auto casted = dynamic_cast<const AnyExceptDictionaryMatcher*>(&other);
+    return casted != nullptr;
+  }
+};
+
 // For "min" and "max" functions: override finalize and return the actual value
 template <MinOrMax min_or_max>
 void AddMinOrMaxAggKernels(ScalarAggregateFunction* func,
                            ScalarAggregateFunction* min_max_func) {
+  auto any_except_dict_matcher = std::make_shared<AnyExceptDictionaryMatcher>();
   std::shared_ptr<arrow::compute::KernelSignature> sig =
-      KernelSignature::Make({InputType::Any()}, FirstType);
+      KernelSignature::Make({InputType(any_except_dict_matcher)}, FirstType);
   auto init = [min_max_func](
                   KernelContext* ctx,
                   const KernelInitArgs& args) -> Result<std::unique_ptr<KernelState>> {
