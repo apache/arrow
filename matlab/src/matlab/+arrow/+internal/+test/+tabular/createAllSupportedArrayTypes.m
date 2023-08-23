@@ -24,52 +24,57 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
     import arrow.type.ID
     import arrow.array.*
 
-    arrowArrays = cell(14, 1);
-    matlabData  = cell(14, 1);
+    classes = getArrayClassNames();
+    numClasses = numel(classes);
+    arrowArrays = cell(numClasses, 1);
+    matlabData  = cell(numClasses, 1);
+    
+    numericArrayToMatlabTypeDict = getArrowArrayToMatlabTypeDictionary();
 
-    matlabData{1}   = randomLogicals(opts.NumRows); 
-    arrowArrays{1}  = BooleanArray.fromMATLAB(matlabData{1});
-
-    matlabData{2}   = randomNumbers("uint8", opts.NumRows);
-    arrowArrays{2}  = UInt8Array.fromMATLAB(matlabData{2});
-
-    matlabData{3}   = randomNumbers("uint16", opts.NumRows);
-    arrowArrays{3}  = UInt16Array.fromMATLAB(matlabData{3});
-
-    matlabData{4}   = randomNumbers("uint32", opts.NumRows);
-    arrowArrays{4}  = UInt32Array.fromMATLAB(matlabData{4});
-
-    matlabData{5}   = randomNumbers("uint64", opts.NumRows);
-    arrowArrays{5}  = UInt64Array.fromMATLAB(matlabData{5});
-
-    matlabData{6}   = randomNumbers("int8", opts.NumRows);
-    arrowArrays{6}  = Int8Array.fromMATLAB(matlabData{6});
-
-    matlabData{7}   = randomNumbers("int16", opts.NumRows);
-    arrowArrays{7}  = Int16Array.fromMATLAB(matlabData{7});
-
-    matlabData{8}   = randomNumbers("int32", opts.NumRows);
-    arrowArrays{8}  = Int32Array.fromMATLAB(matlabData{8});
-
-    matlabData{9}   = randomNumbers("int64", opts.NumRows);
-    arrowArrays{9}  = Int64Array.fromMATLAB(matlabData{9});
-
-    matlabData{10}   = randomNumbers("single", opts.NumRows);
-    arrowArrays{10} = Float32Array.fromMATLAB(matlabData{10});
-
-    matlabData{11}  = randomNumbers("double", opts.NumRows);
-    arrowArrays{11} = Float64Array.fromMATLAB(matlabData{11});
-
-    matlabData{12}  = randomStrings(opts.NumRows);
-    arrowArrays{12} = StringArray.fromMATLAB(matlabData{12});
-
-    matlabData{13}  = randomDatetimes(opts.NumRows);
-    arrowArrays{13} = TimestampArray.fromMATLAB(matlabData{13});
-
-    matlabData{14}  = randomDurations(opts.NumRows);
-    arrowArrays{14} = Time32Array.fromMATLAB(matlabData{14});
+    for ii = 1:numel(classes)
+        name = classes(ii);
+        if name == "arrow.array.BooleanArray"
+            matlabData{ii} = randomLogicals(opts.NumRows);
+            arrowArrays{ii} = BooleanArray.fromMATLAB(matlabData{ii});
+        elseif isKey(numericArrayToMatlabTypeDict, name)
+            matlabType = numericArrayToMatlabTypeDict(name);
+            matlabData{ii} = randomNumbers(matlabType, opts.NumRows);
+            cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
+            arrowArrays{ii} = eval(cmd);
+        elseif name == "arrow.array.StringArray"
+            matlabData{ii} = randomStrings(opts.NumRows);
+            arrowArrays{ii} = StringArray.fromMATLAB(matlabData{ii});
+        elseif name == "arrow.array.TimestampArray"
+            matlabData{ii} = randomDatetimes(opts.NumRows);
+            arrowArrays{ii} = TimestampArray.fromMATLAB(matlabData{ii});
+        elseif name == "arrow.array.Time32Array"
+            matlabData{ii} = randomDurations(opts.NumRows);
+            arrowArrays{ii} = Time32Array.fromMATLAB(matlabData{ii});
+        else
+            error("arrow:test:SupportedArrayCase", ...
+                "Missing if-branch for array class " + name); 
+        end
+    end
 end
 
+function classes = getArrayClassNames()
+    metaClass = meta.package.fromName("arrow.array").ClassList;
+    abstract = [metaClass.Abstract];
+    metaClass(abstract) = [];
+    classes = string({metaClass.Name});
+end
+
+function dict = getArrowArrayToMatlabTypeDictionary()
+    pkg = "arrow.array";
+    unsignedTypes = compose("UInt%d", power(2, 3:6));
+    signedTypes = compose("Int%d", power(2, 3:6));
+    floatTypes = compose("Float%d", power(2, 5:6));
+    numericTypes = [unsignedTypes, signedTypes, floatTypes];
+    keys = compose("%s.%sArray", pkg, numericTypes);
+    
+    values = [lower([unsignedTypes, signedTypes]) "single" "double"];
+    dict = dictionary(keys, values);
+end
 
 function number = randomNumbers(numberType, numElements)
     number = cast(randi(255, [numElements 1]), numberType);
