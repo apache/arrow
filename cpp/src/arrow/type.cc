@@ -347,7 +347,8 @@ std::string Field::MergeOptions::ToString() const {
   ss << ", promote_temporal_unit=" << (promote_temporal_unit ? "true" : "false");
   ss << ", promote_list=" << (promote_list ? "true" : "false");
   ss << ", promote_dictionary=" << (promote_dictionary ? "true" : "false");
-  ss << ", promote_dictionary_ordered=" << (promote_dictionary_ordered ? "true" : "false");
+  ss << ", promote_dictionary_ordered="
+     << (promote_dictionary_ordered ? "true" : "false");
   ss << '}';
   return ss.str();
 }
@@ -371,8 +372,7 @@ std::shared_ptr<DataType> MakeBinary(const DataType& type) {
 
 Result<std::shared_ptr<DataType>> WidenDecimals(
     const std::shared_ptr<DataType>& promoted_type,
-    const std::shared_ptr<DataType>& other_type,
-    const Field::MergeOptions& options) {
+    const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
   const auto& left = checked_cast<const DecimalType&>(*promoted_type);
   const auto& right = checked_cast<const DecimalType&>(*other_type);
   if (!options.promote_numeric_width && left.bit_width() != right.bit_width()) {
@@ -467,13 +467,15 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
                           MaxDecimalDigitsForInteger(other_type->id()));
     ARROW_ASSIGN_OR_RAISE(const auto promoted_decimal,
                           DecimalType::Make(promoted_type->id(), precision, 0));
-    ARROW_ASSIGN_OR_RAISE(promoted_type, WidenDecimals(promoted_type, promoted_decimal, options));
+    ARROW_ASSIGN_OR_RAISE(promoted_type,
+                          WidenDecimals(promoted_type, promoted_decimal, options));
     return promoted_type;
   }
 
   if (options.promote_decimal && is_decimal(promoted_type->id()) &&
       is_decimal(other_type->id())) {
-    ARROW_ASSIGN_OR_RAISE(promoted_type, WidenDecimals(promoted_type, other_type, options));
+    ARROW_ASSIGN_OR_RAISE(promoted_type,
+                          WidenDecimals(promoted_type, other_type, options));
     return promoted_type;
   }
 
@@ -481,8 +483,8 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
                                         is_signed_integer(other_type->id())) ||
                                        (is_signed_integer(promoted_type->id()) &&
                                         is_unsigned_integer(other_type->id())))) {
-
-    if (!options.promote_numeric_width && bit_width(promoted_type->id()) != bit_width(other_type->id())) {
+    if (!options.promote_numeric_width &&
+        bit_width(promoted_type->id()) != bit_width(other_type->id())) {
       return Status::TypeError(
           "Cannot widen (un)signed integers without promote_numeric_width=true");
     }
@@ -504,7 +506,6 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
   if (options.promote_integer_to_float &&
       ((is_floating(promoted_type->id()) && is_integer(other_type->id())) ||
        (is_integer(promoted_type->id()) && is_floating(other_type->id())))) {
-
     if (is_integer(promoted_type->id()) && is_floating(other_type->id())) {
       // Other type is always the int
       promoted_type.swap(other_type);
@@ -520,9 +521,9 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
       other_type = float64();
     }
 
-    if (!options.promote_numeric_width && bit_width(promoted_type->id()) != bit_width(other_type->id())) {
-      return Status::TypeError(
-          "Cannot widen float without promote_numeric_width=true");
+    if (!options.promote_numeric_width &&
+        bit_width(promoted_type->id()) != bit_width(other_type->id())) {
+      return Status::TypeError("Cannot widen float without promote_numeric_width=true");
     }
   }
 
@@ -568,7 +569,6 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
   return promoted ? promoted_type : nullptr;
 }
 
-
 // Merge two dictionary types, or else give an error.
 Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
     const std::shared_ptr<DataType>& promoted_type,
@@ -583,8 +583,9 @@ Result<std::shared_ptr<DataType>> MergeDictionaryTypes(
   Field::MergeOptions index_options = options;
   index_options.promote_integer_sign = true;
   index_options.promote_numeric_width = true;
-  ARROW_ASSIGN_OR_RAISE(auto indices,
-                        MaybeMergeNumericTypes(left.index_type(), right.index_type(), index_options));
+  ARROW_ASSIGN_OR_RAISE(
+      auto indices,
+      MaybeMergeNumericTypes(left.index_type(), right.index_type(), index_options));
   ARROW_ASSIGN_OR_RAISE(auto values,
                         MergeTypes(left.value_type(), right.value_type(), options));
   auto ordered = left.ordered() && right.ordered();
@@ -601,27 +602,22 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
     std::shared_ptr<DataType>& promoted_type, std::shared_ptr<DataType>& other_type,
     const Field::MergeOptions& options) {
   if (options.promote_binary) {
-    if (other_type->id() == Type::FIXED_SIZE_BINARY &&is_base_binary_like(promoted_type->id())) {
+    if (other_type->id() == Type::FIXED_SIZE_BINARY &&
+        is_base_binary_like(promoted_type->id())) {
       return MakeBinary(*promoted_type);
-    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY && is_base_binary_like(other_type->id())) {
+    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
+               is_base_binary_like(other_type->id())) {
       return MakeBinary(*other_type);
-    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY && other_type->id() == Type::FIXED_SIZE_BINARY) {
+    } else if (promoted_type->id() == Type::FIXED_SIZE_BINARY &&
+               other_type->id() == Type::FIXED_SIZE_BINARY) {
       return binary();
     }
 
+    if ((other_type->id() == Type::LARGE_STRING ||
+         other_type->id() == Type::LARGE_BINARY) &&
+        (promoted_type->id() == Type::STRING || promoted_type->id() == Type::BINARY)
 
-    if (
-        (
-            other_type->id() == Type::LARGE_STRING ||
-            other_type->id() == Type::LARGE_BINARY
-            ) &&
-        (
-            promoted_type->id() == Type::STRING ||
-            promoted_type->id() == Type::BINARY
-            )
-
-
-        ) {
+    ) {
       // Promoted type is always large in case there are regular and large types
       promoted_type.swap(other_type);
     }
@@ -652,26 +648,24 @@ Result<std::shared_ptr<DataType>> MaybeMergeBinaryTypes(
 Result<std::shared_ptr<DataType>> MergeStructs(
     const std::shared_ptr<DataType>& promoted_type,
     const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
+  SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
+  // Add the LHS fields. Duplicates will be preserved.
+  RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
 
-    SchemaBuilder builder(SchemaBuilder::CONFLICT_APPEND, options);
-    // Add the LHS fields. Duplicates will be preserved.
-    RETURN_NOT_OK(builder.AddFields(promoted_type->fields()));
+  // Add the RHS fields. Duplicates will be merged, unless the field was
+  // already a duplicate, in which case we error (since we don't know which
+  // field to merge with).
+  builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
+  RETURN_NOT_OK(builder.AddFields(other_type->fields()));
 
-    // Add the RHS fields. Duplicates will be merged, unless the field was
-    // already a duplicate, in which case we error (since we don't know which
-    // field to merge with).
-    builder.SetPolicy(SchemaBuilder::CONFLICT_MERGE);
-    RETURN_NOT_OK(builder.AddFields(other_type->fields()));
-
-    ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
-    return struct_(schema->fields());
+  ARROW_ASSIGN_OR_RAISE(auto schema, builder.Finish());
+  return struct_(schema->fields());
 }
 
 // Merge list types based on options. Returns nullptr for non-list types.
 Result<std::shared_ptr<DataType>> MaybeMergeListTypes(
     const std::shared_ptr<DataType>& promoted_type,
     const std::shared_ptr<DataType>& other_type, const Field::MergeOptions& options) {
-
   if (promoted_type->id() == Type::FIXED_SIZE_LIST &&
       other_type->id() == Type::FIXED_SIZE_LIST) {
     const auto& left = checked_cast<const FixedSizeListType&>(*promoted_type);
@@ -735,7 +729,8 @@ Result<std::shared_ptr<DataType>> MergeTypes(std::shared_ptr<DataType> promoted_
       return promoted_type;
     }
   } else if (promoted_type->id() == Type::NA || other_type->id() == Type::NA) {
-    return Status::TypeError("Cannot merge type with null unless promote_nullability=true");
+    return Status::TypeError(
+        "Cannot merge type with null unless promote_nullability=true");
   }
 
   if (options.promote_dictionary && is_dictionary(promoted_type->id()) &&
@@ -789,15 +784,15 @@ Result<std::shared_ptr<Field>> Field::MergeWith(const Field& other,
                  other.type()->id() == Type::NA;
     } else if (nullable_ != other.nullable()) {
       return Status::TypeError("Unable to merge: Field ", name(),
-                             " has incompatible nullability: ", nullable_, " vs ",
-                             other.nullable());
+                               " has incompatible nullability: ", nullable_, " vs ",
+                               other.nullable());
     }
 
     return std::make_shared<Field>(name_, promoted_type, nullable, metadata_);
   }
   return Status::TypeError("Unable to merge: Field ", name(),
-                         " has incompatible types: ", type()->ToString(), " vs ",
-                         other.type()->ToString());
+                           " has incompatible types: ", type()->ToString(), " vs ",
+                           other.type()->ToString());
 }
 
 Result<std::shared_ptr<Field>> Field::MergeWith(const std::shared_ptr<Field>& other,

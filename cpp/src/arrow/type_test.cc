@@ -911,10 +911,10 @@ class TestUnifySchemas : public TestSchema {
     AssertFieldEqual(merged, expected);
   }
 
-  void CheckPromoteTo(const std::shared_ptr<Field>& field1,
-                  const std::shared_ptr<Field>& field2,
-                  const std::shared_ptr<Field>& expected,
-                  const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+  void CheckPromoteTo(
+      const std::shared_ptr<Field>& field1, const std::shared_ptr<Field>& field2,
+      const std::shared_ptr<Field>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     CheckUnifyAsymmetric(field1, field2, expected, options);
     CheckUnifyAsymmetric(field2, field1, expected, options);
   }
@@ -926,10 +926,10 @@ class TestUnifySchemas : public TestSchema {
     ARROW_SCOPED_TRACE("options: ", options);
     ARROW_SCOPED_TRACE("field2: ", field2->ToString());
     ARROW_SCOPED_TRACE("field1: ", field1->ToString());
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr(match_message), field1->MergeWith(field2, options));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid, ::testing::HasSubstr(match_message), field2->MergeWith(field1, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(match_message),
+                                    field1->MergeWith(field2, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(match_message),
+                                    field2->MergeWith(field1, options));
   }
 
   void CheckUnifyFailsTypeError(
@@ -941,16 +941,16 @@ class TestUnifySchemas : public TestSchema {
     ARROW_SCOPED_TRACE("field1: ", field1->ToString());
     ASSERT_RAISES(TypeError, field1->MergeWith(field2, options));
     ASSERT_RAISES(TypeError, field2->MergeWith(field1, options));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError, ::testing::HasSubstr(match_message), field1->MergeWith(field2, options));
-    EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError, ::testing::HasSubstr(match_message), field2->MergeWith(field1, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr(match_message),
+                                    field1->MergeWith(field2, options));
+    EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError, ::testing::HasSubstr(match_message),
+                                    field2->MergeWith(field1, options));
   }
 
-  void CheckPromoteTo(const std::shared_ptr<DataType>& left,
-                  const std::shared_ptr<DataType>& right,
-                  const std::shared_ptr<DataType>& expected,
-                  const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+  void CheckPromoteTo(
+      const std::shared_ptr<DataType>& left, const std::shared_ptr<DataType>& right,
+      const std::shared_ptr<DataType>& expected,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     auto field1 = field("a", left);
     auto field2 = field("a", right);
     CheckPromoteTo(field1, field2, field("a", expected), options);
@@ -992,9 +992,10 @@ class TestUnifySchemas : public TestSchema {
                          options);
   }
 
-  void CheckPromoteTo(const std::shared_ptr<DataType>& from,
-                  const std::vector<std::shared_ptr<DataType>>& to,
-                  const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
+  void CheckPromoteTo(
+      const std::shared_ptr<DataType>& from,
+      const std::vector<std::shared_ptr<DataType>>& to,
+      const Field::MergeOptions& options = Field::MergeOptions::Defaults()) {
     for (const auto& ty : to) {
       CheckPromoteTo(from, ty, ty, options);
     }
@@ -1148,13 +1149,13 @@ TEST_F(TestUnifySchemas, Numeric) {
   options.promote_integer_to_float = true;
   options.promote_integer_sign = true;
   CheckPromoteTo(uint8(),
-             {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(), float32(),
-              float64()},
-             options);
+                 {int8(), uint16(), int16(), uint32(), int32(), uint64(), int64(),
+                  float32(), float64()},
+                 options);
   CheckPromoteTo(int8(), {int16(), int32(), int64(), float32(), float64()}, options);
   CheckPromoteTo(uint16(),
-             {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
-             options);
+                 {int16(), uint32(), int32(), uint64(), int64(), float32(), float64()},
+                 options);
   CheckPromoteTo(int16(), {int32(), int64(), float32(), float64()}, options);
   CheckPromoteTo(uint32(), {int32(), uint64(), int64(), float32(), float64()}, options);
   CheckPromoteTo(int32(), {int64(), float32(), float64()}, options);
@@ -1237,11 +1238,12 @@ TEST_F(TestUnifySchemas, Temporal) {
   options.promote_temporal_unit = true;
   CheckPromoteTo(date32(), {date64()}, options);
 
-  CheckPromoteTo(time32(TimeUnit::SECOND),
-             {time32(TimeUnit::MILLI), time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
-             options);
-  CheckPromoteTo(time32(TimeUnit::MILLI), {time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
-             options);
+  CheckPromoteTo(
+      time32(TimeUnit::SECOND),
+      {time32(TimeUnit::MILLI), time64(TimeUnit::MICRO), time64(TimeUnit::NANO)},
+      options);
+  CheckPromoteTo(time32(TimeUnit::MILLI),
+                 {time64(TimeUnit::MICRO), time64(TimeUnit::NANO)}, options);
   CheckPromoteTo(time64(TimeUnit::MICRO), {time64(TimeUnit::NANO)}, options);
 
   CheckPromoteTo(
@@ -1249,7 +1251,7 @@ TEST_F(TestUnifySchemas, Temporal) {
       {duration(TimeUnit::MILLI), duration(TimeUnit::MICRO), duration(TimeUnit::NANO)},
       options);
   CheckPromoteTo(duration(TimeUnit::MILLI),
-             {duration(TimeUnit::MICRO), duration(TimeUnit::NANO)}, options);
+                 {duration(TimeUnit::MICRO), duration(TimeUnit::NANO)}, options);
   CheckPromoteTo(duration(TimeUnit::MICRO), {duration(TimeUnit::NANO)}, options);
 
   CheckPromoteTo(
@@ -1257,7 +1259,7 @@ TEST_F(TestUnifySchemas, Temporal) {
       {timestamp(TimeUnit::MILLI), timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)},
       options);
   CheckPromoteTo(timestamp(TimeUnit::MILLI),
-             {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)}, options);
+                 {timestamp(TimeUnit::MICRO), timestamp(TimeUnit::NANO)}, options);
   CheckPromoteTo(timestamp(TimeUnit::MICRO), {timestamp(TimeUnit::NANO)}, options);
 
   CheckUnifyFailsTypeError(timestamp(TimeUnit::SECOND),
@@ -1275,7 +1277,7 @@ TEST_F(TestUnifySchemas, Binary) {
   CheckPromoteTo(utf8(), {large_utf8(), binary(), large_binary()}, options);
   CheckPromoteTo(binary(), {large_binary()}, options);
   CheckPromoteTo(fixed_size_binary(2), {fixed_size_binary(2), binary(), large_binary()},
-             options);
+                 options);
   CheckPromoteTo(fixed_size_binary(2), fixed_size_binary(4), binary(), options);
 
   options.promote_binary = false;
@@ -1294,9 +1296,10 @@ TEST_F(TestUnifySchemas, List) {
   CheckPromoteTo(fixed_size_list(int8(), 2), {list(int8()), large_list(int8())}, options);
 
   CheckPromoteTo(list(int8()), {list(int16()), list(int32()), list(int64())}, options);
-  CheckPromoteTo(fixed_size_list(int8(), 2),
-             {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
-             options);
+  CheckPromoteTo(
+      fixed_size_list(int8(), 2),
+      {fixed_size_list(int16(), 2), list(int16()), list(int32()), list(int64())},
+      options);
   CheckPromoteTo(fixed_size_list(int16(), 2), list(int8()), list(int16()), options);
 
   auto ty = list(field("foo", int8(), /*nullable=*/false));
@@ -1311,16 +1314,16 @@ TEST_F(TestUnifySchemas, Map) {
   options.promote_numeric_width = true;
 
   CheckPromoteTo(map(int8(), int32()),
-             {map(int8(), int64()), map(int16(), int32()), map(int64(), int64())},
-             options);
+                 {map(int8(), int64()), map(int16(), int32()), map(int64(), int64())},
+                 options);
 
   // Do not test field names, since MapType intentionally ignores them in comparisons
   // See ARROW-7173, ARROW-14999
   auto ty = map(int8(), field("value", int32(), /*nullable=*/false));
   CheckPromoteTo(ty, map(int8(), int32()),
-             map(int8(), field("value", int32(), /*nullable=*/true)), options);
+                 map(int8(), field("value", int32(), /*nullable=*/true)), options);
   CheckPromoteTo(ty, map(int16(), field("value", int64(), /*nullable=*/false)),
-             map(int16(), field("value", int64(), /*nullable=*/false)), options);
+                 map(int16(), field("value", int64(), /*nullable=*/false)), options);
 }
 
 TEST_F(TestUnifySchemas, Struct) {
@@ -1328,8 +1331,8 @@ TEST_F(TestUnifySchemas, Struct) {
   options.promote_numeric_width = true;
   options.promote_binary = true;
 
-  CheckPromoteTo(struct_({}), struct_({field("a", int8())}), struct_({field("a", int8())}),
-             options);
+  CheckPromoteTo(struct_({}), struct_({field("a", int8())}),
+                 struct_({field("a", int8())}), options);
 
   CheckUnifyAsymmetric(struct_({field("b", utf8())}), struct_({field("a", int8())}),
                        struct_({field("b", utf8()), field("a", int8())}), options);
@@ -1337,7 +1340,7 @@ TEST_F(TestUnifySchemas, Struct) {
                        struct_({field("a", int8()), field("b", utf8())}), options);
 
   CheckPromoteTo(struct_({field("b", utf8())}), struct_({field("b", binary())}),
-             struct_({field("b", binary())}), options);
+                 struct_({field("b", binary())}), options);
 
   CheckUnifyAsymmetric(
       struct_({field("a", int8()), field("b", utf8()), field("a", int64())}),
@@ -1356,25 +1359,25 @@ TEST_F(TestUnifySchemas, Dictionary) {
   options.promote_binary = true;
 
   CheckPromoteTo(dictionary(int8(), utf8()),
-             {
-                 dictionary(int64(), utf8()),
-                 dictionary(int8(), large_utf8()),
-             },
-             options);
+                 {
+                     dictionary(int64(), utf8()),
+                     dictionary(int8(), large_utf8()),
+                 },
+                 options);
   CheckPromoteTo(dictionary(int64(), utf8()), dictionary(int8(), large_utf8()),
-             dictionary(int64(), large_utf8()), options);
+                 dictionary(int64(), large_utf8()), options);
   CheckPromoteTo(dictionary(int8(), utf8(), /*ordered=*/true),
-             {
-                 dictionary(int64(), utf8(), /*ordered=*/true),
-                 dictionary(int8(), large_utf8(), /*ordered=*/true),
-             },
-             options);
+                 {
+                     dictionary(int64(), utf8(), /*ordered=*/true),
+                     dictionary(int8(), large_utf8(), /*ordered=*/true),
+                 },
+                 options);
   CheckUnifyFailsTypeError(dictionary(int8(), utf8()),
                            dictionary(int8(), utf8(), /*ordered=*/true), options);
 
   options.promote_dictionary_ordered = true;
   CheckPromoteTo(dictionary(int8(), utf8()), dictionary(int8(), utf8(), /*ordered=*/true),
-             dictionary(int8(), utf8(), /*ordered=*/false), options);
+                 dictionary(int8(), utf8(), /*ordered=*/false), options);
 }
 
 TEST_F(TestUnifySchemas, IncompatibleTypes) {
