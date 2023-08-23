@@ -18,8 +18,8 @@ package encoding
 
 import (
 	"fmt"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/parquet"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

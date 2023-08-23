@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/cdata"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/cdata"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 )
 
 // #include <stdint.h>

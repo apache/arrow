@@ -47,7 +47,7 @@ cmake_policy(SET CMP0074 NEW)
 # https://cmake.org/cmake/help/latest/policy/CMP0091.html
 cmake_policy(SET CMP0091 NEW)
 
-set(ARROW_VERSION "13.0.0-SNAPSHOT")
+set(ARROW_VERSION "14.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
