@@ -258,7 +258,7 @@ cdef extern from "arrow/python/pyarrow.h" namespace "arrow::py":
 
 cdef extern from "arrow/python/common.h" namespace "arrow::py":
     c_bool IsPyError(const CStatus& status)
-    void RestorePyError(const CStatus& status)
+    void RestorePyError(const CStatus& status) except *
 
 
 cdef extern from "arrow/python/inference.h" namespace "arrow::py":
