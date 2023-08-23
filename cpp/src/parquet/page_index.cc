@@ -890,6 +890,14 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                                const void* serialized_index,
                                                uint32_t index_len,
+                                               const ReaderProperties& properties) {
+  return ColumnIndex::Make(descr, serialized_index, index_len, properties,
+                           /*decryptor=*/nullptr);
+}
+
+std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
+                                               const void* serialized_index,
+                                               uint32_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::ColumnIndex column_index;
@@ -930,6 +938,13 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
                                                uint32_t index_len,
+                                               const ReaderProperties& properties) {
+  return OffsetIndex::Make(serialized_index, index_len, properties,
+                           /*decryptor=*/nullptr);
+}
+
+std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
+                                               uint32_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::OffsetIndex offset_index;
@@ -942,8 +957,8 @@ std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
 std::shared_ptr<PageIndexReader> PageIndexReader::Make(
     ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
     const ReaderProperties& properties) {
-  return std::make_shared<PageIndexReaderImpl>(input, file_metadata, properties,
-                                               /*file_decryptor=*/nullptr);
+  return PageIndexReader::Make(input, std::move(file_metadata), properties,
+                               /*file_decryptor=*/nullptr);
 }
 
 std::shared_ptr<PageIndexReader> PageIndexReader::Make(

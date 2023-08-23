@@ -44,6 +44,11 @@ class PARQUET_EXPORT ColumnIndex {
   static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
                                            const void* serialized_index,
                                            uint32_t index_len,
+                                           const ReaderProperties& properties);
+
+  static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
+                                           const void* serialized_index,
+                                           uint32_t index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor);
 
@@ -130,6 +135,10 @@ class PARQUET_EXPORT OffsetIndex {
   /// \brief Create a OffsetIndex from a serialized thrift message.
   static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
                                            uint32_t index_len,
+                                           const ReaderProperties& properties);
+
+  static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
+                                           uint32_t index_len,
                                            const ReaderProperties& properties,
                                            Decryptor* decryptor);
 
@@ -191,11 +200,11 @@ class PARQUET_EXPORT PageIndexReader {
   /// that creates this PageIndexReader.
   static std::shared_ptr<PageIndexReader> Make(
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-      const ReaderProperties& properties, InternalFileDecryptor* file_decryptor);
+      const ReaderProperties& properties);
 
   static std::shared_ptr<PageIndexReader> Make(
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-      const ReaderProperties& properties);
+      const ReaderProperties& properties, InternalFileDecryptor* file_decryptor);
 
   /// \brief Get the page index reader of a specific row group.
   /// \param[in] i row group ordinal to get page index reader.

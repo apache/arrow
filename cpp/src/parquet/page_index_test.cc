@@ -54,9 +54,8 @@ TEST(PageIndex, ReadOffsetIndex) {
 
   // Deserialize offset index.
   auto properties = default_reader_properties();
-  std::unique_ptr<OffsetIndex> offset_index =
-      OffsetIndex::Make(buffer->data(), static_cast<uint32_t>(buffer->size()), properties,
-                        /*decryptor=*/nullptr);
+  std::unique_ptr<OffsetIndex> offset_index = OffsetIndex::Make(
+      buffer->data(), static_cast<uint32_t>(buffer->size()), properties);
 
   // Verify only partial data as it contains 325 pages in total.
   const size_t num_pages = 325;
@@ -110,9 +109,8 @@ void TestReadTypedColumnIndex(const std::string& file_name, int column_id,
   // Deserialize column index.
   auto properties = default_reader_properties();
   auto descr = file_metadata->schema()->Column(column_id);
-  std::unique_ptr<ColumnIndex> column_index =
-      ColumnIndex::Make(*descr, buffer->data(), static_cast<uint32_t>(buffer->size()),
-                        properties, /*decryptor=*/nullptr);
+  std::unique_ptr<ColumnIndex> column_index = ColumnIndex::Make(
+      *descr, buffer->data(), static_cast<uint32_t>(buffer->size()), properties);
   auto typed_column_index = dynamic_cast<TypedColumnIndex<DType>*>(column_index.get());
   ASSERT_TRUE(typed_column_index != nullptr);
 
@@ -440,9 +438,9 @@ TEST(PageIndex, WriteOffsetIndex) {
   auto sink = CreateOutputStream();
   builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-  offset_indexes.emplace_back(
-      OffsetIndex::Make(buffer->data(), static_cast<uint32_t>(buffer->size()),
-                        default_reader_properties(), /*decryptor=*/nullptr));
+  offset_indexes.emplace_back(OffsetIndex::Make(buffer->data(),
+                                                static_cast<uint32_t>(buffer->size()),
+                                                default_reader_properties()));
 
   /// Verify the data of the offset index.
   for (const auto& offset_index : offset_indexes) {
@@ -474,9 +472,9 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
   auto sink = CreateOutputStream();
   builder->WriteTo(sink.get(), /*encryptor=*/nullptr);
   PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
-  column_indexes.emplace_back(
-      ColumnIndex::Make(*descr, buffer->data(), static_cast<uint32_t>(buffer->size()),
-                        default_reader_properties(), /*decryptor=*/nullptr));
+  column_indexes.emplace_back(ColumnIndex::Make(*descr, buffer->data(),
+                                                static_cast<uint32_t>(buffer->size()),
+                                                default_reader_properties()));
 
   /// Verify the data of the column index.
   for (const auto& column_index : column_indexes) {
@@ -731,8 +729,7 @@ class PageIndexBuilderTest : public ::testing::Test {
     }
     auto properties = default_reader_properties();
     return ColumnIndex::Make(*schema_.Column(column), buffer_->data() + location->offset,
-                             static_cast<uint32_t>(location->length), properties,
-                             /*decryptor=*/nullptr);
+                             static_cast<uint32_t>(location->length), properties);
   }
 
   std::unique_ptr<OffsetIndex> ReadOffsetIndex(int row_group, int column) {
@@ -742,8 +739,7 @@ class PageIndexBuilderTest : public ::testing::Test {
     }
     auto properties = default_reader_properties();
     return OffsetIndex::Make(buffer_->data() + location->offset,
-                             static_cast<uint32_t>(location->length), properties,
-                             /*decryptor=*/nullptr);
+                             static_cast<uint32_t>(location->length), properties);
   }
 
   SchemaDescriptor schema_;
