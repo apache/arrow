@@ -34,6 +34,8 @@ classdef tRecordBatch < matlab.unittest.TestCase
             arrowRecordBatch = arrow.recordBatch(TOriginal);
             expectedColumnNames = string(TOriginal.Properties.VariableNames);
 
+            % For each variable in the input MATLAB table, look up the 
+            % corresponding Arrow Array type using type traits.
             expectedArrayClasses = varfun(@(var) traits(string(class(var))).ArrayClassName, ...
                 TOriginal, OutputFormat="uniform");
             tc.verifyRecordBatch(arrowRecordBatch, expectedColumnNames, expectedArrayClasses, TOriginal);
