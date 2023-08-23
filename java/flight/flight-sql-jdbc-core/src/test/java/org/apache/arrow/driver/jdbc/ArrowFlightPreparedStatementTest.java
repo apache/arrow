@@ -32,6 +32,7 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ErrorCollector;
@@ -73,6 +74,7 @@ public class ArrowFlightPreparedStatementTest {
   }
 
   @Test
+  @Ignore("https://github.com/apache/arrow/issues/34741: flaky test")
   public void testPreparedStatementExecutionOnce() throws SQLException {
     final PreparedStatement statement = connection.prepareStatement(CoreMockedSqlProducers.LEGACY_REGULAR_SQL_CMD);
     // Expect that there is one entry in the map -- {prepared statement action type, invocation count}.

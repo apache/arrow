@@ -71,6 +71,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
@@ -4458,6 +4459,9 @@ TEST(Substrait, SetRelationBasic) {
 }
 
 TEST(Substrait, PlanWithAsOfJoinExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5477,6 +5481,10 @@ TEST(Substrait, MixedSort) {
 }
 
 TEST(Substrait, PlanWithExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
+
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5665,6 +5673,9 @@ TEST(Substrait, PlanWithExtension) {
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   std::string substrait_json = R"({
     "extensionUris": [],
     "extensions": [],
@@ -6068,6 +6079,7 @@ void CheckExpressionRoundTrip(const Schema& schema,
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf,
                        SerializeExpressions(bound_expressions));
+
   ASSERT_OK_AND_ASSIGN(BoundExpressions round_tripped, DeserializeExpressions(*buf));
 
   AssertSchemaEqual(schema, *round_tripped.schema);
@@ -6146,10 +6158,11 @@ TEST(Substrait, ExtendedExpressionInvalidPlans) {
     }
   )";
 
-  std::shared_ptr<Buffer> buf = std::make_shared<Buffer>(kBadOuptutNames);
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOuptutNames));
 
-  // ASSERT_THAT(DeserializeExpressions(*buf),
-  //            Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
+  ASSERT_THAT(DeserializeExpressions(*buf),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
 }
 
 }  // namespace engine

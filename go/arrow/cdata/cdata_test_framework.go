@@ -21,11 +21,16 @@ package cdata
 
 // #include <stdlib.h>
 // #include <stdint.h>
+// #include <string.h>
 // #include "arrow/c/abi.h"
 // #include "arrow/c/helpers.h"
 //
 // void setup_array_stream_test(const int n_batches, struct ArrowArrayStream* out);
-// struct ArrowArray* get_test_arr() { return (struct ArrowArray*)(malloc(sizeof(struct ArrowArray))); }
+// struct ArrowArray* get_test_arr() {
+//   struct ArrowArray* array = (struct ArrowArray*)malloc(sizeof(struct ArrowArray));
+//   memset(array, 0, sizeof(*array));
+//   return array;
+// }
 // struct ArrowArrayStream* get_test_stream() {
 //	struct ArrowArrayStream* out = (struct ArrowArrayStream*)malloc(sizeof(struct ArrowArrayStream));
 //	memset(out, 0, sizeof(struct ArrowArrayStream));
@@ -55,15 +60,18 @@ package cdata
 // struct ArrowSchema** test_schema(const char** fmts, const char** names, int64_t* flags, const int n);
 // struct ArrowSchema** test_union(const char** fmts, const char** names, int64_t* flags, const int n);
 // int test_exported_stream(struct ArrowArrayStream* stream);
+// void test_stream_schema_fallible(struct ArrowArrayStream* stream);
+// int confuse_go_gc(struct ArrowArrayStream* stream, unsigned int seed);
 import "C"
 import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
 )
 
 const (
@@ -270,15 +278,17 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.null_count = C.int64_t(arr.NullN())
 	carr.offset = C.int64_t(arr.Data().Offset())
 	buffers := arr.Data().Buffers()
-	cbuf := []unsafe.Pointer{}
-	for _, b := range buffers {
+	cbufs := allocateBufferPtrArr(len(buffers))
+	for i, b := range buffers {
 		if b != nil {
-			cbuf = append(cbuf, C.CBytes(b.Bytes()))
+			cbufs[i] = (*C.void)(C.CBytes(b.Bytes()))
+		} else {
+			cbufs[i] = nil
 		}
 	}
-	carr.n_buffers = C.int64_t(len(cbuf))
-	if len(cbuf) > 0 {
-		carr.buffers = &cbuf[0]
+	carr.n_buffers = C.int64_t(len(cbufs))
+	if len(cbufs) > 0 {
+		carr.buffers = (*unsafe.Pointer)(unsafe.Pointer(&cbufs[0]))
 	}
 	carr.release = (*[0]byte)(C.release_test_arr)
 
@@ -309,10 +319,14 @@ func exportedStreamTest(reader array.RecordReader) error {
 func roundTripStreamTest(reader array.RecordReader) error {
 	out := C.get_test_stream()
 	ExportRecordReader(reader, out)
-	rdr := ImportCArrayStream(out, nil)
+	rdr, err := ImportCRecordReader(out, nil)
+
+	if err != nil {
+		return err
+	}
 
 	for {
-		_, err := rdr.Read()
+		_, err = rdr.Read()
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -320,4 +334,39 @@ func roundTripStreamTest(reader array.RecordReader) error {
 		}
 	}
 	return nil
+}
+
+func fallibleSchemaTestDeprecated() (err error) {
+	stream := CArrowArrayStream{}
+	C.test_stream_schema_fallible(&stream)
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("Panicked: %#v", r)
+		}
+	}()
+	_ = ImportCArrayStream(&stream, nil)
+	return nil
+}
+
+func fallibleSchemaTest() error {
+	stream := CArrowArrayStream{}
+	C.test_stream_schema_fallible(&stream)
+
+	_, err := ImportCRecordReader(&stream, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func confuseGoGc(reader array.RecordReader) error {
+	out := C.get_test_stream()
+	ExportRecordReader(reader, out)
+	rc := C.confuse_go_gc(out, C.uint(rand.Int()))
+	C.free(unsafe.Pointer(out))
+	if rc == 0 {
+		return nil
+	}
+	return fmt.Errorf("Exported stream test failed with return code %d", int(rc))
 }

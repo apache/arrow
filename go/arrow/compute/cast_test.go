@@ -26,16 +26,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/compute"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/arrow/scalar"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/compute"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"github.com/apache/arrow/go/v14/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -657,7 +657,7 @@ func (c *CastSuite) TestDecimal128ToInt() {
 
 				overflowNoTrunc, _, _ := array.FromJSON(c.mem, &arrow.Decimal128Type{Precision: 38, Scale: 10},
 					strings.NewReader(`[
-						"12345678901234567890000.0000000000", 
+						"12345678901234567890000.0000000000",
 						"99999999999999999999999.0000000000",
 						null]`), array.WithUseNumber())
 				defer overflowNoTrunc.Release()
@@ -2589,7 +2589,7 @@ func (c *CastSuite) TestStructToDifferentNullabilityStruct() {
 		}
 		srcNonNull, _, err := array.FromJSON(c.mem, arrow.StructOf(fieldsSrcNonNullable...),
 			strings.NewReader(`[
-				{"a": 11, "b": 32, "c", 95},
+				{"a": 11, "b": 32, "c": 95},
 				{"a": 23, "b": 46, "c": 11},
 				{"a": 56, "b": 37, "c": 44}
 			]`))
@@ -2603,7 +2603,7 @@ func (c *CastSuite) TestStructToDifferentNullabilityStruct() {
 		}
 		destNullable, _, err := array.FromJSON(c.mem, arrow.StructOf(fieldsDest1Nullable...),
 			strings.NewReader(`[
-				{"a": 11, "b": 32, "c", 95},
+				{"a": 11, "b": 32, "c": 95},
 				{"a": 23, "b": 46, "c": 11},
 				{"a": 56, "b": 37, "c": 44}
 			]`))
@@ -2644,7 +2644,7 @@ func (c *CastSuite) TestStructToDifferentNullabilityStruct() {
 		}
 		srcNullable, _, err := array.FromJSON(c.mem, arrow.StructOf(fieldsSrcNullable...),
 			strings.NewReader(`[
-				{"a": 1, "b": 3, "c", 9},
+				{"a": 1, "b": 3, "c": 9},
 				{"a": null, "b": 4, "c": 11},
 				{"a": 5, "b": null, "c": 44}
 			]`))

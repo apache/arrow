@@ -1563,4 +1563,108 @@ public class TestComplexWriter {
       Assert.assertEquals(0, size);
     }
   }
+
+  @Test
+  public void testMap() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      for (int i = 0; i < COUNT; i++) {
+        mapWriter.startMap();
+        for (int j = 0; j < i % 7; j++) {
+          mapWriter.startEntry();
+          if (j % 2 == 0) {
+            mapWriter.key().integer().writeInt(j);
+            mapWriter.value().integer().writeInt(j + 1);
+          } else {
+            IntHolder keyHolder = new IntHolder();
+            keyHolder.value = j;
+            IntHolder valueHolder = new IntHolder();
+            valueHolder.value = j + 1;
+            mapWriter.key().integer().write(keyHolder);
+            mapWriter.value().integer().write(valueHolder);
+          }
+          mapWriter.endEntry();
+        }
+        mapWriter.endMap();
+      }
+      writer.setValueCount(COUNT);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      for (int i = 0; i < COUNT; i++) {
+        mapReader.setPosition(i);
+        for (int j = 0; j < i % 7; j++) {
+          mapReader.next();
+          assertEquals(j, mapReader.key().readInteger().intValue());
+          assertEquals(j + 1, mapReader.value().readInteger().intValue());
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testMapWithNulls() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().integer().writeNull();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      Assert.assertNull(mapReader.key().readInteger());
+      assertEquals(1, mapReader.value().readInteger().intValue());
+    }
+  }
+
+  @Test
+  public void testMapWithListKey() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().list().startList();
+      for (int i = 0; i < 3; i++) {
+        mapWriter.key().list().integer().writeInt(i);
+      }
+      mapWriter.key().list().endList();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      mapReader.key().next();
+      assertEquals(0, mapReader.key().reader().readInteger().intValue());
+      mapReader.key().next();
+      assertEquals(1, mapReader.key().reader().readInteger().intValue());
+      mapReader.key().next();
+      assertEquals(2, mapReader.key().reader().readInteger().intValue());
+      assertEquals(1, mapReader.value().readInteger().intValue());
+    }
+  }
+
+  @Test
+  public void testMapWithStructKey() {
+    try (NonNullableStructVector parent = NonNullableStructVector.empty("parent", allocator)) {
+      ComplexWriter writer = new ComplexWriterImpl("root", parent);
+      MapWriter mapWriter = writer.rootAsMap(false);
+      mapWriter.startMap();
+      mapWriter.startEntry();
+      mapWriter.key().struct().start();
+      mapWriter.key().struct().integer("value1").writeInt(1);
+      mapWriter.key().struct().integer("value2").writeInt(2);
+      mapWriter.key().struct().end();
+      mapWriter.value().integer().writeInt(1);
+      mapWriter.endEntry();
+      mapWriter.endMap();
+      writer.setValueCount(1);
+      UnionMapReader mapReader = (UnionMapReader) new SingleStructReaderImpl(parent).reader("root");
+      assertEquals(1, mapReader.key().reader("value1").readInteger().intValue());
+      assertEquals(2, mapReader.key().reader("value2").readInteger().intValue());
+      assertEquals(1, mapReader.value().readInteger().intValue());
+    }
+  }
 }

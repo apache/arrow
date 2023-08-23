@@ -38,6 +38,7 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/ree_util.h"
 
 namespace arrow {
 
@@ -53,7 +54,7 @@ namespace internal {
 namespace {
 
 template <typename IndexType>
-Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
+Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmapImpl(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
   using T = typename IndexType::c_type;
@@ -180,14 +181,102 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesImpl(
                                      BufferVector{nullptr, out_buffer}, /*null_count=*/0);
 }
 
+template <typename RunEndType>
+Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromREEBitmapImpl(
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
+    MemoryPool* memory_pool) {
+  using T = typename RunEndType::c_type;
+  const ArraySpan& filter_values = ::arrow::ree_util::ValuesArray(filter);
+  const int64_t filter_values_offset = filter_values.offset;
+  const uint8_t* filter_is_valid = filter_values.buffers[0].data;
+  const uint8_t* filter_selection = filter_values.buffers[1].data;
+  const bool filter_may_have_nulls = filter_values.MayHaveNulls();
+
+  // BinaryBitBlockCounter is not used here because a REE bitmap, if built
+  // correctly, is not going to have long continuous runs of 0s or 1s in the
+  // values array.
+
+  const ::arrow::ree_util::RunEndEncodedArraySpan<T> filter_span(filter);
+  auto it = filter_span.begin();
+  if (filter_may_have_nulls && null_selection == FilterOptions::EMIT_NULL) {
+    // Most complex case: the filter may have nulls and we don't drop them.
+    // The logic is ternary:
+    // - filter is null: emit null
+    // - filter is valid and true: emit index
+    // - filter is valid and false: don't emit anything
+
+    typename TypeTraits<RunEndType>::BuilderType builder(memory_pool);
+    for (; !it.is_end(filter_span); ++it) {
+      const int64_t position_with_offset = filter_values_offset + it.index_into_array();
+      const bool is_null = !bit_util::GetBit(filter_is_valid, position_with_offset);
+      if (is_null) {
+        RETURN_NOT_OK(builder.AppendNulls(it.run_length()));
+      } else {
+        const bool emit_run = bit_util::GetBit(filter_selection, position_with_offset);
+        if (emit_run) {
+          const int64_t run_end = it.run_end();
+          RETURN_NOT_OK(builder.Reserve(run_end - it.logical_position()));
+          for (int64_t position = it.logical_position(); position < run_end; position++) {
+            builder.UnsafeAppend(static_cast<T>(position));
+          }
+        }
+      }
+    }
+    std::shared_ptr<ArrayData> result;
+    RETURN_NOT_OK(builder.FinishInternal(&result));
+    return result;
+  }
+
+  // Other cases don't emit nulls and are therefore simpler.
+  TypedBufferBuilder<T> builder(memory_pool);
+
+  if (filter_may_have_nulls) {
+    DCHECK_EQ(null_selection, FilterOptions::DROP);
+    // The filter may have nulls, so we scan the validity bitmap and the filter
+    // data bitmap together.
+    for (; !it.is_end(filter_span); ++it) {
+      const int64_t position_with_offset = filter_values_offset + it.index_into_array();
+      const bool emit_run = bit_util::GetBit(filter_is_valid, position_with_offset) &&
+                            bit_util::GetBit(filter_selection, position_with_offset);
+      if (emit_run) {
+        const int64_t run_end = it.run_end();
+        RETURN_NOT_OK(builder.Reserve(run_end - it.logical_position()));
+        for (int64_t position = it.logical_position(); position < run_end; position++) {
+          builder.UnsafeAppend(static_cast<T>(position));
+        }
+      }
+    }
+  } else {
+    // The filter has no nulls, so we need only look for true values
+    for (; !it.is_end(filter_span); ++it) {
+      const int64_t position_with_offset = filter_values_offset + it.index_into_array();
+      const bool emit_run = bit_util::GetBit(filter_selection, position_with_offset);
+      if (emit_run) {
+        const int64_t run_end = it.run_end();
+        RETURN_NOT_OK(builder.Reserve(run_end - it.logical_position()));
+        for (int64_t position = it.logical_position(); position < run_end; position++) {
+          builder.UnsafeAppend(static_cast<T>(position));
+        }
+      }
+    }
+  }
+
+  const int64_t length = builder.length();
+  std::shared_ptr<Buffer> out_buffer;
+  RETURN_NOT_OK(builder.Finish(&out_buffer));
+  return std::make_shared<ArrayData>(TypeTraits<RunEndType>::type_singleton(), length,
+                                     BufferVector{nullptr, std::move(out_buffer)},
+                                     /*null_count=*/0);
+}
+
 Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmap(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
   DCHECK_EQ(filter.type->id(), Type::BOOL);
   if (filter.length <= std::numeric_limits<uint16_t>::max()) {
-    return GetTakeIndicesImpl<UInt16Type>(filter, null_selection, memory_pool);
+    return GetTakeIndicesFromBitmapImpl<UInt16Type>(filter, null_selection, memory_pool);
   } else if (filter.length <= std::numeric_limits<uint32_t>::max()) {
-    return GetTakeIndicesImpl<UInt32Type>(filter, null_selection, memory_pool);
+    return GetTakeIndicesFromBitmapImpl<UInt32Type>(filter, null_selection, memory_pool);
   } else {
     // Arrays over 4 billion elements, not especially likely.
     return Status::NotImplemented(
@@ -196,14 +285,37 @@ Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromBitmap(
   }
 }
 
-// TODO(pr-35750): Handle run-end encoded filters in compute kernels
+Result<std::shared_ptr<ArrayData>> GetTakeIndicesFromREEBitmap(
+    const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
+    MemoryPool* memory_pool) {
+  const auto& ree_type = checked_cast<const RunEndEncodedType&>(*filter.type);
+  // The resulting array will contain indexes of the same type as the run-end type of the
+  // run-end encoded filter. Run-end encoded arrays have to pick the smallest run-end type
+  // to maximize memory savings, so we can be re-use that decision here and get a good
+  // result without checking the logical length of the filter.
+  switch (ree_type.run_end_type()->id()) {
+    case Type::INT16:
+      return GetTakeIndicesFromREEBitmapImpl<Int16Type>(filter, null_selection,
+                                                        memory_pool);
+    case Type::INT32:
+      return GetTakeIndicesFromREEBitmapImpl<Int32Type>(filter, null_selection,
+                                                        memory_pool);
+    default:
+      DCHECK_EQ(ree_type.run_end_type()->id(), Type::INT64);
+      return GetTakeIndicesFromREEBitmapImpl<Int64Type>(filter, null_selection,
+                                                        memory_pool);
+  }
+}
 
 }  // namespace
 
 Result<std::shared_ptr<ArrayData>> GetTakeIndices(
     const ArraySpan& filter, FilterOptions::NullSelectionBehavior null_selection,
     MemoryPool* memory_pool) {
-  return GetTakeIndicesFromBitmap(filter, null_selection, memory_pool);
+  if (filter.type->id() == Type::BOOL) {
+    return GetTakeIndicesFromBitmap(filter, null_selection, memory_pool);
+  }
+  return GetTakeIndicesFromREEBitmap(filter, null_selection, memory_pool);
 }
 
 namespace {
@@ -716,22 +828,25 @@ std::unique_ptr<Function> MakeTakeMetaFunction() {
 }
 
 void PopulateTakeKernels(std::vector<SelectionKernelData>* out) {
+  auto take_indices = match::Integer();
+
   *out = {
-      {InputType(match::Primitive()), PrimitiveTakeExec},
-      {InputType(match::BinaryLike()), VarBinaryTakeExec},
-      {InputType(match::LargeBinaryLike()), LargeVarBinaryTakeExec},
-      {InputType(Type::FIXED_SIZE_BINARY), FSBTakeExec},
-      {InputType(null()), NullTakeExec},
-      {InputType(Type::DECIMAL128), FSBTakeExec},
-      {InputType(Type::DECIMAL256), FSBTakeExec},
-      {InputType(Type::DICTIONARY), DictionaryTake},
-      {InputType(Type::EXTENSION), ExtensionTake},
-      {InputType(Type::LIST), ListTakeExec},
-      {InputType(Type::LARGE_LIST), LargeListTakeExec},
-      {InputType(Type::FIXED_SIZE_LIST), FSLTakeExec},
-      {InputType(Type::DENSE_UNION), DenseUnionTakeExec},
-      {InputType(Type::STRUCT), StructTakeExec},
-      {InputType(Type::MAP), MapTakeExec},
+      {InputType(match::Primitive()), take_indices, PrimitiveTakeExec},
+      {InputType(match::BinaryLike()), take_indices, VarBinaryTakeExec},
+      {InputType(match::LargeBinaryLike()), take_indices, LargeVarBinaryTakeExec},
+      {InputType(Type::FIXED_SIZE_BINARY), take_indices, FSBTakeExec},
+      {InputType(null()), take_indices, NullTakeExec},
+      {InputType(Type::DECIMAL128), take_indices, FSBTakeExec},
+      {InputType(Type::DECIMAL256), take_indices, FSBTakeExec},
+      {InputType(Type::DICTIONARY), take_indices, DictionaryTake},
+      {InputType(Type::EXTENSION), take_indices, ExtensionTake},
+      {InputType(Type::LIST), take_indices, ListTakeExec},
+      {InputType(Type::LARGE_LIST), take_indices, LargeListTakeExec},
+      {InputType(Type::FIXED_SIZE_LIST), take_indices, FSLTakeExec},
+      {InputType(Type::DENSE_UNION), take_indices, DenseUnionTakeExec},
+      {InputType(Type::SPARSE_UNION), take_indices, SparseUnionTakeExec},
+      {InputType(Type::STRUCT), take_indices, StructTakeExec},
+      {InputType(Type::MAP), take_indices, MapTakeExec},
   };
 }
 

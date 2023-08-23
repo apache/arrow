@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
 type (
@@ -37,6 +37,7 @@ type (
 	ListLikeType interface {
 		DataType
 		Elem() DataType
+		ElemField() Field
 	}
 )
 
@@ -245,13 +246,12 @@ func (*FixedSizeListType) Layout() DataTypeLayout {
 // of relative types, called its fields.
 type StructType struct {
 	fields []Field
-	index  map[string]int
+	index  map[string][]int
 	meta   Metadata
 }
 
 // StructOf returns the struct type with fields fs.
 //
-// StructOf panics if there are duplicated fields.
 // StructOf panics if there is a field with an invalid DataType.
 func StructOf(fs ...Field) *StructType {
 	n := len(fs)
@@ -261,7 +261,7 @@ func StructOf(fs ...Field) *StructType {
 
 	t := &StructType{
 		fields: make([]Field, n),
-		index:  make(map[string]int, n),
+		index:  make(map[string][]int, n),
 	}
 	for i, f := range fs {
 		if f.Type == nil {
@@ -273,10 +273,11 @@ func StructOf(fs ...Field) *StructType {
 			Nullable: f.Nullable,
 			Metadata: f.Metadata.clone(),
 		}
-		if _, dup := t.index[f.Name]; dup {
-			panic(fmt.Errorf("arrow: duplicate field with name %q", f.Name))
+		if indices, exists := t.index[f.Name]; exists {
+			t.index[f.Name] = append(indices, i)
+		} else {
+			t.index[f.Name] = []int{i}
 		}
-		t.index[f.Name] = i
 	}
 
 	return t
@@ -308,17 +309,46 @@ func (t *StructType) Fields() []Field {
 
 func (t *StructType) Field(i int) Field { return t.fields[i] }
 
+// FieldByName gets the field with the given name.
+//
+// If there are multiple fields with the given name, FieldByName
+// returns the first such field.
 func (t *StructType) FieldByName(name string) (Field, bool) {
 	i, ok := t.index[name]
 	if !ok {
 		return Field{}, false
 	}
-	return t.fields[i], true
+	return t.fields[i[0]], true
 }
 
+// FieldIdx gets the index of the field with the given name.
+//
+// If there are multiple fields with the given name, FieldIdx returns
+// the index of the first first such field.
 func (t *StructType) FieldIdx(name string) (int, bool) {
 	i, ok := t.index[name]
-	return i, ok
+	if ok {
+		return i[0], true
+	}
+	return -1, false
+}
+
+// FieldsByName returns all fields with the given name.
+func (t *StructType) FieldsByName(n string) ([]Field, bool) {
+	indices, ok := t.index[n]
+	if !ok {
+		return nil, ok
+	}
+	fields := make([]Field, 0, len(indices))
+	for _, v := range indices {
+		fields = append(fields, t.fields[v])
+	}
+	return fields, ok
+}
+
+// FieldIndices returns indices of all fields with the given name, or nil.
+func (t *StructType) FieldIndices(name string) []int {
+	return t.index[name]
 }
 
 func (t *StructType) Fingerprint() string {
@@ -391,15 +421,22 @@ func (t *MapType) String() string {
 	return o.String()
 }
 
-func (t *MapType) KeyField() Field        { return t.value.Elem().(*StructType).Field(0) }
-func (t *MapType) KeyType() DataType      { return t.KeyField().Type }
-func (t *MapType) ItemField() Field       { return t.value.Elem().(*StructType).Field(1) }
-func (t *MapType) ItemType() DataType     { return t.ItemField().Type }
-func (t *MapType) ValueType() *StructType { return t.value.Elem().(*StructType) }
-func (t *MapType) ValueField() Field      { return Field{Name: "entries", Type: t.ValueType()} }
+func (t *MapType) KeyField() Field    { return t.value.Elem().(*StructType).Field(0) }
+func (t *MapType) KeyType() DataType  { return t.KeyField().Type }
+func (t *MapType) ItemField() Field   { return t.value.Elem().(*StructType).Field(1) }
+func (t *MapType) ItemType() DataType { return t.ItemField().Type }
+
+// Deprecated: use MapType.Elem().(*StructType) instead
+func (t *MapType) ValueType() *StructType { return t.Elem().(*StructType) }
+
+// Deprecated: use MapType.ElemField() instead
+func (t *MapType) ValueField() Field { return t.ElemField() }
 
 // Elem returns the MapType's element type (if treating MapType as ListLikeType)
-func (t *MapType) Elem() DataType { return t.ValueType() }
+func (t *MapType) Elem() DataType { return t.value.Elem() }
+
+// ElemField returns the MapType's element field (if treating MapType as ListLikeType)
+func (t *MapType) ElemField() Field { return Field{Name: "entries", Type: t.Elem()} }
 
 func (t *MapType) SetItemNullable(nullable bool) {
 	t.value.Elem().(*StructType).fields[1].Nullable = nullable
@@ -419,7 +456,7 @@ func (t *MapType) Fingerprint() string {
 	return fingerprint + "{" + keyFingerprint + itemFingerprint + "}"
 }
 
-func (t *MapType) Fields() []Field { return []Field{t.ValueField()} }
+func (t *MapType) Fields() []Field { return []Field{t.ElemField()} }
 
 func (t *MapType) Layout() DataTypeLayout {
 	return t.value.Layout()

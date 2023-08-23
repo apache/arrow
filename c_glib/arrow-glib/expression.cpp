@@ -223,7 +223,7 @@ garrow_call_expression_new(const gchar *function,
   }
   std::shared_ptr<arrow::compute::FunctionOptions> arrow_options;
   if (options) {
-    arrow_options.reset(garrow_function_options_get_raw(options));
+    arrow_options.reset(garrow_function_options_get_raw(options)->Copy().release());
   }
   auto arrow_expression = arrow::compute::call(function,
                                                arrow_arguments,

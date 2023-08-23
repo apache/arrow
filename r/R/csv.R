@@ -17,7 +17,7 @@
 
 #' Read a CSV or other delimited file with Arrow
 #'
-#' These functions uses the Arrow C++ CSV reader to read into a `data.frame`.
+#' These functions uses the Arrow C++ CSV reader to read into a `tibble`.
 #' Arrow C++ options have been mapped to argument names that follow those of
 #' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
@@ -127,10 +127,10 @@
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [file reader options][CsvReadOptions]
 #' @param read_options see [file reader options][CsvReadOptions]
-#' @param as_data_frame Should the function return a `data.frame` (default) or
+#' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
 #'
-#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
+#' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' tf <- tempfile()
@@ -464,10 +464,25 @@ CsvTableReader$create <- function(file,
 CsvReadOptions <- R6Class("CsvReadOptions",
   inherit = ArrowObject,
   public = list(
-    encoding = NULL
+    encoding = NULL,
+    print = function(...) {
+      cat("CsvReadOptions\n")
+      for (attr in c(
+        "column_names", "block_size", "skip_rows", "autogenerate_column_names",
+        "use_threads", "skip_rows_after_names", "encoding"
+      )) {
+        cat(sprintf("%s: %s\n", attr, self[[attr]]))
+      }
+      invisible(self)
+    }
   ),
   active = list(
-    column_names = function() csv___ReadOptions__column_names(self)
+    column_names = function() csv___ReadOptions__column_names(self),
+    block_size = function() csv___ReadOptions__block_size(self),
+    skip_rows = function() csv___ReadOptions__skip_rows(self),
+    autogenerate_column_names = function() csv___ReadOptions__autogenerate_column_names(self),
+    use_threads = function() csv___ReadOptions__use_threads(self),
+    skip_rows_after_names = function() csv___ReadOptions__skip_rows_after_names(self)
   )
 )
 CsvReadOptions$create <- function(use_threads = option_use_threads(),
@@ -491,6 +506,7 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   )
 
   options$encoding <- encoding
+
   options
 }
 
@@ -680,7 +696,7 @@ readr_to_csv_convert_options <- function(na,
     }))
     # To "guess" types, omit them from col_types
     col_types <- keep(col_types, ~ !is.null(.x))
-    col_types <- schema(!!!col_types)
+    col_types <- schema(col_types)
   }
 
   if (!is.null(col_types)) {

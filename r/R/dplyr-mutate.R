@@ -20,14 +20,20 @@
 
 mutate.arrow_dplyr_query <- function(.data,
                                      ...,
+                                     .by = NULL,
                                      .keep = c("all", "used", "unused", "none"),
                                      .before = NULL,
                                      .after = NULL) {
   call <- match.call()
-  .data <- as_adq(.data)
-  grv <- .data$group_by_vars
+  out <- as_adq(.data)
 
-  expression_list <- expand_across(.data, quos(...), exclude_cols = grv)
+  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+
+  if (by$from_by) {
+    out$group_by_vars <- by$names
+  }
+  grv <- out$group_by_vars
+  expression_list <- expand_across(out, quos(...), exclude_cols = grv)
   exprs <- ensure_named_exprs(expression_list)
 
   .keep <- match.arg(.keep)
@@ -36,7 +42,7 @@ mutate.arrow_dplyr_query <- function(.data,
 
   if (.keep %in% c("all", "unused") && length(exprs) == 0) {
     # Nothing to do
-    return(.data)
+    return(out)
   }
 
   # Restrict the cases we support for now
@@ -49,7 +55,7 @@ mutate.arrow_dplyr_query <- function(.data,
     return(abandon_ship(call, .data, "window functions not currently supported in Arrow"))
   }
 
-  mask <- arrow_mask(.data)
+  mask <- arrow_mask(out)
   results <- list()
   for (i in seq_along(exprs)) {
     # Iterate over the indices and not the names because names may be repeated
@@ -75,23 +81,23 @@ mutate.arrow_dplyr_query <- function(.data,
     mask[[new_var]] <- mask$.data[[new_var]] <- results[[new_var]]
   }
 
-  old_vars <- names(.data$selected_columns)
+  old_vars <- names(out$selected_columns)
   # Note that this is names(exprs) not names(results):
   # if results$new_var is NULL, that means we are supposed to remove it
   new_vars <- names(exprs)
 
-  # Assign the new columns into the .data$selected_columns
+  # Assign the new columns into the out$selected_columns
   for (new_var in new_vars) {
-    .data$selected_columns[[new_var]] <- results[[new_var]]
+    out$selected_columns[[new_var]] <- results[[new_var]]
   }
 
   # Deduplicate new_vars and remove NULL columns from new_vars
-  new_vars <- intersect(union(new_vars, grv), names(.data$selected_columns))
+  new_vars <- intersect(union(new_vars, grv), names(out$selected_columns))
 
   # Respect .before and .after
   if (!quo_is_null(.before) || !quo_is_null(.after)) {
     new <- setdiff(new_vars, old_vars)
-    .data <- dplyr::relocate(.data, all_of(new), .before = !!.before, .after = !!.after)
+    out <- dplyr::relocate(out, all_of(new), .before = !!.before, .after = !!.after)
   }
 
   # Respect .keep
@@ -99,19 +105,24 @@ mutate.arrow_dplyr_query <- function(.data,
     ## for consistency with dplyr, this appends new columns after existing columns
     ## by specifying the order
     new_cols_last <- c(intersect(old_vars, new_vars), setdiff(new_vars, old_vars))
-    .data$selected_columns <- .data$selected_columns[new_cols_last]
+    out$selected_columns <- out$selected_columns[new_cols_last]
   } else if (.keep != "all") {
     # "used" or "unused"
     used_vars <- unlist(lapply(exprs, all.vars), use.names = FALSE)
     if (.keep == "used") {
-      .data$selected_columns[setdiff(old_vars, used_vars)] <- NULL
+      out$selected_columns[setdiff(old_vars, used_vars)] <- NULL
     } else {
       # "unused"
-      .data$selected_columns[intersect(old_vars, used_vars)] <- NULL
+      out$selected_columns[intersect(old_vars, used_vars)] <- NULL
     }
   }
+
+  if (by$from_by) {
+    out$group_by_vars <- character()
+  }
+
   # Even if "none", we still keep group vars
-  ensure_group_vars(.data)
+  ensure_group_vars(out)
 }
 mutate.Dataset <- mutate.ArrowTabular <- mutate.RecordBatchReader <- mutate.arrow_dplyr_query
 

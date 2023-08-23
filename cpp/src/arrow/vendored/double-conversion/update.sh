@@ -23,7 +23,7 @@ source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$#" -ne 1 ]; then
   echo "Usage: $0 VERSION"
-  echo " e.g.: $0 3.2.1"
+  echo " e.g.: $0 3.3.0"
   exit 1
 fi
 
@@ -48,9 +48,5 @@ namespace arrow_vendored {' \
 }  // namespace arrow_vendored' \
     *.{h,cc}
 rm *.bak
-
-# Custom changes for Arrow
-patch double-to-string.cc  patches/double-to-string.cc.patch
-patch double-to-string.h  patches/double-to-string.h.patch
 
 popd

@@ -76,6 +76,7 @@ namespace Apache.Arrow.Tests
                         new Field.Builder().Name("Strings").DataType(StringType.Default).Nullable(true).Build(),
                         new Field.Builder().Name("Ints").DataType(Int32Type.Default).Nullable(true).Build()
                     }),
+                    new FixedSizeListType(Int32Type.Default, 1),
                 };
 
             foreach (IArrowType type in targetTypes)
@@ -117,6 +118,7 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<Date64Type>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>
         {
 
@@ -302,6 +304,42 @@ namespace Apache.Arrow.Tests
                     Int64Array.Builder valueBuilder = (Int64Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
 
                     foreach (long? value in dataList)
+                    {
+                        if (value.HasValue)
+                        {
+                            builder.Append();
+                            resultBuilder.Append();
+
+                            valueBuilder.Append(value.Value);
+                            resultValueBuilder.Append(value.Value);
+                        }
+                        else
+                        {
+                            builder.AppendNull();
+                            resultBuilder.AppendNull();
+                        }
+                    }
+
+                    TestTargetArrayList.Add(builder.Build());
+                }
+
+                ExpectedArray = resultBuilder.Build();
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                FixedSizeListArray.Builder resultBuilder = new FixedSizeListArray.Builder(type.ValueDataType, type.ListSize).Reserve(_baseDataTotalElementCount);
+                //Todo : Support various types
+                Int32Array.Builder resultValueBuilder = (Int32Array.Builder)resultBuilder.ValueBuilder.Reserve(_baseDataTotalElementCount);
+
+                for (int i = 0; i < _baseDataListCount; i++)
+                {
+                    List<int?> dataList = _baseData[i];
+
+                    FixedSizeListArray.Builder builder = new FixedSizeListArray.Builder(type.ValueField, type.ListSize).Reserve(dataList.Count);
+                    Int32Array.Builder valueBuilder = (Int32Array.Builder)builder.ValueBuilder.Reserve(dataList.Count);
+
+                    foreach (int? value in dataList)
                     {
                         if (value.HasValue)
                         {

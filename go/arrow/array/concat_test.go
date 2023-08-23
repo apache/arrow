@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -56,7 +56,7 @@ func TestConcatenateValueBuffersNull(t *testing.T) {
 	assert.NoError(t, err)
 	defer actual.Release()
 
-	assert.True(t, array.ArrayEqual(actual, inputs[1]))
+	assert.True(t, array.Equal(actual, inputs[1]))
 }
 
 func TestConcatenate(t *testing.T) {
@@ -324,7 +324,7 @@ func (cts *ConcatTestSuite) TestCheckConcat() {
 					cts.NoError(err)
 					defer actual.Release()
 
-					cts.Truef(array.ArrayEqual(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
+					cts.Truef(array.Equal(expected, actual), "expected: %s\ngot: %s\n", expected, actual)
 					if len(actual.Data().Buffers()) > 0 {
 						if actual.Data().Buffers()[0] != nil {
 							cts.checkTrailingBitsZeroed(actual.Data().Buffers()[0], int64(actual.Len()))
@@ -742,4 +742,24 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 			assert.ErrorIs(t, err, arrow.ErrInvalid)
 		})
 	}
+}
+
+func TestConcatPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	g := gen.NewRandomArrayGenerator(0, memory.DefaultAllocator)
+	ar1 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar1.Release()
+	ar2 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar2.Release()
+
+	concat, err := array.Concatenate([]arrow.Array{ar1, ar2}, allocator)
+	assert.Error(t, err)
+	assert.Nil(t, concat)
 }

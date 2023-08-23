@@ -123,14 +123,22 @@ TEST_F(TestPrettyPrint, PrimitiveType) {
     null
   ])expected";
   CheckPrimitive<Int32Type, int32_t>({2, 10}, is_valid, values, ex_in2);
+
   static const char* ex_in2_w2 = R"expected(  [
     0,
     1,
-    ...
+    null,
     3,
     null
   ])expected";
   CheckPrimitive<Int32Type, int32_t>({2, 2}, is_valid, values, ex_in2_w2);
+
+  static const char* ex_in2_w1 = R"expected(  [
+    0,
+    ...
+    null
+  ])expected";
+  CheckPrimitive<Int32Type, int32_t>({2, 1}, is_valid, values, ex_in2_w1);
 
   std::vector<double> values2 = {0., 1., 2., 3., 4.};
   static const char* ex2 = R"expected([
@@ -738,7 +746,7 @@ TEST_F(TestPrettyPrint, ListType) {
     null
   ],
   [],
-  ...
+  null,
   [
     4,
     6,
@@ -790,7 +798,12 @@ TEST_F(TestPrettyPrint, ListTypeNoNewlines) {
   options.window = 2;
   options.container_window = 2;
   CheckArray(*empty_array, options, "[]", false);
-  CheckArray(*array, options, "[[NA],[],...,[4,5,...,7,8],[2,3]]", false);
+  CheckArray(*array, options, "[[NA],[],NA,[4,5,6,7,8],[2,3]]", false);
+
+  options.window = 1;
+  options.container_window = 2;
+  CheckArray(*empty_array, options, "[]", false);
+  CheckArray(*array, options, "[[NA],[],NA,[4,...,8],[2,3]]", false);
 }
 
 TEST_F(TestPrettyPrint, MapType) {
@@ -854,7 +867,7 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
     3,
     null
   ],
-  ...
+  null,
   [
     4,
     6,
@@ -876,23 +889,23 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
               R"expected([
   [
     null,
-    ...
+    0,
     1
   ],
   [
     2,
-    ...
+    3,
     null
   ],
   null,
   [
     4,
-    ...
+    6,
     7
   ],
   [
     8,
-    ...
+    9,
     5
   ]
 ])expected");
@@ -901,13 +914,13 @@ TEST_F(TestPrettyPrint, FixedSizeListType) {
               R"expected([
   [
     null,
-    ...
+    0,
     1
   ],
   ...
   [
     8,
-    ...
+    9,
     5
   ]
 ])expected");

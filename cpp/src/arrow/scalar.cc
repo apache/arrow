@@ -1127,6 +1127,32 @@ Status CastImpl(const StructScalar& from, StringScalar* to) {
   return Status::OK();
 }
 
+// casts between variable-length and fixed-length list types
+template <typename ToScalar>
+enable_if_list_type<typename ToScalar::TypeClass, Status> CastImpl(
+    const BaseListScalar& from, ToScalar* to) {
+  if constexpr (sizeof(typename ToScalar::TypeClass::offset_type) < sizeof(int64_t)) {
+    if (from.value->length() >
+        std::numeric_limits<typename ToScalar::TypeClass::offset_type>::max()) {
+      return Status::Invalid(from.type->ToString(), " too large to cast to ",
+                             to->type->ToString());
+    }
+  }
+
+  if constexpr (is_fixed_size_list_type<typename ToScalar::TypeClass>::value) {
+    const auto& fixed_size_list_type = checked_cast<const FixedSizeListType&>(*to->type);
+    if (from.value->length() != fixed_size_list_type.list_size()) {
+      return Status::Invalid("Cannot cast ", from.type->ToString(), " of length ",
+                             from.value->length(), " to fixed size list of length ",
+                             fixed_size_list_type.list_size());
+    }
+  }
+
+  DCHECK_EQ(from.is_valid, to->is_valid);
+  to->value = from.value;
+  return Status::OK();
+}
+
 // list based types (list, large list and map (fixed sized list too)) to string
 Status CastImpl(const BaseListScalar& from, StringScalar* to) {
   std::stringstream ss;
@@ -1183,10 +1209,25 @@ struct FromTypeVisitor : CastImplVisitor {
 
   // identity cast only for parameter free types
   template <typename T1 = ToType>
-  typename std::enable_if<TypeTraits<T1>::is_parameter_free, Status>::type Visit(
+  typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
       const ToType&) {
     checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
+  }
+
+  Status CastFromListLike(const BaseListType& base_list_type) {
+    return CastImpl(checked_cast<const BaseListScalar&>(from_),
+                    checked_cast<ToScalar*>(out_));
+  }
+
+  Status Visit(const ListType& list_type) { return CastFromListLike(list_type); }
+
+  Status Visit(const LargeListType& large_list_type) {
+    return CastFromListLike(large_list_type);
+  }
+
+  Status Visit(const FixedSizeListType& fixed_size_list_type) {
+    return CastFromListLike(fixed_size_list_type);
   }
 
   Status Visit(const NullType&) { return NotImplemented(); }

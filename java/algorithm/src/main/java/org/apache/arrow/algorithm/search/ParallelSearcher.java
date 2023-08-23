@@ -52,7 +52,7 @@ public class ParallelSearcher<V extends ValueVector> {
   /**
    * The position of the key in the target vector, if any.
    */
-  private int keyPosition = -1;
+  private volatile int keyPosition = -1;
 
   /**
    * Constructs a parallel searcher.

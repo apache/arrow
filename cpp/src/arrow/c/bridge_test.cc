@@ -565,6 +565,15 @@ struct ArrayExportChecker {
       ASSERT_EQ(c_export->children, nullptr);
     }
   }
+
+  void operator()(struct ArrowDeviceArray* c_export, const ArrayData& expected_data,
+                  const ArrowDeviceType device_type, const int64_t device_id,
+                  const void* sync_event) {
+    ASSERT_EQ(c_export->device_type, device_type);
+    ASSERT_EQ(c_export->device_id, device_id);
+    ASSERT_EQ(c_export->sync_event, sync_event);
+    this->operator()(&c_export->array, expected_data);
+  }
 };
 
 struct RecordBatchExportChecker {
@@ -591,6 +600,15 @@ struct RecordBatchExportChecker {
     } else {
       ASSERT_EQ(c_export->children, nullptr);
     }
+  }
+
+  void operator()(struct ArrowDeviceArray* c_export, const RecordBatch& expected_data,
+                  const ArrowDeviceType device_type, const int64_t device_id,
+                  const void* sync_event) {
+    ASSERT_EQ(c_export->device_type, device_type);
+    ASSERT_EQ(c_export->device_id, device_id);
+    ASSERT_EQ(c_export->sync_event, sync_event);
+    this->operator()(&c_export->array, expected_data);
   }
 };
 
@@ -1109,6 +1127,422 @@ TEST_F(TestArrayExport, ExportRecordBatch) {
     // Create batch anew, with the same buffer pointers
     batch = batch_factory();
     checker(&c_array, *batch);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////
+// Device Array Export Tests
+
+static const char kMyDeviceTypeName[] = "arrowtest::MyDevice";
+static const ArrowDeviceType kMyDeviceType = ARROW_DEVICE_EXT_DEV;
+static const void* kMyEventPtr = reinterpret_cast<void*>(uintptr_t(0xBAADF00D));
+
+class MyBuffer final : public MutableBuffer {
+ public:
+  using MutableBuffer::MutableBuffer;
+
+  ~MyBuffer() { default_memory_pool()->Free(const_cast<uint8_t*>(data_), size_); }
+
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override { return device_sync_; }
+
+ protected:
+  std::shared_ptr<Device::SyncEvent> device_sync_;
+};
+
+class MyDevice : public Device {
+ public:
+  explicit MyDevice(int64_t value) : Device(true), value_(value) {}
+  const char* type_name() const override { return kMyDeviceTypeName; }
+  std::string ToString() const override { return kMyDeviceTypeName; }
+  bool Equals(const Device& other) const override {
+    if (other.type_name() != kMyDeviceTypeName || other.device_type() != device_type()) {
+      return false;
+    }
+    return checked_cast<const MyDevice&>(other).value_ == value_;
+  }
+  DeviceAllocationType device_type() const override {
+    return static_cast<DeviceAllocationType>(kMyDeviceType);
+  }
+  int64_t device_id() const override { return value_; }
+  std::shared_ptr<MemoryManager> default_memory_manager() override;
+
+  class MySyncEvent final : public Device::SyncEvent {
+   public:
+    explicit MySyncEvent(void* sync_event, release_fn_t release_sync_event)
+        : Device::SyncEvent(sync_event, release_sync_event) {}
+
+    virtual ~MySyncEvent() = default;
+    Status Wait() override { return Status::OK(); }
+    Status Record(const Device::Stream&) override { return Status::OK(); }
+  };
+
+ protected:
+  int64_t value_;
+};
+
+class MyMemoryManager : public CPUMemoryManager {
+ public:
+  explicit MyMemoryManager(const std::shared_ptr<Device>& device)
+      : CPUMemoryManager(device, default_memory_pool()) {}
+
+  Result<std::unique_ptr<Buffer>> AllocateBuffer(int64_t size) override {
+    uint8_t* data;
+    RETURN_NOT_OK(pool_->Allocate(size, &data));
+    return std::make_unique<MyBuffer>(data, size, shared_from_this());
+  }
+
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override {
+    return std::make_shared<MyDevice::MySyncEvent>(const_cast<void*>(kMyEventPtr),
+                                                   [](void*) {});
+  }
+
+  Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override {
+    return std::make_shared<MyDevice::MySyncEvent>(sync_event, release_sync_event);
+  }
+
+ protected:
+  Result<std::shared_ptr<Buffer>> CopyBufferFrom(
+      const std::shared_ptr<Buffer>& buf,
+      const std::shared_ptr<MemoryManager>& from) override {
+    return CopyNonOwnedFrom(*buf, from);
+  }
+  Result<std::unique_ptr<Buffer>> CopyNonOwnedFrom(
+      const Buffer& buf, const std::shared_ptr<MemoryManager>& from) override {
+    if (!from->is_cpu()) {
+      return nullptr;
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto dest, AllocateBuffer(buf.size()));
+    if (buf.size() > 0) {
+      memcpy(dest->mutable_data(), buf.data(), static_cast<size_t>(buf.size()));
+    }
+    return std::move(dest);
+  }
+};
+
+std::shared_ptr<MemoryManager> MyDevice::default_memory_manager() {
+  return std::make_shared<MyMemoryManager>(shared_from_this());
+}
+
+class TestDeviceArrayExport : public ::testing::Test {
+ public:
+  void SetUp() override { pool_ = default_memory_pool(); }
+
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+
+  template <typename ArrayFactory>
+  static std::function<Result<std::shared_ptr<Array>>()> ToDeviceFactory(
+      const std::shared_ptr<MemoryManager>& mm, ArrayFactory&& factory) {
+    return [&]() { return ToDevice(mm, *factory()->data()); };
+  }
+
+  static std::function<Result<std::shared_ptr<Array>>()> JSONArrayFactory(
+      const std::shared_ptr<MemoryManager>& mm, std::shared_ptr<DataType> type,
+      const char* json) {
+    return [=]() { return ToDevice(mm, *ArrayFromJSON(type, json)->data()); };
+  }
+
+  template <typename ArrayFactory, typename ExportCheckFunc>
+  void TestWithArrayFactory(ArrayFactory&& factory, ExportCheckFunc&& check_func) {
+    auto orig_bytes = pool_->bytes_allocated();
+
+    std::shared_ptr<Array> arr;
+    ASSERT_OK_AND_ASSIGN(arr, ToResult(factory()));
+    ARROW_SCOPED_TRACE("type = ", arr->type()->ToString(),
+                       ", array data = ", arr->ToString());
+    const ArrayData& data = *arr->data();  // non-owning reference
+    struct ArrowDeviceArray c_export;
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
+    ASSERT_OK(ExportDeviceArray(*arr, sync, &c_export));
+
+    ArrayExportGuard guard(&c_export.array);
+    auto new_bytes = pool_->bytes_allocated();
+    ASSERT_GT(new_bytes, orig_bytes);
+
+    // Release the shared_ptr<Array>, underlying data should be held alive
+    arr.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+    check_func(&c_export, data, kMyDeviceType, 1, nullptr);
+
+    // Release the ArrowArray, underlying data should be destroyed
+    guard.Release();
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  template <typename ArrayFactory>
+  void TestNested(ArrayFactory&& factory) {
+    ArrayExportChecker checker;
+    TestWithArrayFactory(std::forward<ArrayFactory>(factory), checker);
+  }
+
+  void TestNested(const std::shared_ptr<MemoryManager>& mm,
+                  const std::shared_ptr<DataType>& type, const char* json) {
+    TestNested(JSONArrayFactory(mm, type, json));
+  }
+
+  template <typename ArrayFactory>
+  void TestPrimitive(ArrayFactory&& factory) {
+    TestNested(std::forward<ArrayFactory>(factory));
+  }
+
+  void TestPrimitive(const std::shared_ptr<MemoryManager>& mm,
+                     const std::shared_ptr<DataType>& type, const char* json) {
+    TestNested(mm, type, json);
+  }
+
+ protected:
+  MemoryPool* pool_;
+};
+
+TEST_F(TestDeviceArrayExport, Primitive) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestPrimitive(mm, int8(), "[1, 2, null, -3]");
+  TestPrimitive(mm, int16(), "[1, 2, -3]");
+  TestPrimitive(mm, int32(), "[1, 2, null, -3]");
+  TestPrimitive(mm, int64(), "[1, 2, -3]");
+  TestPrimitive(mm, uint8(), "[1, 2, 3]");
+  TestPrimitive(mm, uint16(), "[1, 2, null, 3]");
+  TestPrimitive(mm, uint32(), "[1, 2, 3]");
+  TestPrimitive(mm, uint64(), "[1, 2, null, 3]");
+
+  TestPrimitive(mm, boolean(), "[true, false, null]");
+
+  TestPrimitive(mm, float32(), "[1.5, null]");
+  TestPrimitive(mm, float64(), "[1.5, null]");
+
+  TestPrimitive(mm, fixed_size_binary(3), R"(["foo", "bar", null])");
+  TestPrimitive(mm, binary(), R"(["foo", "bar", null])");
+  TestPrimitive(mm, large_binary(), R"(["foo", "bar", null])");
+  TestPrimitive(mm, utf8(), R"(["foo", "bar", null])");
+  TestPrimitive(mm, large_utf8(), R"(["foo", "bar", null])");
+
+  TestPrimitive(mm, decimal(16, 4), R"(["1234.5670", null])");
+  TestPrimitive(mm, decimal256(16, 4), R"(["1234.5670", null])");
+
+  TestPrimitive(mm, month_day_nano_interval(), R"([[-1, 5, 20], null])");
+}
+
+TEST_F(TestDeviceArrayExport, PrimitiveSliced) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  auto factory = [=]() {
+    return (*ToDevice(mm, *ArrayFromJSON(int16(), "[1, 2, null, -3]")->data()))
+        ->Slice(1, 2);
+  };
+  TestPrimitive(factory);
+}
+
+TEST_F(TestDeviceArrayExport, Temporal) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  const char* json = "[1, 2, null, 42]";
+  TestPrimitive(mm, date32(), json);
+  TestPrimitive(mm, date64(), json);
+  TestPrimitive(mm, time32(TimeUnit::SECOND), json);
+  TestPrimitive(mm, time32(TimeUnit::MILLI), json);
+  TestPrimitive(mm, time64(TimeUnit::MICRO), json);
+  TestPrimitive(mm, time64(TimeUnit::NANO), json);
+  TestPrimitive(mm, duration(TimeUnit::SECOND), json);
+  TestPrimitive(mm, duration(TimeUnit::MILLI), json);
+  TestPrimitive(mm, duration(TimeUnit::MICRO), json);
+  TestPrimitive(mm, duration(TimeUnit::NANO), json);
+  TestPrimitive(mm, month_interval(), json);
+
+  TestPrimitive(mm, day_time_interval(), "[[7, 600], null]");
+
+  json = R"(["1970-01-01","2000-02-29","1900-02-28"])";
+  TestPrimitive(mm, timestamp(TimeUnit::SECOND), json);
+  TestPrimitive(mm, timestamp(TimeUnit::SECOND, "Europe/Paris"), json);
+  TestPrimitive(mm, timestamp(TimeUnit::MILLI), json);
+  TestPrimitive(mm, timestamp(TimeUnit::MILLI, "Europe/Paris"), json);
+  TestPrimitive(mm, timestamp(TimeUnit::MICRO), json);
+  TestPrimitive(mm, timestamp(TimeUnit::MICRO, "Europe/Paris"), json);
+  TestPrimitive(mm, timestamp(TimeUnit::NANO), json);
+  TestPrimitive(mm, timestamp(TimeUnit::NANO, "Europe/Paris"), json);
+}
+
+TEST_F(TestDeviceArrayExport, List) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestNested(mm, list(int8()), "[[1, 2], [3, null], null]");
+  TestNested(mm, large_list(uint16()), "[[1, 2], [3, null], null]");
+  TestNested(mm, fixed_size_list(int64(), 2), "[[1, 2], [3, null], null]");
+
+  TestNested(mm, list(large_list(int32())), "[[[1, 2], [3], null], null]");
+}
+
+TEST_F(TestDeviceArrayExport, ListSliced) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  {
+    auto factory = [=]() {
+      return (*ToDevice(
+                  mm, *ArrayFromJSON(list(int8()), "[[1, 2], [3, null], [4, 5, 6], null]")
+                           ->data()))
+          ->Slice(1, 2);
+    };
+    TestNested(factory);
+  }
+  {
+    auto factory = [=]() {
+      auto values =
+          (*ToDevice(mm,
+                     *ArrayFromJSON(int16(), "[1, 2, 3, 4, null, 5, 6, 7, 8]")->data()))
+              ->Slice(1, 6);
+      auto offsets = (*ToDevice(mm, *ArrayFromJSON(int32(), "[0, 2, 3, 5, 6]")->data()))
+                         ->Slice(2, 4);
+      return ListArray::FromArrays(*offsets, *values);
+    };
+    TestNested(factory);
+  }
+}
+
+TEST_F(TestDeviceArrayExport, Struct) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  const char* data = R"([[1, "foo"], [2, null]])";
+  auto type = struct_({field("a", int8()), field("b", utf8())});
+  TestNested(mm, type, data);
+}
+
+TEST_F(TestDeviceArrayExport, Map) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  const char* json = R"([[[1, "foo"], [2, null]], [[3, "bar"]]])";
+  TestNested(mm, map(int8(), utf8()), json);
+  TestNested(mm, map(int8(), utf8(), /*keys_sorted=*/true), json);
+}
+
+TEST_F(TestDeviceArrayExport, Union) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  const char* data = "[null, [42, 1], [43, true], [42, null], [42, 2]]";
+  // Dense
+  auto field_a = field("a", int8());
+  auto field_b = field("b", boolean(), /*nullable=*/false);
+  auto type = dense_union({field_a, field_b}, {42, 43});
+  TestNested(mm, type, data);
+  // Sparse
+  field_a = field("a", int8(), /*nullable=*/false);
+  field_b = field("b", boolean());
+  type = sparse_union({field_a, field_b}, {42, 43});
+  TestNested(mm, type, data);
+}
+
+TEST_F(TestDeviceArrayExport, Extension) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestPrimitive(ToDeviceFactory(mm, ExampleUuid));
+  TestPrimitive(ToDeviceFactory(mm, ExampleSmallint));
+  TestPrimitive(ToDeviceFactory(mm, ExampleComplex128));
+}
+
+TEST_F(TestDeviceArrayExport, ExportArrayAndType) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  struct ArrowSchema c_schema {};
+  struct ArrowDeviceArray c_array {};
+  SchemaExportGuard schema_guard(&c_schema);
+  ArrayExportGuard array_guard(&c_array.array);
+
+  auto array = ToDevice(mm, *ArrayFromJSON(int8(), "[1, 2, 3]")->data()).ValueOrDie();
+  auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
+  ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
+  const ArrayData& data = *array->data();
+  array.reset();
+  ASSERT_FALSE(ArrowSchemaIsReleased(&c_schema));
+  ASSERT_FALSE(ArrowArrayIsReleased(&c_array.array));
+  ASSERT_EQ(c_schema.format, std::string("c"));
+  ASSERT_EQ(c_schema.n_children, 0);
+  ArrayExportChecker checker{};
+  checker(&c_array, data, kMyDeviceType, 1, kMyEventPtr);
+}
+
+TEST_F(TestDeviceArrayExport, ExportRecordBatch) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  struct ArrowSchema c_schema {};
+  struct ArrowDeviceArray c_array {};
+
+  auto schema = ::arrow::schema(
+      {field("ints", int16()), field("bools", boolean(), /*nullable=*/false)});
+  schema = schema->WithMetadata(key_value_metadata(kMetadataKeys2, kMetadataValues2));
+  auto arr0 = ToDevice(mm, *ArrayFromJSON(int16(), "[1, 2, null]")->data()).ValueOrDie();
+  auto arr1 = ToDevice(mm, *ArrayFromJSON(boolean(), "[false, true, false]")->data())
+                  .ValueOrDie();
+
+  auto batch_factory = [&]() { return RecordBatch::Make(schema, 3, {arr0, arr1}); };
+  auto sync = mm->MakeDeviceSyncEvent().ValueOrDie();
+  {
+    auto batch = batch_factory();
+
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
+    SchemaExportGuard schema_guard(&c_schema);
+    ArrayExportGuard array_guard(&c_array.array);
+    RecordBatchExportChecker checker{};
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
+
+    // create batch anew, with the same buffer pointers
+    batch = batch_factory();
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
+  }
+  {
+    // Check one can export both schema and record batch at once
+    auto batch = batch_factory();
+
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
+    SchemaExportGuard schema_guard(&c_schema);
+    ArrayExportGuard array_guard(&c_array.array);
+    ASSERT_EQ(c_schema.format, std::string("+s"));
+    ASSERT_EQ(c_schema.n_children, 2);
+    ASSERT_NE(c_schema.metadata, nullptr);
+    ASSERT_EQ(kEncodedMetadata2,
+              std::string(c_schema.metadata, kEncodedMetadata2.size()));
+    RecordBatchExportChecker checker{};
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
+
+    // Create batch anew, with the same buffer pointers
+    batch = batch_factory();
+    checker(&c_array, *batch, kMyDeviceType, 1, kMyEventPtr);
   }
 }
 
@@ -3146,6 +3580,190 @@ TEST_F(TestArrayRoundtrip, RecordBatch) {
     };
     TestWithBatchFactory(factory);
   }
+}
+
+class TestDeviceArrayRoundtrip : public ::testing::Test {
+ public:
+  using ArrayFactory = std::function<Result<std::shared_ptr<Array>>()>;
+
+  void SetUp() override { pool_ = default_memory_pool(); }
+
+  static Result<std::shared_ptr<MemoryManager>> DeviceMapper(ArrowDeviceType type,
+                                                             int64_t id) {
+    if (type != kMyDeviceType) {
+      return Status::NotImplemented("should only be MyDevice");
+    }
+
+    std::shared_ptr<Device> device = std::make_shared<MyDevice>(id);
+    return device->default_memory_manager();
+  }
+
+  static Result<std::shared_ptr<ArrayData>> ToDeviceData(
+      const std::shared_ptr<MemoryManager>& mm, const ArrayData& data) {
+    arrow::BufferVector buffers;
+    for (const auto& buf : data.buffers) {
+      if (buf) {
+        ARROW_ASSIGN_OR_RAISE(auto dest, mm->CopyBuffer(buf, mm));
+        buffers.push_back(dest);
+      } else {
+        buffers.push_back(nullptr);
+      }
+    }
+
+    arrow::ArrayDataVector children;
+    for (const auto& child : data.child_data) {
+      ARROW_ASSIGN_OR_RAISE(auto dest, ToDeviceData(mm, *child));
+      children.push_back(dest);
+    }
+
+    return ArrayData::Make(data.type, data.length, buffers, children, data.null_count,
+                           data.offset);
+  }
+
+  static Result<std::shared_ptr<Array>> ToDevice(const std::shared_ptr<MemoryManager>& mm,
+                                                 const ArrayData& data) {
+    ARROW_ASSIGN_OR_RAISE(auto result, ToDeviceData(mm, data));
+    return MakeArray(result);
+  }
+
+  static ArrayFactory ToDeviceFactory(const std::shared_ptr<MemoryManager>& mm,
+                                      ArrayFactory&& factory) {
+    return [&]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, factory());
+      return ToDevice(mm, *arr->data());
+    };
+  }
+
+  static ArrayFactory JSONArrayFactory(const std::shared_ptr<MemoryManager>& mm,
+                                       std::shared_ptr<DataType> type, const char* json) {
+    return [=]() { return ToDevice(mm, *ArrayFromJSON(type, json)->data()); };
+  }
+
+  static ArrayFactory SlicedArrayFactory(ArrayFactory factory) {
+    return [=]() -> Result<std::shared_ptr<Array>> {
+      ARROW_ASSIGN_OR_RAISE(auto arr, factory());
+      DCHECK_GE(arr->length(), 2);
+      return arr->Slice(1, arr->length() - 2);
+    };
+  }
+
+  template <typename ArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory) {
+    TestWithArrayFactory(factory, factory);
+  }
+
+  template <typename ArrayFactory, typename ExpectedArrayFactory>
+  void TestWithArrayFactory(ArrayFactory&& factory,
+                            ExpectedArrayFactory&& factory_expected) {
+    std::shared_ptr<Array> array;
+    struct ArrowDeviceArray c_array {};
+    struct ArrowSchema c_schema {};
+    ArrayExportGuard array_guard(&c_array.array);
+    SchemaExportGuard schema_guard(&c_schema);
+
+    auto orig_bytes = pool_->bytes_allocated();
+
+    ASSERT_OK_AND_ASSIGN(array, ToResult(factory()));
+    ASSERT_OK(ExportType(*array->type(), &c_schema));
+    std::shared_ptr<Device::SyncEvent> sync{nullptr};
+    ASSERT_OK(ExportDeviceArray(*array, sync, &c_array));
+
+    auto new_bytes = pool_->bytes_allocated();
+    if (array->type_id() != Type::NA) {
+      ASSERT_GT(new_bytes, orig_bytes);
+    }
+
+    array.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+    ASSERT_OK_AND_ASSIGN(array, ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Re-export and re-import, now both at once
+    ASSERT_OK(ExportDeviceArray(*array, sync, &c_array, &c_schema));
+    array.reset();
+    ASSERT_OK_AND_ASSIGN(array, ImportDeviceArray(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(array->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Check value of imported array
+    {
+      std::shared_ptr<Array> expected;
+      ASSERT_OK_AND_ASSIGN(expected, ToResult(factory_expected()));
+      AssertTypeEqual(*expected->type(), *array->type());
+      AssertArraysEqual(*expected, *array, true);
+    }
+    array.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  template <typename BatchFactory>
+  void TestWithBatchFactory(BatchFactory&& factory) {
+    std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+    auto mm = device->default_memory_manager();
+
+    std::shared_ptr<RecordBatch> batch;
+    struct ArrowDeviceArray c_array {};
+    struct ArrowSchema c_schema {};
+    ArrayExportGuard array_guard(&c_array.array);
+    SchemaExportGuard schema_guard(&c_schema);
+
+    auto orig_bytes = pool_->bytes_allocated();
+    ASSERT_OK_AND_ASSIGN(batch, ToResult(factory()));
+    ASSERT_OK(ExportSchema(*batch->schema(), &c_schema));
+    ASSERT_OK_AND_ASSIGN(auto sync, mm->MakeDeviceSyncEvent());
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array));
+
+    auto new_bytes = pool_->bytes_allocated();
+    batch.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), new_bytes);
+    ASSERT_OK_AND_ASSIGN(batch,
+                         ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Re-export and re-import, now both at once
+    ASSERT_OK(ExportDeviceRecordBatch(*batch, sync, &c_array, &c_schema));
+    batch.reset();
+    ASSERT_OK_AND_ASSIGN(batch,
+                         ImportDeviceRecordBatch(&c_array, &c_schema, DeviceMapper));
+    ASSERT_OK(batch->ValidateFull());
+    ASSERT_TRUE(ArrowSchemaIsReleased(&c_schema));
+    ASSERT_TRUE(ArrowArrayIsReleased(&c_array.array));
+
+    // Check value of imported record batch
+    {
+      std::shared_ptr<RecordBatch> expected;
+      ASSERT_OK_AND_ASSIGN(expected, ToResult(factory()));
+      AssertSchemaEqual(*expected->schema(), *batch->schema());
+      AssertBatchesEqual(*expected, *batch);
+    }
+    batch.reset();
+    ASSERT_EQ(pool_->bytes_allocated(), orig_bytes);
+  }
+
+  void TestWithJSON(const std::shared_ptr<MemoryManager>& mm,
+                    std::shared_ptr<DataType> type, const char* json) {
+    TestWithArrayFactory(JSONArrayFactory(mm, type, json));
+  }
+
+  void TestWithJSONSliced(const std::shared_ptr<MemoryManager>& mm,
+                          std::shared_ptr<DataType> type, const char* json) {
+    TestWithArrayFactory(SlicedArrayFactory(JSONArrayFactory(mm, type, json)));
+  }
+
+ protected:
+  MemoryPool* pool_;
+};
+
+TEST_F(TestDeviceArrayRoundtrip, Primitive) {
+  std::shared_ptr<Device> device = std::make_shared<MyDevice>(1);
+  auto mm = device->default_memory_manager();
+
+  TestWithJSON(mm, int32(), "[4, 5, null]");
 }
 
 // TODO C -> C++ -> C roundtripping tests?

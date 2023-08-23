@@ -37,6 +37,7 @@ namespace Apache.Arrow
         TBuilder Reserve(int capacity);
         TBuilder Resize(int length);
         TBuilder Clear();
+        TBuilder AppendNull();
     }
 
 
@@ -47,7 +48,6 @@ namespace Apache.Arrow
         TBuilder Append(T value);
         TBuilder Append(ReadOnlySpan<T> span);
         TBuilder AppendRange(IEnumerable<T> values);
-        TBuilder AppendNull();
         TBuilder Swap(int i, int j);
         TBuilder Set(int index, T value);
     }

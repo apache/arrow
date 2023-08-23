@@ -22,7 +22,7 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/apache/arrow/go/v13/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v14/arrow/flight/gen/flight"
 	"google.golang.org/grpc"
 )
 
@@ -42,14 +42,43 @@ type (
 	FlightEndpoint                  = flight.FlightEndpoint
 	Location                        = flight.Location
 	FlightInfo                      = flight.FlightInfo
+	PollInfo                       = flight.PollInfo
 	FlightData                      = flight.FlightData
 	PutResult                       = flight.PutResult
 	Ticket                          = flight.Ticket
 	SchemaResult                    = flight.SchemaResult
 	Action                          = flight.Action
 	ActionType                      = flight.ActionType
+	CancelFlightInfoRequest         = flight.CancelFlightInfoRequest
+	RenewFlightEndpointRequest      = flight.RenewFlightEndpointRequest
 	Result                          = flight.Result
+	CancelFlightInfoResult          = flight.CancelFlightInfoResult
+	CancelStatus                    = flight.CancelStatus
 	Empty                           = flight.Empty
+)
+
+// Constants for Action types
+const (
+	CancelFlightInfoActionType    = "CancelFlightInfo"
+	RenewFlightEndpointActionType = "RenewFlightEndpoint"
+)
+
+// Constants for CancelStatus
+const (
+	// The cancellation status is unknown. Servers should avoid
+	// using this value (send a NOT_FOUND error if the requested
+	// FlightInfo is not known). Clients can retry the request.
+	CancelStatusUnspecified = flight.CancelStatus_CANCEL_STATUS_UNSPECIFIED
+	// The cancellation request is complete. Subsequent requests
+	// with the same payload may return CancelStatusCancelled or a
+	// arrow.ErrNotFound error.
+	CancelStatusCancelled = flight.CancelStatus_CANCEL_STATUS_CANCELLED
+	// The cancellation request is in progress. The client may
+	// retry the cancellation request.
+	CancelStatusCancelling = flight.CancelStatus_CANCEL_STATUS_CANCELLING
+	// The FlightInfo is not cancellable. The client should not
+	// retry the cancellation request.
+	CancelStatusNotCancellable = flight.CancelStatus_CANCEL_STATUS_NOT_CANCELLABLE
 )
 
 // RegisterFlightServiceServer registers an existing flight server onto an
@@ -70,7 +99,7 @@ func RegisterFlightServiceServer(s *grpc.Server, srv FlightServer) {
 // for a custom implementation to return zero values for the
 // grpc.ServiceInfo values in the map.
 //
-// Experimental
+// # Experimental
 //
 // Notice: This type is EXPERIMENTAL and may be changed or removed in a
 // later release.

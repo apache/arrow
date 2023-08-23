@@ -64,7 +64,7 @@ groups:
     - r-binary-packages
     - ubuntu-*
     - wheel-*
-    - test-ubuntu-default-docs
+    - test-ubuntu-*-docs
 
 {############################# Testing tasks #################################}
 
@@ -246,6 +246,16 @@ tasks:
   #   generated and to be synced regularly from the feedstock. We have no way
   #   yet to generate them inside the arrow repository automatically.
 
+  conda-linux-x64-cpu-r41:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_64_cuda_compiler_versionNone
+      r_config: linux_64_r_base4.1
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
+
   conda-linux-x64-cpu-r42:
     ci: azure
     template: conda-recipes/azure.linux.yml
@@ -272,7 +282,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.linux.yml
     params:
-      config: linux_64_cuda_compiler_version10.2
+      config: linux_64_cuda_compiler_version11.2
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
@@ -281,6 +291,16 @@ tasks:
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
 
   ########################### Conda Linux (aarch64) ###########################
+
+  conda-linux-aarch64-cpu-r41:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_aarch64_cuda_compiler_versionNone
+      r_config: linux_aarch64_r_base4.1
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
 
   conda-linux-aarch64-cpu-r42:
     ci: azure
@@ -304,6 +324,18 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
+  conda-linux-aarch64-cuda-py3:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_aarch64_cuda_compiler_version11.2
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
+
   ########################### Conda Linux (ppc64le) ###########################
 
   conda-linux-ppc64le-cpu-py3:
@@ -318,7 +350,29 @@ tasks:
       - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cpu.conda
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
+  conda-linux-ppc64le-cuda-py3:
+    ci: azure
+    template: conda-recipes/azure.linux.yml
+    params:
+      config: linux_ppc64le_cuda_compiler_version11.2
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py39(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py310(h[a-z0-9]+)_0_cuda.conda
+      - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cuda.conda
+
   ############################## Conda OSX (x64) ##############################
+
+  conda-osx-x64-cpu-r41:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_64_
+      r_config: osx_64_r_base4.1
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
 
   conda-osx-x64-cpu-r42:
     ci: azure
@@ -343,6 +397,16 @@ tasks:
       - pyarrow-{no_rc_version}-py311(h[a-z0-9]+)_0_cpu.conda
 
   ############################# Conda OSX (arm64) #############################
+
+  conda-osx-arm64-cpu-r41:
+    ci: azure
+    template: conda-recipes/azure.osx.yml
+    params:
+      config: osx_arm64_
+      r_config: osx_arm64_r_base4.1
+    artifacts:
+      - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cpu.conda
+      - r-arrow-{no_rc_version}-r41(h[a-z0-9]+)_0.conda
 
   conda-osx-arm64-cpu-r42:
     ci: azure
@@ -396,7 +460,7 @@ tasks:
     ci: azure
     template: conda-recipes/azure.win.yml
     params:
-      config: win_64_cuda_compiler_versionNone
+      config: win_64_cuda_compiler_version11.2
     artifacts:
       - libarrow-{no_rc_version}-(h[a-z0-9]+)_0_cuda.conda
       - pyarrow-{no_rc_version}-py38(h[a-z0-9]+)_0_cuda.conda
@@ -408,8 +472,7 @@ tasks:
     ci: github
     template: python-wheels/github.clean.yml
 
-{% for python_version, python_tag, abi_tag in [("3.7", "cp37", "cp37m"),
-                                               ("3.8", "cp38", "cp38"),
+{% for python_version, python_tag, abi_tag in [("3.8", "cp38", "cp38"),
                                                ("3.9", "cp39", "cp39"),
                                                ("3.10", "cp310", "cp310"),
                                                ("3.11", "cp311", "cp311")] %}
@@ -502,9 +565,10 @@ tasks:
 
 {% for target in ["debian-bullseye",
                   "debian-bookworm",
+                  "debian-trixie",
                   "ubuntu-focal",
                   "ubuntu-jammy",
-                  "ubuntu-kinetic"] %}
+                  "ubuntu-lunar"] %}
   {% for architecture in ["amd64", "arm64"] %}
   {{ target }}-{{ architecture }}:
     ci: github
@@ -541,66 +605,66 @@ tasks:
       - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-acero1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-acero1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-acero1400_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-dataset1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-dataset1400_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight-sql1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight-sql1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-flight1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-flight1400_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow1400_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libgandiva1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libgandiva1400_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libparquet1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libparquet1400_{no_rc_version}-1_[a-z0-9]+.deb
       - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
     {% if architecture == "amd64" %}
       - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
       - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib1300_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda1300-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda1300_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda-glib1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda-glib1400_{no_rc_version}-1_[a-z0-9]+.deb
+      - libarrow-cuda1400-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
+      - libarrow-cuda1400_{no_rc_version}-1_[a-z0-9]+.deb
     {% endif %}
   {% endfor %}
 {% endfor %}
 
 {% for target in ["almalinux-9",
                   "almalinux-8",
-                  "amazon-linux-2",
+                  "amazon-linux-2023",
                   "centos-9-stream",
                   "centos-8-stream",
                   "centos-7"] %}
@@ -642,7 +706,6 @@ tasks:
     {% if not is_rhel7_based %}
       - arrow[0-9]+-dataset-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% endif %}
-      - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
       - arrow-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
     {% if not is_rhel7_based %}
       - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
@@ -1122,7 +1185,7 @@ tasks:
       flags: -e ARROW_SKYHOOK=ON
       image: ubuntu-cpp
 
-{% for debian_version in ["10", "11"] %}
+{% for debian_version in ["11"] %}
   test-debian-{{ debian_version }}-cpp-amd64:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1152,15 +1215,24 @@ tasks:
       image: fedora-cpp
 
 {% for cpp_standard in [20] %}
-  test-ubuntu-20.04-cpp-{{ cpp_standard }}:
+  test-ubuntu-22.04-cpp-{{ cpp_standard }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        UBUNTU: 20.04
+        UBUNTU: 22.04
       flags: "-e CMAKE_CXX_STANDARD={{ cpp_standard }}"
       image: ubuntu-cpp
 {% endfor %}
+
+  test-ubuntu-22.04-cpp-no-threading:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
+      flags: "-e ARROW_ENABLE_THREADING=OFF"
+      image: ubuntu-cpp
 
   test-ubuntu-20.04-cpp-thread-sanitizer:
     ci: github
@@ -1183,13 +1255,14 @@ tasks:
       flags: "-e ARROW_CSV=ON -e ARROW_PARQUET=ON"
       image: ubuntu-cpp-minimal
 
-{% for python_version in ["3.7", "3.8", "3.9", "3.10", "3.11"] %}
+{% for python_version in ["3.8", "3.9", "3.10", "3.11"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         PYTHON: "{{ python_version }}"
+        PYTEST_ARGS: "-W error"
       image: conda-python
 {% endfor %}
 
@@ -1202,7 +1275,7 @@ tasks:
         HYPOTHESIS_PROFILE: ci
         PYARROW_TEST_HYPOTHESIS: ON
         # limit to execute hypothesis tests only
-        PYTEST_ARGS: "-m hypothesis"
+        PYTEST_ARGS: "-m hypothesis -W error"
       image: conda-python-pandas
 
   test-conda-python-3.10-substrait:
@@ -1227,6 +1300,14 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
+      image: ubuntu-python
+
+  test-ubuntu-22.04-python-3:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        UBUNTU: 22.04
       image: ubuntu-python
 
   test-fedora-35-python-3:
@@ -1427,17 +1508,16 @@ tasks:
       image: debian-go
   {% endfor %}
 
-  test-ubuntu-default-docs:
-    ci: azure
-    template: docker-tests/azure.linux.yml
+  test-ubuntu-22.04-docs:
+    ci: github
+    template: docs/github.linux.yml
     params:
-      artifacts: "build/docs.tar.gz"
+      env:
+        UBUNTU: 22.04
+      pr_number: Unset
       flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
-      post_script: |
-        cd build
-        sudo chown -R ${USER}: .
-        tar cvzf docs.tar.gz docs
+      publish: false
     artifacts:
       - docs.tar.gz
 
@@ -1518,9 +1598,9 @@ tasks:
       image: conda-python-hdfs
 {% endfor %}
 
-{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.7", "v3.1.2", "false", "latest"),
-                                                                           ("3.8", "v3.2.0", "false", "1.23"),
-                                                                           ("3.9", "master", "false", "latest")] %}
+{% for python_version, spark_version, test_pyarrow_only, numpy_version in [("3.8", "v3.4.1", "false", "latest"),
+                                                                           ("3.10", "v3.4.1", "false", "1.23"),
+                                                                           ("3.11", "master", "false", "latest")] %}
   test-conda-python-{{ python_version }}-spark-{{ spark_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -1557,7 +1637,9 @@ tasks:
     ci: github
     template: docs/github.linux.yml
     params:
+      env:
+        UBUNTU: 22.04
       pr_number: Unset
-      artifacts: "build/docs.tar.gz"
       flags: "-v $PWD/build/:/build/"
       image: ubuntu-docs
+      publish: true

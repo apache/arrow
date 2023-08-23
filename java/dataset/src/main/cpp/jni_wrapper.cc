@@ -27,6 +27,7 @@
 #include "arrow/dataset/file_base.h"
 #include "arrow/filesystem/localfs.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/filesystem/s3fs.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/relation.h"
@@ -107,6 +108,10 @@ arrow::Result<std::shared_ptr<arrow::dataset::FileFormat>> GetFileFormat(
 #ifdef ARROW_CSV
     case 3:
       return std::make_shared<arrow::dataset::CsvFileFormat>();
+#endif
+#ifdef ARROW_JSON
+    case 4:
+      return std::make_shared<arrow::dataset::JsonFileFormat>();
 #endif
     default:
       std::string error_message =
@@ -588,6 +593,18 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_releaseBuffe
     JNIEnv* env, jobject, jlong id) {
   JNI_METHOD_START
   ReleaseNativeRef<arrow::Buffer>(id);
+  JNI_METHOD_END()
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_jni_JniWrapper
+ * Method:    ensureS3Finalized
+ * Signature: (J)V
+ */
+JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_ensureS3Finalized(
+    JNIEnv* env, jobject) {
+  JNI_METHOD_START
+  JniAssertOkOrThrow(arrow::fs::EnsureS3Finalized());
   JNI_METHOD_END()
 }
 

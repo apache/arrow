@@ -37,9 +37,7 @@ using parquet::Type;
 using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 std::string data_file(const char* file) {
   std::string dir_string(parquet::test::get_data_dir());
@@ -511,6 +509,4 @@ void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
   }
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

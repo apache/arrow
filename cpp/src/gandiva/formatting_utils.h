@@ -49,7 +49,9 @@ class FloatToStringGdvMixin
   explicit FloatToStringGdvMixin(const std::shared_ptr<arrow::DataType>& = NULLPTR)
       : arrow::internal::FloatToStringFormatterMixin<ARROW_TYPE>(
             DoubleToStringConverter::EMIT_TRAILING_ZERO_AFTER_POINT |
-                DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT,
+                DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT |
+                DoubleToStringConverter::EMIT_TRAILING_DECIMAL_POINT_IN_EXPONENTIAL |
+                DoubleToStringConverter::EMIT_TRAILING_ZERO_AFTER_POINT_IN_EXPONENTIAL,
             "Infinity", "NaN", 'E', -3, 7, 3, 1) {}
 };
 

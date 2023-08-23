@@ -22,11 +22,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/arrio"
-	"github.com/apache/arrow/go/v13/arrow/internal/arrdata"
-	"github.com/apache/arrow/go/v13/arrow/ipc"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/arrio"
+	"github.com/apache/arrow/go/v14/arrow/internal/arrdata"
+	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 )
 
 type copyKind int

@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 const (
@@ -58,8 +58,14 @@ type Builder interface {
 	// AppendNull adds a new null value to the array being built.
 	AppendNull()
 
+	// AppendNulls adds new n null values to the array being built.
+	AppendNulls(n int)
+
 	// AppendEmptyValue adds a new zero value of the appropriate type
 	AppendEmptyValue()
+
+	// AppendEmptyValues adds new n zero values of the appropriate type
+	AppendEmptyValues(n int)
 
 	// AppendValueFromString adds a new value from a string. Inverse of array.ValueStr(i int) string
 	AppendValueFromString(string) error
@@ -76,6 +82,9 @@ type Builder interface {
 	// by the builder and resets the Builder so it can be used to build
 	// a new array.
 	NewArray() arrow.Array
+
+	// IsNull returns if a previously appended value at a given index is null or not.
+	IsNull(i int) bool
 
 	UnsafeAppendBoolToBitmap(bool)
 
@@ -112,6 +121,10 @@ func (b *builder) Cap() int { return b.capacity }
 
 // NullN returns the number of null values in the array builder.
 func (b *builder) NullN() int { return b.nulls }
+
+func (b *builder) IsNull(i int) bool {
+	return b.nullBitmap.Len() != 0 && bitutil.BitIsNotSet(b.nullBitmap.Bytes(), i)
+}
 
 func (b *builder) init(capacity int) {
 	toAlloc := bitutil.CeilByte(capacity) / 8

@@ -24,7 +24,6 @@ module Arrow
     end
     alias_method :call, :execute
 
-    private
     def resolve_options(options)
       return nil if options.nil?
       return options if options.is_a?(FunctionOptions)

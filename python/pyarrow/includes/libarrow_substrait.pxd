@@ -40,6 +40,7 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
         CConversionOptions()
         ConversionStrictness strictness
         function[CNamedTableProvider] named_table_provider
+        c_bool allow_arrow_extensions
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
         namespace "arrow::engine" nogil:
@@ -62,7 +63,7 @@ cdef extern from "arrow/engine/substrait/relation.h" namespace "arrow::engine" n
 cdef extern from "arrow/engine/substrait/serde.h" namespace "arrow::engine" nogil:
 
     CResult[shared_ptr[CBuffer]] SerializeExpressions(
-        const CBoundExpressions& bound_expressions)
+        const CBoundExpressions& bound_expressions, const CConversionOptions& conversion_options)
 
     CResult[CBoundExpressions] DeserializeExpressions(
         const CBuffer& serialized_expressions)

@@ -678,6 +678,42 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
   CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
 }
 
+// Tests projection with nested/indexed FieldRefs.
+// https://github.com/apache/arrow/issues/35579
+TEST_P(TestParquetFileFormatScan, ProjectWithNonNamedFieldRefs) {
+  auto table_schema = schema(
+      {field("info", struct_({field("name", utf8()),
+                              field("data", struct_({field("amount", float64()),
+                                                     field("percent", float32())}))}))});
+  auto table = TableFromJSON(table_schema, {R"([
+    {"info": {"name": "a", "data": {"amount": 10.3, "percent": 0.1}}},
+    {"info": {"name": "b", "data": {"amount": 11.6, "percent": 0.2}}},
+    {"info": {"name": "c", "data": {"amount": 12.9, "percent": 0.3}}},
+    {"info": {"name": "d", "data": {"amount": 14.2, "percent": 0.4}}},
+    {"info": {"name": "e", "data": {"amount": 15.5, "percent": 0.5}}},
+    {"info": {"name": "f", "data": {"amount": 16.8, "percent": 0.6}}}])"});
+  ASSERT_OK_AND_ASSIGN(auto expected_batch, table->CombineChunksToBatch());
+
+  TableBatchReader reader(*table);
+  SetSchema(reader.schema()->fields());
+
+  auto source = GetFileSource(&reader);
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  std::vector<FieldRef> equivalent_refs = {
+      FieldRef("info", "data", "percent"), FieldRef("info", 1, 1),
+      FieldRef(0, 1, "percent"),           FieldRef(0, 1, 1),
+      FieldRef(0, FieldRef("data", 1)),    FieldRef(FieldRef(0), FieldRef(1, 1)),
+  };
+  for (const auto& ref : equivalent_refs) {
+    ARROW_SCOPED_TRACE("ref = ", ref.ToString());
+
+    Project({field_ref(ref)}, {"value"});
+    auto batch = SingleBatch(fragment);
+    AssertBatchesEqual(*expected_batch, *batch);
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
                          ::testing::ValuesIn(TestFormatParams::Values()),
                          TestFormatParams::ToTestNameString);

@@ -22,8 +22,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/test_util.h"
 
-namespace parquet {
-namespace test {
+namespace parquet::test {
 
 TEST(BloomFilterReader, ReadBloomFilter) {
   std::string dir_string(parquet::test::get_data_dir());
@@ -70,5 +69,4 @@ TEST(BloomFilterReader, FileNotHaveBloomFilter) {
   ASSERT_EQ(nullptr, bloom_filter);
 }
 
-}  // namespace test
-}  // namespace parquet
+}  // namespace parquet::test

@@ -21,18 +21,21 @@ import (
 	"runtime/cgo"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
 )
 
 // #include <stdlib.h>
 // #include "arrow/c/helpers.h"
 //
-//	typedef const char cchar_t;
-//	extern int streamGetSchema(struct ArrowArrayStream*, struct ArrowSchema*);
-//	extern int streamGetNext(struct ArrowArrayStream*, struct ArrowArray*);
-//	extern const char* streamGetError(struct ArrowArrayStream*);
-//	extern void streamRelease(struct ArrowArrayStream*);
+// typedef const char cchar_t;
+// extern int streamGetSchema(struct ArrowArrayStream*, struct ArrowSchema*);
+// extern int streamGetNext(struct ArrowArrayStream*, struct ArrowArray*);
+// extern const char* streamGetError(struct ArrowArrayStream*);
+// extern void streamRelease(struct ArrowArrayStream*);
+// // XXX(https://github.com/apache/arrow-adbc/issues/729)
+// int streamGetSchemaTrampoline(struct ArrowArrayStream* stream, struct ArrowSchema* out);
+// int streamGetNextTrampoline(struct ArrowArrayStream* stream, struct ArrowArray* out);
 //
 import "C"
 
@@ -154,10 +157,11 @@ func streamRelease(handle *CArrowArrayStream) {
 }
 
 func exportStream(rdr array.RecordReader, out *CArrowArrayStream) {
-	out.get_schema = (*[0]byte)(C.streamGetSchema)
-	out.get_next = (*[0]byte)(C.streamGetNext)
+	out.get_schema = (*[0]byte)(C.streamGetSchemaTrampoline)
+	out.get_next = (*[0]byte)(C.streamGetNextTrampoline)
 	out.get_last_error = (*[0]byte)(C.streamGetError)
 	out.release = (*[0]byte)(C.streamRelease)
+	rdr.Retain()
 	h := cgo.NewHandle(cRecordReader{rdr: rdr, err: nil})
 	out.private_data = createHandle(h)
 }

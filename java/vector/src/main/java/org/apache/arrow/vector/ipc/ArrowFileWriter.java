@@ -23,11 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.apache.arrow.util.VisibleForTesting;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.compression.CompressionCodec;
 import org.apache.arrow.vector.compression.CompressionUtil;
+import org.apache.arrow.vector.dictionary.Dictionary;
 import org.apache.arrow.vector.dictionary.DictionaryProvider;
 import org.apache.arrow.vector.ipc.message.ArrowBlock;
 import org.apache.arrow.vector.ipc.message.ArrowDictionaryBatch;
@@ -50,6 +52,7 @@ public class ArrowFileWriter extends ArrowWriter {
   private final List<ArrowBlock> recordBlocks = new ArrayList<>();
 
   private Map<String, String> metaData;
+  private boolean dictionariesWritten = false;
 
   public ArrowFileWriter(VectorSchemaRoot root, DictionaryProvider provider, WritableByteChannel out) {
     super(root, provider, out);
@@ -121,6 +124,21 @@ public class ArrowFileWriter extends ArrowWriter {
     LOGGER.debug("Footer starts at {}, length: {}", footerStart, footerLength);
     ArrowMagic.writeMagic(out, false);
     LOGGER.debug("magic written, now at {}", out.getCurrentPosition());
+  }
+
+  @Override
+  protected void ensureDictionariesWritten(DictionaryProvider provider, Set<Long> dictionaryIdsUsed)
+      throws IOException {
+    if (dictionariesWritten) {
+      return;
+    }
+    dictionariesWritten = true;
+    // Write out all dictionaries required.
+    // Replacement dictionaries are not supported in the IPC file format.
+    for (long id : dictionaryIdsUsed) {
+      Dictionary dictionary = provider.lookup(id);
+      writeDictionaryBatch(dictionary);
+    }
   }
 
   @VisibleForTesting

@@ -148,6 +148,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #'    such as "localhost:9000". This is useful for connecting to file systems
 #'    that emulate S3.
 #' - `scheme`: S3 connection transport (default "https")
+#' - `proxy_options`: optional string, URI of a proxy to use when connecting
+#'    to S3
 #' - `background_writes`: logical, whether `OutputStream` writes will be issued
 #'    in the background, without blocking (default `TRUE`)
 #' - `allow_bucket_creation`: logical, if TRUE, the filesystem will create
@@ -179,9 +181,17 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `retry_limit_seconds`: the maximum amount of time to spend retrying if
 #'   the filesystem encounters errors. Default is 15 seconds.
 #' - `default_metadata`: default metadata to write in new objects.
+#' - `project_id`: the project to use for creating buckets.
 #'
 #' @section Methods:
 #'
+#' - `path(x)`: Create a `SubTreeFileSystem` from the current `FileSystem`
+#'   rooted at the specified path `x`.
+#' - `cd(x)`: Create a `SubTreeFileSystem` from the current `FileSystem`
+#'    rooted at the specified path `x`.
+#' - `ls(path, ...)`: List files or objects at the given path or from the root
+#'    of the `FileSystem` if `path` is not provided. Additional arguments passed
+#'    to `FileSelector$create`, see [FileSelector][FileSelector].
 #' - `$GetFileInfo(x)`: `x` may be a [FileSelector][FileSelector] or a character
 #'    vector of paths. Returns a list of [FileInfo][FileInfo]
 #' - `$CreateDir(path, recursive = TRUE)`: Create a directory and subdirectories.
@@ -217,6 +227,8 @@ FileSelector$create <- function(base_dir, allow_not_found = FALSE, recursive = F
 #' - `$base_fs`: for `SubTreeFileSystem`, the `FileSystem` it contains
 #' - `$base_path`: for `SubTreeFileSystem`, the path in `$base_fs` which is considered
 #'    root in this `SubTreeFileSystem`.
+#' - `$options`: for `GcsFileSystem`, the options used to create the
+#'    `GcsFileSystem` instance as a `list`
 #'
 #' @section Notes:
 #'
@@ -551,7 +563,7 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 
   valid_opts <- c(
     "access_token", "expiration", "json_credentials", "endpoint_override",
-    "scheme", "default_bucket_location", "default_metadata"
+    "scheme", "default_bucket_location", "default_metadata", "project_id"
   )
 
   invalid_opts <- setdiff(names(options), valid_opts)

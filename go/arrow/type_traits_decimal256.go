@@ -20,8 +20,8 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/endian"
 )
 
 // Decimal256 traits
@@ -46,25 +46,13 @@ func (decimal256Traits) PutValue(b []byte, v decimal256.Num) {
 func (decimal256Traits) CastFromBytes(b []byte) []decimal256.Num {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []decimal256.Num
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&res))
-	s.Data = h.Data
-	s.Len = h.Len / Decimal256SizeBytes
-	s.Cap = h.Cap / Decimal256SizeBytes
-
-	return res
+	return unsafe.Slice((*decimal256.Num)(unsafe.Pointer(h.Data)), cap(b)/Decimal256SizeBytes)[:len(b)/Decimal256SizeBytes]
 }
 
 func (decimal256Traits) CastToBytes(b []decimal256.Num) []byte {
 	h := (*reflect.SliceHeader)(unsafe.Pointer(&b))
 
-	var res []byte
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&b))
-	s.Data = h.Data
-	s.Len = h.Len * Decimal256SizeBytes
-	s.Cap = h.Cap * Decimal256SizeBytes
-
-	return res
+	return unsafe.Slice((*byte)(unsafe.Pointer(h.Data)), cap(b)*Decimal256SizeBytes)[:len(b)*Decimal256SizeBytes]
 }
 
 func (decimal256Traits) Copy(dst, src []decimal256.Num) { copy(dst, src) }

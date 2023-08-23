@@ -57,6 +57,7 @@ enum class FlightMethod : char {
   DoAction = 7,
   ListActions = 8,
   DoExchange = 9,
+  PollFlightInfo = 10,
 };
 
 /// \brief Get a human-readable name for a Flight method.

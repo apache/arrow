@@ -22,8 +22,7 @@
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/key_metadata.h"
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 FileKeyUnwrapper::FileKeyUnwrapper(
     KeyToolkit* key_toolkit, const KmsConnectionConfig& kms_connection_config,
@@ -136,5 +135,4 @@ std::shared_ptr<KmsClient> FileKeyUnwrapper::GetKmsClientFromConfigOrKeyMaterial
                                     cache_entry_lifetime_seconds_);
 }
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

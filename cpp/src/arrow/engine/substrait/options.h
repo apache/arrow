@@ -107,7 +107,7 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
         named_table_provider(kDefaultNamedTableProvider),
         named_tap_provider(default_named_tap_provider()),
         extension_provider(default_extension_provider()),
-        allow_arrow_extensions(true) {}
+        allow_arrow_extensions(false) {}
 
   /// \brief How strictly the converter should adhere to the structure of the input.
   ConversionStrictness strictness;
@@ -124,7 +124,7 @@ struct ARROW_ENGINE_EXPORT ConversionOptions {
   ///
   /// The default behavior will provide for relations known to Arrow.
   std::shared_ptr<ExtensionProvider> extension_provider;
-  /// \brief If true, when serializing, Arrow-specific types and functions will be allowed
+  /// \brief If true then Arrow-specific types and functions will be allowed
   ///
   /// Set to false to create plans that are more likely to be compatible with non-Arrow
   /// engines

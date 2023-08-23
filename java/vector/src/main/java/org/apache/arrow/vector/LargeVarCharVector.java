@@ -37,7 +37,6 @@ import org.apache.arrow.vector.util.TransferPair;
  * </p>
  */
 public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
-  private final FieldReader reader;
 
   /**
    * Instantiate a LargeVarCharVector. This doesn't allocate any memory for
@@ -69,16 +68,11 @@ public final class LargeVarCharVector extends BaseLargeVariableWidthVector {
    */
   public LargeVarCharVector(Field field, BufferAllocator allocator) {
     super(field, allocator);
-    reader = new LargeVarCharReaderImpl(LargeVarCharVector.this);
   }
 
-  /**
-   * Get a reader that supports reading values from this vector.
-   * @return Field Reader for this vector
-   */
   @Override
-  public FieldReader getReader() {
-    return reader;
+  protected FieldReader getReaderImpl() {
+    return new LargeVarCharReaderImpl(LargeVarCharVector.this);
   }
 
   /**

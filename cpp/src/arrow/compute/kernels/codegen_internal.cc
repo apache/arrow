@@ -250,7 +250,7 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
   const std::string* timezone = nullptr;
   bool saw_date32 = false;
   bool saw_date64 = false;
-
+  bool saw_duration = false;
   const TypeHolder* end = begin + count;
   for (auto it = begin; it != end; it++) {
     auto id = it->type->id();
@@ -271,6 +271,12 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
         finest_unit = std::max(finest_unit, ty.unit());
         continue;
       }
+      case Type::DURATION: {
+        const auto& ty = checked_cast<const DurationType&>(*it->type);
+        finest_unit = std::max(finest_unit, ty.unit());
+        saw_duration = true;
+        continue;
+      }
       default:
         return TypeHolder(nullptr);
     }
@@ -283,6 +289,8 @@ TypeHolder CommonTemporal(const TypeHolder* begin, size_t count) {
     return date64();
   } else if (saw_date32) {
     return date32();
+  } else if (saw_duration) {
+    return duration(finest_unit);
   }
   return TypeHolder(nullptr);
 }
@@ -480,6 +488,21 @@ bool HasDecimal(const std::vector<TypeHolder>& types) {
     }
   }
   return false;
+}
+
+void PromoteIntegerForDurationArithmetic(std::vector<TypeHolder>* types) {
+  bool has_duration = std::any_of(types->begin(), types->end(), [](const TypeHolder& t) {
+    return t.id() == Type::DURATION;
+  });
+
+  if (!has_duration) return;
+
+  // Require implicit casts to int64 to match duration's bit width
+  for (auto& type : *types) {
+    if (is_integer(type.id())) {
+      type = int64();
+    }
+  }
 }
 
 }  // namespace internal

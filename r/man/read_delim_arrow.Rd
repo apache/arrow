@@ -128,7 +128,7 @@ parsing options provided in other arguments (e.g. \code{delim}, \code{quote}, et
 
 \item{read_options}{see \link[=CsvReadOptions]{file reader options}}
 
-\item{as_data_frame}{Should the function return a \code{data.frame} (default) or
+\item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
 
 \item{timestamp_parsers}{User-defined timestamp parsers. If more than one
@@ -141,10 +141,10 @@ starting from the beginning of this vector. Possible values are:
 }}
 }
 \value{
-A \code{data.frame}, or a Table if \code{as_data_frame = FALSE}.
+A \code{tibble}, or a Table if \code{as_data_frame = FALSE}.
 }
 \description{
-These functions uses the Arrow C++ CSV reader to read into a \code{data.frame}.
+These functions uses the Arrow C++ CSV reader to read into a \code{tibble}.
 Arrow C++ options have been mapped to argument names that follow those of
 \code{readr::read_delim()}, and \code{col_select} was inspired by \code{vroom::vroom()}.
 }
