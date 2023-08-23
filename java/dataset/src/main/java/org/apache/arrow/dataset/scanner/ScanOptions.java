@@ -98,7 +98,9 @@ public class ScanOptions {
     }
 
     /**
-     * Define binary extended expression message for projects new columns or applies filter.
+     * Set the Substrait extended expression.
+     *
+     * <p>Can be used to filter data and/or project new columns.
      *
      * @param columnsProduceOrFilter (Optional) Expressions to evaluate to projects new columns or applies filter.
      * @return the ScanOptions configured.

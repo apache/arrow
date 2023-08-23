@@ -489,7 +489,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     for(arrow::engine::NamedExpression named_expression : bounded_expression.named_expressions) {
       if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
         if (filter_count > 0) {
-          JniThrow("The process only support one filter expression declared");
+          JniThrow("Only one filter expression may be provided");
         }
         filter_expr = named_expression.expression;
         filter_count++;
