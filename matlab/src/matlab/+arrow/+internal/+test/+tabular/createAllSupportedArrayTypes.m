@@ -1,5 +1,7 @@
-%CREATESUPPORTEDARRAYS Creates a MATLAB cell array containing all the
-%concrete subclasses of arrow.array.Array.
+%CREATEALLSUPPORTEDARRAYTYPES Creates a MATLAB cell array containing all 
+%the concrete subclasses of arrow.array.Array. Returns a cell array
+%containing the MATLAB data from which the arrow arrays were generated
+%as second output argument.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
