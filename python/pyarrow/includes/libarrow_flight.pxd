@@ -382,6 +382,9 @@ cdef extern from "arrow/flight/api.h" namespace "arrow" nogil:
         CResult[unique_ptr[CFlightClient]] Connect(const CLocation& location,
                                                    const CFlightClientOptions& options)
 
+        c_bool supports_async()
+        CStatus CheckAsyncSupport()
+
         CStatus Authenticate(CFlightCallOptions& options,
                              unique_ptr[CClientAuthHandler] auth_handler)
 

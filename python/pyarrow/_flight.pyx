@@ -1386,7 +1386,12 @@ cdef class FlightClient(_Weakrefable):
             check_flight_status(CFlightClient.Connect(c_location, c_options
                                                       ).Value(&self.client))
 
+    @property
+    def supports_async(self):
+        return self.client.get().supports_async()
+
     def as_async(self) -> None:
+        check_status(self.client.get().CheckAsyncSupport())
         return AsyncioFlightClient(self)
 
     def wait_for_available(self, timeout=5):

@@ -43,11 +43,34 @@ class ExampleServer(flight.FlightServerBase):
         raise NotImplementedError("Unknown descriptor")
 
 
+def async_or_skip(client):
+    if not client.supports_async:
+        # Use async error message as skip message
+        with pytest.raises(NotImplementedError) as e:
+            client.as_async()
+        pytest.skip(str(e.value))
+
+
 @pytest.fixture(scope="module")
-def async_client():
+def flight_client():
     with ExampleServer() as server:
         with flight.connect(f"grpc://localhost:{server.port}") as client:
-            yield client.as_async()
+            yield client
+
+
+@pytest.fixture(scope="module")
+def async_client(flight_client):
+    async_or_skip(flight_client)
+    yield flight_client.as_async()
+
+
+def test_async_support_property(flight_client):
+    assert isinstance(flight_client.supports_async, bool)
+    if flight_client.supports_async:
+        flight_client.as_async()
+    else:
+        with pytest.raises(NotImplementedError):
+            flight_client.as_async()
 
 
 def test_get_flight_info(async_client):
