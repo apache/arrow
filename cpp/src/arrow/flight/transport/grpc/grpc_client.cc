@@ -1034,16 +1034,17 @@ class GrpcClientImpl : public internal::ClientTransport {
         ->StartCall();
   }
 
-  bool supports_async() const override { return true; }
+  Status CheckAsyncSupport() const override { return Status::OK(); }
 #else
   void GetFlightInfoAsync(const FlightCallOptions& options,
                           const FlightDescriptor& descriptor,
                           std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
-    listener->OnFinish(
-        Status::NotImplemented("gRPC 1.40 or newer is required to use async"));
+    listener->OnFinish(CheckAsyncSupport());
   }
 
-  bool supports_async() const override { return false; }
+  Status CheckAsyncSupport() const override {
+    return Status::NotImplemented("gRPC 1.40 or newer is required to use async");
+  }
 #endif
 
  private:

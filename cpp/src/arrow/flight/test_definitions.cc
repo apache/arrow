@@ -1832,7 +1832,9 @@ void AsyncClientTest::SetUpTest() {
   ASSERT_OK_AND_ASSIGN(client_, FlightClient::Connect(real_location, client_options));
 
   ASSERT_TRUE(client_->supports_async());
+  ASSERT_OK(client_->CheckAsyncSupport());
 }
+
 void AsyncClientTest::TearDownTest() {
   if (supports_async()) {
     ASSERT_OK(client_->Close());
