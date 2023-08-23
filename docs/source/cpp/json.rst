@@ -49,7 +49,6 @@ the output table.
 
    {
       // ...
-      arrow::Status st;
       arrow::MemoryPool* pool = default_memory_pool();
       std::shared_ptr<arrow::io::InputStream> input = ...;
 
@@ -57,20 +56,19 @@ the output table.
       auto parse_options = arrow::json::ParseOptions::Defaults();
 
       // Instantiate TableReader from input stream and options
-      std::shared_ptr<arrow::json::TableReader> reader;
-      st = arrow::json::TableReader::Make(pool, input, read_options,
-                                          parse_options, &reader);
-      if (!st.ok()) {
+      auto maybe_reader = arrow::json::TableReader::Make(pool, input, read_options, parse_options);
+      if (!maybe_reader.ok()) {
          // Handle TableReader instantiation error...
       }
+      auto reader = *maybe_reader;
 
-      std::shared_ptr<arrow::Table> table;
       // Read table from JSON file
-      st = reader->Read(&table);
-      if (!st.ok()) {
+      auto maybe_table = reader->Read();
+      if (!maybe_table.ok()) {
          // Handle JSON read error
          // (for example a JSON syntax error or failed type conversion)
       }
+      auto table = *maybe_table;
    }
 
 StreamingReader
