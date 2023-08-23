@@ -16,15 +16,12 @@
 // under the License.
 
 #include "arrow/matlab/type/proxy/date32_type.h"
-#include "arrow/matlab/error/error.h"
-#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::type::proxy {
 
     Date32Type::Date32Type(std::shared_ptr<arrow::Date32Type> date32_type) : DateType(std::move(date32_type)) {}
 
     libmexclass::proxy::MakeResult Date32Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        namespace mda = ::matlab::data;
         using Date32TypeProxy = arrow::matlab::type::proxy::Date32Type;
 
         const auto type = arrow::date32();
