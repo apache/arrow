@@ -2327,6 +2327,88 @@ TEST(Cast, FSLToFSLOptionsPassThru) {
   CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
 }
 
+void CheckCastList(const std::shared_ptr<DataType>& from_type,
+                   const std::shared_ptr<DataType>& to_type,
+                   const std::string& json_data) {
+  CheckCast(ArrayFromJSON(from_type, json_data), ArrayFromJSON(to_type, json_data));
+}
+
+TEST(Cast, FSLToList) {
+  CheckCastList(fixed_size_list(int16(), 2), list(int16()),
+                "[[0, 1], [2, 3], [null, 5], null]");
+  // Large variant
+  CheckCastList(fixed_size_list(int16(), 2), large_list(int16()),
+                "[[0, 1], [2, 3], [null, 5], null]");
+  // Different child types
+  CheckCastList(fixed_size_list(int16(), 2), list(int32()),
+                "[[0, 1], [2, 3], [null, 5], null]");
+  // No nulls
+  CheckCastList(fixed_size_list(int16(), 2), list(int32()), "[[0, 1], [2, 3], [4, 5]]");
+  // Nested lists
+  CheckCastList(fixed_size_list(list(int16()), 2), list(list(int32())),
+                "[[[0, 1], [2, 3]], [[4, 5], null]]");
+  // Sliced children (top-level slicing handled in CheckCast)
+  auto children_src = ArrayFromJSON(int32(), "[1, 2, null, 4, 5, null]");
+  children_src = children_src->Slice(2);
+  auto from =
+      std::make_shared<FixedSizeListArray>(fixed_size_list(int32(), 2), 2, children_src);
+  auto to = ArrayFromJSON(list(int32()), "[[null, 4], [5, null]]");
+  CheckCast(from, to);
+  // Options pass through
+  auto fsl_int32 = ArrayFromJSON(fixed_size_list(int32(), 1), "[[87654321]]");
+  auto options = CastOptions::Safe(list(int16()));
+  CheckCastFails(fsl_int32, options);
+  options.allow_int_overflow = true;
+  CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+}
+
+TEST(Cast, ListToFSL) {
+  CheckCastList(list(int16()), fixed_size_list(int16(), 2),
+                "[[0, 1], [2, 3], null, [null, 5], null]");
+  // Large variant
+  CheckCastList(large_list(int16()), fixed_size_list(int16(), 2),
+                "[[0, 1], [2, 3], null, [null, 5], null]");
+  // Different child types
+  CheckCastList(list(int32()), fixed_size_list(int16(), 2),
+                "[[0, 1], [2, 3], null, [null, 5], null]");
+  // No nulls
+  CheckCastList(list(int32()), fixed_size_list(int16(), 2), "[[0, 1], [2, 3], [4, 5]]");
+  // Nested lists
+  CheckCastList(list(list(int32())), fixed_size_list(list(int16()), 2),
+                "[[[0, 1], [2, 3]], [[4, 5], null]]");
+  // Sliced children (top-level slicing handled in CheckCast)
+  {
+    auto children_src = ArrayFromJSON(int32(), "[1, 2, null, 4, 5, null]");
+    children_src = children_src->Slice(2);
+    ASSERT_OK_AND_ASSIGN(
+        auto from,
+        ListArray::FromArrays(*ArrayFromJSON(int32(), "[0, 2, 4]"), *children_src));
+    auto to = ArrayFromJSON(fixed_size_list(int32(), 2), "[[null, 4], [5, null]]");
+    CheckCast(from, to);
+  }
+
+  // Null slots with non-zero size
+  {
+    auto from = MaskArrayWithNullsAt(
+        ArrayFromJSON(list(int32()), "[[0, 1], [2, 3], [4, 5], [6, 7], [8, 9]]"),
+        {1, 2, 4});
+    auto to =
+        ArrayFromJSON(fixed_size_list(int32(), 2), "[[0, 1], null, null, [6, 7], null]");
+    CheckCast(from, to);
+  }
+
+  // Options pass through
+  auto fsl_int32 = ArrayFromJSON(fixed_size_list(int32(), 1), "[[87654321]]");
+  auto options = CastOptions::Safe(list(int16()));
+  CheckCastFails(fsl_int32, options);
+  options.allow_int_overflow = true;
+  CheckCast(fsl_int32, ArrayFromJSON(fixed_size_list(int16(), 1), "[[32689]]"), options);
+
+  // Invalid fixed_size_list cast if inconsistent size
+  ASSERT_RAISES(Invalid, Cast(ArrayFromJSON(list(int32()), "[[0, 1, 2], null, [3, 4]]"),
+                              CastOptions::Safe(fixed_size_list(int32(), 3))));
+}
+
 TEST(Cast, CastMap) {
   const std::string map_json =
       "[[[\"x\", 1], [\"y\", 8], [\"z\", 9]], [[\"x\", 6]], [[\"y\", 36]]]";
