@@ -257,6 +257,7 @@ import {
     Int,
     Date_,
     Interval,
+    Duration,
     Time,
     Timestamp,
     Union, DenseUnion, SparseUnion,
@@ -390,6 +391,13 @@ class MakeDataVisitor extends Visitor {
         const { ['length']: length = data.length / strideForType(type), ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
         return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
     }
+    public visitDuration<T extends Duration>(props: DurationDataProps<T>) {
+        const { ['type']: type, ['offset']: offset = 0 } = props;
+        const nullBitmap = toUint8Array(props['nullBitmap']);
+        const data = toArrayBufferView(type.ArrayType, props['data']);
+        const { ['length']: length = data.length, ['nullCount']: nullCount = props['nullBitmap'] ? -1 : 0, } = props;
+        return new Data(type, offset, length, nullCount, [undefined, data, nullBitmap]);
+    }
     public visitFixedSizeList<T extends FixedSizeList>(props: FixedSizeListDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0, ['child']: child = new MakeDataVisitor().visit({ type: type.valueType }) } = props;
         const nullBitmap = toUint8Array(props['nullBitmap']);
@@ -424,6 +432,7 @@ interface Date_DataProps<T extends Date_> extends DataProps_<T> { data?: DataBuf
 interface TimeDataProps<T extends Time> extends DataProps_<T> { data?: DataBuffer<T> }
 interface TimestampDataProps<T extends Timestamp> extends DataProps_<T> { data?: DataBuffer<T> }
 interface IntervalDataProps<T extends Interval> extends DataProps_<T> { data?: DataBuffer<T> }
+interface DurationDataProps<T extends Duration> extends DataProps_<T> { data?: DataBuffer<T> }
 interface FixedSizeBinaryDataProps<T extends FixedSizeBinary> extends DataProps_<T> { data?: DataBuffer<T> }
 interface BinaryDataProps<T extends Binary> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
 interface Utf8DataProps<T extends Utf8> extends DataProps_<T> { valueOffsets: ValueOffsetsBuffer; data?: DataBuffer<T> }
@@ -446,6 +455,7 @@ export type DataProps<T extends DataType> = (
     T extends Time /*            */ ? TimeDataProps<T> :
     T extends Timestamp /*       */ ? TimestampDataProps<T> :
     T extends Interval /*        */ ? IntervalDataProps<T> :
+    T extends Duration /*        */ ? DurationDataProps<T> :
     T extends FixedSizeBinary /* */ ? FixedSizeBinaryDataProps<T> :
     T extends Binary /*          */ ? BinaryDataProps<T> :
     T extends Utf8 /*            */ ? Utf8DataProps<T> :
@@ -471,6 +481,7 @@ export function makeData<T extends Date_>(props: Date_DataProps<T>): Data<T>;
 export function makeData<T extends Time>(props: TimeDataProps<T>): Data<T>;
 export function makeData<T extends Timestamp>(props: TimestampDataProps<T>): Data<T>;
 export function makeData<T extends Interval>(props: IntervalDataProps<T>): Data<T>;
+export function makeData<T extends Duration>(props: DurationDataProps<T>): Data<T>;
 export function makeData<T extends FixedSizeBinary>(props: FixedSizeBinaryDataProps<T>): Data<T>;
 export function makeData<T extends Binary>(props: BinaryDataProps<T>): Data<T>;
 export function makeData<T extends Utf8>(props: Utf8DataProps<T>): Data<T>;

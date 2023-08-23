@@ -115,6 +115,9 @@ export class VectorLoader extends Visitor {
     public visitInterval<T extends type.Interval>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
     }
+    public visitDuration<T extends type.Duration>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type) });
+    }
     public visitFixedSizeList<T extends type.FixedSizeList>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), 'child': this.visit(type.children[0]) });
     }
