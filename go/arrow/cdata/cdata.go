@@ -516,7 +516,7 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		}
 
 		children := []arrow.ArrayData{imp.children[0].data, imp.children[1].data}
-		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nil}, children, int(imp.arr.null_count), int(imp.arr.offset))
+		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{}, children, int(imp.arr.null_count), int(imp.arr.offset))
 	case *arrow.DenseUnionType:
 		if err := imp.checkNoNulls(); err != nil {
 			return err

@@ -72,7 +72,6 @@ import (
 
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/apache/arrow/go/v14/arrow/array"
-	"github.com/apache/arrow/go/v14/arrow/internal"
 )
 
 const (
@@ -285,11 +284,11 @@ func createCArr(arr arrow.Array) *CArrowArray {
 	carr.offset = C.int64_t(arr.Data().Offset())
 	carr.release = (*[0]byte)(C.release_test_arr)
 
-	if !arrow.IsUnion(arr.DataType().ID()) && !internal.DefaultHasValidityBitmap(arr.DataType().ID()) {
+	buffers := arr.Data().Buffers()
+	if len(buffers) == 0 {
 		return carr
 	}
 
-	buffers := arr.Data().Buffers()
 	cbufs := allocateBufferPtrArr(len(buffers))
 	for i, b := range buffers {
 		if b != nil {
