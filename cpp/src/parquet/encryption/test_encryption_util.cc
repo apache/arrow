@@ -19,6 +19,7 @@
 // Parquet column chunk within a row group. It could be extended in the future
 // to iterate through all data pages in all chunks in a file.
 
+#include <numeric>
 #include <sstream>
 
 #include "arrow/io/file.h"
