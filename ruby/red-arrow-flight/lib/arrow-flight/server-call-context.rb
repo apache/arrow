@@ -15,20 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ArrowFlightSQL
-  class Client
-    alias_method :prepare_raw, :prepare
-    def prepare(query, options=nil)
-      statement = prepare_raw(query, options)
-      if block_given?
-        begin
-          yield(statement)
-        ensure
-          statement.close(options) unless statement.closed?
-        end
-      else
-        statement
+module ArrowFlight
+  class ServerCallContext
+    def each_incoming_header
+      return to_enum(__method__) unless block_given?
+      foreach_incoming_header do |key, value|
+        yield(key, value)
       end
+    end
+
+    def incoming_headers
+      each_incoming_header.to_a
     end
   end
 end
