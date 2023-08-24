@@ -228,7 +228,7 @@ TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
 
   CUevent event;
   ASSERT_CUDA_OK(cuEventCreate(&event, CU_EVENT_DEFAULT));
-  ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(event));
+  ASSERT_CUDA_OK(cuEventQuery(event));
 
   {
     // wrap event with no-op destructor
@@ -237,15 +237,14 @@ TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
     // verify it's the same event we passed in
     ASSERT_EQ(ev->get_raw(), &event);
     auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);
-    ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(*cuda_ev));
+    ASSERT_CUDA_OK(cuEventQuery(*cuda_ev));
   }
 
   // verify that the event is still valid on the device when the shared_ptr
   // goes away since we didn't give it ownership.
-  ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(event));
+  ASSERT_CUDA_OK(cuEventQuery(event));
   ASSERT_CUDA_OK(cuEventDestroy(event));
 }
-
 
 TEST_F(TestCudaDevice, DefaultStream) {
   CudaDevice::Stream stream{context_};
@@ -255,6 +254,26 @@ TEST_F(TestCudaDevice, DefaultStream) {
   ASSERT_OK(stream.WaitEvent(*ev));
   ASSERT_OK(ev->Wait());
   ASSERT_OK(stream.Synchronize());
+}
+
+TEST_F(TestCudaDevice, ExplicitStream) {
+  // need a context to call cuEventCreate
+  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
+  
+  CUstream cu_stream;
+  ASSERT_CUDA_OK(cuStreamCreate(&cu_stream, CU_STREAM_NON_BLOCKING));
+
+  {
+    CudaDevice::Stream stream(context_, cu_stream);
+    ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
+
+    ASSERT_OK(ev->Record(stream));
+    ASSERT_OK(stream.WaitEvent(*ev));
+    ASSERT_OK(ev->Wait());
+    ASSERT_OK(stream.Synchronize());
+  }
+
+  ASSERT_CUDA_OK(cuStreamDestroy(cu_stream));
 }
 
 // ------------------------------------------------------------------------
