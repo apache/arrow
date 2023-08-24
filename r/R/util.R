@@ -223,7 +223,7 @@ handle_augmented_field_misuse <- function(msg, call) {
       msg,
       i = paste(
         "`add_filename()` or use of the `__filename` augmented field can only",
-        "be used with with Dataset objects, and can only be added before doing",
+        "be used with Dataset objects, and can only be added before doing",
         "an aggregation or a join."
       )
     )
