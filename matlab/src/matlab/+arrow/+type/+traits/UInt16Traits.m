@@ -20,7 +20,7 @@ classdef UInt16Traits < arrow.type.traits.TypeTraits
         ArrayClassName = "arrow.array.UInt16Array"
         ArrayProxyClassName = "arrow.array.proxy.UInt16Array"
         ArrayStaticConstructor = @arrow.array.UInt16Array.fromMATLAB
-        TypeConstructor = @arrow.type.UInt16Type;
+        TypeConstructor = @arrow.type.UInt16Type
         TypeClassName = "arrow.type.UInt16Type"
         TypeProxyClassName = "arrow.type.proxy.UInt16Type"
         MatlabConstructor = @uint16
