@@ -81,7 +81,7 @@ function buffersFromJSON(xs: any[], buffers: BufferRegion[] = []): BufferRegion[
     for (let i = -1, n = (xs || []).length; ++i < n;) {
         const column = xs[i];
         column['VALIDITY'] && buffers.push(new BufferRegion(buffers.length, column['VALIDITY'].length));
-        column['TYPE'] && buffers.push(new BufferRegion(buffers.length, column['TYPE'].length));
+        column['TYPE_ID'] && buffers.push(new BufferRegion(buffers.length, column['TYPE_ID'].length));
         column['OFFSET'] && buffers.push(new BufferRegion(buffers.length, column['OFFSET'].length));
         column['DATA'] && buffers.push(new BufferRegion(buffers.length, column['DATA'].length));
         buffers = buffersFromJSON(column['children'], buffers);
@@ -187,7 +187,9 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
         }
         case 'union': {
             const t = f['type'];
-            return new Union(UnionMode[t['mode']] as any, (t['typeIds'] || []), children || []);
+            const [m, ...ms] = (t['mode'] + '').toLowerCase();
+            const mode = (m.toUpperCase() + ms.join("")) as keyof typeof UnionMode;
+            return new Union(UnionMode[mode] as any, (t['typeIds'] || []), children || []);
         }
         case 'fixedsizebinary': {
             const t = f['type'];
