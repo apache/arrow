@@ -21,7 +21,6 @@ from functools import partial
 import datetime
 import sys
 
-import pickle
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
@@ -790,10 +789,10 @@ def test_types_hashable():
         assert in_dict[type_] == i
 
 
-def test_types_picklable():
+def test_types_picklable(pickle_module):
     for ty in get_many_types():
-        data = pickle.dumps(ty)
-        assert pickle.loads(data) == ty
+        data = pickle_module.dumps(ty)
+        assert pickle_module.loads(data) == ty
 
 
 def test_types_weakref():
@@ -1193,9 +1192,9 @@ def test_is_boolean_value():
 @h.example(
     pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
 )
-def test_pickling(field):
-    data = pickle.dumps(field)
-    assert pickle.loads(data) == field
+def test_pickling(pickle_module, field):
+    data = pickle_module.dumps(field)
+    assert pickle_module.loads(data) == field
 
 
 @h.given(

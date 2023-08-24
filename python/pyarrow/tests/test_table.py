@@ -17,7 +17,6 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
-import pickle
 import sys
 import weakref
 
@@ -301,14 +300,14 @@ def test_chunked_array_equals():
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
 )
-def test_chunked_array_pickle(data, typ):
+def test_chunked_array_pickle(data, typ, pickle_module):
     arrays = []
     while data:
         arrays.append(pa.array(data[:2], type=typ))
         data = data[2:]
     array = pa.chunked_array(arrays, type=typ)
     array.validate()
-    result = pickle.loads(pickle.dumps(array))
+    result = pickle_module.loads(pickle_module.dumps(array))
     result.validate()
     assert result.equals(array)
 
@@ -663,7 +662,7 @@ def test_recordbatch_empty_metadata():
     assert batch.schema.metadata is None
 
 
-def test_recordbatch_pickle():
+def test_recordbatch_pickle(pickle_module):
     data = [
         pa.array(range(5), type='int8'),
         pa.array([-10, -5, 0, 5, 10], type='float32')
@@ -675,7 +674,7 @@ def test_recordbatch_pickle():
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(batch))
+    result = pickle_module.loads(pickle_module.dumps(batch))
     assert result.equals(batch)
     assert result.schema == schema
 
@@ -1022,7 +1021,7 @@ def test_table_from_lists():
     assert result.equals(expected)
 
 
-def test_table_pickle():
+def test_table_pickle(pickle_module):
     data = [
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
         pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),
@@ -1032,7 +1031,7 @@ def test_table_pickle():
                        metadata={b'foo': b'bar'})
     table = pa.Table.from_arrays(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(table))
+    result = pickle_module.loads(pickle_module.dumps(table))
     result.validate()
     assert result.equals(table)
 
