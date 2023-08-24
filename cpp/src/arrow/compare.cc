@@ -788,10 +788,9 @@ class ScalarEqualsVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<(is_primitive_ctype<typename T::TypeClass>::value ||
-                           is_temporal_type<typename T::TypeClass>::value),
-                          Status>::type
-  Visit(const T& left_) {
+    requires is_primitive_ctype<typename T::TypeClass>::value ||
+             is_temporal_type<typename T::TypeClass>::value
+  Status Visit(const T& left_) {
     const auto& right = checked_cast<const T&>(right_);
     result_ = right.value == left_.value;
     return Status::OK();
@@ -802,8 +801,8 @@ class ScalarEqualsVisitor {
   Status Visit(const DoubleScalar& left) { return CompareFloating(left); }
 
   template <typename T>
-  typename std::enable_if<std::is_base_of<BaseBinaryScalar, T>::value, Status>::type
-  Visit(const T& left) {
+    requires std::is_base_of_v<BaseBinaryScalar, T>
+  Status Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();

@@ -724,11 +724,9 @@ inline std::shared_ptr<Scalar> MakeScalar(const std::shared_ptr<Scalar>& scalar)
 template <typename ValueRef>
 struct MakeScalarImpl {
   template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
-            typename ValueType = typename ScalarType::ValueType,
-            typename Enable = typename std::enable_if<
-                std::is_constructible<ScalarType, ValueType,
-                                      std::shared_ptr<DataType>>::value &&
-                std::is_convertible<ValueRef, ValueType>::value>::type>
+            typename ValueType = typename ScalarType::ValueType>
+    requires std::is_constructible_v<ScalarType, ValueType, std::shared_ptr<DataType>> &&
+             std::is_convertible_v<ValueRef, ValueType>
   Status Visit(const T& t) {
     ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
     // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`

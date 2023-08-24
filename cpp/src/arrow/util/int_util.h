@@ -74,14 +74,14 @@ ARROW_EXPORT
 void UpcastInts(const int32_t* source, int64_t* dest, int64_t length);
 
 template <typename InputInt, typename OutputInt>
-inline typename std::enable_if<(sizeof(InputInt) >= sizeof(OutputInt))>::type CastInts(
-    const InputInt* source, OutputInt* dest, int64_t length) {
+  requires(sizeof(InputInt) >= sizeof(OutputInt))
+inline void CastInts(const InputInt* source, OutputInt* dest, int64_t length) {
   DowncastInts(source, dest, length);
 }
 
 template <typename InputInt, typename OutputInt>
-inline typename std::enable_if<(sizeof(InputInt) < sizeof(OutputInt))>::type CastInts(
-    const InputInt* source, OutputInt* dest, int64_t length) {
+  requires(sizeof(InputInt) < sizeof(OutputInt))
+inline void CastInts(const InputInt* source, OutputInt* dest, int64_t length) {
   UpcastInts(source, dest, length);
 }
 
@@ -120,16 +120,14 @@ Status IntegersCanFit(const Scalar& value, const DataType& target_type);
 /// Upcast an integer to the largest possible width (currently 64 bits)
 
 template <typename Integer>
-typename std::enable_if<
-    std::is_integral<Integer>::value && std::is_signed<Integer>::value, int64_t>::type
-UpcastInt(Integer v) {
+  requires std::is_integral_v<Integer> && std::is_signed_v<Integer>
+int64_t UpcastInt(Integer v) {
   return v;
 }
 
 template <typename Integer>
-typename std::enable_if<
-    std::is_integral<Integer>::value && std::is_unsigned<Integer>::value, uint64_t>::type
-UpcastInt(Integer v) {
+  requires std::is_integral_v<Integer> && std::is_unsigned_v<Integer>
+uint64_t UpcastInt(Integer v) {
   return v;
 }
 

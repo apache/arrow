@@ -59,11 +59,9 @@ struct is_dereferencable<T, arrow::internal::void_t<decltype(*std::declval<T>())
     : public std::true_type {};
 
 template <typename T>
-struct is_optional_like<
-    T, typename std::enable_if<
-           std::is_constructible<bool, T>::value && is_dereferencable<T>::value &&
-           !std::is_array<typename std::remove_reference<T>::type>::value>::type>
-    : public std::true_type {};
+  requires std::is_constructible_v<bool, T> && is_dereferencable<T>::value &&
+           (!std::is_array_v<std::remove_reference_t<T>>)
+struct is_optional_like<T> : public std::true_type {};
 
 template <size_t N, typename Tuple>
 using BareTupleElement =
@@ -72,8 +70,8 @@ using BareTupleElement =
 }  // namespace internal
 
 template <typename T, typename R = void>
-using enable_if_optional_like =
-    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
+  requires internal::is_optional_like<T>::value
+using enable_if_optional_like = R;
 
 /// Traits meta class to map standard C/C++ types to equivalent Arrow types.
 template <typename T, typename Enable = void>

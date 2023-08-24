@@ -98,6 +98,8 @@ message(STATUS "Arrow SO version: ${ARROW_SO_VERSION} (full: ${ARROW_FULL_SO_VER
 set(ARROW_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 set(ARROW_BINARY_DIR ${PROJECT_BINARY_DIR})
 
+set(CMAKE_CXX_STANDARD 20)
+
 include(CMakePackageConfigHelpers)
 include(CMakeParseArguments)
 include(ExternalProject)
@@ -516,7 +518,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CXX_COMMON_FLAGS} ${ARROW_CXXFLAGS}")
 
 # Remove --std=c++17 to avoid errors from C compilers
-string(REPLACE "-std=c++17" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+string(REPLACE "-std=c++20" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 
 # Add C++-only flags, like -std=c++17
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")

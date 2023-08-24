@@ -356,11 +356,10 @@ class RecordBatchSerializer {
   Status Visit(const NullArray& array) { return Status::OK(); }
 
   template <typename T>
-  typename std::enable_if<is_number_type<typename T::TypeClass>::value ||
-                              is_temporal_type<typename T::TypeClass>::value ||
-                              is_fixed_size_binary_type<typename T::TypeClass>::value,
-                          Status>::type
-  Visit(const T& array) {
+    requires is_number_type<typename T::TypeClass>::value ||
+             is_temporal_type<typename T::TypeClass>::value ||
+             is_fixed_size_binary_type<typename T::TypeClass>::value
+  Status Visit(const T& array) {
     std::shared_ptr<Buffer> data = array.values();
 
     const int64_t type_width = array.type()->byte_width();

@@ -77,9 +77,8 @@ class ARROW_EXPORT GenericBasicDecimal {
       : GenericBasicDecimal(bit_util::little_endian::ToNative(array)) {}
 
   /// \brief Create a decimal from any integer not wider than 64 bits.
-  template <typename T,
-            typename = typename std::enable_if<
-                std::is_integral<T>::value && (sizeof(T) <= sizeof(uint64_t)), T>::type>
+  template <typename T>
+    requires std::is_integral_v<T> && (sizeof(T) <= sizeof(uint64_t))
   constexpr GenericBasicDecimal(T value) noexcept  // NOLINT(runtime/explicit)
       : array_(WordsFromLowBits(value)) {}
 

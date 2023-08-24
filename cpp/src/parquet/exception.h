@@ -140,11 +140,8 @@ class ParquetInvalidOrCorruptedFileException : public ParquetStatusException {
   ParquetInvalidOrCorruptedFileException(const ParquetInvalidOrCorruptedFileException&) =
       default;
 
-  template <typename Arg,
-            typename std::enable_if<
-                !std::is_base_of<ParquetInvalidOrCorruptedFileException, Arg>::value,
-                int>::type = 0,
-            typename... Args>
+  template <typename Arg, typename... Args>
+    requires(!std::is_base_of_v<ParquetInvalidOrCorruptedFileException, Arg>)
   explicit ParquetInvalidOrCorruptedFileException(Arg arg, Args&&... args)
       : ParquetStatusException(::arrow::Status::Invalid(std::forward<Arg>(arg),
                                                         std::forward<Args>(args)...)) {}

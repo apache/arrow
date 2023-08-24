@@ -128,8 +128,8 @@ struct ContinueFuture {
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
-  typename std::enable_if<std::is_void<ContinueResult>::value>::type operator()(
-      NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    requires std::is_void_v<ContinueResult>
+  void operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
     std::forward<ContinueFunc>(f)(std::forward<Args>(a)...);
     next.MarkFinished();
   }
@@ -143,10 +143,9 @@ struct ContinueFuture {
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
-  typename std::enable_if<
-      !std::is_void<ContinueResult>::value && !is_future<ContinueResult>::value &&
-      (!NextFuture::is_empty || std::is_same<ContinueResult, Status>::value)>::type
-  operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    requires(!std::is_void_v<ContinueResult>) && (!is_future<ContinueResult>::value) &&
+            (!NextFuture::is_empty || std::is_same_v<ContinueResult, Status>)
+  void operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
     next.MarkFinished(std::forward<ContinueFunc>(f)(std::forward<Args>(a)...));
   }
 
@@ -160,10 +159,10 @@ struct ContinueFuture {
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
-  typename std::enable_if<!std::is_void<ContinueResult>::value &&
-                          !is_future<ContinueResult>::value && NextFuture::is_empty &&
-                          !std::is_same<ContinueResult, Status>::value>::type
-  operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    requires(!std::is_void_v<ContinueResult>) &&
+            (!is_future<ContinueResult>::value) && NextFuture::is_empty &&
+            (!std::is_same_v<ContinueResult, Status>)
+  void operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
     next.MarkFinished(std::forward<ContinueFunc>(f)(std::forward<Args>(a)...).status());
   }
 
@@ -173,8 +172,8 @@ struct ContinueFuture {
   template <typename ContinueFunc, typename... Args,
             typename ContinueResult = result_of_t<ContinueFunc && (Args && ...)>,
             typename NextFuture = ForReturn<ContinueResult>>
-  typename std::enable_if<is_future<ContinueResult>::value>::type operator()(
-      NextFuture next, ContinueFunc&& f, Args&&... a) const {
+    requires is_future<ContinueResult>::value
+  void operator()(NextFuture next, ContinueFunc&& f, Args&&... a) const {
     ContinueResult signal_to_complete_next =
         std::forward<ContinueFunc>(f)(std::forward<Args>(a)...);
     MarkNextFinished<ContinueResult, NextFuture> callback{std::move(next)};
@@ -403,8 +402,8 @@ class [[nodiscard]] Future {
   void MarkFinished(Result<ValueType> res) { DoMarkFinished(std::move(res)); }
 
   /// \brief Mark a Future<> completed with the provided Status.
-  template <typename E = ValueType, typename = typename std::enable_if<
-                                        std::is_same<E, internal::Empty>::value>::type>
+  template <typename E = ValueType>
+    requires std::is_same_v<E, internal::Empty>
   void MarkFinished(Status s = Status::OK()) {
     return DoMarkFinished(E::ToResult(std::move(s)));
   }
@@ -429,8 +428,8 @@ class [[nodiscard]] Future {
   }
 
   /// \brief Make a finished Future<> with the provided Status.
-  template <typename E = ValueType, typename = typename std::enable_if<
-                                        std::is_same<E, internal::Empty>::value>::type>
+  template <typename E = ValueType>
+    requires std::is_same_v<E, internal::Empty>
   static Future<> MakeFinished(Status s = Status::OK()) {
     return MakeFinished(E::ToResult(std::move(s)));
   }

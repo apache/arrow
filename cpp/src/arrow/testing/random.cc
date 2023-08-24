@@ -74,14 +74,14 @@ struct GenerateOptions {
   }
 
   template <typename V>
-  typename std::enable_if<!std::is_floating_point<V>::value>::type GenerateTypedData(
-      V* data, size_t n) {
+    requires(!std::is_floating_point_v<V>)
+  void GenerateTypedData(V* data, size_t n) {
     GenerateTypedDataNoNan(data, n);
   }
 
   template <typename V>
-  typename std::enable_if<std::is_floating_point<V>::value>::type GenerateTypedData(
-      V* data, size_t n) {
+    requires std::is_floating_point_v<V>
+  void GenerateTypedData(V* data, size_t n) {
     if (nan_probability_ == 0.0) {
       GenerateTypedDataNoNan(data, n);
       return;

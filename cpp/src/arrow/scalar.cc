@@ -755,26 +755,22 @@ std::shared_ptr<Scalar> SparseUnionScalar::FromValue(std::shared_ptr<Scalar> val
 namespace {
 
 template <typename T>
-using scalar_constructor_has_arrow_type =
-    std::is_constructible<typename TypeTraits<T>::ScalarType, std::shared_ptr<DataType>>;
+concept scalar_constructor_has_arrow_type =
+    std::is_constructible_v<typename TypeTraits<T>::ScalarType,
+                            std::shared_ptr<DataType>>;
 
-template <typename T, typename R = void>
-using enable_if_scalar_constructor_has_arrow_type =
-    typename std::enable_if<scalar_constructor_has_arrow_type<T>::value, R>::type;
-
-template <typename T, typename R = void>
-using enable_if_scalar_constructor_has_no_arrow_type =
-    typename std::enable_if<!scalar_constructor_has_arrow_type<T>::value, R>::type;
 
 struct MakeNullImpl {
   template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
-  enable_if_scalar_constructor_has_arrow_type<T, Status> Visit(const T&) {
+    requires scalar_constructor_has_arrow_type<T>
+  Status Visit(const T&) {
     out_ = std::make_shared<ScalarType>(type_);
     return Status::OK();
   }
 
   template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType>
-  enable_if_scalar_constructor_has_no_arrow_type<T, Status> Visit(const T&) {
+    requires(!scalar_constructor_has_arrow_type<T>)
+  Status Visit(const T&) {
     out_ = std::make_shared<ScalarType>();
     return Status::OK();
   }
@@ -989,22 +985,20 @@ Status CastImpl(const BooleanScalar& from, NumericScalar<T>* to) {
 
 // numeric to temporal
 template <typename From, typename To>
-typename std::enable_if<std::is_base_of<TemporalType, To>::value &&
-                            !std::is_same<DayTimeIntervalType, To>::value &&
-                            !std::is_same<MonthDayNanoIntervalType, To>::value,
-                        Status>::type
-CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
+  requires std::is_base_of_v<TemporalType, To> &&
+           (!std::is_same_v<DayTimeIntervalType, To>) &&
+           (!std::is_same_v<MonthDayNanoIntervalType, To>)
+Status CastImpl(const NumericScalar<From>& from, TemporalScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
   return Status::OK();
 }
 
 // temporal to numeric
 template <typename From, typename To>
-typename std::enable_if<std::is_base_of<TemporalType, From>::value &&
-                            !std::is_same<DayTimeIntervalType, From>::value &&
-                            !std::is_same<MonthDayNanoIntervalType, From>::value,
-                        Status>::type
-CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
+  requires std::is_base_of_v<TemporalType, From> &&
+           (!std::is_same_v<DayTimeIntervalType, From>) &&
+           (!std::is_same_v<MonthDayNanoIntervalType, From>)
+Status CastImpl(const TemporalScalar<From>& from, NumericScalar<To>* to) {
   to->value = static_cast<typename To::c_type>(from.value);
   return Status::OK();
 }
@@ -1209,8 +1203,8 @@ struct FromTypeVisitor : CastImplVisitor {
 
   // identity cast only for parameter free types
   template <typename T1 = ToType>
-  typename std::enable_if_t<TypeTraits<T1>::is_parameter_free, Status> Visit(
-      const ToType&) {
+    requires TypeTraits<T1>::is_parameter_free
+  Status Visit(const ToType&) {
     checked_cast<ToScalar*>(out_)->value = checked_cast<const ToScalar&>(from_).value;
     return Status::OK();
   }

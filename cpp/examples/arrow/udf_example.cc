@@ -31,10 +31,9 @@
 
 namespace cp = ::arrow::compute;
 
-template <typename TYPE,
-          typename = typename std::enable_if<arrow::is_number_type<TYPE>::value |
-                                             arrow::is_boolean_type<TYPE>::value |
-                                             arrow::is_temporal_type<TYPE>::value>::type>
+template <typename TYPE>
+  requires arrow::is_number_type<TYPE>::value || arrow::is_boolean_type<TYPE>::value ||
+           arrow::is_temporal_type<TYPE>::value
 arrow::Result<std::shared_ptr<arrow::Array>> GetArrayDataSample(
     const std::vector<typename TYPE::c_type>& values) {
   using ArrowBuilderType = typename arrow::TypeTraits<TYPE>::BuilderType;

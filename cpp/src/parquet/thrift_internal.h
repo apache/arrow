@@ -166,8 +166,8 @@ struct SafeLoader {
   }
 
   template <typename ThriftType, bool IsUnsigned = true>
-  inline static ApiTypeEnum LoadChecked(
-      const typename std::enable_if<IsUnsigned, ThriftType>::type* in) {
+    requires(IsUnsigned)
+  inline static ApiTypeEnum LoadChecked(const ThriftType* in) {
     auto raw_value = LoadRaw(in);
     if (ARROW_PREDICT_FALSE(raw_value >=
                             static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
@@ -177,8 +177,8 @@ struct SafeLoader {
   }
 
   template <typename ThriftType, bool IsUnsigned = false>
-  inline static ApiTypeEnum LoadChecked(
-      const typename std::enable_if<!IsUnsigned, ThriftType>::type* in) {
+    requires(!IsUnsigned)
+  inline static ApiTypeEnum LoadChecked(const ThriftType* in) {
     auto raw_value = LoadRaw(in);
     if (ARROW_PREDICT_FALSE(raw_value >=
                                 static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||

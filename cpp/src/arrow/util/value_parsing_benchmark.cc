@@ -99,8 +99,8 @@ static std::vector<std::string> MakeTimestampStrings(int32_t num_items) {
 }
 
 template <typename c_int, typename c_int_limits = std::numeric_limits<c_int>>
-static typename std::enable_if<c_int_limits::is_signed, std::vector<c_int>>::type
-MakeInts(int32_t num_items) {
+  requires c_int_limits::is_signed
+std::vector<c_int> MakeInts(int32_t num_items) {
   std::vector<c_int> out;
   // C++ doesn't guarantee that all integer types support std::uniform_int_distribution,
   // so use a known type (int64_t)
@@ -109,8 +109,8 @@ MakeInts(int32_t num_items) {
 }
 
 template <typename c_int, typename c_int_limits = std::numeric_limits<c_int>>
-static typename std::enable_if<!c_int_limits::is_signed, std::vector<c_int>>::type
-MakeInts(int32_t num_items) {
+  requires(!c_int_limits::is_signed)
+static std::vector<c_int> MakeInts(int32_t num_items) {
   std::vector<c_int> out;
   // See above.
   randint<uint64_t, c_int>(num_items, c_int_limits::min(), c_int_limits::max(), &out);
