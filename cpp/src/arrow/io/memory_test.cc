@@ -760,7 +760,7 @@ TEST(RangeReadCache, Basics) {
   for (auto lazy : std::vector<bool>{false, true}) {
     SCOPED_TRACE(lazy);
     options.lazy = lazy;
-    auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+    auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
     internal::ReadRangeCache cache(file, {}, options);
 
     ASSERT_OK(cache.Cache({{1, 2}, {3, 2}, {8, 2}, {20, 2}, {25, 0}}));
@@ -838,7 +838,7 @@ TEST(RangeReadCache, Concurrency) {
 TEST(RangeReadCache, Lazy) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 2;
   options.range_size_limit = 10;
@@ -879,7 +879,7 @@ TEST(RangeReadCache, Lazy) {
 TEST(RangeReadCache, LazyWithPrefetching) {
   std::string data = "abcdefghijklmnopqrstuvwxyz";
 
-  auto file = std::make_shared<CountingBufferReader>(Buffer(data));
+  auto file = std::make_shared<CountingBufferReader>(std::make_shared<Buffer>(data));
   CacheOptions options = CacheOptions::LazyDefaults();
   options.hole_size_limit = 1;
   options.range_size_limit = 3;
