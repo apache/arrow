@@ -318,6 +318,14 @@ std::shared_ptr<arrow::Table> GetTableByName(const std::vector<std::string>& nam
   return it->second;
 }
 
+std::shared_ptr<arrow::Buffer> LoadArrowBufferFromByteBuffer(JNIEnv* env, jobject byte_buffer) {
+  const auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(byte_buffer));
+  int length = env->GetDirectBufferCapacity(byte_buffer);
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
+  std::memcpy(buffer->mutable_data(), buff, length);
+  return buffer;
+}
+
 /*
  * Class:     org_apache_arrow_dataset_jni_NativeMemoryPool
  * Method:    getDefaultMemoryPool
@@ -459,7 +467,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  * Signature: (J[Ljava/lang/String;JJ)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
-    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns_subset, jobject columns_to_produce_or_filter, jlong batch_size,
+    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jlong batch_size,
     jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
@@ -471,35 +479,60 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
       JniGetOrThrow(dataset->NewScan());
   JniAssertOkOrThrow(scanner_builder->Pool(pool));
-  if (columns_subset != nullptr) {
-    std::vector<std::string> column_vector = ToStringVector(env, columns_subset);
+  if (columns != nullptr) {
+    std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
-  if (columns_to_produce_or_filter != nullptr) {
-    auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(columns_to_produce_or_filter));
-    int length = env->GetDirectBufferCapacity(columns_to_produce_or_filter);
-    std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
-    std::memcpy(buffer->mutable_data(), buff, length);
-    arrow::engine::BoundExpressions bounded_expression =
-      JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+  JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
+
+  auto scanner = JniGetOrThrow(scanner_builder->Finish());
+  std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
+      JniGetOrThrow(DisposableScannerAdaptor::Create(scanner));
+  jlong id = CreateNativeRef(scanner_adaptor);
+  return id;
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_jni_JniWrapper
+ * Method:    createSubstraitScanner
+ * Signature: (JLjava/nio/ByteBuffer;JJ)J
+ */
+JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createSubstraitScanner(
+    JNIEnv* env, jobject, jlong dataset_id, jobject substrait_expr_produce_or_filter, jlong batch_size,
+    jlong memory_pool_id) {
+  JNI_METHOD_START
+  arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
+  if (pool == nullptr) {
+    JniThrow("Memory pool does not exist or has been closed");
+  }
+  std::shared_ptr<arrow::dataset::Dataset> dataset =
+      RetrieveNativeInstance<arrow::dataset::Dataset>(dataset_id);
+  std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
+      JniGetOrThrow(dataset->NewScan());
+  JniAssertOkOrThrow(scanner_builder->Pool(pool));
+  if (substrait_expr_produce_or_filter != nullptr) {
+    std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
+                                                            substrait_expr_produce_or_filter);
     std::vector<arrow::compute::Expression> project_exprs;
     std::vector<std::string> project_names;
-    arrow::compute::Expression filter_expr;
-    int filter_count = 0;
-    for(arrow::engine::NamedExpression named_expression : bounded_expression.named_expressions) {
+    std::optional<arrow::compute::Expression> filter_expr;
+    const arrow::engine::BoundExpressions bounded_expression =
+          JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+    for(arrow::engine::NamedExpression named_expression :
+                                        bounded_expression.named_expressions) {
       if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
-        if (filter_count > 0) {
+        if (filter_expr.has_value()) {
           JniThrow("Only one filter expression may be provided");
         }
         filter_expr = named_expression.expression;
-        filter_count++;
       } else {
         project_exprs.push_back(named_expression.expression);
         project_names.push_back(named_expression.name);
       }
     }
-    JniAssertOkOrThrow(scanner_builder->Project(project_exprs, project_names));
-    JniAssertOkOrThrow(scanner_builder->Filter(filter_expr));
+    JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
+    JniAssertOkOrThrow(scanner_builder->Filter(*std::move(filter_expr)));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
   auto scanner = JniGetOrThrow(scanner_builder->Finish());
@@ -774,10 +807,7 @@ JNIEXPORT void JNICALL
   arrow::engine::ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   // mapping arrow::Buffer
-  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(plan));
-  int length = env->GetDirectBufferCapacity(plan);
-  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
-  std::memcpy(buffer->mutable_data(), buff, length);
+  std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env, plan);
   // execute plan
   std::shared_ptr<arrow::RecordBatchReader> reader_out =
     JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));

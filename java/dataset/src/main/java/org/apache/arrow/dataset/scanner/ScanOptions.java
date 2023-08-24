@@ -26,9 +26,9 @@ import org.apache.arrow.util.Preconditions;
  * Options used during scanning.
  */
 public class ScanOptions {
-  private final Optional<String[]> columnsSubset;
+  private final Optional<String[]> columns;
   private final long batchSize;
-  private Optional<ByteBuffer> columnsProduceOrFilter;
+  private ByteBuffer substraitExtendedExpression;
 
   /**
    * Constructor.
@@ -51,74 +51,40 @@ public class ScanOptions {
   /**
    * Constructor.
    * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
-   * @param columnsSubset (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
+   * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
    *                Only columns present in the Array will be scanned.
    */
-  public ScanOptions(long batchSize, Optional<String[]> columnsSubset) {
-    Preconditions.checkNotNull(columnsSubset);
+  public ScanOptions(long batchSize, Optional<String[]> columns) {
+    Preconditions.checkNotNull(columns);
     this.batchSize = batchSize;
-    this.columnsSubset = columnsSubset;
-    this.columnsProduceOrFilter = Optional.empty();
+    this.columns = columns;
+  }
+
+  /**
+   * Constructor.
+   * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+   * @param substraitExtendedExpression Extended expression to evaluate for project new columns or apply filter.
+   */
+  public ScanOptions(long batchSize, ByteBuffer substraitExtendedExpression) {
+    Preconditions.checkNotNull(substraitExtendedExpression);
+    this.batchSize = batchSize;
+    this.columns = Optional.empty();
+    this.substraitExtendedExpression = substraitExtendedExpression;
   }
 
   public ScanOptions(long batchSize) {
     this(batchSize, Optional.empty());
   }
 
-  public Optional<String[]> getColumnsSubset() {
-    return columnsSubset;
+  public Optional<String[]> getColumns() {
+    return columns;
   }
 
   public long getBatchSize() {
     return batchSize;
   }
 
-  public Optional<ByteBuffer> getColumnsProduceOrFilter() {
-    return columnsProduceOrFilter;
-  }
-
-  /**
-   * Builder for Options used during scanning.
-   */
-  public static class Builder {
-    private final long batchSize;
-    private final Optional<String[]> columnsSubset;
-    private Optional<ByteBuffer> columnsProduceOrFilter = Optional.empty();
-
-    /**
-     * Constructor.
-     * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
-     * @param columnsSubset (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
-     *                Only columns present in the Array will be scanned.
-     */
-    public Builder(long batchSize, Optional<String[]> columnsSubset) {
-      Preconditions.checkNotNull(columnsSubset);
-      this.batchSize = batchSize;
-      this.columnsSubset = columnsSubset;
-    }
-
-    /**
-     * Set the Substrait extended expression.
-     *
-     * <p>Can be used to filter data and/or project new columns.
-     *
-     * @param columnsProduceOrFilter (Optional) Expressions to evaluate to projects new columns or applies filter.
-     * @return the ScanOptions configured.
-     */
-    public Builder columnsProduceOrFilter(Optional<ByteBuffer> columnsProduceOrFilter) {
-      Preconditions.checkNotNull(columnsProduceOrFilter);
-      this.columnsProduceOrFilter = columnsProduceOrFilter;
-      return this;
-    }
-
-    public ScanOptions build() {
-      return new ScanOptions(this);
-    }
-  }
-
-  private ScanOptions(Builder builder) {
-    columnsSubset = builder.columnsSubset;
-    batchSize = builder.batchSize;
-    columnsProduceOrFilter = builder.columnsProduceOrFilter;
+  public ByteBuffer getSubstraitExtendedExpression() {
+    return substraitExtendedExpression;
   }
 }

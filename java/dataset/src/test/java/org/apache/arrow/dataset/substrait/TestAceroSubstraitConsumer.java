@@ -27,7 +27,6 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
@@ -230,13 +229,12 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
             11, "value_11", 21, "value_21", 45, "value_45");
-    ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768, Optional.empty())
-        .columnsProduceOrFilter(Optional.of(substraitExtendedExpressions)).build();
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, substraitExtendedExpressions);
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
         Dataset dataset = datasetFactory.finish();
-        Scanner scanner = dataset.newScan(options);
+        Scanner scanner = dataset.newSubstraitScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
@@ -274,13 +272,12 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1", 11,
             "value_11", 21, "value_21", 45, "value_45");
-    ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768, Optional.empty())
-        .columnsProduceOrFilter(Optional.of(substraitExtendedExpressions)).build();
+    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, substraitExtendedExpressions);
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
         Dataset dataset = datasetFactory.finish();
-        Scanner scanner = dataset.newScan(options);
+        Scanner scanner = dataset.newSubstraitScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
@@ -290,7 +287,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       }
       assertEquals(3, rowcount);
     } catch (Exception e) {
-      assertEquals("The process only support one filter expression declared", e.getMessage());
+      assertEquals("Only one filter expression may be provided", e.getMessage());
       throw e;
     }
   }

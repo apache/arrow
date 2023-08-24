@@ -32,4 +32,14 @@ public interface Dataset extends AutoCloseable {
    * @return the Scanner instance
    */
   Scanner newScan(ScanOptions options);
+
+  /**
+   * Create a new Scanner, using the provided options,
+   * that contains the binary representation of the Substrait
+   * Extended Expression.
+   *
+   * @param options options used during creating Scanner
+   * @return the Scanner instance
+   */
+  Scanner newSubstraitScan(ScanOptions options);
 }

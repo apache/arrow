@@ -107,7 +107,7 @@ Here is an example of a Java program that queries a Parquet file using Java Subs
 Executing Projections and Filters Using Extended Expressions
 ============================================================
 
-Dataset also supports projections and filters with Substrait's extended expressions.
+Dataset also supports projections and filters with Substrait's `Extended Expression`_.
 This requires the substrait-java library.
 
 This Java program:
@@ -149,12 +149,11 @@ This Java program:
     import java.util.Base64;
     import java.util.HashMap;
     import java.util.List;
-    import java.util.Optional;
 
-    public class ClientSubstraitExtendedExpressions {
+    public class ClientSubstraitExtendedExpressionsCookbook {
         public static void main(String[] args) throws Exception {
             // create extended expression for: project two new columns + one filter
-            ByteBuffer binaryExtendedExpressions = createExtendedExpresionMessageUsingPOJOClasses();
+            ByteBuffer binaryExtendedExpressions = getExtendedExpressions();
             // project and filter dataset using extended expression definition - 03 Expressions:
             // Expression 01 - CONCAT: N_NAME || ' - ' || N_COMMENT = col 1 || ' - ' || col 3
             // Expression 02 - ADD: N_REGIONKEY + 10 = col 1 + 10
@@ -163,30 +162,27 @@ This Java program:
         }
 
         public static void projectAndFilterDataset(ByteBuffer binaryExtendedExpressions) {
-            String uri = "file:////Users/dsusanibar/voltron/fork/consumer-testing/tests/data/tpch_parquet/nation.parquet";
-            ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768,
-                Optional.empty())
-                .columnsProduceOrFilter(
-                        Optional.of(binaryExtendedExpressions)).build();
+            String uri = "file:///Users/dsusanibar/data/tpch_parquet/nation.parquet";
+            ScanOptions options = new ScanOptions(/*batchSize*/ 32768, binaryExtendedExpressions);
             try (
-                BufferAllocator allocator = new RootAllocator();
-                DatasetFactory datasetFactory = new FileSystemDatasetFactory(
-                        allocator, NativeMemoryPool.getDefault(),
-                        FileFormat.PARQUET, uri);
-                Dataset dataset = datasetFactory.finish();
-                Scanner scanner = dataset.newScan(options);
-                ArrowReader reader = scanner.scanBatches()
+                    BufferAllocator allocator = new RootAllocator();
+                    DatasetFactory datasetFactory = new FileSystemDatasetFactory(
+                            allocator, NativeMemoryPool.getDefault(),
+                            FileFormat.PARQUET, uri);
+                    Dataset dataset = datasetFactory.finish();
+                    Scanner scanner = dataset.newSubstraitScan(options);
+                    ArrowReader reader = scanner.scanBatches()
             ) {
                 while (reader.loadNextBatch()) {
                     System.out.println(
-                        reader.getVectorSchemaRoot().contentToTSVString());
+                            reader.getVectorSchemaRoot().contentToTSVString());
                 }
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
 
-        private static ByteBuffer createExtendedExpresionMessageUsingPOJOClasses() throws InvalidProtocolBufferException {
+        private static ByteBuffer getExtendedExpressions() throws InvalidProtocolBufferException {
             // Expression: N_REGIONKEY + 10 = col 3 + 10
             Expression.Builder selectionBuilderProjectOne = Expression.newBuilder().
                     setSelection(
@@ -410,6 +406,7 @@ This Java program:
             return substraitExtendedExpressions;
         }
     }
+
 .. code-block:: text
 
     ADD_TEN_TO_COLUMN_N_REGIONKEY	CONCAT_COLUMNS_N_NAME_AND_N_COMMENT
