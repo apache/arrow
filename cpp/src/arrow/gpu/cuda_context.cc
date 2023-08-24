@@ -291,6 +291,7 @@ Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
     return Status::Invalid("Cuda Stream cannot wait on null event");
   }
 
+  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
   // TODO: do we need to account for CUevent_capture_flags??
   CU_RETURN_NOT_OK("cuStreamWaitEvent",
                    cuStreamWaitEvent(stream_, cu_event, CU_EVENT_WAIT_DEFAULT));
@@ -298,11 +299,13 @@ Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
 }
 
 Status CudaDevice::Stream::Synchronize() const {
+  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
   CU_RETURN_NOT_OK("cuStreamSynchronize", cuStreamSynchronize(stream_));
   return Status::OK();
 }
 
 Status CudaDevice::SyncEvent::Wait() {
+  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
   CU_RETURN_NOT_OK("cuEventSynchronize", cuEventSynchronize(value()));
   return Status::OK();
 }
@@ -313,6 +316,7 @@ Status CudaDevice::SyncEvent::Record(const Device::Stream& st) {
     return Status::Invalid("CudaDevice::Event cannot record on non-cuda stream");
   }
 
+  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
   CU_RETURN_NOT_OK("cuEventRecord", cuEventRecord(value(), cuda_stream->value()));
   // TODO: there is also cuEventRecordWithFlags, do we want to allow flags?
   return Status::OK();
@@ -338,21 +342,24 @@ Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::MakeDeviceSyncEven
   CUevent ev;
   CU_RETURN_NOT_OK("cuEventCreate", cuEventCreate(&ev, CU_EVENT_DEFAULT));
 
-  return std::make_shared<CudaDevice::SyncEvent>(new CUevent(ev), [](void* ev) {
-    auto typed_event = reinterpret_cast<CUevent*>(ev);
-    auto result = cuEventDestroy(*typed_event);
-    if (result != CUDA_SUCCESS) {
-      // should we throw? I think that would automatically terminate
-      // if you throw in a destructor. What should we do with this error?
-    }
-    delete typed_event;
-  });
+  return std::shared_ptr<Device::SyncEvent>(
+      new CudaDevice::SyncEvent(context, new CUevent(ev), [](void* ev) {
+        auto typed_event = reinterpret_cast<CUevent*>(ev);
+        auto result = cuEventDestroy(*typed_event);
+        if (result != CUDA_SUCCESS) {
+          // should we throw? I think that would automatically terminate
+          // if you throw in a destructor. What should we do with this error?
+        }
+        delete typed_event;
+      }));
 }
 
 Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::WrapDeviceSyncEvent(
     void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) {
   auto ev = reinterpret_cast<CUevent*>(sync_event);
-  return std::make_shared<CudaDevice::SyncEvent>(ev, release_sync_event);
+  ARROW_ASSIGN_OR_RAISE(auto context, cuda_device()->GetContext());
+  return std::shared_ptr<Device::SyncEvent>(
+      new CudaDevice::SyncEvent(context, ev, release_sync_event));
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> CudaMemoryManager::GetBufferReader(

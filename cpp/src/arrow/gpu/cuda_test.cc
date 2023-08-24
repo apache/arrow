@@ -246,6 +246,17 @@ TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
   ASSERT_CUDA_OK(cuEventDestroy(event));
 }
 
+
+TEST_F(TestCudaDevice, DefaultStream) {
+  CudaDevice::Stream stream{context_};
+  ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
+
+  ASSERT_OK(ev->Record(stream));
+  ASSERT_OK(stream.WaitEvent(*ev));
+  ASSERT_OK(ev->Wait());
+  ASSERT_OK(stream.Synchronize());
+}
+
 // ------------------------------------------------------------------------
 // Test CudaContext
 

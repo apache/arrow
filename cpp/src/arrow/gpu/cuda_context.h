@@ -150,12 +150,16 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// construction from literal 0 or nullptr.
   class ARROW_EXPORT Stream : public Device::Stream {
    public:
-    constexpr Stream() = default;
+    explicit Stream(std::shared_ptr<CudaContext> ctx) noexcept
+      : context_{std::move(ctx)}, stream_{} {}
+
     ~Stream() = default;
-    constexpr Stream(CUstream stream) noexcept : stream_{stream} {}
+    explicit Stream(std::shared_ptr<CudaContext> ctx, CUstream stream) noexcept 
+      : context_{std::move(ctx)}, stream_{stream} {}
+
     // disable construction from literal 0
-    constexpr Stream(int) = delete;             // Prevent cast from 0
-    constexpr Stream(std::nullptr_t) = delete;  // Prevent cast from nullptr
+    explicit Stream(std::shared_ptr<CudaContext>, int) = delete;             // Prevent cast from 0
+    explicit Stream(std::shared_ptr<CudaContext>, std::nullptr_t) = delete;  // Prevent cast from nullptr
 
     [[nodiscard]] constexpr CUstream value() const { return stream_; }
     constexpr operator CUstream() const noexcept { return value(); }
@@ -167,6 +171,7 @@ class ARROW_EXPORT CudaDevice : public Device {
     Status Synchronize() const override;
 
    private:
+    std::shared_ptr<CudaContext> context_;
     CUstream stream_{};
   };
 
@@ -189,8 +194,14 @@ class ARROW_EXPORT CudaDevice : public Device {
     /// it will trigger the event.
     Status Record(const Device::Stream&) override;
 
-    explicit SyncEvent(CUevent* ev, Device::SyncEvent::release_fn_t release_ev)
-        : Device::SyncEvent(reinterpret_cast<void*>(ev), release_ev) {}
+   protected:
+    friend class CudaMemoryManager;
+
+    explicit SyncEvent(std::shared_ptr<CudaContext> ctx, CUevent* ev, Device::SyncEvent::release_fn_t release_ev)
+        : Device::SyncEvent(reinterpret_cast<void*>(ev), release_ev), context_{std::move(ctx)} {}
+   
+   private:
+    std::shared_ptr<CudaContext> context_;
   };
 
  protected:
