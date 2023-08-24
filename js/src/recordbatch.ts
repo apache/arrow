@@ -315,12 +315,17 @@ function ensureSameLengthData<T extends TypeMap = any>(
 }
 
 /** @ignore */
-function collectDictionaries(fields: Field[], children: Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
+function collectDictionaries(fields: Field[], children: readonly Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
     for (let i = -1, n = fields.length; ++i < n;) {
         const field = fields[i];
         const type = field.type;
         const data = children[i];
         if (DataType.isDictionary(type)) {
+            if ((type.children?.length ?? 0) > 0 && (data.dictionary?.data?.length ?? 0) > 0) {
+                for (const child of data.dictionary!.data) {
+                    collectDictionaries(type.children, child.children, dictionaries);
+                }
+            }
             if (!dictionaries.has(type.id)) {
                 if (data.dictionary) {
                     dictionaries.set(type.id, data.dictionary);
@@ -328,9 +333,6 @@ function collectDictionaries(fields: Field[], children: Data[], dictionaries = n
             } else if (dictionaries.get(type.id) !== data.dictionary) {
                 throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
             }
-        }
-        if (type.children && type.children.length > 0) {
-            collectDictionaries(type.children, data.children, dictionaries);
         }
     }
     return dictionaries;
