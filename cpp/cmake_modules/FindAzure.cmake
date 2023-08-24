@@ -20,9 +20,7 @@ if(Azure_FOUND)
 endif()
 
 set(find_package_args)
-list(APPEND find_package_args 
-  CONFIG
-)
+list(APPEND find_package_args CONFIG)
 if(Azure_FIND_QUIETLY)
   list(APPEND find_package_args QUIET)
 endif()
