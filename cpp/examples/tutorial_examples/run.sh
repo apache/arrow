@@ -30,7 +30,8 @@ echo "== Building Arrow C++ library"
 echo "=="
 echo
 
-ARROW_CMAKE_OPTIONS="-DCMAKE_INSTALL_PREFIX=${ARROW_INSTALL_DIR}" \
+ARROW_CMAKE_OPTIONS="-DCMAKE_INSTALL_PREFIX=${ARROW_INSTALL_DIR} \
+                     -DCMAKE_INSTALL_RPATH=${ARROW_INSTALL_DIR}/lib" \
   ./build_arrow.sh
 
 echo
@@ -39,7 +40,8 @@ echo "== Building example project using Arrow C++ library"
 echo "=="
 echo
 
-EXAMPLE_CMAKE_OPTIONS="-DCMAKE_INSTALL_RPATH=${ARROW_INSTALL_DIR}/lib -DCMAKE_PREFIX_PATH=${ARROW_INSTALL_DIR}" \
+EXAMPLE_CMAKE_OPTIONS="-DCMAKE_INSTALL_RPATH=${ARROW_INSTALL_DIR}/lib \
+                       -DCMAKE_PREFIX_PATH=${ARROW_INSTALL_DIR}" \
   ./build_example.sh
 
 echo
