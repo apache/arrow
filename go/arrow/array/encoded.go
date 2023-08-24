@@ -424,7 +424,7 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	defer runEnds.Release()
 
 	data = NewData(
-		b.dt, b.length, []*memory.Buffer{nil},
+		b.dt, b.length, []*memory.Buffer{},
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return

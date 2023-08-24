@@ -232,6 +232,8 @@ func (exp *schemaExporter) exportFormat(dt arrow.DataType) string {
 		return fmt.Sprintf("+w:%d", dt.Len())
 	case *arrow.StructType:
 		return "+s"
+	case *arrow.RunEndEncodedType:
+		return "+r"
 	case *arrow.MapType:
 		if dt.KeysSorted {
 			exp.flags |= C.ARROW_FLAG_MAP_KEYS_SORTED
@@ -424,6 +426,14 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 			exportArray(arr.Field(i), &children[i], nil)
 			childPtrs[i] = &children[i]
 		}
+		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
+	case *array.RunEndEncoded:
+		out.n_children = 2
+		childPtrs := allocateArrowArrayPtrArr(2)
+		children := allocateArrowArrayArr(2)
+		exportArray(arr.RunEndsArr(), &children[0], nil)
+		exportArray(arr.Values(), &children[1], nil)
+		childPtrs[0], childPtrs[1] = &children[0], &children[1]
 		out.children = (**CArrowArray)(unsafe.Pointer(&childPtrs[0]))
 	case *array.Dictionary:
 		out.dictionary = (*CArrowArray)(C.malloc(C.sizeof_struct_ArrowArray))

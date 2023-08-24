@@ -2658,7 +2658,7 @@ std::shared_ptr<DataType> struct_(
   return std::make_shared<StructType>(MakeFields(fields));
 }
 
-std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<arrow::DataType> run_end_type,
+std::shared_ptr<DataType> run_end_encoded(std::shared_ptr<DataType> run_end_type,
                                           std::shared_ptr<DataType> value_type) {
   return std::make_shared<RunEndEncodedType>(std::move(run_end_type),
                                              std::move(value_type));

@@ -24,6 +24,7 @@
 package cdata
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -586,6 +587,18 @@ func createTestStructArr() arrow.Array {
 	return bld.NewArray()
 }
 
+func createTestRunEndsArr() arrow.Array {
+	bld := array.NewRunEndEncodedBuilder(memory.DefaultAllocator,
+		arrow.PrimitiveTypes.Int32, arrow.PrimitiveTypes.Int8)
+	defer bld.Release()
+
+	if err := json.Unmarshal([]byte(`[1, 2, 2, 3, null, null, null, 4]`), bld); err != nil {
+		panic(err)
+	}
+
+	return bld.NewArray()
+}
+
 func createTestMapArr() arrow.Array {
 	bld := array.NewMapBuilder(memory.DefaultAllocator, arrow.PrimitiveTypes.Int8, arrow.BinaryTypes.String, false)
 	defer bld.Release()
@@ -662,6 +675,7 @@ func TestNestedArrays(t *testing.T) {
 		{"map", createTestMapArr},
 		{"sparse union", createTestSparseUnion},
 		{"dense union", createTestDenseUnion},
+		{"run-end encoded", createTestRunEndsArr},
 	}
 
 	for _, tt := range tests {

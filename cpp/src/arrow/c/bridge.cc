@@ -478,6 +478,8 @@ struct SchemaExporter {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) { return SetFormat("+r"); }
+
   ExportedSchemaPrivateData export_;
   int64_t flags_ = 0;
   std::vector<std::pair<std::string, std::string>> additional_metadata_;
@@ -1106,6 +1108,8 @@ struct SchemaImporter {
         return ProcessMap();
       case 'u':
         return ProcessUnion();
+      case 'r':
+        return ProcessREE();
     }
     return f_parser_.Invalid();
   }
@@ -1277,6 +1281,22 @@ struct SchemaImporter {
     } else {
       type_ = dense_union(std::move(fields), std::move(type_codes));
     }
+    return Status::OK();
+  }
+
+  Status ProcessREE() {
+    RETURN_NOT_OK(f_parser_.CheckAtEnd());
+    RETURN_NOT_OK(CheckNumChildren(2));
+    ARROW_ASSIGN_OR_RAISE(auto run_ends_field, MakeChildField(0));
+    ARROW_ASSIGN_OR_RAISE(auto values_field, MakeChildField(1));
+    if (!is_run_end_type(run_ends_field->type()->id())) {
+      return Status::Invalid("Expected a valid run-end integer type, but struct has ",
+                             run_ends_field->type()->ToString());
+    }
+    if (values_field->type()->id() == Type::RUN_END_ENCODED) {
+      return Status::Invalid("ArrowArray struct contains a nested run-end encoded array");
+    }
+    type_ = run_end_encoded(run_ends_field->type(), values_field->type());
     return Status::OK();
   }
 
@@ -1598,6 +1618,17 @@ struct ArrayImporter {
       // Prepend a null bitmap pointer, as expected by DenseUnionArray
       data_->buffers.insert(data_->buffers.begin(), nullptr);
     }
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    RETURN_NOT_OK(CheckNumChildren(2));
+    RETURN_NOT_OK(CheckNumBuffers(0));
+    RETURN_NOT_OK(AllocateArrayData());
+    // Always have a null bitmap buffer as much of the code in arrow assumes
+    // the buffers vector to have at least one entry on every array format.
+    data_->buffers.emplace_back(nullptr);
+    data_->null_count = 0;
     return Status::OK();
   }
 
