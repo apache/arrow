@@ -26,27 +26,50 @@ classdef hFixedWidthType < matlab.unittest.TestCase
 
     methods(Test)
         function TestClass(testCase)
-        % Verify ArrowType is an object of the expected class type.
+            % Verify ArrowType is an object of the expected class type.
             name = string(class(testCase.ArrowType));
             testCase.verifyEqual(name, testCase.ClassName);
         end
 
         function TestTypeID(testCase)
-        % Verify ID is set to the appropriate arrow.type.ID value.
+            % Verify ID is set to the appropriate arrow.type.ID value.
             arrowType = testCase.ArrowType;
             testCase.verifyEqual(arrowType.ID, testCase.TypeID);
         end
 
         function TestBitWidth(testCase)
-        % Verify the BitWidth value.
+            % Verify the BitWidth value.
             arrowType = testCase.ArrowType;
             testCase.verifyEqual(arrowType.BitWidth, testCase.BitWidth);
         end
 
         function TestNumFields(testCase)
-        % Verify NumFields is set to 0 for primitive types.
+            % Verify NumFields is set to 0 for primitive types.
             arrowType = testCase.ArrowType;
             testCase.verifyEqual(arrowType.NumFields, int32(0));
         end
+
+        function TestBitWidthNoSetter(testCase)
+            % Verify that an error is thrown when trying to set the value
+            % of the BitWidth property.
+            arrowType = testCase.ArrowType;
+            testCase.verifyError(@() setfield(arrowType, "BitWidth", 64), "MATLAB:class:SetProhibited");
+        end
+
+        function TestIDNoSetter(testCase)
+            % Verify that an error is thrown when trying to set the value
+            % of the ID property.
+            arrowType = testCase.ArrowType;
+            testCase.verifyError(@() setfield(arrowType, "ID", 15), "MATLAB:class:SetProhibited");
+        end
+
+        function TestNumFieldsNoSetter(testCase)
+            % Verify that an error is thrown when trying to set the value
+            % of the NumFields property.
+            arrowType = testCase.ArrowType;
+            testCase.verifyError(@() setfield(arrowType, "NumFields", 2), "MATLAB:class:SetProhibited");
+        end
+
     end
+
 end

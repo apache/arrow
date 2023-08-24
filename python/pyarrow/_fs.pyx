@@ -18,6 +18,7 @@
 # cython: language_level = 3
 
 from cpython.datetime cimport datetime, PyDateTime_DateTime
+from cython cimport binding
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
@@ -1106,11 +1107,12 @@ cdef class LocalFileSystem(FileSystem):
         FileSystem.init(self, c_fs)
         self.localfs = <CLocalFileSystem*> c_fs.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
-        return cls(**kwargs)
+        return LocalFileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()

@@ -89,6 +89,32 @@ const char kBasicPrefix[] = "Basic ";
 const char kBearerPrefix[] = "Bearer ";
 const char kAuthHeader[] = "authorization";
 
+class OtelEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override {
+#ifdef ARROW_WITH_OPENTELEMETRY
+    // The default tracer always generates no-op spans which have no
+    // span/trace ID. Set up a different tracer. Note, this needs to be run
+    // before Arrow uses OTel as GetTracer() gets a tracer once and keeps it
+    // in a static. Also, arrow::Future may GetTracer(). So this has to be
+    // done as a Googletest environment, which runs before any tests.
+    std::vector<std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>> processors;
+    auto provider =
+        opentelemetry::nostd::shared_ptr<opentelemetry::sdk::trace::TracerProvider>(
+            new opentelemetry::sdk::trace::TracerProvider(std::move(processors)));
+    opentelemetry::trace::Provider::SetTracerProvider(std::move(provider));
+
+    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
+        opentelemetry::nostd::shared_ptr<
+            opentelemetry::context::propagation::TextMapPropagator>(
+            new opentelemetry::trace::propagation::HttpTraceContext()));
+#endif
+  }
+};
+
+static ::testing::Environment* kOtelEnvironment =
+    ::testing::AddGlobalTestEnvironment(new OtelEnvironment);
+
 //------------------------------------------------------------
 // Common transport tests
 
@@ -1681,24 +1707,7 @@ class TracingTestServer : public FlightServerBase {
 
 class TestTracing : public ::testing::Test {
  public:
-  void SetUp() {
-#ifdef ARROW_WITH_OPENTELEMETRY
-    // The default tracer always generates no-op spans which have no
-    // span/trace ID. Set up a different tracer. Note, this needs to
-    // be run before Arrow uses OTel as GetTracer() gets a tracer once
-    // and keeps it in a static.
-    std::vector<std::unique_ptr<opentelemetry::sdk::trace::SpanProcessor>> processors;
-    auto provider =
-        opentelemetry::nostd::shared_ptr<opentelemetry::sdk::trace::TracerProvider>(
-            new opentelemetry::sdk::trace::TracerProvider(std::move(processors)));
-    opentelemetry::trace::Provider::SetTracerProvider(std::move(provider));
-
-    opentelemetry::context::propagation::GlobalTextMapPropagator::SetGlobalPropagator(
-        opentelemetry::nostd::shared_ptr<
-            opentelemetry::context::propagation::TextMapPropagator>(
-            new opentelemetry::trace::propagation::HttpTraceContext()));
-#endif
-
+  void SetUp() override {
     ASSERT_OK(MakeServer<TracingTestServer>(
         &server_, &client_,
         [](FlightServerOptions* options) {
@@ -1711,7 +1720,7 @@ class TestTracing : public ::testing::Test {
           return Status::OK();
         }));
   }
-  void TearDown() { ASSERT_OK(server_->Shutdown()); }
+  void TearDown() override { ASSERT_OK(server_->Shutdown()); }
 
  protected:
   std::unique_ptr<FlightClient> client_;

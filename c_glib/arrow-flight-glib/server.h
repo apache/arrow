@@ -84,6 +84,13 @@ struct _GAFlightServerCallContextClass
   GObjectClass parent_class;
 };
 
+GARROW_AVAILABLE_IN_14_0
+void
+gaflight_server_call_context_foreach_incoming_header(
+  GAFlightServerCallContext *context,
+  GAFlightHeaderFunc func,
+  gpointer user_data);
+
 
 #define GAFLIGHT_TYPE_SERVER_AUTH_SENDER        \
   (gaflight_server_auth_sender_get_type())
@@ -158,11 +165,10 @@ struct _GAFlightServerCustomAuthHandlerClass
                        GAFlightServerAuthSender *sender,
                        GAFlightServerAuthReader *reader,
                        GError **error);
-  void (*is_valid)(GAFlightServerCustomAuthHandler *handler,
-                   GAFlightServerCallContext *context,
-                   GBytes *token,
-                   GBytes **peer_identity,
-                   GError **error);
+  GBytes *(*is_valid)(GAFlightServerCustomAuthHandler *handler,
+                      GAFlightServerCallContext *context,
+                      GBytes *token,
+                      GError **error);
 };
 
 GARROW_AVAILABLE_IN_12_0
@@ -175,12 +181,11 @@ gaflight_server_custom_auth_handler_authenticate(
   GError **error);
 
 GARROW_AVAILABLE_IN_12_0
-void
+GBytes *
 gaflight_server_custom_auth_handler_is_valid(
   GAFlightServerCustomAuthHandler *handler,
   GAFlightServerCallContext *context,
   GBytes *token,
-  GBytes **peer_identity,
   GError **error);
 
 

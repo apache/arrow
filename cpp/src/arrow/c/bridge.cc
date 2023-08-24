@@ -478,6 +478,8 @@ struct SchemaExporter {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) { return SetFormat("+r"); }
+
   ExportedSchemaPrivateData export_;
   int64_t flags_ = 0;
   std::vector<std::pair<std::string, std::string>> additional_metadata_;
@@ -521,8 +523,7 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
   std::shared_ptr<ArrayData> data_;
-
-  RawSyncEvent sync_event_;
+  std::shared_ptr<Device::SyncEvent> sync_;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -547,10 +548,6 @@ void ReleaseExportedArray(struct ArrowArray* array) {
   }
   DCHECK_NE(array->private_data, nullptr);
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
-  if (pdata->sync_event_.sync_event != nullptr &&
-      pdata->sync_event_.release_func != nullptr) {
-    pdata->sync_event_.release_func(pdata->sync_event_.sync_event);
-  }
   delete pdata;
 
   ArrowArrayMarkReleased(array);
@@ -591,7 +588,7 @@ struct ArrayExporter {
     // Store owning pointer to ArrayData
     export_.data_ = data;
 
-    export_.sync_event_ = RawSyncEvent();
+    export_.sync_ = nullptr;
     return Status::OK();
   }
 
@@ -714,12 +711,9 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
   return std::make_pair(device_type, device_id);
 }
 
-Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
-  if (sync_event.sync_event != nullptr && sync_event.release_func) {
-    return Status::Invalid(
-        "Must provide a release event function if providing a non-null event");
-  }
+  void* sync_event = sync ? sync->get_raw() : nullptr;
 
   SchemaExportGuard guard(out_schema);
   if (out_schema != nullptr) {
@@ -739,19 +733,20 @@ Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
   exporter.Finish(&out->array);
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
-  pdata->sync_event_ = sync_event;
-  out->sync_event = sync_event.sync_event;
+  pdata->sync_ = std::move(sync);
+  out->sync_event = sync_event;
 
   guard.Detach();
   return Status::OK();
 }
 
-Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event,
+Status ExportDeviceRecordBatch(const RecordBatch& batch,
+                               std::shared_ptr<Device::SyncEvent> sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema) {
-  if (sync_event.sync_event != nullptr && sync_event.release_func == nullptr) {
-    return Status::Invalid(
-        "Must provide a release event function if providing a non-null event");
+  void* sync_event{nullptr};
+  if (sync) {
+    sync_event = sync->get_raw();
   }
 
   // XXX perhaps bypass ToStructArray for speed?
@@ -776,8 +771,8 @@ Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event
   exporter.Finish(&out->array);
 
   auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
-  pdata->sync_event_ = sync_event;
-  out->sync_event = sync_event.sync_event;
+  pdata->sync_ = std::move(sync);
+  out->sync_event = sync_event;
 
   guard.Detach();
   return Status::OK();
@@ -1113,6 +1108,8 @@ struct SchemaImporter {
         return ProcessMap();
       case 'u':
         return ProcessUnion();
+      case 'r':
+        return ProcessREE();
     }
     return f_parser_.Invalid();
   }
@@ -1287,6 +1284,22 @@ struct SchemaImporter {
     return Status::OK();
   }
 
+  Status ProcessREE() {
+    RETURN_NOT_OK(f_parser_.CheckAtEnd());
+    RETURN_NOT_OK(CheckNumChildren(2));
+    ARROW_ASSIGN_OR_RAISE(auto run_ends_field, MakeChildField(0));
+    ARROW_ASSIGN_OR_RAISE(auto values_field, MakeChildField(1));
+    if (!is_run_end_type(run_ends_field->type()->id())) {
+      return Status::Invalid("Expected a valid run-end integer type, but struct has ",
+                             run_ends_field->type()->ToString());
+    }
+    if (values_field->type()->id() == Type::RUN_END_ENCODED) {
+      return Status::Invalid("ArrowArray struct contains a nested run-end encoded array");
+    }
+    type_ = run_end_encoded(run_ends_field->type(), values_field->type());
+    return Status::OK();
+  }
+
   Result<std::shared_ptr<Field>> MakeChildField(int64_t child_id) {
     const auto& child = child_importers_[child_id];
     if (child.c_struct_->name == nullptr) {
@@ -1362,7 +1375,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
-  void* sync_event_;
+  std::shared_ptr<Device::SyncEvent> device_sync_;
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1395,6 +1408,10 @@ class ImportedBuffer : public Buffer {
 
   ~ImportedBuffer() override {}
 
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override {
+    return import_->device_sync_;
+  }
+
  protected:
   std::shared_ptr<ImportedArrayData> import_;
 };
@@ -1409,7 +1426,10 @@ struct ArrayImporter {
     ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
     device_type_ = static_cast<DeviceAllocationType>(src->device_type);
     RETURN_NOT_OK(Import(&src->array));
-    import_->sync_event_ = src->sync_event;
+    if (src->sync_event != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(import_->device_sync_, memory_mgr_->WrapDeviceSyncEvent(
+                                                       src->sync_event, [](void*) {}));
+    }
     // reset internal state before next import
     memory_mgr_.reset();
     device_type_ = DeviceAllocationType::kCPU;
@@ -1598,6 +1618,17 @@ struct ArrayImporter {
       // Prepend a null bitmap pointer, as expected by DenseUnionArray
       data_->buffers.insert(data_->buffers.begin(), nullptr);
     }
+    return Status::OK();
+  }
+
+  Status Visit(const RunEndEncodedType& type) {
+    RETURN_NOT_OK(CheckNumChildren(2));
+    RETURN_NOT_OK(CheckNumBuffers(0));
+    RETURN_NOT_OK(AllocateArrayData());
+    // Always have a null bitmap buffer as much of the code in arrow assumes
+    // the buffers vector to have at least one entry on every array format.
+    data_->buffers.emplace_back(nullptr);
+    data_->null_count = 0;
     return Status::OK();
   }
 

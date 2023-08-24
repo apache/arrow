@@ -1785,7 +1785,12 @@ macro(build_substrait)
 
   # Note: not all protos in Substrait actually matter to plan
   # consumption. No need to build the ones we don't need.
-  set(SUBSTRAIT_PROTOS algebra extensions/extensions plan type)
+  set(SUBSTRAIT_PROTOS
+      algebra
+      extended_expression
+      extensions/extensions
+      plan
+      type)
   set(ARROW_SUBSTRAIT_PROTOS extension_rels)
   set(ARROW_SUBSTRAIT_PROTOS_DIR "${CMAKE_SOURCE_DIR}/proto")
 
