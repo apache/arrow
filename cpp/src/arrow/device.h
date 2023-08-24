@@ -117,6 +117,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// event is completed without blocking the CPU.
     virtual Status WaitEvent(const SyncEvent&) = 0;
 
+    /// \brief Blocks until a stream's remaining tasks are completed
+    virtual Status Synchronize() const = 0;
+
    protected:
     Stream() = default;
     virtual ~Stream() = default;

@@ -21,6 +21,8 @@
 #include <memory>
 #include <string>
 
+#include <cuda.h>
+
 #include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/util/visibility.h"
@@ -140,6 +142,57 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// \param[in] size The buffer size in bytes
   Result<std::shared_ptr<CudaHostBuffer>> AllocateHostBuffer(int64_t size);
 
+  /// \brief EXPERIMENTAL: Wrapper for CUstreams
+  ///
+  /// Does not *own* the CUstream object which must be separately constructed
+  /// and freed using cuStreamCreate and cuStreamDestroy (or equivalent).
+  /// Default construction will use the cuda default stream, and does not allow
+  /// construction from literal 0 or nullptr.
+  class ARROW_EXPORT Stream : public Device::Stream {
+   public:
+    constexpr Stream() = default;
+    ~Stream() = default;
+    constexpr Stream(CUstream stream) noexcept : stream_{stream} {}
+    // disable construction from literal 0
+    constexpr Stream(int) = delete;             // Prevent cast from 0
+    constexpr Stream(std::nullptr_t) = delete;  // Prevent cast from nullptr
+
+    [[nodiscard]] constexpr CUstream value() const { return stream_; }
+    constexpr operator CUstream() const noexcept { return value(); }
+
+    const void* get_raw() const noexcept override {
+      return reinterpret_cast<void*>(stream_);
+    }
+    Status WaitEvent(const Device::SyncEvent&) override;
+    Status Synchronize() const override;
+
+   private:
+    CUstream stream_{};
+  };
+
+  class ARROW_EXPORT SyncEvent : public Device::SyncEvent {
+   public:
+    [[nodiscard]] CUevent value() const {
+      if (sync_event_) {
+        return *static_cast<CUevent*>(sync_event_.get());
+      }
+      return CUevent{};
+    }
+    operator CUevent() const noexcept { return value(); }
+
+    /// @brief Block until the sync event is marked completed
+    Status Wait() override;
+
+    /// @brief Record the wrapped event on the stream
+    ///
+    /// Once the stream completes the tasks previously added to it,
+    /// it will trigger the event.
+    Status Record(const Device::Stream&) override;
+
+    explicit SyncEvent(CUevent* ev, Device::SyncEvent::release_fn_t release_ev)
+        : Device::SyncEvent(reinterpret_cast<void*>(ev), release_ev) {}   
+  };
+
  protected:
   struct Impl;
 
@@ -179,6 +232,17 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   /// having to cast the `device()` result.
   std::shared_ptr<CudaDevice> cuda_device() const;
 
+  /// \brief Creates a wrapped CUevent.
+  ///
+  /// Will call cuEventCreate and it will call cuEventDestroy internally
+  /// when the event is destructed.
+  Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent() override;
+
+  /// \brief Wraps an existing event into a sync event.
+  ///
+  /// @param sync_event the event to wrap, must be a CUevent*
+  /// @param release_sync_event a function to call during destruction, `nullptr` or
+  ///        a no-op function can be passed to indicate ownership is maintained externally
   Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
       void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override;
 

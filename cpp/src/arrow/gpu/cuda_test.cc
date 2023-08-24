@@ -39,10 +39,12 @@
 namespace arrow {
 
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 
 namespace cuda {
 
 using internal::StatusFromCuda;
+using internal::ContextSaver;
 
 #define ASSERT_CUDA_OK(expr) ASSERT_OK(::arrow::cuda::internal::StatusFromCuda((expr)))
 
@@ -211,6 +213,37 @@ TEST_F(TestCudaDevice, Copy) {
     ASSERT_EQ(other_buffer->device(), other_device);
     AssertCudaBufferEquals(*other_buffer, "some data");
   }
+}
+
+TEST_F(TestCudaDevice, CreateSyncEvent) {
+  ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
+  ASSERT_TRUE(ev);
+  auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);  
+  ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(*cuda_ev));
+}
+
+TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
+  // need a context to call cuEventCreate
+  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
+
+  CUevent event;
+  ASSERT_CUDA_OK(cuEventCreate(&event, CU_EVENT_DEFAULT));
+  ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(event));
+
+  {
+    // wrap event with no-op destructor
+    ASSERT_OK_AND_ASSIGN(auto ev, mm_->WrapDeviceSyncEvent(&event, [](void*) {}));
+    ASSERT_TRUE(ev);
+    // verify it's the same event we passed in
+    ASSERT_EQ(ev->get_raw(), &event);
+    auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);  
+    ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(*cuda_ev));
+  }
+
+  // verify that the event is still valid on the device when the shared_ptr
+  // goes away since we didn't give it ownership.
+  ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(event));
+  ASSERT_CUDA_OK(cuEventDestroy(event));
 }
 
 // ------------------------------------------------------------------------

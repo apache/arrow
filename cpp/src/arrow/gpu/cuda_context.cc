@@ -26,8 +26,6 @@
 #include <utility>
 #include <vector>
 
-#include <cuda.h>
-
 #include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/util/checked_cast.h"
@@ -281,6 +279,45 @@ Result<std::shared_ptr<CudaDevice>> AsCudaDevice(const std::shared_ptr<Device>& 
   }
 }
 
+Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
+  auto cuda_event =
+      checked_cast<const CudaDevice::SyncEvent*, const Device::SyncEvent*>(&event);
+  if (!cuda_event) {
+    return Status::Invalid("CudaDevice::Stream cannot Wait on non-cuda event");
+  }
+
+  auto cu_event = cuda_event->value();
+  if (!cu_event) {
+    return Status::Invalid("Cuda Stream cannot wait on null event");
+  }
+
+  // TODO: do we need to account for CUevent_capture_flags??
+  CU_RETURN_NOT_OK("cuStreamWaitEvent",
+                   cuStreamWaitEvent(stream_, cu_event, CU_EVENT_WAIT_DEFAULT));
+  return Status::OK();
+}
+
+Status CudaDevice::Stream::Synchronize() const {
+  CU_RETURN_NOT_OK("cuStreamSynchronize", cuStreamSynchronize(stream_));
+  return Status::OK();
+}
+
+Status CudaDevice::SyncEvent::Wait() {
+  CU_RETURN_NOT_OK("cuEventSynchronize", cuEventSynchronize(value()));
+  return Status::OK();
+}
+
+Status CudaDevice::SyncEvent::Record(const Device::Stream& st) {
+  auto cuda_stream = checked_cast<const CudaDevice::Stream*, const Device::Stream*>(&st);
+  if (!cuda_stream) {
+    return Status::Invalid("CudaDevice::Event cannot record on non-cuda stream");
+  }
+
+  CU_RETURN_NOT_OK("cuEventRecord", cuEventRecord(value(), cuda_stream->value()));
+  // TODO: there is also cuEventRecordWithFlags, do we want to allow flags?
+  return Status::OK();
+}
+
 // ----------------------------------------------------------------------
 // CudaMemoryManager implementation
 
@@ -293,11 +330,29 @@ std::shared_ptr<CudaDevice> CudaMemoryManager::cuda_device() const {
   return checked_pointer_cast<CudaDevice>(device_);
 }
 
+Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::MakeDeviceSyncEvent() {
+  ARROW_ASSIGN_OR_RAISE(auto context, cuda_device()->GetContext());
+  ContextSaver set_temporary((CUcontext)(context.get()->handle()));
+
+  // TODO: event creation flags??
+  CUevent ev;
+  CU_RETURN_NOT_OK("cuEventCreate", cuEventCreate(&ev, CU_EVENT_DEFAULT));
+
+  return std::make_shared<CudaDevice::SyncEvent>(new CUevent(ev), [](void* ev) {    
+    auto typed_event = reinterpret_cast<CUevent*>(ev);
+    auto result = cuEventDestroy(*typed_event);
+    if (result != CUDA_SUCCESS) {
+      // should we throw? I think that would automatically terminate
+      // if you throw in a destructor. What should we do with this error?
+    }
+    delete typed_event;
+  });
+}
+
 Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::WrapDeviceSyncEvent(
     void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) {
-  return nullptr;
-  // auto ev = reinterpret_cast<CUstream*>(sync_event);
-  // return std::make_shared<CudaDeviceSync>(ev);
+  auto ev = reinterpret_cast<CUevent*>(sync_event);
+  return std::make_shared<CudaDevice::SyncEvent>(ev, release_sync_event);
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> CudaMemoryManager::GetBufferReader(
