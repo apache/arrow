@@ -5084,6 +5084,7 @@ function(build_azure_sdk)
     set(BUILD_WINDOWS_UWP TRUE)
     set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
     set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
+    set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
     add_subdirectory(${azure_sdk_SOURCE_DIR} ${azure_sdk_BINARY_DIR} EXCLUDE_FROM_ALL)
   endif()
   set(AZURE_SDK_VENDORED
