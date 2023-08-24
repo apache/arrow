@@ -21,11 +21,16 @@
 
 # arrow 13.0.0
 
+## Breaking changes
+
+* Input objects which inherit only from `data.frame` and no other classes now have the `class` attribute dropped, resulting in now always returning tibbles from file reading functions and `arrow_table()`, which results in consistency in the type of returned objects.  Calling `as.data.frame()` on Arrow Tabular objects now always returns a `data.frame` object (#34775)
+
 ## New features
 
 * `open_dataset()` now works with ND-JSON files (#35055)
 * Calling `schema()` on multiple Arrow objects now returns the object's schema (#35543)
 * dplyr `.by`/`by` argument now supported in arrow implementation of dplyr verbs  (@eitsupi, #35667)
+* Binding for `dplyr::case_when()` now accepts `.default` parameter to match the update in dplyr 1.1.0 (#35502)
 
 ## Minor improvements and fixes
 
