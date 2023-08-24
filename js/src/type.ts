@@ -589,6 +589,11 @@ export class Map_<TKey extends DataType = any, TValue extends DataType = any> ex
         super();
         this.children = [child];
         this.keysSorted = keysSorted;
+        // ARROW-8716
+        // https://github.com/apache/arrow/issues/17168
+        (child as any)["name"] = "entries";
+        (child as any).type.children[0]["name"] = "key";
+        (child as any).type.children[1]["name"] = "value";
     }
     public declare readonly keysSorted: boolean;
     public declare readonly children: Field<Struct<{ key: TKey; value: TValue }>>[];
