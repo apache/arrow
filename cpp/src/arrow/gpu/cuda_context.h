@@ -190,7 +190,7 @@ class ARROW_EXPORT CudaDevice : public Device {
     Status Record(const Device::Stream&) override;
 
     explicit SyncEvent(CUevent* ev, Device::SyncEvent::release_fn_t release_ev)
-        : Device::SyncEvent(reinterpret_cast<void*>(ev), release_ev) {}   
+        : Device::SyncEvent(reinterpret_cast<void*>(ev), release_ev) {}
   };
 
  protected:

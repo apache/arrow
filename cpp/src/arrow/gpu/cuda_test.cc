@@ -43,8 +43,8 @@ using internal::checked_pointer_cast;
 
 namespace cuda {
 
-using internal::StatusFromCuda;
 using internal::ContextSaver;
+using internal::StatusFromCuda;
 
 #define ASSERT_CUDA_OK(expr) ASSERT_OK(::arrow::cuda::internal::StatusFromCuda((expr)))
 
@@ -218,7 +218,7 @@ TEST_F(TestCudaDevice, Copy) {
 TEST_F(TestCudaDevice, CreateSyncEvent) {
   ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
   ASSERT_TRUE(ev);
-  auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);  
+  auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);
   ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(*cuda_ev));
 }
 
@@ -236,7 +236,7 @@ TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
     ASSERT_TRUE(ev);
     // verify it's the same event we passed in
     ASSERT_EQ(ev->get_raw(), &event);
-    auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);  
+    auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);
     ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(*cuda_ev));
   }
 

@@ -338,7 +338,7 @@ Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::MakeDeviceSyncEven
   CUevent ev;
   CU_RETURN_NOT_OK("cuEventCreate", cuEventCreate(&ev, CU_EVENT_DEFAULT));
 
-  return std::make_shared<CudaDevice::SyncEvent>(new CUevent(ev), [](void* ev) {    
+  return std::make_shared<CudaDevice::SyncEvent>(new CUevent(ev), [](void* ev) {
     auto typed_event = reinterpret_cast<CUevent*>(ev);
     auto result = cuEventDestroy(*typed_event);
     if (result != CUDA_SUCCESS) {
