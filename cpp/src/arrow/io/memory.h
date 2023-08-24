@@ -149,9 +149,10 @@ class ARROW_EXPORT BufferReader
   explicit BufferReader(const Buffer& buffer);
   BufferReader(const uint8_t* data, int64_t size);
 
-  /// \brief Instantiate from std::string or std::string_view. Does not
-  /// own data
+  /// \brief Instantiate from std::string_view. Does not own data
   explicit BufferReader(std::string_view data);
+
+  static std::unique_ptr<BufferReader> FromString(std::string data);
 
   bool closed() const override;
 

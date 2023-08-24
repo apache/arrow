@@ -278,6 +278,10 @@ BufferReader::BufferReader(std::string_view data)
     : BufferReader(reinterpret_cast<const uint8_t*>(data.data()),
                    static_cast<int64_t>(data.size())) {}
 
+std::unique_ptr<BufferReader> BufferReader::FromString(std::string data) {
+  return std::make_unique<BufferReader>(Buffer::FromString(std::move(data)));
+}
+
 Status BufferReader::DoClose() {
   is_open_ = false;
   return Status::OK();
