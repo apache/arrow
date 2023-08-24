@@ -136,7 +136,8 @@ TEST(AzureFileSystem, UploadThenDownload) {
   std::vector<uint8_t> downloaded_content(blob_content.size());
   blob_client.DownloadTo(downloaded_content.data(), downloaded_content.size());
 
-  EXPECT_EQ(std::string(downloaded_content.begin(), downloaded_content.end()), blob_content);
+  EXPECT_EQ(std::string(downloaded_content.begin(), downloaded_content.end()),
+            blob_content);
 }
 
 TEST(AzureFileSystem, InitializeCredentials) {
