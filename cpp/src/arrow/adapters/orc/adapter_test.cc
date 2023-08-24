@@ -483,9 +483,8 @@ TEST(TestAdapterRead, ReadCharAndVarcharType) {
   writer->add(*batch);
   writer->close();
 
-  std::shared_ptr<io::RandomAccessFile> in_stream(std::make_shared<io::BufferReader>(
-      reinterpret_cast<const uint8_t*>(mem_stream.getData()),
-      static_cast<int64_t>(mem_stream.getLength())));
+  std::shared_ptr<io::RandomAccessFile> in_stream(io::BufferReader::FromString(
+      std::string(mem_stream.getData(), mem_stream.getLength())));
   ASSERT_OK_AND_ASSIGN(
       auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
   ASSERT_EQ(row_count, reader->NumberOfRows());
@@ -557,9 +556,8 @@ TEST(TestAdapterRead, ReadFieldAttributes) {
   auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
   writer->close();
 
-  std::shared_ptr<io::RandomAccessFile> in_stream(std::make_shared<io::BufferReader>(
-      reinterpret_cast<const uint8_t*>(mem_stream.getData()),
-      static_cast<int64_t>(mem_stream.getLength())));
+  std::shared_ptr<io::RandomAccessFile> in_stream(io::BufferReader::FromString(
+      std::string(mem_stream.getData(), mem_stream.getLength())));
   ASSERT_OK_AND_ASSIGN(
       auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
   ASSERT_EQ(0, reader->NumberOfRows());

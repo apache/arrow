@@ -168,11 +168,11 @@ TEST(TestBufferReader, FromStrings) {
   std::string data = "data123456";
   auto view = std::string_view(data);
 
-  BufferReader reader1(data);
-  BufferReader reader2(view);
+  std::unique_ptr<BufferReader> reader1 = BufferReader::FromString(data);
+  BufferReader reader2(std::make_shared<::arrow::Buffer>(view));
 
   std::shared_ptr<Buffer> piece;
-  ASSERT_OK_AND_ASSIGN(piece, reader1.Read(4));
+  ASSERT_OK_AND_ASSIGN(piece, reader1->Read(4));
   ASSERT_EQ(0, memcmp(piece->data(), data.data(), 4));
 
   ASSERT_OK(reader2.Seek(2));
@@ -191,17 +191,17 @@ TEST(TestBufferReader, FromNullBuffer) {
 TEST(TestBufferReader, Seeking) {
   std::string data = "data123456";
 
-  BufferReader reader(data);
-  ASSERT_OK_AND_EQ(0, reader.Tell());
+  std::unique_ptr<BufferReader> reader = BufferReader::FromString(data);
+  ASSERT_OK_AND_EQ(0, reader->Tell());
 
-  ASSERT_OK(reader.Seek(9));
-  ASSERT_OK_AND_EQ(9, reader.Tell());
+  ASSERT_OK(reader->Seek(9));
+  ASSERT_OK_AND_EQ(9, reader->Tell());
 
-  ASSERT_OK(reader.Seek(10));
-  ASSERT_OK_AND_EQ(10, reader.Tell());
+  ASSERT_OK(reader->Seek(10));
+  ASSERT_OK_AND_EQ(10, reader->Tell());
 
-  ASSERT_RAISES(IOError, reader.Seek(11));
-  ASSERT_OK_AND_EQ(10, reader.Tell());
+  ASSERT_RAISES(IOError, reader->Seek(11));
+  ASSERT_OK_AND_EQ(10, reader->Tell());
 }
 
 TEST(TestBufferReader, Peek) {
@@ -283,11 +283,10 @@ TEST(TestBufferReader, WillNeed) {
   }
   {
     std::string data = "data123456";
-    BufferReader reader(reinterpret_cast<const uint8_t*>(data.data()),
-                        static_cast<int64_t>(data.size()));
+    auto reader = BufferReader::FromString(data);
 
-    ASSERT_OK(reader.WillNeed({{0, 4}, {4, 6}}));
-    ASSERT_RAISES(IOError, reader.WillNeed({{11, 1}}));  // Out of bounds
+    ASSERT_OK(reader->WillNeed({{0, 4}, {4, 6}}));
+    ASSERT_RAISES(IOError, reader->WillNeed({{11, 1}}));  // Out of bounds
   }
 }
 
