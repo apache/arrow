@@ -259,7 +259,7 @@ TEST_F(TestCudaDevice, DefaultStream) {
 TEST_F(TestCudaDevice, ExplicitStream) {
   // need a context to call cuEventCreate
   ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
-  
+
   CUstream cu_stream;
   ASSERT_CUDA_OK(cuStreamCreate(&cu_stream, CU_STREAM_NON_BLOCKING));
 
