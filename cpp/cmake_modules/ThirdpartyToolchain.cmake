@@ -5097,8 +5097,8 @@ function(build_azure_sdk)
        Azure::azure-storage-common
        Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
-     ${ARROW_BUNDLED_STATIC_LIBS}
-     PARENT_SCOPE)
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
