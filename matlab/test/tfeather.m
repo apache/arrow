@@ -32,8 +32,9 @@ classdef tfeather < matlab.unittest.TestCase
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
-            
+
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             expectedTable = roundtrip(filename, actualTable);
             testCase.verifyEqual(actualTable, expectedTable);
         end
@@ -45,7 +46,7 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             t = createTableWithSupportedTypes;
-            t = removevars(t, ["logical", "string", "datetime"]);
+            t = removevars(t, ["logical", "string", "datetime", "duration"]);
             
             variableNames = {'uint8', ...
                              'uint16', ...
@@ -79,6 +80,7 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             actualTable.double = [NaN; NaN; NaN];
             actualTable.int64  = [NaN; NaN; NaN];
             
@@ -93,6 +95,7 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             actualTable.single(2) = 1.0418e+06;
             
             actualTable.double(1) = Inf;
@@ -111,10 +114,12 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             time = {'day1', 'day2', 'day3'};
             actualTable.Properties.RowNames = time;
             expectedTable = roundtrip(filename, actualTable);
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             testCase.verifyEqual(actualTable, expectedTable);
         end
 
@@ -125,6 +130,7 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.txt');
             
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             expectedTable = roundtrip(filename, actualTable);
             testCase.verifyEqual(actualTable, expectedTable);
         end
@@ -146,6 +152,7 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             actualTable = createTableWithSupportedTypes;
+            actualTable = removevars(actualTable, "duration");
             actualTable([1, 2], :) = [];
             expectedTable = roundtrip(filename, actualTable);
             testCase.verifyEqual(actualTable, expectedTable);
@@ -167,6 +174,7 @@ classdef tfeather < matlab.unittest.TestCase
             filename = fullfile(pwd, 'temp.feather');
             
             t = createTableWithSupportedTypes;
+            t = removevars(t, "duration");
             featherwrite(filename, t);
             
             fileID = fopen(filename, 'w');
