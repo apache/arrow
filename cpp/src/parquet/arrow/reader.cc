@@ -1338,7 +1338,7 @@ class AsyncBatchGeneratorImpl {
     Future<> all_columns_finished_fut = ::arrow::AllFinished(std::move(column_futs));
 
     // Grab the first batch of data and return it.  If there is more than one batch then
-    // throw the reamining batches into overflow and they will be fetched on the next call
+    // throw the remaining batches into overflow and they will be fetched on the next call
     return all_columns_finished_fut.Then(
         [state = state_, rows_in_batch]() -> Result<std::shared_ptr<RecordBatch>> {
           std::shared_ptr<Table> table =
