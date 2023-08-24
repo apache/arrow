@@ -208,6 +208,22 @@ classdef tTime64Array < matlab.unittest.TestCase
             fcn = @() testCase.ArrowArrayConstructorFcn(numbers);
             testCase.verifyError(fcn, "arrow:array:InvalidType");
         end
+
+        function MicrosecondPrecision(testCase)
+            % Verify microsecond precision when TimeUnit="Microsecond" 
+            original = milliseconds(1.0033);
+            array = testCase.ArrowArrayConstructorFcn(original, TimeUnit="Microsecond");
+            expected = milliseconds(1.003);
+            testCase.verifyEqual(duration(array), expected);
+        end
+
+        function NanosecondPrecision(testCase)
+            % Verify nanosecond precision when TimeUnit="Nanosecond"
+            original = milliseconds(1.0030031);
+            array = testCase.ArrowArrayConstructorFcn(original, TimeUnit="Nanosecond");
+            expected = milliseconds(1.0030030);
+            testCase.verifyEqual(duration(array), expected);
+        end
     end
 
     methods
