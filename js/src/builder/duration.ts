@@ -28,19 +28,19 @@ export class DurationBuilder<T extends Duration = Duration, TNull = any> extends
 /** @ignore */
 export class DurationSecondBuilder<TNull = any> extends DurationBuilder<DurationSecond, TNull> { }
 
-(DurationSecond.prototype as any)._setValue = setDurationSecond;
+(DurationSecondBuilder.prototype as any)._setValue = setDurationSecond;
 
 /** @ignore */
 export class DurationMillisecondBuilder<TNull = any> extends DurationBuilder<DurationMillisecond, TNull> { }
 
-(DurationMillisecond.prototype as any)._setValue = setDurationMillisecond;
+(DurationMillisecondBuilder.prototype as any)._setValue = setDurationMillisecond;
 
 /** @ignore */
 export class DurationMicrosecondBuilder<TNull = any> extends DurationBuilder<DurationMicrosecond, TNull> { }
 
-(DurationMicrosecond.prototype as any)._setValue = setDurationMicrosecond;
+(DurationMicrosecondBuilder.prototype as any)._setValue = setDurationMicrosecond;
 
 /** @ignore */
 export class DurationNanosecondBuilder<TNull = any> extends DurationBuilder<DurationNanosecond, TNull> { }
 
-(DurationNanosecond.prototype as any)._setValue = setDurationNanosecond;
+(DurationNanosecondBuilder.prototype as any)._setValue = setDurationNanosecond;
