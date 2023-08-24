@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import pickle
 import shutil
 import subprocess
 import weakref
@@ -217,12 +216,12 @@ def test_ext_type_as_py():
         assert result.as_py() == expected
 
 
-def test_uuid_type_pickle():
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_uuid_type_pickle(pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = UuidType()
-        ser = pickle.dumps(ty, protocol=proto)
+        ser = pickle_module.dumps(ty, protocol=proto)
         del ty
-        ty = pickle.loads(ser)
+        ty = pickle_module.loads(ser)
         wr = weakref.ref(ty)
         assert ty.extension_name == "arrow.py_extension_type"
         del ty
@@ -410,14 +409,14 @@ def test_ext_scalar_from_storage():
     assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
 
 
-def test_ext_array_pickling():
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_ext_array_pickling(pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = ParamExtType(3)
         storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
         arr = pa.ExtensionArray.from_storage(ty, storage)
-        ser = pickle.dumps(arr, protocol=proto)
+        ser = pickle_module.dumps(arr, protocol=proto)
         del ty, storage, arr
-        arr = pickle.loads(ser)
+        arr = pickle_module.loads(ser)
         arr.validate()
         assert isinstance(arr, pa.ExtensionArray)
         assert arr.type == ParamExtType(3)
@@ -867,23 +866,23 @@ def test_generic_ext_type_equality():
     assert not period_type == period_type3
 
 
-def test_generic_ext_type_pickling(registered_period_type):
+def test_generic_ext_type_pickling(registered_period_type, pickle_module):
     # GH-36038
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         period_type, _ = registered_period_type
-        ser = pickle.dumps(period_type, protocol=proto)
-        period_type_pickled = pickle.loads(ser)
+        ser = pickle_module.dumps(period_type, protocol=proto)
+        period_type_pickled = pickle_module.loads(ser)
         assert period_type == period_type_pickled
 
 
-def test_generic_ext_array_pickling(registered_period_type):
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_generic_ext_array_pickling(registered_period_type, pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         period_type, _ = registered_period_type
         storage = pa.array([1, 2, 3, 4], pa.int64())
         arr = pa.ExtensionArray.from_storage(period_type, storage)
-        ser = pickle.dumps(arr, protocol=proto)
+        ser = pickle_module.dumps(arr, protocol=proto)
         del storage, arr
-        arr = pickle.loads(ser)
+        arr = pickle_module.loads(ser)
         arr.validate()
         assert isinstance(arr, pa.ExtensionArray)
         assert arr.type == period_type
@@ -1338,17 +1337,17 @@ def test_extension_to_pandas_storage_type(registered_period_type):
         assert isinstance(result["ext"].dtype, pd.ArrowDtype)
 
 
-def test_tensor_type_is_picklable():
+def test_tensor_type_is_picklable(pickle_module):
     # GH-35599
 
     expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
-    result = pickle.loads(pickle.dumps(expected_type))
+    result = pickle_module.loads(pickle_module.dumps(expected_type))
 
     assert result == expected_type
 
     arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
     storage = pa.array(arr, pa.list_(pa.int32(), 4))
     expected_arr = pa.ExtensionArray.from_storage(expected_type, storage)
-    result = pickle.loads(pickle.dumps(expected_arr))
+    result = pickle_module.loads(pickle_module.dumps(expected_arr))
 
     assert result == expected_arr
