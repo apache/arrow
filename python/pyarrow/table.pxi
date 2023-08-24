@@ -16,6 +16,7 @@
 # under the License.
 
 import warnings
+import functools
 
 
 cdef class ChunkedArray(_PandasConvertible):
@@ -67,7 +68,21 @@ cdef class ChunkedArray(_PandasConvertible):
         self.chunked_array = chunked_array.get()
 
     def __reduce__(self):
-        return chunked_array, (self.chunks, self.type)
+        """
+        Use Arrow IPC format for serialization.
+
+        Workaround for a pickling sliced Array issue,
+        where the whole buffer would be serialized:
+        https://github.com/apache/arrow/issues/26685
+
+        Adds ~230 extra bytes to the pickled payload per Array chunk.
+        """
+        import pyarrow as pa
+
+        # IPC serialization requires wrapping in RecordBatch
+        table = pa.Table.from_arrays([self], names=[""])
+        reconstruct_table, serialised = table.__reduce__()
+        return functools.partial(_reconstruct_chunked_array, reconstruct_table), serialised
 
     @property
     def data(self):
@@ -1390,6 +1405,16 @@ def chunked_array(arrays, type=None):
         c_result = GetResultValue(CChunkedArray.Make(c_arrays, c_type))
     return pyarrow_wrap_chunked_array(c_result)
 
+def _reconstruct_chunked_array(restore_table, buffer):
+    """
+    Restore an IPC serialized ChunkedArray.
+
+    Workaround for a pickling sliced Array issue,
+    where the whole buffer would be serialized:
+    https://github.com/apache/arrow/issues/26685
+    """
+    return restore_table(buffer).column(0)
+
 
 cdef _schema_from_arrays(arrays, names, metadata, shared_ptr[CSchema]* schema):
     cdef:
@@ -2196,7 +2221,21 @@ cdef class RecordBatch(_Tabular):
         return self.batch != NULL
 
     def __reduce__(self):
-        return _reconstruct_record_batch, (self.columns, self.schema)
+        """
+        Use Arrow IPC format for serialization.
+
+        Workaround for a pickling sliced RecordBatch issue,
+        where the whole buffer would be serialized:
+        https://github.com/apache/arrow/issues/26685
+        """
+        from pyarrow.ipc import RecordBatchStreamWriter
+        from pyarrow.lib import RecordBatch, BufferOutputStream
+
+        sink = BufferOutputStream()
+        with RecordBatchStreamWriter(sink, schema=self.schema) as writer:
+            writer.write_batch(self)
+
+        return _reconstruct_record_batch, (sink.getvalue(),)
 
     def validate(self, *, full=False):
         """
@@ -2984,11 +3023,18 @@ cdef class RecordBatch(_Tabular):
         return pyarrow_wrap_batch(c_batch)
 
 
-def _reconstruct_record_batch(columns, schema):
+def _reconstruct_record_batch(buffer):
     """
-    Internal: reconstruct RecordBatch from pickled components.
+    Restore an IPC serialized Arrow RecordBatch.
+
+    Workaround for a pickling sliced RecordBatch issue,
+    where the whole buffer would be serialized:
+    https://github.com/apache/arrow/issues/26685
     """
-    return RecordBatch.from_arrays(columns, schema=schema)
+    from pyarrow.ipc import RecordBatchStreamReader
+
+    with RecordBatchStreamReader(buffer) as reader:
+        return reader.read_next_batch()
 
 
 def table_to_blocks(options, Table table, categories, extension_columns):
@@ -3170,10 +3216,23 @@ cdef class Table(_Tabular):
                 check_status(self.table.Validate())
 
     def __reduce__(self):
-        # Reduce the columns as ChunkedArrays to avoid serializing schema
-        # data twice
-        columns = [col for col in self.columns]
-        return _reconstruct_table, (columns, self.schema)
+        """
+        Use Arrow IPC format for serialization.
+
+        Workaround for a pickling sliced Table issue,
+        where the whole buffer would be serialized:
+        https://github.com/apache/arrow/issues/26685
+
+        Adds ~230 extra bytes to pickled payload per Array chunk.
+        """
+        from pyarrow.ipc import RecordBatchStreamWriter
+        from pyarrow.lib import RecordBatch, BufferOutputStream
+
+        sink = BufferOutputStream()
+        with RecordBatchStreamWriter(sink, schema=self.schema) as writer:
+            writer.write_table(self)
+
+        return _reconstruct_table, (sink.getvalue(), )
 
     def slice(self, offset=0, length=None):
         """
@@ -4754,11 +4813,18 @@ cdef class Table(_Tabular):
         )
 
 
-def _reconstruct_table(arrays, schema):
+def _reconstruct_table(buffer):
     """
-    Internal: reconstruct pa.Table from pickled components.
+    Restore an IPC serialized Arrow Table.
+
+    Workaround for a pickling sliced Table issue,
+    where the whole buffer would be serialized:
+    https://github.com/apache/arrow/issues/26685
     """
-    return Table.from_arrays(arrays, schema=schema)
+    from pyarrow.ipc import RecordBatchStreamReader
+
+    with RecordBatchStreamReader(buffer) as reader:
+        return reader.read_all()
 
 
 def record_batch(data, names=None, schema=None, metadata=None):

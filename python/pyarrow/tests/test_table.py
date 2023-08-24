@@ -285,21 +285,38 @@ def test_chunked_array_equals():
     # ARROW-4822
     assert not pa.chunked_array([], type=pa.int32()).equals(None)
 
-
-@pytest.mark.parametrize(
-    ('data', 'typ'),
+pickle_test_parametrize = pytest.mark.parametrize(
+        ('data', 'typ'),
     [
-        ([True, False, True, True], pa.bool_()),
-        ([1, 2, 4, 6], pa.int64()),
-        ([1.0, 2.5, None], pa.float64()),
-        (['a', None, 'b'], pa.string()),
-        ([], pa.list_(pa.uint8())),
-        ([[1, 2], [3]], pa.list_(pa.int64())),
-        ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
-        ([(1, 'a'), (2, 'c'), None],
-            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
+        # Int array
+        (list(range(999)) + [None], pa.int64()),
+        # Float array
+        (list(map(float, range(999))) + [None], pa.float64()),
+        # Boolean array
+        ([True, False, None, True] * 250, pa.bool_()),
+        # String array
+        (['a', 'b', 'cd', None, 'efg'] * 200, pa.string()),
+        # List array
+        ([[1, 2], [3], [None, 4, 5], [6]] * 250, pa.list_(pa.int64())),
+        # Large list array
+        (
+            [[4, 5], [6], [None, 7], [8, 9, 10]] * 250,
+            pa.large_list(pa.int16()),
+        ),
+        # String list array
+        (
+            [['a'], None, ['b', 'cd'], ['efg']] * 250,
+            pa.list_(pa.string()),
+        ),
+        # Struct array
+        (
+            [(1, 'a'), (2, 'c'), None, (3, 'b')] * 250,
+            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]),
+        ),
     ]
 )
+
+@pickle_test_parametrize
 def test_chunked_array_pickle(data, typ, pickle_module):
     arrays = []
     while data:
@@ -310,6 +327,38 @@ def test_chunked_array_pickle(data, typ, pickle_module):
     result = pickle_module.loads(pickle_module.dumps(array))
     result.validate()
     assert result.equals(array)
+
+@pickle_test_parametrize
+def test_chunked_array_pickle_slice_truncation(data, typ, pickle_module):
+    # create chunked array
+    arrays = []
+    while data:
+        arrays.append(pa.array(data[:2], type=typ))
+        data = data[2:]
+    array = pa.chunked_array(arrays, type=typ)
+    array.validate()
+    serialised_array = pickle_module.dumps(array)
+
+    slice_array =  array.slice(10, 20)
+    serialised_slice = pickle_module.dumps(slice_array)
+
+    # Check truncation upon serialisation
+    assert len(serialised_slice) <= 0.2 * len(serialised_array)
+
+    post_pickle_slice = pickle_module.loads(serialised_slice)
+
+    # Check for roundtrip equality
+    assert post_pickle_slice.equals(slice_array)
+
+    # Check that pickling reset the offset
+    assert post_pickle_slice.chunk(0).offset == 0
+
+    # Check that after pickling the slice buffer was trimmed to only contain sliced data
+    buf_size = array.get_total_buffer_size()
+    post_pickle_slice_buf_size = post_pickle_slice.get_total_buffer_size()
+    assert buf_size / post_pickle_slice_buf_size - len(array) / len(post_pickle_slice) < 10
+
+
 
 
 @pytest.mark.pandas
@@ -678,6 +727,64 @@ def test_recordbatch_pickle(pickle_module):
     assert result.equals(batch)
     assert result.schema == schema
 
+def test_recordbatch_pickle_slice_truncation(pickle_module):
+    data = [
+        # Int array
+        pa.array(list(range(999)) + [None], type=pa.int64()),
+        # Float array.
+        pa.array(list(map(float, range(999))) + [None], type=pa.float64()),
+        # Boolean array.
+        pa.array([True, False, None, True] * 250, type=pa.bool_()),
+        # String array.
+        pa.array(['a', 'b', 'cd', None, 'efg'] * 200, type=pa.string()),
+        # List array.
+        pa.array([[1, 2], [3], [None, 4, 5], [6]] * 250, type=pa.list_(pa.int64())),
+        # Large list array.
+        pa.array(
+            [[4, 5], [6], [None, 7], [8, 9, 10]] * 250,
+            type=pa.large_list(pa.int16()),
+        ),
+        # String list array.
+        pa.array(
+            [['a'], None, ['b', 'cd'], ['efg']] * 250,
+            type=pa.list_(pa.string()),
+        ),
+    ]
+
+    fields = [
+            pa.field('ints', pa.int64()),
+            pa.field('floats', pa.float64()),
+            pa.field('bools', pa.bool_()),
+            pa.field("strs", pa.string()),
+            pa.field("lists", pa.list_(pa.int64())),
+            pa.field("large-lists", pa.large_list(pa.int16())),
+            pa.field("str-list", pa.list_(pa.string())),
+        ]
+
+    schema = pa.schema(fields, metadata={b'foo': b'bar'})
+    batch = pa.record_batch(data, schema=schema)
+    serialised_batch = pickle_module.dumps(batch)
+
+    slice_batch = batch.slice(10, 2)
+    serialised_slice = pickle_module.dumps(slice_batch)
+
+    # Check that buffer was truncated upon serialisation
+    assert len(serialised_slice) <= 0.2 * len(serialised_batch)
+
+    post_pickle_slice = pickle_module.loads(serialised_slice)
+
+    # Roundtrip equality
+    assert post_pickle_slice.equals(slice_batch)
+
+    # Slice offset was reset
+    for col in post_pickle_slice.columns:
+        assert col.offset == 0
+
+    # Post-pickle slice buffer should only contain the sliced data
+    buf_size = batch.get_total_buffer_size()
+    post_pickle_slice_buf_size = post_pickle_slice.get_total_buffer_size()
+    assert buf_size / post_pickle_slice_buf_size - len(batch) / len(post_pickle_slice) < 10
+
 
 def test_recordbatch_get_field():
     data = [
@@ -1034,6 +1141,66 @@ def test_table_pickle(pickle_module):
     result = pickle_module.loads(pickle_module.dumps(table))
     result.validate()
     assert result.equals(table)
+
+def test_table_pickle_slice_truncation(pickle_module):
+    data = [
+        # Int array
+        pa.chunked_array([list(range(999))] + [[None]], type=pa.int64()),
+        # Float array
+        pa.chunked_array([list(map(float, range(999)))] + [[None]], type=pa.float64()),
+        # Boolean array
+        pa.chunked_array([[True, False, None, True]] * 250, type=pa.bool_()),
+        # String array
+        pa.chunked_array([['a', 'b', 'cd', None, 'efg']] * 200, type=pa.string()),
+        # List array
+        pa.chunked_array([[[1, 2], [3], [None, 4, 5], [6]]] * 250, type=pa.list_(pa.int64())),
+        # Large list array
+        pa.chunked_array(
+            [[[4, 5], [6], [None, 7], [8, 9, 10]]] * 250,
+            type=pa.large_list(pa.int16()),
+        ),
+        # String list array.
+        pa.chunked_array(
+            [[['a'], None, ['b', 'cd'], ['efg']]] * 250,
+            type=pa.list_(pa.string()),
+        ),
+    ]
+
+    fields = [
+            pa.field('ints', pa.int64()),
+            pa.field('floats', pa.float64()),
+            pa.field('bools', pa.bool_()),
+            pa.field("strings", pa.string()),
+            pa.field("lists", pa.list_(pa.int64())),
+            pa.field("large-lists", pa.large_list(pa.int16())),
+            pa.field("string-list", pa.list_(pa.string())),
+        ]
+
+    schema = pa.schema(fields, metadata= {b'foo': b'bar'})
+
+    table = pa.Table.from_arrays(data, schema=schema)
+    serialised_table = pickle_module.dumps(table)
+
+    slice_table = table.slice(10, 2)
+    serialised_slice = pickle_module.dumps(slice_table)
+
+    # Check buffer truncation
+    assert len(serialised_slice) <= 0.2 * len(serialised_table)
+
+    post_pickle_slice = pickle_module.loads(serialised_slice)
+    post_pickle_slice.validate()
+
+    # Roundtrip-equality
+    assert post_pickle_slice.equals(slice_table)
+
+    # Offset reset post-pickle
+    for col in post_pickle_slice.columns:
+        assert col.chunk(0).offset == 0
+
+    # Post-pickle slice buffer only contains slice data
+    buf_size = table.get_total_buffer_size()
+    post_pickle_slice_buf_size = post_pickle_slice.get_total_buffer_size()
+    assert buf_size / post_pickle_slice_buf_size - len(table) / len(post_pickle_slice) < 10
 
 
 def test_table_get_field():

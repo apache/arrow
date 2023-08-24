@@ -674,12 +674,18 @@ cdef shared_ptr[CArrayData] _reconstruct_array_data(data):
         offset)
 
 
-def _restore_array(data):
+def _restore_array(buffer):
     """
-    Reconstruct an Array from pickled ArrayData.
+    Restore an IPC serialized Arrow Array.
+
+    Workaround for a pickling sliced Array issue,
+    where the whole buffer would be serialized:
+    https://github.com/apache/arrow/issues/26685
     """
-    cdef shared_ptr[CArrayData] ad = _reconstruct_array_data(data)
-    return pyarrow_wrap_array(MakeArray(ad))
+    from pyarrow.ipc import RecordBatchStreamReader
+
+    with RecordBatchStreamReader(buffer) as reader:
+        return reader.read_next_batch().column(0)
 
 
 cdef class _PandasConvertible(_Weakrefable):
@@ -1100,8 +1106,22 @@ cdef class Array(_PandasConvertible):
                      memory_pool=memory_pool)
 
     def __reduce__(self):
-        return _restore_array, \
-            (_reduce_array_data(self.sp_array.get().data().get()),)
+        """
+        Use Arrow IPC format for serialization.
+
+        Workaround for a pickling sliced Array issue,
+        where the whole buffer would be serialized:
+        https://github.com/apache/arrow/issues/26685
+        """
+        from pyarrow.ipc import RecordBatchStreamWriter
+        from pyarrow.lib import RecordBatch, BufferOutputStream
+
+        batch = RecordBatch.from_arrays([self], [''])
+        sink = BufferOutputStream()
+        with RecordBatchStreamWriter(sink, schema=batch.schema) as writer:
+            writer.write_batch(batch)
+
+        return _restore_array, (sink.getvalue(),)
 
     @staticmethod
     def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,

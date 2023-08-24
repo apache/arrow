@@ -1985,20 +1985,35 @@ def test_cast_identities(ty, values):
 
 
 pickle_test_parametrize = pytest.mark.parametrize(
-    ('data', 'typ'),
-    [
-        ([True, False, True, True], pa.bool_()),
-        ([1, 2, 4, 6], pa.int64()),
-        ([1.0, 2.5, None], pa.float64()),
-        (['a', None, 'b'], pa.string()),
-        ([], None),
-        ([[1, 2], [3]], pa.list_(pa.int64())),
-        ([[4, 5], [6]], pa.large_list(pa.int16())),
-        ([['a'], None, ['b', 'c']], pa.list_(pa.string())),
-        ([(1, 'a'), (2, 'c'), None],
-            pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
-    ]
-)
+        ('data', 'typ'),
+        [
+            # Int array
+            (list(range(999)) + [None], pa.int64()),
+            # Float array
+            (list(map(float, range(999))) + [None], pa.float64()),
+            # Boolean array
+            ([True, False, None, True] * 250, pa.bool_()),
+            # String array
+            (['a', 'b', 'cd', None, 'efg'] * 200, pa.string()),
+            # List array
+            ([[1, 2], [3], [None, 4, 5], [6]] * 250, pa.list_(pa.int64())),
+            # Large list array
+            (
+                [[4, 5], [6], [None, 7], [8, 9, 10]] * 250,
+                pa.large_list(pa.int16())
+            ),
+            # String list array
+            (
+                [['a'], None, ['b', 'cd'], ['efg']] * 250,
+                pa.list_(pa.string())
+            ),
+            # Struct array
+            (
+                [(1, 'a'), (2, 'c'), None, (3, 'b')] * 250,
+                pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())])
+            ),
+            # Empty array
+        ])
 
 
 @pickle_test_parametrize
@@ -2048,6 +2063,31 @@ def test_array_pickle_protocol5(data, typ, pickle_module):
         result_addresses = [buf.address if buf is not None else 0
                             for buf in result.buffers()]
         assert result_addresses == addresses
+
+@pickle_test_parametrize
+def test_array_pickle_slice_truncation(data, typ, pickle_module):
+    arr = pa.array(data, type=typ)
+    serialized = pickle_module.dumps(arr)
+
+    slice_arr = arr.slice(10, 2)
+    serialized = pickle_module.dumps(slice_arr)
+
+    # Check truncation upon serialization
+    assert len(serialized) <= 0.2 * len(serialized)
+
+    post_pickle_slice = pickle_module.loads(serialized)
+
+    # Check for post-roundtrip equality
+    assert post_pickle_slice.equals(slice_arr)
+
+    # Check that pickling reset the offset
+    assert post_pickle_slice.offset == 0
+
+    # Check that after pickling the slice buffer was trimmed to only contain the sliced data
+    buf_size = arr.get_total_buffer_size()
+    post_pickle_slice_buf_size = post_pickle_slice.get_total_buffer_size()
+    assert buf_size / post_pickle_slice_buf_size - len(arr) / len(post_pickle_slice) < 10
+
 
 
 @pytest.mark.parametrize(
