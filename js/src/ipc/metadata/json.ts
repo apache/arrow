@@ -188,7 +188,7 @@ function typeFromJSON(f: any, children?: Field[]): DataType<any> {
         case 'union': {
             const t = f['type'];
             const [m, ...ms] = (t['mode'] + '').toLowerCase();
-            const mode = (m.toUpperCase() + ms.join("")) as keyof typeof UnionMode;
+            const mode = (m.toUpperCase() + ms.join('')) as keyof typeof UnionMode;
             return new Union(UnionMode[mode] as any, (t['typeIds'] || []), children || []);
         }
         case 'fixedsizebinary': {
