@@ -278,6 +278,11 @@ func importSchema(schema *CArrowSchema) (ret arrow.Field, err error) {
 			dt = arrow.FixedSizeListOfField(int32(listSize), childFields[0])
 		case 's': // struct
 			dt = arrow.StructOf(childFields...)
+		case 'r': // run-end encoded
+			if len(childFields) != 2 {
+				return ret, fmt.Errorf("%w: run-end encoded arrays must have 2 children", arrow.ErrInvalid)
+			}
+			dt = arrow.RunEndEncodedOf(childFields[0].Type, childFields[1].Type)
 		case 'm': // map type is basically a list of structs.
 			st := childFields[0].Type.(*arrow.StructType)
 			dt = arrow.MapOf(st.Field(0).Type, st.Field(1).Type)
@@ -378,6 +383,16 @@ func (imp *cimporter) doImportChildren() error {
 		for i, c := range children {
 			imp.children[i].dt = st.Field(i).Type
 			imp.children[i].importChild(imp, c)
+		}
+	case arrow.RUN_END_ENCODED: // import run-ends and values
+		st := imp.dt.(*arrow.RunEndEncodedType)
+		imp.children[0].dt = st.RunEnds()
+		if err := imp.children[0].importChild(imp, children[0]); err != nil {
+			return err
+		}
+		imp.children[1].dt = st.Encoded()
+		if err := imp.children[1].importChild(imp, children[1]); err != nil {
+			return err
 		}
 	case arrow.MAP: // only one child to import, it's a struct array
 		imp.children[0].dt = imp.dt.(*arrow.MapType).Elem()
@@ -491,6 +506,17 @@ func (imp *cimporter) doImport(src *CArrowArray) error {
 		}
 
 		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{nulls}, children, int(imp.arr.null_count), int(imp.arr.offset))
+	case *arrow.RunEndEncodedType:
+		if err := imp.checkNumBuffers(0); err != nil {
+			return err
+		}
+
+		if len(imp.children) != 2 {
+			return fmt.Errorf("%w: run-end encoded array should have 2 children", arrow.ErrInvalid)
+		}
+
+		children := []arrow.ArrayData{imp.children[0].data, imp.children[1].data}
+		imp.data = array.NewData(dt, int(imp.arr.length), []*memory.Buffer{}, children, int(imp.arr.null_count), int(imp.arr.offset))
 	case *arrow.DenseUnionType:
 		if err := imp.checkNoNulls(); err != nil {
 			return err
