@@ -19,6 +19,7 @@
 
 #include <azure/identity/default_azure_credential.hpp>
 #include <azure/storage/blobs.hpp>
+
 #include "arrow/result.h"
 #include "arrow/util/checked_cast.h"
 
