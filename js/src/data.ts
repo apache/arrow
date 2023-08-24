@@ -275,7 +275,7 @@ class MakeDataVisitor extends Visitor {
             ['offset']: offset = 0,
             ['length']: length = 0,
         } = props;
-        return new Data(type, offset, length, 0);
+        return new Data(type, offset, length, length);
     }
     public visitBool<T extends Bool>(props: BoolDataProps<T>) {
         const { ['type']: type, ['offset']: offset = 0 } = props;
