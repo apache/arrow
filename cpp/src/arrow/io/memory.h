@@ -147,17 +147,17 @@ class ARROW_EXPORT BufferReader
  public:
   explicit BufferReader(std::shared_ptr<Buffer> buffer);
   ARROW_DEPRECATED(
-      "Deprecated in 12.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
+      "Deprecated in 14.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
       "buffer) instead.")
   explicit BufferReader(const Buffer& buffer);
   ARROW_DEPRECATED(
-      "Deprecated in 12.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
+      "Deprecated in 14.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
       "buffer) instead.")
   BufferReader(const uint8_t* data, int64_t size);
 
   /// \brief Instantiate from std::string_view. Does not own data
   ARROW_DEPRECATED(
-      "Deprecated in 12.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
+      "Deprecated in 14.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
       "buffer) instead.")
   explicit BufferReader(std::string_view data);
 
