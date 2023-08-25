@@ -145,6 +145,9 @@ class ARROW_EXPORT FixedSizeBufferWriter : public WritableFile {
 class ARROW_EXPORT BufferReader
     : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
  public:
+  /// \brief Instantiate from std::shared_ptr<Buffer>.
+  /// User should guarantee that the buffer live longer than the BufferReader and
+  /// zero-copy Buffer result.
   explicit BufferReader(std::shared_ptr<Buffer> buffer);
   ARROW_DEPRECATED(
       "Deprecated in 14.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "
@@ -161,6 +164,7 @@ class ARROW_EXPORT BufferReader
       "buffer) instead.")
   explicit BufferReader(std::string_view data);
 
+  /// \brief Instantiate from std::string. Owns data.
   static std::unique_ptr<BufferReader> FromString(std::string data);
 
   bool closed() const override;
