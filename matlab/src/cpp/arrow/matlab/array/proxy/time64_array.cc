@@ -15,16 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/type_fwd.h"
-#include "arrow/result.h"
+#include "arrow/matlab/array/proxy/time64_array.h"
+#include "arrow/matlab/array/proxy/time_array.h"
 
-#include <string_view>
+namespace arrow::matlab::array::proxy {
 
-namespace arrow::matlab::type {
-
-    arrow::Result<arrow::TimeUnit::type> timeUnitFromString(std::u16string_view unit_str);
-
-    template <typename TimeType>
-    arrow::Status validateTimeUnit(arrow::TimeUnit::type unit);
-
+    // Specialization of NumericArray::Make for arrow::Time64Type
+    template <>
+    libmexclass::proxy::MakeResult Time64Array::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        return make_time_array<arrow::Time64Type>(constructor_arguments);
+    }
 }
