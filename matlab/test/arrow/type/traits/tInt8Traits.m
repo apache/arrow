@@ -20,6 +20,7 @@ classdef tInt8Traits < hTypeTraits
         ArrayConstructor = @arrow.array.Int8Array
         ArrayClassName = "arrow.array.Int8Array"
         ArrayProxyClassName = "arrow.array.proxy.Int8Array"
+        ArrayStaticConstructor = @arrow.array.Int8Array.fromMATLAB
         TypeConstructor = @arrow.type.Int8Type
         TypeClassName = "arrow.type.Int8Type"
         TypeProxyClassName = "arrow.type.proxy.Int8Type"

@@ -19,6 +19,7 @@ classdef Time64Traits < arrow.type.traits.TypeTraits
         ArrayConstructor = @arrow.array.Time64Array
         ArrayClassName = "arrow.array.Time64Array"
         ArrayProxyClassName = "arrow.array.proxy.Time64Array"
+        ArrayStaticConstructor = @arrow.array.Time64Array.fromMATLAB
         TypeConstructor = @arrow.type.Time64Type;
         TypeClassName = "arrow.type.Time64Type"
         TypeProxyClassName = "arrow.type.proxy.Time64Type"
