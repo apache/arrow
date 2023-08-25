@@ -233,7 +233,7 @@ write_dataset <- function(dataset,
 #' The `write_*_dataset()` are a family of wrappers around [write_dataset] to allow for easy switching
 #' between functions for writing datasets.
 #'
-#' @inheritParams [write_dataset()]
+#' @inheritParams write_dataset
 #' @param col_names Whether to write an initial header line with column names.
 #' @param batch_size Maximum number of rows processed at a time. Default is 1024L.
 #' @param delim Delimiter used to separate values. Defaults to `","` for `write_delim_dataset()` and

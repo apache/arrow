@@ -18,8 +18,12 @@ write_delim_dataset(
   max_rows_per_file = 0L,
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
-  delimiter = ",",
-  ...
+  col_names = TRUE,
+  batch_size = 1024L,
+  delim = ",",
+  na = "",
+  eol = "\\n",
+  quote = c("needed", "all", "none")
 )
 
 write_csv_dataset(
@@ -34,7 +38,12 @@ write_csv_dataset(
   max_rows_per_file = 0L,
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
-  ...
+  col_names = TRUE,
+  batch_size = 1024L,
+  delim = ",",
+  na = "",
+  eol = "\\n",
+  quote = c("needed", "all", "none")
 )
 
 write_tsv_dataset(
@@ -49,7 +58,11 @@ write_tsv_dataset(
   max_rows_per_file = 0L,
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
-  ...
+  col_names = TRUE,
+  batch_size = 1024L,
+  na = "",
+  eol = "\\n",
+  quote = c("needed", "all", "none")
 )
 }
 \arguments{
@@ -67,9 +80,9 @@ use the current \code{group_by()} columns.}
 
 \item{basename_template}{string template for the names of files to be written.
 Must contain \code{"{i}"}, which will be replaced with an autoincremented
-integer to generate basenames of datafiles. For example, \code{"part-{i}.csv"}
-will yield \verb{"part-0.csv", ...}.
-If not specified, it defaults to \code{"part-{i}.csv"}.}
+integer to generate basenames of datafiles. For example, \code{"part-{i}.arrow"}
+will yield \verb{"part-0.arrow", ...}.
+If not specified, it defaults to \code{"part-{i}.<default extension>"}.}
 
 \item{hive_style}{logical: write partition segments as Hive-style
 (\code{key1=value1/key2=value2/file.ext}) or as just bare values. Default is \code{TRUE}.}
@@ -110,15 +123,31 @@ group and when this number of rows is exceeded, it is split and the next set
 of rows is written to the next group. This value must be set such that it is
 greater than \code{min_rows_per_group}. Default is 1024 * 1024.}
 
-\item{delimiter}{Delimiter used to separate values. Defaults to \code{","} for \code{write_delim_dataset()} and
-\code{write_csv_dataset()}, and \verb{"\\t} for \code{write_tsv_dataset()}. Cannot be changed for \code{write_csv_dataset()}
-and \code{write_tsv_dataset()}.}
+\item{col_names}{Whether to write an initial header line with column names.}
 
-\item{...}{additional format-specific arguments. For available CSV
-options, see \link{CsvWriteOptions}.}
+\item{batch_size}{Maximum number of rows processed at a time. Default is 1024L.}
+
+\item{delim}{Delimiter used to separate values. Defaults to \code{","} for \code{write_delim_dataset()} and
+\code{write_csv_dataset()}, and \verb{"\\t} for \code{write_tsv_dataset()}. Cannot be changed for \code{write_tsv_dataset()}.}
+
+\item{na}{a character vector of strings to interpret as missing values. Quotes are not allowed in this string.
+The default is an empty string \code{""}.}
+
+\item{eol}{the end of line character to use for ending rows. The default is \code{"\\n"}.}
+
+\item{quote}{How to handle fields which contain characters that need to be quoted.
+\itemize{
+\item \code{needed} - Enclose all strings and binary values in quotes which need them, because their CSV rendering can
+contain quotes itself  (the default)
+\item \code{all} -   Enclose all valid values in quotes. Nulls are not quoted. May cause readers to
+interpret all values as strings if schema is inferred.
+\item \code{none} -   Do not enclose any values in quotes. Prevents values from containing quotes ("),
+cell delimiters (,) or line endings (\\r, \\n), (following RFC4180). If values
+contain these characters, an error is caused when attempting to write.
+}}
 }
 \value{
-The input \code{dataset}, invisibly
+The input \code{dataset}, invisibly.
 }
 \description{
 The \verb{write_*_dataset()} are a family of wrappers around \link{write_dataset} to allow for easy switching
