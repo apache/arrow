@@ -39,6 +39,10 @@ namespace arrow::matlab::type::proxy {
                                arrow::matlab::type::timeUnitFromString(utf16_timeunit),
                                error::UKNOWN_TIME_UNIT_ERROR_ID);
 
+         // validate timeunit is either SECOND or MILLI
+        MATLAB_ERROR_IF_NOT_OK(validateTimeUnit<arrow::Time32Type>(timeunit),
+                               error::INVALID_TIME_UNIT);
+
         auto type = arrow::time32(timeunit);
         auto time_type = std::static_pointer_cast<arrow::Time32Type>(type);
         return std::make_shared<Time32TypeProxy>(std::move(time_type));

@@ -26,7 +26,7 @@ namespace arrow::matlab::type::proxy {
 
     libmexclass::proxy::MakeResult Time64Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
-
+        using namespace arrow::matlab::type;
         using Time64TypeProxy = arrow::matlab::type::proxy::Time64Type;
 
         mda::StructArray opts = constructor_arguments[0];
@@ -36,8 +36,12 @@ namespace arrow::matlab::type::proxy {
         // extract the time unit
         const std::u16string& utf16_timeunit = timeunit_mda[0];
         MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
-                               arrow::matlab::type::timeUnitFromString(utf16_timeunit),
+                               timeUnitFromString(utf16_timeunit),
                                error::UKNOWN_TIME_UNIT_ERROR_ID);
+
+        // validate timeunit is either MICRO or NANO
+        MATLAB_ERROR_IF_NOT_OK(validateTimeUnit<arrow::Time64Type>(timeunit),
+                               error::INVALID_TIME_UNIT);
 
         auto type = arrow::time64(timeunit);
         auto time_type = std::static_pointer_cast<arrow::Time64Type>(type);
