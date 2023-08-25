@@ -1557,17 +1557,17 @@ def generate_nested_large_offsets_case():
 def generate_unions_case():
     fields = [
         SparseUnionField('sparse_1', [get_field('f1', 'int32'),
-                                    get_field('f2', 'utf8')],
+                                      get_field('f2', 'utf8')],
                          type_ids=[5, 7]),
         DenseUnionField('dense_1', [get_field('f1', 'int16'),
-                                  get_field('f2', 'binary')],
+                                    get_field('f2', 'binary')],
                         type_ids=[10, 20]),
         SparseUnionField('sparse_2', [get_field('f1', 'float32', nullable=False),
-                                    get_field('f2', 'bool')],
+                                      get_field('f2', 'bool')],
                          type_ids=[5, 7], nullable=False),
         DenseUnionField('dense_2', [get_field('f1', 'uint8', nullable=False),
-                                  get_field('f2', 'uint16'),
-                                  NullField('f3')],
+                                    get_field('f2', 'uint16'),
+                                    NullField('f3')],
                         type_ids=[42, 43, 44], nullable=False),
     ]
 
