@@ -74,10 +74,45 @@ classdef Date32Array < arrow.array.Array
             validElements = arrow.internal.validate.parseValidElements(data, opts);
             % UNIX Epoch (January 1st, 1970)
             unixEpoch = datetime(0, ConvertFrom="posixtime");
-            numDays = int32(days(data - unixEpoch));
+            numDays = int32(floor(days(data - unixEpoch)));
             args = struct(MatlabArray=numDays, Valid=validElements);
             proxy = arrow.internal.proxy.create("arrow.array.proxy.Date32Array", args);
             array = Date32Array(proxy);
         end
     end
+
+    methods (Access=protected)
+
+        function displayScalarObject(obj)
+            maxLength = 20;
+            openBracket = "[";
+            closeBracket = "]";
+            indent = "  ";
+            data = obj.toMATLAB();
+            data.Format = "yyyy-MM-dd";
+            % Abbreviate with ellipsis if more than maxLength elements.
+            if obj.Length > maxLength
+                firstTenElements = data(1:10);
+                lastTenElements = data(end-9:end);
+                ellipsis = "...";
+                beforeEllipsis = indent + strjoin(string(firstTenElements), "," + newline + indent) + ",";
+                afterEllipsis = indent + strjoin(string(lastTenElements), "," + newline + indent);
+                str = ...
+                    openBracket + newline + ...
+                    beforeEllipsis + newline + ...
+                    indent + ellipsis + newline + ...
+                    afterEllipsis + newline + ...
+                    closeBracket;
+                disp(str);
+
+            else
+                str = openBracket + newline + ...
+                    indent + strjoin(string(data), "," + newline + indent) + newline + ...
+                    closeBracket;
+                disp(str);
+            end
+        end
+
+    end
+
 end
