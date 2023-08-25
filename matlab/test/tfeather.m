@@ -273,5 +273,7 @@ end
 function t = createFeatherCompatibleTable()
     import arrow.internal.test.tabular.createTableWithSupportedTypes
     t = createTableWithSupportedTypes;
+    % Remove the duration variable because Feather V1 does not support
+    % either Time32 or Time64 types.
     t = removevars(t, "duration");
 end
