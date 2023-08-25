@@ -65,6 +65,8 @@ export _R_CHECK_DONTTEST_EXAMPLES_=TRUE
 export _R_CHECK_FORCE_SUGGESTS_=FALSE
 export _R_CHECK_LIMIT_CORES_=FALSE
 export _R_CHECK_TESTS_NLINES_=0
+# This can cause failures on CRAN but needs to be set here so issues an error not a warning
+export _R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_=TRUE
 
 # By default, aws-sdk tries to contact a non-existing local ip host
 # to retrieve metadata. Disable this so that S3FileSystem tests run faster.

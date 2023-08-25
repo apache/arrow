@@ -305,7 +305,8 @@ jobs:
             RWINLIB_LOCAL = file.path(Sys.getenv("GITHUB_WORKSPACE"), "r", "windows", "libarrow.zip"),
             MAKEFLAGS = paste0("-j", parallel::detectCores()),
             ARROW_R_DEV = TRUE,
-            "_R_CHECK_FORCE_SUGGESTS_" = FALSE
+            "_R_CHECK_FORCE_SUGGESTS_" = FALSE,
+            "_R_CHECK_STOP_ON_INVALID_NUMERIC_VERSION_INPUTS_" = TRUE
           )
           rcmdcheck::rcmdcheck(".",
             build_args = '--no-build-vignettes',
