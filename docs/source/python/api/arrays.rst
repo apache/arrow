@@ -85,6 +85,7 @@ may expose data type-specific methods or properties.
    UnionArray
    ExtensionArray
    FixedShapeTensorArray
+   VariableShapeTensorArray
 
 .. _api.scalar:
 
