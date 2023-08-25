@@ -22,6 +22,7 @@ classdef tTime32Traits < hTypeTraits
         ArrayConstructor = @arrow.array.Time32Array
         ArrayClassName = "arrow.array.Time32Array"
         ArrayProxyClassName = "arrow.array.proxy.Time32Array"
+        ArrayStaticConstructor = @arrow.array.Time32Array.fromMATLAB
         TypeConstructor = @arrow.type.Time32Type
         TypeClassName = "arrow.type.Time32Type"
         TypeProxyClassName = "arrow.type.proxy.Time32Type"

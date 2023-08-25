@@ -19,7 +19,8 @@ classdef StringTraits < arrow.type.traits.TypeTraits
         ArrayConstructor = @arrow.array.StringArray
         ArrayClassName = "arrow.array.StringArray"
         ArrayProxyClassName = "arrow.array.proxy.StringArray"
-        TypeConstructor = @arrow.type.StringType;
+        ArrayStaticConstructor = @arrow.array.StringArray.fromMATLAB
+        TypeConstructor = @arrow.type.StringType
         TypeClassName = "arrow.type.StringType"
         TypeProxyClassName = "arrow.type.proxy.StringType"
         MatlabConstructor = @string
