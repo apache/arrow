@@ -242,6 +242,74 @@ func (*FixedSizeListType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap()}}
 }
 
+type ListViewType struct {
+	elem Field
+}
+
+func ListViewOfField(f Field) *ListViewType {
+	if f.Type == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListViewType{elem: f}
+}
+
+// ListViewOf returns the list-view type with element type t.
+// For example, if t represents int32, ListViewOf(t) represents []int32.
+//
+// ListViewOf panics if t is nil or invalid. NullableElem defaults to true
+func ListViewOf(t DataType) *ListViewType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListViewType{elem: Field{Name: "item", Type: t, Nullable: true}}
+}
+
+// ListViewOfNonNullable is like ListViewOf but NullableElem defaults to false, indicating
+// that the child type should be marked as non-nullable.
+func ListViewOfNonNullable(t DataType) *ListViewType {
+	if t == nil {
+		panic("arrow: nil DataType")
+	}
+	return &ListViewType{elem: Field{Name: "item", Type: t, Nullable: false}}
+}
+
+func (*ListViewType) ID() Type     { return LIST_VIEW }
+func (*ListViewType) Name() string { return "list_view" }
+
+func (t *ListViewType) String() string {
+	if t.elem.Nullable {
+		return fmt.Sprintf("list_view<%s: %s, nullable>", t.elem.Name, t.elem.Type)
+	}
+	return fmt.Sprintf("list_view<%s: %s>", t.elem.Name, t.elem.Type)
+}
+
+func (t *ListViewType) Fingerprint() string {
+	child := t.elem.Type.Fingerprint()
+	if len(child) > 0 {
+		return typeFingerprint(t) + "{" + child + "}"
+	}
+	return ""
+}
+
+func (t *ListViewType) SetElemMetadata(md Metadata) { t.elem.Metadata = md }
+
+func (t *ListViewType) SetElemNullable(n bool) { t.elem.Nullable = n }
+
+// Elem returns the ListViewType's element type.
+func (t *ListViewType) Elem() DataType { return t.elem.Type }
+
+func (t *ListViewType) ElemField() Field {
+	return t.elem
+}
+
+func (t *ListViewType) Fields() []Field { return []Field{t.ElemField()} }
+
+func (*ListViewType) Layout() DataTypeLayout {
+	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(Int32SizeBytes), SpecFixedWidth(Int32SizeBytes)}}
+}
+
+func (*ListViewType) OffsetTypeTraits() OffsetTraits { return Int32Traits }
+
 // StructType describes a nested type parameterized by an ordered sequence
 // of relative types, called its fields.
 type StructType struct {
