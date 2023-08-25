@@ -28,23 +28,21 @@ classdef tfeather < matlab.unittest.TestCase
     methods(Test)
 
         function NumericDatatypesNoNulls(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
-            
-            actualTable = createTableWithSupportedTypes;
+
+            actualTable = createFeatherCompatibleTable();
             expectedTable = roundtrip(filename, actualTable);
             testCase.verifyEqual(actualTable, expectedTable);
         end
 
         function NumericDatatypesWithNaNRow(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
             
-            t = createTableWithSupportedTypes;
+            t = createFeatherCompatibleTable();
             t = removevars(t, ["logical", "string", "datetime"]);
             
             variableNames = {'uint8', ...
@@ -73,12 +71,11 @@ classdef tfeather < matlab.unittest.TestCase
         end
 
         function NumericDatatypesWithNaNColumns(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
             
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             actualTable.double = [NaN; NaN; NaN];
             actualTable.int64  = [NaN; NaN; NaN];
             
@@ -87,12 +84,11 @@ classdef tfeather < matlab.unittest.TestCase
         end
         
         function NumericDatatypesWithExpInfSciNotation(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
             
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             actualTable.single(2) = 1.0418e+06;
             
             actualTable.double(1) = Inf;
@@ -105,26 +101,24 @@ classdef tfeather < matlab.unittest.TestCase
         end
         
         function IgnoreRowVarNames(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
             
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             time = {'day1', 'day2', 'day3'};
             actualTable.Properties.RowNames = time;
             expectedTable = roundtrip(filename, actualTable);
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             testCase.verifyEqual(actualTable, expectedTable);
         end
 
         function NotFeatherExtension(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.txt');
             
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             expectedTable = roundtrip(filename, actualTable);
             testCase.verifyEqual(actualTable, expectedTable);
         end
@@ -140,12 +134,11 @@ classdef tfeather < matlab.unittest.TestCase
         end
 
         function zeroByNTable(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
             import arrow.internal.test.io.feather.roundtrip
 
             filename = fullfile(pwd, 'temp.feather');
             
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             actualTable([1, 2], :) = [];
             expectedTable = roundtrip(filename, actualTable);
             testCase.verifyEqual(actualTable, expectedTable);
@@ -162,11 +155,10 @@ classdef tfeather < matlab.unittest.TestCase
         end
 
         function ErrorIfCorruptedFeatherFile(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
 
             filename = fullfile(pwd, 'temp.feather');
             
-            t = createTableWithSupportedTypes;
+            t = createFeatherCompatibleTable();
             featherwrite(filename, t);
             
             fileID = fopen(filename, 'w');
@@ -177,19 +169,17 @@ classdef tfeather < matlab.unittest.TestCase
         end
         
         function ErrorIfInvalidFilenameDatatype(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
 
-            t = createTableWithSupportedTypes;
+            t = createFeatherCompatibleTable();
             
             testCase.verifyError(@() featherwrite({table}, t), 'MATLAB:validation:UnableToConvert');
         end
 
         function ErrorIfTooManyInputs(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
 
             filename = fullfile(pwd, 'temp.feather');
             
-            t = createTableWithSupportedTypes;
+            t = createFeatherCompatibleTable();
 
             testCase.verifyError(@() featherwrite(filename, t, 'SomeValue', 'SomeOtherValue'), 'MATLAB:TooManyInputs');
             testCase.verifyError(@() featherread(filename, 'SomeValue', 'SomeOtherValue'), 'MATLAB:TooManyInputs');
@@ -215,11 +205,10 @@ classdef tfeather < matlab.unittest.TestCase
         end
         
         function UnsupportedMATLABDatatypes(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
 
             filename = fullfile(pwd, 'temp.feather');
 
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             calendarDurationVariable = [calendarDuration(1, 7, 9); ...
                                         calendarDuration(2, 1, 1); ...
                                         calendarDuration(5, 3, 2)];
@@ -229,11 +218,9 @@ classdef tfeather < matlab.unittest.TestCase
         end
         
         function NumericComplexUnsupported(testCase)
-            import arrow.internal.test.tabular.createTableWithSupportedTypes
-
             filename = fullfile(pwd, 'temp.feather');
 
-            actualTable = createTableWithSupportedTypes;
+            actualTable = createFeatherCompatibleTable();
             actualTable.single(1) = 1.0418 + 2i;
             actualTable.double(2) = exp(9) + 5i;
             actualTable.int64(2) = 1.0418e+03;
@@ -281,4 +268,12 @@ classdef tfeather < matlab.unittest.TestCase
         end
 
     end
+end
+
+function t = createFeatherCompatibleTable()
+    import arrow.internal.test.tabular.createTableWithSupportedTypes
+    t = createTableWithSupportedTypes;
+    % Remove the duration variable because Feather V1 does not support
+    % either Time32 or Time64 types.
+    t = removevars(t, "duration");
 end
