@@ -517,9 +517,9 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createSubst
     std::vector<arrow::compute::Expression> project_exprs;
     std::vector<std::string> project_names;
     std::optional<arrow::compute::Expression> filter_expr;
-    const arrow::engine::BoundExpressions bounded_expression =
+    arrow::engine::BoundExpressions bounded_expression =
           JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
-    for(arrow::engine::NamedExpression named_expression :
+    for(arrow::engine::NamedExpression& named_expression :
                                         bounded_expression.named_expressions) {
       if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
         if (filter_expr.has_value()) {
@@ -527,12 +527,12 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createSubst
         }
         filter_expr = named_expression.expression;
       } else {
-        project_exprs.push_back(named_expression.expression);
-        project_names.push_back(named_expression.name);
+        project_exprs.push_back(std::move(named_expression.expression));
+        project_names.push_back(std::move(named_expression.name));
       }
     }
     JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
-    JniAssertOkOrThrow(scanner_builder->Filter(*std::move(filter_expr)));
+    JniAssertOkOrThrow(scanner_builder->Filter(*filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
   auto scanner = JniGetOrThrow(scanner_builder->Finish());
