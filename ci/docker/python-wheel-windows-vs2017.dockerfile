@@ -66,6 +66,7 @@ RUN vcpkg install \
         --x-feature=flight \
         --x-feature=gcs \
         --x-feature=json \
+        --x-feature=orc \
         --x-feature=parquet \
         --x-feature=s3
 
