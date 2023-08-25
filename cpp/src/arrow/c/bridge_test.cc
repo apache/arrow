@@ -31,6 +31,7 @@
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
 #include "arrow/c/util_internal.h"
+#include "arrow/extension/uuid_array.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/builder.h"
@@ -53,6 +54,7 @@
 
 namespace arrow {
 
+using extension::uuid;
 using internal::ArrayDeviceExportTraits;
 using internal::ArrayDeviceStreamExportTraits;
 using internal::ArrayExportGuard;
@@ -2192,15 +2194,16 @@ TEST_F(TestSchemaImport, Dictionary) {
 }
 
 TEST_F(TestSchemaImport, UnregisteredExtension) {
-  FillPrimitive("w:16");
-  c_struct_.metadata = kEncodedUuidMetadata.c_str();
-  auto expected = fixed_size_binary(16);
+  FillPrimitive(AddChild(), "u");
+  FillPrimitive("c");
+  FillDictionary();
+  c_struct_.metadata = kEncodedDictExtensionMetadata.c_str();
+  auto expected = dictionary(int8(), utf8());
   CheckImport(expected);
 }
 
 TEST_F(TestSchemaImport, RegisteredExtension) {
   {
-    ExtensionTypeGuard guard(uuid());
     FillPrimitive("w:16");
     c_struct_.metadata = kEncodedUuidMetadata.c_str();
     auto expected = uuid();
@@ -2326,8 +2329,6 @@ TEST_F(TestSchemaImport, DictionaryError) {
 }
 
 TEST_F(TestSchemaImport, ExtensionError) {
-  ExtensionTypeGuard guard(uuid());
-
   // Storage type doesn't match
   FillPrimitive("w:15");
   c_struct_.metadata = kEncodedUuidMetadata.c_str();
@@ -3711,7 +3712,10 @@ std::shared_ptr<Field> GetStorageWithMetadata(const std::string& field_name,
 }
 
 TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
-  TestWithTypeFactory(uuid, []() { return fixed_size_binary(16); });
+  TestWithTypeFactory(complex128, []() {
+    return struct_({::arrow::field("real", float64(), /*nullable=*/false),
+                    ::arrow::field("imag", float64(), /*nullable=*/false)});
+  });
   TestWithTypeFactory(dict_extension_type, []() { return dictionary(int8(), utf8()); });
 
   // Inside nested type.
@@ -3723,7 +3727,7 @@ TEST_F(TestSchemaRoundtrip, UnregisteredExtension) {
 }
 
 TEST_F(TestSchemaRoundtrip, RegisteredExtension) {
-  ExtensionTypeGuard guard({uuid(), dict_extension_type(), complex128()});
+  ExtensionTypeGuard guard({dict_extension_type(), complex128()});
   TestWithTypeFactory(uuid);
   TestWithTypeFactory(dict_extension_type);
   TestWithTypeFactory(complex128);
@@ -4082,7 +4086,7 @@ TEST_F(TestArrayRoundtrip, Dictionary) {
 }
 
 TEST_F(TestArrayRoundtrip, RegisteredExtension) {
-  ExtensionTypeGuard guard({smallint(), complex128(), dict_extension_type(), uuid()});
+  ExtensionTypeGuard guard({smallint(), complex128(), dict_extension_type()});
 
   TestWithArrayFactory(ExampleSmallint);
   TestWithArrayFactory(ExampleUuid);
@@ -4128,7 +4132,6 @@ TEST_F(TestArrayRoundtrip, UnregisteredExtension) {
   };
 
   TestWithArrayFactory(ExampleSmallint, StorageExtractor(ExampleSmallint));
-  TestWithArrayFactory(ExampleUuid, StorageExtractor(ExampleUuid));
   TestWithArrayFactory(ExampleComplex128, StorageExtractor(ExampleComplex128));
   TestWithArrayFactory(ExampleDictExtension, StorageExtractor(ExampleDictExtension));
 }

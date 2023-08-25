@@ -31,6 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/buffer_builder.h"
+#include "arrow/extension/uuid_array.h"
 #include "arrow/io/file.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -59,6 +60,7 @@
 
 namespace arrow {
 
+using extension::uuid;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::TemporaryDir;
@@ -407,7 +409,7 @@ static int g_file_number = 0;
 class ExtensionTypesMixin {
  public:
   // Register the extension types required to ensure roundtripping
-  ExtensionTypesMixin() : ext_guard_({uuid(), dict_extension_type(), complex128()}) {}
+  ExtensionTypesMixin() : ext_guard_({dict_extension_type(), complex128()}) {}
 
  protected:
   ExtensionTypeGuard ext_guard_;

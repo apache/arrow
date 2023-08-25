@@ -31,6 +31,7 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/extension/uuid_array.h"
 #include "arrow/integration/json_integration.h"
 #include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
@@ -67,11 +68,14 @@ DEFINE_bool(validate_times, true,
 
 namespace arrow::internal::integration {
 
-using ::arrow::internal::TemporaryDir;
-using ::arrow::ipc::DictionaryFieldMapper;
-using ::arrow::ipc::DictionaryMemo;
-using ::arrow::ipc::IpcWriteOptions;
-using ::arrow::ipc::MetadataVersion;
+using extension::uuid;
+using internal::TemporaryDir;
+using ipc::DictionaryFieldMapper;
+using ipc::DictionaryMemo;
+using ipc::IpcWriteOptions;
+using ipc::MetadataVersion;
+
+namespace testing {
 
 using namespace ::arrow::ipc::test;  // NOLINT
 
@@ -224,7 +228,7 @@ Status RunCommand(const std::string& json_path, const std::string& arrow_path,
                   const std::string& command) {
   // Make sure the required extension types are registered, as they will be
   // referenced in test data.
-  ExtensionTypeGuard ext_guard({uuid(), dict_extension_type()});
+  ExtensionTypeGuard ext_guard({dict_extension_type()});
 
   if (json_path == "") {
     return Status::Invalid("Must specify json file name");
@@ -1027,12 +1031,10 @@ TEST(TestJsonFileReadWrite, JsonExample1) {
 
 TEST(TestJsonFileReadWrite, JsonExample2) {
   // Example 2: two extension types (one registered, one unregistered)
-  auto uuid_type = uuid();
+  auto uuid_type = arrow::extension::uuid();
   auto buffer = Buffer::Wrap(json_example2, strlen(json_example2));
 
   {
-    ExtensionTypeGuard ext_guard(uuid_type);
-
     ASSERT_OK_AND_ASSIGN(auto reader, IntegrationJsonReader::Open(buffer));
     // The second field is an unregistered extension and will be read as
     // its underlying storage.
@@ -1046,13 +1048,11 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
 
     auto storage_array =
         ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])");
-    AssertArraysEqual(*batch->column(0), UuidArray(uuid_type, storage_array));
+    AssertArraysEqual(*batch->column(0),
+                      arrow::extension::UuidArray(uuid_type, storage_array));
 
     AssertArraysEqual(*batch->column(1), NullArray(2));
   }
-
-  // Should fail now that the Uuid extension is unregistered
-  ASSERT_RAISES(KeyError, IntegrationJsonReader::Open(buffer));
 }
 
 TEST(TestJsonFileReadWrite, JsonExample3) {
@@ -1119,7 +1119,7 @@ class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
 };
 
 void CheckRoundtrip(const RecordBatch& batch) {
-  ExtensionTypeGuard guard({uuid(), dict_extension_type(), complex128()});
+  ExtensionTypeGuard guard({dict_extension_type(), complex128()});
 
   TestSchemaRoundTrip(batch.schema());
 
@@ -1176,7 +1176,7 @@ const std::vector<ipc::test::MakeRecordBatch*> kBatchCases = {
 INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip,
                          ::testing::ValuesIn(kBatchCases));
 
-}  // namespace arrow::internal::integration
+}  // namespace testing
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -1184,8 +1184,8 @@ int main(int argc, char** argv) {
   int ret = 0;
 
   if (FLAGS_integration) {
-    arrow::Status result =
-        arrow::internal::integration::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
+    arrow::Status result = arrow::internal::integration::testing::RunCommand(
+        FLAGS_json, FLAGS_arrow, FLAGS_mode);
     if (!result.ok()) {
       std::cout << "Error message: " << result.ToString() << std::endl;
       ret = 1;
@@ -1197,3 +1197,4 @@ int main(int argc, char** argv) {
   gflags::ShutDownCommandLineFlags();
   return ret;
 }
+}  // namespace arrow::internal::integration
