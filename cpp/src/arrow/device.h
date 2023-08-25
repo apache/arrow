@@ -22,6 +22,8 @@
 #include <string>
 
 #include "arrow/io/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
@@ -98,6 +100,54 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// \brief Return the DeviceAllocationType of this device
   virtual DeviceAllocationType device_type() const = 0;
 
+  class SyncEvent;
+
+  /// \brief EXPERIMENTAL: An opaque wrapper for Device-specific streams
+  ///
+  /// In essence this is just a wrapper around a void* to represent the
+  /// standard concept of a stream/queue on a device. Derived classes
+  /// should be trivially constructible from it's device-specific counterparts.
+  class ARROW_EXPORT Stream {
+   public:
+    virtual const void* get_raw() const { return NULLPTR; }
+
+    /// \brief Make the stream wait on the provided event.
+    ///
+    /// Tells the stream that it should wait until the synchronization
+    /// event is completed without blocking the CPU.
+    virtual Status WaitEvent(const SyncEvent&) = 0;
+
+   protected:
+    Stream() = default;
+    virtual ~Stream() = default;
+  };
+
+  /// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
+  class ARROW_EXPORT SyncEvent {
+   public:
+    using release_fn_t = void (*)(void*);
+
+    virtual ~SyncEvent() = default;
+
+    void* get_raw() { return sync_event_.get(); }
+
+    /// @brief Block until sync event is completed.
+    virtual Status Wait() = 0;
+
+    /// @brief Record the wrapped event on the stream so it triggers
+    /// the event when the stream gets to that point in its queue.
+    virtual Status Record(const Stream&) = 0;
+
+   protected:
+    /// If creating this with a passed in event, the caller must ensure
+    /// that the event lives until clear_event is called on this as it
+    /// won't own it.
+    explicit SyncEvent(void* sync_event, release_fn_t release_sync_event)
+        : sync_event_{sync_event, release_sync_event} {}
+
+    std::unique_ptr<void, release_fn_t> sync_event_;
+  };
+
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(Device);
   explicit Device(bool is_cpu = false) : is_cpu_(is_cpu) {}
@@ -164,6 +214,22 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
   /// See also the Buffer::View shorthand.
   static Result<std::shared_ptr<Buffer>> ViewBuffer(
       const std::shared_ptr<Buffer>& source, const std::shared_ptr<MemoryManager>& to);
+
+  /// \brief Create a new SyncEvent.
+  ///
+  /// This version should construct the appropriate event for the device and
+  /// provide the unique_ptr with the correct deleter for the event type.
+  /// If the device does not require or work with any synchronization, it is
+  /// allowed for it to return a nullptr.
+  virtual Result<std::shared_ptr<Device::SyncEvent>> MakeDeviceSyncEvent();
+
+  /// \brief Wrap an event into a SyncEvent.
+  ///
+  /// @param sync_event passed in sync_event from the imported device array.
+  /// @param release_sync_event destructor to free sync_event. `nullptr` may be
+  ///        passed to indicate that no destruction/freeing is necessary
+  virtual Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event);
 
  protected:
   ARROW_DISALLOW_COPY_AND_ASSIGN(MemoryManager);

@@ -396,6 +396,13 @@ class ARROW_FLIGHT_EXPORT FlightClient {
   /// \brief Whether this client supports asynchronous methods.
   bool supports_async() const;
 
+  /// \brief Check whether this client supports asynchronous methods.
+  ///
+  /// This is like supports_async(), except that a detailed error message
+  /// is returned if async support is not available.  If async support is
+  /// available, this function returns successfully.
+  Status CheckAsyncSupport() const;
+
  private:
   FlightClient();
   Status CheckOpen() const;

@@ -24,8 +24,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
 )
 
 type simpleExtensionTypeFactory[P comparable] struct {

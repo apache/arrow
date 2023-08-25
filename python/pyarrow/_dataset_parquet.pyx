@@ -19,6 +19,7 @@
 
 """Dataset support for Parquest file format."""
 
+from cython cimport binding
 from cython.operator cimport dereference as deref
 
 import os
@@ -770,9 +771,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             other.thrift_container_size_limit)
         return attrs == other_attrs
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    @binding(True)  # Required for Cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return ParquetFragmentScanOptions(**kwargs)
 
     def __reduce__(self):
         kwargs = dict(
@@ -782,7 +786,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
         )
-        return type(self)._reconstruct, (kwargs,)
+        return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 
 
 cdef class ParquetFactoryOptions(_Weakrefable):

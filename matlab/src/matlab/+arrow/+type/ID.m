@@ -32,7 +32,7 @@ classdef ID < uint64
         String  (13)
         % Binary (14)
         % FixedSizeBinary (15)
-        % Date32 (16)
+        Date32 (16)
         % Date64 (17)
         Timestamp (18)
         Time32    (19)

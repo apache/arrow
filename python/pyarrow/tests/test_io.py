@@ -24,7 +24,6 @@ import gzip
 import math
 import os
 import pathlib
-import pickle
 import pytest
 import sys
 import tempfile
@@ -372,17 +371,17 @@ def test_python_file_closing():
 # Buffers
 
 
-def check_buffer_pickling(buf):
+def check_buffer_pickling(buf, pickler):
     # Check that buffer survives a pickle roundtrip
-    for protocol in range(0, pickle.HIGHEST_PROTOCOL + 1):
-        result = pickle.loads(pickle.dumps(buf, protocol=protocol))
+    for protocol in range(0, pickler.HIGHEST_PROTOCOL + 1):
+        result = pickler.loads(pickler.dumps(buf, protocol=protocol))
         assert len(result) == len(buf)
         assert memoryview(result) == memoryview(buf)
         assert result.to_pybytes() == buf.to_pybytes()
         assert result.is_mutable == buf.is_mutable
 
 
-def test_buffer_bytes():
+def test_buffer_bytes(pickle_module):
     val = b'some data'
 
     buf = pa.py_buffer(val)
@@ -393,10 +392,10 @@ def test_buffer_bytes():
     result = buf.to_pybytes()
     assert result == val
 
-    check_buffer_pickling(buf)
+    check_buffer_pickling(buf, pickle_module)
 
 
-def test_buffer_null_data():
+def test_buffer_null_data(pickle_module):
     null_buff = pa.foreign_buffer(address=0, size=0)
     assert null_buff.to_pybytes() == b""
     assert null_buff.address == 0
@@ -406,10 +405,10 @@ def test_buffer_null_data():
     assert m.tobytes() == b""
     assert pa.py_buffer(m).address != 0
 
-    check_buffer_pickling(null_buff)
+    check_buffer_pickling(null_buff, pickle_module)
 
 
-def test_buffer_memoryview():
+def test_buffer_memoryview(pickle_module):
     val = b'some data'
 
     buf = pa.py_buffer(val)
@@ -420,10 +419,10 @@ def test_buffer_memoryview():
     result = memoryview(buf)
     assert result == val
 
-    check_buffer_pickling(buf)
+    check_buffer_pickling(buf, pickle_module)
 
 
-def test_buffer_bytearray():
+def test_buffer_bytearray(pickle_module):
     val = bytearray(b'some data')
 
     buf = pa.py_buffer(val)
@@ -434,7 +433,7 @@ def test_buffer_bytearray():
     result = bytearray(buf)
     assert result == val
 
-    check_buffer_pickling(buf)
+    check_buffer_pickling(buf, pickle_module)
 
 
 def test_buffer_invalid():

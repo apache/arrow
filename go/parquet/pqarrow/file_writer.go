@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/flight"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/file"
-	"github.com/apache/arrow/go/v13/parquet/metadata"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/flight"
+	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v14/parquet/metadata"
 	"golang.org/x/xerrors"
 )
 
