@@ -23,11 +23,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/testing/gen"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/testing/gen"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -742,4 +742,24 @@ func TestConcatOverflowRunEndEncoding(t *testing.T) {
 			assert.ErrorIs(t, err, arrow.ErrInvalid)
 		})
 	}
+}
+
+func TestConcatPanic(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	allocator := &panicAllocator{
+		n:         400,
+		Allocator: mem,
+	}
+
+	g := gen.NewRandomArrayGenerator(0, memory.DefaultAllocator)
+	ar1 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar1.Release()
+	ar2 := g.ArrayOf(arrow.STRING, 32, 0)
+	defer ar2.Release()
+
+	concat, err := array.Concatenate([]arrow.Array{ar1, ar2}, allocator)
+	assert.Error(t, err)
+	assert.Nil(t, concat)
 }

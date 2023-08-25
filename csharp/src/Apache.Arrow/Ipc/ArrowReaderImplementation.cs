@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -24,6 +23,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
 using Apache.Arrow.Memory;
+using Google.FlatBuffers;
 using Type = System.Type;
 
 namespace Apache.Arrow.Ipc
@@ -257,7 +257,7 @@ namespace Apache.Arrow.Ipc
             }
 
             ArrowBuffer[] arrowBuff;
-            if (field.DataType.TypeId == ArrowTypeId.Struct)
+            if (field.DataType.TypeId == ArrowTypeId.Struct || field.DataType.TypeId == ArrowTypeId.FixedSizeList)
             {
                 arrowBuff = new[] { nullArrowBuffer };
             }

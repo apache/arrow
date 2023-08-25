@@ -234,7 +234,7 @@ if [ "${have_glib}" = "yes" ]; then
 
   if [ "${have_ruby}" = "yes" ]; then
     ${install_command} "${ruby_devel_packages[@]}"
-    gem install gobject-introspection
+    MAKEFLAGS="-j$(nproc)" gem install gobject-introspection
     ruby -r gi -e "p GI.load('Arrow')"
   fi
   echo "::endgroup::"

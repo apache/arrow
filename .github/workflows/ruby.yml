@@ -226,7 +226,7 @@ jobs:
       # Don't use preinstalled Boost by empty BOOST_ROOT and
       # -DBoost_NO_BOOST_CMAKE=ON
       BOOST_ROOT: ""
-      CMAKE_ARGS: >-
+      ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/ucrt${{ matrix.mingw-n-bits }}
         -DBoost_NO_BOOST_CMAKE=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON

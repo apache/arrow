@@ -1368,8 +1368,9 @@ set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
    OR ARROW_FLIGHT
-   OR ARROW_S3
-   OR ARROW_GANDIVA)
+   OR ARROW_GANDIVA
+   OR ARROW_GCS
+   OR ARROW_S3)
   set(OpenSSL_SOURCE "SYSTEM")
   resolve_dependency(OpenSSL
                      HAVE_ALT
@@ -1784,7 +1785,12 @@ macro(build_substrait)
 
   # Note: not all protos in Substrait actually matter to plan
   # consumption. No need to build the ones we don't need.
-  set(SUBSTRAIT_PROTOS algebra extensions/extensions plan type)
+  set(SUBSTRAIT_PROTOS
+      algebra
+      extended_expression
+      extensions/extensions
+      plan
+      type)
   set(ARROW_SUBSTRAIT_PROTOS extension_rels)
   set(ARROW_SUBSTRAIT_PROTOS_DIR "${CMAKE_SOURCE_DIR}/proto")
 
@@ -4106,10 +4112,6 @@ macro(build_google_cloud_cpp_storage)
   # Curl is required on all platforms, but building it internally might also trip over S3's copy.
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
-  if(NOT OpenSSL_FOUND)
-    resolve_dependency(OpenSSL HAVE_ALT REQUIRED_VERSION
-                       ${ARROW_OPENSSL_REQUIRED_VERSION})
-  endif()
 
   # Build google-cloud-cpp, with only storage_client
 
@@ -4402,6 +4404,11 @@ macro(build_orc)
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
   set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  # Protobuf generated files may use ABSL_DCHECK*() and
+  # absl::log_internal_check_op is needed for them.
+  if(TARGET absl::log_internal_check_op)
+    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+  endif()
   if(NOT MSVC)
     if(NOT APPLE)
       list(APPEND ORC_LINK_LIBRARIES Threads::Threads)

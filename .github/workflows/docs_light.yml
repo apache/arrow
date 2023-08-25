@@ -41,7 +41,7 @@ jobs:
     name: AMD64 Conda Python 3.9 Sphinx Documentation
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       PYTHON: "3.9"
     steps:

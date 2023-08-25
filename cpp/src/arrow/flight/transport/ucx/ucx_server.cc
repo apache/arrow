@@ -72,6 +72,9 @@ class UcxServerCallContext : public flight::ServerCallContext {
  public:
   const std::string& peer_identity() const override { return peer_; }
   const std::string& peer() const override { return peer_; }
+  // Not supported
+  void AddHeader(const std::string& key, const std::string& value) const override {}
+  void AddTrailer(const std::string& key, const std::string& value) const override {}
   ServerMiddleware* GetMiddleware(const std::string& key) const override {
     return nullptr;
   }
@@ -382,6 +385,27 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     return Status::OK();
   }
 
+  Status HandlePollFlightInfo(UcpCallDriver* driver) {
+    UcxServerCallContext context;
+
+    ARROW_ASSIGN_OR_RAISE(auto frame, driver->ReadNextFrame());
+    SERVER_RETURN_NOT_OK(driver, driver->ExpectFrameType(*frame, FrameType::kBuffer));
+    FlightDescriptor descriptor;
+    SERVER_RETURN_NOT_OK(driver,
+                         FlightDescriptor::Deserialize(std::string_view(*frame->buffer))
+                             .Value(&descriptor));
+
+    std::unique_ptr<PollInfo> info;
+    std::string response;
+    SERVER_RETURN_NOT_OK(driver, base_->PollFlightInfo(context, descriptor, &info));
+    SERVER_RETURN_NOT_OK(driver, info->SerializeToString().Value(&response));
+    RETURN_NOT_OK(driver->SendFrame(FrameType::kBuffer,
+                                    reinterpret_cast<const uint8_t*>(response.data()),
+                                    static_cast<int64_t>(response.size())));
+    RETURN_NOT_OK(SendStatus(driver, Status::OK()));
+    return Status::OK();
+  }
+
   Status HandleDoGet(UcpCallDriver* driver) {
     UcxServerCallContext context;
 
@@ -428,6 +452,8 @@ class UcxServerImpl : public arrow::flight::internal::ServerTransport {
     ARROW_ASSIGN_OR_RAISE(auto method, headers.Get(":method:"));
     if (method == kMethodGetFlightInfo) {
       return HandleGetFlightInfo(driver);
+    } else if (method == kMethodPollFlightInfo) {
+      return HandlePollFlightInfo(driver);
     } else if (method == kMethodDoExchange) {
       return HandleDoExchange(driver);
     } else if (method == kMethodDoGet) {

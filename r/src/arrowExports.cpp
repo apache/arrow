@@ -2024,17 +2024,19 @@ extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_option
 
 // dataset.cpp
 #if defined(ARROW_R_WITH_DATASET)
-std::shared_ptr<ds::ParquetFragmentScanOptions> dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size, bool pre_buffer);
-extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp){
+std::shared_ptr<ds::ParquetFragmentScanOptions> dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size, bool pre_buffer, int64_t thrift_string_size_limit, int64_t thrift_container_size_limit);
+extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp, SEXP thrift_string_size_limit_sexp, SEXP thrift_container_size_limit_sexp){
 BEGIN_CPP11
 	arrow::r::Input<bool>::type use_buffered_stream(use_buffered_stream_sexp);
 	arrow::r::Input<int64_t>::type buffer_size(buffer_size_sexp);
 	arrow::r::Input<bool>::type pre_buffer(pre_buffer_sexp);
-	return cpp11::as_sexp(dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer));
+	arrow::r::Input<int64_t>::type thrift_string_size_limit(thrift_string_size_limit_sexp);
+	arrow::r::Input<int64_t>::type thrift_container_size_limit(thrift_container_size_limit_sexp);
+	return cpp11::as_sexp(dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit, thrift_container_size_limit));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp){
+extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp, SEXP thrift_string_size_limit_sexp, SEXP thrift_container_size_limit_sexp){
 	Rf_error("Cannot call dataset___ParquetFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -4064,6 +4066,84 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__Make(SEXP use_th
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_PARQUET)
+std::shared_ptr<parquet::ReaderProperties> parquet___arrow___ReaderProperties__Make();
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__Make(){
+BEGIN_CPP11
+	return cpp11::as_sexp(parquet___arrow___ReaderProperties__Make());
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__Make(){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+int parquet___arrow___ReaderProperties__get_thrift_string_size_limit(const std::shared_ptr<parquet::ReaderProperties>& properties);
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit(SEXP properties_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type properties(properties_sexp);
+	return cpp11::as_sexp(parquet___arrow___ReaderProperties__get_thrift_string_size_limit(properties));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit(SEXP properties_sexp){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__get_thrift_string_size_limit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+void parquet___arrow___ReaderProperties__set_thrift_string_size_limit(const std::shared_ptr<parquet::ReaderProperties>& properties, int size);
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit(SEXP properties_sexp, SEXP size_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<int>::type size(size_sexp);
+	parquet___arrow___ReaderProperties__set_thrift_string_size_limit(properties, size);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit(SEXP properties_sexp, SEXP size_sexp){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__set_thrift_string_size_limit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+int parquet___arrow___ReaderProperties__get_thrift_container_size_limit(const std::shared_ptr<parquet::ReaderProperties>& properties);
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit(SEXP properties_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type properties(properties_sexp);
+	return cpp11::as_sexp(parquet___arrow___ReaderProperties__get_thrift_container_size_limit(properties));
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit(SEXP properties_sexp){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__get_thrift_container_size_limit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
+void parquet___arrow___ReaderProperties__set_thrift_container_size_limit(const std::shared_ptr<parquet::ReaderProperties>& properties, int size);
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit(SEXP properties_sexp, SEXP size_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type properties(properties_sexp);
+	arrow::r::Input<int>::type size(size_sexp);
+	parquet___arrow___ReaderProperties__set_thrift_container_size_limit(properties, size);
+	return R_NilValue;
+END_CPP11
+}
+#else
+extern "C" SEXP _arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit(SEXP properties_sexp, SEXP size_sexp){
+	Rf_error("Cannot call parquet___arrow___ReaderProperties__set_thrift_container_size_limit(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
+}
+#endif
+
+// parquet.cpp
+#if defined(ARROW_R_WITH_PARQUET)
 void parquet___arrow___ArrowReaderProperties__set_use_threads(const std::shared_ptr<parquet::ArrowReaderProperties>& properties, bool use_threads);
 extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__set_use_threads(SEXP properties_sexp, SEXP use_threads_sexp){
 BEGIN_CPP11
@@ -4163,16 +4243,17 @@ extern "C" SEXP _arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96
 
 // parquet.cpp
 #if defined(ARROW_R_WITH_PARQUET)
-std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props);
-extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
+std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFile(const std::shared_ptr<arrow::io::RandomAccessFile>& file, const std::shared_ptr<parquet::ArrowReaderProperties>& props, const std::shared_ptr<parquet::ReaderProperties>& reader_props);
+extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp, SEXP reader_props_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::io::RandomAccessFile>&>::type file(file_sexp);
 	arrow::r::Input<const std::shared_ptr<parquet::ArrowReaderProperties>&>::type props(props_sexp);
-	return cpp11::as_sexp(parquet___arrow___FileReader__OpenFile(file, props));
+	arrow::r::Input<const std::shared_ptr<parquet::ReaderProperties>&>::type reader_props(reader_props_sexp);
+	return cpp11::as_sexp(parquet___arrow___FileReader__OpenFile(file, props, reader_props));
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp){
+extern "C" SEXP _arrow_parquet___arrow___FileReader__OpenFile(SEXP file_sexp, SEXP props_sexp, SEXP reader_props_sexp){
 	Rf_error("Cannot call parquet___arrow___FileReader__OpenFile(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -5774,7 +5855,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_dataset___FragmentScanOptions__type_name", (DL_FUNC) &_arrow_dataset___FragmentScanOptions__type_name, 1}, 
 		{ "_arrow_dataset___CsvFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___CsvFragmentScanOptions__Make, 2}, 
 		{ "_arrow_dataset___JsonFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___JsonFragmentScanOptions__Make, 2}, 
-		{ "_arrow_dataset___ParquetFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___ParquetFragmentScanOptions__Make, 3}, 
+		{ "_arrow_dataset___ParquetFragmentScanOptions__Make", (DL_FUNC) &_arrow_dataset___ParquetFragmentScanOptions__Make, 5}, 
 		{ "_arrow_dataset___DirectoryPartitioning", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning, 2}, 
 		{ "_arrow_dataset___DirectoryPartitioning__MakeFactory", (DL_FUNC) &_arrow_dataset___DirectoryPartitioning__MakeFactory, 2}, 
 		{ "_arrow_dataset___HivePartitioning", (DL_FUNC) &_arrow_dataset___HivePartitioning, 3}, 
@@ -5985,13 +6066,18 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ipc___MessageReader__ReadNextMessage", (DL_FUNC) &_arrow_ipc___MessageReader__ReadNextMessage, 1}, 
 		{ "_arrow_ipc___ReadMessage", (DL_FUNC) &_arrow_ipc___ReadMessage, 1}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__Make", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__Make, 1}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__Make", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__Make, 0}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__get_thrift_string_size_limit, 1}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__set_thrift_string_size_limit, 2}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__get_thrift_container_size_limit, 1}, 
+		{ "_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit", (DL_FUNC) &_arrow_parquet___arrow___ReaderProperties__set_thrift_container_size_limit, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_use_threads, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_use_threads, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_read_dictionary, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_read_dictionary, 3}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__set_coerce_int96_timestamp_unit, 2}, 
 		{ "_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit", (DL_FUNC) &_arrow_parquet___arrow___ArrowReaderProperties__get_coerce_int96_timestamp_unit, 1}, 
-		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 2}, 
+		{ "_arrow_parquet___arrow___FileReader__OpenFile", (DL_FUNC) &_arrow_parquet___arrow___FileReader__OpenFile, 3}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable1, 1}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadTable2", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadTable2, 2}, 
 		{ "_arrow_parquet___arrow___FileReader__ReadRowGroup1", (DL_FUNC) &_arrow_parquet___arrow___FileReader__ReadRowGroup1, 2}, 

@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,4 +55,41 @@ func TestReaderCatchPanic(t *testing.T) {
 	if assert.Error(t, err) {
 		assert.Contains(t, err.Error(), "arrow/ipc: unknown error while reading")
 	}
+}
+
+func TestReaderCheckedAllocator(t *testing.T) {
+	alloc := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer alloc.AssertSize(t, 0)
+	schema := arrow.NewSchema([]arrow.Field{
+		{
+			Name: "s",
+			Type: &arrow.DictionaryType{
+				ValueType: arrow.BinaryTypes.String,
+				IndexType: arrow.PrimitiveTypes.Int32,
+			},
+		},
+	}, nil)
+
+	b := array.NewRecordBuilder(alloc, schema)
+	defer b.Release()
+
+	bldr := b.Field(0).(*array.BinaryDictionaryBuilder)
+	bldr.Append([]byte("foo"))
+	bldr.Append([]byte("bar"))
+	bldr.Append([]byte("baz"))
+
+	rec := b.NewRecord()
+	defer rec.Release()
+
+	buf := new(bytes.Buffer)
+	writer := NewWriter(buf, WithSchema(schema), WithAllocator(alloc))
+	defer writer.Close()
+	require.NoError(t, writer.Write(rec))
+
+	reader, err := NewReader(buf, WithAllocator(alloc))
+	require.NoError(t, err)
+	defer reader.Release()
+
+	_, err = reader.Read()
+	require.NoError(t, err)
 }
