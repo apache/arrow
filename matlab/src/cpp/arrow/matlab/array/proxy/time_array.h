@@ -42,12 +42,12 @@ namespace arrow::matlab::array::proxy {
 
        const mda::TypedArray<CType> time_mda = opts[0]["MatlabArray"];
        const mda::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
-       const mda::TypedArray<mda::MATLABString> units_mda = opts[0]["TimeUnit"];
+       const mda::TypedArray<mda::MATLABString> time_unit_mda = opts[0]["TimeUnit"];
 
        // extract the time unit
-       const std::u16string& u16_timeunit = units_mda[0];
+       const std::u16string& time_unit_utf16 = time_unit_mda[0];
        MATLAB_ASSIGN_OR_ERROR(const auto time_unit,
-                              timeUnitFromString(u16_timeunit),
+                              timeUnitFromString(time_unit_utf16),
                               error::UKNOWN_TIME_UNIT_ERROR_ID);
 
        MATLAB_ERROR_IF_NOT_OK(validateTimeUnit<ArrowType>(time_unit),

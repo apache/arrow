@@ -32,10 +32,10 @@ namespace arrow::matlab::type::proxy {
         mda::ArrayFactory factory;
 
         auto time_type = std::static_pointer_cast<arrow::TimeType>(data_type);
-        const auto timeunit = time_type->unit();
+        const auto time_unit = time_type->unit();
         // Cast to uint8_t since there are only four supported TimeUnit enumeration values:
         // Nanosecond, Microsecond, Millisecond, Second
-        auto timeunit_mda = factory.createScalar(static_cast<uint8_t>(timeunit));
+        auto timeunit_mda = factory.createScalar(static_cast<uint8_t>(time_unit));
         context.outputs[0] = timeunit_mda;
     }
 
@@ -47,12 +47,12 @@ namespace arrow::matlab::type::proxy {
 
         mda::StructArray opts = constructor_arguments[0];
 
-        const mda::StringArray timeunit_mda = opts[0]["TimeUnit"];
+        const mda::StringArray time_unit_mda = opts[0]["TimeUnit"];
 
         // extract the time unit
-        const std::u16string& utf16_timeunit = timeunit_mda[0];
+        const std::u16string& time_unit_utf16 = time_unit_mda[0];
         MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
-                               timeUnitFromString(utf16_timeunit),
+                               timeUnitFromString(time_unit_utf16),
                                error::UKNOWN_TIME_UNIT_ERROR_ID);
 
         // validate timeunit 
