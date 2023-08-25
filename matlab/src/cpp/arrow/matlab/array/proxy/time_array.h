@@ -19,17 +19,24 @@
 
 #include "arrow/matlab/type/time_unit.h"
 #include "arrow/util/utf8.h"
+#include "arrow/type_traits.h"
 
 namespace arrow::matlab::array::proxy {
 
-    template <typename TimeType>
+    template <typename ArrowType>
+    using is_time = arrow::is_time_type<ArrowType>;
+
+    template <typename ArrowType>
+    using enable_if_time = std::enable_if_t<is_time<ArrowType>::value, bool>; 
+
+    template <typename ArrowType, enable_if_time<ArrowType> = true>
     libmexclass::proxy::MakeResult make_time_array(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
        namespace mda = ::matlab::data;
-       
+       using namespace arrow::matlab::type;
        using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
-       using TimeArray =  arrow::NumericArray<TimeType>; 
-       using TimeArrayProxy = proxy::NumericArray<TimeType>;
-       using CType = typename arrow::TypeTraits<TimeType>::CType;
+       using TimeArray =  arrow::NumericArray<ArrowType>; 
+       using TimeArrayProxy = proxy::NumericArray<ArrowType>;
+       using CType = typename arrow::TypeTraits<ArrowType>::CType;
 
        mda::StructArray opts = constructor_arguments[0];
 
@@ -40,10 +47,14 @@ namespace arrow::matlab::array::proxy {
        // extract the time unit
        const std::u16string& u16_timeunit = units_mda[0];
        MATLAB_ASSIGN_OR_ERROR(const auto time_unit,
-                              arrow::matlab::type::timeUnitFromString(u16_timeunit),
+                              timeUnitFromString(u16_timeunit),
                               error::UKNOWN_TIME_UNIT_ERROR_ID);
-       // create the TimeType
-       const auto data_type = std::make_shared<TimeType>(time_unit);
+
+       MATLAB_ERROR_IF_NOT_OK(validateTimeUnit<ArrowType>(time_unit),
+                              error::INVALID_TIME_UNIT);
+
+       // create the ArrowType
+       const auto data_type = std::make_shared<ArrowType>(time_unit);
 
        auto array_length = static_cast<size_t>(time_mda.getNumberOfElements()); 
        auto data_buffer = std::make_shared<MatlabBuffer>(time_mda);
