@@ -3507,6 +3507,139 @@ class FixedShapeTensorArray(ExtensionArray):
         )
 
 
+class VariableShapeTensorArray(ExtensionArray):
+    """
+    Concrete class for variable shape tensor extension arrays.
+
+    Examples
+    --------
+    Define the extension type for tensor array
+
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.variable_shape_tensor(pa.int32(), 2)
+
+    Create an extension array
+
+    >>> shapes = pa.array([[2, 3], [1, 2]], pa.list_(pa.uint32(), 2))
+    >>> values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(pa.int32()))
+    >>> arr = pa.StructArray.from_arrays([shapes, values], names=["shape", "data"])
+    >>> pa.ExtensionArray.from_storage(tensor_type, arr)
+    <pyarrow.lib.VariableShapeTensorArray object at ...>
+    -- is_valid: all not null
+    -- child 0 type: fixed_size_list<item: uint32>[2]
+      [
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          2
+        ]
+      ]
+    -- child 1 type: list<item: int32>
+      [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          8
+        ]
+      ]
+    """
+
+    def to_numpy_ndarray(self):
+        """
+        Convert variable shape tensor extension array to list of numpy arrays.
+
+        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        """
+        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
+            storage_iterator = zip(self.storage.field(0), self.storage.field(1))
+            return [np.array(v.values.to_numpy()).reshape(s.values.to_numpy()) for s, v in storage_iterator]
+        else:
+            raise ValueError(
+                'Only non-permuted tensors can be converted to numpy tensors.')
+
+    @staticmethod
+    def from_numpy_ndarray(obj):
+        """
+        Convert a list of numpy arrays ndarrays to a variable shape tensor extension array.
+        The length of the list will become the length of the variable shape tensor array.
+
+        Numpy arrays needs to be C-contiguous in memory (``obj.flags["C_CONTIGUOUS"]==True``).
+
+        Parameters
+        ----------
+        obj : list(numpy.ndarray)
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> ndarray_list = [
+        ...         np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float32),
+        ...         np.array([[7, 8]], dtype=np.float32),
+        ...     ]
+        >>> pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
+        <pyarrow.lib.VariableShapeTensorArray object at ...>
+        -- is_valid: all not null
+        -- child 0 type: fixed_size_list<item: uint32>[2]
+          [
+            [
+              2,
+              3
+            ],
+            [
+              1,
+              2
+            ]
+          ]
+        -- child 1 type: list<item: float>
+          [
+            [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            [
+              7,
+              8
+            ]
+          ]
+        """
+        if not all([o.flags["C_CONTIGUOUS"] for o in obj]):
+            raise ValueError('The data in the numpy arrays need to be in a single, '
+                             'C-style contiguous segment.')
+        numpy_type = obj[0].dtype
+        ndim = obj[0].ndim
+
+        if not all([o.dtype == numpy_type for o in obj]):
+            raise ValueError('All numpy arrays need to have the same dtype.')
+
+        if not all([o.ndim == ndim for o in obj]):
+            raise ValueError('All numpy arrays need to have the same ndim.')
+
+        arrow_type = from_numpy_dtype(numpy_type)
+        values = array([np.ravel(o, order='C') for o in obj], list_(arrow_type))
+        shapes = array([o.shape for o in obj], list_(uint32(), list_size=ndim))
+        struct_arr = StructArray.from_arrays([shapes, values], names=["shape", "data"])
+
+        return ExtensionArray.from_storage(
+            variable_shape_tensor(arrow_type, ndim),
+            struct_arr
+        )
+
+
 cdef dict _array_classes = {
     _Type_NA: NullArray,
     _Type_BOOL: BooleanArray,
