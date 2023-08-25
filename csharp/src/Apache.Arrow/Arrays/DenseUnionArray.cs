@@ -39,7 +39,7 @@ namespace Apache.Arrow
                 children.Select(child => child.Data)))
         {
             _fields = children.ToArray();
-            ValidateMode(UnionMode.Sparse, Type.Mode);
+            ValidateMode(UnionMode.Dense, Type.Mode);
         }
 
         public DenseUnionArray(ArrayData data) 
