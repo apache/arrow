@@ -99,7 +99,6 @@
     "ix": "5.0.0",
     "jest": "29.6.2",
     "jest-silent-reporter": "0.5.0",
-    "lerna": "7.0.0",
     "memfs": "4.2.1",
     "mkdirp": "3.0.1",
     "multistream": "4.1.0",
