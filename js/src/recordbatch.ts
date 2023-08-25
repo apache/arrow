@@ -316,22 +316,22 @@ function ensureSameLengthData<T extends TypeMap = any>(
 
 /** @ignore */
 function collectDictionaries(fields: Field[], children: readonly Data[], dictionaries = new Map<number, Vector>()): Map<number, Vector> {
-    for (let i = -1, n = fields.length; ++i < n;) {
-        const field = fields[i];
-        const type = field.type;
-        const data = children[i];
-        if (DataType.isDictionary(type)) {
-            if ((type.children?.length ?? 0) > 0 && (data.dictionary?.data?.length ?? 0) > 0) {
-                for (const child of data.dictionary!.data) {
-                    collectDictionaries(type.children, child.children, dictionaries);
-                }
+    if ((fields?.length ?? 0) > 0 && (fields?.length === children?.length)) {
+        for (let i = -1, n = fields.length; ++i < n;) {
+            const { type } = fields[i];
+            const data = children[i];
+            for (const next of [data, ...(data?.dictionary?.data || [])]) {
+                collectDictionaries(type.children, next?.children, dictionaries);
             }
-            if (!dictionaries.has(type.id)) {
-                if (data.dictionary) {
-                    dictionaries.set(type.id, data.dictionary);
+            if (DataType.isDictionary(type)) {
+                const { id } = type;
+                if (!dictionaries.has(id)) {
+                    if (data?.dictionary) {
+                        dictionaries.set(id, data.dictionary);
+                    }
+                } else if (dictionaries.get(id) !== data.dictionary) {
+                    throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
                 }
-            } else if (dictionaries.get(type.id) !== data.dictionary) {
-                throw new Error(`Cannot create Schema containing two different dictionaries with the same Id`);
             }
         }
     }
