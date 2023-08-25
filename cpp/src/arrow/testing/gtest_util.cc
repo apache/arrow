@@ -17,6 +17,7 @@
 
 #include "arrow/testing/gtest_util.h"
 
+#include "arrow/extension/uuid_array.h"
 #include "arrow/testing/extension_type.h"
 
 #ifdef _WIN32
@@ -49,9 +50,13 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/datum.h"
+#include "arrow/io/memory.h"
 #include "arrow/ipc/json_simple.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/ipc/reader.h"
+#include "arrow/ipc/writer.h"
 #include "arrow/pretty_print.h"
+#include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/tensor.h"
@@ -586,6 +591,20 @@ void ApproxCompareBatch(const RecordBatch& left, const RecordBatch& right,
                           });
 }
 
+void RoundtripBatch(const std::shared_ptr<RecordBatch>& batch,
+                    std::shared_ptr<RecordBatch>* out) {
+  ASSERT_OK_AND_ASSIGN(auto out_stream, io::BufferOutputStream::Create());
+  ASSERT_OK(ipc::WriteRecordBatchStream({batch}, ipc::IpcWriteOptions::Defaults(),
+                                        out_stream.get()));
+
+  ASSERT_OK_AND_ASSIGN(auto complete_ipc_stream, out_stream->Finish());
+
+  io::BufferReader reader(complete_ipc_stream);
+  std::shared_ptr<RecordBatchReader> batch_reader;
+  ASSERT_OK_AND_ASSIGN(batch_reader, ipc::RecordBatchStreamReader::Open(&reader));
+  ASSERT_OK(batch_reader->ReadNext(out));
+}
+
 std::shared_ptr<Array> TweakValidityBit(const std::shared_ptr<Array>& array,
                                         int64_t index, bool validity) {
   auto data = array->data()->Copy();
@@ -847,28 +866,6 @@ Future<> SleepABitAsync() {
 ///////////////////////////////////////////////////////////////////////////
 // Extension types
 
-bool UuidType::ExtensionEquals(const ExtensionType& other) const {
-  return (other.extension_name() == this->extension_name());
-}
-
-std::shared_ptr<Array> UuidType::MakeArray(std::shared_ptr<ArrayData> data) const {
-  DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ("uuid", static_cast<const ExtensionType&>(*data->type).extension_name());
-  return std::make_shared<UuidArray>(data);
-}
-
-Result<std::shared_ptr<DataType>> UuidType::Deserialize(
-    std::shared_ptr<DataType> storage_type, const std::string& serialized) const {
-  if (serialized != "uuid-serialized") {
-    return Status::Invalid("Type identifier did not match: '", serialized, "'");
-  }
-  if (!storage_type->Equals(*fixed_size_binary(16))) {
-    return Status::Invalid("Invalid storage type for UuidType: ",
-                           storage_type->ToString());
-  }
-  return std::make_shared<UuidType>();
-}
-
 bool SmallintType::ExtensionEquals(const ExtensionType& other) const {
   return (other.extension_name() == this->extension_name());
 }
@@ -982,8 +979,6 @@ Result<std::shared_ptr<DataType>> Complex128Type::Deserialize(
   return std::make_shared<Complex128Type>();
 }
 
-std::shared_ptr<DataType> uuid() { return std::make_shared<UuidType>(); }
-
 std::shared_ptr<DataType> smallint() { return std::make_shared<SmallintType>(); }
 
 std::shared_ptr<DataType> tinyint() { return std::make_shared<TinyintType>(); }
@@ -1011,7 +1006,7 @@ std::shared_ptr<Array> ExampleUuid() {
   auto arr = ArrayFromJSON(
       fixed_size_binary(16),
       "[null, \"abcdefghijklmno0\", \"abcdefghijklmno1\", \"abcdefghijklmno2\"]");
-  return ExtensionType::WrapArray(uuid(), arr);
+  return ExtensionType::WrapArray(extension::uuid(), arr);
 }
 
 std::shared_ptr<Array> ExampleSmallint() {

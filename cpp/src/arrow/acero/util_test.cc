@@ -21,9 +21,12 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 
+#include "arrow/extension/uuid_array.h"
+
 using testing::Eq;
 
 namespace arrow {
+using extension::uuid;
 namespace acero {
 
 const char* kLeftSuffix = ".left";

@@ -31,6 +31,7 @@
 #include "arrow/array/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/cast.h"
+#include "arrow/extension/uuid_array.h"
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -43,7 +44,8 @@ namespace arrow {
 
 using compute::Cast;
 using compute::CastOptions;
-
+using extension::uuid;
+using extension::UuidType;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
