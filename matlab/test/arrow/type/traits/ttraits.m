@@ -163,6 +163,18 @@ classdef ttraits < matlab.unittest.TestCase
             testCase.verifyEqual(actualTraits, expectedTraits); 
         end
 
+        function TestTime64(testCase)
+            import arrow.type.traits.*
+            import arrow.type.*
+
+            type = ID.Time64;
+            expectedTraits = Time64Traits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits); 
+        end
+
         function TestMatlabUInt8(testCase)
             import arrow.type.traits.*
 
@@ -300,6 +312,17 @@ classdef ttraits < matlab.unittest.TestCase
 
             type = "datetime";
             expectedTraits = TimestampTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
+        function TestMatlabDuration(testCase)
+            import arrow.type.traits.*
+
+            type = "duration";
+            expectedTraits = Time64Traits();
 
             actualTraits = traits(type);
 

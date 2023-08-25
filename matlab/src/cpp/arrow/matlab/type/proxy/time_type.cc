@@ -16,6 +16,10 @@
 // under the License.
 
 #include "arrow/matlab/type/proxy/time_type.h"
+#include "arrow/matlab/type/proxy/traits.h"
+#include "arrow/matlab/type/time_unit.h"
+#include "arrow/matlab/error/error.h"
+#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::type::proxy {
 
@@ -28,10 +32,43 @@ namespace arrow::matlab::type::proxy {
         mda::ArrayFactory factory;
 
         auto time_type = std::static_pointer_cast<arrow::TimeType>(data_type);
-        const auto timeunit = time_type->unit();
+        const auto time_unit = time_type->unit();
         // Cast to uint8_t since there are only four supported TimeUnit enumeration values:
         // Nanosecond, Microsecond, Millisecond, Second
-        auto timeunit_mda = factory.createScalar(static_cast<uint8_t>(timeunit));
+        auto timeunit_mda = factory.createScalar(static_cast<uint8_t>(time_unit));
         context.outputs[0] = timeunit_mda;
     }
+
+    template <typename ArrowType> 
+    libmexclass::proxy::MakeResult make_time_type(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        namespace mda = ::matlab::data;
+        using namespace arrow::matlab::type;
+        using TimeTypeProxy = typename proxy::Traits<ArrowType>::TypeProxy; 
+
+        mda::StructArray opts = constructor_arguments[0];
+
+        const mda::StringArray time_unit_mda = opts[0]["TimeUnit"];
+
+        // extract the time unit
+        const std::u16string& time_unit_utf16 = time_unit_mda[0];
+        MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
+                               timeUnitFromString(time_unit_utf16),
+                               error::UKNOWN_TIME_UNIT_ERROR_ID);
+
+        // validate timeunit 
+        MATLAB_ERROR_IF_NOT_OK(validateTimeUnit<ArrowType>(timeunit),
+                               error::INVALID_TIME_UNIT);
+
+        auto type = std::make_shared<ArrowType>(timeunit);
+        auto time_type = std::static_pointer_cast<ArrowType>(type);
+        return std::make_shared<TimeTypeProxy>(std::move(time_type));
+    }
+
+    // Trigger code generation for the allowed template specializations using explicit instantiation.
+    template
+    libmexclass::proxy::MakeResult make_time_type<arrow::Time32Type>(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
+    template
+    libmexclass::proxy::MakeResult make_time_type<arrow::Time64Type>(const libmexclass::proxy::FunctionArguments& constructor_arguments);
+
 }

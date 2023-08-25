@@ -31,7 +31,8 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
     arrowArrays = cell(numClasses, 1);
     matlabData  = cell(numClasses, 1);
     
-    numericArrayToMatlabTypeDict = getArrowArrayToMatlabTypeDictionary();
+    timeClasses = getTimeArrayClasses();
+    numericArrayToMatlabTypeDict = getNumericArrayToMatlabDictionary();
 
     for ii = 1:numel(classes)
         name = classes(ii);
@@ -49,9 +50,10 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
         elseif name == "arrow.array.TimestampArray"
             matlabData{ii} = randomDatetimes(opts.NumRows);
             arrowArrays{ii} = TimestampArray.fromMATLAB(matlabData{ii});
-        elseif name == "arrow.array.Time32Array"
+        elseif ismember(name, timeClasses)
             matlabData{ii} = randomDurations(opts.NumRows);
-            arrowArrays{ii} = Time32Array.fromMATLAB(matlabData{ii});
+            cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
+            arrowArrays{ii} = eval(cmd);
         else
             error("arrow:test:SupportedArrayCase", ...
                 "Missing if-branch for array class " + name); 
@@ -68,7 +70,7 @@ function classes = getArrayClassNames()
     classes = string({metaClass.Name});
 end
 
-function dict = getArrowArrayToMatlabTypeDictionary()
+function dict = getNumericArrayToMatlabDictionary()
     pkg = "arrow.array";
     unsignedTypes = compose("UInt%d", power(2, 3:6));
     signedTypes = compose("Int%d", power(2, 3:6));
@@ -78,6 +80,10 @@ function dict = getArrowArrayToMatlabTypeDictionary()
     
     values = [lower([unsignedTypes, signedTypes]) "single" "double"];
     dict = dictionary(keys, values);
+end
+
+function timeClasses = getTimeArrayClasses()
+    timeClasses = compose("arrow.array.Time%dArray", [32 64]);
 end
 
 function number = randomNumbers(numberType, numElements)

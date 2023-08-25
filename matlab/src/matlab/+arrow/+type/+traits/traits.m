@@ -50,6 +50,8 @@ function typeTraits = traits(type)
                 typeTraits = TimestampTraits();
             case ID.Time32
                 typeTraits = Time32Traits();
+            case ID.Time64
+                typeTraits = Time64Traits();
             otherwise
                 error("arrow:type:traits:UnsupportedArrowTypeID", "Unsupported Arrow type ID: " + type);
         end
@@ -81,6 +83,8 @@ function typeTraits = traits(type)
                 typeTraits = StringTraits();
             case "datetime"
                 typeTraits = TimestampTraits();
+            case "duration"
+                typeTraits = Time64Traits();
             otherwise
                 error("arrow:type:traits:UnsupportedMatlabClass", "Unsupported MATLAB class: " + type);
         end
