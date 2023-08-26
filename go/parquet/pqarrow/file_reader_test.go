@@ -172,7 +172,7 @@ func testRecordReaderSerialImpl(t *testing.T, batchSize int64)  {
 	tr := array.NewTableReader(tbl, batchSize)
 	defer tr.Release()
 
-	for true {
+	for {
 		rec, err := rr.Read()
 		if err == io.EOF {
 			assert.Falsef(t, tr.Next(), "expect finished")
