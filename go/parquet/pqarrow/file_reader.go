@@ -651,8 +651,8 @@ func (r *recordReader) Schema() *arrow.Schema { return r.sc }
 func (r *recordReader) next() bool {
 	cols := make([]arrow.Array, len(r.sc.Fields()))
 	defer releaseArrays(cols)
-	readField := func(idx int, rdr *ColumnReader) error {
-		data, err := rdr.NextBatch(r.batchSize)
+	readField := func(idx int, rdr *ColumnReader, readBatchSize int64) error {
+		data, err := rdr.NextBatch(readBatchSize)
 		if err != nil {
 			return err
 		}
@@ -671,10 +671,17 @@ func (r *recordReader) next() bool {
 		cols[idx] = array.MakeFromData(arrdata)
 		return nil
 	}
+	nextBatchSize := r.batchSize
+	if nextBatchSize < r.numRows {
+		nextBatchSize = r.numRows
+	}
+	defer func() {
+		r.numRows -= nextBatchSize
+	}()
 
 	if !r.parallel {
 		for idx, rdr := range r.fieldReaders {
-			if err := readField(idx, rdr); err != nil {
+			if err := readField(idx, rdr, nextBatchSize); err != nil {
 				r.err = err
 				return false
 			}
@@ -705,7 +712,7 @@ func (r *recordReader) next() bool {
 						return
 					}
 
-					if err := readField(idx, r.fieldReaders[idx]); err != nil {
+					if err := readField(idx, r.fieldReaders[idx], nextBatchSize); err != nil {
 						errch <- err
 						cancel()
 						return
