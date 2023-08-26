@@ -521,10 +521,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.
       BloomFilterLocation bloom_filter_location;
-      // TODO(mwish): remove file_encryptor?
       bloom_filter_builder_->Finish();
-      bloom_filter_builder_->WriteTo(sink_.get(), file_encryptor_.get(),
-                                     &bloom_filter_location);
+      bloom_filter_builder_->WriteTo(sink_.get(), &bloom_filter_location);
       metadata_->SetBloomFilterLocation(bloom_filter_location);
     }
   }

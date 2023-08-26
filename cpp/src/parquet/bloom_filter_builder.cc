@@ -6,8 +6,6 @@
 
 #include "metadata.h"
 #include "parquet/bloom_filter.h"
-#include "parquet/encryption/encryption.h"
-#include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/properties.h"
 
@@ -69,9 +67,11 @@ BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(
   std::unique_ptr<BloomFilter>& bloom_filter =
       row_group_bloom_filters_.back()[column_ordinal];
   if (bloom_filter == nullptr) {
-    auto block_split_bloom_filter = std::make_unique<BlockSplitBloomFilter>();
+    auto block_split_bloom_filter =
+        std::make_unique<BlockSplitBloomFilter>(properties_.memory_pool());
     block_split_bloom_filter->Init(BlockSplitBloomFilter::OptimalNumOfBytes(
         bloom_filter_options.ndv, bloom_filter_options.fpp));
+    bloom_filter = std::move(block_split_bloom_filter);
   }
   return bloom_filter.get();
 }

@@ -15,9 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/testing/gtest_util.h>
 #include <gtest/gtest.h>
 
 #include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_builder.h"
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/file_reader.h"
 #include "parquet/test_util.h"
@@ -67,6 +69,38 @@ TEST(BloomFilterReader, FileNotHaveBloomFilter) {
   EXPECT_THROW(bloom_filter_reader.RowGroup(1), ParquetException);
   auto bloom_filter = row_group_0->GetColumnBloomFilter(0);
   ASSERT_EQ(nullptr, bloom_filter);
+}
+
+TEST(BloomFilterBuilderTest, Basic) {
+  SchemaDescriptor schema;
+  schema::NodePtr root =
+      schema::GroupNode::Make("schema", Repetition::REPEATED, {schema::ByteArray("c1")});
+  schema.Init(root);
+  auto properties = WriterProperties::Builder().build();
+  auto builder = BloomFilterBuilder::Make(&schema, *properties);
+  // AppendRowGroup() is not called and expect throw.
+  BloomFilterOptions default_options;
+  ASSERT_THROW(builder->GetOrCreateBloomFilter(0, default_options), ParquetException);
+
+  builder->AppendRowGroup();
+  // GetOrCreateBloomFilter() with wrong column ordinal expect throw.
+  ASSERT_THROW(builder->GetOrCreateBloomFilter(1, default_options), ParquetException);
+  auto bloom_filter = builder->GetOrCreateBloomFilter(0, default_options);
+  bloom_filter->InsertHash(100);
+  bloom_filter->InsertHash(200);
+  builder->Finish();
+  auto sink = CreateOutputStream();
+  BloomFilterLocation location;
+  builder->WriteTo(sink.get(), &location);
+  EXPECT_EQ(1, location.bloom_filter_location.size());
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  ReaderProperties reader_properties;
+  ::arrow::io::BufferReader reader(buffer);
+  auto filter = parquet::BlockSplitBloomFilter::Deserialize(reader_properties, &reader);
+  EXPECT_TRUE(filter.FindHash(100));
+  EXPECT_TRUE(filter.FindHash(200));
+  EXPECT_FALSE(filter.FindHash(300));
 }
 
 }  // namespace parquet::test

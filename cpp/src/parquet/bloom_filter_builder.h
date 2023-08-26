@@ -28,7 +28,6 @@ namespace parquet {
 
 class BloomFilter;
 class SchemaDescriptor;
-class InternalFileEncryptor;
 struct BloomFilterOptions;
 struct BloomFilterLocation;
 
