@@ -421,9 +421,13 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (page_index_builder_) {
       page_index_builder_->AppendRowGroup();
     }
+    if (bloom_filter_builder_) {
+      bloom_filter_builder_->AppendRowGroup();
+    }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
         sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get()));
+        buffered_row_group, file_encryptor_.get(), page_index_builder_.get(),
+        bloom_filter_builder_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
@@ -524,7 +528,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       bloom_filter_builder_->WriteTo(sink_.get(), &bloom_filter_location);
       metadata_->SetBloomFilterLocation(bloom_filter_location);
       // Release the memory for BloomFilter.
-      bloom_filter_builder_ = nullptr;
+      //      bloom_filter_builder_ = nullptr;
     }
   }
 

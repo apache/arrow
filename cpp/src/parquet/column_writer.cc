@@ -2433,7 +2433,7 @@ void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
     if (!::arrow::is_base_binary_like(values.type_id())) {
       throw ParquetException("Only BaseBinaryArray and subclasses supported");
     }
-    if (!::arrow::is_dictionary(values.type_id())) {
+    if (::arrow::is_dictionary(values.type_id())) {
       // Dictionary is handled in WriteArrowDense, so this should never happen.
       throw ParquetException("UpdateBloomFilterArray not support dictionary");
     }

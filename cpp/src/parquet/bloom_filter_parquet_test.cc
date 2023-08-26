@@ -116,8 +116,8 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
 
 TEST(BloomFilterBuilderTest, InvalidOperations) {
   SchemaDescriptor schema;
-  schema::NodePtr root =
-      schema::GroupNode::Make("schema", Repetition::REPEATED, {schema::ByteArray("c1")});
+  schema::NodePtr root = schema::GroupNode::Make(
+      "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::Boolean("c2")});
   schema.Init(root);
   auto properties = WriterProperties::Builder().build();
   auto builder = BloomFilterBuilder::Make(&schema, *properties);
@@ -127,6 +127,8 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
 
   builder->AppendRowGroup();
   // GetOrCreateBloomFilter() with wrong column ordinal expect throw.
+  ASSERT_THROW(builder->GetOrCreateBloomFilter(2, default_options), ParquetException);
+  // GetOrCreateBloomFilter() with boolean expect throw.
   ASSERT_THROW(builder->GetOrCreateBloomFilter(1, default_options), ParquetException);
   builder->GetOrCreateBloomFilter(0, default_options);
   auto sink = CreateOutputStream();

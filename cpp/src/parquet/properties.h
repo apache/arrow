@@ -609,6 +609,12 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_bloom_filter(path->ToDotString());
     }
 
+    Builder* set_bloom_filter_options(
+        std::optional<BloomFilterOptions> bloom_filter_options) {
+      default_column_properties_.set_bloom_filter_options(bloom_filter_options);
+      return this;
+    }
+
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
     ///
     /// In Parquet, DECIMAL can be stored in any of the following physical types:

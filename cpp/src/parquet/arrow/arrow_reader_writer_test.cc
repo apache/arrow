@@ -66,6 +66,8 @@
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/test_util.h"
 #include "parquet/arrow/writer.h"
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
 #include "parquet/page_index.h"
@@ -5256,7 +5258,7 @@ auto encode_double = [](double value) {
 
 }  // namespace
 
-class ParquetPageIndexRoundTripTest : public ::testing::Test {
+class ParquetIndexRoundTripTest {
  public:
   void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
                  const std::shared_ptr<::arrow::Table>& table) {
@@ -5280,10 +5282,17 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(buffer_, sink->Finish());
   }
 
+ protected:
+  std::shared_ptr<Buffer> buffer_;
+};
+
+class ParquetPageIndexRoundTripTest : public ::testing::Test,
+                                      public ParquetIndexRoundTripTest {
+ public:
   void ReadPageIndexes(int expect_num_row_groups, int expect_num_pages,
                        const std::set<int>& expect_columns_without_index = {}) {
     auto read_properties = default_arrow_reader_properties();
-    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
+    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(this->buffer_));
 
     auto metadata = reader->metadata();
     ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
@@ -5348,7 +5357,6 @@ class ParquetPageIndexRoundTripTest : public ::testing::Test {
   }
 
  protected:
-  std::shared_ptr<Buffer> buffer_;
   std::vector<ColumnIndexObject> column_indexes_;
 };
 
@@ -5582,6 +5590,105 @@ TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
           ColumnIndexObject{/*null_pages=*/{false}, /*min_values=*/{encode_int64(2)},
                             /*max_values=*/{encode_int64(2)}, BoundaryOrder::Ascending,
                             /*null_counts=*/{0}}));
+}
+
+class ParquetBloomFilterRoundTripTest : public ::testing::Test,
+                                        public ParquetIndexRoundTripTest {
+ public:
+  void ReadBloomFilters(int expect_num_row_groups,
+                        const std::set<int>& expect_columns_without_filter = {}) {
+    auto read_properties = default_arrow_reader_properties();
+    auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer_));
+
+    auto metadata = reader->metadata();
+    ASSERT_EQ(expect_num_row_groups, metadata->num_row_groups());
+
+    auto& bloom_filter_reader = reader->GetBloomFilterReader();
+
+    for (int rg = 0; rg < metadata->num_row_groups(); ++rg) {
+      auto row_group_reader = bloom_filter_reader.RowGroup(rg);
+      ASSERT_NE(row_group_reader, nullptr);
+
+      for (int col = 0; col < metadata->num_columns(); ++col) {
+        bool expect_no_bloom_filter = expect_columns_without_filter.find(col) !=
+                                      expect_columns_without_filter.cend();
+
+        auto bloom_filter = row_group_reader->GetColumnBloomFilter(col);
+        if (expect_no_bloom_filter) {
+          ASSERT_EQ(bloom_filter, nullptr);
+        } else {
+          bloom_filters_.push_back(std::move(bloom_filter));
+        }
+      }
+    }
+  }
+
+  template <typename ArrowType>
+  void verifyBloomFilter(const BloomFilter* bloom_filter,
+                         const ::arrow::ChunkedArray& chunked_array) {
+    auto iter = ::arrow::stl::Begin<ArrowType>(chunked_array);
+    auto end = ::arrow::stl::End<ArrowType>(chunked_array);
+    while (iter != end) {
+      auto value = *iter;
+      if (value == std::nullopt) {
+        ++iter;
+        continue;
+      }
+      if constexpr (std::is_same_v<ArrowType, ::arrow::StringType>) {
+        ByteArray ba(value.value());
+        EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
+      } else {
+        EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(value.value())));
+      }
+      ++iter;
+    }
+  }
+
+ protected:
+  std::vector<std::unique_ptr<BloomFilter>> bloom_filters_;
+};
+
+TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
+  BloomFilterOptions options;
+  options.ndv = 100;
+  auto writer_properties = WriterProperties::Builder()
+                               .set_bloom_filter_options(options)
+                               ->max_row_group_length(4)
+                               ->build();
+  auto schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
+  auto table = ::arrow::TableFromJSON(schema, {R"([
+[1,     "a"      ],
+[2,     "b"   ],
+[3,     "c"   ],
+[null,  "d"],
+[5,     null],
+[6,     "f"    ]
+])"});
+  WriteFile(writer_properties, table);
+
+  ReadBloomFilters(/*expect_num_row_groups=*/2);
+  ASSERT_EQ(4, bloom_filters_.size());
+  {
+    ASSERT_NE(nullptr, bloom_filters_[0]);
+    auto col = table->column(0)->Slice(0, 4);
+    verifyBloomFilter<::arrow::Int64Type>(bloom_filters_[0].get(), *col);
+  }
+  {
+    ASSERT_NE(nullptr, bloom_filters_[1]);
+    auto col = table->column(1)->Slice(0, 4);
+    verifyBloomFilter<::arrow::StringType>(bloom_filters_[1].get(), *col);
+  }
+  {
+    ASSERT_NE(nullptr, bloom_filters_[2]);
+    auto col = table->column(0)->Slice(4, 2);
+    verifyBloomFilter<::arrow::Int64Type>(bloom_filters_[2].get(), *col);
+  }
+  {
+    ASSERT_NE(nullptr, bloom_filters_[3]);
+    auto col = table->column(1)->Slice(4, 2);
+    verifyBloomFilter<::arrow::StringType>(bloom_filters_[3].get(), *col);
+  }
 }
 
 }  // namespace arrow

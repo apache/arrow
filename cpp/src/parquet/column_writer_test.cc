@@ -1675,18 +1675,5 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
   }
 }
 
-using BooleanTestBloomFilterWriter = TestBloomFilterWriter<BooleanType>;
-TEST_F(BooleanTestBloomFilterWriter, BooleanNotSupport) {
-  this->GenerateData(SMALL_SIZE);
-  ColumnProperties column_properties;
-  column_properties.set_bloom_filter_enabled(true);
-
-  auto writer = this->BuildWriterWithBloomFilter(SMALL_SIZE, column_properties);
-  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
-  writer->Close();
-
-  EXPECT_EQ(nullptr, bloom_filter_);
-}
-
 }  // namespace test
 }  // namespace parquet

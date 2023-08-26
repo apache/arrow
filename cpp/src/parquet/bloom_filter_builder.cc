@@ -54,13 +54,16 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   /// Make sure column ordinal is not out of bound and the builder is in good state.
   void CheckState(int32_t column_ordinal) const {
     if (finished_) {
-      throw ParquetException("PageIndexBuilder is already finished.");
+      throw ParquetException("BloomFilterBuilder is already finished.");
     }
     if (column_ordinal < 0 || column_ordinal >= schema_->num_columns()) {
       throw ParquetException("Invalid column ordinal: ", column_ordinal);
     }
     if (row_group_bloom_filters_.empty()) {
-      throw ParquetException("No row group appended to PageIndexBuilder.");
+      throw ParquetException("No row group appended to BloomFilterBuilder.");
+    }
+    if (schema_->Column(column_ordinal)->physical_type() == Type::BOOLEAN) {
+      throw ParquetException("BloomFilterBuilder not supports Boolean.");
     }
   }
 
