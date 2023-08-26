@@ -56,13 +56,10 @@ cmake_policy(SET CMP0091 NEW)
 
 # https://cmake.org/cmake/help/latest/policy/CMP0135.html
 #
-# When using the URL download method with the ExternalProject_Add()
-# command, CMake 3.23 and below sets the timestamps of the extracted
-# contents to the same as the timestamps in the archive. When the URL
-# changes, the new archive is downloaded and extracted, but the
-# timestamps of the extracted contents might not be newer than the
-# previous contents. Anything that depends on the extracted contents
-# might not be rebuilt, even though the contents may change.
+# CMP0135 is for solving re-building and re-downloading.
+# We don't have a real problem with the OLD behavior for now
+# but we use the NEW behavior explicitly to suppress CMP0135
+# warnings.
 if(POLICY CMP0135)
   cmake_policy(SET CMP0135 NEW)
 endif()
