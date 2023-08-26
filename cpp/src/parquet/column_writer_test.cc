@@ -25,6 +25,8 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_builder.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
 #include "parquet/file_reader.h"
@@ -373,7 +375,6 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
   const ColumnDescriptor* descr_;
 
- private:
   std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
   std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
   std::shared_ptr<WriterProperties> writer_properties_;
@@ -1589,6 +1590,102 @@ TEST(TestColumnWriter, WriteDataPageV2HeaderNullCount) {
     EXPECT_EQ(num_rows, num_rows_read);
     EXPECT_EQ(num_rows, num_values_read);
   }
+}
+
+template <typename TestType>
+class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
+ public:
+  void SetUp() override {
+    TestPrimitiveWriter<TestType>::SetUp();
+    builder_ = nullptr;
+    bloom_filter_ = nullptr;
+  }
+
+  std::shared_ptr<TypedColumnWriter<TestType>> BuildWriterWithBloomFilter(
+      int64_t output_size = SMALL_SIZE,
+      const ColumnProperties& column_properties = ColumnProperties());
+
+  std::unique_ptr<BloomFilterBuilder> builder_;
+  BloomFilter* bloom_filter_;
+};
+
+template <typename TestType>
+std::shared_ptr<TypedColumnWriter<TestType>>
+TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
+    int64_t output_size, const ColumnProperties& column_properties) {
+  this->sink_ = CreateOutputStream();
+  WriterProperties::Builder wp_builder;
+  if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
+      column_properties.encoding() == Encoding::RLE_DICTIONARY) {
+    wp_builder.enable_dictionary();
+    wp_builder.dictionary_pagesize_limit(DICTIONARY_PAGE_SIZE);
+  } else {
+    wp_builder.disable_dictionary();
+    wp_builder.encoding(column_properties.encoding());
+  }
+  wp_builder.max_statistics_size(column_properties.max_statistics_size());
+  this->writer_properties_ = wp_builder.build();
+
+  this->metadata_ =
+      ColumnChunkMetaDataBuilder::Make(this->writer_properties_, this->descr_);
+  std::unique_ptr<PageWriter> pager = PageWriter::Open(
+      this->sink_, column_properties.compression(), this->metadata_.get());
+  builder_ = BloomFilterBuilder::Make(&this->schema_, *this->writer_properties_);
+  // Initial RowGroup
+  builder_->AppendRowGroup();
+  BloomFilterOptions options;
+  options.ndv = output_size;
+  bloom_filter_ = builder_->GetOrCreateBloomFilter(0, options);
+  std::shared_ptr<ColumnWriter> writer =
+      ColumnWriter::Make(this->metadata_.get(), std::move(pager),
+                         this->writer_properties_.get(), bloom_filter_);
+  return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
+}
+
+// Note: BooleanType is Excluded.
+using TestBloomFilterTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType,
+                                              DoubleType, ByteArrayType, FLBAType>;
+
+TYPED_TEST_SUITE(TestBloomFilterWriter, TestBloomFilterTypes);
+
+TYPED_TEST(TestBloomFilterWriter, Basic) {
+  this->GenerateData(SMALL_SIZE);
+  ColumnProperties column_properties;
+  column_properties.set_bloom_filter_enabled(true);
+
+  auto writer = this->BuildWriterWithBloomFilter(SMALL_SIZE, column_properties);
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+  writer->Close();
+
+  // Read all rows so we are sure that also the non-dictionary pages are read correctly
+  this->SetupValuesOut(SMALL_SIZE);
+  this->ReadColumnFully();
+  ASSERT_EQ(SMALL_SIZE, this->values_read_);
+  this->values_.resize(SMALL_SIZE);
+  ASSERT_EQ(this->values_, this->values_out_);
+
+  // Verify bloom filter
+  for (auto& value : this->values_) {
+    if constexpr (std::is_same_v<TypeParam, FLBAType>) {
+      EXPECT_TRUE(this->bloom_filter_->FindHash(
+          this->bloom_filter_->Hash(&value, this->descr_->type_length())));
+    } else {
+      EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(&value)));
+    }
+  }
+}
+
+using BooleanTestBloomFilterWriter = TestBloomFilterWriter<BooleanType>;
+TEST_F(BooleanTestBloomFilterWriter, BooleanNotSupport) {
+  this->GenerateData(SMALL_SIZE);
+  ColumnProperties column_properties;
+  column_properties.set_bloom_filter_enabled(true);
+
+  auto writer = this->BuildWriterWithBloomFilter(SMALL_SIZE, column_properties);
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+  writer->Close();
+
+  EXPECT_EQ(nullptr, bloom_filter_);
 }
 
 }  // namespace test

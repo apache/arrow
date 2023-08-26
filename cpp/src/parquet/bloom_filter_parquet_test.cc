@@ -77,10 +77,16 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   schema::NodePtr root = schema::GroupNode::Make(
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
   schema.Init(root);
-  auto properties = WriterProperties::Builder().build();
-  auto builder = BloomFilterBuilder::Make(&schema, *properties);
+  auto writer_properties = default_writer_properties();
+  auto builder = BloomFilterBuilder::Make(&schema, *writer_properties);
   builder->AppendRowGroup();
-  auto bloom_filter = builder->GetOrCreateBloomFilter(0, BloomFilterOptions());
+  BloomFilterOptions bloom_filter_options;
+  bloom_filter_options.ndv = 100;
+  auto bloom_filter = builder->GetOrCreateBloomFilter(0, bloom_filter_options);
+  ASSERT_NE(nullptr, bloom_filter);
+  ASSERT_EQ(bloom_filter->GetBitsetSize(),
+            BlockSplitBloomFilter::OptimalNumOfBytes(bloom_filter_options.ndv,
+                                                     bloom_filter_options.fpp));
   std::vector<uint64_t> insert_hashes = {100, 200};
   for (uint64_t hash : insert_hashes) {
     bloom_filter->InsertHash(hash);

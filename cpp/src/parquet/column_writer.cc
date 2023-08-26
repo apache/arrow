@@ -2420,6 +2420,12 @@ void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) 
       []() { return Status::OK(); }));
 }
 
+template <typename DType>
+void TypedColumnWriterImpl<DType>::UpdateBloomFilterArray(const ::arrow::Array& values) {
+  // Only ByteArray type would write ::arrow::Array directly.
+  ParquetException::NYI("Unreachable");
+}
+
 template <>
 void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
     const ::arrow::Array& values) {
