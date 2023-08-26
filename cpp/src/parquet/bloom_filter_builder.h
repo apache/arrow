@@ -48,8 +48,11 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// \brief Get the BloomFilter from column ordinal.
   ///
   /// \param column_ordinal Column ordinal in schema, which is only for leaf columns.
-  /// \return BloomFilter for the column and its memory ownership belongs to
-  /// the BloomFilterBuilder.
+  /// \param bloom_filter_options The options(like num distinct values and false positive
+  /// rate) to create a BloomFilter.
+  ///
+  /// \return BloomFilter for the column and its memory ownership belongs to the
+  /// BloomFilterBuilder.
   virtual BloomFilter* GetOrCreateBloomFilter(
       int32_t column_ordinal, const BloomFilterOptions& bloom_filter_options) = 0;
 

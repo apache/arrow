@@ -21,7 +21,9 @@
 
 #include "parquet/bloom_filter_builder.h"
 
+#include <map>
 #include <utility>
+#include <vector>
 
 #include "arrow/io/interfaces.h"
 

@@ -100,7 +100,7 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   EXPECT_TRUE(location.bloom_filter_location[0][0].has_value());
   EXPECT_FALSE(location.bloom_filter_location[0][1].has_value());
 
-  int32_t bloom_filter_offset = location.bloom_filter_location[0][0]->offset;
+  int64_t bloom_filter_offset = location.bloom_filter_location[0][0]->offset;
   int32_t bloom_filter_length = location.bloom_filter_location[0][0]->length;
 
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
