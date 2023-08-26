@@ -149,5 +149,60 @@ classdef hNumericArray < matlab.unittest.TestCase
             arrowArray = tc.ArrowArrayConstructorFcn(data);
             tc.verifyEqual(arrowArray.Type.ID, tc.ArrowType.ID);
         end
+
+        function TestIsEqualTrue(tc)
+            % Verifies isequal returns true when expected. Two are 
+            % considered equal if:
+            %   1. They have the same type
+            %   2. The have the same length
+            %   3. The same elements are valid
+            %   4. Corresponding valid elements are equal.
+            
+            data1 = tc.MatlabArrayFcn([1 2 3 4]);
+            data2 = tc.MatlabArrayFcn([1 2 5 4]);
+            array1 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 2 4]);
+            array3 = tc.ArrowArrayConstructorFcn(data2, Valid=[1 2 4]);
+            
+            tc.verifyTrue(isequal(array1, array2));
+            tc.verifyTrue(isequal(array1, array3));
+            tc.verifyTrue(isequal(array1, array2, array3)); 
+        end
+
+        function TestIsEqualFalse(tc)
+            % Verify isequal returns false when expected. Two arrays are
+            % considered not equal if one of the conditions is met:
+            %   1. They have different types
+            %   2. The have different lengths
+            %   3. Different elements are valid
+            %   4. The corresponding valid elements are not equal.
+            
+            data1 = tc.MatlabArrayFcn([1 2 3 4]);
+            data2 = tc.MatlabArrayFcn([5 2 3 4]);
+            data3 = tc.MatlabArrayFcn([1 2 3 4 5]);
+            array1 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(data1, Valid=[1 4]);
+            array3 = tc.ArrowArrayConstructorFcn(data2, Valid=[1 2 4]);
+            array4 = arrow.array([true false true false]);
+            array5 = tc.ArrowArrayConstructorFcn(data3, Valid=[1 2 4]);
+
+            % The same elements are not valid.
+            tc.verifyFalse(isequal(array1, array2));
+
+            % Corresponding elements are not equal.
+            tc.verifyFalse(isequal(array1, array3));
+
+            % The arrays have different types.
+            tc.verifyFalse(isequal(array1, array4));
+
+            % The arrays have different lengths.
+            tc.verifyFalse(isequal(array1, array5));
+
+            % Comparing an arrow.array.BooleanArray to a double
+            tc.verifyFalse(isequal(array1, 1));
+
+            % Supply more than two input arguments to isequal
+            tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
+        end
     end
 end
