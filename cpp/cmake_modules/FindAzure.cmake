@@ -42,4 +42,4 @@ find_package_handle_standard_args(
                 azure-storage-blobs-cpp_FOUND
                 azure-storage-common-cpp_FOUND
                 azure-storage-files-datalake-cpp_FOUND
-  VERSION_VAR azure-storage-files-datalake-cpp_VERSION)
+  VERSION_VAR azure-core-cpp_VERSION)

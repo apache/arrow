@@ -5109,7 +5109,7 @@ function(build_azure_sdk)
 endfunction()
 
 if(ARROW_WITH_AZURE_SDK)
-  resolve_dependency(Azure)
+  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
   set(AZURE_SDK_LINK_LIBRARIES
       Azure::azure-storage-files-datalake
       Azure::azure-storage-common
