@@ -34,7 +34,7 @@ namespace {
 // |-----------------------------------------|
 // | precision | half    | single  | double  |
 // |-----------------------------------------|
-// | mantissa  | 10 bits | 23 bits | 53 bits |
+// | mantissa  | 10 bits | 23 bits | 52 bits |
 // | exponent  | 5 bits  | 8 bits  | 11 bits |
 // | sign      | 1 bit   | 1 bit   | 1 bit   |
 // | exp bias  | 15      | 127     | 1023    |
