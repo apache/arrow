@@ -71,7 +71,44 @@ TEST(BloomFilterReader, FileNotHaveBloomFilter) {
   ASSERT_EQ(nullptr, bloom_filter);
 }
 
-TEST(BloomFilterBuilderTest, Basic) {
+// <c1:BYTE_ARRAY, c2:BYTE_ARRAY>, c1 has bloom filter.
+TEST(BloomFilterBuilderTest, BasicRoundTrip) {
+  SchemaDescriptor schema;
+  schema::NodePtr root = schema::GroupNode::Make(
+      "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
+  schema.Init(root);
+  auto properties = WriterProperties::Builder().build();
+  auto builder = BloomFilterBuilder::Make(&schema, *properties);
+  builder->AppendRowGroup();
+  auto bloom_filter = builder->GetOrCreateBloomFilter(0, BloomFilterOptions());
+  std::vector<uint64_t> insert_hashes = {100, 200};
+  for (uint64_t hash : insert_hashes) {
+    bloom_filter->InsertHash(hash);
+  }
+  builder->Finish();
+  auto sink = CreateOutputStream();
+  BloomFilterLocation location;
+  builder->WriteTo(sink.get(), &location);
+  EXPECT_EQ(1, location.bloom_filter_location.size());
+  EXPECT_EQ(2, location.bloom_filter_location[0].size());
+  EXPECT_TRUE(location.bloom_filter_location[0][0].has_value());
+  EXPECT_FALSE(location.bloom_filter_location[0][1].has_value());
+
+  int32_t bloom_filter_offset = location.bloom_filter_location[0][0]->offset;
+  int32_t bloom_filter_length = location.bloom_filter_location[0][0]->length;
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+  ReaderProperties reader_properties;
+  ::arrow::io::BufferReader reader(
+      ::arrow::SliceBuffer(buffer, bloom_filter_offset, bloom_filter_length));
+  auto filter = parquet::BlockSplitBloomFilter::Deserialize(reader_properties, &reader);
+  for (uint64_t hash : insert_hashes) {
+    EXPECT_TRUE(bloom_filter->FindHash(hash));
+  }
+  EXPECT_FALSE(filter.FindHash(300));
+}
+
+TEST(BloomFilterBuilderTest, InvalidOperations) {
   SchemaDescriptor schema;
   schema::NodePtr root =
       schema::GroupNode::Make("schema", Repetition::REPEATED, {schema::ByteArray("c1")});
@@ -85,22 +122,14 @@ TEST(BloomFilterBuilderTest, Basic) {
   builder->AppendRowGroup();
   // GetOrCreateBloomFilter() with wrong column ordinal expect throw.
   ASSERT_THROW(builder->GetOrCreateBloomFilter(1, default_options), ParquetException);
-  auto bloom_filter = builder->GetOrCreateBloomFilter(0, default_options);
-  bloom_filter->InsertHash(100);
-  bloom_filter->InsertHash(200);
-  builder->Finish();
+  builder->GetOrCreateBloomFilter(0, default_options);
   auto sink = CreateOutputStream();
   BloomFilterLocation location;
+  // WriteTo() before Finish() expect throw.
+  ASSERT_THROW(builder->WriteTo(sink.get(), &location), ParquetException);
+  builder->Finish();
   builder->WriteTo(sink.get(), &location);
   EXPECT_EQ(1, location.bloom_filter_location.size());
-
-  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
-  ReaderProperties reader_properties;
-  ::arrow::io::BufferReader reader(buffer);
-  auto filter = parquet::BlockSplitBloomFilter::Deserialize(reader_properties, &reader);
-  EXPECT_TRUE(filter.FindHash(100));
-  EXPECT_TRUE(filter.FindHash(200));
-  EXPECT_FALSE(filter.FindHash(300));
 }
 
 }  // namespace parquet::test

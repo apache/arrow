@@ -100,7 +100,7 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     // serialize bloom filter by ascending order of column id
     for (int32_t column_id = 0; column_id < num_columns; ++column_id) {
       auto iter = row_group_bloom_filters.find(column_id);
-      if (iter != row_group_bloom_filters.cend()) {
+      if (iter != row_group_bloom_filters.cend() && iter->second != nullptr) {
         PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
         iter->second->WriteTo(sink);
         PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
