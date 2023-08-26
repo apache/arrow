@@ -144,6 +144,47 @@ func TestRecordReaderParallel(t *testing.T) {
 	assert.Truef(t, array.RecordEqual(tr.Record(), records[1]), "expected: %s\ngot: %s", tr.Record(), records[1])
 }
 
+func testRecordReaderSerialImpl(t *testing.T, batchSize int64)  {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	tbl := makeDateTimeTypesTable(mem, true, true)
+	defer tbl.Release()
+
+	var buf bytes.Buffer
+	require.NoError(t, pqarrow.WriteTable(tbl, &buf, tbl.NumRows(), nil, pqarrow.NewArrowWriterProperties(pqarrow.WithAllocator(mem))))
+
+	pf, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()), file.WithReadProps(parquet.NewReaderProperties(mem)))
+	require.NoError(t, err)
+
+	reader, err := pqarrow.NewFileReader(pf, pqarrow.ArrowReadProperties{BatchSize: batchSize}, mem)
+	require.NoError(t, err)
+
+	sc, err := reader.Schema()
+	assert.NoError(t, err)
+	assert.Truef(t, tbl.Schema().Equal(sc), "expected: %s\ngot: %s", tbl.Schema(), sc)
+
+	rr, err := reader.GetRecordReader(context.Background(), nil, nil)
+	assert.NoError(t, err)
+	assert.NotNil(t, rr)
+	defer rr.Release()
+
+	tr := array.NewTableReader(tbl, batchSize)
+	defer tr.Release()
+
+	for true {
+		rec, err := rr.Read()
+		if err == io.EOF {
+			assert.Falsef(t, tr.Next(), "expect finished")
+			break
+		} else {
+			assert.NoError(t, err)
+			tr.Next()
+			assert.Truef(t, array.RecordEqual(tr.Record(), rec), "expected: %s\ngot: %s", tr.Record(), rec)
+		}
+	}
+}
+
 func TestRecordReaderSerial(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
 	defer mem.AssertSize(t, 0)
@@ -190,6 +231,13 @@ func TestRecordReaderSerial(t *testing.T) {
 	rec, err = rr.Read()
 	assert.Same(t, io.EOF, err)
 	assert.Nil(t, rec)
+}
+
+func TestRecordReaderWithUnalignedBatchSize(t *testing.T) {
+	batchSizes := []int64{3, 5, 7}
+	for _, batchSize := range batchSizes {
+		testRecordReaderSerialImpl(t, batchSize)
+	}
 }
 
 func TestFileReaderWriterMetadata(t *testing.T) {

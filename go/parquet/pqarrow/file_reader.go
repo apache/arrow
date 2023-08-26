@@ -672,7 +672,7 @@ func (r *recordReader) next() bool {
 		return nil
 	}
 	nextBatchSize := r.batchSize
-	if nextBatchSize < r.numRows {
+	if nextBatchSize > r.numRows {
 		nextBatchSize = r.numRows
 	}
 	defer func() {
