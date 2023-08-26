@@ -1781,7 +1781,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
         key_value_metadata_(std::move(key_value_metadata)) {
     if (properties_->file_encryption_properties() != nullptr &&
         properties_->file_encryption_properties()->encrypted_footer()) {
-      crypto_metadata_.reset(new format::FileCryptoMetaData());
+      crypto_metadata_ = std::make_unique<format::FileCryptoMetaData>();
     }
   }
 
@@ -1793,36 +1793,65 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
   }
 
   void SetPageIndexLocation(const PageIndexLocation& location) {
-    auto set_index_location =
+    auto set_index_location = [this](size_t row_group_ordinal,
+                                     const FileIndexLocation& file_index_location,
+                                     bool column_index) {
+      auto& row_group_metadata = this->row_groups_.at(row_group_ordinal);
+      auto iter = file_index_location.find(row_group_ordinal);
+      if (iter != file_index_location.cend()) {
+        const auto& row_group_index_location = iter->second;
+        for (size_t i = 0; i < row_group_index_location.size(); ++i) {
+          if (i >= row_group_metadata.columns.size()) {
+            throw ParquetException("Cannot find metadata for column ordinal ", i);
+          }
+          auto& column_metadata = row_group_metadata.columns.at(i);
+          const auto& index_location = row_group_index_location.at(i);
+          if (index_location.has_value()) {
+            if (column_index) {
+              column_metadata.__set_column_index_offset(index_location->offset);
+              column_metadata.__set_column_index_length(index_location->length);
+            } else {
+              column_metadata.__set_offset_index_offset(index_location->offset);
+              column_metadata.__set_offset_index_length(index_location->length);
+            }
+          }
+        }
+      }
+    };
+
+    for (size_t i = 0; i < row_groups_.size(); ++i) {
+      set_index_location(i, location.column_index_location, true);
+      set_index_location(i, location.offset_index_location, false);
+    }
+  }
+
+  // Update location to all bloom filters in the parquet file.
+  void SetBloomFilterLocation(const BloomFilterLocation& location) {
+    auto set_bloom_filter_location =
         [this](size_t row_group_ordinal,
-               const PageIndexLocation::FileIndexLocation& file_index_location,
-               bool column_index) {
+               const FileIndexLocation& file_bloom_filter_location) {
           auto& row_group_metadata = this->row_groups_.at(row_group_ordinal);
-          auto iter = file_index_location.find(row_group_ordinal);
-          if (iter != file_index_location.cend()) {
-            const auto& row_group_index_location = iter->second;
-            for (size_t i = 0; i < row_group_index_location.size(); ++i) {
+          auto iter = file_bloom_filter_location.find(row_group_ordinal);
+          if (iter != file_bloom_filter_location.cend()) {
+            const auto& row_group_bloom_filter_location = iter->second;
+            for (size_t i = 0; i < row_group_bloom_filter_location.size(); ++i) {
               if (i >= row_group_metadata.columns.size()) {
                 throw ParquetException("Cannot find metadata for column ordinal ", i);
               }
-              auto& column_metadata = row_group_metadata.columns.at(i);
-              const auto& index_location = row_group_index_location.at(i);
-              if (index_location.has_value()) {
-                if (column_index) {
-                  column_metadata.__set_column_index_offset(index_location->offset);
-                  column_metadata.__set_column_index_length(index_location->length);
-                } else {
-                  column_metadata.__set_offset_index_offset(index_location->offset);
-                  column_metadata.__set_offset_index_length(index_location->length);
-                }
+              auto& column = row_group_metadata.columns.at(i);
+              auto& column_metadata = column.meta_data;
+              const auto& bloom_filter_location = row_group_bloom_filter_location.at(i);
+              if (bloom_filter_location.has_value()) {
+                column_metadata.__set_bloom_filter_offset(bloom_filter_location->offset);
+                // TODO(mwish): Allow this in Parquet 2.10.
+                // column_metadata.__set_bloom_filter_length(bloom_filter_location->length);
               }
             }
           }
         };
 
     for (size_t i = 0; i < row_groups_.size(); ++i) {
-      set_index_location(i, location.column_index_location, true);
-      set_index_location(i, location.offset_index_location, false);
+      set_bloom_filter_location(i, location.bloom_filter_location);
     }
   }
 
@@ -1954,8 +1983,8 @@ std::unique_ptr<FileMetaDataBuilder> FileMetaDataBuilder::Make(
 FileMetaDataBuilder::FileMetaDataBuilder(
     const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
     std::shared_ptr<const KeyValueMetadata> key_value_metadata)
-    : impl_{std::unique_ptr<FileMetaDataBuilderImpl>(new FileMetaDataBuilderImpl(
-          schema, std::move(props), std::move(key_value_metadata)))} {}
+    : impl_{std::make_unique<FileMetaDataBuilderImpl>(schema, std::move(props),
+                                                      std::move(key_value_metadata))} {}
 
 FileMetaDataBuilder::~FileMetaDataBuilder() = default;
 
@@ -1965,6 +1994,10 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
 
 void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location) {
   impl_->SetPageIndexLocation(location);
+}
+
+void FileMetaDataBuilder::SetBloomFilterLocation(const BloomFilterLocation& location) {
+  impl_->SetBloomFilterLocation(location);
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(

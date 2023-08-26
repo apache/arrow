@@ -139,6 +139,18 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::PLAIN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
+static constexpr int32_t DEFAULT_BLOOM_FILTER_NDV = 1024 * 1024;
+static constexpr double DEFAULT_BLOOM_FILTER_FPP = 0.05;
+
+/// Note: Currently we don't support bloom filter for boolean columns,
+/// so if enable bloom filter for boolean columns, it will be ignored.
+struct BloomFilterOptions {
+  int32_t ndv = DEFAULT_BLOOM_FILTER_NDV;
+  double fpp = DEFAULT_BLOOM_FILTER_FPP;
+};
+
+static constexpr std::optional<BloomFilterOptions> DEFAULT_IS_BLOOM_FILTER_OPTIONS =
+    std::nullopt;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -147,7 +159,9 @@ class PARQUET_EXPORT ColumnProperties {
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
                    size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE,
-                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED)
+                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED,
+                   std::optional<BloomFilterOptions> bloom_filter_options =
+                       DEFAULT_IS_BLOOM_FILTER_OPTIONS)
       : encoding_(encoding),
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
@@ -186,6 +200,24 @@ class PARQUET_EXPORT ColumnProperties {
     page_index_enabled_ = page_index_enabled;
   }
 
+  void set_bloom_filter_options(std::optional<BloomFilterOptions> bloom_filter_options) {
+    if (bloom_filter_options) {
+      if (bloom_filter_options->fpp > 1.0 || bloom_filter_options->fpp < 0.0) {
+        throw ParquetException(
+            "Bloom Filter False positive probability must be between 0.0 and 1.0");
+      }
+    }
+    bloom_filter_options_ = bloom_filter_options;
+  }
+
+  void set_bloom_filter_enabled(bool bloom_filter_enabled) {
+    if (!bloom_filter_enabled) {
+      bloom_filter_options_ = std::nullopt;
+    } else if (!bloom_filter_options_) {
+      bloom_filter_options_ = BloomFilterOptions();
+    }
+  }
+
   Encoding::type encoding() const { return encoding_; }
 
   Compression::type compression() const { return codec_; }
@@ -202,6 +234,12 @@ class PARQUET_EXPORT ColumnProperties {
 
   bool page_index_enabled() const { return page_index_enabled_; }
 
+  std::optional<BloomFilterOptions> bloom_filter_options() const {
+    return bloom_filter_options_;
+  }
+
+  bool bloom_filter_enabled() const { return bloom_filter_options_ != std::nullopt; }
+
  private:
   Encoding::type encoding_;
   Compression::type codec_;
@@ -210,6 +248,7 @@ class PARQUET_EXPORT ColumnProperties {
   size_t max_stats_size_;
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
+  std::optional<BloomFilterOptions> bloom_filter_options_;
 };
 
 class PARQUET_EXPORT WriterProperties {
@@ -532,6 +571,44 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
+    /// Enable writing bloom filter in general for all columns. Default disabled.
+    ///
+    /// Please check the link below for more details:
+    /// https://github.com/apache/parquet-format/blob/master/BloomFilter.md
+    Builder* enable_bloom_filter() {
+      default_column_properties_.set_bloom_filter_enabled(true);
+      return this;
+    }
+
+    /// Enable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* enable_bloom_filter(const std::string& path) {
+      auto iter = bloom_filter_options_.find(path);
+      if (iter == bloom_filter_options_.end() || iter->second == std::nullopt) {
+        bloom_filter_options_[path] = BloomFilterOptions();
+      }
+      return this;
+    }
+
+    /// Enable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* enable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_bloom_filter(path->ToDotString());
+    }
+
+    /// Disable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* disable_bloom_filter(const std::string& path) {
+      bloom_filter_options_[path] = std::nullopt;
+      return this;
+    }
+
+    /// Disable bloom filter for the column specified by `path`.
+    /// Default enabled.
+    Builder* disable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_bloom_filter(path->ToDotString());
+    }
+
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
     ///
     /// In Parquet, DECIMAL can be stored in any of the following physical types:
@@ -629,6 +706,8 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
+      for (const auto& item : bloom_filter_options_)
+        get(item.first).set_bloom_filter_options(item.second);
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
@@ -663,6 +742,8 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    std::unordered_map<std::string, std::optional<BloomFilterOptions>>
+        bloom_filter_options_;
   };
 
   inline MemoryPool* memory_pool() const { return pool_; }
@@ -755,6 +836,23 @@ class PARQUET_EXPORT WriterProperties {
       }
     }
     return false;
+  }
+
+  bool bloom_filter_enabled() const {
+    if (default_column_properties_.bloom_filter_enabled()) {
+      return true;
+    }
+    for (const auto& item : column_properties_) {
+      if (item.second.bloom_filter_enabled()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::optional<BloomFilterOptions> bloom_filter_options(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).bloom_filter_options();
   }
 
   inline FileEncryptionProperties* file_encryption_properties() const {
