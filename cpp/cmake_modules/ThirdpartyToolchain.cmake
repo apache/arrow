@@ -5083,8 +5083,8 @@ function(build_azure_sdk)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
   set(WARNINGS_AS_ERRORS FALSE)
-  # TODO: Configure flags in a better way. FetchContent builds inherit 
-  # global flags but we want to disable -Werror for Azure SDK for C++ builds. 
+  # TODO: Configure flags in a better way. FetchContent builds inherit
+  # global flags but we want to disable -Werror for Azure SDK for C++ builds.
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
