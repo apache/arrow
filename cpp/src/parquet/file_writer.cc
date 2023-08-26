@@ -162,8 +162,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     BloomFilter* bloom_filter = nullptr;
     std::optional<BloomFilterOptions> bloom_filter_props =
         properties_->bloom_filter_options(path);
-    bool bloom_filter_enabled = bloom_filter_builder_ &&
-                                bloom_filter_props.has_value() &&
+    bool bloom_filter_enabled = bloom_filter_builder_ && bloom_filter_props.has_value() &&
                                 col_meta->descr()->physical_type() != Type::BOOLEAN;
     if (bloom_filter_enabled) {
       bloom_filter = bloom_filter_builder_->GetOrCreateBloomFilter(
