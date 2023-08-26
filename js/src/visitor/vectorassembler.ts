@@ -77,18 +77,23 @@ export class VectorAssembler extends Visitor {
         }
         const { type } = data;
         if (!DataType.isDictionary(type)) {
-            const { length, nullCount } = data;
+            const { length } = data;
             if (length > 2147483647) {
                 /* istanbul ignore next */
                 throw new RangeError('Cannot write arrays larger than 2^31 - 1 in length');
             }
-            if (!DataType.isNull(type) && !DataType.isUnion(type)) {
-                addBuffer.call(this, nullCount <= 0
-                    ? new Uint8Array(0) // placeholder validity buffer
-                    : truncateBitmap(data.offset, length, data.nullBitmap)
-                );
+            if (DataType.isUnion(type)) {
+                this.nodes.push(new FieldNode(length, 0));
+            } else {
+                const { nullCount } = data;
+                if (!DataType.isNull(type)) {
+                    addBuffer.call(this, nullCount <= 0
+                        ? new Uint8Array(0) // placeholder validity buffer
+                        : truncateBitmap(data.offset, length, data.nullBitmap)
+                    );
+                }
+                this.nodes.push(new FieldNode(length, nullCount));
             }
-            this.nodes.push(new FieldNode(length, nullCount));
         }
         return super.visit(data);
     }
