@@ -1634,7 +1634,7 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
   // Initial RowGroup
   builder_->AppendRowGroup();
   BloomFilterOptions options;
-  options.ndv = output_size;
+  options.ndv = static_cast<int32_t>(output_size);
   bloom_filter_ = builder_->GetOrCreateBloomFilter(0, options);
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(this->metadata_.get(), std::move(pager),
