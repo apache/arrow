@@ -79,6 +79,11 @@ TEST(Float16Test, RoundTripFromFloat32) {
     const auto f16 = Float16::FromFloat(tc.f32);
     EXPECT_EQ(tc.b16, f16.bits());
     EXPECT_EQ(tc.f16_as_f32, f16.ToFloat());
+
+    EXPECT_EQ(std::signbit(tc.f16_as_f32), f16.signbit());
+    EXPECT_EQ(std::isnan(tc.f16_as_f32), f16.is_nan());
+    EXPECT_EQ(std::isinf(tc.f16_as_f32), f16.is_infinity());
+    EXPECT_EQ(std::isfinite(tc.f16_as_f32), f16.is_finite());
   }
 }
 

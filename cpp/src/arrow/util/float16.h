@@ -53,17 +53,19 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Read a `Float16` from memory in little-endian byte order
   static Float16 FromLittleEndian(const uint8_t* src) {
-    return Float16(bit_util::FromLittleEndian(SafeLoadAs<uint16_t>(src)));
+    return Float16(::arrow::bit_util::FromLittleEndian(SafeLoadAs<uint16_t>(src)));
   }
 
   /// \brief Read a `Float16` from memory in big-endian byte order
   static Float16 FromBigEndian(const uint8_t* src) {
-    return Float16(bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
+    return Float16(::arrow::bit_util::FromBigEndian(SafeLoadAs<uint16_t>(src)));
   }
 
   /// \brief Return the value's integer representation
   constexpr uint16_t bits() const { return value_; }
   constexpr explicit operator uint16_t() const { return bits(); }
+
+  explicit operator float() const { return ToFloat(); }
 
   /// \brief Return true if the value is negative (sign bit is set)
   constexpr bool signbit() const { return (value_ & 0x8000) != 0; }
@@ -74,6 +76,8 @@ class ARROW_EXPORT Float16 {
   }
   /// \brief Return true if the value is positive/negative infinity
   constexpr bool is_infinity() const { return (value_ & 0x7fff) == 0x7c00; }
+  /// \brief Return true if the value is finite and not NaN
+  constexpr bool is_finite() const { return (value_ & 0x7c00) != 0x7c00; }
   /// \brief Return true if the value is positive/negative zero
   constexpr bool is_zero() const { return (value_ & 0x7fff) == 0; }
 
@@ -93,7 +97,7 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in little-endian byte order
   void ToLittleEndian(uint8_t* dest) const {
-    Float16{bit_util::ToLittleEndian(value_)}.ToBytes(dest);
+    Float16{::arrow::bit_util::ToLittleEndian(value_)}.ToBytes(dest);
   }
   /// \brief Return the value's bytes in little-endian byte order
   constexpr std::array<uint8_t, 2> ToLittleEndian() const {
@@ -106,7 +110,7 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Copy the value's bytes in big-endian byte order
   void ToBigEndian(uint8_t* dest) const {
-    Float16{bit_util::ToBigEndian(value_)}.ToBytes(dest);
+    Float16{::arrow::bit_util::ToBigEndian(value_)}.ToBytes(dest);
   }
   /// \brief Return the value's bytes in big-endian byte order
   constexpr std::array<uint8_t, 2> ToBigEndian() const {
