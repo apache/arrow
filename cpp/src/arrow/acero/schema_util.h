@@ -41,6 +41,8 @@ enum class HashJoinProjection : int {
   OUTPUT = 4
 };
 
+using NestedLoopJoinProjection = HashJoinProjection;
+
 struct SchemaProjectionMap {
   static constexpr int kMissingField = -1;
   int num_cols;
@@ -221,6 +223,7 @@ class SchemaProjectionMaps {
 };
 
 using HashJoinProjectionMaps = SchemaProjectionMaps<HashJoinProjection>;
+using NestedLoopJoinProjectionMaps = SchemaProjectionMaps<NestedLoopJoinProjection>;
 
 }  // namespace acero
 }  // namespace arrow

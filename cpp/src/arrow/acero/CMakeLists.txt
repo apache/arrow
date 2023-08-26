@@ -40,6 +40,8 @@ set(ARROW_ACERO_SRCS
     hash_join.cc
     hash_join_dict.cc
     hash_join_node.cc
+    nested_loop_join.cc
+    nested_loop_node.cc
     map_node.cc
     options.cc
     order_by_node.cc
