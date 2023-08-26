@@ -48,15 +48,15 @@ class PARQUET_EXPORT BloomFilterBuilder {
   /// \brief Get the BloomFilter from column ordinal.
   ///
   /// \param column_ordinal Column ordinal in schema, which is only for leaf columns.
-  /// \return ColumnIndexBuilder for the column and its memory ownership belongs to
-  /// the PageIndexBuilder.
+  /// \return BloomFilter for the column and its memory ownership belongs to
+  /// the BloomFilterBuilder.
   virtual BloomFilter* GetOrCreateBloomFilter(
       int32_t column_ordinal, const BloomFilterOptions& bloom_filter_options) = 0;
 
   /// \brief Write the bloom filter to sink.
   ///
   /// \param[out] sink The output stream to write the bloom filter.
-  /// \param[out] location The location of all page index to the start of sink.
+  /// \param[out] location The location of all bloom filter to the start of sink.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
                        BloomFilterLocation* location) = 0;
 

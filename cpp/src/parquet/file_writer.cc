@@ -523,6 +523,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       bloom_filter_builder_->Finish();
       bloom_filter_builder_->WriteTo(sink_.get(), &bloom_filter_location);
       metadata_->SetBloomFilterLocation(bloom_filter_location);
+      // Release the memory for BloomFilter.
+      bloom_filter_builder_ = nullptr;
     }
   }
 

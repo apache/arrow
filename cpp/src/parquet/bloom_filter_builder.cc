@@ -25,9 +25,9 @@
 
 #include "arrow/io/interfaces.h"
 
-#include "metadata.h"
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
+#include "parquet/metadata.h"
 #include "parquet/properties.h"
 
 namespace parquet {
