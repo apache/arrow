@@ -80,8 +80,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
     const SchemaDescriptor* schema, const WriterProperties& properties) {
-  return std::unique_ptr<BloomFilterBuilder>(
-      new BloomFilterBuilderImpl(schema, properties));
+  return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
 void BloomFilterBuilderImpl::AppendRowGroup() { row_group_bloom_filters_.emplace_back(); }
