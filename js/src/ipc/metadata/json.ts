@@ -32,7 +32,7 @@ import { TimeUnit, Precision, IntervalUnit, UnionMode, DateUnit } from '../../en
 export function schemaFromJSON(_schema: any, dictionaries: Map<number, DataType> = new Map()) {
     return new Schema(
         schemaFieldsFromJSON(_schema, dictionaries),
-        customMetadataFromJSON(_schema['customMetadata']),
+        customMetadataFromJSON(_schema['metadata']),
         dictionaries
     );
 }
@@ -107,7 +107,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
     // If no dictionary encoding
     if (!dictionaries || !(dictMeta = _field['dictionary'])) {
         type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries));
-        field = new Field(_field['name'], type, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
+        field = new Field(_field['name'], type, _field['nullable'], customMetadataFromJSON(_field['metadata']));
     }
     // If dictionary encoded and the first time we've seen this dictionary id, decode
     // the data type and child fields, then wrap in a Dictionary type and insert the
@@ -117,7 +117,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
         keys = (keys = dictMeta['indexType']) ? indexTypeFromJSON(keys) as TKeys : new Int32();
         dictionaries.set(id, type = typeFromJSON(_field, fieldChildrenFromJSON(_field, dictionaries)));
         dictType = new Dictionary(type, keys, id, dictMeta['isOrdered']);
-        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
+        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['metadata']));
     }
     // If dictionary encoded, and have already seen this dictionary Id in the schema, then reuse the
     // data type and wrap in a new Dictionary type and field.
@@ -125,7 +125,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
         // a dictionary index defaults to signed 32 bit int if unspecified
         keys = (keys = dictMeta['indexType']) ? indexTypeFromJSON(keys) as TKeys : new Int32();
         dictType = new Dictionary(dictionaries.get(id)!, keys, id, dictMeta['isOrdered']);
-        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['customMetadata']));
+        field = new Field(_field['name'], dictType, _field['nullable'], customMetadataFromJSON(_field['metadata']));
     }
     return field || null;
 }
