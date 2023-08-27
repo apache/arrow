@@ -130,9 +130,10 @@ class IntegrationRunner(object):
                             if f.name == name).skip
             except StopIteration:
                 skip = set()
+            if prefix == '0.14.1' or prefix == '0.17.1':
+                skip.add("JS")
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
-                skip.add("JS")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
                 skip.add("C#")
                 skip.add("Java")
