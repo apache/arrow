@@ -68,7 +68,7 @@ export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
     public static fromJSON<T extends MessageHeader>(msg: any, headerType: T): Message<T> {
-        const message = new Message(0, MetadataVersion.V4, headerType);
+        const message = new Message(0, MetadataVersion.V5, headerType);
         message._createHeader = messageHeaderFromJSON(msg, headerType);
         return message;
     }
@@ -97,7 +97,7 @@ export class Message<T extends MessageHeader = any> {
             headerOffset = DictionaryBatch.encode(b, message.header() as DictionaryBatch);
         }
         _Message.startMessage(b);
-        _Message.addVersion(b, MetadataVersion.V4);
+        _Message.addVersion(b, MetadataVersion.V5);
         _Message.addHeader(b, headerOffset);
         _Message.addHeaderType(b, message.headerType);
         _Message.addBodyLength(b, BigInt(message.bodyLength));
@@ -108,13 +108,13 @@ export class Message<T extends MessageHeader = any> {
     /** @nocollapse */
     public static from(header: Schema | RecordBatch | DictionaryBatch, bodyLength = 0) {
         if (header instanceof Schema) {
-            return new Message(0, MetadataVersion.V4, MessageHeader.Schema, header);
+            return new Message(0, MetadataVersion.V5, MessageHeader.Schema, header);
         }
         if (header instanceof RecordBatch) {
-            return new Message(bodyLength, MetadataVersion.V4, MessageHeader.RecordBatch, header);
+            return new Message(bodyLength, MetadataVersion.V5, MessageHeader.RecordBatch, header);
         }
         if (header instanceof DictionaryBatch) {
-            return new Message(bodyLength, MetadataVersion.V4, MessageHeader.DictionaryBatch, header);
+            return new Message(bodyLength, MetadataVersion.V5, MessageHeader.DictionaryBatch, header);
         }
         throw new Error(`Unrecognized Message header: ${header}`);
     }
@@ -296,7 +296,7 @@ function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = ne
 }
 
 /** @ignore */
-function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
+function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V5) {
     if (batch.compression() !== null) {
         throw new Error('Record batch compression not implemented');
     }
@@ -304,7 +304,7 @@ function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
 }
 
 /** @ignore */
-function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V4) {
+function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V5) {
     return new DictionaryBatch(RecordBatch.decode(batch.data()!, version), batch.id(), batch.isDelta());
 }
 
@@ -337,7 +337,7 @@ function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
             // If this Arrow buffer was written before version 4,
             // advance the buffer's bb_pos 8 bytes to skip past
             // the now-removed page_id field
-            if (version < MetadataVersion.V4) {
+            if (version < MetadataVersion.V5) {
                 b.bb_pos += (8 * (i + 1));
             }
             bufferRegions[++j] = BufferRegion.decode(b);
