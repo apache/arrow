@@ -183,6 +183,10 @@ may be returned if the input object doesn't have the expected type.
 
    Unwrap and return the Arrow C++ :class:`Table` pointer from *obj*.
 
+.. function:: Result<std::shared_ptr<RecordBatchReader>> arrow::py::unwrap_record_batch_reader(PyObject* obj)
+
+   Unwrap and return the Arrow C++ :class:`RecordBatchReader` pointer from *obj*.
+
 .. function:: Result<std::shared_ptr<Tensor>> arrow::py::unwrap_tensor(PyObject* obj)
 
    Unwrap and return the Arrow C++ :class:`Tensor` pointer from *obj*.
@@ -239,6 +243,10 @@ On error, NULL is returned and a Python exception is set.
 .. function:: PyObject* arrow::py::wrap_table(const std::shared_ptr<Table>& table)
 
    Wrap the Arrow C++ *table* in a :py:class:`pyarrow.Table` instance.
+
+.. function:: PyObject* arrow::py::wrap_record_batch_reader(const std::shared_ptr<RecordBatchReader>& record_batch_reader)
+
+   Wrap the Arrow C++ *record_batch_reader* in a :py:class:`pyarrow.RecordBatchReader` instance.
 
 .. function:: PyObject* arrow::py::wrap_tensor(const std::shared_ptr<Tensor>& tensor)
 
@@ -316,6 +324,10 @@ an exception) if the input is not of the right type.
 
    Unwrap the Arrow C++ :cpp:class:`Table` pointer from *obj*.
 
+.. function:: pyarrow_unwrap_record_batch_reader(obj) -> shared_ptr[CRecordBatchReader]
+
+   Unwrap the Arrow C++ :cpp:class:`RecordBatchReader` pointer from *obj*.
+
 .. function:: pyarrow_unwrap_tensor(obj) -> shared_ptr[CTensor]
 
    Unwrap the Arrow C++ :cpp:class:`Tensor` pointer from *obj*.
@@ -375,6 +387,10 @@ pyarray object of the corresponding type.  An exception is raised on error.
 .. function:: pyarrow_wrap_table(const shared_ptr[CTable]& table) -> object
 
    Wrap the Arrow C++ *table* in a Python :class:`pyarrow.Table` instance.
+
+.. function:: pyarrow_wrap_record_batch_reader(const shared_ptr[CRecordBatchReader]& sp_record_batch_reader) -> object
+
+   Wrap the Arrow C++ *record_batch_reader* in a Python :class:`pyarrow.RecordBatchReader` instance.
 
 .. function:: pyarrow_wrap_tensor(const shared_ptr[CTensor]& tensor) -> object
 
