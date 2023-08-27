@@ -131,7 +131,7 @@ export function fieldFromJSON(_field: any, dictionaries?: Map<number, DataType>)
 }
 
 /** @ignore */
-function customMetadataFromJSON(metadata: { key: string, value: string }[] = []) {
+function customMetadataFromJSON(metadata: { key: string; value: string }[] = []) {
     return new Map<string, string>(metadata.map(({ key, value }) => [key, value]));
 }
 
