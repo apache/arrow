@@ -814,7 +814,7 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
                             const FunctionOptions* options,
                             ExecContext* ctx) const override {
     if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
-       return args[0];
+      return args[0];
     }
 
     if (args[0].is_array() || args[0].is_chunked_array()) {
@@ -831,7 +831,7 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
             typename ArrayType = typename TypeTraits<IndiceArrowType>::ArrayType,
             typename BuilderType = typename TypeTraits<IndiceArrowType>::BuilderType,
             typename CType = typename TypeTraits<IndiceArrowType>::CType>
-  Result<std::shared_ptr<DictionaryArray>> Compaction(
+  Result<std::shared_ptr<Array>> Compaction(
       std::shared_ptr<DictionaryArray> dict_array, ExecContext* ctx) {
     const std::shared_ptr<Array>& dict = dict_array->dictionary();
     const std::shared_ptr<Array>& indice = dict_array->indices();
@@ -873,6 +873,7 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
     ARROW_ASSIGN_OR_RAISE(
         auto compacted_dict_res,
         Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
+    std::shared_ptr<arrow::Array> compacted_dict = compacted_dict_res.make_array();
 
     // indice changes
     CType indice_minus_number[dict->length()];
@@ -888,29 +889,29 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
       }
     }
 
-    CType changed_indice[indice->length()];
+    CType raw_changed_indice[indice->length()];
     for (int64_t i = 0; i < indice->length(); i++) {
       if (indice->IsNull(i)) {
-        changed_indice[i] = 0;
-        continue;
+        raw_changed_indice[i] = 0;
+      } else {
+        CType cur_indice = *(indices_data[i + offset]);
+        raw_changed_indice[i] = cur_indice - indice_minus_number[cur_indice];
       }
-
-      CType cur_indice = *(indices_data[i + offset]);
-      changed_indice[i] = cur_indice - indice_minus_number[cur_indice];
     }
     BuilderType indice_builder;
-    if (indice->null_count == 0) {
-      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(changed_indice, indice->length(),
-                                                      indice->null_bitmap_data(), 0));
+    if (indice->null_count() == 0) {
+      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(
+          raw_changed_indice, indice->length(), indice->null_bitmap_data(), 0));
     } else {
-      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(changed_indice, indice->length()));
+      ARROW_RETURN_NOT_OK(
+          indice_builder.AppendValues(raw_changed_indice, indice->length()));
     }
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice_array,
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indice_builder.Finish());
 
     ARROW_ASSIGN_OR_RAISE(
-        auto res, DictionaryArray::FromArrays(dict_array->type(), changed_indice_array,
-                                              compacted_dict_res.array()));
+        auto res,
+        DictionaryArray::FromArrays(dict_array->type(), changed_indice, compacted_dict));
     return res;
   }
 };
