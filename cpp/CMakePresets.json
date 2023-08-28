@@ -11,7 +11,8 @@
       "hidden": true,
       "generator": "Ninja",
       "cacheVariables": {
-        "ARROW_BUILD_STATIC": "OFF"
+        "ARROW_BUILD_STATIC": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {
