@@ -291,7 +291,7 @@ class ARROW_EXPORT SerialExecutor : public Executor {
   /// The TopLevelTask (or one of the tasks it schedules) must either return an invalid
   /// status or call the finish signal. Failure to do this will result in a deadlock.  For
   /// this reason it is preferable (if possible) to use the helper methods (below)
-  /// RunSynchronously/RunSerially which delegates the responsiblity onto a Future
+  /// RunSynchronously/RunSerially which delegates the responsibility onto a Future
   /// producer's existing responsibility to always mark a future finished (which can
   /// someday be aided by ARROW-12207).
   template <typename T = internal::Empty, typename FT = Future<T>,

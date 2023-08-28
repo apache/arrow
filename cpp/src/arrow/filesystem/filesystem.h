@@ -325,8 +325,8 @@ class ARROW_EXPORT FileSystem : public std::enable_shared_from_this<FileSystem> 
   Result<std::shared_ptr<io::OutputStream>> OpenAppendStream(const std::string& path);
 
  protected:
-  explicit FileSystem(const io::IOContext& io_context = io::default_io_context())
-      : io_context_(io_context) {}
+  explicit FileSystem(io::IOContext io_context = io::default_io_context())
+      : io_context_(std::move(io_context)) {}
 
   io::IOContext io_context_;
   // Whether metadata operations (such as GetFileInfo or OpenInputStream)
