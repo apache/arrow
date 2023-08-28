@@ -197,7 +197,14 @@ compile_test_program <- function(code) {
   # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
   # path as a -I directory. But since we (currently) only run this code to
   # determine whether we can download a Linux binary, it's not relevant.
-  runner <- "`R CMD config CXX17` `R CMD config CPPFLAGS` `R CMD config CXX17FLAGS` `R CMD config CXX17STD` -E -xc++"
+  runner <- paste(
+    R_CMD_config("CXX17"),
+    R_CMD_config("CPPFLAGS"),
+    R_CMD_config("CXX17FLAGS"),
+    R_CMD_config("CXX17STD"),
+    "-E",
+    "-xc++"
+  )
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
