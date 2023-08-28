@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v14/internal/json"
 
 	"golang.org/x/xerrors"
 )

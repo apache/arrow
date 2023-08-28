@@ -152,6 +152,9 @@ reference:
     Write multi-file datasets to disk.
   contents:
   - write_dataset
+  - write_delim_dataset
+  - write_csv_dataset
+  - write_tsv_dataset
 
 - title: Read files
   desc: >
