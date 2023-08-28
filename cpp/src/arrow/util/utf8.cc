@@ -84,7 +84,7 @@ ARROW_EXPORT void CheckUTF8Initialized() {
       << "InitializeUTF8() must be called before calling UTF8 routines";
 }
 
-}
+} // namespace internal
 
 static std::once_flag utf8_initialized;
 
@@ -192,4 +192,4 @@ Result<std::u16string> UTF8StringToUTF16(std::string_view source) {
   }
 }
 
-}
+} // namespace arrow::util

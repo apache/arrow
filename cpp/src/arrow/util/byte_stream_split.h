@@ -623,5 +623,5 @@ void inline ByteStreamSplitDecode(const uint8_t* data, int64_t num_values, int64
 #endif
 }
 
-}
+} // namespace arrow::util::internal
 

@@ -254,5 +254,5 @@ std::unique_ptr<Codec> MakeBrotliCodec(int compression_level,
                                        window_bits.value_or(BROTLI_DEFAULT_WINDOW));
 }
 
-}
+} // namespace arrow::util::internal
 
