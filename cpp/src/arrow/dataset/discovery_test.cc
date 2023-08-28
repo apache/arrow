@@ -122,7 +122,7 @@ TEST_F(MockDatasetFactoryTest, UnifySchemas) {
   AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
 
   MakeFactory({schema({field("num", int32())}), schema({field("num", float64())})});
-  ASSERT_RAISES(Invalid, factory_->Inspect());
+  ASSERT_RAISES(TypeError, factory_->Inspect());
   InspectOptions permissive_options;
   permissive_options.field_merge_options = Field::MergeOptions::Permissive();
   AssertInspect(schema({field("num", float64())}), permissive_options);
