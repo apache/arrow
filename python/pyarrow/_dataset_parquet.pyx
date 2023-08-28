@@ -771,23 +771,13 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             other.thrift_container_size_limit)
         return attrs == other_attrs
 
-<<<<<<< HEAD
-<<<<<<< HEAD
     @staticmethod
     @binding(True)  # Required for Cython < 3
-=======
-    @staticmethod
->>>>>>> 12e6eb47d (Make _reconstruct staticmethods)
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
         return ParquetFragmentScanOptions(**kwargs)
 
-<<<<<<< HEAD
-=======
->>>>>>> 0930ea44c (Fix cloudpickle test)
-=======
->>>>>>> 12e6eb47d (Make _reconstruct staticmethods)
     def __reduce__(self):
         kwargs = dict(
             use_buffered_stream=self.use_buffered_stream,
