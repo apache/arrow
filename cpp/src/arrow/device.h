@@ -131,7 +131,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     std::unique_ptr<void, release_fn_t> stream_;
   };
 
-  virtual Result<std::shared_ptr<Stream>> MakeStream() { return nullptr; }
+  virtual Result<std::shared_ptr<Stream>> MakeStream() { return NULLPTR; }
 
   /// \brief Create a new device stream
   ///
@@ -139,7 +139,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// derived from Device::Stream to allow for stream ordered events
   /// and memory allocations.
   virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
-    return nullptr;
+    return NULLPTR;
   };
 
   /// @brief Wrap an existing device stream alongside a release function
@@ -150,7 +150,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   ///        externally
   virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
                                                      Stream::release_fn_t release_fn) {
-    return nullptr;
+    return NULLPTR;
   }
 
   /// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
