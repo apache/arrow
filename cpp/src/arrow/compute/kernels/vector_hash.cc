@@ -795,6 +795,125 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
     }
   }
 };
+
+// Dictionary compaction implementation
+
+const FunctionDoc dictionary_compaction_doc{
+    "Compact dictionary array",
+    ("Return a compacted version of the array input\n"
+     "This function does nothing if the input is not a dictionary."),
+    {"dictionary_array"}};
+
+class DictionaryCompactionMetaFunction : public MetaFunction {
+ public:
+  DictionaryCompactionMetaFunction()
+      : MetaFunction("dictionary_compaction", Arity::Unary(), dictionary_compaction_doc) {
+  }
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
+       return args[0];
+    }
+
+    if (args[0].is_array() || args[0].is_chunked_array()) {
+      DictionaryType* dict_type = checked_cast<DictionaryType*>(args[0].type().get());
+      CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
+      return CallFunction("cast", args, &cast_options, ctx);
+    } else {
+      return Status::TypeError("Expected an Array or a Chunked Array");
+    }
+  }
+
+ private:
+  template <typename IndiceArrowType,
+            typename ArrayType = typename TypeTraits<IndiceArrowType>::ArrayType,
+            typename BuilderType = typename TypeTraits<IndiceArrowType>::BuilderType,
+            typename CType = typename TypeTraits<IndiceArrowType>::CType>
+  Result<std::shared_ptr<DictionaryArray>> Compaction(
+      std::shared_ptr<DictionaryArray> dict_array, ExecContext* ctx) {
+    const std::shared_ptr<Array>& dict = dict_array->dictionary();
+    const std::shared_ptr<Array>& indice = dict_array->indices();
+    const CType* indices_data =
+        reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
+
+    std::vector<bool> dict_used(dict->length(), false);
+    int64_t dict_used_count = 0;
+    int64_t offset = indice->data()->offset;
+    for (int64_t i = 0; i < indice->length(); i++) {
+      if (indice->IsNull(i)) {
+        continue;
+      }
+
+      CType cur_indice = *(indices_data[i + offset]);
+      if (!dict_used[cur_indice]) {
+        dict_used[cur_indice] = true;
+        dict_used_count++;
+      }
+    }
+
+    if (dict_used_count == dict->length()) {  // input is already compacted
+      return dict_array;
+    }
+
+    // dictionary compaction
+    CType dict_indice[dict_used_count];
+    int64_t dict_indice_index = 0;
+    for (CType i = 0; i < dict->length(); i++) {
+      if (dict_used[i]) {
+        dict_indice[dict_indice_index] = i;
+        dict_indice_index++;
+      }
+    }
+    BuilderType dict_indice_builder;
+    ARROW_RETURN_NOT_OK(dict_indice_builder.AppendValues(dict_indice, dict_used_count));
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
+                          dict_indice_builder.Finish());
+    ARROW_ASSIGN_OR_RAISE(
+        auto compacted_dict_res,
+        Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
+
+    // indice changes
+    CType indice_minus_number[dict->length()];
+    if (!dict_used[0]) {
+      indice_minus_number[0] = 1;
+    } else {
+      indice_minus_number[0] = 0;
+    }
+    for (int64_t i = 1; i < dict->length(); i++) {
+      indice_minus_number[i] = indice_minus_number[i - 1];
+      if (!dict_used[i]) {
+        indice_minus_number[i] = indice_minus_number[i] + 1;
+      }
+    }
+
+    CType changed_indice[indice->length()];
+    for (int64_t i = 0; i < indice->length(); i++) {
+      if (indice->IsNull(i)) {
+        changed_indice[i] = 0;
+        continue;
+      }
+
+      CType cur_indice = *(indices_data[i + offset]);
+      changed_indice[i] = cur_indice - indice_minus_number[cur_indice];
+    }
+    BuilderType indice_builder;
+    if (indice->null_count == 0) {
+      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(changed_indice, indice->length(),
+                                                      indice->null_bitmap_data(), 0));
+    } else {
+      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(changed_indice, indice->length()));
+    }
+    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice_array,
+                          indice_builder.Finish());
+
+    ARROW_ASSIGN_OR_RAISE(
+        auto res, DictionaryArray::FromArrays(dict_array->type(), changed_indice_array,
+                                              compacted_dict_res.array()));
+    return res;
+  }
+};
 }  // namespace
 
 void RegisterVectorHash(FunctionRegistry* registry) {
@@ -854,6 +973,10 @@ void RegisterVectorHash(FunctionRegistry* registry) {
 
 void RegisterDictionaryDecode(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryDecodeMetaFunction>()));
+}
+
+void RegisterDictionaryCompaction(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryCompactionMetaFunction>()));
 }
 
 }  // namespace internal

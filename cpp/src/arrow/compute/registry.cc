@@ -276,6 +276,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   // Register core kernels
   RegisterScalarCast(registry.get());
   RegisterDictionaryDecode(registry.get());
+  RegisterDictionaryCompaction(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorSelection(registry.get());
 
