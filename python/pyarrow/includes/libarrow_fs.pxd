@@ -23,7 +23,7 @@ from pyarrow.includes.libarrow_python cimport CTimePoint
 
 cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
-    ctypedef enum CFileType "arrow::fs::FileType":
+    ctypedef enum CFileType "arrow::fs::FileType":  # numpydoc ignore=PR01
         CFileType_NotFound "arrow::fs::FileType::NotFound"
         CFileType_Unknown "arrow::fs::FileType::Unknown"
         CFileType_File "arrow::fs::FileType::File"
@@ -118,7 +118,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string base_path()
         shared_ptr[CFileSystem] base_fs()
 
-    ctypedef enum CS3LogLevel "arrow::fs::S3LogLevel":
+    ctypedef enum CS3LogLevel "arrow::fs::S3LogLevel":  # numpydoc ignore=PR01
         CS3LogLevel_Off "arrow::fs::S3LogLevel::Off"
         CS3LogLevel_Fatal "arrow::fs::S3LogLevel::Fatal"
         CS3LogLevel_Error "arrow::fs::S3LogLevel::Error"
