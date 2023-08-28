@@ -47,7 +47,7 @@ target environment.**
    Go <https://pkg.go.dev/github.com/apache/arrow/go>
    Java <java/index>
    JavaScript <js/index>
-   Julia <https://github.com/apache/arrow-julia/blob/main/README.md>
+   Julia <https://arrow.apache.org/julia/>
    MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
    Python <python/index>
    R <r/index>

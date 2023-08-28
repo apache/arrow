@@ -65,6 +65,11 @@ jobs:
             go: 1.17
             staticcheck: v0.2.2
             runs-on: ["self-hosted", "arm", "linux"]
+          - arch-label: ARM64
+            arch: arm64v8
+            go: 1.18
+            staticcheck: v0.3.3
+            runs-on: ["self-hosted", "arm", "linux"]
     env:
       ARCH: ${{ matrix.arch }}
       GO: ${{ matrix.go }}
@@ -89,7 +94,8 @@ jobs:
         if: >-
           success() &&
           github.event_name == 'push' &&
-          github.repository == 'apache/arrow'
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -100,8 +106,9 @@ jobs:
           success() &&
           matrix.arch == 'amd64' &&
           github.event_name == 'push' &&
-          github.repository == 'apache/arrow'
-        uses: actions/setup-go@v3
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -111,7 +118,8 @@ jobs:
           success() &&
           matrix.arch == 'amd64' &&
           github.event_name == 'push' &&
-          github.repository == 'apache/arrow'
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           CONBENCH_URL: https://conbench.ursa.dev
           CONBENCH_EMAIL: ${{ secrets.CONBENCH_EMAIL }}
@@ -121,6 +129,27 @@ jobs:
         run: |
           python3 -m pip install benchadapt@git+https://github.com/conbench/conbench.git@main#subdirectory=benchadapt/python
           python3 ci/scripts/go_bench_adapt.py
+
+  build386:
+    name: Go Cross-build for 386
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.18
+          cache: true
+          cache-dependency-path: go/go.sum
+      - name: Run build
+        run: |
+          cd go
+          GOARCH=386 go build ./...
 
   docker_cgo:
     name: AMD64 Debian 11 Go ${{ matrix.go }} - CGO
@@ -157,7 +186,11 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run debian-go-cgo
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -199,7 +232,11 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: archery docker run debian-go-cgo-python
       - name: Docker Push
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -227,7 +264,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -262,7 +299,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -276,12 +313,20 @@ jobs:
         shell: bash
         run: ci/scripts/go_test.sh $(pwd)
       - name: Setup Python
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Run Benchmarks
-        if: success() && github.event_name == 'push' && github.repository == 'apache/arrow'
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
         shell: bash
         env:
           CONBENCH_URL: 'https://conbench.ursa.dev'
@@ -317,7 +362,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Install go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: ${{ matrix.go }}
           cache: true
@@ -381,7 +426,7 @@ jobs:
           echo "CGO_LDFLAGS=-g -O2 -L$(cygpath --windows ${MINGW_PREFIX}/lib) -L$(cygpath --windows ${MINGW_PREFIX}/bin)" >> $GITHUB_ENV
           echo "MINGW_PREFIX=$(cygpath --windows ${MINGW_PREFIX})" >> $GITHUB_ENV
       - name: Install go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
           go-version: '1.18'
           cache: true

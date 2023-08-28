@@ -28,6 +28,7 @@
 #include "arrow/compute/function.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
@@ -283,12 +284,6 @@ static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
   return MakeScalar(value);
 }
 
-template <typename T>
-static inline Result<decltype(MakeScalar(std::declval<T>()))> GenericToScalar(
-    const std::optional<T>& value) {
-  return value.has_value() ? MakeScalar(value.value()) : MakeScalar("");
-}
-
 // For Clang/libc++: when iterating through vector<bool>, we can't
 // pass it by reference so the overload above doesn't apply
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(bool value) {
@@ -382,6 +377,16 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const Datum& value
   }
 }
 
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(std::nullopt_t) {
+  return std::make_shared<NullScalar>();
+}
+
+template <typename T>
+static inline auto GenericToScalar(const std::optional<T>& value)
+    -> Result<decltype(MakeScalar(value.value()))> {
+  return value.has_value() ? MakeScalar(value.value()) : std::make_shared<NullScalar>();
+}
+
 template <typename T>
 static inline enable_if_primitive_ctype<typename CTypeTraits<T>::ArrowType, Result<T>>
 GenericFromScalar(const std::shared_ptr<Scalar>& value) {
@@ -402,26 +407,6 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto raw_val,
                         GenericFromScalar<typename EnumTraits<T>::CType>(value));
   return ValidateEnumValue<T>(raw_val);
-}
-
-template <typename>
-constexpr bool is_optional_impl = false;
-template <typename T>
-constexpr bool is_optional_impl<std::optional<T>> = true;
-
-template <typename T>
-using is_optional =
-    std::integral_constant<bool, is_optional_impl<std::decay_t<T>> ||
-                                     std::is_same<T, std::nullopt_t>::value>;
-
-template <typename T, typename R = void>
-using enable_if_optional = enable_if_t<is_optional<T>::value, Result<T>>;
-
-template <typename T>
-static inline enable_if_optional<T> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
-  using value_type = typename T::value_type;
-  return GenericFromScalar<value_type>(value);
 }
 
 template <typename T, typename U>
@@ -508,6 +493,23 @@ static inline enable_if_same_result<T, Datum> GenericFromScalar(
   }
   // TODO(ARROW-9434): handle other possible datum kinds by looking for a union
   return Status::Invalid("Cannot deserialize Datum from ", value->ToString());
+}
+
+template <typename>
+constexpr inline bool is_optional_v = false;
+template <typename T>
+constexpr inline bool is_optional_v<std::optional<T>> = true;
+template <>
+constexpr inline bool is_optional_v<std::nullopt_t> = true;
+
+template <typename T>
+static inline std::enable_if_t<is_optional_v<T>, Result<T>> GenericFromScalar(
+    const std::shared_ptr<Scalar>& value) {
+  using value_type = typename T::value_type;
+  if (value->type->id() == Type::NA) {
+    return std::nullopt;
+  }
+  return GenericFromScalar<value_type>(value);
 }
 
 template <typename T>

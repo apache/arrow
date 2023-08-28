@@ -300,6 +300,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         c_bool encrypted_with_footer_key() const
         const c_string& key_metadata() const
 
+    cdef cppclass ParquetIndexLocation" parquet::IndexLocation":
+        int64_t offset
+        int32_t length
+
     cdef cppclass CColumnChunkMetaData" parquet::ColumnChunkMetaData":
         int64_t file_offset() const
         const c_string& file_path() const
@@ -321,6 +325,8 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
         unique_ptr[CColumnCryptoMetaData] crypto_metadata() const
+        optional[ParquetIndexLocation] GetColumnIndexLocation() const
+        optional[ParquetIndexLocation] GetOffsetIndexLocation() const
 
     cdef cppclass CRowGroupMetaData" parquet::RowGroupMetaData":
         c_bool Equals(const CRowGroupMetaData&) const
@@ -420,6 +426,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* max_row_group_length(int64_t size)
             Builder* write_batch_size(int64_t batch_size)
             Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
+            Builder* enable_write_page_index()
+            Builder* disable_write_page_index()
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:
@@ -567,7 +575,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     data_page_version=*,
     FileEncryptionProperties encryption_properties=*,
     write_batch_size=*,
-    dictionary_pagesize_limit=*) except *
+    dictionary_pagesize_limit=*,
+    write_page_index=*) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(

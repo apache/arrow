@@ -14,14 +14,16 @@
 % permissions and limitations under the License.
 
 classdef tUInt32Array < hNumericArray
-    % Tests for arrow.array.UInt32Array
-    
+% Tests for arrow.array.UInt32Array
+
     properties
         ArrowArrayClassName = "arrow.array.UInt32Array"
-        ArrowArrayConstructor = @arrow.array.UInt32Array
+        ArrowArrayConstructorFcn = @arrow.array.UInt32Array.fromMATLAB
         MatlabConversionFcn = @uint32 % uint32 method on class
         MatlabArrayFcn = @uint32 % uint32 function
         MaxValue = intmax("uint32")
         MinValue = intmin("uint32")
+        NullSubstitutionValue = uint32(0)
+        ArrowType = arrow.uint32
     end
 end

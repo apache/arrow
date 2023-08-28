@@ -249,14 +249,14 @@ int LevelEncoder::Encode(int batch_size, const int16_t* levels) {
 class SerializedPageWriter : public PageWriter {
  public:
   SerializedPageWriter(std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-                       int compression_level, ColumnChunkMetaDataBuilder* metadata,
-                       int16_t row_group_ordinal, int16_t column_chunk_ordinal,
-                       bool use_page_checksum_verification,
+                       ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                       int16_t column_chunk_ordinal, bool use_page_checksum_verification,
                        MemoryPool* pool = ::arrow::default_memory_pool(),
                        std::shared_ptr<Encryptor> meta_encryptor = nullptr,
                        std::shared_ptr<Encryptor> data_encryptor = nullptr,
                        ColumnIndexBuilder* column_index_builder = nullptr,
-                       OffsetIndexBuilder* offset_index_builder = nullptr)
+                       OffsetIndexBuilder* offset_index_builder = nullptr,
+                       const CodecOptions& codec_options = CodecOptions{})
       : sink_(std::move(sink)),
         metadata_(metadata),
         pool_(pool),
@@ -277,7 +277,7 @@ class SerializedPageWriter : public PageWriter {
     if (data_encryptor_ != nullptr || meta_encryptor_ != nullptr) {
       InitEncryption();
     }
-    compressor_ = GetCodec(codec, compression_level);
+    compressor_ = GetCodec(codec, codec_options);
     thrift_serializer_ = std::make_unique<ThriftSerializer>();
   }
 
@@ -618,21 +618,21 @@ class SerializedPageWriter : public PageWriter {
 class BufferedPageWriter : public PageWriter {
  public:
   BufferedPageWriter(std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
-                     int compression_level, ColumnChunkMetaDataBuilder* metadata,
-                     int16_t row_group_ordinal, int16_t current_column_ordinal,
-                     bool use_page_checksum_verification,
+                     ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+                     int16_t current_column_ordinal, bool use_page_checksum_verification,
                      MemoryPool* pool = ::arrow::default_memory_pool(),
                      std::shared_ptr<Encryptor> meta_encryptor = nullptr,
                      std::shared_ptr<Encryptor> data_encryptor = nullptr,
                      ColumnIndexBuilder* column_index_builder = nullptr,
-                     OffsetIndexBuilder* offset_index_builder = nullptr)
+                     OffsetIndexBuilder* offset_index_builder = nullptr,
+                     const CodecOptions& codec_options = CodecOptions{})
       : final_sink_(std::move(sink)), metadata_(metadata), has_dictionary_pages_(false) {
     in_memory_sink_ = CreateOutputStream(pool);
     pager_ = std::make_unique<SerializedPageWriter>(
-        in_memory_sink_, codec, compression_level, metadata, row_group_ordinal,
-        current_column_ordinal, use_page_checksum_verification, pool,
-        std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
-        offset_index_builder);
+        in_memory_sink_, codec, metadata, row_group_ordinal, current_column_ordinal,
+        use_page_checksum_verification, pool, std::move(meta_encryptor),
+        std::move(data_encryptor), column_index_builder, offset_index_builder,
+        codec_options);
   }
 
   int64_t WriteDictionaryPage(const DictionaryPage& page) override {
@@ -690,26 +690,38 @@ class BufferedPageWriter : public PageWriter {
 
 std::unique_ptr<PageWriter> PageWriter::Open(
     std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
+    ColumnChunkMetaDataBuilder* metadata, int16_t row_group_ordinal,
+    int16_t column_chunk_ordinal, MemoryPool* pool, bool buffered_row_group,
+    std::shared_ptr<Encryptor> meta_encryptor, std::shared_ptr<Encryptor> data_encryptor,
+    bool page_write_checksum_enabled, ColumnIndexBuilder* column_index_builder,
+    OffsetIndexBuilder* offset_index_builder, const CodecOptions& codec_options) {
+  if (buffered_row_group) {
+    return std::unique_ptr<PageWriter>(new BufferedPageWriter(
+        std::move(sink), codec, metadata, row_group_ordinal, column_chunk_ordinal,
+        page_write_checksum_enabled, pool, std::move(meta_encryptor),
+        std::move(data_encryptor), column_index_builder, offset_index_builder,
+        codec_options));
+  } else {
+    return std::unique_ptr<PageWriter>(new SerializedPageWriter(
+        std::move(sink), codec, metadata, row_group_ordinal, column_chunk_ordinal,
+        page_write_checksum_enabled, pool, std::move(meta_encryptor),
+        std::move(data_encryptor), column_index_builder, offset_index_builder,
+        codec_options));
+  }
+}
+
+std::unique_ptr<PageWriter> PageWriter::Open(
+    std::shared_ptr<ArrowOutputStream> sink, Compression::type codec,
     int compression_level, ColumnChunkMetaDataBuilder* metadata,
     int16_t row_group_ordinal, int16_t column_chunk_ordinal, MemoryPool* pool,
     bool buffered_row_group, std::shared_ptr<Encryptor> meta_encryptor,
     std::shared_ptr<Encryptor> data_encryptor, bool page_write_checksum_enabled,
     ColumnIndexBuilder* column_index_builder, OffsetIndexBuilder* offset_index_builder) {
-  if (buffered_row_group) {
-    return std::unique_ptr<PageWriter>(new BufferedPageWriter(
-        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
-        column_chunk_ordinal, page_write_checksum_enabled, pool,
-        std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
-        offset_index_builder));
-  } else {
-    return std::unique_ptr<PageWriter>(new SerializedPageWriter(
-        std::move(sink), codec, compression_level, metadata, row_group_ordinal,
-        column_chunk_ordinal, page_write_checksum_enabled, pool,
-        std::move(meta_encryptor), std::move(data_encryptor), column_index_builder,
-        offset_index_builder));
-  }
+  return PageWriter::Open(sink, codec, metadata, row_group_ordinal, column_chunk_ordinal,
+                          pool, buffered_row_group, meta_encryptor, data_encryptor,
+                          page_write_checksum_enabled, column_index_builder,
+                          offset_index_builder, CodecOptions{compression_level});
 }
-
 // ----------------------------------------------------------------------
 // ColumnWriter
 

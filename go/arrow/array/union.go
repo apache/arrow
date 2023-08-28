@@ -25,12 +25,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
-	"github.com/apache/arrow/go/v13/internal/json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/bitutils"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // Union is a convenience interface to encompass both Sparse and Dense
@@ -703,10 +703,6 @@ func arrayDenseUnionApproxEqual(l, r *DenseUnion, opt equalOption) bool {
 // either Dense or Sparse mode.
 type UnionBuilder interface {
 	Builder
-	// AppendNulls appends n nulls to the array
-	AppendNulls(n int)
-	// AppendEmptyValues appends n empty zero values to the array
-	AppendEmptyValues(n int)
 	// AppendChild allows constructing the union type on the fly by making new
 	// new array builder available to the union builder. The type code (index)
 	// of the new child is returned, which should be passed to the Append method

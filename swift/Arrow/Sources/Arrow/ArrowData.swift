@@ -18,25 +18,30 @@
 import Foundation
 
 public class ArrowData {
-    public let type: ArrowType.Info
+    public let type: ArrowType
     public let buffers: [ArrowBuffer]
     public let nullCount: UInt
     public let length: UInt
     public let stride: Int
 
-    init(_ type: ArrowType.Info, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
-        switch(type) {
-            case let .PrimitiveInfo(typeId):
-                if typeId == ArrowTypeId.Unknown {
-                    throw ArrowError.unknownType
-                }
-            case let .VariableInfo(typeId):
-                if typeId == ArrowTypeId.Unknown {
-                    throw ArrowError.unknownType
-                }
+    init(_ arrowType: ArrowType, buffers: [ArrowBuffer], nullCount: UInt, stride: Int) throws {
+        let infoType = arrowType.info
+        switch(infoType) {
+        case let .PrimitiveInfo(typeId):
+            if typeId == ArrowTypeId.Unknown {
+                throw ArrowError.unknownType("Unknown primitive type for data")
+            }
+        case let .VariableInfo(typeId):
+            if typeId == ArrowTypeId.Unknown {
+                throw ArrowError.unknownType("Unknown variable type for data")
+            }
+        case let .TimeInfo(typeId):
+            if typeId == ArrowTypeId.Unknown {
+                throw ArrowError.unknownType("Unknown time type for data")
+            }
         }
 
-        self.type = type
+        self.type = arrowType
         self.buffers = buffers
         self.nullCount = nullCount
         self.length = buffers[1].length

@@ -75,7 +75,7 @@ class ARROW_EXPORT Table {
 
   /// \brief Construct a Table from a RecordBatchReader.
   ///
-  /// \param[in] reader the arrow::Schema for each batch
+  /// \param[in] reader the arrow::RecordBatchReader that produces batches
   static Result<std::shared_ptr<Table>> FromRecordBatchReader(RecordBatchReader* reader);
 
   /// \brief Construct a Table from RecordBatches, using schema supplied by the first
@@ -281,6 +281,9 @@ struct ARROW_EXPORT ConcatenateTablesOptions {
   /// is the result of concatenating the corresponding columns in all input tables.
   bool unify_schemas = false;
 
+  /// options to control how fields are merged when unifying schemas
+  ///
+  /// This field will be ignored if unify_schemas is false
   Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults();
 
   static ConcatenateTablesOptions Defaults() { return {}; }

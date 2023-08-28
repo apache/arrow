@@ -17,7 +17,7 @@
 
 #' Read a CSV or other delimited file with Arrow
 #'
-#' These functions uses the Arrow C++ CSV reader to read into a `data.frame`.
+#' These functions uses the Arrow C++ CSV reader to read into a `tibble`.
 #' Arrow C++ options have been mapped to argument names that follow those of
 #' `readr::read_delim()`, and `col_select` was inspired by `vroom::vroom()`.
 #'
@@ -127,10 +127,10 @@
 #' parsing options provided in other arguments (e.g. `delim`, `quote`, etc.).
 #' @param convert_options see [file reader options][CsvReadOptions]
 #' @param read_options see [file reader options][CsvReadOptions]
-#' @param as_data_frame Should the function return a `data.frame` (default) or
+#' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
 #'
-#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
+#' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examples
 #' tf <- tempfile()
@@ -510,32 +510,56 @@ CsvReadOptions$create <- function(use_threads = option_use_threads(),
   options
 }
 
-readr_to_csv_write_options <- function(include_header = TRUE,
+readr_to_csv_write_options <- function(col_names = TRUE,
                                        batch_size = 1024L,
-                                       na = "") {
+                                       delim = ",",
+                                       na = "",
+                                       eol = "\n",
+                                       quote = c("needed", "all", "none")) {
+  quoting_style_arrow_opts <- c("Needed", "AllValid", "None")
+  quote <- match(match.arg(quote), c("needed", "all", "none"))
+  quote <- quoting_style_arrow_opts[quote]
+
   CsvWriteOptions$create(
-    include_header = include_header,
+    include_header = col_names,
     batch_size = batch_size,
-    null_string = na
+    delimiter = delim,
+    null_string = na,
+    eol = eol,
+    quoting_style = quote
   )
 }
 
 #' @rdname CsvReadOptions
 #' @export
 CsvWriteOptions <- R6Class("CsvWriteOptions", inherit = ArrowObject)
-CsvWriteOptions$create <- function(include_header = TRUE, batch_size = 1024L, null_string = "") {
-  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
+CsvWriteOptions$create <- function(include_header = TRUE,
+                                   batch_size = 1024L,
+                                   null_string = "",
+                                   delimiter = ",",
+                                   eol = "\n",
+                                   quoting_style = c("Needed", "AllValid", "None")) {
+  quoting_style <- match.arg(quoting_style)
+  quoting_style_opts <- c("Needed", "AllValid", "None")
+  quoting_style <- match(quoting_style, quoting_style_opts) - 1L
+
   assert_that(is.logical(include_header))
+  assert_that(is_integerish(batch_size, n = 1, finite = TRUE), batch_size > 0)
+  assert_that(is.character(delimiter))
   assert_that(is.character(null_string))
   assert_that(!is.na(null_string))
   assert_that(length(null_string) == 1)
   assert_that(!grepl('"', null_string), msg = "na argument must not contain quote characters.")
+  assert_that(is.character(eol))
 
   csv___WriteOptions__initialize(
     list(
       include_header = include_header,
       batch_size = as.integer(batch_size),
-      null_string = as.character(null_string)
+      delimiter = delimiter,
+      null_string = as.character(null_string),
+      eol = eol,
+      quoting_style = quoting_style
     )
   )
 }
@@ -696,7 +720,7 @@ readr_to_csv_convert_options <- function(na,
     }))
     # To "guess" types, omit them from col_types
     col_types <- keep(col_types, ~ !is.null(.x))
-    col_types <- schema(!!!col_types)
+    col_types <- schema(col_types)
   }
 
   if (!is.null(col_types)) {
@@ -787,7 +811,7 @@ write_csv_arrow <- function(x,
 
   if (is.null(write_options)) {
     write_options <- readr_to_csv_write_options(
-      include_header = include_header,
+      col_names = include_header,
       batch_size = batch_size,
       na = na
     )

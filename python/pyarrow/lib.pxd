@@ -65,6 +65,7 @@ cdef extern from "Python.h":
 
 
 cdef int check_status(const CStatus& status) except -1 nogil
+cdef object convert_status(const CStatus& status)
 
 
 cdef class _Weakrefable:

@@ -478,6 +478,8 @@ struct SchemaExporter {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) { return SetFormat("+r"); }
+
   ExportedSchemaPrivateData export_;
   int64_t flags_ = 0;
   std::vector<std::pair<std::string, std::string>> additional_metadata_;
@@ -521,6 +523,7 @@ struct ExportedArrayPrivateData : PoolAllocationMixin<ExportedArrayPrivateData> 
   SmallVector<struct ArrowArray*, 4> child_pointers_;
 
   std::shared_ptr<ArrayData> data_;
+  std::shared_ptr<Device::SyncEvent> sync_;
 
   ExportedArrayPrivateData() = default;
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ExportedArrayPrivateData);
@@ -544,7 +547,8 @@ void ReleaseExportedArray(struct ArrowArray* array) {
         << "Dictionary release callback should have marked it released";
   }
   DCHECK_NE(array->private_data, nullptr);
-  delete reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
+  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(array->private_data);
+  delete pdata;
 
   ArrowArrayMarkReleased(array);
 }
@@ -584,6 +588,7 @@ struct ArrayExporter {
     // Store owning pointer to ArrayData
     export_.data_ = data;
 
+    export_.sync_ = nullptr;
     return Status::OK();
   }
 
@@ -659,6 +664,116 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
   ArrayExporter exporter;
   RETURN_NOT_OK(exporter.Export(array->data()));
   exporter.Finish(out);
+  guard.Detach();
+  return Status::OK();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// C device arrays
+
+Status ValidateDeviceInfo(const ArrayData& data,
+                          std::optional<DeviceAllocationType>* device_type,
+                          int64_t* device_id) {
+  for (const auto& buf : data.buffers) {
+    if (!buf) {
+      continue;
+    }
+
+    if (*device_type == std::nullopt) {
+      *device_type = buf->device_type();
+      *device_id = buf->device()->device_id();
+      continue;
+    }
+
+    if (buf->device_type() != *device_type) {
+      return Status::Invalid(
+          "Exporting device array with buffers on more than one device.");
+    }
+
+    if (buf->device()->device_id() != *device_id) {
+      return Status::Invalid(
+          "Exporting device array with buffers on multiple device ids.");
+    }
+  }
+
+  for (const auto& child : data.child_data) {
+    RETURN_NOT_OK(ValidateDeviceInfo(*child, device_type, device_id));
+  }
+
+  return Status::OK();
+}
+
+Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceInfo(
+    const ArrayData& data) {
+  std::optional<DeviceAllocationType> device_type;
+  int64_t device_id = -1;
+  RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
+  return std::make_pair(device_type, device_id);
+}
+
+Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
+                         struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
+  void* sync_event = sync ? sync->get_raw() : nullptr;
+
+  SchemaExportGuard guard(out_schema);
+  if (out_schema != nullptr) {
+    RETURN_NOT_OK(ExportType(*array.type(), out_schema));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*array.data()));
+  if (!device_info.first) {
+    out->device_type = ARROW_DEVICE_CPU;
+  } else {
+    out->device_type = static_cast<ArrowDeviceType>(*device_info.first);
+  }
+  out->device_id = device_info.second;
+
+  ArrayExporter exporter;
+  RETURN_NOT_OK(exporter.Export(array.data()));
+  exporter.Finish(&out->array);
+
+  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
+  pdata->sync_ = std::move(sync);
+  out->sync_event = sync_event;
+
+  guard.Detach();
+  return Status::OK();
+}
+
+Status ExportDeviceRecordBatch(const RecordBatch& batch,
+                               std::shared_ptr<Device::SyncEvent> sync,
+                               struct ArrowDeviceArray* out,
+                               struct ArrowSchema* out_schema) {
+  void* sync_event{nullptr};
+  if (sync) {
+    sync_event = sync->get_raw();
+  }
+
+  // XXX perhaps bypass ToStructArray for speed?
+  ARROW_ASSIGN_OR_RAISE(auto array, batch.ToStructArray());
+
+  SchemaExportGuard guard(out_schema);
+  if (out_schema != nullptr) {
+    // Export the schema, not the struct type, so as not to lose top-level metadata
+    RETURN_NOT_OK(ExportSchema(*batch.schema(), out_schema));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto device_info, ValidateDeviceInfo(*array->data()));
+  if (!device_info.first) {
+    out->device_type = ARROW_DEVICE_CPU;
+  } else {
+    out->device_type = static_cast<ArrowDeviceType>(*device_info.first);
+  }
+  out->device_id = device_info.second;
+
+  ArrayExporter exporter;
+  RETURN_NOT_OK(exporter.Export(array->data()));
+  exporter.Finish(&out->array);
+
+  auto* pdata = reinterpret_cast<ExportedArrayPrivateData*>(out->array.private_data);
+  pdata->sync_ = std::move(sync);
+  out->sync_event = sync_event;
+
   guard.Detach();
   return Status::OK();
 }
@@ -993,6 +1108,8 @@ struct SchemaImporter {
         return ProcessMap();
       case 'u':
         return ProcessUnion();
+      case 'r':
+        return ProcessREE();
     }
     return f_parser_.Invalid();
   }
@@ -1167,6 +1284,22 @@ struct SchemaImporter {
     return Status::OK();
   }
 
+  Status ProcessREE() {
+    RETURN_NOT_OK(f_parser_.CheckAtEnd());
+    RETURN_NOT_OK(CheckNumChildren(2));
+    ARROW_ASSIGN_OR_RAISE(auto run_ends_field, MakeChildField(0));
+    ARROW_ASSIGN_OR_RAISE(auto values_field, MakeChildField(1));
+    if (!is_run_end_type(run_ends_field->type()->id())) {
+      return Status::Invalid("Expected a valid run-end integer type, but struct has ",
+                             run_ends_field->type()->ToString());
+    }
+    if (values_field->type()->id() == Type::RUN_END_ENCODED) {
+      return Status::Invalid("ArrowArray struct contains a nested run-end encoded array");
+    }
+    type_ = run_end_encoded(run_ends_field->type(), values_field->type());
+    return Status::OK();
+  }
+
   Result<std::shared_ptr<Field>> MakeChildField(int64_t child_id) {
     const auto& child = child_importers_[child_id];
     if (child.c_struct_->name == nullptr) {
@@ -1242,6 +1375,7 @@ namespace {
 // The ArrowArray is released on destruction.
 struct ImportedArrayData {
   struct ArrowArray array_;
+  std::shared_ptr<Device::SyncEvent> device_sync_;
 
   ImportedArrayData() {
     ArrowArrayMarkReleased(&array_);  // Initially released
@@ -1267,7 +1401,16 @@ class ImportedBuffer : public Buffer {
                  std::shared_ptr<ImportedArrayData> import)
       : Buffer(data, size), import_(std::move(import)) {}
 
+  ImportedBuffer(const uint8_t* data, int64_t size, std::shared_ptr<MemoryManager> mm,
+                 DeviceAllocationType device_type,
+                 std::shared_ptr<ImportedArrayData> import)
+      : Buffer(data, size, mm, nullptr, device_type), import_(std::move(import)) {}
+
   ~ImportedBuffer() override {}
+
+  std::shared_ptr<Device::SyncEvent> device_sync_event() override {
+    return import_->device_sync_;
+  }
 
  protected:
   std::shared_ptr<ImportedArrayData> import_;
@@ -1275,7 +1418,23 @@ class ImportedBuffer : public Buffer {
 
 struct ArrayImporter {
   explicit ArrayImporter(const std::shared_ptr<DataType>& type)
-      : type_(type), zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)) {}
+      : type_(type),
+        zero_size_buffer_(std::make_shared<Buffer>(kZeroSizeArea, 0)),
+        device_type_(DeviceAllocationType::kCPU) {}
+
+  Status Import(struct ArrowDeviceArray* src, const DeviceMemoryMapper& mapper) {
+    ARROW_ASSIGN_OR_RAISE(memory_mgr_, mapper(src->device_type, src->device_id));
+    device_type_ = static_cast<DeviceAllocationType>(src->device_type);
+    RETURN_NOT_OK(Import(&src->array));
+    if (src->sync_event != nullptr) {
+      ARROW_ASSIGN_OR_RAISE(import_->device_sync_, memory_mgr_->WrapDeviceSyncEvent(
+                                                       src->sync_event, [](void*) {}));
+    }
+    // reset internal state before next import
+    memory_mgr_.reset();
+    device_type_ = DeviceAllocationType::kCPU;
+    return Status::OK();
+  }
 
   Status Import(struct ArrowArray* src) {
     if (ArrowArrayIsReleased(src)) {
@@ -1462,6 +1621,17 @@ struct ArrayImporter {
     return Status::OK();
   }
 
+  Status Visit(const RunEndEncodedType& type) {
+    RETURN_NOT_OK(CheckNumChildren(2));
+    RETURN_NOT_OK(CheckNumBuffers(0));
+    RETURN_NOT_OK(AllocateArrayData());
+    // Always have a null bitmap buffer as much of the code in arrow assumes
+    // the buffers vector to have at least one entry on every array format.
+    data_->buffers.emplace_back(nullptr);
+    data_->null_count = 0;
+    return Status::OK();
+  }
+
   Status ImportFixedSizePrimitive(const FixedWidthType& type) {
     RETURN_NOT_OK(CheckNoChildren());
     RETURN_NOT_OK(CheckNumBuffers(2));
@@ -1588,7 +1758,12 @@ struct ArrayImporter {
     std::shared_ptr<Buffer>* out = &data_->buffers[buffer_id];
     auto data = reinterpret_cast<const uint8_t*>(c_struct_->buffers[buffer_id]);
     if (data != nullptr) {
-      *out = std::make_shared<ImportedBuffer>(data, buffer_size, import_);
+      if (memory_mgr_) {
+        *out = std::make_shared<ImportedBuffer>(data, buffer_size, memory_mgr_,
+                                                device_type_, import_);
+      } else {
+        *out = std::make_shared<ImportedBuffer>(data, buffer_size, import_);
+      }
     } else if (is_null_bitmap) {
       out->reset();
     } else {
@@ -1613,6 +1788,9 @@ struct ArrayImporter {
 
   // For imported null buffer pointers
   std::shared_ptr<Buffer> zero_size_buffer_;
+
+  std::shared_ptr<MemoryManager> memory_mgr_;
+  DeviceAllocationType device_type_;
 };
 
 }  // namespace
@@ -1650,6 +1828,45 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
     return maybe_schema.status();
   }
   return ImportRecordBatch(array, *maybe_schema);
+}
+
+Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
+                                                 std::shared_ptr<DataType> type,
+                                                 const DeviceMemoryMapper& mapper) {
+  ArrayImporter importer(type);
+  RETURN_NOT_OK(importer.Import(array, mapper));
+  return importer.MakeArray();
+}
+
+Result<std::shared_ptr<Array>> ImportDeviceArray(struct ArrowDeviceArray* array,
+                                                 struct ArrowSchema* type,
+                                                 const DeviceMemoryMapper& mapper) {
+  auto maybe_type = ImportType(type);
+  if (!maybe_type.ok()) {
+    ArrowArrayRelease(&array->array);
+    return maybe_type.status();
+  }
+  return ImportDeviceArray(array, *maybe_type, mapper);
+}
+
+Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
+    struct ArrowDeviceArray* array, std::shared_ptr<Schema> schema,
+    const DeviceMemoryMapper& mapper) {
+  auto type = struct_(schema->fields());
+  ArrayImporter importer(type);
+  RETURN_NOT_OK(importer.Import(array, mapper));
+  return importer.MakeRecordBatch(std::move(schema));
+}
+
+Result<std::shared_ptr<RecordBatch>> ImportDeviceRecordBatch(
+    struct ArrowDeviceArray* array, struct ArrowSchema* schema,
+    const DeviceMemoryMapper& mapper) {
+  auto maybe_schema = ImportSchema(schema);
+  if (!maybe_schema.ok()) {
+    ArrowArrayRelease(&array->array);
+    return maybe_schema.status();
+  }
+  return ImportDeviceRecordBatch(array, *maybe_schema, mapper);
 }
 
 //////////////////////////////////////////////////////////////////////////

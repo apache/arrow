@@ -150,8 +150,7 @@ def make_sample_file(table_or_df):
         a_table = pa.Table.from_pandas(table_or_df)
 
     buf = io.BytesIO()
-    _write_table(a_table, buf, compression='SNAPPY', version='2.6',
-                 coerce_timestamps='ms')
+    _write_table(a_table, buf, compression='SNAPPY', version='2.6')
 
     buf.seek(0)
     return pq.ParquetFile(buf)
@@ -173,11 +172,13 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        # TODO(wesm): Test other timestamp resolutions now that arrow supports
-        # them
-        'datetime': np.arange("2016-01-01T00:00:00.001", size,
-                              dtype='datetime64[ms]').astype('datetime64[ns]'),
-        'timedelta': np.arange(0, size, dtype="timedelta64[ns]"),
+        'datetime_ms': np.arange("2016-01-01T00:00:00.001", size,
+                                 dtype='datetime64[ms]'),
+        'datetime_us': np.arange("2016-01-01T00:00:00.000001", size,
+                                 dtype='datetime64[us]'),
+        'datetime_ns': np.arange("2016-01-01T00:00:00.000000001", size,
+                                 dtype='datetime64[ns]'),
+        'timedelta': np.arange(0, size, dtype="timedelta64[s]"),
         'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
         'str_with_nulls': [None] + [str(x) for x in range(size - 2)] + [None],

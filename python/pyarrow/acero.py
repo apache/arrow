@@ -25,16 +25,22 @@
 from pyarrow.lib import Table
 from pyarrow.compute import Expression, field
 
-from pyarrow._acero import (  # noqa
-    Declaration,
-    ExecNodeOptions,
-    TableSourceNodeOptions,
-    FilterNodeOptions,
-    ProjectNodeOptions,
-    AggregateNodeOptions,
-    OrderByNodeOptions,
-    HashJoinNodeOptions,
-)
+try:
+    from pyarrow._acero import (  # noqa
+        Declaration,
+        ExecNodeOptions,
+        TableSourceNodeOptions,
+        FilterNodeOptions,
+        ProjectNodeOptions,
+        AggregateNodeOptions,
+        OrderByNodeOptions,
+        HashJoinNodeOptions,
+    )
+except ImportError as exc:
+    raise ImportError(
+        f"The pyarrow installation is not built with support for 'acero' ({str(exc)})"
+    ) from None
+
 
 try:
     import pyarrow.dataset as ds

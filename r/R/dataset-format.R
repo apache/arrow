@@ -76,14 +76,17 @@ FileFormat <- R6Class("FileFormat",
 )
 FileFormat$create <- function(format, schema = NULL, ...) {
   opt_names <- names(list(...))
-  if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
+  if (format %in% c("csv", "text", "txt") || any(opt_names %in% c("delim", "delimiter"))) {
     CsvFileFormat$create(schema = schema, ...)
-  } else if (format == c("tsv")) {
+  } else if (format == "tsv") {
+    # This delimiter argument is ignored.
     CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
   } else if (format %in% c("ipc", "arrow", "feather")) { # These are aliases for the same thing
     dataset___IpcFileFormat__Make()
+  } else if (format == "json") {
+    JsonFileFormat$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -112,6 +115,45 @@ ParquetFileFormat$create <- function(...,
 #' @rdname FileFormat
 #' @export
 IpcFileFormat <- R6Class("IpcFileFormat", inherit = FileFormat)
+
+#' JSON dataset file format
+#'
+#' @description
+#' A `JsonFileFormat` is a [FileFormat] subclass which holds information about how to
+#' read and parse the files included in a JSON `Dataset`.
+#'
+#' @section Factory:
+#' `JsonFileFormat$create()` can take options in the form of lists passed through as `parse_options`,
+#'  or `read_options` parameters.
+#'
+#'  Available `read_options` parameters:
+#'  * `use_threads`: Whether to use the global CPU thread pool. Default `TRUE`. If `FALSE`, JSON input must end with an
+#'  empty line.
+#'  * `block_size`: Block size we request from the IO layer; also determines size of chunks when `use_threads`
+#'   is `TRUE`.
+#'
+#'  Available `parse_options` parameters:
+#'  * `newlines_in_values`:Logical: are values allowed to contain CR (`0x0d` or `\r`) and LF (`0x0a` or `\n`)
+#'  characters? (default `FALSE`)
+#'
+#' @return A `JsonFileFormat` object
+#' @rdname JsonFileFormat
+#' @name JsonFileFormat
+#' @seealso [FileFormat]
+#' @examplesIf arrow_with_dataset()
+#'
+#' @export
+JsonFileFormat <- R6Class("JsonFileFormat", inherit = FileFormat)
+JsonFileFormat$create <- function(...) {
+  dots <- list2(...)
+  parse_opt_choices <- dots[names(dots) %in% names(formals(JsonParseOptions$create))]
+  read_opt_choices <- dots[names(dots) %in% names(formals(JsonReadOptions$create))]
+
+  parse_options <- do.call(JsonParseOptions$create, parse_opt_choices)
+  read_options <- do.call(JsonReadOptions$create, read_opt_choices)
+  dataset___JsonFileFormat__Make(parse_options, read_options)
+}
+
 
 #' CSV dataset file format
 #'
@@ -477,6 +519,13 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
 #'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `pre_buffer`: Pre-buffer the raw Parquet data. This can improve performance
 #'                   on high-latency filesystems. Disabled by default.
+#'   * `thrift_string_size_limit`: Maximum string size allocated for decoding thrift
+#'                                 strings. May need to be increased in order to read
+#'                                 files with especially large headers. Default value
+#'                                 100000000.
+#'   * `thrift_container_size_limit`: Maximum size of thrift containers.  May need to be
+#'                                    increased in order to read files with especially large
+#'                                    headers. Default value 1000000.
 #
 #'   `format = "text"`: see [CsvConvertOptions]. Note that options can only be
 #'   specified with the Arrow C++ library naming. Also, "block_size" from
@@ -500,6 +549,8 @@ FragmentScanOptions$create <- function(format, ...) {
     CsvFragmentScanOptions$create(...)
   } else if (format == "parquet") {
     ParquetFragmentScanOptions$create(...)
+  } else if (format == "json") {
+    JsonFragmentScanOptions$create(...)
   } else {
     stop("Unsupported file format: ", format, call. = FALSE)
   }
@@ -528,8 +579,42 @@ CsvFragmentScanOptions$create <- function(...,
 ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
 ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               buffer_size = 8196,
-                                              pre_buffer = TRUE) {
-  dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
+                                              pre_buffer = TRUE,
+                                              thrift_string_size_limit = 100000000,
+                                              thrift_container_size_limit = 1000000) {
+  dataset___ParquetFragmentScanOptions__Make(
+    use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit,
+    thrift_container_size_limit
+  )
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FragmentScanOptions
+#' @export
+JsonFragmentScanOptions <- R6Class("JsonFragmentScanOptions", inherit = FragmentScanOptions)
+JsonFragmentScanOptions$create <- function(...) {
+  dots <- list2(...)
+  valid_parse_options <- names(formals(JsonParseOptions$create))
+  valid_read_options <- names(formals(JsonReadOptions$create))
+  valid_options <- c(valid_parse_options, valid_read_options)
+
+  parse_opt_choices <- dots[names(dots) %in% valid_parse_options]
+  read_opt_choices <- dots[names(dots) %in% valid_read_options]
+
+  if (length(setdiff(names(dots), valid_options)) > 0) {
+    abort(
+      c(
+        paste("`JsonFragmentScanOptions` must match one or more of:", oxford_paste(valid_options, quote_symbol = "`")),
+        i = paste("Invalid selection(s):", oxford_paste(setdiff(names(dots), valid_options), quote_symbol = "`"))
+      )
+    )
+  }
+
+  parse_options <- do.call(JsonParseOptions$create, parse_opt_choices)
+  read_options <- do.call(JsonReadOptions$create, read_opt_choices)
+
+  dataset___JsonFragmentScanOptions__Make(parse_options, read_options)
 }
 
 #' Format-specific write options
@@ -551,7 +636,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             "codec",
             "null_fallback"
           )
-        } else if (format == "csv") {
+        } else if (format %in% c("csv", "tsv", "txt", "text")) {
           supported_args <- c(
             names(formals(CsvWriteOptions$create)),
             names(formals(readr_to_csv_write_options))
@@ -607,14 +692,20 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             get_ipc_metadata_version(args$metadata_version)
           )
         }
-      } else if (self$type == "csv") {
+      } else if (self$type %in% c("csv", "tsv", "txt", "text")) {
         arrow_opts <- names(formals(CsvWriteOptions$create))
         readr_opts <- names(formals(readr_to_csv_write_options))
         readr_only_opts <- setdiff(readr_opts, arrow_opts)
+        arrow_only_opts <- setdiff(arrow_opts, readr_opts)
 
-        is_arrow_opt <- !is.na(pmatch(names(args), arrow_opts))
-        is_readr_opt <- !is.na(pmatch(names(args), readr_opts))
-        is_readr_only_opt <- !is.na(pmatch(names(args), readr_only_opts))
+        is_arrow_opt <- !is.na(match(names(args), arrow_opts))
+        is_readr_opt <- !is.na(match(names(args), readr_opts))
+        is_arrow_only_opt <- !is.na(match(names(args), arrow_only_opts))
+        is_readr_only_opt <- !is.na(match(names(args), readr_only_opts))
+
+        if (any(is_arrow_only_opt) && any(is_readr_only_opt)) {
+          stop("Use either Arrow write options or readr write options, not both")
+        }
 
         # These option names aren't mutually exclusive, so only use readr path
         # if we have at least one readr-specific option.

@@ -13,27 +13,31 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt16Array < arrow.array.Array
+classdef UInt16Array < arrow.array.NumericArray
 % arrow.array.UInt16Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = uint16([])
+    properties (Access=protected)
+        NullSubstitutionValue = uint16(0)
     end
 
     methods
-        function obj = UInt16Array(data, opts)
+        function obj = UInt16Array(proxy)
             arguments
-                data
-                opts.DeepCopy = false
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.UInt16Array")}
             end
-            arrow.args.validateTypeAndShape(data, "uint16");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.UInt16Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = uint16(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.UInt16Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

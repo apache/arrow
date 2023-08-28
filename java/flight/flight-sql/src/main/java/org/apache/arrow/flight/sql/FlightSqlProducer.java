@@ -48,16 +48,22 @@ import static org.apache.arrow.vector.types.Types.MinorType.VARCHAR;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 import org.apache.arrow.flight.Action;
 import org.apache.arrow.flight.ActionType;
 import org.apache.arrow.flight.CallStatus;
+import org.apache.arrow.flight.CancelFlightInfoRequest;
+import org.apache.arrow.flight.CancelStatus;
+import org.apache.arrow.flight.FlightConstants;
 import org.apache.arrow.flight.FlightDescriptor;
+import org.apache.arrow.flight.FlightEndpoint;
 import org.apache.arrow.flight.FlightInfo;
 import org.apache.arrow.flight.FlightProducer;
 import org.apache.arrow.flight.FlightStream;
 import org.apache.arrow.flight.PutResult;
+import org.apache.arrow.flight.RenewFlightEndpointRequest;
 import org.apache.arrow.flight.Result;
 import org.apache.arrow.flight.SchemaResult;
 import org.apache.arrow.flight.Ticket;
@@ -319,6 +325,7 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
           FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionBeginTransactionRequest.class);
       beginTransaction(request, context, new ProtoListener<>(listener));
     } else if (actionType.equals(FlightSqlUtils.FLIGHT_SQL_CANCEL_QUERY.getType())) {
+      //noinspection deprecation
       final ActionCancelQueryRequest request =
           FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionCancelQueryRequest.class);
       final FlightInfo info;
@@ -352,6 +359,30 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
       ActionEndTransactionRequest request =
           FlightSqlUtils.unpackAndParseOrThrow(action.getBody(), ActionEndTransactionRequest.class);
       endTransaction(request, context, new NoResultListener(listener));
+    } else if (actionType.equals(FlightConstants.CANCEL_FLIGHT_INFO.getType())) {
+      final CancelFlightInfoRequest request;
+      try {
+        request = CancelFlightInfoRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+      } catch (IOException | URISyntaxException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack FlightInfo: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
+      }
+      cancelFlightInfo(request, context, new CancelStatusListener(listener));
+    } else if (actionType.equals(FlightConstants.RENEW_FLIGHT_ENDPOINT.getType())) {
+      final RenewFlightEndpointRequest request;
+      try {
+        request = RenewFlightEndpointRequest.deserialize(ByteBuffer.wrap(action.getBody()));
+      } catch (IOException | URISyntaxException e) {
+        listener.onError(CallStatus.INTERNAL
+            .withDescription("Could not unpack FlightInfo: " + e)
+            .withCause(e)
+            .toRuntimeException());
+        return;
+      }
+      renewFlightEndpoint(request, context, new FlightEndpointListener(listener));
     } else {
       throw CallStatus.INVALID_ARGUMENT
           .withDescription("Unrecognized request: " + action.getType())
@@ -386,12 +417,59 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   /**
    * Explicitly cancel a query.
    *
+   * @param request The CancelFlightInfoRequest for the query to cancel.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  default void cancelFlightInfo(CancelFlightInfoRequest request, CallContext context,
+                                StreamListener<CancelStatus> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
+
+
+  /**
+   * Explicitly cancel a query.
+   *
    * @param info     The FlightInfo of the query to cancel.
    * @param context  Per-call context.
    * @param listener Whether cancellation succeeded.
+   * @deprecated Prefer {@link #cancelFlightInfo(FlightInfo, CallContext, StreamListener)}.
    */
+  @Deprecated
   default void cancelQuery(FlightInfo info, CallContext context, StreamListener<CancelResult> listener) {
-    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+    CancelFlightInfoRequest request = new CancelFlightInfoRequest(info);
+    cancelFlightInfo(request, context, new StreamListener<CancelStatus>() {
+      @Override
+      public void onNext(CancelStatus val) {
+        switch (val) {
+          case UNSPECIFIED:
+            listener.onNext(CancelResult.UNSPECIFIED);
+            break;
+          case CANCELLED:
+            listener.onNext(CancelResult.CANCELLED);
+            break;
+          case CANCELLING:
+            listener.onNext(CancelResult.CANCELLING);
+            break;
+          case NOT_CANCELLABLE:
+            listener.onNext(CancelResult.NOT_CANCELLABLE);
+            break;
+          default:
+            // XXX: CheckStyle requires a default clause which arguably makes the code worse.
+            throw new AssertionError("Unknown enum variant " + val);
+        }
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        listener.onError(t);
+      }
+
+      @Override
+      public void onCompleted() {
+        listener.onCompleted();
+      }
+    });
   }
 
   /**
@@ -811,6 +889,17 @@ public interface FlightSqlProducer extends FlightProducer, AutoCloseable {
   void getStreamCrossReference(CommandGetCrossReference command, CallContext context,
                              ServerStreamListener listener);
 
+  /**
+   * Renew the duration of the given endpoint.
+   *
+   * @param request The endpoint to renew.
+   * @param context Per-call context.
+   * @param listener An interface for sending data back to the client.
+   */
+  default void renewFlightEndpoint(RenewFlightEndpointRequest request, CallContext context,
+                                   StreamListener<FlightEndpoint> listener) {
+    listener.onError(CallStatus.UNIMPLEMENTED.toRuntimeException());
+  }
 
   /**
    * Default schema templates for the {@link FlightSqlProducer}.

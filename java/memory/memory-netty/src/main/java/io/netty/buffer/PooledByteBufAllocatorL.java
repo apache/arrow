@@ -153,7 +153,7 @@ public class PooledByteBufAllocatorL {
       this.chunkSize = directArenas[0].chunkSize;
 
       if (memoryLogger.isTraceEnabled()) {
-        statusThread = new MemoryStatusThread();
+        statusThread = new MemoryStatusThread(this);
         statusThread.start();
       } else {
         statusThread = null;
@@ -256,16 +256,18 @@ public class PooledByteBufAllocatorL {
     }
 
     private class MemoryStatusThread extends Thread {
+      private final InnerAllocator allocator;
 
-      public MemoryStatusThread() {
+      public MemoryStatusThread(InnerAllocator allocator) {
         super("allocation.logger");
         this.setDaemon(true);
+        this.allocator = allocator;
       }
 
       @Override
       public void run() {
         while (true) {
-          memoryLogger.trace("Memory Usage: \n{}", PooledByteBufAllocatorL.this.toString());
+          memoryLogger.trace("Memory Usage: \n{}", allocator);
           try {
             Thread.sleep(MEMORY_LOGGER_FREQUENCY_SECONDS * 1000);
           } catch (InterruptedException e) {

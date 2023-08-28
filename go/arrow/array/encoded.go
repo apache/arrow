@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/encoded"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/json"
-	"github.com/apache/arrow/go/v13/internal/utils"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/encoded"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v14/internal/utils"
 )
 
 // RunEndEncoded represents an array containing two children:
@@ -355,23 +355,33 @@ func (b *RunEndEncodedBuilder) finishRun() {
 }
 
 func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
+
 func (b *RunEndEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
 }
+
 func (b *RunEndEncodedBuilder) AppendRuns(runs []uint64) {
 	for _, r := range runs {
 		b.finishRun()
 		b.addLength(r)
 	}
 }
+
 func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)
 }
+
 func (b *RunEndEncodedBuilder) AppendNull() {
 	b.finishRun()
 	b.values.AppendNull()
 	b.addLength(1)
+}
+
+func (b *RunEndEncodedBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
 }
 
 func (b *RunEndEncodedBuilder) NullN() int {
@@ -380,6 +390,10 @@ func (b *RunEndEncodedBuilder) NullN() int {
 
 func (b *RunEndEncodedBuilder) AppendEmptyValue() {
 	b.AppendNull()
+}
+
+func (b *RunEndEncodedBuilder) AppendEmptyValues(n int) {
+	b.AppendNulls(n)
 }
 
 func (b *RunEndEncodedBuilder) Reserve(n int) {
@@ -410,7 +424,7 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	defer runEnds.Release()
 
 	data = NewData(
-		b.dt, b.length, []*memory.Buffer{nil},
+		b.dt, b.length, []*memory.Buffer{},
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return

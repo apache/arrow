@@ -20,7 +20,7 @@
 
   <groupId>org.apache.arrow</groupId>
   <artifactId>arrow-java-root</artifactId>
-  <version>13.0.0-SNAPSHOT</version>
+  <version>14.0.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>Apache Arrow Java Root POM</name>
@@ -33,9 +33,9 @@
     <dep.junit.jupiter.version>5.9.0</dep.junit.jupiter.version>
     <dep.slf4j.version>1.7.25</dep.slf4j.version>
     <dep.guava-bom.version>31.1-jre</dep.guava-bom.version>
-    <dep.netty-bom.version>4.1.82.Final</dep.netty-bom.version>
-    <dep.grpc-bom.version>1.49.1</dep.grpc-bom.version>
-    <dep.protobuf-bom.version>3.21.6</dep.protobuf-bom.version>
+    <dep.netty-bom.version>4.1.96.Final</dep.netty-bom.version>
+    <dep.grpc-bom.version>1.56.0</dep.grpc-bom.version>
+    <dep.protobuf-bom.version>3.23.1</dep.protobuf-bom.version>
     <dep.jackson-bom.version>2.15.1</dep.jackson-bom.version>
     <dep.hadoop.version>2.7.1</dep.hadoop.version>
     <dep.fbs.version>1.12.0</dep.fbs.version>
@@ -984,13 +984,13 @@
       <properties>
         <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
         <cpp.dependencies.builded>false</cpp.dependencies.builded>
-        <ARROW_CSV>ON</ARROW_CSV>
+        <ARROW_DATASET>ON</ARROW_DATASET>
+        <ARROW_GANDIVA>ON</ARROW_GANDIVA>
         <ARROW_ORC>ON</ARROW_ORC>
         <ARROW_PARQUET>ON</ARROW_PARQUET>
-        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
         <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
-        <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
+        <ARROW_JAVA_JNI_ENABLE_GANDIVA>ON</ARROW_JAVA_JNI_ENABLE_GANDIVA>
         <ARROW_JAVA_JNI_ENABLE_ORC>ON</ARROW_JAVA_JNI_ENABLE_ORC>
       </properties>
       <build>
@@ -1012,16 +1012,18 @@
                     -S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
-                    -DARROW_CSV=${ARROW_CSV}
-                    -DARROW_DATASET=ON
+                    -DARROW_CSV=${ARROW_DATASET}
+                    -DARROW_DATASET=${ARROW_DATASET}
                     -DARROW_DEPENDENCY_SOURCE=BUNDLED
                     -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
                     -DARROW_GANDIVA=${ARROW_GANDIVA}
                     -DARROW_GANDIVA_STATIC_LIBSTDCPP=ON
+                    -DARROW_JSON=${ARROW_DATASET}
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
                     -DARROW_S3=ON
+                    -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DCMAKE_BUILD_TYPE=Release
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
@@ -1068,6 +1070,8 @@
                     -DCMAKE_INSTALL_LIBDIR=lib/${os.detected.arch}
                     -DCMAKE_INSTALL_PREFIX=${arrow.dataset.jni.dist.dir}
                     -DCMAKE_PREFIX_PATH=${project.basedir}/../java-dist/lib/${os.detected.arch}/cmake
+                    -DProtobuf_USE_STATIC_LIBS=ON
+                    -DProtobuf_ROOT=${project.basedir}/../cpp-jni/protobuf_ep-install
                   </commandlineArgs>
                   <workingDirectory>../</workingDirectory>
                 </configuration>
@@ -1097,13 +1101,14 @@
       <properties>
         <arrow.dataset.jni.dist.dir>java-dist</arrow.dataset.jni.dist.dir>
         <cpp.dependencies.builded>false</cpp.dependencies.builded>
-        <ARROW_CSV>ON</ARROW_CSV>
-        <ARROW_ORC>OFF</ARROW_ORC>
+        <ARROW_DATASET>ON</ARROW_DATASET>
+        <ARROW_GANDIVA>OFF</ARROW_GANDIVA>
+        <ARROW_ORC>ON</ARROW_ORC>
         <ARROW_PARQUET>ON</ARROW_PARQUET>
         <ARROW_JAVA_JNI_ENABLE_C>OFF</ARROW_JAVA_JNI_ENABLE_C>
         <ARROW_JAVA_JNI_ENABLE_DATASET>ON</ARROW_JAVA_JNI_ENABLE_DATASET>
         <ARROW_JAVA_JNI_ENABLE_GANDIVA>OFF</ARROW_JAVA_JNI_ENABLE_GANDIVA>
-        <ARROW_JAVA_JNI_ENABLE_ORC>OFF</ARROW_JAVA_JNI_ENABLE_ORC>
+        <ARROW_JAVA_JNI_ENABLE_ORC>ON</ARROW_JAVA_JNI_ENABLE_ORC>
       </properties>
       <build>
         <plugins>
@@ -1124,13 +1129,16 @@
                     -S cpp
                     -B cpp-jni
                     -DARROW_BUILD_SHARED=OFF
-                    -DARROW_CSV=${ARROW_CSV}
-                    -DARROW_DATASET=ON
+                    -DARROW_CSV=${ARROW_DATASET}
+                    -DARROW_DATASET=${ARROW_DATASET}
                     -DARROW_DEPENDENCY_USE_SHARED=OFF
                     -DARROW_FILESYSTEM=ON
+                    -DARROW_GANDIVA=${ARROW_GANDIVA}
+                    -DARROW_JSON=${ARROW_DATASET}
                     -DARROW_ORC=${ARROW_ORC}
                     -DARROW_PARQUET=${ARROW_PARQUET}
                     -DARROW_S3=ON
+                    -DARROW_SUBSTRAIT=${ARROW_DATASET}
                     -DARROW_USE_CCACHE=ON
                     -DARROW_WITH_BROTLI=ON
                     -DARROW_WITH_LZ4=ON

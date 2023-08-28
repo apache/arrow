@@ -131,7 +131,7 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] options Per-RPC options
   /// \param[in] ticket The flight ticket to use
   /// \return The returned RecordBatchReader
-  arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
+  virtual arrow::Result<std::unique_ptr<FlightStreamReader>> DoGet(
       const FlightCallOptions& options, const Ticket& ticket);
 
   /// \brief Request a list of tables.
@@ -323,36 +323,56 @@ class ARROW_FLIGHT_SQL_EXPORT FlightSqlClient {
   /// \param[in] savepoint    The savepoint.
   Status Rollback(const FlightCallOptions& options, const Savepoint& savepoint);
 
+  /// \brief Explicitly cancel a FlightInfo.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The CancelFlightInfoRequest.
+  /// \return Arrow result with a canceled result.
+  ::arrow::Result<CancelFlightInfoResult> CancelFlightInfo(
+      const FlightCallOptions& options, const CancelFlightInfoRequest& request) {
+    return impl_->CancelFlightInfo(options, request);
+  }
+
   /// \brief Explicitly cancel a query.
   ///
   /// \param[in] options      RPC-layer hints for this call.
   /// \param[in] info         The FlightInfo of the query to cancel.
+  ///
+  /// \deprecated Deprecated since 13.0.0. Use CancelFlightInfo()
+  /// instead. If you can assume that a server requires 13.0.0 or
+  /// later, you can always use CancelFlightInfo(). Otherwise, you may
+  /// need to use CancelQuery() and/or CancelFlightInfo().
+  ARROW_DEPRECATED(
+      "Deprecated in 13.0.0. Use CancelFlightInfo() instead. "
+      "If you can assume that a server requires 13.0.0 or later, "
+      "you can always use CancelFLightInfo(). Otherwise, you "
+      "may need to use CancelQuery() and/or CancelFlightInfo()")
   ::arrow::Result<CancelResult> CancelQuery(const FlightCallOptions& options,
                                             const FlightInfo& info);
+
+  /// \brief Extends the expiration of a FlightEndpoint.
+  ///
+  /// \param[in] options      RPC-layer hints for this call.
+  /// \param[in] request      The RenewFlightEndpointRequest.
+  /// \return Arrow result with a renewed FlightEndpoint
+  ::arrow::Result<FlightEndpoint> RenewFlightEndpoint(
+      const FlightCallOptions& options, const RenewFlightEndpointRequest& request) {
+    return impl_->RenewFlightEndpoint(options, request);
+  }
 
   /// \brief Explicitly shut down and clean up the client.
   Status Close();
 
  protected:
-  virtual Status DoPut(const FlightCallOptions& options,
-                       const FlightDescriptor& descriptor,
-                       const std::shared_ptr<Schema>& schema,
-                       std::unique_ptr<FlightStreamWriter>* writer,
-                       std::unique_ptr<FlightMetadataReader>* reader) {
-    ARROW_ASSIGN_OR_RAISE(auto result, impl_->DoPut(options, descriptor, schema));
-    *writer = std::move(result.writer);
-    *reader = std::move(result.reader);
-    return Status::OK();
+  virtual ::arrow::Result<FlightClient::DoPutResult> DoPut(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor,
+      const std::shared_ptr<Schema>& schema) {
+    return impl_->DoPut(options, descriptor, schema);
   }
 
-  virtual Status DoGet(const FlightCallOptions& options, const Ticket& ticket,
-                       std::unique_ptr<FlightStreamReader>* stream) {
-    return impl_->DoGet(options, ticket).Value(stream);
-  }
-
-  virtual Status DoAction(const FlightCallOptions& options, const Action& action,
-                          std::unique_ptr<ResultStream>* results) {
-    return impl_->DoAction(options, action).Value(results);
+  virtual ::arrow::Result<std::unique_ptr<ResultStream>> DoAction(
+      const FlightCallOptions& options, const Action& action) {
+    return impl_->DoAction(options, action);
   }
 };
 

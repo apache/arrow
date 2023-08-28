@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v13/arrow/endian"
+	"github.com/apache/arrow/go/v14/arrow/endian"
 )
 
 var TimestampTraits timestampTraits

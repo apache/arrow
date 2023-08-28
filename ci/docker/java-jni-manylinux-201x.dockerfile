@@ -34,8 +34,15 @@ RUN vcpkg install \
 
 # Install Java
 ARG java=1.8.0
-RUN yum install -y java-$java-openjdk-devel rh-maven35 && yum clean all
-ENV JAVA_HOME=/usr/lib/jvm/java-$java-openjdk/
+ARG maven=3.9.3
+RUN yum install -y java-$java-openjdk-devel && \
+      yum clean all && \
+      curl \
+        --fail \
+        --location \
+        "https://www.apache.org/dyn/closer.lua?action=download&filename=maven/maven-3/${maven}/binaries/apache-maven-${maven}-bin.tar.gz" | \
+        tar xfz - -C /usr/local && \
+      ln -s /usr/local/apache-maven-${maven}/bin/mvn /usr/local/bin
 
 # Install the gcs testbench
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/

@@ -82,7 +82,7 @@ class ARROW_DS_EXPORT FragmentSelection {
 
 /// \brief Instructions for scanning a particular fragment
 ///
-/// The fragment scan request is dervied from ScanV2Options.  The main
+/// The fragment scan request is derived from ScanV2Options.  The main
 /// difference is that the scan options are based on the dataset schema
 /// while the fragment request is based on the fragment schema.
 struct ARROW_DS_EXPORT FragmentScanRequest {

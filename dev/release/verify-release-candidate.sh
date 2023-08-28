@@ -189,12 +189,14 @@ test_apt() {
                 "arm64v8/debian:bullseye" \
                 "debian:bookworm" \
                 "arm64v8/debian:bookworm" \
+                "debian:trixie" \
+                "arm64v8/debian:trixie" \
                 "ubuntu:focal" \
                 "arm64v8/ubuntu:focal" \
                 "ubuntu:jammy" \
                 "arm64v8/ubuntu:jammy" \
-                "ubuntu:kinetic" \
-                "arm64v8/ubuntu:kinetic"; do \
+                "ubuntu:lunar" \
+                "arm64v8/ubuntu:lunar"; do \
     case "${target}" in
       arm64v8/*)
         if [ "$(arch)" = "aarch64" -o -e /usr/bin/qemu-aarch64-static ]; then
@@ -232,7 +234,7 @@ test_yum() {
                 "arm64v8/almalinux:9" \
                 "almalinux:8" \
                 "arm64v8/almalinux:8" \
-                "amazonlinux:2" \
+                "amazonlinux:2023" \
                 "quay.io/centos/centos:stream9" \
                 "quay.io/centos/centos:stream8" \
                 "centos:7"; do
@@ -315,21 +317,21 @@ install_nodejs() {
     return 0
   fi
 
-  required_node_major_version=16
   node_major_version=$(node --version 2>&1 | grep -o '^v[0-9]*' | sed -e 's/^v//g' || :)
-
-  if [ -n "${node_major_version}" ] && [ "${node_major_version}" -ge ${required_node_major_version} ]; then
-    show_info "Found NodeJS installation with major version ${node_major_version}"
+  node_minor_version=$(node --version 2>&1 | grep -o '^v[0-9]*\.[0-9]*' | sed -e 's/^v[0-9]*\.//g' || :)
+  if [[ -n "${node_major_version}" && -n "${node_minor_version}" &&
+      ("${node_major_version}" -eq 16 ||
+        ("${node_major_version}" -eq 18 && "${node_minor_version}" -ge 14) ||
+        "${node_major_version}" -ge 20) ]]; then
+    show_info "Found NodeJS installation with version v${node_major_version}.${node_minor_version}.x"
   else
-    export NVM_DIR="`pwd`/.nvm"
+    export NVM_DIR="$(pwd)/.nvm"
     mkdir -p $NVM_DIR
-    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | \
+    curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | \
       PROFILE=/dev/null bash
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 
-    # ARROW-18335: "gulp bundle" failed with Node.js 18.
-    # nvm install --lts
-    nvm install 16
+    nvm install --lts
     show_info "Installed NodeJS $(node --version)"
   fi
 
@@ -663,7 +665,7 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv cython numpy setuptools_scm setuptools || exit 1
+  maybe_setup_virtualenv "cython<3" numpy setuptools_scm setuptools || exit 1
   maybe_setup_conda --file ci/conda_env_python.txt || exit 1
 
   if [ "${USE_CONDA}" -gt 0 ]; then
@@ -837,7 +839,7 @@ test_js() {
   show_header "Build and test JavaScript libraries"
 
   maybe_setup_nodejs || exit 1
-  maybe_setup_conda nodejs=16 || exit 1
+  maybe_setup_conda nodejs=18 || exit 1
 
   if ! command -v yarn &> /dev/null; then
     npm install yarn
@@ -1017,7 +1019,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.7m 3.8 3.9 3.10 3.11}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.8 3.9 3.10 3.11}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_17_${arch}.manylinux2014_${arch} manylinux_2_28_${arch}}"
 
   for python in ${python_versions}; do
@@ -1043,7 +1045,7 @@ test_macos_wheels() {
     local platform_tags="macosx_11_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.7m 3.8 3.9 3.10 3.11"
+    local python_versions="3.8 3.9 3.10 3.11"
     local platform_tags="macosx_10_14_x86_64"
   fi
 

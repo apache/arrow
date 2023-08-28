@@ -132,7 +132,8 @@ fs <- GcsFileSystem$create(
   endpoint_override = sprintf("localhost:%s", testbench_port),
   retry_limit_seconds = 1,
   scheme = "http",
-  anonymous = TRUE # Will fail to resolve host name if anonymous isn't TRUE
+  anonymous = TRUE, # Will fail to resolve host name if anonymous isn't TRUE
+  project_id = "test-project-id"
 )
 
 now <- as.character(as.numeric(Sys.time()))
@@ -155,7 +156,12 @@ gcs_path <- function(...) {
   paste(now, ..., sep = "/")
 }
 gcs_uri <- function(...) {
-  template <- "gs://anonymous@%s?scheme=http&endpoint_override=localhost%s%s&retry_limit_seconds=1"
+  template <- paste0("gs://anonymous@%s?",
+                     paste("scheme=http",
+                           "endpoint_override=localhost%s%s",
+                           "retry_limit_seconds=1",
+                           "project_id=test-project-id",
+                           sep = "&"))
   sprintf(template, gcs_path(...), "%3A", testbench_port)
 }
 

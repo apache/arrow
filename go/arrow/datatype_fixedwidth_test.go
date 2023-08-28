@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apache/arrow/go/v13/arrow"
+	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -157,6 +157,13 @@ func TestTimestampType(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTimestampToTime(t *testing.T) {
+	ts := arrow.Timestamp(11865225600000)
+	tm := ts.ToTime(arrow.Millisecond)
+
+	assert.Equal(t, "2345-12-30 00:00:00", tm.Format("2006-01-02 15:04:05.999"))
 }
 
 func TestTime32Type(t *testing.T) {

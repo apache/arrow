@@ -13,27 +13,31 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Int64Array < arrow.array.Array
+classdef Int64Array < arrow.array.NumericArray
 % arrow.array.Int64Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = int64([])
+    properties (Access=protected)
+        NullSubstitutionValue = int64(0);
     end
 
     methods
-        function obj = Int64Array(data, opts)
+        function obj = Int64Array(proxy)
             arguments
-                data
-                opts.DeepCopy = false
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Int64Array")}
             end
-            arrow.args.validateTypeAndShape(data, "int64");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.Int64Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = int64(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.Int64Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end

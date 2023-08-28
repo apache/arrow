@@ -108,8 +108,7 @@
 
 #include "parquet/properties.h"
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 
 namespace {
 
@@ -901,5 +900,4 @@ Status MultipathLevelBuilder::Write(const Array& array, bool array_field_nullabl
   return Status::OK();
 }
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

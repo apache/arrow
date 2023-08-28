@@ -38,14 +38,64 @@ import warnings
 from unittest import mock
 from docutils.parsers.rst import Directive, directives
 
-import pyarrow
-
-
 sys.path.extend([
     os.path.join(os.path.dirname(__file__),
                  '..', '../..')
 
 ])
+
+# -- Customization --------------------------------------------------------
+
+try:
+    import pyarrow
+    exclude_patterns = []
+    pyarrow_version =  pyarrow.__version__
+
+    # Conditional API doc generation
+
+    # Sphinx has two features for conditional inclusion:
+    # - The "only" directive
+    #   https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#including-content-based-on-tags
+    # - The "ifconfig" extension
+    #   https://www.sphinx-doc.org/en/master/usage/extensions/ifconfig.html
+    #
+    # Both have issues, but "ifconfig" seems to work in this setting.
+
+    try:
+        import pyarrow.cuda
+        cuda_enabled = True
+    except ImportError:
+        cuda_enabled = False
+        # Mock pyarrow.cuda to avoid autodoc warnings.
+        # XXX I can't get autodoc_mock_imports to work, so mock manually instead
+        # (https://github.com/sphinx-doc/sphinx/issues/2174#issuecomment-453177550)
+        pyarrow.cuda = sys.modules['pyarrow.cuda'] = mock.Mock()
+
+    try:
+        import pyarrow.flight
+        flight_enabled = True
+    except ImportError:
+        flight_enabled = False
+        pyarrow.flight = sys.modules['pyarrow.flight'] = mock.Mock()
+
+    try:
+        import pyarrow.orc
+        orc_enabled = True
+    except ImportError:
+        orc_enabled = False
+        pyarrow.orc = sys.modules['pyarrow.orc'] = mock.Mock()
+
+    try:
+        import pyarrow.parquet.encryption
+        parquet_encryption_enabled = True
+    except ImportError:
+        parquet_encryption_enabled = False
+        pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
+except (ImportError, LookupError):
+    exclude_patterns = ['python']
+    pyarrow_version =  ""
+    cuda_enabled = False
+    flight_enabled = False
 
 # Suppresses all warnings printed when sphinx is traversing the code (e.g.
 # deprecation warnings)
@@ -65,6 +115,7 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
     'numpydoc',
+    "sphinxcontrib.jquery",
     'sphinx_design',
     'sphinx_copybutton',
     'sphinx.ext.autodoc',
@@ -159,11 +210,10 @@ author = u'Apache Software Foundation'
 # built documents.
 #
 # The short X.Y version.
-version = os.environ.get('ARROW_DOCS_VERSION',
-                         pyarrow.__version__)
+version = os.environ.get('ARROW_DOCS_VERSION', pyarrow_version)
+
 # The full version, including alpha/beta/rc tags.
-release = os.environ.get('ARROW_DOCS_VERSION',
-                         pyarrow.__version__)
+release = os.environ.get('ARROW_DOCS_VERSION', pyarrow_version)
 
 if "+" in release:
     release = release.split(".dev")[0] + " (dev)"
@@ -187,7 +237,7 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -473,50 +523,6 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #
 # texinfo_no_detailmenu = False
-
-
-# -- Customization --------------------------------------------------------
-
-# Conditional API doc generation
-
-# Sphinx has two features for conditional inclusion:
-# - The "only" directive
-#   https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#including-content-based-on-tags
-# - The "ifconfig" extension
-#   https://www.sphinx-doc.org/en/master/usage/extensions/ifconfig.html
-#
-# Both have issues, but "ifconfig" seems to work in this setting.
-
-try:
-    import pyarrow.cuda
-    cuda_enabled = True
-except ImportError:
-    cuda_enabled = False
-    # Mock pyarrow.cuda to avoid autodoc warnings.
-    # XXX I can't get autodoc_mock_imports to work, so mock manually instead
-    # (https://github.com/sphinx-doc/sphinx/issues/2174#issuecomment-453177550)
-    pyarrow.cuda = sys.modules['pyarrow.cuda'] = mock.Mock()
-
-try:
-    import pyarrow.flight
-    flight_enabled = True
-except ImportError:
-    flight_enabled = False
-    pyarrow.flight = sys.modules['pyarrow.flight'] = mock.Mock()
-
-try:
-    import pyarrow.orc
-    orc_enabled = True
-except ImportError:
-    orc_enabled = False
-    pyarrow.orc = sys.modules['pyarrow.orc'] = mock.Mock()
-
-try:
-    import pyarrow.parquet.encryption
-    parquet_encryption_enabled = True
-except ImportError:
-    parquet_encryption_enabled = False
-    pyarrow.parquet.encryption = sys.modules['pyarrow.parquet.encryption'] = mock.Mock()
 
 
 def setup(app):

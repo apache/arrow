@@ -49,6 +49,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/string.h"
 
@@ -344,7 +345,7 @@ struct MemoStore {
   // the time of the current entry, defaulting to 0.
   // when entries with a time less than T are removed, the current time is updated to the
   // time of the next (by-time) and now-current entry or to T if no such entry exists.
-  std::atomic<OnType> current_time_;
+  OnType current_time_;
   // current entry per key
   std::unordered_map<ByType, Entry> entries_;
   // future entries per key
@@ -364,21 +365,16 @@ struct MemoStore {
     std::swap(index_, memo.index_);
 #endif
     std::swap(no_future_, memo.no_future_);
-    current_time_ = memo.current_time_.exchange(static_cast<OnType>(current_time_));
+    std::swap(current_time_, memo.current_time_);
     entries_.swap(memo.entries_);
     future_entries_.swap(memo.future_entries_);
     times_.swap(memo.times_);
   }
 
-  // Updates the current time to `ts` if it is less. A different thread may win the race
-  // to update the current time to more than `ts` but not to less. Returns whether the
-  // current time was changed from its value at the beginning of this invocation.
+  // Updates the current time to `ts` if it is less. Returns true if updated.
   bool UpdateTime(OnType ts) {
-    OnType prev_time = current_time_;
-    bool update = prev_time < ts;
-    while (prev_time < ts && !current_time_.compare_exchange_weak(prev_time, ts)) {
-      // intentionally empty - standard CAS loop
-    }
+    bool update = current_time_ < ts;
+    if (update) current_time_ = ts;
     return update;
   }
 
@@ -495,9 +491,9 @@ class KeyHasher {
                        4 * kMiniBatchLength * sizeof(uint32_t));
   }
 
-  void Invalidate() {
-    batch_ = NULLPTR;  // invalidate cached hashes for batch - required when it changes
-  }
+  // invalidate cached hashes for batch - required when it changes
+  // only this method can be called concurrently with HashesFor
+  void Invalidate() { batch_ = NULLPTR; }
 
   // compute and cache a hash for each row of the given batch
   const std::vector<HashType>& HashesFor(const RecordBatch* batch) {
@@ -668,18 +664,19 @@ class InputState {
 
   static Result<std::unique_ptr<InputState>> Make(
       size_t index, TolType tolerance, bool must_hash, bool may_rehash,
-      KeyHasher* key_hasher, ExecNode* node, AsofJoinNode* output,
+      KeyHasher* key_hasher, ExecNode* asof_input, AsofJoinNode* asof_node,
       std::atomic<int32_t>& backpressure_counter,
       const std::shared_ptr<arrow::Schema>& schema, const col_index_t time_col_index,
       const std::vector<col_index_t>& key_col_index) {
     constexpr size_t low_threshold = 4, high_threshold = 8;
     std::unique_ptr<BackpressureControl> backpressure_control =
-        std::make_unique<BackpressureController>(node, output, backpressure_counter);
+        std::make_unique<BackpressureController>(
+            /*node=*/asof_input, /*output=*/asof_node, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
                           BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return std::make_unique<InputState>(index, tolerance, must_hash, may_rehash,
-                                        key_hasher, output, std::move(handler), schema,
+                                        key_hasher, asof_node, std::move(handler), schema,
                                         time_col_index, key_col_index);
   }
 
@@ -821,8 +818,10 @@ class InputState {
         ++batches_processed_;
         latest_ref_row_ = 0;
         have_active_batch &= !queue_.TryPop();
-        if (have_active_batch)
+        if (have_active_batch) {
           DCHECK_GT(queue_.UnsyncFront()->num_rows(), 0);  // empty batches disallowed
+          memo_.UpdateTime(GetTime(queue_.UnsyncFront().get(), 0));  // time changed
+        }
       }
     }
     return have_active_batch;
@@ -899,8 +898,7 @@ class InputState {
   Status Push(const std::shared_ptr<arrow::RecordBatch>& rb) {
     if (rb->num_rows() > 0) {
       key_hasher_->Invalidate();  // batch changed - invalidate key hasher's cache
-      memo_.UpdateTime(GetTime(rb.get(), 0));  // time changed - update in MemoStore
-      queue_.Push(rb);  // only after above updates - push batch for processing
+      queue_.Push(rb);            // only now push batch for processing
     } else {
       ++batches_processed_;  // don't enqueue empty batches, just record as processed
     }
@@ -1710,6 +1708,10 @@ class AsofJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
+#ifndef ARROW_ENABLE_THREADING
+    return Status::NotImplemented("ASOF join requires threading enabled");
+#endif
+
     ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
                                              "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {

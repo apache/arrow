@@ -325,7 +325,7 @@ class ARROW_ACERO_EXPORT ExecNode {
   ///
   /// This is not a pause.  There will be no way to start the source again after this has
   /// been called.
-  Status StopProducing();
+  virtual Status StopProducing();
 
   std::string ToString(int indent = 0) const;
 
@@ -739,7 +739,7 @@ DeclarationToBatchesAsync(Declaration declaration, ExecContext exec_context);
 /// \brief Utility method to run a declaration and return results as a RecordBatchReader
 ///
 /// If an exec context is not provided then a default exec context will be used based
-/// on the value of `use_threads`.  If `use_threads` is false then the CPU exeuctor will
+/// on the value of `use_threads`.  If `use_threads` is false then the CPU executor will
 /// be a serial executor and all CPU work will be done on the calling thread.  I/O tasks
 /// will still happen on the I/O executor and may be multi-threaded.
 ///
@@ -751,6 +751,10 @@ DeclarationToBatchesAsync(Declaration declaration, ExecContext exec_context);
 /// fills up.
 ///
 /// If a custom exec context is provided then the value of `use_threads` will be ignored.
+///
+/// The returned RecordBatchReader can be closed early to cancel the computation of record
+/// batches. In this case, only errors encountered by the computation may be reported. In
+/// particular, no cancellation error may be reported.
 ARROW_ACERO_EXPORT Result<std::unique_ptr<RecordBatchReader>> DeclarationToReader(
     Declaration declaration, bool use_threads = true,
     MemoryPool* memory_pool = default_memory_pool(),

@@ -92,6 +92,10 @@ class ARROW_EXPORT CudaDevice : public Device {
   std::string ToString() const override;
   bool Equals(const Device&) const override;
   std::shared_ptr<MemoryManager> default_memory_manager() override;
+  DeviceAllocationType device_type() const override {
+    return DeviceAllocationType::kCUDA;
+  }
+  int64_t device_id() const override { return device_number(); }
 
   /// \brief Return a CudaDevice instance for a particular device
   /// \param[in] device_number the CUDA device number
@@ -174,6 +178,9 @@ class ARROW_EXPORT CudaMemoryManager : public MemoryManager {
   /// This is a useful shorthand returning a concrete-typed pointer, avoiding
   /// having to cast the `device()` result.
   std::shared_ptr<CudaDevice> cuda_device() const;
+
+  Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
+      void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) override;
 
  protected:
   using MemoryManager::MemoryManager;

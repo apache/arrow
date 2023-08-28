@@ -69,6 +69,15 @@ class ARROW_EXPORT CastOptions : public FunctionOptions {
   // Indicate if conversions from Binary/FixedSizeBinary to string must
   // validate the utf8 payload.
   bool allow_invalid_utf8;
+
+  /// true if the safety options all match CastOptions::Safe
+  ///
+  /// Note, if this returns false it does not mean is_unsafe will return true
+  bool is_safe() const;
+  /// true if the safety options all match CastOptions::Unsafe
+  ///
+  /// Note, if this returns false it does not mean is_safe will return true
+  bool is_unsafe() const;
 };
 
 /// @}

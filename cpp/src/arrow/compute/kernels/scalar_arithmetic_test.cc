@@ -911,11 +911,11 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     this->AssertBinop(Power, "[null, 1, 3.3, null, 2]", "[1, 4, 2, 5, 0.1]",
                       "[null, 1, 10.89, null, 1.07177346]");
     // Scalar exponentiated by array
-    this->AssertBinop(Power, 10.0F, "[null, 1, 2.5, null, 2, 5]",
-                      "[null, 10, 316.227766017, null, 100, 100000]");
+    this->AssertBinop(Power, 4.0F, "[null, 1, 0.5, null, 2, 5]",
+                      "[null, 4, 2.0, null, 16, 1024]");
     // Array exponentiated by scalar
-    this->AssertBinop(Power, "[null, 1, 2.5, null, 2, 5]", 10.0F,
-                      "[null, 1, 9536.74316406, null, 1024, 9765625]");
+    this->AssertBinop(Power, "[null, 1, 0.5, null, 2, 5]", 4.0F,
+                      "[null, 1, 0.0625, null, 16, 625]");
     // Array with infinity
     this->AssertBinop(Power, "[3.4, Inf, -Inf, 1.1, 100000]", "[1, 2, 3, Inf, 100000]",
                       "[3.4, Inf, -Inf, Inf, Inf]");
@@ -925,7 +925,7 @@ TYPED_TEST(TestBinaryArithmeticFloating, Power) {
     this->AssertBinop(Power, 21.0F, 3.0F, 9261.0F);
     // Divide by zero
     this->AssertBinop(Power, "[0.0, 0.0]", "[-1.0, -3.0]", "[Inf, Inf]");
-    // Check overflow behaviour
+    // Check overflow behavior
     this->AssertBinop(Power, max, 10, INFINITY);
   }
 

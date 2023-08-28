@@ -13,27 +13,31 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt64Array < arrow.array.Array
+classdef UInt64Array < arrow.array.NumericArray
 % arrow.array.UInt64Array
 
-    properties (Hidden, SetAccess=private)
-        MatlabArray = uint64([])
+    properties (Access=protected)
+        NullSubstitutionValue = uint64(0)
     end
 
     methods
-        function obj = UInt64Array(data, opts)
+        function obj = UInt64Array(proxy)
             arguments
-                data
-                opts.DeepCopy = false
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.UInt64Array")}
             end
-            arrow.args.validateTypeAndShape(data, "uint64");
-            obj@arrow.array.Array("Name", "arrow.array.proxy.UInt64Array", "ConstructorArguments", {data, opts.DeepCopy});
-            % Store a reference to the array if not doing a deep copy
-            if (~opts.DeepCopy), obj.MatlabArray = data; end
+            import arrow.internal.proxy.validate
+            obj@arrow.array.NumericArray(proxy);
         end
 
         function data = uint64(obj)
-            data = obj.Proxy.toMATLAB();
+            data = obj.toMATLAB();
+        end
+    end
+
+    methods (Static)
+        function array = fromMATLAB(data, varargin)
+            traits = arrow.type.traits.UInt64Traits;
+            array = arrow.array.NumericArray.fromMATLAB(data, traits, varargin{:});
         end
     end
 end
