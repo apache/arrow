@@ -42,7 +42,6 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
 
-
 namespace arrow {
 
 using internal::checked_cast;

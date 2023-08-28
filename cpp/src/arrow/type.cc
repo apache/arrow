@@ -483,7 +483,6 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
                                         is_signed_integer(other_type->id())) ||
                                        (is_signed_integer(promoted_type->id()) &&
                                         is_unsigned_integer(other_type->id())))) {
-
     if (is_signed_integer(promoted_type->id()) && is_unsigned_integer(other_type->id())) {
       // Other type is always the signed int
       promoted_type.swap(other_type);
