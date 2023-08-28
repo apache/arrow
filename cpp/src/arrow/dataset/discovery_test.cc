@@ -117,7 +117,7 @@ TEST_F(MockDatasetFactoryTest, UnifySchemas) {
 
   MakeFactory({schema({i32, f64}), schema({f64, i32_fake})});
   // Unification fails when fields with the same name have clashing types.
-  ASSERT_RAISES(Invalid, factory_->Inspect());
+  ASSERT_RAISES(TypeError, factory_->Inspect());
   // Return the individual schema for closer inspection should not fail.
   AssertInspectSchemas({schema({i32, f64}), schema({f64, i32_fake})});
 
@@ -341,7 +341,7 @@ TEST_F(FileSystemDatasetFactoryTest, FinishWithIncompatibleSchemaShouldFail) {
   ASSERT_OK_AND_ASSIGN(auto dataset, factory_->Finish(options));
 
   MakeFactory({fs::File("test")});
-  ASSERT_RAISES(Invalid, factory_->Finish(options));
+  ASSERT_RAISES(TypeError, factory_->Finish(options));
 
   // Disable validation
   options.validate_fragments = false;
@@ -469,8 +469,8 @@ TEST(UnionDatasetFactoryTest, ConflictingSchemas) {
                            {dataset_factory_1, dataset_factory_2, dataset_factory_3}));
 
   // schema_3 conflicts with other, Inspect/Finish should not work
-  ASSERT_RAISES(Invalid, factory->Inspect());
-  ASSERT_RAISES(Invalid, factory->Finish());
+  ASSERT_RAISES(TypeError, factory->Inspect());
+  ASSERT_RAISES(TypeError, factory->Finish());
 
   // The user can inspect without error
   ASSERT_OK_AND_ASSIGN(auto schemas, factory->InspectSchemas({}));

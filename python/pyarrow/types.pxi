@@ -2042,18 +2042,18 @@ cdef class FieldMergeOptions(_Weakrefable):
 
     def __repr__(self) -> str:
         return ('FieldMergeOptions('
-        f'promote_nullability={self.promote_nullability},'
-        f'promote_decimal={self.promote_decimal},'
-        f'promote_decimal_to_float={self.promote_decimal_to_float},'
-        f'promote_integer_to_decimal={self.promote_integer_to_decimal},'
-        f'promote_integer_to_float={self.promote_integer_to_float},'
-        f'promote_integer_sign={self.promote_integer_to_float},'
-        f'promote_numeric_width={self.promote_numeric_width},'
-        f'promote_binary={self.promote_binary},'
-        f'promote_temporal_unit={self.promote_temporal_unit},'
-        f'promote_list={self.promote_list},'
-        f'promote_dictionary={self.promote_dictionary},'
-        f'promote_dictionary_ordered={self.promote_dictionary_ordered})')
+                f'promote_nullability={self.promote_nullability},'
+                f'promote_decimal={self.promote_decimal},'
+                f'promote_decimal_to_float={self.promote_decimal_to_float},'
+                f'promote_integer_to_decimal={self.promote_integer_to_decimal},'
+                f'promote_integer_to_float={self.promote_integer_to_float},'
+                f'promote_integer_sign={self.promote_integer_to_float},'
+                f'promote_numeric_width={self.promote_numeric_width},'
+                f'promote_binary={self.promote_binary},'
+                f'promote_temporal_unit={self.promote_temporal_unit},'
+                f'promote_list={self.promote_list},'
+                f'promote_dictionary={self.promote_dictionary},'
+                f'promote_dictionary_ordered={self.promote_dictionary_ordered})')
 
 
 cdef class Field(_Weakrefable):
