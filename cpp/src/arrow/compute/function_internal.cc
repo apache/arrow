@@ -83,9 +83,10 @@ Result<std::unique_ptr<FunctionOptions>> GenericOptionsType::Deserialize(
 
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
     const Buffer& buffer) {
-  // Create a non-owned Buffer to avoid copying
-  io::BufferReader stream(std::make_shared<Buffer>(std::string_view(buffer)));
-  ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(&stream));
+  // Copying the buffer here is not ideal, but we need to do it to avoid
+  // lifetime issues with the zero-copy buffer read.
+  auto stream = io::BufferReader::FromString(buffer.ToString());
+  ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(stream.get()));
   ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
   if (batch->num_rows() != 1) {
     return Status::Invalid(
