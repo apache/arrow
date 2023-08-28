@@ -1838,7 +1838,7 @@ cdef class FileFragment(Fragment):
             typ = ""
         partition_dict = get_partition_keys(self.partition_expression)
         partition = ", ".join(
-            sorted([f"{key}={val}" for key, val in partition_dict.items()])
+            [f"{key}={val}" for key, val in partition_dict.items()]
         )
         if partition:
             partition = f" partition=[{partition}]"
