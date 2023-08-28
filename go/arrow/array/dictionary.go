@@ -1674,6 +1674,135 @@ func (u *unifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array,
 	return MakeFromData(dictData), nil
 }
 
+type binaryUnifier struct {
+	mem       memory.Allocator
+	memoTable *hashing.BinaryMemoTable
+}
+
+// NewBinaryDictionaryUnifier constructs and returns a new dictionary unifier for dictionaries
+// of binary values, using the provided allocator for allocating the unified dictionary
+// and the memotable used for building it.
+func NewBinaryDictionaryUnifier(alloc memory.Allocator) DictionaryUnifier {
+	return &binaryUnifier{
+		mem:       alloc,
+		memoTable: hashing.NewBinaryMemoTable(0, 0, NewBinaryBuilder(alloc, arrow.BinaryTypes.Binary)),
+	}
+}
+
+func (u *binaryUnifier) Release() {
+	u.memoTable.Release()
+}
+
+func (u *binaryUnifier) Unify(dict arrow.Array) (err error) {
+	if !arrow.TypeEqual(arrow.BinaryTypes.Binary, dict.DataType()) {
+		return fmt.Errorf("dictionary type different from unifier: %s, expected: %s", dict.DataType(), arrow.BinaryTypes.Binary)
+	}
+
+	typedDict := dict.(*Binary)
+	for i := 0; i < dict.Len(); i++ {
+		if dict.IsNull(i) {
+			u.memoTable.GetOrInsertNull()
+			continue
+		}
+
+		if _, _, err = u.memoTable.GetOrInsertBytes(typedDict.Value(i)); err != nil {
+			return err
+		}
+	}
+	return
+}
+
+func (u *binaryUnifier) UnifyAndTranspose(dict arrow.Array) (transposed *memory.Buffer, err error) {
+	if !arrow.TypeEqual(arrow.BinaryTypes.Binary, dict.DataType()) {
+		return nil, fmt.Errorf("dictionary type different from unifier: %s, expected: %s", dict.DataType(), arrow.BinaryTypes.Binary)
+	}
+
+	transposed = memory.NewResizableBuffer(u.mem)
+	transposed.Resize(arrow.Int32Traits.BytesRequired(dict.Len()))
+
+	newIdxes := arrow.Int32Traits.CastFromBytes(transposed.Bytes())
+	typedDict := dict.(*Binary)
+	for i := 0; i < dict.Len(); i++ {
+		if dict.IsNull(i) {
+			idx, _ := u.memoTable.GetOrInsertNull()
+			newIdxes[i] = int32(idx)
+			continue
+		}
+
+		idx, _, err := u.memoTable.GetOrInsertBytes(typedDict.Value(i))
+		if err != nil {
+			transposed.Release()
+			return nil, err
+		}
+		newIdxes[i] = int32(idx)
+	}
+	return
+}
+
+func (u *binaryUnifier) GetResult() (outType arrow.DataType, outDict arrow.Array, err error) {
+	dictLen := u.memoTable.Size()
+	var indexType arrow.DataType
+	switch {
+	case dictLen <= math.MaxInt8:
+		indexType = arrow.PrimitiveTypes.Int8
+	case dictLen <= math.MaxInt16:
+		indexType = arrow.PrimitiveTypes.Int16
+	case dictLen <= math.MaxInt32:
+		indexType = arrow.PrimitiveTypes.Int32
+	default:
+		indexType = arrow.PrimitiveTypes.Int64
+	}
+	outType = &arrow.DictionaryType{IndexType: indexType, ValueType: arrow.BinaryTypes.Binary}
+
+	dictData, err := GetDictArrayData(u.mem, arrow.BinaryTypes.Binary, u.memoTable, 0)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	u.memoTable.Reset()
+
+	defer dictData.Release()
+	outDict = MakeFromData(dictData)
+	return
+}
+
+func (u *binaryUnifier) GetResultWithIndexType(indexType arrow.DataType) (arrow.Array, error) {
+	dictLen := u.memoTable.Size()
+	var toobig bool
+	switch indexType.ID() {
+	case arrow.UINT8:
+		toobig = dictLen > math.MaxUint8
+	case arrow.INT8:
+		toobig = dictLen > math.MaxInt8
+	case arrow.UINT16:
+		toobig = dictLen > math.MaxUint16
+	case arrow.INT16:
+		toobig = dictLen > math.MaxInt16
+	case arrow.UINT32:
+		toobig = uint(dictLen) > math.MaxUint32
+	case arrow.INT32:
+		toobig = dictLen > math.MaxInt32
+	case arrow.UINT64:
+		toobig = uint64(dictLen) > uint64(math.MaxUint64)
+	case arrow.INT64:
+	default:
+		return nil, fmt.Errorf("arrow/array: invalid dictionary index type: %s, must be integral", indexType)
+	}
+	if toobig {
+		return nil, errors.New("arrow/array: cannot combine dictionaries. unified dictionary requires a larger index type")
+	}
+
+	dictData, err := GetDictArrayData(u.mem, arrow.BinaryTypes.Binary, u.memoTable, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	u.memoTable.Reset()
+
+	defer dictData.Release()
+	return MakeFromData(dictData), nil
+}
+
 func unifyRecursive(mem memory.Allocator, typ arrow.DataType, chunks []*Data) (changed bool, err error) {
 	debug.Assert(len(chunks) != 0, "must provide non-zero length chunk slice")
 	var extType arrow.DataType
