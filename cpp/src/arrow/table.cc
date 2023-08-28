@@ -30,6 +30,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/array/util.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/cast.h"
 #include "arrow/pretty_print.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
@@ -38,14 +39,9 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-// Get ARROW_COMPUTE definition
-#include "arrow/util/config.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/vector.h"
 
-#ifdef ARROW_COMPUTE
-#include "arrow/compute/cast.h"
-#endif
 
 namespace arrow {
 
@@ -515,7 +511,6 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
       continue;
     }
 
-#ifdef ARROW_COMPUTE
     if (!compute::CanCast(*current_field->type(), *field->type())) {
       return Status::TypeError("Unable to promote field ", field->name(),
                                ": incompatible types: ", field->type()->ToString(),
@@ -525,13 +520,6 @@ Result<std::shared_ptr<Table>> PromoteTableToSchema(const std::shared_ptr<Table>
     ARROW_ASSIGN_OR_RAISE(auto casted, compute::Cast(table->column(field_index),
                                                      field->type(), options, &ctx));
     columns.push_back(casted.chunked_array());
-#else
-    return Status::Invalid("Unable to promote field ", field->name(),
-                           ": incompatible types: ", field->type()->ToString(), " vs ",
-                           current_field->type()->ToString(),
-                           " (Arrow must be built with ARROW_COMPUTE "
-                           "in order to cast incompatible types)");
-#endif
   }
 
   auto unseen_field_iter = std::find(fields_seen.begin(), fields_seen.end(), false);

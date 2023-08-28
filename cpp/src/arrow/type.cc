@@ -483,13 +483,19 @@ Result<std::shared_ptr<DataType>> MaybeMergeNumericTypes(
                                         is_signed_integer(other_type->id())) ||
                                        (is_signed_integer(promoted_type->id()) &&
                                         is_unsigned_integer(other_type->id())))) {
+
+    if (is_signed_integer(promoted_type->id()) && is_unsigned_integer(other_type->id())) {
+      // Other type is always the signed int
+      promoted_type.swap(other_type);
+    }
+
     if (!options.promote_numeric_width &&
-        bit_width(promoted_type->id()) != bit_width(other_type->id())) {
+        bit_width(promoted_type->id()) < bit_width(other_type->id())) {
       return Status::TypeError(
-          "Cannot widen (un)signed integers without promote_numeric_width=true");
+          "Cannot widen signed integers without promote_numeric_width=true");
     }
     const int max_width =
-        std::max<int>(bit_width(promoted_type->id()), bit_width(other_type->id()));
+        std::max<int>(1 + bit_width(promoted_type->id()), bit_width(other_type->id()));
 
     if (max_width >= 64) {
       promoted_type = int64();

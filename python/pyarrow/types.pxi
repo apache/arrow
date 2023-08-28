@@ -3216,7 +3216,7 @@ def unify_schemas(schemas, *, options=None):
     schemas : list of Schema
         Schemas to merge into a single one.
     options : FieldMergeOptions or string, optional
-        Options for merging duplicate fields.
+        Options for merging fields with the same name (which type to promote to).
         When passing in a string, it should be default or permissive
 
     Returns
@@ -3245,7 +3245,7 @@ def unify_schemas(schemas, *, options=None):
         else:
             raise ValueError(f"Invalid merge option: {options}")
 
-    elif c_options:
+    elif options:
         c_options = (<FieldMergeOptions> options).c_options
     else:
         c_options = CField.CMergeOptions.Defaults()

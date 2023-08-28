@@ -421,11 +421,19 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
 
     /// Allow an integer of a given bit width to be promoted to a
     /// float; the result will be a float of an equal or greater bit
-    /// width to both of the inputs.
+    /// width to both of the inputs. Examples:
+    ///  - int8 + float32 = float32
+    ///  - int32 + float32 = float64
+    ///  - int32 + float64 = float64
+    /// Because an int32 cannot always be represented exactly in the
+    /// 24 bits of a float32 mantissa.
     bool promote_integer_to_float = false;
 
     /// Allow an unsigned integer of a given bit width to be promoted
-    /// to a signed integer of the equal or greater bit width.
+    /// to a signed integer that fits into the signed type:
+    /// uint + int16 = int16
+    /// When widening is needed, set promote_numeric_width to true:
+    /// uint16 + int16 = int32
     bool promote_integer_sign = false;
 
     /// Allow an integer, float, or decimal of a given bit width to be
@@ -440,7 +448,8 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
     /// Second to millisecond, Time32 to Time64, Time32(SECOND) to Time32(MILLI), etc
     bool promote_temporal_unit = false;
 
-    /// Allow promotion from a list to a large-list
+    /// Allow promotion from a list to a large-list and from a fixed-size list to a
+    /// variable sized list
     bool promote_list = false;
 
     /// Unify dictionary index types and dictionary value types.
