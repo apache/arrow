@@ -1340,7 +1340,7 @@ def test_concat_tables_permissive():
     assert len(result) == 20
 
 
-def test_concat_tables_none_table():
+def test_concat_tables_invalid_option():
     t = pa.Table.from_arrays(list(range(10)), names=('a',))
 
     with pytest.raises(ValueError):
