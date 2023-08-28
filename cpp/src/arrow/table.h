@@ -23,18 +23,14 @@
 #include <vector>
 
 #include "arrow/chunked_array.h"  // IWYU pragma: keep
+#include "arrow/compute/cast.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
-// Get ARROW_COMPUTE definition
-#include "arrow/util/config.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
-#ifdef ARROW_COMPUTE
-#include "arrow/compute/cast.h"
-#endif
 
 namespace arrow {
 
