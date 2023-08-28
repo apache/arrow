@@ -109,7 +109,11 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// should be trivially constructible from it's device-specific counterparts.
   class ARROW_EXPORT Stream {
    public:
-    virtual const void* get_raw() const { return NULLPTR; }
+    using release_fn_t = void (*)(void*);
+
+    virtual ~Stream() = default;
+
+    virtual const void* get_raw() const { return stream_.get(); }
 
     /// \brief Make the stream wait on the provided event.
     ///
@@ -117,13 +121,37 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// event is completed without blocking the CPU.
     virtual Status WaitEvent(const SyncEvent&) = 0;
 
-    /// \brief Blocks until a stream's remaining tasks are completed
+    /// \brief Blocks the current thread until a stream's remaining tasks are completed
     virtual Status Synchronize() const = 0;
 
    protected:
-    Stream() = default;
-    virtual ~Stream() = default;
+    explicit Stream(void* stream, release_fn_t release_stream)
+        : stream_{stream, release_stream} {}
+
+    std::unique_ptr<void, release_fn_t> stream_;
   };
+
+  virtual Result<std::shared_ptr<Stream>> MakeStream() { return nullptr; }
+
+  /// \brief Create a new device stream
+  ///
+  /// This should create the appropriate stream type for the device,
+  /// derived from Device::Stream to allow for stream ordered events
+  /// and memory allocations.
+  virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
+    return nullptr;
+  };
+
+  /// @brief Wrap an existing device stream alongside a release function
+  ///
+  /// @param device_stream a pointer to the stream to wrap
+  /// @param release_fn a function to call during destruction, `nullptr` or
+  ///        a no-op function can be passed to indicate ownership is maintained
+  ///        externally
+  virtual Result<std::shared_ptr<Stream>> WrapStream(void* device_stream,
+                                                     Stream::release_fn_t release_fn) {
+    return nullptr;
+  }
 
   /// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
   class ARROW_EXPORT SyncEvent {
@@ -137,9 +165,11 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// @brief Block until sync event is completed.
     virtual Status Wait() = 0;
 
+    inline Status Record(const Stream& st) { return Record(st, 0); }
+
     /// @brief Record the wrapped event on the stream so it triggers
     /// the event when the stream gets to that point in its queue.
-    virtual Status Record(const Stream&) = 0;
+    virtual Status Record(const Stream&, const unsigned int flags) = 0;
 
    protected:
     /// If creating this with a passed in event, the caller must ensure
@@ -228,7 +258,7 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
 
   /// \brief Wrap an event into a SyncEvent.
   ///
-  /// @param sync_event passed in sync_event from the imported device array.
+  /// @param sync_event passed in sync_event (should be a CUevent*)
   /// @param release_sync_event destructor to free sync_event. `nullptr` may be
   ///        passed to indicate that no destruction/freeing is necessary
   virtual Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(

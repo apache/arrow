@@ -150,31 +150,50 @@ class ARROW_EXPORT CudaDevice : public Device {
   /// construction from literal 0 or nullptr.
   class ARROW_EXPORT Stream : public Device::Stream {
    public:
-    explicit Stream(std::shared_ptr<CudaContext> ctx) noexcept
-        : context_{std::move(ctx)}, stream_{} {}
-
     ~Stream() = default;
-    explicit Stream(std::shared_ptr<CudaContext> ctx, CUstream stream) noexcept
-        : context_{std::move(ctx)}, stream_{stream} {}
 
-    // disable construction from literal 0
-    explicit Stream(std::shared_ptr<CudaContext>, int) = delete;  // Prevent cast from 0
-    explicit Stream(std::shared_ptr<CudaContext>,
-                    std::nullptr_t) = delete;  // Prevent cast from nullptr
-
-    [[nodiscard]] constexpr CUstream value() const { return stream_; }
-    constexpr operator CUstream() const noexcept { return value(); }
-
-    const void* get_raw() const noexcept override {
-      return reinterpret_cast<void*>(stream_);
+    [[nodiscard]] inline CUstream value() const noexcept {
+      if (!stream_) {
+        return CUstream{};
+      }
+      return *reinterpret_cast<CUstream*>(stream_.get());
     }
+    operator CUstream() const noexcept { return value(); }
+
+    const void* get_raw() const noexcept override { return stream_.get(); }
     Status WaitEvent(const Device::SyncEvent&) override;
     Status Synchronize() const override;
 
+   protected:
+    friend class CudaDevice;
+
+    explicit Stream(std::shared_ptr<CudaContext> ctx, CUstream* st,
+                    Device::Stream::release_fn_t release_fn)
+        : Device::Stream(reinterpret_cast<void*>(st), release_fn),
+          context_{std::move(ctx)} {}
+
+    // disable construction from literal 0
+    explicit Stream(std::shared_ptr<CudaContext>, int,
+                    Device::Stream::release_fn_t) = delete;  // Prevent cast from 0
+    explicit Stream(std::shared_ptr<CudaContext>, std::nullptr_t,
+                    Device::Stream::release_fn_t) = delete;  // Prevent cast from nullptr
+
    private:
     std::shared_ptr<CudaContext> context_;
-    CUstream stream_{};
   };
+
+  Result<std::shared_ptr<Device::Stream>> MakeStream() override { return MakeStream(0); }
+
+  /// \brief Create a CUstream wrapper in the current context
+  Result<std::shared_ptr<Device::Stream>> MakeStream(unsigned int flags) override;
+
+  /// @brief Wrap a pointer to an existing stream
+  ///
+  /// @param device_stream passed in stream (should be a CUstream*)
+  /// @param release_fn destructor to free the stream. `nullptr` may be passed
+  ///        to indicate there is no destruction/freeing necessary.
+  Result<std::shared_ptr<Device::Stream>> WrapStream(
+      void* device_stream, Stream::release_fn_t release_fn) override;
 
   class ARROW_EXPORT SyncEvent : public Device::SyncEvent {
    public:
@@ -193,7 +212,7 @@ class ARROW_EXPORT CudaDevice : public Device {
     ///
     /// Once the stream completes the tasks previously added to it,
     /// it will trigger the event.
-    Status Record(const Device::Stream&) override;
+    Status Record(const Device::Stream&, const unsigned int) override;
 
    protected:
     friend class CudaMemoryManager;

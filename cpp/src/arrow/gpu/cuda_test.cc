@@ -219,12 +219,12 @@ TEST_F(TestCudaDevice, CreateSyncEvent) {
   ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
   ASSERT_TRUE(ev);
   auto cuda_ev = checked_pointer_cast<CudaDevice::SyncEvent>(ev);
-  ASSERT_EQ(CUDA_SUCCESS, cuEventQuery(*cuda_ev));
+  ASSERT_CUDA_OK(cuEventQuery(*cuda_ev));
 }
 
 TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
   // need a context to call cuEventCreate
-  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
 
   CUevent event;
   ASSERT_CUDA_OK(cuEventCreate(&event, CU_EVENT_DEFAULT));
@@ -247,33 +247,29 @@ TEST_F(TestCudaDevice, WrapDeviceSyncEvent) {
 }
 
 TEST_F(TestCudaDevice, DefaultStream) {
-  CudaDevice::Stream stream{context_};
+  ASSERT_OK_AND_ASSIGN(auto stream, device_->MakeStream());
   ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
 
-  ASSERT_OK(ev->Record(stream));
-  ASSERT_OK(stream.WaitEvent(*ev));
+  ASSERT_OK(ev->Record(*stream));
+  ASSERT_OK(stream->WaitEvent(*ev));
   ASSERT_OK(ev->Wait());
-  ASSERT_OK(stream.Synchronize());
+  ASSERT_OK(stream->Synchronize());
 }
 
 TEST_F(TestCudaDevice, ExplicitStream) {
   // need a context to call cuEventCreate
-  ContextSaver set_temporary((CUcontext)(context_.get()->handle()));
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
 
-  CUstream cu_stream;
-  ASSERT_CUDA_OK(cuStreamCreate(&cu_stream, CU_STREAM_NON_BLOCKING));
-
+  CUstream cu_stream = CU_STREAM_PER_THREAD;
   {
-    CudaDevice::Stream stream(context_, cu_stream);
+    ASSERT_OK_AND_ASSIGN(auto stream, device_->WrapStream(&cu_stream, nullptr));
     ASSERT_OK_AND_ASSIGN(auto ev, mm_->MakeDeviceSyncEvent());
 
-    ASSERT_OK(ev->Record(stream));
-    ASSERT_OK(stream.WaitEvent(*ev));
+    ASSERT_OK(ev->Record(*stream));
+    ASSERT_OK(stream->WaitEvent(*ev));
     ASSERT_OK(ev->Wait());
-    ASSERT_OK(stream.Synchronize());
+    ASSERT_OK(stream->Synchronize());
   }
-
-  ASSERT_CUDA_OK(cuStreamDestroy(cu_stream));
 }
 
 // ------------------------------------------------------------------------
