@@ -41,17 +41,9 @@ public class NativeDataset implements Dataset {
       throw new NativeInstanceReleasedException();
     }
     long scannerId = JniWrapper.get().createScanner(datasetId, options.getColumns().orElse(null),
-        options.getBatchSize(), context.getMemoryPool().getNativeInstanceId());
-    return new NativeScanner(context, scannerId);
-  }
+        options.getSubstraitExtendedExpression(), options.getBatchSize(),
+        context.getMemoryPool().getNativeInstanceId());
 
-  @Override
-  public synchronized NativeScanner newSubstraitScan(ScanOptions options) {
-    if (closed) {
-      throw new NativeInstanceReleasedException();
-    }
-    long scannerId = JniWrapper.get().createSubstraitScanner(datasetId, options.getSubstraitExtendedExpression(),
-        options.getBatchSize(), context.getMemoryPool().getNativeInstanceId());
     return new NativeScanner(context, scannerId);
   }
 

@@ -28,7 +28,9 @@ import org.apache.arrow.util.Preconditions;
 public class ScanOptions {
   private final Optional<String[]> columns;
   private final long batchSize;
-  private ByteBuffer substraitExtendedExpression;
+  private ByteBuffer projection;
+  private ByteBuffer filter;
+  private ByteBuffer projectionAndFilter;
 
   /**
    * Constructor.
@@ -60,18 +62,6 @@ public class ScanOptions {
     this.columns = columns;
   }
 
-  /**
-   * Constructor.
-   * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
-   * @param substraitExtendedExpression Extended expression to evaluate for project new columns or apply filter.
-   */
-  public ScanOptions(long batchSize, ByteBuffer substraitExtendedExpression) {
-    Preconditions.checkNotNull(substraitExtendedExpression);
-    this.batchSize = batchSize;
-    this.columns = Optional.empty();
-    this.substraitExtendedExpression = substraitExtendedExpression;
-  }
-
   public ScanOptions(long batchSize) {
     this(batchSize, Optional.empty());
   }
@@ -84,7 +74,105 @@ public class ScanOptions {
     return batchSize;
   }
 
+  private ByteBuffer getProjection() {
+    return projection;
+  }
+
+  private ByteBuffer getFilter() {
+    return filter;
+  }
+
+  private ByteBuffer getProjectionAndFilter() {
+    return projectionAndFilter;
+  }
+
+  /**
+   * To evaluate what option was used to define Substrait Extended Expression (Project/Filter).
+   *
+   * @return Substrait Extended Expression configured for project new columns and/or apply filter
+   */
   public ByteBuffer getSubstraitExtendedExpression() {
-    return substraitExtendedExpression;
+    if (getProjection() != null) {
+      return getProjection();
+    } else if (getFilter() != null) {
+      return getFilter();
+    } else if (getProjectionAndFilter() != null) {
+      return getProjectionAndFilter();
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Builder for Options used during scanning.
+   */
+  public static class Builder {
+    private final long batchSize;
+    private final Optional<String[]> columns;
+    private ByteBuffer projection;
+    private ByteBuffer filter;
+    private ByteBuffer projectionAndFilter;
+
+    /**
+     * Constructor.
+     * @param batchSize Maximum row number of each returned {@link org.apache.arrow.vector.ipc.message.ArrowRecordBatch}
+     * @param columns (Optional) Projected columns. {@link Optional#empty()} for scanning all columns. Otherwise,
+     *                Only columns present in the Array will be scanned.
+     */
+    public Builder(long batchSize, Optional<String[]> columns) {
+      Preconditions.checkNotNull(columns);
+      this.batchSize = batchSize;
+      this.columns = columns;
+    }
+
+    /**
+     * Set the Substrait extended expression.
+     *
+     * <p>Can be used to filter data and/or project new columns.
+     *
+     * @param substraitExtendedExpression (Optional) Expressions to evaluate to projects new columns or applies filter.
+     * @return the ScanOptions configured.
+     */
+    public Builder projectionAndFilter(ByteBuffer substraitExtendedExpression) {
+      Preconditions.checkNotNull(substraitExtendedExpression);
+      this.projectionAndFilter = substraitExtendedExpression;
+      return this;
+    }
+
+    /**
+     * Set the Substrait extended expression for Projection new columns.
+     *
+     * @param substraitExtendedExpression (Optional) Expressions to evaluate for Project new columns.
+     * @return the ScanOptions configured.
+     */
+    public Builder projection(ByteBuffer substraitExtendedExpression) {
+      Preconditions.checkNotNull(substraitExtendedExpression);
+      this.projection = substraitExtendedExpression;
+      return this;
+    }
+
+    /**
+     * Set the Substrait extended expression for Filter.
+     *
+     * @param substraitExtendedExpression (Optional) Expressions to evaluate for applies Filter.
+     * @return the ScanOptions configured.
+     */
+    public Builder filter(ByteBuffer substraitExtendedExpression) {
+      Preconditions.checkNotNull(substraitExtendedExpression);
+      this.filter = substraitExtendedExpression;
+      return this;
+    }
+
+    public ScanOptions build() {
+      return new ScanOptions(this);
+    }
+  }
+
+  private ScanOptions(Builder builder) {
+    columns = builder.columns;
+    batchSize = builder.batchSize;
+    projection = builder.projection;
+    filter = builder.filter;
+    projectionAndFilter = builder.projectionAndFilter;
   }
 }

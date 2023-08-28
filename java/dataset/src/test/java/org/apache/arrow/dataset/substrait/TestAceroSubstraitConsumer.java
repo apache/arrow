@@ -27,6 +27,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.arrow.dataset.ParquetWriteSupport;
 import org.apache.arrow.dataset.TestDataset;
@@ -229,12 +230,13 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
             11, "value_11", 21, "value_21", 45, "value_45");
-    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, substraitExtendedExpressions);
+    ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768, Optional.empty())
+        .projectionAndFilter(substraitExtendedExpressions).build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
         Dataset dataset = datasetFactory.finish();
-        Scanner scanner = dataset.newSubstraitScan(options);
+        Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
@@ -272,12 +274,13 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1", 11,
             "value_11", 21, "value_21", 45, "value_45");
-    ScanOptions options = new ScanOptions(/*batchSize*/ 32768, substraitExtendedExpressions);
+    ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768, Optional.empty())
+        .projectionAndFilter(substraitExtendedExpressions).build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
         Dataset dataset = datasetFactory.finish();
-        Scanner scanner = dataset.newSubstraitScan(options);
+        Scanner scanner = dataset.newScan(options);
         ArrowReader reader = scanner.scanBatches()
     ) {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());

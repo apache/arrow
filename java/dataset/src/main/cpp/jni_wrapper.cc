@@ -467,8 +467,8 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  * Signature: (J[Ljava/lang/String;JJ)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
-    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jlong batch_size,
-    jlong memory_pool_id) {
+    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns,
+    jobject substrait_extended_expression, jlong batch_size, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
@@ -483,37 +483,9 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
-  JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
-
-  auto scanner = JniGetOrThrow(scanner_builder->Finish());
-  std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
-      JniGetOrThrow(DisposableScannerAdaptor::Create(scanner));
-  jlong id = CreateNativeRef(scanner_adaptor);
-  return id;
-  JNI_METHOD_END(-1L)
-}
-
-/*
- * Class:     org_apache_arrow_dataset_jni_JniWrapper
- * Method:    createSubstraitScanner
- * Signature: (JLjava/nio/ByteBuffer;JJ)J
- */
-JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createSubstraitScanner(
-    JNIEnv* env, jobject, jlong dataset_id, jobject substrait_expr_produce_or_filter, jlong batch_size,
-    jlong memory_pool_id) {
-  JNI_METHOD_START
-  arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
-  if (pool == nullptr) {
-    JniThrow("Memory pool does not exist or has been closed");
-  }
-  std::shared_ptr<arrow::dataset::Dataset> dataset =
-      RetrieveNativeInstance<arrow::dataset::Dataset>(dataset_id);
-  std::shared_ptr<arrow::dataset::ScannerBuilder> scanner_builder =
-      JniGetOrThrow(dataset->NewScan());
-  JniAssertOkOrThrow(scanner_builder->Pool(pool));
-  if (substrait_expr_produce_or_filter != nullptr) {
+  if (substrait_extended_expression != nullptr) {
     std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
-                                                            substrait_expr_produce_or_filter);
+                                                            substrait_extended_expression);
     std::vector<arrow::compute::Expression> project_exprs;
     std::vector<std::string> project_names;
     std::optional<arrow::compute::Expression> filter_expr;
@@ -535,6 +507,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createSubst
     JniAssertOkOrThrow(scanner_builder->Filter(*filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
+
   auto scanner = JniGetOrThrow(scanner_builder->Finish());
   std::shared_ptr<DisposableScannerAdaptor> scanner_adaptor =
       JniGetOrThrow(DisposableScannerAdaptor::Create(scanner));

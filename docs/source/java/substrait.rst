@@ -149,6 +149,7 @@ This Java program:
     import java.util.Base64;
     import java.util.HashMap;
     import java.util.List;
+    import java.util.Optional;
 
     public class ClientSubstraitExtendedExpressionsCookbook {
         public static void main(String[] args) throws Exception {
@@ -161,16 +162,18 @@ This Java program:
             projectAndFilterDataset(binaryExtendedExpressions);
         }
 
-        public static void projectAndFilterDataset(ByteBuffer binaryExtendedExpressions) {
+        public static void projectAndFilterDataset(ByteBuffer substraitExtendedExpressions) {
             String uri = "file:///Users/dsusanibar/data/tpch_parquet/nation.parquet";
-            ScanOptions options = new ScanOptions(/*batchSize*/ 32768, binaryExtendedExpressions);
+            ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768,
+                    Optional.empty())
+                    .projectionAndFilter(substraitExtendedExpressions).build();
             try (
                     BufferAllocator allocator = new RootAllocator();
                     DatasetFactory datasetFactory = new FileSystemDatasetFactory(
                             allocator, NativeMemoryPool.getDefault(),
                             FileFormat.PARQUET, uri);
                     Dataset dataset = datasetFactory.finish();
-                    Scanner scanner = dataset.newSubstraitScan(options);
+                    Scanner scanner = dataset.newScan(options);
                     ArrowReader reader = scanner.scanBatches()
             ) {
                 while (reader.loadNextBatch()) {
