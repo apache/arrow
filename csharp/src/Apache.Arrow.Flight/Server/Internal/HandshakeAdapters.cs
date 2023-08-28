@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one or more
+// Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements. See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
 // The ASF licenses this file to You under the Apache License, Version 2.0
@@ -13,16 +13,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Threading.Tasks;
 using Apache.Arrow.Flight.Protocol;
-using Apache.Arrow.Flight.Internal;
 using Grpc.Core;
 
-namespace Apache.Arrow.Flight.Client
+namespace Apache.Arrow.Flight.Server.Internal;
+
+internal class FlightHandshakeStreamWriterAdapter : IClientStreamWriter<FlightHandshakeRequest>
 {
-    public class FlightClientRecordBatchStreamReader : FlightRecordBatchStreamReader
+    private readonly IClientStreamWriter<HandshakeRequest> _writeStream;
+
+    public FlightHandshakeStreamWriterAdapter(IClientStreamWriter<HandshakeRequest> writeStream)
     {
-        internal FlightClientRecordBatchStreamReader(IAsyncStreamReader<Protocol.FlightData> flightDataStream) : base(flightDataStream)
-        {
-        }
+        _writeStream = writeStream;
     }
+
+    public Task WriteAsync(FlightHandshakeRequest message) => _writeStream.WriteAsync(message.ToProtocol());
+
+    public WriteOptions WriteOptions
+    {
+        get => _writeStream.WriteOptions;
+        set => _writeStream.WriteOptions = value;
+    }
+
+    public Task CompleteAsync() => _writeStream.CompleteAsync();
 }

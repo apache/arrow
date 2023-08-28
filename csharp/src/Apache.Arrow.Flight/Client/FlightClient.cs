@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Apache.Arrow.Flight.Internal;
 using Apache.Arrow.Flight.Protocol;
+using Apache.Arrow.Flight.Server;
+using Apache.Arrow.Flight.Server.Internal;
 using Grpc.Core;
 using Grpc.Net.Client;
 
@@ -91,6 +91,22 @@ namespace Apache.Arrow.Flight.Client
                 channels.GetStatus,
                 channels.GetTrailers,
                 channels.Dispose);
+        }
+
+        public AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse> Handshake(Metadata headers = null)
+        {
+            var channel = _client.Handshake(headers);
+            var readStream = new StreamReader<HandshakeResponse, FlightHandshakeResponse>(channel.ResponseStream, response => new FlightHandshakeResponse(response));
+            var writeStream = new FlightHandshakeStreamWriterAdapter(channel.RequestStream);
+            var call = new AsyncDuplexStreamingCall<FlightHandshakeRequest, FlightHandshakeResponse>(
+                writeStream,
+                readStream,
+                channel.ResponseHeadersAsync,
+                channel.GetStatus,
+                channel.GetTrailers,
+                channel.Dispose);
+
+            return call;
         }
 
         public AsyncServerStreamingCall<FlightResult> DoAction(FlightAction action, Metadata headers = null)
