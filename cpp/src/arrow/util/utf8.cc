@@ -192,4 +192,4 @@ Result<std::u16string> UTF8StringToUTF16(std::string_view source) {
   }
 }
 
-} // namespace arrow::util
+}  // namespace arrow::util

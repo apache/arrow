@@ -280,5 +280,5 @@ std::unique_ptr<Codec> MakeBZ2Codec(int compression_level) {
   return std::make_unique<BZ2Codec>(compression_level);
 }
 
-} // namespace arrow::util::internal
+}  // namespace arrow::util::internal
 

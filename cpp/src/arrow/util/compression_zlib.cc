@@ -517,4 +517,4 @@ std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat format,
                                      window_bits.value_or(kGZipDefaultWindowBits));
 }
 
-} // namespace arrow::util::internal
+}  // namespace arrow::util::internal
