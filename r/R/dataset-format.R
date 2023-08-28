@@ -76,9 +76,10 @@ FileFormat <- R6Class("FileFormat",
 )
 FileFormat$create <- function(format, schema = NULL, ...) {
   opt_names <- names(list(...))
-  if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
+  if (format %in% c("csv", "text", "txt") || any(opt_names %in% c("delim", "delimiter"))) {
     CsvFileFormat$create(schema = schema, ...)
   } else if (format == "tsv") {
+    # This delimiter argument is ignored.
     CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
@@ -635,7 +636,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             "codec",
             "null_fallback"
           )
-        } else if (format == "csv") {
+        } else if (format %in% c("csv", "tsv", "txt", "text")) {
           supported_args <- c(
             names(formals(CsvWriteOptions$create)),
             names(formals(readr_to_csv_write_options))
@@ -691,14 +692,20 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             get_ipc_metadata_version(args$metadata_version)
           )
         }
-      } else if (self$type == "csv") {
+      } else if (self$type %in% c("csv", "tsv", "txt", "text")) {
         arrow_opts <- names(formals(CsvWriteOptions$create))
         readr_opts <- names(formals(readr_to_csv_write_options))
         readr_only_opts <- setdiff(readr_opts, arrow_opts)
+        arrow_only_opts <- setdiff(arrow_opts, readr_opts)
 
-        is_arrow_opt <- !is.na(pmatch(names(args), arrow_opts))
-        is_readr_opt <- !is.na(pmatch(names(args), readr_opts))
-        is_readr_only_opt <- !is.na(pmatch(names(args), readr_only_opts))
+        is_arrow_opt <- !is.na(match(names(args), arrow_opts))
+        is_readr_opt <- !is.na(match(names(args), readr_opts))
+        is_arrow_only_opt <- !is.na(match(names(args), arrow_only_opts))
+        is_readr_only_opt <- !is.na(match(names(args), readr_only_opts))
+
+        if (any(is_arrow_only_opt) && any(is_readr_only_opt)) {
+          stop("Use either Arrow write options or readr write options, not both")
+        }
 
         # These option names aren't mutually exclusive, so only use readr path
         # if we have at least one readr-specific option.

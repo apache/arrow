@@ -13,18 +13,18 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef UInt16Traits < arrow.type.traits.TypeTraits
+classdef Time64Traits < arrow.type.traits.TypeTraits
 
     properties (Constant)
-        ArrayConstructor = @arrow.array.UInt16Array
-        ArrayClassName = "arrow.array.UInt16Array"
-        ArrayProxyClassName = "arrow.array.proxy.UInt16Array"
-        ArrayStaticConstructor = @arrow.array.UInt16Array.fromMATLAB
-        TypeConstructor = @arrow.type.UInt16Type
-        TypeClassName = "arrow.type.UInt16Type"
-        TypeProxyClassName = "arrow.type.proxy.UInt16Type"
-        MatlabConstructor = @uint16
-        MatlabClassName = "uint16"
+        ArrayConstructor = @arrow.array.Time64Array
+        ArrayClassName = "arrow.array.Time64Array"
+        ArrayProxyClassName = "arrow.array.proxy.Time64Array"
+        ArrayStaticConstructor = @arrow.array.Time64Array.fromMATLAB
+        TypeConstructor = @arrow.type.Time64Type;
+        TypeClassName = "arrow.type.Time64Type"
+        TypeProxyClassName = "arrow.type.proxy.Time64Type"
+        MatlabConstructor = @duration
+        MatlabClassName = "duration"
     end
 
 end
