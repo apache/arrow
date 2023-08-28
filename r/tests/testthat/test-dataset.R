@@ -1440,8 +1440,9 @@ test_that("can add in augmented fields", {
 
   error_regex <- paste(
     "`add_filename()` or use of the `__filename` augmented field can only",
-    "be used with with Dataset objects, and can only be added before doing",
-    "an aggregation or a join."
+    "be used with Dataset objects, can only be added before doing",
+    "an aggregation or a join, and cannot be referenced in subsequent",
+    "pipeline steps until either compute() or collect() is called."
   )
 
   # errors appropriately with ArrowTabular objects
@@ -1514,5 +1515,19 @@ test_that("can add in augmented fields", {
   expect_equal(
     sort(summarise_after$file),
     list.files(hive_dir, full.names = TRUE, recursive = TRUE)
+  )
+})
+
+test_that("can set thrift size string and container limits for datasets", {
+  expect_r6_class(open_dataset(dataset_dir, thrift_string_size_limit = 1000000), "FileSystemDataset")
+  expect_error(
+    open_dataset(dataset_dir, thrift_string_size_limit = 1),
+    "TProtocolException: Exceeded size limit"
+  )
+
+  expect_r6_class(open_dataset(dataset_dir, thrift_container_size_limit = 1000000), "FileSystemDataset")
+  expect_error(
+    open_dataset(dataset_dir, thrift_container_size_limit = 1),
+    "TProtocolException: Exceeded size limit"
   )
 })

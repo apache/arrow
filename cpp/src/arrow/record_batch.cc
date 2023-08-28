@@ -218,8 +218,25 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
               array->data()->child_data);
 }
 
+namespace {
+
+Status ValidateColumnLength(const RecordBatch& batch, int i) {
+  const auto& array = *batch.column(i);
+  if (ARROW_PREDICT_FALSE(array.length() != batch.num_rows())) {
+    return Status::Invalid("Number of rows in column ", i,
+                           " did not match batch: ", array.length(), " vs ",
+                           batch.num_rows());
+  }
+  return Status::OK();
+}
+
+}  // namespace
+
 Result<std::shared_ptr<StructArray>> RecordBatch::ToStructArray() const {
   if (num_columns() != 0) {
+    // Only check the first column because `StructArray::Make` already checks that the
+    // child lengths are equal.
+    RETURN_NOT_OK(ValidateColumnLength(*this, 0));
     return StructArray::Make(columns(), schema()->fields());
   }
   return std::make_shared<StructArray>(arrow::struct_({}), num_rows_,
@@ -301,12 +318,8 @@ namespace {
 
 Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
   for (int i = 0; i < batch.num_columns(); ++i) {
+    RETURN_NOT_OK(ValidateColumnLength(batch, i));
     const auto& array = *batch.column(i);
-    if (array.length() != batch.num_rows()) {
-      return Status::Invalid("Number of rows in column ", i,
-                             " did not match batch: ", array.length(), " vs ",
-                             batch.num_rows());
-    }
     const auto& schema_type = batch.schema()->field(i)->type();
     if (!array.type()->Equals(schema_type)) {
       return Status::Invalid("Column ", i,

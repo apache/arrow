@@ -252,16 +252,26 @@ class ARROW_FLIGHT_EXPORT FlightServerBase {
   /// \brief Retrieve the schema and an access plan for the indicated
   /// descriptor
   /// \param[in] context The call context.
-  /// \param[in] request may be null
+  /// \param[in] request the dataset request, whether a named dataset or command
   /// \param[out] info the returned flight info provider
   /// \return Status
   virtual Status GetFlightInfo(const ServerCallContext& context,
                                const FlightDescriptor& request,
                                std::unique_ptr<FlightInfo>* info);
 
+  /// \brief Retrieve the current status of the target query
+  /// \param[in] context The call context.
+  /// \param[in] request the dataset request or a descriptor returned by a
+  /// prioir PollFlightInfo call
+  /// \param[out] info the returned retry info provider
+  /// \return Status
+  virtual Status PollFlightInfo(const ServerCallContext& context,
+                                const FlightDescriptor& request,
+                                std::unique_ptr<PollInfo>* info);
+
   /// \brief Retrieve the schema for the indicated descriptor
   /// \param[in] context The call context.
-  /// \param[in] request may be null
+  /// \param[in] request the dataset request, whether a named dataset or command
   /// \param[out] schema the returned flight schema provider
   /// \return Status
   virtual Status GetSchema(const ServerCallContext& context,

@@ -49,6 +49,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/string.h"
 
@@ -1707,6 +1708,10 @@ class AsofJoinNode : public ExecNode {
   }
 
   Status StartProducing() override {
+#ifndef ARROW_ENABLE_THREADING
+    return Status::NotImplemented("ASOF join requires threading enabled");
+#endif
+
     ARROW_ASSIGN_OR_RAISE(process_task_, plan_->query_context()->BeginExternalTask(
                                              "AsofJoinNode::ProcessThread"));
     if (!process_task_.is_valid()) {

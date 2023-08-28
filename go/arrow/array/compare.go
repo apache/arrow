@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/float16"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/float16"
+	"github.com/apache/arrow/go/v14/internal/bitutils"
 )
 
 // RecordEqual reports whether the two provided records are equal.

@@ -37,19 +37,23 @@
 namespace arrow {
 namespace compute {
 
-constexpr static std::array<const char*, 6> kCumulativeFunctionNames{
+static const std::vector<std::string> kCumulativeFunctionNames{
     "cumulative_sum",          "cumulative_sum_checked", "cumulative_prod",
-    "cumulative_prod_checked", "cumulative_min",         "cumulative_max"};
+    "cumulative_prod_checked", "cumulative_min",         "cumulative_max",
+    "cumulative_mean"};
 
 TEST(TestCumulative, Empty) {
   for (auto function : kCumulativeFunctionNames) {
     CumulativeOptions options;
     for (auto ty : NumericTypes()) {
+      auto return_ty = std::string(function) == "cumulative_mean" ? float64() : ty;
       auto empty_arr = ArrayFromJSON(ty, "[]");
+      auto expected_arr = ArrayFromJSON(return_ty, "[]");
       auto empty_chunked = ChunkedArrayFromJSON(ty, {"[]"});
-      CheckVectorUnary(function, empty_arr, empty_arr, &options);
+      auto expected_chunked = ChunkedArrayFromJSON(return_ty, {"[]"});
+      CheckVectorUnary(function, empty_arr, expected_arr, &options);
 
-      CheckVectorUnary(function, empty_chunked, empty_chunked, &options);
+      CheckVectorUnary(function, empty_chunked, expected_chunked, &options);
     }
   }
 }
@@ -58,14 +62,19 @@ TEST(TestCumulative, AllNulls) {
   for (auto function : kCumulativeFunctionNames) {
     CumulativeOptions options;
     for (auto ty : NumericTypes()) {
+      auto return_ty = std::string(function) == "cumulative_mean" ? float64() : ty;
       auto nulls_arr = ArrayFromJSON(ty, "[null, null, null]");
+      auto expected_arr = ArrayFromJSON(return_ty, "[null, null, null]");
       auto nulls_one_chunk = ChunkedArrayFromJSON(ty, {"[null, null, null]"});
+      auto expected_one_chunk = ChunkedArrayFromJSON(return_ty, {"[null, null, null]"});
       auto nulls_three_chunks = ChunkedArrayFromJSON(ty, {"[null]", "[null]", "[null]"});
-      CheckVectorUnary(function, nulls_arr, nulls_arr, &options);
+      auto expected_three_chunks =
+          ChunkedArrayFromJSON(return_ty, {"[null]", "[null]", "[null]"});
+      CheckVectorUnary(function, nulls_arr, expected_arr, &options);
 
-      CheckVectorUnary(function, nulls_one_chunk, nulls_one_chunk, &options);
+      CheckVectorUnary(function, nulls_one_chunk, expected_one_chunk, &options);
 
-      CheckVectorUnary(function, nulls_three_chunks, nulls_one_chunk, &options);
+      CheckVectorUnary(function, nulls_three_chunks, expected_one_chunk, &options);
     }
   }
 }
@@ -810,6 +819,72 @@ TEST(TestCumulativeMin, NoStartDoSkip) {
   }
 }
 
+TEST(TestCumulativeMean, NoSkip) {
+  CumulativeOptions options(false);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_mean", ArrayFromJSON(ty, "[5, 6, 4, 2, 3, 1]"),
+                     ArrayFromJSON(float64(), "[5, 5.5, 5, 4.25, 4, 3.5]"), &options);
+
+    CheckVectorUnary("cumulative_mean", ArrayFromJSON(ty, "[5, 6, null, 2, null, 1]"),
+                     ArrayFromJSON(float64(), "[5, 5.5, null, null, null, null]"),
+                     &options);
+
+    CheckVectorUnary("cumulative_mean", ArrayFromJSON(ty, "[null, 6, null, 2, null, 1]"),
+                     ArrayFromJSON(float64(), "[null, null, null, null, null, null]"),
+                     &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ChunkedArrayFromJSON(ty, {"[5, 6, 4]", "[2, 3, 1]"}),
+        ChunkedArrayFromJSON(float64(), {"[5, 5.5, 5, 4.25, 4, 3.5]"}), &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ChunkedArrayFromJSON(ty, {"[5, 6, null]", "[2, null, 1]"}),
+        ChunkedArrayFromJSON(float64(), {"[5, 5.5, null, null, null, null]"}), &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ChunkedArrayFromJSON(ty, {"[null, 6, null]", "[2, null, 1]"}),
+        ChunkedArrayFromJSON(float64(), {"[null, null, null, null, null, null]"}),
+        &options);
+  }
+}
+
+TEST(TestCumulativeMean, DoSkip) {
+  CumulativeOptions options(true);
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_mean", ArrayFromJSON(ty, "[5, 6, 4, 2, 3, 1]"),
+                     ArrayFromJSON(float64(), "[5, 5.5, 5, 4.25, 4, 3.5]"), &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ArrayFromJSON(ty, "[5, 6, null, 2, null, 1]"),
+        ArrayFromJSON(float64(), "[5, 5.5, null, 4.333333333333333, null, 3.5]"),
+        &options);
+
+    CheckVectorUnary("cumulative_mean", ArrayFromJSON(ty, "[null, 6, null, 2, null, 1]"),
+                     ArrayFromJSON(float64(), "[null, 6, null, 4, null, 3]"), &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ChunkedArrayFromJSON(ty, {"[5, 6, 4]", "[2, 3, 1]"}),
+        ChunkedArrayFromJSON(float64(), {"[5, 5.5, 5, 4.25, 4, 3.5]"}), &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ChunkedArrayFromJSON(ty, {"[5, 6, null]", "[2, null, 1]"}),
+        ChunkedArrayFromJSON(float64(), {"[5, 5.5, null, 4.333333333333333, null, 3.5]"}),
+        &options);
+
+    CheckVectorUnary(
+        "cumulative_mean", ChunkedArrayFromJSON(ty, {"[null, 6, null]", "[2, null, 1]"}),
+        ChunkedArrayFromJSON(float64(), {"[null, 6, null, 4, null, 3]"}), &options);
+  }
+}
+
+TEST(TestCumulativeMean, StartValue) {
+  CumulativeOptions options(3, true);  // start should be ignored
+  for (auto ty : NumericTypes()) {
+    CheckVectorUnary("cumulative_mean", ArrayFromJSON(ty, "[5, 6, 4, 2, 3, 1]"),
+                     ArrayFromJSON(float64(), "[5, 5.5, 5, 4.25, 4, 3.5]"), &options);
+  }
+}
+
 TEST(TestCumulativeSum, ConvenienceFunctionCheckOverflow) {
   ASSERT_ARRAYS_EQUAL(*CumulativeSum(ArrayFromJSON(int8(), "[127, 1]"),
                                      CumulativeOptions::Defaults(), false)
@@ -846,6 +921,13 @@ TEST(TestCumulativeMin, ConvenienceFunction) {
       *ArrayFromJSON(int8(), "[-1, -2, -3]"));
 }
 
+TEST(TestCumulativeMean, ConvenienceFunction) {
+  ASSERT_ARRAYS_EQUAL(*CumulativeMean(ArrayFromJSON(int8(), "[-1, -2, -3]"),
+                                      CumulativeOptions::Defaults())
+                           ->make_array(),
+                      *ArrayFromJSON(float64(), "[-1, -1.5, -2]"));
+}
+
 TEST(TestCumulative, NaN) {
   // addition with NaN is always NaN
   CheckVectorUnary("cumulative_sum", ArrayFromJSON(float64(), "[1, 2, NaN, 4, 5]"),
@@ -862,6 +944,10 @@ TEST(TestCumulative, NaN) {
   // min with NaN is always ignored because Nan < a always returns false
   CheckVectorUnary("cumulative_min", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
                    ArrayFromJSON(float64(), "[5, 4, 4, 2, 1]"));
+
+  // mean with NaN is always Nan
+  CheckVectorUnary("cumulative_mean", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
+                   ArrayFromJSON(float64(), "[5, 4.5, NaN, NaN, NaN]"));
 }
 }  // namespace compute
 }  // namespace arrow

@@ -413,6 +413,31 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   ASSERT_EQ(empty->num_rows(), 0);
 }
 
+// See: https://github.com/apache/arrow/issues/35450
+TEST_F(TestRecordBatch, ToStructArrayMismatchedColumnLengths) {
+  constexpr int kNumRows = 5;
+  FieldVector fields = {field("x", int64()), field("y", int64())};
+  ArrayVector columns = {
+      ArrayFromJSON(int64(), "[0, 1, 2, 3, 4]"),
+      ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"),
+  };
+
+  // Sanity check
+  auto batch = RecordBatch::Make(schema({fields[0]}), kNumRows, {columns[0]});
+  ASSERT_OK_AND_ASSIGN(auto array, batch->ToStructArray());
+  ASSERT_EQ(array->length(), kNumRows);
+
+  // One column with a mismatched length
+  batch = RecordBatch::Make(schema({fields[1]}), kNumRows, {columns[1]});
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+  // Mix of columns with matching and non-matching lengths
+  batch = RecordBatch::Make(schema(fields), kNumRows, columns);
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+  std::swap(columns[0], columns[1]);
+  batch = RecordBatch::Make(schema(fields), kNumRows, columns);
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+}
+
 class TestRecordBatchReader : public ::testing::Test {
  public:
   void SetUp() override { MakeBatchesAndReader(100); }

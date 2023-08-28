@@ -199,6 +199,15 @@ cdef class DataType(_Weakrefable):
         self.pep3118_format = _datatype_to_pep3118(self.type)
 
     cpdef Field field(self, i):
+        """
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        pyarrow.Field
+        """
         if not isinstance(i, int):
             raise TypeError(f"Expected int index, got type '{type(i)}'")
         cdef int index = <int> _normalize_index(i, self.type.num_fields())
@@ -1886,6 +1895,15 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return self.wrapped
 
     def equals(self, KeyValueMetadata other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.KeyValueMetadata
+
+        Returns
+        -------
+        bool
+        """
         return self.metadata.Equals(deref(other.wrapped))
 
     def __repr__(self):
@@ -1925,9 +1943,27 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
         return KeyValueMetadata, (list(self.items()),)
 
     def key(self, i):
+        """
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        byte
+        """
         return self.metadata.key(i)
 
     def value(self, i):
+        """
+        Parameters
+        ----------
+        i : int
+
+        Returns
+        -------
+        byte
+        """
         return self.metadata.value(i)
 
     def keys(self):
@@ -1943,6 +1979,15 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
             yield (self.metadata.key(i), self.metadata.value(i))
 
     def get_all(self, key):
+        """
+        Parameters
+        ----------
+        key : str
+
+        Returns
+        -------
+        list[byte]
+        """
         key = tobytes(key)
         return [v for k, v in self.items() if k == key]
 

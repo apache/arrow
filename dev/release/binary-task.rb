@@ -1785,7 +1785,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
           release_distribution(distribution,
                                list: uploaded_files_name)
 
-          # Remove old repodata
           distribution_dir = "#{yum_release_repositories_dir}/#{distribution}"
           download_distribution(distribution,
                                 distribution_dir,
@@ -1795,7 +1794,14 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                                              distribution: distribution,
                                              source: distribution_dir,
                                              staging: staging?,
-                                             sync: true,
+                                             # Don't remove old repodata for
+                                             # unsupported distribution version
+                                             # such as Amazon Linux 2.
+                                             # This keeps garbage in repodata/
+                                             # for currently available
+                                             # distribution versions but we
+                                             # accept it for easy to implement.
+                                             sync: false,
                                              sync_pattern: /\/repodata\//)
           uploader.upload
         end
