@@ -946,6 +946,10 @@ func (b *dictionaryBuilder) AppendArray(arr arrow.Array) error {
 	return nil
 }
 
+func (b *dictionaryBuilder) IndexBuilder() Builder {
+	return b.idxBuilder
+}
+
 func (b *dictionaryBuilder) AppendIndices(indices []int, valid []bool) {
 	b.length += len(indices)
 	switch idxbldr := b.idxBuilder.Builder.(type) {
