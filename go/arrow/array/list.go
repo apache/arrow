@@ -908,6 +908,350 @@ func (a *LargeListView) Release() {
 	a.values.Release()
 }
 
+type baseListViewBuilder struct {
+	builder
+
+	values  Builder // value builder for the list-view's elements.
+	offsets Builder
+	sizes   Builder
+
+	// actual list-view type
+	dt              arrow.DataType
+	appendOffsetVal func(int)
+	appendSizeVal   func(int)
+}
+
+type ListViewBuilder struct {
+	baseListViewBuilder
+}
+
+type LargeListViewBuilder struct {
+	baseListViewBuilder
+}
+
+// NewListViewBuilder returns a builder, using the provided memory allocator.
+// The created list-view builder will create a list whose elements will be
+// of type etype.
+func NewListViewBuilder(mem memory.Allocator, etype arrow.DataType) *ListViewBuilder {
+	offsetBldr := NewInt32Builder(mem)
+	sizeBldr := NewInt32Builder(mem)
+	return &ListViewBuilder{
+		baseListViewBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, etype),
+			offsets:         offsetBldr,
+			sizes:           sizeBldr,
+			dt:              arrow.ListViewOf(etype),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
+			appendSizeVal:   func(s int) { sizeBldr.Append(int32(s)) },
+		},
+	}
+}
+
+// NewListViewBuilderWithField takes a field to use for the child rather than just
+// a datatype to allow for more customization.
+func NewListViewBuilderWithField(mem memory.Allocator, field arrow.Field) *ListViewBuilder {
+	offsetBldr := NewInt32Builder(mem)
+	sizeBldr := NewInt32Builder(mem)
+	return &ListViewBuilder{
+		baseListViewBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			sizes:           sizeBldr,
+			dt:              arrow.ListViewOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int32(o)) },
+			appendSizeVal:   func(s int) { sizeBldr.Append(int32(s)) },
+		},
+	}
+}
+
+func (b *baseListViewBuilder) Type() arrow.DataType {
+	switch dt := b.dt.(type) {
+	case *arrow.ListViewType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.ListViewOfField(f)
+	case *arrow.LargeListViewType:
+		f := dt.ElemField()
+		f.Type = b.values.Type()
+		return arrow.LargeListViewOfField(f)
+	}
+	return nil
+}
+
+// NewLargeListViewBuilder returns a builder, using the provided memory allocator.
+// The created list-view builder will create a list whose elements will be of type etype.
+func NewLargeListViewBuilder(mem memory.Allocator, etype arrow.DataType) *LargeListViewBuilder {
+	offsetBldr := NewInt64Builder(mem)
+	sizeBldr := NewInt64Builder(mem)
+	return &LargeListViewBuilder{
+		baseListViewBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, etype),
+			offsets:         offsetBldr,
+			sizes:           sizeBldr,
+			dt:              arrow.LargeListViewOf(etype),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
+			appendSizeVal:   func(s int) { sizeBldr.Append(int64(s)) },
+		},
+	}
+}
+
+// NewLargeListViewBuilderWithField takes a field rather than just an element type
+// to allow for more customization of the final type of the LargeListView Array
+func NewLargeListViewBuilderWithField(mem memory.Allocator, field arrow.Field) *LargeListViewBuilder {
+	offsetBldr := NewInt64Builder(mem)
+	sizeBldr := NewInt64Builder(mem)
+	return &LargeListViewBuilder{
+		baseListViewBuilder{
+			builder:         builder{refCount: 1, mem: mem},
+			values:          NewBuilder(mem, field.Type),
+			offsets:         offsetBldr,
+			sizes:           sizeBldr,
+			dt:              arrow.LargeListViewOfField(field),
+			appendOffsetVal: func(o int) { offsetBldr.Append(int64(o)) },
+			appendSizeVal:   func(o int) { sizeBldr.Append(int64(o)) },
+		},
+	}
+}
+
+// Release decreases the reference count by 1.
+// When the reference count goes to zero, the memory is freed.
+func (b *baseListViewBuilder) Release() {
+	debug.Assert(atomic.LoadInt64(&b.refCount) > 0, "too many releases")
+
+	if atomic.AddInt64(&b.refCount, -1) == 0 {
+		if b.nullBitmap != nil {
+			b.nullBitmap.Release()
+			b.nullBitmap = nil
+		}
+		b.values.Release()
+		b.offsets.Release()
+		b.sizes.Release()
+	}
+}
+
+// XXX: review the need for this and calls to this
+func (b *baseListViewBuilder) appendNextOffset() {
+	b.appendOffsetVal(b.values.Len())
+}
+
+func (b *baseListViewBuilder) Append(v bool) {
+	b.Reserve(1)
+	b.unsafeAppendBoolToBitmap(v)
+	b.appendNextOffset() // XXX
+}
+
+func (b *baseListViewBuilder) AppendNull() {
+	b.Reserve(1)
+	b.unsafeAppendBoolToBitmap(false)
+	b.appendNextOffset()
+}
+
+func (b *baseListViewBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *baseListViewBuilder) AppendEmptyValue() {
+	b.Append(true)
+}
+
+func (b *baseListViewBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
+}
+
+func (b *ListViewBuilder) AppendValues(offsets []int32, sizes []int32, valid []bool) {
+	b.Reserve(len(valid))
+	b.offsets.(*Int32Builder).AppendValues(offsets, nil)
+	b.sizes.(*Int32Builder).AppendValues(sizes, nil)
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
+}
+
+func (b *LargeListViewBuilder) AppendValues(offsets []int64, sizes []int64, valid []bool) {
+	b.Reserve(len(valid))
+	b.offsets.(*Int64Builder).AppendValues(offsets, nil)
+	b.sizes.(*Int64Builder).AppendValues(sizes, nil)
+	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
+}
+
+func (b *baseListViewBuilder) unsafeAppendBoolToBitmap(isValid bool) {
+	if isValid {
+		bitutil.SetBit(b.nullBitmap.Bytes(), b.length)
+	} else {
+		b.nulls++
+	}
+	b.length++
+}
+
+func (b *baseListViewBuilder) init(capacity int) {
+	b.builder.init(capacity)
+	b.offsets.init(capacity + 1)
+	b.sizes.init(capacity + 1)
+}
+
+// Reserve ensures there is enough space for appending n elements
+// by checking the capacity and calling Resize if necessary.
+func (b *baseListViewBuilder) Reserve(n int) {
+	b.builder.reserve(n, b.resizeHelper)
+	b.offsets.Reserve(n)
+	b.sizes.Reserve(n)
+}
+
+// Resize adjusts the space allocated by b to n elements. If n is greater than b.Cap(),
+// additional memory will be allocated. If n is smaller, the allocated memory may reduced.
+func (b *baseListViewBuilder) Resize(n int) {
+	b.resizeHelper(n)
+	b.offsets.Resize(n)
+	b.sizes.Resize(n)
+}
+
+func (b *baseListViewBuilder) resizeHelper(n int) {
+	if n < minBuilderCapacity {
+		n = minBuilderCapacity
+	}
+
+	if b.capacity == 0 {
+		b.init(n)
+	} else {
+		b.builder.resize(n, b.builder.init)
+	}
+}
+
+func (b *baseListViewBuilder) ValueBuilder() Builder {
+	return b.values
+}
+
+// NewArray creates a ListView array from the memory buffers used by the builder and
+// resets the ListViewBuilder so it can be used to build a new array.
+func (b *ListViewBuilder) NewArray() arrow.Array {
+	return b.NewListViewArray()
+}
+
+// NewArray creates a LargeListView array from the memory buffers used by the builder
+// and resets the LargeListViewBuilder so it can be used to build a new array.
+func (b *LargeListViewBuilder) NewArray() arrow.Array {
+	return b.NewLargeListViewArray()
+}
+
+// NewListViewArray creates a ListView array from the memory buffers used by the builder
+// and resets the ListViewBuilder so it can be used to build a new array.
+func (b *ListViewBuilder) NewListViewArray() (a *ListView) {
+	data := b.newData()
+	a = NewListViewData(data)
+	data.Release()
+	return
+}
+
+// NewLargeListViewArray creates a ListView array from the memory buffers used by the
+// builder and resets the LargeListViewBuilder so it can be used to build a new array.
+func (b *LargeListViewBuilder) NewLargeListViewArray() (a *LargeListView) {
+	data := b.newData()
+	a = NewLargeListViewData(data)
+	data.Release()
+	return
+}
+
+func (b *baseListViewBuilder) newData() (data *Data) {
+	if b.offsets.Len() != b.length+1 {
+		b.appendNextOffset()
+	}
+	values := b.values.NewArray()
+	defer values.Release()
+
+	var offsets *memory.Buffer
+	if b.offsets != nil {
+		arr := b.offsets.NewArray()
+		defer arr.Release()
+		offsets = arr.Data().Buffers()[1]
+	}
+
+	var sizes *memory.Buffer
+	if b.sizes != nil {
+		arr := b.sizes.NewArray()
+		defer arr.Release()
+		sizes = arr.Data().Buffers()[1]
+	}
+
+	data = NewData(
+		b.Type(), b.length,
+		[]*memory.Buffer{
+			b.nullBitmap,
+			offsets,
+			sizes,
+		},
+		[]arrow.ArrayData{values.Data()},
+		b.nulls,
+		0,
+	)
+	b.reset()
+
+	return
+}
+
+func (b *baseListViewBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(s)))
+}
+
+func (b *baseListViewBuilder) UnmarshalOne(dec *json.Decoder) error {
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	switch t {
+	case json.Delim('['):
+		b.Append(true)
+		if err := b.values.Unmarshal(dec); err != nil {
+			return err
+		}
+		// consume ']'
+		_, err := dec.Token()
+		return err
+	case nil:
+		b.AppendNull()
+	default:
+		return &json.UnmarshalTypeError{
+			Value:  fmt.Sprint(t),
+			Struct: b.dt.String(),
+		}
+	}
+
+	return nil
+}
+
+func (b *baseListViewBuilder) Unmarshal(dec *json.Decoder) error {
+	for dec.More() {
+		if err := b.UnmarshalOne(dec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *baseListViewBuilder) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	t, err := dec.Token()
+	if err != nil {
+		return err
+	}
+
+	if delim, ok := t.(json.Delim); !ok || delim != '[' {
+		return fmt.Errorf("list-view builder must unpack from json array, found %s", delim)
+	}
+
+	return b.Unmarshal(dec)
+}
+
 var (
 	_ arrow.Array = (*List)(nil)
 	_ arrow.Array = (*LargeList)(nil)
@@ -916,6 +1260,8 @@ var (
 
 	_ Builder = (*ListBuilder)(nil)
 	_ Builder = (*LargeListBuilder)(nil)
+	_ Builder = (*ListViewBuilder)(nil)
+	_ Builder = (*LargeListViewBuilder)(nil)
 
 	_ ListLike = (*List)(nil)
 	_ ListLike = (*LargeList)(nil)
