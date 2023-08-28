@@ -538,3 +538,4 @@ std::unique_ptr<Codec> MakeLz4RawCodec(int compression_level) {
 }
 
 }  // namespace arrow::util::internal
+

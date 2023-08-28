@@ -518,3 +518,4 @@ std::unique_ptr<Codec> MakeGZipCodec(int compression_level, GZipFormat format,
 }
 
 }  // namespace arrow::util::internal
+

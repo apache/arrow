@@ -91,3 +91,4 @@ inline int SpacedExpand(T* buffer, int num_values, int null_count,
 }
 
 }  // namespace arrow::util::internal
+

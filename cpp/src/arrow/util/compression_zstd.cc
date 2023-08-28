@@ -243,3 +243,4 @@ std::unique_ptr<Codec> MakeZSTDCodec(int compression_level) {
 }
 
 }  // namespace arrow::util::internal
+
