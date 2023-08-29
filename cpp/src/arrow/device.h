@@ -140,7 +140,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// and memory allocations.
   virtual Result<std::shared_ptr<Stream>> MakeStream(unsigned int flags) {
     return NULLPTR;
-  };
+  }
 
   /// @brief Wrap an existing device stream alongside a release function
   ///
@@ -258,7 +258,7 @@ class ARROW_EXPORT MemoryManager : public std::enable_shared_from_this<MemoryMan
 
   /// \brief Wrap an event into a SyncEvent.
   ///
-  /// @param sync_event passed in sync_event (should be a CUevent*)
+  /// @param sync_event passed in sync_event (should be a pointer to the appropriate type)
   /// @param release_sync_event destructor to free sync_event. `nullptr` may be
   ///        passed to indicate that no destruction/freeing is necessary
   virtual Result<std::shared_ptr<Device::SyncEvent>> WrapDeviceSyncEvent(
