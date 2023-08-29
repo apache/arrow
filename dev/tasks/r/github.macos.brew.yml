@@ -41,7 +41,7 @@ jobs:
 
           # TODO(ARROW-16907): apache/arrow@main seems to be installed already
           # so this does nothing on a branch/PR
-          brew install -v --HEAD {{ '$(brew --repository homebrew/core)/Formula/apache-arrow.rb' }}
+          brew install -v --HEAD {{ '$(brew --repository homebrew/core)/Formula/a/apache-arrow.rb' }}
 
           mkdir -p homebrew-logs
           cp -a ~/Library/Logs/Homebrew/apache-arrow homebrew-logs/
