@@ -79,7 +79,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(datetime(array), dates');
         end
 
-        function InferNullsTrueNVPair(testCase)
+        function TestInferNullsTrueNVPair(testCase)
             % Verify arrow.array.Date32Array.fromMATLAB() behaves as
             % expected when InferNulls=true is provided.
             dates = testCase.MissingDates;
@@ -90,7 +90,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(datetime(array), dates');
         end
 
-        function InferNullsFalseNVPair(testCase)
+        function TestInferNullsFalseNVPair(testCase)
             % Verify arrow.array.Date32Array.fromMATLAB() behaves as
             % expected when InferNulls=false is provided.
             dates = testCase.MissingDates;
@@ -126,7 +126,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(toMATLAB(array), expectedDates);
         end
 
-        function EmptyDatetimeVector(testCase)
+        function TestEmptyDatetimeVector(testCase)
             % Verify arrow.array.Date32Array.fromMATLAB() accepts any
             % empty-shaped datetime as input.
 
@@ -144,7 +144,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(toMATLAB(array), datetime.empty(0, 1));
         end
 
-        function ErrorIfNonVector(testCase)
+        function TestErrorIfNonVector(testCase)
             % Verify arrow.array.Date32Array.fromMATLAB() throws an error
             % if the input provided is not a vector.
 
@@ -158,7 +158,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:array:InvalidShape");
         end
 
-        function ErrorIfNonDatetime(testCase)
+        function TestErrorIfNonDatetime(testCase)
             % Verify arrow.array.Date32Array.fromMATLAB() throws an error
             % if not given a datetime as input.
 
@@ -171,7 +171,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:array:InvalidType");
         end
 
-        function Int32MaxDays(testCase)
+        function TestInt32MaxDays(testCase)
             % Verify that no precision is lost when trying to round-trip a
             % datetime value that is within abs(intmin("int32")) days before
             % and intmax("int32") days after the UNIX epoch.
@@ -193,10 +193,10 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(actualAfter, expectedAfter);
         end
 
-        function GreaterThanInt32MaxDays(testCase)
+        function TestGreaterThanInt32MaxDays(testCase)
             % Verify that precision is lost when trying to round-trip a
             % datetime that is more than abs(intmin("int32")) days before
-            % or more than intmax("int32") after after the UNIX epoch.
+            % or more than intmax("int32") after the UNIX epoch.
 
             % Cast to int64 before taking the absolute value to avoid loss
             % of precision.
@@ -215,7 +215,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyNotEqual(actualAfter, expectedAfter);
         end
 
-        function ZonedDatetime(testCase)
+        function TestZonedDatetime(testCase)
             % Verify that zoned datetimes are supported as inputs to the
             % fromMATLAB method and that the output datetime returned by
             % the toMATLAB method is unzoned.
@@ -229,7 +229,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(actual, expected);
         end
 
-        function Int32MaxDaysZoned(testCase)
+        function TestInt32MaxDaysZoned(testCase)
             % Verify that zoned datetimes which are within abs(intmin("int32")) days
             % before and intmax("int32") days after the UNIX epoch are round-tripped
             % (not including the TimeZone).
@@ -260,7 +260,7 @@ classdef tDate32Array < matlab.unittest.TestCase
             testCase.verifyEqual(actualAfter, expectedUnzonedAfter);
         end
 
-        function NonWholeDaysRoundDown(testCase)
+        function TestNonWholeDaysRoundDown(testCase)
             % Verify that datetimes which are not whole days (i.e. are not
             % datetimes with zero hours, zero minutes, and zero seconds),
             % round down to the nearest whole day when round-tripping with
