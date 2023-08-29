@@ -1076,10 +1076,10 @@ cdef class FileSystemDataset(Dataset):
         )
 
     @staticmethod
-    def from_paths(paths, schema=None, format=None,
-                   filesystem=None, partitions=None,
-                   root_partition=None):  # numpydoc ignore=PR01
-        """A Dataset created from a list of paths on a particular filesystem.
+    def from_paths(paths, schema=None, format=None, filesystem=None,
+                   partitions=None, root_partition=None):
+        """
+        A Dataset created from a list of paths on a particular filesystem.
 
         Parameters
         ----------

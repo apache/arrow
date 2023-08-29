@@ -19,7 +19,10 @@ from collections import namedtuple
 import warnings
 
 
-cpdef enum MetadataVersion:  # numpydoc ignore=PR01
+cpdef enum MetadataVersion:
+    """
+    IPC Metadata version
+    """
     V1 = <char> CMetadataVersion_V1
     V2 = <char> CMetadataVersion_V2
     V3 = <char> CMetadataVersion_V3
