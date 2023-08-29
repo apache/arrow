@@ -35,6 +35,10 @@ type ListLike interface {
 	ValueOffsets(i int) (start, end int64)
 }
 
+type VarLenListLike interface {
+	ListLike
+}
+
 // List represents an immutable sequence of array values.
 type List struct {
 	array
@@ -314,6 +318,11 @@ type ListLikeBuilder interface {
 	Append(bool)
 }
 
+type VarLenListLikeBuilder interface {
+	ListLikeBuilder
+	AppendWithSize(bool, int)
+}
+
 type ListBuilder struct {
 	baseListBuilder
 }
@@ -420,6 +429,10 @@ func (b *baseListBuilder) Append(v bool) {
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(v)
 	b.appendNextOffset()
+}
+
+func (b *baseListBuilder) AppendWithSize(v bool, list_size int) {
+	b.Append(v)
 }
 
 func (b *baseListBuilder) AppendNull() {
@@ -627,7 +640,7 @@ type ListView struct {
 	sizes   []int32
 }
 
-var _ ListLike = (*ListView)(nil)
+var _ VarLenListLike = (*ListView)(nil)
 
 func NewListViewData(data arrow.ArrayData) *ListView {
 	a := &ListView{}
@@ -772,7 +785,7 @@ type LargeListView struct {
 	sizes   []int64
 }
 
-var _ ListLike = (*LargeListView)(nil)
+var _ VarLenListLike = (*LargeListView)(nil)
 
 // NewLargeListViewData returns a new LargeListView array value, from data.
 func NewLargeListViewData(data arrow.ArrayData) *LargeListView {
@@ -1032,21 +1045,24 @@ func (b *baseListViewBuilder) Release() {
 	}
 }
 
-// XXX: review the need for this and calls to this
-func (b *baseListViewBuilder) appendNextOffset() {
-	b.appendOffsetVal(b.values.Len())
+func (b *baseListViewBuilder) appendDimensions(offset int, list_size int) {
+	b.appendOffsetVal(offset)
+	b.appendSizeVal(list_size)
 }
 
 func (b *baseListViewBuilder) Append(v bool) {
+	debug.Assert(false, "baseListViewBuilder.Append should never be called -- use AppendWithSize instead")
+}
+
+func (b *baseListViewBuilder) AppendWithSize(v bool, list_size int) {
+	debug.Assert(v || list_size == 0, "invalid list-view should have size 0")
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(v)
-	b.appendNextOffset() // XXX
+	b.appendDimensions(b.values.Len(), list_size)
 }
 
 func (b *baseListViewBuilder) AppendNull() {
-	b.Reserve(1)
-	b.unsafeAppendBoolToBitmap(false)
-	b.appendNextOffset()
+	b.AppendWithSize(false, 0)
 }
 
 func (b *baseListViewBuilder) AppendNulls(n int) {
@@ -1056,7 +1072,7 @@ func (b *baseListViewBuilder) AppendNulls(n int) {
 }
 
 func (b *baseListViewBuilder) AppendEmptyValue() {
-	b.Append(true)
+	b.AppendWithSize(true, 0)
 }
 
 func (b *baseListViewBuilder) AppendEmptyValues(n int) {
@@ -1065,14 +1081,14 @@ func (b *baseListViewBuilder) AppendEmptyValues(n int) {
 	}
 }
 
-func (b *ListViewBuilder) AppendValues(offsets []int32, sizes []int32, valid []bool) {
+func (b *ListViewBuilder) AppendValuesWithSizes(offsets []int32, sizes []int32, valid []bool) {
 	b.Reserve(len(valid))
 	b.offsets.(*Int32Builder).AppendValues(offsets, nil)
 	b.sizes.(*Int32Builder).AppendValues(sizes, nil)
 	b.builder.unsafeAppendBoolsToBitmap(valid, len(valid))
 }
 
-func (b *LargeListViewBuilder) AppendValues(offsets []int64, sizes []int64, valid []bool) {
+func (b *LargeListViewBuilder) AppendValuesWithSizes(offsets []int64, sizes []int64, valid []bool) {
 	b.Reserve(len(valid))
 	b.offsets.(*Int64Builder).AppendValues(offsets, nil)
 	b.sizes.(*Int64Builder).AppendValues(sizes, nil)
@@ -1090,8 +1106,8 @@ func (b *baseListViewBuilder) unsafeAppendBoolToBitmap(isValid bool) {
 
 func (b *baseListViewBuilder) init(capacity int) {
 	b.builder.init(capacity)
-	b.offsets.init(capacity + 1)
-	b.sizes.init(capacity + 1)
+	b.offsets.init(capacity)
+	b.sizes.init(capacity)
 }
 
 // Reserve ensures there is enough space for appending n elements
@@ -1157,9 +1173,7 @@ func (b *LargeListViewBuilder) NewLargeListViewArray() (a *LargeListView) {
 }
 
 func (b *baseListViewBuilder) newData() (data *Data) {
-	if b.offsets.Len() != b.length+1 {
-		b.appendNextOffset()
-	}
+	debug.Assert(b.offsets.Len() == b.sizes.Len(), "offsets and sizes should have the same length")
 	values := b.values.NewArray()
 	defer values.Release()
 
@@ -1210,12 +1224,21 @@ func (b *baseListViewBuilder) UnmarshalOne(dec *json.Decoder) error {
 
 	switch t {
 	case json.Delim('['):
-		b.Append(true)
+		offset := b.values.Len()
+		// 0 is a placeholder size as we don't know the actual size yet
+		b.AppendWithSize(true, 0)
 		if err := b.values.Unmarshal(dec); err != nil {
 			return err
 		}
 		// consume ']'
 		_, err := dec.Token()
+		// replace the last size with the actual size
+		switch b.sizes.(type) {
+		case *Int32Builder:
+			b.sizes.(*Int32Builder).rawData[b.sizes.Len()-1] = int32(b.values.Len() - offset)
+		case *Int64Builder:
+			b.sizes.(*Int64Builder).rawData[b.sizes.Len()-1] = int64(b.values.Len() - offset)
+		}
 		return err
 	case nil:
 		b.AppendNull()
@@ -1263,15 +1286,17 @@ var (
 	_ Builder = (*ListViewBuilder)(nil)
 	_ Builder = (*LargeListViewBuilder)(nil)
 
-	_ ListLike = (*List)(nil)
-	_ ListLike = (*LargeList)(nil)
-	_ ListLike = (*FixedSizeList)(nil)
-	_ ListLike = (*Map)(nil)
-	_ ListLike = (*ListView)(nil)
-	_ ListLike = (*LargeListView)(nil)
+	_ VarLenListLike = (*List)(nil)
+	_ VarLenListLike = (*LargeList)(nil)
+	_ VarLenListLike = (*Map)(nil)
+	_ VarLenListLike = (*ListView)(nil)
+	_ VarLenListLike = (*LargeListView)(nil)
+	_ ListLike       = (*FixedSizeList)(nil)
 
-	_ ListLikeBuilder = (*ListBuilder)(nil)
-	_ ListLikeBuilder = (*LargeListBuilder)(nil)
-	_ ListLikeBuilder = (*FixedSizeListBuilder)(nil)
-	_ ListLikeBuilder = (*MapBuilder)(nil)
+	_ VarLenListLikeBuilder = (*ListBuilder)(nil)
+	_ VarLenListLikeBuilder = (*LargeListBuilder)(nil)
+	_ VarLenListLikeBuilder = (*ListBuilder)(nil)
+	_ VarLenListLikeBuilder = (*LargeListBuilder)(nil)
+	_ VarLenListLikeBuilder = (*MapBuilder)(nil)
+	_ ListLikeBuilder       = (*FixedSizeListBuilder)(nil)
 )
