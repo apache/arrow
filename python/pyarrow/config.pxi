@@ -89,6 +89,6 @@ def configure_tzdb(path):
         CGlobalOptions options
 
     if path is not None:
-            options.timezone_db_path = <c_string>tobytes(path)
+        options.timezone_db_path = <c_string>tobytes(path)
 
     check_status(Initialize(options))
