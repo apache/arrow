@@ -35,11 +35,10 @@ classdef Date32Array < arrow.array.Array
             import arrow.type.DateUnit
 
             matlabArray = obj.Proxy.toMATLAB();
-            % UNIX Epoch (January 1st, 1970)
+            % UNIX Epoch (January 1st, 1970).
             unixEpoch = datetime(0, ConvertFrom="posixtime");
-            % Date32 value represents the number of days before
-            % or after the Unix Epoch. This works for negative values
-            % too.
+            % A Date32 value encodes a certain number of whole days
+            % before or after the UNIX Epoch.
             dates = unixEpoch + days(matlabArray);
             dates(~obj.Valid) = obj.NullSubstitutionValue;
         end
@@ -66,7 +65,8 @@ classdef Date32Array < arrow.array.Array
 
             validElements = arrow.internal.validate.parseValidElements(data, opts);
 
-            % UNIX Epoch (January 1st, 1970)
+            % If the input MATLAB datetime array is zoned (i.e. has a TimeZone),
+            % then the datetime representing the UNIX Epoch must also have a TimeZone.
             if ~isempty(data.TimeZone)
                 unixEpoch = datetime(0, ConvertFrom="posixtime", TimeZone="UTC");
             else
