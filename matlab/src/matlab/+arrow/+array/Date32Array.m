@@ -43,8 +43,8 @@ classdef Date32Array < arrow.array.Array
             dates(~obj.Valid) = obj.NullSubstitutionValue;
         end
 
-        function times = datetime(obj)
-            times = obj.toMATLAB();
+        function dates = datetime(obj)
+            dates = obj.toMATLAB();
         end
 
     end
