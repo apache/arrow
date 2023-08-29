@@ -1075,8 +1075,8 @@ cdef class FileSystemDataset(Dataset):
             self.partition_expression
         )
 
-    @classmethod
-    def from_paths(cls, paths, schema=None, format=None,
+    @staticmethod
+    def from_paths(paths, schema=None, format=None,
                    filesystem=None, partitions=None,
                    root_partition=None):  # numpydoc ignore=PR01
         """A Dataset created from a list of paths on a particular filesystem.

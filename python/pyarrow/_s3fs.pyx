@@ -28,7 +28,7 @@ from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem
 
 
-cpdef enum S3LogLevel:
+cpdef enum S3LogLevel:  # numpydoc ignore=PR01
     Off = <int8_t> CS3LogLevel_Off
     Fatal = <int8_t> CS3LogLevel_Fatal
     Error = <int8_t> CS3LogLevel_Error

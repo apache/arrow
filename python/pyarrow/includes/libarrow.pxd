@@ -1554,7 +1554,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
     # TODO: use "cpdef enum class" to automatically get a Python wrapper?
     # See
     # https://github.com/cython/cython/commit/2c7c22f51405299a4e247f78edf52957d30cf71d#diff-61c1365c0f761a8137754bb3a73bfbf7
-    ctypedef enum CMetadataVersion" arrow::ipc::MetadataVersion":  # numpydoc ignore=PR01
+    ctypedef enum CMetadataVersion" arrow::ipc::MetadataVersion":
         CMetadataVersion_V1" arrow::ipc::MetadataVersion::V1"
         CMetadataVersion_V2" arrow::ipc::MetadataVersion::V2"
         CMetadataVersion_V3" arrow::ipc::MetadataVersion::V3"
