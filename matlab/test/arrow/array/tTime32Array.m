@@ -208,6 +208,75 @@ classdef tTime32Array < matlab.unittest.TestCase
             fcn = @() testCase.ArrowArrayConstructorFcn(numbers);
             testCase.verifyError(fcn, "arrow:array:InvalidType");
         end
+
+        function TestIsEqualTrue(tc, Unit)
+            % Verifies isequal returns true when expected. Two are 
+            % considered equal if:
+            %   1. They have the same type
+            %   2. The have the same length
+            %   3. The same elements are valid
+            %   4. Corresponding valid elements are equal.
+            
+            times1 = seconds([1 2 3 4]);
+            times2 = seconds([1 2 10 4]);
+
+            array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 2 4]);
+            array3 = tc.ArrowArrayConstructorFcn(times2, TimeUnit=Unit, Valid=[1 2 4]);
+
+            tc.verifyTrue(isequal(array1, array2));
+            tc.verifyTrue(isequal(array1, array3));
+            tc.verifyTrue(isequal(array1, array2, array3)); 
+        end
+
+        function TestIsEqualFalse(tc, Unit)
+            % Verify isequal returns false when expected. Two arrays are
+            % considered not equal if one of the conditions is met:
+            %   1. They have different types
+            %   2. The have different lengths
+            %   3. Different elements are valid
+            %   4. The corresponding valid elements are not equal.
+            
+            times1 = seconds([1 2 3 4]);
+            times2 = seconds([1 1 2 3]);
+            times3 = seconds([1 2 3 4 5]);
+
+            array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(times1, TimeUnit=Unit, Valid=[1 4]);
+            array3 = tc.ArrowArrayConstructorFcn(times2,  TimeUnit=Unit, Valid=[1 2 4]);
+            array4 = arrow.array([true false true false]);
+            array5 = tc.ArrowArrayConstructorFcn(times3, Valid=[1 2 4]);
+
+            % The same elements are not valid.
+            tc.verifyFalse(isequal(array1, array2));
+
+            % Corresponding elements are not equal.
+            tc.verifyFalse(isequal(array1, array3));
+
+            % The arrays have different types.
+            tc.verifyFalse(isequal(array1, array4));
+
+            % The arrays have different lengths.
+            tc.verifyFalse(isequal(array1, array5));
+
+            % Comparing an arrow.array.BooleanArray to a double
+            tc.verifyFalse(isequal(array1, 1));
+
+            % Supply more than two input arguments to isequal
+            tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
+        end
+
+        function TestIsEqualFalseTimeUnitMistmatch(tc)
+            % Verify two TimestampArrays are not considered equal if one
+            % has a TimeZone and one does not. 
+            times1 = seconds([1 2 3 4]);
+
+            array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit="Second");
+            array2 = tc.ArrowArrayConstructorFcn(times1, TimeUnit="Millisecond");
+
+            % arrays are not equal
+            tc.verifyFalse(isequal(array1, array2));
+        end
     end
 
     methods
