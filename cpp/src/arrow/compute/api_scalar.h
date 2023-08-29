@@ -295,7 +295,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   NullMatchingBehavior null_matching_behavior;
 
   // DEPRECATED(will be removed after removing of skip_nulls)
-  NullMatchingBehavior getNullMatchingBehavior() const;
+  NullMatchingBehavior GetNullMatchingBehavior() const;
 
   // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.

@@ -44,7 +44,7 @@ struct SetLookupState : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool* pool) : memory_pool(pool) {}
 
   Status Init(const SetLookupOptions& options) {
-    this->null_matching_behavior = options.getNullMatchingBehavior();
+    this->null_matching_behavior = options.GetNullMatchingBehavior();
     if (options.value_set.is_array()) {
       const ArrayData& value_set = *options.value_set.array();
       memo_index_to_value_index.reserve(value_set.length);
@@ -127,7 +127,7 @@ struct SetLookupState<NullType> : public SetLookupStateBase {
   explicit SetLookupState(MemoryPool*) {}
 
   Status Init(SetLookupOptions& options) {
-    null_matching_behavior = options.getNullMatchingBehavior();
+    null_matching_behavior = options.GetNullMatchingBehavior();
     value_set_has_null = (options.value_set.length() > 0) &&
                          this->null_matching_behavior != SetLookupOptions::SKIP;
     value_set_type = null();
