@@ -74,3 +74,21 @@ def runtime_info():
     return RuntimeInfo(
         simd_level=frombytes(c_info.simd_level),
         detected_simd_level=frombytes(c_info.detected_simd_level))
+
+
+def configure_tzdb(path):
+    """
+    Configure the path to text timezone database on Windows.
+
+    Parameters
+    ----------
+    path : str
+        Path to text timezone database.
+    """
+    cdef:
+        CGlobalOptions options
+
+    if path is not None:
+            options.timezone_db_path = <c_string>tobytes(path)
+
+    check_status(Initialize(options))
