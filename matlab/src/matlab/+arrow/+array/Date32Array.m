@@ -65,8 +65,14 @@ classdef Date32Array < arrow.array.Array
             arrow.internal.validate.shape(data);
 
             validElements = arrow.internal.validate.parseValidElements(data, opts);
+
             % UNIX Epoch (January 1st, 1970)
-            unixEpoch = datetime(0, ConvertFrom="posixtime");
+            if ~isempty(data.TimeZone)
+                unixEpoch = datetime(0, ConvertFrom="posixtime", TimeZone="UTC");
+            else
+                unixEpoch = datetime(0, ConvertFrom="posixtime");
+            end
+
             numDays = int32(floor(days(data - unixEpoch)));
             args = struct(MatlabArray=numDays, Valid=validElements);
             proxy = arrow.internal.proxy.create("arrow.array.proxy.Date32Array", args);
