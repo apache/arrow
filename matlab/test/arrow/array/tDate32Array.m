@@ -173,10 +173,13 @@ classdef tDate32Array < matlab.unittest.TestCase
 
         function Int32MaxDays(testCase)
             % Verify that no precision is lost when trying to round-trip a
-            % datetime value that is within intmax("int32") - 1 days before
+            % datetime value that is within abs(intmin("int32")) days before
             % and intmax("int32") days after the UNIX epoch.
-            numDaysBefore = uint64(intmax("int32")) + 1;
-            numDaysAfter = uint64(intmax("int32"));
+
+            % Cast to int64 before taking the absolute value to avoid loss
+            % of precision.
+            numDaysBefore = abs(int64(intmin("int32")));
+            numDaysAfter = intmax("int32");
 
             expectedBefore = testCase.UnixEpoch - days(numDaysBefore);
             expectedAfter = testCase.UnixEpoch + days(numDaysAfter);
@@ -192,10 +195,13 @@ classdef tDate32Array < matlab.unittest.TestCase
 
         function GreaterThanInt32MaxDays(testCase)
             % Verify that precision is lost when trying to round-trip a
-            % datetime that is greater than intmax("int32") + 1 days before
-            % or greater than intmax("int32") after after the UNIX epoch.
-            numDaysBefore = uint64(intmax("int32")) + 2;
-            numDaysAfter = uint64(intmax("int32")) + 1;
+            % datetime that is more than abs(intmin("int32")) days before
+            % or more than intmax("int32") after after the UNIX epoch.
+
+            % Cast to int64 before taking the absolute value to avoid loss
+            % of precision.
+            numDaysBefore = abs(int64(intmin("int32"))) + 1;
+            numDaysAfter = int64(intmax("int32")) + 1;
 
             expectedBefore = testCase.UnixEpoch - days(numDaysBefore);
             expectedAfter = testCase.UnixEpoch + days(numDaysAfter);
@@ -224,11 +230,14 @@ classdef tDate32Array < matlab.unittest.TestCase
         end
 
         function Int32MaxDaysZoned(testCase)
-            % Verify that zoned datetimes which are within intmax("int32") + 1 days
+            % Verify that zoned datetimes which are within abs(intmin("int32")) days
             % before and intmax("int32") days after the UNIX epoch are round-tripped
             % (not including the TimeZone).
-            numDaysBefore = uint64(intmax("int32")) + 1;
-            numDaysAfter = uint64(intmax("int32"));
+
+            % Cast to int64 before taking the absolute value to avoid loss
+            % of precision.
+            numDaysBefore = abs(int64(intmin("int32")));
+            numDaysAfter = intmax("int32");
 
             expectedZonedBefore = testCase.UnixEpoch - days(numDaysBefore);
             expectedZonedAfter = testCase.UnixEpoch + days(numDaysAfter);
@@ -252,9 +261,9 @@ classdef tDate32Array < matlab.unittest.TestCase
         end
 
         function NonWholeDaysRoundDown(testCase)
-            % Verify that datetimes which are not whole days (i.e. are not datetimes
-            % with zero hours, zero minutes, and zero seconds), round down
-            % to the nearest whole day when round-tripping with
+            % Verify that datetimes which are not whole days (i.e. are not
+            % datetimes with zero hours, zero minutes, and zero seconds),
+            % round down to the nearest whole day when round-tripping with
             % Date32Array.
             dates = testCase.UnixEpoch + days(10) + hours(20) + minutes(30) + seconds(40) + milliseconds(50);
             % Round down to the nearest whole day when round-tripping.
