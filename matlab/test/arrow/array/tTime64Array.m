@@ -225,11 +225,11 @@ classdef tTime64Array < matlab.unittest.TestCase
             testCase.verifyEqual(duration(array), expected);
         end
 
-                function TestIsEqualTrue(tc, Unit)
+        function TestIsEqualTrue(tc, Unit)
             % Verifies isequal returns true when expected. Two are 
             % considered equal if:
             %   1. They have the same type
-            %   2. The have the same length
+            %   2. They have the same length
             %   3. The same elements are valid
             %   4. Corresponding valid elements are equal.
             
@@ -249,7 +249,7 @@ classdef tTime64Array < matlab.unittest.TestCase
             % Verify isequal returns false when expected. Two arrays are
             % considered not equal if one of the conditions is met:
             %   1. They have different types
-            %   2. The have different lengths
+            %   2. They have different lengths
             %   3. Different elements are valid
             %   4. The corresponding valid elements are not equal.
             
@@ -283,8 +283,8 @@ classdef tTime64Array < matlab.unittest.TestCase
         end
 
         function TestIsEqualFalseTimeUnitMistmatch(tc)
-            % Verify two TimestampArrays are not considered equal if one
-            % has a TimeZone and one does not. 
+            % Verify two Time64Arrays are not considered equal they have
+            % different TimeUnit values.
             times1 = seconds([1 2 3 4]);
 
             array1 = tc.ArrowArrayConstructorFcn(times1, TimeUnit="Nanosecond");
