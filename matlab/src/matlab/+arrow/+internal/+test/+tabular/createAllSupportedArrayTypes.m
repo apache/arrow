@@ -91,8 +91,8 @@ function timeClasses = getTimeArrayClasses()
     timeClasses = compose("arrow.array.Time%dArray", [32 64]);
 end
 
-function timeClasses = getDateArrayClasses()
-    timeClasses = compose("arrow.array.Date%dArray", 32);
+function dateClasses = getDateArrayClasses()
+    dateClasses = compose("arrow.array.Date%dArray", 32);
 end
 
 function number = randomNumbers(numberType, numElements)
