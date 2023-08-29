@@ -179,8 +179,85 @@ classdef tTimestampArray < matlab.unittest.TestCase
             testCase.verifyEqual(arrowArray.Length, int64(0));
             testCase.verifyEqual(arrowArray.Valid, logical.empty(0, 1));
             testCase.verifyEqual(toMATLAB(arrowArray), datetime.empty(0, 1));
+        end
 
+        function TestIsEqualTrue(tc, TimeZone)
+            % Verifies isequal returns true when expected. Two are 
+            % considered equal if:
+            %   1. They have the same type
+            %   2. The have the same length
+            %   3. The same elements are valid
+            %   4. Corresponding valid elements are equal.
+            
+            dates1 = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
+            dates2 = datetime(2023, 6, 22, TimeZone=TimeZone) + days([0 1 5 3 4]);
 
+            array1 = tc.ArrowArrayConstructorFcn(dates1, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(dates1, Valid=[1 2 4]);
+            array3 = tc.ArrowArrayConstructorFcn(dates2, Valid=[1 2 4]);
+
+            tc.verifyTrue(isequal(array1, array2));
+            tc.verifyTrue(isequal(array1, array3));
+            tc.verifyTrue(isequal(array1, array2, array3)); 
+        end
+
+        function TestIsEqualFalse(tc, TimeZone)
+            % Verify isequal returns false when expected. Two arrays are
+            % considered not equal if one of the conditions is met:
+            %   1. They have different types
+            %   2. The have different lengths
+            %   3. Different elements are valid
+            %   4. The corresponding valid elements are not equal.
+            
+            dates1 = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
+            dates2 = datetime(2023, 6, 22, TimeZone=TimeZone) + days([1 1 2 3 4]);
+            dates3 = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:5);
+            array1 = tc.ArrowArrayConstructorFcn(dates1, Valid=[1 2 4]);
+            array2 = tc.ArrowArrayConstructorFcn(dates1, Valid=[1 4]);
+            array3 = tc.ArrowArrayConstructorFcn(dates2, Valid=[1 2 4]);
+            array4 = arrow.array([true false true false]);
+            array5 = tc.ArrowArrayConstructorFcn(dates3, Valid=[1 2 4]);
+
+            % The same elements are not valid.
+            tc.verifyFalse(isequal(array1, array2));
+
+            % Corresponding elements are not equal.
+            tc.verifyFalse(isequal(array1, array3));
+
+            % The arrays have different types.
+            tc.verifyFalse(isequal(array1, array4));
+
+            % The arrays have different lengths.
+            tc.verifyFalse(isequal(array1, array5));
+
+            % Comparing an arrow.array.BooleanArray to a double
+            tc.verifyFalse(isequal(array1, 1));
+
+            % Supply more than two input arguments to isequal
+            tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
+        end
+
+        function TestIsEqualFalseTimeZoneMistmatch(tc)
+            % Verify two TimestampArrays are not considered equal if one
+            % has a TimeZone and one does not. 
+            dates1 = datetime(2023, 6, 22, TimeZone="America/Anchorage") + days(0:4);
+            dates2 = dates1 - tzoffset(dates1);
+            dates2.TimeZone = '';
+
+            array1 = tc.ArrowArrayConstructorFcn(dates1);
+            array2 = tc.ArrowArrayConstructorFcn(dates2);
+
+            % arrays are not equal
+            tc.verifyFalse(isequal(array1, array2));
+        end
+
+        function TestIsEqualFalseTimeUnitMistmatch(tc, TimeZone)
+             % Verify two TimestampArrays are not considered equal if their
+             % TimeUnit values differ.
+            dates1 = datetime(2023, 6, 22, TimeZone=TimeZone) + days(0:4);
+            array1 = tc.ArrowArrayConstructorFcn(dates1, TimeUnit="Millisecond");
+            array2 = tc.ArrowArrayConstructorFcn(dates1, TimeUnit="Microsecond");
+            tc.verifyFalse(isequal(array1, array2));
         end
     end
 
