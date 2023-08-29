@@ -22,6 +22,7 @@ classdef Date32Array < arrow.array.Array
     end
 
     methods
+
         function obj = Date32Array(proxy)
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Date32Array")}
@@ -46,19 +47,11 @@ classdef Date32Array < arrow.array.Array
         function times = datetime(obj)
             times = obj.toMATLAB();
         end
-    end
 
-    methods(Static, Access=private)
-        function ticks = convertDurationToTicks(data, timeUnit)
-            if (timeUnit == arrow.type.TimeUnit.Second)
-                ticks = cast(seconds(data), "int32");
-            else
-                ticks = cast(milliseconds(data), "int32");
-            end
-        end
     end
 
     methods(Static)
+
         function array = fromMATLAB(data, opts)
             arguments
                 data
@@ -79,6 +72,7 @@ classdef Date32Array < arrow.array.Array
             proxy = arrow.internal.proxy.create("arrow.array.proxy.Date32Array", args);
             array = Date32Array(proxy);
         end
+
     end
 
 end
