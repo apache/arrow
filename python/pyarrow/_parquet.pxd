@@ -380,6 +380,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         shared_ptr[CFileDecryptionProperties] file_decryption_properties() \
             const
 
+        c_bool page_checksum_verification() const
+        void set_page_checksum_verification(c_bool check_crc)
+
     CReaderProperties default_reader_properties()
 
     cdef cppclass ArrowReaderProperties:
@@ -428,6 +431,8 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* dictionary_pagesize_limit(int64_t dictionary_pagesize_limit)
             Builder* enable_write_page_index()
             Builder* disable_write_page_index()
+            Builder* enable_page_checksum()
+            Builder* disable_page_checksum()
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:

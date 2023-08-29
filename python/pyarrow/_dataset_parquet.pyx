@@ -670,6 +670,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         If not None, override the maximum total size of containers allocated
         when decoding Thrift structures. The default limit should be
         sufficient for most Parquet files.
+    page_checksum_verification : bool, default False
+        If True, verify the page checksum for each page read from the file.
     """
 
     cdef:
@@ -682,7 +684,8 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
                  buffer_size=8192,
                  bint pre_buffer=False,
                  thrift_string_size_limit=None,
-                 thrift_container_size_limit=None):
+                 thrift_container_size_limit=None,
+                 bint page_checksum_verification=False):
         self.init(shared_ptr[CFragmentScanOptions](
             new CParquetFragmentScanOptions()))
         self.use_buffered_stream = use_buffered_stream
@@ -692,6 +695,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             self.thrift_string_size_limit = thrift_string_size_limit
         if thrift_container_size_limit is not None:
             self.thrift_container_size_limit = thrift_container_size_limit
+        self.page_checksum_verification = page_checksum_verification
 
     cdef void init(self, const shared_ptr[CFragmentScanOptions]& sp):
         FragmentScanOptions.init(self, sp)
@@ -752,6 +756,14 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             raise ValueError("size must be larger than zero")
         self.reader_properties().set_thrift_container_size_limit(size)
 
+    @property
+    def page_checksum_verification(self):
+        return self.reader_properties().page_checksum_verification()
+
+    @page_checksum_verification.setter
+    def page_checksum_verification(self, bint page_checksum_verification):
+        return self.reader_properties().page_checksum_verification(page_checksum_verification)
+
     def equals(self, ParquetFragmentScanOptions other):
         """
         Parameters
@@ -764,11 +776,11 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         """
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
-            self.thrift_string_size_limit, self.thrift_container_size_limit)
+            self.thrift_string_size_limit, self.thrift_container_size_limit, self.page_checksum_verification)
         other_attrs = (
             other.use_buffered_stream, other.buffer_size, other.pre_buffer,
             other.thrift_string_size_limit,
-            other.thrift_container_size_limit)
+            other.thrift_container_size_limit, other.page_checksum_verification)
         return attrs == other_attrs
 
     @staticmethod
@@ -785,6 +797,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             pre_buffer=self.pre_buffer,
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
+            page_checksum_verification=self.page_checksum_verification
         )
         return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 

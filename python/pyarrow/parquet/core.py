@@ -280,6 +280,8 @@ class ParquetFile:
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    page_checksum_verification : bool, default False
+        If True, verify the checksum for each page read from the file.
 
     Examples
     --------
@@ -327,7 +329,7 @@ class ParquetFile:
                  read_dictionary=None, memory_map=False, buffer_size=0,
                  pre_buffer=False, coerce_int96_timestamp_unit=None,
                  decryption_properties=None, thrift_string_size_limit=None,
-                 thrift_container_size_limit=None, filesystem=None):
+                 thrift_container_size_limit=None, filesystem=None,page_checksum_verification=False):
 
         self._close_source = getattr(source, 'closed', True)
 
@@ -346,6 +348,7 @@ class ParquetFile:
             decryption_properties=decryption_properties,
             thrift_string_size_limit=thrift_string_size_limit,
             thrift_container_size_limit=thrift_container_size_limit,
+            page_checksum_verification=page_checksum_verification,
         )
         self.common_metadata = common_metadata
         self._nested_paths_by_prefix = self._build_nested_paths()
@@ -881,6 +884,10 @@ write_page_index : bool, default False
     filtering more efficient than the page header, as it gathers all the
     statistics for a Parquet file in a single place, avoiding scattered I/O.
     Note that the page index is not yet used on the read size by PyArrow.
+page_checksum_enabled: bool, default False
+    Whether to write page checksums in general for all columns.
+    File might be corrupted during the transmission or when it is stored in the
+    storage. Page checksums are used to detect the corruption.
 """
 
 _parquet_writer_example_doc = """\
@@ -974,6 +981,7 @@ Examples
                  dictionary_pagesize_limit=None,
                  store_schema=True,
                  write_page_index=False,
+                 page_checksum_enabled=False,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1031,6 +1039,7 @@ Examples
             dictionary_pagesize_limit=dictionary_pagesize_limit,
             store_schema=store_schema,
             write_page_index=write_page_index,
+            page_checksum_enabled=page_checksum_enabled,
             **options)
         self.is_open = True
 
@@ -1759,6 +1768,8 @@ thrift_container_size_limit : int, default None
     If not None, override the maximum total size of containers allocated
     when decoding Thrift structures. The default limit should be
     sufficient for most Parquet files.
+page_checksum_verification : bool, default False
+    If True, verify the page checksum for each page read from the file.
 
 Examples
 --------
@@ -1772,7 +1783,8 @@ Examples
                 use_legacy_dataset=None, pre_buffer=True,
                 coerce_int96_timestamp_unit=None,
                 thrift_string_size_limit=None,
-                thrift_container_size_limit=None):
+                thrift_container_size_limit=None,
+                page_checksum_verification=False):
 
         extra_msg = ""
         if use_legacy_dataset is None:
@@ -1805,6 +1817,7 @@ Examples
                 metadata_nthreads=metadata_nthreads,
                 thrift_string_size_limit=thrift_string_size_limit,
                 thrift_container_size_limit=thrift_container_size_limit,
+                page_checksum_verification=page_checksum_verification,
             )
         warnings.warn(
             "Passing 'use_legacy_dataset=True' to get the legacy behaviour is "
@@ -1821,7 +1834,8 @@ Examples
                  use_legacy_dataset=None, pre_buffer=True,
                  coerce_int96_timestamp_unit=None,
                  thrift_string_size_limit=None,
-                 thrift_container_size_limit=None):
+                 thrift_container_size_limit=None,
+                 page_checksum_verification=False):
         if partitioning != "hive":
             raise ValueError(
                 'Only "hive" for hive-like partitioning is supported when '
@@ -2412,6 +2426,7 @@ class _ParquetDatasetV2:
                  coerce_int96_timestamp_unit=None, schema=None,
                  decryption_properties=None, thrift_string_size_limit=None,
                  thrift_container_size_limit=None,
+                 page_checksum_verification=False,
                  **kwargs):
         import pyarrow.dataset as ds
 
@@ -2430,6 +2445,7 @@ class _ParquetDatasetV2:
             "coerce_int96_timestamp_unit": coerce_int96_timestamp_unit,
             "thrift_string_size_limit": thrift_string_size_limit,
             "thrift_container_size_limit": thrift_container_size_limit,
+            "page_checksum_verification": page_checksum_verification,
         }
         if buffer_size:
             read_options.update(use_buffered_stream=True,
@@ -2942,7 +2958,8 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                ignore_prefixes=None, pre_buffer=True,
                coerce_int96_timestamp_unit=None,
                decryption_properties=None, thrift_string_size_limit=None,
-               thrift_container_size_limit=None):
+               thrift_container_size_limit=None,
+               page_checksum_verification=False):
     if not use_legacy_dataset:
         if metadata is not None:
             raise ValueError(
@@ -2966,6 +2983,7 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                 coerce_int96_timestamp_unit=coerce_int96_timestamp_unit,
                 thrift_string_size_limit=thrift_string_size_limit,
                 thrift_container_size_limit=thrift_container_size_limit,
+                page_checksum_verification=page_checksum_verification,
             )
         except ImportError:
             # fall back on ParquetFile for simple cases when pyarrow.dataset
@@ -2997,6 +3015,7 @@ def read_table(source, *, columns=None, use_threads=True, metadata=None,
                 decryption_properties=decryption_properties,
                 thrift_string_size_limit=thrift_string_size_limit,
                 thrift_container_size_limit=thrift_container_size_limit,
+                page_checksum_verification=page_checksum_verification,
             )
 
         return dataset.read(columns=columns, use_threads=use_threads,
