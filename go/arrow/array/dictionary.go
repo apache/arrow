@@ -314,13 +314,13 @@ func arrayApproxEqualDict(l, r *Dictionary, opt equalOption) bool {
 }
 
 // helper for building the properly typed indices of the dictionary builder
-type indexBuilder struct {
+type IndexBuilder struct {
 	Builder
 	Append func(int)
 }
 
-func createIndexBuilder(mem memory.Allocator, dt arrow.FixedWidthDataType) (ret indexBuilder, err error) {
-	ret = indexBuilder{Builder: NewBuilder(mem, dt)}
+func createIndexBuilder(mem memory.Allocator, dt arrow.FixedWidthDataType) (ret IndexBuilder, err error) {
+	ret = IndexBuilder{Builder: NewBuilder(mem, dt)}
 	switch dt.ID() {
 	case arrow.INT8:
 		ret.Append = func(idx int) {
@@ -420,7 +420,7 @@ type dictionaryBuilder struct {
 	dt          *arrow.DictionaryType
 	deltaOffset int
 	memoTable   hashing.MemoTable
-	idxBuilder  indexBuilder
+	idxBuilder  IndexBuilder
 }
 
 // NewDictionaryBuilderWithDict initializes a dictionary builder and inserts the values from `init` as the first
@@ -946,7 +946,7 @@ func (b *dictionaryBuilder) AppendArray(arr arrow.Array) error {
 	return nil
 }
 
-func (b *dictionaryBuilder) IndexBuilder() Builder {
+func (b *dictionaryBuilder) IndexBuilder() IndexBuilder {
 	return b.idxBuilder
 }
 
