@@ -141,16 +141,12 @@ Depends:
   libarrow1400 (= ${binary:Version}),
   libbrotli-dev,
   libbz2-dev,
-  libc-ares-dev,
   libcurl4-openssl-dev,
-@USE_SYSTEM_GRPC@  libgrpc++-dev,
   liblz4-dev,
-@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
-@USE_SYSTEM_PROTOBUF@  libprotoc-dev,
+  libc-ares-dev,
   libre2-dev,
   libsnappy-dev,
   libssl-dev,
-  libthrift-dev,
   libutf8proc-dev,
   libzstd-dev,
   nlohmann-json-dev | nlohmann-json3-dev,
@@ -204,7 +200,11 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libarrow-flight1400 (= ${binary:Version})
+  libarrow-flight1400 (= ${binary:Version}),
+  libc-ares-dev,
+@USE_SYSTEM_GRPC@  libgrpc++-dev,
+@USE_SYSTEM_PROTOBUF@  libprotobuf-dev,
+@USE_SYSTEM_PROTOBUF@  libprotoc-dev
 Description: Apache Arrow is a data processing library for analysis
  .
  This package provides C++ header files for Flight RPC system.
@@ -280,7 +280,8 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libarrow-dev (= ${binary:Version}),
-  libparquet1400 (= ${binary:Version})
+  libparquet1400 (= ${binary:Version}),
+  libthrift-dev
 Description: Apache Parquet is a columnar storage format
  .
  This package provides C++ header files.
