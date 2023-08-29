@@ -445,3 +445,87 @@ func TestLargeListStringRoundTrip(t *testing.T) {
 
 	assert.True(t, array.Equal(arr, arr1))
 }
+
+func TestListViewStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewListViewBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b.Release()
+	vb := b.ValueBuilder().(*array.Int32Builder)
+
+	var values = [][]int32{
+		{0, 1, 2, 3, 4, 5, 6},
+		{1, 2, 3, 4, 5, 6, 7},
+		{2, 3, 4, 5, 6, 7, 8},
+		{3, 4, 5, 6, 7, 8, 9},
+	}
+	for _, value := range values {
+		b.AppendNull()
+		b.AppendWithSize(true, 2*len(value))
+		for _, el := range value {
+			vb.Append(el)
+			vb.AppendNull()
+		}
+		b.Append(false)
+	}
+
+	arr := b.NewArray().(*array.ListView)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewListViewBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.ListView)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
+
+func TestLargeListViewStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	b := array.NewLargeListViewBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b.Release()
+	vb := b.ValueBuilder().(*array.Int32Builder)
+
+	var values = [][]int32{
+		{0, 1, 2, 3, 4, 5, 6},
+		{1, 2, 3, 4, 5, 6, 7},
+		{2, 3, 4, 5, 6, 7, 8},
+		{3, 4, 5, 6, 7, 8, 9},
+	}
+	for _, value := range values {
+		b.AppendNull()
+		b.AppendWithSize(true, 2*len(value))
+		for _, el := range value {
+			vb.Append(el)
+			vb.AppendNull()
+		}
+		b.Append(false)
+	}
+
+	arr := b.NewArray().(*array.LargeListView)
+	defer arr.Release()
+
+	// 2. create array via AppendValueFromString
+	b1 := array.NewLargeListViewBuilder(mem, arrow.PrimitiveTypes.Int32)
+	defer b1.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+	}
+
+	arr1 := b1.NewArray().(*array.LargeListView)
+	defer arr1.Release()
+
+	assert.True(t, array.Equal(arr, arr1))
+}
