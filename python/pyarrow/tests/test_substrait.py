@@ -22,9 +22,13 @@ import pytest
 
 import pyarrow as pa
 import pyarrow.compute as pc
-import pyarrow.dataset as ds
 from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
+
+try:
+    import pyarrow.dataset as ds
+except ImportError:
+    ds = None
 
 try:
     import pyarrow.substrait as substrait
@@ -32,6 +36,7 @@ except ImportError:
     substrait = None
 
 # Marks all of the tests in this module
+# Ignore these with pytest ... -m 'not dataset'
 # Ignore these with pytest ... -m 'not substrait'
 pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
 
