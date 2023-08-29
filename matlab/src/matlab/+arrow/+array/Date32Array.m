@@ -73,6 +73,14 @@ classdef Date32Array < arrow.array.Array
                 unixEpoch = datetime(0, ConvertFrom="posixtime");
             end
 
+            % Explicitly round down (i.e. floor) to the nearest whole number
+            % of days because durations and datetimes are not guaranteed
+            % to encode "whole" number dates / times (e.g. 1.5 days is a valid duration)
+            % and the int32 function rounds to the nearest whole number.
+            % Rounding to the nearest whole number without flooring first would result in a
+            % "round up error" of 1 whole day in cases where the fractional part of
+            % the duration is large enough to result in rounding up (e.g. 1.5 days would
+            % become 2 days).
             numDays = int32(floor(days(data - unixEpoch)));
             args = struct(MatlabArray=numDays, Valid=validElements);
             proxy = arrow.internal.proxy.create("arrow.array.proxy.Date32Array", args);
