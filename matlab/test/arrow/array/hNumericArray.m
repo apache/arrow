@@ -188,10 +188,10 @@ classdef hNumericArray < matlab.unittest.TestCase
             % Not all corresponding valid elements are equal
             tc.verifyFalse(isequal(array1, array3));
 
-            % Their Type properties are not equal.
+            % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % Their Length properties are not equal.
+            % Their Length properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
             % Comparing an arrow.array.Array to a MATLAB data
