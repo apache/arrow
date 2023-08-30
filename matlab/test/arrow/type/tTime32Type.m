@@ -125,7 +125,7 @@ classdef tTime32Type < hFixedWidthType
             %
             % 1. All input arguments have a class type arrow.type.Time32Type
             % 2. All inputs have the same size
-            % 3. The TimeUnit values of elements at corresponding positions in the arrays are equal.
+            % 3. The TimeUnit values of elements at corresponding positions in the arrays are equal
 
             % Scalar Time32Type arrays
             time32Type1 = arrow.time32(TimeUnit="Second");
