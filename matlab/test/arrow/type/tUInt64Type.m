@@ -47,14 +47,14 @@ classdef tUInt64Type < hFixedWidthType
             % false when expected.
             
             % Pass a different arrow.type.Type subclass to isequal
-            uint8Type = arrow.uint64();
+            uint64Type = arrow.uint64();
             int32Type = arrow.int32();
-            testCase.verifyFalse(isequal(uint8Type, int32Type));
-            testCase.verifyFalse(isequal([uint8Type uint8Type], [int32Type int32Type]));
+            testCase.verifyFalse(isequal(uint64Type, int32Type));
+            testCase.verifyFalse(isequal([uint64Type uint64Type], [int32Type int32Type]));
 
             % UInt64Type arrays have different sizes
-            typeArray1 = [uint8Type uint8Type];
-            typeArray2 = [uint8Type uint8Type]';
+            typeArray1 = [uint64Type uint64Type];
+            typeArray2 = [uint64Type uint64Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
     end
