@@ -17,11 +17,14 @@
 
 #include "arrow/matlab/type/proxy/type.h"
 
+#include "libmexclass/proxy/ProxyManager.h"
+
 namespace arrow::matlab::type::proxy {
 
     Type::Type(std::shared_ptr<arrow::DataType> type) : data_type{std::move(type)} {
         REGISTER_METHOD(Type, typeID);
         REGISTER_METHOD(Type, numFields);
+        REGISTER_METHOD(Type, isEqual);
     }
 
     std::shared_ptr<arrow::DataType> Type::unwrap() {
@@ -44,5 +47,26 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = num_fields_mda;
     }
 
+    void Type::isEqual(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+
+        const mda::TypedArray<uint64_t> type_proxy_ids = context.inputs[0];
+
+        bool is_equal = true;
+        const auto check_metadata = false;
+        for (const auto& type_proxy_id : type_proxy_ids) {
+            // Retrieve the Type proxy from the ProxyManager
+            auto proxy = libmexclass::proxy::ProxyManager::getProxy(type_proxy_id);
+            auto type_proxy = std::static_pointer_cast<proxy::Type>(proxy);
+            auto type_to_compare = type_proxy->unwrap();
+
+            if (!data_type->Equals(type_to_compare, check_metadata)) {
+                is_equal = false;
+                break;
+            }
+        }
+        mda::ArrayFactory factory;
+        context.outputs[0] = factory.createScalar(is_equal);
+    }
 }
 
