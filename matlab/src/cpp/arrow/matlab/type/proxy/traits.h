@@ -23,6 +23,7 @@
 #include "arrow/matlab/type/proxy/timestamp_type.h"
 #include "arrow/matlab/type/proxy/time32_type.h"
 #include "arrow/matlab/type/proxy/time64_type.h"
+#include "arrow/matlab/type/proxy/date32_type.h"
 #include "arrow/matlab/type/proxy/string_type.h"
 
 namespace arrow::matlab::type::proxy {
@@ -98,5 +99,10 @@ namespace arrow::matlab::type::proxy {
     template <>
     struct Traits<arrow::Time64Type> {
         using TypeProxy = Time64Type;
+    };
+
+    template <>
+    struct Traits<arrow::Date32Type> {
+        using TypeProxy = Date32Type;
     };
 }

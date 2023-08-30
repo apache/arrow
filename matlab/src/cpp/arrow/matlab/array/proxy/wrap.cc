@@ -55,6 +55,8 @@ namespace arrow::matlab::array::proxy {
                 return std::make_shared<proxy::NumericArray<arrow::Time32Type>>(std::static_pointer_cast<arrow::Time32Array>(array));
             case ID::TIME64:
                 return std::make_shared<proxy::NumericArray<arrow::Time64Type>>(std::static_pointer_cast<arrow::Time64Array>(array));
+            case ID::DATE32:
+                return std::make_shared<proxy::NumericArray<arrow::Date32Type>>(std::static_pointer_cast<arrow::Date32Array>(array));
             case ID::STRING:
                 return std::make_shared<proxy::StringArray>(std::static_pointer_cast<arrow::StringArray>(array));
             default:

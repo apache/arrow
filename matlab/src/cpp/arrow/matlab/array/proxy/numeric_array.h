@@ -56,7 +56,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
             
             auto data_buffer = std::make_shared<MatlabBuffer>(numeric_mda);
 
-            const auto data_type = arrow::CTypeTraits<CType>::type_singleton();
+            const auto data_type = arrow::TypeTraits<ArrowType>::type_singleton();
             const auto length = static_cast<int64_t>(numeric_mda.getNumberOfElements()); // cast size_t to int64_t
 
             // Pack the validity bitmap values.

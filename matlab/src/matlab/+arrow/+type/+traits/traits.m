@@ -52,6 +52,8 @@ function typeTraits = traits(type)
                 typeTraits = Time32Traits();
             case ID.Time64
                 typeTraits = Time64Traits();
+            case ID.Date32
+                typeTraits = Date32Traits();
             otherwise
                 error("arrow:type:traits:UnsupportedArrowTypeID", "Unsupported Arrow type ID: " + type);
         end
