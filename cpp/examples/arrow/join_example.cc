@@ -64,7 +64,7 @@ arrow::Result<std::shared_ptr<arrow::dataset::Dataset>> CreateDataSetFromCSVData
   std::string csv_data = is_left ? kLeftRelationCsvData : kRightRelationCsvData;
   std::cout << csv_data << std::endl;
   std::string_view sv = csv_data;
-  input = std::make_shared<arrow::io::BufferReader>(sv);
+  input = arrow::io::BufferReader::FromString(std::string(sv));
   auto read_options = arrow::csv::ReadOptions::Defaults();
   auto parse_options = arrow::csv::ParseOptions::Defaults();
   auto convert_options = arrow::csv::ConvertOptions::Defaults();
