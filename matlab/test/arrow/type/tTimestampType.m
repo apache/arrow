@@ -24,6 +24,8 @@ classdef tTimestampType < hFixedWidthType
     end
 
     properties(TestParameter)
+        % Test against both "Zoned" (i.e. non-empty TimeZone value) 
+        % and "Unzoned" (i.e. empty TimeZone value).
         TimeZone={'America/Anchorage', ''}
     end
 
@@ -140,58 +142,60 @@ classdef tTimestampType < hFixedWidthType
             % 1. All input arguments have a class type arrow.type.TimestampType
             % 2. All inputs have the same size
             % 3. The TimeUnit values of elements at corresponding positions in the arrays are equal
-            % 3. The TimeZone values of elements at corresponding positions in the arrays are equal
+            % 4. The TimeZone values of elements at corresponding positions in the arrays are equal
 
             % Scalar TimestampType arrays
-            time64Type1 = arrow.timestamp(TimeUnit="Second", TimeZone=TimeZone);
-            time64Type2 = arrow.timestamp(TimeUnit="Second", TimeZone=TimeZone);
+            timestampType1 = arrow.timestamp(TimeUnit="Second", TimeZone=TimeZone);
+            timestampType2 = arrow.timestamp(TimeUnit="Second", TimeZone=TimeZone);
 
-            time64Type3 = arrow.timestamp(TimeUnit="Millisecond", TimeZone=TimeZone);
+            timestampType3 = arrow.timestamp(TimeUnit="Millisecond", TimeZone=TimeZone);
             time64Type4 = arrow.timestamp(TimeUnit="Millisecond", TimeZone=TimeZone);
 
-            time64Type5 = arrow.timestamp(TimeUnit="Microsecond", TimeZone=TimeZone);
-            time64Type6 = arrow.timestamp(TimeUnit="Microsecond", TimeZone=TimeZone);
+            timestampType5 = arrow.timestamp(TimeUnit="Microsecond", TimeZone=TimeZone);
+            timestampType6 = arrow.timestamp(TimeUnit="Microsecond", TimeZone=TimeZone);
 
-            time64Type7 = arrow.timestamp(TimeUnit="Nanosecond", TimeZone=TimeZone);
-            time64Type8 = arrow.timestamp(TimeUnit="Nanosecond", TimeZone=TimeZone);
+            timestampType7 = arrow.timestamp(TimeUnit="Nanosecond", TimeZone=TimeZone);
+            timestampType8 = arrow.timestamp(TimeUnit="Nanosecond", TimeZone=TimeZone);
 
             % Scalar TimestampType arrays
-            testCase.verifyTrue(isequal(time64Type1, time64Type2));
-            testCase.verifyTrue(isequal(time64Type3, time64Type4));
-            testCase.verifyTrue(isequal(time64Type5, time64Type6));
-            testCase.verifyTrue(isequal(time64Type7, time64Type8));
+            testCase.verifyTrue(isequal(timestampType1, timestampType2));
+            testCase.verifyTrue(isequal(timestampType3, time64Type4));
+            testCase.verifyTrue(isequal(timestampType5, timestampType6));
+            testCase.verifyTrue(isequal(timestampType7, timestampType8));
 
             % Non-scalar TimestampType arrays
-            typeArray1 = [time64Type1 time64Type3 time64Type5 time64Type7];
-            typeArray2 = [time64Type2 time64Type4 time64Type6 time64Type8];
+            typeArray1 = [timestampType1 timestampType3 timestampType5 timestampType7];
+            typeArray2 = [timestampType2 time64Type4 timestampType6 timestampType8];
             testCase.verifyTrue(isequal(typeArray1, typeArray2));
         end
 
         function IsEqualFalse(testCase)
             % Verify isequal returns false when expected.
 
-            time64Type1 = arrow.timestamp(TimeUnit="Second");
-            time64Type2 = arrow.timestamp(TimeUnit="Millisecond");
-            time64Type3 = arrow.timestamp(TimeUnit="Second", TimeZone="America/New_York");
-            time64Type4 = arrow.timestamp(TimeUnit="Second", TimeZone="Pacific/Fiji");
-            time64Type5 = arrow.timestamp(TimeUnit="Millisecond", TimeZone="America/New_York");
+            timestampType1 = arrow.timestamp(TimeUnit="Second");
+            timestampType2 = arrow.timestamp(TimeUnit="Millisecond");
+            timestampType3 = arrow.timestamp(TimeUnit="Second", TimeZone="America/New_York");
+            timestampType4 = arrow.timestamp(TimeUnit="Second", TimeZone="Pacific/Fiji");
+            timestampType5 = arrow.timestamp(TimeUnit="Millisecond", TimeZone="America/New_York");
 
             % TimeUnit values differ
-            testCase.verifyFalse(isequal(time64Type1, time64Type2));
-            testCase.verifyFalse(isequal(time64Type4, time64Type5));
+            testCase.verifyFalse(isequal(timestampType1, timestampType2));
+            testCase.verifyFalse(isequal(timestampType4, timestampType5));
 
-            % TimeZone values differ
-            testCase.verifyFalse(isequal(time64Type1, time64Type3));
-            testCase.verifyFalse(isequal(time64Type3, time64Type4));
+            % One TimestampType is zoned, while the other is unzoned.
+            testCase.verifyFalse(isequal(timestampType1, timestampType3));
+
+            % Both TimestampTypes are zoned, but have different values.
+            testCase.verifyFalse(isequal(timestampType3, timestampType4));
 
             % Different dimensions
-            typeArray1 = [time64Type1 time64Type2 time64Type3];
-            typeArray2 = [time64Type1 time64Type2 time64Type3]';
+            typeArray1 = [timestampType1 timestampType2 timestampType3];
+            typeArray2 = [timestampType1 timestampType2 timestampType3]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
 
             % Different TimestampType values at corresponding elements
-            typeArray3 = [time64Type1 time64Type3 time64Type4];
-            typeArray4 = [time64Type1 time64Type2 time64Type4];
+            typeArray3 = [timestampType1 timestampType3 timestampType4];
+            typeArray4 = [timestampType1 timestampType2 timestampType4];
             testCase.verifyFalse(isequal(typeArray3, typeArray4));
         end
     end

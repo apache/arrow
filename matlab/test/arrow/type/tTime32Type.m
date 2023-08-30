@@ -120,7 +120,7 @@ classdef tTime32Type < hFixedWidthType
         end
 
         function IsEqualTrue(testCase)
-            % Verifies isequal method of arrow.type.Int8Type returns true if
+            % Verifies isequal method of arrow.type.Time32Type returns true if
             % these conditions are met:
             %
             % 1. All input arguments have a class type arrow.type.Time32Type
@@ -149,7 +149,7 @@ classdef tTime32Type < hFixedWidthType
             testCase.verifyFalse(isequal(time32Type1, time32Type2));
             testCase.verifyFalse(isequal(time32Type1, int32Type));
 
-            % arrays have different dimensions
+            % Arrays have different dimensions
             typeArray1 = [time32Type1 time32Type2];
             typeArray2 = [time32Type1 time32Type2]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
