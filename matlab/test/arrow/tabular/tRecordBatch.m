@@ -224,7 +224,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         end
 
         function GetColumnByName(testCase)
-            % Verify that columns can be accessed using a field name.
+            % Verify that columns can be accessed by name.
             recordBatch = arrow.tabular.RecordBatch.fromArrays(...
                 arrow.array([1, 2, 3]), ...
                 arrow.array(["A", "B", "C"]), ...
@@ -246,7 +246,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         end
 
         function GetColumnByNameWithEmptyString(testCase)
-            % Verify that a column whose Field name is the empty string ("")
+            % Verify that a column whose name is the empty string ("")
             % can be accessed using the column() method.
             recordBatch = arrow.tabular.RecordBatch.fromArrays(...
                 arrow.array([1, 2, 3]), ...
@@ -261,7 +261,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
         end
 
         function GetColumnByNameWithWhitespace(testCase)
-            % Verify that a column whose Field name contains only whitespace
+            % Verify that a column whose name contains only whitespace
             % characters can be accessed using the column() method.
             recordBatch = arrow.tabular.RecordBatch.fromArrays(...
                 arrow.array([1, 2, 3]), ...
@@ -285,7 +285,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
 
         function ErrorIfColumnNameDoesNotExist(testCase)
             % Verify that an error is thrown when trying to access a column
-            % with a Field name that is not part of the Schema of the RecordBatch.
+            % with a name that is not part of the Schema of the RecordBatch.
             recordBatch = arrow.tabular.RecordBatch.fromArrays(...
                 arrow.array([1, 2, 3]), ...
                 arrow.array(["A", "B", "C"]), ...
@@ -362,7 +362,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
             actual = recordBatch.column(name);
             testCase.verifyEqual(actual, expected);
 
-            % Should match the third field whose name is "123".
+            % Should match the third column whose name is "123".
             name = '123';
             expected = arrow.array([true, false, true]);
             actual = recordBatch.column(name);
