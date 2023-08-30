@@ -327,6 +327,8 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx, val := range leafArr.(*array.Date64).Date64Values() {
 					data[idx] = int32(val / 86400000) // coerce date64 values
 				}
+			case arrow.DECIMAL128:
+			case arrow.DECIMAL256:
 			default:
 				return fmt.Errorf("type mismatch, column is int32 writer, arrow array is %s, and not a compatible type", leafArr.DataType().Name())
 			}
@@ -519,6 +521,8 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				}
 				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
 			}
+		case *arrow.Decimal256Type:
+
 		default:
 			return fmt.Errorf("%w: invalid column type to write to FixedLenByteArray: %s", arrow.ErrInvalid, leafArr.DataType().Name())
 		}
