@@ -99,7 +99,7 @@ classdef tDate32Type < hFixedWidthType
         % false when expected.
             
             % Pass a different arrow.type.Type subclass to isequal
-            date32Type = arrow.boolean();
+            date32Type = arrow.date32();
             int32Type = arrow.int32();
             testCase.verifyFalse(isequal(date32Type, int32Type));
             testCase.verifyFalse(isequal([date32Type date32Type], [int32Type int32Type]));
