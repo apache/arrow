@@ -882,6 +882,7 @@ services:
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
+      CMAKE_BUILD_TYPE: "Release"  # (GH-37478) TODO default back to debug builds
       SETUPTOOLS_SCM_PRETEND_VERSION:
     volumes: *ubuntu-volumes
     deploy: *cuda-deploy
@@ -932,6 +933,30 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
+    volumes: *ubuntu-volumes
+    command: *python-command
+
+  ubuntu-python-no-debug:
+    # (GH-37478) TODO delete ubuntu-python-no-debug
+    # Usage:
+    #   docker-compose build ubuntu-cpp
+    #   docker-compose build ubuntu-python-no-debug
+    #   docker-compose run --rm ubuntu-python-no-debug
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   UBUNTU: 20.04
+    image: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3
+    build:
+      context: .
+      dockerfile: ci/docker/linux-apt-python-3.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-ubuntu-${UBUNTU}-python-3-no-debug
+      args:
+        base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cpp
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *ccache]
+      CMAKE_BUILD_TYPE: "Release"
     volumes: *ubuntu-volumes
     command: *python-command
 
