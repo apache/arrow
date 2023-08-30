@@ -383,22 +383,22 @@ class BufferedInputStream::Impl : public BufferedBase {
     if (pre_buffer_copy_bytes > 0) {
       memcpy(out, buffer_data_ + buffer_pos_, pre_buffer_copy_bytes);
       ConsumeBuffer(pre_buffer_copy_bytes);
-      if (pre_buffer_copy_bytes == nbytes) {
-        return nbytes;
-      }
+    }
+    int64_t remain_bytes = nbytes - pre_buffer_copy_bytes;
+    if (remain_bytes == 0) {
+      return nbytes;
     }
 
     // 2. Read from storage.
-    int64_t remain_bytes = nbytes - pre_buffer_copy_bytes;
+    DCHECK_NE(0, remain_bytes);
     if (remain_bytes > buffer_size_) {
       // 2.1. If read is larger than buffer size, read directly from storage.
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             raw_->Read(remain_bytes, reinterpret_cast<uint8_t*>(out) +
                                                          pre_buffer_copy_bytes));
       raw_read_total_ += bytes_read;
-      bytes_read += pre_buffer_copy_bytes;
       RewindBuffer();
-      return bytes_read;
+      return bytes_read + pre_buffer_copy_bytes;
     } else {
       // 2.2. If read is smaller than buffer size, fill buffer and copy from buffer.
       RETURN_NOT_OK(DoBuffer());
