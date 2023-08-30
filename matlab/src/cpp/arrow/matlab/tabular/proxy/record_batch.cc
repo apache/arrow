@@ -170,7 +170,6 @@ namespace arrow::matlab::tabular::proxy {
     void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         using namespace libmexclass::proxy;
-        using FieldProxy = arrow::matlab::type::proxy::Field;
         mda::ArrayFactory factory;
 
         mda::StructArray args = context.inputs[0];
