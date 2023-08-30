@@ -18,6 +18,7 @@
 from pyarrow.includes.libarrow cimport GetBuildInfo
 
 from collections import namedtuple
+import os
 
 
 VersionInfo = namedtuple('VersionInfo', ('major', 'minor', 'patch'))
@@ -76,7 +77,7 @@ def runtime_info():
         detected_simd_level=frombytes(c_info.detected_simd_level))
 
 
-def configure_tzdb(path):
+def set_timezone_db_path(path):
     """
     Configure the path to text timezone database on Windows.
 

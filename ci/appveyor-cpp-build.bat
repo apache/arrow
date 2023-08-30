@@ -136,6 +136,7 @@ python setup.py develop -q || exit /B
 
 set PYTHONDEVMODE=1
 
+python -c "import pyarrow;import os;path = os.path.expandvars(r'%USERPROFILE%\Downloads\test\tzdata');pa.set_timezone_db_path(path)"
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
