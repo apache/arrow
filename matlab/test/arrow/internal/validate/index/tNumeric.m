@@ -128,7 +128,7 @@ classdef tNumeric < matlab.unittest.TestCase
 
             import arrow.internal.validate.index.numeric
 
-            fcn = @() numeric(false);
+            fcn = @() numeric(false, "int32");
             testCase.verifyError(fcn, "arrow:badsubscript:NonNumeric");
         end
 
