@@ -429,7 +429,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(field.Name, "B");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
 
-            % Should match the second field whose name is "123".
+            % Should match the third field whose name is "123".
             fieldName = '123';
             field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "123");

@@ -55,6 +55,7 @@ namespace arrow::matlab::tabular::proxy {
         REGISTER_METHOD(RecordBatch, numColumns);
         REGISTER_METHOD(RecordBatch, columnNames);
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
+        REGISTER_METHOD(RecordBatch, getColumnByName);
         REGISTER_METHOD(RecordBatch, getSchema);
     }
 
@@ -162,6 +163,34 @@ namespace arrow::matlab::tabular::proxy {
         const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
         const auto array_type_id_mda = factory.createScalar(static_cast<int32_t>(array->type_id()));
         
+        context.outputs[0] = array_proxy_id_mda;
+        context.outputs[1] = array_type_id_mda;
+    }
+
+    void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::StringArray name_mda = args[0]["Name"];
+        const auto name_utf16 = std::u16string(name_mda[0]);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto name, arrow::util::UTF16StringToUTF8(name_utf16), context, error::UNICODE_CONVERSION_ERROR_ID);
+
+        const std::vector<std::string> names = {name};
+        const auto& schema = record_batch->schema();
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
+
+        const auto array = record_batch->GetColumnByName(name);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
+                                            arrow::matlab::array::proxy::wrap(array),
+                                            context,
+                                            error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+
+        const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
+        const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
+        const auto array_type_id_mda = factory.createScalar(static_cast<int32_t>(array->type_id()));
+
         context.outputs[0] = array_proxy_id_mda;
         context.outputs[1] = array_type_id_mda;
     }
