@@ -232,7 +232,8 @@ classdef tTime32Array < matlab.unittest.TestCase
 
         function TestIsEqualFalse(tc, Unit)
             % Verify isequal returns false when expected. Two arrays are
-            % considered not equal if one of the conditions is met:
+            % considered not equal if one of the following conditions is
+            % met:
             %   1. They have different types
             %   2. They have different lengths
             %   3. Different elements are valid
