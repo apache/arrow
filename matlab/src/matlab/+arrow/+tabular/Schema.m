@@ -48,14 +48,10 @@ classdef Schema < matlab.mixin.CustomDisplay
             idx = index.numericOrString(idx, "int32");
 
             if isnumeric(idx)
-                % TODO: Consider vectorizing field() to support extracting
-                % multiple fields at once.
                 validateattributes(idx, "int32", "scalar");
                 args = struct(Index=idx);
                 proxyID = obj.Proxy.getFieldByIndex(args);
             else
-                % TODO: Consider vectorizing field() to support extracting
-                % multiple fields at once.
                 validateattributes(idx, "string", "scalar");
                 args = struct(Name=idx);
                 proxyID = obj.Proxy.getFieldByName(args);
