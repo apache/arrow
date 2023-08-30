@@ -65,6 +65,9 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
                     return;
                 end
 
+                % type(:) flattens N-dimensional arrays into a column
+                % vector before collecting the Proxy properties into a
+                % row vector.
                 proxies = [type(:).Proxy];
                 proxyIDs(:, ii) = [proxies.ID];
             end
