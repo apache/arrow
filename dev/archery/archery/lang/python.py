@@ -16,7 +16,7 @@
 # under the License.
 
 from contextlib import contextmanager
-from enum import EnumType
+from enum import EnumMeta
 import inspect
 import tokenize
 
@@ -115,7 +115,7 @@ def inspect_signature(obj):
 class NumpyDoc:
     IGNORE_VALIDATION_ERRORS_FOR_TYPE = {
         # Enum function signatures should never be documented
-        EnumType: ["PR01"]
+        EnumMeta: ["PR01"]
     }
 
     def __init__(self, symbols=None):
