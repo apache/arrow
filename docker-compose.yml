@@ -883,7 +883,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
-      CMAKE_BUILD_TYPE: "Release"  # (GH-37478) TODO default back to debug builds
+      CMAKE_BUILD_TYPE: "Release"  # (GH-37478)
+      PYTEST_ARGS:  "-m \"not gdb\""  # (GH-37478)
       SETUPTOOLS_SCM_PRETEND_VERSION:
     volumes: *ubuntu-volumes
     deploy: *cuda-deploy
@@ -958,6 +959,7 @@ services:
     environment:
       <<: [*common, *ccache]
       CMAKE_BUILD_TYPE: "Release"
+      PYTEST_ARGS:  "-m \"not gdb\""
     volumes: *ubuntu-volumes
     command: *python-command
 
