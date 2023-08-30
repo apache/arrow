@@ -20,4 +20,4 @@
 
 # Run this from cpp/ directory. thrift is expected to be in your path
 
-thrift --gen cpp -out src/generated src/parquet/parquet.thrift
+thrift --gen cpp:moveable_types -out src/generated src/parquet/parquet.thrift
