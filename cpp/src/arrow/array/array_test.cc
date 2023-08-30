@@ -388,6 +388,7 @@ static std::vector<std::shared_ptr<DataType>> TestArrayUtilitiesAgainstTheseType
       large_utf8(),
       list(utf8()),
       list(int64()),  // NOTE: Regression case for ARROW-9071/MakeArrayOfNull
+      list(large_utf8()),
       large_list(large_utf8()),
       fixed_size_list(utf8(), 3),
       fixed_size_list(int64(), 4),
