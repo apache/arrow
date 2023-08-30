@@ -102,7 +102,7 @@ namespace arrow::matlab::array::proxy {
         bool is_equal = true;
         const auto equals_options = arrow::EqualOptions::Defaults();
         for (const auto& array_proxy_id : array_proxy_ids) {
-           // Retrieve the proxy::Array proxy from the ProxyManager
+           // Retrieve the Array proxy from the ProxyManager
             auto proxy = libmexclass::proxy::ProxyManager::getProxy(array_proxy_id);
             auto array_proxy = std::static_pointer_cast<proxy::Array>(proxy);
             auto array_to_compare = array_proxy->unwrap();
