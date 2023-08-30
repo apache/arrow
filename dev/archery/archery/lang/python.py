@@ -237,7 +237,6 @@ class NumpyDoc:
                 if any(isinstance(obj, obj_type) and errcode in errcode_list
                        for obj_type, errcode_list
                        in NumpyDoc.IGNORE_VALIDATION_ERRORS_FOR_TYPE.items()):
-                    print(obj)
                     continue
                 errors.append((errcode, errmsg))
 
