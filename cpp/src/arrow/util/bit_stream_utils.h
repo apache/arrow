@@ -108,6 +108,20 @@ class BitWriter {
   int bit_offset_;   // Offset in buffered_values_
 };
 
+namespace detail {
+
+inline uint64_t ReadLittleEndianWord(const uint8_t* buffer, int bytes_remaining) {
+  uint64_t le_value = 0;
+  if (ARROW_PREDICT_TRUE(bytes_remaining >= 8)) {
+    memcpy(&le_value, buffer, 8);
+  } else {
+    memcpy(&le_value, buffer, bytes_remaining);
+  }
+  return arrow::bit_util::FromLittleEndian(le_value);
+}
+
+}  // namespace detail
+
 /// Utility class to read bit/byte stream.  This class can read bits or bytes
 /// that are either byte aligned or not.  It also has utilities to read multiple
 /// bytes in one read (e.g. encoded int).
@@ -125,7 +139,8 @@ class BitReader {
     max_bytes_ = buffer_len;
     byte_offset_ = 0;
     bit_offset_ = 0;
-    FillBufferedValues();
+    buffered_values_ =
+        detail::ReadLittleEndianWord(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
   }
 
   /// Gets the next value from the buffer.  Returns true if 'v' could be read or false if
@@ -180,20 +195,15 @@ class BitReader {
   static constexpr int kMaxVlqByteLengthForInt64 = 10;
 
  private:
-  template <typename T>
-  inline void GetOneValue(int num_bits, T* v);
+  const uint8_t* buffer_;
+  int max_bytes_;
 
-  void FillBufferedValues();
+  /// Bytes are memcpy'd from buffer_ and values are read from this variable. This is
+  /// faster than reading values byte by byte directly from buffer_.
+  uint64_t buffered_values_;
 
-  const uint8_t* buffer_ = NULLPTR;
-  int max_bytes_ = 0;
-
-  // Bytes are memcpy'd from buffer_ and values are read from this variable. This is
-  // faster than reading values byte by byte directly from buffer_.
-  uint64_t buffered_values_ = 0;
-
-  int byte_offset_ = 0;  // Offset in buffer_
-  int bit_offset_ = 0;   // Offset in buffered_values_
+  int byte_offset_;  // Offset in buffer_
+  int bit_offset_;   // Offset in buffered_values_
 };
 
 inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
@@ -253,50 +263,47 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
   return true;
 }
 
-inline void BitReader::FillBufferedValues() {
-  uint64_t le_value = 0;
-  if (ARROW_PREDICT_TRUE(max_bytes_ - byte_offset_ >= 8)) {
-    memcpy(&le_value, buffer_ + byte_offset_, 8);
-  } else {
-    memcpy(&le_value, buffer_ + byte_offset_, max_bytes_ - byte_offset_);
-  }
-  buffered_values_ = arrow::bit_util::FromLittleEndian(le_value);
-}
+namespace detail {
 
 template <typename T>
-inline void BitReader::GetOneValue(int num_bits, T* v) {
+inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
+                      int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4800)
 #endif
-  *v = static_cast<T>(bit_util::TrailingBits(buffered_values_, bit_offset_ + num_bits) >>
-                      bit_offset_);
+  *v = static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
+                      *bit_offset);
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-  bit_offset_ += num_bits;
-  if (bit_offset_ >= 64) {
-    byte_offset_ += 8;
-    bit_offset_ -= 64;
-    FillBufferedValues();
+  *bit_offset += num_bits;
+  if (*bit_offset >= 64) {
+    *byte_offset += 8;
+    *bit_offset -= 64;
+
+    *buffered_values =
+        detail::ReadLittleEndianWord(buffer + *byte_offset, max_bytes - *byte_offset);
 #ifdef _MSC_VER
 #pragma warning(push)
 #pragma warning(disable : 4800 4805)
 #endif
     // Read bits of v that crossed into new buffered_values_
-    if (ARROW_PREDICT_TRUE(num_bits - bit_offset_ < static_cast<int>(8 * sizeof(T)))) {
-      // if shift exponent(num_bits - bit_offset) is not less than sizeof(T), *v will not
+    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < static_cast<int>(8 * sizeof(T)))) {
+      // if shift exponent(num_bits - *bit_offset) is not less than sizeof(T), *v will not
       // change and the following code may cause a runtime error that the shift exponent
       // is too large
-      *v = *v | static_cast<T>(bit_util::TrailingBits(buffered_values_, bit_offset_)
-                               << (num_bits - bit_offset_));
+      *v = *v | static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset)
+                               << (num_bits - *bit_offset));
     }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-    DCHECK_LE(bit_offset_, 64);
+    DCHECK_LE(*bit_offset, 64);
   }
 }
+
+}  // namespace detail
 
 template <typename T>
 inline bool BitReader::GetValue(int num_bits, T* v) {
@@ -308,44 +315,43 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
   DCHECK(buffer_ != NULL);
   DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
-//   int bit_offset = bit_offset_;
-//   int byte_offset = byte_offset_;
-//   uint64_t buffered_values = buffered_values_;
-//   int max_bytes = max_bytes_;
-//   const uint8_t* buffer = buffer_;
+  int bit_offset = bit_offset_;
+  int byte_offset = byte_offset_;
+  uint64_t buffered_values = buffered_values_;
+  int max_bytes = max_bytes_;
+  const uint8_t* buffer = buffer_;
 
   const int64_t needed_bits = num_bits * static_cast<int64_t>(batch_size);
   constexpr uint64_t kBitsPerByte = 8;
   const int64_t remaining_bits =
-      static_cast<int64_t>(max_bytes_ - byte_offset_) * kBitsPerByte - bit_offset_;
+      static_cast<int64_t>(max_bytes - byte_offset) * kBitsPerByte - bit_offset;
   if (remaining_bits < needed_bits) {
     batch_size = static_cast<int>(remaining_bits / num_bits);
   }
 
   int i = 0;
-  if (ARROW_PREDICT_FALSE(bit_offset_ != 0)) {
-    for (; i < batch_size && bit_offset_ != 0; ++i) {
-      GetOneValue(num_bits, &v[i]);
-//       detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-//                         &buffered_values);
+  if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
+    for (; i < batch_size && bit_offset != 0; ++i) {
+      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                        &buffered_values);
     }
   }
 
   if (sizeof(T) == 4) {
     int num_unpacked =
-        internal::unpack32(reinterpret_cast<const uint32_t*>(buffer_ + byte_offset_),
+        internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
                            reinterpret_cast<uint32_t*>(v + i), batch_size - i, num_bits);
     i += num_unpacked;
-    byte_offset_ += num_unpacked * num_bits / 8;
+    byte_offset += num_unpacked * num_bits / 8;
   } else if (sizeof(T) == 8 && num_bits > 32) {
     // Use unpack64 only if num_bits is larger than 32
     // TODO (ARROW-13677): improve the performance of internal::unpack64
     // and remove the restriction of num_bits
     int num_unpacked =
-        internal::unpack64(buffer_ + byte_offset_, reinterpret_cast<uint64_t*>(v + i),
+        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
                            batch_size - i, num_bits);
     i += num_unpacked;
-    byte_offset_ += num_unpacked * num_bits / 8;
+    byte_offset += num_unpacked * num_bits / 8;
   } else {
     // TODO: revisit this limit if necessary
     DCHECK_LE(num_bits, 32);
@@ -354,7 +360,7 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     while (i < batch_size) {
       int unpack_size = std::min(buffer_size, batch_size - i);
       int num_unpacked =
-          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer_ + byte_offset_),
+          internal::unpack32(reinterpret_cast<const uint32_t*>(buffer + byte_offset),
                              unpack_buffer, unpack_size, num_bits);
       if (num_unpacked == 0) {
         break;
@@ -370,23 +376,21 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
 #endif
       }
       i += num_unpacked;
-      byte_offset_ += num_unpacked * num_bits / 8;
+      byte_offset += num_unpacked * num_bits / 8;
     }
   }
 
-//   buffered_values = detail::ReadBitsAsLittleEndian(buffer + byte_offset, max_bytes - byte_offset);
+  buffered_values =
+      detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
 
-//   bit_offset_ = bit_offset;
-//   byte_offset_ = byte_offset;
-
-  FillBufferedValues();
   for (; i < batch_size; ++i) {
-    GetOneValue(num_bits, &v[i]);
-//     detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-//                       &buffered_values);
+    detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
+                      &buffered_values);
   }
-/*
-  buffered_values_ = buffered_values;*/
+
+  bit_offset_ = bit_offset;
+  byte_offset_ = byte_offset;
+  buffered_values_ = buffered_values;
 
   return batch_size;
 }
@@ -417,8 +421,8 @@ inline bool BitReader::GetAligned(int num_bytes, T* v) {
   byte_offset_ += num_bytes;
 
   bit_offset_ = 0;
-  FillBufferedValues();
-//   buffered_values_ = detail::ReadBitsAsLittleEndian(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
+  buffered_values_ =
+      detail::ReadLittleEndianWord(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
   return true;
 }
 
@@ -430,7 +434,8 @@ inline bool BitReader::Advance(int64_t num_bits) {
   }
   byte_offset_ += static_cast<int>(bits_required >> 3);
   bit_offset_ = static_cast<int>(bits_required & 7);
-  FillBufferedValues();
+  buffered_values_ =
+      detail::ReadLittleEndianWord(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
   return true;
 }
 
