@@ -116,7 +116,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.tabular.internal.getArrayProxyIDs
+            import arrow.array.internal.getArrayProxyIDs
             
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);
