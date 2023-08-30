@@ -61,7 +61,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
                 type = varargin{ii};
                 if ~isa(type, "arrow.type.Type") || ~isequal(size(obj), size(type))
                     % Return early if type is not an arrow.type.Type or if
-                    % the dimensions of obj and type do not matchx
+                    % the dimensions of obj and type do not match.
                     return;
                 end
 
