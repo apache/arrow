@@ -302,6 +302,17 @@ TEST(TestRollingSum, NoIgnoreNulls) {
   }
 }
 
+TEST(TestRollingSum, NaN) {
+  RollingOptions options(2, 1, true);
+  CheckRolling(
+      "rolling_sum", ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+      ArrayFromJSON(float32(), "[NaN, NaN, 1, 3, NaN, NaN, 7, 4, NaN]"), &options);
+  CheckRolling("rolling_sum_checked",
+               ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+               ArrayFromJSON(float32(), "[NaN, NaN, 1, 3, NaN, NaN, 7, 4, NaN]"),
+               &options);
+}
+
 TEST(TestRollingProd, IgnoreNulls) {
   for (std::string func : {"rolling_prod", "rolling_prod_checked"}) {
     for (auto ty : NumericTypes()) {
@@ -363,6 +374,27 @@ TEST(TestRollingProd, NoIgnoreNulls) {
   }
 }
 
+TEST(TestRollingProd, ZeroAndNaN) {
+  for (std::string func : {"rolling_prod", "rolling_prod_checked"}) {
+    for (auto ty : NumericTypes()) {
+      RollingOptions options(4, 3, true);
+      CheckRolling(func, ArrayFromJSON(ty, "[0, 1, 2, 3, 4, 0]"),
+                   ArrayFromJSON(ty, "[null, null, 0, 0, 24, 0]"), &options);
+      options = RollingOptions(2, 1, true);
+      CheckRolling(func, ArrayFromJSON(ty, "[0, 1, 2, 0, 3, 4, 0]"),
+                   ArrayFromJSON(ty, "[0, 0, 2, 0, 0, 12, 0]"), &options);
+    }
+  }
+  RollingOptions options(2, 1, true);
+  CheckRolling(
+      "rolling_prod", ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+      ArrayFromJSON(float32(), "[NaN, NaN, 0, 2, NaN, NaN, 12, 0, NaN]"), &options);
+  CheckRolling("rolling_prod_checked",
+               ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+               ArrayFromJSON(float32(), "[NaN, NaN, 0, 2, NaN, NaN, 12, 0, NaN]"),
+               &options);
+}
+
 TEST(TestRollingMax, IgnoreNulls) {
   for (auto ty : NumericTypes()) {
     RollingOptions options(4, 3, true);
@@ -411,27 +443,6 @@ TEST(TestRollingMax, NoIgnoreNulls) {
     CheckRolling("rolling_max", ArrayFromJSON(ty, "[null, 1, 3, null, 5, 4, null]"),
                  ArrayFromJSON(ty, "[null, null, 3, null, null, 5, null]"), &options);
   }
-}
-
-TEST(TestRollingProd, ZeroAndNaN) {
-  for (std::string func : {"rolling_prod", "rolling_prod_checked"}) {
-    for (auto ty : NumericTypes()) {
-      RollingOptions options(4, 3, true);
-      CheckRolling(func, ArrayFromJSON(ty, "[0, 1, 2, 3, 4, 0]"),
-                   ArrayFromJSON(ty, "[null, null, 0, 0, 24, 0]"), &options);
-      options = RollingOptions(2, 1, true);
-      CheckRolling(func, ArrayFromJSON(ty, "[0, 1, 2, 0, 3, 4, 0]"),
-                   ArrayFromJSON(ty, "[0, 0, 2, 0, 0, 12, 0]"), &options);
-    }
-  }
-  RollingOptions options(2, 1, true);
-  CheckRolling(
-      "rolling_prod", ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
-      ArrayFromJSON(float32(), "[NaN, NaN, 0, 2, NaN, NaN, 12, 0, NaN]"), &options);
-  CheckRolling("rolling_prod_checked",
-               ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
-               ArrayFromJSON(float32(), "[NaN, NaN, 0, 2, NaN, NaN, 12, 0, NaN]"),
-               &options);
 }
 
 TEST(TestRollingMin, IgnoreNulls) {
@@ -548,6 +559,13 @@ TEST(TestRollingMean, NoIgnoreNulls) {
                  ArrayFromJSON(float64(), "[null, null, 2.5, null, null, 5.5, null]"),
                  &options);
   }
+}
+
+TEST(TestRollingMean, NaN) {
+  RollingOptions options(2, 1, true);
+  CheckRolling(
+      "rolling_mean", ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+      ArrayFromJSON(float64(), "[NaN, NaN, 0.5, 1.5, NaN, NaN, 3.5, 2, NaN]"), &options);
 }
 
 TEST(TestRolling, AbnormalLength) {

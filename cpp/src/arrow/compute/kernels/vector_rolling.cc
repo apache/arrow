@@ -72,16 +72,36 @@ struct SumWindow {
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
   KernelContext* ctx;
-  ArgValue sum = 0;
+  ArgValue sum = 0;  // sum of non-nan values in the window
+  int64_t nan_count = 0;
   explicit SumWindow(KernelContext* ctx) : ctx(ctx) {}
 
   void Append(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count++;
+        return;
+      }
+    }
     sum = Add::Call<ArgValue>(ctx, sum, value, st);
   }
   void Remove(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count--;
+        return;
+      }
+    }
     sum = Subtract::Call<ArgValue>(ctx, sum, value, st);
   }
-  OutValue GetValue(Status* st) const { return sum; }
+  OutValue GetValue(Status* st) const {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (nan_count > 0) {
+        return std::numeric_limits<OutValue>::quiet_NaN();
+      }
+    }
+    return sum;
+  }
 };
 
 template <typename InputType>
@@ -91,16 +111,36 @@ struct SumCheckedWindow {
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
   KernelContext* ctx;
-  ArgValue sum = 0;
+  ArgValue sum = 0;  // sum of non-nan values in the window
+  int64_t nan_count = 0;
   explicit SumCheckedWindow(KernelContext* ctx) : ctx(ctx) {}
 
   void Append(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count++;
+        return;
+      }
+    }
     sum = AddChecked::Call<ArgValue>(ctx, sum, value, st);
   }
   void Remove(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count--;
+        return;
+      }
+    }
     sum = SubtractChecked::Call<ArgValue>(ctx, sum, value, st);
   }
-  OutValue GetValue(Status* st) const { return sum; }
+  OutValue GetValue(Status* st) const {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (nan_count > 0) {
+        return std::numeric_limits<OutValue>::quiet_NaN();
+      }
+    }
+    return sum;
+  }
 };
 
 template <typename InputType>
@@ -250,19 +290,37 @@ struct MeanWindow {
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
   KernelContext* ctx;
-  double sum = 0;
+  double sum = 0;  // sum of non-nan values in the window
   int64_t count = 0;
+  int64_t nan_count = 0;
   explicit MeanWindow(KernelContext* ctx) : ctx(ctx) {}
   void Append(ArgValue value, Status* st) {
-    sum += value;
     count++;
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count++;
+        return;
+      }
+    }
+    sum += value;
   }
   void Remove(ArgValue value, Status* st) {
-    sum -= value;
     count--;
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count--;
+        return;
+      }
+    }
+    sum -= value;
   }
   OutValue GetValue(Status* st) const {
-    DCHECK_GE(count, 0);
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (nan_count > 0) {
+        return std::numeric_limits<OutValue>::quiet_NaN();
+      }
+    }
+    DCHECK_GT(count, 0);
     return sum / count;
   }
 };
