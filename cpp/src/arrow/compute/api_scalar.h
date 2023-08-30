@@ -273,7 +273,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
 
-  ARROW_DEPRECATED("Will be removed after removing of skip_nulls")
+  ARROW_DEPRECATED("Deprecated in 14.0.0. Will be removed after removing of skip_nulls")
   explicit SetLookupOptions(Datum value_set, bool skip_nulls);
 
   static constexpr char const kTypeName[] = "SetLookupOptions";
@@ -296,7 +296,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   /// (IndexIn and IsIn) in the output.
   NullMatchingBehavior null_matching_behavior;
 
-  ARROW_DEPRECATED("Will be removed after removing of skip_nulls")
+  ARROW_DEPRECATED("Deprecated in 14.0.0. Will be removed after removing of skip_nulls")
   NullMatchingBehavior GetNullMatchingBehavior() const;
 
   // DEPRECATED(use null_matching_behavior instead)
