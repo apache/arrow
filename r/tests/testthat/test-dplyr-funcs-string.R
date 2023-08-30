@@ -303,6 +303,15 @@ test_that("str_detect", {
       collect(),
     df
   )
+
+  string <- "^F"
+  compare_dplyr_binding(
+    .input %>%
+      filter(str_detect(x, regex(string))) %>%
+      collect(),
+    df
+  )
+
   compare_dplyr_binding(
     .input %>%
       transmute(

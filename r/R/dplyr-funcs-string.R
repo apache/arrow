@@ -58,15 +58,18 @@ get_stringr_pattern_options <- function(pattern) {
   }
 
   ensure_opts <- function(opts) {
+
+    # default options for the simple cases
     if (is.character(opts)) {
       opts <- list(pattern = opts, fixed = FALSE, ignore_case = FALSE)
     }
     opts
   }
 
-  pattern <- clean_pattern_namespace(pattern)
+  pattern_expr <- clean_pattern_namespace(quo_get_expr(pattern))
+  pattern <- quo_set_expr(pattern, pattern_expr)
 
-  ensure_opts(eval(pattern))
+  ensure_opts(eval_tidy(pattern, data = list(regex = regex, coll = coll, boundary = boundary, fixed = fixed)))
 }
 
 # Ensure that e.g. stringr::regex and regex both work within patterns
@@ -74,10 +77,7 @@ clean_pattern_namespace <- function(pattern) {
   modifier_funcs <- c("fixed", "regex", "coll", "boundary")
   if (is_call(pattern, modifier_funcs, ns = "stringr")) {
     function_called <- call_name(pattern[1])
-
-    if (function_called %in% modifier_funcs) {
-      pattern[1] <- call2(function_called)
-    }
+    pattern[1] <- call2(function_called)
   }
 
   pattern
@@ -255,7 +255,7 @@ register_bindings_string_regex <- function() {
 
 
   register_binding("stringr::str_detect", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
+    opts <- get_stringr_pattern_options(enquo(pattern))
     arrow_fun <- ifelse(opts$fixed, "match_substring", "match_substring_regex")
     out <- create_string_match_expr(arrow_fun,
       string = string,
@@ -282,11 +282,12 @@ register_bindings_string_regex <- function() {
   register_binding(
     "stringr::str_count",
     function(string, pattern) {
-      opts <- get_stringr_pattern_options(enexpr(pattern))
+      opts <- get_stringr_pattern_options(enquo(pattern))
       if (!is.string(pattern)) {
         arrow_not_supported("`pattern` must be a length 1 character vector; other values")
       }
       arrow_fun <- ifelse(opts$fixed, "count_substring", "count_substring_regex")
+
       Expression$create(
         arrow_fun,
         string,
@@ -313,7 +314,7 @@ register_bindings_string_regex <- function() {
   })
 
   register_binding("stringr::str_starts", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
+    opts <- get_stringr_pattern_options(enquo(pattern))
     if (opts$fixed) {
       out <- call_binding("startsWith", x = string, prefix = opts$pattern)
     } else {
@@ -331,7 +332,7 @@ register_bindings_string_regex <- function() {
   })
 
   register_binding("stringr::str_ends", function(string, pattern, negate = FALSE) {
-    opts <- get_stringr_pattern_options(enexpr(pattern))
+    opts <- get_stringr_pattern_options(enquo(pattern))
     if (opts$fixed) {
       out <- call_binding("endsWith", x = string, suffix = opts$pattern)
     } else {
@@ -366,7 +367,7 @@ register_bindings_string_regex <- function() {
   arrow_stringr_string_replace_function <- function(max_replacements) {
     force(max_replacements)
     function(string, pattern, replacement) {
-      opts <- get_stringr_pattern_options(enexpr(pattern))
+      opts <- get_stringr_pattern_options(enquo(pattern))
       arrow_r_string_replace_function(max_replacements)(
         pattern = opts$pattern,
         replacement = replacement,
@@ -380,7 +381,7 @@ register_bindings_string_regex <- function() {
   arrow_stringr_string_remove_function <- function(max_replacements) {
     force(max_replacements)
     function(string, pattern) {
-      opts <- get_stringr_pattern_options(enexpr(pattern))
+      opts <- get_stringr_pattern_options(enquo(pattern))
       arrow_r_string_replace_function(max_replacements)(
         pattern = opts$pattern,
         replacement = "",
@@ -423,7 +424,7 @@ register_bindings_string_regex <- function() {
              pattern,
              n = Inf,
              simplify = FALSE) {
-      opts <- get_stringr_pattern_options(enexpr(pattern))
+      opts <- get_stringr_pattern_options(enquo(pattern))
       arrow_fun <- ifelse(opts$fixed, "split_pattern", "split_pattern_regex")
       if (opts$ignore_case) {
         arrow_not_supported("Case-insensitive string splitting")
