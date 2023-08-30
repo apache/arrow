@@ -44,6 +44,7 @@
 
 #include <aws/core/Aws.h>
 #include <aws/core/Region.h>
+#include <aws/core/VersionConfig.h>
 #include <aws/core/auth/AWSCredentials.h>
 #include <aws/core/auth/AWSCredentialsProviderChain.h>
 #include <aws/core/auth/STSCredentialsProvider.h>
@@ -53,11 +54,6 @@
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
 #include <aws/core/utils/stream/PreallocatedStreamBuf.h>
 #include <aws/core/utils/xml/XmlSerializer.h>
-#ifdef ARROW_S3_HAS_CRT
-#include <aws/crt/io/Bootstrap.h>
-#include <aws/crt/io/EventLoopGroup.h>
-#include <aws/crt/io/HostResolver.h>
-#endif
 #include <aws/identity-management/auth/STSAssumeRoleCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/S3Errors.h>
@@ -79,6 +75,35 @@
 #include <aws/s3/model/ObjectCannedACL.h>
 #include <aws/s3/model/PutObjectRequest.h>
 #include <aws/s3/model/UploadPartRequest.h>
+
+// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7.
+#if defined(AWS_SDK_VERSION_MAJOR) && defined(AWS_SDK_VERSION_MINOR) && \
+    defined(AWS_SDK_VERSION_PATCH)
+// Redundant "(...)" are for suppressing "Weird number of spaces at
+// line-start. Are you using a 2-space indent? [whitespace/indent]
+// [3]" errors...
+#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch)                      \
+  ((AWS_SDK_VERSION_MAJOR > (major) ||                                        \
+    (AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR > (minor)) ||  \
+    ((AWS_SDK_VERSION_MAJOR == (major) && AWS_SDK_VERSION_MINOR == (minor) && \
+      AWS_SDK_VERSION_PATCH >= (patch)))))
+#else
+#define ARROW_AWS_SDK_VERSION_CHECK(major, minor, patch) 0
+#endif
+
+// This feature is available since 1.9.0 but
+// AWS_SDK_VERSION_{MAJOR,MINOR,PATCH} are available since 1.9.7. So
+// we can't use this feature for [1.9.0,1.9.6]. If it's a problem,
+// please report it to our issue tracker.
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 0)
+#define ARROW_S3_HAS_CRT
+#endif
+
+#ifdef ARROW_S3_HAS_CRT
+#include <aws/crt/io/Bootstrap.h>
+#include <aws/crt/io/EventLoopGroup.h>
+#include <aws/crt/io/HostResolver.h>
+#endif
 
 #include "arrow/util/windows_fixup.h"
 
@@ -2913,9 +2938,7 @@ struct AwsInstance {
       return std::make_shared<Aws::Utils::Logging::ConsoleLogSystem>(
           aws_options_.loggingOptions.logLevel);
     };
-#if (defined(AWS_SDK_VERSION_MAJOR) &&                          \
-     (AWS_SDK_VERSION_MAJOR > 1 || AWS_SDK_VERSION_MINOR > 9 || \
-      (AWS_SDK_VERSION_MINOR == 9 && AWS_SDK_VERSION_PATCH >= 272)))
+#if ARROW_AWS_SDK_VERSION_CHECK(1, 9, 272)
     // ARROW-18290: escape all special chars for compatibility with non-AWS S3 backends.
     // This configuration options is only available with AWS SDK 1.9.272 and later.
     aws_options_.httpOptions.compliantRfc3986Encoding = true;
