@@ -162,7 +162,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
         function TestIsEqualTrue(tc)
             % Verifies arrays are considered equal if:
             %
-            %  1. They have the same arrow.array.Type
+            %  1. Their Type properties are equal
             %  2. They have the same length (i.e. their Length properties are equal)
             %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
             %  4. All corresponding valid elements have the same values
