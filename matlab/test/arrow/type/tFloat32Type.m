@@ -25,11 +25,11 @@ classdef tFloat32Type < hFixedWidthType
 
     methods(Test)
         function IsEqualTrue(testCase)
-        % Verifies isequal method of arrow.type.Float32Type returns true if
-        % these conditions are met:
-        %
-        % 1. All input arguments have a class type arrow.type.Float32Type
-        % 2. All inputs have the same size
+            % Verifies isequal method of arrow.type.Float32Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Float32Type
+            % 2. All inputs have the same size
 
             % Scalar Float32Type arrays
             float32Type1 = arrow.float32();
@@ -43,8 +43,8 @@ classdef tFloat32Type < hFixedWidthType
         end
 
         function IsEqualFalse(testCase)
-        % Verifies the isequal method of arrow.type.Float32Type returns
-        % false when expected.
+            % Verifies the isequal method of arrow.type.Float32Type returns
+            % false when expected.
             
             % Pass a different arrow.type.Type subclass to isequal
             float32Type = arrow.float32();

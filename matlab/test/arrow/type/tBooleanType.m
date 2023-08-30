@@ -25,11 +25,11 @@ classdef tBooleanType < hFixedWidthType
 
     methods(Test)
         function IsEqualTrue(testCase)
-        % Verifies isequal method of arrow.type.BooleanType returns true if
-        % these conditions are met:
-        %
-        % 1. All input arguments have a class type arrow.type.BooleanType
-        % 2. All inputs have the same size
+            % Verifies isequal method of arrow.type.BooleanType returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.BooleanType
+            % 2. All inputs have the same size
 
             % Scalar BooleanType arrays
             boolType1 = arrow.boolean();
@@ -43,8 +43,8 @@ classdef tBooleanType < hFixedWidthType
         end
 
         function IsEqualFalse(testCase)
-        % Verifies the isequal method of arrow.type.BooleanType returns
-        % false when expected.
+            % Verifies the isequal method of arrow.type.BooleanType returns
+            % false when expected.
             
             % Pass a different arrow.type.Type subclass to isequal
             boolType = arrow.boolean();

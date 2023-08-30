@@ -77,11 +77,11 @@ classdef tDate32Type < hFixedWidthType
         end
 
         function IsEqualTrue(testCase)
-        % Verifies isequal method of arrow.type.Date32Type returns true if
-        % these conditions are met:
-        %
-        % 1. All input arguments have a class type arrow.type.Date32Type
-        % 2. All inputs have the same size
+            % Verifies isequal method of arrow.type.Date32Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Date32Type
+            % 2. All inputs have the same size
 
             % Scalar Date32Type arrays
             date32Type1 = arrow.date32();
@@ -95,8 +95,8 @@ classdef tDate32Type < hFixedWidthType
         end
 
         function IsEqualFalse(testCase)
-        % Verifies the isequal method of arrow.type.Date32Type returns
-        % false when expected.
+            % Verifies the isequal method of arrow.type.Date32Type returns
+            % false when expected.
             
             % Pass a different arrow.type.Type subclass to isequal
             date32Type = arrow.date32();
