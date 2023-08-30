@@ -49,6 +49,7 @@ set(ARROW_RE2_LINKAGE
 set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
+    Azure
     benchmark
     Boost
     Brotli
@@ -162,6 +163,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_absl()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Azure")
+    build_azure_sdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
@@ -389,6 +392,10 @@ if(ARROW_GCS)
   set(ARROW_WITH_ZLIB ON)
 endif()
 
+if(ARROW_AZURE)
+  set(ARROW_WITH_AZURE_SDK ON)
+endif()
+
 if(ARROW_JSON)
   set(ARROW_WITH_RAPIDJSON ON)
 endif()
@@ -567,6 +574,14 @@ else()
   set_urls(AWSSDK_SOURCE_URL
            "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_SDK_URL})
+  set(ARROW_AZURE_SDK_URL "$ENV{ARROW_AZURE_SDK_URL}")
+else()
+  set_urls(ARROW_AZURE_SDK_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -981,6 +996,8 @@ else()
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
+include(FetchContent)
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -1388,6 +1405,7 @@ endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
+   OR ARROW_AZURE
    OR ARROW_FLIGHT
    OR ARROW_GANDIVA
    OR ARROW_GCS
@@ -5095,6 +5113,56 @@ if(ARROW_S3)
   endif()
 endif()
 
+# ----------------------------------------------------------------------
+# Azure SDK for C++
+
+function(build_azure_sdk)
+  message(STATUS "Building Azure SDK for C++ from source")
+  fetchcontent_declare(azure_sdk
+                       URL ${ARROW_AZURE_SDK_URL}
+                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
+  set(BUILD_PERFORMANCE_TESTS FALSE)
+  set(BUILD_SAMPLES FALSE)
+  set(BUILD_TESTING FALSE)
+  set(BUILD_WINDOWS_UWP TRUE)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
+  set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
+  set(WARNINGS_AS_ERRORS FALSE)
+  # TODO: Configure flags in a better way. FetchContent builds inherit
+  # global flags but we want to disable -Werror for Azure SDK for C++ builds.
+  if(MSVC)
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  else()
+    string(REPLACE "-Werror" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  endif()
+  fetchcontent_makeavailable(azure_sdk)
+  set(AZURE_SDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Azure::azure-core
+       Azure::azure-identity
+       Azure::azure-storage-blobs
+       Azure::azure-storage-common
+       Azure::azure-storage-files-datalake)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
+
+if(ARROW_WITH_AZURE_SDK)
+  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  set(AZURE_SDK_LINK_LIBRARIES
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-common
+      Azure::azure-storage-blobs
+      Azure::azure-identity
+      Azure::azure-core)
+endif()
 # ----------------------------------------------------------------------
 # ucx - communication framework for modern, high-bandwidth and low-latency networks
 
