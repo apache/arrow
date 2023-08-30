@@ -2325,7 +2325,7 @@ cdef class Expression(_Weakrefable):
       1,
       2,
       3
-    ], skip_nulls=0, null_matching_behavior=MATCH})>
+    ], skip_nulls=0, null_matching_behavior=<INVALID>})>
     """
 
     def __init__(self):

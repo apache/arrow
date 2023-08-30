@@ -271,7 +271,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   enum NullMatchingBehavior { MATCH, SKIP, EMIT_NULL, INCONCLUSIVE };
 
   explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
-  // DEPRECATED(will be removed after removing of skip_nulls)
+  ARROW_DEPRECATED("will be removed after removing of skip_nulls")
   explicit SetLookupOptions(Datum value_set, bool skip_nulls);
   SetLookupOptions();
   static constexpr char const kTypeName[] = "SetLookupOptions";
@@ -294,16 +294,16 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   /// (IndexIn and IsIn) in the output.
   NullMatchingBehavior null_matching_behavior;
 
-  // DEPRECATED(will be removed after removing of skip_nulls)
+  ARROW_DEPRECATED("will be removed after removing of skip_nulls")
   NullMatchingBehavior GetNullMatchingBehavior() const;
 
-  // DEPRECATED(use null_matching_behavior instead)
   /// Whether nulls in `value_set` count for lookup.
   ///
   /// If true, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// If false, any null in `value_set` is successfully matched in
   /// the input.
+  ARROW_DEPRECATED("use null_matching_behavior instead")
   std::optional<bool> skip_nulls;
 };
 
