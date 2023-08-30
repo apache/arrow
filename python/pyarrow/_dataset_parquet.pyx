@@ -595,6 +595,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             ),
             column_encoding=self._properties["column_encoding"],
             data_page_version=self._properties["data_page_version"],
+            encryption_properties=self._properties["encryption_properties"],
             write_page_index=self._properties["write_page_index"],
         )
 
@@ -632,6 +633,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
             use_compliant_nested_type=True,
+            encryption_properties=None,
             write_page_index=False,
         )
         self._set_properties()
