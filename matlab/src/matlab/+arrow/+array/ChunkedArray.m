@@ -53,6 +53,13 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
             proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=proxyID);
             type = traits.TypeConstructor(proxy);
         end
+
+        function array = chunk(index)
+            [typeID, proxyID] = obj.Proxy.getChunk(index);
+            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+            array = traits.ArrayConstructor(proxy);
+        end
     end
 
     methods(Static)
