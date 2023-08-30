@@ -56,8 +56,6 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             idx = index.numericOrString(idx, "int32");
 
-            validateattributes(idx, "int32", "scalar");
-
             if isnumeric(idx)
                 validateattributes(idx, "int32", "scalar");
                 args = struct(Index=idx);
