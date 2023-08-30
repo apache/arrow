@@ -48,5 +48,38 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
           propgrp = matlab.mixin.util.PropertyGroup(proplist);
         end
     end
-    
+
+    methods
+        function tf = isequal(obj, varargin)
+
+            narginchk(2, inf);
+            tf = false;
+            
+            proxyIDs = zeros([numel(obj) numel(varargin)], "uint64");
+
+            for ii = 1:numel(varargin)
+                type = varargin{ii};
+                if ~isa(type, "arrow.type.Type") || ~isequal(size(obj), size(type))
+                    % Return early if type is not an arrow.type.Type or if
+                    % the dimensions of obj and type do not match.
+                    return;
+                end
+
+                % type(:) flattens N-dimensional arrays into a column
+                % vector before collecting the Proxy properties into a
+                % row vector.
+                proxies = [type(:).Proxy];
+                proxyIDs(:, ii) = [proxies.ID];
+            end
+
+            for ii = 1:numel(obj)
+                % Invoke isEqual proxy method on each Type 
+                % in the object array
+                tf = obj(ii).Proxy.isEqual(proxyIDs(ii, :));
+                if ~tf
+                    return;
+                end
+            end
+        end
+    end
 end

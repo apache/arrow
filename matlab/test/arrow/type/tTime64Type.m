@@ -120,6 +120,52 @@ classdef tTime64Type < hFixedWidthType
             testCase.verifyError(@() arrow.type.Time64Type(proxy), "arrow:proxy:ProxyNameMismatch");
         end
 
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.Time64Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Time64Type
+            % 2. All inputs have the same size
+            % 3. The TimeUnit values of elements at corresponding positions in the arrays are equal
+
+            % Scalar Time64Type arrays
+            time64Type1 = arrow.time64(TimeUnit="Microsecond");
+            time64Type2 = arrow.time64(TimeUnit="Microsecond");
+            time64Type3 = arrow.time64(TimeUnit="Nanosecond");
+            time64Type4 = arrow.time64(TimeUnit="Nanosecond");
+            testCase.verifyTrue(isequal(time64Type1, time64Type2));
+            testCase.verifyTrue(isequal(time64Type3, time64Type4));
+
+            % Non-scalar Time64Type arrays
+            typeArray1 = [time64Type1 time64Type3];
+            typeArray2 = [time64Type2 time64Type4];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+            time64Type1 = arrow.time64(TimeUnit="Microsecond");
+            time64Type2 = arrow.time64(TimeUnit="Nanosecond");
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(time64Type1, time64Type2));
+            testCase.verifyFalse(isequal(time64Type1, int32Type));
+
+            % arrays have different dimensions
+            typeArray1 = [time64Type1 time64Type2];
+            typeArray2 = [time64Type1 time64Type2]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+
+            % Corresponding elements have different TimeUnit values
+            typeArray3 = [time64Type2 time64Type1];
+            typeArray4 = [time64Type1 time64Type2]';
+            testCase.verifyFalse(isequal(typeArray3, typeArray4));
+
+            % Compare a nonscalar Time64Type array with a nonscalar
+            % Int32Type array.
+            typeArray5 = [int32Type int32Type];
+            testCase.verifyFalse(isequal(typeArray3, typeArray5));
+        end
+
     end
 
 end

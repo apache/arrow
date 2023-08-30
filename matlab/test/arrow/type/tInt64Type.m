@@ -22,4 +22,40 @@ classdef tInt64Type < hFixedWidthType
         BitWidth = int32(64)
         ClassName = "arrow.type.Int64Type"
     end
+
+    methods(Test)
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.Int64Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Int64Type
+            % 2. All inputs have the same size
+
+            % Scalar Int64Type arrays
+            int64Type1 = arrow.int64();
+            int64Type2 = arrow.int64();
+            testCase.verifyTrue(isequal(int64Type1, int64Type2));
+
+            % Non-scalar Int64Type arrays
+            typeArray1 = [int64Type1 int64Type1];
+            typeArray2 = [int64Type2 int64Type2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method of arrow.type.Int64Type returns
+            % false when expected.
+            
+            % Pass a different arrow.type.Type subclass to isequal
+            int64Type = arrow.int64();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(int64Type, int32Type));
+            testCase.verifyFalse(isequal([int64Type int64Type], [int32Type int32Type]));
+
+            % Int64Type arrays have different sizes
+            typeArray1 = [int64Type int64Type];
+            typeArray2 = [int64Type int64Type]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+    end
 end
