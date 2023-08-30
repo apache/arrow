@@ -46,8 +46,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 
-namespace arrow {
-namespace io {
+namespace arrow::io {
 
 using ::arrow::internal::TemporaryDir;
 
@@ -672,5 +671,123 @@ TEST_F(TestBufferedInputStreamBound, BufferExactlyExhausted) {
   }
 }
 
-}  // namespace io
-}  // namespace arrow
+class TestBufferedInputStreamChunk : public TestBufferedInputStream {
+ public:
+  void SetUp() { TestBufferedInputStream::SetUp(); }
+
+  void TearDown() {
+    buffered_ = nullptr;
+    tracked_ = nullptr;
+    raw_ = nullptr;
+  }
+
+  void MakeExample(int64_t buffer_size, MemoryPool* pool = default_memory_pool(),
+                   std::optional<int64_t> read_bound = std::nullopt) {
+    test_data_ = kExample1;
+
+    ASSERT_OK_AND_ASSIGN(auto file_out, FileOutputStream::Open(path_));
+    ASSERT_OK(file_out->Write(test_data_));
+    ASSERT_OK(file_out->Close());
+
+    ASSERT_OK_AND_ASSIGN(auto file_in, ReadableFile::Open(path_));
+    raw_ = file_in;
+    tracked_ = TrackedRandomAccessFile::Make(dynamic_cast<RandomAccessFile*>(raw_.get()));
+    if (read_bound.has_value()) {
+      ASSERT_OK_AND_ASSIGN(
+          buffered_,
+          BufferedInputStream::Create(buffer_size, pool, tracked_, read_bound.value()));
+    } else {
+      ASSERT_OK_AND_ASSIGN(buffered_,
+                           BufferedInputStream::Create(buffer_size, pool, tracked_));
+    }
+  }
+
+ protected:
+  std::shared_ptr<TrackedRandomAccessFile> tracked_;
+};
+
+// Read bytes greater than buffer_size would not buffer.
+TEST_F(TestBufferedInputStreamChunk, NotBufferLargeRead) {
+  int64_t buffer_size = 5;
+  MakeExample(buffer_size);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(6));
+  EXPECT_EQ(6, buf->size());
+  EXPECT_EQ(1, tracked_->num_reads());
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  EXPECT_EQ(6, tracked_->bytes_read());
+}
+
+TEST_F(TestBufferedInputStreamChunk, NotBufferLargeRead2) {
+  int64_t buffer_size = 5;
+  MakeExample(buffer_size);
+
+  // small read would trigger buffer the whole chunk
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  EXPECT_EQ(1, buf->size());
+  EXPECT_EQ(1, tracked_->num_reads());
+  EXPECT_EQ(4, buffered_->bytes_buffered());
+  EXPECT_EQ(buffer_size, tracked_->bytes_read());
+
+  // Large read with pre-buffered will copy the
+  // pre-buffered data first, then read the remaining.
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(20));
+  EXPECT_EQ(20, buf->size());
+  EXPECT_EQ(2, tracked_->num_reads());
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+  EXPECT_EQ(21, tracked_->bytes_read());
+}
+
+// Will buffer during small IO
+TEST_F(TestBufferedInputStreamChunk, BufferWholeChunk) {
+  int64_t buffer_size = 5;
+  MakeExample(buffer_size);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  EXPECT_EQ(1, buf->size());
+  EXPECT_EQ(1, tracked_->num_reads());
+  EXPECT_EQ(buffer_size - 1, buffered_->bytes_buffered());
+  EXPECT_EQ(buffer_size, tracked_->bytes_read());
+
+  ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(5));
+  EXPECT_EQ(5, buf->size());
+  EXPECT_EQ(2, tracked_->num_reads());
+  EXPECT_EQ(buffer_size - 1, buffered_->bytes_buffered());
+  EXPECT_EQ(buffer_size * 2, tracked_->bytes_read());
+}
+
+TEST_F(TestBufferedInputStreamChunk, BufferWithLargeThenSizeIO) {
+  const int64_t kBufferSize = 40;
+  MakeExample(kBufferSize);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  EXPECT_EQ(1, buf->size());
+  EXPECT_EQ(1, tracked_->num_reads());
+  EXPECT_EQ(test_data_.size() - 1, buffered_->bytes_buffered());
+}
+
+// Trigger small IO with buffer will not exceed the bound.
+TEST_F(TestBufferedInputStreamChunk, BufferWithBound) {
+  const int64_t kBufferSize = 6;
+  const int64_t kReadBound = 5;
+  MakeExample(kBufferSize, default_memory_pool(), kReadBound);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
+  EXPECT_EQ(1, buf->size());
+  EXPECT_EQ(1, tracked_->num_reads());
+  EXPECT_EQ(kReadBound - 1, buffered_->bytes_buffered());
+}
+
+// Trigger large IO without buffer will not exceed the bound.
+TEST_F(TestBufferedInputStreamChunk, BufferWithBound2) {
+  const int64_t kBufferSize = 3;
+  const int64_t kReadBound = 5;
+  MakeExample(kBufferSize, default_memory_pool(), kReadBound);
+
+  ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(6));
+  EXPECT_EQ(5, buf->size());
+  EXPECT_EQ(1, tracked_->num_reads());
+  EXPECT_EQ(0, buffered_->bytes_buffered());
+}
+
+}  // namespace arrow::io

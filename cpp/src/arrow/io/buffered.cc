@@ -384,25 +384,32 @@ class BufferedInputStream::Impl : public BufferedBase {
       memcpy(out, buffer_data_ + buffer_pos_, pre_buffer_copy_bytes);
       ConsumeBuffer(pre_buffer_copy_bytes);
     }
-    int64_t remain_bytes = nbytes - pre_buffer_copy_bytes;
-    if (remain_bytes == 0) {
+    int64_t remaining_bytes = nbytes - pre_buffer_copy_bytes;
+    if (remaining_bytes == 0) {
       return nbytes;
     }
 
-    // 2. Read from storage.
     DCHECK_EQ(0, bytes_buffered_);
-    if (remain_bytes > buffer_size_) {
+    if (raw_read_bound_ >= 0) {
+      remaining_bytes = std::min(remaining_bytes, raw_read_bound_ - raw_read_total_);
+      if (remaining_bytes == 0) {
+        return pre_buffer_copy_bytes;
+      }
+    }
+
+    // 2. Read from storage.
+    if (remaining_bytes > buffer_size_) {
       // 2.1. If read is larger than buffer size, read directly from storage.
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
-                            raw_->Read(remain_bytes, reinterpret_cast<uint8_t*>(out) +
-                                                         pre_buffer_copy_bytes));
+                            raw_->Read(remaining_bytes, reinterpret_cast<uint8_t*>(out) +
+                                                            pre_buffer_copy_bytes));
       raw_read_total_ += bytes_read;
       RewindBuffer();
-      return bytes_read + pre_buffer_copy_bytes;
+      return pre_buffer_copy_bytes + bytes_read;
     } else {
       // 2.2. If read is smaller than buffer size, fill buffer and copy from buffer.
       RETURN_NOT_OK(DoBuffer());
-      int64_t bytes_copy_after_buffer = std::min(bytes_buffered_, remain_bytes);
+      int64_t bytes_copy_after_buffer = std::min(bytes_buffered_, remaining_bytes);
       memcpy(reinterpret_cast<uint8_t*>(out) + pre_buffer_copy_bytes,
              buffer_data_ + buffer_pos_, bytes_copy_after_buffer);
       ConsumeBuffer(bytes_copy_after_buffer);
@@ -439,7 +446,7 @@ class BufferedInputStream::Impl : public BufferedBase {
 BufferedInputStream::BufferedInputStream(std::shared_ptr<InputStream> raw,
                                          MemoryPool* pool,
                                          int64_t raw_total_bytes_bound) {
-  impl_.reset(new Impl(std::move(raw), pool, raw_total_bytes_bound));
+  impl_ = std::make_unique<Impl>(std::move(raw), pool, raw_total_bytes_bound);
 }
 
 BufferedInputStream::~BufferedInputStream() { internal::CloseFromDestructor(this); }
