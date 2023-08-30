@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -109,7 +110,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// should be trivially constructible from it's device-specific counterparts.
   class ARROW_EXPORT Stream {
    public:
-    using release_fn_t = void (*)(void*);
+    using release_fn_t = std::function<void(void*)>;
 
     virtual ~Stream() = default;
 
@@ -156,7 +157,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
   /// \brief EXPERIMENTAL: An object that provides event/stream sync primitives
   class ARROW_EXPORT SyncEvent {
    public:
-    using release_fn_t = void (*)(void*);
+    using release_fn_t = std::function<void(void*)>;
 
     virtual ~SyncEvent() = default;
 
