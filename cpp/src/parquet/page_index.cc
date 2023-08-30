@@ -88,9 +88,8 @@ class TypedColumnIndexImpl : public TypedColumnIndex<DType> {
  public:
   using T = typename DType::c_type;
 
-  TypedColumnIndexImpl(const ColumnDescriptor& descr,
-                       const format::ColumnIndex& column_index)
-      : column_index_(column_index) {
+  TypedColumnIndexImpl(const ColumnDescriptor& descr, format::ColumnIndex column_index)
+      : column_index_(std::move(column_index)) {
     // Make sure the number of pages is valid and it does not overflow to int32_t.
     const size_t num_pages = column_index_.null_pages.size();
     if (num_pages >= static_cast<size_t>(std::numeric_limits<int32_t>::max()) ||
@@ -840,21 +839,29 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                   &index_len, &column_index);
   switch (descr.physical_type()) {
     case Type::BOOLEAN:
-      return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr,
+                                                                 std::move(column_index));
     case Type::INT32:
-      return std::make_unique<TypedColumnIndexImpl<Int32Type>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<Int32Type>>(descr,
+                                                               std::move(column_index));
     case Type::INT64:
-      return std::make_unique<TypedColumnIndexImpl<Int64Type>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<Int64Type>>(descr,
+                                                               std::move(column_index));
     case Type::INT96:
-      return std::make_unique<TypedColumnIndexImpl<Int96Type>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<Int96Type>>(descr,
+                                                               std::move(column_index));
     case Type::FLOAT:
-      return std::make_unique<TypedColumnIndexImpl<FloatType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<FloatType>>(descr,
+                                                               std::move(column_index));
     case Type::DOUBLE:
-      return std::make_unique<TypedColumnIndexImpl<DoubleType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<DoubleType>>(descr,
+                                                                std::move(column_index));
     case Type::BYTE_ARRAY:
-      return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<ByteArrayType>>(
+          descr, std::move(column_index));
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr, column_index);
+      return std::make_unique<TypedColumnIndexImpl<FLBAType>>(descr,
+                                                              std::move(column_index));
     case Type::UNDEFINED:
       return nullptr;
   }
@@ -876,8 +883,8 @@ std::shared_ptr<PageIndexReader> PageIndexReader::Make(
     ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
     const ReaderProperties& properties,
     std::shared_ptr<InternalFileDecryptor> file_decryptor) {
-  return std::make_shared<PageIndexReaderImpl>(input, file_metadata, properties,
-                                               std::move(file_decryptor));
+  return std::make_shared<PageIndexReaderImpl>(input, std::move(file_metadata),
+                                               properties, std::move(file_decryptor));
 }
 
 std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(
