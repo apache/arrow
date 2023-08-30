@@ -26,19 +26,13 @@ from pyarrow.lib import tobytes
 from pyarrow.lib import ArrowInvalid, ArrowNotImplementedError
 
 try:
-    import pyarrow.dataset as ds
-except ImportError:
-    ds = None
-
-try:
     import pyarrow.substrait as substrait
 except ImportError:
     substrait = None
 
 # Marks all of the tests in this module
-# Ignore these with pytest ... -m 'not dataset'
 # Ignore these with pytest ... -m 'not substrait'
-pytestmark = [pytest.mark.dataset, pytest.mark.substrait]
+pytestmark = pytest.mark.substrait
 
 
 def mock_udf_context(batch_length=10):
@@ -955,8 +949,8 @@ def test_invalid_expression_ser_des():
         pa.field("x", pa.int32()),
         pa.field("y", pa.int32())
     ])
-    expr = pc.equal(ds.field("x"), 7)
-    bad_expr = pc.equal(ds.field("z"), 7)
+    expr = pc.equal(pc.field("x"), 7)
+    bad_expr = pc.equal(pc.field("z"), 7)
     # Invalid number of names
     with pytest.raises(ValueError) as excinfo:
         pa.substrait.serialize_expressions([expr], [], schema)
@@ -975,13 +969,13 @@ def test_serializing_multiple_expressions():
         pa.field("x", pa.int32()),
         pa.field("y", pa.int32())
     ])
-    exprs = [pc.equal(ds.field("x"), 7), pc.equal(ds.field("x"), ds.field("y"))]
+    exprs = [pc.equal(pc.field("x"), 7), pc.equal(pc.field("x"), pc.field("y"))]
     buf = pa.substrait.serialize_expressions(exprs, ["first", "second"], schema)
     returned = pa.substrait.deserialize_expressions(buf)
     assert schema == returned.schema
     assert len(returned.expressions) == 2
 
-    norm_exprs = [pc.equal(ds.field(0), 7), pc.equal(ds.field(0), ds.field(1))]
+    norm_exprs = [pc.equal(pc.field(0), 7), pc.equal(pc.field(0), pc.field(1))]
     assert str(returned.expressions["first"]) == str(norm_exprs[0])
     assert str(returned.expressions["second"]) == str(norm_exprs[1])
 
@@ -991,8 +985,8 @@ def test_serializing_with_compute():
         pa.field("x", pa.int32()),
         pa.field("y", pa.int32())
     ])
-    expr = pc.equal(ds.field("x"), 7)
-    expr_norm = pc.equal(ds.field(0), 7)
+    expr = pc.equal(pc.field("x"), 7)
+    expr_norm = pc.equal(pc.field(0), 7)
     buf = expr.to_substrait(schema)
     returned = pa.substrait.deserialize_expressions(buf)
 
