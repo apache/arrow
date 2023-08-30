@@ -29,9 +29,6 @@ from pyarrow._fs cimport FileSystem
 
 
 cpdef enum S3LogLevel:
-    """
-    S3 Log level
-    """
     Off = <int8_t> CS3LogLevel_Off
     Fatal = <int8_t> CS3LogLevel_Fatal
     Error = <int8_t> CS3LogLevel_Error

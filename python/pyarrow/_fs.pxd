@@ -24,9 +24,6 @@ from pyarrow.lib cimport *
 
 
 cpdef enum FileType:
-    """
-    File type
-    """
     NotFound = <int8_t> CFileType_NotFound
     Unknown = <int8_t> CFileType_Unknown
     File = <int8_t> CFileType_File
