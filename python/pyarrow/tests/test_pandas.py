@@ -457,7 +457,7 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+        if Version("2.0.0") <= Version(pd.__version__) < Version("2.2.0"):
             # TODO: regression in pandas, hopefully fixed in next version
             # https://issues.apache.org/jira/browse/ARROW-18394
             # https://github.com/pandas-dev/pandas/issues/50127
@@ -3083,7 +3083,7 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0") <= Version(pd.__version__) < Version("2.1.0"):
+    if Version("2.0.0") <= Version(pd.__version__) < Version("2.2.0"):
         # TODO: regression in pandas, hopefully fixed in next version
         # https://issues.apache.org/jira/browse/ARROW-18394
         # https://github.com/pandas-dev/pandas/issues/50127
