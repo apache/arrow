@@ -19,12 +19,12 @@
 
 #include <memory>
 
+#include "arrow/ipc/reader.h"
 #include "arrow/python/common.h"
 #include "arrow/python/visibility.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/util/macros.h"
-#include "arrow/ipc/reader.h"
 
 namespace arrow {
 namespace py {

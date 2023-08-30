@@ -64,9 +64,11 @@ Result<std::shared_ptr<RecordBatchReader>> PyRecordBatchReader::Make(
   return reader;
 }
 
-inline static PyObject * OnEOSName = PyUnicode_InternFromString("OnEOS");
-inline static PyObject * OnRecordBatchDecodedName = PyUnicode_InternFromString("OnRecordBatchDecoded");
-inline static PyObject * OnSchemaDecodedName = PyUnicode_InternFromString("OnSchemaDecoded");
+inline static PyObject* OnEOSName = PyUnicode_InternFromString("OnEOS");
+inline static PyObject* OnRecordBatchDecodedName =
+    PyUnicode_InternFromString("OnRecordBatchDecoded");
+inline static PyObject* OnSchemaDecodedName =
+    PyUnicode_InternFromString("OnSchemaDecoded");
 
 Status PyStreamListenerProxy::OnEOS() {
   PyObject_CallMethodNoArgs(impl_.obj(), OnEOSName);
@@ -74,7 +76,8 @@ Status PyStreamListenerProxy::OnEOS() {
   return Status::OK();
 }
 Status PyStreamListenerProxy::OnRecordBatchDecoded(std::shared_ptr<RecordBatch> batch) {
-  PyObject_CallMethodObjArgs(impl_.obj(), OnRecordBatchDecodedName, wrap_batch(batch), NULL);
+  PyObject_CallMethodObjArgs(impl_.obj(), OnRecordBatchDecodedName, wrap_batch(batch),
+                             NULL);
   RETURN_IF_PYERROR();
   return Status::OK();
 }
@@ -83,10 +86,7 @@ Status PyStreamListenerProxy::OnSchemaDecoded(std::shared_ptr<Schema> schema) {
   RETURN_IF_PYERROR();
   return Status::OK();
 }
-PyStreamListenerProxy::PyStreamListenerProxy(PyObject* obj):impl_{obj} {
-}
-
-
+PyStreamListenerProxy::PyStreamListenerProxy(PyObject* obj) : impl_{obj} {}
 
 }  // namespace py
 }  // namespace arrow
