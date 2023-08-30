@@ -52,14 +52,16 @@ class RecordBatchStreamReader(lib._RecordBatchStreamReader):
         options = _ensure_default_ipc_read_options(options)
         self._open(source, options=options, memory_pool=memory_pool)
 
+
 class StreamListener:
     """
-    Abstract class for which an implementation instance may be provided to a StreamDecoder
+    Abstract class for which an implementation instance
+    may be provided to a StreamDecoder
     """
     @abstractmethod
     def OnEOS(self):
         ...
-    
+
     @abstractmethod
     def OnRecordBatchDecoded(self, batch):
         ...
@@ -79,7 +81,8 @@ class StreamDecoder(lib._StreamDecoder):
         An instance of a StreamListener
     options : pyarrow.ipc.IpcWriteOptions
         Options for IPC serialization.
-    
+    memory_pool : MemoryPool, default None
+        If None, default memory pool is used.
     """
 
     def __init__(self, listener: StreamListener, *, options=None, memory_pool=None):

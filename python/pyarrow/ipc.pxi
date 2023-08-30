@@ -859,10 +859,10 @@ cdef class _StreamDecoder:
 
     def next_required_size(self):
         return self.decoder.get().next_required_size()
-    
+
     def consume_buffer(self, Buffer buffer):
         check_status(self.decoder.get().ConsumeBuffer(pyarrow_unwrap_buffer(buffer)))
-    
+
 
 cdef class _RecordBatchStreamReader(RecordBatchReader):
     cdef:

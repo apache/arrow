@@ -1647,7 +1647,7 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         CIpcWriteStats stats()
 
     cdef cppclass CStreamListener " arrow::ipc::Listener":
-            
+
         CStatus OnEOS()
         CStatus OnRecordBatchDecoded(shared_ptr[CRecordBatch])
         CStatus OnSchemaDecoded(shared_ptr[CSchema])
@@ -1661,7 +1661,6 @@ cdef extern from "arrow/ipc/api.h" namespace "arrow::ipc" nogil:
         shared_ptr[CSchema] schema()
         CStatus Consume(uint8_t* data, int64_t size)
         CStatus ConsumeBuffer" Consume"(shared_ptr[CBuffer] buffer)
-
 
     cdef cppclass CRecordBatchStreamReader \
             " arrow::ipc::RecordBatchStreamReader"(CRecordBatchReader):
