@@ -146,8 +146,8 @@ class ARROW_EXPORT BufferReader
     : public internal::RandomAccessFileConcurrencyWrapper<BufferReader> {
  public:
   /// \brief Instantiate from std::shared_ptr<Buffer>.
-  /// User should guarantee that the buffer live longer than the BufferReader and
-  /// zero-copy Buffer result.
+  ///
+  /// This is a zero-copy constructor.
   explicit BufferReader(std::shared_ptr<Buffer> buffer);
   ARROW_DEPRECATED(
       "Deprecated in 14.0.0. Use FromString or BufferReader(std::shared_ptr<Buffer> "

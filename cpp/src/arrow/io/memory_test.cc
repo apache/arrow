@@ -291,14 +291,13 @@ TEST(TestBufferReader, WillNeed) {
 }
 
 void TestBufferReaderLifetime(
-    std::function<std::unique_ptr<BufferReader>(std::string&)> fn,
-    bool supports_zero_copy) {
+    std::function<std::unique_ptr<BufferReader>(std::string&)> fn) {
   std::shared_ptr<Buffer> result;
   std::string data = "data12345678910111213";
   {
     std::string data_inner = data;
     std::unique_ptr<BufferReader> reader = fn(data_inner);
-    EXPECT_EQ(supports_zero_copy, reader->supports_zero_copy());
+    EXPECT_EQ(true, reader->supports_zero_copy());
     ASSERT_OK_AND_ASSIGN(result, reader->Read(data.length()));
   }
   EXPECT_EQ(std::string_view(data), std::string_view(*result));
@@ -306,19 +305,15 @@ void TestBufferReaderLifetime(
 
 TEST(TestBufferReader, Lifetime) {
   // BufferReader(std::shared_ptr<Buffer>)
-  TestBufferReaderLifetime(
-      [](std::string& data) -> std::unique_ptr<BufferReader> {
-        auto buffer = Buffer::FromString(std::move(data));
-        return std::make_unique<BufferReader>(std::move(buffer));
-      },
-      /*supports_zero_copy=*/true);
+  TestBufferReaderLifetime([](std::string& data) -> std::unique_ptr<BufferReader> {
+    auto buffer = Buffer::FromString(std::move(data));
+    return std::make_unique<BufferReader>(std::move(buffer));
+  });
 
   // BufferReader(std::string)
-  TestBufferReaderLifetime(
-      [](std::string& data) -> std::unique_ptr<BufferReader> {
-        return BufferReader::FromString(std::move(data));
-      },
-      /*supports_zero_copy=*/true);
+  TestBufferReaderLifetime([](std::string& data) -> std::unique_ptr<BufferReader> {
+    return BufferReader::FromString(std::move(data));
+  });
 }
 
 TEST(TestRandomAccessFile, GetStream) {

@@ -84,7 +84,7 @@ Result<std::unique_ptr<FunctionOptions>> GenericOptionsType::Deserialize(
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(
     const Buffer& buffer) {
   // Copying the buffer here is not ideal, but we need to do it to avoid
-  // lifetime issues with the zero-copy buffer read.
+  // use-after-free issues with the zero-copy buffer read.
   auto stream = io::BufferReader::FromString(buffer.ToString());
   ARROW_ASSIGN_OR_RAISE(auto reader, ipc::RecordBatchFileReader::Open(stream.get()));
   ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(0));
