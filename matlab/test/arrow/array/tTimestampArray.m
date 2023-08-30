@@ -251,6 +251,21 @@ classdef tTimestampArray < matlab.unittest.TestCase
             tc.verifyFalse(isequal(array1, array2));
         end
 
+        function TestIsEqualSameInstantDifferentTimeZone(tc)
+            % Verify two TimestampArrays are not considered equal if
+            % they represent the same "instant in time", but have different
+            % TimeZone values.
+            dates1 = datetime(2023, 6, 22, TimeZone="America/Anchorage") + days(0:4);
+            dates2 = dates1;
+            dates2.TimeZone = "America/New_York";
+
+            array1 = tc.ArrowArrayConstructorFcn(dates1);
+            array2 = tc.ArrowArrayConstructorFcn(dates2);
+
+            % arrays are not equal
+            tc.verifyFalse(isequal(array1, array2));
+        end
+
         function TestIsEqualFalseTimeUnitMistmatch(tc, TimeZone)
              % Verify two TimestampArrays are not considered equal if their
              % TimeUnit values differ.

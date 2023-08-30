@@ -160,7 +160,7 @@ classdef tBooleanArray < matlab.unittest.TestCase
         end
 
         function TestIsEqualTrue(tc)
-            % Verifies isequal returns true when expected. Two are 
+            % Verifies isequal returns true when expected. Two arrays are 
             % considered equal if:
             %   1. They have the same type
             %   2. They have the same length

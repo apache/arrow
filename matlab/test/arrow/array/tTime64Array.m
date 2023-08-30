@@ -226,12 +226,13 @@ classdef tTime64Array < matlab.unittest.TestCase
         end
 
         function TestIsEqualTrue(tc, Unit)
-            % Verifies isequal returns true when expected. Two are 
+            % Verifies isequal returns true when expected. Two arrays are 
             % considered equal if:
             %   1. They have the same type
             %   2. They have the same length
             %   3. The same elements are valid
             %   4. Corresponding valid elements are equal.
+            %   5. They have the same TimeUnit
             
             times1 = seconds([1 2 3 4]);
             times2 = seconds([1 2 10 4]);
@@ -283,7 +284,7 @@ classdef tTime64Array < matlab.unittest.TestCase
         end
 
         function TestIsEqualFalseTimeUnitMistmatch(tc)
-            % Verify two Time64Arrays are not considered equal they have
+            % Verify two Time64Arrays are not considered equal if they have
             % different TimeUnit values.
             times1 = seconds([1 2 3 4]);
 

@@ -151,7 +151,7 @@ classdef hNumericArray < matlab.unittest.TestCase
         end
 
         function TestIsEqualTrue(tc)
-            % Verifies isequal returns true when expected. Two are 
+            % Verifies isequal returns true when expected. Two arrays are 
             % considered equal if:
             %   1. They have the same type
             %   2. They have the same length
@@ -171,7 +171,8 @@ classdef hNumericArray < matlab.unittest.TestCase
 
         function TestIsEqualFalse(tc)
             % Verify isequal returns false when expected. Two arrays are
-            % considered not equal if one of the conditions is met:
+            % considered not equal if one of the following conditions is 
+            % met:
             %   1. They have different types
             %   2. They have different lengths
             %   3. Different elements are valid
