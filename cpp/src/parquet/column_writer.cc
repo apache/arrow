@@ -1219,6 +1219,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
       page_statistics_ = MakeStatistics<DType>(descr_, allocator_);
       chunk_statistics_ = MakeStatistics<DType>(descr_, allocator_);
     }
+    pages_change_on_record_boundaries_ =
+        properties->data_page_version() == ParquetDataPageVersion::V2 ||
+        properties->page_index_enabled(descr_->path());
   }
 
   int64_t Close() override { return ColumnWriterImpl::Close(); }
@@ -1386,8 +1389,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   const WriterProperties* properties() override { return properties_; }
 
   bool pages_change_on_record_boundaries() const {
-    return properties_->data_page_version() == ParquetDataPageVersion::V2 ||
-           properties_->page_index_enabled(descr_->path());
+    return pages_change_on_record_boundaries_;
   }
 
  private:
@@ -1402,6 +1404,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
   DictEncoder<DType>* current_dict_encoder_;
   std::shared_ptr<TypedStats> page_statistics_;
   std::shared_ptr<TypedStats> chunk_statistics_;
+  bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
   // dictionary passed to DictEncoder<T>::PutDictionary so we can check
