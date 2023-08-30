@@ -81,7 +81,7 @@ namespace arrow::matlab::tabular::proxy {
         for (const auto& arrow_array_proxy_id : arrow_array_proxy_ids) {
             auto proxy = libmexclass::proxy::ProxyManager::getProxy(arrow_array_proxy_id);
             auto arrow_array_proxy = std::static_pointer_cast<arrow::matlab::array::proxy::Array>(proxy);
-            auto arrow_array = arrow_array_proxy->getArray();
+            auto arrow_array = arrow_array_proxy->unwrap();
             arrow_arrays.push_back(arrow_array);
         }
 
