@@ -35,9 +35,11 @@ namespace arrow::matlab::array::proxy {
         REGISTER_METHOD(Array, length);
         REGISTER_METHOD(Array, valid);
         REGISTER_METHOD(Array, type);
+        REGISTER_METHOD(Array, isEqual);
+
     }
 
-    std::shared_ptr<arrow::Array> Array::getArray() {
+    std::shared_ptr<arrow::Array> Array::unwrap() {
         return array;
     }
 
@@ -90,5 +92,27 @@ namespace arrow::matlab::array::proxy {
 
         context.outputs[0] = factory.createScalar(proxy_id);
         context.outputs[1] = factory.createScalar(static_cast<int64_t>(type_id));
+    }
+
+    void Array::isEqual(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+
+        const mda::TypedArray<uint64_t> array_proxy_ids = context.inputs[0];
+
+        bool is_equal = true;
+        const auto equals_options = arrow::EqualOptions::Defaults();
+        for (const auto& array_proxy_id : array_proxy_ids) {
+           // Retrieve the Array proxy from the ProxyManager
+            auto proxy = libmexclass::proxy::ProxyManager::getProxy(array_proxy_id);
+            auto array_proxy = std::static_pointer_cast<proxy::Array>(proxy);
+            auto array_to_compare = array_proxy->unwrap();
+
+            if (!array->Equals(array_to_compare, equals_options)) {
+                is_equal = false;
+                break;
+            }
+        }
+        mda::ArrayFactory factory;
+        context.outputs[0] = factory.createScalar(is_equal);
     }
 }

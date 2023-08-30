@@ -30,7 +30,7 @@ class Array : public libmexclass::proxy::Proxy {
     
         virtual ~Array() {}
 
-        std::shared_ptr<arrow::Array> getArray();
+        std::shared_ptr<arrow::Array> unwrap();
 
     protected:
 
@@ -43,6 +43,8 @@ class Array : public libmexclass::proxy::Proxy {
         void type(libmexclass::proxy::method::Context& context);
 
         virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
+
+        void isEqual(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::Array> array;
 };

@@ -69,5 +69,24 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
             disp(obj.toString());
         end
     end
+
+    methods
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+            % Extract each array's proxy ID
+            proxyIDs = zeros(numel(varargin), 1, "uint64");
+            for ii = 1:numel(varargin)
+                array = varargin{ii};
+                if ~isa(array, "arrow.array.Array")
+                    % Return early if array is not a arrow.array.Array
+                    return;
+                end
+                proxyIDs(ii) = array.Proxy.ID;
+            end
+            % Invoke isEqual proxy object method
+            tf = obj.Proxy.isEqual(proxyIDs);
+        end
+    end
 end
 
