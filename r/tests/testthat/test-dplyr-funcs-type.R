@@ -20,6 +20,7 @@ suppressPackageStartupMessages(library(bit64))
 suppressPackageStartupMessages(library(lubridate))
 
 skip_if_not_available("acero")
+skip_on_cran()
 
 tbl <- example_data
 
