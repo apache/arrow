@@ -1274,6 +1274,20 @@ TYPED_TEST(TestNumericMeanKernel, ScalarAggregateOptions) {
               ResultWith(Datum(MakeNullScalar(float64()))));
 }
 
+TEST(TestNumericMeanKernel, Overflow) {
+  // will overflow if intermediate sum is int64_t
+  EXPECT_THAT(
+      Mean(ArrayFromJSON(
+          int64(), "[9223372036854775805, 9223372036854775806, 9223372036854775807]")),
+      ResultWith(ScalarFromJSON(float64(), "9223372036854775806")));
+
+  // will overflow if intermediate sum is uint64_t
+  EXPECT_THAT(
+      Mean(ArrayFromJSON(
+          uint64(), "[9223372036854775805, 9223372036854775806, 9223372036854775807]")),
+      ResultWith(ScalarFromJSON(float64(), "9223372036854775806")));
+}
+
 template <typename ArrowType>
 class TestRandomNumericMeanKernel : public ::testing::Test {};
 
