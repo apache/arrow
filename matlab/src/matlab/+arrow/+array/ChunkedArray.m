@@ -44,7 +44,7 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
         end
 
         function length = get.Length(obj)
-            length = obj.proxy.getLength();
+            length = obj.Proxy.getLength();
         end
 
         function type = get.Type(obj)
