@@ -148,6 +148,7 @@ x-hierarchy:
     - ubuntu-lint
     - ubuntu-python:
       - ubuntu-docs
+    - ubuntu-python-no-debug
     - ubuntu-python-sdist-test
     - ubuntu-r
     - ubuntu-r-only-r
