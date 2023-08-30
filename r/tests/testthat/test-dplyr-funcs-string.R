@@ -17,6 +17,7 @@
 
 skip_if_not_available("utf8proc")
 skip_if_not_available("acero")
+skip_on_cran()
 
 library(dplyr, warn.conflicts = FALSE)
 library(lubridate)
