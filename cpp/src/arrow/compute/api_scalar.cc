@@ -564,7 +564,13 @@ constexpr char RoundToMultipleOptions::kTypeName[];
 SetLookupOptions::SetLookupOptions(Datum value_set, bool skip_nulls)
     : FunctionOptions(internal::kSetLookupOptionsType),
       value_set(std::move(value_set)),
-      skip_nulls(std::move(skip_nulls)) {}
+      skip_nulls(skip_nulls) {
+  if (skip_nulls) {
+    this->null_matching_behavior = SetLookupOptions::SKIP;
+  } else {
+    this->null_matching_behavior = SetLookupOptions::MATCH;
+  }
+}
 SetLookupOptions::SetLookupOptions(
     Datum value_set, SetLookupOptions::NullMatchingBehavior null_matching_behavior)
     : FunctionOptions(internal::kSetLookupOptionsType),
