@@ -194,7 +194,7 @@ classdef hNumericArray < matlab.unittest.TestCase
             % Their Length properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
-            % Comparing an arrow.array.Array to a MATLAB data
+            % Comparing an arrow.array.Array to a MATLAB double
             tc.verifyFalse(isequal(array1, 1));
 
             % Test supplying more than two arrays to isequal

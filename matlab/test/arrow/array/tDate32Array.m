@@ -281,12 +281,13 @@ classdef tDate32Array < matlab.unittest.TestCase
         end
 
         function TestIsEqualTrue(tc)
-            % Verifies isequal returns true when expected. Two are 
-            % considered equal if:
-            %   1. They have the same type
-            %   2. They have the same length
-            %   3. The same elements are valid
-            %   4. Corresponding valid elements are equal.
+            % Verifies arrays are considered equal if:
+            %
+            %  1. They have the same arrow.array.Type
+            %  2. They have the same length (i.e. their Length properties are equal)
+            %  3. They have the same validity bitmap (i.e. their Valid properties are equal)
+            %  4. All corresponding valid elements have the same values
+
             
             dates1 = datetime(2023, 6, 22)  + days(0:4);
             dates2 = datetime(2023, 6, 22) + days([0 1 5 3 4]);
@@ -297,18 +298,13 @@ classdef tDate32Array < matlab.unittest.TestCase
 
             tc.verifyTrue(isequal(array1, array2));
             tc.verifyTrue(isequal(array1, array3));
+
+            % Test supplying more than two arrays to isequal
             tc.verifyTrue(isequal(array1, array2, array3)); 
         end
 
         function TestIsEqualFalse(tc)
-            % Verify isequal returns false when expected. Two arrays are
-            % considered not equal if one of the following conditions is
-            % met:
-            %   1. They have different types
-            %   2. They have different lengths
-            %   3. Different elements are valid
-            %   4. The corresponding valid elements are not equal.
-
+            % Verify isequal returns false when expected. 
             dates1 = datetime(2023, 6, 22) + days(0:4);
             dates2 = datetime(2023, 6, 22) + days([1 1 2 3 4]);
             dates3 = datetime(2023, 6, 22) + days(0:5);
@@ -318,22 +314,22 @@ classdef tDate32Array < matlab.unittest.TestCase
             array4 = arrow.array([true false true false]);
             array5 = tc.ArrowArrayConstructorFcn(dates3, Valid=[1 2 4]);
 
-            % The same elements are not valid.
+            % Their validity bitmaps are not equal
             tc.verifyFalse(isequal(array1, array2));
 
-            % Corresponding elements are not equal.
+            % Not all corresponding valid elements are equal
             tc.verifyFalse(isequal(array1, array3));
 
-            % The arrays have different types.
+            % Their Type properties are not equal
             tc.verifyFalse(isequal(array1, array4));
 
-            % The arrays have different lengths.
+            % Their Length properties are not equal
             tc.verifyFalse(isequal(array1, array5));
 
-            % Comparing an arrow.array.BooleanArray to a double
+            % Comparing an arrow.array.Array to a MATLAB double
             tc.verifyFalse(isequal(array1, 1));
 
-            % Supply more than two input arguments to isequal
+            % Test supplying more than two arrays to isequal
             tc.verifyFalse(isequal(array1, array1, array3, array4, array5)); 
         end
 
