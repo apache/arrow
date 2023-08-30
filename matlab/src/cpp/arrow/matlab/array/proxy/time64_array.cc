@@ -15,14 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if IOOptions exists in SDKOptions.
-// This was introduced when the AWS SDK switched to using the
-// CRT for I/O.
+#include "arrow/matlab/array/proxy/time64_array.h"
+#include "arrow/matlab/array/proxy/time_array.h"
 
-#include <aws/core/Aws.h>
+namespace arrow::matlab::array::proxy {
 
-int main() {
-  Aws::SDKOptions aws_options;
-  auto io_options = aws_options.ioOptions;
-  return 0;
+    // Specialization of NumericArray::Make for arrow::Time64Type
+    template <>
+    libmexclass::proxy::MakeResult Time64Array::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        return make_time_array<arrow::Time64Type>(constructor_arguments);
+    }
 }

@@ -98,6 +98,7 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
+        libxml2-dev \
         libzstd-dev \
         make \
         ninja-build \
@@ -196,6 +197,7 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_ZSTD=ON \
     ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
+    Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
