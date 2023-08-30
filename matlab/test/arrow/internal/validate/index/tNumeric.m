@@ -187,12 +187,12 @@ classdef tNumeric < matlab.unittest.TestCase
 
             import arrow.internal.validate.index.numeric
             
-            % Throws an error when provided a nonscalar array
+            % Should throw an error when provided a nonscalar double array
             original = [1 2 3]';
             fcn = @() numeric(original, "int32", AllowNonScalar=false);
             testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
 
-            % Does not throw an error when provided a scalar array
+            % Should not throw an error when provided a scalar double array
             original = 1;
             expected = int32(1);
             actual = numeric(original, "int32", AllowNonScalar=true);
