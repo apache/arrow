@@ -161,5 +161,42 @@ classdef tNumeric < matlab.unittest.TestCase
             actual = numeric(original, "int32");
             testCase.verifyEqual(actual, expected);
         end
+
+        function AllowNonScalarTrue(testCase)
+            % Verify numeric() behaves as expected provided
+            % AllowNonScalar=true.
+
+            import arrow.internal.validate.index.numeric
+            
+            % Provide a nonscalar array
+            original = [1 2 3]';
+            expected = int32([1 2 3])';
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a scalar array
+            original = 1;
+            expected = int32(1);
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarFalse(testCase)
+            % Verify numeric() behaves as expected when provided
+            % AllowNonScalar=false.
+
+            import arrow.internal.validate.index.numeric
+            
+            % Throws an error when provided a nonscalar array
+            original = [1 2 3]';
+            fcn = @() numeric(original, "int32", AllowNonScalar=false);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+
+            % Does not throw an error when provided a scalar array
+            original = 1;
+            expected = int32(1);
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+        end
     end
 end
