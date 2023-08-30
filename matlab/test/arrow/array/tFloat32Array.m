@@ -110,5 +110,12 @@ classdef tFloat32Array < hNumericArray
             testCase.verifyEqual(arrowArray.Valid, [true; false; true]);
             testCase.verifyEqual(toMATLAB(arrowArray), single([1; NaN; 3]));
         end
+
+        function TestNanIsEqualFalse(testCase)
+            % Verify corresponding NaN values are not considered equal.
+            matlabArray = single([1 2 NaN 4]);
+            arrowArray = testCase.ArrowArrayConstructorFcn(matlabArray, InferNulls=false);
+            testCase.verifyFalse(isequal(arrowArray, arrowArray));
+        end
     end
 end
