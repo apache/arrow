@@ -132,10 +132,16 @@ set ARROW_HOME=%CONDA_PREFIX%\Library
 @rem ARROW-3075; pkgconfig is broken for Parquet for now
 set PARQUET_HOME=%CONDA_PREFIX%\Library
 
+@rem Move tzdata to a non-standard location to test the
+@rem configurability of the timezone database path
+mkdir %USERPROFILE%\Downloads\test\tzdata
+move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
+
 python setup.py develop -q || exit /B
 
 set PYTHONDEVMODE=1
 
+@rem Configure the path of the timesone database to a new location
 python -c "import pyarrow;import os;path = os.path.expandvars(r'%USERPROFILE%\Downloads\test\tzdata');pa.set_timezone_db_path(path)"
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 

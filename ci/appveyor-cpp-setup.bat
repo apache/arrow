@@ -102,11 +102,8 @@ if "%ARROW_S3%" == "ON" (
 curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
 mkdir tzdata
 tar --extract --file tzdata.tar.gz --directory tzdata
-@rem move tzdata to a non-standard location for testing purposes
-mkdir %USERPROFILE%\Downloads\test\tzdata
-move tzdata %USERPROFILE%\Downloads\test\tzdata
-@rem
+move tzdata %USERPROFILE%\Downloads\tzdata
 @rem Also need Windows timezone mapping
 curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
-  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml
+  --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
 @rem (Doc section: Download timezone database)
