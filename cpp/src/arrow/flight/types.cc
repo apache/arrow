@@ -152,7 +152,8 @@ Status FlightPayload::Validate() const {
 
 arrow::Result<std::shared_ptr<Schema>> SchemaResult::GetSchema(
     ipc::DictionaryMemo* dictionary_memo) const {
-  io::BufferReader schema_reader(raw_schema_);
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(raw_schema_));
   return ipc::ReadSchema(&schema_reader, dictionary_memo);
 }
 
@@ -275,7 +276,8 @@ arrow::Result<std::shared_ptr<Schema>> FlightInfo::GetSchema(
   if (reconstructed_schema_) {
     return schema_;
   }
-  io::BufferReader schema_reader(data_.schema);
+  // Create a non-owned Buffer to avoid copying
+  io::BufferReader schema_reader(std::make_shared<Buffer>(data_.schema));
   RETURN_NOT_OK(ipc::ReadSchema(&schema_reader, dictionary_memo).Value(&schema_));
   reconstructed_schema_ = true;
   return schema_;
