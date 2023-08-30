@@ -390,7 +390,7 @@ class BufferedInputStream::Impl : public BufferedBase {
     }
 
     // 2. Read from storage.
-    DCHECK_NE(0, remain_bytes);
+    DCHECK_EQ(0, bytes_buffered_);
     if (remain_bytes > buffer_size_) {
       // 2.1. If read is larger than buffer size, read directly from storage.
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
