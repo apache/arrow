@@ -933,9 +933,9 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
 
 @pytest.mark.parametrize("expr", [
-    pc.equal(pc.field('x'), 7)",
-    pc.equal(pc.field('x'), pc.field('y'))",
-    pc.field('x') > 50"
+    pc.equal(pc.field('x'), 7),
+    pc.equal(pc.field('x'), pc.field('y')),
+    pc.field('x') > 50
 ])
 def test_serializing_expressions(expr):
     schema = pa.schema([
