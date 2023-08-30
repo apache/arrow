@@ -933,9 +933,18 @@ def test_hash_aggregate_udf_basic(varargs_agg_func_fixture):
 
 
 @pytest.mark.parametrize("expr", [
-    pc.equal(ds.field("x"), 7),
-    pc.equal(ds.field("x"), ds.field("y")),
-    ds.field("x") > 50
+    pytest.param(
+        pc.equal(ds.field("x"), 7),
+        marks=pytest.mark.skipif(ds is None, reason="requires dataset")
+    ),
+    pytest.param(
+        pc.equal(ds.field("x"), ds.field("y")),
+        marks=pytest.mark.skipif(ds is None, reason="requires dataset")
+    ),
+    pytest.param(
+        ds.field("x") > 50,
+        marks=pytest.mark.skipif(ds is None, reason="requires dataset")
+    )
 ])
 def test_serializing_expressions(expr):
     schema = pa.schema([
