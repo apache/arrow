@@ -54,13 +54,17 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function arrowArray = column(obj, idx)
             import arrow.internal.validate.*
 
-            idx = index.numeric(idx, "int32");
-            % TODO: Consider vectorizing column() in the future to support
-            % extracting multiple columns at once.
-            validateattributes(idx, "int32", "scalar");
+            idx = index.numericOrString(idx, "int32");
 
-            args = struct(Index=idx);
-            [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);                
+            if isnumeric(idx)
+                validateattributes(idx, "int32", "scalar");
+                args = struct(Index=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+            else
+                validateattributes(idx, "string", "scalar");
+                args = struct(Name=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
+            end
             
             traits = arrow.type.traits.traits(arrow.type.ID(typeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);

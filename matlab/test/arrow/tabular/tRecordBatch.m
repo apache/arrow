@@ -109,7 +109,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
             TOriginal = table(1, 2, 3);
             arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column(datetime(2022, 1, 3));
-            tc.verifyError(fcn, "arrow:badsubscript:NonNumeric");
+            tc.verifyError(fcn, "arrow:badsubscript:UnsupportedIndexType");
         end
 
         function ErrorIfIndexIsNonScalar(tc)
@@ -221,6 +221,169 @@ classdef tRecordBatch < matlab.unittest.TestCase
             recordBatch = arrow.recordBatch(t);
             tc.verifyError(@() setfield(recordBatch, "Schema", "Value"), ...
                 "MATLAB:class:SetProhibited");
+        end
+
+        function GetColumnByName(testCase)
+            % Verify that columns can be accessed by name.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "B", "C"] ...
+            );
+
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column("A");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column("B");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array([true, false, true]);
+            actual = recordBatch.column("C");
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function GetColumnByNameWithEmptyString(testCase)
+            % Verify that a column whose name is the empty string ("")
+            % can be accessed using the column() method.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "", "C"] ...
+            );
+
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column("");
+            testCase.verifyEqual(actual, expected)
+        end
+
+        function GetColumnByNameWithWhitespace(testCase)
+            % Verify that a column whose name contains only whitespace
+            % characters can be accessed using the column() method.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=[" ", "  ", "   "] ...
+            );
+
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(" ");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column("  ");
+            testCase.verifyEqual(actual, expected);
+
+            expected = arrow.array([true, false, true]);
+            actual = recordBatch.column("   ");
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function ErrorIfColumnNameDoesNotExist(testCase)
+            % Verify that an error is thrown when trying to access a column
+            % with a name that is not part of the Schema of the RecordBatch.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "B", "C"] ...
+            );
+
+            % Matching should be case sensitive.
+            name = "a";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "aA";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "D";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = " ";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+        end
+
+        function ErrorIfAmbiguousColumnName(testCase)
+            % Verify that an error is thrown when trying to access a column
+            % with a name that is ambiguous / occurs more than once in the
+            % Schema of the RecordBatch.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                arrow.array([days(1), days(2), days(3)]), ...
+                ColumnNames=["A", "A", "B", "B"] ...
+            );
+
+            name = "A";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+
+            name = "B";
+            testCase.verifyError(@() recordBatch.column(name), "arrow:tabular:schema:AmbiguousFieldName");
+        end
+
+        function GetColumnByNameWithChar(testCase)
+            % Verify that the column method works when supplied a char
+            % vector as input.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["", "B", "123"] ...
+            );
+
+            % Should match the first column whose name is the
+            % empty string ("").
+            name = char.empty(0, 0);
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            name = char.empty(0, 1);
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            name = char.empty(1, 0);
+            expected = arrow.array([1, 2, 3]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            % Should match the second column whose name is "B".
+            name = 'B';
+            expected = arrow.array(["A", "B", "C"]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+
+            % Should match the third column whose name is "123".
+            name = '123';
+            expected = arrow.array([true, false, true]);
+            actual = recordBatch.column(name);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function ErrorIfColumnNameIsNonScalar(testCase)
+            % Verify that an error is thrown if a nonscalar string array is
+            % specified as a column name to the column method.
+            recordBatch = arrow.tabular.RecordBatch.fromArrays(...
+                arrow.array([1, 2, 3]), ...
+                arrow.array(["A", "B", "C"]), ...
+                arrow.array([true, false, true]), ...
+                ColumnNames=["A", "B", "C"] ...
+            );
+
+            name = ["A", "B", "C"];
+            testCase.verifyError(@() recordBatch.column(name), "MATLAB:expectedScalar");
+
+            name = ["A";  "B"; "C"];
+            testCase.verifyError(@() recordBatch.column(name), "MATLAB:expectedScalar");
         end
 
     end
