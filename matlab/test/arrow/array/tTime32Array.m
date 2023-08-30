@@ -215,8 +215,9 @@ classdef tTime32Array < matlab.unittest.TestCase
             %   1. They have the same type
             %   2. They have the same length
             %   3. The same elements are valid
-            %   4. Corresponding valid elements are equal.
-            
+            %   4. Corresponding valid elements are equal
+            %   5. They have the same TimeUnit
+
             times1 = seconds([1 2 3 4]);
             times2 = seconds([1 2 10 4]);
 
@@ -236,7 +237,6 @@ classdef tTime32Array < matlab.unittest.TestCase
             %   2. They have different lengths
             %   3. Different elements are valid
             %   4. The corresponding valid elements are not equal.
-            %   5. They have the same TimeUnit.
             
             times1 = seconds([1 2 3 4]);
             times2 = seconds([1 1 2 3]);
