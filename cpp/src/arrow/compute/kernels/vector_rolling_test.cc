@@ -413,6 +413,27 @@ TEST(TestRollingMax, NoIgnoreNulls) {
   }
 }
 
+TEST(TestRollingProd, ZeroAndNaN) {
+  for (std::string func : {"rolling_prod", "rolling_prod_checked"}) {
+    for (auto ty : NumericTypes()) {
+      RollingOptions options(4, 3, true);
+      CheckRolling(func, ArrayFromJSON(ty, "[0, 1, 2, 3, 4, 0]"),
+                   ArrayFromJSON(ty, "[null, null, 0, 0, 24, 0]"), &options);
+      options = RollingOptions(2, 1, true);
+      CheckRolling(func, ArrayFromJSON(ty, "[0, 1, 2, 0, 3, 4, 0]"),
+                   ArrayFromJSON(ty, "[0, 0, 2, 0, 0, 12, 0]"), &options);
+    }
+  }
+  RollingOptions options(2, 1, true);
+  CheckRolling(
+      "rolling_prod", ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+      ArrayFromJSON(float32(), "[NaN, NaN, 0, 2, NaN, NaN, 12, 0, NaN]"), &options);
+  CheckRolling("rolling_prod_checked",
+               ArrayFromJSON(float32(), "[NaN, 0, 1, 2, NaN, 3, 4, 0, NaN]"),
+               ArrayFromJSON(float32(), "[NaN, NaN, 0, 2, NaN, NaN, 12, 0, NaN]"),
+               &options);
+}
+
 TEST(TestRollingMin, IgnoreNulls) {
   for (auto ty : NumericTypes()) {
     RollingOptions options(4, 3, true);

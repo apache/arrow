@@ -110,16 +110,49 @@ struct ProdWindow {
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
   KernelContext* ctx;
-  ArgValue prod = 1;
+  ArgValue prod = 1;  // the product of non-nan and non-zero values in the window
+  int64_t nan_count = 0;
+  int64_t zero_count = 0;
+
   explicit ProdWindow(KernelContext* ctx) : ctx(ctx) {}
 
   void Append(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count++;
+        return;
+      }
+    }
+    if (value == 0) {
+      zero_count++;
+      return;
+    }
     prod = Multiply::Call<ArgValue, ArgValue, ArgValue>(ctx, prod, value, st);
   }
   void Remove(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count--;
+        return;
+      }
+    }
+    if (value == 0) {
+      zero_count--;
+      return;
+    }
     prod = Divide::Call<ArgValue, ArgValue, ArgValue>(ctx, prod, value, st);
   }
-  OutValue GetValue(Status* st) const { return prod; }
+  OutValue GetValue(Status* st) const {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (nan_count > 0) {
+        return std::numeric_limits<OutValue>::quiet_NaN();
+      }
+    }
+    if (zero_count > 0) {
+      return 0;
+    }
+    return prod;
+  }
 };
 
 template <typename InputType>
@@ -129,16 +162,49 @@ struct ProdCheckedWindow {
   using ArgValue = typename GetViewType<ArgType>::T;
   using OutValue = typename GetOutputType<OutType>::T;
   KernelContext* ctx;
-  ArgValue prod = 1;
+  ArgValue prod = 1;  // the product of non-nan and non-zero values in the window
+  int64_t nan_count = 0;
+  int64_t zero_count = 0;
+
   explicit ProdCheckedWindow(KernelContext* ctx) : ctx(ctx) {}
 
   void Append(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count++;
+        return;
+      }
+    }
+    if (value == 0) {
+      zero_count++;
+      return;
+    }
     prod = MultiplyChecked::Call<ArgValue, ArgValue, ArgValue>(ctx, prod, value, st);
   }
   void Remove(ArgValue value, Status* st) {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (std::isnan(value)) {
+        nan_count--;
+        return;
+      }
+    }
+    if (value == 0) {
+      zero_count--;
+      return;
+    }
     prod = DivideChecked::Call<ArgValue, ArgValue, ArgValue>(ctx, prod, value, st);
   }
-  OutValue GetValue(Status* st) const { return prod; }
+  OutValue GetValue(Status* st) const {
+    if constexpr (std::is_floating_point_v<ArgValue>) {
+      if (nan_count > 0) {
+        return std::numeric_limits<OutValue>::quiet_NaN();
+      }
+    }
+    if (zero_count > 0) {
+      return 0;
+    }
+    return prod;
+  }
 };
 
 template <typename InputType>
