@@ -708,55 +708,55 @@ class TestBufferedInputStreamChunk : public TestBufferedInputStream {
 
 // Read bytes greater than buffer_size would not buffer.
 TEST_F(TestBufferedInputStreamChunk, NotBufferLargeRead) {
-  int64_t buffer_size = 5;
-  MakeExample(buffer_size);
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
 
   ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(6));
   EXPECT_EQ(6, buf->size());
-  EXPECT_EQ(1, tracked_->num_reads());
   EXPECT_EQ(0, buffered_->bytes_buffered());
-  EXPECT_EQ(6, tracked_->bytes_read());
+  std::vector<io::ReadRange> read_ranges = {io::ReadRange{0, 6}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 }
 
 TEST_F(TestBufferedInputStreamChunk, NotBufferLargeRead2) {
-  int64_t buffer_size = 5;
-  MakeExample(buffer_size);
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
 
   // small read would trigger buffer the whole chunk
   ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
   EXPECT_EQ(1, buf->size());
-  EXPECT_EQ(1, tracked_->num_reads());
   EXPECT_EQ(4, buffered_->bytes_buffered());
-  EXPECT_EQ(buffer_size, tracked_->bytes_read());
+  std::vector<io::ReadRange> read_ranges = {io::ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 
   // Large read with pre-buffered will copy the
   // pre-buffered data first, then read the remaining.
   ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(20));
   EXPECT_EQ(20, buf->size());
-  EXPECT_EQ(2, tracked_->num_reads());
   EXPECT_EQ(0, buffered_->bytes_buffered());
-  EXPECT_EQ(21, tracked_->bytes_read());
+  read_ranges.push_back(io::ReadRange{5, 16});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 }
 
 // Will buffer during small IO
 TEST_F(TestBufferedInputStreamChunk, BufferWholeChunk) {
-  int64_t buffer_size = 5;
-  MakeExample(buffer_size);
+  const int64_t kBufferSize = 5;
+  MakeExample(kBufferSize);
 
   ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
   EXPECT_EQ(1, buf->size());
-  EXPECT_EQ(1, tracked_->num_reads());
-  EXPECT_EQ(buffer_size - 1, buffered_->bytes_buffered());
-  EXPECT_EQ(buffer_size, tracked_->bytes_read());
+  EXPECT_EQ(kBufferSize - 1, buffered_->bytes_buffered());
+  std::vector<io::ReadRange> read_ranges = {io::ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 
   ASSERT_OK_AND_ASSIGN(buf, buffered_->Read(5));
   EXPECT_EQ(5, buf->size());
-  EXPECT_EQ(2, tracked_->num_reads());
-  EXPECT_EQ(buffer_size - 1, buffered_->bytes_buffered());
-  EXPECT_EQ(buffer_size * 2, tracked_->bytes_read());
+  EXPECT_EQ(kBufferSize - 1, buffered_->bytes_buffered());
+  read_ranges.push_back(io::ReadRange{5, 5});
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 }
 
-TEST_F(TestBufferedInputStreamChunk, BufferWithLargeThenSizeIO) {
+TEST_F(TestBufferedInputStreamChunk, BufferLargeThenFileSize) {
   const int64_t kBufferSize = 40;
   MakeExample(kBufferSize);
 
@@ -764,6 +764,10 @@ TEST_F(TestBufferedInputStreamChunk, BufferWithLargeThenSizeIO) {
   EXPECT_EQ(1, buf->size());
   EXPECT_EQ(1, tracked_->num_reads());
   EXPECT_EQ(test_data_.size() - 1, buffered_->bytes_buffered());
+  // Note: read_ranges here is different from bounded read.
+  // It will send the whole read-request to the source.
+  std::vector<io::ReadRange> read_ranges = {io::ReadRange{0, kBufferSize}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 }
 
 // Trigger small IO with buffer will not exceed the bound.
@@ -774,8 +778,9 @@ TEST_F(TestBufferedInputStreamChunk, BufferWithBound) {
 
   ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(1));
   EXPECT_EQ(1, buf->size());
-  EXPECT_EQ(1, tracked_->num_reads());
   EXPECT_EQ(kReadBound - 1, buffered_->bytes_buffered());
+  std::vector<io::ReadRange> read_ranges = {io::ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 }
 
 // Trigger large IO without buffer will not exceed the bound.
@@ -786,8 +791,9 @@ TEST_F(TestBufferedInputStreamChunk, BufferWithBound2) {
 
   ASSERT_OK_AND_ASSIGN(auto buf, buffered_->Read(6));
   EXPECT_EQ(5, buf->size());
-  EXPECT_EQ(1, tracked_->num_reads());
   EXPECT_EQ(0, buffered_->bytes_buffered());
+  std::vector<io::ReadRange> read_ranges = {io::ReadRange{0, 5}};
+  EXPECT_EQ(tracked_->get_read_ranges(), read_ranges);
 }
 
 }  // namespace arrow::io

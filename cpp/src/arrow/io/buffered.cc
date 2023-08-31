@@ -385,20 +385,16 @@ class BufferedInputStream::Impl : public BufferedBase {
       ConsumeBuffer(pre_buffer_copy_bytes);
     }
     int64_t remaining_bytes = nbytes - pre_buffer_copy_bytes;
-    if (remaining_bytes == 0) {
-      return nbytes;
-    }
-
-    DCHECK_EQ(0, bytes_buffered_);
     if (raw_read_bound_ >= 0) {
       remaining_bytes = std::min(remaining_bytes, raw_read_bound_ - raw_read_total_);
-      if (remaining_bytes == 0) {
-        return pre_buffer_copy_bytes;
-      }
     }
+    if (remaining_bytes == 0) {
+      return pre_buffer_copy_bytes;
+    }
+    DCHECK_EQ(0, bytes_buffered_);
 
     // 2. Read from storage.
-    if (remaining_bytes > buffer_size_) {
+    if (remaining_bytes >= buffer_size_) {
       // 2.1. If read is larger than buffer size, read directly from storage.
       ARROW_ASSIGN_OR_RAISE(int64_t bytes_read,
                             raw_->Read(remaining_bytes, reinterpret_cast<uint8_t*>(out) +
