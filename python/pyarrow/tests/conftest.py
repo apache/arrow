@@ -48,6 +48,12 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
 
 
+if sys.platform == 'win32':
+    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', None)
+    if tzdata_set_path:
+        set_timezone_db_path(tzdata_set_path)
+
+
 def pytest_addoption(parser):
     # Create options to selectively enable test groups
     def bool_env(name, default=None):

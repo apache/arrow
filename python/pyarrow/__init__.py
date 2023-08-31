@@ -157,15 +157,6 @@ def show_info():
         print(f"  {codec: <20}: {status: <8}")
 
 
-if _sys.platform == 'win32':
-    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', None)
-    if tzdata_set_path:
-        set_timezone_db_path(tzdata_set_path)
-    else:
-        if not os.path.exists(os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")):
-            _warnings.warn('The timezone database is not installed. Timezones '+
-                           'will not be available.', RuntimeWarning)
-
 from pyarrow.lib import (null, bool_,
                          int8, int16, int32, int64,
                          uint8, uint16, uint32, uint64,
