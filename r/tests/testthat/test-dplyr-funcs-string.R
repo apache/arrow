@@ -17,6 +17,8 @@
 
 skip_if_not_available("utf8proc")
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 library(dplyr, warn.conflicts = FALSE)
 library(lubridate)
