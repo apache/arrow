@@ -28,6 +28,7 @@ from pytest_lazyfixture import lazy_fixture
 import hypothesis as h
 from ..conftest import groups, defaults
 
+from pyarrow import set_timezone_db_path
 from pyarrow.util import find_free_port
 
 
