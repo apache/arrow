@@ -190,6 +190,9 @@ cmake \
 export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-$[${n_jobs} + 1]}
 time cmake --build . --target install
 
+# Save disk space by removing large temporary build products
+find . -name "*.o" -delete
+
 popd
 
 if [ -x "$(command -v ldconfig)" ]; then

@@ -56,4 +56,9 @@ pushd ${source_dir}
 # build only the integration testing binaries
 cargo build -p arrow-integration-testing
 
+# Save disk space by removing large temporary build products
+rm -rf target/debug/deps
+rm -rf target/debug/build
+rm -rf target/debug/incremental
+
 popd
