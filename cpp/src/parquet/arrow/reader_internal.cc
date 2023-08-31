@@ -715,74 +715,14 @@ Status TransferDecimal(RecordReader* reader, MemoryPool* pool,
   return Status::OK();
 }
 
-static inline Status ConvertToHalfFloat(const Array& array,
-                                        const std::shared_ptr<DataType>& type,
-                                        MemoryPool* pool, std::shared_ptr<Array>* out) {
-  constexpr int32_t byte_width = sizeof(uint16_t);
-  DCHECK_EQ(checked_cast<const ::arrow::HalfFloatType&>(*type).byte_width(), byte_width);
-
-  // We read the halffloat (uint16_t) bytes from a raw binary array, in which they're
-  // assumed to be little-endian.
-  const auto& binary_array = checked_cast<const ::arrow::FixedSizeBinaryArray&>(array);
-  DCHECK_EQ(checked_cast<const ::arrow::FixedSizeBinaryType&>(*binary_array.type())
-                .byte_width(),
-            byte_width);
-
-  // Number of elements in the halffloat array
-  const int64_t length = binary_array.length();
-  // Allocate data for the output halffloat array
-  ARROW_ASSIGN_OR_RAISE(auto data, ::arrow::AllocateBuffer(length * byte_width, pool));
-  uint8_t* out_ptr = data->mutable_data();
-
-  const int64_t null_count = binary_array.null_count();
-  // Copy the values to the output array in native-endian format
-  if (null_count > 0) {
-    for (int64_t i = 0; i < length; ++i, out_ptr += byte_width) {
-      Float16 f16{0};
-      if (binary_array.IsValid(i)) {
-        const uint8_t* in_ptr = binary_array.GetValue(i);
-        f16 = Float16::FromLittleEndian(in_ptr);
-      }
-      f16.ToBytes(out_ptr);
-    }
-  } else {
-#if ARROW_LITTLE_ENDIAN
-    // No need to byte-swap, so do a simple copy
-    std::memcpy(out_ptr, binary_array.raw_values(), length * byte_width);
-#else
-    for (int64_t i = 0; i < length; ++i, out_ptr += byte_width) {
-      const uint8_t* in_ptr = binary_array.GetValue(i);
-      Float16::FromLittleEndian(in_ptr).ToBytes(out_ptr);
-    }
-#endif
-  }
-
-  *out = std::make_shared<::arrow::HalfFloatArray>(
-      type, length, std::move(data), binary_array.null_bitmap(), null_count);
-  return Status::OK();
-}
-
-/// \brief Convert an arrow::BinaryArray to an arrow::HalfFloatArray
-/// We do this by:
-/// 1. Creating an arrow::BinaryArray from the RecordReader's builder
-/// 2. Allocating a buffer for the arrow::HalfFloatArray
-/// 3. Converting the little-endian bytes in each BinaryArray entry to native-endian
-/// halffloat (uint16_t) values
 Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
                          const std::shared_ptr<Field>& field, Datum* out) {
-  auto binary_reader = dynamic_cast<BinaryRecordReader*>(reader);
-  DCHECK(binary_reader);
-  ::arrow::ArrayVector chunks = binary_reader->GetBuilderChunks();
-  for (size_t i = 0; i < chunks.size(); ++i) {
-    std::shared_ptr<Array> chunk_as_half;
-    RETURN_NOT_OK(ConvertToHalfFloat(*chunks[i], field->type(), pool, &chunk_as_half));
-    // Replace the chunk, which will hopefully also free memory as we go
-    chunks[i] = chunk_as_half;
-  }
-  if (!field->nullable()) {
-    ReconstructChunksWithoutNulls(&chunks);
-  }
-  *out = std::make_shared<ChunkedArray>(chunks, field->type());
+  static const auto binary_type = ::arrow::fixed_size_binary(2);
+  // Read as a FixedSizeBinaryArray - then, view as a HalfFloatArray
+  std::shared_ptr<ChunkedArray> chunked_array;
+  RETURN_NOT_OK(
+      TransferBinary(reader, pool, field->WithType(binary_type), &chunked_array));
+  ARROW_ASSIGN_OR_RAISE(*out, chunked_array->View(field->type()));
   return Status::OK();
 }
 
@@ -846,9 +786,14 @@ Status TransferColumnData(RecordReader* reader, const std::shared_ptr<Field>& va
       result = chunked_result;
     } break;
     case ::arrow::Type::HALF_FLOAT: {
+      const auto& type = *value_field->type();
       if (descr->physical_type() != ::parquet::Type::FIXED_LEN_BYTE_ARRAY) {
-        return Status::Invalid("Physical type for ", value_field->type()->ToString(),
+        return Status::Invalid("Physical type for ", type.ToString(),
                                " must be fixed length binary");
+      }
+      if (descr->type_length() != type.byte_width()) {
+        return Status::Invalid("Fixed length binary type for ", type.ToString(),
+                               " must have a byte width of ", type.byte_width());
       }
       RETURN_NOT_OK(TransferHalfFloat(reader, pool, value_field, &result));
     } break;
