@@ -128,7 +128,7 @@ classdef tNumeric < matlab.unittest.TestCase
 
             import arrow.internal.validate.index.numeric
 
-            fcn = @() numeric(false);
+            fcn = @() numeric(false, "int32");
             testCase.verifyError(fcn, "arrow:badsubscript:NonNumeric");
         end
 
@@ -159,6 +159,43 @@ classdef tNumeric < matlab.unittest.TestCase
             original = int8(reshape(1:8, 2, 2, 2));
             expected = int32(1:8)';
             actual = numeric(original, "int32");
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarTrue(testCase)
+            % Verify numeric() behaves as expected provided
+            % AllowNonScalar=true.
+
+            import arrow.internal.validate.index.numeric
+            
+            % Provide a nonscalar array
+            original = [1 2 3]';
+            expected = int32([1 2 3])';
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a scalar array
+            original = 1;
+            expected = int32(1);
+            actual = numeric(original, "int32", AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarFalse(testCase)
+            % Verify numeric() behaves as expected when provided
+            % AllowNonScalar=false.
+
+            import arrow.internal.validate.index.numeric
+            
+            % Should throw an error when provided a nonscalar double array
+            original = [1 2 3]';
+            fcn = @() numeric(original, "int32", AllowNonScalar=false);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+
+            % Should not throw an error when provided a scalar double array
+            original = 1;
+            expected = int32(1);
+            actual = numeric(original, "int32", AllowNonScalar=true);
             testCase.verifyEqual(actual, expected);
         end
     end

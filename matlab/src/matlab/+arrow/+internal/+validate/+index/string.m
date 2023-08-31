@@ -14,11 +14,20 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-function index = string(index)
+function index = string(index, opts)
+    arguments
+        index
+        opts.AllowNonScalar(1, 1) = true
+    end
 
     index = convertCharsToStrings(index);
-
     index = reshape(index, [], 1);
+
+    if ~opts.AllowNonScalar && ~isscalar(index)
+        errid = "arrow:badsubscript:NonScalar";
+        msg = "Expected a scalar index value.";
+        error(errid, msg);
+    end
 
     if ~isstring(index)
         errid = "arrow:badsubscript:NonString";

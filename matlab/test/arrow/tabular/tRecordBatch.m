@@ -116,7 +116,7 @@ classdef tRecordBatch < matlab.unittest.TestCase
             TOriginal = table(1, 2, 3);
             arrowRecordBatch = arrow.recordBatch(TOriginal);
             fcn = @() arrowRecordBatch.column([1 2]);
-            tc.verifyError(fcn, "MATLAB:expectedScalar");
+            tc.verifyError(fcn, "arrow:badsubscript:NonScalar");
         end
 
         function ErrorIfIndexIsNonPositive(tc)
@@ -380,10 +380,10 @@ classdef tRecordBatch < matlab.unittest.TestCase
             );
 
             name = ["A", "B", "C"];
-            testCase.verifyError(@() recordBatch.column(name), "MATLAB:expectedScalar");
+            testCase.verifyError(@() recordBatch.column(name), "arrow:badsubscript:NonScalar");
 
             name = ["A";  "B"; "C"];
-            testCase.verifyError(@() recordBatch.column(name), "MATLAB:expectedScalar");
+            testCase.verifyError(@() recordBatch.column(name), "arrow:badsubscript:NonScalar");
         end
 
     end

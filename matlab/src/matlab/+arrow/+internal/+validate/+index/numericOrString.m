@@ -15,14 +15,21 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function idx = numericOrString(idx, numericIndexType)
+function idx = numericOrString(idx, numericIndexType, opts)
+    arguments
+        idx
+        numericIndexType(1, 1) string
+        opts.AllowNonScalar(1, 1) logical = true
+    end
+
     import arrow.internal.validate.*
 
+    opts = namedargs2cell(opts);
     idx = convertCharsToStrings(idx);
     if isnumeric(idx)
-        idx = index.numeric(idx, numericIndexType);
+        idx = index.numeric(idx, numericIndexType, opts{:});
     elseif isstring(idx)
-        idx = index.string(idx);
+        idx = index.string(idx, opts{:});
     else
         errid = "arrow:badsubscript:UnsupportedIndexType";
         msg = "Indices must be positive integers or nonmissing strings.";
