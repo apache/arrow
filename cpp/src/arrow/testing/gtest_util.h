@@ -232,7 +232,7 @@ ARROW_TESTING_EXPORT void AssertChunkedApproxEquivalent(
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
                                             const std::vector<uint8_t>& expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer,
-                                            const std::string& expected);
+                                            std::string_view expected);
 ARROW_TESTING_EXPORT void AssertBufferEqual(const Buffer& buffer, const Buffer& expected);
 
 ARROW_TESTING_EXPORT void AssertTypeEqual(const DataType& lhs, const DataType& rhs,
