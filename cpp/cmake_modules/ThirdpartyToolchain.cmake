@@ -1002,8 +1002,8 @@ macro(prepare_fetchcontent)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   if(MSVC)
-    string(APPEND CMAKE_C_FLAGS_DEBUG " /WX:NO")
-    string(APPEND CMAKE_CXX_FLAGS_DEBUG " /WX:NO")
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
   else()
     string(APPEND CMAKE_C_FLAGS_DEBUG " -Wno-error")
     string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Wno-error")
@@ -2095,7 +2095,7 @@ endif()
 # ----------------------------------------------------------------------
 # Google gtest
 
-macro(build_gtest)
+function(build_gtest)
   message(STATUS "Building gtest from source")
   set(GTEST_VENDORED TRUE)
   fetchcontent_declare(googletest
@@ -2132,7 +2132,7 @@ macro(build_gtest)
   add_library(arrow::GTest::gmock_main ALIAS gmock_main)
   add_library(arrow::GTest::gtest ALIAS gtest)
   add_library(arrow::GTest::gtest_main ALIAS gtest_main)
-endmacro()
+endfunction()
 
 if(ARROW_TESTING)
   set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
