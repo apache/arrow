@@ -800,7 +800,8 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
 
 const FunctionDoc dictionary_compaction_doc{
     "Compact dictionary array",
-    ("Return a compacted version of the array input\n"
+    ("Return a compacted version of the dictionary array input,\n"
+     "which would remove unused values in dictionary\n"
      "This function does nothing if the input is not a dictionary."),
     {"dictionary_array"}};
 
@@ -817,24 +818,63 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
       return args[0];
     }
 
-    if (args[0].is_array() || args[0].is_chunked_array()) {
-      DictionaryType* dict_type = checked_cast<DictionaryType*>(args[0].type().get());
-      CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
-      return CallFunction("cast", args, &cast_options, ctx);
+    if (args[0].is_array()) {
+      ARROW_ASSIGN_OR_RAISE(auto compacted_dict_array,
+                            DispatchCompaction(args[0].make_array(), ctx));
+      return Datum(compacted_dict_array);
+    } else if (args[0].is_chunked_array()) {
+      arrow::ArrayVector compacted_dict_array_chunks;
+      for (std::shared_ptr<Array> chunk : args[0].chunks()) {
+        ARROW_ASSIGN_OR_RAISE(auto compacted_dict_array_chunk,
+                              DispatchCompaction(chunk, ctx));
+        compacted_dict_array_chunks.push_back(compacted_dict_array_chunk);
+      }
+      ChunkedArray res(compacted_dict_array_chunks);
+      return Datum(res);
     } else {
       return Status::TypeError("Expected an Array or a Chunked Array");
     }
   }
 
  private:
-  template <typename IndiceArrowType,
-            typename ArrayType = typename TypeTraits<IndiceArrowType>::ArrayType,
-            typename BuilderType = typename TypeTraits<IndiceArrowType>::BuilderType,
-            typename CType = typename TypeTraits<IndiceArrowType>::CType>
-  Result<std::shared_ptr<Array>> Compaction(
-      std::shared_ptr<DictionaryArray> dict_array, ExecContext* ctx) {
-    const std::shared_ptr<Array>& dict = dict_array->dictionary();
-    const std::shared_ptr<Array>& indice = dict_array->indices();
+  Result<std::shared_ptr<Array>> DispatchCompaction(std::shared_ptr<Array> dict_array,
+                                                    ExecContext* ctx) const {
+    const DictionaryArray& casted_dict_array =
+        checked_cast<const DictionaryArray&>(*dict_array);
+    const std::shared_ptr<Array>& indice = casted_dict_array.indices();
+    switch (indice->type_id()) {
+      case Type::UINT8:
+        return Compaction<UInt8Type>(dict_array, ctx);
+      case Type::INT8:
+        return Compaction<Int8Type>(dict_array, ctx);
+      case Type::UINT16:
+        return Compaction<UInt16Type>(dict_array, ctx);
+      case Type::INT16:
+        return Compaction<Int16Type>(dict_array, ctx);
+      case Type::UINT32:
+        return Compaction<UInt32Type>(dict_array, ctx);
+      case Type::INT32:
+        return Compaction<Int32Type>(dict_array, ctx);
+      case Type::UINT64:
+        return Compaction<UInt64Type>(dict_array, ctx);
+      case Type::INT64:
+        return Compaction<Int64Type>(dict_array, ctx);
+      default:
+        ARROW_CHECK(false) << "unreachable";
+        return Status::TypeError("Expected an Indice Type of ");
+    }
+  }
+
+  template <typename IndiceArrowType>
+  Result<std::shared_ptr<Array>> Compaction(std::shared_ptr<Array> dict_array,
+                                            ExecContext* ctx) const {
+    using BuilderType = NumericBuilder<IndiceArrowType>;
+    using CType = typename IndiceArrowType::c_type;
+
+    const DictionaryArray& casted_dict_array =
+        checked_cast<const DictionaryArray&>(*dict_array);
+    const std::shared_ptr<Array>& dict = casted_dict_array.dictionary();
+    const std::shared_ptr<Array>& indice = casted_dict_array.indices();
     const CType* indices_data =
         reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
 
@@ -846,7 +886,7 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
         continue;
       }
 
-      CType cur_indice = *(indices_data[i + offset]);
+      CType cur_indice = indices_data[i + offset];
       if (!dict_used[cur_indice]) {
         dict_used[cur_indice] = true;
         dict_used_count++;
@@ -860,7 +900,8 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
     // dictionary compaction
     CType dict_indice[dict_used_count];
     int64_t dict_indice_index = 0;
-    for (CType i = 0; i < dict->length(); i++) {
+    CType len = (CType)dict->length();
+    for (CType i = 0; i < len; i++) {
       if (dict_used[i]) {
         dict_indice[dict_indice_index] = i;
         dict_indice_index++;
@@ -894,7 +935,7 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
       if (indice->IsNull(i)) {
         raw_changed_indice[i] = 0;
       } else {
-        CType cur_indice = *(indices_data[i + offset]);
+        CType cur_indice = indices_data[i + offset];
         raw_changed_indice[i] = cur_indice - indice_minus_number[cur_indice];
       }
     }
