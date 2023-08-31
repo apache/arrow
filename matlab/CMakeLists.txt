@@ -115,35 +115,21 @@ function(build_arrow)
 endfunction()
 
 macro(enable_gtest)
-  set(ARROW_GTEST_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
-  set(ARROW_GTEST_MAIN_PREFIX "${ARROW_BINARY_DIR}/googletest_ep-prefix")
+  set(ARROW_GTEST_SOURCE_PREFIX "${ARROW_BINARY_DIR}/_deps/googletest-src/googletest")
+  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_GTEST_SOURCE_PREFIX}/include")
 
-  if(WIN32)
-    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/bin")
-    set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/bin")
-
-    set(ARROW_GTEST_LINK_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
-    set(ARROW_GTEST_LINK_LIB
-        "${ARROW_GTEST_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-
-    set(ARROW_GTEST_MAIN_LINK_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
-    set(ARROW_GTEST_MAIN_LINK_LIB
-        "${ARROW_GTEST_MAIN_LINK_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}gtest_main${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-  else()
-    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_GTEST_PREFIX}/lib")
-    set(ARROW_GTEST_MAIN_SHARED_LIB_DIR "${ARROW_GTEST_MAIN_PREFIX}/lib")
-  endif()
-
-  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_GTEST_PREFIX}/include")
-  set(ARROW_GTEST_SHARED_LIB
-      "${ARROW_GTEST_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  set(ARROW_GTEST_LIB_DIR "${ARROW_BINARY_DIR}/$<CONFIG>")
+  set(ARROW_GTEST_IMPORT_LIB
+      "${ARROW_GTEST_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}arrow_gtest${CMAKE_IMPORT_LIBRARY_SUFFIX}"
   )
-
-  set(ARROW_GTEST_MAIN_INCLUDE_DIR "${ARROW_GTEST_MAIN_PREFIX}/include")
+  set(ARROW_GTEST_MAIN_IMPORT_LIB
+      "${ARROW_GTEST_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}arrow_gtest_main${CMAKE_IMPORT_LIBRARY_SUFFIX}"
+  )
+  set(ARROW_GTEST_SHARED_LIB
+      "${ARROW_GTEST_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}arrow_gtest${CMAKE_SHARED_LIBRARY_SUFFIX}"
+  )
   set(ARROW_GTEST_MAIN_SHARED_LIB
-      "${ARROW_GTEST_MAIN_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}"
+      "${ARROW_GTEST_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}arrow_gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}"
   )
 
   list(APPEND ARROW_CMAKE_ARGS "-DARROW_BUILD_TESTS=ON")
@@ -152,8 +138,8 @@ macro(enable_gtest)
   # executables.
   if(WIN32)
     # On Windows, add the gtest link libraries as BUILD_BYPRODUCTS for arrow_ep.
-    list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_LINK_LIB}"
-         "${ARROW_GTEST_MAIN_LINK_LIB}")
+    list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_IMPORT_LIB}"
+         "${ARROW_GTEST_MAIN_IMPORT_LIB}")
   else()
     # On Linux and macOS, add the gtest shared libraries as BUILD_BYPRODUCTS for arrow_ep.
     list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_SHARED_LIB}"
@@ -168,26 +154,17 @@ macro(build_gtest)
   # Create target GTest::gtest
   add_library(GTest::gtest SHARED IMPORTED)
   set_target_properties(GTest::gtest
-                        PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
+                        PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_IMPORT_LIB}
+                                   IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
                                    INTERFACE_INCLUDE_DIRECTORIES
                                    ${ARROW_GTEST_INCLUDE_DIR})
-  if(WIN32)
-    set_target_properties(GTest::gtest PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_LINK_LIB})
-  endif()
-
   add_dependencies(GTest::gtest arrow_ep)
 
   # Create target GTest::gtest_main
   add_library(GTest::gtest_main SHARED IMPORTED)
   set_target_properties(GTest::gtest_main
-                        PROPERTIES IMPORTED_LOCATION ${ARROW_GTEST_MAIN_SHARED_LIB}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${ARROW_GTEST_MAIN_INCLUDE_DIR})
-  if(WIN32)
-    set_target_properties(GTest::gtest_main PROPERTIES IMPORTED_IMPLIB
-                                                       ${ARROW_GTEST_MAIN_LINK_LIB})
-  endif()
-
+                        PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_MAIN_IMPORT_LIB}
+                                   IMPORTED_LOCATION ${ARROW_GTEST_MAIN_SHARED_LIB})
   add_dependencies(GTest::gtest_main arrow_ep)
 endmacro()
 
