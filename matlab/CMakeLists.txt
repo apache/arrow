@@ -115,8 +115,7 @@ function(build_arrow)
 endfunction()
 
 macro(enable_gtest)
-  set(ARROW_GTEST_SOURCE_PREFIX "${ARROW_BINARY_DIR}/_deps/googletest-src/googletest")
-  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_PREFIX}/include")
+  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_PREFIX}/include/arrow-gtest")
 
   set(ARROW_GTEST_IMPORT_LIB_DIR "${ARROW_PREFIX}/lib")
   if(WIN32)
