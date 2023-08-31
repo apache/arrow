@@ -35,17 +35,6 @@
       <groupId>org.immutables</groupId>
       <artifactId>value</artifactId>
     </dependency>
-    <!-- To adding global allocator test to deal with unreleased allocators properly as part of the unit test execution -->
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>${dep.junit.jupiter.version}</version>
-    </dependency>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>4.13.1</version>
-    </dependency>
   </dependencies>
 
   <build>

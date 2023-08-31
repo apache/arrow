@@ -133,7 +133,7 @@ Development Guidelines
 Applications should generally:
 
 * Use the BufferAllocator interface in APIs instead of RootAllocator.
-* Create one RootAllocator at the start of the program.
+* Create one RootAllocator at the start of the program and explicitly pass it when needed.
 * ``close()`` allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
 
 
@@ -287,6 +287,49 @@ Finally, enabling the ``TRACE`` logging level will automatically provide this st
    |        at BaseAllocator.close (BaseAllocator.java:405)
    |        at RootAllocator.close (RootAllocator.java:29)
    |        at (#8:1)
+
+A further option would be to change the way how allocators are created, we could try the following:
+
+1. Set up a global root allocator that is going to be used in each module,
+2. Create child allocators by using the root allocator,
+3. Give child allocations proper names so that you can detect errors in another class or method,
+4. Ensure that resources are properly closed,
+5. At some strategic point, check if the global allocator is empty,
+6. In case of error, try to review the above-identified class/method allocator bugs.
+
+.. code-block:: java
+
+    //1
+    private static final RootAllocator allocator = new RootAllocator();
+    ...
+    //2
+    public static BufferAllocator getChildAllocator() {
+        return allocator.newChildAllocator(nextChildName(), 0, Long.MAX_VALUEn);
+    }
+    ...
+    //3
+    private static String nextChildName() {
+        return "Allocator-Child-" + getClassNameAndMethodName();
+    }
+    ...
+    //4: Business code
+    try () {
+        ...
+    }
+    ...
+    //5
+    public static void checkGlobalCleanUpResources() {
+        ...
+        !allocator.getChildAllocators().isEmpty();
+        allocator.getAllocatedMemory() != 0;
+        ...
+        throw new IllegalStateException(...);
+    }
+    ...
+    //6: Allocator bug detected
+    Review active allocators on: Allocator-Child-com.yourpackage.Test-method
+    ...
+
 
 .. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
 .. _`ArrowBuf.print()`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html#print-java.lang.StringBuilder-int-org.apache.arrow.memory.BaseAllocator.Verbosity-
