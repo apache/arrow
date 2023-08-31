@@ -289,8 +289,8 @@ services:
       ARROW_EXTRA_ERROR_CONTEXT: "ON"
       ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"
-      ARROW_USE_PRECOMPILED_HEADERS: "ON"
       BUILD_DOCS_PYTHON: "ON"
+      CMAKE_UNITY_BUILD: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
