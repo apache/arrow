@@ -926,11 +926,11 @@ TYPED_TEST(TestParquetIO, SingleColumnOptionalReadWrite) {
 
 TYPED_TEST(TestParquetIO, SingleColumnOptionalDictionaryWrite) {
   switch (TypeParam::type_id) {
-    // Skip tests for BOOL as we don't create dictionaries for it.
     case ::arrow::Type::BOOL:
-    // Skip tests for HALF_FLOAT as it's not currently supported by `dictionary_encode`
+      GTEST_SKIP() << "dictionaries not created for BOOL";
+      break;
     case ::arrow::Type::HALF_FLOAT:
-      GTEST_SKIP();
+      GTEST_SKIP() << "dictionary_encode not supported for HALF_FLOAT";
       break;
     default:
       break;
