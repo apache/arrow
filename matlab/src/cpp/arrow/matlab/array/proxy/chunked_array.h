@@ -39,6 +39,8 @@ class ChunkedArray : public libmexclass::proxy::Proxy {
 
         void getNumChunks(libmexclass::proxy::method::Context& context);
 
+        void getChunk(libmexclass::proxy::method::Context& context);
+
         void getType(libmexclass::proxy::method::Context& context);
 
         std::shared_ptr<arrow::ChunkedArray> chunked_array;
