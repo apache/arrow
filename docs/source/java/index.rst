@@ -43,7 +43,4 @@ on the Arrow format and other language bindings see the :doc:`parent documentati
    cdata
    jdbc
    Reference (javadoc) <reference/index>
-
-.. toctree::
-
    Java cookbook <https://arrow.apache.org/cookbook/java/>

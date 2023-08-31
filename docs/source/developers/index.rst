@@ -215,7 +215,6 @@ All participation in the Apache Arrow project is governed by the ASF's
    :maxdepth: 2
    :hidden:
 
-   contributing
    bug_reports
    guide/index
    overview

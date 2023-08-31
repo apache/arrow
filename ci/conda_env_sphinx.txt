@@ -20,6 +20,10 @@ breathe
 doxygen
 ipython
 numpydoc
+# Currently we are requiring the latest unreleased version
+# of the theme, see ci/docker/conda-python-pandas.dockerfile
+# TODO: remove comment with new theme release (0.14)
+# pydata-sphinx-theme
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton

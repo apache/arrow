@@ -67,8 +67,4 @@ files into Arrow structures.
    api
    getting_involved
    benchmarks
-
-.. toctree::
-   :maxdepth: 2
-
    Python cookbook <https://arrow.apache.org/cookbook/py/>

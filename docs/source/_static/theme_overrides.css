@@ -21,12 +21,10 @@
 /* Customizing with theme CSS variables */
 
 :root {
+  /* Change header hight to make the logo a bit larger */
   --pst-header-height: 6rem;
+  /* Make headings more bold */
   --pst-font-weight-heading: 600;
-}
-
-.footer {
-  text-align: center;
 }
 
 /* Contibuting landing page overview cards */
@@ -54,7 +52,7 @@
 }
 
 .contrib-card .sd-card-footer {
-  border: none !important;
+  border: none;
 }
 
 .contib-card .sd-card-footer p.sd-card-text{
@@ -85,49 +83,4 @@ dl.cpp.enumerator {
 
 p.breathe-sectiondef-title {
   margin-top: 1rem;
-}
-
-/* Limit the max height of the sidebar navigation section. Because in our
-custimized template, there is more content above the navigation, i.e.
-larger logo: if we don't decrease the max-height, it will overlap with
-the footer.
-Details: min(15vh, 110px) for the logo size, 8rem for search box etc*/
-
-@media (min-width:720px) {
-  @supports (position:-webkit-sticky) or (position:sticky) {
-    .bd-links {
-      max-height: calc(100vh - min(15vh, 110px) - 8rem)
-    }
-  }
-}
-
-/* Styling to get the version dropdown and search box side-by-side on wide screens */
-
-#version-search-wrapper {
-  width: inherit;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: left;
-  align-items: center;
-}
-
-#version-button {
-  padding-left: 0.5rem;
-  padding-right: 1rem;
-}
-
-#search-box {
-  flex: 1 0 12em;
-}
-
-/* Fix table text wrapping in RTD theme,
- * see https://rackerlabs.github.io/docs-rackspace/tools/rtd-tables.html
- */
-
-@media screen {
-    table.docutils td {
-        /* !important prevents the common CSS stylesheets from overriding
-          this as on RTD they are loaded after this stylesheet */
-        white-space: normal !important;
-    }
 }
