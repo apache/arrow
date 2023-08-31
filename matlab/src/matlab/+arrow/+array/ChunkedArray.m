@@ -59,6 +59,26 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=chunkStruct.ProxyID);
             array = traits.ArrayConstructor(proxy);
         end
+
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+
+            tf = false;
+            proxyIDs = zeros(numel(varargin), 1, "uint64");
+
+            % Extract each chunked array's proxy ID
+            for ii = 1:numel(varargin)
+                chunkedArray = varargin{ii};
+                if ~isa(chunkedArray, "arrow.array.ChunkedArray")
+                    % Return early if array is not a arrow.array.ChunkedArray
+                    return;
+                end
+                proxyIDs(ii) = chunkedArray.Proxy.ID;
+            end
+
+            % Invoke isEqual proxy object method
+            tf = obj.Proxy.isEqual(proxyIDs);
+        end
     end
 
     methods(Static)

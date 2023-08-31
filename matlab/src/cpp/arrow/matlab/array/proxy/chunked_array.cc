@@ -52,6 +52,7 @@ namespace arrow::matlab::array::proxy {
         REGISTER_METHOD(ChunkedArray, getNumChunks);
         REGISTER_METHOD(ChunkedArray, getChunk);
         REGISTER_METHOD(ChunkedArray, getType);
+        REGISTER_METHOD(ChunkedArray, isEqual);
     }
 
 
@@ -155,4 +156,26 @@ namespace arrow::matlab::array::proxy {
         output[0]["TypeID"] = factory.createScalar(type_id);
         context.outputs[0] = output;
     }
+
+    void ChunkedArray::isEqual(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+
+        const mda::TypedArray<uint64_t> chunked_array_proxy_ids = context.inputs[0];
+
+        bool is_equal = true;
+        for (const auto& chunked_array_proxy_id : chunked_array_proxy_ids) {
+           // Retrieve the ChunkedArray proxy from the ProxyManager
+            auto proxy = libmexclass::proxy::ProxyManager::getProxy(chunked_array_proxy_id);
+            auto chunked_array_proxy = std::static_pointer_cast<proxy::ChunkedArray>(proxy);
+            auto chunked_array_to_compare = chunked_array_proxy->unwrap();
+
+            if (!chunked_array->Equals(chunked_array_to_compare)) {
+                is_equal = false;
+                break;
+            }
+        }
+        mda::ArrayFactory factory;
+        context.outputs[0] = factory.createScalar(is_equal);
+    }
+
 }
