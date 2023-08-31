@@ -323,7 +323,7 @@ Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
 
   ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
   CU_RETURN_NOT_OK("cuStreamWaitEvent",
-                   cuStreamWaitEvent(value(), cu_event, CU_EVENT_WAIT_DEFAULT));
+                   cuStreamWaitEvent(value(), cu_event, CU_EVENT_DEFAULT));
   return Status::OK();
 }
 
