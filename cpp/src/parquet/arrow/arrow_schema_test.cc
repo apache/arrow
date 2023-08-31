@@ -236,6 +236,8 @@ TEST_F(TestConvertParquetSchema, ParquetAnnotatedFields) {
        ::arrow::fixed_size_binary(12)},
       {"uuid", LogicalType::UUID(), ParquetType::FIXED_LEN_BYTE_ARRAY, 16,
        ::arrow::fixed_size_binary(16)},
+      {"float16", LogicalType::Float16(), ParquetType::FIXED_LEN_BYTE_ARRAY, 2,
+       ::arrow::float16()},
       {"none", LogicalType::None(), ParquetType::BOOLEAN, -1, ::arrow::boolean()},
       {"none", LogicalType::None(), ParquetType::INT32, -1, ::arrow::int32()},
       {"none", LogicalType::None(), ParquetType::INT64, -1, ::arrow::int64()},
@@ -906,6 +908,23 @@ TEST_F(TestConvertArrowSchema, ArrowFields) {
   ASSERT_OK(ConvertSchema(arrow_fields));
   CheckFlatSchema(parquet_fields);
   // ASSERT_NO_FATAL_FAILURE();
+}
+
+TEST_F(TestConvertArrowSchema, ArrowNonconvertibleFields) {
+  struct FieldConstructionArguments {
+    std::string name;
+    std::shared_ptr<::arrow::DataType> datatype;
+  };
+
+  std::vector<FieldConstructionArguments> cases = {
+      {"run_end_encoded",
+       ::arrow::run_end_encoded(::arrow::int32(), ::arrow::list(::arrow::int8()))},
+  };
+
+  for (const FieldConstructionArguments& c : cases) {
+    auto field = ::arrow::field(c.name, c.datatype);
+    ASSERT_RAISES(NotImplemented, ConvertSchema({field}));
+  }
 }
 
 TEST_F(TestConvertArrowSchema, ParquetFlatPrimitivesAsDictionaries) {
