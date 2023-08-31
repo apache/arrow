@@ -139,7 +139,7 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             index = [];
-            testCase.verifyError(@() schema.field(index), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonScalar");
 
             index = 0;
             testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonPositive");
@@ -157,7 +157,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyError(@() schema.field(index), "arrow:badsubscript:UnsupportedIndexType");
 
             index = [1; 1];
-            testCase.verifyError(@() schema.field(index), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonScalar");
         end
 
         function GetFieldByIndex(testCase)
@@ -446,10 +446,10 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = [1, 2, 3];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
 
             fieldName = [1; 2; 3];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
         end
 
         function ErrorIfFieldNameIsNonScalar(testCase)
@@ -462,10 +462,10 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = ["A", "B", "C"];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
 
             fieldName = ["A";  "B"; "C"];
-            testCase.verifyError(@() schema.field(fieldName), "MATLAB:expectedScalar");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
         end
 
     end

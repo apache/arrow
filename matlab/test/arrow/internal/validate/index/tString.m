@@ -113,5 +113,48 @@ classdef tString < matlab.unittest.TestCase
             actual = index.string(original);
             testCase.verifyEqual(actual, expected);
         end
+
+        function AllowNonScalarTrue(testCase)
+            % Verify string() behaves as expected provided
+            % AllowNonScalar=true.
+
+            import arrow.internal.validate.*
+            
+            % Provide a nonscalar string array
+            original = ["A", "B", "C"];
+            expected = ["A", "B", "C"]';
+            actual = index.string(original, AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+
+            % Provide a scalar string array
+            original = "A";
+            expected = "A";
+            actual = index.string(original, AllowNonScalar=true);
+            testCase.verifyEqual(actual, expected);
+        end
+
+        function AllowNonScalarFalse(testCase)
+            % Verify string() behaves as expected when provided
+            % AllowNonScalar=false.
+
+            import arrow.internal.validate.*
+            
+            % Should throw an error if provided a nonscalar string array
+            original = ["A", "B", "C"];
+            fcn = @() index.string(original, AllowNonScalar=false);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+
+            % Should not throw an error if provided a scalar string array
+            original = "A";
+            expected = "A";
+            actual = index.string(original, AllowNonScalar=false);
+            testCase.verifyEqual(actual, expected);
+
+            % Should not throw an error if provided a character row vector
+            original = 'ABC';
+            expected = "ABC";
+            actual = index.string(original, AllowNonScalar=false);
+            testCase.verifyEqual(actual, expected);
+        end
     end
 end
