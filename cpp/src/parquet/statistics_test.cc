@@ -601,6 +601,39 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     this->SetUpSchema(Repetition::OPTIONAL);
   }
 
+  std::optional<int64_t> MergeDistinctCount(
+      std::optional<int64_t> initial,
+      const std::vector<std::optional<int64_t>>& subsequent) {
+    EncodedStatistics encoded_statistics;
+    if (initial) {
+      encoded_statistics.has_distinct_count = true;
+      encoded_statistics.distinct_count = *initial;
+    }
+    std::shared_ptr<TypedStatistics<TestType>> statistics =
+        std::dynamic_pointer_cast<TypedStatistics<TestType>>(
+            Statistics::Make(this->schema_.Column(0), &encoded_statistics,
+                             /*num_values=*/1000));
+    for (const auto& distinct_count : subsequent) {
+      EncodedStatistics next_encoded_statistics;
+      if (distinct_count) {
+        next_encoded_statistics.has_distinct_count = true;
+        next_encoded_statistics.distinct_count = *distinct_count;
+      }
+      std::shared_ptr<TypedStatistics<TestType>> next_statistics =
+          std::dynamic_pointer_cast<TypedStatistics<TestType>>(
+              Statistics::Make(this->schema_.Column(0), &next_encoded_statistics,
+                               /*num_values=*/1000));
+      statistics->Merge(*next_statistics);
+    }
+    EncodedStatistics final_statistics = statistics->Encode();
+    EXPECT_EQ(statistics->HasDistinctCount(), final_statistics.has_distinct_count);
+    if (statistics->HasDistinctCount()) {
+      EXPECT_EQ(statistics->distinct_count(), final_statistics.distinct_count);
+      return statistics->distinct_count();
+    }
+    return std::nullopt;
+  }
+
   std::shared_ptr<TypedStatistics<TestType>> MergedStatistics(
       const TypedStatistics<TestType>& stats1, const TypedStatistics<TestType>& stats2) {
     auto chunk_statistics = MakeStatistics<TestType>(this->schema_.Column(0));
@@ -616,35 +649,22 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     ASSERT_NO_FATAL_FAILURE(test_fn(MergedStatistics(stats2, stats1).get()));
   }
 
-  // Distinct count should set to false when Merge is called.
+  // Distinct count should set to false when Merge is called, unless one of the statistics
+  // has a zero count.
   void TestMergeDistinctCount() {
-    // Create a statistics object with distinct count.
-    std::shared_ptr<TypedStatistics<TestType>> statistics1;
-    {
-      EncodedStatistics encoded_statistics1;
-      statistics1 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
-          Statistics::Make(this->schema_.Column(0), &encoded_statistics1,
-                           /*num_values=*/1000));
-      EXPECT_FALSE(statistics1->HasDistinctCount());
-    }
+    // Sanity tests.
+    ASSERT_EQ(std::nullopt, MergeDistinctCount(std::nullopt, {}));
+    ASSERT_EQ(10, MergeDistinctCount(10, {}));
 
-    // Create a statistics object with distinct count.
-    std::shared_ptr<TypedStatistics<TestType>> statistics2;
-    {
-      EncodedStatistics encoded_statistics2;
-      encoded_statistics2.has_distinct_count = true;
-      encoded_statistics2.distinct_count = 500;
-      statistics2 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
-          Statistics::Make(this->schema_.Column(0), &encoded_statistics2,
-                           /*num_values=*/1000));
-      EXPECT_TRUE(statistics2->HasDistinctCount());
-    }
-
-    VerifyMergedStatistics(*statistics1, *statistics2,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_FALSE(merged_statistics->HasDistinctCount());
-                             EXPECT_FALSE(merged_statistics->Encode().has_distinct_count);
-                           });
+    ASSERT_EQ(std::nullopt, MergeDistinctCount(std::nullopt, {0}));
+    ASSERT_EQ(std::nullopt, MergeDistinctCount(std::nullopt, {10, 0}));
+    ASSERT_EQ(10, MergeDistinctCount(10, {0, 0}));
+    ASSERT_EQ(10, MergeDistinctCount(0, {10, 0}));
+    ASSERT_EQ(10, MergeDistinctCount(0, {0, 10}));
+    ASSERT_EQ(10, MergeDistinctCount(0, {0, 10, 0}));
+    ASSERT_EQ(std::nullopt, MergeDistinctCount(10, {0, 10}));
+    ASSERT_EQ(std::nullopt, MergeDistinctCount(10, {0, std::nullopt}));
+    ASSERT_EQ(std::nullopt, MergeDistinctCount(0, {std::nullopt, 0}));
   }
 
   // If all values in a page are null or nan, its stats should not set min-max.
