@@ -25,11 +25,11 @@ participant Client
 participant Metadata Server
 participant Data Server
 Client->>Metadata Server: PollFlightInfo(FlightDescriptor)
-Metadata Server->>Client: RetryInfo{descriptor: FlightDescriptor', ...}
+Metadata Server->>Client: PollInfo{descriptor: FlightDescriptor', ...}
 Client->>Metadata Server: PollFlightInfo(FlightDescriptor')
-Metadata Server->>Client: RetryInfo{descriptor: FlightDescriptor'', ...}
+Metadata Server->>Client: PollInfo{descriptor: FlightDescriptor'', ...}
 Client->>Metadata Server: PollFlightInfo(FlightDescriptor'')
-Metadata Server->>Client: RetryInfo{descriptor: null, info: FlightInfo{endpoints: [FlightEndpoint{ticket: Ticket}, …]}
+Metadata Server->>Client: PollInfo{descriptor: null, info: FlightInfo{endpoints: [FlightEndpoint{ticket: Ticket}, …]}
 Note over Client, Data Server: This may be parallelized
 Note over Client, Data Server: Some endpoints may be processed while polling
 loop for each endpoint in FlightInfo.endpoints
