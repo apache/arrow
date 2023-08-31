@@ -801,76 +801,23 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
 const FunctionDoc dictionary_compaction_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
-     "which would remove unused values in dictionary\n"
-     "This function does nothing if the input is not a dictionary."),
+     "which would remove unused values in dictionary\n"),
     {"dictionary_array"}};
 
-class DictionaryCompactionMetaFunction : public MetaFunction {
+class DictionaryCompactionKernel : public KernelState {
  public:
-  DictionaryCompactionMetaFunction()
-      : MetaFunction("dictionary_compaction", Arity::Unary(), dictionary_compaction_doc) {
-  }
+  virtual Result<std::shared_ptr<Array>> Exec(std::shared_ptr<Array> dict_array,
+                                              ExecContext* ctx) const = 0;
+};
 
-  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
-                            const FunctionOptions* options,
-                            ExecContext* ctx) const override {
-    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
-      return args[0];
-    }
+template <typename IndiceArrowType>
+class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
+  using BuilderType = NumericBuilder<IndiceArrowType>;
+  using CType = typename IndiceArrowType::c_type;
 
-    if (args[0].is_array()) {
-      ARROW_ASSIGN_OR_RAISE(auto compacted_dict_array,
-                            DispatchCompaction(args[0].make_array(), ctx));
-      return Datum(compacted_dict_array);
-    } else if (args[0].is_chunked_array()) {
-      arrow::ArrayVector compacted_dict_array_chunks;
-      for (std::shared_ptr<Array> chunk : args[0].chunks()) {
-        ARROW_ASSIGN_OR_RAISE(auto compacted_dict_array_chunk,
-                              DispatchCompaction(chunk, ctx));
-        compacted_dict_array_chunks.push_back(compacted_dict_array_chunk);
-      }
-      ChunkedArray res(compacted_dict_array_chunks);
-      return Datum(res);
-    } else {
-      return Status::TypeError("Expected an Array or a Chunked Array");
-    }
-  }
-
- private:
-  Result<std::shared_ptr<Array>> DispatchCompaction(std::shared_ptr<Array> dict_array,
-                                                    ExecContext* ctx) const {
-    const DictionaryArray& casted_dict_array =
-        checked_cast<const DictionaryArray&>(*dict_array);
-    const std::shared_ptr<Array>& indice = casted_dict_array.indices();
-    switch (indice->type_id()) {
-      case Type::UINT8:
-        return Compaction<UInt8Type>(dict_array, ctx);
-      case Type::INT8:
-        return Compaction<Int8Type>(dict_array, ctx);
-      case Type::UINT16:
-        return Compaction<UInt16Type>(dict_array, ctx);
-      case Type::INT16:
-        return Compaction<Int16Type>(dict_array, ctx);
-      case Type::UINT32:
-        return Compaction<UInt32Type>(dict_array, ctx);
-      case Type::INT32:
-        return Compaction<Int32Type>(dict_array, ctx);
-      case Type::UINT64:
-        return Compaction<UInt64Type>(dict_array, ctx);
-      case Type::INT64:
-        return Compaction<Int64Type>(dict_array, ctx);
-      default:
-        ARROW_CHECK(false) << "unreachable";
-        return Status::TypeError("Expected an Indice Type of Int or UInt");
-    }
-  }
-
-  template <typename IndiceArrowType>
-  Result<std::shared_ptr<Array>> Compaction(std::shared_ptr<Array> dict_array,
-                                            ExecContext* ctx) const {
-    using BuilderType = NumericBuilder<IndiceArrowType>;
-    using CType = typename IndiceArrowType::c_type;
-
+ public:
+  Result<std::shared_ptr<Array>> Exec(std::shared_ptr<Array> dict_array,
+                                      ExecContext* ctx) const override {
     const DictionaryArray& casted_dict_array =
         checked_cast<const DictionaryArray&>(*dict_array);
     const std::shared_ptr<Array>& dict = casted_dict_array.dictionary();
@@ -956,6 +903,47 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
     return res;
   }
 };
+
+Result<std::unique_ptr<KernelState>> DictionaryCompactionInit(
+    KernelContext* ctx, const KernelInitArgs& args) {
+  const auto& dict_type =
+      checked_cast<const DictionaryType&>(*(args.inputs[0].owned_type));
+  switch (dict_type.index_type()->id()) {
+    case Type::UINT8:
+      return std::make_unique<DictionaryCompactionKernelImpl<UInt8Type>>();
+    case Type::INT8:
+      return std::make_unique<DictionaryCompactionKernelImpl<Int8Type>>();
+    case Type::UINT16:
+      return std::make_unique<DictionaryCompactionKernelImpl<UInt16Type>>();
+    case Type::INT16:
+      return std::make_unique<DictionaryCompactionKernelImpl<Int16Type>>();
+    case Type::UINT32:
+      return std::make_unique<DictionaryCompactionKernelImpl<UInt32Type>>();
+    case Type::INT32:
+      return std::make_unique<DictionaryCompactionKernelImpl<Int32Type>>();
+    case Type::UINT64:
+      return std::make_unique<DictionaryCompactionKernelImpl<UInt64Type>>();
+    case Type::INT64:
+      return std::make_unique<DictionaryCompactionKernelImpl<Int64Type>>();
+    default:
+      ARROW_CHECK(false) << "unreachable";
+      return Status::TypeError("Expected an Indice Type of Int or UInt");
+  }
+}
+
+Status DictionaryCompactionExec(KernelContext* ctx, const ExecSpan& batch,
+                                ExecResult* out) {
+  if (batch[0].is_scalar()) {
+    return Status::TypeError("Expected an Array or a Chunked Array");
+  }
+
+  const DictionaryCompactionKernel& Kernel =
+      checked_cast<const DictionaryCompactionKernel&>(*ctx->state());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> compacted_dict_array,
+                        Kernel.Exec(batch[0].array.ToArray(), ctx->exec_context()));
+  out->value = compacted_dict_array->data();
+  return Status::OK();
+}
 }  // namespace
 
 void RegisterVectorHash(FunctionRegistry* registry) {
@@ -1018,7 +1006,14 @@ void RegisterDictionaryDecode(FunctionRegistry* registry) {
 }
 
 void RegisterDictionaryCompaction(FunctionRegistry* registry) {
-  DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryCompactionMetaFunction>()));
+  VectorKernel base;
+  base.init = DictionaryCompactionInit;
+  base.exec = DictionaryCompactionExec;
+  base.signature = KernelSignature::Make({Type::DICTIONARY}, FirstType);
+  
+  auto dictionary_compaction = std::make_shared<VectorFunction>("dictionary_compaction", Arity::Unary(), dictionary_compaction_doc);
+  DCHECK_OK(dictionary_compaction->AddKernel(base));
+  DCHECK_OK(registry->AddFunction(std::move(dictionary_compaction)));
 }
 
 }  // namespace internal
