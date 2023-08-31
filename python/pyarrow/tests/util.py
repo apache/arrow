@@ -456,4 +456,5 @@ def windows_has_tzdata():
     this configurable at run-time)
     """
     tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-    return os.path.exists(tzdata_path)
+    tzdata_set_path = os.environ.get('PYARROW_TZDATA_PATH', '')
+    return os.path.exists(tzdata_path) or os.path.exists(tzdata_set_path)

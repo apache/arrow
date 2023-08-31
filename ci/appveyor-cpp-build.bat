@@ -136,13 +136,13 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 @rem configurability of the timezone database path
 mkdir %USERPROFILE%\Downloads\test\tzdata
 move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
+set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
 python setup.py develop -q || exit /B
 
 set PYTHONDEVMODE=1
 
 @rem Configure the path of the timesone database to a new location
-python -c "import pyarrow;import os;path = os.path.expandvars(r'%USERPROFILE%\Downloads\test\tzdata');pa.set_timezone_db_path(path)"
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
