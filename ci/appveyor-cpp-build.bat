@@ -142,7 +142,6 @@ python setup.py develop -q || exit /B
 
 set PYTHONDEVMODE=1
 
-@rem Configure the path of the timesone database to a new location
 py.test -r sxX --durations=15 --pyargs pyarrow.tests || exit /B
 
 @rem
