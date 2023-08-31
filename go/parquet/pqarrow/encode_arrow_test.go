@@ -552,15 +552,15 @@ func (ps *ParquetIOTestSuite) makeSimpleSchema(typ arrow.DataType, rep parquet.R
 	switch typ := typ.(type) {
 	case *arrow.FixedSizeBinaryType:
 		byteWidth = int32(typ.ByteWidth)
-	case *arrow.Decimal128Type:
-		byteWidth = pqarrow.DecimalSize(typ.Precision)
+	case arrow.DecimalType:
+		byteWidth = pqarrow.DecimalSize(typ.GetPrecision())
 	case *arrow.DictionaryType:
 		valuesType := typ.ValueType
 		switch dt := valuesType.(type) {
 		case *arrow.FixedSizeBinaryType:
 			byteWidth = int32(dt.ByteWidth)
-		case *arrow.Decimal128Type:
-			byteWidth = pqarrow.DecimalSize(dt.Precision)
+		case arrow.DecimalType:
+			byteWidth = pqarrow.DecimalSize(dt.GetPrecision())
 		}
 	}
 
