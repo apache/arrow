@@ -866,7 +866,7 @@ class TestBufferedInputStreamRandom : public ::testing::Test {
     tracked_.reset();
     // Read from a copy of data, so that data_.substr() below doesn't invalidate it
     raw_ = BufferReader::FromString(data_);
-    tracked_ = std::move(TrackedRandomAccessFile::Make(raw_.get()));
+    tracked_ = TrackedRandomAccessFile::Make(raw_.get());
     EXPECT_OK_AND_ASSIGN(buffered_,
                          BufferedInputStream::Create(buffer_size, default_memory_pool(),
                                                      tracked_, read_bound.value_or(-1)));
