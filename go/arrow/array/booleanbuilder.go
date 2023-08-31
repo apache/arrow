@@ -254,6 +254,10 @@ func (b *BooleanBuilder) UnmarshalJSON(data []byte) error {
 	return b.Unmarshal(dec)
 }
 
+func (b *BooleanBuilder) Value(i int) bool {
+	return bitutil.BitIsSet(b.rawData, i)
+}
+
 var (
 	_ Builder = (*BooleanBuilder)(nil)
 )
