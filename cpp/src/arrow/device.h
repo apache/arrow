@@ -164,7 +164,7 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     void* get_raw() { return sync_event_.get(); }
 
     /// @brief Block until sync event is completed.
-    virtual Status Wait() = 0;    
+    virtual Status Wait() = 0;
 
     /// @brief Record the wrapped event on the stream so it triggers
     /// the event when the stream gets to that point in its queue.
