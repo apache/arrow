@@ -27,13 +27,11 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 public class GlobalAllocatorTestExtension implements BeforeEachCallback, AfterEachCallback {
   @Override
   public void afterEach(ExtensionContext context) throws Exception {
-    System.out.println("After - Extension");
     GlobalAllocator.checkGlobalCleanUpResources();
   }
 
   @Override
   public void beforeEach(ExtensionContext context) throws Exception {
-    System.out.println("Before - Extension");
     GlobalAllocator.checkGlobalCleanUpResources();
   }
 }

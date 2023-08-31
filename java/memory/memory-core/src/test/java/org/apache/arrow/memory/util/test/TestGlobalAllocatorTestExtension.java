@@ -18,11 +18,9 @@
 package org.apache.arrow.memory.util.test;
 
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThrows;
 
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

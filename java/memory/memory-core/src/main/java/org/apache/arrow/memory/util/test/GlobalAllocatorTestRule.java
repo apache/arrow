@@ -31,10 +31,8 @@ public class GlobalAllocatorTestRule implements TestRule {
       @Override
       public void evaluate() {
         try {
-          System.out.println("Before - all");
           GlobalAllocator.checkGlobalCleanUpResources();
         } finally {
-          System.out.println("After - all");
           GlobalAllocator.checkGlobalCleanUpResources();
         }
       }
