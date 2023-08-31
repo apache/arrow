@@ -861,7 +861,7 @@ class DictionaryCompactionMetaFunction : public MetaFunction {
         return Compaction<Int64Type>(dict_array, ctx);
       default:
         ARROW_CHECK(false) << "unreachable";
-        return Status::TypeError("Expected an Indice Type of ");
+        return Status::TypeError("Expected an Indice Type of Int or UInt");
     }
   }
 
