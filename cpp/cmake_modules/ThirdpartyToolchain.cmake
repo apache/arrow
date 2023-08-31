@@ -999,6 +999,8 @@ endif()
 include(FetchContent)
 
 macro(prepare_fetchcontent)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_STATIC_LIBS ON)
   set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
   if(MSVC)
