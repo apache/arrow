@@ -1222,7 +1222,7 @@ class MyDevice : public Device {
 
     virtual ~MySyncEvent() = default;
     Status Wait() override { return Status::OK(); }
-    Status Record(const Device::Stream&, const unsigned int) override {
+    Status Record(const Device::Stream&) override {
       return Status::OK();
     }
   };
