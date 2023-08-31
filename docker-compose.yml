@@ -497,6 +497,8 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_ACERO: "OFF"
+      ARROW_AZURE: "OFF"
       ARROW_COMPUTE: "OFF"
       ARROW_CSV: "OFF"
       ARROW_DATASET: "OFF"
