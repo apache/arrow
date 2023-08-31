@@ -22,6 +22,8 @@ library(lubridate, warn.conflicts = FALSE)
 library(dplyr, warn.conflicts = FALSE)
 
 skip_if_not_available("acero")
+# Skip these tests on CRAN due to build times > 10 mins
+skip_on_cran()
 
 # base::strptime() defaults to local timezone
 # but arrow's strptime defaults to UTC.
