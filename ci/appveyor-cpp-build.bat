@@ -33,7 +33,6 @@ set CTEST_PARALLEL_LEVEL=%NUMBER_OF_PROCESSORS%
 
 
 call activate arrow
-conda install https://anaconda.org/conda-forge/cmake/3.27.4/download/win-64/cmake-3.27.4-hf0feee3_2.conda
 
 @rem The "main" C++ build script for Windows CI
 @rem (i.e. for usual configurations)

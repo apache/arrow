@@ -78,6 +78,7 @@ mamba create -n arrow -y -c conda-forge ^
   "fsspec" ^
   "python=%PYTHON%" ^
   || exit /B
+conda install -y -n arrow https://anaconda.org/conda-forge/cmake/3.27.4/download/win-64/cmake-3.27.4-hf0feee3_2.conda
 conda list -n arrow
 
 @rem
