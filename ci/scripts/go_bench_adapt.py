@@ -95,7 +95,7 @@ class GoAdapter(BenchmarkAdapter):
                     batch_id=batch_id,
                     stats={
                         "data": [data],
-                        "unit": "b/s",
+                        "unit": "B/s",
                         "times": [time],
                         "time_unit": "i/s",
                         "iterations": benchmark["Runs"],
