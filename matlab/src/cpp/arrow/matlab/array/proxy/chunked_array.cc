@@ -49,6 +49,7 @@ namespace arrow::matlab::array::proxy {
         // Register Proxy methods.
         REGISTER_METHOD(ChunkedArray, getLength);
         REGISTER_METHOD(ChunkedArray, getNumChunks);
+        REGISTER_METHOD(ChunkedArray, getChunk);
         REGISTER_METHOD(ChunkedArray, getType);
     }
 
