@@ -28,6 +28,7 @@
 #include "arrow/testing/uniform_real.h"
 #include "arrow/testing/visibility.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -644,10 +645,20 @@ void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
 template <typename T, typename U>
 void random_real(int64_t n, uint32_t seed, T min_value, T max_value,
                  std::vector<U>* out) {
+  using util::Float16;
+
   std::default_random_engine gen(seed);
-  ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
-  out->resize(n, static_cast<T>(0));
-  std::generate(out->begin(), out->end(), [&d, &gen] { return static_cast<U>(d(gen)); });
+  out->resize(n, static_cast<U>(T{0}));
+  if constexpr (std::is_same_v<T, Float16>) {
+    ::arrow::random::uniform_real_distribution<float> d(min_value.ToFloat(),
+                                                        max_value.ToFloat());
+    std::generate(out->begin(), out->end(),
+                  [&d, &gen] { return static_cast<U>(Float16::FromFloat(d(gen))); });
+  } else {
+    ::arrow::random::uniform_real_distribution<T> d(min_value, max_value);
+    std::generate(out->begin(), out->end(),
+                  [&d, &gen] { return static_cast<U>(d(gen)); });
+  }
 }
 
 template <typename T, typename U>
