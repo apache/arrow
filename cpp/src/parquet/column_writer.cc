@@ -2301,21 +2301,10 @@ struct SerializeFunctor<
 // Write Arrow to Float16
 
 // Requires a custom serializer because Float16s in Parquet are stored as a 2-byte
-// (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`. Also, a temporary
-// buffer is needed if there's an endian mismatch.
+// (little-endian) FLBA, whereas in Arrow they're a native `uint16_t`.
 template <>
 struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
-  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext* ctx,
-                   FLBA* out) {
-#if ARROW_LITTLE_ENDIAN
-    return SerializeInPlace(array, ctx, out);
-#else
-    return SerializeWithScratch(array, ctx, out);
-#endif
-  }
-
-  Status SerializeInPlace(const ::arrow::HalfFloatArray& array, ArrowWriteContext*,
-                          FLBA* out) {
+  Status Serialize(const ::arrow::HalfFloatArray& array, ArrowWriteContext*, FLBA* out) {
     const uint16_t* values = array.raw_values();
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); ++i) {
@@ -2329,40 +2318,10 @@ struct SerializeFunctor<::parquet::FLBAType, ::arrow::HalfFloatType> {
     return Status::OK();
   }
 
-  Status SerializeWithScratch(const ::arrow::HalfFloatArray& array,
-                              ArrowWriteContext* ctx, FLBA* out) {
-    AllocateScratch(array, ctx);
-    if (array.null_count() == 0) {
-      for (int64_t i = 0; i < array.length(); ++i) {
-        out[i] = ToFLBA(array.Value(i));
-      }
-    } else {
-      for (int64_t i = 0; i < array.length(); ++i) {
-        out[i] = array.IsValid(i) ? ToFLBA(array.Value(i)) : FLBA{};
-      }
-    }
-    return Status::OK();
-  }
-
  private:
   FLBA ToFLBA(const uint16_t* value_ptr) const {
     return FLBA{reinterpret_cast<const uint8_t*>(value_ptr)};
   }
-  FLBA ToFLBA(uint16_t value) {
-    auto* out = reinterpret_cast<uint8_t*>(scratch_++);
-    Float16(value).ToLittleEndian(out);
-    return FLBA{out};
-  }
-
-  void AllocateScratch(const ::arrow::HalfFloatArray& array, ArrowWriteContext* ctx) {
-    int64_t non_null_count = array.length() - array.null_count();
-    int64_t size = non_null_count * sizeof(uint16_t);
-    scratch_buffer_ = AllocateBuffer(ctx->memory_pool, size);
-    scratch_ = reinterpret_cast<uint16_t*>(scratch_buffer_->mutable_data());
-  }
-
-  std::shared_ptr<ResizableBuffer> scratch_buffer_;
-  uint16_t* scratch_;
 };
 
 template <>
