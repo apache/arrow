@@ -431,7 +431,7 @@ func (b *baseListBuilder) Append(v bool) {
 	b.appendNextOffset()
 }
 
-func (b *baseListBuilder) AppendWithSize(v bool, list_size int) {
+func (b *baseListBuilder) AppendWithSize(v bool, _ int) {
 	b.Append(v)
 }
 
@@ -1045,20 +1045,20 @@ func (b *baseListViewBuilder) Release() {
 	}
 }
 
-func (b *baseListViewBuilder) appendDimensions(offset int, list_size int) {
+func (b *baseListViewBuilder) appendDimensions(offset int, listSize int) {
 	b.appendOffsetVal(offset)
-	b.appendSizeVal(list_size)
+	b.appendSizeVal(listSize)
 }
 
 func (b *baseListViewBuilder) Append(v bool) {
 	debug.Assert(false, "baseListViewBuilder.Append should never be called -- use AppendWithSize instead")
 }
 
-func (b *baseListViewBuilder) AppendWithSize(v bool, list_size int) {
-	debug.Assert(v || list_size == 0, "invalid list-view should have size 0")
+func (b *baseListViewBuilder) AppendWithSize(v bool, listSize int) {
+	debug.Assert(v || listSize == 0, "invalid list-view should have size 0")
 	b.Reserve(1)
 	b.unsafeAppendBoolToBitmap(v)
-	b.appendDimensions(b.values.Len(), list_size)
+	b.appendDimensions(b.values.Len(), listSize)
 }
 
 func (b *baseListViewBuilder) AppendNull() {
