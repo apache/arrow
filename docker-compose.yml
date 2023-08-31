@@ -290,7 +290,6 @@ services:
       ARROW_MIMALLOC: "ON"
       ARROW_USE_LD_GOLD: "ON"
       BUILD_DOCS_PYTHON: "ON"
-      CMAKE_UNITY_BUILD: "ON"
     volumes: &conda-volumes
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}conda-ccache:/ccache:delegated
@@ -1847,7 +1846,6 @@ services:
       ARROW_HDFS_TEST_PORT: 8020
       ARROW_HDFS_TEST_USER: hdfs
       ARROW_S3: "OFF"
-      CMAKE_UNITY_BUILD: "ON"
     shm_size: *shm-size
     volumes: &conda-maven-volumes
       - .:/arrow:delegated

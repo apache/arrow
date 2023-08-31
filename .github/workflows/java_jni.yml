@@ -25,6 +25,7 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/java_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'java/**'
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/java_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'java/**'
 
 concurrency:

@@ -24,6 +24,7 @@ on:
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
       - 'ci/scripts/util_*.sh'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
       - 'java/**'
   pull_request:
@@ -32,6 +33,7 @@ on:
       - 'ci/docker/*java*'
       - 'ci/scripts/java*.sh'
       - 'ci/scripts/util_*.sh'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
       - 'java/**'
 
