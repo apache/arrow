@@ -24,6 +24,7 @@
 #include "arrow/matlab/array/proxy/wrap.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
+#include <iostream>
 
 namespace arrow::matlab::array::proxy {
 
@@ -67,6 +68,7 @@ namespace arrow::matlab::array::proxy {
             auto array_proxy = std::static_pointer_cast<proxy::Array>(proxy);
             auto array = array_proxy->unwrap();
             arrays.push_back(array);
+            std::cout << array->type_id() << std::endl;
         }
 
         MATLAB_ASSIGN_OR_ERROR(auto chunked_array, 
@@ -125,14 +127,12 @@ namespace arrow::matlab::array::proxy {
         
         
         const auto array_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(array_proxy);
-        const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
-        const auto array_type_id_mda = factory.createScalar(static_cast<int32_t>(array->type_id()));
-        
-        context.outputs[0] = array_proxy_id_mda;
-        context.outputs[1] = array_type_id_mda;
+        const auto type_id = static_cast<int64_t>(array->type_id());
 
-        auto length_mda = factory.createScalar(chunked_array->num_chunks());
-        context.outputs[0] = length_mda;
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(array_proxy_id);
+        output[0]["TypeID"] = factory.createScalar(type_id);
+        context.outputs[0] = output;
     }
 
 
@@ -146,10 +146,13 @@ namespace arrow::matlab::array::proxy {
                                             context,
                                             error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 
-        auto type_id = type_proxy->unwrap()->id();
-        auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
 
-        context.outputs[0] = factory.createScalar(proxy_id);
-        context.outputs[1] = factory.createScalar(static_cast<int64_t>(type_id));
+        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
+        const auto type_id = static_cast<int32_t>(type_proxy->unwrap()->id());
+
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar(type_id);
+        context.outputs[0] = output;
     }
 }

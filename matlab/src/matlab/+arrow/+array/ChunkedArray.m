@@ -17,8 +17,6 @@
 
 classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
                         matlab.mixin.Scalar
-    %UNTITLED Summary of this class goes here
-    %   Detailed explanation goes here
 
     properties(Hidden, SetAccess=private, GetAccess=public)
         Proxy
@@ -48,17 +46,17 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
         end
 
         function type = get.Type(obj)
-            [typeID, proxyID] = obj.Proxy.getType();
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=proxyID);
+            typeStruct = obj.Proxy.getType();
+            traits = arrow.type.traits.traits(arrow.type.ID(typeStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
             type = traits.TypeConstructor(proxy);
         end
 
-        function array = chunk(obj, index)
-            index = arrow.internal.validate.index.numeric(index, "int32");
-            [typeID, proxyID] = obj.Proxy.getChunk(index);
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+        function array = chunk(obj, idx)
+            idx = arrow.internal.validate.index.numeric(idx, "int32", AllowNonScalar=false);
+            chunkStruct = obj.Proxy.getChunk(struct(Index=idx));
+            traits = arrow.type.traits.traits(arrow.type.ID(chunkStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=chunkStruct.ProxyID);
             array = traits.ArrayConstructor(proxy);
         end
     end
