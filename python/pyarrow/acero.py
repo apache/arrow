@@ -25,6 +25,8 @@
 from pyarrow.lib import Table
 from pyarrow.compute import Expression, field
 
+# hey
+
 try:
     from pyarrow._acero import (  # noqa
         Declaration,
