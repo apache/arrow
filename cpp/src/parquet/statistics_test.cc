@@ -63,18 +63,6 @@ using schema::PrimitiveNode;
 
 namespace test {
 
-struct BufferedFloat16 {
-  explicit BufferedFloat16(Float16 f16)
-      : f16(f16), buffer(*::arrow::AllocateBuffer(sizeof(uint16_t))) {
-    this->f16.ToLittleEndian(buffer->mutable_data());
-  }
-  explicit BufferedFloat16(uint16_t bits) : BufferedFloat16(Float16(bits)) {}
-  const uint8_t* bytes() const { return buffer->data(); }
-
-  Float16 f16;
-  std::shared_ptr<::arrow::Buffer> buffer;
-};
-
 // ----------------------------------------------------------------------
 // Test comparators
 
@@ -1142,30 +1130,24 @@ void TestStatisticsSortOrder<Float16LogicalType>::SetValues() {
   constexpr int kValueLen = 2;
   constexpr int kNumBytes = NUM_VALUES * kValueLen;
 
-  const uint16_t u16_vals[NUM_VALUES] = {
-      0b1100010100000000,  // -5.0
-      0b1100010000000000,  // -4.0
-      0b1100001000000000,  // -3.0
-      0b1100000000000000,  // -2.0
-      0b1011110000000000,  // -1.0
-      0b0000000000000000,  // +0.0
-      0b0011110000000000,  // +1.0
-      0b0100000000000000,  // +2.0
-      0b0100001000000000,  // +3.0
-      0b0100010000000000,  // +4.0
+  const Float16 f16_vals[NUM_VALUES] = {
+      Float16::FromFloat(+2.0f), Float16::FromFloat(-4.0f), Float16::FromFloat(+4.0f),
+      Float16::FromFloat(-2.0f), Float16::FromFloat(-1.0f), Float16::FromFloat(+3.0f),
+      Float16::FromFloat(+1.0f), Float16::FromFloat(-5.0f), Float16::FromFloat(+0.0f),
+      Float16::FromFloat(-3.0f),
   };
 
   values_buf_.resize(kNumBytes);
   uint8_t* ptr = values_buf_.data();
   for (int i = 0; i < NUM_VALUES; ++i) {
-    Float16(u16_vals[i]).ToLittleEndian(ptr);
+    f16_vals[i].ToLittleEndian(ptr);
     values_[i].ptr = ptr;
     ptr += kValueLen;
   }
 
   stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(values_[0].ptr), kValueLen))
-      .set_max(std::string(reinterpret_cast<const char*>(values_[9].ptr), kValueLen));
+      .set_min(std::string(reinterpret_cast<const char*>(values_[7].ptr), kValueLen))
+      .set_max(std::string(reinterpret_cast<const char*>(values_[2].ptr), kValueLen));
 }
 
 TYPED_TEST_SUITE(TestStatisticsSortOrder, CompareTestTypes);
@@ -1503,6 +1485,17 @@ void TestFloatStatistics<T>::TestNaNs() {
                   valid_bitmap_no_nans);
 }
 
+struct BufferedFloat16 {
+  explicit BufferedFloat16(Float16 f16) : f16(f16) {
+    this->f16.ToLittleEndian(bytes_.data());
+  }
+  explicit BufferedFloat16(float f) : BufferedFloat16(Float16::FromFloat(f)) {}
+  const uint8_t* bytes() const { return bytes_.data(); }
+
+  Float16 f16;
+  std::array<uint8_t, 2> bytes_;
+};
+
 template <>
 void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
   constexpr int kNumValues = 8;
@@ -1512,22 +1505,18 @@ void TestFloatStatistics<Float16LogicalType>::TestNaNs() {
 
   using F16 = BufferedFloat16;
   const auto nan_f16 = F16(std::numeric_limits<Float16>::quiet_NaN());
-  const auto min_f16 = F16(0xc400);  // -4.0
-  const auto max_f16 = F16(0x4200);  // +3.0
+  const auto min_f16 = F16(-4.0f);
+  const auto max_f16 = F16(+3.0f);
 
   const auto min = FLBA{min_f16.bytes()};
   const auto max = FLBA{max_f16.bytes()};
 
   std::array<F16, kNumValues> all_nans_f16 = {nan_f16, nan_f16, nan_f16, nan_f16,
                                               nan_f16, nan_f16, nan_f16, nan_f16};
-  std::array<F16, kNumValues> some_nans_f16 = {nan_f16,     max_f16,
-                                               F16(0xc200),  // -3.0
-                                               F16(0xbc00),  // -1.0
-                                               nan_f16,
-                                               F16(0x4000),  // +2.0
-                                               min_f16,     nan_f16};
+  std::array<F16, kNumValues> some_nans_f16 = {
+      nan_f16, max_f16, F16(-3.0f), F16(-1.0f), nan_f16, F16(+2.0f), min_f16, nan_f16};
   std::array<F16, kNumValues> other_nans_f16 = some_nans_f16;
-  other_nans_f16[0] = F16(0x3e00);  // +1.5
+  other_nans_f16[0] = F16(+1.5f);  // +1.5
 
   auto prepare_values = [](const auto& values) -> std::vector<FLBA> {
     std::vector<FLBA> out(values.size());

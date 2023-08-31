@@ -558,7 +558,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       : descr_(descr),
         pool_(pool),
         min_buffer_(AllocateBuffer(pool_, 0)),
-        max_buffer_(AllocateBuffer(pool_, 0)) {
+        max_buffer_(AllocateBuffer(pool_, 0)),
+        logical_type_(LogicalTypeId(descr_)) {
     comparator_ = MakeComparator<DType>(descr);
     TypedStatisticsImpl::Reset();
   }
@@ -628,13 +629,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool Equals(const Statistics& raw_other) const override {
     if (physical_type() != raw_other.physical_type()) return false;
 
-    const auto logical_id = LogicalTypeId(*this);
-    const auto other_logical_id = LogicalTypeId(raw_other);
+    const auto other_logical_type = LogicalTypeId(raw_other);
     // Only compare against logical types that influence the interpretation of the
     // physical type
-    if (IsMeaningfulLogicalType(logical_id)) {
-      if (logical_id != other_logical_id) return false;
-    } else if (IsMeaningfulLogicalType(other_logical_id)) {
+    if (IsMeaningfulLogicalType(logical_type_)) {
+      if (logical_type_ != other_logical_type) return false;
+    } else if (IsMeaningfulLogicalType(other_logical_type)) {
       return false;
     }
 
@@ -763,6 +763,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   EncodedStatistics statistics_;
   std::shared_ptr<TypedComparator<DType>> comparator_;
   std::shared_ptr<ResizableBuffer> min_buffer_, max_buffer_;
+  LogicalType::Type::type logical_type_ = LogicalType::Type::NONE;
 
   void PlainEncode(const T& src, std::string* dst) const;
   void PlainDecode(const std::string& src, T* dst) const;
@@ -794,7 +795,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   void SetMinMaxPair(std::pair<T, T> min_max) {
     // CleanStatistic can return a nullopt in case of erroneous values, e.g. NaN
-    auto maybe_min_max = CleanStatistic(min_max, LogicalTypeId(*this));
+    auto maybe_min_max = CleanStatistic(min_max, logical_type_);
     if (!maybe_min_max) return;
 
     auto min = maybe_min_max.value().first;
