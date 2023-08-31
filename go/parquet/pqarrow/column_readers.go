@@ -494,7 +494,7 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		data = transferDate64(rdr, valueType)
 	case arrow.FIXED_SIZE_BINARY, arrow.BINARY, arrow.STRING, arrow.LARGE_BINARY, arrow.LARGE_STRING:
 		return transferBinary(rdr, valueType), nil
-	case arrow.DECIMAL:
+	case arrow.DECIMAL, arrow.DECIMAL256:
 		switch descr.PhysicalType() {
 		case parquet.Types.Int32, parquet.Types.Int64:
 			data = transferDecimalInteger(rdr, valueType)
@@ -830,7 +830,7 @@ func bigEndianToDecimal256(buf []byte) (decimal256.Num, error) {
 	initWord, isNeg := uint64(0), int8(buf[0]) < 0
 	if isNeg {
 		// sign extend if necessary
-		initWord = uint64(0xFFFFFFFF)
+		initWord = uint64(0xFFFFFFFFFFFFFFFF)
 	}
 
 	for wordIdx := 0; wordIdx < 4; wordIdx++ {
