@@ -1555,6 +1555,14 @@ static const URI_CHAR * URI_FUNC(ParsePchar)(URI_TYPE(ParserState) * state,
 	case _UT('.'):
 	case _UT('_'):
 	case _UT('~'):
+	case _UT('|'):
+	case _UT('<'):
+	case _UT('>'):
+	case _UT('{'):
+	case _UT('}'):
+	case _UT('['):
+	case _UT(']'):
+	case _UT('`'):
 	case URI_SET_DIGIT:
 	case URI_SET_ALPHA:
 		return first + 1;
@@ -1771,6 +1779,14 @@ static const URI_CHAR * URI_FUNC(ParseSegment)(URI_TYPE(ParserState) * state,
 	case _UT('~'):
 	case _UT('+'):
 	case _UT('='):
+	case _UT('|'):
+	case _UT('<'):
+	case _UT('>'):
+	case _UT('{'):
+	case _UT('}'):
+	case _UT('['):
+	case _UT(']'):
+	case _UT('`'):
 	case URI_SET_DIGIT:
 	case URI_SET_ALPHA:
 		{
