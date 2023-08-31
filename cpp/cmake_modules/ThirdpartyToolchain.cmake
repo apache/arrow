@@ -2103,10 +2103,7 @@ macro(build_gtest)
                        URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
   if(APPLE)
-    string(APPEND
-           CMAKE_CXX_FLAGS
-           " -Wno-unused-value"
-           " -Wno-ignored-attributes")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
   set(BUILD_SHARED_LIBS ON)
   set(BUILD_STATIC_LIBS OFF)
