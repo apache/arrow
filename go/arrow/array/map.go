@@ -222,7 +222,7 @@ func (b *MapBuilder) Append(v bool) {
 	b.listBuilder.Append(v)
 }
 
-func (b *MapBuilder) AppendWithSize(v bool, list_size int) {
+func (b *MapBuilder) AppendWithSize(v bool, _ int) {
 	b.Append(v)
 }
 
