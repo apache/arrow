@@ -468,7 +468,7 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns,
-    jobject substrait_expression_projection, jobject substrait_expression_filter,
+    jobject substrait_projection, jobject substrait_filter,
     jlong batch_size, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
@@ -484,9 +484,9 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
-  if (substrait_expression_projection != nullptr) {
+  if (substrait_projection != nullptr) {
     std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
-                                                            substrait_expression_projection);
+                                                            substrait_projection);
     std::vector<arrow::compute::Expression> project_exprs;
     std::vector<std::string> project_names;
     arrow::engine::BoundExpressions bounded_expression =
@@ -500,9 +500,9 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     }
     JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
   }
-  if (substrait_expression_filter != nullptr) {
+  if (substrait_filter != nullptr) {
     std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
-                                                                substrait_expression_filter);
+                                                                substrait_filter);
     std::optional<arrow::compute::Expression> filter_expr;
     arrow::engine::BoundExpressions bounded_expression =
           JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));

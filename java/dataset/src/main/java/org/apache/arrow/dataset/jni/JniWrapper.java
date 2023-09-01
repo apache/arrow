@@ -73,14 +73,14 @@ public class JniWrapper {
    * @param columns desired column names.
    *                Columns not in this list will not be emitted when performing scan operation. Null equals
    *                to "all columns".
-   * @param substraitExpressionProjection substrait extended expression to evaluate for project new columns
-   * @param substraitExpressionFilter substrait extended expression to evaluate for apply filter
+   * @param substraitProjection substrait extended expression to evaluate for project new columns
+   * @param substraitFilter substrait extended expression to evaluate for apply filter
    * @param batchSize batch size of scanned record batches.
    * @param memoryPool identifier of memory pool used in the native scanner.
    * @return the native pointer of the arrow::dataset::Scanner instance.
    */
-  public native long createScanner(long datasetId, String[] columns, ByteBuffer substraitExpressionProjection,
-                                   ByteBuffer substraitExpressionFilter, long batchSize, long memoryPool);
+  public native long createScanner(long datasetId, String[] columns, ByteBuffer substraitProjection,
+                                   ByteBuffer substraitFilter, long batchSize, long memoryPool);
 
   /**
    * Get a serialized schema from native instance of a Scanner.

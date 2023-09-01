@@ -163,8 +163,8 @@ This Java program:
             String uri = "file:///Users/data/tpch_parquet/nation.parquet";
             ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
                     .columns(Optional.empty())
-                    .substraitExpressionFilter(getSubstraitExpressionFilter())
-                    .substraitExpressionProjection(getSubstraitExpressionProjection())
+                    .substraitFilter(getSubstraitExpressionFilter())
+                    .substraitProjection(getSubstraitExpressionProjection())
                     .build();
             try (
                     BufferAllocator allocator = new RootAllocator();

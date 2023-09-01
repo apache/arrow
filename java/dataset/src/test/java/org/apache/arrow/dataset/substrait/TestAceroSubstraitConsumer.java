@@ -18,6 +18,8 @@
 package org.apache.arrow.dataset.substrait;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
@@ -188,9 +190,7 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       Map<String, ArrowReader> mapTableToArrowReader = new HashMap<>();
       mapTableToArrowReader.put("USERS", reader);
       // get binary plan
-      byte[] plan = Base64.getDecoder().decode(binaryPlan);
-      ByteBuffer substraitPlan = ByteBuffer.allocateDirect(plan.length);
-      substraitPlan.put(plan);
+      ByteBuffer substraitPlan = getByteBuffer(binaryPlan);
       // run query
       try (ArrowReader arrowReader = new AceroSubstraitConsumer(rootAllocator()).runQuery(
           substraitPlan,
@@ -214,18 +214,16 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     ), null);
     // Substrait Extended Expression: Filter:
     // Expression 01: WHERE ID < 20
-    String binarySubstraitExpressionFilter = "Ch4IARIaL2Z1bmN0aW9uc19jb21wYXJpc29uLnlhbWwSEhoQCAIQAhoKbHQ6YW55X2F" +
+    String base64EncodedSubstraitFilter = "Ch4IARIaL2Z1bmN0aW9uc19jb21wYXJpc29uLnlhbWwSEhoQCAIQAhoKbHQ6YW55X2F" +
         "ueRo3ChwaGggCGgQKAhABIggaBhIECgISACIGGgQKAigUGhdmaWx0ZXJfaWRfbG93ZXJfdGhhbl8yMCIaCgJJRAoETkFNRRIOCgQqAhA" +
         "BCgRiAhABGAI=";
-    byte[] arrayByteSubstraitExpressionFilter = Base64.getDecoder().decode(binarySubstraitExpressionFilter);
-    ByteBuffer substraitExpressionFilter = ByteBuffer.allocateDirect(arrayByteSubstraitExpressionFilter.length);
-    substraitExpressionFilter.put(arrayByteSubstraitExpressionFilter);
+    ByteBuffer substraitExpressionFilter = getByteBuffer(base64EncodedSubstraitFilter);
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-        .substraitExpressionFilter(substraitExpressionFilter)
+        .substraitFilter(substraitExpressionFilter)
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -238,12 +236,15 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       int rowcount = 0;
       while (reader.loadNextBatch()) {
         rowcount += reader.getVectorSchemaRoot().getRowCount();
+        assertTrue(reader.getVectorSchemaRoot().getVector("id").toString().equals("[19, 1, 11]"));
+        assertTrue(reader.getVectorSchemaRoot().getVector("name").toString()
+            .equals("[value_19, value_1, value_11]"));
       }
       assertEquals(3, rowcount);
     }
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testBaseParquetReadWithExtendedExpressionsFilterException() throws Exception {
     final Schema schema = new Schema(Arrays.asList(
         Field.nullable("id", new ArrowType.Int(32, true)),
@@ -252,33 +253,25 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     // Substrait Extended Expression: Filter:
     // Expression 01: WHERE ID < 20
     // Expression 02: WHERE ID < 10
-    String binarySubstraitExpressionFilter = "Ch4IARIaL2Z1bmN0aW9uc19jb21wYXJpc29uLnlhbWwSEhoQCAIQAhoKbHQ6YW5" +
+    String base64EncodedSubstraitFilter = "Ch4IARIaL2Z1bmN0aW9uc19jb21wYXJpc29uLnlhbWwSEhoQCAIQAhoKbHQ6YW5" +
         "5X2FueRISGhAIAhACGgpsdDphbnlfYW55GjcKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKBQaF2ZpbHRlcl9pZF9sb3dlcl9" +
         "0aGFuXzIwGjcKHBoaCAIaBAoCEAEiCBoGEgQKAhIAIgYaBAoCKAoaF2ZpbHRlcl9pZF9sb3dlcl90aGFuXzEwIhoKAklECgROQU1F" +
         "Eg4KBCoCEAEKBGICEAEYAg==";
-    byte[] arrayByteSubstraitExpressionFilter = Base64.getDecoder().decode(binarySubstraitExpressionFilter);
-    ByteBuffer substraitExpressionFilter = ByteBuffer.allocateDirect(arrayByteSubstraitExpressionFilter.length);
-    substraitExpressionFilter.put(arrayByteSubstraitExpressionFilter);
+    ByteBuffer substraitExpressionFilter = getByteBuffer(base64EncodedSubstraitFilter);
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-        .substraitExpressionFilter(substraitExpressionFilter)
+        .substraitFilter(substraitExpressionFilter)
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
             FileFormat.PARQUET, writeSupport.getOutputURI());
-        Dataset dataset = datasetFactory.finish();
-        Scanner scanner = dataset.newScan(options);
-        ArrowReader reader = scanner.scanBatches()
+        Dataset dataset = datasetFactory.finish()
     ) {
-      assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
-      int rowcount = 0;
-      while (reader.loadNextBatch()) {
-        rowcount += reader.getVectorSchemaRoot().getRowCount();
-      }
-      assertEquals(3, rowcount);
+      Exception e = assertThrows(RuntimeException.class, () -> dataset.newScan(options));
+      assertTrue(e.getMessage().startsWith("Only one filter expression may be provided"));
     }
   }
 
@@ -295,15 +288,13 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         "zJfaTMyEhQaEggCEAEaDGNvbmNhdDp2Y2hhchoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1" +
         "bW5fYRpGCi0aKwgBGgRiAhABIgoaCBIGCgQSAggBIgkaBwoFYgMgLSAiChoIEgYKBBICCAEaFWNvbmNhdF9jb2x1bW5fYV9hbmR" +
         "fYiIaCgJJRAoETkFNRRIOCgQqAhABCgRiAhABGAI=";
-    byte[] arrayByteSubstraitExpressionProject = Base64.getDecoder().decode(binarySubstraitExpressionProject);
-    ByteBuffer substraitExpressionProject = ByteBuffer.allocateDirect(arrayByteSubstraitExpressionProject.length);
-    substraitExpressionProject.put(arrayByteSubstraitExpressionProject);
+    ByteBuffer substraitExpressionProject = getByteBuffer(binarySubstraitExpressionProject);
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-         .substraitExpressionProjection(substraitExpressionProject)
+         .substraitProjection(substraitExpressionProject)
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -315,6 +306,11 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
+        assertTrue(reader.getVectorSchemaRoot().getVector("add_two_to_column_a").toString()
+            .equals("[21, 3, 13, 23, 47]"));
+        assertTrue(reader.getVectorSchemaRoot().getVector("concat_column_a_and_b").toString()
+            .equals("[value_19 - value_19, value_1 - value_1, value_11 - value_11, " +
+                "value_21 - value_21, value_45 - value_45]"));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(5, rowcount);
@@ -334,24 +330,20 @@ public class TestAceroSubstraitConsumer extends TestDataset {
         "zJfaTMyEhQaEggCEAEaDGNvbmNhdDp2Y2hhchoxChoaGBoEKgIQASIIGgYSBAoCEgAiBhoECgIoAhoTYWRkX3R3b190b19jb2x1" +
         "bW5fYRpGCi0aKwgBGgRiAhABIgoaCBIGCgQSAggBIgkaBwoFYgMgLSAiChoIEgYKBBICCAEaFWNvbmNhdF9jb2x1bW5fYV9hbmR" +
         "fYiIaCgJJRAoETkFNRRIOCgQqAhABCgRiAhABGAI=";
-    byte[] arrayByteSubstraitExpressionProject = Base64.getDecoder().decode(binarySubstraitExpressionProject);
-    ByteBuffer substraitExpressionProject = ByteBuffer.allocateDirect(arrayByteSubstraitExpressionProject.length);
-    substraitExpressionProject.put(arrayByteSubstraitExpressionProject);
+    ByteBuffer substraitExpressionProject = getByteBuffer(binarySubstraitExpressionProject);
     // Substrait Extended Expression: Filter:
     // Expression 01: WHERE ID < 20
-    String binarySubstraitExpressionFilter = "Ch4IARIaL2Z1bmN0aW9uc19jb21wYXJpc29uLnlhbWwSEhoQCAIQAhoKbHQ6YW55X2F" +
+    String base64EncodedSubstraitFilter = "Ch4IARIaL2Z1bmN0aW9uc19jb21wYXJpc29uLnlhbWwSEhoQCAIQAhoKbHQ6YW55X2F" +
         "ueRo3ChwaGggCGgQKAhABIggaBhIECgISACIGGgQKAigUGhdmaWx0ZXJfaWRfbG93ZXJfdGhhbl8yMCIaCgJJRAoETkFNRRIOCgQqAhA" +
         "BCgRiAhABGAI=";
-    byte[] arrayByteSubstraitExpressionFilter = Base64.getDecoder().decode(binarySubstraitExpressionFilter);
-    ByteBuffer substraitExpressionFilter = ByteBuffer.allocateDirect(arrayByteSubstraitExpressionFilter.length);
-    substraitExpressionFilter.put(arrayByteSubstraitExpressionFilter);
+    ByteBuffer substraitExpressionFilter = getByteBuffer(base64EncodedSubstraitFilter);
     ParquetWriteSupport writeSupport = ParquetWriteSupport
         .writeTempFile(AVRO_SCHEMA_USER, TMP.newFolder(), 19, "value_19", 1, "value_1",
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-        .substraitExpressionProjection(substraitExpressionProject)
-        .substraitExpressionFilter(substraitExpressionFilter)
+        .substraitProjection(substraitExpressionProject)
+        .substraitFilter(substraitExpressionFilter)
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -363,9 +355,20 @@ public class TestAceroSubstraitConsumer extends TestDataset {
       assertEquals(schema.getFields(), reader.getVectorSchemaRoot().getSchema().getFields());
       int rowcount = 0;
       while (reader.loadNextBatch()) {
+        assertTrue(reader.getVectorSchemaRoot().getVector("add_two_to_column_a").toString()
+            .equals("[21, 3, 13]"));
+        assertTrue(reader.getVectorSchemaRoot().getVector("concat_column_a_and_b").toString()
+            .equals("[value_19 - value_19, value_1 - value_1, value_11 - value_11]"));
         rowcount += reader.getVectorSchemaRoot().getRowCount();
       }
       assertEquals(3, rowcount);
     }
+  }
+
+  private static ByteBuffer getByteBuffer(String base64EncodedSubstraitFilter) {
+    byte[] substraitFilter = Base64.getDecoder().decode(base64EncodedSubstraitFilter);
+    ByteBuffer substraitExpressionFilter = ByteBuffer.allocateDirect(substraitFilter.length);
+    substraitExpressionFilter.put(substraitFilter);
+    return substraitExpressionFilter;
   }
 }
