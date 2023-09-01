@@ -1001,8 +1001,9 @@ include(FetchContent)
 macro(prepare_fetchcontent)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_STATIC_LIBS ON)
-  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
   if(MSVC)
     string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
     string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -2112,11 +2113,11 @@ function(build_gtest)
   set(INSTALL_GTEST OFF)
   string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
   fetchcontent_makeavailable(googletest)
-  set_target_properties(gmock PROPERTIES MACOSX_RPATH TRUE OUTPUT_NAME "arrow_gmock")
-  set_target_properties(gmock_main PROPERTIES MACOSX_RPATH TRUE OUTPUT_NAME
+  set_target_properties(gmock PROPERTIES OUTPUT_NAME "arrow_gmock")
+  set_target_properties(gmock_main PROPERTIES OUTPUT_NAME
                                                                 "arrow_gmock_main")
-  set_target_properties(gtest PROPERTIES MACOSX_RPATH TRUE OUTPUT_NAME "arrow_gtest")
-  set_target_properties(gtest_main PROPERTIES MACOSX_RPATH TRUE OUTPUT_NAME
+  set_target_properties(gtest PROPERTIES OUTPUT_NAME "arrow_gtest")
+  set_target_properties(gtest_main PROPERTIES OUTPUT_NAME
                                                                 "arrow_gtest_main")
   install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
                     "${googletest_SOURCE_DIR}/googletest/include/"
