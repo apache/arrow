@@ -23,12 +23,14 @@ on:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'python/**'
   pull_request:
     paths:
       - '.github/workflows/python.yml'
       - 'ci/**'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'python/**'
 
 concurrency:
