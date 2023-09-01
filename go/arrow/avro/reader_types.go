@@ -22,84 +22,322 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/decimal128"
-	"github.com/apache/arrow/go/v13/arrow/decimal256"
-	"github.com/apache/arrow/go/v13/arrow/memory"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v14/internal/types"
+
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 )
 
-type FieldPos struct {
-	parent       *FieldPos
-	name         string
+type dataLoader struct {
+	idx, depth int32
+	list       *fieldPos
+	item       *fieldPos
+	mapField   *fieldPos
+	mapKey     *fieldPos
+	mapValue   *fieldPos
+	fields     []*fieldPos
+	children   []*dataLoader
+}
+
+func newDataLoader() *dataLoader { return &dataLoader{idx: 0, depth: 0} }
+
+// drawTree takes the tree of field builders produced by mapFieldBuilders()
+// and produces another tree structure and aggregates fields whose values can
+// be retrieved from a `map[string]any` into a slice of builders, and creates a hierarchy to
+// deal with nested types (lists and maps).
+func (d *dataLoader) drawTree(field *fieldPos) {
+	for _, f := range field.children() {
+		if f.isList || f.isMap {
+			if f.isList {
+				c := d.newListChild(f)
+				if !f.childrens[0].isList {
+					c.item = f.childrens[0]
+					c.drawTree(f.childrens[0])
+				} else {
+					c.drawTree(f.childrens[0].childrens[0])
+				}
+			}
+			if f.isMap {
+				c := d.newMapChild(f)
+				if !arrow.IsNested(f.childrens[1].builder.Type().ID()) {
+					c.mapKey = f.childrens[0]
+					c.mapValue = f.childrens[1]
+				} else {
+					c.mapKey = f.childrens[0]
+					m := c.newChild()
+					m.mapValue = f.childrens[1]
+					m.drawTree(f.childrens[1])
+				}
+			}
+		} else {
+			d.fields = append(d.fields, f)
+			if len(f.children()) > 0 {
+				d.drawTree(f)
+			}
+		}
+	}
+}
+
+func (d *dataLoader) loadDatum(data any) error {
+	if d.list == nil && d.mapField == nil {
+		if d.mapValue != nil {
+			d.mapValue.appendFunc(data)
+		}
+		for _, f := range d.fields {
+			if d.mapValue == nil {
+				err := f.appendFunc(f.getValue(data.(map[string]any)))
+				if err != nil {
+					return err
+				}
+			} else {
+				switch dt := data.(type) {
+				case nil:
+					err := f.appendFunc(dt)
+					if err != nil {
+						return err
+					}
+				case []any:
+					if len(d.children) < 1 {
+						for _, e := range dt {
+							err := f.appendFunc(e)
+							if err != nil {
+								return err
+							}
+						}
+					} else {
+						for _, e := range dt {
+							d.children[0].loadDatum(e)
+						}
+					}
+				}
+			}
+		}
+		for _, c := range d.children {
+			if c.list != nil {
+				c.loadDatum(c.list.getValue(data))
+			}
+			if c.mapField != nil {
+				switch dt := data.(type) {
+				case nil:
+					c.loadDatum(dt)
+				case map[string]any:
+					c.loadDatum(c.mapField.getValue(dt))
+				default:
+					c.loadDatum(c.mapField.getValue(data).(map[string]any)["map"])
+				}
+			}
+		}
+	} else {
+		if d.list != nil {
+			switch dt := data.(type) {
+			case nil:
+				d.list.appendFunc(dt)
+			case []any:
+				d.list.appendFunc(dt)
+				for _, e := range dt {
+					if d.item != nil {
+						d.item.appendFunc(e)
+					}
+					for _, f := range d.fields {
+						err := f.appendFunc(f.getValue(e))
+						if err != nil {
+							return err
+						}
+					}
+					for _, c := range d.children {
+						if c.list != nil {
+							c.loadDatum(c.list.getValue(e))
+						}
+						if c.mapField != nil {
+							c.loadDatum(c.mapField.getValue(e).(map[string]any)["map"])
+						}
+					}
+				}
+			case map[string]any:
+				d.list.appendFunc(dt["array"])
+				for _, e := range dt["array"].([]any) {
+					if d.item != nil {
+						d.item.appendFunc(e)
+					}
+					for _, f := range d.fields {
+						err := f.appendFunc(f.getValue(e))
+						if err != nil {
+							return err
+						}
+					}
+					for _, c := range d.children {
+						c.loadDatum(c.list.getValue(e))
+					}
+				}
+			default:
+				d.list.appendFunc(data)
+				d.item.appendFunc(dt)
+			}
+		}
+		if d.mapField != nil {
+			switch dt := data.(type) {
+			case nil:
+				d.mapField.appendFunc(dt)
+			case map[string]any:
+				mf, ok := dt["map"]
+				if !ok {
+					d.mapField.appendFunc(dt)
+					for k, v := range dt {
+						d.mapKey.appendFunc(k)
+						if d.mapValue != nil {
+							d.mapValue.appendFunc(v)
+						} else {
+							d.children[0].loadDatum(v)
+						}
+					}
+				} else {
+					d.mapField.appendFunc(mf)
+					for k, v := range mf.(map[string]any) {
+						d.mapKey.appendFunc(k)
+						if d.mapValue != nil {
+							d.mapValue.appendFunc(v)
+						} else {
+							d.children[0].loadDatum(v)
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (d *dataLoader) newChild() *dataLoader {
+	var child *dataLoader = &dataLoader{
+		depth: d.depth + 1,
+	}
+	d.children = append(d.children, child)
+	return child
+}
+
+func (d *dataLoader) newListChild(list *fieldPos) *dataLoader {
+	var child *dataLoader = &dataLoader{
+		list:  list,
+		item:  list.childrens[0],
+		depth: d.depth + 1,
+	}
+	d.children = append(d.children, child)
+	return child
+}
+
+func (d *dataLoader) newMapChild(mapField *fieldPos) *dataLoader {
+	var child *dataLoader = &dataLoader{
+		mapField: mapField,
+		depth:    d.depth + 1,
+	}
+	d.children = append(d.children, child)
+	return child
+}
+
+type fieldPos struct {
+	parent       *fieldPos
+	fieldName    string
+	builder      array.Builder
 	path         []string
+	isList       bool
+	isItem       bool
+	isStruct     bool
+	isMap        bool
 	typeName     string
-	AppendFunc   func(val interface{}) error
-	metadata     arrow.Metadata
-	children     []*FieldPos
+	appendFunc   func(val interface{}) error
+	metadatas    arrow.Metadata
+	childrens    []*fieldPos
 	index, depth int32
 }
 
-func NewFieldPos() *FieldPos { return &FieldPos{index: -1} }
+func newFieldPos() *fieldPos { return &fieldPos{index: -1} }
 
-func (f *FieldPos) Name() string { return f.name }
+func (f *fieldPos) name() string { return f.fieldName }
 
-func (f *FieldPos) Child(index int) (*FieldPos, error) {
-	if index < len(f.Children()) {
-		return f.children[index], nil
+func (f *fieldPos) child(index int) (*fieldPos, error) {
+	if index < len(f.children()) {
+		return f.childrens[index], nil
 	}
-	return nil, fmt.Errorf("%v child index %d not found", f.NamePath(), index)
+	return nil, fmt.Errorf("%v child index %d not found", f.namePath(), index)
 }
 
-func (f *FieldPos) Children() []*FieldPos { return f.children }
+func (f *fieldPos) children() []*fieldPos { return f.childrens }
 
-func (f *FieldPos) Metadata() arrow.Metadata { return f.metadata }
+func (f *fieldPos) metadata() arrow.Metadata { return f.metadatas }
 
-func (f *FieldPos) NewChild(childName string, childBuilder array.Builder, meta arrow.Metadata) *FieldPos {
-	var child FieldPos = FieldPos{
-		parent:   f,
-		name:     childName,
-		metadata: meta,
-		index:    int32(len(f.children)),
-		depth:    f.depth + 1,
+func (f *fieldPos) newChild(childName string, childBuilder array.Builder, meta arrow.Metadata) *fieldPos {
+	var child fieldPos = fieldPos{
+		parent:    f,
+		fieldName: childName,
+		builder:   childBuilder,
+		metadatas: meta,
+		index:     int32(len(f.childrens)),
+		depth:     f.depth + 1,
 	}
-	child.path = child.NamePath()
-	f.children = append(f.children, &child)
+	if f.isList {
+		child.isItem = true
+	}
+	child.path = child.namePath()
+	f.childrens = append(f.childrens, &child)
 	return &child
 }
 
 // NamePath returns a slice of keys making up the path to the field
-func (f *FieldPos) NamePath() []string {
+func (f *fieldPos) namePath() []string {
 	if len(f.path) == 0 {
 		var path []string
+		var listPath []string
 		cur := f
 		for i := f.depth - 1; i >= 0; i-- {
 			if cur.typeName == "" {
-				path = append([]string{cur.name}, path...)
+				path = append([]string{cur.fieldName}, path...)
 			} else {
-				path = append([]string{cur.name, cur.typeName}, path...)
+				path = append([]string{cur.fieldName, cur.typeName}, path...)
 			}
-			cur = cur.parent
+			if !cur.parent.isMap {
+				cur = cur.parent
+			}
+		}
+		if f.parent.parent != nil && f.parent.parent.isList {
+			for i := len(path) - 1; i >= 0; i-- {
+				if path[i] != "item" {
+					listPath = append([]string{path[i]}, listPath...)
+				} else {
+					return listPath
+				}
+			}
 		}
 		return path
 	}
 	return f.path
 }
 
-// GetValue retrieves the value from the map[string]interface{}
+// GetValue retrieves the value from the map[string]any
 // by following the field's key path
-func (f *FieldPos) GetValue(m map[string]interface{}) interface{} {
-	var value interface{} = m
-	for _, key := range f.NamePath() {
-		valueMap, ok := value.(map[string]interface{})
-		if !ok {
-			return nil
+func (f *fieldPos) getValue(m any) any {
+	var value any = m
+	// The value of the type assertion is not assigned to a variable as `value` is reassigned
+	// and its type reasserted as the data is traversed
+	switch value.(type) {
+	case map[string]any:
+		for _, key := range f.namePath() {
+			valueMap, ok := value.(map[string]any)
+			if !ok {
+				if key == "item" {
+					return value
+				}
+				return nil
+			}
+			value, ok = valueMap[key]
+			if !ok {
+				return nil
+			}
 		}
-		value, ok = valueMap[key]
-		if !ok {
-			return nil
-		}
+	default:
+		return value
 	}
 	return value
 }
@@ -118,20 +356,21 @@ func (f *FieldPos) GetValue(m map[string]interface{}) interface{} {
 //	array					[]interface{}	List
 //	enum					string			Dictionary
 //	fixed					[]byte			FixedSizeBinary
-//	map and record	map[string]interface{}	Struct
+//	map and record	map[string]any	Struct
 
-func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
+// mapFieldBuilders builds a tree of field builders matching the Arrow schema
+func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 	switch bt := b.(type) {
 	case *array.BinaryBuilder:
-		f := parent.NewChild(field.Name, bt, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, bt, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendBinaryData(bt, data)
 			return nil
 		}
 	case *array.BinaryDictionaryBuilder:
 		// has metadata for Avro enum symbols
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendBinaryDictData(bt, data)
 			return nil
 		}
@@ -143,20 +382,20 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
 		sa := sb.NewStringArray()
 		bt.InsertStringDictValues(sa)
 	case *array.BooleanBuilder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendBoolData(bt, data)
 			return nil
 		}
 	case *array.Date32Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendDate32Data(bt, data)
 			return nil
 		}
 	case *array.Decimal128Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			err := appendDecimal128Data(bt, data)
 			if err != nil {
 				return err
@@ -164,8 +403,8 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
 			return nil
 		}
 	case *array.Decimal256Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			err := appendDecimal256Data(bt, data)
 			if err != nil {
 				return err
@@ -173,8 +412,8 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
 			return nil
 		}
 	case *types.UUIDBuilder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			switch dt := data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -193,40 +432,61 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
 			return nil
 		}
 	case *array.FixedSizeBinaryBuilder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendFixedSizeBinaryData(bt, data)
 			return nil
 		}
 	case *array.Float32Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendFloat32Data(bt, data)
 			return nil
 		}
 	case *array.Float64Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendFloat64Data(bt, data)
 			return nil
 		}
 	case *array.Int32Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendInt32Data(bt, data)
 			return nil
 		}
 	case *array.Int64Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendInt64Data(bt, data)
 			return nil
 		}
-	case *array.ListBuilder:
-		lf := parent.NewChild(field.Name, b, field.Metadata)
+	case *array.LargeListBuilder:
+		lf := parent.newChild(field.Name, b, field.Metadata)
 		vb := bt.ValueBuilder()
+		lf.isList = true
+		mapFieldBuilders(vb, field.Type.(*arrow.LargeListType).ElemField(), lf)
+		lf.appendFunc = func(data interface{}) error {
+			switch dt := data.(type) {
+			case nil:
+				bt.AppendNull()
+			case []interface{}:
+				if len(dt) == 0 {
+					bt.AppendEmptyValue()
+				} else {
+					bt.Append(true)
+				}
+			default:
+				bt.Append(true)
+			}
+			return nil
+		}
+	case *array.ListBuilder:
+		lf := parent.newChild(field.Name, b, field.Metadata)
+		vb := bt.ValueBuilder()
+		lf.isList = true
 		mapFieldBuilders(vb, field.Type.(*arrow.ListType).ElemField(), lf)
-		lf.AppendFunc = func(data interface{}) error {
+		lf.appendFunc = func(data interface{}) error {
 			switch dt := data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -243,55 +503,43 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
 		}
 	case *array.MapBuilder:
 		// has metadata for objects in values
-		mf := parent.NewChild(field.Name, b, field.Metadata)
+		mf := parent.newChild(field.Name, b, field.Metadata)
+		mf.isMap = true
+		kb := bt.KeyBuilder()
 		ib := bt.ItemBuilder()
+		mapFieldBuilders(kb, field.Type.(*arrow.MapType).KeyField(), mf)
 		mapFieldBuilders(ib, field.Type.(*arrow.MapType).ItemField(), mf)
-		mf.AppendFunc = func(data interface{}) error {
+		mf.appendFunc = func(data interface{}) error {
 			switch data.(type) {
 			case nil:
 				bt.AppendNull()
 			default:
 				bt.Append(true)
-				switch d := mf.GetValue(data.(map[string]interface{})).(type) {
-				case nil:
-					bt.KeyBuilder().AppendNull()
-				case map[string]interface{}:
-					for k, v := range d {
-						bt.KeyBuilder().(*array.StringBuilder).Append(k)
-						c, err := mf.Child(0)
-						if err != nil {
-							return err
-						}
-						err = c.AppendFunc(v)
-						if err != nil {
-							return err
-						}
-					}
-				}
 			}
 			return nil
 		}
 	case *array.MonthDayNanoIntervalBuilder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendDurationData(bt, data)
 			return nil
 		}
 	case *array.StringBuilder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendStringData(bt, data)
 			return nil
 		}
 	case *array.StructBuilder:
 		// has metadata for Avro Union named types
-		sf := parent.NewChild(field.Name, b, field.Metadata)
+		sf := parent.newChild(field.Name, b, field.Metadata)
 		sf.typeName, _ = field.Metadata.GetValue("typeName")
+		sf.isStruct = true
 		// create children
 		for i, f := range field.Type.(*arrow.StructType).Fields() {
 			mapFieldBuilders(bt.FieldBuilder(i), f, sf)
 		}
-		sf.AppendFunc = func(data interface{}) error {
+		sf.appendFunc = func(data interface{}) error {
 			switch data.(type) {
 			case nil:
 				bt.AppendNull()
@@ -301,20 +549,20 @@ func mapFieldBuilders(b array.Builder, field arrow.Field, parent *FieldPos) {
 			return nil
 		}
 	case *array.Time32Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendTime32Data(bt, data)
 			return nil
 		}
 	case *array.Time64Builder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendTime64Data(bt, data)
 			return nil
 		}
 	case *array.TimestampBuilder:
-		f := parent.NewChild(field.Name, b, field.Metadata)
-		f.AppendFunc = func(data interface{}) error {
+		f := parent.newChild(field.Name, b, field.Metadata)
+		f.appendFunc = func(data interface{}) error {
 			appendTimestampData(bt, data)
 			return nil
 		}
@@ -325,7 +573,7 @@ func appendBinaryData(b *array.BinaryBuilder, data interface{}) {
 	switch dt := data.(type) {
 	case nil:
 		b.AppendNull()
-	case map[string]interface{}:
+	case map[string]any:
 		switch ct := dt["bytes"].(type) {
 		case nil:
 			b.AppendNull()
@@ -343,7 +591,7 @@ func appendBinaryDictData(b *array.BinaryDictionaryBuilder, data interface{}) {
 		b.AppendNull()
 	case string:
 		b.AppendString(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["string"].(type) {
 		case nil:
 			b.AppendNull()
@@ -359,7 +607,7 @@ func appendBoolData(b *array.BooleanBuilder, data interface{}) {
 		b.AppendNull()
 	case bool:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["boolean"].(type) {
 		case nil:
 			b.AppendNull()
@@ -375,7 +623,7 @@ func appendDate32Data(b *array.Date32Builder, data interface{}) {
 		b.AppendNull()
 	case int32:
 		b.Append(arrow.Date32(dt))
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["int"].(type) {
 		case nil:
 			b.AppendNull()
@@ -407,7 +655,7 @@ func appendDecimal128Data(b *array.Decimal128Builder, data interface{}) error {
 			}
 			b.Append(decimal128.FromBigInt(&bigIntData))
 		}
-	case map[string]interface{}:
+	case map[string]any:
 		if len(dt["bytes"].([]byte)) <= 38 {
 			var intData int64
 			buf := bytes.NewBuffer(dt["bytes"].([]byte))
@@ -441,7 +689,7 @@ func appendDecimal256Data(b *array.Decimal256Builder, data interface{}) error {
 			return err
 		}
 		b.Append(decimal256.FromBigInt(&bigIntData))
-	case map[string]interface{}:
+	case map[string]any:
 		var bigIntData big.Int
 		buf := bytes.NewBuffer(dt["bytes"].([]byte))
 		err := binary.Read(buf, binary.BigEndian, &bigIntData)
@@ -463,7 +711,7 @@ func appendDurationData(b *array.MonthDayNanoIntervalBuilder, data interface{}) 
 		dur.Days = int32(binary.BigEndian.Uint64(dt[4:7]))
 		dur.Nanoseconds = int64(binary.BigEndian.Uint64(dt[8:]) * 1000000)
 		b.Append(*dur)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dtb := dt["bytes"].(type) {
 		case nil:
 			b.AppendNull()
@@ -483,7 +731,7 @@ func appendFixedSizeBinaryData(b *array.FixedSizeBinaryBuilder, data interface{}
 		b.AppendNull()
 	case []byte:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["bytes"].(type) {
 		case nil:
 			b.AppendNull()
@@ -499,7 +747,7 @@ func appendFloat32Data(b *array.Float32Builder, data interface{}) {
 		b.AppendNull()
 	case float32:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["float"].(type) {
 		case nil:
 			b.AppendNull()
@@ -515,7 +763,7 @@ func appendFloat64Data(b *array.Float64Builder, data interface{}) {
 		b.AppendNull()
 	case float64:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["double"].(type) {
 		case nil:
 			b.AppendNull()
@@ -533,7 +781,7 @@ func appendInt32Data(b *array.Int32Builder, data interface{}) {
 		b.Append(int32(dt))
 	case int32:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["int"].(type) {
 		case nil:
 			b.AppendNull()
@@ -553,7 +801,7 @@ func appendInt64Data(b *array.Int64Builder, data interface{}) {
 		b.Append(int64(dt))
 	case int64:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["long"].(type) {
 		case nil:
 			b.AppendNull()
@@ -571,7 +819,7 @@ func appendStringData(b *array.StringBuilder, data interface{}) {
 		b.AppendNull()
 	case string:
 		b.Append(dt)
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["string"].(type) {
 		case nil:
 			b.AppendNull()
@@ -589,7 +837,7 @@ func appendTime32Data(b *array.Time32Builder, data interface{}) {
 		b.AppendNull()
 	case int32:
 		b.Append(arrow.Time32(dt))
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["int"].(type) {
 		case nil:
 			b.AppendNull()
@@ -605,7 +853,7 @@ func appendTime64Data(b *array.Time64Builder, data interface{}) {
 		b.AppendNull()
 	case int64:
 		b.Append(arrow.Time64(dt))
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["long"].(type) {
 		case nil:
 			b.AppendNull()
@@ -621,7 +869,7 @@ func appendTimestampData(b *array.TimestampBuilder, data interface{}) {
 		b.AppendNull()
 	case int64:
 		b.Append(arrow.Timestamp(dt))
-	case map[string]interface{}:
+	case map[string]any:
 		switch dt["long"].(type) {
 		case nil:
 			b.AppendNull()

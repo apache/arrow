@@ -22,33 +22,34 @@ import (
 	"io"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/hamba/avro/ocf"
 
-	hamba "github.com/hamba/avro/v2"
+	avro "github.com/hamba/avro/v2"
 )
 
-// Option configures an Avro reader.
+var ErrMismatchFields = errors.New("arrow/avro: number of records mismatch")
+
+// Option configures an Avro reader/writer.
 type (
 	Option func(config)
 	config *OCFReader
 )
 
-// Reader wraps hamba/ocf.Decoder and creates array.Records from a schema.
+// Reader wraps goavro/OCFReader and creates array.Records from a schema.
 type OCFReader struct {
 	r          *ocf.Decoder
 	avroSchema string
 	schema     *arrow.Schema
 
-	refs     int64
-	bld      *array.RecordBuilder
-	bldMap   *FieldPos
-	bldSlice []*FieldPos
-	cur      arrow.Record
-	err      error
+	refs int64
+	bld  *array.RecordBuilder
+	ldr  *dataLoader
+	cur  arrow.Record
+	err  error
 
 	chunk int
 	done  bool
@@ -74,29 +75,26 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 		opt(rr)
 	}
 
-	schema, err := hamba.Parse(string(ocfr.Metadata()["avro.schema"]))
+	schema, err := avro.Parse(string(ocfr.Metadata()["avro.schema"]))
 	if err != nil {
 		return nil
 	}
 	rr.avroSchema = schema.String()
-	rr.schema, err = ArrowSchemaFromAvro([]byte(schema.String()))
+	rr.schema, err = ArrowSchemaFromAvro(schema)
 	if err != nil {
 		panic(fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid))
 	}
 	if rr.mem == nil {
 		rr.mem = memory.DefaultAllocator
 	}
+
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
-
-	// Iterate through the RecordBuilder fields and flatten the nested builders into a slice of
-	// builder functions. Data loading is done by passing the avro datum to OCFReader.dataLoad()
-	// which iterates through the builder functions, passing in each field's data.
-	rr.bldMap = new(FieldPos)
+	bldMap := new(fieldPos)
+	rr.ldr = newDataLoader()
 	for idx, fb := range rr.bld.Fields() {
-		mapFieldBuilders(fb, rr.schema.Field(idx), rr.bldMap)
+		mapFieldBuilders(fb, rr.schema.Field(idx), bldMap)
 	}
-	rr.bldMapSlice(rr.bldMap)
-
+	rr.ldr.drawTree(bldMap)
 	rr.next = rr.next1
 	switch {
 	case rr.chunk < 0:
@@ -109,33 +107,14 @@ func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
 	return rr
 }
 
-func (r *OCFReader) bldMapSlice(field *FieldPos) {
-	for _, f := range field.Children() {
-		r.bldSlice = append(r.bldSlice, f)
-		if len(f.Children()) > 0 {
-			r.bldMapSlice(f)
-		}
-	}
-}
-
-func (r *OCFReader) dataLoad(data interface{}) error {
-	for _, f := range r.bldSlice {
-		err := f.AppendFunc(f.GetValue(data.(map[string]interface{})))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // Err returns the last error encountered during the iteration over the
 // underlying Avro file.
 func (r *OCFReader) Err() error { return r.err }
 
-// AvroSchema returns the Avro schema of the Avro OCF.
+// AvroSchema returns the Avro schema of the Avro OCF
 func (r *OCFReader) AvroSchema() string { return r.avroSchema }
 
-// Schema returns the converted Arrow schema of the Avro OCF.
+// Schema returns the converted Arrow schema of the Avro OCF
 func (r *OCFReader) Schema() *arrow.Schema { return r.schema }
 
 // Record returns the current record that has been extracted from the
@@ -174,8 +153,8 @@ func (r *OCFReader) next1() bool {
 		// Read consumes one datum value from the Avro OCF stream and returns it. Read
 		// is designed to be called only once after each invocation of the Scan method.
 		// See `NewOCFReader` documentation for an example.
-		var recs interface{}
-		err := r.r.Decode(&recs)
+		var datum interface{}
+		err := r.r.Decode(&datum)
 		if err != nil {
 			r.done = true
 			if errors.Is(err, io.EOF) {
@@ -184,7 +163,7 @@ func (r *OCFReader) next1() bool {
 			r.err = err
 			return false
 		}
-		err = r.dataLoad(recs)
+		err = r.ldr.loadDatum(datum)
 		if err != nil {
 			r.err = err
 			return false
@@ -199,12 +178,11 @@ func (r *OCFReader) next1() bool {
 
 // nextall reads the whole Avro file into memory and creates one single
 // Record from all the data items.
-
 func (r *OCFReader) nextall() bool {
 	for !r.done {
 		if r.r.HasNext() {
-			var recs interface{}
-			err := r.r.Decode(&recs)
+			var datum interface{}
+			err := r.r.Decode(&datum)
 			if err != nil {
 				r.done = true
 				if errors.Is(err, io.EOF) {
@@ -213,7 +191,7 @@ func (r *OCFReader) nextall() bool {
 				r.err = err
 				return false
 			}
-			err = r.dataLoad(recs)
+			err = r.ldr.loadDatum(datum)
 			if err != nil {
 				r.err = err
 				return false
@@ -235,8 +213,8 @@ func (r *OCFReader) nextn() bool {
 	n := 0
 	for i := 0; i < r.chunk && !r.done; i++ {
 		if r.r.HasNext() {
-			var recs interface{}
-			err := r.r.Decode(&recs)
+			var datum interface{}
+			err := r.r.Decode(&datum)
 			if err != nil {
 				r.done = true
 				if errors.Is(err, io.EOF) {
@@ -245,7 +223,7 @@ func (r *OCFReader) nextn() bool {
 				r.err = err
 				return false
 			}
-			err = r.dataLoad(recs)
+			err = r.ldr.loadDatum(datum)
 			if err != nil {
 				r.err = err
 				return false

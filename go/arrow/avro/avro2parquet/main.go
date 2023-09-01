@@ -25,10 +25,10 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/apache/arrow/go/v13/arrow/avro"
-	"github.com/apache/arrow/go/v13/parquet"
-	"github.com/apache/arrow/go/v13/parquet/compress"
-	pq "github.com/apache/arrow/go/v13/parquet/pqarrow"
+	"github.com/apache/arrow/go/v14/arrow/avro"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/compress"
+	pq "github.com/apache/arrow/go/v14/parquet/pqarrow"
 	"github.com/dsnet/golib/memfile"
 )
 

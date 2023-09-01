@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/internal/types"
+	"github.com/apache/arrow/go/v14/arrow"
+	avro "github.com/hamba/avro/v2"
 )
 
 func TestSchemaStringEqual(t *testing.T) {
@@ -31,294 +31,296 @@ func TestSchemaStringEqual(t *testing.T) {
 	}{
 		{
 			avroSchema: `{
-	    "type": "record",
-	    "name": "Example",
-	    "doc": "A simple name (attribute) and no namespace attribute: use the null namespace (\"\"); the fullname is 'Example'.",
-	    "fields": [{
-	            "name": "inheritNull",
-	            "type": {
-	                "type": "enum",
-	                "name": "Simple",
-	                "doc": "A simple name (attribute) and no namespace attribute: inherit the null namespace of the enclosing type 'Example'. The fullname is 'Simple'.",
-	                "symbols": ["a", "b"]
-	            }
-	        }, {
-	            "name": "explicitNamespace",
-	            "type": {
-	                "type": "fixed",
-	                "name": "Simple",
-	                "namespace": "explicit",
-	                "doc": "A simple name (attribute) and a namespace (attribute); the fullname is 'explicit.Simple' (this is a different type than of the 'inheritNull' field).",
-	                "size": 12
-	            }
-	        }, {
-	            "name": "fullName",
-	            "type": {
-	                "type": "record",
-	                "name": "a.full.Name",
-	                "namespace": "ignored",
-	                "doc": "A name attribute with a fullname, so the namespace attribute is ignored. The fullname is 'a.full.Name', and the namespace is 'a.full'.",
-	                "fields": [{
-	                        "name": "inheritNamespace",
-	                        "type": {
-	                            "type": "enum",
-	                            "name": "Understanding",
-	                            "doc": "A simple name (attribute) and no namespace attribute: inherit the namespace of the enclosing type 'a.full.Name'. The fullname is 'a.full.Understanding'.",
-	                            "symbols": ["d", "e"]
-	                        }
-	                    }, {
-	                        "type": "fixed",
-	                        "size": 16,
-	                        "name": "md5"
-	                    }
-	                ]
-	            }
-	        }, {
-	            "name": "id",
-	            "type": "int"
-	        }, {
-	            "name": "bigId",
-	            "type": "long"
-	        }, {
-	            "name": "temperature",
-	            "type": [
-	                "null",
-	                "float"
-	            ]
-	        }, {
-	            "name": "fraction",
-	            "type": [
-	                "null",
-	                "double"
-	            ]
-	        }, {
-	            "name": "is_emergency",
-	            "type": "boolean"
-	        }, {
-	            "name": "remote_ip",
-	            "type": [
-	                "null",
-	                "bytes"
-	            ]
-	        }, {
-	            "name": "person",
-	            "type": "record",
-	            "fields": [{
-	                    "name": "lastname",
-	                    "type": "string"
-	                }, {
-	                    "name": "address",
-	                    "type": {
-	                        "type": "record",
-	                        "name": "AddressUSRecord",
-	                        "fields": [{
-	                                "name": "streetaddress",
-	                                "type": "string"
-	                            }, {
-	                                "name": "city",
-	                                "type": "string"
-	                            }
-	                        ]
-	                    }
-	                }, {
-	                    "name": "mapfield",
-	                    "type": {
-	                        "type": "map",
-	                        "values": "long",
-	                        "default": {}
-	                    }
-	                }, {
-	                    "name": "arrayField",
-	                    "type": {
-	                        "type": "array",
-	                        "items": "string",
-	                        "default": []
-	                    }
-	                }
-	            ]
-	        }, {
-	            "name": "decimalField",
-	            "type": {
-	                "type": "bytes",
-	                "logicalType": "decimal",
-	                "precision": 4,
-	                "scale": 2
-	            }
-	        }, {
-	            "name": "uuidField",
-	            "type": "string",
-	            "logicalType": "uuid"
-	        }, {
-	            "name": "time-millis",
-	            "type": "int",
-	            "logicalType": "time-millis"
-	        }, {
-	            "name": "time-micros",
-	            "type": "long",
-	            "logicalType": "time-micros"
-	        }, {
-	            "name": "timestamp-millis",
-	            "type": "long",
-	            "logicalType": "timestamp-millis"
-	        }, {
-	            "name": "timestamp-micros",
-	            "type": "long",
-	            "logicalType": "timestamp-micros"
-	        }, {
-	            "name": "local-timestamp-millis",
-	            "type": "long",
-	            "logicalType": "local-timestamp-millis"
-	        }, {
-	            "type": "fixed",
-	            "size": 12,
-				"logicalType": "duration",
-	            "name": "duration"
-	        }, {
-				"name": "date",
-				"type": {
-						  "type": "int",
-						  "logicalType": "date"
+				"fields": [
+					{
+						"name": "inheritNull",
+						"type": {
+							"name": "Simple",
+							"symbols": [
+								"a",
+								"b"
+							],
+							"type": "enum"
 						}
-			}
-	    ]
-	}
-
-`,
+					},
+					{
+						"name": "explicitNamespace",
+						"type": {
+							"name": "test",
+							"namespace": "org.hamba.avro",
+							"size": 12,
+							"type": "fixed"
+						}
+					},
+					{
+						"name": "fullName",
+						"type": {
+							"type": "record",
+							"name": "fullName_data",
+							"namespace": "ignored",
+							"doc": "A name attribute with a fullname, so the namespace attribute is ignored. The fullname is 'a.full.Name', and the namespace is 'a.full'.",
+							"fields": [{
+									"name": "inheritNamespace",
+									"type": {
+										"type": "enum",
+										"name": "Understanding",
+										"doc": "A simple name (attribute) and no namespace attribute: inherit the namespace of the enclosing type 'a.full.Name'. The fullname is 'a.full.Understanding'.",
+										"symbols": ["d", "e"]
+									}
+								}, {
+									"name": "md5",
+									"type": {
+                                            "name": "md5_data",
+                                            "type": "fixed",
+									        "size": 16,
+									        "namespace": "ignored"
+                                    }
+								}
+							]
+						}
+					},
+					{
+						"name": "id",
+						"type": "int"
+					},
+					{
+						"name": "bigId",
+						"type": "long"
+					},
+					{
+						"name": "temperature",
+						"type": [
+							"null",
+							"float"
+						]
+					},
+					{
+						"name": "fraction",
+						"type": [
+							"null",
+							"double"
+						]
+					},
+					{
+						"name": "is_emergency",
+						"type": "boolean"
+					},
+					{
+						"name": "remote_ip",
+						"type": [
+							"null",
+							"bytes"
+						]
+					},
+					{
+						"name": "person",
+						"type": {
+							"fields": [
+								{
+									"name": "lastname",
+									"type": "string"
+								},
+								{
+									"name": "address",
+									"type": {
+										"fields": [
+											{
+												"name": "streetaddress",
+												"type": "string"
+											},
+											{
+												"name": "city",
+												"type": "string"
+											}
+										],
+										"name": "AddressUSRecord",
+										"type": "record"
+									}
+								},
+								{
+									"name": "mapfield",
+									"type": {
+										"default": {
+										},
+										"type": "map",
+										"values": "long"
+									}
+								},
+								{
+									"name": "arrayField",
+									"type": {
+										"default": [
+										],
+										"items": "string",
+										"type": "array"
+									}
+								}
+							],
+							"name": "person_data",
+							"type": "record"
+						}
+					},
+					{
+						"name": "decimalField",
+						"type": {
+							"logicalType": "decimal",
+							"precision": 4,
+							"scale": 2,
+							"type": "bytes"
+						}
+					},
+					{
+						"logicalType": "uuid",
+						"name": "uuidField",
+						"type": "string"
+					},
+					{
+						"name": "timemillis",
+						"type": {
+							"type": "int",
+							"logicalType": "time-millis"
+						}
+					},
+					{
+						"name": "timemicros",
+						"type": {
+								"type": "long",
+								"logicalType": "time-micros"
+						}
+					},
+					{
+						"name": "timestampmillis",
+						"type": {
+							"type": "long",
+							"logicalType": "timestamp-millis"
+						}
+					},
+					{
+						"name": "timestampmicros",
+						"type": {
+							"type": "long",
+							"logicalType": "timestamp-micros"
+						}
+					},
+					{
+						"name": "duration",
+						"type": {
+							"name": "duration",
+							"namespace": "whyowhy",
+							"logicalType": "duration",
+							"size": 12,
+							"type": "fixed"
+						}
+					},
+					{
+						"name": "date",
+						"type": {
+							"logicalType": "date",
+							"type": "int"
+						}
+					}
+				],
+				"name": "Example",
+				"type": "record"
+			}`,
 			arrowSchema: []arrow.Field{
-				{
-					Name:     "inheritNull",
+				{Name: "inheritNull",
 					Type:     &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
 					Nullable: true,
-					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"}),
-				},
-				{
-					Name:     "explicitNamespace",
+					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"})},
+				{Name: "explicitNamespace",
 					Type:     &arrow.FixedSizeBinaryType{ByteWidth: 12},
 					Nullable: true,
 				},
-				{
-					Name: "fullName",
+				{Name: "fullName",
 					Type: arrow.StructOf(
-						arrow.Field{
-							Name: "inheritNamespace",
-							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
-						},
-						arrow.Field{
-							Name: "md5",
-							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16},
-						},
+						arrow.Field{Name: "inheritNamespace",
+							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false}},
+						arrow.Field{Name: "md5",
+							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}},
 					),
 					Nullable: true,
 				},
-				{
-					Name:     "id",
+				{Name: "id",
 					Type:     arrow.PrimitiveTypes.Int32,
 					Nullable: true,
 				},
-				{
-					Name:     "bigId",
+				{Name: "bigId",
 					Type:     arrow.PrimitiveTypes.Int64,
 					Nullable: true,
 				},
-				{
-					Name:     "temperature",
+				{Name: "temperature",
 					Type:     arrow.PrimitiveTypes.Float32,
 					Nullable: true,
 				},
-				{
-					Name:     "fraction",
+				{Name: "fraction",
 					Type:     arrow.PrimitiveTypes.Float64,
 					Nullable: true,
 				},
-				{
-					Name:     "is_emergency",
+				{Name: "is_emergency",
 					Type:     arrow.FixedWidthTypes.Boolean,
 					Nullable: true,
 				},
-				{
-					Name:     "remote_ip",
+				{Name: "remote_ip",
 					Type:     arrow.BinaryTypes.Binary,
 					Nullable: true,
 				},
-				{
-					Name: "person",
+				{Name: "person",
 					Type: arrow.StructOf(
-						arrow.Field{
-							Name:     "lastname",
+						arrow.Field{Name: "lastname",
 							Type:     arrow.BinaryTypes.String,
-							Nullable: true,
-						},
-						arrow.Field{
-							Name: "address",
+							Nullable: true},
+						arrow.Field{Name: "address",
 							Type: arrow.StructOf(
-								arrow.Field{
-									Name:     "streetaddress",
+								arrow.Field{Name: "streetaddress",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true,
-								},
-								arrow.Field{
-									Name:     "city",
+									Nullable: true},
+								arrow.Field{Name: "city",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true,
-								},
+									Nullable: true},
 							),
 							Nullable: true,
 						},
-						arrow.Field{
-							Name:     "mapfield",
+						arrow.Field{Name: "mapfield",
 							Type:     arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64),
 							Nullable: true,
 						},
-						arrow.Field{
-							Name:     "arrayField",
+						arrow.Field{Name: "arrayField",
 							Type:     arrow.ListOf(arrow.BinaryTypes.String),
 							Nullable: true,
 						},
 					),
 					Nullable: true,
 				},
-				{
-					Name:     "decimalField",
+				{Name: "decimalField",
 					Type:     &arrow.Decimal128Type{Precision: 4, Scale: 2},
 					Nullable: true,
 				},
-				{
-					Name:     "uuidField",
-					Type:     types.NewUUIDType(),
+				{Name: "uuidField",
+					Type:     arrow.BinaryTypes.String,
 					Nullable: true,
 				},
-				{
-					Name:     "time-millis",
+				{Name: "timemillis",
 					Type:     arrow.FixedWidthTypes.Time32ms,
 					Nullable: true,
 				},
-				{
-					Name:     "time-micros",
+				{Name: "timemicros",
 					Type:     arrow.FixedWidthTypes.Time64us,
 					Nullable: true,
 				},
-				{
-					Name:     "timestamp-millis",
+				{Name: "timestampmillis",
 					Type:     arrow.FixedWidthTypes.Timestamp_ms,
 					Nullable: true,
 				},
-				{
-					Name:     "timestamp-micros",
+				{Name: "timestampmicros",
 					Type:     arrow.FixedWidthTypes.Timestamp_us,
 					Nullable: true,
 				},
-				{
-					Name:     "local-timestamp-millis",
-					Type:     &arrow.TimestampType{Unit: arrow.Millisecond},
-					Nullable: true,
-				},
-				{
-					Name:     "duration",
+				{Name: "duration",
 					Type:     arrow.FixedWidthTypes.MonthDayNanoInterval,
 					Nullable: true,
 				},
-				{
-					Name:     "date",
+				{Name: "date",
 					Type:     arrow.FixedWidthTypes.Date32,
 					Nullable: true,
 				},
@@ -329,7 +331,11 @@ func TestSchemaStringEqual(t *testing.T) {
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
 			want := arrow.NewSchema(test.arrowSchema, nil)
-			got, err := ArrowSchemaFromAvro([]byte(test.avroSchema))
+			schema, err := avro.ParseBytes([]byte(test.avroSchema))
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			got, err := ArrowSchemaFromAvro(schema)
 			if err != nil {
 				t.Fatalf("%v", err)
 			}
@@ -349,294 +355,296 @@ func TestSchemaEqual(t *testing.T) {
 	}{
 		{
 			avroSchema: `{
-	    "type": "record",
-	    "name": "Example",
-	    "doc": "A simple name (attribute) and no namespace attribute: use the null namespace (\"\"); the fullname is 'Example'.",
-	    "fields": [{
-	            "name": "inheritNull",
-	            "type": {
-	                "type": "enum",
-	                "name": "Simple",
-	                "doc": "A simple name (attribute) and no namespace attribute: inherit the null namespace of the enclosing type 'Example'. The fullname is 'Simple'.",
-	                "symbols": ["a", "b"]
-	            }
-	        }, {
-	            "name": "explicitNamespace",
-	            "type": {
-	                "type": "fixed",
-	                "name": "Simple",
-	                "namespace": "explicit",
-	                "doc": "A simple name (attribute) and a namespace (attribute); the fullname is 'explicit.Simple' (this is a different type than of the 'inheritNull' field).",
-	                "size": 12
-	            }
-	        }, {
-	            "name": "fullName",
-	            "type": {
-	                "type": "record",
-	                "name": "a.full.Name",
-	                "namespace": "ignored",
-	                "doc": "A name attribute with a fullname, so the namespace attribute is ignored. The fullname is 'a.full.Name', and the namespace is 'a.full'.",
-	                "fields": [{
-	                        "name": "inheritNamespace",
-	                        "type": {
-	                            "type": "enum",
-	                            "name": "Understanding",
-	                            "doc": "A simple name (attribute) and no namespace attribute: inherit the namespace of the enclosing type 'a.full.Name'. The fullname is 'a.full.Understanding'.",
-	                            "symbols": ["d", "e"]
-	                        }
-	                    }, {
-	                        "type": "fixed",
-	                        "size": 16,
-	                        "name": "md5"
-	                    }
-	                ]
-	            }
-	        }, {
-	            "name": "id",
-	            "type": "int"
-	        }, {
-	            "name": "bigId",
-	            "type": "long"
-	        }, {
-	            "name": "temperature",
-	            "type": [
-	                "null",
-	                "float"
-	            ]
-	        }, {
-	            "name": "fraction",
-	            "type": [
-	                "null",
-	                "double"
-	            ]
-	        }, {
-	            "name": "is_emergency",
-	            "type": "boolean"
-	        }, {
-	            "name": "remote_ip",
-	            "type": [
-	                "null",
-	                "bytes"
-	            ]
-	        }, {
-	            "name": "person",
-	            "type": "record",
-	            "fields": [{
-	                    "name": "lastname",
-	                    "type": "string"
-	                }, {
-	                    "name": "address",
-	                    "type": {
-	                        "type": "record",
-	                        "name": "AddressUSRecord",
-	                        "fields": [{
-	                                "name": "streetaddress",
-	                                "type": "string"
-	                            }, {
-	                                "name": "city",
-	                                "type": "string"
-	                            }
-	                        ]
-	                    }
-	                }, {
-	                    "name": "mapfield",
-	                    "type": {
-	                        "type": "map",
-	                        "values": "long",
-	                        "default": {}
-	                    }
-	                }, {
-	                    "name": "arrayField",
-	                    "type": {
-	                        "type": "array",
-	                        "items": "string",
-	                        "default": []
-	                    }
-	                }
-	            ]
-	        }, {
-	            "name": "decimalField",
-	            "type": {
-	                "type": "bytes",
-	                "logicalType": "decimal",
-	                "precision": 4,
-	                "scale": 2
-	            }
-	        }, {
-	            "name": "uuidField",
-	            "type": "string",
-	            "logicalType": "uuid"
-	        }, {
-	            "name": "time-millis",
-	            "type": "int",
-	            "logicalType": "time-millis"
-	        }, {
-	            "name": "time-micros",
-	            "type": "long",
-	            "logicalType": "time-micros"
-	        }, {
-	            "name": "timestamp-millis",
-	            "type": "long",
-	            "logicalType": "timestamp-millis"
-	        }, {
-	            "name": "timestamp-micros",
-	            "type": "long",
-	            "logicalType": "timestamp-micros"
-	        }, {
-	            "name": "local-timestamp-millis",
-	            "type": "long",
-	            "logicalType": "local-timestamp-millis"
-	        }, {
-	            "type": "fixed",
-	            "size": 12,
-				"logicalType": "duration",
-	            "name": "duration"
-	        }, {
-				"name": "date",
-				"type": {
-						  "type": "int",
-						  "logicalType": "date"
+				"fields": [
+					{
+						"name": "inheritNull",
+						"type": {
+							"name": "Simple",
+							"symbols": [
+								"a",
+								"b"
+							],
+							"type": "enum"
 						}
-			}
-	    ]
-	}
-
-`,
+					},
+					{
+						"name": "explicitNamespace",
+						"type": {
+							"name": "test",
+							"namespace": "org.hamba.avro",
+							"size": 12,
+							"type": "fixed"
+						}
+					},
+					{
+						"name": "fullName",
+						"type": {
+							"type": "record",
+							"name": "fullName_data",
+							"namespace": "ignored",
+							"doc": "A name attribute with a fullname, so the namespace attribute is ignored. The fullname is 'a.full.Name', and the namespace is 'a.full'.",
+							"fields": [{
+									"name": "inheritNamespace",
+									"type": {
+										"type": "enum",
+										"name": "Understanding",
+										"doc": "A simple name (attribute) and no namespace attribute: inherit the namespace of the enclosing type 'a.full.Name'. The fullname is 'a.full.Understanding'.",
+										"symbols": ["d", "e"]
+									}
+								}, {
+									"name": "md5",
+									"type": {
+                                            "name": "md5_data",
+                                            "type": "fixed",
+									        "size": 16,
+									        "namespace": "ignored"
+                                    }
+								}
+							]
+						}
+					},
+					{
+						"name": "id",
+						"type": "int"
+					},
+					{
+						"name": "bigId",
+						"type": "long"
+					},
+					{
+						"name": "temperature",
+						"type": [
+							"null",
+							"float"
+						]
+					},
+					{
+						"name": "fraction",
+						"type": [
+							"null",
+							"double"
+						]
+					},
+					{
+						"name": "is_emergency",
+						"type": "boolean"
+					},
+					{
+						"name": "remote_ip",
+						"type": [
+							"null",
+							"bytes"
+						]
+					},
+					{
+						"name": "person",
+						"type": {
+							"fields": [
+								{
+									"name": "lastname",
+									"type": "string"
+								},
+								{
+									"name": "address",
+									"type": {
+										"fields": [
+											{
+												"name": "streetaddress",
+												"type": "string"
+											},
+											{
+												"name": "city",
+												"type": "string"
+											}
+										],
+										"name": "AddressUSRecord",
+										"type": "record"
+									}
+								},
+								{
+									"name": "mapfield",
+									"type": {
+										"default": {
+										},
+										"type": "map",
+										"values": "long"
+									}
+								},
+								{
+									"name": "arrayField",
+									"type": {
+										"default": [
+										],
+										"items": "string",
+										"type": "array"
+									}
+								}
+							],
+							"name": "person_data",
+							"type": "record"
+						}
+					},
+					{
+						"name": "decimalField",
+						"type": {
+							"logicalType": "decimal",
+							"precision": 4,
+							"scale": 2,
+							"type": "bytes"
+						}
+					},
+					{
+						"logicalType": "uuid",
+						"name": "uuidField",
+						"type": "string"
+					},
+					{
+						"name": "timemillis",
+						"type": {
+							"type": "int",
+							"logicalType": "time-millis"
+						}
+					},
+					{
+						"name": "timemicros",
+						"type": {
+								"type": "long",
+								"logicalType": "time-micros"
+						}
+					},
+					{
+						"name": "timestampmillis",
+						"type": {
+							"type": "long",
+							"logicalType": "timestamp-millis"
+						}
+					},
+					{
+						"name": "timestampmicros",
+						"type": {
+							"type": "long",
+							"logicalType": "timestamp-micros"
+						}
+					},
+					{
+						"name": "duration",
+						"type": {
+							"name": "duration",
+							"namespace": "whyowhy",
+							"logicalType": "duration",
+							"size": 12,
+							"type": "fixed"
+						}
+					},
+					{
+						"name": "date",
+						"type": {
+							"logicalType": "date",
+							"type": "int"
+						}
+					}
+				],
+				"name": "Example",
+				"type": "record"
+			}`,
 			arrowSchema: []arrow.Field{
-				{
-					Name:     "inheritNull",
+				{Name: "inheritNull",
 					Type:     &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
 					Nullable: true,
-					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"}),
-				},
-				{
-					Name:     "explicitNamespace",
+					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"})},
+				{Name: "explicitNamespace",
 					Type:     &arrow.FixedSizeBinaryType{ByteWidth: 12},
 					Nullable: true,
 				},
-				{
-					Name: "fullName",
+				{Name: "fullName",
 					Type: arrow.StructOf(
-						arrow.Field{
-							Name: "inheritNamespace",
-							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
-						},
-						arrow.Field{
-							Name: "md5",
-							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16},
-						},
+						arrow.Field{Name: "inheritNamespace",
+							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false}},
+						arrow.Field{Name: "md5",
+							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}},
 					),
 					Nullable: true,
 				},
-				{
-					Name:     "id",
+				{Name: "id",
 					Type:     arrow.PrimitiveTypes.Int32,
 					Nullable: true,
 				},
-				{
-					Name:     "bigId",
+				{Name: "bigId",
 					Type:     arrow.PrimitiveTypes.Int64,
 					Nullable: true,
 				},
-				{
-					Name:     "temperature",
+				{Name: "temperature",
 					Type:     arrow.PrimitiveTypes.Float32,
 					Nullable: true,
 				},
-				{
-					Name:     "fraction",
+				{Name: "fraction",
 					Type:     arrow.PrimitiveTypes.Float64,
 					Nullable: true,
 				},
-				{
-					Name:     "is_emergency",
+				{Name: "is_emergency",
 					Type:     arrow.FixedWidthTypes.Boolean,
 					Nullable: true,
 				},
-				{
-					Name:     "remote_ip",
+				{Name: "remote_ip",
 					Type:     arrow.BinaryTypes.Binary,
 					Nullable: true,
 				},
-				{
-					Name: "person",
+				{Name: "person",
 					Type: arrow.StructOf(
-						arrow.Field{
-							Name:     "lastname",
+						arrow.Field{Name: "lastname",
 							Type:     arrow.BinaryTypes.String,
-							Nullable: true,
-						},
-						arrow.Field{
-							Name: "address",
+							Nullable: true},
+						arrow.Field{Name: "address",
 							Type: arrow.StructOf(
-								arrow.Field{
-									Name:     "streetaddress",
+								arrow.Field{Name: "streetaddress",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true,
-								},
-								arrow.Field{
-									Name:     "city",
+									Nullable: true},
+								arrow.Field{Name: "city",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true,
-								},
+									Nullable: true},
 							),
 							Nullable: true,
 						},
-						arrow.Field{
-							Name:     "mapfield",
+						arrow.Field{Name: "mapfield",
 							Type:     arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64),
 							Nullable: true,
 						},
-						arrow.Field{
-							Name:     "arrayField",
+						arrow.Field{Name: "arrayField",
 							Type:     arrow.ListOf(arrow.BinaryTypes.String),
 							Nullable: true,
 						},
 					),
 					Nullable: true,
 				},
-				{
-					Name:     "decimalField",
+				{Name: "decimalField",
 					Type:     &arrow.Decimal128Type{Precision: 4, Scale: 2},
 					Nullable: true,
 				},
-				{
-					Name:     "uuidField",
-					Type:     types.NewUUIDType(),
+				{Name: "uuidField",
+					Type:     arrow.BinaryTypes.String,
 					Nullable: true,
 				},
-				{
-					Name:     "time-millis",
+				{Name: "timemillis",
 					Type:     arrow.FixedWidthTypes.Time32ms,
 					Nullable: true,
 				},
-				{
-					Name:     "time-micros",
+				{Name: "timemicros",
 					Type:     arrow.FixedWidthTypes.Time64us,
 					Nullable: true,
 				},
-				{
-					Name:     "timestamp-millis",
+				{Name: "timestampmillis",
 					Type:     arrow.FixedWidthTypes.Timestamp_ms,
 					Nullable: true,
 				},
-				{
-					Name:     "timestamp-micros",
+				{Name: "timestampmicros",
 					Type:     arrow.FixedWidthTypes.Timestamp_us,
 					Nullable: true,
 				},
-				{
-					Name:     "local-timestamp-millis",
-					Type:     &arrow.TimestampType{Unit: arrow.Millisecond},
-					Nullable: true,
-				},
-				{
-					Name:     "duration",
+				{Name: "duration",
 					Type:     arrow.FixedWidthTypes.MonthDayNanoInterval,
 					Nullable: true,
 				},
-				{
-					Name:     "date",
+				{Name: "date",
 					Type:     arrow.FixedWidthTypes.Date32,
 					Nullable: true,
 				},
@@ -647,7 +655,11 @@ func TestSchemaEqual(t *testing.T) {
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
 			want := arrow.NewSchema(test.arrowSchema, nil)
-			got, err := ArrowSchemaFromAvro([]byte(test.avroSchema))
+			schema, err := avro.ParseBytes([]byte(test.avroSchema))
+			if err != nil {
+				t.Fatalf("%v", err)
+			}
+			got, err := ArrowSchemaFromAvro(schema)
 			if err != nil {
 				t.Fatalf("%v", err)
 			}
@@ -658,4 +670,5 @@ func TestSchemaEqual(t *testing.T) {
 			}
 		})
 	}
+
 }
