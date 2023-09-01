@@ -471,8 +471,7 @@ takes precedence over ccache if a storage backend is configured" ON)
                 ${ARROW_DEPENDENCY_USE_SHARED})
 
   if(MSVC)
-    # It seems that conda's llvmdev for Windows doesn't provide shared
-    # library.
+    # LLVM doesn't support shared library with MSVC.
     set(ARROW_LLVM_USE_SHARED_DEFAULT OFF)
   else()
     set(ARROW_LLVM_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
