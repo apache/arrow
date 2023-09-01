@@ -33,7 +33,7 @@ set(ARROW_CUDA_LINK_LIBS arrow::flatbuffers)
 if(CMAKE_VERSION VERSION_LESS 3.17)
   find_package(CUDA REQUIRED)
   add_library(ArrowCUDA::cuda_driver SHARED IMPORTED)
-  set_target_properties(ArrowCUDA::cuda_driver 
+  set_target_properties(ArrowCUDA::cuda_driver
                         PROPERTIES IMPORTED_LOCATION "${CUDA_CUDA_LIBRARY}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${CUDA_INCLUDE_DIRS}")
   set(ARROW_CUDA_SHARED_LINK_LIBS ArrowCUDA::cuda_driver)
