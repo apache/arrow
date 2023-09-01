@@ -22,6 +22,6 @@ libdir=@ARROW_PKG_CONFIG_LIBDIR@
 Name: Apache Arrow CUDA
 Description: CUDA integration library for Apache Arrow
 Version: @ARROW_VERSION@
-Requires: arrow
+Requires: arrow cuda
 Libs: -L${libdir} -larrow_cuda
 Cflags: -I${includedir}
