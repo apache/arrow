@@ -34,22 +34,19 @@ git config --global --add safe.directory $ARROW_ROOT
 # Run these only once
 
 function setup_miniconda() {
-  MINICONDA_URL="https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+  MINICONDA_URL="https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh"
   wget -O miniconda.sh $MINICONDA_URL
   bash miniconda.sh -b -p $MINICONDA
   rm -f miniconda.sh
   LOCAL_PATH=$PATH
   export PATH="$MINICONDA/bin:$PATH"
 
-  conda update -y -q conda
-  conda config --set auto_update_conda false
-  conda info -a
+  mamba info -a
 
   conda config --set show_channel_urls True
-  conda config --add channels https://repo.anaconda.com/pkgs/free
-  conda config --add channels conda-forge
+  conda config --show channels
 
-  conda create -y -n pyarrow-$PYTHON -c conda-forge \
+  mamba create -y -n pyarrow-$PYTHON \
         --file arrow/ci/conda_env_unix.txt \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_python.txt \
@@ -63,7 +60,7 @@ function setup_miniconda() {
 setup_miniconda
 
 #----------------------------------------------------------------------
-# Activate conda in bash and activate conda environment
+# Activate mamba in bash and activate mamba environment
 
 . $MINICONDA/etc/profile.d/conda.sh
 conda activate pyarrow-$PYTHON
@@ -79,13 +76,11 @@ cmake -GNinja \
       -DCMAKE_BUILD_TYPE=DEBUG \
       -DCMAKE_INSTALL_PREFIX=$ARROW_HOME \
       -DCMAKE_INSTALL_LIBDIR=lib \
-      -DARROW_WITH_BZ2=ON \
-      -DARROW_WITH_ZLIB=ON \
-      -DARROW_WITH_ZSTD=ON \
-      -DARROW_WITH_LZ4=ON \
-      -DARROW_WITH_SNAPPY=ON \
-      -DARROW_WITH_BROTLI=ON \
-      -DARROW_PYTHON=ON \
+      -DCMAKE_UNITY_BUILD=ON \
+      -DARROW_COMPUTE=ON \
+      -DARROW_CSV=ON \
+      -DARROW_FILESYSTEM=ON \
+      -DARROW_JSON=ON \
       $ARROW_ROOT/cpp
 
 ninja install

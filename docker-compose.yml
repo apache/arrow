@@ -497,6 +497,8 @@ services:
     environment:
       <<: [*common, *ccache, *sccache, *cpp]
       ARROW_BUILD_UTILITIES: "OFF"
+      ARROW_ACERO: "OFF"
+      ARROW_AZURE: "OFF"
       ARROW_COMPUTE: "OFF"
       ARROW_CSV: "OFF"
       ARROW_DATASET: "OFF"
@@ -1326,8 +1328,10 @@ services:
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache]
+      ARROW_ACERO: "OFF"
       ARROW_DATASET: "OFF"
       ARROW_FLIGHT: "OFF"
+      ARROW_FLIGHT_SQL: "OFF"
       ARROW_GANDIVA: "OFF"
       ARROW_JAVA_CDATA: "ON"
       ARROW_ORC: "OFF"
