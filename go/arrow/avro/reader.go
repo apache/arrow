@@ -168,6 +168,9 @@ func (r *OCFReader) next1() bool {
 			r.err = err
 			return false
 		}
+	} else {
+		r.done = true
+		return false
 	}
 	if r.err != nil {
 		r.done = true

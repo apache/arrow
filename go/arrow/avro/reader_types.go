@@ -112,7 +112,13 @@ func (d *dataLoader) loadDatum(data any) error {
 							d.children[0].loadDatum(e)
 						}
 					}
+				case map[string]any:
+					err := f.appendFunc(f.getValue(dt))
+					if err != nil {
+						return err
+					}
 				}
+
 			}
 		}
 		for _, c := range d.children {
@@ -126,7 +132,7 @@ func (d *dataLoader) loadDatum(data any) error {
 				case map[string]any:
 					c.loadDatum(c.mapField.getValue(dt))
 				default:
-					c.loadDatum(c.mapField.getValue(data).(map[string]any)["map"])
+					c.loadDatum(c.mapField.getValue(data).(map[string]any))
 				}
 			}
 		}
@@ -152,7 +158,7 @@ func (d *dataLoader) loadDatum(data any) error {
 							c.loadDatum(c.list.getValue(e))
 						}
 						if c.mapField != nil {
-							c.loadDatum(c.mapField.getValue(e).(map[string]any)["map"])
+							c.loadDatum(c.mapField.getValue(e).(map[string]any))
 						}
 					}
 				}
@@ -182,28 +188,17 @@ func (d *dataLoader) loadDatum(data any) error {
 			case nil:
 				d.mapField.appendFunc(dt)
 			case map[string]any:
-				mf, ok := dt["map"]
-				if !ok {
-					d.mapField.appendFunc(dt)
-					for k, v := range dt {
-						d.mapKey.appendFunc(k)
-						if d.mapValue != nil {
-							d.mapValue.appendFunc(v)
-						} else {
-							d.children[0].loadDatum(v)
-						}
-					}
-				} else {
-					d.mapField.appendFunc(mf)
-					for k, v := range mf.(map[string]any) {
-						d.mapKey.appendFunc(k)
-						if d.mapValue != nil {
-							d.mapValue.appendFunc(v)
-						} else {
-							d.children[0].loadDatum(v)
-						}
+
+				d.mapField.appendFunc(dt)
+				for k, v := range dt {
+					d.mapKey.appendFunc(k)
+					if d.mapValue != nil {
+						d.mapValue.appendFunc(v)
+					} else {
+						d.children[0].loadDatum(v)
 					}
 				}
+
 			}
 		}
 	}
