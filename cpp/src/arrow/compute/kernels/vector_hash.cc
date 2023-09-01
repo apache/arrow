@@ -851,17 +851,15 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
 
     // dictionary compaction
-    CType dict_indice[dict_used_count];
-    int64_t dict_indice_index = 0;
+    std::vector<CType> dict_indice;
     CType len = (CType)dict->length();
     for (CType i = 0; i < len; i++) {
       if (dict_used[i]) {
-        dict_indice[dict_indice_index] = i;
-        dict_indice_index++;
+        dict_indice.push_back(i);
       }
     }
     BuilderType dict_indice_builder;
-    ARROW_RETURN_NOT_OK(dict_indice_builder.AppendValues(dict_indice, dict_used_count));
+    ARROW_RETURN_NOT_OK(dict_indice_builder.AppendValues(dict_indice));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
                           dict_indice_builder.Finish());
     ARROW_ASSIGN_OR_RAISE(
@@ -881,10 +879,11 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
       }
     }
 
-    CType raw_changed_indice[indice->length()];
+    std::vector<CType> raw_changed_indice(indice->length(), 0);
+    std::vector<bool> is_valid(indice->length(), true);
     for (int64_t i = 0; i < indice->length(); i++) {
       if (indice->IsNull(i)) {
-        raw_changed_indice[i] = 0;
+        is_valid[i] = false;
       } else {
         CType cur_indice = indices_data[i + offset];
         raw_changed_indice[i] = cur_indice - indice_minus_number[cur_indice];
@@ -892,8 +891,8 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
     BuilderType indice_builder;
     if (indice->null_count() == 0) {
-      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(
-          raw_changed_indice, indice->length(), indice->null_bitmap_data(), 0));
+      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice,
+                          is_valid));
     } else {
       ARROW_RETURN_NOT_OK(
           indice_builder.AppendValues(raw_changed_indice, indice->length()));
