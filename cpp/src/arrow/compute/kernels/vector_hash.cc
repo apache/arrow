@@ -820,11 +820,17 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
                                       ExecContext* ctx) const override {
     const DictionaryArray& casted_dict_array =
         checked_cast<const DictionaryArray&>(*dict_array);
+
     const std::shared_ptr<Array>& dict = casted_dict_array.dictionary();
+    if(dict->length() == 0){
+      return dict_array; 
+    }
+
     const std::shared_ptr<Array>& indice = casted_dict_array.indices();
     const CType* indices_data =
         reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
 
+    // check whether the input is compacted
     std::vector<bool> dict_used(dict->length(), false);
     int64_t dict_used_count = 0;
     int64_t offset = indice->data()->offset;
