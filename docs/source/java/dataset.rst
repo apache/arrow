@@ -160,7 +160,7 @@ Then all columns will be emitted during scanning.
 Projection (Produce New Columns) and Filters
 ============================================
 
-User can specify projections (new columns) or filters in ScanOptions. For example:
+User can specify projections (new columns) or filters in ScanOptions using Substrait. For example:
 
 .. code-block:: Java
 
