@@ -26,12 +26,13 @@ classdef tChunkedArray < matlab.unittest.TestCase
 
     methods (Test)
         function FromArraysTooFewInputsError(testCase)
-            % Verify an error is thrown when zero input arguments are
-            % provided to ChunkedArray's static method fromArrays.
+            % Verify an error is thrown when zero arrays are provided as
+            % input and the Type name-value pair is not provided to
+            % ChunkedArray's static method fromArrays.
             import arrow.array.ChunkedArray
             
             fcn = @() ChunkedArray.fromArrays();
-            testCase.verifyError(fcn, "MATLAB:narginchk:notEnoughInputs");
+            testCase.verifyError(fcn, "arrow:chunkedarray:TypeRequiredWithZeroArrayInputs");
         end
 
         function InconsistentArrayTypeError(testCase)
@@ -42,6 +43,30 @@ classdef tChunkedArray < matlab.unittest.TestCase
             float32Array = arrow.array(single([1 2 3]));
             fcn = @() ChunkedArray.fromArrays(testCase.Float64Array1, float32Array);
             testCase.verifyError(fcn, "arrow:chunkedarray:MakeFailed");
+        end
+
+        function ArrayTypeNVPairMismatchError(testCase)
+            % Verify an error is thrown when the Type name-value pair
+            % provided is not equal to the Type values of the arrays
+            % provided.
+            import arrow.array.ChunkedArray
+            
+            fcn = @() ChunkedArray.fromArrays(testCase.Float64Array1, ...
+                testCase.Float64Array2, Type=arrow.int32());
+            testCase.verifyError(fcn, "arrow:chunkedarray:MakeFailed");
+        end
+
+        function ZeroArraysTypeNVPairProvided(testCase)
+            % Verify formArrays returns the expected ChunkedArray when zero
+            % arrays are provided as input, but the Type name-value pair is
+            % provided.
+            import arrow.array.ChunkedArray
+            
+            chunkedArray = ChunkedArray.fromArrays(Type=arrow.string());
+            testCase.verifyChunkedArray(chunkedArray, ...
+                                        NumChunks=0, ...
+                                        Type=arrow.string(), ...
+                                        Arrays={});
         end
 
         function OneChunk(testCase)
@@ -171,6 +196,46 @@ classdef tChunkedArray < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
         end
 
+        function ChunkNonNumericIndexError(testCase)
+            % Verify that an error is thrown when a non-numeric index value
+            % is provided to the chunk() method.
+            import arrow.array.ChunkedArray
+
+            arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
+            chunkedArray = ChunkedArray.fromArrays(arrays{:});
+            fcn = @() chunkedArray.chunk("INDEX");
+            testCase.verifyError(fcn, "arrow:badsubscript:NonNumeric");
+        end
+
+        function ChunkNonScalarIndexError(testCase)
+            % Verify that an error is thrown when a non-scalar index value
+            % is provided to the chunk() method.
+            import arrow.array.ChunkedArray
+
+            arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
+            chunkedArray = ChunkedArray.fromArrays(arrays{:});
+            
+            % Provide a 1x2 array
+            fcn = @() chunkedArray.chunk([1 2]);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+
+            % Provide a 0x0 array
+            fcn = @() chunkedArray.chunk([]);
+            testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
+        end
+
+        function ChunkIndexOutOfRangeError(testCase)
+            % Verify that an error is thrown when a numeric value greater
+            % than NumChunks is provided to chunk().
+            import arrow.array.ChunkedArray
+
+            arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
+            chunkedArray = ChunkedArray.fromArrays(arrays{:});
+
+            % Provide a 1x2 array
+            fcn = @() chunkedArray.chunk(4);
+            testCase.verifyError(fcn, "arrow:chunkedarray:InvalidNumericChunkIndex");
+        end
     end
 
     methods
@@ -184,7 +249,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             end
             testCase.assertTrue(numel(opts.Arrays) == opts.NumChunks); 
             allLengths = cellfun(@(a) a.Length, opts.Arrays, UniformOutput=true);
-            expectedLengths = sum(allLengths, "native");
+            expectedLengths = int64(sum(allLengths));
 
             testCase.verifyEqual(chunkedArray.NumChunks, opts.NumChunks);
             testCase.verifyEqual(chunkedArray.Length, expectedLengths);
