@@ -167,7 +167,11 @@ namespace arrow::matlab::array::proxy {
             auto chunked_array_proxy = std::static_pointer_cast<proxy::ChunkedArray>(proxy);
             auto chunked_array_to_compare = chunked_array_proxy->unwrap();
 
-            if (!chunked_array->Equals(chunked_array_to_compare)) {
+            // Use the ChunkedArray::Equals(const ChunkedArray& other) overload instead
+            // of ChunkedArray::Equals(const std::shared_ptr<ChunkedArray> other&) to 
+            // ensure we don't assume chunked arrays with the same memory address are
+            // equal. This ensures we treat NaNs as not equal by default.
+            if (!chunked_array->Equals(*chunked_array_to_compare)) {
                 is_equal = false;
                 break;
             }
@@ -175,5 +179,4 @@ namespace arrow::matlab::array::proxy {
         mda::ArrayFactory factory;
         context.outputs[0] = factory.createScalar(is_equal);
     }
-
 }
