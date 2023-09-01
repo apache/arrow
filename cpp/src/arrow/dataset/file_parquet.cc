@@ -410,13 +410,37 @@ Result<std::shared_ptr<Schema>> ParquetFileFormat::Inspect(
 
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options) const {
-  return GetReaderAsync(source, options, nullptr).result();
+  return GetReader(source, options, /*metadata=*/nullptr);
 }
 
 Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader(
     const FileSource& source, const std::shared_ptr<ScanOptions>& options,
     const std::shared_ptr<parquet::FileMetaData>& metadata) const {
-  return GetReaderAsync(source, options, metadata).result();
+  ARROW_ASSIGN_OR_RAISE(
+      auto parquet_scan_options,
+      GetFragmentScanOptions<ParquetFragmentScanOptions>(kParquetTypeName, options.get(),
+                                                         default_fragment_scan_options));
+  auto properties =
+      MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
+  ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
+  auto reader =
+      parquet::ParquetFileReader::Open(std::move(input), std::move(properties), metadata);
+  auto path = source.path();
+  std::shared_ptr<parquet::FileMetaData> reader_metadata = reader->metadata();
+  auto arrow_properties = MakeArrowReaderProperties(*this, *reader_metadata);
+  arrow_properties.set_batch_size(options->batch_size);
+  // Must be set here since the sync ScanTask handles pre-buffering itself
+  arrow_properties.set_pre_buffer(
+      parquet_scan_options->arrow_reader_properties->pre_buffer());
+  arrow_properties.set_cache_options(
+      parquet_scan_options->arrow_reader_properties->cache_options());
+  arrow_properties.set_io_context(
+      parquet_scan_options->arrow_reader_properties->io_context());
+  arrow_properties.set_use_threads(options->use_threads);
+  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
+  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+      options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
+  return arrow_reader;
 }
 
 Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReaderAsync(
