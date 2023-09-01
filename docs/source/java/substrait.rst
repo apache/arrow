@@ -120,7 +120,6 @@ This Java program:
 
 .. code-block:: Java
 
-    import com.google.protobuf.InvalidProtocolBufferException;
     import io.substrait.extension.ExtensionCollector;
     import io.substrait.proto.Expression;
     import io.substrait.proto.ExpressionReference;
@@ -153,20 +152,21 @@ This Java program:
 
     public class ClientSubstraitExtendedExpressionsCookbook {
         public static void main(String[] args) throws Exception {
-            // create extended expression for: project two new columns + one filter
-            ByteBuffer binaryExtendedExpressions = getExtendedExpressions();
             // project and filter dataset using extended expression definition - 03 Expressions:
             // Expression 01 - CONCAT: N_NAME || ' - ' || N_COMMENT = col 1 || ' - ' || col 3
             // Expression 02 - ADD: N_REGIONKEY + 10 = col 1 + 10
             // Expression 03 - FILTER: N_NATIONKEY > 18 = col 3 > 18
-            projectAndFilterDataset(binaryExtendedExpressions);
+            projectAndFilterDataset();
         }
 
-        public static void projectAndFilterDataset(ByteBuffer substraitExtendedExpressions) {
-            String uri = "file:///Users/dsusanibar/data/tpch_parquet/nation.parquet";
-            ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768,
-                    Optional.empty())
-                    .projectionAndFilter(substraitExtendedExpressions).build();
+        public static void projectAndFilterDataset() {
+            //String uri = "file:///Users/dsusanibar/data/tpch_parquet/nation.parquet";
+            String uri = "file:////Users/dsusanibar/voltron/fork/consumer-testing/tests/data/tpch_parquet/nation.parquet";
+            ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
+                    .columns(Optional.empty())
+                    .substraitExpressionFilter(getSubstraitExpressionFilter())
+                    .substraitExpressionProjection(getSubstraitExpressionProjection())
+                    .build();
             try (
                     BufferAllocator allocator = new RootAllocator();
                     DatasetFactory datasetFactory = new FileSystemDatasetFactory(
@@ -185,7 +185,7 @@ This Java program:
             }
         }
 
-        private static ByteBuffer getExtendedExpressions() throws InvalidProtocolBufferException {
+        private static ByteBuffer getSubstraitExpressionProjection() {
             // Expression: N_REGIONKEY + 10 = col 3 + 10
             Expression.Builder selectionBuilderProjectOne = Expression.newBuilder().
                     setSelection(
@@ -284,6 +284,67 @@ This Java program:
                     setExpression(expressionBuilderProjectTwo)
                     .addOutputNames("CONCAT_COLUMNS_N_NAME_AND_N_COMMENT");
 
+            List<String> columnNames = Arrays.asList("N_NATIONKEY", "N_NAME",
+                    "N_REGIONKEY", "N_COMMENT");
+            List<Type> dataTypes = Arrays.asList(
+                    TypeCreator.NULLABLE.I32,
+                    TypeCreator.NULLABLE.STRING,
+                    TypeCreator.NULLABLE.I32,
+                    TypeCreator.NULLABLE.STRING
+            );
+            NamedStruct of = NamedStruct.of(
+                    columnNames,
+                    Type.Struct.builder().fields(dataTypes).nullable(false).build()
+            );
+            // Extensions URI
+            HashMap<String, SimpleExtensionURI> extensionUris = new HashMap<>();
+            extensionUris.put(
+                    "key-001",
+                    SimpleExtensionURI.newBuilder()
+                            .setExtensionUriAnchor(1)
+                            .setUri("/functions_arithmetic.yaml")
+                            .build()
+            );
+            // Extensions
+            ArrayList<SimpleExtensionDeclaration> extensions = new ArrayList<>();
+            SimpleExtensionDeclaration extensionFunctionAdd = SimpleExtensionDeclaration.newBuilder()
+                    .setExtensionFunction(
+                            SimpleExtensionDeclaration.ExtensionFunction.newBuilder()
+                                    .setFunctionAnchor(0)
+                                    .setName("add:i32_i32")
+                                    .setExtensionUriReference(1))
+                    .build();
+            SimpleExtensionDeclaration extensionFunctionGreaterThan = SimpleExtensionDeclaration.newBuilder()
+                    .setExtensionFunction(
+                            SimpleExtensionDeclaration.ExtensionFunction.newBuilder()
+                                    .setFunctionAnchor(1)
+                                    .setName("concat:vchar")
+                                    .setExtensionUriReference(2))
+                    .build();
+            extensions.add(extensionFunctionAdd);
+            extensions.add(extensionFunctionGreaterThan);
+            // Extended Expression
+            ExtendedExpression.Builder extendedExpressionBuilder =
+                    ExtendedExpression.newBuilder().
+                            addReferredExpr(0,
+                                    expressionReferenceBuilderProjectOne).
+                            addReferredExpr(1,
+                                    expressionReferenceBuilderProjectTwo).
+                            setBaseSchema(of.toProto(new TypeProtoConverter(
+                                    new ExtensionCollector())));
+            extendedExpressionBuilder.addAllExtensionUris(extensionUris.values());
+            extendedExpressionBuilder.addAllExtensions(extensions);
+            ExtendedExpression extendedExpression = extendedExpressionBuilder.build();
+            byte[] extendedExpressions = Base64.getDecoder().decode(
+                    Base64.getEncoder().encodeToString(
+                            extendedExpression.toByteArray()));
+            ByteBuffer substraitExpressionProjection = ByteBuffer.allocateDirect(
+                    extendedExpressions.length);
+            substraitExpressionProjection.put(extendedExpressions);
+            return substraitExpressionProjection;
+        }
+
+        private static ByteBuffer getSubstraitExpressionFilter() {
             // Expression: Filter: N_NATIONKEY > 18 = col 1 > 18
             Expression.Builder selectionBuilderFilterOne = Expression.newBuilder().
                     setSelection(
@@ -308,7 +369,7 @@ This Java program:
                             Expression.
                                     ScalarFunction.
                                     newBuilder().
-                                    setFunctionReference(2).
+                                    setFunctionReference(1).
                                     setOutputType(outputFilterOne).
                                     addArguments(
                                             0,
@@ -333,80 +394,46 @@ This Java program:
                     TypeCreator.NULLABLE.I32,
                     TypeCreator.NULLABLE.STRING
             );
-            //
             NamedStruct of = NamedStruct.of(
                     columnNames,
                     Type.Struct.builder().fields(dataTypes).nullable(false).build()
             );
-
             // Extensions URI
             HashMap<String, SimpleExtensionURI> extensionUris = new HashMap<>();
             extensionUris.put(
                     "key-001",
                     SimpleExtensionURI.newBuilder()
                             .setExtensionUriAnchor(1)
-                            .setUri("/functions_arithmetic.yaml")
-                            .build()
-            );
-            extensionUris.put(
-                    "key-002",
-                    SimpleExtensionURI.newBuilder()
-                            .setExtensionUriAnchor(2)
                             .setUri("/functions_comparison.yaml")
                             .build()
             );
-
             // Extensions
             ArrayList<SimpleExtensionDeclaration> extensions = new ArrayList<>();
-            SimpleExtensionDeclaration extensionFunctionAdd = SimpleExtensionDeclaration.newBuilder()
-                    .setExtensionFunction(
-                            SimpleExtensionDeclaration.ExtensionFunction.newBuilder()
-                                    .setFunctionAnchor(0)
-                                    .setName("add:i32_i32")
-                                    .setExtensionUriReference(1))
-                    .build();
-            SimpleExtensionDeclaration extensionFunctionGreaterThan = SimpleExtensionDeclaration.newBuilder()
-                    .setExtensionFunction(
-                            SimpleExtensionDeclaration.ExtensionFunction.newBuilder()
-                                    .setFunctionAnchor(1)
-                                    .setName("concat:vchar")
-                                    .setExtensionUriReference(2))
-                    .build();
             SimpleExtensionDeclaration extensionFunctionLowerThan = SimpleExtensionDeclaration.newBuilder()
                     .setExtensionFunction(
                             SimpleExtensionDeclaration.ExtensionFunction.newBuilder()
-                                    .setFunctionAnchor(2)
+                                    .setFunctionAnchor(1)
                                     .setName("gt:any_any")
-                                    .setExtensionUriReference(2))
+                                    .setExtensionUriReference(1))
                     .build();
-            extensions.add(extensionFunctionAdd);
-            extensions.add(extensionFunctionGreaterThan);
             extensions.add(extensionFunctionLowerThan);
-
             // Extended Expression
             ExtendedExpression.Builder extendedExpressionBuilder =
                     ExtendedExpression.newBuilder().
                             addReferredExpr(0,
-                                    expressionReferenceBuilderProjectOne).
-                            addReferredExpr(1,
-                                    expressionReferenceBuilderProjectTwo).
-                            addReferredExpr(2,
                                     expressionReferenceBuilderFilterOne).
                             setBaseSchema(of.toProto(new TypeProtoConverter(
                                     new ExtensionCollector())));
             extendedExpressionBuilder.addAllExtensionUris(extensionUris.values());
             extendedExpressionBuilder.addAllExtensions(extensions);
-
             ExtendedExpression extendedExpression = extendedExpressionBuilder.build();
-
             byte[] extendedExpressions = Base64.getDecoder().decode(
                     Base64.getEncoder().encodeToString(
                             extendedExpression.toByteArray()));
-            ByteBuffer substraitExtendedExpressions = ByteBuffer.allocateDirect(
+            ByteBuffer substraitExpressionFilter = ByteBuffer.allocateDirect(
                     extendedExpressions.length);
-            substraitExtendedExpressions.put(extendedExpressions);
-
-            return substraitExtendedExpressions;
+            substraitExpressionFilter.put(extendedExpressions);
+            return substraitExpressionFilter;
         }
     }
 

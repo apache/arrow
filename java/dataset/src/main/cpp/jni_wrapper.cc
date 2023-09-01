@@ -464,11 +464,12 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    createScanner
- * Signature: (J[Ljava/lang/String;JJ)J
+ * Signature: (J[Ljava/lang/String;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;JJ)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
     JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns,
-    jobject substrait_extended_expression, jlong batch_size, jlong memory_pool_id) {
+    jobject substrait_expression_projection, jobject substrait_expression_filter,
+    jlong batch_size, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
@@ -483,11 +484,25 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
     std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
   }
-  if (substrait_extended_expression != nullptr) {
+  if (substrait_expression_projection != nullptr) {
     std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
-                                                            substrait_extended_expression);
+                                                            substrait_expression_projection);
     std::vector<arrow::compute::Expression> project_exprs;
     std::vector<std::string> project_names;
+    arrow::engine::BoundExpressions bounded_expression =
+          JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+    for(arrow::engine::NamedExpression& named_expression :
+                                        bounded_expression.named_expressions) {
+      if (!(named_expression.expression.type()->id() == arrow::Type::BOOL)) {
+        project_exprs.push_back(std::move(named_expression.expression));
+        project_names.push_back(std::move(named_expression.name));
+      }
+    }
+    JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
+  }
+  if (substrait_expression_filter != nullptr) {
+    std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
+                                                                substrait_expression_filter);
     std::optional<arrow::compute::Expression> filter_expr;
     arrow::engine::BoundExpressions bounded_expression =
           JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
@@ -498,12 +513,8 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
           JniThrow("Only one filter expression may be provided");
         }
         filter_expr = named_expression.expression;
-      } else {
-        project_exprs.push_back(std::move(named_expression.expression));
-        project_names.push_back(std::move(named_expression.name));
       }
     }
-    JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
     JniAssertOkOrThrow(scanner_builder->Filter(*filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
