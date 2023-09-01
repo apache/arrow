@@ -2487,18 +2487,32 @@ define-property@^2.0.2:
     is-descriptor "^1.0.2"
     isobject "^3.0.1"
 
-del-cli@5.0.0:
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/del-cli/-/del-cli-5.0.0.tgz#fa79fd57e888ecaaf8a468d87e8a175142a24aa9"
-  integrity sha512-rENFhUaYcjoMODwFhhlON+ogN7DoG+4+GFN+bsA1XeDt4w2OKQnQadFP1thHSAlK9FAtl88qgP66wOV+eFZZiQ==
+del-cli@5.1.0:
+  version "5.1.0"
+  resolved "https://registry.yarnpkg.com/del-cli/-/del-cli-5.1.0.tgz#740eca1c7a9eb13043e68d8a361cf0ff9a18d5c8"
+  integrity sha512-xwMeh2acluWeccsfzE7VLsG3yTr7nWikbfw+xhMnpRrF15pGSkw+3/vJZWlGoE4I86UiLRNHicmKt4tkIX9Jtg==
   dependencies:
-    del "^7.0.0"
+    del "^7.1.0"
     meow "^10.1.3"
 
-del@7.0.0, del@^7.0.0:
+del@7.0.0:
   version "7.0.0"
   resolved "https://registry.yarnpkg.com/del/-/del-7.0.0.tgz#79db048bec96f83f344b46c1a66e35d9c09fe8ac"
   integrity sha512-tQbV/4u5WVB8HMJr08pgw0b6nG4RGt/tj+7Numvq+zqcvUFeMaIWWOUFltiU+6go8BSO2/ogsB4EasDaj0y68Q==
+  dependencies:
+    globby "^13.1.2"
+    graceful-fs "^4.2.10"
+    is-glob "^4.0.3"
+    is-path-cwd "^3.0.0"
+    is-path-inside "^4.0.0"
+    p-map "^5.5.0"
+    rimraf "^3.0.2"
+    slash "^4.0.0"
+
+del@^7.1.0:
+  version "7.1.0"
+  resolved "https://registry.yarnpkg.com/del/-/del-7.1.0.tgz#0de0044d556b649ff05387f1fa7c885e155fd1b6"
+  integrity sha512-v2KyNk7efxhlyHpjEvfyxaAihKKK0nWCuf6ZtqZcFFpQRG0bJ12Qsr0RpvsICMjAAZ8DOVCxrlqpxISlMHC4Kg==
   dependencies:
     globby "^13.1.2"
     graceful-fs "^4.2.10"
