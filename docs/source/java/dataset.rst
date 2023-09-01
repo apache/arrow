@@ -166,7 +166,11 @@ User can specify projections (new columns) or filters in ScanOptions. For exampl
 
    ByteBuffer substraitExtendedExpressions = ...;
    // Use Substrait APIs to create an Expression and serialize to a ByteBuffer
-   ScanOptions options = new ScanOptions(32768, Optional.empty(), Optional.of(substraitExtendedExpressions));
+   ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
+                .columns(Optional.empty())
+                .substraitExpressionFilter(getSubstraitExpressionFilter())
+                .substraitExpressionProjection(getSubstraitExpressionProjection())
+                .build();
 
 .. seealso::
 
