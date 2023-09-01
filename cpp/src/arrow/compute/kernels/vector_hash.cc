@@ -864,12 +864,10 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     std::shared_ptr<arrow::Array> compacted_dict = compacted_dict_res.make_array();
 
     // indice changes
-    CType indice_minus_number[dict->length()];
+    std::vector<CType> indice_minus_number(dict->length(), 0);
     if (!dict_used[0]) {
       indice_minus_number[0] = 1;
-    } else {
-      indice_minus_number[0] = 0;
-    }
+    } 
     for (int64_t i = 1; i < dict->length(); i++) {
       indice_minus_number[i] = indice_minus_number[i - 1];
       if (!dict_used[i]) {
