@@ -27,6 +27,7 @@ on:
       - "ci/etc/rprofile"
       - "ci/docker/**"
       - "cpp/**"
+      - 'docker-compose.yml'
       - "r/**"
   pull_request:
     paths:
@@ -37,6 +38,7 @@ on:
       - "ci/etc/rprofile"
       - "ci/docker/**"
       - "cpp/**"
+      - 'docker-compose.yml'
       - "r/**"
 
 concurrency:

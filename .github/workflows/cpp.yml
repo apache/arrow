@@ -29,6 +29,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
   pull_request:
     paths:
@@ -41,6 +42,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
 
 concurrency:

@@ -23,12 +23,14 @@ on:
       - '.github/workflows/swift.yml'
       - 'ci/docker/*swift*'
       - 'ci/scripts/swift_*'
+      - 'docker-compose.yml'
       - 'swift/**'
   pull_request:
     paths:
       - '.github/workflows/swift.yml'
       - 'ci/docker/*swift*'
       - 'ci/scripts/swift_*'
+      - 'docker-compose.yml'
       - 'swift/**'
 
 concurrency:

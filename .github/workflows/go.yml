@@ -23,6 +23,7 @@ on:
       - '.github/workflows/go.yml'
       - 'ci/docker/*_go.dockerfile'
       - 'ci/scripts/go_*'
+      - 'docker-compose.yml'
       - 'go/**'
   pull_request:
     paths:
@@ -30,6 +31,7 @@ on:
       - 'ci/docker/*_go.dockerfile'
       - 'ci/docker/**'
       - 'ci/scripts/go_*'
+      - 'docker-compose.yml'
       - 'go/**'
 
 concurrency:
