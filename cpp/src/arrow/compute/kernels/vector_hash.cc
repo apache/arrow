@@ -801,7 +801,7 @@ class DictionaryDecodeMetaFunction : public MetaFunction {
 const FunctionDoc dictionary_compaction_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
-     "which would remove unused values in dictionary\n"),
+     "which would remove unused values in dictionary."),
     {"dictionary_array"}};
 
 class DictionaryCompactionKernel : public KernelState {
@@ -1010,8 +1010,9 @@ void RegisterDictionaryCompaction(FunctionRegistry* registry) {
   base.init = DictionaryCompactionInit;
   base.exec = DictionaryCompactionExec;
   base.signature = KernelSignature::Make({Type::DICTIONARY}, FirstType);
-  
-  auto dictionary_compaction = std::make_shared<VectorFunction>("dictionary_compaction", Arity::Unary(), dictionary_compaction_doc);
+
+  auto dictionary_compaction = std::make_shared<VectorFunction>(
+      "dictionary_compaction", Arity::Unary(), dictionary_compaction_doc);
   DCHECK_OK(dictionary_compaction->AddKernel(base));
   DCHECK_OK(registry->AddFunction(std::move(dictionary_compaction)));
 }
