@@ -890,12 +890,12 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
       }
     }
     BuilderType indice_builder;
-    if (indice->null_count() == 0) {
+    if (indice->null_count() != 0) {
       ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice,
                           is_valid));
     } else {
       ARROW_RETURN_NOT_OK(
-          indice_builder.AppendValues(raw_changed_indice, indice->length()));
+          indice_builder.AppendValues(raw_changed_indice));
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indice_builder.Finish());
