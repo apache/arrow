@@ -57,10 +57,10 @@ home:
   sidebar:
     structure:
       - project
-      - implementations
       - links
       - license
       - community
+      - implementations
       - citation
       - authors
       - dev
@@ -70,6 +70,10 @@ home:
         text: >
           [Homepage](https://arrow.apache.org/) <br>
           [Specifications](https://arrow.apache.org/docs/format/Columnar.html)
+      community:
+        title: Community
+        text: >
+          [Code of conduct](https://www.apache.org/foundation/policies/conduct.html) <br>
       implementations:
         title: Implementations
         text: >
@@ -85,10 +89,6 @@ home:
           [R](index.html) <br>
           [Ruby](https://github.com/apache/arrow/blob/main/ruby/README.md) <br>
           [Rust](https://docs.rs/crate/arrow/latest)
-      community:
-        title: Community
-        text: >
-          [Code of conduct](https://www.apache.org/foundation/policies/conduct.html) <br>
 
 navbar:
   bg: black

@@ -11,7 +11,7 @@
 ## Overview
 
 arrow provides access to many of the features of the
-[Apache Arrow C++ library](https://arrow.apache.org/docs/cpp/index.html) for R users. The goal of arrow is to provide an Arrow C++ backend to `{dplyr}`, and low-level access to the Arrow C++ library through familiar base R and tidyverse functions, or `{R6}` classes.
+[Apache Arrow C++ library](https://arrow.apache.org/docs/cpp/index.html) for R users. The goal of arrow is to provide an Arrow C++ backend to `{dplyr}`, and access to the Arrow C++ library through familiar base R and tidyverse functions, or `{R6}` classes.
 
 To learn more about the Apache Arrow project, see the parent documentation of the [Arrow Project](https://arrow.apache.org/). The Arrow project provides functionality for a wide range of data analysis tasks to store, process and move data fast. See `vignette("read_write")` to learn about reading and writing data files, `vignettes("data_wrangling")` to learn how to use dplyr syntax with arrow objects, and the [function documentation](reference/acero.html) for a full list of supported functions within dplyr queries.
 
@@ -71,6 +71,8 @@ There are a few additional resources that you may find useful for getting starte
 - The official [Arrow R package documentation](https://arrow.apache.org/docs/r/)
 - [Arrow for R cheatsheet](https://github.com/apache/arrow/blob/-/r/cheatsheet/arrow-cheatsheet.pdf)
 - [Apache Arrow R Cookbook](https://arrow.apache.org/cookbook/r/index.html)
+- R for Data Science [Chapter on Arrow](https://r4ds.hadley.nz/arrow)
+- [Awesome Arrow R](https://github.com/thisisnic/awesome-arrow-r)
 
 ## Getting help
 
