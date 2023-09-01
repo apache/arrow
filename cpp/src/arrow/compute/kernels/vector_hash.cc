@@ -822,7 +822,7 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
         checked_cast<const DictionaryArray&>(*dict_array);
 
     const std::shared_ptr<Array>& dict = casted_dict_array.dictionary();
-    if(dict->length() == 0){
+    if (dict->length() == 0) {
       return dict_array;
     }
 
