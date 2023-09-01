@@ -24,7 +24,6 @@
 #include "arrow/matlab/array/proxy/wrap.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
-#include <iostream>
 
 namespace arrow::matlab::array::proxy {
 
@@ -69,7 +68,6 @@ namespace arrow::matlab::array::proxy {
             auto array_proxy = std::static_pointer_cast<proxy::Array>(proxy);
             auto array = array_proxy->unwrap();
             arrays.push_back(array);
-            std::cout << array->type_id() << std::endl;
         }
 
         MATLAB_ASSIGN_OR_ERROR(auto chunked_array, 
