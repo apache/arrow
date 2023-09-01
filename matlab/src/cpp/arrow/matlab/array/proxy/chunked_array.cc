@@ -60,6 +60,7 @@ namespace arrow::matlab::array::proxy {
 
         mda::StructArray opts = constructor_arguments[0];
         const mda::TypedArray<uint64_t> array_proxy_ids = opts[0]["ArrayProxyIDs"];
+        const mda::TypedArray<uint64_t> type_proxy_id = opts[0]["TypeProxyID"];
 
         std::vector<std::shared_ptr<arrow::Array>> arrays;
         // Retrieve all of the Array Proxy instances from the libmexclass ProxyManager.
@@ -70,8 +71,12 @@ namespace arrow::matlab::array::proxy {
             arrays.push_back(array);
         }
 
+        auto proxy = libmexclass::proxy::ProxyManager::getProxy(type_proxy_id[0]);
+        auto type_proxy = std::static_pointer_cast<type::proxy::Type>(proxy);
+        auto type = type_proxy->unwrap();
+
         MATLAB_ASSIGN_OR_ERROR(auto chunked_array, 
-                               arrow::ChunkedArray::Make(arrays),
+                               arrow::ChunkedArray::Make(arrays, type),
                                error::CHUNKED_ARRAY_MAKE_FAILED);
 
         return std::make_unique<proxy::ChunkedArray>(std::move(chunked_array));

@@ -82,15 +82,30 @@ classdef ChunkedArray < matlab.mixin.CustomDisplay & ...
     end
 
     methods(Static)
-        function chunkedArray = fromArrays(arrays)
+        function chunkedArray = fromArrays(arrays, opts)
             arguments(Repeating)
                 arrays(1, 1) arrow.array.Array
             end
+            arguments
+                opts.Type(1, 1) arrow.type.Type
+            end
 
-            narginchk(1, inf);
+            typedProvided = isfield(opts, "Type");
+
+            if (isempty(arrays) && ~typedProvided)
+                errid = "arrow:chunkedarray:TypeRequiredWithZeroArrayInputs";
+                msg = "Must provide the Type name-value pair if no arrays were provided as input";
+                error(errid, msg);
+            end
+
+            if typedProvided
+                type = opts.Type;
+            else
+                type = arrays{1}.Type;
+            end
 
             proxyIDs = arrow.array.internal.getArrayProxyIDs(arrays);
-            args = struct(ArrayProxyIDs=proxyIDs);
+            args = struct(ArrayProxyIDs=proxyIDs, TypeProxyID=type.Proxy.ID);
             proxyName = "arrow.array.proxy.ChunkedArray";
             proxy = arrow.internal.proxy.create(proxyName, args);
 
