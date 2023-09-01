@@ -26,9 +26,8 @@ classdef tChunkedArray < matlab.unittest.TestCase
 
     methods (Test)
         function FromArraysTooFewInputsError(testCase)
-            % Verify an error is thrown when zero arrays are provided as
-            % input and the Type name-value pair is not provided to
-            % ChunkedArray's static method fromArrays.
+            % Verify an error is thrown when neither the Type nv-pair nor
+            % arrays are provided to fromArrays.
             import arrow.array.ChunkedArray
             
             fcn = @() ChunkedArray.fromArrays();
@@ -37,7 +36,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
 
         function InconsistentArrayTypeError(testCase)
             % Verify an error is thrown when arrays of different types are
-            % provided to ChunkedArray's static method fromArrays.
+            % provided to fromArrays.
             import arrow.array.ChunkedArray
             
             float32Array = arrow.array(single([1 2 3]));
@@ -46,9 +45,8 @@ classdef tChunkedArray < matlab.unittest.TestCase
         end
 
         function ArrayTypeNVPairMismatchError(testCase)
-            % Verify an error is thrown when the Type name-value pair
-            % provided is not equal to the Type values of the arrays
-            % provided.
+            % Verify an error is thrown when the provided Type name-value 
+            % pair is not equal to the Type values of the provided arrays.
             import arrow.array.ChunkedArray
             
             fcn = @() ChunkedArray.fromArrays(testCase.Float64Array1, ...
@@ -96,7 +94,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
         end
 
         function TestIsEqualTrue(testCase)
-            % Verifies chunked arrays are considered equal if:
+            % Verifies ChunkedArrays are considered equal if:
             %
             %  1. Their Type properties are equal
             %  2. Their Length properties ar eequal
@@ -104,9 +102,8 @@ classdef tChunkedArray < matlab.unittest.TestCase
             %  4. All corresponding valid elements have the same values
             %
             % NOTE: Having the same "chunking" is not a requirement for two
-            % chunked arrays to be equal. As long as "flattening" both
-            % chunked arrays results in the same array, then those
-            % chunked arrays are equal.
+            % ChunkedArrays to be equal. ChunkedArrays are considered equal
+            % as long as "flattening" them produces the same array.
 
             import arrow.array.ChunkedArray
 
@@ -121,7 +118,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             testCase.verifyTrue(isequal(chunkedArray1, chunkedArray1));
 
             % Verify two chunked arrays are considered equal even if the
-            % data is distributed differently across chunks
+            % way in which they are chunked is different.
             testCase.verifyTrue(isequal(chunkedArray1, chunkedArray2));
         end
 
@@ -138,21 +135,17 @@ classdef tChunkedArray < matlab.unittest.TestCase
 
             chunkedArray2 = ChunkedArray.fromArrays(float64Array1, float64Array2, float64Array3);
 
-            % Verify chunked arrays with different null values are not
-            % considered equal.
+            % Compare ChunkedArrays with different null values.
             testCase.verifyFalse(isequal(chunkedArray1, chunkedArray2));
 
-            % Verify NaNs are not treated as equal
+            % Compare ChunkedArrays that have NaN values.
             testCase.verifyFalse(isequal(chunkedArray2, chunkedArray2));
 
-            % Verify chunked arrays with different lengths are not
-            % considered equal
+            % Compare ChunkedArrays with different Length values.
             chunkedArray3 = ChunkedArray.fromArrays(testCase.Float64Array1);
             testCase.verifyFalse(isequal(chunkedArray1, chunkedArray3));
 
-            % Verify chunked arrays with different types are not considered
-            % equal.
-            
+            % Compare ChunkedArrays with different Type values.
             float32Array1 = arrow.array(single(toMATLAB(arrays{1})));
             float32Array2 = arrow.array(single(toMATLAB(arrays{2})));
             float32Array3 = arrow.array(single(toMATLAB(arrays{3})));
@@ -161,7 +154,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
         end
 
         function NumChunksNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
+            % Verify an error is thrown when trying to set the value
             % of the NumChunks property.
             import arrow.array.ChunkedArray
 
@@ -173,7 +166,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
         end
 
         function TypeNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
+            % Verify an error is thrown when trying to set the value
             % of the Type property.
             import arrow.array.ChunkedArray
 
@@ -185,8 +178,8 @@ classdef tChunkedArray < matlab.unittest.TestCase
         end
 
         function LengthNoSetter(testCase)
-            % Verify that an error is thrown when trying to set the value
-            % of the Type property.
+            % Verify an error is thrown when trying to set the value
+            % of the Length property.
             import arrow.array.ChunkedArray
 
             arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
@@ -224,7 +217,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:badsubscript:NonScalar");
         end
 
-        function ChunkIndexOutOfRangeError(testCase)
+        function NumericIndexWithEmptyChunkedArrayError(testCase)
             % Verify that an error is thrown when a numeric value greater
             % than NumChunks is provided to chunk().
             import arrow.array.ChunkedArray
@@ -232,9 +225,20 @@ classdef tChunkedArray < matlab.unittest.TestCase
             arrays = {testCase.Float64Array1, testCase.Float64Array2, testCase.Float64Array3};
             chunkedArray = ChunkedArray.fromArrays(arrays{:});
 
-            % Provide a 1x2 array
+            % Provide an index greater than NumChunks
             fcn = @() chunkedArray.chunk(4);
             testCase.verifyError(fcn, "arrow:chunkedarray:InvalidNumericChunkIndex");
+        end
+
+        function NumericIndexEmptyChunkedArrayError(testCase)
+            % Verify that an error is thrown when calling chunk() on a
+            % zero-chunk ChunkedArray.
+            import arrow.array.ChunkedArray
+
+            chunkedArray = ChunkedArray.fromArrays(Type=arrow.time32());
+
+            fcn = @() chunkedArray.chunk(2);
+            testCase.verifyError(fcn, "arrow:chunkedarray:NumericIndexWithEmptyChunkedArray");
         end
     end
 
