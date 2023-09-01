@@ -423,9 +423,22 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   auto properties =
       MakeReaderProperties(*this, parquet_scan_options.get(), options->pool);
   ARROW_ASSIGN_OR_RAISE(auto input, source.Open());
-  auto reader =
-      parquet::ParquetFileReader::Open(std::move(input), std::move(properties), metadata);
-  auto path = source.path();
+  // `parquet::ParquetFileReader::Open` will not wrap the exception as status,
+  // so using `open_parquet_file` to wrap it.
+  auto open_parquet_file = [&]() -> Result<std::unique_ptr<parquet::ParquetFileReader>> {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    auto reader = parquet::ParquetFileReader::Open(std::move(input),
+                                                   std::move(properties), metadata);
+    return reader;
+    END_PARQUET_CATCH_EXCEPTIONS
+  };
+
+  auto reader_opt = open_parquet_file();
+  if (!reader_opt.ok()) {
+    return WrapSourceError(reader_opt.status(), source.path());
+  }
+  auto reader = std::move(reader_opt).ValueOrDie();
+
   std::shared_ptr<parquet::FileMetaData> reader_metadata = reader->metadata();
   auto arrow_properties = MakeArrowReaderProperties(*this, *reader_metadata);
   arrow_properties.set_batch_size(options->batch_size);
