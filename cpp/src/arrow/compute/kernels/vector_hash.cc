@@ -823,7 +823,7 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
 
     const std::shared_ptr<Array>& dict = casted_dict_array.dictionary();
     if(dict->length() == 0){
-      return dict_array; 
+      return dict_array;
     }
 
     const std::shared_ptr<Array>& indice = casted_dict_array.indices();
@@ -871,7 +871,7 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     std::vector<CType> indice_minus_number(dict->length(), 0);
     if (!dict_used[0]) {
       indice_minus_number[0] = 1;
-    } 
+    }
     for (int64_t i = 1; i < dict->length(); i++) {
       indice_minus_number[i] = indice_minus_number[i - 1];
       if (!dict_used[i]) {
@@ -891,11 +891,9 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
     BuilderType indice_builder;
     if (indice->null_count() != 0) {
-      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice,
-                          is_valid));
+      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice, is_valid));
     } else {
-      ARROW_RETURN_NOT_OK(
-          indice_builder.AppendValues(raw_changed_indice));
+      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice));
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indice_builder.Finish());
