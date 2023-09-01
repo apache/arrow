@@ -837,11 +837,11 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
       if (!dict_used[cur_indice]) {
         dict_used[cur_indice] = true;
         dict_used_count++;
-      }
-    }
 
-    if (dict_used_count == dict->length()) {  // input is already compacted
-      return dict_array;
+        if (dict_used_count == dict->length()) {  // input is already compacted
+          return dict_array;
+        }
+      }
     }
 
     // dictionary compaction
