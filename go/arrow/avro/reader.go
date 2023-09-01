@@ -232,6 +232,8 @@ func (r *OCFReader) nextn() bool {
 				return false
 			}
 			n++
+		} else {
+			r.done = true
 		}
 	}
 	if r.err != nil {
