@@ -519,7 +519,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   void WriteBloomFilter() {
     if (bloom_filter_builder_ != nullptr) {
       if (properties_->file_encryption_properties()) {
-        throw ParquetException("Encryption is not supported with bloom filter");
+        ParquetException::NYI("Encryption is not supported with bloom filter");
       }
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.

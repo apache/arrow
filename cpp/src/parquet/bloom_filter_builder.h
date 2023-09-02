@@ -15,13 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// This module defines an abstract interface for iterating through pages in a
-// Parquet column chunk within a row group. It could be extended in the future
-// to iterate through all data pages in all chunks in a file.
-
 #pragma once
 
-#include "arrow/io/interfaces.h"
+#include "arrow/io/type_fwd.h"
 #include "parquet/types.h"
 
 namespace parquet {
@@ -30,10 +26,6 @@ class BloomFilter;
 class SchemaDescriptor;
 struct BloomFilterOptions;
 struct BloomFilterLocation;
-
-namespace schema {
-class ColumnPath;
-}
 
 /// \brief Interface for collecting bloom filter of a parquet file.
 class PARQUET_EXPORT BloomFilterBuilder {
@@ -58,12 +50,16 @@ class PARQUET_EXPORT BloomFilterBuilder {
 
   /// \brief Write the bloom filter to sink.
   ///
+  /// The bloom filter must have been finished first.
+  ///
   /// \param[out] sink The output stream to write the bloom filter.
   /// \param[out] location The location of all bloom filter to the start of sink.
   virtual void WriteTo(::arrow::io::OutputStream* sink,
                        BloomFilterLocation* location) = 0;
 
   /// \brief Complete the bloom filter builder and no more write is allowed.
+  ///
+  /// This method must be called before WriteTo.
   virtual void Finish() = 0;
 
   virtual ~BloomFilterBuilder() = default;

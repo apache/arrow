@@ -167,11 +167,16 @@ class PARQUET_EXPORT BloomFilter {
 
   virtual ~BloomFilter() = default;
 
-  // Variant of const pointer argument to facilitate template
-  uint64_t Hash(const int32_t* value) const { return Hash(*value); }
-  uint64_t Hash(const int64_t* value) const { return Hash(*value); }
-  uint64_t Hash(const float* value) const { return Hash(*value); }
-  uint64_t Hash(const double* value) const { return Hash(*value); }
+  // Variant of const reference argument to facilitate template
+  uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
+  uint64_t Hash(const FLBA& value, uint32_t type_len) const {
+    return Hash(&value, type_len);
+  }
+  uint64_t Hash(const Int96& value) const { return Hash(&value); }
+  uint64_t Hash(const std::string_view& value) const {
+    ByteArray ba(value);
+    return Hash(&ba);
+  }
 
  protected:
   // Hash strategy available for Bloom filter.

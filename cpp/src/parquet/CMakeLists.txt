@@ -336,7 +336,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
-                 bloom_filter_parquet_test.cc
+                 bloom_filter_reader_writer_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc

@@ -5624,23 +5624,13 @@ class ParquetBloomFilterRoundTripTest : public ::testing::Test,
   }
 
   template <typename ArrowType>
-  void verifyBloomFilter(const BloomFilter* bloom_filter,
+  void VerifyBloomFilter(const BloomFilter* bloom_filter,
                          const ::arrow::ChunkedArray& chunked_array) {
-    auto iter = ::arrow::stl::Begin<ArrowType>(chunked_array);
-    auto end = ::arrow::stl::End<ArrowType>(chunked_array);
-    while (iter != end) {
-      auto value = *iter;
+    for (auto value : ::arrow::stl::Iterate<ArrowType>(chunked_array)) {
       if (value == std::nullopt) {
-        ++iter;
         continue;
       }
-      if constexpr (std::is_same_v<ArrowType, ::arrow::StringType>) {
-        ByteArray ba(value.value());
-        EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(&ba)));
-      } else {
-        EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(value.value())));
-      }
-      ++iter;
+      EXPECT_TRUE(bloom_filter->FindHash(bloom_filter->Hash(value.value())));
     }
   }
 
@@ -5652,7 +5642,8 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
   BloomFilterOptions options;
   options.ndv = 100;
   auto writer_properties = WriterProperties::Builder()
-                               .set_bloom_filter_options(options)
+                               .enable_bloom_filter_options(options, "c0")
+                               ->enable_bloom_filter_options(options, "c1")
                                ->max_row_group_length(4)
                                ->build();
   auto schema = ::arrow::schema(
@@ -5672,22 +5663,22 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
   {
     ASSERT_NE(nullptr, bloom_filters_[0]);
     auto col = table->column(0)->Slice(0, 4);
-    verifyBloomFilter<::arrow::Int64Type>(bloom_filters_[0].get(), *col);
+    VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[0].get(), *col);
   }
   {
     ASSERT_NE(nullptr, bloom_filters_[1]);
     auto col = table->column(1)->Slice(0, 4);
-    verifyBloomFilter<::arrow::StringType>(bloom_filters_[1].get(), *col);
+    VerifyBloomFilter<::arrow::StringType>(bloom_filters_[1].get(), *col);
   }
   {
     ASSERT_NE(nullptr, bloom_filters_[2]);
     auto col = table->column(0)->Slice(4, 2);
-    verifyBloomFilter<::arrow::Int64Type>(bloom_filters_[2].get(), *col);
+    VerifyBloomFilter<::arrow::Int64Type>(bloom_filters_[2].get(), *col);
   }
   {
     ASSERT_NE(nullptr, bloom_filters_[3]);
     auto col = table->column(1)->Slice(4, 2);
-    verifyBloomFilter<::arrow::StringType>(bloom_filters_[3].get(), *col);
+    VerifyBloomFilter<::arrow::StringType>(bloom_filters_[3].get(), *col);
   }
 }
 

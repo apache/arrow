@@ -142,10 +142,10 @@ static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
 static constexpr int32_t DEFAULT_BLOOM_FILTER_NDV = 1024 * 1024;
 static constexpr double DEFAULT_BLOOM_FILTER_FPP = 0.05;
 
-/// Note: Currently we don't support bloom filter for boolean columns,
-/// so if enable bloom filter for boolean columns, it will be ignored.
 struct BloomFilterOptions {
+  /// The number of distinct values to expect to be inserted into the bloom.
   int32_t ndv = DEFAULT_BLOOM_FILTER_NDV;
+  /// The false positive probability expected from the bloom.
   double fpp = DEFAULT_BLOOM_FILTER_FPP;
 };
 
@@ -208,14 +208,6 @@ class PARQUET_EXPORT ColumnProperties {
       }
     }
     bloom_filter_options_ = bloom_filter_options;
-  }
-
-  void set_bloom_filter_enabled(bool bloom_filter_enabled) {
-    if (!bloom_filter_enabled) {
-      bloom_filter_options_ = std::nullopt;
-    } else if (!bloom_filter_options_) {
-      bloom_filter_options_ = BloomFilterOptions();
-    }
   }
 
   Encoding::type encoding() const { return encoding_; }
@@ -571,31 +563,6 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
-    /// Enable writing bloom filter in general for all columns. Default disabled.
-    ///
-    /// Please check the link below for more details:
-    /// https://github.com/apache/parquet-format/blob/master/BloomFilter.md
-    Builder* enable_bloom_filter() {
-      default_column_properties_.set_bloom_filter_enabled(true);
-      return this;
-    }
-
-    /// Enable bloom filter for the column specified by `path`.
-    /// Default disabled.
-    Builder* enable_bloom_filter(const std::string& path) {
-      auto iter = bloom_filter_options_.find(path);
-      if (iter == bloom_filter_options_.end() || iter->second == std::nullopt) {
-        bloom_filter_options_[path] = BloomFilterOptions();
-      }
-      return this;
-    }
-
-    /// Enable bloom filter for the column specified by `path`.
-    /// Default disabled.
-    Builder* enable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
-      return this->enable_bloom_filter(path->ToDotString());
-    }
-
     /// Disable bloom filter for the column specified by `path`.
     /// Default disabled.
     Builder* disable_bloom_filter(const std::string& path) {
@@ -609,10 +576,28 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_bloom_filter(path->ToDotString());
     }
 
-    Builder* set_bloom_filter_options(
-        std::optional<BloomFilterOptions> bloom_filter_options) {
-      default_column_properties_.set_bloom_filter_options(bloom_filter_options);
+    /// Enable bloom filter options for the column specified by `path`.
+    ///
+    /// Default disabled.
+    ///
+    /// Note: Currently we don't support bloom filter for boolean columns,
+    /// so if enable bloom filter for boolean columns, it will be ignored.
+    Builder* enable_bloom_filter_options(BloomFilterOptions bloom_filter_options,
+                                         const std::string& path) {
+      bloom_filter_options_[path] = bloom_filter_options;
       return this;
+    }
+
+    /// Enable bloom filter options for the column specified by `path`.
+    ///
+    /// Default disabled.
+    ///
+    /// Note: Currently we don't support bloom filter for boolean columns,
+    /// so if enable bloom filter for boolean columns, it will be ignored.
+    Builder* enable_bloom_filter_options(
+        BloomFilterOptions bloom_filter_options,
+        const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->enable_bloom_filter_options(bloom_filter_options, path->ToDotString());
     }
 
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.

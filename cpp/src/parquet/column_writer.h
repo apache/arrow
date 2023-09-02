@@ -44,7 +44,6 @@ class CodecOptions;
 namespace parquet {
 
 struct ArrowWriteContext;
-class BloomFilter;
 class ColumnChunkMetaDataBuilder;
 class ColumnDescriptor;
 class ColumnIndexBuilder;

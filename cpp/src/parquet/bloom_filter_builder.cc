@@ -37,8 +37,8 @@ namespace parquet {
 class BloomFilterBuilderImpl : public BloomFilterBuilder {
  public:
   explicit BloomFilterBuilderImpl(const SchemaDescriptor* schema,
-                                  WriterProperties properties)
-      : schema_(schema), properties_(std::move(properties)) {}
+                                  const WriterProperties& properties)
+      : schema_(schema), properties_(properties) {}
   /// Append a new row group to host all incoming bloom filters.
   void AppendRowGroup() override;
 
@@ -65,7 +65,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
       throw ParquetException("No row group appended to BloomFilterBuilder.");
     }
     if (schema_->Column(column_ordinal)->physical_type() == Type::BOOLEAN) {
-      throw ParquetException("BloomFilterBuilder not supports Boolean.");
+      throw ParquetException("BloomFilterBuilder does not support boolean type.");
     }
   }
 

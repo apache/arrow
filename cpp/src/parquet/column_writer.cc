@@ -2349,21 +2349,31 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
 template <typename DType>
 void TypedColumnWriterImpl<DType>::UpdateBloomFilter(const T* values,
                                                      int64_t num_values) {
+  constexpr int64_t kHashBatchSize = 256;
   if (bloom_filter_) {
-    // TODO(mwish): Would it allocate too much memory? Would an std::array<uint64_t, 64>
-    //  better here?
-    std::vector<uint64_t> hashes(num_values);
-    bloom_filter_->Hashes(values, static_cast<int>(num_values), hashes.data());
-    bloom_filter_->InsertHashes(hashes.data(), static_cast<int>(num_values));
+    std::array<uint64_t, kHashBatchSize> hashes;
+    for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
+      int64_t current_hash_batch_size = std::min(kHashBatchSize, num_values - i);
+      bloom_filter_->Hashes(values, static_cast<int>(current_hash_batch_size),
+                            hashes.data());
+      bloom_filter_->InsertHashes(hashes.data(),
+                                  static_cast<int>(current_hash_batch_size));
+    }
   }
 }
 
 template <>
 void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilter(const FLBA* values,
                                                         int64_t num_values) {
+  constexpr int64_t kHashBatchSize = 256;
   if (bloom_filter_) {
-    for (int64_t i = 0; i < num_values; ++i) {
-      bloom_filter_->InsertHash(bloom_filter_->Hash(values + i, descr_->type_length()));
+    std::array<uint64_t, kHashBatchSize> hashes;
+    for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
+      int64_t current_hash_batch_size = std::min(kHashBatchSize, num_values - i);
+      bloom_filter_->Hashes(values, descr_->type_length(),
+                            static_cast<int>(current_hash_batch_size), hashes.data());
+      bloom_filter_->InsertHashes(hashes.data(),
+                                  static_cast<int>(current_hash_batch_size));
     }
   }
 }
@@ -2382,7 +2392,7 @@ void TypedColumnWriterImpl<DType>::UpdateBloomFilterSpaced(const T* values,
     ::arrow::internal::VisitSetBitRunsVoid(
         valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
           for (int64_t i = 0; i < length; i++) {
-            bloom_filter_->InsertHash(bloom_filter_->Hash(values + i + position));
+            bloom_filter_->InsertHash(bloom_filter_->Hash(*(values + i + position)));
           }
         });
   }
@@ -2416,17 +2426,10 @@ void UpdateBinaryBloomFilter(BloomFilter* bloom_filter, const ArrayType& array) 
   PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
       *array.data(),
       [&](const std::string_view& view) {
-        const ByteArray value{view};
-        bloom_filter->InsertHash(bloom_filter->Hash(&value));
+        bloom_filter->InsertHash(bloom_filter->Hash(view));
         return Status::OK();
       },
       []() { return Status::OK(); }));
-}
-
-template <typename DType>
-void TypedColumnWriterImpl<DType>::UpdateBloomFilterArray(const ::arrow::Array& values) {
-  // Only ByteArray type would write ::arrow::Array directly.
-  ParquetException::NYI("Unreachable");
 }
 
 template <>
@@ -2435,10 +2438,6 @@ void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
   if (bloom_filter_) {
     if (!::arrow::is_base_binary_like(values.type_id())) {
       throw ParquetException("Only BaseBinaryArray and subclasses supported");
-    }
-    if (::arrow::is_dictionary(values.type_id())) {
-      // Dictionary is handled in WriteArrowDense, so this should never happen.
-      throw ParquetException("UpdateBloomFilterArray not support dictionary");
     }
 
     if (::arrow::is_binary_like(values.type_id())) {
@@ -2450,6 +2449,12 @@ void TypedColumnWriterImpl<ByteArrayType>::UpdateBloomFilterArray(
                               checked_cast<const ::arrow::LargeBinaryArray&>(values));
     }
   }
+}
+
+template <typename DType>
+void TypedColumnWriterImpl<DType>::UpdateBloomFilterArray(const ::arrow::Array& values) {
+  // Only ByteArray type would write ::arrow::Array directly.
+  ParquetException::NYI("Unreachable");
 }
 
 // ----------------------------------------------------------------------
@@ -2473,9 +2478,14 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
     encoding = properties->dictionary_index_encoding();
   }
   switch (descr->physical_type()) {
-    case Type::BOOLEAN:
+    case Type::BOOLEAN: {
+      if (bloom_filter != nullptr) {
+        throw ParquetException("Bloom filter is not supported for boolean type");
+      }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
+          metadata, std::move(pager), use_dictionary, encoding, properties,
+          /*bloom_filter=*/nullptr);
+    }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
@@ -2498,7 +2508,7 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
           metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     default:
-      ParquetException::NYI("type reader not implemented");
+      ParquetException::NYI("column writer not implemented for this Parquet type");
   }
   // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);

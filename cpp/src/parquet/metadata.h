@@ -508,8 +508,8 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
 };
 
 /// Alias type of page index and bloom filter location of a row group. The index
-/// location is located by column ordinal. If the column does not have the index,
-/// its value is set to std::nullopt.
+/// location is located by column ordinal. If a column does not have a page index
+/// (respectively bloom filter), its value is set to std::nullopt.
 using RowGroupIndexLocation = std::vector<std::optional<IndexLocation>>;
 
 /// Alias type of page index and bloom filter location of a parquet file. The
