@@ -688,12 +688,14 @@ TEST(TestNullSumKernel, Basics) {
 }
 
 TEST(TestSumKernel, Overflow) {
-  int64_t large_scalar = 1e15;
+  int64_t large_scalar = 1000000000000000;
   int64_t length = 10000;
   auto scalar = std::make_shared<Int64Scalar>(large_scalar);
   auto array = MakeArrayFromScalar(*scalar, length);
 
+#ifndef ARROW_UBSAN
   ASSERT_OK(Sum(*array));
+#endif
   ASSERT_RAISES(Invalid, SumChecked(*array));
 }
 
