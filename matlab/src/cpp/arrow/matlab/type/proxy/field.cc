@@ -30,8 +30,8 @@
 namespace arrow::matlab::type::proxy {
 
     Field::Field(std::shared_ptr<arrow::Field> field) : field{std::move(field)} {
-        REGISTER_METHOD(Field, name);
-        REGISTER_METHOD(Field, type);
+        REGISTER_METHOD(Field, getName);
+        REGISTER_METHOD(Field, getType);
         REGISTER_METHOD(Field, toString);
     }
 
@@ -39,7 +39,7 @@ namespace arrow::matlab::type::proxy {
         return field;
     }
 
-    void Field::name(libmexclass::proxy::method::Context& context) {
+    void Field::getName(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
@@ -49,7 +49,7 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void Field::type(libmexclass::proxy::method::Context& context) {
+    void Field::getType(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
 
         const auto& datatype = field->type();
