@@ -38,11 +38,11 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         end
 
         function numColumns = get.NumColumns(obj)
-            numColumns = obj.Proxy.numColumns();
+            numColumns = obj.Proxy.getNumColumns();
         end
 
         function columnNames = get.ColumnNames(obj)
-            columnNames = obj.Proxy.columnNames();
+            columnNames = obj.Proxy.getColumnNames();
         end
 
         function schema = get.Schema(obj)
