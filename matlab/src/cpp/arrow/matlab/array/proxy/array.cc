@@ -32,9 +32,9 @@ namespace arrow::matlab::array::proxy {
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
         REGISTER_METHOD(Array, toMATLAB);
-        REGISTER_METHOD(Array, length);
-        REGISTER_METHOD(Array, valid);
-        REGISTER_METHOD(Array, type);
+        REGISTER_METHOD(Array, getLength);
+        REGISTER_METHOD(Array, getValid);
+        REGISTER_METHOD(Array, getType);
         REGISTER_METHOD(Array, isEqual);
 
     }
@@ -51,13 +51,13 @@ namespace arrow::matlab::array::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void Array::length(libmexclass::proxy::method::Context& context) {
+    void Array::getLength(libmexclass::proxy::method::Context& context) {
         ::matlab::data::ArrayFactory factory;
         auto length_mda = factory.createScalar(array->length());
         context.outputs[0] = length_mda;
     }
 
-    void Array::valid(libmexclass::proxy::method::Context& context) {
+    void Array::getValid(libmexclass::proxy::method::Context& context) {
         auto array_length = static_cast<size_t>(array->length());
 
         // If the Arrow array has no null values, then return a MATLAB
@@ -77,7 +77,7 @@ namespace arrow::matlab::array::proxy {
         context.outputs[0] = valid_elements_mda;
     }
 
-    void Array::type(libmexclass::proxy::method::Context& context) {
+    void Array::getType(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
 
         mda::ArrayFactory factory;
