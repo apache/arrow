@@ -25,8 +25,13 @@ namespace internal {
 // Sum implementation
 
 template <typename ArrowType>
-struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2> {
-  using SumImpl<ArrowType, SimdLevel::AVX2>::SumImpl;
+struct SumImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2, false> {
+  using SumImpl<ArrowType, SimdLevel::AVX2, false>::SumImpl;
+};
+
+template <typename ArrowType>
+struct SumCheckedImplAvx2 : public SumImpl<ArrowType, SimdLevel::AVX2, true> {
+  using SumImpl<ArrowType, SimdLevel::AVX2, true>::SumImpl;
 };
 
 template <typename ArrowType>
@@ -37,6 +42,14 @@ struct MeanImplAvx2 : public MeanImpl<ArrowType, SimdLevel::AVX2> {
 Result<std::unique_ptr<KernelState>> SumInitAvx2(KernelContext* ctx,
                                                  const KernelInitArgs& args) {
   SumLikeInit<SumImplAvx2> visitor(
+      ctx, args.inputs[0].GetSharedPtr(),
+      static_cast<const ScalarAggregateOptions&>(*args.options));
+  return visitor.Create();
+}
+
+Result<std::unique_ptr<KernelState>> SumCheckedInitAvx2(KernelContext* ctx,
+                                                        const KernelInitArgs& args) {
+  SumLikeInit<SumCheckedImplAvx2> visitor(
       ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -67,6 +80,15 @@ void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
   AddBasicAggKernels(SumInitAvx2, SignedIntTypes(), int64(), func, SimdLevel::AVX2);
   AddBasicAggKernels(SumInitAvx2, UnsignedIntTypes(), uint64(), func, SimdLevel::AVX2);
   AddBasicAggKernels(SumInitAvx2, FloatingPointTypes(), float64(), func, SimdLevel::AVX2);
+}
+
+void AddSumCheckedAvx2AggKernels(ScalarAggregateFunction* func) {
+  AddBasicAggKernels(SumCheckedInitAvx2, SignedIntTypes(), int64(), func,
+                     SimdLevel::AVX2);
+  AddBasicAggKernels(SumCheckedInitAvx2, UnsignedIntTypes(), uint64(), func,
+                     SimdLevel::AVX2);
+  AddBasicAggKernels(SumCheckedInitAvx2, FloatingPointTypes(), float64(), func,
+                     SimdLevel::AVX2);
 }
 
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func) {

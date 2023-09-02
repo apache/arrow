@@ -17,13 +17,13 @@
 
 #pragma once
 
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/logging.h"
-
 namespace arrow {
 namespace compute {
 namespace internal {
@@ -143,10 +143,10 @@ struct GetSumType<T, enable_if_decimal<T>> {
 
 // non-recursive pairwise summation for floating points
 // https://en.wikipedia.org/wiki/Pairwise_summation
-template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
+template <typename ValueType, typename SumType, SimdLevel::type SimdLevel, bool Checked,
           typename ValueFunc>
 enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
-    const ArraySpan& data, ValueFunc&& func) {
+    const ArraySpan& data, ValueFunc&& func, Status* status) {
   using arrow::internal::VisitSetBitRunsVoid;
 
   const int64_t data_size = data.length - data.GetNullCount();
@@ -221,27 +221,34 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 }
 
 // naive summation for integers and decimals
-template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
+template <typename ValueType, typename SumType, SimdLevel::type SimdLevel, bool Checked,
           typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
-    const ArraySpan& data, ValueFunc&& func) {
+    const ArraySpan& data, ValueFunc&& func, Status* status) {
   using arrow::internal::VisitSetBitRunsVoid;
 
   SumType sum = 0;
   const ValueType* values = data.GetValues<ValueType>(1);
-  VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
-                      [&](int64_t pos, int64_t len) {
-                        for (int64_t i = 0; i < len; ++i) {
-                          sum += func(values[pos + i]);
-                        }
-                      });
+  VisitSetBitRunsVoid(
+      data.buffers[0].data, data.offset, data.length, [&](int64_t pos, int64_t len) {
+        for (int64_t i = 0; i < len; ++i) {
+          if constexpr (Checked) {
+            sum = AddChecked::Call<SumType>(nullptr, sum, func(values[pos + i]), status);
+            if (ARROW_PREDICT_FALSE(!status->ok())) {
+              return;
+            }
+          } else {
+            sum += func(values[pos + i]);
+          }
+        }
+      });
   return sum;
 }
 
-template <typename ValueType, typename SumType, SimdLevel::type SimdLevel>
-SumType SumArray(const ArraySpan& data) {
-  return SumArray<ValueType, SumType, SimdLevel>(
-      data, [](ValueType v) { return static_cast<SumType>(v); });
+template <typename ValueType, typename SumType, SimdLevel::type SimdLevel, bool Checked>
+SumType SumArray(const ArraySpan& data, Status* status) {
+  return SumArray<ValueType, SumType, SimdLevel, Checked>(
+      data, [](ValueType v) { return static_cast<SumType>(v); }, status);
 }
 
 }  // namespace internal

@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/compute/api_aggregate.h"
+#include "arrow/compute/function.h"
 #include "arrow/compute/kernels/aggregate_basic_internal.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -272,8 +273,13 @@ void AddCountDistinctKernels(ScalarAggregateFunction* func) {
 // Sum implementation
 
 template <typename ArrowType>
-struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE> {
-  using SumImpl<ArrowType, SimdLevel::NONE>::SumImpl;
+struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE, false> {
+  using SumImpl<ArrowType, SimdLevel::NONE, false>::SumImpl;
+};
+
+template <typename ArrowType>
+struct SumCheckedImplDefault : public SumImpl<ArrowType, SimdLevel::NONE, true> {
+  using SumImpl<ArrowType, SimdLevel::NONE, true>::SumImpl;
 };
 
 template <typename ArrowType>
@@ -284,6 +290,14 @@ struct MeanImplDefault : public MeanImpl<ArrowType, SimdLevel::NONE> {
 Result<std::unique_ptr<KernelState>> SumInit(KernelContext* ctx,
                                              const KernelInitArgs& args) {
   SumLikeInit<SumImplDefault> visitor(
+      ctx, args.inputs[0].GetSharedPtr(),
+      static_cast<const ScalarAggregateOptions&>(*args.options));
+  return visitor.Create();
+}
+
+Result<std::unique_ptr<KernelState>> SumCheckedInit(KernelContext* ctx,
+                                                    const KernelInitArgs& args) {
+  SumLikeInit<SumCheckedImplDefault> visitor(
       ctx, args.inputs[0].GetSharedPtr(),
       static_cast<const ScalarAggregateOptions&>(*args.options));
   return visitor.Create();
@@ -929,7 +943,19 @@ const FunctionDoc sum_doc{
     "Compute the sum of a numeric array",
     ("Null values are ignored by default. Minimum count of non-null\n"
      "values can be set and null is returned if too few are present.\n"
-     "This can be changed through ScalarAggregateOptions."),
+     "This can be changed through ScalarAggregateOptions.\n"
+     "This function will ignore overflows.\n"
+     "For a checked version, use \"sum_checked\"."),
+    {"array"},
+    "ScalarAggregateOptions"};
+
+const FunctionDoc sum_checked_doc{
+    "Compute the sum of a numeric array",
+    ("Null values are ignored by default. Minimum count of non-null\n"
+     "values can be set and null is returned if too few are present.\n"
+     "This can be changed through ScalarAggregateOptions.\n"
+     "This function will return error on overflows.\n"
+     "For a unchecked version, use \"sum\"."),
     {"array"},
     "ScalarAggregateOptions"};
 
@@ -1063,6 +1089,33 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
     AddSumAvx512AggKernels(func.get());
+  }
+#endif
+  DCHECK_OK(registry->AddFunction(std::move(func)));
+
+  func = std::make_shared<ScalarAggregateFunction>("sum_checked", Arity::Unary(), sum_doc,
+                                                   &default_scalar_aggregate_options);
+  AddArrayScalarAggKernels(SumCheckedInit, {boolean()}, uint64(), func.get());
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL128}, FirstType), SumCheckedInit,
+               func.get(), SimdLevel::NONE);
+  AddAggKernel(KernelSignature::Make({Type::DECIMAL256}, FirstType), SumCheckedInit,
+               func.get(), SimdLevel::NONE);
+  AddArrayScalarAggKernels(SumCheckedInit, SignedIntTypes(), int64(), func.get());
+  AddArrayScalarAggKernels(SumCheckedInit, UnsignedIntTypes(), uint64(), func.get());
+  AddArrayScalarAggKernels(SumCheckedInit, FloatingPointTypes(), float64(), func.get());
+  AddArrayScalarAggKernels(SumCheckedInit, {null()}, int64(), func.get());
+  // Add the SIMD variants for sum
+#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
+  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
+    AddSumCheckedAvx2AggKernels(func.get());
+  }
+#endif
+#if defined(ARROW_HAVE_RUNTIME_AVX512)
+  if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX512)) {
+    AddSumCheckedAvx512AggKernels(func.get());
   }
 #endif
   DCHECK_OK(registry->AddFunction(std::move(func)));

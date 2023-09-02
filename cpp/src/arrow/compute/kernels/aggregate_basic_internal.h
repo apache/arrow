@@ -23,6 +23,7 @@
 
 #include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/kernels/aggregate_internal.h"
+#include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/compute/kernels/util_internal.h"
@@ -49,20 +50,22 @@ void AddMinMaxKernel(KernelInit init, internal::detail::GetTypeId get_id,
 
 // SIMD variants for kernels
 void AddSumAvx2AggKernels(ScalarAggregateFunction* func);
+void AddSumCheckedAvx2AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx2AggKernels(ScalarAggregateFunction* func);
 void AddMinMaxAvx2AggKernels(ScalarAggregateFunction* func);
 
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func);
+void AddSumCheckedAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMeanAvx512AggKernels(ScalarAggregateFunction* func);
 void AddMinMaxAvx512AggKernels(ScalarAggregateFunction* func);
 
 // ----------------------------------------------------------------------
 // Sum implementation
 
-template <typename ArrowType, SimdLevel::type SimdLevel,
+template <typename ArrowType, SimdLevel::type SimdLevel, bool Checked,
           typename ResultType = typename FindAccumulatorType<ArrowType>::Type>
 struct SumImpl : public ScalarAggregator {
-  using ThisType = SumImpl<ArrowType, SimdLevel, ResultType>;
+  using ThisType = SumImpl<ArrowType, SimdLevel, Checked, ResultType>;
   using CType = typename TypeTraits<ArrowType>::CType;
   using SumType = ResultType;
   using SumCType = typename TypeTraits<SumType>::CType;
@@ -71,7 +74,7 @@ struct SumImpl : public ScalarAggregator {
   SumImpl(std::shared_ptr<DataType> out_type, ScalarAggregateOptions options_)
       : out_type(std::move(out_type)), options(std::move(options_)) {}
 
-  Status Consume(KernelContext*, const ExecSpan& batch) override {
+  Status Consume(KernelContext* ctx, const ExecSpan& batch) override {
     if (batch[0].is_array()) {
       const ArraySpan& data = batch[0].array;
       this->count += data.length - data.GetNullCount();
@@ -85,23 +88,46 @@ struct SumImpl : public ScalarAggregator {
       if (is_boolean_type<ArrowType>::value) {
         this->sum += GetTrueCount(data);
       } else {
-        this->sum += SumArray<CType, SumCType, SimdLevel>(data);
+        Status status;
+        auto array_sum = SumArray<CType, SumCType, SimdLevel, Checked>(data, &status);
+        if constexpr (Checked) {
+          this->sum = AddChecked::Call<SumCType>(ctx, this->sum, array_sum, &status);
+          RETURN_NOT_OK(status);
+        } else {
+          this->sum += array_sum;
+        }
       }
     } else {
       const Scalar& data = *batch[0].scalar;
       this->count += data.is_valid * batch.length;
       this->nulls_observed = this->nulls_observed || !data.is_valid;
       if (data.is_valid) {
-        this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
+        if constexpr (Checked) {
+          Status status;
+          auto product = MultiplyChecked::Call<SumCType>(
+              ctx, static_cast<SumCType>(internal::UnboxScalar<ArrowType>::Unbox(data)),
+              static_cast<SumCType>(batch.length), &status);
+          RETURN_NOT_OK(status);
+          this->sum = AddChecked::Call<SumCType>(ctx, this->sum, product, &status);
+          RETURN_NOT_OK(status);
+        } else {
+          this->sum += internal::UnboxScalar<ArrowType>::Unbox(data) * batch.length;
+        }
       }
     }
     return Status::OK();
   }
 
-  Status MergeFrom(KernelContext*, KernelState&& src) override {
+  Status MergeFrom(KernelContext* ctx, KernelState&& src) override {
     const auto& other = checked_cast<const ThisType&>(src);
     this->count += other.count;
-    this->sum += other.sum;
+    if constexpr (Checked) {
+      this->sum += other.sum;
+    } else {
+      Status status;
+      this->sum = AddChecked::Call<SumCType>(ctx, this->sum, other.sum, &status);
+      RETURN_NOT_OK(status);
+    }
     this->nulls_observed = this->nulls_observed || other.nulls_observed;
     return Status::OK();
   }
@@ -176,11 +202,11 @@ struct MeanImpl;
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
-    : public SumImpl<ArrowType, SimdLevel> {
-  using SumImpl<ArrowType, SimdLevel>::SumImpl;
-  using SumImpl<ArrowType, SimdLevel>::options;
-  using SumCType = typename SumImpl<ArrowType, SimdLevel>::SumCType;
-  using OutputType = typename SumImpl<ArrowType, SimdLevel>::OutputType;
+    : public SumImpl<ArrowType, SimdLevel, false> {
+  using SumImpl<ArrowType, SimdLevel, false>::SumImpl;
+  using SumImpl<ArrowType, SimdLevel, false>::options;
+  using SumCType = typename SumImpl<ArrowType, SimdLevel, false>::SumCType;
+  using OutputType = typename SumImpl<ArrowType, SimdLevel, false>::OutputType;
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {
@@ -212,9 +238,9 @@ struct MeanImpl<ArrowType, SimdLevel,
                 std::enable_if_t<!is_decimal_type<ArrowType>::value>>
     // Override the ResultType of SumImpl because we need to use double for intermediate
     // sum to prevent integer overflows
-    : public SumImpl<ArrowType, SimdLevel, DoubleType> {
-  using SumImpl<ArrowType, SimdLevel, DoubleType>::SumImpl;
-  using SumImpl<ArrowType, SimdLevel, DoubleType>::options;
+    : public SumImpl<ArrowType, SimdLevel, false, DoubleType> {
+  using SumImpl<ArrowType, SimdLevel, false, DoubleType>::SumImpl;
+  using SumImpl<ArrowType, SimdLevel, false, DoubleType>::options;
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {

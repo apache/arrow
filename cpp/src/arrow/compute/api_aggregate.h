@@ -284,6 +284,21 @@ Result<Datum> Sum(
     const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Sum values of a numeric array. Return error if overflow occurs
+///
+/// \param[in] value datum to sum, expecting Array or ChunkedArray
+/// \param[in] options see ScalarAggregateOptions for more information
+/// \param[in] ctx the function execution context, optional
+/// \return datum of the computed sum as a Scalar
+///
+/// \since 1.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> SumChecked(
+    const Datum& value,
+    const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
+
 /// \brief Calculate the first value of an array
 ///
 /// \param[in] value input datum, expecting Array or ChunkedArray
