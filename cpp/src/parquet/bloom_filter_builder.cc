@@ -72,7 +72,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   WriterProperties properties_;
   bool finished_ = false;
 
-  using RowGroupBloomFilters = std::map<int32_t, std::unique_ptr<BloomFilter>>;
+  using RowGroupBloomFilters = std::vector<std::unique_ptr<BloomFilter>>;
   std::vector<RowGroupBloomFilters> file_bloom_filters_;
 };
 
@@ -86,7 +86,7 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
     throw ParquetException(
         "Cannot call AppendRowGroup() to finished BloomFilterBuilder.");
   }
-  RowGroupBloomFilters row_group_bloom_filters;
+  RowGroupBloomFilters row_group_bloom_filters(schema_->num_columns());
   file_bloom_filters_.emplace_back(std::move(row_group_bloom_filters));
 }
 
@@ -134,7 +134,8 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
 
     // serialize bloom filter in ascending order of column id
-    for (auto& [column_id, filter] : row_group_bloom_filters) {
+    for (int column_id = 0; column_id < num_columns; ++column_id) {
+      auto& filter = row_group_bloom_filters[column_id];
       if (filter == nullptr) {
         continue;
       }
