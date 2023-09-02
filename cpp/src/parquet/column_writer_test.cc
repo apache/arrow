@@ -688,7 +688,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredLargeChunk) {
   // Just read the first SMALL_SIZE rows to ensure we could read it back in
   this->ReadColumn();
   ASSERT_EQ(SMALL_SIZE, this->values_read_);
-  this->values_.resize(SMALL_SIZE);
   ASSERT_EQ(this->values_, this->values_out_);
 }
 
@@ -1691,7 +1690,6 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
   this->SetupValuesOut(SMALL_SIZE);
   this->ReadColumnFully();
   ASSERT_EQ(SMALL_SIZE, this->values_read_);
-  this->values_.resize(SMALL_SIZE);
   ASSERT_EQ(this->values_, this->values_out_);
 
   // Verify bloom filter

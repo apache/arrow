@@ -161,8 +161,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                              : nullptr;
     BloomFilter* bloom_filter =
         bloom_filter_builder_
-            ? nullptr
-            : bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal);
+            ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
+            : nullptr;
 
     std::unique_ptr<PageWriter> pager;
     if (!codec_options) {
@@ -317,7 +317,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                                ? (properties_->codec_options(path)).get()
                                : nullptr;
       BloomFilter* bloom_filter =
-          bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal);
+          bloom_filter_builder_
+              ? bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal)
+              : nullptr;
       std::unique_ptr<PageWriter> pager;
       if (!codec_options) {
         pager = PageWriter::Open(
@@ -528,7 +530,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
   std::unique_ptr<RowGroupWriter> row_group_writer_;
   std::unique_ptr<PageIndexBuilder> page_index_builder_;
   std::unique_ptr<InternalFileEncryptor> file_encryptor_;
-  // Only one of the bloom filter writer is active at a time
   std::unique_ptr<BloomFilterBuilder> bloom_filter_builder_;
 
   void StartFile() {
