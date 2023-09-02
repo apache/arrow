@@ -77,12 +77,14 @@ TEST(BloomFilterBuilderTest, BasicRoundTrip) {
   schema::NodePtr root = schema::GroupNode::Make(
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::ByteArray("c2")});
   schema.Init(root);
-  auto writer_properties = default_writer_properties();
-  auto builder = BloomFilterBuilder::Make(&schema, *writer_properties);
-  builder->AppendRowGroup();
+  WriterProperties::Builder properties_builder;
   BloomFilterOptions bloom_filter_options;
   bloom_filter_options.ndv = 100;
-  auto bloom_filter = builder->GetOrCreateBloomFilter(0, bloom_filter_options);
+  properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
+  auto writer_properties = properties_builder.build();
+  auto builder = BloomFilterBuilder::Make(&schema, *writer_properties);
+  builder->AppendRowGroup();
+  auto bloom_filter = builder->GetOrCreateBloomFilter(0);
   ASSERT_NE(nullptr, bloom_filter);
   ASSERT_EQ(bloom_filter->GetBitsetSize(),
             BlockSplitBloomFilter::OptimalNumOfBytes(bloom_filter_options.ndv,
@@ -119,18 +121,22 @@ TEST(BloomFilterBuilderTest, InvalidOperations) {
   schema::NodePtr root = schema::GroupNode::Make(
       "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::Boolean("c2")});
   schema.Init(root);
-  auto properties = WriterProperties::Builder().build();
+  WriterProperties::Builder properties_builder;
+  BloomFilterOptions bloom_filter_options;
+  bloom_filter_options.ndv = 100;
+  properties_builder.enable_bloom_filter_options(bloom_filter_options, "c1");
+  properties_builder.enable_bloom_filter_options(bloom_filter_options, "c2");
+  auto properties = properties_builder.build();
   auto builder = BloomFilterBuilder::Make(&schema, *properties);
   // AppendRowGroup() is not called and expect throw.
-  BloomFilterOptions default_options;
-  ASSERT_THROW(builder->GetOrCreateBloomFilter(0, default_options), ParquetException);
+  ASSERT_THROW(builder->GetOrCreateBloomFilter(0), ParquetException);
 
   builder->AppendRowGroup();
   // GetOrCreateBloomFilter() with wrong column ordinal expect throw.
-  ASSERT_THROW(builder->GetOrCreateBloomFilter(2, default_options), ParquetException);
+  ASSERT_THROW(builder->GetOrCreateBloomFilter(2), ParquetException);
   // GetOrCreateBloomFilter() with boolean expect throw.
-  ASSERT_THROW(builder->GetOrCreateBloomFilter(1, default_options), ParquetException);
-  builder->GetOrCreateBloomFilter(0, default_options);
+  ASSERT_THROW(builder->GetOrCreateBloomFilter(1), ParquetException);
+  builder->GetOrCreateBloomFilter(0);
   auto sink = CreateOutputStream();
   BloomFilterLocation location;
   // WriteTo() before Finish() expect throw.

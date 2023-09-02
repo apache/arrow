@@ -316,17 +316,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       auto codec_options = properties_->codec_options(path)
                                ? (properties_->codec_options(path)).get()
                                : nullptr;
-      BloomFilter* bloom_filter = nullptr;
-
-      std::optional<BloomFilterOptions> bloom_filter_props =
-          properties_->bloom_filter_options(path);
-      bool bloom_filter_enabled = bloom_filter_builder_ &&
-                                  bloom_filter_props.has_value() &&
-                                  col_meta->descr()->physical_type() != Type::BOOLEAN;
-      if (bloom_filter_enabled) {
-        bloom_filter = bloom_filter_builder_->GetOrCreateBloomFilter(
-            column_ordinal, bloom_filter_props.value());
-      }
+      BloomFilter* bloom_filter =
+          bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal);
       std::unique_ptr<PageWriter> pager;
       if (!codec_options) {
         pager = PageWriter::Open(

@@ -1647,6 +1647,13 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
     wp_builder.encoding(column_properties.encoding());
   }
   wp_builder.max_statistics_size(column_properties.max_statistics_size());
+  auto path = this->schema_.Column(0)->path();
+  if (column_properties.bloom_filter_enabled()) {
+    wp_builder.enable_bloom_filter_options(
+        column_properties.bloom_filter_options().value(), path);
+  } else {
+    wp_builder.disable_bloom_filter(path);
+  }
   this->writer_properties_ = wp_builder.build();
 
   this->metadata_ =
@@ -1656,9 +1663,7 @@ TestBloomFilterWriter<TestType>::BuildWriterWithBloomFilter(
   builder_ = BloomFilterBuilder::Make(&this->schema_, *this->writer_properties_);
   // Initial RowGroup
   builder_->AppendRowGroup();
-  BloomFilterOptions options;
-  options.ndv = static_cast<int32_t>(output_size);
-  bloom_filter_ = builder_->GetOrCreateBloomFilter(0, options);
+  bloom_filter_ = builder_->GetOrCreateBloomFilter(0);
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(this->metadata_.get(), std::move(pager),
                          this->writer_properties_.get(), bloom_filter_);
@@ -1674,7 +1679,9 @@ TYPED_TEST_SUITE(TestBloomFilterWriter, TestBloomFilterTypes);
 TYPED_TEST(TestBloomFilterWriter, Basic) {
   this->GenerateData(SMALL_SIZE);
   ColumnProperties column_properties;
-  column_properties.set_bloom_filter_enabled(true);
+  BloomFilterOptions options;
+  options.ndv = 10;
+  column_properties.set_bloom_filter_options(options);
 
   auto writer = this->BuildWriterWithBloomFilter(SMALL_SIZE, column_properties);
   writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
@@ -1693,7 +1700,7 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
       EXPECT_TRUE(this->bloom_filter_->FindHash(
           this->bloom_filter_->Hash(&value, this->descr_->type_length())));
     } else {
-      EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(&value)));
+      EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(value)));
     }
   }
 }
