@@ -1104,10 +1104,6 @@ void RegisterScalarAggregateBasic(FunctionRegistry* registry) {
   AddArrayScalarAggKernels(SumCheckedInit, UnsignedIntTypes(), uint64(), func.get());
   AddArrayScalarAggKernels(SumCheckedInit, FloatingPointTypes(), float64(), func.get());
   AddArrayScalarAggKernels(SumCheckedInit, {null()}, int64(), func.get());
-  // Add the SIMD variants for sum
-#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512)
-  auto cpu_info = arrow::internal::CpuInfo::GetInstance();
-#endif
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (cpu_info->IsSupported(arrow::internal::CpuInfo::AVX2)) {
     AddSumCheckedAvx2AggKernels(func.get());
