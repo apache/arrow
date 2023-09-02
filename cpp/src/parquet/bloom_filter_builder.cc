@@ -37,13 +37,12 @@ namespace parquet {
 class BloomFilterBuilderImpl : public BloomFilterBuilder {
  public:
   explicit BloomFilterBuilderImpl(const SchemaDescriptor* schema,
-                                  const WriterProperties& properties)
-      : schema_(schema), properties_(properties) {}
+                                  WriterProperties properties)
+      : schema_(schema), properties_(std::move(properties)) {}
   /// Append a new row group to host all incoming bloom filters.
   void AppendRowGroup() override;
 
-  BloomFilter* GetOrCreateBloomFilter(
-      int32_t column_ordinal, const BloomFilterOptions& bloom_filter_options) override;
+  BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) override;
 
   /// Serialize all bloom filters with header and bitset in the order of row group and
   /// column id. Column encryption is not implemented yet. The side effect is that it
@@ -61,7 +60,7 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
     if (column_ordinal < 0 || column_ordinal >= schema_->num_columns()) {
       throw ParquetException("Invalid column ordinal: ", column_ordinal);
     }
-    if (row_group_bloom_filters_.empty()) {
+    if (file_bloom_filters_.empty()) {
       throw ParquetException("No row group appended to BloomFilterBuilder.");
     }
     if (schema_->Column(column_ordinal)->physical_type() == Type::BOOLEAN) {
@@ -73,9 +72,8 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   WriterProperties properties_;
   bool finished_ = false;
 
-  // vector: row_group_ordinal
-  // map: column_ordinal -> bloom filter
-  std::vector<std::map<int32_t, std::unique_ptr<BloomFilter>>> row_group_bloom_filters_;
+  using RowGroupBloomFilters = std::map<int32_t, std::unique_ptr<BloomFilter>>;
+  std::vector<RowGroupBloomFilters> file_bloom_filters_;
 };
 
 std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
@@ -83,13 +81,20 @@ std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
   return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
-void BloomFilterBuilderImpl::AppendRowGroup() { row_group_bloom_filters_.emplace_back(); }
+void BloomFilterBuilderImpl::AppendRowGroup() { file_bloom_filters_.emplace_back(); }
 
-BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(
-    int32_t column_ordinal, const BloomFilterOptions& bloom_filter_options) {
+BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
   CheckState(column_ordinal);
-  std::unique_ptr<BloomFilter>& bloom_filter =
-      row_group_bloom_filters_.back()[column_ordinal];
+  if (schema_->Column(column_ordinal)->physical_type() == Type::BOOLEAN) {
+    return nullptr;
+  }
+  auto bloom_filter_options_opt =
+      properties_.bloom_filter_options(schema_->Column(column_ordinal)->path());
+  if (bloom_filter_options_opt == std::nullopt) {
+    return nullptr;
+  }
+  BloomFilterOptions& bloom_filter_options = bloom_filter_options_opt.value();
+  std::unique_ptr<BloomFilter>& bloom_filter = file_bloom_filters_.back()[column_ordinal];
   if (bloom_filter == nullptr) {
     auto block_split_bloom_filter =
         std::make_unique<BlockSplitBloomFilter>(properties_.memory_pool());
@@ -105,14 +110,14 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
   if (!finished_) {
     throw ParquetException("Cannot call WriteTo() to unfinished PageIndexBuilder.");
   }
-  if (row_group_bloom_filters_.empty()) {
+  if (file_bloom_filters_.empty()) {
     // Return quickly if there is no bloom filter
     return;
   }
 
-  for (size_t row_group_ordinal = 0; row_group_ordinal < row_group_bloom_filters_.size();
+  for (size_t row_group_ordinal = 0; row_group_ordinal < file_bloom_filters_.size();
        ++row_group_ordinal) {
-    const auto& row_group_bloom_filters = row_group_bloom_filters_[row_group_ordinal];
+    const auto& row_group_bloom_filters = file_bloom_filters_[row_group_ordinal];
     // the whole row group has no bloom filter
     if (row_group_bloom_filters.empty()) {
       continue;
@@ -122,15 +127,15 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
 
     // serialize bloom filter in ascending order of column id
-    for (int32_t column_id = 0; column_id < num_columns; ++column_id) {
-      auto iter = row_group_bloom_filters.find(column_id);
-      if (iter != row_group_bloom_filters.cend() && iter->second != nullptr) {
-        PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
-        iter->second->WriteTo(sink);
-        PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
-        has_valid_bloom_filter = true;
-        locations[column_id] = IndexLocation{offset, static_cast<int32_t>(pos - offset)};
+    for (auto& [column_id, filter] : row_group_bloom_filters) {
+      if (filter == nullptr) {
+        continue;
       }
+      PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
+      filter->WriteTo(sink);
+      PARQUET_ASSIGN_OR_THROW(int64_t pos, sink->Tell());
+      has_valid_bloom_filter = true;
+      locations[column_id] = IndexLocation{offset, static_cast<int32_t>(pos - offset)};
     }
     if (has_valid_bloom_filter) {
       location->bloom_filter_location.emplace(row_group_ordinal, std::move(locations));
