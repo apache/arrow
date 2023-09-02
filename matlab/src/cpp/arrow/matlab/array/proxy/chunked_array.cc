@@ -167,7 +167,7 @@ namespace arrow::matlab::array::proxy {
 
         bool is_equal = true;
         for (const auto& chunked_array_proxy_id : chunked_array_proxy_ids) {
-           // Retrieve the ChunkedArray proxy from the ProxyManager
+            // Retrieve the ChunkedArray proxy from the ProxyManager
             auto proxy = libmexclass::proxy::ProxyManager::getProxy(chunked_array_proxy_id);
             auto chunked_array_proxy = std::static_pointer_cast<proxy::ChunkedArray>(proxy);
             auto chunked_array_to_compare = chunked_array_proxy->unwrap();
