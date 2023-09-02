@@ -1630,6 +1630,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl, public TypedColumnWriter<
     }
   }
 
+  constexpr static inline int64_t kHashBatchSize = 256;
   void UpdateBloomFilter(const T* values, int64_t num_values);
   void UpdateBloomFilterSpaced(const T* values, int64_t num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset);
@@ -2349,7 +2350,6 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
 template <typename DType>
 void TypedColumnWriterImpl<DType>::UpdateBloomFilter(const T* values,
                                                      int64_t num_values) {
-  constexpr int64_t kHashBatchSize = 256;
   if (bloom_filter_) {
     std::array<uint64_t, kHashBatchSize> hashes;
     for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
@@ -2365,7 +2365,6 @@ void TypedColumnWriterImpl<DType>::UpdateBloomFilter(const T* values,
 template <>
 void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilter(const FLBA* values,
                                                         int64_t num_values) {
-  constexpr int64_t kHashBatchSize = 256;
   if (bloom_filter_) {
     std::array<uint64_t, kHashBatchSize> hashes;
     for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
@@ -2389,10 +2388,16 @@ void TypedColumnWriterImpl<DType>::UpdateBloomFilterSpaced(const T* values,
                                                            const uint8_t* valid_bits,
                                                            int64_t valid_bits_offset) {
   if (bloom_filter_) {
+    std::array<uint64_t, kHashBatchSize> hashes;
     ::arrow::internal::VisitSetBitRunsVoid(
         valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
-          for (int64_t i = 0; i < length; i++) {
-            bloom_filter_->InsertHash(bloom_filter_->Hash(*(values + i + position)));
+          for (int64_t i = 0; i < length; i += kHashBatchSize) {
+            auto current_hash_batch_size = std::min(kHashBatchSize, length - i);
+            bloom_filter_->Hashes(values + i + position,
+                                  static_cast<int>(current_hash_batch_size),
+                                  hashes.data());
+            bloom_filter_->InsertHashes(hashes.data(),
+                                        static_cast<int>(current_hash_batch_size));
           }
         });
   }
@@ -2411,11 +2416,16 @@ void TypedColumnWriterImpl<FLBAType>::UpdateBloomFilterSpaced(const FLBA* values
                                                               const uint8_t* valid_bits,
                                                               int64_t valid_bits_offset) {
   if (bloom_filter_) {
+    std::array<uint64_t, kHashBatchSize> hashes;
     ::arrow::internal::VisitSetBitRunsVoid(
         valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
-          for (int64_t i = 0; i < length; i++) {
-            bloom_filter_->InsertHash(
-                bloom_filter_->Hash(values + i + position, descr_->type_length()));
+          for (int64_t i = 0; i < length; i += kHashBatchSize) {
+            auto current_hash_batch_size = std::min(kHashBatchSize, length - i);
+            bloom_filter_->Hashes(values + i + position, descr_->type_length(),
+                                  static_cast<int>(current_hash_batch_size),
+                                  hashes.data());
+            bloom_filter_->InsertHashes(hashes.data(),
+                                        static_cast<int>(current_hash_batch_size));
           }
         });
   }

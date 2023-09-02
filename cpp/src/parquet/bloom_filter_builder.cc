@@ -121,7 +121,7 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
     int num_columns = schema_->num_columns();
     std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
 
-    // serialize bloom filter by ascending order of column id
+    // serialize bloom filter in ascending order of column id
     for (int32_t column_id = 0; column_id < num_columns; ++column_id) {
       auto iter = row_group_bloom_filters.find(column_id);
       if (iter != row_group_bloom_filters.cend() && iter->second != nullptr) {

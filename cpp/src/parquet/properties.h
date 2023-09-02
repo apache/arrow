@@ -830,15 +830,10 @@ class PARQUET_EXPORT WriterProperties {
   }
 
   bool bloom_filter_enabled() const {
-    if (default_column_properties_.bloom_filter_enabled()) {
-      return true;
-    }
-    for (const auto& item : column_properties_) {
-      if (item.second.bloom_filter_enabled()) {
-        return true;
-      }
-    }
-    return false;
+    // Note: we disallow enable bloom filter by default for now.
+    // So no need to check `default_column_properties_.bloom_filter_enabled()`.
+    return std::any_of(column_properties_.begin(), column_properties_.end(),
+                       [](auto& p) { return p.second.bloom_filter_enabled(); });
   }
 
   std::optional<BloomFilterOptions> bloom_filter_options(
