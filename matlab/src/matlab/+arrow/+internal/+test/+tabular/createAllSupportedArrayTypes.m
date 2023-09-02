@@ -32,6 +32,7 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
     matlabData  = cell(numClasses, 1);
     
     timeClasses = getTimeArrayClasses();
+    dateClasses = getDateArrayClasses();
     numericArrayToMatlabTypeDict = getNumericArrayToMatlabDictionary();
 
     for ii = 1:numel(classes)
@@ -52,6 +53,10 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
             arrowArrays{ii} = TimestampArray.fromMATLAB(matlabData{ii});
         elseif ismember(name, timeClasses)
             matlabData{ii} = randomDurations(opts.NumRows);
+            cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
+            arrowArrays{ii} = eval(cmd);
+        elseif ismember(name, dateClasses)
+            matlabData{ii} = randomDatetimes(opts.NumRows);
             cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
             arrowArrays{ii} = eval(cmd);
         else
@@ -84,6 +89,10 @@ end
 
 function timeClasses = getTimeArrayClasses()
     timeClasses = compose("arrow.array.Time%dArray", [32 64]);
+end
+
+function dateClasses = getDateArrayClasses()
+    dateClasses = compose("arrow.array.Date%dArray", 32);
 end
 
 function number = randomNumbers(numberType, numElements)

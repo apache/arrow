@@ -574,12 +574,12 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
 
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
-  io::BufferReader reader(data);
-  ASSERT_RAISES(Invalid, ReadMessage(&reader));
+  auto reader = io::BufferReader::FromString(data);
+  ASSERT_RAISES(Invalid, ReadMessage(reader.get()));
 
   // But no error on unsignaled EOS
-  io::BufferReader reader2("");
-  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(&reader2));
+  auto reader2 = io::BufferReader::FromString("");
+  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(reader2.get()));
   ASSERT_EQ(nullptr, message);
 }
 

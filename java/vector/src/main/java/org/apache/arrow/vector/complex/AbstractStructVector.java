@@ -78,7 +78,7 @@ public abstract class AbstractStructVector extends AbstractContainerVector {
   }
 
   /**
-   *  Base coonstructor that sets default conflict policy to APPEND.
+   *  Base constructor that sets default conflict policy to APPEND.
    */
   protected AbstractStructVector(String name,
                                  BufferAllocator allocator,

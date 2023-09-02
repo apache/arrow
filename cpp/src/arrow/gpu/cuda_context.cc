@@ -26,11 +26,10 @@
 #include <utility>
 #include <vector>
 
-#include <cuda.h>
-
 #include "arrow/gpu/cuda_internal.h"
 #include "arrow/gpu/cuda_memory.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -273,12 +272,83 @@ bool IsCudaDevice(const Device& device) {
   return device.type_name() == kCudaDeviceTypeName;
 }
 
+Result<std::shared_ptr<Device::Stream>> CudaDevice::MakeStream(unsigned int flags) {
+  ARROW_ASSIGN_OR_RAISE(auto context, GetContext());
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context.get()->handle()));
+
+  CUstream stream;
+  CU_RETURN_NOT_OK("cuStreamCreate", cuStreamCreate(&stream, flags));
+  return std::shared_ptr<Device::Stream>(
+      new CudaDevice::Stream(context, new CUstream(stream), [](void* st) {
+        auto typed_stream = reinterpret_cast<CUstream*>(st);
+        // DCHECK_OK still evaluates its argument in release mode
+        // but in debug mode it'll also throw if it fails
+        DCHECK_OK(
+            internal::StatusFromCuda(cuStreamDestroy(*typed_stream), "cuStreamDestroy"));
+        delete typed_stream;
+      }));
+}
+
+Result<std::shared_ptr<Device::Stream>> CudaDevice::WrapStream(
+    void* stream, Device::Stream::release_fn_t release_fn) {
+  if (!release_fn) {
+    release_fn = [](void*) {};
+  }
+
+  auto cu_stream = reinterpret_cast<CUstream*>(stream);
+  ARROW_ASSIGN_OR_RAISE(auto context, GetContext());
+  return std::shared_ptr<Device::Stream>(
+      new CudaDevice::Stream(context, cu_stream, release_fn));
+}
+
 Result<std::shared_ptr<CudaDevice>> AsCudaDevice(const std::shared_ptr<Device>& device) {
   if (IsCudaDevice(*device)) {
     return checked_pointer_cast<CudaDevice>(device);
   } else {
     return Status::TypeError("Device is not a Cuda device: ", device->ToString());
   }
+}
+
+Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
+  auto cuda_event =
+      checked_cast<const CudaDevice::SyncEvent*, const Device::SyncEvent*>(&event);
+  if (!cuda_event) {
+    return Status::Invalid("CudaDevice::Stream cannot Wait on non-cuda event");
+  }
+
+  auto cu_event = cuda_event->value();
+  if (!cu_event) {
+    return Status::Invalid("Cuda Stream cannot wait on null event");
+  }
+
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
+  CU_RETURN_NOT_OK("cuStreamWaitEvent",
+                   cuStreamWaitEvent(value(), cu_event, CU_EVENT_WAIT_DEFAULT));
+  return Status::OK();
+}
+
+Status CudaDevice::Stream::Synchronize() const {
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
+  CU_RETURN_NOT_OK("cuStreamSynchronize", cuStreamSynchronize(value()));
+  return Status::OK();
+}
+
+Status CudaDevice::SyncEvent::Wait() {
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
+  CU_RETURN_NOT_OK("cuEventSynchronize", cuEventSynchronize(value()));
+  return Status::OK();
+}
+
+Status CudaDevice::SyncEvent::Record(const Device::Stream& st, const unsigned int flags) {
+  auto cuda_stream = checked_cast<const CudaDevice::Stream*, const Device::Stream*>(&st);
+  if (!cuda_stream) {
+    return Status::Invalid("CudaDevice::Event cannot record on non-cuda stream");
+  }
+
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
+  CU_RETURN_NOT_OK("cuEventRecordWithFlags",
+                   cuEventRecordWithFlags(value(), cuda_stream->value(), flags));
+  return Status::OK();
 }
 
 // ----------------------------------------------------------------------
@@ -293,11 +363,35 @@ std::shared_ptr<CudaDevice> CudaMemoryManager::cuda_device() const {
   return checked_pointer_cast<CudaDevice>(device_);
 }
 
+Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::MakeDeviceSyncEvent() {
+  ARROW_ASSIGN_OR_RAISE(auto context, cuda_device()->GetContext());
+  ContextSaver set_temporary(reinterpret_cast<CUcontext>(context.get()->handle()));
+
+  // TODO: event creation flags
+  CUevent ev;
+  CU_RETURN_NOT_OK("cuEventCreate", cuEventCreate(&ev, CU_EVENT_DEFAULT));
+
+  return std::shared_ptr<Device::SyncEvent>(
+      new CudaDevice::SyncEvent(context, new CUevent(ev), [](void* ev) {
+        auto typed_event = reinterpret_cast<CUevent*>(ev);
+        // DCHECK_OK still evaluates its argument in release mode
+        // but in debug mode it'll also throw if it fails
+        DCHECK_OK(
+            internal::StatusFromCuda(cuEventDestroy(*typed_event), "cuEventDestroy"));
+        delete typed_event;
+      }));
+}
+
 Result<std::shared_ptr<Device::SyncEvent>> CudaMemoryManager::WrapDeviceSyncEvent(
     void* sync_event, Device::SyncEvent::release_fn_t release_sync_event) {
-  return nullptr;
-  // auto ev = reinterpret_cast<CUstream*>(sync_event);
-  // return std::make_shared<CudaDeviceSync>(ev);
+  if (!release_sync_event) {
+    release_sync_event = [](void*) {};
+  }
+
+  auto ev = reinterpret_cast<CUevent*>(sync_event);
+  ARROW_ASSIGN_OR_RAISE(auto context, cuda_device()->GetContext());
+  return std::shared_ptr<Device::SyncEvent>(
+      new CudaDevice::SyncEvent(context, ev, release_sync_event));
 }
 
 Result<std::shared_ptr<io::RandomAccessFile>> CudaMemoryManager::GetBufferReader(
@@ -440,7 +534,7 @@ class CudaDeviceManager::Impl {
   Status AllocateHost(int device_number, int64_t nbytes, uint8_t** out) {
     RETURN_NOT_OK(CheckDeviceNum(device_number));
     ARROW_ASSIGN_OR_RAISE(auto ctx, GetContext(device_number));
-    ContextSaver set_temporary((CUcontext)(ctx.get()->handle()));
+    ContextSaver set_temporary(reinterpret_cast<CUcontext>(ctx.get()->handle()));
     CU_RETURN_NOT_OK("cuMemHostAlloc", cuMemHostAlloc(reinterpret_cast<void**>(out),
                                                       static_cast<size_t>(nbytes),
                                                       CU_MEMHOSTALLOC_PORTABLE));

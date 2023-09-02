@@ -76,6 +76,40 @@ classdef tDate32Type < hFixedWidthType
             testCase.verifyError(@() arrow.type.Date32Type(proxy), "arrow:proxy:ProxyNameMismatch");
         end
 
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.Date32Type returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.Date32Type
+            % 2. All inputs have the same size
+
+            % Scalar Date32Type arrays
+            date32Type1 = arrow.date32();
+            date32Type2 = arrow.date32();
+            testCase.verifyTrue(isequal(date32Type1, date32Type2));
+
+            % Non-scalar Date32Type arrays
+            typeArray1 = [date32Type1 date32Type1];
+            typeArray2 = [date32Type2 date32Type2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method of arrow.type.Date32Type returns
+            % false when expected.
+            
+            % Pass a different arrow.type.Type subclass to isequal
+            date32Type = arrow.date32();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(date32Type, int32Type));
+            testCase.verifyFalse(isequal([date32Type date32Type], [int32Type int32Type]));
+
+            % Date32Type arrays have different sizes
+            typeArray1 = [date32Type date32Type];
+            typeArray2 = [date32Type date32Type]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+    
     end
 
 end

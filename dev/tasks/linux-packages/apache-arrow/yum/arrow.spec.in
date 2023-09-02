@@ -273,14 +273,7 @@ License:	Apache-2.0
 Requires:	%{name}%{major_version}-libs = %{version}-%{release}
 Requires:	brotli-devel
 Requires:	bzip2-devel
-%if %{use_flight}
-Requires:	c-ares-devel
-%endif
 Requires:	curl-devel
-%if %{have_grpc}
-Requires:	grpc-devel
-Requires:	grpc-plugins
-%endif
 %if %{use_gcs}
 Requires:	json-devel
 %endif
@@ -413,6 +406,11 @@ Summary:	Libraries and header files for Apache Arrow Flight.
 License:	Apache-2.0
 Requires:	%{name}%{major_version}-flight-libs = %{version}-%{release}
 Requires:	%{name}-devel = %{version}-%{release}
+Requires:	c-ares-devel
+%if %{have_grpc}
+Requires:	grpc-devel
+Requires:	grpc-plugins
+%endif
 
 %description flight-devel
 Libraries and header files for Apache Arrow Flight.
