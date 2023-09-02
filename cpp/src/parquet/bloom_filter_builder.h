@@ -35,6 +35,8 @@ class PARQUET_EXPORT BloomFilterBuilder {
                                                   const WriterProperties& properties);
 
   /// Append a new row group to host all incoming bloom filters.
+  ///
+  /// This method must be called before Finish.
   virtual void AppendRowGroup() = 0;
 
   /// \brief Get the BloomFilter from column ordinal.

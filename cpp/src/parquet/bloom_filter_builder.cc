@@ -81,7 +81,14 @@ std::unique_ptr<BloomFilterBuilder> BloomFilterBuilder::Make(
   return std::make_unique<BloomFilterBuilderImpl>(schema, properties);
 }
 
-void BloomFilterBuilderImpl::AppendRowGroup() { file_bloom_filters_.emplace_back(); }
+void BloomFilterBuilderImpl::AppendRowGroup() {
+  if (finished_) {
+    throw ParquetException(
+        "Cannot call AppendRowGroup() to finished BloomFilterBuilder.");
+  }
+  RowGroupBloomFilters row_group_bloom_filters;
+  file_bloom_filters_.emplace_back(std::move(row_group_bloom_filters));
+}
 
 BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
   CheckState(column_ordinal);
