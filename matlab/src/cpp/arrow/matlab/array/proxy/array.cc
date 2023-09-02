@@ -87,11 +87,13 @@ namespace arrow::matlab::array::proxy {
                                             context,
                                             error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 
-        auto type_id = type_proxy->unwrap()->id();
-        auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
+        const auto type_id = static_cast<int32_t>(type_proxy->unwrap()->id());
+        const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
 
-        context.outputs[0] = factory.createScalar(proxy_id);
-        context.outputs[1] = factory.createScalar(static_cast<int64_t>(type_id));
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar(type_id);
+        context.outputs[0] = output;
     }
 
     void Array::isEqual(libmexclass::proxy::method::Context& context) {

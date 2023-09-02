@@ -40,9 +40,9 @@ classdef Field < matlab.mixin.CustomDisplay
         end
 
         function type = get.Type(obj)
-            [proxyID, typeID] = obj.Proxy.getType();
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=proxyID);
+            typeStruct = obj.Proxy.getType();
+            traits = arrow.type.traits.traits(arrow.type.ID(typeStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
             type = traits.TypeConstructor(proxy);
         end
 
