@@ -105,7 +105,7 @@
     "randomatic": "3.1.1",
     "rollup": "3.25.0",
     "rxjs": "7.8.1",
-    "ts-jest": "29.1.0",
+    "ts-jest": "29.1.1",
     "ts-node": "10.9.1",
     "typedoc": "0.24.8",
     "typescript": "5.1.3",
