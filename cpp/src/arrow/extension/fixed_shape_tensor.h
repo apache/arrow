@@ -20,6 +20,15 @@
 #include "arrow/extension_type.h"
 
 namespace arrow {
+namespace internal {
+
+ARROW_EXPORT
+Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& shape,
+                      const std::vector<int64_t>& permutation,
+                      std::vector<int64_t>* strides);
+
+}  // namespace internal
+
 namespace extension {
 
 class ARROW_EXPORT FixedShapeTensorArray : public ExtensionArray {
