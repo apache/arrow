@@ -17,36 +17,35 @@
 
 #pragma once
 
-#include "arrow/array.h"
-#include "arrow/matlab/type/proxy/type.h"
+#include "arrow/chunked_array.h"
 
 #include "libmexclass/proxy/Proxy.h"
 
 namespace arrow::matlab::array::proxy {
 
-class Array : public libmexclass::proxy::Proxy {
+class ChunkedArray : public libmexclass::proxy::Proxy {
     public:
-        Array(std::shared_ptr<arrow::Array> array);
+        ChunkedArray(std::shared_ptr<arrow::ChunkedArray> chunked_array);
     
-        virtual ~Array() {}
+        ~ChunkedArray() {}
 
-        std::shared_ptr<arrow::Array> unwrap();
+        std::shared_ptr<arrow::ChunkedArray> unwrap();
+
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
     protected:
 
-        void toString(libmexclass::proxy::method::Context& context);
-
         void getLength(libmexclass::proxy::method::Context& context);
 
-        void getValid(libmexclass::proxy::method::Context& context);
+        void getNumChunks(libmexclass::proxy::method::Context& context);
+
+        void getChunk(libmexclass::proxy::method::Context& context);
 
         void getType(libmexclass::proxy::method::Context& context);
 
-        virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
-
         void isEqual(libmexclass::proxy::method::Context& context);
 
-        std::shared_ptr<arrow::Array> array;
+        std::shared_ptr<arrow::ChunkedArray> chunked_array;
 };
 
 }

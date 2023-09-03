@@ -190,5 +190,9 @@ namespace arrow::matlab::error {
     static const char* FEATHER_VERSION_UNKNOWN = "arrow:io:feather:FeatherVersionUnknown";
     static const char* FEATHER_FAILED_TO_READ_TABLE = "arrow:io:feather:FailedToReadTable";
     static const char* FEATHER_FAILED_TO_READ_RECORD_BATCH = "arrow:io:feather:FailedToReadRecordBatch";
+    static const char* CHUNKED_ARRAY_MAKE_FAILED = "arrow:chunkedarray:MakeFailed";
+    static const char* CHUNKED_ARRAY_NUMERIC_INDEX_WITH_EMPTY_CHUNKED_ARRAY = "arrow:chunkedarray:NumericIndexWithEmptyChunkedArray";
+    static const char* CHUNKED_ARRAY_INVALID_NUMERIC_CHUNK_INDEX = "arrow:chunkedarray:InvalidNumericChunkIndex";
+
 
 }
