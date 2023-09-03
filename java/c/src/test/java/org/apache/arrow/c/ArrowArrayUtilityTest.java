@@ -56,18 +56,29 @@ class ArrowArrayUtilityTest {
   // BufferImportTypeVisitor
 
   @Test
-  void getBufferPtr() throws Exception {
+  void importBuffer() throws Exception {
     // Note values are all dummy values here
-    try (BufferImportTypeVisitor visitor =
-        new BufferImportTypeVisitor(allocator, dummyHandle, new ArrowFieldNode(0, 0), new long[]{0})) {
+    try (BufferImportTypeVisitor notEmptyDataVisitor =
+        new BufferImportTypeVisitor(allocator, dummyHandle, new ArrowFieldNode(/* length= */ 1, 0), new long[]{0})) {
 
       // Too few buffers
-      assertThrows(IllegalStateException.class, () -> visitor.getBufferPtr(new ArrowType.Bool(), 1));
+      assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
 
       // Null where one isn't expected
-      assertThrows(IllegalStateException.class, () -> visitor.getBufferPtr(new ArrowType.Bool(), 0));
+      assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+    }
+
+    try (BufferImportTypeVisitor emptyDataVisitor =
+        new BufferImportTypeVisitor(allocator, dummyHandle, new ArrowFieldNode(/* length= */ 0, 0), new long[]{0})) {
+
+      // Too few buffers
+      assertThrows(IllegalStateException.class, () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
+
+      // empty if c arry ptr is NULL (zero) and expected capacity is also zero
+      assertThat(emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 4)).isEqualTo(allocator.getEmpty());
     }
   }
+
 
   @Test
   void cleanupAfterFailure() throws Exception {
