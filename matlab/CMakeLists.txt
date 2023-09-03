@@ -326,6 +326,13 @@ if(MATLAB_BUILD_TESTS)
   # targets.
   target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
 
+  # Ensure using GTest:gtest and GTest::gtest_main on macOS without
+  # specifying DYLD_LIBRARY_DIR.
+  set_target_properties(placeholder_test
+                        PROPERTIES BUILD_RPATH
+                                   "$<TARGET_FILE_DIR:GTest::gtest>;$<TARGET_FILE_DIR:GTest::gtest_main>"
+  )
+
   # Add test targets for C++ tests.
   add_test(PlaceholderTestTarget placeholder_test)
 
