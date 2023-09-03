@@ -2110,7 +2110,14 @@ function(build_gtest)
   endif()
   set(BUILD_SHARED_LIBS ON)
   set(BUILD_STATIC_LIBS OFF)
-  set(INSTALL_GTEST OFF)
+  # We need to use "cache" variable to override the default
+  # INSTALL_GTEST option by this value. See also:
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  set(INSTALL_GTEST
+      OFF
+      CACHE "BOOL"
+            "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)"
+            FORCE)
   string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
   fetchcontent_makeavailable(googletest)
   set_target_properties(gmock PROPERTIES OUTPUT_NAME "arrow_gmock")
