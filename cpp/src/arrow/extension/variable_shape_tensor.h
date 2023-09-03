@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/extension_type.h"
 
 namespace arrow {
@@ -23,6 +25,14 @@ namespace extension {
 class ARROW_EXPORT VariableShapeTensorArray : public ExtensionArray {
  public:
   using ExtensionArray::ExtensionArray;
+
+  /// \brief Get a Tensor of VariableShapeTensorArray at i
+  ///
+  /// This method will return a Tensor from VariableShapeTensorArray with strides
+  /// derived from shape and permutation of VariableShapeTensorType. Shape and
+  /// dim_names will be permuted according to permutation stored in the
+  /// VariableShapeTensorType metadata.
+  const Result<std::shared_ptr<Tensor>> GetTensor(const int64_t i) const;
 };
 
 /// \brief Concrete type class for variable-shape Tensor data.
