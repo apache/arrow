@@ -17,11 +17,13 @@
 
 #include <sstream>
 
+#include "arrow/extension/fixed_shape_tensor.h"
 #include "arrow/extension/variable_shape_tensor.h"
 
 #include "arrow/array/array_nested.h"
 #include "arrow/array/array_primitive.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/scalar.h"
 #include "arrow/tensor.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging.h"
@@ -33,10 +35,38 @@
 namespace rj = arrow::rapidjson;
 
 namespace arrow {
-
 namespace extension {
 
-namespace {}  // namespace
+const Result<std::shared_ptr<Tensor>> VariableShapeTensorArray::GetTensor(
+    const int64_t i) const {
+  auto ext_arr = internal::checked_pointer_cast<StructArray>(this->storage());
+  auto ext_type = internal::checked_pointer_cast<VariableShapeTensorType>(this->type());
+  auto value_type =
+      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
+  auto ndim = ext_type->ndim();
+  auto dim_names = ext_type->dim_names();
+  auto shapes =
+      std::static_pointer_cast<FixedSizeListArray>(ext_arr->field(0))->value_slice(i);
+
+  std::vector<int64_t> shape;
+  for (int64_t j = 0; j < ndim; ++j) {
+    ARROW_ASSIGN_OR_RAISE(auto size, shapes->GetScalar(j));
+    shape.push_back(
+        static_cast<int64_t>(std::static_pointer_cast<UInt32Scalar>(size)->value));
+  }
+
+  std::vector<int64_t> strides;
+  ARROW_CHECK_OK(internal::ComputeStrides(*value_type.get(), shape,
+                                          ext_type->permutation(), &strides));
+
+  auto list_arr =
+      std::static_pointer_cast<ListArray>(ext_arr->field(1))->value_slice(i)->data();
+  auto bw = value_type->byte_width();
+  auto buffer =
+      SliceBuffer(list_arr->buffers[1], list_arr->offset * bw, list_arr->length * bw);
+
+  return Tensor::Make(ext_type->value_type(), buffer, shape, strides, dim_names);
+}
 
 bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
