@@ -2654,6 +2654,10 @@ cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::ext
         const vector[int64_t] permutation()
         const vector[c_string] dim_names()
 
+    cdef cppclass CVariableShapeTensorArray \
+            " arrow::extension::VariableShapeTensorArray"(CExtensionArray) nogil:
+        CResult[shared_ptr[CTensor]] GetTensor(const int64_t i) const
+
 
 cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extension":
     cdef cppclass CFixedShapeTensorType \

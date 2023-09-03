@@ -3507,7 +3507,7 @@ class FixedShapeTensorArray(ExtensionArray):
         )
 
 
-class VariableShapeTensorArray(ExtensionArray):
+cdef class VariableShapeTensorArray(ExtensionArray):
     """
     Concrete class for variable shape tensor extension arrays.
 
@@ -3557,15 +3557,18 @@ class VariableShapeTensorArray(ExtensionArray):
     def to_numpy_ndarray(self):
         """
         Convert variable shape tensor extension array to list of numpy arrays.
-
-        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
         """
-        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
-            storage_iterator = zip(self.storage.field(0), self.storage.field(1))
-            return [np.array(v.values.to_numpy()).reshape(s.values.to_numpy()) for s, v in storage_iterator]
-        else:
-            raise ValueError(
-                'Only non-permuted tensors can be converted to numpy tensors.')
+        cdef:
+            CVariableShapeTensorArray * ext_array = <CVariableShapeTensorArray *> (self.ap)
+            CResult[shared_ptr[CTensor]] ctensor
+
+        tensors = []
+        for i in range(len(self.storage)):
+            with nogil:
+                ctensor = ext_array.GetTensor(i)
+            tensors.append(pyarrow_wrap_tensor(GetResultValue(ctensor)))
+
+        return tensors
 
     @staticmethod
     def from_numpy_ndarray(obj):

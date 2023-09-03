@@ -458,6 +458,8 @@ cdef class DictionaryArray(Array):
 cdef class ExtensionArray(Array):
     pass
 
+cdef class VariableShapeTensorArray(ExtensionArray):
+    pass
 
 cdef class MonthDayNanoIntervalArray(Array):
     pass

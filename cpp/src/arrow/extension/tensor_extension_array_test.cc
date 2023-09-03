@@ -29,6 +29,7 @@
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -448,6 +449,8 @@ class TestVariableShapeTensorType : public ::testing::Test {
   void SetUp() override {
     ndim_ = 3;
     value_type_ = int64();
+    data_type_ = list(value_type_);
+    shape_type_ = fixed_size_list(uint32(), ndim_);
     permutation_ = {0, 1, 2};
     dim_names_ = {"x", "y", "z"};
     ext_type_ = internal::checked_pointer_cast<ExtensionType>(
@@ -467,6 +470,8 @@ class TestVariableShapeTensorType : public ::testing::Test {
  protected:
   uint32_t ndim_;
   std::shared_ptr<DataType> value_type_;
+  std::shared_ptr<DataType> data_type_;
+  std::shared_ptr<DataType> shape_type_;
   std::vector<int64_t> permutation_;
   std::vector<std::string> dim_names_;
   std::shared_ptr<ExtensionType> ext_type_;
@@ -593,6 +598,55 @@ TEST_F(TestVariableShapeTensorType, RoudtripBatch) {
   auto batch2 = RecordBatch::Make(schema({ext_field}), ext_arr_->length(), {ext_arr_});
   RoundtripBatch(batch2, &read_batch2);
   CompareBatch(*batch, *read_batch2, /*compare_metadata=*/true);
+}
+
+TEST_F(TestVariableShapeTensorType, ComputeStrides) {
+  auto shapes = ArrayFromJSON(shape_type_, "[[2,3,1],[2,1,2],[3,1,3]]");
+  auto data =
+      ArrayFromJSON(data_type_, "[[1,1,2,3,4,5],[2,7,8,9],[10,11,12,13,14,15,16,17,18]]");
+  std::vector<std::shared_ptr<Field>> fields = {field("shapes", shape_type_),
+                                                field("data", data_type_)};
+  ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({shapes, data}, fields));
+  auto ext_arr = ExtensionType::WrapArray(ext_type_, storage_arr);
+  auto ext_array = std::static_pointer_cast<VariableShapeTensorArray>(ext_arr);
+
+  std::shared_ptr<Tensor> t, tensor;
+
+  ASSERT_OK_AND_ASSIGN(t, ext_array->GetTensor(0));
+  ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 3, 1}));
+  ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 8, 8}));
+
+  std::vector<int64_t> shape = {2, 3, 1};
+  std::vector<int64_t> strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 1,
+                                  sizeof(int64_t) * 1};
+  std::vector<int64_t> values = {1, 1, 2, 3, 4, 5};
+  auto data_buffer = Buffer::Wrap(values);
+  ASSERT_OK_AND_ASSIGN(tensor,
+                       Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
+  ASSERT_TRUE(tensor->Equals(*t));
+
+  ASSERT_OK_AND_ASSIGN(t, ext_array->GetTensor(1));
+  ASSERT_EQ(t->shape(), (std::vector<int64_t>{2, 1, 2}));
+  ASSERT_EQ(t->strides(), (std::vector<int64_t>{16, 16, 8}));
+
+  ASSERT_OK_AND_ASSIGN(t, ext_array->GetTensor(2));
+  ASSERT_EQ(t->shape(), (std::vector<int64_t>{3, 1, 3}));
+  ASSERT_EQ(t->strides(), (std::vector<int64_t>{24, 24, 8}));
+
+  shape = {3, 1, 3};
+  strides = {sizeof(int64_t) * 3, sizeof(int64_t) * 3, sizeof(int64_t) * 1};
+  values = {10, 11, 12, 13, 14, 15, 16, 17, 18};
+  data_buffer = Buffer::Wrap(values);
+  ASSERT_OK_AND_ASSIGN(tensor,
+                       Tensor::Make(int64(), data_buffer, shape, strides, dim_names_));
+
+  ASSERT_EQ(tensor->strides(), t->strides());
+  ASSERT_EQ(tensor->shape(), t->shape());
+  ASSERT_EQ(tensor->dim_names(), t->dim_names());
+  ASSERT_EQ(tensor->type(), t->type());
+  ASSERT_EQ(tensor->is_contiguous(), t->is_contiguous());
+  ASSERT_EQ(tensor->is_column_major(), t->is_column_major());
+  ASSERT_TRUE(tensor->Equals(*t));
 }
 
 }  // namespace arrow
