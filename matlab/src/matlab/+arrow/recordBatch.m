@@ -20,7 +20,7 @@ function rb = recordBatch(T)
     end
 
     arrowArrays = arrow.tabular.internal.decompose(T);
-    arrayProxyIDs = arrow.tabular.internal.getArrayProxyIDs(arrowArrays);
+    arrayProxyIDs = arrow.array.internal.getArrayProxyIDs(arrowArrays);
 
     columnNames = string(T.Properties.VariableNames);
     args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=columnNames);

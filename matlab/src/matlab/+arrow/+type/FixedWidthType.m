@@ -29,7 +29,7 @@ classdef (Abstract) FixedWidthType < arrow.type.Type
         end
 
         function width = get.BitWidth(obj)
-            width = obj.Proxy.bitWidth();
+            width = obj.Proxy.getBitWidth();
         end
     end 
 end
