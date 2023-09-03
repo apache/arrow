@@ -34,11 +34,11 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
         end
 
         function numFields = get.NumFields(obj)
-            numFields = obj.Proxy.numFields();
+            numFields = obj.Proxy.getNumFields();
         end
 
         function typeID = get.ID(obj)
-            typeID = arrow.type.ID(obj.Proxy.typeID());
+            typeID = arrow.type.ID(obj.Proxy.getTypeID());
         end
     end
 

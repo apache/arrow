@@ -52,8 +52,8 @@ namespace arrow::matlab::tabular::proxy {
 
     RecordBatch::RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch) : record_batch{record_batch} {
         REGISTER_METHOD(RecordBatch, toString);
-        REGISTER_METHOD(RecordBatch, numColumns);
-        REGISTER_METHOD(RecordBatch, columnNames);
+        REGISTER_METHOD(RecordBatch, getNumColumns);
+        REGISTER_METHOD(RecordBatch, getColumnNames);
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
         REGISTER_METHOD(RecordBatch, getColumnByName);
         REGISTER_METHOD(RecordBatch, getSchema);
@@ -104,7 +104,7 @@ namespace arrow::matlab::tabular::proxy {
         return record_batch_proxy;
     }
 
-    void RecordBatch::numColumns(libmexclass::proxy::method::Context& context) {
+    void RecordBatch::getNumColumns(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         const auto num_columns = record_batch->num_columns();
@@ -112,7 +112,7 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = num_columns_mda;
     }
 
-    void RecordBatch::columnNames(libmexclass::proxy::method::Context& context) {
+    void RecordBatch::getColumnNames(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         const int num_columns = record_batch->num_columns();

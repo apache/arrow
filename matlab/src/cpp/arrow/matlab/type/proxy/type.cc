@@ -22,8 +22,8 @@
 namespace arrow::matlab::type::proxy {
 
     Type::Type(std::shared_ptr<arrow::DataType> type) : data_type{std::move(type)} {
-        REGISTER_METHOD(Type, typeID);
-        REGISTER_METHOD(Type, numFields);
+        REGISTER_METHOD(Type, getTypeID);
+        REGISTER_METHOD(Type, getNumFields);
         REGISTER_METHOD(Type, isEqual);
     }
 
@@ -31,7 +31,7 @@ namespace arrow::matlab::type::proxy {
         return data_type;
     }
 
-    void Type::typeID(libmexclass::proxy::method::Context& context) {
+    void Type::getTypeID(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         
@@ -39,7 +39,7 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = type_number_mda;
     }
 
-    void Type::numFields(libmexclass::proxy::method::Context& context) {
+    void Type::getNumFields(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         
