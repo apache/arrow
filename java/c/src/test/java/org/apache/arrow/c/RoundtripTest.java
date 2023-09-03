@@ -537,6 +537,7 @@ public class RoundtripTest {
   @Test
   public void testEmptyListVector() {
     try (final ListVector vector = ListVector.empty("v", allocator)) {
+      setVector(vector, new ArrayList<Integer>());
       assertTrue(roundtrip(vector, ListVector.class));
     }
   }

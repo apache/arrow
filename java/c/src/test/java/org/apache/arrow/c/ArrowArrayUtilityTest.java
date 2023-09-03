@@ -66,6 +66,12 @@ class ArrowArrayUtilityTest {
 
       // Null where one isn't expected
       assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+
+      // Expected capacity not zero but c arry ptr is NULL (zero)
+      assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+
+      // Expected capacity is zero and c arry ptr is NULL (zero)
+      assertThat(notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 0)).isEqualTo(allocator.getEmpty());
     }
 
     try (BufferImportTypeVisitor emptyDataVisitor =
@@ -74,8 +80,11 @@ class ArrowArrayUtilityTest {
       // Too few buffers
       assertThrows(IllegalStateException.class, () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 1, 1));
 
-      // empty if c arry ptr is NULL (zero) and expected capacity is also zero
-      assertThat(emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 4)).isEqualTo(allocator.getEmpty());
+      // Expected capacity not zero but c arry ptr is NULL (zero)
+      assertThrows(IllegalStateException.class, () -> emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
+
+      // Expected capacity is zero and c arry ptr is NULL (zero)
+      assertThat(emptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 0)).isEqualTo(allocator.getEmpty());
     }
   }
 

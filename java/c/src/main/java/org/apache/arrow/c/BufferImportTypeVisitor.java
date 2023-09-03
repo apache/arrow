@@ -87,11 +87,9 @@ class BufferImportTypeVisitor implements ArrowType.ArrowTypeVisitor<List<ArrowBu
     long bufferPtr = buffers[index];
 
     if (bufferPtr == NULL) {
-      // C array may be NULL if it holds nothing, field length is 0
-      if (fieldNode.getLength() != 0) {
-        throw new IllegalStateException(
-                String.format("Buffer %s for type %s cannot be null", index, type)
-        );
+      // C array may be NULL but only accept that if expected capacity is zero too
+      if (capacity != 0) {
+        throw new IllegalStateException(String.format("Buffer %s for type %s cannot be null", index, type));
       } else {
         // no data in the C array, return an empty buffer
         return allocator.getEmpty();
