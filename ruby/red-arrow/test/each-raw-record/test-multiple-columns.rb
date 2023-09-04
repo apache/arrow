@@ -68,6 +68,13 @@ class EachRawRecordTableMultipleColumnsTest < Test::Unit::TestCase
   include EachRawRecordMultipleColumnsTests
 
   def build(schema, records)
-    Arrow::Table.new(schema, records)
+    record_batch = Arrow::RecordBatch.new(schema, records)
+    record_batches = [
+      record_batch.slice(0, 2),
+      record_batch.slice(2, 0),
+      record_batch.slice(2, record_batch.length - 2),
+    ]
+
+    Arrow::Table.new(schema, record_batches)
   end
 end
