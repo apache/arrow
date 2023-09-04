@@ -620,9 +620,13 @@ class GrpcServerTransport : public internal::ServerTransport {
     }
 
     if (scheme == kSchemeGrpcTls) {
-      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTls(uri.host(), port));
+      ARROW_ASSIGN_OR_RAISE(
+          location_,
+          Location::ForGrpcTls(arrow::internal::UriEncodeHost(uri.host()), port));
     } else if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp) {
-      ARROW_ASSIGN_OR_RAISE(location_, Location::ForGrpcTcp(uri.host(), port));
+      ARROW_ASSIGN_OR_RAISE(
+          location_,
+          Location::ForGrpcTcp(arrow::internal::UriEncodeHost(uri.host()), port));
     }
     return Status::OK();
   }
