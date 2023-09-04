@@ -246,9 +246,9 @@ struct MeanImpl<ArrowType, SimdLevel,
                 std::enable_if_t<!is_decimal_type<ArrowType>::value>>
     // Override the ResultType of SumImpl because we need to use double for intermediate
     // sum to prevent integer overflows
-    : public SumImpl<ArrowType, SimdLevel, false, DoubleType> {
-  using SumImpl<ArrowType, SimdLevel, false, DoubleType>::SumImpl;
-  using SumImpl<ArrowType, SimdLevel, false, DoubleType>::options;
+    : public SumImpl<ArrowType, SimdLevel, /*Checked=*/false, DoubleType> {
+  using SumImpl<ArrowType, SimdLevel, /*Checked=*/false, DoubleType>::SumImpl;
+  using SumImpl<ArrowType, SimdLevel, /*Checked=*/false, DoubleType>::options;
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {
