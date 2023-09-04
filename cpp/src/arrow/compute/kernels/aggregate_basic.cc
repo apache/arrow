@@ -273,13 +273,14 @@ void AddCountDistinctKernels(ScalarAggregateFunction* func) {
 // Sum implementation
 
 template <typename ArrowType>
-struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE, false> {
-  using SumImpl<ArrowType, SimdLevel::NONE, false>::SumImpl;
+struct SumImplDefault : public SumImpl<ArrowType, SimdLevel::NONE, /*Checked=*/false> {
+  using SumImpl<ArrowType, SimdLevel::NONE, /*Checked=*/false>::SumImpl;
 };
 
 template <typename ArrowType>
-struct SumCheckedImplDefault : public SumImpl<ArrowType, SimdLevel::NONE, true> {
-  using SumImpl<ArrowType, SimdLevel::NONE, true>::SumImpl;
+struct SumCheckedImplDefault
+    : public SumImpl<ArrowType, SimdLevel::NONE, /*Checked=*/true> {
+  using SumImpl<ArrowType, SimdLevel::NONE, /*Checked=*/true>::SumImpl;
 };
 
 template <typename ArrowType>

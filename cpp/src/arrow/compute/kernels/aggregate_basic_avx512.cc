@@ -25,13 +25,14 @@ namespace internal {
 // Sum implementation
 
 template <typename ArrowType>
-struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512, false> {
-  using SumImpl<ArrowType, SimdLevel::AVX512, false>::SumImpl;
+struct SumImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512, /*Checked=*/false> {
+  using SumImpl<ArrowType, SimdLevel::AVX512, /*Checked=*/false>::SumImpl;
 };
 
 template <typename ArrowType>
-struct SumCheckedImplAvx512 : public SumImpl<ArrowType, SimdLevel::AVX512, true> {
-  using SumImpl<ArrowType, SimdLevel::AVX512, true>::SumImpl;
+struct SumCheckedImplAvx512
+    : public SumImpl<ArrowType, SimdLevel::AVX512, /*Checked=*/true> {
+  using SumImpl<ArrowType, SimdLevel::AVX512, /*Checked=*/true>::SumImpl;
 };
 
 template <typename ArrowType>

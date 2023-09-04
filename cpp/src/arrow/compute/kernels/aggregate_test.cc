@@ -376,14 +376,14 @@ TYPED_TEST(TestNumericSumKernel, SimpleSum) {
   ValidateSum<TypeParam>("[1, null, 3, null, 3, null, 7]",
                          Datum(std::make_shared<ScalarType>(14)));
 
-  EXPECT_THAT(Sum(Datum(std::make_shared<InputScalarType>(static_cast<T>(5)))),
-              ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
-  EXPECT_THAT(Sum(MakeNullScalar(TypeTraits<TypeParam>::type_singleton())),
-              ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
-  EXPECT_THAT(SumChecked(Datum(std::make_shared<InputScalarType>(static_cast<T>(5)))),
-              ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
-  EXPECT_THAT(SumChecked(MakeNullScalar(TypeTraits<TypeParam>::type_singleton())),
-              ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
+  for (auto&& func : {Sum, SumChecked}) {
+    EXPECT_THAT(func(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
+                     ScalarAggregateOptions::Defaults(), nullptr),
+                ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
+    EXPECT_THAT(func(MakeNullScalar(TypeTraits<TypeParam>::type_singleton()),
+                     ScalarAggregateOptions::Defaults(), nullptr),
+                ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
+  }
 }
 
 TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
@@ -417,24 +417,18 @@ TYPED_TEST(TestNumericSumKernel, ScalarAggregateOptions) {
   ValidateSum<TypeParam>(json, null_result,
                          ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
 
-  EXPECT_THAT(Sum(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
-                  ScalarAggregateOptions(/*skip_nulls=*/false)),
-              ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
-  EXPECT_THAT(Sum(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
-                  ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
-              ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
-  EXPECT_THAT(Sum(MakeNullScalar(TypeTraits<TypeParam>::type_singleton()),
-                  ScalarAggregateOptions(/*skip_nulls=*/false)),
-              ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
-  EXPECT_THAT(SumChecked(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
-                         ScalarAggregateOptions(/*skip_nulls=*/false)),
-              ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
-  EXPECT_THAT(SumChecked(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
-                         ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2)),
-              ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
-  EXPECT_THAT(SumChecked(MakeNullScalar(TypeTraits<TypeParam>::type_singleton()),
-                         ScalarAggregateOptions(/*skip_nulls=*/false)),
-              ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
+  for (auto&& func : {Sum, SumChecked}) {
+    EXPECT_THAT(func(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
+                     ScalarAggregateOptions(/*skip_nulls=*/false), nullptr),
+                ResultWith(Datum(std::make_shared<ScalarType>(static_cast<T>(5)))));
+    EXPECT_THAT(
+        func(Datum(std::make_shared<InputScalarType>(static_cast<T>(5))),
+             ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2), nullptr),
+        ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
+    EXPECT_THAT(func(MakeNullScalar(TypeTraits<TypeParam>::type_singleton()),
+                     ScalarAggregateOptions(/*skip_nulls=*/false), nullptr),
+                ResultWith(Datum(MakeNullScalar(TypeTraits<SumType>::type_singleton()))));
+  }
 }
 
 template <typename ArrowType>
@@ -521,17 +515,16 @@ TEST_F(TestSumKernelRoundOff, Basics) {
                       }));
 
   // reference value from numpy.sum()
-  ASSERT_OK_AND_ASSIGN(Datum result, Sum(array));
-  auto sum = checked_cast<const ScalarType*>(result.scalar().get());
-  ASSERT_EQ(sum->value, 2756346749973250.0);
-
-  ASSERT_OK_AND_ASSIGN(result, SumChecked(array));
-  sum = checked_cast<const ScalarType*>(result.scalar().get());
-  ASSERT_EQ(sum->value, 2756346749973250.0);
+  for (auto&& func : {Sum, SumChecked}) {
+    ASSERT_OK_AND_ASSIGN(Datum result,
+                         func(array, ScalarAggregateOptions::Defaults(), nullptr));
+    auto sum = checked_cast<const ScalarType*>(result.scalar().get());
+    ASSERT_EQ(sum->value, 2756346749973250.0);
+  }
 }
 
 TEST(TestDecimalSumKernel, SimpleSum) {
-  for (auto func : {Sum, SumChecked}) {
+  for (auto&& func : {Sum, SumChecked}) {
     for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
       auto default_options = ScalarAggregateOptions::Defaults();
       EXPECT_THAT(func(ArrayFromJSON(ty, R"([])"), default_options, nullptr),
@@ -688,15 +681,13 @@ TEST(TestNullSumKernel, Basics) {
 }
 
 TEST(TestSumKernel, Overflow) {
-  int64_t large_scalar = 1000000000000000;
-  int64_t length = 10000;
-  auto scalar = std::make_shared<Int64Scalar>(large_scalar);
-  auto array = MakeArrayFromScalar(*scalar, length);
-
-#ifndef ARROW_UBSAN
-  ASSERT_OK(Sum(*array));
-#endif
-  ASSERT_RAISES(Invalid, SumChecked(*array));
+  for (const auto& ty : {uint64(), int64()}) {
+    auto scalar = ScalarFromJSON(ty, "10000000000000000");
+    int64_t length = 10000;
+    auto array = MakeArrayFromScalar(*scalar, length);
+    ASSERT_OK(Sum(*array));
+    ASSERT_RAISES(Invalid, SumChecked(*array));
+  }
 }
 
 //

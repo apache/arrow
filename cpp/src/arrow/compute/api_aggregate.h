@@ -291,7 +291,7 @@ Result<Datum> Sum(
 /// \param[in] ctx the function execution context, optional
 /// \return datum of the computed sum as a Scalar
 ///
-/// \since 1.0.0
+/// \since 14.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
 Result<Datum> SumChecked(

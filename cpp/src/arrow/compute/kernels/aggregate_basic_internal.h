@@ -202,11 +202,12 @@ struct MeanImpl;
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
-    : public SumImpl<ArrowType, SimdLevel, false> {
-  using SumImpl<ArrowType, SimdLevel, false>::SumImpl;
-  using SumImpl<ArrowType, SimdLevel, false>::options;
-  using SumCType = typename SumImpl<ArrowType, SimdLevel, false>::SumCType;
-  using OutputType = typename SumImpl<ArrowType, SimdLevel, false>::OutputType;
+    : public SumImpl<ArrowType, SimdLevel, /*Checked=*/false> {
+  using SumImpl<ArrowType, SimdLevel, /*Checked=*/false>::SumImpl;
+  using SumImpl<ArrowType, SimdLevel, /*Checked=*/false>::options;
+  using SumCType = typename SumImpl<ArrowType, SimdLevel, /*Checked=*/false>::SumCType;
+  using OutputType =
+      typename SumImpl<ArrowType, SimdLevel, /*Checked=*/false>::OutputType;
 
   template <typename T = ArrowType>
   Status FinalizeImpl(Datum* out) {

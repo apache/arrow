@@ -225,23 +225,29 @@ template <typename ValueType, typename SumType, SimdLevel::type SimdLevel, bool 
           typename ValueFunc>
 enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
     const ArraySpan& data, ValueFunc&& func, Status* status) {
+  using arrow::internal::VisitSetBitRuns;
   using arrow::internal::VisitSetBitRunsVoid;
 
   SumType sum = 0;
   const ValueType* values = data.GetValues<ValueType>(1);
-  VisitSetBitRunsVoid(
-      data.buffers[0].data, data.offset, data.length, [&](int64_t pos, int64_t len) {
-        for (int64_t i = 0; i < len; ++i) {
-          if constexpr (Checked) {
+  if constexpr (Checked) {
+    // Status is set via out parameter, so we ignore the returned status here
+    std::ignore = VisitSetBitRuns(
+        data.buffers[0].data, data.offset, data.length, [&](int64_t pos, int64_t len) {
+          for (int64_t i = 0; i < len; ++i) {
             sum = AddChecked::Call<SumType>(nullptr, sum, func(values[pos + i]), status);
-            if (ARROW_PREDICT_FALSE(!status->ok())) {
-              return;
-            }
-          } else {
-            sum += func(values[pos + i]);
+            RETURN_NOT_OK(*status);
           }
-        }
-      });
+          return Status::OK();
+        });
+  } else {
+    VisitSetBitRunsVoid(data.buffers[0].data, data.offset, data.length,
+                        [&](int64_t pos, int64_t len) {
+                          for (int64_t i = 0; i < len; ++i) {
+                            sum += func(values[pos + i]);
+                          }
+                        });
+  }
   return sum;
 }
 
