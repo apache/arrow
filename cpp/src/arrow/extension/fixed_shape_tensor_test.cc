@@ -49,6 +49,7 @@ class TestExtensionType : public ::testing::Test {
                18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
     values_partial_ = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10, 11,
                        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
+    values_second_cell_ = {12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23};
     shape_partial_ = {2, 3, 4};
     tensor_strides_ = {96, 32, 8};
     cell_strides_ = {32, 8};
@@ -65,6 +66,7 @@ class TestExtensionType : public ::testing::Test {
   std::shared_ptr<ExtensionType> ext_type_;
   std::vector<int64_t> values_;
   std::vector<int64_t> values_partial_;
+  std::vector<int64_t> values_second_cell_;
   std::vector<int64_t> tensor_strides_;
   std::vector<int64_t> cell_strides_;
   std::string serialized_;
@@ -460,6 +462,53 @@ TEST_F(TestExtensionType, ToString) {
       "extension<arrow.fixed_shape_tensor[value_type=int64, shape=[3,4,7], "
       "dim_names=[C,H,W]]>";
   ASSERT_EQ(expected_3, result_3);
+
+}
+
+TEST_F(TestExtensionType, GetScalar) {
+  auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
+
+  auto expected_data =
+      ArrayFromJSON(cell_type_, "[[12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]");
+  auto storage_array = ArrayFromJSON(cell_type_,
+                                     "[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],"
+                                     "[12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]");
+
+  auto sub_array = ExtensionType::WrapArray(ext_type, expected_data);
+  auto array = ExtensionType::WrapArray(ext_type, storage_array);
+
+  ASSERT_OK_AND_ASSIGN(auto expected_scalar, sub_array->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto actual_scalar, array->GetScalar(1));
+
+  ASSERT_OK(actual_scalar->ValidateFull());
+  ASSERT_TRUE(actual_scalar->type->Equals(*ext_type));
+  ASSERT_TRUE(actual_scalar->is_valid);
+
+  ASSERT_OK(expected_scalar->ValidateFull());
+  ASSERT_TRUE(expected_scalar->type->Equals(*ext_type));
+  ASSERT_TRUE(expected_scalar->is_valid);
+
+  AssertTypeEqual(actual_scalar->type, ext_type);
+  ASSERT_TRUE(actual_scalar->Equals(*expected_scalar));
+}
+
+TEST_F(TestExtensionType, GetTensor) {
+  auto ext_type = fixed_shape_tensor(value_type_, cell_shape_, {}, dim_names_);
+  auto arr = ArrayFromJSON(cell_type_,
+                           "[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],"
+                           "[12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]]");
+  auto array = std::static_pointer_cast<FixedShapeTensorArray>(
+      ExtensionType::WrapArray(ext_type, arr));
+
+  ASSERT_OK_AND_ASSIGN(auto actual_tensor, array->GetTensor(1));
+  ASSERT_OK_AND_ASSIGN(auto expected_tensor,
+                       Tensor::Make(value_type_, Buffer::Wrap(values_second_cell_),
+                                    {3, 4}, {}, {"x", "y"}));
+  ASSERT_EQ(expected_tensor->shape(), actual_tensor->shape());
+  ASSERT_EQ(expected_tensor->dim_names(), actual_tensor->dim_names());
+  ASSERT_EQ(expected_tensor->strides(), actual_tensor->strides());
+  ASSERT_EQ(expected_tensor->type(), actual_tensor->type());
+  ASSERT_TRUE(expected_tensor->Equals(*actual_tensor));
 }
 
 }  // namespace arrow

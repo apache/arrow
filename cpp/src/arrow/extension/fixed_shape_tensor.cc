@@ -82,6 +82,45 @@ Status ComputeStrides(const FixedWidthType& type, const std::vector<int64_t>& sh
 
 }  // namespace
 
+const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::GetTensor(
+    const int64_t i) const {
+  auto ext_arr = internal::checked_pointer_cast<FixedSizeListArray>(this->storage());
+  auto ext_type = internal::checked_pointer_cast<FixedShapeTensorType>(this->type());
+  auto value_type =
+      internal::checked_pointer_cast<FixedWidthType>(ext_type->value_type());
+  auto ndim = ext_type->ndim();
+  auto permutation = ext_type->permutation();
+  if (permutation.empty()) {
+    for (int64_t j = 0; j < static_cast<int64_t>(ndim); ++j) {
+      permutation.emplace_back(j);
+    }
+  }
+
+  std::vector<std::string> dim_names;
+  if (!ext_type->dim_names().empty()) {
+    for (auto j : permutation) {
+      dim_names.emplace_back(ext_type->dim_names()[j]);
+    }
+  } else {
+    dim_names = {};
+  }
+
+  std::vector<int64_t> shape;
+  for (int64_t& j : permutation) {
+    shape.emplace_back(ext_type->shape()[j]);
+  }
+
+  std::vector<int64_t> strides;
+  ARROW_CHECK_OK(ComputeStrides(*value_type.get(), shape, permutation, &strides));
+
+  // TODO: can this be done without copying?
+  auto list_arr = ext_arr->value_slice(i)->data();
+  auto bw = value_type->byte_width();
+  auto buffer =
+      SliceBuffer(list_arr->buffers[1], list_arr->offset * bw, list_arr->length * bw);
+  return Tensor::Make(ext_type->value_type(), buffer, shape, strides, dim_names);
+}
+
 bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   if (extension_name() != other.extension_name()) {
     return false;

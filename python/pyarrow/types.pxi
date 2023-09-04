@@ -1679,6 +1679,9 @@ cdef class FixedShapeTensorType(BaseExtensionType):
         return fixed_shape_tensor, (self.value_type, self.shape,
                                     self.dim_names, self.permutation)
 
+    def __arrow_ext_scalar_class__(self):
+        return FixedShapeTensorScalarType
+
 
 _py_extension_type_auto_load = False
 
