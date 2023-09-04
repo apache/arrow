@@ -245,7 +245,7 @@ TEST(TestFlight, ConnectUriUnix) {
 #endif
 
 // CI environments don't have an IPv6 interface configured
-TEST(TestFlight, IpV6Port) {
+TEST(TestFlight, DISABLED_IpV6Port) {
   std::unique_ptr<FlightServerBase> server = ExampleTestServer();
 
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("[::1]", 0));
