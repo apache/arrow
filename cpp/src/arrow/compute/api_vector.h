@@ -586,6 +586,19 @@ Result<Datum> DictionaryEncode(
     const DictionaryEncodeOptions& options = DictionaryEncodeOptions::Defaults(),
     ExecContext* ctx = NULLPTR);
 
+/// \brief Compact a dictionary array
+///
+/// The output removes unused values in dictionary from the input.
+///
+/// \param[in] value array-like input, which should be a dictionary type.
+/// \param[in] ctx the function execution context, optional
+/// \return compacted dictionary array
+///
+/// \since 13.0.0
+/// \note API not yet finalized
+ARROW_EXPORT
+Result<Datum> DictionaryCompaction(const Datum& value, ExecContext* ctx = NULLPTR);
+
 /// \brief Run-end-encode values in an array-like object
 ///
 /// The returned run-end encoded type uses the same value type of the input and
