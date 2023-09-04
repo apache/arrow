@@ -24,6 +24,7 @@ import xml.etree.ElementTree as ET
 
 import jpype
 import pyarrow as pa
+import pyarrow.ipc as ipc
 from pyarrow.cffi import ffi
 
 
@@ -195,7 +196,18 @@ class TestPythonIntegration(unittest.TestCase):
             # disabled check_metadata since the list internal field name ("item")
             # is not preserved during round trips (it becomes "$data$").
         ), check_metadata=False)
-        
+
+    def test_empty_list_array(self):
+        with pa.BufferOutputStream() as bos:
+            schema = pa.schema([pa.field("f0", pa.list_(pa.int32()), True)])
+            with ipc.new_stream(bos, schema) as writer:
+                src = pa.RecordBatch.from_arrays([pa.array([[]])], schema=schema)
+                writer.write(src)
+        with pa.input_stream(bos.getvalue()) as ios:
+            with ipc.open_stream(ios) as reader:
+                batch = reader.read_next_batch()
+
+        self.round_trip_record_batch(lambda: batch)
 
     def test_struct_array(self):
         fields = [
