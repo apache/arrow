@@ -67,7 +67,7 @@ class ArrowArrayUtilityTest {
       // Null where one isn't expected
       assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
 
-      // Expected capacity not zero but c arry ptr is NULL (zero)
+      // Expected capacity not zero but c array ptr is NULL (zero)
       assertThrows(IllegalStateException.class, () -> notEmptyDataVisitor.importBuffer(new ArrowType.Bool(), 0, 1));
 
       // Expected capacity is zero and c arry ptr is NULL (zero)
