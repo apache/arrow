@@ -524,43 +524,22 @@ TEST_F(TestSumKernelRoundOff, Basics) {
 }
 
 TEST(TestDecimalSumKernel, SimpleSum) {
-  for (auto&& func : {Sum, SumChecked}) {
-    for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
-      auto default_options = ScalarAggregateOptions::Defaults();
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    auto default_options = ScalarAggregateOptions::Defaults();
+    for (auto&& func : {Sum, SumChecked}) {
       EXPECT_THAT(func(ArrayFromJSON(ty, R"([])"), default_options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"(null)")));
       EXPECT_THAT(func(ArrayFromJSON(ty, R"([null])"), default_options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"(null)")));
-      EXPECT_THAT(
-          func(ArrayFromJSON(ty, R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])"),
-               default_options, nullptr),
-          ResultWith(ScalarFromJSON(ty, R"("15.15")")));
-      Datum chunks = ChunkedArrayFromJSON(
-          ty, {R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])"});
-      EXPECT_THAT(func(chunks, default_options, nullptr),
-                  ResultWith(ScalarFromJSON(ty, R"("15.15")")));
-      chunks = ChunkedArrayFromJSON(
-          ty, {R"(["0.00", "1.01", "2.02"])", R"(["3.03", "4.04", "5.05"])"});
-      EXPECT_THAT(func(chunks, default_options, nullptr),
-                  ResultWith(ScalarFromJSON(ty, R"("15.15")")));
-      chunks = ChunkedArrayFromJSON(
-          ty, {R"(["0.00", "1.01", "2.02"])", "[]", R"(["3.03", "4.04", "5.05"])"});
-      EXPECT_THAT(func(chunks, default_options, nullptr),
-                  ResultWith(ScalarFromJSON(ty, R"("15.15")")));
 
       ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
       EXPECT_THAT(func(ArrayFromJSON(ty, R"([])"), options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"("0.00")")));
       EXPECT_THAT(func(ArrayFromJSON(ty, R"([null])"), options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"("0.00")")));
-      chunks = ChunkedArrayFromJSON(ty, {});
+      auto chunks = ChunkedArrayFromJSON(ty, {});
       EXPECT_THAT(func(chunks, options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"("0.00")")));
-
-      EXPECT_THAT(
-          func(ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "5.05", null, "7.07"])"),
-               options, nullptr),
-          ResultWith(ScalarFromJSON(ty, R"("16.16")")));
 
       EXPECT_THAT(func(ScalarFromJSON(ty, R"("5.05")"), default_options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"("5.05")")));
@@ -569,15 +548,37 @@ TEST(TestDecimalSumKernel, SimpleSum) {
       EXPECT_THAT(func(ScalarFromJSON(ty, R"(null)"), options, nullptr),
                   ResultWith(ScalarFromJSON(ty, R"("0.00")")));
     }
+    EXPECT_THAT(
+        Sum(ArrayFromJSON(ty, R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])"),
+            default_options, nullptr),
+        ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    Datum chunks =
+        ChunkedArrayFromJSON(ty, {R"(["0.00", "1.01", "2.02", "3.03", "4.04", "5.05"])"});
+    EXPECT_THAT(Sum(chunks, default_options, nullptr),
+                ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    chunks = ChunkedArrayFromJSON(
+        ty, {R"(["0.00", "1.01", "2.02"])", R"(["3.03", "4.04", "5.05"])"});
+    EXPECT_THAT(Sum(chunks, default_options, nullptr),
+                ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+    chunks = ChunkedArrayFromJSON(
+        ty, {R"(["0.00", "1.01", "2.02"])", "[]", R"(["3.03", "4.04", "5.05"])"});
+    EXPECT_THAT(Sum(chunks, default_options, nullptr),
+                ResultWith(ScalarFromJSON(ty, R"("15.15")")));
+
+    ScalarAggregateOptions options(/*skip_nulls=*/true, /*min_count=*/0);
+    EXPECT_THAT(
+        Sum(ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "5.05", null, "7.07"])"),
+            options, nullptr),
+        ResultWith(ScalarFromJSON(ty, R"("16.16")")));
   }
 }
 
 TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
   for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    Datum null = ScalarFromJSON(ty, R"(null)");
+    Datum zero = ScalarFromJSON(ty, R"("0.00")");
+    Datum result = ScalarFromJSON(ty, R"("14.14")");
     for (auto func : {Sum, SumChecked}) {
-      Datum null = ScalarFromJSON(ty, R"(null)");
-      Datum zero = ScalarFromJSON(ty, R"("0.00")");
-      Datum result = ScalarFromJSON(ty, R"("14.14")");
       Datum arr =
           ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "3.03", null, "7.07"])");
       EXPECT_THAT(
@@ -588,12 +589,6 @@ TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
           func(ArrayFromJSON(ty, "[null]"),
                ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0), nullptr),
           ResultWith(zero));
-      EXPECT_THAT(func(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3),
-                       nullptr),
-                  ResultWith(result));
-      EXPECT_THAT(func(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4),
-                       nullptr),
-                  ResultWith(result));
       EXPECT_THAT(func(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/5),
                        nullptr),
                   ResultWith(null));
@@ -617,12 +612,6 @@ TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
                   ResultWith(null));
 
       arr = ArrayFromJSON(ty, R"(["1.01", "3.03", "3.03", "7.07"])");
-      EXPECT_THAT(func(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3),
-                       nullptr),
-                  ResultWith(result));
-      EXPECT_THAT(func(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4),
-                       nullptr),
-                  ResultWith(result));
       EXPECT_THAT(func(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/5),
                        nullptr),
                   ResultWith(null));
@@ -637,6 +626,21 @@ TEST(TestDecimalSumKernel, ScalarAggregateOptions) {
       EXPECT_THAT(func(null, ScalarAggregateOptions(/*skip_nulls=*/false), nullptr),
                   ResultWith(null));
     }
+    Datum arr =
+        ArrayFromJSON(ty, R"(["1.01", null, "3.03", null, "3.03", null, "7.07"])");
+    EXPECT_THAT(
+        Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3), nullptr),
+        ResultWith(result));
+    EXPECT_THAT(
+        Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/4), nullptr),
+        ResultWith(result));
+    arr = ArrayFromJSON(ty, R"(["1.01", "3.03", "3.03", "7.07"])");
+    EXPECT_THAT(
+        Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3), nullptr),
+        ResultWith(result));
+    EXPECT_THAT(
+        Sum(arr, ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/4), nullptr),
+        ResultWith(result));
   }
 }
 
@@ -683,10 +687,15 @@ TEST(TestNullSumKernel, Basics) {
 TEST(TestSumKernel, Overflow) {
   for (const auto& ty : {uint64(), int64()}) {
     auto scalar = ScalarFromJSON(ty, "10000000000000000");
-    int64_t length = 10000;
-    auto array = MakeArrayFromScalar(*scalar, length);
-    ASSERT_OK(Sum(*array));
-    ASSERT_RAISES(Invalid, SumChecked(*array));
+    int64_t length = 100000;
+    auto array = MakeArrayFromScalar(*scalar, length).ValueOrDie();
+    ASSERT_RAISES(Invalid, SumChecked(array));
+  }
+
+  for (const auto& ty : {decimal128(3, 2), decimal256(3, 2)}) {
+    auto arr = ArrayFromJSON(ty, R"(["9.99", "0.01"])");
+    ASSERT_OK(Sum(arr));
+    ASSERT_RAISES(Invalid, SumChecked(arr));
   }
 }
 

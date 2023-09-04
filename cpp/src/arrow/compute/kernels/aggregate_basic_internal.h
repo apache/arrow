@@ -138,6 +138,13 @@ struct SumImpl : public ScalarAggregator {
       out->value = std::make_shared<OutputType>(out_type);
     } else {
       out->value = std::make_shared<OutputType>(this->sum, out_type);
+      if constexpr (Checked && is_decimal_type<ArrowType>::value) {
+        if (!this->sum.FitsInPrecision(
+                checked_cast<DecimalType&>(*out_type).precision())) {
+          return Status::Invalid("Decimal value ", this->sum.ToIntegerString(),
+                                 " does not fit in precision of ", *out_type);
+        }
+      }
     }
     return Status::OK();
   }
