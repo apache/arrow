@@ -16,7 +16,7 @@
 # under the License.
 
 # Stray comment to trigger Go workflows to test self-hosted runners
-# kubernetes upgrade.
+# kubernetes upgrade. Now with k8s 1.26.
 
 name: Go
 
