@@ -27,7 +27,7 @@ on:
 
 {%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive") -%}
   - name: Checkout Arrow
-    uses: actions/checkout@v3
+    uses: actions/checkout@v4
     with:
       fetch-depth: {{ fetch_depth }}
       path: arrow
@@ -96,7 +96,7 @@ on:
         python3-pip
       sudo python3 -m pip install --upgrade pip
   - name: Checkout Crossbow
-    uses: actions/checkout@v3
+    uses: actions/checkout@v4
     with:
       path: crossbow
       ref: {{ job.branch }}
