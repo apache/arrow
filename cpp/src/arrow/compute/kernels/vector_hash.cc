@@ -827,6 +827,9 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
 
     const std::shared_ptr<Array>& indice = casted_dict_array.indices();
+    if (indice->length() == 0) {
+      return MakeEmptyArray(dict_array->type(), ctx->memory_pool());
+    }
     const CType* indices_data =
         reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
 
@@ -851,21 +854,27 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
 
     // dictionary compaction
-    std::vector<CType> dict_indice;
-    CType len = (CType)dict->length();
-    for (CType i = 0; i < len; i++) {
-      if (dict_used[i]) {
-        dict_indice.push_back(i);
+    std::shared_ptr<arrow::Array> compacted_dict;
+    if (dict_used_count == 0) {
+      ARROW_ASSIGN_OR_RAISE(compacted_dict,
+                            MakeEmptyArray(dict->type(), ctx->memory_pool()));
+    } else {
+      std::vector<CType> dict_indice;
+      CType len = (CType)dict->length();
+      for (CType i = 0; i < len; i++) {
+        if (dict_used[i]) {
+          dict_indice.push_back(i);
+        }
       }
+      BuilderType dict_indice_builder;
+      ARROW_RETURN_NOT_OK(dict_indice_builder.AppendValues(dict_indice));
+      ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
+                            dict_indice_builder.Finish());
+      ARROW_ASSIGN_OR_RAISE(
+          auto compacted_dict_res,
+          Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
+      compacted_dict = compacted_dict_res.make_array();
     }
-    BuilderType dict_indice_builder;
-    ARROW_RETURN_NOT_OK(dict_indice_builder.AppendValues(dict_indice));
-    ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
-                          dict_indice_builder.Finish());
-    ARROW_ASSIGN_OR_RAISE(
-        auto compacted_dict_res,
-        Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
-    std::shared_ptr<arrow::Array> compacted_dict = compacted_dict_res.make_array();
 
     // indice changes
     std::vector<CType> indice_minus_number(dict->length(), 0);
