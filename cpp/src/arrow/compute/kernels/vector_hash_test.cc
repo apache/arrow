@@ -917,6 +917,7 @@ TEST_F(TestDictionaryCompactionKernel, DictionaryArray) {
     CheckDictionaryCompaction(dict_type, "[true, null, false]", "[2, null, 1, 0]",
                               "[true, null, false]", "[2, null, 1, 0]");
     // input isn't compacted
+    CheckDictionaryCompaction(dict_type, "[null]", "[]", "[]", "[]");
     CheckDictionaryCompaction(dict_type, "[false]", "[null]", "[]", "[null]");
     CheckDictionaryCompaction(dict_type, "[true, false]", "[0]", "[true]", "[0]");
     CheckDictionaryCompaction(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",

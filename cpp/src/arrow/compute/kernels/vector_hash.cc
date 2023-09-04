@@ -828,7 +828,11 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
 
     const std::shared_ptr<Array>& indice = casted_dict_array.indices();
     if (indice->length() == 0) {
-      return MakeEmptyArray(dict_array->type(), ctx->memory_pool());
+      ARROW_ASSIGN_OR_RAISE(auto empty_dict,
+                            MakeEmptyArray(dict->type(), ctx->memory_pool()));
+      ARROW_ASSIGN_OR_RAISE(auto empty_indice,
+                            MakeEmptyArray(indice->type(), ctx->memory_pool()));
+      return DictionaryArray::FromArrays(dict_array->type(), empty_indice, empty_dict);
     }
     const CType* indices_data =
         reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
