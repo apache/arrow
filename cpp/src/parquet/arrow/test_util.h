@@ -66,15 +66,26 @@ struct Decimal256WithPrecisionAndScale {
   static constexpr int32_t scale = PRECISION - 1;
 };
 
+inline void RandomHalfFloatValues(int64_t n, uint32_t seed,
+                                  ::arrow::util::Float16 min_value,
+                                  ::arrow::util::Float16 max_value,
+                                  std::vector<uint16_t>* out) {
+  std::vector<float> values;
+  ::arrow::random_real(n, seed, static_cast<float>(min_value),
+                       static_cast<float>(max_value), &values);
+  out->resize(values.size());
+  std::transform(values.begin(), values.end(), out->begin(),
+                 [](float f) { return ::arrow::util::Float16(f).bits(); });
+}
+
 template <class ArrowType>
 ::arrow::enable_if_floating_point<ArrowType, Status> NonNullArray(
     size_t size, std::shared_ptr<Array>* out) {
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
   if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
-    using ::arrow::util::Float16;
-    ::arrow::random_real(size, 0, Float16::FromFloat(0.0f), Float16::FromFloat(1.0f),
-                         &values);
+    RandomHalfFloatValues(size, 0, ::arrow::util::Float16(0.0f),
+                          ::arrow::util::Float16(1.0f), &values);
   } else {
     ::arrow::random_real(size, 0, static_cast<c_type>(0), static_cast<c_type>(1),
                          &values);
@@ -210,9 +221,8 @@ template <typename ArrowType>
   using c_type = typename ArrowType::c_type;
   std::vector<c_type> values;
   if constexpr (::arrow::is_half_float_type<ArrowType>::value) {
-    using ::arrow::util::Float16;
-    ::arrow::random_real(size, seed, Float16::FromFloat(-1e4f), Float16::FromFloat(1e4f),
-                         &values);
+    RandomHalfFloatValues(size, seed, ::arrow::util::Float16(-1e4f),
+                          ::arrow::util::Float16(1e4f), &values);
   } else {
     ::arrow::random_real(size, seed, static_cast<c_type>(-1e10),
                          static_cast<c_type>(1e10), &values);

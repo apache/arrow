@@ -25,6 +25,7 @@
 #include <type_traits>
 
 #include "arrow/util/endian.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/visibility.h"
 
@@ -39,18 +40,20 @@ namespace util {
 /// - bit 15:     sign
 ///
 class ARROW_EXPORT Float16 {
-  constexpr static uint16_t ToBits(uint16_t bits) { return bits; }
  public:
   Float16() = default;
-  // constexpr explicit Float16(uint16_t value) : value_(value) {}
+  constexpr explicit Float16(uint16_t value) : value_(value) {}
 
-  template <typename T, typename std::enable_if_t<std::is_integral_v<T>>* = nullptr>
-  constexpr explicit Float16(T value) : value_(ToBits(value)) {}
+  template <typename T, typename std::enable_if_t<std::is_floating_point_v<T>>* = NULLPTR>
+  explicit Float16(T f) : Float16(FromNative(f)) {}
 
   /// \brief Create a `Float16` from a 32-bit float (may lose precision)
   static Float16 FromFloat(float f);
   /// \brief Create a `Float16` from a 64-bit float (may lose precision)
   static Float16 FromDouble(double d);
+  /// \brief Create a `Float16` from a native floating-point value (may lose precision)
+  static Float16 FromNative(float f) { return FromFloat(f); }
+  static Float16 FromNative(double d) { return FromDouble(d); }
 
   /// \brief Read a `Float16` from memory in native-endian byte order
   static Float16 FromBytes(const uint8_t* src) {
@@ -69,10 +72,6 @@ class ARROW_EXPORT Float16 {
 
   /// \brief Return the value's integer representation
   constexpr uint16_t bits() const { return value_; }
-  constexpr explicit operator uint16_t() const { return bits(); }
-
-  explicit operator float() const { return ToFloat(); }
-  explicit operator double() const { return ToDouble(); }
 
   /// \brief Return true if the value is negative (sign bit is set)
   constexpr bool signbit() const { return (value_ & 0x8000) != 0; }
@@ -92,6 +91,9 @@ class ARROW_EXPORT Float16 {
   float ToFloat() const;
   /// \brief Convert to a 64-bit float
   double ToDouble() const;
+
+  explicit operator float() const { return ToFloat(); }
+  explicit operator double() const { return ToDouble(); }
 
   /// \brief Copy the value's bytes in native-endian byte order
   void ToBytes(uint8_t* dest) const { std::memcpy(dest, &value_, sizeof(value_)); }

@@ -36,9 +36,6 @@ using Limits = std::numeric_limits<T>;
 float F32(uint32_t bits) { return SafeCopy<float>(bits); }
 double F64(uint64_t bits) { return SafeCopy<double>(bits); }
 
-Float16 ToFloat16(float f32) { return Float16::FromFloat(f32); }
-Float16 ToFloat16(double f64) { return Float16::FromDouble(f64); }
-
 template <typename T>
 class Float16ConversionTest : public ::testing::Test {
  public:
@@ -53,7 +50,7 @@ class Float16ConversionTest : public ::testing::Test {
       ARROW_SCOPED_TRACE("i=", index);
       const auto& tc = test_cases[index];
 
-      const auto f16 = ToFloat16(tc.input);
+      const auto f16 = Float16(tc.input);
       EXPECT_EQ(tc.bits, f16.bits());
       EXPECT_EQ(tc.output, static_cast<T>(f16));
 
@@ -72,7 +69,7 @@ class Float16ConversionTest : public ::testing::Test {
       ASSERT_TRUE(std::isnan(input));
       const bool sign = std::signbit(input);
 
-      const Float16 f16 = ToFloat16(input);
+      const auto f16 = Float16(input);
       EXPECT_TRUE(f16.is_nan());
       EXPECT_EQ(std::isinf(input), f16.is_infinity());
       EXPECT_EQ(std::isfinite(input), f16.is_finite());
@@ -94,7 +91,7 @@ class Float16ConversionTest : public ::testing::Test {
       ASSERT_TRUE(std::isinf(input));
       const bool sign = std::signbit(input);
 
-      const Float16 f16 = ToFloat16(input);
+      const auto f16 = Float16(input);
       EXPECT_TRUE(f16.is_infinity());
       EXPECT_EQ(std::isfinite(input), f16.is_finite());
       EXPECT_EQ(std::isnan(input), f16.is_nan());
@@ -212,6 +209,23 @@ TYPED_TEST_SUITE(Float16ConversionTest, NativeFloatTypes);
 TYPED_TEST(Float16ConversionTest, RoundTrip) { this->TestRoundTrip(); }
 TYPED_TEST(Float16ConversionTest, RoundTripFromNaN) { this->TestRoundTripFromNaN(); }
 TYPED_TEST(Float16ConversionTest, RoundTripFromInf) { this->TestRoundTripFromInf(); }
+
+TEST(Float16Test, Constructors) {
+  constexpr auto from_int_0 = Float16(0);
+  constexpr auto from_int_1 = Float16(1);
+  const auto from_f32_0 = Float16(0.0f);
+  const auto from_f32_1 = Float16(1.0f);
+  const auto from_f64_0 = Float16(0.0);
+  const auto from_f64_1 = Float16(1.0);
+
+  ASSERT_EQ(0, from_int_0.bits());
+  ASSERT_EQ(0, from_f32_0.bits());
+  ASSERT_EQ(0, from_f64_0.bits());
+
+  ASSERT_EQ(1, from_int_1.bits());
+  ASSERT_EQ(0x3c00, from_f32_1.bits());
+  ASSERT_EQ(0x3c00, from_f64_1.bits());
+}
 
 TEST(Float16Test, Compare) {
   constexpr float f32_inf = Limits<float>::infinity();
