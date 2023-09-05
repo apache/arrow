@@ -1,4 +1,4 @@
-% Test class for arrow.type.Date32Type and arrow.date32
+% Test class for arrow.type.Date64Type and arrow.date64
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,14 +15,14 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tDate32Type < hFixedWidthType
+classdef tDate64Type < hFixedWidthType
 
     properties
-        ConstructionFcn = @arrow.date32
-        ArrowType = arrow.date32
-        TypeID = arrow.type.ID.Date32
-        BitWidth = int32(32)
-        ClassName = "arrow.type.Date32Type"
+        ConstructionFcn = @arrow.date64
+        ArrowType = arrow.date64
+        TypeID = arrow.type.ID.Date64
+        BitWidth = int32(64)
+        ClassName = "arrow.type.Date64Type"
     end
 
     methods(Test)
@@ -33,28 +33,28 @@ classdef tDate32Type < hFixedWidthType
         end
 
         function DefaultDateUnit(testCase)
-            % Verify the default DateUnit is Day.
+            % Verify the default DateUnit is Millisecond.
             type = testCase.ArrowType;
             actualUnit = type.DateUnit;
-            expectedUnit = arrow.type.DateUnit.Day;
+            expectedUnit = arrow.type.DateUnit.Millisecond;
             testCase.verifyEqual(actualUnit, expectedUnit);
         end
 
         function Display(testCase)
-            % Verify the display of Date32Type objects.
+            % Verify the display of Date64Type objects.
             %
             % Example:
             %
             %  Date32Type with properties:
             %
-            %          ID: Date32
-            %    DateUnit: Day
+            %          ID: Date64
+            %    DateUnit: Millisecond
             %
             type = testCase.ConstructionFcn(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Date32Type"" style=""font-weight:bold"">Date32Type</a>";
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.Date64Type"" style=""font-weight:bold"">Date64Type</a>";
             header = "  " + classnameLink + " with properties:" + newline;
             body = strjust(pad(["ID:"; "DateUnit:"]));
-            body = body + " " + ["Date32"; "Day"];
+            body = body + " " + ["Date64"; "Millisecond"];
             body = "    " + body;
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
@@ -65,52 +65,52 @@ classdef tDate32Type < hFixedWidthType
         function DateUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the DateUnit property.
-            type = arrow.date32();
-            testCase.verifyError(@() setfield(type, "DateUnit", "Millisecond"), "MATLAB:class:SetProhibited");
+            type = arrow.date64();
+            testCase.verifyError(@() setfield(type, "DateUnit", "Day"), "MATLAB:class:SetProhibited");
         end
 
         function InvalidProxy(testCase)
             % Verify that an error is thrown when a Proxy of an unexpected
-            % type is passed to the arrow.type.Date32Type constructor.
+            % type is passed to the arrow.type.Date64Type constructor.
             array = arrow.array([1, 2, 3]);
             proxy = array.Proxy;
-            testCase.verifyError(@() arrow.type.Date32Type(proxy), "arrow:proxy:ProxyNameMismatch");
+            testCase.verifyError(@() arrow.type.Date64Type(proxy), "arrow:proxy:ProxyNameMismatch");
         end
 
         function IsEqualTrue(testCase)
-            % Verifies isequal method of arrow.type.Date32Type returns true if
+            % Verifies isequal method of arrow.type.Date64Type returns true if
             % these conditions are met:
             %
-            % 1. All input arguments have a class type arrow.type.Date32Type
+            % 1. All input arguments have a class type arrow.type.Date64Type
             % 2. All inputs have the same size
 
-            % Scalar Date32Type arrays
-            date32Type1 = arrow.date32();
-            date32Type2 = arrow.date32();
-            testCase.verifyTrue(isequal(date32Type1, date32Type2));
+            % Scalar Date64Type arrays
+            date64Type1 = arrow.date64();
+            date64Type2 = arrow.date64();
+            testCase.verifyTrue(isequal(date64Type1, date64Type2));
 
-            % Non-scalar Date32Type arrays
-            typeArray1 = [date32Type1 date32Type1];
-            typeArray2 = [date32Type2 date32Type2];
+            % Non-scalar Date64Type arrays
+            typeArray1 = [date64Type1 date64Type1];
+            typeArray2 = [date64Type2 date64Type2];
             testCase.verifyTrue(isequal(typeArray1, typeArray2));
         end
 
         function IsEqualFalse(testCase)
-            % Verifies the isequal method of arrow.type.Date32Type returns
+            % Verifies the isequal method of arrow.type.Date64Type returns
             % false when expected.
-            
-            % Pass a different arrow.type.Type subclass to isequal
-            date32Type = arrow.date32();
-            int32Type = arrow.int32();
-            testCase.verifyFalse(isequal(date32Type, int32Type));
-            testCase.verifyFalse(isequal([date32Type date32Type], [int32Type int32Type]));
 
-            % Date32Type arrays have different sizes
-            typeArray1 = [date32Type date32Type];
-            typeArray2 = [date32Type date32Type]';
+            % Pass a different arrow.type.Type subclass to isequal
+            date64Type = arrow.date64();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(date64Type, int32Type));
+            testCase.verifyFalse(isequal([date64Type date64Type], [int32Type int32Type]));
+
+            % Date64Type arrays have different sizes
+            typeArray1 = [date64Type date64Type];
+            typeArray2 = [date64Type date64Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-    
+
     end
 
 end
