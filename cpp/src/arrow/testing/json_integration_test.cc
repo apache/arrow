@@ -86,8 +86,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
   ARROW_ASSIGN_OR_RAISE(int64_t file_size, in_file->GetSize());
   ARROW_ASSIGN_OR_RAISE(auto json_buffer, in_file->Read(file_size));
 
-  std::unique_ptr<IntegrationJsonReader> reader;
-  RETURN_NOT_OK(IntegrationJsonReader::Open(json_buffer, &reader));
+  ARROW_ASSIGN_OR_RAISE(auto reader, IntegrationJsonReader::Open(json_buffer));
 
   if (FLAGS_verbose) {
     std::cout << "Found schema:\n"
@@ -97,8 +96,7 @@ static Status ConvertJsonToArrow(const std::string& json_path,
   ARROW_ASSIGN_OR_RAISE(auto writer, ipc::MakeFileWriter(out_file, reader->schema(),
                                                          IpcWriteOptions::Defaults()));
   for (int i = 0; i < reader->num_record_batches(); ++i) {
-    std::shared_ptr<RecordBatch> batch;
-    RETURN_NOT_OK(reader->ReadRecordBatch(i, &batch));
+    ARROW_ASSIGN_OR_RAISE(auto batch, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
   return writer->Close();
@@ -117,17 +115,15 @@ static Status ConvertArrowToJson(const std::string& arrow_path,
     std::cout << "Found schema:\n" << reader->schema()->ToString() << std::endl;
   }
 
-  std::unique_ptr<IntegrationJsonWriter> writer;
-  RETURN_NOT_OK(IntegrationJsonWriter::Open(reader->schema(), &writer));
+  ARROW_ASSIGN_OR_RAISE(auto writer, IntegrationJsonWriter::Open(reader->schema()));
 
   for (int i = 0; i < reader->num_record_batches(); ++i) {
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> batch, reader->ReadRecordBatch(i));
     RETURN_NOT_OK(writer->WriteRecordBatch(*batch));
   }
 
-  std::string result;
-  RETURN_NOT_OK(writer->Finish(&result));
-  return out_file->Write(result.c_str(), static_cast<int64_t>(result.size()));
+  ARROW_ASSIGN_OR_RAISE(auto json_data, writer->Finish());
+  return out_file->Write(std::string_view(json_data));
 }
 
 // Validate the batch, accounting for the -validate_decimals , -validate_date64, and
@@ -162,8 +158,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   ARROW_ASSIGN_OR_RAISE(int64_t file_size, json_file->GetSize());
   ARROW_ASSIGN_OR_RAISE(auto json_buffer, json_file->Read(file_size));
 
-  std::unique_ptr<IntegrationJsonReader> json_reader;
-  RETURN_NOT_OK(IntegrationJsonReader::Open(json_buffer, &json_reader));
+  ARROW_ASSIGN_OR_RAISE(auto json_reader, IntegrationJsonReader::Open(json_buffer));
 
   // Construct Arrow reader
   ARROW_ASSIGN_OR_RAISE(auto arrow_file, io::ReadableFile::Open(arrow_path));
@@ -198,7 +193,7 @@ static Status ValidateArrowVsJson(const std::string& arrow_path,
   std::shared_ptr<RecordBatch> arrow_batch;
   std::shared_ptr<RecordBatch> json_batch;
   for (int i = 0; i < json_nbatches; ++i) {
-    RETURN_NOT_OK(json_reader->ReadRecordBatch(i, &json_batch));
+    ARROW_ASSIGN_OR_RAISE(json_batch, json_reader->ReadRecordBatch(i));
     ARROW_ASSIGN_OR_RAISE(arrow_batch, arrow_reader->ReadRecordBatch(i));
     Status valid_st = ValidateFull(*json_batch);
     if (!valid_st.ok()) {
@@ -729,14 +724,14 @@ static const char* json_example6 = R"example(
 }
 )example";
 
-void TestSchemaRoundTrip(const Schema& schema) {
+void TestSchemaRoundTrip(const std::shared_ptr<Schema>& schema) {
   rj::StringBuffer sb;
   rj::Writer<rj::StringBuffer> writer(sb);
 
-  DictionaryFieldMapper mapper(schema);
+  DictionaryFieldMapper mapper(*schema);
 
   writer.StartObject();
-  ASSERT_OK(json::WriteSchema(schema, mapper, &writer));
+  ASSERT_OK(json::WriteSchema(*schema, mapper, &writer));
   writer.EndObject();
 
   std::string json_schema = sb.GetString();
@@ -747,15 +742,9 @@ void TestSchemaRoundTrip(const Schema& schema) {
   d.Parse(json_schema.data(), json_schema.size());
 
   DictionaryMemo in_memo;
-  std::shared_ptr<Schema> out;
-  const auto status = json::ReadSchema(d, default_memory_pool(), &in_memo, &out);
-  if (!status.ok()) {
-    FAIL() << "Unable to read JSON schema: " << json_schema << "\nStatus: " << status;
-  }
-
-  if (!schema.Equals(*out)) {
-    FAIL() << "In schema: " << schema.ToString() << "\nOut schema: " << out->ToString();
-  }
+  ASSERT_OK_AND_ASSIGN(auto result_schema,
+                       json::ReadSchema(d, default_memory_pool(), &in_memo));
+  AssertSchemaEqual(schema, result_schema, /*check_metadata=*/true);
 }
 
 void TestArrayRoundTrip(const Array& array) {
@@ -772,17 +761,17 @@ void TestArrayRoundTrip(const Array& array) {
   // Pass explicit size to avoid ASAN issues with
   // SIMD loads in RapidJson.
   d.Parse(array_as_json.data(), array_as_json.size());
-
   if (d.HasParseError()) {
     FAIL() << "JSON parsing failed";
   }
 
-  std::shared_ptr<Array> out;
-  ASSERT_OK(json::ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type()),
-                            &out));
+  ASSERT_OK_AND_ASSIGN(
+      auto result_array,
+      json::ReadArray(default_memory_pool(), d, ::arrow::field(name, array.type())));
+  ASSERT_OK(result_array->ValidateFull());
 
   // std::cout << array_as_json << std::endl;
-  CompareArraysDetailed(0, *out, array);
+  CompareArraysDetailed(0, *result_array, array);
 }
 
 template <typename T, typename ValueType>
@@ -823,6 +812,7 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f11", binary()),
       field("f12", list(int32())),
       field("f13", struct_({field("s1", int32()), field("s2", utf8())})),
+      field("f14", date32()),
       field("f15", date64()),
       field("f16", timestamp(TimeUnit::NANO)),
       field("f17", time64(TimeUnit::MICRO)),
@@ -836,7 +826,7 @@ TEST(TestJsonSchemaWriter, FlatTypes) {
       field("f23", run_end_encoded(int64(), utf8())),
   };
 
-  Schema schema(fields);
+  auto schema = ::arrow::schema(fields);
   TestSchemaRoundTrip(schema);
 }
 
@@ -982,8 +972,7 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
       ::arrow::schema({field("f1", v1_type), field("f2", v2_type), field("f3", v3_type),
                        field("f4", v4_type), field("f5", v5_type)});
 
-  std::unique_ptr<IntegrationJsonWriter> writer;
-  ASSERT_OK(IntegrationJsonWriter::Open(schema, &writer));
+  ASSERT_OK_AND_ASSIGN(auto writer, IntegrationJsonWriter::Open(schema));
 
   const int nbatches = 3;
   std::vector<std::shared_ptr<RecordBatch>> batches;
@@ -997,21 +986,17 @@ TEST(TestJsonFileReadWrite, BasicRoundTrip) {
     ASSERT_OK(writer->WriteRecordBatch(*batch));
   }
 
-  std::string result;
-  ASSERT_OK(writer->Finish(&result));
+  ASSERT_OK_AND_ASSIGN(auto json_data, writer->Finish());
 
-  std::unique_ptr<IntegrationJsonReader> reader;
-
-  auto buffer = std::make_shared<Buffer>(result);
-
-  ASSERT_OK(IntegrationJsonReader::Open(buffer, &reader));
-  ASSERT_TRUE(reader->schema()->Equals(*schema));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       IntegrationJsonReader::Open(std::make_shared<Buffer>(json_data)));
+  AssertSchemaEqual(reader->schema(), schema, /*check_metadata=*/true);
 
   ASSERT_EQ(nbatches, reader->num_record_batches());
 
   for (int i = 0; i < nbatches; ++i) {
-    std::shared_ptr<RecordBatch> batch;
-    ASSERT_OK(reader->ReadRecordBatch(i, &batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->ReadRecordBatch(i));
+    ASSERT_OK(batch->ValidateFull());
     ASSERT_BATCHES_EQUAL(*batch, *batches[i]);
   }
 }
@@ -1020,13 +1005,13 @@ static void ReadOneBatchJson(const char* json, const Schema& expected_schema,
                              std::shared_ptr<RecordBatch>* out) {
   auto buffer = Buffer::Wrap(json, strlen(json));
 
-  std::unique_ptr<IntegrationJsonReader> reader;
-  ASSERT_OK(IntegrationJsonReader::Open(buffer, &reader));
+  ASSERT_OK_AND_ASSIGN(auto reader, IntegrationJsonReader::Open(buffer));
 
   AssertSchemaEqual(*reader->schema(), expected_schema, /*check_metadata=*/true);
   ASSERT_EQ(1, reader->num_record_batches());
 
-  ASSERT_OK(reader->ReadRecordBatch(0, out));
+  ASSERT_OK_AND_ASSIGN(*out, reader->ReadRecordBatch(0));
+  ASSERT_OK((*out)->ValidateFull());
 }
 
 TEST(TestJsonFileReadWrite, JsonExample1) {
@@ -1047,11 +1032,10 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
   auto uuid_type = uuid();
   auto buffer = Buffer::Wrap(json_example2, strlen(json_example2));
 
-  std::unique_ptr<IntegrationJsonReader> reader;
   {
     ExtensionTypeGuard ext_guard(uuid_type);
 
-    ASSERT_OK(IntegrationJsonReader::Open(buffer, &reader));
+    ASSERT_OK_AND_ASSIGN(auto reader, IntegrationJsonReader::Open(buffer));
     // The second field is an unregistered extension and will be read as
     // its underlying storage.
     Schema ex_schema({field("uuids", uuid_type), field("things", null())});
@@ -1059,8 +1043,8 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
     AssertSchemaEqual(ex_schema, *reader->schema());
     ASSERT_EQ(1, reader->num_record_batches());
 
-    std::shared_ptr<RecordBatch> batch;
-    ASSERT_OK(reader->ReadRecordBatch(0, &batch));
+    ASSERT_OK_AND_ASSIGN(auto batch, reader->ReadRecordBatch(0));
+    ASSERT_OK(batch->ValidateFull());
 
     auto storage_array =
         ArrayFromJSON(fixed_size_binary(16), R"(["0123456789abcdef", null])");
@@ -1070,7 +1054,7 @@ TEST(TestJsonFileReadWrite, JsonExample2) {
   }
 
   // Should fail now that the Uuid extension is unregistered
-  ASSERT_RAISES(KeyError, IntegrationJsonReader::Open(buffer, &reader));
+  ASSERT_RAISES(KeyError, IntegrationJsonReader::Open(buffer));
 }
 
 TEST(TestJsonFileReadWrite, JsonExample3) {
@@ -1139,22 +1123,17 @@ class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
 void CheckRoundtrip(const RecordBatch& batch) {
   ExtensionTypeGuard guard({uuid(), dict_extension_type(), complex128()});
 
-  TestSchemaRoundTrip(*batch.schema());
+  TestSchemaRoundTrip(batch.schema());
 
-  std::unique_ptr<IntegrationJsonWriter> writer;
-  ASSERT_OK(IntegrationJsonWriter::Open(batch.schema(), &writer));
+  ASSERT_OK_AND_ASSIGN(auto writer, IntegrationJsonWriter::Open(batch.schema()));
   ASSERT_OK(writer->WriteRecordBatch(batch));
 
-  std::string result;
-  ASSERT_OK(writer->Finish(&result));
+  ASSERT_OK_AND_ASSIGN(auto json_data, writer->Finish());
 
-  auto buffer = std::make_shared<Buffer>(result);
-
-  std::unique_ptr<IntegrationJsonReader> reader;
-  ASSERT_OK(IntegrationJsonReader::Open(buffer, &reader));
-
-  std::shared_ptr<RecordBatch> result_batch;
-  ASSERT_OK(reader->ReadRecordBatch(0, &result_batch));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       IntegrationJsonReader::Open(std::make_shared<Buffer>(json_data)));
+  ASSERT_OK_AND_ASSIGN(auto result_batch, reader->ReadRecordBatch(0));
+  ASSERT_OK(result_batch->ValidateFull());
 
   // take care of float rounding error in the text representation
   ApproxCompareBatch(batch, *result_batch);

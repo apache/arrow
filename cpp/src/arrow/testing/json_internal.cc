@@ -363,8 +363,7 @@ class SchemaWriter {
     return Status::OK();
   }
 
-  Status WriteChildren(const std::vector<std::shared_ptr<Field>>& children,
-                       FieldPosition field_pos) {
+  Status WriteChildren(const FieldVector& children, FieldPosition field_pos) {
     writer_->Key("children");
     writer_->StartArray();
     for (auto [i, field] : Zip(Enumerate<int>, children)) {
@@ -666,7 +665,7 @@ class ArrayWriter {
     // but that fails the Java parser (ARROW-11483).
   }
 
-  Status WriteChildren(const std::vector<std::shared_ptr<Field>>& fields,
+  Status WriteChildren(const FieldVector& fields,
                        const std::vector<std::shared_ptr<Array>>& arrays) {
     // NOTE: the Java parser fails on an empty "children" member (ARROW-11483).
     if (fields.size() == 0) return Status::OK();
@@ -822,77 +821,64 @@ Result<TimeUnit::type> GetMemberTimeUnit(const RjObject& obj, const std::string&
   return GetUnitFromString(unit_str);
 }
 
-Status GetInteger(const rj::Value::ConstObject& json_type,
-                  std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetInteger(const rj::Value::ConstObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const bool is_signed, GetMemberBool(json_type, "isSigned"));
   ARROW_ASSIGN_OR_RAISE(const int bit_width, GetMemberInt<int>(json_type, "bitWidth"));
 
   switch (bit_width) {
     case 8:
-      *type = is_signed ? int8() : uint8();
-      break;
+      return is_signed ? int8() : uint8();
     case 16:
-      *type = is_signed ? int16() : uint16();
-      break;
+      return is_signed ? int16() : uint16();
     case 32:
-      *type = is_signed ? int32() : uint32();
-      break;
+      return is_signed ? int32() : uint32();
     case 64:
-      *type = is_signed ? int64() : uint64();
-      break;
-    default:
-      return Status::Invalid("Invalid bit width: ", bit_width);
+      return is_signed ? int64() : uint64();
   }
-  return Status::OK();
+  return Status::Invalid("Invalid bit width: ", bit_width);
 }
 
-Status GetFloatingPoint(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetFloatingPoint(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto precision, GetMemberString(json_type, "precision"));
 
   if (precision == "DOUBLE") {
-    *type = float64();
+    return float64();
   } else if (precision == "SINGLE") {
-    *type = float32();
+    return float32();
   } else if (precision == "HALF") {
-    *type = float16();
-  } else {
-    return Status::Invalid("Invalid precision: ", precision);
+    return float16();
   }
-  return Status::OK();
+  return Status::Invalid("Invalid precision: ", precision);
 }
 
-Status GetMap(const RjObject& json_type,
-              const std::vector<std::shared_ptr<Field>>& children,
-              std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetMap(const RjObject& json_type,
+                                         const FieldVector& children) {
   if (children.size() != 1) {
     return Status::Invalid("Map must have exactly one child");
   }
 
   ARROW_ASSIGN_OR_RAISE(const bool keys_sorted, GetMemberBool(json_type, "keysSorted"));
-  return MapType::Make(children[0], keys_sorted).Value(type);
+  return MapType::Make(children[0], keys_sorted);
 }
 
-Status GetFixedSizeBinary(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetFixedSizeBinary(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const int32_t byte_width,
                         GetMemberInt<int32_t>(json_type, "byteWidth"));
-  *type = fixed_size_binary(byte_width);
-  return Status::OK();
+  return fixed_size_binary(byte_width);
 }
 
-Status GetFixedSizeList(const RjObject& json_type,
-                        const std::vector<std::shared_ptr<Field>>& children,
-                        std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetFixedSizeList(const RjObject& json_type,
+                                                   const FieldVector& children) {
   if (children.size() != 1) {
     return Status::Invalid("FixedSizeList must have exactly one child");
   }
 
   ARROW_ASSIGN_OR_RAISE(const int32_t list_size,
                         GetMemberInt<int32_t>(json_type, "listSize"));
-  *type = fixed_size_list(children[0], list_size);
-  return Status::OK();
+  return fixed_size_list(children[0], list_size);
 }
 
-Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetDecimal(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const int32_t precision,
                         GetMemberInt<int32_t>(json_type, "precision"));
   ARROW_ASSIGN_OR_RAISE(const int32_t scale, GetMemberInt<int32_t>(json_type, "scale"));
@@ -903,92 +889,82 @@ Status GetDecimal(const RjObject& json_type, std::shared_ptr<DataType>* type) {
   }
 
   if (bit_width == 128) {
-    *type = decimal128(precision, scale);
+    return decimal128(precision, scale);
   } else if (bit_width == 256) {
-    *type = decimal256(precision, scale);
-  } else {
-    return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
-                           bit_width);
+    return decimal256(precision, scale);
   }
-  return Status::OK();
+  return Status::Invalid("Only 128 bit and 256 Decimals are supported. Received",
+                         bit_width);
 }
 
-Status GetDate(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetDate(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
 
   if (unit_str == "DAY") {
-    *type = date32();
+    return date32();
   } else if (unit_str == "MILLISECOND") {
-    *type = date64();
-  } else {
-    return Status::Invalid("Invalid date unit: ", unit_str);
+    return date64();
   }
-  return Status::OK();
+  return Status::Invalid("Invalid date unit: ", unit_str);
 }
 
-Status GetTime(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetTime(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
   ARROW_ASSIGN_OR_RAISE(const int bit_width, GetMemberInt<int>(json_type, "bitWidth"));
 
+  std::shared_ptr<DataType> type;
+
   if (unit_str == "SECOND") {
-    *type = time32(TimeUnit::SECOND);
+    type = time32(TimeUnit::SECOND);
   } else if (unit_str == "MILLISECOND") {
-    *type = time32(TimeUnit::MILLI);
+    type = time32(TimeUnit::MILLI);
   } else if (unit_str == "MICROSECOND") {
-    *type = time64(TimeUnit::MICRO);
+    type = time64(TimeUnit::MICRO);
   } else if (unit_str == "NANOSECOND") {
-    *type = time64(TimeUnit::NANO);
+    type = time64(TimeUnit::NANO);
   } else {
     return Status::Invalid("Invalid time unit: ", unit_str);
   }
 
-  const auto& fw_type = checked_cast<const FixedWidthType&>(**type);
-
+  const auto& fw_type = checked_cast<const FixedWidthType&>(*type);
   if (bit_width != fw_type.bit_width()) {
     return Status::Invalid("Indicated bit width does not match unit");
   }
-
-  return Status::OK();
+  return type;
 }
 
-Status GetDuration(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetDuration(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
-  *type = duration(unit);
-  return Status::OK();
+  return duration(unit);
 }
 
-Status GetTimestamp(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetTimestamp(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const TimeUnit::type unit, GetMemberTimeUnit(json_type, "unit"));
 
   const auto& it_tz = json_type.FindMember("timezone");
   if (it_tz == json_type.MemberEnd()) {
-    *type = timestamp(unit);
+    return timestamp(unit);
   } else {
     RETURN_NOT_STRING("timezone", it_tz, json_type);
-    *type = timestamp(unit, it_tz->value.GetString());
+    return timestamp(unit, it_tz->value.GetString());
   }
-
-  return Status::OK();
 }
 
-Status GetInterval(const RjObject& json_type, std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetInterval(const RjObject& json_type) {
   ARROW_ASSIGN_OR_RAISE(const auto unit_str, GetMemberString(json_type, "unit"));
 
   if (unit_str == kDayTime) {
-    *type = day_time_interval();
+    return day_time_interval();
   } else if (unit_str == kYearMonth) {
-    *type = month_interval();
+    return month_interval();
   } else if (unit_str == kMonthDayNano) {
-    *type = month_day_nano_interval();
-  } else {
-    return Status::Invalid("Invalid interval unit: " + unit_str);
+    return month_day_nano_interval();
   }
-  return Status::OK();
+  return Status::Invalid("Invalid interval unit: " + unit_str);
 }
 
-Status GetUnion(const RjObject& json_type,
-                const std::vector<std::shared_ptr<Field>>& children,
-                std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetUnion(const RjObject& json_type,
+                                           const FieldVector& children) {
   ARROW_ASSIGN_OR_RAISE(const auto mode_str, GetMemberString(json_type, "mode"));
 
   UnionMode::type mode;
@@ -1012,17 +988,14 @@ Status GetUnion(const RjObject& json_type,
   }
 
   if (mode == UnionMode::SPARSE) {
-    *type = sparse_union(std::move(children), std::move(type_codes));
+    return sparse_union(std::move(children), std::move(type_codes));
   } else {
-    *type = dense_union(std::move(children), std::move(type_codes));
+    return dense_union(std::move(children), std::move(type_codes));
   }
-
-  return Status::OK();
 }
 
-Status GetRunEndEncoded(const RjObject& json_type,
-                        const std::vector<std::shared_ptr<Field>>& children,
-                        std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetRunEndEncoded(const RjObject& json_type,
+                                                   const FieldVector& children) {
   if (children.size() != 2) {
     return Status::Invalid("Run-end encoded array must have exactly 2 fields, but got ",
                            children.size());
@@ -1046,82 +1019,79 @@ Status GetRunEndEncoded(const RjObject& json_type,
   if (children[0]->nullable()) {
     return Status::Invalid("Run ends array should not be nullable");
   }
-  *type = run_end_encoded(children[0]->type(), children[1]->type());
-  return Status::OK();
+  return run_end_encoded(children[0]->type(), children[1]->type());
 }
 
-Status GetType(const RjObject& json_type,
-               const std::vector<std::shared_ptr<Field>>& children,
-               std::shared_ptr<DataType>* type) {
+Result<std::shared_ptr<DataType>> GetType(const RjObject& json_type,
+                                          const FieldVector& children) {
   ARROW_ASSIGN_OR_RAISE(const auto type_name, GetMemberString(json_type, "name"));
 
   if (type_name == "int") {
-    return GetInteger(json_type, type);
+    return GetInteger(json_type);
   } else if (type_name == "floatingpoint") {
-    return GetFloatingPoint(json_type, type);
+    return GetFloatingPoint(json_type);
   } else if (type_name == "bool") {
-    *type = boolean();
+    return boolean();
   } else if (type_name == "utf8") {
-    *type = utf8();
+    return utf8();
   } else if (type_name == "binary") {
-    *type = binary();
+    return binary();
   } else if (type_name == "largeutf8") {
-    *type = large_utf8();
+    return large_utf8();
   } else if (type_name == "largebinary") {
-    *type = large_binary();
+    return large_binary();
   } else if (type_name == "fixedsizebinary") {
-    return GetFixedSizeBinary(json_type, type);
+    return GetFixedSizeBinary(json_type);
   } else if (type_name == "decimal") {
-    return GetDecimal(json_type, type);
+    return GetDecimal(json_type);
   } else if (type_name == "null") {
-    *type = null();
+    return null();
   } else if (type_name == "date") {
-    return GetDate(json_type, type);
+    return GetDate(json_type);
   } else if (type_name == "time") {
-    return GetTime(json_type, type);
+    return GetTime(json_type);
   } else if (type_name == "timestamp") {
-    return GetTimestamp(json_type, type);
+    return GetTimestamp(json_type);
   } else if (type_name == "interval") {
-    return GetInterval(json_type, type);
+    return GetInterval(json_type);
   } else if (type_name == kDuration) {
-    return GetDuration(json_type, type);
+    return GetDuration(json_type);
   } else if (type_name == "list") {
     if (children.size() != 1) {
       return Status::Invalid("List must have exactly one child");
     }
-    *type = list(children[0]);
+    return list(children[0]);
   } else if (type_name == "largelist") {
     if (children.size() != 1) {
       return Status::Invalid("Large list must have exactly one child");
     }
-    *type = large_list(children[0]);
+    return large_list(children[0]);
   } else if (type_name == "map") {
-    return GetMap(json_type, children, type);
+    return GetMap(json_type, children);
   } else if (type_name == "fixedsizelist") {
-    return GetFixedSizeList(json_type, children, type);
+    return GetFixedSizeList(json_type, children);
   } else if (type_name == "struct") {
-    *type = struct_(children);
+    return struct_(children);
   } else if (type_name == "union") {
-    return GetUnion(json_type, children, type);
+    return GetUnion(json_type, children);
   } else if (type_name == "runendencoded") {
-    return GetRunEndEncoded(json_type, children, type);
-  } else {
-    return Status::Invalid("Unrecognized type name: ", type_name);
+    return GetRunEndEncoded(json_type, children);
   }
-  return Status::OK();
+  return Status::Invalid("Unrecognized type name: ", type_name);
 }
 
-Status GetField(const rj::Value& obj, FieldPosition field_pos,
-                DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* field);
+Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition field_pos,
+                                        DictionaryMemo* dictionary_memo);
 
-Status GetFieldsFromArray(const RjArray& json_fields, FieldPosition parent_pos,
-                          DictionaryMemo* dictionary_memo,
-                          std::vector<std::shared_ptr<Field>>* fields) {
-  fields->resize(json_fields.Size());
-  for (auto [json_field, field, i] : Zip(json_fields, *fields, Enumerate<int>)) {
-    RETURN_NOT_OK(GetField(json_field, parent_pos.child(i), dictionary_memo, &field));
+Result<FieldVector> GetFieldsFromArray(const RjArray& json_fields,
+                                       FieldPosition parent_pos,
+                                       DictionaryMemo* dictionary_memo) {
+  FieldVector fields(json_fields.Size());
+  for (auto [json_field, field, i] : Zip(json_fields, fields, Enumerate<int>)) {
+    ARROW_ASSIGN_OR_RAISE(field,
+                          GetField(json_field, parent_pos.child(i), dictionary_memo));
   }
-  return Status::OK();
+  return fields;
 }
 
 Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered,
@@ -1135,16 +1105,16 @@ Status ParseDictionary(const RjObject& obj, int64_t* id, bool* is_ordered,
   if (type_name != "int") {
     return Status::Invalid("Dictionary indices can only be integers");
   }
-  return GetInteger(json_index_type, index_type);
+  return GetInteger(json_index_type).Value(index_type);
 }
 
 template <typename FieldOrStruct>
-Status GetKeyValueMetadata(const FieldOrStruct& field_or_struct,
-                           std::shared_ptr<KeyValueMetadata>* out) {
-  out->reset(new KeyValueMetadata);
+Result<std::shared_ptr<KeyValueMetadata>> GetKeyValueMetadata(
+    const FieldOrStruct& field_or_struct) {
+  auto metadata = std::make_shared<KeyValueMetadata>();
   auto it = field_or_struct.FindMember("metadata");
   if (it == field_or_struct.MemberEnd() || it->value.IsNull()) {
-    return Status::OK();
+    return metadata;
   }
   if (!it->value.IsArray()) {
     return Status::Invalid("Metadata was not a JSON array");
@@ -1159,19 +1129,17 @@ Status GetKeyValueMetadata(const FieldOrStruct& field_or_struct,
     ARROW_ASSIGN_OR_RAISE(const auto key, GetMemberString(key_value_pair, "key"));
     ARROW_ASSIGN_OR_RAISE(const auto value, GetMemberString(key_value_pair, "value"));
 
-    (*out)->Append(std::move(key), std::move(value));
+    metadata->Append(std::move(key), std::move(value));
   }
-  return Status::OK();
+  return metadata;
 }
 
-Status GetField(const rj::Value& obj, FieldPosition field_pos,
-                DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* field) {
+Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition field_pos,
+                                        DictionaryMemo* dictionary_memo) {
   if (!obj.IsObject()) {
     return Status::Invalid("Field was not a JSON object");
   }
   const auto& json_field = obj.GetObject();
-
-  std::shared_ptr<DataType> type;
 
   ARROW_ASSIGN_OR_RAISE(const auto name, GetMemberString(json_field, "name"));
   ARROW_ASSIGN_OR_RAISE(const bool nullable, GetMemberBool(json_field, "nullable"));
@@ -1179,12 +1147,12 @@ Status GetField(const rj::Value& obj, FieldPosition field_pos,
   ARROW_ASSIGN_OR_RAISE(const auto json_type, GetMemberObject(json_field, "type"));
   ARROW_ASSIGN_OR_RAISE(const auto json_children, GetMemberArray(json_field, "children"));
 
-  std::vector<std::shared_ptr<Field>> children;
-  RETURN_NOT_OK(GetFieldsFromArray(json_children, field_pos, dictionary_memo, &children));
-  RETURN_NOT_OK(GetType(json_type, children, &type));
+  ARROW_ASSIGN_OR_RAISE(FieldVector children,
+                        GetFieldsFromArray(json_children, field_pos, dictionary_memo));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<DataType> type, GetType(json_type, children));
 
-  std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(GetKeyValueMetadata(json_field, &metadata));
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<KeyValueMetadata> metadata,
+                        GetKeyValueMetadata(json_field));
 
   // Is it a dictionary type?
   int64_t dictionary_id = -1;
@@ -1226,13 +1194,13 @@ Status GetField(const rj::Value& obj, FieldPosition field_pos,
   }
 
   // Create field
-  *field = ::arrow::field(name, type, nullable, metadata);
+  auto field = ::arrow::field(name, type, nullable, metadata);
   if (dictionary_id != -1) {
     RETURN_NOT_OK(dictionary_memo->fields().AddField(dictionary_id, field_pos.path()));
     RETURN_NOT_OK(dictionary_memo->AddDictionaryType(dictionary_id, dict_value_type));
   }
 
-  return Status::OK();
+  return field;
 }
 
 template <typename T>
@@ -1753,38 +1721,34 @@ Status ReadDictionaries(const rj::Value& doc, MemoryPool* pool,
 
 }  // namespace
 
-Status ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
-                  DictionaryMemo* dictionary_memo, std::shared_ptr<Schema>* schema) {
+Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_schema, MemoryPool* pool,
+                                           DictionaryMemo* dictionary_memo) {
   DCHECK(json_schema.IsObject());
   ARROW_ASSIGN_OR_RAISE(const auto obj_schema,
                         GetMemberObject(json_schema.GetObject(), "schema"));
 
   ARROW_ASSIGN_OR_RAISE(const auto json_fields, GetMemberArray(obj_schema, "fields"));
 
-  std::shared_ptr<KeyValueMetadata> metadata;
-  RETURN_NOT_OK(GetKeyValueMetadata(obj_schema, &metadata));
-
-  std::vector<std::shared_ptr<Field>> fields;
-  RETURN_NOT_OK(
-      GetFieldsFromArray(json_fields, FieldPosition(), dictionary_memo, &fields));
-
+  ARROW_ASSIGN_OR_RAISE(auto metadata, GetKeyValueMetadata(obj_schema));
+  ARROW_ASSIGN_OR_RAISE(
+      FieldVector fields,
+      GetFieldsFromArray(json_fields, FieldPosition(), dictionary_memo));
   // Read the dictionaries (if any) and cache in the memo
   RETURN_NOT_OK(ReadDictionaries(json_schema, pool, dictionary_memo));
 
-  *schema = ::arrow::schema(fields, metadata);
+  return ::arrow::schema(fields, metadata);
   return Status::OK();
 }
 
-Status ReadArray(MemoryPool* pool, const rj::Value& json_array,
-                 const std::shared_ptr<Field>& field, std::shared_ptr<Array>* out) {
+Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const rj::Value& json_array,
+                                         const std::shared_ptr<Field>& field) {
   ARROW_ASSIGN_OR_RAISE(auto data, ReadArrayData(pool, json_array, field));
-  *out = MakeArray(data);
-  return Status::OK();
+  return MakeArray(data);
 }
 
-Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
-                       DictionaryMemo* dictionary_memo, MemoryPool* pool,
-                       std::shared_ptr<RecordBatch>* batch) {
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
+    DictionaryMemo* dictionary_memo, MemoryPool* pool) {
   DCHECK(json_obj.IsObject());
   const auto& batch_obj = json_obj.GetObject();
 
@@ -1800,8 +1764,7 @@ Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>&
 
   RETURN_NOT_OK(ResolveDictionaries(columns, *dictionary_memo, pool));
 
-  *batch = RecordBatch::Make(schema, num_rows, columns);
-  return Status::OK();
+  return RecordBatch::Make(schema, num_rows, columns);
 }
 
 Status WriteSchema(const Schema& schema, const DictionaryFieldMapper& mapper,
