@@ -41,10 +41,10 @@ classdef TimestampType < arrow.type.TemporalType
         end
     end
 
-    % methods (Access=protected)
-    %     function group = getPropertyGroups(~)
-    %       targets = ["ID" "TimeUnit" "TimeZone"];
-    %       group = matlab.mixin.util.PropertyGroup(targets);
-    %     end
-    % end
+    methods (Access=protected)
+        function groups = getDisplayPropertyGroups(~)
+            targets = ["ID" "TimeUnit" "TimeZone"];
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
 end

@@ -43,14 +43,22 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
         end
     end
 
+    methods(Access = protected)
+        groups = getDisplayPropertyGroups(obj)
+    end
+
     methods (Sealed, Access = protected)
         function header = getHeader(obj)
             header = getHeader@matlab.mixin.CustomDisplay(obj);
         end
  
         function groups = getPropertyGroups(obj)
-            proplist = {'ID'};
-            groups = matlab.mixin.util.PropertyGroup(proplist); 
+            if isscalar(obj)
+               groups = getDisplayPropertyGroups(obj);
+            else
+                proplist = "ID";
+                groups = matlab.mixin.util.PropertyGroup(proplist);
+            end
         end
  
         function footer = getFooter(obj)
@@ -62,14 +70,16 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
         end
 
         function displayScalarObject(obj)
-         % Override of this method
-         % ...
             displayScalarObject@matlab.mixin.CustomDisplay(obj)
         end
 
-        % function displayEmptyObject(obj)
-        %     displayEmptyObject@matlab.mixin.CustomDisplay(obj);
-        % end
+        function displayEmptyObject(obj)
+            displayEmptyObject@matlab.mixin.CustomDisplay(obj);
+        end
+
+        function displayScalarHandleToDeletedObject(obj)
+            displayScalarHandleToDeletedObject@matlab.mixin.CustomDisplay(obj);
+        end
     end
 
     methods
