@@ -40,8 +40,7 @@ class ARROW_TESTING_EXPORT IntegrationJsonWriter {
   /// \brief Create a new JSON writer that writes to memory
   ///
   /// \param[in] schema the schema of record batches
-  /// \param[out] out the returned writer object
-  /// \return Status
+  /// \return the creater writer object
   static Result<std::unique_ptr<IntegrationJsonWriter>> Open(
       const std::shared_ptr<Schema>& schema);
 
@@ -50,8 +49,7 @@ class ARROW_TESTING_EXPORT IntegrationJsonWriter {
 
   /// \brief Finish the JSON payload and return as a std::string
   ///
-  /// \param[out] result the JSON as as a std::string
-  /// \return Status
+  /// \return the JSON payload as a string
   Result<std::string> Finish();
 
  private:
@@ -102,7 +100,7 @@ class ARROW_TESTING_EXPORT IntegrationJsonReader {
   /// \brief Read a particular record batch from the file
   ///
   /// \param[in] i the record batch index, does not boundscheck
-  /// \param[out] batch the read record batch
+  /// \return the record batch read
   Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) const;
 
  private:
