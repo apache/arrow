@@ -87,7 +87,7 @@ uint16_t BinaryConverter<T>::ToBinary16(T f_bits) {
   // Handle exponent overflow, NaN, and +/-Inf
   if (h_biased_exp >= 0x1f) {
     // The input is a NaN representation
-    if (f_biased_exp == 0xff && f_mant != 0) {
+    if (f_exp == kExpMask && f_mant != 0) {
       uint16_t h_mant = uint16_t(f_mant >> (kMantNumBits - 10));
       // If the mantissa bit(s) indicating NaN were shifted out, add one back. Otherwise,
       // the result would be infinity.

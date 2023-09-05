@@ -18,32 +18,102 @@
 #include <array>
 #include <cmath>
 #include <utility>
-#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
+#include "arrow/util/span.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 namespace {
 
 template <typename T>
 using Limits = std::numeric_limits<T>;
 
 float F32(uint32_t bits) { return SafeCopy<float>(bits); }
+double F64(uint64_t bits) { return SafeCopy<double>(bits); }
 
-TEST(Float16Test, RoundTripFromFloat32) {
-  struct TestCase {
-    float f32;
-    uint16_t b16;
-    float f16_as_f32;
+Float16 ToFloat16(float f32) { return Float16::FromFloat(f32); }
+Float16 ToFloat16(double f64) { return Float16::FromDouble(f64); }
+
+template <typename T>
+class Float16ConversionTest : public ::testing::Test {
+ public:
+  struct RoundTripTestCase {
+    T input;
+    uint16_t bits;
+    T output;
   };
+
+  static void TestRoundTrip(span<const RoundTripTestCase> test_cases) {
+    for (size_t index = 0; index < test_cases.size(); ++index) {
+      ARROW_SCOPED_TRACE("i=", index);
+      const auto& tc = test_cases[index];
+
+      const auto f16 = ToFloat16(tc.input);
+      EXPECT_EQ(tc.bits, f16.bits());
+      EXPECT_EQ(tc.output, static_cast<T>(f16));
+
+      EXPECT_EQ(std::signbit(tc.output), f16.signbit());
+      EXPECT_EQ(std::isnan(tc.output), f16.is_nan());
+      EXPECT_EQ(std::isinf(tc.output), f16.is_infinity());
+      EXPECT_EQ(std::isfinite(tc.output), f16.is_finite());
+    }
+  }
+
+  static void TestRoundTripFromNaN(span<const T> test_cases) {
+    for (size_t i = 0; i < test_cases.size(); ++i) {
+      ARROW_SCOPED_TRACE("i=", i);
+      const auto input = test_cases[i];
+
+      ASSERT_TRUE(std::isnan(input));
+      const bool sign = std::signbit(input);
+
+      const Float16 f16 = ToFloat16(input);
+      EXPECT_TRUE(f16.is_nan());
+      EXPECT_EQ(std::isinf(input), f16.is_infinity());
+      EXPECT_EQ(std::isfinite(input), f16.is_finite());
+      EXPECT_EQ(sign, f16.signbit());
+
+      const auto output = static_cast<T>(f16);
+      EXPECT_TRUE(std::isnan(output));
+      EXPECT_EQ(sign, std::signbit(output));
+    }
+  }
+
+  void TestRoundTripFromInf() {
+    const T test_cases[] = {+Limits<T>::infinity(), -Limits<T>::infinity()};
+
+    for (size_t i = 0; i < std::size(test_cases); ++i) {
+      ARROW_SCOPED_TRACE("i=", i);
+      const auto input = test_cases[i];
+
+      ASSERT_TRUE(std::isinf(input));
+      const bool sign = std::signbit(input);
+
+      const Float16 f16 = ToFloat16(input);
+      EXPECT_TRUE(f16.is_infinity());
+      EXPECT_EQ(std::isfinite(input), f16.is_finite());
+      EXPECT_EQ(std::isnan(input), f16.is_nan());
+      EXPECT_EQ(sign, f16.signbit());
+
+      const auto output = static_cast<T>(f16);
+      EXPECT_TRUE(std::isinf(output));
+      EXPECT_EQ(sign, std::signbit(output));
+    }
+  }
+
+  void TestRoundTrip();
+  void TestRoundTripFromNaN();
+};
+
+template <>
+void Float16ConversionTest<float>::TestRoundTrip() {
   // Expected values were also manually validated with numpy-1.24.3
-  const TestCase test_cases[] = {
+  const RoundTripTestCase test_cases[] = {
       // +/-0.0f
       {F32(0x80000000u), 0b1000000000000000u, -0.0f},
       {F32(0x00000000u), 0b0000000000000000u, +0.0f},
@@ -71,63 +141,77 @@ TEST(Float16Test, RoundTripFromFloat32) {
       {F32(0x477fd001u), 0b0111101111111111u, 65504.0f},
       // 32-bit exp is 127 => 2^0, rounds to 16-bit exp of 16 => 2^1.
       {F32(0xbffff000u), 0b1100000000000000u, -2.0f},
+      // Extreme values should safely clamp to +/-inf
+      {Limits<float>::max(), 0b0111110000000000u, +Limits<float>::infinity()},
+      {Limits<float>::lowest(), 0b1111110000000000u, -Limits<float>::infinity()},
   };
 
-  for (size_t index = 0; index < std::size(test_cases); ++index) {
-    ARROW_SCOPED_TRACE("index=", index);
-    const auto& tc = test_cases[index];
-    const auto f16 = Float16::FromFloat(tc.f32);
-    EXPECT_EQ(tc.b16, f16.bits());
-    EXPECT_EQ(tc.f16_as_f32, f16.ToFloat());
-
-    EXPECT_EQ(std::signbit(tc.f16_as_f32), f16.signbit());
-    EXPECT_EQ(std::isnan(tc.f16_as_f32), f16.is_nan());
-    EXPECT_EQ(std::isinf(tc.f16_as_f32), f16.is_infinity());
-    EXPECT_EQ(std::isfinite(tc.f16_as_f32), f16.is_finite());
-  }
+  TestRoundTrip(span(test_cases, std::size(test_cases)));
 }
 
-TEST(Float16Test, RoundTripFromFloat32Nan) {
-  const float nan_test_cases[] = {
+template <>
+void Float16ConversionTest<double>::TestRoundTrip() {
+  // Expected values were also manually validated with numpy-1.24.3
+  const RoundTripTestCase test_cases[] = {
+      // +/-0.0
+      {F64(0x8000000000000000u), 0b1000000000000000u, -0.0},
+      {F64(0x0000000000000000u), 0b0000000000000000u, +0.0},
+      // 64-bit exp is 998 => 2^-25. Rounding to nearest.
+      {F64(0xbe60000000000001u), 0b1000000000000001u, -5.9604644775390625e-8},
+      // 64-bit exp is 998 => 2^-25. Rounding to even.
+      {F64(0xbe60000000000000u), 0b1000000000000000u, -0.0},
+      // 64-bit exp is 997 => 2^-26. Underflow to zero.
+      {F64(0xbe50000000000001u), 0b1000000000000000u, -0.0},
+      // 64-bit exp is 1004 => 2^-19.
+      {F64(0xbec3400000000000u), 0b1000000000100110u, -2.2649765014648438e-6},
+      // 64-bit exp is 1004 => 2^-19.
+      {F64(0xbec3c00000000000u), 0b1000000000101000u, -2.3841857910156250e-6},
+      // 64-bit exp is 1008 => 2^-15. Rounding to nearest.
+      {F64(0xbf0ff40000000001u), 0b1000001111111111u, -6.0975551605224609e-5},
+      // 64-bit exp is 1008 => 2^-15. Rounds to 16-bit exp of 1 => 2^-14
+      {F64(0xbf0ffc0000000001u), 0b1000010000000000u, -6.1035156250000000e-5},
+      // 64-bit exp is 1038 => 2^15. Rounding to nearest.
+      {F64(0xc0e0020000000001u), 0b1111100000000001u, -32800.0},
+      // 64-bit exp is 1038 => 2^15. Rounding to even.
+      {F64(0xc0e0020000000000u), 0b1111100000000000u, -32768.0},
+      // 65520.0 rounds to inf
+      {F64(0x40effe0000000000u), 0b0111110000000000u, Limits<double>::infinity()},
+      // 65488.00000000001 rounds to 65504.0 (float16 max)
+      {F64(0x40effa0000000001u), 0b0111101111111111u, 65504.0},
+      // 64-bit exp is 1023 => 2^0, rounds to 16-bit exp of 16 => 2^1.
+      {F64(0xbffffe0000000000u), 0b1100000000000000u, -2.0},
+      // Extreme values should safely clamp to +/-inf
+      {Limits<double>::max(), 0b0111110000000000u, +Limits<double>::infinity()},
+      {Limits<double>::lowest(), 0b1111110000000000u, -Limits<double>::infinity()},
+  };
+
+  TestRoundTrip(span(test_cases, std::size(test_cases)));
+}
+
+template <>
+void Float16ConversionTest<float>::TestRoundTripFromNaN() {
+  const float test_cases[] = {
       Limits<float>::quiet_NaN(), F32(0x7f800001u), F32(0xff800001u), F32(0x7fc00000u),
-      F32(0xff800001u),           F32(0x7fffffffu), F32(0xffffffffu)};
-
-  for (size_t i = 0; i < std::size(nan_test_cases); ++i) {
-    ARROW_SCOPED_TRACE("i=", i);
-    const auto f32 = nan_test_cases[i];
-
-    ASSERT_TRUE(std::isnan(f32));
-    const bool sign = std::signbit(f32);
-
-    const auto f16 = Float16::FromFloat(f32);
-    EXPECT_TRUE(f16.is_nan());
-    EXPECT_EQ(sign, f16.signbit());
-
-    const auto f16_as_f32 = f16.ToFloat();
-    EXPECT_TRUE(std::isnan(f16_as_f32));
-    EXPECT_EQ(sign, std::signbit(f16_as_f32));
-  }
+      F32(0xffc00000u),           F32(0x7fffffffu), F32(0xffffffffu)};
+  TestRoundTripFromNaN(span(test_cases, std::size(test_cases)));
 }
 
-TEST(Float16Test, RoundTripFromFloat32Inf) {
-  const float test_cases[] = {+Limits<float>::infinity(), -Limits<float>::infinity()};
-
-  for (size_t i = 0; i < std::size(test_cases); ++i) {
-    ARROW_SCOPED_TRACE("i=", i);
-    const auto f32 = test_cases[i];
-
-    ASSERT_TRUE(std::isinf(f32));
-    const bool sign = std::signbit(f32);
-
-    const auto f16 = Float16::FromFloat(f32);
-    EXPECT_TRUE(f16.is_infinity());
-    EXPECT_EQ(sign, f16.signbit());
-
-    const auto f16_as_f32 = f16.ToFloat();
-    EXPECT_TRUE(std::isinf(f16_as_f32));
-    EXPECT_EQ(sign, std::signbit(f16_as_f32));
-  }
+template <>
+void Float16ConversionTest<double>::TestRoundTripFromNaN() {
+  const double test_cases[] = {Limits<double>::quiet_NaN(), F64(0x7ff0000000000001u),
+                               F64(0xfff0000000000001u),    F64(0x7ff8000000000000u),
+                               F64(0xfff8000000000000u),    F64(0x7fffffffffffffffu),
+                               F64(0xffffffffffffffffu)};
+  TestRoundTripFromNaN(span(test_cases, std::size(test_cases)));
 }
+
+using NativeFloatTypes = ::testing::Types<float, double>;
+
+TYPED_TEST_SUITE(Float16ConversionTest, NativeFloatTypes);
+
+TYPED_TEST(Float16ConversionTest, RoundTrip) { this->TestRoundTrip(); }
+TYPED_TEST(Float16ConversionTest, RoundTripFromNaN) { this->TestRoundTripFromNaN(); }
+TYPED_TEST(Float16ConversionTest, RoundTripFromInf) { this->TestRoundTripFromInf(); }
 
 TEST(Float16Test, Compare) {
   constexpr float f32_inf = Limits<float>::infinity();
@@ -247,5 +331,4 @@ TEST(Float16Test, FromBytes) {
 }
 
 }  // namespace
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
