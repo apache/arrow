@@ -34,9 +34,9 @@ namespace Apache.Arrow.Acero
             return gSchema;
         }
 
-        public static unsafe CLib.GArrowRecordBatch* ExportAndGetRecordBatchPtr(RecordBatch recordBatch, Schema schema)
+        public static unsafe CLib.GArrowRecordBatch* ExportAndGetRecordBatchPtr(RecordBatch recordBatch)
         {
-            var schemaPtr = ExportAndGetSchemaPtr(schema);
+            var schemaPtr = ExportAndGetSchemaPtr(recordBatch.Schema);
 
             // allocate  a C ABI CArrowArray
             CArrowArray* cArray = CArrowArray.Create();

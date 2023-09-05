@@ -28,7 +28,7 @@ namespace Apache.Arrow.Acero
 
         public List<Declaration> Inputs { get; set; } = new();
 
-        public Declaration(string factoryName, ExecNodeOptions options, List<Declaration> inputs = null)
+        public Declaration(string factoryName, ExecNodeOptions options = null, List<Declaration> inputs = null)
         {
             _factoryName = factoryName;
             _options = options;
@@ -111,6 +111,9 @@ namespace Apache.Arrow.Acero
 
                 case "filter":
                     return new FilterNode(_options as FilterNodeOptions, plan, nodes);
+
+                case "union":
+                    return new UnionNode(plan, nodes);
 
                 default:
                     throw new Exception($"Unknown factory {_factoryName}");

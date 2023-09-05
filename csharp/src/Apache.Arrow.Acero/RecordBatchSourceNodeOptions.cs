@@ -19,9 +19,9 @@ namespace Apache.Arrow.Acero
     {
         private unsafe CLib.GArrowSourceNodeOptions* _optionsPtr;
 
-        public unsafe RecordBatchSourceNodeOptions(RecordBatch recordBatch, Schema schema)
+        public unsafe RecordBatchSourceNodeOptions(RecordBatch recordBatch)
         {
-            var recordBatchPtr = ExportUtil.ExportAndGetRecordBatchPtr(recordBatch, schema);
+            var recordBatchPtr = ExportUtil.ExportAndGetRecordBatchPtr(recordBatch);
 
             _optionsPtr = CLib.garrow_source_node_options_new_record_batch(recordBatchPtr);
         }

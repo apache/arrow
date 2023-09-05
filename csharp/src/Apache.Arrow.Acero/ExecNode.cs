@@ -20,5 +20,6 @@ namespace Apache.Arrow.Acero
     public abstract class ExecNode
     {
         public abstract unsafe GArrowExecuteNode* GetPtr();
+
     }
 }

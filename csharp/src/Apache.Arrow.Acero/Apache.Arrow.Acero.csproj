@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="GLibSharp" Version="3.24.24.95" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Apache.Arrow\Apache.Arrow.csproj" />
   </ItemGroup>
 
