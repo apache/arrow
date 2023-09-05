@@ -703,6 +703,10 @@ def test_get_file_info_with_selector(fs, pathfn):
             # on the s3fs/fsspec version combo, it includes the base_dir
             # (https://github.com/dask/s3fs/issues/393)
             assert (len(infos) == 4) or (len(infos) == 5)
+        elif fs.type_name in ["py::fsspec+file", 'py::fsspec+memory']:
+            # fsspec also lists root dir
+            # GH-37555
+            assert len(infos) == 6
         else:
             assert len(infos) == 5
 
@@ -725,14 +729,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         selector = FileSelector(base_dir, recursive=False)
 
         infos = fs.get_file_info(selector)
-        if fs.type_name == "py::fsspec+s3":
-            # s3fs only lists directories if they are not empty
-            # + for s3fs 0.5.2 all directories are dropped because of buggy
-            # side-effect of previous find() call
-            # (https://github.com/dask/s3fs/issues/410)
-            assert (len(infos) == 3) or (len(infos) == 2)
-        else:
-            assert len(infos) == 4
+        assert len(infos) == 4
 
     finally:
         fs.delete_dir(base_dir)
