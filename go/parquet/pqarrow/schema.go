@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
 	"github.com/apache/arrow/go/v14/arrow/flight"
 	"github.com/apache/arrow/go/v14/arrow/ipc"
 	"github.com/apache/arrow/go/v14/arrow/memory"
@@ -304,12 +305,22 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 	case arrow.FIXED_SIZE_BINARY:
 		typ = parquet.Types.FixedLenByteArray
 		length = field.Type.(*arrow.FixedSizeBinaryType).ByteWidth
-	case arrow.DECIMAL:
-		typ = parquet.Types.FixedLenByteArray
-		dectype := field.Type.(*arrow.Decimal128Type)
-		precision = int(dectype.Precision)
-		scale = int(dectype.Scale)
-		length = int(DecimalSize(int32(precision)))
+	case arrow.DECIMAL, arrow.DECIMAL256:
+		dectype := field.Type.(arrow.DecimalType)
+		precision = int(dectype.GetPrecision())
+		scale = int(dectype.GetScale())
+
+		if props.StoreDecimalAsInteger() && 1 <= precision && precision <= 18 {
+			if precision <= 9 {
+				typ = parquet.Types.Int32
+			} else {
+				typ = parquet.Types.Int64
+			}
+		} else {
+			typ = parquet.Types.FixedLenByteArray
+			length = int(DecimalSize(int32(precision)))
+		}
+
 		logicalType = schema.NewDecimalLogicalType(int32(precision), int32(scale))
 	case arrow.DATE32:
 		typ = parquet.Types.Int32
@@ -521,6 +532,13 @@ func arrowTimestamp(logical *schema.TimestampLogicalType) (arrow.DataType, error
 	}
 }
 
+func arrowDecimal(logical *schema.DecimalLogicalType) arrow.DataType {
+	if logical.Precision() <= decimal128.MaxPrecision {
+		return &arrow.Decimal128Type{Precision: logical.Precision(), Scale: logical.Scale()}
+	}
+	return &arrow.Decimal256Type{Precision: logical.Precision(), Scale: logical.Scale()}
+}
+
 func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case schema.NoLogicalType:
@@ -528,7 +546,7 @@ func arrowFromInt32(logical schema.LogicalType) (arrow.DataType, error) {
 	case *schema.TimeLogicalType:
 		return arrowTime32(logtype)
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case *schema.IntLogicalType:
 		return arrowInt(logtype)
 	case schema.DateLogicalType:
@@ -547,7 +565,7 @@ func arrowFromInt64(logical schema.LogicalType) (arrow.DataType, error) {
 	case *schema.IntLogicalType:
 		return arrowInt(logtype)
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case *schema.TimeLogicalType:
 		return arrowTime64(logtype)
 	case *schema.TimestampLogicalType:
@@ -562,7 +580,7 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 	case schema.StringLogicalType:
 		return arrow.BinaryTypes.String, nil
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType,
 		schema.EnumLogicalType,
 		schema.JSONLogicalType,
@@ -576,7 +594,7 @@ func arrowFromByteArray(logical schema.LogicalType) (arrow.DataType, error) {
 func arrowFromFLBA(logical schema.LogicalType, length int) (arrow.DataType, error) {
 	switch logtype := logical.(type) {
 	case *schema.DecimalLogicalType:
-		return &arrow.Decimal128Type{Precision: logtype.Precision(), Scale: logtype.Scale()}, nil
+		return arrowDecimal(logtype), nil
 	case schema.NoLogicalType, schema.IntervalLogicalType, schema.UUIDLogicalType:
 		return &arrow.FixedSizeBinaryType{ByteWidth: int(length)}, nil
 	default:
@@ -1048,6 +1066,11 @@ func applyOriginalStorageMetadata(origin arrow.Field, inferred *SchemaField) (mo
 		inferred.Field.Type = &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32,
 			ValueType: inferred.Field.Type, Ordered: dictOriginType.Ordered}
 		modified = true
+	case arrow.DECIMAL256:
+		if inferred.Field.Type.ID() == arrow.DECIMAL128 {
+			inferred.Field.Type = origin.Type
+			modified = true
+		}
 	}
 
 	if origin.HasMetadata() {
