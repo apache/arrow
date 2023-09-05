@@ -90,6 +90,7 @@ func (a *List) newListValue(i int) arrow.Array {
 }
 
 func (a *List) setData(data *Data) {
+	debug.Assert(len(data.buffers) >= 2, "list data should have 2 buffers")
 	a.array.setData(data)
 	vals := data.buffers[1]
 	if vals != nil {
@@ -221,6 +222,7 @@ func (a *LargeList) newListValue(i int) arrow.Array {
 }
 
 func (a *LargeList) setData(data *Data) {
+	debug.Assert(len(data.buffers) >= 2, "list data should have 2 buffers")
 	a.array.setData(data)
 	vals := data.buffers[1]
 	if vals != nil {
@@ -683,6 +685,7 @@ func (a *ListView) newListValue(i int) arrow.Array {
 }
 
 func (a *ListView) setData(data *Data) {
+	debug.Assert(len(data.buffers) >= 3, "list-view data should have 3 buffers")
 	a.array.setData(data)
 	offsets := data.buffers[1]
 	if offsets != nil {
@@ -829,6 +832,7 @@ func (a *LargeListView) newListValue(i int) arrow.Array {
 }
 
 func (a *LargeListView) setData(data *Data) {
+	debug.Assert(len(data.buffers) >= 3, "list-view data should have 3 buffers")
 	a.array.setData(data)
 	offsets := data.buffers[1]
 	if offsets != nil {
