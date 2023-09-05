@@ -160,13 +160,14 @@ TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
 
   auto array0 = ArrayFromJSON(int32(), "[0, 1, 2]");
   auto array1 = ArrayFromJSON(float64(), "[0, 1, NaN]");
-  ASSERT_OK_AND_ASSIGN(auto struct0, StructArray::Make({array0, array1}, {"Int32Type", "Float64Type"}));
+  std::vector<std::string> fieldnames = {"Int32Type", "Float64Type"};
+  ASSERT_OK_AND_ASSIGN(auto struct0, StructArray::Make({array0, array1}, fieldnames));
   ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({struct0}, struct0->type()));
   // result2 has NaN values
   ASSERT_FALSE(result2->Equals(result2));
   
   auto array2 = ArrayFromJSON(float64(), "[0, 1, 2]");
-  ASSERT_OK_AND_ASSIGN(auto struct1, StructArray::Make({array0, array2}, {"Int32Type", "Float64Type"}));
+  ASSERT_OK_AND_ASSIGN(auto struct1, StructArray::Make({array0, array2}, fieldnames));
   ASSERT_OK_AND_ASSIGN(auto result3, ChunkedArray::Make({struct1}, struct1->type()));
   // result3 does not have NaN values
   ASSERT_TRUE(result3->Equals(result3));
