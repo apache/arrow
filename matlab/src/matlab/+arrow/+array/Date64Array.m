@@ -59,6 +59,8 @@ classdef Date64Array < arrow.array.Array
                 opts.Valid
             end
 
+            import arrow.array.Date64Array
+
             arrow.internal.validate.type(data, "datetime");
             arrow.internal.validate.shape(data);
 
