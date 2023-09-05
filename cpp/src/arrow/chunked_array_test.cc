@@ -146,6 +146,32 @@ TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
   ASSERT_TRUE(left.Equals(right));
 }
 
+TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
+  auto chunk0 = ArrayFromJSON(float64(), "[0, 1, 2, NaN]");
+  auto chunk1 = ArrayFromJSON(float64(), "[3, 4, 5]");
+  ASSERT_OK_AND_ASSIGN(auto result0, ChunkedArray::Make({chunk0, chunk1}, float64()));
+  // result0 has NaN values
+  ASSERT_FALSE(result0->Equals(result0));
+  
+  auto chunk2 = ArrayFromJSON(float64(), "[6, 7, 8, 9]");
+  ASSERT_OK_AND_ASSIGN(auto result1, ChunkedArray::Make({chunk1, chunk2}, float64()));
+  // result1 does not have NaN values
+  ASSERT_TRUE(result1->Equals(result1));
+
+  auto array0 = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto array1 = ArrayFromJSON(float64(), "[0, 1, NaN]");
+  ASSERT_OK_AND_ASSIGN(auto struct0, StructArray::Make({array0, array1}, {"Int32Type", "Float64Type"}));
+  ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({struct0}, struct0->type()));
+  // result2 has NaN values
+  ASSERT_FALSE(result2->Equals(result2));
+  
+  auto array2 = ArrayFromJSON(float64(), "[0, 1, 2]");
+  ASSERT_OK_AND_ASSIGN(auto struct1, StructArray::Make({array0, array2}, {"Int32Type", "Float64Type"}));
+  ASSERT_OK_AND_ASSIGN(auto result3, ChunkedArray::Make({struct1}, struct1->type()));
+  // result3 does not have NaN values
+  ASSERT_TRUE(result3->Equals(result3));
+}
+
 TEST_F(TestChunkedArray, SliceEquals) {
   random::RandomArrayGenerator gen(42);
 
