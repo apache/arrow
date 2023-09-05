@@ -73,9 +73,9 @@ uint16_t BinaryConverter<T>::ToBinary16(T f_bits) {
   // Exponents as signed pre-shifted values for convenience. Here, we need to re-bias the
   // exponent for a binary16. If, after re-biasing, the binary16 exponent falls outside of
   // the range [1,30] then we need to handle the under/overflow case specially.
-  const int32_t f_biased_exp = int32_t(f_exp >> kMantNumBits);
-  const int32_t unbiased_exp = f_biased_exp - kExpBias;
-  const int32_t h_biased_exp = unbiased_exp + 15;
+  const int16_t f_biased_exp = int16_t(f_exp >> kMantNumBits);
+  const int16_t unbiased_exp = f_biased_exp - kExpBias;
+  const int16_t h_biased_exp = unbiased_exp + 15;
 
   // Mantissa mask for input
   const T f_mant = f_bits & kMantMask;
