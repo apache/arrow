@@ -212,7 +212,7 @@ class ARROW_EXPORT CudaDevice : public Device {
     ///
     /// Once the stream completes the tasks previously added to it,
     /// it will trigger the event.
-    Status Record(const Device::Stream&, const unsigned int) override;
+    Status Record(const Device::Stream&) override;
 
    protected:
     friend class CudaMemoryManager;

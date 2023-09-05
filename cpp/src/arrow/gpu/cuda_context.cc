@@ -322,8 +322,9 @@ Status CudaDevice::Stream::WaitEvent(const Device::SyncEvent& event) {
   }
 
   ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
-  CU_RETURN_NOT_OK("cuStreamWaitEvent",
-                   cuStreamWaitEvent(value(), cu_event, CU_EVENT_WAIT_DEFAULT));
+  // we are currently building with CUDA toolkit 11.0.3 which doesn't have enum
+  // values for the flags yet. The "flags" param *must* be 0 for now.
+  CU_RETURN_NOT_OK("cuStreamWaitEvent", cuStreamWaitEvent(value(), cu_event, 0));
   return Status::OK();
 }
 
@@ -339,15 +340,14 @@ Status CudaDevice::SyncEvent::Wait() {
   return Status::OK();
 }
 
-Status CudaDevice::SyncEvent::Record(const Device::Stream& st, const unsigned int flags) {
+Status CudaDevice::SyncEvent::Record(const Device::Stream& st) {
   auto cuda_stream = checked_cast<const CudaDevice::Stream*, const Device::Stream*>(&st);
   if (!cuda_stream) {
     return Status::Invalid("CudaDevice::Event cannot record on non-cuda stream");
   }
 
   ContextSaver set_temporary(reinterpret_cast<CUcontext>(context_.get()->handle()));
-  CU_RETURN_NOT_OK("cuEventRecordWithFlags",
-                   cuEventRecordWithFlags(value(), cuda_stream->value(), flags));
+  CU_RETURN_NOT_OK("cuEventRecord", cuEventRecord(value(), cuda_stream->value()));
   return Status::OK();
 }
 
