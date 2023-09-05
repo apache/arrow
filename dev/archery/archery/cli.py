@@ -764,10 +764,8 @@ def integration(with_all=False, random_seed=12345, **args):
             enabled_languages += 1
 
     if gen_path:
-        # XXX this option is only used by the JS test suite.
-        # It also has not been updated to generate more data types,
-        # and JS is now part of the integration test suite, so it's
-        # not obvious how useful the option still is.
+        # XXX See GH-37575: this option is only used by the JS test suite
+        # and might not be useful anymore.
         os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
