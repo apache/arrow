@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/array"
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
 	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
 	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/apache/arrow/go/v14/internal/utils"
 	"github.com/apache/arrow/go/v14/parquet"
@@ -493,14 +494,14 @@ func transferColumnData(rdr file.RecordReader, valueType arrow.DataType, descr *
 		data = transferDate64(rdr, valueType)
 	case arrow.FIXED_SIZE_BINARY, arrow.BINARY, arrow.STRING, arrow.LARGE_BINARY, arrow.LARGE_STRING:
 		return transferBinary(rdr, valueType), nil
-	case arrow.DECIMAL:
+	case arrow.DECIMAL, arrow.DECIMAL256:
 		switch descr.PhysicalType() {
 		case parquet.Types.Int32, parquet.Types.Int64:
 			data = transferDecimalInteger(rdr, valueType)
 		case parquet.Types.ByteArray, parquet.Types.FixedLenByteArray:
 			return transferDecimalBytes(rdr.(file.BinaryRecordReader), valueType)
 		default:
-			return nil, errors.New("physical type for decimal128 must be int32, int64, bytearray or fixed len byte array")
+			return nil, errors.New("physical type for decimal128/decimal256 must be int32, int64, bytearray or fixed len byte array")
 		}
 	case arrow.TIMESTAMP:
 		tstype := valueType.(*arrow.TimestampType)
@@ -722,10 +723,20 @@ func transferDecimalInteger(rdr file.RecordReader, dt arrow.DataType) arrow.Arra
 		values = reflect.ValueOf(arrow.Int64Traits.CastFromBytes(rdr.Values())[:length])
 	}
 
-	data := make([]byte, arrow.Decimal128Traits.BytesRequired(length))
-	out := arrow.Decimal128Traits.CastFromBytes(data)
-	for i := 0; i < values.Len(); i++ {
-		out[i] = decimal128.FromI64(values.Index(i).Int())
+	var data []byte
+	switch dt.ID() {
+	case arrow.DECIMAL128:
+		data = make([]byte, arrow.Decimal128Traits.BytesRequired(length))
+		out := arrow.Decimal128Traits.CastFromBytes(data)
+		for i := 0; i < values.Len(); i++ {
+			out[i] = decimal128.FromI64(values.Index(i).Int())
+		}
+	case arrow.DECIMAL256:
+		data = make([]byte, arrow.Decimal256Traits.BytesRequired(length))
+		out := arrow.Decimal256Traits.CastFromBytes(data)
+		for i := 0; i < values.Len(); i++ {
+			out[i] = decimal256.FromI64(values.Index(i).Int())
+		}
 	}
 
 	var nullmap *memory.Buffer
@@ -801,6 +812,52 @@ func bigEndianToDecimal128(buf []byte) (decimal128.Num, error) {
 	return decimal128.New(hi, uint64(lo)), nil
 }
 
+func bigEndianToDecimal256(buf []byte) (decimal256.Num, error) {
+	const (
+		minDecimalBytes = 1
+		maxDecimalBytes = 32
+	)
+
+	if len(buf) < minDecimalBytes || len(buf) > maxDecimalBytes {
+		return decimal256.Num{},
+			fmt.Errorf("%w: length of byte array for bigEndianToDecimal256 was %d but must be between %d and %d",
+				arrow.ErrInvalid, len(buf), minDecimalBytes, maxDecimalBytes)
+	}
+
+	var littleEndian [4]uint64
+	// bytes are coming in big-endian, so the first byte is the MSB and
+	// therefore holds the sign bit
+	initWord, isNeg := uint64(0), int8(buf[0]) < 0
+	if isNeg {
+		// sign extend if necessary
+		initWord = uint64(0xFFFFFFFFFFFFFFFF)
+	}
+
+	for wordIdx := 0; wordIdx < 4; wordIdx++ {
+		wordLen := utils.MinInt(len(buf), arrow.Uint64SizeBytes)
+		word := buf[len(buf)-wordLen:]
+
+		if wordLen == 8 {
+			// full words can be assigned as-is
+			littleEndian[wordIdx] = binary.BigEndian.Uint64(word)
+		} else {
+			result := initWord
+			if len(buf) > 0 {
+				// incorporate the actual values if present
+				// shift left enough bits to make room for the incoming int64
+				result = result << uint64(wordLen)
+				// preserve the upper bits by inplace OR-ing the int64
+				result |= uint64FromBigEndianShifted(word)
+			}
+			littleEndian[wordIdx] = result
+		}
+
+		buf = buf[:len(buf)-wordLen]
+	}
+
+	return decimal256.New(littleEndian[3], littleEndian[2], littleEndian[1], littleEndian[0]), nil
+}
+
 type varOrFixedBin interface {
 	arrow.Array
 	Value(i int) []byte
@@ -808,21 +865,19 @@ type varOrFixedBin interface {
 
 // convert physical byte storage, instead of integers, to decimal128
 func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arrow.Chunked, error) {
-	convert := func(arr arrow.Array) (arrow.Array, error) {
-		length := arr.Len()
+	convert128 := func(in varOrFixedBin) (arrow.Array, error) {
+		length := in.Len()
 		data := make([]byte, arrow.Decimal128Traits.BytesRequired(length))
 		out := arrow.Decimal128Traits.CastFromBytes(data)
 
-		input := arr.(varOrFixedBin)
-		nullCount := input.NullN()
-
+		nullCount := in.NullN()
 		var err error
 		for i := 0; i < length; i++ {
-			if nullCount > 0 && input.IsNull(i) {
+			if nullCount > 0 && in.IsNull(i) {
 				continue
 			}
 
-			rec := input.Value(i)
+			rec := in.Value(i)
 			if len(rec) <= 0 {
 				return nil, fmt.Errorf("invalud BYTEARRAY length for type: %s", dt)
 			}
@@ -833,10 +888,49 @@ func transferDecimalBytes(rdr file.BinaryRecordReader, dt arrow.DataType) (*arro
 		}
 
 		ret := array.NewData(dt, length, []*memory.Buffer{
-			input.Data().Buffers()[0], memory.NewBufferBytes(data),
+			in.Data().Buffers()[0], memory.NewBufferBytes(data),
 		}, nil, nullCount, 0)
 		defer ret.Release()
 		return array.MakeFromData(ret), nil
+	}
+
+	convert256 := func(in varOrFixedBin) (arrow.Array, error) {
+		length := in.Len()
+		data := make([]byte, arrow.Decimal256Traits.BytesRequired(length))
+		out := arrow.Decimal256Traits.CastFromBytes(data)
+
+		nullCount := in.NullN()
+		var err error
+		for i := 0; i < length; i++ {
+			if nullCount > 0 && in.IsNull(i) {
+				continue
+			}
+
+			rec := in.Value(i)
+			if len(rec) <= 0 {
+				return nil, fmt.Errorf("invalid BYTEARRAY length for type: %s", dt)
+			}
+			out[i], err = bigEndianToDecimal256(rec)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		ret := array.NewData(dt, length, []*memory.Buffer{
+			in.Data().Buffers()[0], memory.NewBufferBytes(data),
+		}, nil, nullCount, 0)
+		defer ret.Release()
+		return array.MakeFromData(ret), nil
+	}
+
+	convert := func(arr arrow.Array) (arrow.Array, error) {
+		switch dt.ID() {
+		case arrow.DECIMAL128:
+			return convert128(arr.(varOrFixedBin))
+		case arrow.DECIMAL256:
+			return convert256(arr.(varOrFixedBin))
+		}
+		return nil, arrow.ErrNotImplemented
 	}
 
 	chunks := rdr.GetBuilderChunks()

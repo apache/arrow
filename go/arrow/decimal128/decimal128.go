@@ -26,6 +26,11 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 )
 
+const (
+	MaxPrecision = 38
+	MaxScale     = 38
+)
+
 var (
 	MaxDecimal128 = New(542101086242752217, 687399551400673280-1)
 )

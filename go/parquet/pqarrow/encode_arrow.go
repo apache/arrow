@@ -21,6 +21,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 	"unsafe"
 
@@ -28,10 +29,12 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/array"
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
 	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
 	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/apache/arrow/go/v14/internal/utils"
 	"github.com/apache/arrow/go/v14/parquet"
 	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v14/parquet/internal/debug"
 )
 
 // get the count of the number of leaf arrays for the type
@@ -327,6 +330,18 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 				for idx, val := range leafArr.(*array.Date64).Date64Values() {
 					data[idx] = int32(val / 86400000) // coerce date64 values
 				}
+			case arrow.DECIMAL128:
+				for idx, val := range leafArr.(*array.Decimal128).Values() {
+					debug.Assert(val.HighBits() == 0 || val.HighBits() == -1, "casting Decimal128 greater than the value range; high bits must be 0 or -1")
+					debug.Assert(val.LowBits() <= math.MaxUint32, "casting Decimal128 to int32 when value > MaxUint32")
+					data[idx] = int32(val.LowBits())
+				}
+			case arrow.DECIMAL256:
+				for idx, val := range leafArr.(*array.Decimal256).Values() {
+					debug.Assert(val.Array()[3] == 0 || val.Array()[3] == 0xFFFFFFFF, "casting Decimal128 greater than the value range; high bits must be 0 or -1")
+					debug.Assert(val.LowBits() <= math.MaxUint32, "casting Decimal128 to int32 when value > MaxUint32")
+					data[idx] = int32(val.LowBits())
+				}
 			default:
 				return fmt.Errorf("type mismatch, column is int32 writer, arrow array is %s, and not a compatible type", leafArr.DataType().Name())
 			}
@@ -395,6 +410,20 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 			if leafArr.Data().Buffers()[1] != nil {
 				data = arrow.Int64Traits.CastFromBytes(leafArr.Data().Buffers()[1].Bytes())
 				data = data[leafArr.Data().Offset() : leafArr.Data().Offset()+leafArr.Len()]
+			}
+		case arrow.DECIMAL128:
+			ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
+			data = arrow.Int64Traits.CastFromBytes(ctx.dataBuffer.Bytes())
+			for idx, val := range leafArr.(*array.Decimal128).Values() {
+				debug.Assert(val.HighBits() == 0 || val.HighBits() == -1, "trying to cast Decimal128 to int64 greater than range, high bits must be 0 or -1")
+				data[idx] = int64(val.LowBits())
+			}
+		case arrow.DECIMAL256:
+			ctx.dataBuffer.ResizeNoShrink(arrow.Int64Traits.BytesRequired(leafArr.Len()))
+			data = arrow.Int64Traits.CastFromBytes(ctx.dataBuffer.Bytes())
+			for idx, val := range leafArr.(*array.Decimal256).Values() {
+				debug.Assert(val.Array()[3] == 0 || val.Array()[3] == 0xFFFFFFFF, "trying to cast Decimal128 to int64 greater than range, high bits must be 0 or -1")
+				data[idx] = int64(val.LowBits())
 			}
 		default:
 			return fmt.Errorf("unimplemented arrow type to write to int64 column: %s", leafArr.DataType().Name())
@@ -506,6 +535,40 @@ func writeDenseArrow(ctx *arrowWriteContext, cw file.ColumnChunkWriter, leafArr 
 
 			data := make([]parquet.FixedLenByteArray, leafArr.Len())
 			arr := leafArr.(*array.Decimal128)
+			if leafArr.NullN() == 0 {
+				for idx := range data {
+					data[idx] = fixDecimalEndianness(arr.Value(idx))
+				}
+				_, err = wr.WriteBatch(data, defLevels, repLevels)
+			} else {
+				for idx := range data {
+					if arr.IsValid(idx) {
+						data[idx] = fixDecimalEndianness(arr.Value(idx))
+					}
+				}
+				wr.WriteBatchSpaced(data, defLevels, repLevels, arr.NullBitmapBytes(), int64(arr.Data().Offset()))
+			}
+		case *arrow.Decimal256Type:
+			// parquet decimal are stored with FixedLength values where the length is
+			// proportional to the precision. Arrow's Decimal are always stored with 16/32
+			// bytes. thus the internal FLBA must be adjusted by the offset calculation
+			offset := int(bitutil.BytesForBits(int64(dt.BitWidth()))) - int(DecimalSize(dt.Precision))
+			ctx.dataBuffer.ResizeNoShrink((leafArr.Len() - leafArr.NullN()) * dt.BitWidth())
+			scratch := ctx.dataBuffer.Bytes()
+			typeLen := wr.Descr().TypeLength()
+			fixDecimalEndianness := func(in decimal256.Num) parquet.FixedLenByteArray {
+				out := scratch[offset : offset+typeLen]
+				vals := in.Array()
+				binary.BigEndian.PutUint64(scratch, vals[3])
+				binary.BigEndian.PutUint64(scratch[arrow.Uint64SizeBytes:], vals[2])
+				binary.BigEndian.PutUint64(scratch[2*arrow.Uint64SizeBytes:], vals[1])
+				binary.BigEndian.PutUint64(scratch[3*arrow.Uint64SizeBytes:], vals[0])
+				scratch = scratch[4*arrow.Uint64SizeBytes:]
+				return out
+			}
+
+			data := make([]parquet.FixedLenByteArray, leafArr.Len())
+			arr := leafArr.(*array.Decimal256)
 			if leafArr.NullN() == 0 {
 				for idx := range data {
 					data[idx] = fixDecimalEndianness(arr.Value(idx))
