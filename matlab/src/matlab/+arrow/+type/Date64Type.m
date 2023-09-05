@@ -1,4 +1,4 @@
-%DATE32 Creates an arrow.type.Date32Type object
+%DATE64TYPE Type class for date64 data.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,7 +15,19 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function type = date32()
-    proxy = arrow.internal.proxy.create("arrow.type.proxy.Date32Type");
-    type = arrow.type.Date32Type(proxy);
+classdef Date64Type < arrow.type.DateType
+
+    methods
+
+        function obj = Date64Type(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Date64Type")}
+            end
+            import arrow.internal.proxy.validate
+
+            obj@arrow.type.DateType(proxy);
+        end
+
+    end
+
 end
