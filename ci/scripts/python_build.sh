@@ -70,7 +70,6 @@ export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT:-OFF}
 export PYARROW_PARALLEL=${n_jobs}
 
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
-export CMAKE_PREFIX_PATH=${ARROW_HOME}:${CMAKE_PREFIX_PATH}
 
 pushd ${source_dir}
 # - Cannot call setup.py as it may install in the wrong directory
