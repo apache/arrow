@@ -717,9 +717,9 @@ def test_get_file_info_with_selector(fs, pathfn):
             elif (info.path.rstrip("/").endswith(dir_a) or
                   info.path.rstrip("/").endswith(dir_b)):
                 assert info.type == FileType.Directory
-            elif (fs.type_name == "py::fsspec+s3" and
+            elif ("py::fsspec" in fs.type_name and
                   info.path.rstrip("/").endswith("selector-dir")):
-                # s3fs can include base dir, see above
+                # fsspec can include base dir, see above
                 assert info.type == FileType.Directory
             else:
                 raise ValueError('unexpected path {}'.format(info.path))
@@ -729,7 +729,12 @@ def test_get_file_info_with_selector(fs, pathfn):
         selector = FileSelector(base_dir, recursive=False)
 
         infos = fs.get_file_info(selector)
-        assert len(infos) == 4
+        if fs.type_name in ["py::fsspec+file", 'py::fsspec+memory']:
+            # fsspec also lists root dir
+            # GH-37555
+            assert len(infos) == 5
+        else:
+            assert len(infos) == 4
 
     finally:
         fs.delete_dir(base_dir)
