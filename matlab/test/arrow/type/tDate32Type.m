@@ -1,3 +1,5 @@
+% Test class for arrow.type.Date32Type and arrow.date32
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,7 +16,6 @@
 % permissions and limitations under the License.
 
 classdef tDate32Type < hFixedWidthType
-% Test class for arrow.type.Date32Type and arrow.date32
 
     properties
         ConstructionFcn = @arrow.date32
