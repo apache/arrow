@@ -50,6 +50,37 @@ classdef Field < matlab.mixin.CustomDisplay
             name = obj.Proxy.getName();
         end
 
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+            
+            names = [obj(:).Name];
+            types = 
+            namesToCompare = strings(numel(obj), numel(varargin));
+            typesToCompare = cell([1 numel(varargin)]);
+
+            for ii = 1:numel(varargin)
+                field = varargin{ii};
+                if ~isa(field, "arrow.type.Field") || ~isequal(size(obj), size(field))
+                    % Return early if field is not an arrow.type.Field
+                    % or if the dimensions of obj and field do not match.
+                    return;
+                end
+
+                % field(:) flattens N-dimensional arrays into column vectors.
+                namesToCompare(:, ii) = [field(:).Name];
+                typesToCompare(1, ii) = {field(:).Type};
+            end
+
+            names = [obj(:).Name];
+            if any(names ~= namesToCompare, "all")
+                % Return early if the field names don't match
+                return;
+            end
+
+            types = [obj(:).Type];
+            tf = isequal(types, typesToCompare{:});
+        end
     end
 
     methods (Access = private)
