@@ -296,7 +296,8 @@ template <bool is_signed>
 struct CompareHelper<FLBAType, is_signed>
     : public BinaryLikeCompareHelperBase<FLBAType, is_signed> {};
 
-struct Float16CompareHelper {
+template <>
+struct CompareHelper<Float16LogicalType, /*is_signed=*/true> {
   using T = FLBA;
 
   static T DefaultMin() { return T{Float16Constants::max()}; }
@@ -412,12 +413,24 @@ optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
   return min_max;
 }
 
-template <bool is_signed, typename DType,
-          typename HelperType = CompareHelper<DType, is_signed>>
-class TypedComparatorImpl : virtual public TypedComparator<DType> {
+template <typename T>
+struct RebindLogical {
+  using DType = T;
+  using c_type = typename DType::c_type;
+};
+
+template <>
+struct RebindLogical<Float16LogicalType> {
+  using DType = FLBAType;
+  using c_type = DType::c_type;
+};
+
+template <bool is_signed, typename DType>
+class TypedComparatorImpl
+    : virtual public TypedComparator<typename RebindLogical<DType>::DType> {
  public:
-  using T = typename DType::c_type;
-  using Helper = HelperType;
+  using T = typename RebindLogical<DType>::c_type;
+  using Helper = CompareHelper<DType, is_signed>;
 
   explicit TypedComparatorImpl(int type_length = -1) : type_length_(type_length) {}
 
@@ -464,7 +477,9 @@ class TypedComparatorImpl : virtual public TypedComparator<DType> {
     return {min, max};
   }
 
-  std::pair<T, T> GetMinMax(const ::arrow::Array& values) override;
+  std::pair<T, T> GetMinMax(const ::arrow::Array& values) override {
+    ParquetException::NYI(values.type()->ToString());
+  }
 
  private:
   int type_length_;
@@ -490,12 +505,6 @@ TypedComparatorImpl</*is_signed=*/false, Int32Type>::GetMinMax(const int32_t* va
   }
 
   return {SafeCopy<int32_t>(min), SafeCopy<int32_t>(max)};
-}
-
-template <bool is_signed, typename DType, typename Helper>
-std::pair<typename DType::c_type, typename DType::c_type>
-TypedComparatorImpl<is_signed, DType, Helper>::GetMinMax(const ::arrow::Array& values) {
-  ParquetException::NYI(values.type()->ToString());
 }
 
 template <bool is_signed>
@@ -926,8 +935,8 @@ std::shared_ptr<Comparator> DoMakeComparator(Type::type physical_type,
         return std::make_shared<TypedComparatorImpl<true, ByteArrayType>>();
       case Type::FIXED_LEN_BYTE_ARRAY:
         if (logical_type == LogicalType::Type::FLOAT16) {
-          return std::make_shared<
-              TypedComparatorImpl<true, FLBAType, Float16CompareHelper>>(type_length);
+          return std::make_shared<TypedComparatorImpl<true, Float16LogicalType>>(
+              type_length);
         }
         return std::make_shared<TypedComparatorImpl<true, FLBAType>>(type_length);
       default:
