@@ -152,7 +152,7 @@ TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
   ASSERT_OK_AND_ASSIGN(auto result0, ChunkedArray::Make({chunk0, chunk1}, float64()));
   // result0 has NaN values
   ASSERT_FALSE(result0->Equals(result0));
-  
+
   auto chunk2 = ArrayFromJSON(float64(), "[6, 7, 8, 9]");
   ASSERT_OK_AND_ASSIGN(auto result1, ChunkedArray::Make({chunk1, chunk2}, float64()));
   // result1 does not have NaN values
@@ -165,7 +165,7 @@ TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
   ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({struct0}, struct0->type()));
   // result2 has NaN values
   ASSERT_FALSE(result2->Equals(result2));
-  
+
   auto array2 = ArrayFromJSON(float64(), "[0, 1, 2]");
   ASSERT_OK_AND_ASSIGN(auto struct1, StructArray::Make({array0, array2}, fieldnames));
   ASSERT_OK_AND_ASSIGN(auto result3, ChunkedArray::Make({struct1}, struct1->type()));

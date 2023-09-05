@@ -120,7 +120,7 @@ namespace {
       // Only floating types support NaN
       supports_nan |= is_floating(type.id());
     } else {
-      for(const auto& field : type.fields()) {
+      for (const auto& field : type.fields()) {
         supports_nan |= supportsNaN(*field->type());
         if (supports_nan) {
           break;
