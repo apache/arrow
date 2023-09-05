@@ -70,7 +70,7 @@ jobs:
     name: Source Release and Merge Script on ${{ matrix.runs-on }}
     runs-on: ${{ matrix.runs-on }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -78,10 +78,10 @@ jobs:
           - macos-latest
           - ubuntu-latest
     env:
-      GIT_AUTHOR_NAME: Github Actions
-      GIT_AUTHOR_EMAIL: github@actions
-      GIT_COMMITTER_NAME: Github Actions
-      GIT_COMMITTER_EMAIL: github@actions
+      GIT_AUTHOR_NAME: "github-actions[bot]"
+      GIT_AUTHOR_EMAIL: "github-actions[bot]@users.noreply.github.com"
+      GIT_COMMITTER_NAME: "github-actions[bot]"
+      GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
