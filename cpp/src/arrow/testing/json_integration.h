@@ -22,21 +22,12 @@
 #include <memory>
 #include <string>
 
-#include "arrow/status.h"
+#include "arrow/io/type_fwd.h"
+#include "arrow/result.h"
 #include "arrow/testing/visibility.h"
+#include "arrow/type_fwd.h"
 
-namespace arrow {
-
-class Buffer;
-class MemoryPool;
-class RecordBatch;
-class Schema;
-
-namespace io {
-class ReadableFile;
-}  // namespace io
-
-namespace testing {
+namespace arrow::testing {
 
 /// \class IntegrationJsonWriter
 /// \brief Write the JSON representation of an Arrow record batch file or stream
@@ -51,8 +42,8 @@ class ARROW_TESTING_EXPORT IntegrationJsonWriter {
   /// \param[in] schema the schema of record batches
   /// \param[out] out the returned writer object
   /// \return Status
-  static Status Open(const std::shared_ptr<Schema>& schema,
-                     std::unique_ptr<IntegrationJsonWriter>* out);
+  static Result<std::unique_ptr<IntegrationJsonWriter>> Open(
+      const std::shared_ptr<Schema>& schema);
 
   /// \brief Append a record batch
   Status WriteRecordBatch(const RecordBatch& batch);
@@ -61,7 +52,7 @@ class ARROW_TESTING_EXPORT IntegrationJsonWriter {
   ///
   /// \param[out] result the JSON as as a std::string
   /// \return Status
-  Status Finish(std::string* result);
+  Result<std::string> Finish();
 
  private:
   explicit IntegrationJsonWriter(const std::shared_ptr<Schema>& schema);
@@ -83,27 +74,24 @@ class ARROW_TESTING_EXPORT IntegrationJsonReader {
   ///
   /// \param[in] pool a MemoryPool to use for buffer allocations
   /// \param[in] data a Buffer containing the JSON data
-  /// \param[out] reader the returned reader object
-  /// \return Status
-  static Status Open(MemoryPool* pool, const std::shared_ptr<Buffer>& data,
-                     std::unique_ptr<IntegrationJsonReader>* reader);
+  /// \return the created JSON reader
+  static Result<std::unique_ptr<IntegrationJsonReader>> Open(
+      MemoryPool* pool, std::shared_ptr<Buffer> data);
 
   /// \brief Create a new JSON reader that uses the default memory pool
   ///
   /// \param[in] data a Buffer containing the JSON data
-  /// \param[out] reader the returned reader object
-  /// \return Status
-  static Status Open(const std::shared_ptr<Buffer>& data,
-                     std::unique_ptr<IntegrationJsonReader>* reader);
+  /// \return the created JSON reader
+  static Result<std::unique_ptr<IntegrationJsonReader>> Open(
+      std::shared_ptr<Buffer> data);
 
   /// \brief Create a new JSON reader from a file
   ///
   /// \param[in] pool a MemoryPool to use for buffer allocations
   /// \param[in] in_file a ReadableFile containing JSON data
-  /// \param[out] reader the returned reader object
-  /// \return Status
-  static Status Open(MemoryPool* pool, const std::shared_ptr<io::ReadableFile>& in_file,
-                     std::unique_ptr<IntegrationJsonReader>* reader);
+  /// \return the created JSON reader
+  static Result<std::unique_ptr<IntegrationJsonReader>> Open(
+      MemoryPool* pool, const std::shared_ptr<io::ReadableFile>& in_file);
 
   /// \brief Return the schema read from the JSON
   std::shared_ptr<Schema> schema() const;
@@ -115,15 +103,14 @@ class ARROW_TESTING_EXPORT IntegrationJsonReader {
   ///
   /// \param[in] i the record batch index, does not boundscheck
   /// \param[out] batch the read record batch
-  Status ReadRecordBatch(int i, std::shared_ptr<RecordBatch>* batch) const;
+  Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) const;
 
  private:
-  IntegrationJsonReader(MemoryPool* pool, const std::shared_ptr<Buffer>& data);
+  IntegrationJsonReader(MemoryPool* pool, std::shared_ptr<Buffer> data);
 
   // Hide RapidJSON details from public API
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace testing
-}  // namespace arrow
+}  // namespace arrow::testing
