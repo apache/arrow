@@ -30,6 +30,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -111,12 +112,31 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
       .ok();
 }
 
-bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
-  if (this == other.get()) {
-    return true;
+namespace {
+  bool supportsNaN(const arrow::DataType& type) {
+    bool supports_nan = false;
+
+    if (type.num_fields() == 0) {
+      // Only floating types support NaN
+      supports_nan |= is_floating(type.id());
+    } else {
+      for(const auto& field : type.fields()) {
+        supports_nan |= supportsNaN(*field->type());
+        if (supports_nan) {
+          break;
+        }
+      }
+    }
+    return supports_nan;
   }
+} // namespace
+
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   if (!other) {
     return false;
+  }
+  if (this == other.get() && !supportsNaN(*other->type())) {
+    return true;
   }
   return Equals(*other.get());
 }
