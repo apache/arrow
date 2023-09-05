@@ -7,23 +7,8 @@
 #include <cstring>
 #include <type_traits>
 
-#ifdef __has_include
-#if __has_include(<version>)
-#include <version>
-#endif
-#endif
-
-#if __cpp_lib_bit_cast >= 201806L
+#if FASTFLOAT_HAS_BIT_CAST
 #include <bit>
-#define FASTFLOAT_HAS_BIT_CAST 1
-#else
-#define FASTFLOAT_HAS_BIT_CAST 0
-#endif
-
-#if __cpp_lib_is_constant_evaluated >= 201811L
-#define FASTFLOAT_HAS_IS_CONSTANT_EVALUATED 1
-#else
-#define FASTFLOAT_HAS_IS_CONSTANT_EVALUATED 0
 #endif
 
 #if (defined(__x86_64) || defined(__x86_64__) || defined(_M_X64)   \
@@ -37,18 +22,18 @@
      || defined(__MINGW32__) || defined(__EMSCRIPTEN__))
 #define FASTFLOAT_32BIT 1
 #else
-  // Need to check incrementally, since SIZE_MAX is a size_t, avoid overflow.
-  // We can never tell the register width, but the SIZE_MAX is a good approximation.
-  // UINTPTR_MAX and INTPTR_MAX are optional, so avoid them for max portability.
-  #if SIZE_MAX == 0xffff
-    #error Unknown platform (16-bit, unsupported)
-  #elif SIZE_MAX == 0xffffffff
-    #define FASTFLOAT_32BIT 1
-  #elif SIZE_MAX == 0xffffffffffffffff
-    #define FASTFLOAT_64BIT 1
-  #else
-    #error Unknown platform (not 32-bit, not 64-bit?)
-  #endif
+// Need to check incrementally, since SIZE_MAX is a size_t, avoid overflow.
+// We can never tell the register width, but the SIZE_MAX is a good approximation.
+// UINTPTR_MAX and INTPTR_MAX are optional, so avoid them for max portability.
+#if SIZE_MAX == 0xffff
+#error Unknown platform (16-bit, unsupported)
+#elif SIZE_MAX == 0xffffffff
+#define FASTFLOAT_32BIT 1
+#elif SIZE_MAX == 0xffffffffffffffff
+#define FASTFLOAT_64BIT 1
+#else
+#error Unknown platform (not 32-bit, not 64-bit?)
+#endif
 #endif
 
 #if ((defined(_WIN32) || defined(_WIN64)) && !defined(__clang__))
@@ -110,22 +95,6 @@
 // rust style `try!()` macro, or `?` operator
 #define FASTFLOAT_TRY(x) { if (!(x)) return false; }
 
-// Testing for https://wg21.link/N3652, adopted in C++14
-#if __cpp_constexpr >= 201304
-#define FASTFLOAT_CONSTEXPR14 constexpr
-#else
-#define FASTFLOAT_CONSTEXPR14
-#endif
-
-// Testing for relevant C++20 constexpr library features
-#if FASTFLOAT_HAS_IS_CONSTANT_EVALUATED \
-    && FASTFLOAT_HAS_BIT_CAST \
-    && __cpp_lib_constexpr_algorithms >= 201806L /*For std::copy and std::fill*/
-#define FASTFLOAT_CONSTEXPR20 constexpr
-#else
-#define FASTFLOAT_CONSTEXPR20
-#endif
-
 namespace arrow_vendored {
 namespace fast_float {
 
@@ -178,35 +147,35 @@ struct value128 {
 
 /* Helper C++11 constexpr generic implementation of leading_zeroes */
 fastfloat_really_inline constexpr
-int leading_zeroes_generic(uint64_t input_num, int last_bit = 0) {
+    int leading_zeroes_generic(uint64_t input_num, int last_bit = 0) {
   return (
-    ((input_num & uint64_t(0xffffffff00000000)) && (input_num >>= 32, last_bit |= 32)),
-    ((input_num & uint64_t(        0xffff0000)) && (input_num >>= 16, last_bit |= 16)),
-    ((input_num & uint64_t(            0xff00)) && (input_num >>=  8, last_bit |=  8)),
-    ((input_num & uint64_t(              0xf0)) && (input_num >>=  4, last_bit |=  4)),
-    ((input_num & uint64_t(               0xc)) && (input_num >>=  2, last_bit |=  2)),
-    ((input_num & uint64_t(               0x2)) && (input_num >>=  1, last_bit |=  1)),
-    63 - last_bit
+      ((input_num & uint64_t(0xffffffff00000000)) && (input_num >>= 32, last_bit |= 32)),
+      ((input_num & uint64_t(        0xffff0000)) && (input_num >>= 16, last_bit |= 16)),
+      ((input_num & uint64_t(            0xff00)) && (input_num >>=  8, last_bit |=  8)),
+      ((input_num & uint64_t(              0xf0)) && (input_num >>=  4, last_bit |=  4)),
+      ((input_num & uint64_t(               0xc)) && (input_num >>=  2, last_bit |=  2)),
+      ((input_num & uint64_t(               0x2)) && (input_num >>=  1, last_bit |=  1)),
+      63 - last_bit
   );
 }
 
 /* result might be undefined when input_num is zero */
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-int leading_zeroes(uint64_t input_num) {
+    int leading_zeroes(uint64_t input_num) {
   assert(input_num > 0);
   if (cpp20_and_in_constexpr()) {
     return leading_zeroes_generic(input_num);
   }
 #ifdef FASTFLOAT_VISUAL_STUDIO
-  #if defined(_M_X64) || defined(_M_ARM64)
+#if defined(_M_X64) || defined(_M_ARM64)
   unsigned long leading_zero = 0;
   // Search the mask data from most significant bit (MSB)
   // to least significant bit (LSB) for a set bit (1).
   _BitScanReverse64(&leading_zero, input_num);
   return (int)(63 - leading_zero);
-  #else
+#else
   return leading_zeroes_generic(input_num);
-  #endif
+#endif
 #else
   return __builtin_clzll(input_num);
 #endif
@@ -214,11 +183,11 @@ int leading_zeroes(uint64_t input_num) {
 
 // slow emulation routine for 32-bit
 fastfloat_really_inline constexpr uint64_t emulu(uint32_t x, uint32_t y) {
-    return x * (uint64_t)y;
+  return x * (uint64_t)y;
 }
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR14
-uint64_t umul128_generic(uint64_t ab, uint64_t cd, uint64_t *hi) {
+    uint64_t umul128_generic(uint64_t ab, uint64_t cd, uint64_t *hi) {
   uint64_t ad = emulu((uint32_t)(ab >> 32), (uint32_t)cd);
   uint64_t bd = emulu((uint32_t)ab, (uint32_t)cd);
   uint64_t adbc = ad + emulu((uint32_t)ab, (uint32_t)(cd >> 32));
@@ -234,7 +203,7 @@ uint64_t umul128_generic(uint64_t ab, uint64_t cd, uint64_t *hi) {
 // slow emulation routine for 32-bit
 #if !defined(__MINGW64__)
 fastfloat_really_inline FASTFLOAT_CONSTEXPR14
-uint64_t _umul128(uint64_t ab, uint64_t cd, uint64_t *hi) {
+    uint64_t _umul128(uint64_t ab, uint64_t cd, uint64_t *hi) {
   return umul128_generic(ab, cd, hi);
 }
 #endif // !__MINGW64__
@@ -244,7 +213,7 @@ uint64_t _umul128(uint64_t ab, uint64_t cd, uint64_t *hi) {
 
 // compute 64-bit a*b
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-value128 full_multiplication(uint64_t a, uint64_t b) {
+    value128 full_multiplication(uint64_t a, uint64_t b) {
   if (cpp20_and_in_constexpr()) {
     value128 answer;
     answer.low = umul128_generic(a, b, &answer.high);
@@ -293,45 +262,45 @@ constexpr uint64_t constant_55555 = 5 * 5 * 5 * 5 * 5;
 // Largest integer value v so that (5**index * v) <= 1<<53.
 // 0x10000000000000 == 1 << 53
 constexpr static uint64_t max_mantissa_double[] = {
-      0x10000000000000,
-      0x10000000000000 / 5,
-      0x10000000000000 / (5 * 5),
-      0x10000000000000 / (5 * 5 * 5),
-      0x10000000000000 / (5 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555),
-      0x10000000000000 / (constant_55555 * 5),
-      0x10000000000000 / (constant_55555 * 5 * 5),
-      0x10000000000000 / (constant_55555 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555 * 5 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555),
-      0x10000000000000 / (constant_55555 * constant_55555 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5),
-      0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5 * 5)};
-  // Largest integer value v so that (5**index * v) <= 1<<24.
-  // 0x1000000 == 1<<24
-  constexpr static uint64_t max_mantissa_float[] = {
-      0x1000000,
-      0x1000000 / 5,
-      0x1000000 / (5 * 5),
-      0x1000000 / (5 * 5 * 5),
-      0x1000000 / (5 * 5 * 5 * 5),
-      0x1000000 / (constant_55555),
-      0x1000000 / (constant_55555 * 5),
-      0x1000000 / (constant_55555 * 5 * 5),
-      0x1000000 / (constant_55555 * 5 * 5 * 5),
-      0x1000000 / (constant_55555 * 5 * 5 * 5 * 5),
-      0x1000000 / (constant_55555 * constant_55555),
-      0x1000000 / (constant_55555 * constant_55555 * 5)};
+    0x10000000000000,
+    0x10000000000000 / 5,
+    0x10000000000000 / (5 * 5),
+    0x10000000000000 / (5 * 5 * 5),
+    0x10000000000000 / (5 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555),
+    0x10000000000000 / (constant_55555 * 5),
+    0x10000000000000 / (constant_55555 * 5 * 5),
+    0x10000000000000 / (constant_55555 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555 * 5 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555),
+    0x10000000000000 / (constant_55555 * constant_55555 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5),
+    0x10000000000000 / (constant_55555 * constant_55555 * constant_55555 * constant_55555 * 5 * 5 * 5 * 5)};
+// Largest integer value v so that (5**index * v) <= 1<<24.
+// 0x1000000 == 1<<24
+constexpr static uint64_t max_mantissa_float[] = {
+    0x1000000,
+    0x1000000 / 5,
+    0x1000000 / (5 * 5),
+    0x1000000 / (5 * 5 * 5),
+    0x1000000 / (5 * 5 * 5 * 5),
+    0x1000000 / (constant_55555),
+    0x1000000 / (constant_55555 * 5),
+    0x1000000 / (constant_55555 * 5 * 5),
+    0x1000000 / (constant_55555 * 5 * 5 * 5),
+    0x1000000 / (constant_55555 * 5 * 5 * 5 * 5),
+    0x1000000 / (constant_55555 * constant_55555),
+    0x1000000 / (constant_55555 * constant_55555 * 5)};
 
 template <typename T> struct binary_format {
   using equiv_uint = typename std::conditional<sizeof(T) == 4, uint32_t, uint64_t>::type;
@@ -473,35 +442,35 @@ template <> inline constexpr size_t binary_format<float>::max_digits() {
 }
 
 template <> inline constexpr binary_format<float>::equiv_uint
-    binary_format<float>::exponent_mask() {
+binary_format<float>::exponent_mask() {
   return 0x7F800000;
 }
 template <> inline constexpr binary_format<double>::equiv_uint
-    binary_format<double>::exponent_mask() {
+binary_format<double>::exponent_mask() {
   return 0x7FF0000000000000;
 }
 
 template <> inline constexpr binary_format<float>::equiv_uint
-    binary_format<float>::mantissa_mask() {
+binary_format<float>::mantissa_mask() {
   return 0x007FFFFF;
 }
 template <> inline constexpr binary_format<double>::equiv_uint
-    binary_format<double>::mantissa_mask() {
+binary_format<double>::mantissa_mask() {
   return 0x000FFFFFFFFFFFFF;
 }
 
 template <> inline constexpr binary_format<float>::equiv_uint
-    binary_format<float>::hidden_bit_mask() {
+binary_format<float>::hidden_bit_mask() {
   return 0x00800000;
 }
 template <> inline constexpr binary_format<double>::equiv_uint
-    binary_format<double>::hidden_bit_mask() {
+binary_format<double>::hidden_bit_mask() {
   return 0x0010000000000000;
 }
 
 template<typename T>
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-void to_float(bool negative, adjusted_mantissa am, T &value) {
+    void to_float(bool negative, adjusted_mantissa am, T &value) {
   using uint = typename binary_format<T>::equiv_uint;
   uint word = (uint)am.mantissa;
   word |= uint(am.power2) << binary_format<T>::mantissa_explicit_bits();
@@ -517,17 +486,17 @@ void to_float(bool negative, adjusted_mantissa am, T &value) {
 template <typename = void>
 struct space_lut {
   static constexpr bool value[] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 };
 
 template <typename T>

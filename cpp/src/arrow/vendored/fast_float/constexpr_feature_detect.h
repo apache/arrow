@@ -14,13 +14,13 @@
 #define FASTFLOAT_CONSTEXPR14
 #endif
 
-#if defined(__cpp_lib_bit_cast) && __cpp_lib_bit_cast >= 201806L
+#if __cpp_lib_bit_cast >= 201806L
 #define FASTFLOAT_HAS_BIT_CAST 1
 #else
 #define FASTFLOAT_HAS_BIT_CAST 0
 #endif
 
-#if defined(__cpp_lib_is_constant_evaluated) && __cpp_lib_is_constant_evaluated >= 201811L
+#if __cpp_lib_is_constant_evaluated >= 201811L
 #define FASTFLOAT_HAS_IS_CONSTANT_EVALUATED 1
 #else
 #define FASTFLOAT_HAS_IS_CONSTANT_EVALUATED 0

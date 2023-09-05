@@ -19,16 +19,25 @@ fastfloat_really_inline constexpr bool is_integer(char c) noexcept {
 
 fastfloat_really_inline constexpr uint64_t byteswap(uint64_t val) {
   return (val & 0xFF00000000000000) >> 56
-    | (val & 0x00FF000000000000) >> 40
-    | (val & 0x0000FF0000000000) >> 24
-    | (val & 0x000000FF00000000) >> 8
-    | (val & 0x00000000FF000000) << 8
-    | (val & 0x0000000000FF0000) << 24
-    | (val & 0x000000000000FF00) << 40
-    | (val & 0x00000000000000FF) << 56;
+         | (val & 0x00FF000000000000) >> 40
+         | (val & 0x0000FF0000000000) >> 24
+         | (val & 0x000000FF00000000) >> 8
+         | (val & 0x00000000FF000000) << 8
+         | (val & 0x0000000000FF0000) << 24
+         | (val & 0x000000000000FF00) << 40
+         | (val & 0x00000000000000FF) << 56;
 }
 
-fastfloat_really_inline uint64_t read_u64(const char *chars) {
+fastfloat_really_inline FASTFLOAT_CONSTEXPR20
+    uint64_t read_u64(const char *chars) {
+  if (cpp20_and_in_constexpr()) {
+    uint64_t val = 0;
+    for(int i = 0; i < 8; ++i) {
+      val |= uint64_t(*chars) << (i*8);
+      ++chars;
+    }
+    return val;
+  }
   uint64_t val;
   ::memcpy(&val, chars, sizeof(uint64_t));
 #if FASTFLOAT_IS_BIG_ENDIAN == 1
@@ -38,7 +47,16 @@ fastfloat_really_inline uint64_t read_u64(const char *chars) {
   return val;
 }
 
-fastfloat_really_inline void write_u64(uint8_t *chars, uint64_t val) {
+fastfloat_really_inline FASTFLOAT_CONSTEXPR20
+    void write_u64(uint8_t *chars, uint64_t val) {
+  if (cpp20_and_in_constexpr()) {
+    for(int i = 0; i < 8; ++i) {
+      *chars = uint8_t(val);
+      val >>= 8;
+      ++chars;
+    }
+    return;
+  }
 #if FASTFLOAT_IS_BIG_ENDIAN == 1
   // Need to read as-if the number was in little-endian order.
   val = byteswap(val);
@@ -48,7 +66,7 @@ fastfloat_really_inline void write_u64(uint8_t *chars, uint64_t val) {
 
 // credit  @aqrit
 fastfloat_really_inline FASTFLOAT_CONSTEXPR14
-uint32_t parse_eight_digits_unrolled(uint64_t val) {
+    uint32_t parse_eight_digits_unrolled(uint64_t val) {
   const uint64_t mask = 0x000000FF000000FF;
   const uint64_t mul1 = 0x000F424000000064; // 100 + (1000000ULL << 32)
   const uint64_t mul2 = 0x0000271000000001; // 1 + (10000ULL << 32)
@@ -58,17 +76,19 @@ uint32_t parse_eight_digits_unrolled(uint64_t val) {
   return uint32_t(val);
 }
 
-fastfloat_really_inline uint32_t parse_eight_digits_unrolled(const char *chars)  noexcept  {
+fastfloat_really_inline FASTFLOAT_CONSTEXPR20
+    uint32_t parse_eight_digits_unrolled(const char *chars)  noexcept  {
   return parse_eight_digits_unrolled(read_u64(chars));
 }
 
 // credit @aqrit
 fastfloat_really_inline constexpr bool is_made_of_eight_digits_fast(uint64_t val)  noexcept  {
   return !((((val + 0x4646464646464646) | (val - 0x3030303030303030)) &
-     0x8080808080808080));
+            0x8080808080808080));
 }
 
-fastfloat_really_inline bool is_made_of_eight_digits_fast(const char *chars)  noexcept  {
+fastfloat_really_inline FASTFLOAT_CONSTEXPR20
+    bool is_made_of_eight_digits_fast(const char *chars)  noexcept  {
   return is_made_of_eight_digits_fast(read_u64(chars));
 }
 
@@ -88,8 +108,8 @@ struct parsed_number_string {
 
 // Assuming that you use no more than 19 digits, this will
 // parse an ASCII string.
-fastfloat_really_inline
-parsed_number_string parse_number_string(const char *p, const char *pend, parse_options options) noexcept {
+fastfloat_really_inline FASTFLOAT_CONSTEXPR20
+    parsed_number_string parse_number_string(const char *p, const char *pend, parse_options options) noexcept {
   const chars_format fmt = options.format;
   const char decimal_point = options.decimal_point;
 
@@ -214,13 +234,13 @@ parsed_number_string parse_number_string(const char *p, const char *pend, parse_
       if (i >= minimal_nineteen_digit_integer) { // We have a big integers
         exponent = end_of_integer_part - p + exp_number;
       } else { // We have a value with a fractional component.
-          p = answer.fraction.ptr;
-          const char* frac_end = p + answer.fraction.len();
-          while((i < minimal_nineteen_digit_integer) && (p != frac_end)) {
-            i = i * 10 + uint64_t(*p - '0');
-            ++p;
-          }
-          exponent = answer.fraction.ptr - p + exp_number;
+        p = answer.fraction.ptr;
+        const char* frac_end = p + answer.fraction.len();
+        while((i < minimal_nineteen_digit_integer) && (p != frac_end)) {
+          i = i * 10 + uint64_t(*p - '0');
+          ++p;
+        }
+        exponent = answer.fraction.ptr - p + exp_number;
       }
       // We have now corrected both exponent and i, to a truncated value
     }

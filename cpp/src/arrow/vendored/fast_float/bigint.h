@@ -157,20 +157,20 @@ struct stackvec {
 };
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR14
-uint64_t empty_hi64(bool& truncated) noexcept {
+    uint64_t empty_hi64(bool& truncated) noexcept {
   truncated = false;
   return 0;
 }
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-uint64_t uint64_hi64(uint64_t r0, bool& truncated) noexcept {
+    uint64_t uint64_hi64(uint64_t r0, bool& truncated) noexcept {
   truncated = false;
   int shl = leading_zeroes(r0);
   return r0 << shl;
 }
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-uint64_t uint64_hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
+    uint64_t uint64_hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
   int shl = leading_zeroes(r0);
   if (shl == 0) {
     truncated = r1 != 0;
@@ -183,19 +183,19 @@ uint64_t uint64_hi64(uint64_t r0, uint64_t r1, bool& truncated) noexcept {
 }
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-uint64_t uint32_hi64(uint32_t r0, bool& truncated) noexcept {
+    uint64_t uint32_hi64(uint32_t r0, bool& truncated) noexcept {
   return uint64_hi64(r0, truncated);
 }
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-uint64_t uint32_hi64(uint32_t r0, uint32_t r1, bool& truncated) noexcept {
+    uint64_t uint32_hi64(uint32_t r0, uint32_t r1, bool& truncated) noexcept {
   uint64_t x0 = r0;
   uint64_t x1 = r1;
   return uint64_hi64((x0 << 32) | x1, truncated);
 }
 
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-uint64_t uint32_hi64(uint32_t r0, uint32_t r1, uint32_t r2, bool& truncated) noexcept {
+    uint64_t uint32_hi64(uint32_t r0, uint32_t r1, uint32_t r2, bool& truncated) noexcept {
   uint64_t x0 = r0;
   uint64_t x1 = r1;
   uint64_t x2 = r2;
@@ -207,16 +207,16 @@ uint64_t uint32_hi64(uint32_t r0, uint32_t r1, uint32_t r2, bool& truncated) noe
 // we don't have built-in intrinsics, this is still
 // pretty fast.
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-limb scalar_add(limb x, limb y, bool& overflow) noexcept {
+    limb scalar_add(limb x, limb y, bool& overflow) noexcept {
   limb z;
 // gcc and clang
 #if defined(__has_builtin)
-  #if __has_builtin(__builtin_add_overflow)
-    if (!cpp20_and_in_constexpr()) {
-      overflow = __builtin_add_overflow(x, y, &z);
-      return z;
-    }
-  #endif
+#if __has_builtin(__builtin_add_overflow)
+  if (!cpp20_and_in_constexpr()) {
+    overflow = __builtin_add_overflow(x, y, &z);
+    return z;
+  }
+#endif
 #endif
 
   // generic, this still optimizes correctly on MSVC.
@@ -227,14 +227,14 @@ limb scalar_add(limb x, limb y, bool& overflow) noexcept {
 
 // multiply two small integers, getting both the high and low bits.
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-limb scalar_mul(limb x, limb y, limb& carry) noexcept {
+    limb scalar_mul(limb x, limb y, limb& carry) noexcept {
 #ifdef FASTFLOAT_64BIT_LIMB
-  #if defined(__SIZEOF_INT128__)
+#if defined(__SIZEOF_INT128__)
   // GCC and clang both define it as an extension.
   __uint128_t z = __uint128_t(x) * __uint128_t(y) + __uint128_t(carry);
   carry = limb(z >> limb_bits);
   return limb(z);
-  #else
+#else
   // fallback, no native 128-bit integer multiplication with carry.
   // on msvc, this optimizes identically, somehow.
   value128 z = full_multiplication(x, y);
@@ -243,7 +243,7 @@ limb scalar_mul(limb x, limb y, limb& carry) noexcept {
   z.high += uint64_t(overflow);  // cannot overflow
   carry = z.high;
   return z.low;
-  #endif
+#endif
 #else
   uint64_t z = uint64_t(x) * uint64_t(y) + uint64_t(carry);
   carry = limb(z >> limb_bits);
@@ -255,7 +255,7 @@ limb scalar_mul(limb x, limb y, limb& carry) noexcept {
 // used in grade school multiplication
 template <uint16_t size>
 inline FASTFLOAT_CONSTEXPR20
-bool small_add_from(stackvec<size>& vec, limb y, size_t start) noexcept {
+    bool small_add_from(stackvec<size>& vec, limb y, size_t start) noexcept {
   size_t index = start;
   limb carry = y;
   bool overflow;
@@ -273,14 +273,14 @@ bool small_add_from(stackvec<size>& vec, limb y, size_t start) noexcept {
 // add scalar value to bigint.
 template <uint16_t size>
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-bool small_add(stackvec<size>& vec, limb y) noexcept {
+    bool small_add(stackvec<size>& vec, limb y) noexcept {
   return small_add_from(vec, y, 0);
 }
 
 // multiply bigint by scalar value.
 template <uint16_t size>
 inline FASTFLOAT_CONSTEXPR20
-bool small_mul(stackvec<size>& vec, limb y) noexcept {
+    bool small_mul(stackvec<size>& vec, limb y) noexcept {
   limb carry = 0;
   for (size_t index = 0; index < vec.len(); index++) {
     vec[index] = scalar_mul(vec[index], y, carry);
@@ -295,11 +295,11 @@ bool small_mul(stackvec<size>& vec, limb y) noexcept {
 // used in grade school multiplication
 template <uint16_t size>
 FASTFLOAT_CONSTEXPR20
-bool large_add_from(stackvec<size>& x, limb_span y, size_t start) noexcept {
+    bool large_add_from(stackvec<size>& x, limb_span y, size_t start) noexcept {
   // the effective x buffer is from `xstart..x.len()`, so exit early
   // if we can't get that current range.
   if (x.len() < start || y.len() > x.len() - start) {
-      FASTFLOAT_TRY(x.try_resize(y.len() + start, 0));
+    FASTFLOAT_TRY(x.try_resize(y.len() + start, 0));
   }
 
   bool carry = false;
@@ -326,14 +326,14 @@ bool large_add_from(stackvec<size>& x, limb_span y, size_t start) noexcept {
 // add bigint to bigint.
 template <uint16_t size>
 fastfloat_really_inline FASTFLOAT_CONSTEXPR20
-bool large_add_from(stackvec<size>& x, limb_span y) noexcept {
+    bool large_add_from(stackvec<size>& x, limb_span y) noexcept {
   return large_add_from(x, y, 0);
 }
 
 // grade-school multiplication algorithm
 template <uint16_t size>
 FASTFLOAT_CONSTEXPR20
-bool long_mul(stackvec<size>& x, limb_span y) noexcept {
+    bool long_mul(stackvec<size>& x, limb_span y) noexcept {
   limb_span xs = limb_span(x.data, x.len());
   stackvec<size> z(xs);
   limb_span zs = limb_span(z.data, z.len());
@@ -362,7 +362,7 @@ bool long_mul(stackvec<size>& x, limb_span y) noexcept {
 // grade-school multiplication algorithm
 template <uint16_t size>
 FASTFLOAT_CONSTEXPR20
-bool large_mul(stackvec<size>& x, limb_span y) noexcept {
+    bool large_mul(stackvec<size>& x, limb_span y) noexcept {
   if (y.len() == 1) {
     FASTFLOAT_TRY(small_mul(x, y[0]));
   } else {
@@ -375,21 +375,21 @@ template <typename = void>
 struct pow5_tables {
   static constexpr uint32_t large_step = 135;
   static constexpr uint64_t small_power_of_5[] = {
-    1UL, 5UL, 25UL, 125UL, 625UL, 3125UL, 15625UL, 78125UL, 390625UL,
-    1953125UL, 9765625UL, 48828125UL, 244140625UL, 1220703125UL,
-    6103515625UL, 30517578125UL, 152587890625UL, 762939453125UL,
-    3814697265625UL, 19073486328125UL, 95367431640625UL, 476837158203125UL,
-    2384185791015625UL, 11920928955078125UL, 59604644775390625UL,
-    298023223876953125UL, 1490116119384765625UL, 7450580596923828125UL,
+      1UL, 5UL, 25UL, 125UL, 625UL, 3125UL, 15625UL, 78125UL, 390625UL,
+      1953125UL, 9765625UL, 48828125UL, 244140625UL, 1220703125UL,
+      6103515625UL, 30517578125UL, 152587890625UL, 762939453125UL,
+      3814697265625UL, 19073486328125UL, 95367431640625UL, 476837158203125UL,
+      2384185791015625UL, 11920928955078125UL, 59604644775390625UL,
+      298023223876953125UL, 1490116119384765625UL, 7450580596923828125UL,
   };
 #ifdef FASTFLOAT_64BIT_LIMB
   constexpr static limb large_power_of_5[] = {
-    1414648277510068013UL, 9180637584431281687UL, 4539964771860779200UL,
-    10482974169319127550UL, 198276706040285095UL};
+      1414648277510068013UL, 9180637584431281687UL, 4539964771860779200UL,
+      10482974169319127550UL, 198276706040285095UL};
 #else
   constexpr static limb large_power_of_5[] = {
-    4279965485U, 329373468U, 4020270615U, 2137533757U, 4287402176U,
-    1057042919U, 1071430142U, 2440757623U, 381945767U, 46164893U};
+      4279965485U, 329373468U, 4020270615U, 2137533757U, 4287402176U,
+      1057042919U, 1071430142U, 2440757623U, 381945767U, 46164893U};
 #endif
 };
 
@@ -515,7 +515,7 @@ struct bigint : pow5_tables<> {
       // move limbs
       limb* dst = vec.data + n;
       const limb* src = vec.data;
-      ::memmove(dst, src, sizeof(limb) * vec.len());
+      std::copy_backward(src, src + vec.len(), dst + vec.len());
       // fill in empty limbs
       limb* first = vec.data;
       limb* last = first + n;
@@ -595,7 +595,12 @@ struct bigint : pow5_tables<> {
       exp -= small_step;
     }
     if (exp != 0) {
-      FASTFLOAT_TRY(small_mul(vec, limb(small_power_of_5[exp])));
+      // Work around clang bug https://godbolt.org/z/zedh7rrhc
+      // This is similar to https://github.com/llvm/llvm-project/issues/47746,
+      // except the workaround described there don't work here
+      FASTFLOAT_TRY(
+          small_mul(vec, limb(((void)small_power_of_5[0], small_power_of_5[exp])))
+      );
     }
 
     return true;
