@@ -196,6 +196,8 @@ takes precedence over ccache if a storage backend is configured" ON)
 
   define_option(ARROW_WITH_MUSL "Whether the system libc is musl or not" OFF)
 
+  define_option(ARROW_ENABLE_THREADING "Enable threading in Arrow core" ON)
+
   #----------------------------------------------------------------------
   set_option_category("Test and benchmark")
 
@@ -470,6 +472,15 @@ takes precedence over ccache if a storage backend is configured" ON)
   define_option(ARROW_JEMALLOC_USE_SHARED
                 "Rely on jemalloc shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})
+
+  if(MSVC)
+    # LLVM doesn't support shared library with MSVC.
+    set(ARROW_LLVM_USE_SHARED_DEFAULT OFF)
+  else()
+    set(ARROW_LLVM_USE_SHARED_DEFAULT ${ARROW_DEPENDENCY_USE_SHARED})
+  endif()
+  define_option(ARROW_LLVM_USE_SHARED "Rely on LLVM shared libraries where relevant"
+                ${ARROW_LLVM_USE_SHARED_DEFAULT})
 
   define_option(ARROW_LZ4_USE_SHARED "Rely on lz4 shared libraries where relevant"
                 ${ARROW_DEPENDENCY_USE_SHARED})

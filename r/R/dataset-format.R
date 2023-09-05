@@ -76,9 +76,10 @@ FileFormat <- R6Class("FileFormat",
 )
 FileFormat$create <- function(format, schema = NULL, ...) {
   opt_names <- names(list(...))
-  if (format %in% c("csv", "text") || any(opt_names %in% c("delim", "delimiter"))) {
+  if (format %in% c("csv", "text", "txt") || any(opt_names %in% c("delim", "delimiter"))) {
     CsvFileFormat$create(schema = schema, ...)
   } else if (format == "tsv") {
+    # This delimiter argument is ignored.
     CsvFileFormat$create(delimiter = "\t", schema = schema, ...)
   } else if (format == "parquet") {
     ParquetFileFormat$create(...)
@@ -518,6 +519,13 @@ csv_file_format_read_opts <- function(schema = NULL, ...) {
 #'   * `buffer_size`: Size of buffered stream, if enabled. Default is 8KB.
 #'   * `pre_buffer`: Pre-buffer the raw Parquet data. This can improve performance
 #'                   on high-latency filesystems. Disabled by default.
+#'   * `thrift_string_size_limit`: Maximum string size allocated for decoding thrift
+#'                                 strings. May need to be increased in order to read
+#'                                 files with especially large headers. Default value
+#'                                 100000000.
+#'   * `thrift_container_size_limit`: Maximum size of thrift containers.  May need to be
+#'                                    increased in order to read files with especially large
+#'                                    headers. Default value 1000000.
 #
 #'   `format = "text"`: see [CsvConvertOptions]. Note that options can only be
 #'   specified with the Arrow C++ library naming. Also, "block_size" from
@@ -571,8 +579,13 @@ CsvFragmentScanOptions$create <- function(...,
 ParquetFragmentScanOptions <- R6Class("ParquetFragmentScanOptions", inherit = FragmentScanOptions)
 ParquetFragmentScanOptions$create <- function(use_buffered_stream = FALSE,
                                               buffer_size = 8196,
-                                              pre_buffer = TRUE) {
-  dataset___ParquetFragmentScanOptions__Make(use_buffered_stream, buffer_size, pre_buffer)
+                                              pre_buffer = TRUE,
+                                              thrift_string_size_limit = 100000000,
+                                              thrift_container_size_limit = 1000000) {
+  dataset___ParquetFragmentScanOptions__Make(
+    use_buffered_stream, buffer_size, pre_buffer, thrift_string_size_limit,
+    thrift_container_size_limit
+  )
 }
 
 #' @usage NULL
@@ -623,7 +636,7 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             "codec",
             "null_fallback"
           )
-        } else if (format == "csv") {
+        } else if (format %in% c("csv", "tsv", "txt", "text")) {
           supported_args <- c(
             names(formals(CsvWriteOptions$create)),
             names(formals(readr_to_csv_write_options))
@@ -679,14 +692,20 @@ FileWriteOptions <- R6Class("FileWriteOptions",
             get_ipc_metadata_version(args$metadata_version)
           )
         }
-      } else if (self$type == "csv") {
+      } else if (self$type %in% c("csv", "tsv", "txt", "text")) {
         arrow_opts <- names(formals(CsvWriteOptions$create))
         readr_opts <- names(formals(readr_to_csv_write_options))
         readr_only_opts <- setdiff(readr_opts, arrow_opts)
+        arrow_only_opts <- setdiff(arrow_opts, readr_opts)
 
-        is_arrow_opt <- !is.na(pmatch(names(args), arrow_opts))
-        is_readr_opt <- !is.na(pmatch(names(args), readr_opts))
-        is_readr_only_opt <- !is.na(pmatch(names(args), readr_only_opts))
+        is_arrow_opt <- !is.na(match(names(args), arrow_opts))
+        is_readr_opt <- !is.na(match(names(args), readr_opts))
+        is_arrow_only_opt <- !is.na(match(names(args), arrow_only_opts))
+        is_readr_only_opt <- !is.na(match(names(args), readr_only_opts))
+
+        if (any(is_arrow_only_opt) && any(is_readr_only_opt)) {
+          stop("Use either Arrow write options or readr write options, not both")
+        }
 
         # These option names aren't mutually exclusive, so only use readr path
         # if we have at least one readr-specific option.

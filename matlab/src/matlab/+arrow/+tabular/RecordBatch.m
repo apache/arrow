@@ -18,132 +18,79 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 %arrow.tabular.RecordBatch A tabular data structure representing
 % a set of arrow.array.Array objects with a fixed schema.
 
-    properties (Access=private)
-        ArrowArrays = {};
-    end
-
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
         ColumnNames
+        Schema
     end
 
-    properties (Access=protected)
+    properties (Hidden, SetAccess=private, GetAccess=public)
         Proxy
     end
 
     methods
+        function obj = RecordBatch(proxy)
+            arguments
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.tabular.proxy.RecordBatch")}
+            end
+            import arrow.internal.proxy.validate
+            obj.Proxy = proxy;
+        end
 
         function numColumns = get.NumColumns(obj)
-            numColumns = obj.Proxy.numColumns();
+            numColumns = obj.Proxy.getNumColumns();
         end
 
         function columnNames = get.ColumnNames(obj)
-            columnNames = obj.Proxy.columnNames();
+            columnNames = obj.Proxy.getColumnNames();
+        end
+
+        function schema = get.Schema(obj)
+            proxyID = obj.Proxy.getSchema();
+            proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.Schema", ID=proxyID);
+            schema = arrow.tabular.Schema(proxy);
         end
 
         function arrowArray = column(obj, idx)
-            arrowArray = obj.ArrowArrays{idx};
-        end
+            import arrow.internal.validate.*
 
-        function obj = RecordBatch(T)
-            obj.ArrowArrays = arrow.tabular.RecordBatch.decompose(T);
-            columnNames = string(T.Properties.VariableNames);
-            arrayProxyIDs = arrow.tabular.RecordBatch.getArrowProxyIDs(obj.ArrowArrays);
-            opts = struct("ArrayProxyIDs", arrayProxyIDs, ...
-                          "ColumnNames", columnNames);
-            obj.Proxy = libmexclass.proxy.Proxy("Name", "arrow.tabular.proxy.RecordBatch", "ConstructorArguments", {opts});
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
+
+            if isnumeric(idx)
+                args = struct(Index=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+            else
+                args = struct(Name=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
+            end
+            
+            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+            arrowArray = traits.ArrayConstructor(proxy);
         end
 
         function T = table(obj)
-            matlabArrays = cell(1, numel(obj.ArrowArrays));
+            import arrow.tabular.internal.*
+
+            numColumns = obj.NumColumns;
+            matlabArrays = cell(1, numColumns);
             
-            for ii = 1:numel(obj.ArrowArrays)
-                matlabArrays{ii} = toMATLAB(obj.ArrowArrays{ii});
+            for ii = 1:numColumns
+                arrowArray = obj.column(ii);
+                matlabArrays{ii} = toMATLAB(arrowArray);
             end
 
-            variableNames = matlab.lang.makeUniqueStrings(obj.ColumnNames);
-            % NOTE: Does not currently handle edge cases like ColumnNames
-            %       matching the table DimensionNames.
-            T = table(matlabArrays{:}, VariableNames=variableNames);
+            validVariableNames = makeValidVariableNames(obj.ColumnNames);
+            validDimensionNames = makeValidDimensionNames(validVariableNames);
+
+            T = table(matlabArrays{:}, ...
+                VariableNames=validVariableNames, ...
+                DimensionNames=validDimensionNames);
         end
 
         function T = toMATLAB(obj)
             T = obj.table();
         end
-        
-    end
-
-    methods (Static)
-
-        function arrowArrays = decompose(T)
-            % Decompose the input MATLAB table
-            % input a cell array of equivalent arrow.array.Array
-            % instances.
-            arguments
-                T table
-            end
-
-            numColumns = width(T);
-            arrowArrays = cell(1, numColumns);
-
-            % Convert each MATLAB array into a corresponding
-            % arrow.array.Array.
-            for ii = 1:numColumns
-                arrowArrays{ii} = arrow.tabular.RecordBatch.makeArray(T{:, ii});
-            end
-        end
-
-        function arrowArray = makeArray(matlabArray)
-            % Decompose the input MATLAB table
-            % input a cell array of equivalent arrow.array.Array
-            % instances.
-
-            switch class(matlabArray)
-                case "single"
-                    arrowArray = arrow.array.Float32Array(matlabArray);
-                case "double"
-                    arrowArray = arrow.array.Float64Array(matlabArray);
-                case "uint8"
-                    arrowArray = arrow.array.UInt8Array(matlabArray);
-                case "uint16"
-                    arrowArray = arrow.array.UInt16Array(matlabArray);
-                case "uint32"
-                    arrowArray = arrow.array.UInt32Array(matlabArray);
-                case "uint64"
-                    arrowArray = arrow.array.UInt64Array(matlabArray);
-                case "int8"
-                    arrowArray = arrow.array.Int8Array(matlabArray);
-                case "int16"
-                    arrowArray = arrow.array.Int16Array(matlabArray);
-                case "int32"
-                    arrowArray = arrow.array.Int32Array(matlabArray);
-                case "int64"
-                    arrowArray = arrow.array.Int64Array(matlabArray);
-                case "logical"
-                    arrowArray = arrow.array.BooleanArray(matlabArray);
-                case "string"
-                    arrowArray = arrow.array.StringArray(matlabArray);
-                case "datetime"
-                    arrowArray = arrow.array.TimestampArray(matlabArray);
-                otherwise
-                    error("arrow:tabular:recordbatch:UnsupportedMatlabArrayType", ...
-                          "RecordBatch cannot be constructed from a MATLAB array of type '" + class(matlabArray) + "'.");
-            end
-
-        end
-
-        function proxyIDs = getArrowProxyIDs(arrowArrays)
-            % Extract the Proxy IDs underlying a cell array of 
-            % arrow.array.Array instances.
-            proxyIDs = zeros(1, numel(arrowArrays), "uint64");
-
-            % Convert each MATLAB array into a corresponding
-            % arrow.array.Array.
-            for ii = 1:numel(arrowArrays)
-                proxyIDs(ii) = arrowArrays{ii}.Proxy.ID;
-            end
-        end
-
     end
 
     methods (Access = private)
@@ -158,5 +105,28 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         end
     end
 
-end
+    methods (Static, Access=public)
+        function recordBatch = fromArrays(arrowArrays, opts)
+            arguments(Repeating)
+                arrowArrays(1, 1) arrow.array.Array
+            end
+            arguments
+                opts.ColumnNames(1, :) string {mustBeNonmissing} = compose("Column%d", 1:numel(arrowArrays))
+            end
 
+            import arrow.tabular.internal.validateArrayLengths
+            import arrow.tabular.internal.validateColumnNames
+            import arrow.array.internal.getArrayProxyIDs
+            
+            numColumns = numel(arrowArrays);
+            validateArrayLengths(arrowArrays);
+            validateColumnNames(opts.ColumnNames, numColumns);
+
+            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            proxyName = "arrow.tabular.proxy.RecordBatch";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            recordBatch = arrow.tabular.RecordBatch(proxy);
+        end
+    end
+end

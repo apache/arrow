@@ -22,6 +22,7 @@
 #include <string>
 
 #include "arrow/c/abi.h"
+#include "arrow/device.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
@@ -172,17 +173,6 @@ Result<std::shared_ptr<RecordBatch>> ImportRecordBatch(struct ArrowArray* array,
 ///
 /// @{
 
-/// \brief EXPERIMENTAL: Type for freeing a sync event
-///
-/// If synchronization is necessary for accessing the data on a device,
-/// a pointer to an event needs to be passed when exporting the device
-/// array. It's the responsibility of the release function for the array
-/// to release the event. Both can be null if no sync'ing is necessary.
-struct RawSyncEvent {
-  void* sync_event = NULL;
-  std::function<void(void*)> release_func;
-};
-
 /// \brief EXPERIMENTAL: Export C++ Array as an ArrowDeviceArray.
 ///
 /// The resulting ArrowDeviceArray struct keeps the array data and buffers alive
@@ -190,15 +180,15 @@ struct RawSyncEvent {
 /// the provided array MUST have the same device_type, otherwise an error
 /// will be returned.
 ///
-/// If a non-null sync_event is provided, then the sync_release func must also be
-/// non-null. If the sync_event is null, then the sync_release parameter is not called.
+/// If sync is non-null, get_event will be called on it in order to
+/// potentially provide an event for consumers to synchronize on.
 ///
 /// \param[in] array Array object to export
-/// \param[in] sync_event A struct containing what is needed for syncing if necessary
+/// \param[in] sync shared_ptr to object derived from Device::SyncEvent or null
 /// \param[out] out C struct to export the array to
 /// \param[out] out_schema optional C struct to export the array type to
 ARROW_EXPORT
-Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
+Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out,
                          struct ArrowSchema* out_schema = NULLPTR);
 
@@ -212,15 +202,16 @@ Status ExportDeviceArray(const Array& array, RawSyncEvent sync_event,
 /// otherwise an error will be returned. If columns are on different devices,
 /// they should be exported using different ArrowDeviceArray instances.
 ///
-/// If a non-null sync_event is provided, then the sync_release func must also be
-/// non-null. If the sync_event is null, then the sync_release parameter is ignored.
+/// If sync is non-null, get_event will be called on it in order to
+/// potentially provide an event for consumers to synchronize on.
 ///
 /// \param[in] batch Record batch to export
-/// \param[in] sync_event A struct containing what is needed for syncing if necessary
+/// \param[in] sync shared_ptr to object derived from Device::SyncEvent or null
 /// \param[out] out C struct where to export the record batch
 /// \param[out] out_schema optional C struct where to export the record batch schema
 ARROW_EXPORT
-Status ExportDeviceRecordBatch(const RecordBatch& batch, RawSyncEvent sync_event,
+Status ExportDeviceRecordBatch(const RecordBatch& batch,
+                               std::shared_ptr<Device::SyncEvent> sync,
                                struct ArrowDeviceArray* out,
                                struct ArrowSchema* out_schema = NULLPTR);
 

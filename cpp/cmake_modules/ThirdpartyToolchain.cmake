@@ -32,6 +32,9 @@ set(ARROW_BUNDLED_STATIC_LIBS)
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
 set(ARROW_SYSTEM_DEPENDENCIES)
+set(ARROW_FLIGHT_SYSTEM_DEPENDENCIES)
+set(ARROW_TESTING_SYSTEM_DEPENDENCIES)
+set(PARQUET_SYSTEM_DEPENDENCIES)
 
 # ----------------------------------------------------------------------
 # Toolchain linkage options
@@ -46,6 +49,7 @@ set(ARROW_RE2_LINKAGE
 set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
+    Azure
     benchmark
     Boost
     Brotli
@@ -159,6 +163,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_absl()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Azure")
+    build_azure_sdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
@@ -233,6 +239,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args
       ARROW_CMAKE_PACKAGE_NAME
+      ARROW_PC_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
@@ -297,12 +304,26 @@ macro(resolve_dependency DEPENDENCY_NAME)
     if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
       set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
     endif()
-    if(ARG_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
-      provide_find_module(${PACKAGE_NAME} "Arrow")
-      list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
-    else()
-      provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    # ArrowFlight -> _Arrow_Flight
+    string(REGEX REPLACE "([A-Z])" "_\\1" ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE
+                         ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    # _Arrow_Flight -> Arrow_Flight
+    string(SUBSTRING ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE} 1 -1
+                     ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE)
+    # Arrow_Flight -> ARROW_FLIGHT
+    string(TOUPPER ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE)
+    provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    list(APPEND ${ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE}_SYSTEM_DEPENDENCIES
+         ${PACKAGE_NAME})
+    if(NOT ARG_ARROW_PC_PACKAGE_NAME)
+      set(ARG_ARROW_PC_PACKAGE_NAME "arrow")
     endif()
+    # arrow-flight -> arrow_flight
+    string(REPLACE "-" "_" ARG_ARROW_PC_PACKAGE_NAME_SNAKE ${ARG_ARROW_PC_PACKAGE_NAME})
+    # arrow_flight -> ARROW_FLIGHT
+    string(TOUPPER ${ARG_ARROW_PC_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_PC_PACKAGE_NAME_UPPER_SNAKE)
     if(ARROW_BUILD_STATIC)
       find_package(PkgConfig QUIET)
       foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -311,13 +332,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
                           NO_CMAKE_PATH
                           NO_CMAKE_ENVIRONMENT_PATH
                           QUIET)
+        set(RESOLVE_DEPENDENCY_PC_PACKAGE
+            "pkg-config package for ${ARG_PC_PACKAGE_NAME} ")
+        string(APPEND RESOLVE_DEPENDENCY_PC_PACKAGE
+               "that is used by ${ARG_ARROW_PC_PACKAGE_NAME} for static link")
         if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
-          message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
-          )
-          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+          message(STATUS "Using ${RESOLVE_DEPENDENCY_PC_PACKAGE}")
+          string(APPEND ${ARG_ARROW_PC_PACKAGE_NAME_UPPER_SNAKE}_PC_REQUIRES_PRIVATE
+                 " ${ARG_PC_PACKAGE_NAME}")
         else()
-          message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
-          )
+          message(STATUS "${RESOLVE_DEPENDENCY_PC_PACKAGE} isn't found")
         endif()
       endforeach()
     endif()
@@ -366,6 +390,10 @@ if(ARROW_GCS)
   set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_ZLIB ON)
+endif()
+
+if(ARROW_AZURE)
+  set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
 if(ARROW_JSON)
@@ -546,6 +574,14 @@ else()
   set_urls(AWSSDK_SOURCE_URL
            "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_SDK_URL})
+  set(ARROW_AZURE_SDK_URL "$ENV{ARROW_AZURE_SDK_URL}")
+else()
+  set_urls(ARROW_AZURE_SDK_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -960,6 +996,8 @@ else()
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
+include(FetchContent)
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -1367,6 +1405,7 @@ endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
+   OR ARROW_AZURE
    OR ARROW_FLIGHT
    OR ARROW_GANDIVA
    OR ARROW_GCS
@@ -1614,12 +1653,16 @@ endmacro()
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
   resolve_dependency(Thrift
+                     ARROW_CMAKE_PACKAGE_NAME
+                     Parquet
+                     ARROW_PC_PACKAGE_NAME
+                     parquet
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     0.11.0
                      PC_PACKAGE_NAMES
-                     thrift)
+                     thrift
+                     REQUIRED_VERSION
+                     0.11.0)
 
   string(REPLACE "." ";" Thrift_VERSION_LIST ${Thrift_VERSION})
   list(GET Thrift_VERSION_LIST 0 Thrift_VERSION_MAJOR)
@@ -1715,6 +1758,13 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
+  if(ARROW_FLIGHT)
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "ArrowFlight")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow-flight")
+  else()
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow")
+  endif()
   # We need to use FORCE_ANY_NEWER_VERSION here to accept Protobuf
   # newer version such as 23.4. If we don't use it, 23.4 is processed
   # as an incompatible version with 3.12.0 with protobuf-config.cmake
@@ -1724,14 +1774,18 @@ if(ARROW_WITH_PROTOBUF)
   # we use FORCE_ANY_NEWER_VERSION here, we can bypass the check and
   # use 23.4.
   resolve_dependency(Protobuf
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME}
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
-                     protobuf)
+                     protobuf
+                     REQUIRED_VERSION
+                     ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
   if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
@@ -1785,7 +1839,12 @@ macro(build_substrait)
 
   # Note: not all protos in Substrait actually matter to plan
   # consumption. No need to build the ones we don't need.
-  set(SUBSTRAIT_PROTOS algebra extensions/extensions plan type)
+  set(SUBSTRAIT_PROTOS
+      algebra
+      extended_expression
+      extensions/extensions
+      plan
+      type)
   set(ARROW_SUBSTRAIT_PROTOS extension_rels)
   set(ARROW_SUBSTRAIT_PROTOS_DIR "${CMAKE_SOURCE_DIR}/proto")
 
@@ -2162,12 +2221,12 @@ endmacro()
 if(ARROW_TESTING)
   set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
   resolve_dependency(GTest
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowTesting
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     1.10.0
-                     ARROW_CMAKE_PACKAGE_NAME
-                     "ArrowTesting")
+                     1.10.0)
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -2346,10 +2405,12 @@ endif()
 
 if(ARROW_USE_XSIMD)
   resolve_dependency(xsimd
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
                      REQUIRED_VERSION
                      "8.1.0"
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE)
+                     PC_PACKAGE_NAMES
+                     xsimd)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(arrow::xsimd INTERFACE IMPORTED)
@@ -2673,10 +2734,10 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   resolve_dependency(utf8proc
-                     REQUIRED_VERSION
-                     "2.2.0"
                      PC_PACKAGE_NAMES
-                     libutf8proc)
+                     libutf8proc
+                     REQUIRED_VERSION
+                     "2.2.0")
   add_definitions(-DARROW_WITH_UTF8PROC)
 endif()
 
@@ -3689,6 +3750,10 @@ endmacro()
 
 macro(build_grpc)
   resolve_dependency(c-ares
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
@@ -3993,12 +4058,16 @@ if(ARROW_WITH_GRPC)
     set(gRPC_SOURCE "${Protobuf_SOURCE}")
   endif()
   resolve_dependency(gRPC
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_GRPC_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
-                     grpc++)
+                     grpc++
+                     REQUIRED_VERSION
+                     ${ARROW_GRPC_REQUIRED_VERSION})
 
   if(GRPC_VENDORED)
     # Remove "v" from "vX.Y.Z"
@@ -4399,6 +4468,11 @@ macro(build_orc)
                         PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
                                    INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
   set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
+  # Protobuf generated files may use ABSL_DCHECK*() and
+  # absl::log_internal_check_op is needed for them.
+  if(TARGET absl::log_internal_check_op)
+    list(APPEND ORC_LINK_LIBRARIES absl::log_internal_check_op)
+  endif()
   if(NOT MSVC)
     if(NOT APPLE)
       list(APPEND ORC_LINK_LIBRARIES Threads::Threads)
@@ -5040,6 +5114,57 @@ if(ARROW_S3)
 endif()
 
 # ----------------------------------------------------------------------
+# Azure SDK for C++
+
+function(build_azure_sdk)
+  message(STATUS "Building Azure SDK for C++ from source")
+  fetchcontent_declare(azure_sdk
+                       URL ${ARROW_AZURE_SDK_URL}
+                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
+  set(BUILD_PERFORMANCE_TESTS FALSE)
+  set(BUILD_SAMPLES FALSE)
+  set(BUILD_TESTING FALSE)
+  set(BUILD_WINDOWS_UWP TRUE)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(CMAKE_UNITY_BUILD FALSE)
+  set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
+  set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
+  set(WARNINGS_AS_ERRORS FALSE)
+  # TODO: Configure flags in a better way. FetchContent builds inherit
+  # global flags but we want to disable -Werror for Azure SDK for C++ builds.
+  if(MSVC)
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  else()
+    string(REPLACE "-Werror" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  endif()
+  fetchcontent_makeavailable(azure_sdk)
+  set(AZURE_SDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Azure::azure-core
+       Azure::azure-identity
+       Azure::azure-storage-blobs
+       Azure::azure-storage-common
+       Azure::azure-storage-files-datalake)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
+
+if(ARROW_WITH_AZURE_SDK)
+  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  set(AZURE_SDK_LINK_LIBRARIES
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-common
+      Azure::azure-storage-blobs
+      Azure::azure-identity
+      Azure::azure-core)
+endif()
+# ----------------------------------------------------------------------
 # ucx - communication framework for modern, high-bandwidth and low-latency networks
 
 macro(build_ucx)
@@ -5109,7 +5234,13 @@ macro(build_ucx)
 endmacro()
 
 if(ARROW_WITH_UCX)
-  resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
+  resolve_dependency(ucx
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
+                     PC_PACKAGE_NAMES
+                     ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
   target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
   target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)

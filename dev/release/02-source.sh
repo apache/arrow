@@ -168,7 +168,7 @@ Hi,
 
 I would like to propose the following release candidate (RC${rc}) of Apache
 Arrow version ${version}. This is a release consisting of ${n_resolved_issues}
-resolved JIRA issues[1].
+resolved GitHub issues[1].
 
 This release candidate is based on commit:
 ${release_hash} [2]

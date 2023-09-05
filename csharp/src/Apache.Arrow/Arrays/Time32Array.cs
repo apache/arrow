@@ -46,7 +46,7 @@ namespace Apache.Arrow
                 : this(Time32Type.Default) { }
 
             public Builder(TimeUnit unit)
-                : this(new Time32Type(unit)) { }
+                : this((Time32Type)TimeType.FromTimeUnit(unit)) { }
 
             /// <summary>
             /// Construct a new instance of the <see cref="Builder"/> class.

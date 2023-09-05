@@ -288,6 +288,23 @@ public class FlightClient implements AutoCloseable {
   }
 
   /**
+   * Start or get info on execution of a long-running query.
+   *
+   * @param descriptor The descriptor for the stream.
+   * @param options RPC-layer hints for this call.
+   * @return Metadata about execution.
+   */
+  public PollInfo pollInfo(FlightDescriptor descriptor, CallOption... options) {
+    try {
+      return new PollInfo(CallOptions.wrapStub(blockingStub, options).pollFlightInfo(descriptor.toProtocol()));
+    } catch (URISyntaxException e) {
+      throw new RuntimeException(e);
+    } catch (StatusRuntimeException sre) {
+      throw StatusUtils.fromGrpcRuntimeException(sre);
+    }
+  }
+
+  /**
    * Get schema for a stream.
    * @param descriptor The descriptor for the stream.
    * @param options RPC-layer hints for this call.

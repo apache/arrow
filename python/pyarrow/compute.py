@@ -34,7 +34,7 @@ from pyarrow._compute import (  # noqa
     CastOptions,
     CountOptions,
     CumulativeOptions,
-    CumulativeOptions as CumulativeSumOptions,
+    CumulativeSumOptions,
     DayOfWeekOptions,
     DictionaryEncodeOptions,
     RunEndEncodeOptions,
@@ -87,6 +87,7 @@ from pyarrow._compute import (  # noqa
     register_scalar_function,
     register_tabular_function,
     register_aggregate_function,
+    register_vector_function,
     UdfContext,
     # Expressions
     Expression,

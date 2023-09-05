@@ -23,22 +23,26 @@ on:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
       - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
   pull_request:
     paths:
       - '.github/workflows/cpp.yml'
       - 'ci/docker/**'
       - 'ci/scripts/cpp_*'
+      - 'ci/scripts/install_azurite.sh'
       - 'ci/scripts/install_gcs_testbench.sh'
       - 'ci/scripts/install_minio.sh'
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
+      - 'docker-compose.yml'
       - 'format/Flight.proto'
 
 concurrency:
@@ -92,7 +96,7 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -134,7 +138,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -162,10 +166,10 @@ jobs:
       ARROW_HDFS: ON
       ARROW_HOME: /usr/local
       ARROW_JEMALLOC: ON
-      # TODO(kszucs): link error in the tests
-      ARROW_ORC: OFF
+      ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_S3: ON
+      ARROW_SUBSTRAIT: ON
       ARROW_WITH_BROTLI: ON
       ARROW_WITH_BZ2: ON
       ARROW_WITH_LZ4: ON
@@ -182,7 +186,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -201,6 +205,8 @@ jobs:
             ci/scripts/install_minio.sh latest /usr/local
       - name: Install Google Cloud Storage Testbench
         run: ci/scripts/install_gcs_testbench.sh default
+      - name: Install Azurite Storage Emulator
+        run: ci/scripts/install_azurite.sh
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -254,6 +260,7 @@ jobs:
       ARROW_ORC: ON
       ARROW_PARQUET: ON
       ARROW_SIMD_LEVEL: ${{ matrix.simd-level }}
+      ARROW_SUBSTRAIT: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: OFF
@@ -269,7 +276,6 @@ jobs:
       CMAKE_INSTALL_LIBDIR: bin
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      NPROC: 3
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -284,7 +290,7 @@ jobs:
       - name: Install Dependencies
         run: choco install -y --no-progress openssl
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
@@ -356,6 +362,7 @@ jobs:
       ARROW_JEMALLOC: OFF
       ARROW_PARQUET: ON
       ARROW_S3: ON
+      ARROW_SUBSTRAIT: ON
       ARROW_USE_GLOG: OFF
       ARROW_VERBOSE_THIRDPARTY_BUILD: OFF
       ARROW_WITH_BROTLI: ON
@@ -368,7 +375,7 @@ jobs:
       # Don't use preinstalled Boost by empty BOOST_ROOT and
       # -DBoost_NO_BOOST_CMAKE=ON
       BOOST_ROOT: ""
-      CMAKE_ARGS: >-
+      ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
         -DBoost_NO_BOOST_CMAKE=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
@@ -386,7 +393,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           submodules: recursive
