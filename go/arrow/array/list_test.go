@@ -126,7 +126,102 @@ func TestListArray(t *testing.T) {
 			}
 		})
 	}
+}
 
+// Like the list-view tests in TestListArray, but with out-of-order offsets.
+func TestListViewArray(t *testing.T) {
+	tests := []struct {
+		typeID  arrow.Type
+		offsets interface{}
+		sizes   interface{}
+		dt      arrow.DataType
+	}{
+		{arrow.LIST_VIEW, []int32{5, 0, 0, 1}, []int32{3, 0, 0, 4}, arrow.ListViewOf(arrow.PrimitiveTypes.Int32)},
+		{arrow.LARGE_LIST_VIEW, []int64{5, 0, 0, 1}, []int64{3, 0, 0, 4}, arrow.LargeListViewOf(arrow.PrimitiveTypes.Int32)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.typeID.String(), func(t *testing.T) {
+			pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer pool.AssertSize(t, 0)
+
+			var (
+				vs      = []int32{-1, 3, 4, 5, 6, 0, 1, 2}
+				lengths = []int{3, 0, 0, 4}
+				isValid = []bool{true, false, true, true}
+			)
+
+			lb := array.NewBuilder(pool, tt.dt).(array.VarLenListLikeBuilder)
+			defer lb.Release()
+
+			for i := 0; i < 10; i++ {
+				switch lvb := lb.(type) {
+				case *array.ListViewBuilder:
+					lvb.AppendDimensions(5, 3)
+					lb.AppendNull()
+					lvb.AppendDimensions(0, 0)
+					lvb.AppendDimensions(1, 4)
+				case *array.LargeListViewBuilder:
+					lvb.AppendDimensions(5, 3)
+					lb.AppendNull()
+					lvb.AppendDimensions(0, 0)
+					lvb.AppendDimensions(1, 4)
+				}
+
+				vb := lb.ValueBuilder().(*array.Int32Builder)
+				vb.Reserve(len(vs))
+				vb.AppendValues(vs, []bool{false, true, true, true, true, true, true, true})
+
+				arr := lb.NewArray().(array.ListLike)
+				defer arr.Release()
+
+				arr.Retain()
+				arr.Release()
+
+				if got, want := arr.DataType().ID(), tt.typeID; got != want {
+					t.Fatalf("got=%v, want=%v", got, want)
+				}
+
+				if got, want := arr.Len(), len(isValid); got != want {
+					t.Fatalf("got=%d, want=%d", got, want)
+				}
+
+				for i := range lengths {
+					if got, want := arr.IsValid(i), isValid[i]; got != want {
+						t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+					}
+					if got, want := arr.IsNull(i), !isValid[i]; got != want {
+						t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+					}
+				}
+
+				var gotOffsets, gotSizes interface{}
+				switch tt.typeID {
+				case arrow.LIST_VIEW:
+					arr := arr.(*array.ListView)
+					gotOffsets = arr.Offsets()
+					gotSizes = arr.Sizes()
+				case arrow.LARGE_LIST_VIEW:
+					arr := arr.(*array.LargeListView)
+					gotOffsets = arr.Offsets()
+					gotSizes = arr.Sizes()
+				}
+
+				if !reflect.DeepEqual(gotOffsets, tt.offsets) {
+					t.Fatalf("got=%v, want=%v", gotOffsets, tt.offsets)
+				}
+
+				if !reflect.DeepEqual(gotSizes, tt.sizes) {
+					t.Fatalf("got=%v, want=%v", gotSizes, tt.sizes)
+				}
+
+				varr := arr.ListValues().(*array.Int32)
+				if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+					t.Fatalf("got=%v, want=%v", got, want)
+				}
+			}
+		})
+	}
 }
 
 func TestListArrayEmpty(t *testing.T) {
@@ -251,6 +346,90 @@ func TestListArrayBulkAppend(t *testing.T) {
 	}
 }
 
+func TestListViewArrayBulkAppend(t *testing.T) {
+	tests := []struct {
+		typeID  arrow.Type
+		offsets interface{}
+		sizes   interface{}
+		dt      arrow.DataType
+	}{
+		{arrow.LIST_VIEW, []int32{5, 0, 0, 1}, []int32{3, 0, 0, 4}, arrow.ListViewOf(arrow.PrimitiveTypes.Int32)},
+		{arrow.LARGE_LIST_VIEW, []int64{5, 0, 0, 1}, []int64{3, 0, 0, 4}, arrow.LargeListViewOf(arrow.PrimitiveTypes.Int32)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.typeID.String(), func(t *testing.T) {
+			pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer pool.AssertSize(t, 0)
+
+			var (
+				vs      = []int32{-1, 3, 4, 5, 6, 0, 1, 2}
+				lengths = []int{3, 0, 0, 4}
+				isValid = []bool{true, false, true, true}
+			)
+
+			lb := array.NewBuilder(pool, tt.dt).(array.VarLenListLikeBuilder)
+			defer lb.Release()
+			vb := lb.ValueBuilder().(*array.Int32Builder)
+			vb.Reserve(len(vs))
+
+			switch tt.typeID {
+			case arrow.LIST_VIEW:
+				lb.(*array.ListViewBuilder).AppendValuesWithSizes(tt.offsets.([]int32), tt.sizes.([]int32), isValid)
+			case arrow.LARGE_LIST_VIEW:
+				lb.(*array.LargeListViewBuilder).AppendValuesWithSizes(tt.offsets.([]int64), tt.sizes.([]int64), isValid)
+			}
+			for _, v := range vs {
+				vb.Append(v)
+			}
+
+			arr := lb.NewArray().(array.VarLenListLike)
+			defer arr.Release()
+
+			if got, want := arr.DataType().ID(), tt.typeID; got != want {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+
+			if got, want := arr.Len(), len(isValid); got != want {
+				t.Fatalf("got=%d, want=%d", got, want)
+			}
+
+			for i := range lengths {
+				if got, want := arr.IsValid(i), isValid[i]; got != want {
+					t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+				}
+				if got, want := arr.IsNull(i), !isValid[i]; got != want {
+					t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+				}
+			}
+
+			var gotOffsets, gotSizes interface{}
+			switch tt.typeID {
+			case arrow.LIST_VIEW:
+				arr := arr.(*array.ListView)
+				gotOffsets = arr.Offsets()
+				gotSizes = arr.Sizes()
+			case arrow.LARGE_LIST_VIEW:
+				arr := arr.(*array.LargeListView)
+				gotOffsets = arr.Offsets()
+				gotSizes = arr.Sizes()
+			}
+
+			if !reflect.DeepEqual(gotOffsets, tt.offsets) {
+				t.Fatalf("got=%v, want=%v", gotOffsets, tt.offsets)
+			}
+			if !reflect.DeepEqual(gotSizes, tt.sizes) {
+				t.Fatalf("got=%v, want=%v", gotSizes, tt.sizes)
+			}
+
+			varr := arr.ListValues().(*array.Int32)
+			if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+		})
+	}
+}
+
 func TestListArraySlice(t *testing.T) {
 	tests := []struct {
 		typeID  arrow.Type
@@ -340,6 +519,103 @@ func TestListArraySlice(t *testing.T) {
 				if !reflect.DeepEqual(gotSizes, tt.sizes) {
 					t.Fatalf("got=%v, want=%v", gotSizes, tt.sizes)
 				}
+			}
+
+			varr := arr.ListValues().(*array.Int32)
+			if got, want := varr.Int32Values(), vs; !reflect.DeepEqual(got, want) {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+
+			if got, want := arr.String(), `[[0 1 2] (null) [] [3 4 5 6]]`; got != want {
+				t.Fatalf("got=%q, want=%q", got, want)
+			}
+			assert.Equal(t, "[0,1,2]", arr.ValueStr(0))
+
+			sub := array.NewSlice(arr, 1, 4).(array.ListLike)
+			defer sub.Release()
+
+			if got, want := sub.String(), `[(null) [] [3 4 5 6]]`; got != want {
+				t.Fatalf("got=%q, want=%q", got, want)
+			}
+		})
+	}
+}
+
+func TestLisViewtArraySlice(t *testing.T) {
+	tests := []struct {
+		typeID  arrow.Type
+		offsets interface{}
+		sizes   interface{}
+		dt      arrow.DataType
+	}{
+		{arrow.LIST_VIEW, []int32{5, 0, 0, 1}, []int32{3, 0, 0, 4}, arrow.ListViewOf(arrow.PrimitiveTypes.Int32)},
+		{arrow.LARGE_LIST_VIEW, []int64{5, 0, 0, 1}, []int64{3, 0, 0, 4}, arrow.LargeListViewOf(arrow.PrimitiveTypes.Int32)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.typeID.String(), func(t *testing.T) {
+			pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer pool.AssertSize(t, 0)
+
+			var (
+				vs      = []int32{-1, 3, 4, 5, 6, 0, 1, 2}
+				lengths = []int{3, 0, 0, 4}
+				isValid = []bool{true, false, true, true}
+			)
+
+			lb := array.NewBuilder(pool, tt.dt).(array.VarLenListLikeBuilder)
+			defer lb.Release()
+			vb := lb.ValueBuilder().(*array.Int32Builder)
+			vb.Reserve(len(vs))
+
+			switch tt.typeID {
+			case arrow.LIST_VIEW:
+				lb.(*array.ListViewBuilder).AppendValuesWithSizes(tt.offsets.([]int32), tt.sizes.([]int32), isValid)
+			case arrow.LARGE_LIST_VIEW:
+				lb.(*array.LargeListViewBuilder).AppendValuesWithSizes(tt.offsets.([]int64), tt.sizes.([]int64), isValid)
+			}
+			for _, v := range vs {
+				vb.Append(v)
+			}
+
+			arr := lb.NewArray().(array.VarLenListLike)
+			defer arr.Release()
+
+			if got, want := arr.DataType().ID(), tt.typeID; got != want {
+				t.Fatalf("got=%v, want=%v", got, want)
+			}
+
+			if got, want := arr.Len(), len(isValid); got != want {
+				t.Fatalf("got=%d, want=%d", got, want)
+			}
+
+			for i := range lengths {
+				if got, want := arr.IsValid(i), isValid[i]; got != want {
+					t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+				}
+				if got, want := arr.IsNull(i), !isValid[i]; got != want {
+					t.Fatalf("got[%d]=%v, want[%d]=%v", i, got, i, want)
+				}
+			}
+
+			var gotOffsets, gotSizes interface{}
+			switch tt.typeID {
+			case arrow.LIST_VIEW:
+				arr := arr.(*array.ListView)
+				gotOffsets = arr.Offsets()
+				gotSizes = arr.Sizes()
+			case arrow.LARGE_LIST_VIEW:
+				arr := arr.(*array.LargeListView)
+				gotOffsets = arr.Offsets()
+				gotSizes = arr.Sizes()
+			}
+
+			if !reflect.DeepEqual(gotOffsets, tt.offsets) {
+				t.Fatalf("got=%v, want=%v", gotOffsets, tt.offsets)
+			}
+
+			if !reflect.DeepEqual(gotSizes, tt.sizes) {
+				t.Fatalf("got=%v, want=%v", gotSizes, tt.sizes)
 			}
 
 			varr := arr.ListValues().(*array.Int32)
