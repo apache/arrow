@@ -56,6 +56,47 @@ jobs:
           name: r-pkg__src__contrib
           path: arrow/r/arrow_*.tar.gz
 
+  macos-cpp:
+    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.name }}'}}
+    runs-on: {{ '${{ matrix.platform.runs_on }}'}}
+    needs: source
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra", arch: "amd64"}
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur", arch: "arm64" }
+        openssl: ['3.0', '1.1']
+
+    steps:
+      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
+
+      - name: Build libarrow
+        shell: bash
+        env:
+        {{ macros.github_set_sccache_envvars()|indent(8) }}
+        run: |
+          # TODO install deps
+          brew install openssl@{{ '${{ matrix.openssl }}' }}
+          export OPENSSL_ROOT_DIR=$(brew --prefix {{'${{ matrix.openssl }}' }})
+          r/inst/build_arrow_static.sh
+      - name: Bundle libarrow
+        shell: bash
+        env:
+          PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+          VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
+        run: |
+          cd arrow/r/libarrow/dist
+          # These files were created by the docker user so we have to sudo to get them
+          zip -r $PKG_FILE lib/ include/
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: r-lib__libarrow__bin__macos-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
+          path: arrow/r/libarrow/dist/arrow-*.zip
+
   linux-cpp:
     name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
     runs-on: ubuntu-latest
