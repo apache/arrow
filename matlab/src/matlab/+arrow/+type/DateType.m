@@ -35,11 +35,11 @@ classdef DateType < arrow.type.TemporalType
         end
     end
 
-    methods (Access=protected)
-        function group = getPropertyGroups(~)
-            targets = ["ID" "DateUnit"];
-            group = matlab.mixin.util.PropertyGroup(targets);
-        end
-    end
+    % methods (Access=protected)
+    %     function group = getPropertyGroups(~)
+    %         targets = ["ID" "DateUnit"];
+    %         group = matlab.mixin.util.PropertyGroup(targets);
+    %     end
+    % end
 
 end

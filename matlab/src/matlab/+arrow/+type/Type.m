@@ -13,7 +13,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef (Abstract) Type < matlab.mixin.CustomDisplay
+classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
+                           matlab.mixin.Heterogeneous
 %TYPE Abstract type class. 
 
     properties (Dependent, GetAccess=public, SetAccess=private)
@@ -42,11 +43,33 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
         end
     end
 
-    methods (Access=protected)
-        function propgrp = getPropertyGroups(~)
-          proplist = {'ID'};
-          propgrp = matlab.mixin.util.PropertyGroup(proplist);
+    methods (Sealed, Access = protected)
+        function header = getHeader(obj)
+            header = getHeader@matlab.mixin.CustomDisplay(obj);
         end
+ 
+        function groups = getPropertyGroups(obj)
+            proplist = {'ID'};
+            groups = matlab.mixin.util.PropertyGroup(proplist); 
+        end
+ 
+        function footer = getFooter(obj)
+            footer = getFooter@matlab.mixin.CustomDisplay(obj);
+        end
+ 
+        function displayNonScalarObject(obj)
+            displayNonScalarObject@matlab.mixin.CustomDisplay(obj);
+        end
+
+        function displayScalarObject(obj)
+         % Override of this method
+         % ...
+            displayScalarObject@matlab.mixin.CustomDisplay(obj)
+        end
+
+        % function displayEmptyObject(obj)
+        %     displayEmptyObject@matlab.mixin.CustomDisplay(obj);
+        % end
     end
 
     methods
