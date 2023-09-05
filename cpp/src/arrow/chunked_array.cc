@@ -130,7 +130,7 @@ bool supportsNaN(const arrow::DataType& type) {
   return supports_nan;
 }
 
-} // namespace
+} //  namespace
 
 bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   if (!other) {
