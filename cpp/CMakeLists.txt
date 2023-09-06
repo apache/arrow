@@ -23,6 +23,13 @@ message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 # Compiler id for Apple Clang is now AppleClang.
 cmake_policy(SET CMP0025 NEW)
 
+# https://cmake.org/cmake/help/latest/policy/CMP0042.html
+#
+# Enable MACOSX_RPATH by default. @rpath in a target's install name is
+# a more flexible and powerful mechanism than @executable_path or
+# @loader_path for locating shared libraries.
+cmake_policy(SET CMP0042 NEW)
+
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
 #
 # Only interpret if() arguments as variables or keywords when unquoted.
