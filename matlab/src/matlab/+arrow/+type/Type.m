@@ -56,8 +56,19 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
             if isscalar(obj)
                groups = getDisplayPropertyGroups(obj);
             else
-                proplist = "ID";
-                groups = matlab.mixin.util.PropertyGroup(proplist);
+                % Check if every type in the array has the same class type.
+                % If so, call getDisplayPropertyGroups() so that all
+                % properties assoicated with that class are displayed.
+                classnames = arrayfun(@(type) string(class(type)), obj);
+                if numel(unique(classnames)) == 1
+                    groups = getDisplayPropertyGroups(obj(1));
+                else
+                    % If the array is heterogeneous, just display ID, which
+                    % is the only property shared by all concrete
+                    % subclasses of arrow.type.Type.
+                    proplist = "ID";
+                    groups = matlab.mixin.util.PropertyGroup(proplist);
+                end
             end
         end
  
