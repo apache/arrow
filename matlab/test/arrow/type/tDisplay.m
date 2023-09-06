@@ -36,7 +36,7 @@ classdef tDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
+            testCase.verifyDisplay(actualDisplay, expectedDisplay);
         end
 
         function NonScalarArrayDifferentTypes(testCase)
@@ -65,7 +65,7 @@ classdef tDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(typeArray)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
+            testCase.verifyDisplay(actualDisplay, expectedDisplay);
         end
 
         function NonScalarArraySameTypes(testCase)
@@ -89,6 +89,24 @@ classdef tDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(typeArray)');
+            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+        end
+    end
+
+    methods
+        function verifyDisplay(testCase, actualDisplay, expectedDisplay)
+            % When the MATLAB GUI is running, '×' (char(215)) is used the 
+            % delimiter between dimension values. However, when the GUI is
+            % not running, 'x' (char(120)) is used as the delimiter.
+            % To account for this discrepancy, check if actualDisplay 
+            % contains char(215). If not, replace all instances of
+            % char(215) in expectedDisplay with char(120).
+
+            tf = contains(actualDisplay, char(215));
+            if ~tf
+                idx = strfind(expectedDisplay, char(215));
+                expectedDisplay(idx) = char(120);
+            end
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
     end
