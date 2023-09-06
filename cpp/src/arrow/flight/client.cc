@@ -722,7 +722,9 @@ Status FlightClient::Close() {
   return Status::OK();
 }
 
-bool FlightClient::supports_async() const { return transport_->supports_async(); }
+bool FlightClient::supports_async() const { return transport_->CheckAsyncSupport().ok(); }
+
+Status FlightClient::CheckAsyncSupport() const { return transport_->CheckAsyncSupport(); }
 
 Status FlightClient::CheckOpen() const {
   if (closed_) {

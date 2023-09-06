@@ -41,9 +41,11 @@ class TestClient < Test::Unit::TestCase
   end
 
   def test_prepare
-    insert_sql = "INSERT INTO page_view_table VALUES (?, true)"
+    insert_sql = "INSERT INTO page_view_table VALUES ($1, true)"
     block_called = false
-    @sql_client.prepare(insert_sql) do |statement|
+    options = ArrowFlight::CallOptions.new
+    options.add_header("x-access-key", "secret")
+    @sql_client.prepare(insert_sql, options) do |statement|
       block_called = true
       assert_equal([
                      Arrow::Schema.new(count: :uint64, private: :boolean),

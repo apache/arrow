@@ -324,6 +324,11 @@ if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
+set(ARROW_TESTING_SHARED_LINK_LIBS arrow::flatbuffers rapidjson::rapidjson arrow_shared
+                                   ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers rapidjson::rapidjson arrow_static
+                                   ${ARROW_GTEST_GTEST})
+
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
@@ -497,22 +502,14 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_SRCS filesystem/hdfs.cc)
   endif()
   if(ARROW_S3)
-    try_compile(S3_HAS_CRT ${CMAKE_CURRENT_BINARY_DIR}/try_compile
-                SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/filesystem/try_compile/check_s3fs_crt.cc"
-                CMAKE_FLAGS "-DINCLUDE_DIRECTORIES=${CURRENT_INCLUDE_DIRECTORIES}"
-                LINK_LIBRARIES ${AWSSDK_LINK_LIBRARIES} CXX_STANDARD 17)
-
-    if(S3_HAS_CRT)
-      message(STATUS "AWS SDK is new enough to have CRT support")
-      add_definitions(-DARROW_S3_HAS_CRT)
-    endif()
-
     list(APPEND ARROW_SRCS filesystem/s3fs.cc)
     set_source_files_properties(filesystem/s3fs.cc
                                 PROPERTIES SKIP_PRECOMPILE_HEADERS ON
                                            SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS ${ARROW_GTEST_GMOCK})
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
@@ -720,6 +717,9 @@ if(ARROW_TESTING)
   if(GTest_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
     list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+  else()
+    list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
+    list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
   endif()
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
@@ -735,17 +735,11 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
-                arrow::flatbuffers
-                rapidjson::rapidjson
-                arrow_shared
-                ${ARROW_GTEST_GTEST}
+                ${ARROW_TESTING_SHARED_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS
                 ${ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
-                arrow::flatbuffers
-                rapidjson::rapidjson
-                arrow_static
-                ${ARROW_GTEST_GTEST}
+                ${ARROW_TESTING_STATIC_LINK_LIBS}
                 STATIC_INSTALL_INTERFACE_LIBS
                 ${ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
 

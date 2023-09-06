@@ -21,10 +21,10 @@ package kernels
 import (
 	"fmt"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/compute/exec"
-	"github.com/apache/arrow/go/v13/arrow/internal/debug"
-	"github.com/apache/arrow/go/v13/arrow/scalar"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/compute/exec"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/scalar"
 )
 
 var (

@@ -171,6 +171,7 @@ namespace arrow::matlab::error {
     static const char* STRING_BUILDER_APPEND_FAILED = "arrow:matlab:array:string:StringBuilderAppendFailed";
     static const char* STRING_BUILDER_FINISH_FAILED = "arrow:matlab:array:string:StringBuilderFinishFailed";
     static const char* UKNOWN_TIME_UNIT_ERROR_ID = "arrow:matlab:UnknownTimeUnit";
+    static const char* INVALID_TIME_UNIT = "arrow:type:InvalidTimeUnit";
     static const char* FIELD_FAILED_TO_CREATE_TYPE_PROXY = "arrow:field:FailedToCreateTypeProxy";
     static const char* ARRAY_FAILED_TO_CREATE_TYPE_PROXY = "arrow:array:FailedToCreateTypeProxy";
     static const char* ARROW_TABULAR_SCHEMA_INVALID_NUMERIC_FIELD_INDEX = "arrow:tabular:schema:InvalidNumericFieldIndex";
@@ -189,5 +190,9 @@ namespace arrow::matlab::error {
     static const char* FEATHER_VERSION_UNKNOWN = "arrow:io:feather:FeatherVersionUnknown";
     static const char* FEATHER_FAILED_TO_READ_TABLE = "arrow:io:feather:FailedToReadTable";
     static const char* FEATHER_FAILED_TO_READ_RECORD_BATCH = "arrow:io:feather:FailedToReadRecordBatch";
+    static const char* CHUNKED_ARRAY_MAKE_FAILED = "arrow:chunkedarray:MakeFailed";
+    static const char* CHUNKED_ARRAY_NUMERIC_INDEX_WITH_EMPTY_CHUNKED_ARRAY = "arrow:chunkedarray:NumericIndexWithEmptyChunkedArray";
+    static const char* CHUNKED_ARRAY_INVALID_NUMERIC_CHUNK_INDEX = "arrow:chunkedarray:InvalidNumericChunkIndex";
+
 
 }

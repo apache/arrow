@@ -24,10 +24,10 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/apache/arrow/go/v13/arrow/bitutil"
-	"github.com/apache/arrow/go/v13/internal/bitutils"
-	"github.com/apache/arrow/go/v13/internal/utils"
-	"github.com/apache/arrow/go/v13/parquet"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/internal/bitutils"
+	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
 	"golang.org/x/xerrors"
 )
 

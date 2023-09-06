@@ -20,6 +20,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "arrow/acero/exec_plan.h"
@@ -125,7 +126,7 @@ class ScanNode : public acero::ExecNode, public acero::TracedNode {
            std::shared_ptr<Schema> output_schema)
       : acero::ExecNode(plan, {}, {}, std::move(output_schema)),
         acero::TracedNode(this),
-        options_(options) {}
+        options_(std::move(options)) {}
 
   static Result<ScanV2Options> NormalizeAndValidate(const ScanV2Options& options,
                                                     compute::ExecContext* ctx) {

@@ -214,7 +214,7 @@ void AssertBufferEqual(const Buffer& buffer, const std::vector<uint8_t>& expecte
   }
 }
 
-void AssertBufferEqual(const Buffer& buffer, const std::string& expected) {
+void AssertBufferEqual(const Buffer& buffer, std::string_view expected) {
   ASSERT_EQ(static_cast<size_t>(buffer.size()), expected.length())
       << "Mismatching buffer size";
   const uint8_t* buffer_data = buffer.data();

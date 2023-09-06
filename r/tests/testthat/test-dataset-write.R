@@ -812,3 +812,207 @@ test_that("write_dataset() errors on data.frame with NULL names", {
   names(df) <- NULL
   expect_error(write_dataset(df, tempfile()), "Input data frame columns must be named")
 })
+
+test_that("Writing a dataset to text files with wrapper functions.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_delim_dataset(df, dst_dir)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "text")
+  expect_equal(new_ds %>% collect(), df)
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "csv")
+  expect_equal(new_ds %>% collect(), df)
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir)
+  expect_true(dir.exists(dst_dir))
+  new_ds <- open_dataset(dst_dir, format = "tsv")
+  expect_equal(new_ds %>% collect(), df)
+})
+
+test_that("Writing a flat file dataset: `basename_template` default behavier", {
+  ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
+
+  dst_dir <- make_temp_dir()
+  write_delim_dataset(ds, dst_dir, max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".txt")
+  )
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(ds, dst_dir, max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".csv")
+  )
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(ds, dst_dir, max_rows_per_file = 5L)
+  expect_identical(
+    dir(dst_dir, full.names = FALSE, recursive = TRUE),
+    paste0("part-", 0:3, ".tsv")
+  )
+})
+
+test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in write_delim_dataset()", {
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  # max_rows_per_group unset adjust silently
+  dst_dir <- make_temp_dir()
+  expect_silent(
+    write_delim_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_silent(
+    write_csv_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_silent(
+    write_tsv_dataset(df, dst_dir, max_rows_per_file = 5)
+  )
+})
+
+test_that("Writing a flat file dataset without a delimiter throws an error.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(df, dst_dir, format = "txt"),
+    "A delimiter must be given for a txt format."
+  )
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "text"),
+    "A delimiter must be given for a txt format."
+  )
+})
+
+test_that("Dataset can write flat files using readr::write_csv() options.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "csv", col_names = FALSE)
+  expect_true(dir.exists(dst_dir))
+
+  header <- readLines(file(paste0(dst_dir, "/part-0.csv")), n = 1L)
+  expect_equal(header, "1,1,true,\"a\"")
+
+  df2 <- tibble(x = "")
+  dst_dir <- make_temp_dir()
+  write_dataset(df2, dst_dir, format = "csv", eol = "\r\n")
+  expect_true(dir.exists(dst_dir))
+
+  header <- readBin(con <- file(paste0(dst_dir, "/part-0.csv"), "rb"), "raw", n = 5)
+  close(con)
+
+  # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
+  expect_equal(header[4:5], as.raw(c(0x0d, 0x0a)))
+
+  dst_dir <- make_temp_dir()
+  expect_error(
+    write_dataset(df, dst_dir, format = "csv", include_header = FALSE, delim = ";"),
+    "Use either Arrow write options or readr write options, not both"
+  )
+  dst_dir <- make_temp_dir()
+  write_dataset(df, dst_dir, format = "csv", quoting_style = "AllValid")
+  ds <- open_dataset(dst_dir, format = "csv")
+  expect_equal(df, ds %>% collect())
+
+  lines <- paste(readLines(paste0(dst_dir, "/part-0.csv")), sep = "\n")
+  expect_equal(lines[2], "\"1\",\"1\",\"true\",\"a\"")
+
+  expect_error(
+    write_dataset(df, dst_dir, format = "tsv", delimiter = ";"),
+    "Can't set a delimiter for the tsv format."
+  )
+})
+
+test_that("Dataset write wrappers can write flat files using readr::write_csv() options.", {
+  df <- tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir, col_names = FALSE)
+
+  header <- readLines(file(paste0(dst_dir, "/part-0.csv")), n = 1L)
+  expect_equal(header, "1,1,true,\"a\"")
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir, col_names = FALSE)
+
+  header <- readLines(file(paste0(dst_dir, "/part-0.tsv")), n = 1L)
+  expect_equal(header, "1\t1\ttrue\t\"a\"")
+
+  df2 <- tibble(x = "")
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df2, dst_dir, eol = "\r\n")
+  header <- readBin(con <- file(paste0(dst_dir, "/part-0.csv"), "rb"), "raw", n = 5)
+  close(con)
+  # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
+  expect_equal(header[4:5], as.raw(c(0x0d, 0x0a)))
+
+  df2 <- tibble(x = "")
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df2, dst_dir, eol = "\r\n")
+  header <- readBin(con <- file(paste0(dst_dir, "/part-0.tsv"), "rb"), "raw", n = 5)
+  close(con)
+  # 0d and 0a are the character codes for CRLF (https://www.asciitable.com)
+  expect_equal(header[4:5], as.raw(c(0x0d, 0x0a)))
+
+  dst_dir <- make_temp_dir()
+  write_csv_dataset(df, dst_dir, quote = "all", delim = ";")
+  ds <- open_dataset(dst_dir, format = "csv", delim = ";")
+  expect_equal(df, ds %>% collect())
+
+  lines <- paste(readLines(paste0(dst_dir, "/part-0.csv")), sep = "\n")
+  expect_equal(lines[2], "\"1\";\"1\";\"true\";\"a\"")
+
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir, quote = "all", eol = "\r\n")
+  ds <- open_dataset(dst_dir, format = "tsv")
+  expect_equal(df, ds %>% collect())
+
+  lines <- paste(readLines(paste0(dst_dir, "/part-0.tsv")), sep = "\n")
+  expect_equal(lines[2], "\"1\"\t\"1\"\t\"true\"\t\"a\"")
+  dst_dir <- make_temp_dir()
+  write_tsv_dataset(df, dst_dir, na = "NOVALUE")
+  ds <- open_dataset(dst_dir, format = "tsv") %>% collect()
+
+  expect_equal(
+    ds$lgl,
+    c("true", "false", "NOVALUE", "true", "false", "true", "false", "NOVALUE", "true", "false")
+  )
+})

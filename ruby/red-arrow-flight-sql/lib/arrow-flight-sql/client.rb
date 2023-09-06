@@ -18,13 +18,13 @@
 module ArrowFlightSQL
   class Client
     alias_method :prepare_raw, :prepare
-    def prepare(*args)
-      statement = prepare_raw(*args)
+    def prepare(query, options=nil)
+      statement = prepare_raw(query, options)
       if block_given?
         begin
           yield(statement)
         ensure
-          statement.close unless statement.closed?
+          statement.close(options) unless statement.closed?
         end
       else
         statement
