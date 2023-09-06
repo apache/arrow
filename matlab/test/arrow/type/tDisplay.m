@@ -52,12 +52,12 @@ classdef tDisplay < matlab.unittest.TestCase
             timestampType = arrow.timestamp();
             typeArray = [float32Type timestampType];
 
-            heterogeneousLink =  makeDisplayLink(FullClassName="matlab.mixin.Heterogeneous", ClassName="heterogeneous",  BoldFont=false);
-            fixedWidthLink    =  makeDisplayLink(FullClassName="arrow.type.FixedWidthType",  ClassName="FixedWidthType", BoldFont=true);
-            timestampLink     = makeDisplayLink(FullClassName="arrow.type.TimestampType",   ClassName="TimestampType",   BoldFont=false);
-            float32Link       = makeDisplayLink(FullClassName="arrow.type.Float32Type",     ClassName="Float32Type",     BoldFont=false);
+            heterogeneousLink =  makeLinkString(FullClassName="matlab.mixin.Heterogeneous", ClassName="heterogeneous",  BoldFont=false);
+            fixedWidthLink    =  makeLinkString(FullClassName="arrow.type.FixedWidthType",  ClassName="FixedWidthType", BoldFont=true);
+            timestampLink     = makeLinkString(FullClassName="arrow.type.TimestampType",   ClassName="TimestampType",   BoldFont=false);
+            float32Link       = makeLinkString(FullClassName="arrow.type.Float32Type",     ClassName="Float32Type",     BoldFont=false);
 
-            sizeString = makeSizeString(size(typeArray));
+            sizeString = makeDimensionString(size(typeArray));
             
             header = "  " + sizeString + " " + heterogeneousLink + " " + fixedWidthLink + ...
                 " (" +  float32Link + ", " + timestampLink + ") array with properties:" + newline;
@@ -83,8 +83,8 @@ classdef tDisplay < matlab.unittest.TestCase
             timestampType2 = arrow.timestamp(TimeUnit="Second");
             typeArray = [timestampType1 timestampType2];
 
-            timestampLink = makeDisplayLink(FullClassName="arrow.type.TimestampType", ClassName="TimestampType", BoldFont=true);
-            sizeString = makeSizeString(size(typeArray));
+            timestampLink = makeLinkString(FullClassName="arrow.type.TimestampType", ClassName="TimestampType", BoldFont=true);
+            sizeString = makeDimensionString(size(typeArray));
             header = "  " + sizeString + " " + timestampLink + " array with properties:" + newline;
             body = strjust(["ID"; "TimeUnit"; "TimeZone"], "left");
             body = "    " + body;
@@ -114,7 +114,7 @@ classdef tDisplay < matlab.unittest.TestCase
     end
 end
 
-function link = makeDisplayLink(opts)
+function link = makeLinkString(opts)
     arguments
         opts.FullClassName(1, 1) string
         opts.ClassName(1, 1) string
@@ -132,7 +132,7 @@ function link = makeDisplayLink(opts)
     end
 end
 
-function sizeString = makeSizeString(arraySize)
+function sizeString = makeDimensionString(arraySize)
     sizeString = string(arraySize);
     sizeString = join(sizeString, char(215));
 end
