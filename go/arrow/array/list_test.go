@@ -695,3 +695,60 @@ func TestVarLenListLikeStringRoundTrip(t *testing.T) {
 		assert.True(t, array.Equal(arr, arr1))
 	}
 }
+
+// Test the string roun-trip for a list-view containing out-of-order offsets.
+func TestListViewStringRoundTrip(t *testing.T) {
+	// 1. create array
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	builders := []array.VarLenListLikeBuilder{
+		array.NewListViewBuilder(mem, arrow.PrimitiveTypes.Int32),
+		array.NewLargeListViewBuilder(mem, arrow.PrimitiveTypes.Int32),
+	}
+
+	builders1 := []array.VarLenListLikeBuilder{
+		array.NewListViewBuilder(mem, arrow.PrimitiveTypes.Int32),
+		array.NewLargeListViewBuilder(mem, arrow.PrimitiveTypes.Int32),
+	}
+
+	for i, b := range builders {
+		defer b.Release()
+
+		switch lvb := b.(type) {
+		case *array.ListViewBuilder:
+			lvb.AppendDimensions(5, 3)
+			b.AppendNull()
+			lvb.AppendDimensions(0, 0)
+			lvb.AppendDimensions(1, 4)
+		case *array.LargeListViewBuilder:
+			lvb.AppendDimensions(5, 3)
+			b.AppendNull()
+			lvb.AppendDimensions(0, 0)
+			lvb.AppendDimensions(1, 4)
+		}
+
+		vb := b.ValueBuilder().(*array.Int32Builder)
+
+		vs := []int32{-1, 3, 4, 5, 6, 0, 1, 2}
+		isValid := []bool{false, true, true, true, true, true, true, true}
+		vb.Reserve(len(vs))
+		vb.AppendValues(vs, isValid)
+
+		arr := b.NewArray()
+		defer arr.Release()
+
+		// 2. create array via AppendValueFromString
+		b1 := builders1[i]
+		defer b1.Release()
+
+		for i := 0; i < arr.Len(); i++ {
+			assert.NoError(t, b1.AppendValueFromString(arr.ValueStr(i)))
+		}
+
+		arr1 := b1.NewArray()
+		defer arr1.Release()
+
+		assert.True(t, array.Equal(arr, arr1))
+	}
+}
