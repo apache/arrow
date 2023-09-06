@@ -203,7 +203,15 @@ classdef tDate64Array < matlab.unittest.TestCase
             zoned.TimeZone = "America/New_York";
 
             expected = zoned;
+            % Set the TimeZone of the expected datetime value to "UTC"
+            % to trigger a time adjustment to UTC-relative time.
+            % Date64Array values are implicitly relative to UTC time, so
+            % adjusting the expected datetime value to UTC will ensure that
+            % the actual and expected datetimes represent the same "instant-in-time".
             expected.TimeZone = "UTC";
+            % datetimes returned by the toMATLAB method of Date64Array are unzoned.
+            % Set the TimeZone of the expected datetime to a 0x0 empty char array
+            % in order to make the datetime unzoned.
             expected.TimeZone = char.empty(0, 0);
 
             array = testCase.ArrowArrayConstructorFcn(zoned);
