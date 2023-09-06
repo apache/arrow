@@ -308,6 +308,7 @@ How this works:
 
     //1
     private static final BufferAllocator allocator = new RootAllocator();
+    private static final AtomicInteger childNumber = new AtomicInteger(0);
     ...
     //2
     public static BufferAllocator getChildAllocator() {
@@ -316,7 +317,7 @@ How this works:
     ...
     //3
     private static String nextChildName() {
-        return "Allocator-Child-" + getClassNameAndMethodName();
+        return "Allocator-Child-" + childNumber.incrementAndGet();
     }
     ...
     //4: Business code
@@ -327,16 +328,13 @@ How this works:
     //5
     public static void checkGlobalCleanUpResources() {
         ...
-        !allocator.getChildAllocators().isEmpty();
-        allocator.getAllocatedMemory() != 0;
-        ...
-        throw new IllegalStateException(...);
+        if (!allocator.getChildAllocators().isEmpty()) {
+          throw new IllegalStateException(...)
+          ));
+        } else if (allocator.getAllocatedMemory() != 0) {
+          throw new IllegalStateException(...);
+        }
     }
-    ...
-    //6: Allocator bug detected
-    Review active allocators on: Allocator-Child-com.yourpackage.Test-method
-    ...
-
 
 .. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
 .. _`ArrowBuf.print()`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html#print-java.lang.StringBuilder-int-org.apache.arrow.memory.BaseAllocator.Verbosity-
