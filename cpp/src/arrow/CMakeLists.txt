@@ -840,7 +840,7 @@ add_subdirectory(vendored)
 
 if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
   # We build tests for the JSON integration machinery even if integration
-  # is enabled, to ensure it's exercised in more builds than just the
+  # is not enabled, to ensure it's exercised in more builds than just the
   # integration build.
   add_subdirectory(integration)
 endif()
