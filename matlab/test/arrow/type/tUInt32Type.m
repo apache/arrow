@@ -57,26 +57,5 @@ classdef tUInt32Type < hFixedWidthType
             typeArray2 = [uint32Type uint32Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-
-        function Display(testCase)
-            % Verify the display of UInt32Type objects.
-            %
-            % Example:
-            %
-            %  UInt32Type with properties:
-            %
-            %          ID: UInt32
-
-            type = arrow.uint32(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.UInt32Type"" style=""font-weight:bold"">UInt32Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "UInt32";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
     end
 end

@@ -57,26 +57,5 @@ classdef tUInt64Type < hFixedWidthType
             typeArray2 = [uint64Type uint64Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-
-        function Display(testCase)
-            % Verify the display of UInt64Type objects.
-            %
-            % Example:
-            %
-            %  UInt64Type with properties:
-            %
-            %          ID: UInt64
-
-            type = arrow.uint64(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.UInt64Type"" style=""font-weight:bold"">UInt64Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "UInt64";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
     end
 end

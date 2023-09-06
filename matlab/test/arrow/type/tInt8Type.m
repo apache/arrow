@@ -57,26 +57,5 @@ classdef tInt8Type < hFixedWidthType
             typeArray2 = [int8Type int8Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-
-        function Display(testCase)
-            % Verify the display of Int8Type objects.
-            %
-            % Example:
-            %
-            %  Int8Type with properties:
-            %
-            %          ID: Int8
-
-            type = arrow.int8(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Int8Type"" style=""font-weight:bold"">Int8Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "Int8";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
     end
 end

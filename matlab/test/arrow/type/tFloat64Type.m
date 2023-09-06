@@ -57,26 +57,5 @@ classdef tFloat64Type < hFixedWidthType
             typeArray2 = [float64Type float64Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-
-        function Display(testCase)
-            % Verify the display of Float64Type objects.
-            %
-            % Example:
-            %
-            %  Float64Type with properties:
-            %
-            %          ID: Float64
-
-            type = arrow.float64(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Float64Type"" style=""font-weight:bold"">Float64Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "Float64";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
     end
 end

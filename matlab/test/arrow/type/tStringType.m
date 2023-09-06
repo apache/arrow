@@ -64,27 +64,6 @@ classdef tStringType < matlab.unittest.TestCase
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
 
-        function Display(testCase)
-            % Verify the display of StringType objects.
-            %
-            % Example:
-            %
-            %  StringType with properties:
-            %
-            %          ID: String
-
-            type = arrow.string(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.StringType"" style=""font-weight:bold"">StringType</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "String";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-
     end
 
 end

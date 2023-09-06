@@ -57,26 +57,5 @@ classdef tInt32Type < hFixedWidthType
             typeArray2 = [int32Type int32Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-
-        function Display(testCase)
-        % Verify the display of Int32Type objects.
-        %
-        % Example:
-        %
-        %  Int32Type with properties:
-        %
-        %          ID: Int32
-        %
-            type = arrow.int32(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Int32Type"" style=""font-weight:bold"">Int32Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "Int32";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
     end
 end
