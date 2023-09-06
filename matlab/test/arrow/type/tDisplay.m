@@ -18,6 +18,22 @@
 
 classdef tDisplay < matlab.unittest.TestCase
 
+    properties(TestParameter)
+        TypeDisplaysOnlyID =   {arrow.boolean(), ...
+                                arrow.uint8(), ...
+                                arrow.uint16(), ...
+                                arrow.uint32(), ...
+                                arrow.uint64(), ...
+                                arrow.int8(), ...
+                                arrow.int16(), ...
+                                arrow.int32(), ...
+                                arrow.int64(), ...
+                                arrow.float32(), ...
+                                arrow.float64(), ...
+                                arrow.float64(), ...
+                                arrow.string()}
+    end
+
     methods (Test)
         function EmptyTypeDisplay(testCase)
             % Verify the display of an empty arrow.type.Type instance.
@@ -95,9 +111,9 @@ classdef tDisplay < matlab.unittest.TestCase
             testCase.verifyDisplay(actualDisplay, expectedDisplay);
         end
 
-
-        function BooleanType(testCase)
-            % Verify the display of BooleanType objects.
+        function TestTypeDisplaysOnlyID(testCase, TypeDisplaysOnlyID)
+            % Verify the display of arrow.type.Type subclasses that only
+            % display the ID property.
             %
             % Example:
             %
@@ -105,10 +121,12 @@ classdef tDisplay < matlab.unittest.TestCase
             %
             %          ID: Boolean
 
-            type = arrow.boolean(); %#ok<NASGU>
-            booleanLink = makeLinkString(FullClassName="arrow.type.BooleanType", ClassName="BooleanType", BoldFont=true);
-            header = "  " + booleanLink + " with properties:" + newline;
-            body = "    ID: Boolean";
+            type = TypeDisplaysOnlyID;
+            fullClassName = string(class(type));
+            className = reverse(extractBefore(reverse(fullClassName), "."));
+            typeLink = makeLinkString(FullClassName=fullClassName, ClassName=className, BoldFont=true);
+            header = "  " + typeLink + " with properties:" + newline;
+            body = "    ID: " + string(type.ID);
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
