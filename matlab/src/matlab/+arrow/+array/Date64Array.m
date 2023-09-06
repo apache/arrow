@@ -1,3 +1,5 @@
+% arrow.array.Date64Array
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,17 +15,17 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef TimestampArray < arrow.array.Array
-% arrow.array.TimestampArray
-    
+classdef Date64Array < arrow.array.Array
+
     properties(Access=private)
-        NullSubstitutionValue = NaT;
+        NullSubstitutionValue = NaT
     end
 
     methods
-        function obj = TimestampArray(proxy)
+
+        function obj = Date64Array(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.TimestampArray")}
+                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.Date64Array")}
             end
             import arrow.internal.proxy.validate
             obj@arrow.array.Array(proxy);
@@ -32,40 +34,44 @@ classdef TimestampArray < arrow.array.Array
         function dates = toMATLAB(obj)
             epochTime = obj.Proxy.toMATLAB();
 
-            timeZone = obj.Type.TimeZone;
-            ticksPerSecond = obj.Type.TimeUnit.ticksPerSecond();
+            ticksPerSecond = obj.Type.DateUnit.ticksPerSecond();
 
             % UNIX Epoch (January 1st, 1970).
             unixEpoch = datetime(0, ConvertFrom="posixtime", TimeZone="UTC");
-            dates = datetime(epochTime, ConvertFrom="epochtime", Epoch=unixEpoch, ...
-                TimeZone=timeZone, TicksPerSecond=ticksPerSecond);
+            dates = datetime(epochTime, ConvertFrom="epochtime", Epoch=unixEpoch, ....
+                TicksPerSecond=ticksPerSecond);
 
             dates(~obj.Valid) = obj.NullSubstitutionValue;
         end
 
         function dates = datetime(obj)
-            dates = toMATLAB(obj);
+            dates = obj.toMATLAB();
         end
+
     end
 
     methods(Static)
+
         function array = fromMATLAB(data, opts)
             arguments
                 data
-                opts.TimeUnit(1, 1) arrow.type.TimeUnit = arrow.type.TimeUnit.Microsecond
                 opts.InferNulls(1, 1) logical = true
                 opts.Valid
             end
-            
+
+            import arrow.array.Date64Array
+
             arrow.internal.validate.type(data, "datetime");
             arrow.internal.validate.shape(data);
-            validElements = arrow.internal.validate.parseValidElements(data, opts);
-            epochTime = arrow.array.internal.temporal.convertDatetimeToEpochTime(data, opts.TimeUnit);
-            timezone = string(data.TimeZone);
 
-            args = struct(MatlabArray=epochTime, Valid=validElements, TimeZone=timezone, TimeUnit=string(opts.TimeUnit));
-            proxy = arrow.internal.proxy.create("arrow.array.proxy.TimestampArray", args);
-            array = arrow.array.TimestampArray(proxy);
+            validElements = arrow.internal.validate.parseValidElements(data, opts);
+            epochTime = arrow.array.internal.temporal.convertDatetimeToEpochTime(data, arrow.type.DateUnit.Millisecond);
+
+            args = struct(MatlabArray=epochTime, Valid=validElements);
+            proxy = arrow.internal.proxy.create("arrow.array.proxy.Date64Array", args);
+            array = Date64Array(proxy);
         end
+
     end
+
 end

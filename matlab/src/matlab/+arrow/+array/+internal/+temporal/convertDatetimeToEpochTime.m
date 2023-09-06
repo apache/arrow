@@ -1,4 +1,6 @@
-% Enumeration class representing Date Units.
+% Converts MATLAB datetime values to integer "Epoch time" values which
+% represent the number of "ticks" since the UNIX Epoch (Jan-1-1970) with
+% respect to the specified TimeUnit / DateUnit.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,26 +16,16 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef DateUnit < uint8
 
-    enumeration
-        Day          (0)
-        Millisecond  (1)
-    end
+function epochTime = convertDatetimeToEpochTime(datetimes, unit)
+    epochTime = zeros(size(datetimes), "int64");
+    indices = ~isnat(datetimes);
 
-    methods (Hidden)
-
-        function ticks = ticksPerSecond(obj)
-            import arrow.type.DateUnit
-            switch obj
-                case DateUnit.Millisecond
-                    ticks = 1e3;
-                otherwise
-                    error("arrow:dateunit:UnsupportedTicksPerSecond", ...
-                        "The ticksPerSecond method can only be called on a DateUnit of type Millisecond.");
-            end
-        end
-
-    end
-
+    % convertTo uses the Unzoned UNIX Epoch Jan-1-1970 as the default Epoch.
+    % If the input datetime array has a TimeZone, then a Zoned UNIX Epoch
+    % of Jan-1-1970 UTC is used instead.
+    %
+    % TODO: convertTo may error if the datetime is 2^63-1 before or
+    % after the epoch. We should throw a custom error in this case.
+    epochTime(indices) = convertTo(datetimes(indices), "epochtime", TicksPerSecond=ticksPerSecond(unit));
 end
