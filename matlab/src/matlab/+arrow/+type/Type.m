@@ -13,7 +13,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef (Abstract) Type < matlab.mixin.CustomDisplay
+classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
+                           matlab.mixin.Heterogeneous
 %TYPE Abstract type class. 
 
     properties (Dependent, GetAccess=public, SetAccess=private)
@@ -42,14 +43,57 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay
         end
     end
 
-    methods (Access=protected)
-        function propgrp = getPropertyGroups(~)
-          proplist = {'ID'};
-          propgrp = matlab.mixin.util.PropertyGroup(proplist);
+    methods(Access = protected)
+        groups = getDisplayPropertyGroups(obj)
+    end
+
+    methods (Sealed, Access = protected)
+        function header = getHeader(obj)
+            header = getHeader@matlab.mixin.CustomDisplay(obj);
+        end
+ 
+        function groups = getPropertyGroups(obj)
+            if isscalar(obj)
+               groups = getDisplayPropertyGroups(obj);
+            else
+                % Check if every type in the array has the same class type.
+                % If so, call getDisplayPropertyGroups() so that all
+                % properties assoicated with that class are displayed.
+                classnames = arrayfun(@(type) string(class(type)), obj);
+                if numel(unique(classnames)) == 1
+                    groups = getDisplayPropertyGroups(obj(1));
+                else
+                    % If the array is heterogeneous, just display ID, which
+                    % is the only property shared by all concrete
+                    % subclasses of arrow.type.Type.
+                    proplist = "ID";
+                    groups = matlab.mixin.util.PropertyGroup(proplist);
+                end
+            end
+        end
+ 
+        function footer = getFooter(obj)
+            footer = getFooter@matlab.mixin.CustomDisplay(obj);
+        end
+ 
+        function displayNonScalarObject(obj)
+            displayNonScalarObject@matlab.mixin.CustomDisplay(obj);
+        end
+
+        function displayScalarObject(obj)
+            displayScalarObject@matlab.mixin.CustomDisplay(obj)
+        end
+
+        function displayEmptyObject(obj)
+            displayEmptyObject@matlab.mixin.CustomDisplay(obj);
+        end
+
+        function displayScalarHandleToDeletedObject(obj)
+            displayScalarHandleToDeletedObject@matlab.mixin.CustomDisplay(obj);
         end
     end
 
-    methods
+    methods (Sealed)
         function tf = isequal(obj, varargin)
 
             narginchk(2, inf);
