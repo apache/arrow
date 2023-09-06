@@ -23,7 +23,6 @@ import inspect
 import itertools
 import math
 import os
-import pickle
 import pytest
 import random
 import sys
@@ -278,18 +277,18 @@ def test_call_function_with_memory_pool():
     assert result3.equals(expected)
 
 
-def test_pickle_functions():
+def test_pickle_functions(pickle_module):
     # Pickle registered functions
     for name in pc.list_functions():
         func = pc.get_function(name)
-        reconstructed = pickle.loads(pickle.dumps(func))
+        reconstructed = pickle_module.loads(pickle_module.dumps(func))
         assert type(reconstructed) is type(func)
         assert reconstructed.name == func.name
         assert reconstructed.arity == func.arity
         assert reconstructed.num_kernels == func.num_kernels
 
 
-def test_pickle_global_functions():
+def test_pickle_global_functions(pickle_module):
     # Pickle global wrappers (manual or automatic) of registered functions
     for name in pc.list_functions():
         try:
@@ -297,7 +296,7 @@ def test_pickle_global_functions():
         except AttributeError:
             # hash_aggregate functions are not exported as callables.
             continue
-        reconstructed = pickle.loads(pickle.dumps(func))
+        reconstructed = pickle_module.loads(pickle_module.dumps(func))
         assert reconstructed is func
 
 
@@ -3366,10 +3365,10 @@ def create_sample_expressions():
 # Tests the Arrow-specific serialization mechanism
 
 
-def test_expression_serialization_arrow():
+def test_expression_serialization_arrow(pickle_module):
     for expr in create_sample_expressions()["all"]:
         assert isinstance(expr, pc.Expression)
-        restored = pickle.loads(pickle.dumps(expr))
+        restored = pickle_module.loads(pickle_module.dumps(expr))
         assert expr.equals(restored)
 
 

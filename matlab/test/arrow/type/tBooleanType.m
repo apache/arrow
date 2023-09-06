@@ -22,4 +22,40 @@ classdef tBooleanType < hFixedWidthType
         BitWidth = int32(1)
         ClassName = "arrow.type.BooleanType"
     end
+
+    methods(Test)
+        function IsEqualTrue(testCase)
+            % Verifies isequal method of arrow.type.BooleanType returns true if
+            % these conditions are met:
+            %
+            % 1. All input arguments have a class type arrow.type.BooleanType
+            % 2. All inputs have the same size
+
+            % Scalar BooleanType arrays
+            boolType1 = arrow.boolean();
+            boolType2 = arrow.boolean();
+            testCase.verifyTrue(isequal(boolType1, boolType2));
+
+            % Non-scalar BooleanType arrays
+            typeArray1 = [boolType1 boolType1];
+            typeArray2 = [boolType2 boolType2];
+            testCase.verifyTrue(isequal(typeArray1, typeArray2));
+        end
+
+        function IsEqualFalse(testCase)
+            % Verifies the isequal method of arrow.type.BooleanType returns
+            % false when expected.
+            
+            % Pass a different arrow.type.Type subclass to isequal
+            boolType = arrow.boolean();
+            int32Type = arrow.int32();
+            testCase.verifyFalse(isequal(boolType, int32Type));
+            testCase.verifyFalse(isequal([boolType boolType], [int32Type int32Type]));
+
+            % BooleanType arrays have different sizes
+            typeArray1 = [boolType boolType];
+            typeArray2 = [boolType boolType]';
+            testCase.verifyFalse(isequal(typeArray1, typeArray2));
+        end
+    end
 end

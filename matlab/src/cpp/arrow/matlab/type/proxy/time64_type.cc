@@ -16,31 +16,12 @@
 // under the License.
 
 #include "arrow/matlab/type/proxy/time64_type.h"
-#include "arrow/matlab/type/time_unit.h"
-#include "arrow/matlab/error/error.h"
-#include "arrow/util/utf8.h"
 
 namespace arrow::matlab::type::proxy {
 
     Time64Type::Time64Type(std::shared_ptr<arrow::Time64Type> time64_type) : TimeType(std::move(time64_type)) {}
 
     libmexclass::proxy::MakeResult Time64Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
-        namespace mda = ::matlab::data;
-
-        using Time64TypeProxy = arrow::matlab::type::proxy::Time64Type;
-
-        mda::StructArray opts = constructor_arguments[0];
-
-        const mda::StringArray timeunit_mda = opts[0]["TimeUnit"];
-
-        // extract the time unit
-        const std::u16string& utf16_timeunit = timeunit_mda[0];
-        MATLAB_ASSIGN_OR_ERROR(const auto timeunit,
-                               arrow::matlab::type::timeUnitFromString(utf16_timeunit),
-                               error::UKNOWN_TIME_UNIT_ERROR_ID);
-
-        auto type = arrow::time64(timeunit);
-        auto time_type = std::static_pointer_cast<arrow::Time64Type>(type);
-        return std::make_shared<Time64TypeProxy>(std::move(time_type));
+        return make_time_type<arrow::Time64Type>(constructor_arguments);
     }
 }

@@ -1679,7 +1679,7 @@ void ErrorHandlingTest::TestAsyncGetFlightInfo() {
 
       // The server-side arrow::Status-to-TransportStatus conversion puts the
       // detail into the main error message.
-      EXPECT_THAT(detail->get().message(),
+      EXPECT_THAT(std::string(detail->get().message()),
                   ::testing::HasSubstr("Expected message. Detail:"));
 
       std::string_view arrow_code, arrow_message, binary_detail;
@@ -1832,7 +1832,9 @@ void AsyncClientTest::SetUpTest() {
   ASSERT_OK_AND_ASSIGN(client_, FlightClient::Connect(real_location, client_options));
 
   ASSERT_TRUE(client_->supports_async());
+  ASSERT_OK(client_->CheckAsyncSupport());
 }
+
 void AsyncClientTest::TearDownTest() {
   if (supports_async()) {
     ASSERT_OK(client_->Close());

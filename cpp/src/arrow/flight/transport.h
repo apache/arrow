@@ -201,7 +201,11 @@ class ARROW_FLIGHT_EXPORT ClientTransport {
   virtual Status DoExchange(const FlightCallOptions& options,
                             std::unique_ptr<ClientDataStream>* stream);
 
-  virtual bool supports_async() const { return false; }
+  bool supports_async() const { return CheckAsyncSupport().ok(); }
+  virtual Status CheckAsyncSupport() const {
+    return Status::NotImplemented(
+        "this Flight transport does not support async operations");
+  }
 
   static void SetAsyncRpc(AsyncListenerBase* listener, std::unique_ptr<AsyncRpc>&& rpc);
   static AsyncRpc* GetAsyncRpc(AsyncListenerBase* listener);

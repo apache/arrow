@@ -20,12 +20,16 @@
 #include "arrow/matlab/array/proxy/string_array.h"
 #include "arrow/matlab/array/proxy/timestamp_array.h"
 #include "arrow/matlab/array/proxy/time32_array.h"
+#include "arrow/matlab/array/proxy/time64_array.h"
+#include "arrow/matlab/array/proxy/chunked_array.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/type/proxy/primitive_ctype.h"
 #include "arrow/matlab/type/proxy/string_type.h"
 #include "arrow/matlab/type/proxy/timestamp_type.h"
+#include "arrow/matlab/type/proxy/date32_type.h"
+#include "arrow/matlab/type/proxy/date64_type.h"
 #include "arrow/matlab/type/proxy/time32_type.h"
 #include "arrow/matlab/type/proxy/time64_type.h"
 #include "arrow/matlab/type/proxy/field.h"
@@ -51,6 +55,9 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.StringArray   , arrow::matlab::array::proxy::StringArray);
     REGISTER_PROXY(arrow.array.proxy.TimestampArray, arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>);
     REGISTER_PROXY(arrow.array.proxy.Time32Array   , arrow::matlab::array::proxy::NumericArray<arrow::Time32Type>);
+    REGISTER_PROXY(arrow.array.proxy.Time64Array   , arrow::matlab::array::proxy::NumericArray<arrow::Time64Type>);
+    REGISTER_PROXY(arrow.array.proxy.Date32Array   , arrow::matlab::array::proxy::NumericArray<arrow::Date32Type>);
+    REGISTER_PROXY(arrow.array.proxy.ChunkedArray  , arrow::matlab::array::proxy::ChunkedArray);
     REGISTER_PROXY(arrow.tabular.proxy.RecordBatch , arrow::matlab::tabular::proxy::RecordBatch);
     REGISTER_PROXY(arrow.tabular.proxy.Schema      , arrow::matlab::tabular::proxy::Schema);
     REGISTER_PROXY(arrow.type.proxy.Field          , arrow::matlab::type::proxy::Field);
@@ -67,8 +74,10 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.BooleanType    , arrow::matlab::type::proxy::PrimitiveCType<bool>);
     REGISTER_PROXY(arrow.type.proxy.StringType     , arrow::matlab::type::proxy::StringType);
     REGISTER_PROXY(arrow.type.proxy.TimestampType  , arrow::matlab::type::proxy::TimestampType);
-    REGISTER_PROXY(arrow.type.proxy.Time64Type     , arrow::matlab::type::proxy::Time64Type);
     REGISTER_PROXY(arrow.type.proxy.Time32Type     , arrow::matlab::type::proxy::Time32Type);
+    REGISTER_PROXY(arrow.type.proxy.Time64Type     , arrow::matlab::type::proxy::Time64Type);
+    REGISTER_PROXY(arrow.type.proxy.Date32Type     , arrow::matlab::type::proxy::Date32Type);
+    REGISTER_PROXY(arrow.type.proxy.Date64Type     , arrow::matlab::type::proxy::Date64Type);
     REGISTER_PROXY(arrow.io.feather.proxy.Writer   , arrow::matlab::io::feather::proxy::Writer);
     REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
 

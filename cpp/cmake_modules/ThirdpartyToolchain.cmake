@@ -32,6 +32,9 @@ set(ARROW_BUNDLED_STATIC_LIBS)
 # Accumulate all system dependencies to provide suitable static link
 # parameters to the third party libraries.
 set(ARROW_SYSTEM_DEPENDENCIES)
+set(ARROW_FLIGHT_SYSTEM_DEPENDENCIES)
+set(ARROW_TESTING_SYSTEM_DEPENDENCIES)
+set(PARQUET_SYSTEM_DEPENDENCIES)
 
 # ----------------------------------------------------------------------
 # Toolchain linkage options
@@ -46,6 +49,7 @@ set(ARROW_RE2_LINKAGE
 set(ARROW_THIRDPARTY_DEPENDENCIES
     absl
     AWSSDK
+    Azure
     benchmark
     Boost
     Brotli
@@ -159,6 +163,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_absl()
   elseif("${DEPENDENCY_NAME}" STREQUAL "AWSSDK")
     build_awssdk()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "Azure")
+    build_azure_sdk()
   elseif("${DEPENDENCY_NAME}" STREQUAL "benchmark")
     build_benchmark()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Boost")
@@ -233,6 +239,7 @@ macro(resolve_dependency DEPENDENCY_NAME)
   set(options)
   set(one_value_args
       ARROW_CMAKE_PACKAGE_NAME
+      ARROW_PC_PACKAGE_NAME
       FORCE_ANY_NEWER_VERSION
       HAVE_ALT
       IS_RUNTIME_DEPENDENCY
@@ -297,12 +304,26 @@ macro(resolve_dependency DEPENDENCY_NAME)
     if(NOT ARG_ARROW_CMAKE_PACKAGE_NAME)
       set(ARG_ARROW_CMAKE_PACKAGE_NAME "Arrow")
     endif()
-    if(ARG_ARROW_CMAKE_PACKAGE_NAME STREQUAL "Arrow")
-      provide_find_module(${PACKAGE_NAME} "Arrow")
-      list(APPEND ARROW_SYSTEM_DEPENDENCIES ${PACKAGE_NAME})
-    else()
-      provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    # ArrowFlight -> _Arrow_Flight
+    string(REGEX REPLACE "([A-Z])" "_\\1" ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE
+                         ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    # _Arrow_Flight -> Arrow_Flight
+    string(SUBSTRING ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE} 1 -1
+                     ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE)
+    # Arrow_Flight -> ARROW_FLIGHT
+    string(TOUPPER ${ARG_ARROW_CMAKE_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE)
+    provide_find_module(${PACKAGE_NAME} ${ARG_ARROW_CMAKE_PACKAGE_NAME})
+    list(APPEND ${ARG_ARROW_CMAKE_PACKAGE_NAME_UPPER_SNAKE}_SYSTEM_DEPENDENCIES
+         ${PACKAGE_NAME})
+    if(NOT ARG_ARROW_PC_PACKAGE_NAME)
+      set(ARG_ARROW_PC_PACKAGE_NAME "arrow")
     endif()
+    # arrow-flight -> arrow_flight
+    string(REPLACE "-" "_" ARG_ARROW_PC_PACKAGE_NAME_SNAKE ${ARG_ARROW_PC_PACKAGE_NAME})
+    # arrow_flight -> ARROW_FLIGHT
+    string(TOUPPER ${ARG_ARROW_PC_PACKAGE_NAME_SNAKE}
+                   ARG_ARROW_PC_PACKAGE_NAME_UPPER_SNAKE)
     if(ARROW_BUILD_STATIC)
       find_package(PkgConfig QUIET)
       foreach(ARG_PC_PACKAGE_NAME ${ARG_PC_PACKAGE_NAMES})
@@ -311,13 +332,16 @@ macro(resolve_dependency DEPENDENCY_NAME)
                           NO_CMAKE_PATH
                           NO_CMAKE_ENVIRONMENT_PATH
                           QUIET)
+        set(RESOLVE_DEPENDENCY_PC_PACKAGE
+            "pkg-config package for ${ARG_PC_PACKAGE_NAME} ")
+        string(APPEND RESOLVE_DEPENDENCY_PC_PACKAGE
+               "that is used by ${ARG_ARROW_PC_PACKAGE_NAME} for static link")
         if(${${ARG_PC_PACKAGE_NAME}_PC_FOUND})
-          message(STATUS "Using pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link"
-          )
-          string(APPEND ARROW_PC_REQUIRES_PRIVATE " ${ARG_PC_PACKAGE_NAME}")
+          message(STATUS "Using ${RESOLVE_DEPENDENCY_PC_PACKAGE}")
+          string(APPEND ${ARG_ARROW_PC_PACKAGE_NAME_UPPER_SNAKE}_PC_REQUIRES_PRIVATE
+                 " ${ARG_PC_PACKAGE_NAME}")
         else()
-          message(STATUS "pkg-config package for ${ARG_PC_PACKAGE_NAME} for static link isn't found"
-          )
+          message(STATUS "${RESOLVE_DEPENDENCY_PC_PACKAGE} isn't found")
         endif()
       endforeach()
     endif()
@@ -366,6 +390,10 @@ if(ARROW_GCS)
   set(ARROW_WITH_GOOGLE_CLOUD_CPP ON)
   set(ARROW_WITH_NLOHMANN_JSON ON)
   set(ARROW_WITH_ZLIB ON)
+endif()
+
+if(ARROW_AZURE)
+  set(ARROW_WITH_AZURE_SDK ON)
 endif()
 
 if(ARROW_JSON)
@@ -546,6 +574,14 @@ else()
   set_urls(AWSSDK_SOURCE_URL
            "https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_AZURE_SDK_URL})
+  set(ARROW_AZURE_SDK_URL "$ENV{ARROW_AZURE_SDK_URL}")
+else()
+  set_urls(ARROW_AZURE_SDK_URL
+           "https://github.com/Azure/azure-sdk-for-cpp/archive/${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz"
+  )
 endif()
 
 if(DEFINED ENV{ARROW_BOOST_URL})
@@ -960,6 +996,23 @@ else()
   set(MAKE_BUILD_ARGS "-j${NPROC}")
 endif()
 
+include(FetchContent)
+
+macro(prepare_fetchcontent)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_STATIC_LIBS ON)
+  set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  if(MSVC)
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  else()
+    string(APPEND CMAKE_C_FLAGS_DEBUG " -Wno-error")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Wno-error")
+  endif()
+endmacro()
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -1367,6 +1420,7 @@ endif()
 set(ARROW_OPENSSL_REQUIRED_VERSION "1.0.2")
 set(ARROW_USE_OPENSSL OFF)
 if(PARQUET_REQUIRE_ENCRYPTION
+   OR ARROW_AZURE
    OR ARROW_FLIGHT
    OR ARROW_GANDIVA
    OR ARROW_GCS
@@ -1614,12 +1668,16 @@ endmacro()
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
   resolve_dependency(Thrift
+                     ARROW_CMAKE_PACKAGE_NAME
+                     Parquet
+                     ARROW_PC_PACKAGE_NAME
+                     parquet
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     0.11.0
                      PC_PACKAGE_NAMES
-                     thrift)
+                     thrift
+                     REQUIRED_VERSION
+                     0.11.0)
 
   string(REPLACE "." ";" Thrift_VERSION_LIST ${Thrift_VERSION})
   list(GET Thrift_VERSION_LIST 0 Thrift_VERSION_MAJOR)
@@ -1715,6 +1773,13 @@ if(ARROW_WITH_PROTOBUF)
   else()
     set(ARROW_PROTOBUF_REQUIRED_VERSION "2.6.1")
   endif()
+  if(ARROW_FLIGHT)
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "ArrowFlight")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow-flight")
+  else()
+    set(ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME "Arrow")
+    set(ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME "arrow")
+  endif()
   # We need to use FORCE_ANY_NEWER_VERSION here to accept Protobuf
   # newer version such as 23.4. If we don't use it, 23.4 is processed
   # as an incompatible version with 3.12.0 with protobuf-config.cmake
@@ -1724,14 +1789,18 @@ if(ARROW_WITH_PROTOBUF)
   # we use FORCE_ANY_NEWER_VERSION here, we can bypass the check and
   # use 23.4.
   resolve_dependency(Protobuf
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ${ARROW_PROTOBUF_ARROW_CMAKE_PACKAGE_NAME}
+                     ARROW_PC_PACKAGE_NAME
+                     ${ARROW_PROTOBUF_ARROW_PC_PACKAGE_NAME}
                      FORCE_ANY_NEWER_VERSION
                      TRUE
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_PROTOBUF_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
-                     protobuf)
+                     protobuf
+                     REQUIRED_VERSION
+                     ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
   if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
@@ -2029,150 +2098,61 @@ endif()
 # ----------------------------------------------------------------------
 # Google gtest
 
-macro(build_gtest)
+function(build_gtest)
   message(STATUS "Building gtest from source")
   set(GTEST_VENDORED TRUE)
-  set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
-
-  if(CMAKE_BUILD_TYPE MATCHES DEBUG)
-    set(CMAKE_GTEST_DEBUG_EXTENSION "d")
-  else()
-    set(CMAKE_GTEST_DEBUG_EXTENSION "")
-  endif()
-
+  fetchcontent_declare(googletest
+                       URL ${GTEST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
   if(APPLE)
-    string(APPEND
-           GTEST_CMAKE_CXX_FLAGS
-           " -DGTEST_USE_OWN_TR1_TUPLE=1"
-           " -Wno-unused-value"
-           " -Wno-ignored-attributes")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
-
-  if(WIN32)
-    string(APPEND GTEST_CMAKE_CXX_FLAGS " -DGTEST_CREATE_SHARED_LIBRARY=1")
+  set(BUILD_SHARED_LIBS ON)
+  set(BUILD_STATIC_LIBS OFF)
+  # We need to use "cache" variable to override the default
+  # INSTALL_GTEST option by this value. See also:
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  set(INSTALL_GTEST
+      OFF
+      CACHE "BOOL"
+            "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)"
+            FORCE)
+  string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
+  fetchcontent_makeavailable(googletest)
+  set_target_properties(gmock PROPERTIES OUTPUT_NAME "arrow_gmock")
+  set_target_properties(gmock_main PROPERTIES OUTPUT_NAME "arrow_gmock_main")
+  set_target_properties(gtest PROPERTIES OUTPUT_NAME "arrow_gtest")
+  set_target_properties(gtest_main PROPERTIES OUTPUT_NAME "arrow_gtest_main")
+  install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
+                    "${googletest_SOURCE_DIR}/googletest/include/"
+          DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  install(TARGETS gmock gmock_main gtest gtest_main
+          EXPORT arrow_testing_targets
+          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+          ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+          LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  if(MSVC)
+    install(FILES $<TARGET_PDB_FILE:gmock> $<TARGET_PDB_FILE:gmock_main>
+                  $<TARGET_PDB_FILE:gtest> $<TARGET_PDB_FILE:gtest_main>
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            OPTIONAL)
   endif()
-
-  set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix")
-  set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
-
-  if(WIN32)
-    set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
-  else()
-    set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-  endif()
-
-  set(GTEST_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
-  set(GMOCK_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
-  set(GTEST_MAIN_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
-  )
-  set(GTEST_INSTALL_NAME_DIR "$<INSTALL_PREFIX$<ANGLE-R>/lib")
-  # Fix syntax highlighting mess introduced by unclosed bracket above
-  set(dummy ">")
-
-  set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DBUILD_SHARED_LIBS=ON
-      -DBUILD_STATIC_LIBS=OFF
-      -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
-      -DCMAKE_INSTALL_NAME_DIR=${GTEST_INSTALL_NAME_DIR}
-      -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-      -DCMAKE_MACOSX_RPATH=OFF)
-  set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  if(WIN32 AND NOT ARROW_USE_STATIC_CRT)
-    list(APPEND GTEST_CMAKE_ARGS -Dgtest_force_shared_crt=ON)
-  endif()
-
-  externalproject_add(googletest_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${GTEST_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
-                                       ${GMOCK_SHARED_LIB}
-                      CMAKE_ARGS ${GTEST_CMAKE_ARGS})
-  if(WIN32)
-    # Copy the built shared libraries to the same directory as our
-    # test programs because Windows doesn't provided rpath (run-time
-    # search path) feature. We need to put these shared libraries to
-    # the same directory as our test programs or add
-    # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
-    # choose the former because the latter may be forgotten.
-    set(_GTEST_RUNTIME_DIR "${GTEST_PREFIX}/bin")
-    set(_GTEST_RUNTIME_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(_GTEST_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_RUNTIME_SUFFIX}"
-    )
-    set(_GMOCK_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_RUNTIME_SUFFIX}"
-    )
-    set(_GTEST_MAIN_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
-    )
-    get_property(_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-    if(_GENERATOR_IS_MULTI_CONFIG)
-      set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
-    else()
-      set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    endif()
-    externalproject_add_step(googletest_ep copy
-                             COMMAND ${CMAKE_COMMAND} -E make_directory
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GMOCK_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_MAIN_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             DEPENDEES install)
-  endif()
-
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gtest SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gtest
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "GTEST_LINKED_AS_SHARED_LIBRARY=1"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gtest_main
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gmock SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gmock
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-  add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(arrow::GTest::gtest googletest_ep)
-  add_dependencies(arrow::GTest::gtest_main googletest_ep)
-  add_dependencies(arrow::GTest::gmock googletest_ep)
-endmacro()
+  add_library(arrow::GTest::gmock ALIAS gmock)
+  add_library(arrow::GTest::gmock_main ALIAS gmock_main)
+  add_library(arrow::GTest::gtest ALIAS gtest)
+  add_library(arrow::GTest::gtest_main ALIAS gtest_main)
+endfunction()
 
 if(ARROW_TESTING)
   set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
   resolve_dependency(GTest
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowTesting
                      HAVE_ALT
                      TRUE
                      REQUIRED_VERSION
-                     1.10.0
-                     ARROW_CMAKE_PACKAGE_NAME
-                     "ArrowTesting")
+                     1.10.0)
 
   if(GTest_SOURCE STREQUAL "SYSTEM")
     find_package(PkgConfig QUIET)
@@ -2195,9 +2175,8 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
-    # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
-    # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
-    # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+    string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
+    string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
@@ -2351,10 +2330,12 @@ endif()
 
 if(ARROW_USE_XSIMD)
   resolve_dependency(xsimd
+                     FORCE_ANY_NEWER_VERSION
+                     TRUE
                      REQUIRED_VERSION
                      "8.1.0"
-                     FORCE_ANY_NEWER_VERSION
-                     TRUE)
+                     PC_PACKAGE_NAMES
+                     xsimd)
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     add_library(arrow::xsimd INTERFACE IMPORTED)
@@ -2678,10 +2659,10 @@ endmacro()
 
 if(ARROW_WITH_UTF8PROC)
   resolve_dependency(utf8proc
-                     REQUIRED_VERSION
-                     "2.2.0"
                      PC_PACKAGE_NAMES
-                     libutf8proc)
+                     libutf8proc
+                     REQUIRED_VERSION
+                     "2.2.0")
   add_definitions(-DARROW_WITH_UTF8PROC)
 endif()
 
@@ -3694,6 +3675,10 @@ endmacro()
 
 macro(build_grpc)
   resolve_dependency(c-ares
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
                      HAVE_ALT
                      TRUE
                      PC_PACKAGE_NAMES
@@ -3998,12 +3983,16 @@ if(ARROW_WITH_GRPC)
     set(gRPC_SOURCE "${Protobuf_SOURCE}")
   endif()
   resolve_dependency(gRPC
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
                      HAVE_ALT
                      TRUE
-                     REQUIRED_VERSION
-                     ${ARROW_GRPC_REQUIRED_VERSION}
                      PC_PACKAGE_NAMES
-                     grpc++)
+                     grpc++
+                     REQUIRED_VERSION
+                     ${ARROW_GRPC_REQUIRED_VERSION})
 
   if(GRPC_VENDORED)
     # Remove "v" from "vX.Y.Z"
@@ -5050,6 +5039,48 @@ if(ARROW_S3)
 endif()
 
 # ----------------------------------------------------------------------
+# Azure SDK for C++
+
+function(build_azure_sdk)
+  message(STATUS "Building Azure SDK for C++ from source")
+  fetchcontent_declare(azure_sdk
+                       URL ${ARROW_AZURE_SDK_URL}
+                       URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
+  set(BUILD_PERFORMANCE_TESTS FALSE)
+  set(BUILD_SAMPLES FALSE)
+  set(BUILD_TESTING FALSE)
+  set(BUILD_WINDOWS_UWP TRUE)
+  set(CMAKE_UNITY_BUILD FALSE)
+  set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
+  set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
+  set(WARNINGS_AS_ERRORS FALSE)
+  fetchcontent_makeavailable(azure_sdk)
+  set(AZURE_SDK_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       Azure::azure-core
+       Azure::azure-identity
+       Azure::azure-storage-blobs
+       Azure::azure-storage-common
+       Azure::azure-storage-files-datalake)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS}
+      PARENT_SCOPE)
+endfunction()
+
+if(ARROW_WITH_AZURE_SDK)
+  resolve_dependency(Azure REQUIRED_VERSION 1.10.2)
+  set(AZURE_SDK_LINK_LIBRARIES
+      Azure::azure-storage-files-datalake
+      Azure::azure-storage-common
+      Azure::azure-storage-blobs
+      Azure::azure-identity
+      Azure::azure-core)
+endif()
+# ----------------------------------------------------------------------
 # ucx - communication framework for modern, high-bandwidth and low-latency networks
 
 macro(build_ucx)
@@ -5119,7 +5150,13 @@ macro(build_ucx)
 endmacro()
 
 if(ARROW_WITH_UCX)
-  resolve_dependency(ucx PC_PACKAGE_NAMES ucx)
+  resolve_dependency(ucx
+                     ARROW_CMAKE_PACKAGE_NAME
+                     ArrowFlight
+                     ARROW_PC_PACKAGE_NAME
+                     arrow-flight
+                     PC_PACKAGE_NAMES
+                     ucx)
   add_library(ucx::ucx INTERFACE IMPORTED)
   target_include_directories(ucx::ucx INTERFACE "${UCX_INCLUDE_DIRS}")
   target_link_libraries(ucx::ucx INTERFACE ucx::ucp ucx::uct ucx::ucs)

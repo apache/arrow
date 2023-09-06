@@ -38,11 +38,11 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         end
 
         function numColumns = get.NumColumns(obj)
-            numColumns = obj.Proxy.numColumns();
+            numColumns = obj.Proxy.getNumColumns();
         end
 
         function columnNames = get.ColumnNames(obj)
-            columnNames = obj.Proxy.columnNames();
+            columnNames = obj.Proxy.getColumnNames();
         end
 
         function schema = get.Schema(obj)
@@ -54,13 +54,15 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function arrowArray = column(obj, idx)
             import arrow.internal.validate.*
 
-            idx = index.numeric(idx, "int32");
-            % TODO: Consider vectorizing column() in the future to support
-            % extracting multiple columns at once.
-            validateattributes(idx, "int32", "scalar");
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
 
-            args = struct(Index=idx);
-            [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);                
+            if isnumeric(idx)
+                args = struct(Index=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+            else
+                args = struct(Name=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
+            end
             
             traits = arrow.type.traits.traits(arrow.type.ID(typeID));
             proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
@@ -114,7 +116,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.tabular.internal.getArrayProxyIDs
+            import arrow.array.internal.getArrayProxyIDs
             
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);

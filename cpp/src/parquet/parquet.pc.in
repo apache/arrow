@@ -27,6 +27,7 @@ Name: Apache Parquet
 Description: Apache Parquet is a columnar storage format.
 Version: @ARROW_VERSION@
 Requires: arrow
+Requires.private:@PARQUET_PC_REQUIRES_PRIVATE@
 Libs: -L${libdir} -lparquet
 Cflags: -I${includedir}
 Cflags.private: -DPARQUET_STATIC

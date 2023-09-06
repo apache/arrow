@@ -2522,32 +2522,37 @@ class DeltaBitPackDecoder : public DecoderImpl, virtual public TypedDecoder<DTyp
     }
 
     int i = 0;
-    while (i < max_values) {
-      if (ARROW_PREDICT_FALSE(values_remaining_current_mini_block_ == 0)) {
-        if (ARROW_PREDICT_FALSE(!first_block_initialized_)) {
-          buffer[i++] = last_value_;
-          DCHECK_EQ(i, 1);  // we're at the beginning of the page
-          if (ARROW_PREDICT_FALSE(i == max_values)) {
-            // When block is uninitialized and i reaches max_values we have two
-            // different possibilities:
-            // 1. total_value_count_ == 1, which means that the page may have only
-            // one value (encoded in the header), and we should not initialize
-            // any block.
-            // 2. total_value_count_ != 1, which means we should initialize the
-            // incoming block for subsequent reads.
-            if (total_value_count_ != 1) {
-              InitBlock();
-            }
-            break;
-          }
+
+    if (ARROW_PREDICT_FALSE(!first_block_initialized_)) {
+      // This is the first time we decode this data page, first output the
+      // last value and initialize the first block.
+      buffer[i++] = last_value_;
+      if (ARROW_PREDICT_FALSE(i == max_values)) {
+        // When i reaches max_values here we have two different possibilities:
+        // 1. total_value_count_ == 1, which means that the page may have only
+        //    one value (encoded in the header), and we should not initialize
+        //    any block, nor should we skip any padding bits below.
+        // 2. total_value_count_ != 1, which means we should initialize the
+        //    incoming block for subsequent reads.
+        if (total_value_count_ != 1) {
           InitBlock();
+        }
+        total_values_remaining_ -= max_values;
+        this->num_values_ -= max_values;
+        return max_values;
+      }
+      InitBlock();
+    }
+
+    DCHECK(first_block_initialized_);
+    while (i < max_values) {
+      // Ensure we have an initialized mini-block
+      if (ARROW_PREDICT_FALSE(values_remaining_current_mini_block_ == 0)) {
+        ++mini_block_idx_;
+        if (mini_block_idx_ < mini_blocks_per_block_) {
+          InitMiniBlock(delta_bit_widths_->data()[mini_block_idx_]);
         } else {
-          ++mini_block_idx_;
-          if (mini_block_idx_ < mini_blocks_per_block_) {
-            InitMiniBlock(delta_bit_widths_->data()[mini_block_idx_]);
-          } else {
-            InitBlock();
-          }
+          InitBlock();
         }
       }
 

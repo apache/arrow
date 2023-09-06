@@ -19,6 +19,7 @@ classdef TypeTraits
         ArrayConstructor
         ArrayClassName
         ArrayProxyClassName
+        ArrayStaticConstructor
         TypeConstructor
         TypeClassName
         TypeProxyClassName

@@ -15,14 +15,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if IOOptions exists in SDKOptions.
-// This was introduced when the AWS SDK switched to using the
-// CRT for I/O.
+#include "arrow/matlab/type/proxy/date_type.h"
 
-#include <aws/core/Aws.h>
+namespace arrow::matlab::type::proxy {
 
-int main() {
-  Aws::SDKOptions aws_options;
-  auto io_options = aws_options.ioOptions;
-  return 0;
+    DateType::DateType(std::shared_ptr<arrow::DateType> date_type) : FixedWidthType(std::move(date_type)) {
+        REGISTER_METHOD(DateType, getDateUnit);
+    }
+
+    void DateType::getDateUnit(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        auto date_type = std::static_pointer_cast<arrow::DateType>(data_type);
+        const auto date_unit = date_type->unit();
+        // Cast to uint8_t since there are only two supported DateUnit enumeration values:
+        // Day and Millisecond
+        auto date_unit_mda = factory.createScalar(static_cast<uint8_t>(date_unit));
+        context.outputs[0] = date_unit_mda;
+    }
 }
