@@ -32,8 +32,8 @@
 
 #include "arrow/ipc/type_fwd.h"
 #include "arrow/result.h"
-#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace rj = arrow::rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
@@ -75,35 +75,35 @@ using RjObject = rj::Value::ConstObject;
     return Status::Invalid("field was not an object line ", __LINE__); \
   }
 
-namespace arrow::testing::json {
+namespace arrow::internal::integration::json {
 
 /// \brief Append integration test Schema format to rapidjson writer
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
                    RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
                        RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
                                            ipc::DictionaryMemo* dictionary_memo);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
     const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
     ipc::DictionaryMemo* dict_memo, MemoryPool* pool);
 
 // NOTE: Doesn't work with dictionary arrays, use ReadRecordBatch instead.
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const rj::Value& json_obj,
                                          const std::shared_ptr<Field>& field);
 
-}  // namespace arrow::testing::json
+}  // namespace arrow::internal::integration::json

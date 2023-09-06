@@ -24,16 +24,16 @@
 
 #include "arrow/io/type_fwd.h"
 #include "arrow/result.h"
-#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
-namespace arrow::testing {
+namespace arrow::internal::integration {
 
 /// \class IntegrationJsonWriter
 /// \brief Write the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class ARROW_TESTING_EXPORT IntegrationJsonWriter {
+class ARROW_EXPORT IntegrationJsonWriter {
  public:
   ~IntegrationJsonWriter();
 
@@ -64,7 +64,7 @@ class ARROW_TESTING_EXPORT IntegrationJsonWriter {
 /// \brief Read the JSON representation of an Arrow record batch file or stream
 ///
 /// This is used for integration testing
-class ARROW_TESTING_EXPORT IntegrationJsonReader {
+class ARROW_EXPORT IntegrationJsonReader {
  public:
   ~IntegrationJsonReader();
 
@@ -111,4 +111,4 @@ class ARROW_TESTING_EXPORT IntegrationJsonReader {
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace arrow::testing
+}  // namespace arrow::internal::integration
