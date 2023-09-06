@@ -27,10 +27,10 @@ classdef tDisplay < matlab.unittest.TestCase
             %
             %    ID
 
-            type = arrow.type.Type.empty(0, 1); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Type"" style=""font-weight:bold"">Type</a>";
-            sizeString = "0" + char(215) + "1";
-            header = "  " + sizeString + " " + classnameLink + " array with properties:" + newline;
+            type = arrow.type.Type.empty(0, 1);
+            typeLink = makeLinkString(FullClassName="arrow.type.Type", ClassName="Type", BoldFont=true);
+            dimensionString = makeDimensionString(size(type));
+            header = "  " + dimensionString + " " + typeLink + " array with properties:" + newline;
             body = strjust(pad("ID"));
             body = "    " + body;
             footer = string(newline);
@@ -57,9 +57,9 @@ classdef tDisplay < matlab.unittest.TestCase
             timestampLink     = makeLinkString(FullClassName="arrow.type.TimestampType",   ClassName="TimestampType",   BoldFont=false);
             float32Link       = makeLinkString(FullClassName="arrow.type.Float32Type",     ClassName="Float32Type",     BoldFont=false);
 
-            sizeString = makeDimensionString(size(typeArray));
+            dimensionString = makeDimensionString(size(typeArray));
             
-            header = "  " + sizeString + " " + heterogeneousLink + " " + fixedWidthLink + ...
+            header = "  " + dimensionString + " " + heterogeneousLink + " " + fixedWidthLink + ...
                 " (" +  float32Link + ", " + timestampLink + ") array with properties:" + newline;
             body = "    " + "ID";
             footer = string(newline);
@@ -84,8 +84,8 @@ classdef tDisplay < matlab.unittest.TestCase
             typeArray = [timestampType1 timestampType2];
 
             timestampLink = makeLinkString(FullClassName="arrow.type.TimestampType", ClassName="TimestampType", BoldFont=true);
-            sizeString = makeDimensionString(size(typeArray));
-            header = "  " + sizeString + " " + timestampLink + " array with properties:" + newline;
+            dimensionString = makeDimensionString(size(typeArray));
+            header = "  " + dimensionString + " " + timestampLink + " array with properties:" + newline;
             body = strjust(["ID"; "TimeUnit"; "TimeZone"], "left");
             body = "    " + body;
             footer = string(newline);
