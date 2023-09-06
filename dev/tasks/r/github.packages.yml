@@ -57,15 +57,15 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   macos-cpp:
-    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.name }}'}}
+    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}'}}
     runs-on: {{ '${{ matrix.platform.runs_on }}'}}
     needs: source
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: ["self-hosted", "macos-10.13"], name: "macOS High Sierra", arch: "amd64"}
-          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], name: "macOS Big Sur", arch: "arm64" }
+          - { runs_on: "macos-11",  arch: "amd64" }
+          - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
         openssl: ['3.0', '1.1']
 
     steps:
@@ -76,6 +76,7 @@ jobs:
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
+          MACOSX_DEPLOYMENT_TARGET: "10.13"
         run: |
           brew bundle  --file=arrow/cpp/Brewfile
           brew install openssl@{{ '${{ matrix.openssl }}' }}
