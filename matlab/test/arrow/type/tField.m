@@ -127,5 +127,28 @@ classdef tField < matlab.unittest.TestCase
             testCase.verifyError(@() setfield(field, "Type", arrow.boolean), "MATLAB:class:noSetMethod")
         end
 
+        function TestIsEqualScalarTrue(testCase)
+            f1 = arrow.field("A", arrow.timestamp(TimeZone="America/New_York", TimeUnit="Second"));
+            f2 = arrow.field("A", arrow.timestamp(TimeZone="America/New_York", TimeUnit="Second"));
+            testCase.verifyTrue(isequal(f1, f2));
+        end
+
+        function TestIsEqualScalarFalse(testCase)
+            f1 = arrow.field("A", arrow.timestamp(TimeZone="America/New_York", TimeUnit="Second"));
+            f2 = arrow.field("B", arrow.timestamp(TimeZone="America/New_York", TimeUnit="Second"));
+            f3 = arrow.field("A", arrow.timestamp(TimeZone="America/New_York", TimeUnit="Millisecond"));
+            f3 = arrow.field("A", arrow.tim32());
+
+            % Field names are not equal
+            testCase.verifyFalse(isequal(f1, f2));
+
+            % The Type properties are of the same class type, but their
+            % instances are not equal.
+            testCase.verifyFalse(isequal(f1, f3));
+
+            % The Type 
+
+        end
+
     end
 end
