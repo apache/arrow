@@ -93,7 +93,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
         end
     end
 
-    methods
+    methods(Sealed)
         function tf = isequal(obj, varargin)
 
             narginchk(2, inf);
