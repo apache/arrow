@@ -65,17 +65,18 @@ classdef Field < matlab.mixin.CustomDisplay
                     return;
                 end
 
-                % field(:) flattens N-dimensional arrays into column vectors.
                 namesToCompare(:, ii) = [field(:).Name];
                 typesToCompare{1, ii} = [field(:).Type];
             end
 
-            names = [obj(:).Name];
+            names = [obj(:).Name]';
             if any(names ~= namesToCompare, "all")
-                % Return early if the field names don't match
+                % Return false early if the field names are not equal.
                 return;
             end
 
+            % Field names were equal. Check if their corresponding types
+            % are equal and return the result.
             types = [obj(:).Type];
             tf = isequal(types, typesToCompare{:});
         end
