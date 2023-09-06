@@ -1895,7 +1895,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                               :docs,
                               "#{rc_dir}/docs/#{full_version}",
                               "#{release_dir}/docs/#{full_version}",
-                              "test-ubuntu-default-docs/**/*")
+                              "test-ubuntu-22.04-docs/**/*")
   end
 
   def define_nuget_tasks
