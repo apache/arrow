@@ -95,9 +95,9 @@ classdef tDisplay < matlab.unittest.TestCase
 
     methods
         function verifyDisplay(testCase, actualDisplay, expectedDisplay)
-            % When the MATLAB GUI is running, '×' (char(215)) is used the 
-            % delimiter between dimension values. However, when the GUI is
-            % not running, 'x' (char(120)) is used as the delimiter.
+            % When the MATLAB GUI is running, '×' (char(215)) is used as
+            % the delimiter between dimension values. However, when the 
+            % GUI is not running, 'x' (char(120)) is used as the delimiter.
             % To account for this discrepancy, check if actualDisplay 
             % contains char(215). If not, replace all instances of
             % char(215) in expectedDisplay with char(120).
