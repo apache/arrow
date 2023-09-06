@@ -36,7 +36,7 @@ classdef TimestampArray < arrow.array.Array
             ticksPerSecond = obj.Type.TimeUnit.ticksPerSecond();
 
             % UNIX Epoch (January 1st, 1970).
-            unixEpoch = datetime(0, ConvertFrom="posixtime");
+            unixEpoch = datetime(0, ConvertFrom="posixtime", TimeZone="UTC");
             dates = datetime(epochTime, ConvertFrom="epochtime", Epoch=unixEpoch, ...
                 TimeZone=timeZone, TicksPerSecond=ticksPerSecond);
 

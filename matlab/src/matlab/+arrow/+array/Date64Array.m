@@ -37,7 +37,7 @@ classdef Date64Array < arrow.array.Array
             ticksPerSecond = obj.Type.DateUnit.ticksPerSecond();
 
             % UNIX Epoch (January 1st, 1970).
-            unixEpoch = datetime(0, ConvertFrom="posixtime");
+            unixEpoch = datetime(0, ConvertFrom="posixtime", TimeZone="UTC");
             dates = datetime(epochTime, ConvertFrom="epochtime", Epoch=unixEpoch, ....
                 TicksPerSecond=ticksPerSecond);
 
