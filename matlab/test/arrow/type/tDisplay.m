@@ -73,13 +73,15 @@ classdef tDisplay < matlab.unittest.TestCase
             % 
             % Example:
             %
-            %  1×2 heterogeneous FixedWidthType (Float32Type, TimestampType) array with properties:
+            %  1×2 TimestampType array with properties:
             %
             %    ID
+            %    TimeUnit
+            %    TimeZone 
 
             timestampType1 = arrow.timestamp(TimeZone="Pacific/Fiji");
             timestampType2 = arrow.timestamp(TimeUnit="Second");
-            typeArray = [timestampType1 timestampType2]';
+            typeArray = [timestampType1 timestampType2];
 
             timestampLink = makeDisplayLink(FullClassName="arrow.type.TimestampType", ClassName="TimestampType", BoldFont=true);
             sizeString = makeSizeString(size(typeArray));
