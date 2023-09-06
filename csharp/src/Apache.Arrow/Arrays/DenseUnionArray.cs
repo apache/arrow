@@ -46,7 +46,7 @@ namespace Apache.Arrow
             : base(data)
         {
             ValidateMode(UnionMode.Dense, Type.Mode);
-            data.EnsureBufferCount(2); // TODO: 
+            data.EnsureBufferCount(2);
         }
     }
 }

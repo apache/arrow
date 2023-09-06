@@ -131,7 +131,7 @@ namespace Apache.Arrow.C
             {
                 UnionMode.Sparse => "+us:",
                 UnionMode.Dense => "+ud:",
-                _ => throw new InvalidDataException($"Unsupported time unit for export: {unionType.Mode}"),
+                _ => throw new InvalidDataException($"Unsupported union mode for export: {unionType.Mode}"),
             });
             for (int i = 0; i < unionType.TypeIds.Length; i++)
             {
