@@ -79,8 +79,10 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "10.13"
         run: |
           brew bundle  --file=arrow/cpp/Brewfile
+          brew sccache
           brew install openssl@{{ '${{ matrix.openssl }}' }}
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl@{{'${{ matrix.openssl }}' }})
+          cd arrow
           r/inst/build_arrow_static.sh
       - name: Bundle libarrow
         shell: bash
@@ -276,6 +278,36 @@ jobs:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
 
+  test-macos-binary:
+    runs-on: macos-11
+    needs: macos-cpp
+    steps:
+      - uses: r-lib/actions/setup-r@v2
+      {{ macros.github_setup_local_r_repo(false, false, true)|indent }}
+      - run: |
+          brew install openssl@3
+      - name: install with precompiled
+        shell: Rscript {0}
+        env:
+          ARROW_R_DEV: "true"
+          ARROW_DOWNLOADED_BINARY: "repo/libarrow/bin/macos-amd64-openssl-3.0"  
+        run: |
+          install.packages('arrow')
+          remove.packages('arrow')
+          install.packages(
+            "arrow",
+            type = "source",
+            # The sub is necessary to prevent an error on windows.
+            repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
+            INSTALL_opts = INSTALL_opts
+          )
+
+          # Test
+          library(arrow)
+          arrow::arrow_info()
+          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
+          
+          
   test-linux-binary:
     needs: [source, linux-cpp]
     name: Test binary {{ '${{ matrix.config.image }}' }}
