@@ -53,9 +53,7 @@ classdef Field < matlab.mixin.CustomDisplay
         function tf = isequal(obj, varargin)
             narginchk(2, inf);
             tf = false;
-            
-            names = [obj(:).Name];
-            types = 
+             
             namesToCompare = strings(numel(obj), numel(varargin));
             typesToCompare = cell([1 numel(varargin)]);
 
@@ -69,7 +67,7 @@ classdef Field < matlab.mixin.CustomDisplay
 
                 % field(:) flattens N-dimensional arrays into column vectors.
                 namesToCompare(:, ii) = [field(:).Name];
-                typesToCompare(1, ii) = {field(:).Type};
+                typesToCompare{1, ii} = [field(:).Type];
             end
 
             names = [obj(:).Name];
