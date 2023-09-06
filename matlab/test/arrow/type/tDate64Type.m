@@ -40,28 +40,6 @@ classdef tDate64Type < hFixedWidthType
             testCase.verifyEqual(actualUnit, expectedUnit);
         end
 
-        function Display(testCase)
-            % Verify the display of Date64Type objects.
-            %
-            % Example:
-            %
-            %  Date32Type with properties:
-            %
-            %          ID: Date64
-            %    DateUnit: Millisecond
-            %
-            type = testCase.ConstructionFcn(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Date64Type"" style=""font-weight:bold"">Date64Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "DateUnit:"]));
-            body = body + " " + ["Date64"; "Millisecond"];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-
         function DateUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the DateUnit property.

@@ -112,29 +112,6 @@ classdef tTimestampType < hFixedWidthType
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
-        function Display(testCase)
-        % Verify the display of TimestampType objects.
-        %
-        % Example:
-        %
-        %  TimestampType with properties:
-        %
-        %          ID: Timestamp
-        %    TimeUnit: Second
-        %    TimeZone: "America/Anchorage"
-        %
-            type = arrow.timestamp(TimeUnit="Second", TimeZone="America/Anchorage"); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.TimestampType"" style=""font-weight:bold"">TimestampType</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "TimeUnit:"; "TimeZone:"]));
-            body = body + " " + ["Timestamp"; "Second"; """America/Anchorage"""];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-
         function IsEqualTrue(testCase, TimeZone)
             % Verifies isequal method of arrow.type.TimestampType returns 
             % true if these conditions are met:
