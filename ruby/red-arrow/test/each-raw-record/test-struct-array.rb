@@ -652,7 +652,7 @@ module EachRawRecordStructArrayTests
   end
 end
 
-class RawRecordsRecordBatchStructArrayTest < Test::Unit::TestCase
+class EachRawRecordRecordBatchStructArrayTest < Test::Unit::TestCase
   include EachRawRecordStructArrayTests
 
   def build(type, records)
@@ -660,7 +660,7 @@ class RawRecordsRecordBatchStructArrayTest < Test::Unit::TestCase
   end
 end
 
-class RawRecordsTableStructArrayTest < Test::Unit::TestCase
+class EachRawRecordTableStructArrayTest < Test::Unit::TestCase
   include EachRawRecordStructArrayTests
 
   def build(type, records)
