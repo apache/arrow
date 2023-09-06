@@ -1,4 +1,4 @@
-%TDISPLAY Unit tests verifying the display of all classes within the
+%TTYPEDISPLAY Unit tests verifying the display of all classes within the
 %arrow.type.Type class hierarchy.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
@@ -16,7 +16,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef tDisplay < matlab.unittest.TestCase
+classdef tTypeDisplay < matlab.unittest.TestCase
 
     properties(TestParameter)
         TypeDisplaysOnlyID = {arrow.boolean(), ...
