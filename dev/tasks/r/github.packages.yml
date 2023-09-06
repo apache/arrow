@@ -77,9 +77,9 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
-          # TODO install deps
+          brew bundle  --file=arrow/cpp/Brewfile
           brew install openssl@{{ '${{ matrix.openssl }}' }}
-          export OPENSSL_ROOT_DIR=$(brew --prefix {{'${{ matrix.openssl }}' }})
+          export OPENSSL_ROOT_DIR=$(brew --prefix openssl@{{'${{ matrix.openssl }}' }})
           r/inst/build_arrow_static.sh
       - name: Bundle libarrow
         shell: bash
