@@ -594,3 +594,28 @@ func TestLargeStringStringRoundTrip(t *testing.T) {
 
 	assert.True(t, array.Equal(arr, arr1))
 }
+
+func TestStringValueLen(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
+	defer mem.AssertSize(t, 0)
+
+	values := []string{"a", "bc", "", "", "hijk", "lm", "", "opq", "", "tu"}
+	valids := []bool{true, true, false, false, true, true, true, true, false, true}
+
+	b := array.NewStringBuilder(mem)
+	defer b.Release()
+
+	b.AppendStringValues(values, valids)
+
+	arr := b.NewArray().(*array.String)
+	defer arr.Release()
+
+	slice := array.NewSlice(arr, 2, 9).(*array.String)
+	defer slice.Release()
+
+	vs := values[2:9]
+
+	for i, v := range vs {
+		assert.Equal(t, len(v), slice.ValueLen(i))
+	}
+}
