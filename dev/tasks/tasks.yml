@@ -1508,6 +1508,7 @@ tasks:
       image: debian-go
   {% endfor %}
 
+  # be sure to update binary-task.rb when upgrading ubuntu
   test-ubuntu-22.04-docs:
     ci: github
     template: docs/github.linux.yml
