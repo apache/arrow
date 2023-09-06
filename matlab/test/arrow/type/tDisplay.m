@@ -1,4 +1,5 @@
-%TDISPLAY Unit tests verifying the display of arrow.type.Type arrays.
+%TDISPLAY Unit tests verifying the display of all classes within the
+%arrow.type.Type class hierarchy.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -91,6 +92,26 @@ classdef tDisplay < matlab.unittest.TestCase
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(typeArray)');
+            testCase.verifyDisplay(actualDisplay, expectedDisplay);
+        end
+
+
+        function BooleanType(testCase)
+            % Verify the display of BooleanType objects.
+            %
+            % Example:
+            %
+            %  BooleanType with properties:
+            %
+            %          ID: Boolean
+
+            type = arrow.boolean(); %#ok<NASGU>
+            booleanLink = makeLinkString(FullClassName="arrow.type.BooleanType", ClassName="BooleanType", BoldFont=true);
+            header = "  " + booleanLink + " with properties:" + newline;
+            body = "    ID: Boolean";
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
             testCase.verifyDisplay(actualDisplay, expectedDisplay);
         end
     end

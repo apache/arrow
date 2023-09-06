@@ -57,26 +57,5 @@ classdef tBooleanType < hFixedWidthType
             typeArray2 = [boolType boolType]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
-
-        function Display(testCase)
-            % Verify the display of BooleanType objects.
-            %
-            % Example:
-            %
-            %  BooleanType with properties:
-            %
-            %          ID: Boolean
-
-            type = arrow.boolean(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.BooleanType"" style=""font-weight:bold"">BooleanType</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad("ID:"));
-            body = body + " " + "Boolean";
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
     end
 end
