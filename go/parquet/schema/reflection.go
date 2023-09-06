@@ -159,6 +159,8 @@ func (t *taggedInfo) UpdateLogicalTypes() {
 			return BSONLogicalType{}
 		case "uuid":
 			return UUIDLogicalType{}
+		case "float16":
+			return Float16LogicalType{}
 		default:
 			panic(fmt.Errorf("invalid logical type specified: %s", t))
 		}
