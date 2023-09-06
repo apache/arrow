@@ -1,4 +1,4 @@
-% Enumeration class representing Date Units.
+%TDATE64TRAITS Unit tests for arrow.type.traits.Date64Traits
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,26 +14,20 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef DateUnit < uint8
 
-    enumeration
-        Day          (0)
-        Millisecond  (1)
-    end
+classdef tDate64Traits < hTypeTraits
 
-    methods (Hidden)
-
-        function ticks = ticksPerSecond(obj)
-            import arrow.type.DateUnit
-            switch obj
-                case DateUnit.Millisecond
-                    ticks = 1e3;
-                otherwise
-                    error("arrow:dateunit:UnsupportedTicksPerSecond", ...
-                        "The ticksPerSecond method can only be called on a DateUnit of type Millisecond.");
-            end
-        end
-
+    properties
+        TraitsConstructor = @arrow.type.traits.Date64Traits
+        ArrayConstructor = @arrow.array.Date64Array
+        ArrayClassName = "arrow.array.Date64Array"
+        ArrayProxyClassName = "arrow.array.proxy.Date64Array"
+        ArrayStaticConstructor = @arrow.array.Date64Array.fromMATLAB
+        TypeConstructor = @arrow.type.Date64Type
+        TypeClassName = "arrow.type.Date64Type"
+        TypeProxyClassName = "arrow.type.proxy.Date64Type"
+        MatlabConstructor = @datetime
+        MatlabClassName = "datetime"
     end
 
 end
