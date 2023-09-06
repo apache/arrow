@@ -324,6 +324,11 @@ if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_SRCS util/compression_zstd.cc)
 endif()
 
+set(ARROW_TESTING_SHARED_LINK_LIBS arrow::flatbuffers rapidjson::rapidjson arrow_shared
+                                   ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers rapidjson::rapidjson arrow_static
+                                   ${ARROW_GTEST_GTEST})
+
 set(ARROW_TESTING_SRCS
     io/test_common.cc
     ipc/test_common.cc
@@ -503,6 +508,8 @@ if(ARROW_FILESYSTEM)
                                            SKIP_UNITY_BUILD_INCLUSION ON)
   endif()
 
+  list(APPEND ARROW_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS ${ARROW_GTEST_GMOCK})
   list(APPEND ARROW_TESTING_SRCS filesystem/test_util.cc)
 endif()
 
@@ -710,6 +717,9 @@ if(ARROW_TESTING)
   if(GTest_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
     list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_GTEST_GTEST})
+  else()
+    list(APPEND ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
+    list(APPEND ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS ArrowTesting::gtest)
   endif()
   add_arrow_lib(arrow_testing
                 CMAKE_PACKAGE_NAME
@@ -725,17 +735,11 @@ if(ARROW_TESTING)
                 DEPENDENCIES
                 arrow_test_dependencies
                 SHARED_LINK_LIBS
-                arrow::flatbuffers
-                rapidjson::rapidjson
-                arrow_shared
-                ${ARROW_GTEST_GTEST}
+                ${ARROW_TESTING_SHARED_LINK_LIBS}
                 SHARED_INSTALL_INTERFACE_LIBS
                 ${ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS}
                 STATIC_LINK_LIBS
-                arrow::flatbuffers
-                rapidjson::rapidjson
-                arrow_static
-                ${ARROW_GTEST_GTEST}
+                ${ARROW_TESTING_STATIC_LINK_LIBS}
                 STATIC_INSTALL_INTERFACE_LIBS
                 ${ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS})
 

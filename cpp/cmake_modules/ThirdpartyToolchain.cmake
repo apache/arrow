@@ -998,6 +998,21 @@ endif()
 
 include(FetchContent)
 
+macro(prepare_fetchcontent)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_STATIC_LIBS ON)
+  set(CMAKE_COMPILE_WARNING_AS_ERROR FALSE)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
+  set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
+  if(MSVC)
+    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+  else()
+    string(APPEND CMAKE_C_FLAGS_DEBUG " -Wno-error")
+    string(APPEND CMAKE_CXX_FLAGS_DEBUG " -Wno-error")
+  endif()
+endmacro()
+
 # ----------------------------------------------------------------------
 # Find pthreads
 
@@ -2083,140 +2098,51 @@ endif()
 # ----------------------------------------------------------------------
 # Google gtest
 
-macro(build_gtest)
+function(build_gtest)
   message(STATUS "Building gtest from source")
   set(GTEST_VENDORED TRUE)
-  set(GTEST_CMAKE_CXX_FLAGS ${EP_CXX_FLAGS})
-
-  if(CMAKE_BUILD_TYPE MATCHES DEBUG)
-    set(CMAKE_GTEST_DEBUG_EXTENSION "d")
-  else()
-    set(CMAKE_GTEST_DEBUG_EXTENSION "")
-  endif()
-
+  fetchcontent_declare(googletest
+                       URL ${GTEST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
   if(APPLE)
-    string(APPEND
-           GTEST_CMAKE_CXX_FLAGS
-           " -DGTEST_USE_OWN_TR1_TUPLE=1"
-           " -Wno-unused-value"
-           " -Wno-ignored-attributes")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unused-value" " -Wno-ignored-attributes")
   endif()
-
-  if(WIN32)
-    string(APPEND GTEST_CMAKE_CXX_FLAGS " -DGTEST_CREATE_SHARED_LIBRARY=1")
+  set(BUILD_SHARED_LIBS ON)
+  set(BUILD_STATIC_LIBS OFF)
+  # We need to use "cache" variable to override the default
+  # INSTALL_GTEST option by this value. See also:
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  set(INSTALL_GTEST
+      OFF
+      CACHE "BOOL"
+            "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)"
+            FORCE)
+  string(APPEND CMAKE_INSTALL_INCLUDEDIR "/arrow-gtest")
+  fetchcontent_makeavailable(googletest)
+  set_target_properties(gmock PROPERTIES OUTPUT_NAME "arrow_gmock")
+  set_target_properties(gmock_main PROPERTIES OUTPUT_NAME "arrow_gmock_main")
+  set_target_properties(gtest PROPERTIES OUTPUT_NAME "arrow_gtest")
+  set_target_properties(gtest_main PROPERTIES OUTPUT_NAME "arrow_gtest_main")
+  install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
+                    "${googletest_SOURCE_DIR}/googletest/include/"
+          DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  install(TARGETS gmock gmock_main gtest gtest_main
+          EXPORT arrow_testing_targets
+          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+          ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+          LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+  if(MSVC)
+    install(FILES $<TARGET_PDB_FILE:gmock> $<TARGET_PDB_FILE:gmock_main>
+                  $<TARGET_PDB_FILE:gtest> $<TARGET_PDB_FILE:gtest_main>
+            DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            OPTIONAL)
   endif()
-
-  set(GTEST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/googletest_ep-prefix")
-  set(GTEST_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  set(_GTEST_LIBRARY_DIR "${GTEST_PREFIX}/lib")
-
-  if(WIN32)
-    set(_GTEST_IMPORTED_TYPE IMPORTED_IMPLIB)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_IMPORT_LIBRARY_SUFFIX}")
-  else()
-    set(_GTEST_IMPORTED_TYPE IMPORTED_LOCATION)
-    set(_GTEST_LIBRARY_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-
-  endif()
-
-  set(GTEST_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_LIBRARY_SUFFIX}")
-  set(GMOCK_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_LIBRARY_SUFFIX}")
-  set(GTEST_MAIN_SHARED_LIB
-      "${_GTEST_LIBRARY_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_LIBRARY_SUFFIX}"
-  )
-  set(GTEST_INSTALL_NAME_DIR "$<INSTALL_PREFIX$<ANGLE-R>/lib")
-  # Fix syntax highlighting mess introduced by unclosed bracket above
-  set(dummy ">")
-
-  set(GTEST_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      -DBUILD_SHARED_LIBS=ON
-      -DBUILD_STATIC_LIBS=OFF
-      -DCMAKE_CXX_FLAGS=${GTEST_CMAKE_CXX_FLAGS}
-      -DCMAKE_INSTALL_NAME_DIR=${GTEST_INSTALL_NAME_DIR}
-      -DCMAKE_INSTALL_PREFIX=${GTEST_PREFIX}
-      -DCMAKE_MACOSX_RPATH=OFF)
-  set(GMOCK_INCLUDE_DIR "${GTEST_PREFIX}/include")
-
-  if(WIN32 AND NOT ARROW_USE_STATIC_CRT)
-    list(APPEND GTEST_CMAKE_ARGS -Dgtest_force_shared_crt=ON)
-  endif()
-
-  externalproject_add(googletest_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${GTEST_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GTEST_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${GTEST_SHARED_LIB} ${GTEST_MAIN_SHARED_LIB}
-                                       ${GMOCK_SHARED_LIB}
-                      CMAKE_ARGS ${GTEST_CMAKE_ARGS})
-  if(WIN32)
-    # Copy the built shared libraries to the same directory as our
-    # test programs because Windows doesn't provided rpath (run-time
-    # search path) feature. We need to put these shared libraries to
-    # the same directory as our test programs or add
-    # _GTEST_LIBRARY_DIR to PATH when we run our test programs. We
-    # choose the former because the latter may be forgotten.
-    set(_GTEST_RUNTIME_DIR "${GTEST_PREFIX}/bin")
-    set(_GTEST_RUNTIME_SUFFIX
-        "${CMAKE_GTEST_DEBUG_EXTENSION}${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(_GTEST_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest${_GTEST_RUNTIME_SUFFIX}"
-    )
-    set(_GMOCK_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gmock${_GTEST_RUNTIME_SUFFIX}"
-    )
-    set(_GTEST_MAIN_RUNTIME_LIB
-        "${_GTEST_RUNTIME_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${_GTEST_RUNTIME_SUFFIX}"
-    )
-    get_property(_GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
-    if(_GENERATOR_IS_MULTI_CONFIG)
-      set(_GTEST_RUNTIME_OUTPUT_DIR "${BUILD_OUTPUT_ROOT_DIRECTORY}/${CMAKE_BUILD_TYPE}")
-    else()
-      set(_GTEST_RUNTIME_OUTPUT_DIR ${BUILD_OUTPUT_ROOT_DIRECTORY})
-    endif()
-    externalproject_add_step(googletest_ep copy
-                             COMMAND ${CMAKE_COMMAND} -E make_directory
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GMOCK_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             COMMAND ${CMAKE_COMMAND} -E copy ${_GTEST_MAIN_RUNTIME_LIB}
-                                     ${_GTEST_RUNTIME_OUTPUT_DIR}
-                             DEPENDEES install)
-  endif()
-
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gtest SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gtest
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "GTEST_LINKED_AS_SHARED_LIBRARY=1"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gtest_main
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GTEST_MAIN_SHARED_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-
-  add_library(arrow::GTest::gmock SHARED IMPORTED)
-  set_target_properties(arrow::GTest::gmock
-                        PROPERTIES ${_GTEST_IMPORTED_TYPE} "${GMOCK_SHARED_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS
-                                   "GMOCK_LINKED_AS_SHARED_LIBRARY=1"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GTEST_INCLUDE_DIR}")
-  add_dependencies(toolchain-tests googletest_ep)
-  add_dependencies(arrow::GTest::gtest googletest_ep)
-  add_dependencies(arrow::GTest::gtest_main googletest_ep)
-  add_dependencies(arrow::GTest::gmock googletest_ep)
-endmacro()
+  add_library(arrow::GTest::gmock ALIAS gmock)
+  add_library(arrow::GTest::gmock_main ALIAS gmock_main)
+  add_library(arrow::GTest::gtest ALIAS gtest)
+  add_library(arrow::GTest::gtest_main ALIAS gtest_main)
+endfunction()
 
 if(ARROW_TESTING)
   set(GTestAlt_NEED_CXX_STANDARD_CHECK TRUE)
@@ -2249,9 +2175,8 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
   else()
-    # TODO: How to solve BUNDLED case? Do we install bundled GoogleTest?
-    # string(APPEND ARROW_TESTING_PC_CFLAGS " -I${GTEST_INCLUDE_DIR}")
-    # string(APPEND ARROW_TESTING_PC_LIBS " -lgtest")
+    string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
+    string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
@@ -5121,24 +5046,15 @@ function(build_azure_sdk)
   fetchcontent_declare(azure_sdk
                        URL ${ARROW_AZURE_SDK_URL}
                        URL_HASH "SHA256=${ARROW_AZURE_SDK_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
   set(BUILD_PERFORMANCE_TESTS FALSE)
   set(BUILD_SAMPLES FALSE)
   set(BUILD_TESTING FALSE)
   set(BUILD_WINDOWS_UWP TRUE)
-  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY TRUE)
   set(CMAKE_UNITY_BUILD FALSE)
   set(DISABLE_AZURE_CORE_OPENTELEMETRY TRUE)
   set(ENV{AZURE_SDK_DISABLE_AUTO_VCPKG} TRUE)
   set(WARNINGS_AS_ERRORS FALSE)
-  # TODO: Configure flags in a better way. FetchContent builds inherit
-  # global flags but we want to disable -Werror for Azure SDK for C++ builds.
-  if(MSVC)
-    string(REPLACE "/WX" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-    string(REPLACE "/WX" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-  else()
-    string(REPLACE "-Werror" "" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-    string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-  endif()
   fetchcontent_makeavailable(azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
