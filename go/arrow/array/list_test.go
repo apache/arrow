@@ -752,3 +752,113 @@ func TestListViewStringRoundTrip(t *testing.T) {
 		assert.True(t, array.Equal(arr, arr1))
 	}
 }
+
+func TestRangeOfValuesUsed(t *testing.T) {
+	tests := []struct {
+		typeID arrow.Type
+		dt     arrow.DataType
+	}{
+		{arrow.LIST, arrow.ListOf(arrow.PrimitiveTypes.Int16)},
+		{arrow.LARGE_LIST, arrow.LargeListOf(arrow.PrimitiveTypes.Int16)},
+		{arrow.LIST_VIEW, arrow.ListViewOf(arrow.PrimitiveTypes.Int16)},
+		{arrow.LARGE_LIST_VIEW, arrow.LargeListViewOf(arrow.PrimitiveTypes.Int16)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.typeID.String(), func(t *testing.T) {
+			pool := memory.NewCheckedAllocator(memory.NewGoAllocator())
+			defer pool.AssertSize(t, 0)
+
+			isListView := tt.typeID == arrow.LIST_VIEW || tt.typeID == arrow.LARGE_LIST_VIEW
+
+			bldr := array.NewBuilder(pool, tt.dt).(array.VarLenListLikeBuilder)
+			defer bldr.Release()
+
+			var arr array.VarLenListLike
+
+			// Empty array
+			arr = bldr.NewArray().(array.VarLenListLike)
+			defer arr.Release()
+			offset, len := array.RangeOfValuesUsed(arr)
+			assert.Equal(t, 0, offset)
+			assert.Equal(t, 0, len)
+
+			// List-like array with only nulls
+			bldr.AppendNulls(3)
+			arr = bldr.NewArray().(array.VarLenListLike)
+			defer arr.Release()
+			offset, len = array.RangeOfValuesUsed(arr)
+			assert.Equal(t, 0, offset)
+			assert.Equal(t, 0, len)
+
+			// Array with nulls and non-nulls (starting at a non-zero offset)
+			vb := bldr.ValueBuilder().(*array.Int16Builder)
+			vb.Append(-2)
+			vb.Append(-1)
+			bldr.AppendWithSize(false, 0)
+			bldr.AppendWithSize(true, 2)
+			vb.Append(0)
+			vb.Append(1)
+			bldr.AppendWithSize(true, 3)
+			vb.Append(2)
+			vb.Append(3)
+			vb.Append(4)
+			if isListView {
+				vb.Append(10)
+				vb.Append(11)
+			}
+			arr = bldr.NewArray().(array.VarLenListLike)
+			defer arr.Release()
+			offset, len = array.RangeOfValuesUsed(arr)
+			assert.Equal(t, 2, offset)
+			assert.Equal(t, 5, len)
+
+			// Overlapping list-views
+			// [null, [0, 1, 2, 3, 4, 5], [1, 2], null, [4], null, null]
+			vb = bldr.ValueBuilder().(*array.Int16Builder)
+			vb.Append(-2)
+			vb.Append(-1)
+			bldr.AppendWithSize(false, 0)
+			if isListView {
+				bldr.AppendWithSize(true, 6)
+				vb.Append(0)
+				bldr.AppendWithSize(true, 2)
+				vb.Append(1)
+				vb.Append(2)
+				vb.Append(3)
+				bldr.AppendWithSize(false, 0)
+				bldr.AppendWithSize(true, 1)
+				vb.Append(4)
+				vb.Append(5)
+				// -- used range ends here --
+				vb.Append(10)
+				vb.Append(11)
+			} else {
+				bldr.AppendWithSize(true, 6)
+				vb.Append(0)
+				vb.Append(1)
+				vb.Append(2)
+				vb.Append(3)
+				vb.Append(4)
+				vb.Append(5)
+				bldr.AppendWithSize(true, 2)
+				vb.Append(1)
+				vb.Append(2)
+				bldr.AppendWithSize(false, 0)
+				bldr.AppendWithSize(true, 1)
+				vb.Append(4)
+			}
+			bldr.AppendNulls(2)
+			arr = bldr.NewArray().(array.VarLenListLike)
+			defer arr.Release()
+
+			// Check the range
+			offset, len = array.RangeOfValuesUsed(arr)
+			assert.Equal(t, 2, offset)
+			if isListView {
+				assert.Equal(t, 6, len)
+			} else {
+				assert.Equal(t, 9, len)
+			}
+		})
+	}
+}
