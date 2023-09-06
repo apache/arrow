@@ -250,7 +250,7 @@ function link = makeLinkString(opts)
     end
 end
 
-function sizeString = makeDimensionString(arraySize)
-    sizeString = string(arraySize);
-    sizeString = join(sizeString, char(215));
+function dimensionString = makeDimensionString(arraySize)
+    dimensionString = string(arraySize);
+    dimensionString = join(dimensionString, char(215));
 end
