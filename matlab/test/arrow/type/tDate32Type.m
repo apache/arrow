@@ -40,28 +40,6 @@ classdef tDate32Type < hFixedWidthType
             testCase.verifyEqual(actualUnit, expectedUnit);
         end
 
-        function Display(testCase)
-            % Verify the display of Date32Type objects.
-            %
-            % Example:
-            %
-            %  Date32Type with properties:
-            %
-            %          ID: Date32
-            %    DateUnit: Day
-            %
-            type = testCase.ConstructionFcn(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Date32Type"" style=""font-weight:bold"">Date32Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "DateUnit:"]));
-            body = body + " " + ["Date32"; "Day"];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-
         function DateUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the DateUnit property.

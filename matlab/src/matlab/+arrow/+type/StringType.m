@@ -24,6 +24,13 @@ classdef StringType < arrow.type.Type
             import arrow.internal.proxy.validate
             obj@arrow.type.Type(proxy);
         end
-   end
+    end
+
+    methods (Access=protected)
+        function groups = getDisplayPropertyGroups(~)
+            targets = "ID";
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
 end
 
