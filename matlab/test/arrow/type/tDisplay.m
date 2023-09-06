@@ -149,7 +149,7 @@ classdef tDisplay < matlab.unittest.TestCase
             %          ID: Time32
             %    TimeUnit: Second
             %
-            t
+
             type = TimeType;
             fullClassName = string(class(type));
             className = reverse(extractBefore(reverse(fullClassName), "."));
