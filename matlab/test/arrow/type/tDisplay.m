@@ -148,7 +148,6 @@ classdef tDisplay < matlab.unittest.TestCase
             %
             %          ID: Time32
             %    TimeUnit: Second
-            %
 
             type = TimeType;
             fullClassName = string(class(type));
@@ -157,7 +156,32 @@ classdef tDisplay < matlab.unittest.TestCase
 
             header = "  " + typeLink + " with properties:" + newline;
             body = strjust(pad(["ID:"; "TimeUnit:"]));
-            body = body + " " + ["Time32"; string(type.TimeUnit)];
+            body = body + " " + [string(type.ID); string(type.TimeUnit)];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function TestDateType(testCase, DateType)
+            % Verify the display of DateType objects.
+            %
+            % Example:
+            %
+            %  Date32Type with properties:
+            %
+            %          ID: Date32
+            %    DateUnit: Day
+
+            type = DateType;
+            fullClassName = string(class(type));
+            className = reverse(extractBefore(reverse(fullClassName), "."));
+            typeLink = makeLinkString(FullClassName=fullClassName, ClassName=className, BoldFont=true);
+
+            header = "  " + typeLink + " with properties:" + newline;
+            body = strjust(pad(["ID:"; "DateUnit:"]));
+            body = body + " " + [string(type.ID); string(type.DateUnit)];
             body = "    " + body;
             footer = string(newline);
             expectedDisplay = char(strjoin([header body' footer], newline));
