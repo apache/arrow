@@ -37,7 +37,7 @@ classdef TimeType < arrow.type.TemporalType
 
     methods (Access=protected)
         function groups = getDisplayPropertyGroups(~)
-            targets = ["ID" "DateUnit"];
+            targets = ["ID" "TimeUnit"];
             groups = matlab.mixin.util.PropertyGroup(targets);
         end
     end
