@@ -114,20 +114,17 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
 
 namespace {
 
-bool supportsNaN(const arrow::DataType& type) {
-  bool supports_nan = false;
+bool mayHaveNaN(const arrow::DataType& type) {
   if (type.num_fields() == 0) {
-    // Only floating types support NaN
-    supports_nan |= is_floating(type.id());
+    return is_floating(type.id());
   } else {
     for (const auto& field : type.fields()) {
-      supports_nan |= supportsNaN(*field->type());
-      if (supports_nan) {
-        break;
+      if (mayHaveNaN(*field->type())) {
+        return true;
       }
     }
   }
-  return supports_nan;
+  return false;
 }
 
 } //  namespace
@@ -136,7 +133,7 @@ bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   if (!other) {
     return false;
   }
-  if (this == other.get() && !supportsNaN(*other->type())) {
+  if (this == other.get() && !mayHaveNaN(*type_)) {
     return true;
   }
   return Equals(*other.get());

@@ -147,30 +147,32 @@ TEST_F(TestChunkedArray, EqualsDifferingMetadata) {
 }
 
 TEST_F(TestChunkedArray, EqualsSameAddressWithNaNs) {
-  auto chunk0 = ArrayFromJSON(float64(), "[0, 1, 2, NaN]");
-  auto chunk1 = ArrayFromJSON(float64(), "[3, 4, 5]");
-  ASSERT_OK_AND_ASSIGN(auto result0, ChunkedArray::Make({chunk0, chunk1}, float64()));
-  // result0 has NaN values
-  ASSERT_FALSE(result0->Equals(result0));
+  auto chunk_with_nan1 = ArrayFromJSON(float64(), "[0, 1, 2, NaN]");
+  auto chunk_without_nan1 = ArrayFromJSON(float64(), "[3, 4, 5]");
+  ArrayVector chunks1 = {chunk_with_nan1, chunk_without_nan1};
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_with_nan1, ChunkedArray::Make(chunks1));
+  ASSERT_FALSE(chunked_array_with_nan1->Equals(chunked_array_with_nan1));
 
-  auto chunk2 = ArrayFromJSON(float64(), "[6, 7, 8, 9]");
-  ASSERT_OK_AND_ASSIGN(auto result1, ChunkedArray::Make({chunk1, chunk2}, float64()));
-  // result1 does not have NaN values
-  ASSERT_TRUE(result1->Equals(result1));
+  auto chunk_without_nan2 = ArrayFromJSON(float64(), "[6, 7, 8, 9]");
+  ArrayVector chunks2 = {chunk_without_nan1, chunk_without_nan2};
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_without_nan1, ChunkedArray::Make(chunks2));
+  ASSERT_TRUE(chunked_array_without_nan1->Equals(chunked_array_without_nan1));
 
-  auto array0 = ArrayFromJSON(int32(), "[0, 1, 2]");
-  auto array1 = ArrayFromJSON(float64(), "[0, 1, NaN]");
+  auto int32_array = ArrayFromJSON(int32(), "[0, 1, 2]");
+  auto float64_array_with_nan = ArrayFromJSON(float64(), "[0, 1, NaN]");
+  ArrayVector arrays1 = {int32_array, float64_array_with_nan};
   std::vector<std::string> fieldnames = {"Int32Type", "Float64Type"};
-  ASSERT_OK_AND_ASSIGN(auto struct0, StructArray::Make({array0, array1}, fieldnames));
-  ASSERT_OK_AND_ASSIGN(auto result2, ChunkedArray::Make({struct0}, struct0->type()));
-  // result2 has NaN values
-  ASSERT_FALSE(result2->Equals(result2));
+  ASSERT_OK_AND_ASSIGN(auto struct_with_nan, StructArray::Make(arrays1, fieldnames));
+  ArrayVector chunks3 = {struct_with_nan};
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_with_nan2, ChunkedArray::Make(chunks3));
+  ASSERT_FALSE(chunked_array_with_nan2->Equals(chunked_array_with_nan2));
 
-  auto array2 = ArrayFromJSON(float64(), "[0, 1, 2]");
-  ASSERT_OK_AND_ASSIGN(auto struct1, StructArray::Make({array0, array2}, fieldnames));
-  ASSERT_OK_AND_ASSIGN(auto result3, ChunkedArray::Make({struct1}, struct1->type()));
-  // result3 does not have NaN values
-  ASSERT_TRUE(result3->Equals(result3));
+  auto float64_array_without_nan = ArrayFromJSON(float64(), "[0, 1, 2]");
+  ArrayVector arrays2 = {int32_array, float64_array_without_nan};
+  ASSERT_OK_AND_ASSIGN(auto struct_without_nan, StructArray::Make(arrays2, fieldnames));
+  ArrayVector chunks4 = {struct_without_nan};
+  ASSERT_OK_AND_ASSIGN(auto chunked_array_without_nan2, ChunkedArray::Make(chunks4));
+  ASSERT_TRUE(chunked_array_without_nan2->Equals(chunked_array_without_nan2));
 }
 
 TEST_F(TestChunkedArray, SliceEquals) {
