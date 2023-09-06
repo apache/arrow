@@ -57,5 +57,26 @@ classdef tInt16Type < hFixedWidthType
             typeArray2 = [int16Type int16Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
+
+        function Display(testCase)
+            % Verify the display of Int16Type objects.
+            %
+            % Example:
+            %
+            %  Int16Type with properties:
+            %
+            %          ID: Int16
+
+            type = arrow.int16(); %#ok<NASGU>
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.Int16Type"" style=""font-weight:bold"">Int16Type</a>";
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad("ID:"));
+            body = body + " " + "Int16";
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
     end
 end

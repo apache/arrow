@@ -57,5 +57,26 @@ classdef tUInt16Type < hFixedWidthType
             typeArray2 = [uint16Type uint16Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
+        
+        function Display(testCase)
+            % Verify the display of UInt16Type objects.
+            %
+            % Example:
+            %
+            %  UInt16Type with properties:
+            %
+            %          ID: UInt16
+
+            type = arrow.uint16(); %#ok<NASGU>
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.UInt16Type"" style=""font-weight:bold"">UInt16Type</a>";
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad("ID:"));
+            body = body + " " + "UInt16";
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
     end
 end

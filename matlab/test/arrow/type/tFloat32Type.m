@@ -57,5 +57,26 @@ classdef tFloat32Type < hFixedWidthType
             typeArray2 = [float32Type float32Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
+
+        function Display(testCase)
+            % Verify the display of Float32Type objects.
+            %
+            % Example:
+            %
+            %  Float32Type with properties:
+            %
+            %          ID: Float32
+
+            type = arrow.float32(); %#ok<NASGU>
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.Float32Type"" style=""font-weight:bold"">Float32Type</a>";
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad("ID:"));
+            body = body + " " + "Float32";
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
     end
 end

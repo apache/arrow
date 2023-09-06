@@ -57,5 +57,26 @@ classdef tInt64Type < hFixedWidthType
             typeArray2 = [int64Type int64Type]';
             testCase.verifyFalse(isequal(typeArray1, typeArray2));
         end
+
+        function Display(testCase)
+            % Verify the display of Int64Type objects.
+            %
+            % Example:
+            %
+            %  Int64Type with properties:
+            %
+            %          ID: Int64
+
+            type = arrow.int64(); %#ok<NASGU>
+            classnameLink = "<a href=""matlab:helpPopup arrow.type.Int64Type"" style=""font-weight:bold"">Int64Type</a>";
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad("ID:"));
+            body = body + " " + "Int64";
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
     end
 end
