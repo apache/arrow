@@ -118,6 +118,9 @@ function link = makeDisplayLink(opts)
     arguments
         opts.FullClassName(1, 1) string
         opts.ClassName(1, 1) string
+        % When displaying heterogeneous arrays, only the name of the 
+        % closest shared anscestor class is displayed in bold. All other
+        % class names are not bolded.
         opts.BoldFont(1, 1) logical
     end
 
