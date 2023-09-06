@@ -188,6 +188,29 @@ classdef tDisplay < matlab.unittest.TestCase
             actualDisplay = evalc('disp(type)');
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
+
+        function Display(testCase)
+            % Verify the display of TimestampType objects.
+            %
+            % Example:
+            %
+            %  TimestampType with properties:
+            %
+            %          ID: Timestamp
+            %    TimeUnit: Second
+            %    TimeZone: "America/Anchorage"
+
+            type = arrow.timestamp(TimeUnit="Second", TimeZone="America/Anchorage"); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.type.TimestampType", ClassName="TimestampType", BoldFont=true);
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad(["ID:"; "TimeUnit:"; "TimeZone:"]));
+            body = body + " " + ["Timestamp"; "Second"; """America/Anchorage"""];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
     end
 
     methods
