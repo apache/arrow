@@ -178,5 +178,29 @@ class RecordBatchTest < Test::Unit::TestCase
                      @record_batch[[:c, "a", -1, 3..4]])
       end
     end
+
+    sub_test_case("#each_raw_record") do
+      def setup
+        schema = Arrow::Schema.new(visible: :boolean, count: :uint32)
+        @records = [
+          [true, 1],
+          [nil, 2],
+          [false, nil],
+        ]
+        @record_batch = Arrow::RecordBatch.new(schema, @records)
+      end
+
+      test("block") do
+        iterated_records = []
+        @record_batch.each_raw_record do |raw_record|
+          iterated_records << raw_record
+        end
+        assert_equal(@records, iterated_records)
+      end
+
+      test("without block") do
+        assert_equal(@records, @record_batch.each_raw_record.to_a)
+      end
+    end
   end
 end

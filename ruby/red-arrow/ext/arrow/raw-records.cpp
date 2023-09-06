@@ -306,6 +306,10 @@ namespace red_arrow {
 
   VALUE
   record_batch_each_raw_record(VALUE rb_record_batch){
+    if (!rb_block_given_p()) {
+      return rb_funcall(rb_record_batch, rb_intern("to_enum"), 1, ID2SYM(rb_intern("each_raw_record")));
+    }
+
     auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
     auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
 
@@ -321,6 +325,10 @@ namespace red_arrow {
 
   VALUE
   table_each_raw_record(VALUE rb_table) {
+    if (!rb_block_given_p()) {
+      return rb_funcall(rb_table, rb_intern("to_enum"), 1, ID2SYM(rb_intern("each_raw_record")));
+    }
+
     auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
     auto table = garrow_table_get_raw(garrow_table).get();
 
