@@ -19,6 +19,7 @@
 classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
 
     properties (Dependent, SetAccess=private, GetAccess=public)
+        NumRows
         NumColumns
         ColumnNames
         Schema
@@ -40,6 +41,10 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
 
         function numColumns = get.NumColumns(obj)
             numColumns = obj.Proxy.getNumColumns();
+        end
+
+        function numRows = get.NumRows(obj)
+            numRows = obj.Proxy.getNumRows();
         end
 
         function columnNames = get.ColumnNames(obj)

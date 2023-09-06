@@ -33,6 +33,7 @@ namespace arrow::matlab::tabular::proxy {
 
     Table::Table(std::shared_ptr<arrow::Table> table) : table{table} {
         REGISTER_METHOD(Table, toString);
+        REGISTER_METHOD(Table, getNumRows);
         REGISTER_METHOD(Table, getNumColumns);
         REGISTER_METHOD(Table, getColumnNames);
         REGISTER_METHOD(Table, getSchema);
@@ -81,6 +82,14 @@ namespace arrow::matlab::tabular::proxy {
         auto table_proxy = std::make_shared<arrow::matlab::tabular::proxy::Table>(table);
 
         return table_proxy;
+    }
+
+    void Table::getNumRows(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+        const auto num_rows = table->num_rows();
+        auto num_rows_mda = factory.createScalar(num_rows);
+        context.outputs[0] = num_rows_mda;
     }
 
     void Table::getNumColumns(libmexclass::proxy::method::Context& context) {
