@@ -288,23 +288,30 @@ Finally, enabling the ``TRACE`` logging level will automatically provide this st
    |        at RootAllocator.close (RootAllocator.java:29)
    |        at (#8:1)
 
-A further option would be to change the way how allocators are created, we could try the following:
+Sometimes, explicitly passing allocators around is difficult. For example, it
+can be hard to pass around extra state, like an allocator, through layers of 
+existing application or framework code. A global or singleton allocator instance
+can be useful here, though it should not be your first choice.
 
-1. Set up a global root allocator that is going to be used in each module,
-2. Create child allocators by using the root allocator,
-3. Give child allocations proper names so that you can detect errors in another class or method,
-4. Ensure that resources are properly closed,
-5. At some strategic point, check if the global allocator is empty,
-6. In case of error, try to review the above-identified class/method allocator bugs.
+How this works:
+
+1. Set up a global allocator in a singleton class.
+2. Provide methods to create child allocators from the global allocator.
+3. Give child allocators proper names to make it easier to figure out where
+   allocations occurred in case of errors.
+4. Ensure that resources are properly closed.
+5. Check that the global allocator is empty at some suitable point, such as
+   right before program shutdown.
+6. If it is not empty, review the above allocation bugs.
 
 .. code-block:: java
 
     //1
-    private static final RootAllocator allocator = new RootAllocator();
+    private static final BufferAllocator allocator = new RootAllocator();
     ...
     //2
     public static BufferAllocator getChildAllocator() {
-        return allocator.newChildAllocator(nextChildName(), 0, Long.MAX_VALUEn);
+        return allocator.newChildAllocator(nextChildName(), 0, Long.MAX_VALUE);
     }
     ...
     //3
@@ -313,7 +320,7 @@ A further option would be to change the way how allocators are created, we could
     }
     ...
     //4: Business code
-    try () {
+    try (BufferAllocator allocator = GlobalAllocator.getChildAllocator()) {
         ...
     }
     ...
