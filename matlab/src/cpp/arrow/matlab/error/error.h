@@ -181,6 +181,8 @@ namespace arrow::matlab::error {
     static const char* UNKNOWN_PROXY_FOR_ARRAY_TYPE = "arrow:array:UnknownProxyForArrayType";
     static const char* RECORD_BATCH_NUMERIC_INDEX_WITH_EMPTY_RECORD_BATCH = "arrow:tabular:recordbatch:NumericIndexWithEmptyRecordBatch";
     static const char* RECORD_BATCH_INVALID_NUMERIC_COLUMN_INDEX = "arrow:tabular:recordbatch:InvalidNumericColumnIndex";
+    static const char* TABLE_NUMERIC_INDEX_WITH_EMPTY_TABLE = "arrow:tabular:table:NumericIndexWithEmptyTable";
+    static const char* TABLE_INVALID_NUMERIC_COLUMN_INDEX = "arrow:tabular:table:InvalidNumericColumnIndex";
     static const char* FAILED_TO_OPEN_FILE_FOR_WRITE = "arrow:io:FailedToOpenFileForWrite";
     static const char* FAILED_TO_OPEN_FILE_FOR_READ = "arrow:io:FailedToOpenFileForRead";
     static const char* FEATHER_FAILED_TO_WRITE_TABLE = "arrow:io:feather:FailedToWriteTable";
