@@ -111,7 +111,19 @@ function indexOfNull<T extends DataType>(data: Data<T>, fromIndex?: number): num
 /** @ignore */
 function indexOfValue<T extends DataType>(data: Data<T>, searchElement?: T['TValue'] | null, fromIndex?: number): number {
     if (searchElement === undefined) { return -1; }
-    if (searchElement === null) { return indexOfNull(data, fromIndex); }
+    if (searchElement === null) {
+        switch (data.typeId) {
+            // Unions don't have a nullBitmap of its own, so compare the `searchElement` to `get()`.
+            case Type.Union:
+                break;
+            // Dictionaries do have a nullBitmap, but their dictionary could also have null elements.
+            case Type.Dictionary:
+                break;
+            // All other types can iterate the null bitmap
+            default:
+                return indexOfNull(data, fromIndex);
+        }
+    }
     const get = getVisitor.getVisitFn(data);
     const compare = createElementComparator(searchElement);
     for (let i = (fromIndex || 0) - 1, n = data.length; ++i < n;) {
