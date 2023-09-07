@@ -12,7 +12,7 @@ classdef NumericType < arrow.type.FixedWidthType
 
     methods(Hidden)
         function data = preallocateMATLABArray(obj, length)
-            traits = arrow.type.traits.traits(obj.Type.ID);
+            traits = arrow.type.traits.traits(obj.ID);
             data = zeros([length 1], traits.MatlabClassName);
         end
     end
