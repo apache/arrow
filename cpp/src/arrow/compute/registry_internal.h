@@ -56,7 +56,7 @@ void RegisterVectorSort(FunctionRegistry* registry);
 void RegisterVectorRunEndEncode(FunctionRegistry* registry);
 void RegisterVectorRunEndDecode(FunctionRegistry* registry);
 void RegisterVectorPairwise(FunctionRegistry* registry);
-void RegisterDictionaryCompaction(FunctionRegistry* registry);
+void RegisterVectorDictionary(FunctionRegistry* registry);
 
 void RegisterVectorOptions(FunctionRegistry* registry);
 

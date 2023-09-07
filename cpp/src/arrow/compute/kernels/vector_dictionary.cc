@@ -200,7 +200,7 @@ Status DictionaryCompactionExec(KernelContext* ctx, const ExecSpan& batch,
 }
 }  // namespace
 
-void RegisterDictionaryCompaction(FunctionRegistry* registry) {
+void RegisterVectorDictionary(FunctionRegistry* registry) {
   VectorKernel base;
   base.init = DictionaryCompactionInit;
   base.exec = DictionaryCompactionExec;
