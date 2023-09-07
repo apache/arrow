@@ -26,12 +26,4 @@ classdef UInt32Type < arrow.type.NumericType
             obj@arrow.type.NumericType(proxy);
         end
     end
-
-
-    methods (Access=protected)
-        function groups = getDisplayPropertyGroups(~)
-            targets = "ID";
-            groups = matlab.mixin.util.PropertyGroup(targets);
-        end
-    end
 end

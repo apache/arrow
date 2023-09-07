@@ -16,4 +16,11 @@ classdef NumericType < arrow.type.FixedWidthType
             data = zeros([length 1], traits.MatlabClassName);
         end
     end
+
+    methods (Access=protected)
+        function groups = getDisplayPropertyGroups(~)
+            targets = "ID";
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
 end
