@@ -71,7 +71,7 @@ namespace Apache.Arrow.Acero
                 new List<Declaration>
                 {
                     declaration,
-                    new Declaration("table_sink", sinkNodeOptions)
+                    new Declaration("sink", sinkNodeOptions)
                 });
 
             sinkNode.AddToPlan(plan);
@@ -89,15 +89,15 @@ namespace Apache.Arrow.Acero
         {
             var nodes = new List<ExecNode>();
 
-            foreach (var input in Inputs)
+            foreach (Declaration input in Inputs)
             {
-                var node = input.AddToPlan(plan);
+                ExecNode node = input.AddToPlan(plan);
                 nodes.Add(node);
             }
 
             switch (_factoryName)
             {
-                case "table_sink":
+                case "sink":
                     return new SinkNode(_options as SinkNodeOptions, plan, nodes);
 
                 case "record_batch_source":
@@ -114,6 +114,9 @@ namespace Apache.Arrow.Acero
 
                 case "union":
                     return new UnionNode(plan, nodes);
+
+                case "project":
+                    return new ProjectNode(_options as ProjectNodeOptions, plan, nodes);
 
                 default:
                     throw new Exception($"Unknown factory {_factoryName}");

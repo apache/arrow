@@ -44,6 +44,8 @@ namespace Apache.Arrow.Acero
         public struct GArrowInt8Scalar { }
         public struct GArrowSortOptions { }
         public struct GArrowSortKey { }
+        public struct GArrowProjectNodeOptions { }
+        public struct GArrowInt32Scalar { }
 
         public enum GArrowJoinType
         {
@@ -66,16 +68,16 @@ namespace Apache.Arrow.Acero
         public const string DllName = "libarrow-glib-1300.dll";
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_new")]
-        public static extern unsafe GArrowExecutePlan* garrow_execute_plan_new(GError** error);
+        public static extern unsafe GArrowExecutePlan* garrow_execute_plan_new(out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_source_node_options_new_record_batch")]
         public static extern unsafe GArrowSourceNodeOptions* garrow_source_node_options_new_record_batch(GArrowRecordBatch* record_batch);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_record_batch_import")]
-        public static extern unsafe GArrowRecordBatch* garrow_record_batch_import(CArrowArray* c_abi_array, GArrowSchema* schema, GError** error);
+        public static extern unsafe GArrowRecordBatch* garrow_record_batch_import(CArrowArray* c_abi_array, GArrowSchema* schema, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_schema_import")]
-        public static extern unsafe GArrowSchema* garrow_schema_import(CArrowSchema* c_abi_schema, GError** error);
+        public static extern unsafe GArrowSchema* garrow_schema_import(CArrowSchema* c_abi_schema, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_schema_get_field")]
         public static extern unsafe GArrowField* garrow_schema_get_field(GArrowSchema* schema, uint i);
@@ -84,22 +86,22 @@ namespace Apache.Arrow.Acero
         public static extern unsafe bool garrow_field_is_nullable(GArrowField* field);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_hash_join_node_options_new")]
-        public static extern unsafe GArrowHashJoinNodeOptions* garrow_hash_join_node_options_new(GArrowJoinType type, IntPtr left_keys, uint n_left_keys, IntPtr right_keys, uint n_right_keys, GError** error);
+        public static extern unsafe GArrowHashJoinNodeOptions* garrow_hash_join_node_options_new(GArrowJoinType type, IntPtr left_keys, uint n_left_keys, IntPtr right_keys, uint n_right_keys, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_build_hash_join_node")]
-        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_hash_join_node(GArrowExecutePlan* plan, GArrowExecuteNode* left, GArrowExecuteNode* right, GArrowHashJoinNodeOptions* options, GError** error);
+        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_hash_join_node(GArrowExecutePlan* plan, GArrowExecuteNode* left, GArrowExecuteNode* right, GArrowHashJoinNodeOptions* options, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_build_source_node")]
-        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_source_node(GArrowExecutePlan* plan, GArrowSourceNodeOptions* options, GError** error);
+        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_source_node(GArrowExecutePlan* plan, GArrowSourceNodeOptions* options, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_validate")]
-        public static extern unsafe bool garrow_execute_plan_validate(GArrowExecutePlan* plan, GError** error);
+        public static extern unsafe bool garrow_execute_plan_validate(GArrowExecutePlan* plan, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_sink_node_options_new")]
         public static extern unsafe GArrowSinkNodeOptions* garrow_sink_node_options_new();
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_build_sink_node")]
-        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_sink_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowSinkNodeOptions* options, GError** error);
+        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_sink_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowSinkNodeOptions* options, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_start")]
         public static extern unsafe void garrow_execute_plan_start(GArrowExecutePlan* plan);
@@ -111,16 +113,16 @@ namespace Apache.Arrow.Acero
         public static extern unsafe GArrowRecordBatchReader* garrow_sink_node_options_get_reader(GArrowSinkNodeOptions* options, GArrowSchema* schema);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_record_batch_reader_export")]
-        public static extern unsafe CArrowArrayStream* garrow_record_batch_reader_export(GArrowRecordBatchReader* reader, GError** error);
+        public static extern unsafe CArrowArrayStream* garrow_record_batch_reader_export(GArrowRecordBatchReader* reader, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_record_batch_reader_import")]
-        public static extern unsafe GArrowRecordBatchReader* garrow_record_batch_reader_import(CArrowArrayStream* c_abi_array_stream, GError** error);
+        public static extern unsafe GArrowRecordBatchReader* garrow_record_batch_reader_import(CArrowArrayStream* c_abi_array_stream, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_source_node_options_new_record_batch_reader")]
         public static extern unsafe GArrowSourceNodeOptions* garrow_source_node_options_new_record_batch_reader(GArrowRecordBatchReader* reader);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_build_filter_node")]
-        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_filter_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowFilterNodeOptions* options, GError** error);
+        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_filter_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowFilterNodeOptions* options, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_filter_node_options_new")]
         public static extern unsafe GArrowFilterNodeOptions* garrow_filter_node_options_new(IntPtr expression);
@@ -129,7 +131,7 @@ namespace Apache.Arrow.Acero
         public static extern unsafe GArrowCallExpression* garrow_call_expression_new(IntPtr function, IntPtr arguments, GArrowFunctionOptions* options);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_field_expression_new")]
-        public static extern unsafe GArrowFieldExpression* garrow_field_expression_new(IntPtr reference, GError** error);
+        public static extern unsafe GArrowFieldExpression* garrow_field_expression_new(IntPtr reference, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_literal_expression_new")]
         public static extern unsafe GArrowFieldExpression* garrow_literal_expression_new(GArrowDatum* datum);
@@ -156,10 +158,20 @@ namespace Apache.Arrow.Acero
         public static extern unsafe GArrowSortOptions* garrow_sort_options_new(GList* sort_keys);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_sort_key_new")]
-        public static extern unsafe GArrowSortKey* garrow_sort_key_new(IntPtr target, GArrowSortOrder order, GError** error);
+        public static extern unsafe GArrowSortKey* garrow_sort_key_new(IntPtr target, GArrowSortOrder order, out GError** error);
 
         [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_build_node")]
         public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_node(GArrowExecutePlan* plan, IntPtr factory_name, IntPtr inputs, IntPtr options, out GError **error);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_project_node_options_new")]
+        public static extern unsafe GArrowProjectNodeOptions* garrow_project_node_options_new(GList* expressions, IntPtr names, int n_names);
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_execute_plan_build_project_node")]
+        public static extern unsafe GArrowExecuteNode* garrow_execute_plan_build_project_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowProjectNodeOptions* options, out GError** error);
+
+
+        [DllImport(DllName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "garrow_int32_scalar_new")]
+        public static extern unsafe GArrowInt32Scalar* garrow_int32_scalar_new(int value);
     }
 
     [StructLayout(LayoutKind.Sequential)]

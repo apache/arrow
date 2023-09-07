@@ -15,6 +15,7 @@
 
 using Apache.Arrow.C;
 using Apache.Arrow.Ipc;
+using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
@@ -29,7 +30,10 @@ namespace Apache.Arrow.Acero
             CArrowSchemaExporter.ExportSchema(schema, cSchema);
 
             // Import CArrowSchema into a GArrowSchema
-            var gSchema = CLib.garrow_schema_import(cSchema, null);
+            GError** error;
+            var gSchema = CLib.garrow_schema_import(cSchema, out error);
+
+            ExceptionUtil.ThrowOnError(error);
 
             return gSchema;
         }
@@ -45,7 +49,10 @@ namespace Apache.Arrow.Acero
             CArrowArrayExporter.ExportRecordBatch(recordBatch, cArray);
 
             // import the CArrowArray into a gArrowRecordBatch
-            var gRecordBatch = CLib.garrow_record_batch_import(cArray, schemaPtr, null);
+            GError** error;
+            var gRecordBatch = CLib.garrow_record_batch_import(cArray, schemaPtr, out error);
+
+            ExceptionUtil.ThrowOnError(error);
 
             return gRecordBatch;
         }
@@ -59,7 +66,10 @@ namespace Apache.Arrow.Acero
             CArrowArrayStreamExporter.ExportArrayStream(recordBatchReader, cArrayStream);
 
             // next import the c arrow as a gArrowRecordBatch
-            var gRecordBatchReader = CLib.garrow_record_batch_reader_import(cArrayStream, null);
+            GError** error;
+            var gRecordBatchReader = CLib.garrow_record_batch_reader_import(cArrayStream, out error);
+
+            ExceptionUtil.ThrowOnError(error);
 
             return gRecordBatchReader;
         }

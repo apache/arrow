@@ -14,35 +14,30 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
-    public class LiteralExpression : Expression
+    public class ProjectNodeOptions : ExecNodeOptions
     {
-        private IntPtr _ptr;
+        private unsafe GArrowProjectNodeOptions* _optionsPtr;
 
-        public unsafe LiteralExpression(string literal)
+        public unsafe ProjectNodeOptions(List<Expression> expressions, List<string> names)
         {
-            var dataPtr = (IntPtr)StringUtil.ToCStringUtf8(literal);
-            var bufferPtr = CLib.garrow_buffer_new(dataPtr, literal.Length);
-            var scalarPtr = CLib.garrow_string_scalar_new(bufferPtr);
-            var datumPtr = (IntPtr)CLib.garrow_scalar_datum_new((IntPtr)scalarPtr);
+            var list = new GLib.List(IntPtr.Zero);
 
-            _ptr = (IntPtr)CLib.garrow_literal_expression_new((GArrowDatum*)datumPtr);
+            foreach (var expression in expressions)
+                list.Append(expression.GetPtr());
+
+            var namesPtr = StringUtil.GetStringArrayPtr(names.ToArray());
+
+            _optionsPtr = CLib.garrow_project_node_options_new((GList*)list.Handle, namesPtr, names.Count);
         }
 
-        public unsafe LiteralExpression(int literal)
+        internal unsafe GArrowProjectNodeOptions* GetPtr()
         {
-            var scalarPtr = CLib.garrow_int32_scalar_new(literal);
-            var datumPtr = (IntPtr)CLib.garrow_scalar_datum_new((IntPtr)scalarPtr);
-
-            _ptr = (IntPtr)CLib.garrow_literal_expression_new((GArrowDatum*)datumPtr);
-        }
-
-        public override IntPtr GetPtr()
-        {
-            return _ptr;
+            return _optionsPtr;
         }
     }
 }

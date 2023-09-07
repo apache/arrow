@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
@@ -25,11 +24,6 @@ namespace Apache.Arrow.Acero
         public unsafe FilterNodeOptions(Expression expr)
         {
             _optionsPtr = CLib.garrow_filter_node_options_new(expr.GetPtr());
-
-            var strPtr = CLib.garrow_expression_to_string(expr.GetPtr());
-            var str = StringUtil.PtrToStringUtf8((byte*)strPtr);
-
-            Console.WriteLine(str);
         }
 
         internal unsafe GArrowFilterNodeOptions* GetPtr()

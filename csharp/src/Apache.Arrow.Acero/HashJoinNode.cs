@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Collections.Generic;
+using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
@@ -23,10 +24,14 @@ namespace Apache.Arrow.Acero
 
         public unsafe HashJoinNode(HashJoinNodeOptions options, ExecPlan plan, List<ExecNode> inputs)
         {
-            var left = inputs[0];
-            var right = inputs[1];
+            ExecNode left = inputs[0];
+            ExecNode right = inputs[1];
 
-            _nodePtr = CLib.garrow_execute_plan_build_hash_join_node(plan.GetPtr(), left.GetPtr(), right.GetPtr(), options.GetPtr(), null);
+            GError** error;
+
+            _nodePtr = CLib.garrow_execute_plan_build_hash_join_node(plan.GetPtr(), left.GetPtr(), right.GetPtr(), options.GetPtr(), out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public override unsafe CLib.GArrowExecuteNode* GetPtr()

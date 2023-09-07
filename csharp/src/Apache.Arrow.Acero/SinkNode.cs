@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Collections.Generic;
+using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
@@ -23,7 +24,11 @@ namespace Apache.Arrow.Acero
 
         public unsafe SinkNode(SinkNodeOptions _options, ExecPlan plan, List<ExecNode> inputs)
         {
-            _nodePtr = CLib.garrow_execute_plan_build_sink_node(plan.GetPtr(), inputs[0].GetPtr(), _options.GetPtr(), null);
+            GError** error;
+
+            _nodePtr = CLib.garrow_execute_plan_build_sink_node(plan.GetPtr(), inputs[0].GetPtr(), _options.GetPtr(), out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public unsafe override CLib.GArrowExecuteNode* GetPtr()

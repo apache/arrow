@@ -33,10 +33,7 @@ namespace Apache.Arrow.Acero
 
             _nodePtr = garrow_execute_plan_build_node(plan.GetPtr(), factoryNamePtr, list.Handle, (IntPtr)optionsPtr2, out error);
 
-            if ((IntPtr)error != IntPtr.Zero)
-            {
-                throw new GLib.GException((IntPtr)error);
-            }
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public override unsafe GArrowExecuteNode* GetPtr() => _nodePtr;

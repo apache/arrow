@@ -13,36 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
+using System.Collections.Generic;
 using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
-    public class LiteralExpression : Expression
+    public class ProjectNode : ExecNode
     {
-        private IntPtr _ptr;
+        private unsafe CLib.GArrowExecuteNode* _nodePtr;
 
-        public unsafe LiteralExpression(string literal)
+        public unsafe ProjectNode(ProjectNodeOptions options, ExecPlan plan, List<ExecNode> nodes)
         {
-            var dataPtr = (IntPtr)StringUtil.ToCStringUtf8(literal);
-            var bufferPtr = CLib.garrow_buffer_new(dataPtr, literal.Length);
-            var scalarPtr = CLib.garrow_string_scalar_new(bufferPtr);
-            var datumPtr = (IntPtr)CLib.garrow_scalar_datum_new((IntPtr)scalarPtr);
+            GError** error;
 
-            _ptr = (IntPtr)CLib.garrow_literal_expression_new((GArrowDatum*)datumPtr);
+            _nodePtr = CLib.garrow_execute_plan_build_project_node(plan.GetPtr(), nodes[0].GetPtr(), options.GetPtr(), out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
-        public unsafe LiteralExpression(int literal)
+        public override unsafe CLib.GArrowExecuteNode* GetPtr()
         {
-            var scalarPtr = CLib.garrow_int32_scalar_new(literal);
-            var datumPtr = (IntPtr)CLib.garrow_scalar_datum_new((IntPtr)scalarPtr);
-
-            _ptr = (IntPtr)CLib.garrow_literal_expression_new((GArrowDatum*)datumPtr);
-        }
-
-        public override IntPtr GetPtr()
-        {
-            return _ptr;
+            return _nodePtr;
         }
     }
 }

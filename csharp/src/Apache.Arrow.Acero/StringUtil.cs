@@ -1,9 +1,28 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Generic;
+using System;
+using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Acero
 {
     internal static class StringUtil
     {
+        public static IntPtr GetStringArrayPtr(params string[] arguments)
+        {
+            List<IntPtr> allocatedMemory = new List<IntPtr>();
+
+            int sizeOfIntPtr = Marshal.SizeOf(typeof(IntPtr));
+            IntPtr pointersToArguments = Marshal.AllocHGlobal(sizeOfIntPtr * arguments.Length);
+
+            for (int i = 0; i < arguments.Length; ++i)
+            {
+                IntPtr pointerToArgument = Marshal.StringToHGlobalAnsi(arguments[i]);
+                allocatedMemory.Add(pointerToArgument);
+                Marshal.WriteIntPtr(pointersToArguments, i * sizeOfIntPtr, pointerToArgument);
+            }
+
+            return pointersToArguments;
+        }
+
         public static unsafe byte* ToCStringUtf8(string str)
         {
             var utf8 = System.Text.Encoding.UTF8;

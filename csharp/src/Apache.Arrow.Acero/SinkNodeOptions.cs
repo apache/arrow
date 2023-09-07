@@ -15,6 +15,7 @@
 
 using Apache.Arrow.C;
 using Apache.Arrow.Ipc;
+using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
@@ -33,7 +34,13 @@ namespace Apache.Arrow.Acero
         {
             var schemaPtr = ExportUtil.ExportAndGetSchemaPtr(_schema);
             var recordBatchReaderPtr = CLib.garrow_sink_node_options_get_reader(_optionsPtr, schemaPtr);
-            var arrayStreamPtr = CLib.garrow_record_batch_reader_export(recordBatchReaderPtr, null);
+
+            GError** error;
+
+            var arrayStreamPtr = CLib.garrow_record_batch_reader_export(recordBatchReaderPtr, out error);
+
+            ExceptionUtil.ThrowOnError(error);
+
             var arrayStream = CArrowArrayStreamImporter.ImportArrayStream(arrayStreamPtr);
 
             return arrayStream;

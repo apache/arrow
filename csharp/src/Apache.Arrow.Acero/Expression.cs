@@ -20,5 +20,11 @@ namespace Apache.Arrow.Acero
     public abstract class Expression
     {
         public abstract IntPtr GetPtr();
+
+        public override unsafe string ToString()
+        {
+            var strPtr = CLib.garrow_expression_to_string(GetPtr());
+            return StringUtil.PtrToStringUtf8((byte*)strPtr);
+        }
     }
 }

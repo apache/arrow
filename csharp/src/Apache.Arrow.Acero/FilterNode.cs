@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System.Collections.Generic;
+using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
@@ -22,8 +23,12 @@ namespace Apache.Arrow.Acero
         private unsafe CLib.GArrowExecuteNode* _nodePtr;
 
         public unsafe FilterNode(FilterNodeOptions options, ExecPlan plan, List<ExecNode> nodes)
-        { 
-            _nodePtr = CLib.garrow_execute_plan_build_filter_node(plan.GetPtr(), nodes[0].GetPtr(), options.GetPtr(), null);
+        {
+            GError** error;
+
+            _nodePtr = CLib.garrow_execute_plan_build_filter_node(plan.GetPtr(), nodes[0].GetPtr(), options.GetPtr(), out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public override unsafe CLib.GArrowExecuteNode* GetPtr()

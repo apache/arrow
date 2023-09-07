@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using static Apache.Arrow.Acero.CLib;
+
 namespace Apache.Arrow.Acero
 {
     public class ExecPlan
@@ -21,12 +23,22 @@ namespace Apache.Arrow.Acero
 
         public unsafe ExecPlan()
         {
-            _planPtr = CLib.garrow_execute_plan_new(null);
+            GError** error;
+
+            _planPtr = CLib.garrow_execute_plan_new(out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public unsafe bool Validate()
         {
-            return CLib.garrow_execute_plan_validate(_planPtr, null);
+            GError** error;
+
+            var valid = CLib.garrow_execute_plan_validate(_planPtr, out error);
+
+            ExceptionUtil.ThrowOnError(error);
+
+            return valid;
         }
 
         public unsafe void StartProducing()

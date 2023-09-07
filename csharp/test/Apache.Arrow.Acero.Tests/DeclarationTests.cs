@@ -15,6 +15,7 @@
 
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -58,9 +59,9 @@ namespace Apache.Arrow.Acero.Tests
                 """, rowCount: 3);
         }
 
-        private void AssertTable(Table table, string expected, int? rowCount = null)
+        private void AssertTable(Table table, string expected, int? rowCount = null, int columnPadding = 10)
         {
-            var actual = PrintPrintTable(table);
+            var actual = PrintPrintTable(table, columnPadding);
 
             _output.WriteLine(actual);
 
@@ -89,8 +90,15 @@ namespace Apache.Arrow.Acero.Tests
                 options: hashJoinOptions, inputs: new List<Declaration> { left, right });
 
             // act
-            var schema = GetOutputSchema();
-            var result = hashJoin.ToRecordBatchReader(schema);
+            var result = hashJoin.ToRecordBatchReader(
+                new Schema.Builder()
+                    .Field(new Field("customerId", StringType.Default, true))
+                    .Field(new Field("firstName", StringType.Default, true))
+                    .Field(new Field("lastName", StringType.Default, true))
+                    .Field(new Field("orderId", StringType.Default, true))
+                    .Field(new Field("customerId", StringType.Default, true))
+                    .Field(new Field("productId", StringType.Default, true))
+                .Build());
 
             // assert
             var table = await ConvertStreamToTable(result);
@@ -171,8 +179,6 @@ namespace Apache.Arrow.Acero.Tests
         public async Task TestUnion()
         {
             // arrange
-            var schema = TestData.GetCustomersSchema();
-
             var left = new Declaration("record_batch_source",
                 new RecordBatchSourceNodeOptions(TestData.GetCustomersRecordBatch()));
 
@@ -182,6 +188,7 @@ namespace Apache.Arrow.Acero.Tests
             var union = new Declaration("union", inputs: new List<Declaration> { left, right });
 
             // act
+            var schema = TestData.GetCustomersSchema();
             var result = union.ToRecordBatchReader(schema);
 
             // assert
@@ -197,6 +204,45 @@ namespace Apache.Arrow.Acero.Tests
                 c2         | Princess   | Leia       | 
                 c3         | Obi-Wan    | Kenobi     | 
                 """, rowCount: 6);
+        }
+
+        [Fact]
+        public async Task TestProjection()
+        {
+            // arrange
+            var customers = new Declaration("record_batch_source",
+                new RecordBatchSourceNodeOptions(TestData.GetCustomersRecordBatch()));
+
+            var project = Declaration.FromSequence(new List<Declaration> {
+                customers,
+                new Declaration("project", new ProjectNodeOptions(
+                    new List<Expression> {
+                        new Function(
+                            "binary_join_element_wise",
+                             new FieldExpression("lastName"),
+                             new FieldExpression("firstName"),
+                             new LiteralExpression(", ")
+                        )
+                    },
+                    new List<string> { "fullName" }))
+            });
+
+            // act
+            var result = project.ToRecordBatchReader(
+                new Schema.Builder()
+                    .Field(new Field("fullName", StringType.Default, true))
+                .Build());
+
+            // assert
+            var table = await ConvertStreamToTable(result);
+
+            AssertTable(table,
+                """
+                fullName        | 
+                Skywalker, Luke | 
+                Leia, Princess  | 
+                Kenobi, Obi-Wan | 
+                """, rowCount: 3, columnPadding: 15);
         }
 
         private async Task<Table> ConvertStreamToTable(IArrowArrayStream result)
@@ -219,13 +265,13 @@ namespace Apache.Arrow.Acero.Tests
             return Table.TableFromRecordBatches(schema, recordBatches);
         }
 
-        public static string PrintPrintTable(Table table)
+        public static string PrintPrintTable(Table table, int columnPadding = 10)
         {
             var sb = new StringBuilder();
 
             for (var i = 0; i < table.ColumnCount; i++)
             {
-                sb.Append(table.Column(i).Name.PadRight(10) + " | ");
+                sb.Append(table.Column(i).Name.PadRight(columnPadding) + " | ");
             }
 
             sb.AppendLine();
@@ -241,8 +287,24 @@ namespace Apache.Arrow.Acero.Tests
                         if (sliced.Data.Array(k).Length == 0)
                             continue;
 
-                        var data = sliced.Data.Array(k) as StringArray;
-                        sb.Append(data.GetString(0).PadRight(10) + " | ");
+                        var data = sliced.Data.Array(k);
+                        string value;
+
+                        switch (data)
+                        {
+                            case StringArray stringArray:
+                                value = stringArray.GetString(0);
+                                break;
+
+                            case Int32Array int32Array:
+                                value = int32Array.GetValue(0).ToString();
+                                break;
+
+                            default:
+                                throw new Exception("Array type not supported");
+                        }
+
+                        sb.Append(value.PadRight(columnPadding) + " | ");
                     }
                 }
                 sb.AppendLine();
@@ -255,18 +317,6 @@ namespace Apache.Arrow.Acero.Tests
         {
             public string TableAsString { get; set; }
             public int RowCount { get; set; }
-        }
-
-        public Schema GetOutputSchema()
-        {
-            return new Schema.Builder()
-                .Field(new Field("customerId", StringType.Default, true))
-                .Field(new Field("firstName", StringType.Default, true))
-                .Field(new Field("lastName", StringType.Default, true))
-                .Field(new Field("orderId", StringType.Default, true))
-                .Field(new Field("customerId", StringType.Default, true))
-                .Field(new Field("productId", StringType.Default, true))
-                .Build();
         }
     }
 }

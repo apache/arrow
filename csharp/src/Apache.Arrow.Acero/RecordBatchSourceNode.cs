@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using static Apache.Arrow.Acero.CLib;
+
 namespace Apache.Arrow.Acero
 {
     public class RecordBatchSourceNode : ExecNode
@@ -21,7 +23,11 @@ namespace Apache.Arrow.Acero
 
         public unsafe RecordBatchSourceNode(RecordBatchSourceNodeOptions options, ExecPlan plan)
         {
-            _nodePtr = CLib.garrow_execute_plan_build_source_node(plan.GetPtr(), options.GetPtr(), null);
+            GError** error;
+
+            _nodePtr = CLib.garrow_execute_plan_build_source_node(plan.GetPtr(), options.GetPtr(), out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public override unsafe CLib.GArrowExecuteNode* GetPtr()

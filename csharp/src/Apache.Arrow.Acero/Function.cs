@@ -14,7 +14,6 @@
 // limitations under the License.
 
 using System;
-using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Acero
 {
@@ -23,24 +22,20 @@ namespace Apache.Arrow.Acero
         private IntPtr _ptr;
 
         public unsafe Function(string functionName, Expression lhs, Expression rhs)
+            : this(functionName, new[] { lhs, rhs })
+        {
+        }
+
+        public unsafe Function(string functionName, params Expression[] args)
         {
             var functionNamePtr = StringUtil.ToCStringUtf8(functionName);
 
-            var rhsItem = new GList
-            {
-                data = rhs.GetPtr()
-            };
+            var list = new GLib.List(IntPtr.Zero);
 
-            var lhsItem = new GList
-            {
-                data = lhs.GetPtr(),
-                next = &rhsItem
-            };
+            foreach (var arg in args)
+                list.Append(arg.GetPtr());
 
-            IntPtr glistPtr = Marshal.AllocHGlobal(Marshal.SizeOf<GList>());
-            Marshal.StructureToPtr<GList>(lhsItem, glistPtr, false);
-
-            _ptr = (nint)CLib.garrow_call_expression_new((IntPtr)functionNamePtr, glistPtr, null);
+            _ptr = (IntPtr)CLib.garrow_call_expression_new((IntPtr)functionNamePtr, list.Handle, null);
         }
 
         public override IntPtr GetPtr()

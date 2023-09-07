@@ -14,6 +14,7 @@
 // limitations under the License.
 
 using System;
+using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
@@ -25,7 +26,11 @@ namespace Apache.Arrow.Acero
         {
             var reference = (nint)StringUtil.ToCStringUtf8(field);
 
-            _ptr = (nint)CLib.garrow_field_expression_new(reference, null);
+            GError** error;
+
+            _ptr = (IntPtr)CLib.garrow_field_expression_new(reference, out error);
+
+            ExceptionUtil.ThrowOnError(error);
         }
 
         public override IntPtr GetPtr()
