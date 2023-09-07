@@ -337,7 +337,7 @@ function decodeBuffers(batch: _RecordBatch, version: MetadataVersion) {
             // If this Arrow buffer was written before version 4,
             // advance the buffer's bb_pos 8 bytes to skip past
             // the now-removed page_id field
-            if (version < MetadataVersion.V5) {
+            if (version < MetadataVersion.V4) {
                 b.bb_pos += (8 * (i + 1));
             }
             bufferRegions[++j] = BufferRegion.decode(b);
