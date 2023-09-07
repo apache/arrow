@@ -18,12 +18,12 @@
 classdef Int16Type < arrow.type.NumericType
     
     methods 
-        function obj = NumericType(proxy)
+        function obj = Int16Type(proxy)
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Int16Type")}
             end
             import arrow.internal.proxy.validate
-            obj@arrow.type.FixedWidthType(proxy);
+            obj@arrow.type.NumericType(proxy);
         end
     end
 end
