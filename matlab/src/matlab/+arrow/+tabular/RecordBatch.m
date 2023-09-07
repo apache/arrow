@@ -91,6 +91,48 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function T = toMATLAB(obj)
             T = obj.table();
         end
+
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+
+            schemasToCompare = cell([1 numel(varargin)]);
+            for ii = 1:numel(varargin)
+                rb = varargin{ii};
+                if ~isa(rb, "arrow.tabular.RecordBatch")
+                    return;
+                end
+                schemasToCompare{ii} = rb.Schema;
+            end
+
+            if ~isequal(obj.Schema, schemasToCompare{:})
+                % Return early if the Schemas are not all equal
+                return;
+            end
+
+            numColumns = obj.NumColumns;
+            %columnsToCompare = cell([numel(varargin) numColumns]);
+
+            for ii = 1:numColumns
+                columnsToCompare = arrayfun(@(idx) varargin{idx}.column(ii), 1:numel(varargin), UniformOutput=false);
+                if ~isequal(obj.column(ii), columnsToCompare{:})
+                    return;
+                end
+            end
+            tf = true;
+
+            % 
+            %     columnsToCompare(ii, :) = arrayfun(@(idx) rb.column(idx), 1:numColumns, UniformOutput=false);
+            % end
+            % 
+            % for ii = 1:numColumns
+            %     if ~isequal(obj.column(ii), columnsToCompare{:, ii})
+            %         return;
+            %     end
+            % end
+            % 
+            % tf = true;
+        end
     end
 
     methods (Access = private)
