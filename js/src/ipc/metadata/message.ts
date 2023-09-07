@@ -68,7 +68,7 @@ export class Message<T extends MessageHeader = any> {
 
     /** @nocollapse */
     public static fromJSON<T extends MessageHeader>(msg: any, headerType: T): Message<T> {
-        const message = new Message(0, MetadataVersion.V4, headerType);
+        const message = new Message(0, MetadataVersion.V5, headerType);
         message._createHeader = messageHeaderFromJSON(msg, headerType);
         return message;
     }
@@ -97,7 +97,7 @@ export class Message<T extends MessageHeader = any> {
             headerOffset = DictionaryBatch.encode(b, message.header() as DictionaryBatch);
         }
         _Message.startMessage(b);
-        _Message.addVersion(b, MetadataVersion.V4);
+        _Message.addVersion(b, MetadataVersion.V5);
         _Message.addHeader(b, headerOffset);
         _Message.addHeaderType(b, message.headerType);
         _Message.addBodyLength(b, BigInt(message.bodyLength));
@@ -108,13 +108,13 @@ export class Message<T extends MessageHeader = any> {
     /** @nocollapse */
     public static from(header: Schema | RecordBatch | DictionaryBatch, bodyLength = 0) {
         if (header instanceof Schema) {
-            return new Message(0, MetadataVersion.V4, MessageHeader.Schema, header);
+            return new Message(0, MetadataVersion.V5, MessageHeader.Schema, header);
         }
         if (header instanceof RecordBatch) {
-            return new Message(bodyLength, MetadataVersion.V4, MessageHeader.RecordBatch, header);
+            return new Message(bodyLength, MetadataVersion.V5, MessageHeader.RecordBatch, header);
         }
         if (header instanceof DictionaryBatch) {
-            return new Message(bodyLength, MetadataVersion.V4, MessageHeader.DictionaryBatch, header);
+            return new Message(bodyLength, MetadataVersion.V5, MessageHeader.DictionaryBatch, header);
         }
         throw new Error(`Unrecognized Message header: ${header}`);
     }
@@ -225,7 +225,7 @@ function messageHeaderFromJSON(message: any, type: MessageHeader) {
 function decodeMessageHeader(message: _Message, type: MessageHeader) {
     return (() => {
         switch (type) {
-            case MessageHeader.Schema: return Schema.decode(message.header(new _Schema())!);
+            case MessageHeader.Schema: return Schema.decode(message.header(new _Schema())!, new Map(), message.version());
             case MessageHeader.RecordBatch: return RecordBatch.decode(message.header(new _RecordBatch())!, message.version());
             case MessageHeader.DictionaryBatch: return DictionaryBatch.decode(message.header(new _DictionaryBatch())!, message.version());
         }
@@ -290,13 +290,13 @@ declare module './message' {
 }
 
 /** @ignore */
-function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map()) {
+function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map(), version = MetadataVersion.V5) {
     const fields = decodeSchemaFields(_schema, dictionaries);
-    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries);
+    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries, version);
 }
 
 /** @ignore */
-function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
+function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V5) {
     if (batch.compression() !== null) {
         throw new Error('Record batch compression not implemented');
     }
@@ -304,7 +304,7 @@ function decodeRecordBatch(batch: _RecordBatch, version = MetadataVersion.V4) {
 }
 
 /** @ignore */
-function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V4) {
+function decodeDictionaryBatch(batch: _DictionaryBatch, version = MetadataVersion.V5) {
     return new DictionaryBatch(RecordBatch.decode(batch.data()!, version), batch.id(), batch.isDelta());
 }
 
