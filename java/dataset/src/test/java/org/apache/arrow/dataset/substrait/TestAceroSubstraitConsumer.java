@@ -368,8 +368,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
     }
   }
 
-  private static ByteBuffer getByteBuffer(String base64EncodedSubstraitFilter) {
-    byte[] substraitFilter = Base64.getDecoder().decode(base64EncodedSubstraitFilter);
+  private static ByteBuffer getByteBuffer(String base64EncodedSubstrait) {
+    byte[] substraitFilter = Base64.getDecoder().decode(base64EncodedSubstrait);
     ByteBuffer substraitExpressionFilter = ByteBuffer.allocateDirect(substraitFilter.length);
     substraitExpressionFilter.put(substraitFilter);
     return substraitExpressionFilter;
