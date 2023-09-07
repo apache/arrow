@@ -42,4 +42,10 @@ classdef DateType < arrow.type.TemporalType
         end
     end
 
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = NaT([length 1]);
+        end
+    end
+
 end

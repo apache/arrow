@@ -32,5 +32,11 @@ classdef StringType < arrow.type.Type
             groups = matlab.mixin.util.PropertyGroup(targets);
         end
     end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = strings(length, 1);
+        end
+    end
 end
 
