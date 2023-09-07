@@ -225,7 +225,7 @@ function messageHeaderFromJSON(message: any, type: MessageHeader) {
 function decodeMessageHeader(message: _Message, type: MessageHeader) {
     return (() => {
         switch (type) {
-            case MessageHeader.Schema: return Schema.decode(message.header(new _Schema())!);
+            case MessageHeader.Schema: return Schema.decode(message.header(new _Schema())!, new Map(), message.version());
             case MessageHeader.RecordBatch: return RecordBatch.decode(message.header(new _RecordBatch())!, message.version());
             case MessageHeader.DictionaryBatch: return DictionaryBatch.decode(message.header(new _DictionaryBatch())!, message.version());
         }
@@ -290,9 +290,9 @@ declare module './message' {
 }
 
 /** @ignore */
-function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map()) {
+function decodeSchema(_schema: _Schema, dictionaries: Map<number, DataType> = new Map(), version = MetadataVersion.V5) {
     const fields = decodeSchemaFields(_schema, dictionaries);
-    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries);
+    return new Schema(fields, decodeCustomMetadata(_schema), dictionaries, version);
 }
 
 /** @ignore */

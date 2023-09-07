@@ -38,7 +38,7 @@ class Footer_ {
     public static decode(buf: ArrayBufferViewInput) {
         buf = new ByteBuffer(toUint8Array(buf));
         const footer = _Footer.getRootAsFooter(buf);
-        const schema = Schema.decode(footer.schema()!);
+        const schema = Schema.decode(footer.schema()!, new Map(), footer.version());
         return new OffHeapFooter(schema, footer) as Footer_;
     }
 
