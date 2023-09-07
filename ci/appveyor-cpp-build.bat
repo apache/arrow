@@ -136,7 +136,15 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 @rem configurability of the timezone database path
 @REM mkdir %USERPROFILE%\Downloads\test\tzdata
 @REM move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
-set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\tzdata
+
+@rem Download IANA Timezone Database to another location
+curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+mkdir tzdata
+tar --extract --file tzdata.tar.gz --directory tzdata
+move tzdata %USERPROFILE%\Downloads\test\tzdata
+curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+  --output %USERPROFILE%\Downloads\test\tzdata\windowsZones.xml
+set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
 
 python setup.py develop -q || exit /B
 
