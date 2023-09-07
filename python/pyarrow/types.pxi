@@ -4135,6 +4135,7 @@ def binary(int length=-1):
     FixedSizeBinaryType(fixed_size_binary[3])
 
     and use the fixed-length binary type to create an array:
+
     >>> pa.array(['foo', 'bar', 'baz'], type=pa.binary(3))
     <pyarrow.lib.FixedSizeBinaryArray object at ...>
     [
