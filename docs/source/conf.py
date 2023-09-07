@@ -309,11 +309,13 @@ html_theme_options = {
             "icon": "fa-brands fa-square-twitter",
         },
     ],
+    "show_version_warning_banner": True,
     "switcher": {
-        # TODO: add versions.json to the arrow-site and change the link
-        "json_url": "https://gist.githubusercontent.com/AlenkaF/9cc5820d3030cefcd2eee48e1ea58dc5/raw/8eb52d2878ab9e689f59fecb66bb20667a3e7d6a/versions.json",
+        # TODO: update versions.json on the arrow-site and change the link here
+        # "json_url": "/docs/_static/versions.json"
+        "json_url": "https://gist.githubusercontent.com/AlenkaF/9cc5820d3030cefcd2eee48e1ea58dc5/raw/3c0fa34dae3926f05958a5a7b3cfa8a07f0846d0/versions.json",
         "version_match": version,
-    }
+    },
 }
 
 html_context = {

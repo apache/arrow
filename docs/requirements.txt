@@ -10,4 +10,4 @@ sphinx-design
 sphinx-copybutton
 sphinx==6.2
 pandas
-git+https://github.com/pydata/pydata-sphinx-theme.git@main
+git+https://github.com/pydata/pydata-sphinx-theme.git@f6e1943c5f9fab4442f7e7d6f5ce5474833b66f6
