@@ -1,3 +1,5 @@
+%FLOAT64TYPE Type class for float64 data. 
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,8 +15,7 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Float64Type < arrow.type.FixedWidthType
-%FLOAT64Type Type class for float64 data. 
+classdef Float64Type < arrow.type.NumericType
     
     methods 
         function obj = Float64Type(proxy)
@@ -22,14 +23,7 @@ classdef Float64Type < arrow.type.FixedWidthType
                 proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Float64Type")}
             end
             import arrow.internal.proxy.validate
-            obj@arrow.type.FixedWidthType(proxy);
-        end
-    end
-
-    methods (Access=protected)
-        function groups = getDisplayPropertyGroups(~)
-            targets = "ID";
-            groups = matlab.mixin.util.PropertyGroup(targets);
+            obj@arrow.type.NumericType(proxy);
         end
     end
 end

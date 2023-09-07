@@ -1,4 +1,4 @@
-%FLOAT32TYPE Type class for float32 data.
+%NUMERICTYPE Type class for numeric data
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -15,15 +15,29 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Float32Type < arrow.type.NumericType
-    
-    methods 
-        function obj = Float32Type(proxy)
+classdef NumericType < arrow.type.FixedWidthType
+
+    methods
+        function obj = NumericType(proxy)
             arguments
-                proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.type.proxy.Float32Type")}
+                proxy(1, 1) libmexclass.proxy.Proxy
             end
-            import arrow.internal.proxy.validate
-            obj@arrow.type.NumericType(proxy);
+
+            obj@arrow.type.FixedWidthType(proxy);
+        end
+    end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(obj, length)
+            traits = arrow.type.traits.traits(obj.ID);
+            data = zeros([length 1], traits.MatlabClassName);
+        end
+    end
+
+    methods (Access=protected)
+        function groups = getDisplayPropertyGroups(~)
+            targets = "ID";
+            groups = matlab.mixin.util.PropertyGroup(targets);
         end
     end
 end

@@ -32,4 +32,10 @@ classdef BooleanType < arrow.type.FixedWidthType
             groups = matlab.mixin.util.PropertyGroup(targets);
         end
     end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = false([length 1]);
+        end
+    end
 end

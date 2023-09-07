@@ -42,4 +42,11 @@ classdef TimeType < arrow.type.TemporalType
         end
     end
 
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = NaN([length 1]);
+            data = seconds(data);
+        end
+    end
+
 end
