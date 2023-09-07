@@ -298,7 +298,9 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
         GetFragmentScanOptions<ParquetFragmentScanOptions>(
             kParquetTypeName, nullptr, format.default_fragment_scan_options));
     auto reader = parquet::ParquetFileReader::Open(
-        std::move(input), MakeReaderProperties(format, parquet_scan_options.get()));
+        std::move(input),
+        MakeReaderProperties(format, parquet_scan_options.get(),
+                             parquet_scan_options->reader_properties->memory_pool()));
     std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
     return metadata != nullptr && metadata->can_decompress();
   } catch (const ::parquet::ParquetInvalidOrCorruptedFileException& e) {
@@ -622,10 +624,11 @@ Result<std::shared_ptr<FileWriter>> ParquetFileFormat::MakeWriter(
   auto parquet_options = checked_pointer_cast<ParquetFileWriteOptions>(options);
 
   std::unique_ptr<parquet::arrow::FileWriter> parquet_writer;
-  ARROW_ASSIGN_OR_RAISE(parquet_writer, parquet::arrow::FileWriter::Open(
-                                            *schema, default_memory_pool(), destination,
-                                            parquet_options->writer_properties,
-                                            parquet_options->arrow_writer_properties));
+  ARROW_ASSIGN_OR_RAISE(
+      parquet_writer,
+      parquet::arrow::FileWriter::Open(
+          *schema, parquet_options->writer_properties->memory_pool(), destination,
+          parquet_options->writer_properties, parquet_options->arrow_writer_properties));
 
   return std::shared_ptr<FileWriter>(
       new ParquetFileWriter(std::move(destination), std::move(parquet_writer),
