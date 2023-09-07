@@ -223,7 +223,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-        .substraitFilter(substraitExpressionFilter)
+        .substraitFilter(Optional.of(substraitExpressionFilter))
+        .substraitProjection(Optional.empty())
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -263,7 +264,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-        .substraitFilter(substraitExpressionFilter)
+        .substraitFilter(Optional.of(substraitExpressionFilter))
+        .substraitProjection(Optional.empty())
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -294,7 +296,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-         .substraitProjection(substraitExpressionProject)
+        .substraitProjection(Optional.of(substraitExpressionProject))
+        .substraitFilter(Optional.empty())
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
@@ -342,8 +345,8 @@ public class TestAceroSubstraitConsumer extends TestDataset {
             11, "value_11", 21, "value_21", 45, "value_45");
     ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
         .columns(Optional.empty())
-        .substraitProjection(substraitExpressionProject)
-        .substraitFilter(substraitExpressionFilter)
+        .substraitProjection(Optional.of(substraitExpressionProject))
+        .substraitFilter(Optional.of(substraitExpressionFilter))
         .build();
     try (
         DatasetFactory datasetFactory = new FileSystemDatasetFactory(rootAllocator(), NativeMemoryPool.getDefault(),
