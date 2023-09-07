@@ -315,7 +315,7 @@ classdef tChunkedArray < matlab.unittest.TestCase
         end
 
         function ToMATLABFloatTypes(testCase, FloatMatlabClass)
-             % Verify toMATLAB returns the expected MATLAB array when the
+            % Verify toMATLAB returns the expected MATLAB array when the
             % Chunked Array contains float arrays.
             import arrow.array.ChunkedArray
 
