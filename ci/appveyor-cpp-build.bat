@@ -134,9 +134,9 @@ set PARQUET_HOME=%CONDA_PREFIX%\Library
 
 @rem Move tzdata to a non-standard location to test the
 @rem configurability of the timezone database path
-mkdir %USERPROFILE%\Downloads\test\tzdata
-move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
-set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\test\tzdata
+@REM mkdir %USERPROFILE%\Downloads\test\tzdata
+@REM move %USERPROFILE%\Downloads\tzdata %USERPROFILE%\Downloads\test\tzdata
+set PYARROW_TZDATA_PATH=%USERPROFILE%\Downloads\tzdata
 
 python setup.py develop -q || exit /B
 
