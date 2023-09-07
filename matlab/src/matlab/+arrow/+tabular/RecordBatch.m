@@ -106,7 +106,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             end
 
             if ~isequal(obj.Schema, schemasToCompare{:})
-                % If the Schemas are not equal, the RecordBatches are not
+                % If the Schemas are not equal, the RecordBatch's are not
                 % equal. Return false early.
                 return;
             end
