@@ -83,14 +83,16 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
             fieldsToCompare = cell([1 numel(varargin)]);
             for ii = 1:numel(varargin)
                 schema = varargin{ii};
-
                 if ~isa(schema, "arrow.tabular.Schema")
+                    % Return false early if schema is not actually an
+                    % arrow.tabular.Schema instance.
                     return;
                 end
 
                 fieldsToCompare{ii} = schema.Fields;
             end
 
+            % Return if the Schema Fields properties are equal
             tf = isequal(obj.Fields, fieldsToCompare{:});
         end
     end
