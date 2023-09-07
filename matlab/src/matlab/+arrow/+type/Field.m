@@ -1,3 +1,7 @@
+%FIELD A class representing a name and a type.
+% Fields are often used in tabular schemas for describing a column's
+% name and type.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,9 +18,6 @@
 % permissions and limitations under the License.
 
 classdef Field < matlab.mixin.CustomDisplay
-%FIELD A class representing a name and a type.
-% Fields are often used in tabular schemas for describing a column's
-% name and type.
 
     properties (GetAccess=public, SetAccess=private, Hidden)
         Proxy
@@ -50,6 +51,44 @@ classdef Field < matlab.mixin.CustomDisplay
             name = obj.Proxy.getName();
         end
 
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+
+            namesToCompare = strings(numel(obj), numel(varargin));
+            typesToCompare = cell([1 numel(varargin)]);
+
+            for ii = 1:numel(varargin)
+                field = varargin{ii};
+                if ~isa(field, "arrow.type.Field") || ~isequal(size(obj), size(field))
+                    % Return early if field is not an arrow.type.Field
+                    % or if the dimensions of obj and field do not match.
+                    return;
+                end
+
+                namesToCompare(:, ii) = [field(:).Name];
+                typesToCompare{1, ii} = [field(:).Type];
+            end
+
+            if isempty(obj)
+                % At this point, since we have already confirmed all the 
+                % Fields have the same dimensions, if one of the Fields are
+                % empty, then they must all be empty. This means they must
+                % all be equal.
+                tf = true;
+            else
+                names = [obj(:).Name]';
+                if any(names ~= namesToCompare, "all")
+                    % Return false early if the field names are not equal.
+                    return;
+                end
+    
+                % Field names were equal. Check if their corresponding types
+                % are equal and return the result.
+                types = [obj(:).Type];
+                tf = isequal(types, typesToCompare{:});
+            end
+        end
     end
 
     methods (Access = private)
