@@ -57,6 +57,46 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
             schema = arrow.tabular.Schema(proxy);
         end
 
+        function chunkedArray = column(obj, idx)
+            import arrow.internal.validate.*
+
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
+
+            if isnumeric(idx)
+                args = struct(Index=idx);
+                proxyID = obj.Proxy.getColumnByIndex(args);
+            else
+                args = struct(Name=idx);
+                proxyID = obj.Proxy.getColumnByName(args);
+            end
+
+            proxy = libmexclass.proxy.Proxy(Name="arrow.array.proxy.ChunkedArray", ID=proxyID);
+            chunkedArray = arrow.array.ChunkedArray(proxy);
+        end
+
+        function T = table(obj)
+            import arrow.tabular.internal.*
+
+            numColumns = obj.NumColumns;
+            matlabArrays = cell(1, numColumns);
+
+            for ii = 1:numColumns
+                chunkedArray = obj.column(ii);
+                matlabArrays{ii} = toMATLAB(chunkedArray);
+            end
+
+            validVariableNames = makeValidVariableNames(obj.ColumnNames);
+            validDimensionNames = makeValidDimensionNames(validVariableNames);
+
+            T = table(matlabArrays{:}, ...
+                VariableNames=validVariableNames, ...
+                DimensionNames=validDimensionNames);
+        end
+
+        function T = toMATLAB(obj)
+            T = obj.table();
+        end
+
     end
 
     methods (Access = private)

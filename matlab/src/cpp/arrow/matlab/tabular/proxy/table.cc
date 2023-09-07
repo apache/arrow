@@ -18,6 +18,7 @@
 #include "libmexclass/proxy/ProxyManager.h"
 
 #include "arrow/matlab/array/proxy/array.h"
+#include "arrow/matlab/array/proxy/chunked_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
 
 #include "arrow/matlab/error/error.h"
@@ -31,12 +32,31 @@
 
 namespace arrow::matlab::tabular::proxy {
 
+    namespace {
+        libmexclass::error::Error makeEmptyTableError() {
+            const std::string error_msg =  "Numeric indexing using the column method is not supported for tables with no columns.";
+            return libmexclass::error::Error{error::TABLE_NUMERIC_INDEX_WITH_EMPTY_TABLE, error_msg};
+        }
+
+        libmexclass::error::Error makeInvalidNumericIndexError(const int32_t matlab_index, const int32_t num_columns) {
+            std::stringstream error_message_stream;
+            error_message_stream << "Invalid column index: ";
+            error_message_stream << matlab_index;
+            error_message_stream << ". Column index must be between 1 and the number of columns (";
+            error_message_stream << num_columns;
+            error_message_stream << ").";
+            return libmexclass::error::Error{error::TABLE_INVALID_NUMERIC_COLUMN_INDEX, error_message_stream.str()};
+        }
+    }
+
     Table::Table(std::shared_ptr<arrow::Table> table) : table{table} {
         REGISTER_METHOD(Table, toString);
         REGISTER_METHOD(Table, getNumRows);
         REGISTER_METHOD(Table, getNumColumns);
         REGISTER_METHOD(Table, getColumnNames);
         REGISTER_METHOD(Table, getSchema);
+        REGISTER_METHOD(Table, getColumnByIndex);
+        REGISTER_METHOD(Table, getColumnByName);
     }
 
     std::shared_ptr<arrow::Table> Table::unwrap() {
@@ -130,6 +150,62 @@ namespace arrow::matlab::tabular::proxy {
         const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
 
         context.outputs[0] = schema_proxy_id_mda;
+    }
+
+    void Table::getColumnByIndex(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
+        const auto matlab_index = int32_t(index_mda[0]);
+
+        // Note: MATLAB uses 1-based indexing, so subtract 1.
+        // arrow::Schema::field does not do any bounds checking.
+        const int32_t index = matlab_index - 1;
+        const auto num_columns = table->num_columns();
+
+        if (num_columns == 0) {
+            context.error = makeEmptyTableError();
+            return;
+        }
+
+        if (matlab_index < 1 || matlab_index > num_columns) {
+            context.error = makeInvalidNumericIndexError(matlab_index, num_columns);
+            return;
+        }
+
+        const auto chunked_array = table->column(index);
+        const auto chunked_array_proxy = std::make_shared<arrow::matlab::array::proxy::ChunkedArray>(chunked_array);
+
+        const auto chunked_array_proxy_id = ProxyManager::manageProxy(chunked_array_proxy);
+        const auto chunked_array_proxy_id_mda = factory.createScalar(chunked_array_proxy_id);
+
+        context.outputs[0] = chunked_array_proxy_id_mda;
+    }
+
+    void Table::getColumnByName(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::StringArray name_mda = args[0]["Name"];
+        const auto name_utf16 = std::u16string(name_mda[0]);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto name, arrow::util::UTF16StringToUTF8(name_utf16), context, error::UNICODE_CONVERSION_ERROR_ID);
+
+        const std::vector<std::string> names = {name};
+        const auto& schema = table->schema();
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
+
+        const auto chunked_array = table->GetColumnByName(name);
+        const auto chunked_array_proxy = std::make_shared<arrow::matlab::array::proxy::ChunkedArray>(chunked_array);
+
+        const auto chunked_array_proxy_id = ProxyManager::manageProxy(chunked_array_proxy);
+        const auto chunked_array_proxy_id_mda = factory.createScalar(chunked_array_proxy_id);
+
+        context.outputs[0] = chunked_array_proxy_id_mda;
     }
 
 }

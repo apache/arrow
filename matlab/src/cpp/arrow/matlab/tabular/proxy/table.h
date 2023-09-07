@@ -39,6 +39,8 @@ namespace arrow::matlab::tabular::proxy {
             void getNumColumns(libmexclass::proxy::method::Context& context);
             void getColumnNames(libmexclass::proxy::method::Context& context);
             void getSchema(libmexclass::proxy::method::Context& context);
+            void getColumnByIndex(libmexclass::proxy::method::Context& context);
+            void getColumnByName(libmexclass::proxy::method::Context& context);
 
             std::shared_ptr<arrow::Table> table;
     };
