@@ -71,8 +71,10 @@ classdef Field < matlab.mixin.CustomDisplay
             end
 
             if isempty(obj)
-                % Return true early if the Field array is empty. Already
-                % confirmed all the Field arrays have the same shape.
+                % At this point, since we have already confirmed all the 
+                % Fields have the same dimensions, if one of the Fields are
+                % empty, then they must all be empty. This means they must
+                % all be equal.
                 tf = true;
             else
                 names = [obj(:).Name]';
