@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,8 +50,10 @@ import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.IntVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.WriteChannel;
 import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.ipc.message.IpcOption;
+import org.apache.arrow.vector.ipc.message.MessageSerializer;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.Schema;
@@ -556,6 +559,7 @@ public class TestBasicOperation {
         FlightDescriptor descriptor) {
       try {
         Flight.FlightInfo getInfo = Flight.FlightInfo.newBuilder()
+            .setSchema(schemaToByteString(new Schema(Collections.emptyList())))
             .setFlightDescriptor(Flight.FlightDescriptor.newBuilder()
                 .setType(DescriptorType.CMD)
                 .setCmd(ByteString.copyFrom("cool thing", Charsets.UTF_8)))
@@ -564,6 +568,16 @@ public class TestBasicOperation {
             .build();
         return new FlightInfo(getInfo);
       } catch (URISyntaxException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static ByteString schemaToByteString(Schema schema)
+    {
+      try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+        MessageSerializer.serialize(new WriteChannel(Channels.newChannel(baos)), schema, IpcOption.DEFAULT);
+        return ByteString.copyFrom(baos.toByteArray());
+      } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }

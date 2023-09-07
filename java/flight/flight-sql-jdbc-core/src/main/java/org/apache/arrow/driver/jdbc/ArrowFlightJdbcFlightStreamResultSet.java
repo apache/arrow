@@ -123,7 +123,7 @@ public final class ArrowFlightJdbcFlightStreamResultSet
     final FlightInfo flightInfo = ((ArrowFlightInfoStatement) statement).executeFlightInfoQuery();
 
     if (flightInfo != null) {
-      schema = flightInfo.getSchema();
+      schema = flightInfo.getSchemaOptional().orElse(null);
       execute(flightInfo);
     }
     return this;
