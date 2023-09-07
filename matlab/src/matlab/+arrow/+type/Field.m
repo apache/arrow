@@ -1,3 +1,7 @@
+%FIELD A class representing a name and a type.
+% Fields are often used in tabular schemas for describing a column's
+% name and type.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,9 +18,6 @@
 % permissions and limitations under the License.
 
 classdef Field < matlab.mixin.CustomDisplay
-%FIELD A class representing a name and a type.
-% Fields are often used in tabular schemas for describing a column's
-% name and type.
 
     properties (GetAccess=public, SetAccess=private, Hidden)
         Proxy
