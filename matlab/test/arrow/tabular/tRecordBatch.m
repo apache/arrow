@@ -16,6 +16,14 @@
 classdef tRecordBatch < matlab.unittest.TestCase
 % Test class containing tests for arrow.tabular.RecordBatch
 
+    properties
+        NumRows
+        arrowRecordBatch
+        TOriginal
+        expectedColumnNames
+        expectedArrayClasses
+    end
+
     methods(Test)
 
         function Basic(tc)
@@ -398,6 +406,8 @@ classdef tRecordBatch < matlab.unittest.TestCase
                 column = recordBatch.column(ii);
                 tc.verifyEqual(column.toMATLAB(), expectedTable{:, ii});
                 tc.verifyInstanceOf(column, expectedArrayClasses(ii));
+                    function numRows = get.NumRows(obj)
+                numRows = obj.arrowRecordBatch.NumRows;
              end
         end
     end
