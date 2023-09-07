@@ -37,7 +37,6 @@ type schemaNode struct {
 	children     []*schemaNode
 	arrowField   arrow.Field
 	schemaCache  *avro.SchemaCache
-	path         []string
 	index, depth int32
 }
 
@@ -53,7 +52,8 @@ func (node *schemaNode) newChild(n string, s avro.Schema) *schemaNode {
 		schema:      s,
 		schemaCache: node.schemaCache,
 		index:       int32(len(node.children)),
-		depth:       node.depth + 1}
+		depth:       node.depth + 1,
+	}
 	node.children = append(node.children, child)
 	return child
 }
@@ -262,7 +262,6 @@ func iterateFields(n *schemaNode) {
 	} else {
 		n.arrowField = arrow.Field{Name: n.name, Type: arrow.StructOf(fields...), Nullable: true, Metadata: arrow.MetadataFrom(map[string]string{"typeName": namedSchema})}
 	}
-
 }
 
 func isLogicalSchemaType(s avro.Schema) bool {

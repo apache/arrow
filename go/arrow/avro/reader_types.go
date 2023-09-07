@@ -118,7 +118,6 @@ func (d *dataLoader) loadDatum(data any) error {
 						return err
 					}
 				}
-
 			}
 		}
 		for _, c := range d.children {
@@ -305,6 +304,15 @@ func (f *fieldPos) namePath() []string {
 				}
 			}
 		}
+		if f.parent != nil && f.parent.fieldName == "value" {
+			for i := len(path) - 1; i >= 0; i-- {
+				if path[i] != "value" {
+					listPath = append([]string{path[i]}, listPath...)
+				} else {
+					return listPath
+				}
+			}
+		}
 		return path
 	}
 	return f.path
@@ -352,7 +360,7 @@ func (f *fieldPos) getValue(m any) any {
 //	enum					string			Dictionary
 //	fixed					[]byte			FixedSizeBinary
 //	map and record	map[string]any	Struct
-
+//
 // mapFieldBuilders builds a tree of field builders matching the Arrow schema
 func mapFieldBuilders(b array.Builder, field arrow.Field, parent *fieldPos) {
 	switch bt := b.(type) {

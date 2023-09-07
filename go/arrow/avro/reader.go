@@ -17,6 +17,7 @@
 package avro
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -45,66 +46,124 @@ type OCFReader struct {
 	avroSchema string
 	schema     *arrow.Schema
 
-	refs int64
-	bld  *array.RecordBuilder
-	ldr  *dataLoader
-	cur  arrow.Record
-	err  error
+	refs   int64
+	bld    *array.RecordBuilder
+	bldMap *fieldPos
+	ldr    *dataLoader
+	cur    arrow.Record
+	err    error
 
-	chunk int
-	done  bool
-	next  func() bool
+	primed     bool
+	readerCtx  context.Context
+	readCancel func()
+	maxOCF     int
+	maxRec     int
+
+	avroChan       chan any
+	avroDatumCount int64
+	avroChanSize   int
+	recChan        chan arrow.Record
+
+	ocfDone  chan struct{}
+	avroDone bool
+	bldDone  chan struct{}
+	recDone  bool
+
+	recChanSize int
+	chunk       int
+
+	done bool
 
 	mem memory.Allocator
 }
 
 // NewReader returns a reader that reads from an Avro OCF file and creates
 // arrow.Records from the converted schema.
-func NewOCFReader(r io.Reader, opts ...Option) *OCFReader {
+func NewOCFReader(r io.Reader, opts ...Option) (*OCFReader, error) {
 	ocfr, err := ocf.NewDecoder(r)
 	if err != nil {
-		panic(fmt.Errorf("%w: could not create avro ocfreader", arrow.ErrInvalid))
+		return nil, fmt.Errorf("%w: could not create avro ocfreader", arrow.ErrInvalid)
 	}
 
 	rr := &OCFReader{
-		r:     ocfr,
-		refs:  1,
-		chunk: 1,
+		r:            ocfr,
+		refs:         1,
+		chunk:        1,
+		avroChanSize: 500,
+		recChanSize:  10,
 	}
 	for _, opt := range opts {
 		opt(rr)
 	}
 
+	rr.avroChan = make(chan any, rr.avroChanSize)
+	rr.recChan = make(chan arrow.Record, rr.recChanSize)
+	rr.ocfDone = make(chan struct{})
+	rr.bldDone = make(chan struct{})
 	schema, err := avro.Parse(string(ocfr.Metadata()["avro.schema"]))
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("%w: could not parse avro header", arrow.ErrInvalid)
 	}
 	rr.avroSchema = schema.String()
 	rr.schema, err = ArrowSchemaFromAvro(schema)
 	if err != nil {
-		panic(fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid))
+		return nil, fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid)
 	}
 	if rr.mem == nil {
 		rr.mem = memory.DefaultAllocator
 	}
+	rr.readerCtx, rr.readCancel = context.WithCancel(context.Background())
+	go rr.decodeOCFToChan()
 
 	rr.bld = array.NewRecordBuilder(rr.mem, rr.schema)
-	bldMap := new(fieldPos)
+	rr.bldMap = new(fieldPos)
 	rr.ldr = newDataLoader()
 	for idx, fb := range rr.bld.Fields() {
-		mapFieldBuilders(fb, rr.schema.Field(idx), bldMap)
+		mapFieldBuilders(fb, rr.schema.Field(idx), rr.bldMap)
 	}
-	rr.ldr.drawTree(bldMap)
-	rr.next = rr.next1
-	switch {
-	case rr.chunk < 0:
-		rr.next = rr.nextall
-	case rr.chunk > 1:
-		rr.next = rr.nextn
-	default:
-		rr.next = rr.next1
+	rr.ldr.drawTree(rr.bldMap)
+	go rr.recordFactory()
+	return rr, nil
+}
+
+// Reuse allows the OCFReader to be reused to read another Avro file provided the
+// new Avro file has an identical schema.
+func (rr *OCFReader) Reuse(r io.Reader, opts ...Option) error {
+	rr.Close()
+	rr.err = nil
+	ocfr, err := ocf.NewDecoder(r)
+	if err != nil {
+		return fmt.Errorf("%w: could not create avro ocfreader", arrow.ErrInvalid)
 	}
-	return rr
+	schema, err := avro.Parse(string(ocfr.Metadata()["avro.schema"]))
+	if err != nil {
+		return fmt.Errorf("%w: could not parse avro header", arrow.ErrInvalid)
+	}
+	if rr.avroSchema != schema.String() {
+		return fmt.Errorf("%w: avro schema mismatch", arrow.ErrInvalid)
+	}
+
+	rr.r = ocfr
+	for _, opt := range opts {
+		opt(rr)
+	}
+
+	rr.maxOCF = 0
+	rr.maxRec = 0
+	rr.avroDatumCount = 0
+	rr.primed = false
+	rr.avroDone = false
+	rr.recDone = false
+
+	rr.avroChan = make(chan any, rr.avroChanSize)
+	rr.recChan = make(chan arrow.Record, rr.recChanSize)
+	rr.ocfDone = make(chan struct{})
+	rr.bldDone = make(chan struct{})
+
+	rr.readerCtx, rr.readCancel = context.WithCancel(context.Background())
+	go rr.decodeOCFToChan()
+	go rr.recordFactory()
+	return nil
 }
 
 // Err returns the last error encountered during the iteration over the
@@ -122,131 +181,78 @@ func (r *OCFReader) Schema() *arrow.Schema { return r.schema }
 // It is valid until the next call to Next.
 func (r *OCFReader) Record() arrow.Record { return r.cur }
 
-// Next returns whether a Record could be extracted from the underlying Avro OCF.
-//
-// Next panics if the number of records extracted from an Avro data item does not match
-// the number of fields of the associated schema. If a parse failure occurs, Next
-// will return true and the Record will contain nulls where failures occurred.
-// Subsequent calls to Next will return false - The user should check Err() after
-// each call to Next to check if an error took place.
+// Metrics returns the maximum queue depth of the Avro record read cache and of the
+// converted Arrow record cache.
+func (r *OCFReader) Metrics() string {
+	return fmt.Sprintf("Max. OCF queue depth: %d/%d  Max. record queue depth: %d/%d", r.maxOCF, r.avroChanSize, r.maxRec, r.recChanSize)
+}
+
+// OCFRecordsReadCount returns the number of Avro datum that were read from the Avro file.
+func (r *OCFReader) OCFRecordsReadCount() int64 { return r.avroDatumCount }
+
+// Close closes the OCFReader's Avro record read cache and converted Arrow record cache. OCFReader must
+// be closed if the Avro OCF's records have not been read to completion.
+func (r *OCFReader) Close() {
+	r.readCancel()
+	r.err = r.readerCtx.Err()
+}
+
+// Next returns whether a Record can be received from the converted record queue.
+// The user should check Err() after call to Next that return false to check
+// if an error took place.
 func (r *OCFReader) Next() bool {
 	if r.cur != nil {
 		r.cur.Release()
 		r.cur = nil
 	}
-
-	if r.err != nil || r.done {
+	if r.maxOCF < len(r.avroChan) {
+		r.maxOCF = len(r.avroChan)
+	}
+	if r.maxRec < len(r.recChan) {
+		r.maxRec = len(r.avroChan)
+	}
+	select {
+	case r.cur = <-r.recChan:
+	case <-r.bldDone:
+		if len(r.recChan) > 0 {
+			r.cur = <-r.recChan
+		}
+	}
+	if r.err != nil {
 		return false
 	}
 
-	return r.next()
-}
-
-// next1 reads one row from the Avro file and creates a single Record
-// from that row.
-func (r *OCFReader) next1() bool {
-	// Scan returns true when there is at least one more data item to be read from
-	// the Avro OCF. Scan ought to be called prior to calling the Read method each
-	// time the Read method is invoked.  See `NewOCFReader` documentation for an
-	// example.
-	if r.r.HasNext() {
-		// Read consumes one datum value from the Avro OCF stream and returns it. Read
-		// is designed to be called only once after each invocation of the Scan method.
-		// See `NewOCFReader` documentation for an example.
-		var datum interface{}
-		err := r.r.Decode(&datum)
-		if err != nil {
-			r.done = true
-			if errors.Is(err, io.EOF) {
-				r.err = nil
-			}
-			r.err = err
-			return false
-		}
-		err = r.ldr.loadDatum(datum)
-		if err != nil {
-			r.err = err
-			return false
-		}
-	} else {
-		r.done = true
-		return false
-	}
-	if r.err != nil {
-		r.done = true
-	}
-	r.cur = r.bld.NewRecord()
-	return true
-}
-
-// nextall reads the whole Avro file into memory and creates one single
-// Record from all the data items.
-func (r *OCFReader) nextall() bool {
-	for !r.done {
-		if r.r.HasNext() {
-			var datum interface{}
-			err := r.r.Decode(&datum)
-			if err != nil {
-				r.done = true
-				if errors.Is(err, io.EOF) {
-					r.err = nil
-				}
-				r.err = err
-				return false
-			}
-			err = r.ldr.loadDatum(datum)
-			if err != nil {
-				r.err = err
-				return false
-			}
-		} else {
-			r.done = true
-		}
-	}
-	if r.err != nil {
-		r.done = true
-	}
-	r.cur = r.bld.NewRecord()
-	return true
-}
-
-// nextn reads n data items from the Avro file, where n is the chunk size, and
-// creates a Record from these rows.
-func (r *OCFReader) nextn() bool {
-	n := 0
-	for i := 0; i < r.chunk && !r.done; i++ {
-		if r.r.HasNext() {
-			var datum interface{}
-			err := r.r.Decode(&datum)
-			if err != nil {
-				r.done = true
-				if errors.Is(err, io.EOF) {
-					r.err = nil
-				}
-				r.err = err
-				return false
-			}
-			err = r.ldr.loadDatum(datum)
-			if err != nil {
-				r.err = err
-				return false
-			}
-			n++
-		} else {
-			r.done = true
-		}
-	}
-	if r.err != nil {
-		r.done = true
-	}
-	r.cur = r.bld.NewRecord()
-	return n > 0
+	return r.cur != nil
 }
 
 // WithAllocator specifies the Arrow memory allocator used while building records.
 func WithAllocator(mem memory.Allocator) Option {
 	return func(cfg config) {
 		cfg.mem = mem
+	}
+}
+
+// WithReadCacheSize specifies the size of the OCF record decode queue, default value
+// is 500.
+func WithReadCacheSize(n int) Option {
+	return func(cfg config) {
+		if n < 1 {
+			cfg.avroChanSize = 500
+		} else {
+			cfg.avroChanSize = n
+		}
+	}
+}
+
+// WithRecordCacheSize specifies the size of the converted Arrow record queue, default
+// value is 1.
+func WithRecordCacheSize(n int) Option {
+	return func(cfg config) {
+		if n < 1 {
+			cfg.recChanSize = 1
+		} else {
+			cfg.recChanSize = n
+		}
 	}
 }
 

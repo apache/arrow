@@ -71,11 +71,15 @@ func main() {
 
 	fh := memfile.New(data)
 	ior := bufio.NewReaderSize(fh, 4096*8)
-	av2arReader := avro.NewOCFReader(ior, avro.WithChunk(chunk))
-	fp, err := os.OpenFile(*filepath+".parquet", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	av2arReader, err := avro.NewOCFReader(ior, avro.WithChunk(chunk))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(3)
+	}
+	fp, err := os.OpenFile(*filepath+".parquet", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(4)
 	}
 	defer fp.Close()
 	pwProperties := parquet.NewWriterProperties(parquet.WithDictionaryDefault(true),
@@ -89,20 +93,20 @@ func main() {
 	pr, err := pq.NewFileWriter(av2arReader.Schema(), fp, pwProperties, awProperties)
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(4)
+		os.Exit(5)
 	}
 	defer pr.Close()
 	fmt.Printf("parquet version: %v\n", pwProperties.Version())
 	for av2arReader.Next() {
 		if av2arReader.Err() != nil {
 			fmt.Println(err)
-			os.Exit(5)
+			os.Exit(6)
 		}
 		recs := av2arReader.Record()
 		err = pr.WriteBuffered(recs)
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(6)
+			os.Exit(7)
 		}
 		recs.Release()
 	}

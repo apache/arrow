@@ -224,103 +224,135 @@ func TestSchemaStringEqual(t *testing.T) {
 				"type": "record"
 			}`,
 			arrowSchema: []arrow.Field{
-				{Name: "inheritNull",
+				{
+					Name:     "inheritNull",
 					Type:     &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
 					Nullable: true,
-					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"})},
-				{Name: "explicitNamespace",
+					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"}),
+				},
+				{
+					Name:     "explicitNamespace",
 					Type:     &arrow.FixedSizeBinaryType{ByteWidth: 12},
 					Nullable: true,
 				},
-				{Name: "fullName",
+				{
+					Name: "fullName",
 					Type: arrow.StructOf(
-						arrow.Field{Name: "inheritNamespace",
-							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false}},
-						arrow.Field{Name: "md5",
-							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}},
+						arrow.Field{
+							Name: "inheritNamespace",
+							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
+						},
+						arrow.Field{
+							Name: "md5",
+							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16},
+						},
 					),
 					Nullable: true,
 				},
-				{Name: "id",
+				{
+					Name:     "id",
 					Type:     arrow.PrimitiveTypes.Int32,
 					Nullable: true,
 				},
-				{Name: "bigId",
+				{
+					Name:     "bigId",
 					Type:     arrow.PrimitiveTypes.Int64,
 					Nullable: true,
 				},
-				{Name: "temperature",
+				{
+					Name:     "temperature",
 					Type:     arrow.PrimitiveTypes.Float32,
 					Nullable: true,
 				},
-				{Name: "fraction",
+				{
+					Name:     "fraction",
 					Type:     arrow.PrimitiveTypes.Float64,
 					Nullable: true,
 				},
-				{Name: "is_emergency",
+				{
+					Name:     "is_emergency",
 					Type:     arrow.FixedWidthTypes.Boolean,
 					Nullable: true,
 				},
-				{Name: "remote_ip",
+				{
+					Name:     "remote_ip",
 					Type:     arrow.BinaryTypes.Binary,
 					Nullable: true,
 				},
-				{Name: "person",
+				{
+					Name: "person",
 					Type: arrow.StructOf(
-						arrow.Field{Name: "lastname",
+						arrow.Field{
+							Name:     "lastname",
 							Type:     arrow.BinaryTypes.String,
-							Nullable: true},
-						arrow.Field{Name: "address",
+							Nullable: true,
+						},
+						arrow.Field{
+							Name: "address",
 							Type: arrow.StructOf(
-								arrow.Field{Name: "streetaddress",
+								arrow.Field{
+									Name:     "streetaddress",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true},
-								arrow.Field{Name: "city",
+									Nullable: true,
+								},
+								arrow.Field{
+									Name:     "city",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true},
+									Nullable: true,
+								},
 							),
 							Nullable: true,
 						},
-						arrow.Field{Name: "mapfield",
+						arrow.Field{
+							Name:     "mapfield",
 							Type:     arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64),
 							Nullable: true,
 						},
-						arrow.Field{Name: "arrayField",
+						arrow.Field{
+							Name:     "arrayField",
 							Type:     arrow.ListOf(arrow.BinaryTypes.String),
 							Nullable: true,
 						},
 					),
 					Nullable: true,
 				},
-				{Name: "decimalField",
+				{
+					Name:     "decimalField",
 					Type:     &arrow.Decimal128Type{Precision: 4, Scale: 2},
 					Nullable: true,
 				},
-				{Name: "uuidField",
+				{
+					Name:     "uuidField",
 					Type:     arrow.BinaryTypes.String,
 					Nullable: true,
 				},
-				{Name: "timemillis",
+				{
+					Name:     "timemillis",
 					Type:     arrow.FixedWidthTypes.Time32ms,
 					Nullable: true,
 				},
-				{Name: "timemicros",
+				{
+					Name:     "timemicros",
 					Type:     arrow.FixedWidthTypes.Time64us,
 					Nullable: true,
 				},
-				{Name: "timestampmillis",
+				{
+					Name:     "timestampmillis",
 					Type:     arrow.FixedWidthTypes.Timestamp_ms,
 					Nullable: true,
 				},
-				{Name: "timestampmicros",
+				{
+					Name:     "timestampmicros",
 					Type:     arrow.FixedWidthTypes.Timestamp_us,
 					Nullable: true,
 				},
-				{Name: "duration",
+				{
+					Name:     "duration",
 					Type:     arrow.FixedWidthTypes.MonthDayNanoInterval,
 					Nullable: true,
 				},
-				{Name: "date",
+				{
+					Name:     "date",
 					Type:     arrow.FixedWidthTypes.Date32,
 					Nullable: true,
 				},
@@ -548,103 +580,135 @@ func TestSchemaEqual(t *testing.T) {
 				"type": "record"
 			}`,
 			arrowSchema: []arrow.Field{
-				{Name: "inheritNull",
+				{
+					Name:     "inheritNull",
 					Type:     &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
 					Nullable: true,
-					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"})},
-				{Name: "explicitNamespace",
+					Metadata: arrow.MetadataFrom(map[string]string{"0": "a", "1": "b"}),
+				},
+				{
+					Name:     "explicitNamespace",
 					Type:     &arrow.FixedSizeBinaryType{ByteWidth: 12},
 					Nullable: true,
 				},
-				{Name: "fullName",
+				{
+					Name: "fullName",
 					Type: arrow.StructOf(
-						arrow.Field{Name: "inheritNamespace",
-							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false}},
-						arrow.Field{Name: "md5",
-							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16}},
+						arrow.Field{
+							Name: "inheritNamespace",
+							Type: &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Uint8, ValueType: arrow.BinaryTypes.String, Ordered: false},
+						},
+						arrow.Field{
+							Name: "md5",
+							Type: &arrow.FixedSizeBinaryType{ByteWidth: 16},
+						},
 					),
 					Nullable: true,
 				},
-				{Name: "id",
+				{
+					Name:     "id",
 					Type:     arrow.PrimitiveTypes.Int32,
 					Nullable: true,
 				},
-				{Name: "bigId",
+				{
+					Name:     "bigId",
 					Type:     arrow.PrimitiveTypes.Int64,
 					Nullable: true,
 				},
-				{Name: "temperature",
+				{
+					Name:     "temperature",
 					Type:     arrow.PrimitiveTypes.Float32,
 					Nullable: true,
 				},
-				{Name: "fraction",
+				{
+					Name:     "fraction",
 					Type:     arrow.PrimitiveTypes.Float64,
 					Nullable: true,
 				},
-				{Name: "is_emergency",
+				{
+					Name:     "is_emergency",
 					Type:     arrow.FixedWidthTypes.Boolean,
 					Nullable: true,
 				},
-				{Name: "remote_ip",
+				{
+					Name:     "remote_ip",
 					Type:     arrow.BinaryTypes.Binary,
 					Nullable: true,
 				},
-				{Name: "person",
+				{
+					Name: "person",
 					Type: arrow.StructOf(
-						arrow.Field{Name: "lastname",
+						arrow.Field{
+							Name:     "lastname",
 							Type:     arrow.BinaryTypes.String,
-							Nullable: true},
-						arrow.Field{Name: "address",
+							Nullable: true,
+						},
+						arrow.Field{
+							Name: "address",
 							Type: arrow.StructOf(
-								arrow.Field{Name: "streetaddress",
+								arrow.Field{
+									Name:     "streetaddress",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true},
-								arrow.Field{Name: "city",
+									Nullable: true,
+								},
+								arrow.Field{
+									Name:     "city",
 									Type:     arrow.BinaryTypes.String,
-									Nullable: true},
+									Nullable: true,
+								},
 							),
 							Nullable: true,
 						},
-						arrow.Field{Name: "mapfield",
+						arrow.Field{
+							Name:     "mapfield",
 							Type:     arrow.MapOf(arrow.BinaryTypes.String, arrow.PrimitiveTypes.Int64),
 							Nullable: true,
 						},
-						arrow.Field{Name: "arrayField",
+						arrow.Field{
+							Name:     "arrayField",
 							Type:     arrow.ListOf(arrow.BinaryTypes.String),
 							Nullable: true,
 						},
 					),
 					Nullable: true,
 				},
-				{Name: "decimalField",
+				{
+					Name:     "decimalField",
 					Type:     &arrow.Decimal128Type{Precision: 4, Scale: 2},
 					Nullable: true,
 				},
-				{Name: "uuidField",
+				{
+					Name:     "uuidField",
 					Type:     arrow.BinaryTypes.String,
 					Nullable: true,
 				},
-				{Name: "timemillis",
+				{
+					Name:     "timemillis",
 					Type:     arrow.FixedWidthTypes.Time32ms,
 					Nullable: true,
 				},
-				{Name: "timemicros",
+				{
+					Name:     "timemicros",
 					Type:     arrow.FixedWidthTypes.Time64us,
 					Nullable: true,
 				},
-				{Name: "timestampmillis",
+				{
+					Name:     "timestampmillis",
 					Type:     arrow.FixedWidthTypes.Timestamp_ms,
 					Nullable: true,
 				},
-				{Name: "timestampmicros",
+				{
+					Name:     "timestampmicros",
 					Type:     arrow.FixedWidthTypes.Timestamp_us,
 					Nullable: true,
 				},
-				{Name: "duration",
+				{
+					Name:     "duration",
 					Type:     arrow.FixedWidthTypes.MonthDayNanoInterval,
 					Nullable: true,
 				},
-				{Name: "date",
+				{
+					Name:     "date",
 					Type:     arrow.FixedWidthTypes.Date32,
 					Nullable: true,
 				},
@@ -670,5 +734,4 @@ func TestSchemaEqual(t *testing.T) {
 			}
 		})
 	}
-
 }
