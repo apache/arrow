@@ -106,32 +106,18 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             end
 
             if ~isequal(obj.Schema, schemasToCompare{:})
-                % Return early if the Schemas are not all equal
+                % If the Schemas are not equal, the RecordBatches are not
+                % equal. Return false early.
                 return;
             end
 
-            numColumns = obj.NumColumns;
-            %columnsToCompare = cell([numel(varargin) numColumns]);
-
-            for ii = 1:numColumns
+            for ii = 1:obj.NumColumns
                 columnsToCompare = arrayfun(@(idx) varargin{idx}.column(ii), 1:numel(varargin), UniformOutput=false);
                 if ~isequal(obj.column(ii), columnsToCompare{:})
                     return;
                 end
             end
             tf = true;
-
-            % 
-            %     columnsToCompare(ii, :) = arrayfun(@(idx) rb.column(idx), 1:numColumns, UniformOutput=false);
-            % end
-            % 
-            % for ii = 1:numColumns
-            %     if ~isequal(obj.column(ii), columnsToCompare{:, ii})
-            %         return;
-            %     end
-            % end
-            % 
-            % tf = true;
         end
     end
 
