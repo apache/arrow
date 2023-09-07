@@ -93,6 +93,10 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
         end
     end
 
+    methods(Abstract, Hidden)
+        data = preallocateMATLABArray(obj, length)
+    end
+
     methods (Sealed)
         function tf = isequal(obj, varargin)
 
