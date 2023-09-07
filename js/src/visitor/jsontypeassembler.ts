@@ -72,7 +72,7 @@ export class JSONTypeAssembler extends Visitor {
     public visitUnion<T extends type.Union>({ typeId, mode, typeIds }: T) {
         return {
             'name': ArrowType[typeId].toLowerCase(),
-            'mode': UnionMode[mode],
+            'mode': UnionMode[mode].toUpperCase(),
             'typeIds': [...typeIds]
         };
     }

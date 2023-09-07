@@ -59,6 +59,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug Gulp Build",
+      "cwd": "${workspaceFolder}",
       "program": "${workspaceFolder}/node_modules/gulp/bin/gulp.js",
       "args": [
         "build",
@@ -71,7 +72,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug Unit Tests",
-      "cwd": "${workspaceRoot}",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "program": "${workspaceFolder}/node_modules/.bin/jest",
       "skipFiles": [
@@ -96,7 +97,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug Integration Tests",
-      "cwd": "${workspaceRoot}",
+      "cwd": "${workspaceFolder}",
       "program": "${workspaceFolder}/bin/integration.js",
       "skipFiles": [
         "<node_internals>/**/*.js",
@@ -104,25 +105,36 @@
       ],
       "env": {
         "NODE_NO_WARNINGS": "1",
+        "ARROW_JS_DEBUG": "src",
+        "TS_NODE_CACHE": "false"
       },
+      "runtimeArgs": [
+        "-r",
+        "ts-node/register"
+      ],
       "args": [
         "--mode",
-        "VALIDATE"
+        "VALIDATE",
+        "-j", "test/data/json/unions.json",
+        "-a", "./test/data/cpp/stream/struct_example.arrow"
       ]
     },
     {
-      "name": "Debug Bundle",
-      "program": "${input:BUNDLE_FILE}",
+      "type": "node",
       "request": "launch",
+      "name": "Debug Bundle",
+      "cwd": "${workspaceFolder}",
+      "program": "${input:BUNDLE_FILE}",
       "skipFiles": [
         "<node_internals>/**"
-      ],
-      "type": "node"
+      ]
     },
     {
-      "name": "Debug Benchmarks",
-      "program": "${workspaceFolder}/perf/index.ts",
+      "type": "node",
       "request": "launch",
+      "name": "Debug Benchmarks",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/perf/index.ts",
       "skipFiles": [
         "<node_internals>/**",
         "${workspaceFolder}/node_modules/**/*.js"
@@ -130,13 +142,13 @@
       "runtimeArgs": [
         "--loader",
         "ts-node/esm/transpile-only"
-      ],
-      "type": "node"
+      ]
     },
     {
       "type": "node",
       "request": "launch",
       "name": "Debug bin/arrow2csv",
+      "cwd": "${workspaceFolder}",
       "env": {
         "ARROW_JS_DEBUG": "src",
         "TS_NODE_CACHE": "false"
@@ -160,6 +172,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug bin/file-to-stream",
+      "cwd": "${workspaceFolder}",
       "env": {
         "ARROW_JS_DEBUG": "src",
         "TS_NODE_CACHE": "false"
@@ -182,6 +195,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug bin/stream-to-file",
+      "cwd": "${workspaceFolder}",
       "env": {
         "ARROW_JS_DEBUG": "src",
         "TS_NODE_CACHE": "false"
@@ -204,6 +218,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug bin/json-to-arrow",
+      "cwd": "${workspaceFolder}",
       "env": {
         "ARROW_JS_DEBUG": "src",
         "TS_NODE_CACHE": "false"
@@ -230,6 +245,7 @@
       "type": "node",
       "request": "launch",
       "name": "Debug bin/print-buffer-alignment",
+      "cwd": "${workspaceFolder}",
       "env": {
         "ARROW_JS_DEBUG": "src",
         "TS_NODE_CACHE": "false"
@@ -251,10 +267,9 @@
       "type": "node",
       "name": "vscode-jest-tests",
       "request": "launch",
+      "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
-      "disableOptimisticBPs": true,
-      "cwd": "${workspaceFolder}",
       "program": "${workspaceFolder}/node_modules/.bin/jest",
       "runtimeArgs": [
         "--experimental-vm-modules"

@@ -22,7 +22,9 @@
 const fs = require('fs');
 const path = require('path');
 const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const { VectorLoader } = require(`../targets/apache-arrow/visitor/vectorloader`);
+const { VectorLoader } = process.env.ARROW_JS_DEBUG
+    ? require(`../src/visitor/vectorloader${extension}`)
+    : require(`../targets/apache-arrow/visitor/vectorloader`);
 const { RecordBatch, AsyncMessageReader, makeData, Struct, Schema, Field } = require(`../index${extension}`);
 
 (async () => {

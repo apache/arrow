@@ -38,7 +38,7 @@ class Footer_ {
     public static decode(buf: ArrayBufferViewInput) {
         buf = new ByteBuffer(toUint8Array(buf));
         const footer = _Footer.getRootAsFooter(buf);
-        const schema = Schema.decode(footer.schema()!);
+        const schema = Schema.decode(footer.schema()!, new Map(), footer.version());
         return new OffHeapFooter(schema, footer) as Footer_;
     }
 
@@ -63,7 +63,7 @@ class Footer_ {
 
         _Footer.startFooter(b);
         _Footer.addSchema(b, schemaOffset);
-        _Footer.addVersion(b, MetadataVersion.V4);
+        _Footer.addVersion(b, MetadataVersion.V5);
         _Footer.addRecordBatches(b, recordBatchesOffset);
         _Footer.addDictionaries(b, dictionaryBatchesOffset);
         _Footer.finishFooterBuffer(b, _Footer.endFooter(b));
@@ -77,7 +77,7 @@ class Footer_ {
     public get numDictionaries() { return this._dictionaryBatches.length; }
 
     constructor(public schema: Schema,
-        public version: MetadataVersion = MetadataVersion.V4,
+        public version: MetadataVersion = MetadataVersion.V5,
         recordBatches?: FileBlock[], dictionaryBatches?: FileBlock[]) {
         recordBatches && (this._recordBatches = recordBatches);
         dictionaryBatches && (this._dictionaryBatches = dictionaryBatches);

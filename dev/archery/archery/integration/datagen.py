@@ -1556,18 +1556,18 @@ def generate_nested_large_offsets_case():
 
 def generate_unions_case():
     fields = [
-        SparseUnionField('sparse', [get_field('f1', 'int32'),
-                                    get_field('f2', 'utf8')],
+        SparseUnionField('sparse_1', [get_field('f1', 'int32'),
+                                      get_field('f2', 'utf8')],
                          type_ids=[5, 7]),
-        DenseUnionField('dense', [get_field('f1', 'int16'),
-                                  get_field('f2', 'binary')],
+        DenseUnionField('dense_1', [get_field('f1', 'int16'),
+                                    get_field('f2', 'binary')],
                         type_ids=[10, 20]),
-        SparseUnionField('sparse', [get_field('f1', 'float32', nullable=False),
-                                    get_field('f2', 'bool')],
+        SparseUnionField('sparse_2', [get_field('f1', 'float32', nullable=False),
+                                      get_field('f2', 'bool')],
                          type_ids=[5, 7], nullable=False),
-        DenseUnionField('dense', [get_field('f1', 'uint8', nullable=False),
-                                  get_field('f2', 'uint16'),
-                                  NullField('f3')],
+        DenseUnionField('dense_2', [get_field('f1', 'uint8', nullable=False),
+                                    get_field('f2', 'uint16'),
+                                    NullField('f3')],
                         type_ids=[42, 43, 44], nullable=False),
     ]
 
@@ -1669,11 +1669,9 @@ def get_generated_json_files(tempdir=None):
         .skip_category('C#')
         .skip_category('JS'),
 
-        generate_null_case([10, 0])
-        .skip_category('JS'),   # TODO(ARROW-7900)
+        generate_null_case([10, 0]),
 
-        generate_null_trivial_case([0, 0])
-        .skip_category('JS'),   # TODO(ARROW-7900)
+        generate_null_trivial_case([0, 0]),
 
         generate_decimal128_case(),
 
@@ -1699,8 +1697,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_non_canonical_map_case()
         .skip_category('C#')
-        .skip_category('Java')   # TODO(ARROW-8715)
-        .skip_category('JS'),     # TODO(ARROW-8716)
+        .skip_category('Java'),   # TODO(ARROW-8715)
 
         generate_nested_case(),
 
@@ -1711,12 +1708,10 @@ def get_generated_json_files(tempdir=None):
         .skip_category('JS'),
 
         generate_unions_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_category('C#'),
 
         generate_custom_metadata_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_category('C#'),
 
         generate_duplicate_fieldnames_case()
         .skip_category('C#')
@@ -1731,8 +1726,7 @@ def get_generated_json_files(tempdir=None):
 
         generate_nested_dictionary_case()
         .skip_category('C#')
-        .skip_category('Java')  # TODO(ARROW-7779)
-        .skip_category('JS'),
+        .skip_category('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()
         .skip_category('C#')
@@ -1741,8 +1735,7 @@ def get_generated_json_files(tempdir=None):
         .skip_category('Rust'),
 
         generate_extension_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_category('C#'),
     ]
 
     generated_paths = []
