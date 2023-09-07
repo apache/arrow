@@ -462,7 +462,8 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_replace.cc
        compute/kernels/vector_run_end_encode.cc
        compute/kernels/vector_select_k.cc
-       compute/kernels/vector_sort.cc)
+       compute/kernels/vector_sort.cc
+       compute/kernels/vector_dictionary.cc)
 
   append_runtime_avx2_src(compute/kernels/aggregate_basic_avx2.cc)
   append_runtime_avx512_src(compute/kernels/aggregate_basic_avx512.cc)
