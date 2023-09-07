@@ -114,6 +114,11 @@ class ARROW_EXPORT RecordBatch {
   /// \return the record batch's schema
   const std::shared_ptr<Schema>& schema() const { return schema_; }
 
+  /// \brief Replace the schema with another schema with the same types, but potentially
+  /// different field names and/or metadata.
+  Result<std::shared_ptr<RecordBatch>> ReplaceSchema(
+      std::shared_ptr<Schema> schema) const;
+
   /// \brief Retrieve all columns at once
   virtual const std::vector<std::shared_ptr<Array>>& columns() const = 0;
 
