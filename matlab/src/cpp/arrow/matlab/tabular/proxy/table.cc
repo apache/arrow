@@ -72,6 +72,8 @@ namespace arrow::matlab::tabular::proxy {
     }
 
     libmexclass::proxy::MakeResult Table::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        using ArrayProxy = arrow::matlab::array::proxy::Array;
+        using TableProxy = arrow::matlab::tabular::proxy::Table;
         namespace mda = ::matlab::data;
         mda::StructArray opts = constructor_arguments[0];
         const mda::TypedArray<uint64_t> arrow_array_proxy_ids = opts[0]["ArrayProxyIDs"];
@@ -81,7 +83,7 @@ namespace arrow::matlab::tabular::proxy {
         // Retrieve all of the Arrow Array Proxy instances from the libmexclass ProxyManager.
         for (const auto& arrow_array_proxy_id : arrow_array_proxy_ids) {
             auto proxy = libmexclass::proxy::ProxyManager::getProxy(arrow_array_proxy_id);
-            auto arrow_array_proxy = std::static_pointer_cast<arrow::matlab::array::proxy::Array>(proxy);
+            auto arrow_array_proxy = std::static_pointer_cast<ArrayProxy>(proxy);
             auto arrow_array = arrow_array_proxy->unwrap();
             arrow_arrays.push_back(arrow_array);
         }
@@ -99,7 +101,7 @@ namespace arrow::matlab::tabular::proxy {
         MATLAB_ASSIGN_OR_ERROR(const auto schema, schema_builder.Finish(), error::SCHEMA_BUILDER_FINISH_ERROR_ID);
         const auto num_rows = arrow_arrays.size() == 0 ? 0 : arrow_arrays[0]->length();
         const auto table = arrow::Table::Make(schema, arrow_arrays, num_rows);
-        auto table_proxy = std::make_shared<arrow::matlab::tabular::proxy::Table>(table);
+        auto table_proxy = std::make_shared<TableProxy>(table);
 
         return table_proxy;
     }
@@ -153,6 +155,7 @@ namespace arrow::matlab::tabular::proxy {
     }
 
     void Table::getColumnByIndex(libmexclass::proxy::method::Context& context) {
+        using ChunkedArrayProxy = arrow::matlab::array::proxy::ChunkedArray;
         namespace mda = ::matlab::data;
         using namespace libmexclass::proxy;
         mda::ArrayFactory factory;
@@ -177,7 +180,7 @@ namespace arrow::matlab::tabular::proxy {
         }
 
         const auto chunked_array = table->column(index);
-        const auto chunked_array_proxy = std::make_shared<arrow::matlab::array::proxy::ChunkedArray>(chunked_array);
+        const auto chunked_array_proxy = std::make_shared<ChunkedArrayProxy>(chunked_array);
 
         const auto chunked_array_proxy_id = ProxyManager::manageProxy(chunked_array_proxy);
         const auto chunked_array_proxy_id_mda = factory.createScalar(chunked_array_proxy_id);
@@ -186,6 +189,7 @@ namespace arrow::matlab::tabular::proxy {
     }
 
     void Table::getColumnByName(libmexclass::proxy::method::Context& context) {
+        using ChunkedArrayProxy = arrow::matlab::array::proxy::ChunkedArray;
         namespace mda = ::matlab::data;
         using namespace libmexclass::proxy;
         mda::ArrayFactory factory;
@@ -200,7 +204,7 @@ namespace arrow::matlab::tabular::proxy {
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
 
         const auto chunked_array = table->GetColumnByName(name);
-        const auto chunked_array_proxy = std::make_shared<arrow::matlab::array::proxy::ChunkedArray>(chunked_array);
+        const auto chunked_array_proxy = std::make_shared<ChunkedArrayProxy>(chunked_array);
 
         const auto chunked_array_proxy_id = ProxyManager::manageProxy(chunked_array_proxy);
         const auto chunked_array_proxy_id_mda = factory.createScalar(chunked_array_proxy_id);
