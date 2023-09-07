@@ -170,8 +170,37 @@ classdef tField < matlab.unittest.TestCase
 
             testCase.verifyTrue(isequal(fieldArray1, fieldArray2));
             testCase.verifyTrue(isequal(fieldArray1, fieldArray2, fieldArray1));
+        end
 
+         function TestIsEqualEmptyFields(testCase)
+            % Verify isequal returns the expected value when at least one
+            % of the inputs is empty.
+            
+            f1 = arrow.type.Field.empty(1, 0);
+            f2 = arrow.type.Field.empty(0, 1);
+            f3 = arrow.type.Field.empty(0, 0);
+            f4 = arrow.field("B", arrow.string());
 
+            % Compare two 1x0 Field arrays
+            testCase.verifyTrue(isequal(f1, f1));
+            
+            % Compare two 0x1 Field arrays
+            testCase.verifyTrue(isequal(f2, f2));
+
+            % Compare two 0x0 Field arrays
+            testCase.verifyTrue(isequal(f3, f3));
+
+            % Compare 1x0 and 0x1 Field arrays
+            testCase.verifyFalse(isequal(f1, f2));
+
+            % Compare 1x0 and 0x0 Field arrays
+            testCase.verifyFalse(isequal(f1, f3));
+
+            % Compare 0x1 and 0x0 Field arrays
+            testCase.verifyFalse(isequal(f2, f3));
+
+            % Compare 1x0 and 1x1 Field arrays
+            testCase.verifyFalse(isequal(f1, f4));
         end
 
         function TestIsEqualNonScalarFalse(testCase)

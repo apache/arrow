@@ -54,7 +54,7 @@ classdef Field < matlab.mixin.CustomDisplay
         function tf = isequal(obj, varargin)
             narginchk(2, inf);
             tf = false;
-             
+
             namesToCompare = strings(numel(obj), numel(varargin));
             typesToCompare = cell([1 numel(varargin)]);
 
@@ -70,16 +70,22 @@ classdef Field < matlab.mixin.CustomDisplay
                 typesToCompare{1, ii} = [field(:).Type];
             end
 
-            names = [obj(:).Name]';
-            if any(names ~= namesToCompare, "all")
-                % Return false early if the field names are not equal.
-                return;
+            if isempty(obj)
+                % Return true early if the Field array is empty. Already
+                % confirmed all the Field arrays have the same shape.
+                tf = true;
+            else
+                names = [obj(:).Name]';
+                if any(names ~= namesToCompare, "all")
+                    % Return false early if the field names are not equal.
+                    return;
+                end
+    
+                % Field names were equal. Check if their corresponding types
+                % are equal and return the result.
+                types = [obj(:).Type];
+                tf = isequal(types, typesToCompare{:});
             end
-
-            % Field names were equal. Check if their corresponding types
-            % are equal and return the result.
-            types = [obj(:).Type];
-            tf = isequal(types, typesToCompare{:});
         end
     end
 
