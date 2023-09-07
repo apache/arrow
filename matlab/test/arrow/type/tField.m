@@ -172,7 +172,7 @@ classdef tField < matlab.unittest.TestCase
             testCase.verifyTrue(isequal(fieldArray1, fieldArray2, fieldArray1));
         end
 
-         function TestIsEqualEmptyFields(testCase)
+        function TestIsEqualEmptyFields(testCase)
             % Verify isequal returns the expected value when at least one
             % of the inputs is empty.
             
@@ -204,7 +204,8 @@ classdef tField < matlab.unittest.TestCase
         end
 
         function TestIsEqualNonScalarFalse(testCase)
-            % Verifies isequal returns false when expected.
+            % Verifies isequal returns false when expected for non-scalar
+            % Field arrays.
             
             f1 = arrow.field("A", arrow.timestamp(TimeZone="America/New_York", TimeUnit="Second"));
             f2 = arrow.field("B", arrow.string());
