@@ -75,7 +75,24 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
         function numFields = get.NumFields(obj)
             numFields = obj.Proxy.getNumFields();
         end
-        
+
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+            
+            fieldsToCompare = cell([1 numel(varargin)]);
+            for ii = 1:numel(varargin)
+                schema = varargin{ii};
+
+                if ~isa(schema, "arrow.tabular.Schema")
+                    return;
+                end
+
+                fieldsToCompare{ii} = schema.Fields;
+            end
+
+            tf = isequal(obj.Fields, fieldsToCompare{:});
+        end
     end
 
     methods (Access = private)
