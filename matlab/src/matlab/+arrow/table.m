@@ -16,7 +16,9 @@
 % permissions and limitations under the License.
 function arrowTable = table(matlabTable)
     arguments
-        matlabTable table
+        % Use istable instead of the table type specifier here to avoid
+        % ambiguous name parsing issue with MATLAB table type and arrow.table.
+        matlabTable {istable} = table.empty(0, 0)
     end
 
     arrowArrays = arrow.tabular.internal.decompose(matlabTable);
