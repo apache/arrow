@@ -1410,7 +1410,7 @@ tasks:
 {% for r_org, r_image, r_tag in [("rhub", "ubuntu-gcc-release", "latest"),
                                  ("library", "r-base", "latest"),
                                  ("rstudio", "r-base", "4.3-focal"),
-                                 ("rstudio", "r-base", "4.3-opensuse153")] %}
+                                 ("rstudio", "r-base", "4.3.0-opensuse154")] %}
   test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
     ci: azure
     template: r/azure.linux.yml
