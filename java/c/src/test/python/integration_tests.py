@@ -24,6 +24,7 @@ import xml.etree.ElementTree as ET
 
 import jpype
 import pyarrow as pa
+import pyarrow.ipc as ipc
 from pyarrow.cffi import ffi
 
 
@@ -119,6 +120,10 @@ class Bridge:
 
 
 class TestPythonIntegration(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        setup_jvm()
+
     def setUp(self):
         gc.collect()
         self.old_allocated_python = pa.total_allocated_bytes()
@@ -195,7 +200,26 @@ class TestPythonIntegration(unittest.TestCase):
             # disabled check_metadata since the list internal field name ("item")
             # is not preserved during round trips (it becomes "$data$").
         ), check_metadata=False)
-        
+
+    def test_empty_list_array(self):
+        """Validates GH-37056 fix.
+        Empty list of int32 produces a vector with empty child data buffer, however with non-zero capacity.
+        Using streaming forces the c-data array which represent the child data buffer to be NULL (pointer is 0).
+        On Java side, an attempt to import such array triggered an exception described in GH-37056.
+        """
+        with pa.BufferOutputStream() as bos:
+            schema = pa.schema([pa.field("f0", pa.list_(pa.int32()), True)])
+            with ipc.new_stream(bos, schema) as writer:
+                src = pa.RecordBatch.from_arrays([pa.array([[]])], schema=schema)
+                writer.write(src)
+        data_bytes = bos.getvalue()
+
+        def recreate_batch():
+            with pa.input_stream(data_bytes) as ios:
+                with ipc.open_stream(ios) as reader:
+                    return reader.read_next_batch()
+
+        self.round_trip_record_batch(recreate_batch)
 
     def test_struct_array(self):
         fields = [
@@ -274,5 +298,4 @@ class TestPythonIntegration(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    setup_jvm()
     unittest.main(verbosity=2)
