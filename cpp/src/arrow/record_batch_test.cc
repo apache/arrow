@@ -521,4 +521,38 @@ TEST_F(TestRecordBatchReader, ToTable) {
   ASSERT_EQ(table->column(0)->chunks().size(), 0);
 }
 
+TEST_F(TestRecordBatch, ReplaceSchema) {
+  const int length = 10;
+
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+  auto f3 = field("f3", int8());
+
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  random::RandomArrayGenerator gen(42);
+
+  auto a0 = gen.ArrayOf(int32(), length);
+  auto a1 = gen.ArrayOf(uint8(), length);
+  auto a2 = gen.ArrayOf(int16(), length);
+
+  auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
+
+  f0 = field("fd0", int32());
+  f1 = field("fd1", uint8());
+  f2 = field("fd2", int16());
+
+  schema = ::arrow::schema({f0, f1, f2});
+  ASSERT_OK_AND_ASSIGN(auto mutated, b1->ReplaceSchema(schema));
+  auto expected = RecordBatch::Make(schema, length, b1->columns());
+  ASSERT_TRUE(mutated->Equals(*expected));
+
+  schema = ::arrow::schema({f0, f1, f3});
+  ASSERT_RAISES(Invalid, b1->ReplaceSchema(schema));
+
+  schema = ::arrow::schema({f0, f1});
+  ASSERT_RAISES(Invalid, b1->ReplaceSchema(schema));
+}
+
 }  // namespace arrow

@@ -283,6 +283,25 @@ bool RecordBatch::ApproxEquals(const RecordBatch& other, const EqualOptions& opt
   return true;
 }
 
+Result<std::shared_ptr<RecordBatch>> RecordBatch::ReplaceSchema(
+    std::shared_ptr<Schema> schema) const {
+  if (schema_->num_fields() != schema->num_fields())
+    return Status::Invalid("RecordBatch schema fields", schema_->num_fields(),
+                           ", did not match new schema fields: ", schema->num_fields());
+  auto fields = schema_->fields();
+  int n_fields = static_cast<int>(fields.size());
+  for (int i = 0; i < n_fields; i++) {
+    auto old_type = fields[i]->type();
+    auto replace_type = schema->field(i)->type();
+    if (!old_type->Equals(replace_type)) {
+      return Status::Invalid(
+          "RecordBatch schema field index ", i, " type is ", old_type->ToString(),
+          ", did not match new schema field type: ", replace_type->ToString());
+    }
+  }
+  return RecordBatch::Make(std::move(schema), num_rows(), columns());
+}
+
 Result<std::shared_ptr<RecordBatch>> RecordBatch::SelectColumns(
     const std::vector<int>& indices) const {
   int n = static_cast<int>(indices.size());
