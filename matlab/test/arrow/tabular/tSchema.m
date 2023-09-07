@@ -483,6 +483,8 @@ classdef tSchema < matlab.unittest.TestCase
                 arrow.field("B", arrow.uint16), ...
                 arrow.field("123", arrow.uint32)
             ]);
+
+            % Create a Schema with zero fields
             schema3 = arrow.recordBatch(table).Schema;
             schema4 = arrow.recordBatch(table).Schema;
             
@@ -510,12 +512,14 @@ classdef tSchema < matlab.unittest.TestCase
                 arrow.field("C", arrow.uint8), ...
                 arrow.field("B", arrow.uint16), ...
             ]);
+
+            % Create a Schema with zero fields
             schema5 = arrow.recordBatch(table).Schema;
             
             % Have different number of fields
             testCase.verifyFalse(isequal(schema1, schema2));
 
-            % Field properties are not equal
+            % Fields properties are not equal
             testCase.verifyFalse(isequal(schema2, schema3));
             testCase.verifyFalse(isequal(schema2, schema4));
             testCase.verifyFalse(isequal(schema4, schema5));
