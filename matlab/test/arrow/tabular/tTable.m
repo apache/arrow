@@ -603,26 +603,26 @@ classdef tTable < matlab.unittest.TestCase
             a2 = arrow.array(["A" "B" "C"]);
             a3 = arrow.array([true true false]);
 
-            rb1 = Table.fromArrays(a1, a2, a3, ...
+            t1 = Table.fromArrays(a1, a2, a3, ...
                 ColumnNames=["A", "B", "C"]);
-            rb2 = Table.fromArrays(a1, a2, a3, ...
+            t2 = Table.fromArrays(a1, a2, a3, ...
                 ColumnNames=["A", "B", "C"]);
-            testCase.verifyTrue(isequal(rb1, rb2));
+            testCase.verifyTrue(isequal(t1, t2));
 
             % Compare zero-column tables
-            rb3 = Table.fromArrays();
-            rb4 = Table.fromArrays();
-            testCase.verifyTrue(isequal(rb3, rb4));
+            t3 = Table.fromArrays();
+            t4 = Table.fromArrays();
+            testCase.verifyTrue(isequal(t3, t4));
 
             % Compare zero-row tables
             a4 = arrow.array([]);
             a5 = arrow.array(strings(0, 0));
-            rb5 = Table.fromArrays(a4, a5, ColumnNames=["D" "E"]);
-            rb6 = Table.fromArrays(a4, a5, ColumnNames=["D" "E"]);
-            testCase.verifyTrue(isequal(rb5, rb6));
+            t5 = Table.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            t6 = Table.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            testCase.verifyTrue(isequal(t5, t6));
 
             % Call isequal with more than two arguments
-            testCase.verifyTrue(isequal(rb3, rb4, rb3, rb4));
+            testCase.verifyTrue(isequal(t3, t4, t3, t4));
         end
 
         function TestIsEqualFalse(testCase)
@@ -637,31 +637,31 @@ classdef tTable < matlab.unittest.TestCase
             a6 = arrow.array(["A" "B"]);
             a7 = arrow.array([true true]);
 
-            rb1 = Table.fromArrays(a1, a2, a3, ...
+            t1 = Table.fromArrays(a1, a2, a3, ...
                 ColumnNames=["A", "B", "C"]);
-            rb2 = Table.fromArrays(a1, a2, a3, ...
+            t2 = Table.fromArrays(a1, a2, a3, ...
                 ColumnNames=["D", "E", "F"]);
-            rb3 = Table.fromArrays(a1, a4, a3, ...
+            t3 = Table.fromArrays(a1, a4, a3, ...
                 ColumnNames=["A", "B", "C"]);
-            rb4 = Table.fromArrays(a5, a6, a7, ...
+            t4 = Table.fromArrays(a5, a6, a7, ...
                 ColumnNames=["A", "B", "C"]);
-            rb5 = Table.fromArrays(a1, a2, a3, a1, ...
+            t5 = Table.fromArrays(a1, a2, a3, a1, ...
                 ColumnNames=["A", "B", "C", "D"]);
 
             % The column names are not equal
-            testCase.verifyFalse(isequal(rb1, rb2));
+            testCase.verifyFalse(isequal(t1, t2));
 
             % The columns are not equal
-            testCase.verifyFalse(isequal(rb1, rb3));
+            testCase.verifyFalse(isequal(t1, t3));
 
             % The number of rows are not equal
-            testCase.verifyFalse(isequal(rb1, rb4));
+            testCase.verifyFalse(isequal(t1, t4));
 
             % The number of columns are not equal
-            testCase.verifyFalse(isequal(rb1, rb5));
+            testCase.verifyFalse(isequal(t1, t5));
 
             % Call isequal with more than two arguments
-            testCase.verifyFalse(isequal(rb1, rb2, rb3, rb4));
+            testCase.verifyFalse(isequal(t1, t2, t3, t4));
         end
 
     end
