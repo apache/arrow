@@ -79,7 +79,7 @@ jobs:
           MACOSX_DEPLOYMENT_TARGET: "10.13"
         run: |
           brew bundle  --file=arrow/cpp/Brewfile
-          brew sccache
+          brew install sccache
           brew install openssl@{{ '${{ matrix.openssl }}' }}
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl@{{'${{ matrix.openssl }}' }})
           cd arrow
@@ -128,6 +128,8 @@ jobs:
         env:
           UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
+          MACOSX_DEPLOYMENT_TARGET: "10.13"
+          EXTRA_CMAKE_FLAGS: "-Dre2_SOURCE=BUNDLED -DSnappy_SOURCE=BUNDLED -DThrift_SOURCE=BUNDLED -DARROW_VERBOSE_THIRDPARTY_BUILD=ON -DCMAKE_VERBOSE_MAKEFILE=ON"
         run: |
           sudo sysctl -w kernel.core_pattern="core.%e.%p"
           ulimit -c unlimited
@@ -280,26 +282,33 @@ jobs:
 
   test-macos-binary:
     runs-on: macos-11
-    needs: macos-cpp
+    needs: [source, macos-cpp]
     steps:
-      - uses: r-lib/actions/setup-r@v2
       {{ macros.github_setup_local_r_repo(false, false, true)|indent }}
+      - name: Prepare Dependency Installation
+        shell: bash
+        run: |
+          tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
+      - name: Install dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+           working-directory: 'arrow'
+           extra-packages: cpp11
       - run: |
           brew install openssl@3
       - name: install with precompiled
         shell: Rscript {0}
         env:
           ARROW_R_DEV: "true"
-          ARROW_DOWNLOADED_BINARY: "repo/libarrow/bin/macos-amd64-openssl-3.0"  
+          ARROW_DOWNLOADED_BINARIES: "${{github.workspace}}/repo/libarrow/bin/macos-amd64-openssl-3.0/arrow-${{ needs.source.outputs.pkg_versio  }}.zip"
         run: |
-          install.packages('arrow')
+          install.packages('arrow',repos = "http://cran.us.r-project.org")
           remove.packages('arrow')
           install.packages(
             "arrow",
             type = "source",
             # The sub is necessary to prevent an error on windows.
-            repos = sub("file://", "file:", getOption("arrow.dev_repo")),,
-            INSTALL_opts = INSTALL_opts
+            repos = sub("file://", "file:", getOption("arrow.dev_repo") 
           )
 
           # Test
