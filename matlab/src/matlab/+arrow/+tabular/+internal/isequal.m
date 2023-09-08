@@ -41,16 +41,16 @@ function tf = isequal(tabularObj, varargin)
 
     % Function that extracts the column stored at colIndex from the
     % record batch (or table) stored at tabularIndex in varargin.
-    getColulmnFcn = @(tabularIndex, colIndex) varargin{tabularIndex}.column(colIndex);
+    getColumnFcn = @(tabularIndex, colIndex) varargin{tabularIndex}.column(colIndex);
 
     tabularObjIndices = 1:numel(varargin);
     for ii = 1:tabularObj.NumColumns
         colIndices = repmat(ii, [1 numel(tabularObjIndices)]);
-        % Gather all columns at index ii across within the record
-        % batches stored in varargin. Compare these columns with
-        % the corresponding column in obj. If they are not equal,
-        % then the record batches (or tables) are not equal. Return false.
-        columnsToCompare = arrayfun(getColulmnFcn, tabularObjIndices, colIndices, UniformOutput=false);
+        % Gather all columns at index ii across the record batches (or
+        % tables) stored in varargin. Compare these columns with the
+        % corresponding column in obj. If they are not equal, then the
+        % record batches (or tables) are not equal. Return false.
+        columnsToCompare = arrayfun(getColumnFcn, tabularObjIndices, colIndices, UniformOutput=false);
         if ~isequal(tabularObj.column(ii), columnsToCompare{:})
             return;
         end
