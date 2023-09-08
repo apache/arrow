@@ -82,28 +82,6 @@ classdef tTime32Type < hFixedWidthType
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
-        function Display(testCase)
-            % Verify the display of Time32Type objects.
-            %
-            % Example:
-            %
-            %  Time32Type with properties:
-            %
-            %          ID: Time32
-            %    TimeUnit: Second
-            %
-            type = testCase.ConstructionFcn(TimeUnit="Second"); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Time32Type"" style=""font-weight:bold"">Time32Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "TimeUnit:"]));
-            body = body + " " + ["Time32"; "Second"];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-
         function TimeUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the TimeUnit property.

@@ -1,3 +1,7 @@
+%RECORDBATCH A tabular data structure representing a set of 
+%arrow.array.Array objects with a fixed schema.
+
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -15,8 +19,6 @@
 
 classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                        matlab.mixin.Scalar
-%arrow.tabular.RecordBatch A tabular data structure representing
-% a set of arrow.array.Array objects with a fixed schema.
 
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
@@ -90,6 +92,10 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
         function T = toMATLAB(obj)
             T = obj.table();
+        end
+
+        function tf = isequal(obj, varargin)
+            tf = arrow.tabular.internal.isequal(obj, varargin{:});
         end
     end
 

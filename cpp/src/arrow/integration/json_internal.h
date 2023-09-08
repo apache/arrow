@@ -30,9 +30,10 @@
 #include <rapidjson/stringbuffer.h>  // IWYU pragma: export
 #include <rapidjson/writer.h>        // IWYU pragma: export
 
-#include "arrow/status.h"  // IWYU pragma: export
-#include "arrow/testing/visibility.h"
-#include "arrow/type_fwd.h"  // IWYU pragma: keep
+#include "arrow/ipc/type_fwd.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace rj = arrow::rapidjson;
 using RjWriter = rj::Writer<rj::StringBuffer>;
@@ -74,53 +75,35 @@ using RjObject = rj::Value::ConstObject;
     return Status::Invalid("field was not an object line ", __LINE__); \
   }
 
-namespace arrow {
-
-class Array;
-class Field;
-class MemoryPool;
-class RecordBatch;
-class Schema;
-
-namespace ipc {
-
-class DictionaryFieldMapper;
-class DictionaryMemo;
-
-}  // namespace ipc
-
-namespace testing {
-namespace json {
+namespace arrow::internal::integration::json {
 
 /// \brief Append integration test Schema format to rapidjson writer
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteSchema(const Schema& schema, const ipc::DictionaryFieldMapper& mapper,
                    RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteDictionary(int64_t id, const std::shared_ptr<Array>& dictionary,
                        RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteRecordBatch(const RecordBatch& batch, RjWriter* writer);
 
-ARROW_TESTING_EXPORT
+ARROW_EXPORT
 Status WriteArray(const std::string& name, const Array& array, RjWriter* writer);
 
-ARROW_TESTING_EXPORT
-Status ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
-                  ipc::DictionaryMemo* dictionary_memo, std::shared_ptr<Schema>* schema);
+ARROW_EXPORT
+Result<std::shared_ptr<Schema>> ReadSchema(const rj::Value& json_obj, MemoryPool* pool,
+                                           ipc::DictionaryMemo* dictionary_memo);
 
-ARROW_TESTING_EXPORT
-Status ReadRecordBatch(const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
-                       ipc::DictionaryMemo* dict_memo, MemoryPool* pool,
-                       std::shared_ptr<RecordBatch>* batch);
+ARROW_EXPORT
+Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
+    const rj::Value& json_obj, const std::shared_ptr<Schema>& schema,
+    ipc::DictionaryMemo* dict_memo, MemoryPool* pool);
 
 // NOTE: Doesn't work with dictionary arrays, use ReadRecordBatch instead.
-ARROW_TESTING_EXPORT
-Status ReadArray(MemoryPool* pool, const rj::Value& json_obj,
-                 const std::shared_ptr<Field>& type, std::shared_ptr<Array>* array);
+ARROW_EXPORT
+Result<std::shared_ptr<Array>> ReadArray(MemoryPool* pool, const rj::Value& json_obj,
+                                         const std::shared_ptr<Field>& field);
 
-}  // namespace json
-}  // namespace testing
-}  // namespace arrow
+}  // namespace arrow::internal::integration::json
