@@ -64,8 +64,8 @@ classdef tTable < matlab.unittest.TestCase
             % Verify that the toMATLAB method converts
             % an arrow.tabular.Table to a MATLAB table as expected.
             TOriginal = table([1, 2, 3]');
-            arrowRecordBatch = arrow.recordBatch(TOriginal);
-            TConverted = table(arrowRecordBatch);
+            arrowTable = arrow.table(TOriginal);
+            TConverted = table(arrowTable);
             testCase.verifyEqual(TOriginal, TConverted);
         end
 
