@@ -878,7 +878,7 @@ cdef class Dataset(_Weakrefable):
         """
         Perform an asof join between this dataset and another one.
 
-        Result of the join will be a new dataset, where further
+        Result of the join will be a new Dataset, where further
         operations can be applied.
 
         Parameters

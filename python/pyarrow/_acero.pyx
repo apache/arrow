@@ -447,8 +447,6 @@ class AsofJoinNodeOptions(_AsofJoinNodeOptions):
         The left keys on which the join operation should be performed.
         Each key can be a string column name or a field expression,
         or a list of such field references.
-    right_operand : Table or Dataset
-        The right operand for the join operation.
     right_on : str, Expression
         The right key on which the join operation should be performed.
         See `left_on` for details.

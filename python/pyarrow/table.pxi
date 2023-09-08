@@ -4757,7 +4757,7 @@ cdef class Table(_Tabular):
         """
         Perform an asof join between this table and another one.
 
-        Result of the join will be a new dataset, where further
+        Result of the join will be a new Table, where further
         operations can be applied.
 
         Parameters
