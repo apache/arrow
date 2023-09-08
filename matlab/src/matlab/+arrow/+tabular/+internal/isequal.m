@@ -24,16 +24,16 @@ function tf = isequal(tabularObj, varargin)
 
     schemasToCompare = cell([1 numel(varargin)]);
     for ii = 1:numel(varargin)
-        obj = varargin{ii};
-        if ~isa(rb, classType)
-            % If obj is not an instance of classType, then it cannot be
-            % equal to tabularObj. Return false early. 
+        element = varargin{ii};
+        if ~isa(element, classType)
+            % If element is not an instance of classType, then it cannot
+            % be equal to tabularObj. Return false early. 
             return;
         end
-        schemasToCompare{ii} = rb.Schema;
+        schemasToCompare{ii} = element.Schema;
     end
 
-    if ~isequal(obj.Schema, schemasToCompare{:})
+    if ~isequal(tabularObj.Schema, schemasToCompare{:})
         % If the schemas are not equal, then the record batches (or tables)
         % are not equal. Return false early.
         return;
@@ -44,14 +44,14 @@ function tf = isequal(tabularObj, varargin)
     getColulmnFcn = @(tabularIndex, colIndex) varargin{tabularIndex}.column(colIndex);
 
     tabularObjIndices = 1:numel(varargin);
-    for ii = 1:obj.NumColumns
+    for ii = 1:tabularObj.NumColumns
         colIndices = repmat(ii, [1 numel(tabularObjIndices)]);
         % Gather all columns at index ii across within the record
         % batches stored in varargin. Compare these columns with
         % the corresponding column in obj. If they are not equal,
         % then the record batches (or tables) are not equal. Return false.
         columnsToCompare = arrayfun(getColulmnFcn, tabularObjIndices, colIndices, UniformOutput=false);
-        if ~isequal(obj.column(ii), columnsToCompare{:})
+        if ~isequal(tabularObj.column(ii), columnsToCompare{:})
             return;
         end
     end
