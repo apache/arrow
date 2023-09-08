@@ -29,9 +29,11 @@
 #include "arrow/util/simd.h"
 #include "parquet/exception.h"
 #include "parquet/level_comparison.h"
+
 #ifndef PARQUET_IMPL_NAMESPACE
 #error "PARQUET_IMPL_NAMESPACE must be defined"
 #endif
+
 namespace parquet::internal::PARQUET_IMPL_NAMESPACE {
 
 // clang-format off

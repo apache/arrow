@@ -212,10 +212,14 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
-  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
-  set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${BMI2_FLAGS}")
+  if(ARROW_HAVE_RUNTIME_BMI2)
+    # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
+    # the BMI2 path.
+    set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
+    set_source_files_properties(level_conversion_bmi2.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                      "${BMI2_FLAGS}")
+  endif()
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
