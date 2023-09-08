@@ -59,7 +59,7 @@ jobs:
             staticcheck: v0.4.5
           - arch-label: AMD64
             arch: amd64
-            go: 1.20
+            go: '1.20'
             runs-on: ubuntu-latest
             staticcheck: v0.4.5
           - arch-label: ARM64
@@ -69,7 +69,7 @@ jobs:
             runs-on: ["self-hosted", "arm", "linux"]
           - arch-label: ARM64
             arch: arm64v8
-            go: 1.20
+            go: '1.20'
             staticcheck: v0.4.5
             runs-on: ["self-hosted", "arm", "linux"]
     env:
@@ -161,11 +161,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, 1.20]
+        go: [1.19, '1.20']
         include:
           - go: 1.19
             staticcheck: v0.4.5
-          - go: 1.20
+          - go: '1.20'
             staticcheck: v0.4.5
     env:
       GO: ${{ matrix.go }}
@@ -208,11 +208,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, 1.20]
+        go: [1.19, '1.20']
         include:
           - go: 1.19
             staticcheck: v0.4.5
-          - go: 1.20
+          - go: '1.20'
             staticcheck: v0.4.5
     env:
       GO: ${{ matrix.go }}
@@ -253,11 +253,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, 1.20]
+        go: [1.19, '1.20']
         include:
           - go: 1.19
             staticcheck: v0.4.5
-          - go: 1.20
+          - go: '1.20'
             staticcheck: v0.4.5
     steps:
       - name: Checkout Arrow
@@ -288,11 +288,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, 1.20]
+        go: [1.19, '1.20']
         include:
           - go: 1.19
             staticcheck: v0.4.5
-          - go: 1.20
+          - go: '1.20'
             staticcheck: v0.4.5
     steps:
       - name: Checkout Arrow
@@ -349,11 +349,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, 1.20]
+        go: [1.19, '1.20']
         include:
           - go: 1.19
             staticcheck: v0.4.5
-          - go: 1.20
+          - go: '1.20'
             staticcheck: v0.4.5
     env:
       ARROW_GO_TESTCGO: "1"
