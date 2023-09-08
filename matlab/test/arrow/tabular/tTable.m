@@ -657,7 +657,7 @@ classdef tTable < matlab.unittest.TestCase
             % The number of rows are not equal
             testCase.verifyFalse(isequal(rb1, rb4));
 
-             % The number of columns are not equal
+            % The number of columns are not equal
             testCase.verifyFalse(isequal(rb1, rb5));
 
             % Call isequal with more than two arguments
