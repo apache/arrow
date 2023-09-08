@@ -127,6 +127,15 @@ macro(append_runtime_avx2_src SRC)
   endif()
 endmacro()
 
+macro(append_runtime_avx2_bmi2_src SRC)
+  if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
+    list(APPEND ARROW_SRCS ${SRC})
+    set_source_files_properties(${SRC} PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
+                                                  "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
+  endif()
+endmacro()
+
 macro(append_runtime_avx512_src SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ARROW_SRCS ${SRC})
@@ -433,10 +442,10 @@ list(APPEND
      compute/util.cc)
 
 append_runtime_avx2_src(compute/key_hash_avx2.cc)
-append_runtime_avx2_src(compute/key_map_avx2.cc)
+append_runtime_avx2_bmi2_src(compute/key_map_avx2.cc)
 append_runtime_avx2_src(compute/row/compare_internal_avx2.cc)
 append_runtime_avx2_src(compute/row/encode_internal_avx2.cc)
-append_runtime_avx2_src(compute/util_avx2.cc)
+append_runtime_avx2_bmi2_src(compute/util_avx2.cc)
 
 if(ARROW_COMPUTE)
   # Include the remaining kernels
