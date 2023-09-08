@@ -64,8 +64,8 @@ classdef tTable < matlab.unittest.TestCase
             % Verify that the toMATLAB method converts
             % an arrow.tabular.Table to a MATLAB table as expected.
             TOriginal = table([1, 2, 3]');
-            arrowRecordBatch = arrow.recordBatch(TOriginal);
-            TConverted = table(arrowRecordBatch);
+            arrowTable = arrow.table(TOriginal);
+            TConverted = table(arrowTable);
             testCase.verifyEqual(TOriginal, TConverted);
         end
 
@@ -591,6 +591,77 @@ classdef tTable < matlab.unittest.TestCase
             arrowTable = arrow.table(matlabTable);
             testCase.verifyError(@() setfield(arrowTable, "ColumnNames", "Value"), ...
                 "MATLAB:class:SetProhibited");
+        end
+
+        function TestIsEqualTrue(testCase)
+            % Verify two tables are considered equal if:
+            %   1. They have the same schema
+            %   2. Their corresponding columns are equal
+            import arrow.tabular.Table
+
+            a1 = arrow.array([1 2 3]);
+            a2 = arrow.array(["A" "B" "C"]);
+            a3 = arrow.array([true true false]);
+
+            t1 = Table.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            t2 = Table.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            testCase.verifyTrue(isequal(t1, t2));
+
+            % Compare zero-column tables
+            t3 = Table.fromArrays();
+            t4 = Table.fromArrays();
+            testCase.verifyTrue(isequal(t3, t4));
+
+            % Compare zero-row tables
+            a4 = arrow.array([]);
+            a5 = arrow.array(strings(0, 0));
+            t5 = Table.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            t6 = Table.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            testCase.verifyTrue(isequal(t5, t6));
+
+            % Call isequal with more than two arguments
+            testCase.verifyTrue(isequal(t3, t4, t3, t4));
+        end
+
+        function TestIsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+            import arrow.tabular.Table
+
+            a1 = arrow.array([1 2 3]);
+            a2 = arrow.array(["A" "B" "C"]);
+            a3 = arrow.array([true true false]);
+            a4 = arrow.array(["A" missing "C"]); 
+            a5 = arrow.array([1 2]);
+            a6 = arrow.array(["A" "B"]);
+            a7 = arrow.array([true true]);
+
+            t1 = Table.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            t2 = Table.fromArrays(a1, a2, a3, ...
+                ColumnNames=["D", "E", "F"]);
+            t3 = Table.fromArrays(a1, a4, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            t4 = Table.fromArrays(a5, a6, a7, ...
+                ColumnNames=["A", "B", "C"]);
+            t5 = Table.fromArrays(a1, a2, a3, a1, ...
+                ColumnNames=["A", "B", "C", "D"]);
+
+            % The column names are not equal
+            testCase.verifyFalse(isequal(t1, t2));
+
+            % The columns are not equal
+            testCase.verifyFalse(isequal(t1, t3));
+
+            % The number of rows are not equal
+            testCase.verifyFalse(isequal(t1, t4));
+
+            % The number of columns are not equal
+            testCase.verifyFalse(isequal(t1, t5));
+
+            % Call isequal with more than two arguments
+            testCase.verifyFalse(isequal(t1, t2, t3, t4));
         end
 
     end
