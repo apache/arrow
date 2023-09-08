@@ -276,7 +276,7 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
     return MakeEmptyArray(value_array->type(), memory_pool);
   }
 
-  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0);
+  const auto* validity = list_view_array.data()->template GetValues<uint8_t>(0, 0);
   const auto* offsets = list_view_array.data()->template GetValues<offset_type>(1);
   const auto* sizes = list_view_array.data()->template GetValues<offset_type>(2);
 
@@ -303,35 +303,39 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
     }
   }
 
+  auto is_null_or_empty = [&](int64_t i) {
+    return (validity && !bit_util::GetBit(validity, list_view_array.offset() + i)) ||
+           sizes[i] == 0;
+  };
+
   std::vector<std::shared_ptr<Array>> non_null_fragments;
   // Index of first valid, non-empty list-view and last offset
   // of the current contiguous fragment in values.
-  int64_t first_i = -1;
-  offset_type end_offset = -1;
+  constexpr int64_t kUninitialized = -1;
+  int64_t first_i = kUninitialized;
+  offset_type end_offset;
   int64_t i = 0;
   for (; i < list_view_array_length; i++) {
-    if ((validity && !bit_util::GetBit(validity, i)) || sizes[i] == 0) {
-      continue;
-    }
+    if (is_null_or_empty(i)) continue;
+
     first_i = i;
     end_offset = offsets[i] + sizes[i];
     break;
   }
   i += 1;
   for (; i < list_view_array_length; i++) {
-    if ((validity && !bit_util::GetBit(validity, i)) || sizes[i] == 0) {
-      continue;
-    }
+    if (is_null_or_empty(i)) continue;
+
     if (offsets[i] == end_offset) {
       end_offset += sizes[i];
-    } else {
-      non_null_fragments.push_back(
-          SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
-      first_i = i;
-      end_offset = offsets[i] + sizes[i];
+      continue;
     }
+    non_null_fragments.push_back(
+        SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
+    first_i = i;
+    end_offset = offsets[i] + sizes[i];
   }
-  if (first_i >= 0) {
+  if (first_i != kUninitialized) {
     non_null_fragments.push_back(
         SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
   }
