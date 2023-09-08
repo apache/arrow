@@ -102,7 +102,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
             for ii = 1:numel(varargin)
                 rb = varargin{ii};
                 if ~isa(rb, "arrow.tabular.RecordBatch")
-                    % If rb is not a RecordBatch, than it cannot be equal
+                    % If rb is not a RecordBatch, then it cannot be equal
                     % to obj. Return false early.
                     return;
                 end
@@ -117,16 +117,16 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             % Function that extracts the column stored at colIndex from the
             % record batch stored at rbIndex in varargin.
-            getColulmnFcn = @(rbIndex, colIndex) varargin{rbIndex}.column(colIndex);
+            getColumnFcn = @(rbIndex, colIndex) varargin{rbIndex}.column(colIndex);
 
             rbIndices = 1:numel(varargin);
             for ii = 1:obj.NumColumns
                 colIndices = repmat(ii, [1 numel(rbIndices)]);
-                % Gather all columns at index ii across within the record
+                % Gather all columns at index ii across the record
                 % batches stored in varargin. Compare these columns with
                 % the corresponding column in obj. If they are not equal,
                 % then the record batches are not equal. Return false.
-                columnsToCompare = arrayfun(getColulmnFcn, rbIndices, colIndices, UniformOutput=false);
+                columnsToCompare = arrayfun(getColumnFcn, rbIndices, colIndices, UniformOutput=false);
                 if ~isequal(obj.column(ii), columnsToCompare{:})
                     return;
                 end
