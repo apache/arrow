@@ -150,7 +150,7 @@ void DefLevelsToBitmap(const int16_t* def_levels, int64_t num_def_levels,
 }
 
 uint64_t TestOnlyExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
-  return standard::ExtractBitsSoftware(bitmap, select_bitmap);
+  return ::arrow::bit_util::internal::ExtractBitsSoftware(bitmap, select_bitmap);
 }
 
 void DefRepLevelsToList(const int16_t* def_levels, const int16_t* rep_levels,
