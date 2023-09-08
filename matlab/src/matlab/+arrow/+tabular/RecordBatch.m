@@ -1,3 +1,7 @@
+%RECORDBATCH A tabular data structure representing a set of 
+%arrow.array.Array objects with a fixed schema.
+
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -15,8 +19,6 @@
 
 classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                        matlab.mixin.Scalar
-%arrow.tabular.RecordBatch A tabular data structure representing
-% a set of arrow.array.Array objects with a fixed schema.
 
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
@@ -90,6 +92,46 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
         function T = toMATLAB(obj)
             T = obj.table();
+        end
+
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+
+            schemasToCompare = cell([1 numel(varargin)]);
+            for ii = 1:numel(varargin)
+                rb = varargin{ii};
+                if ~isa(rb, "arrow.tabular.RecordBatch")
+                    % If rb is not a RecordBatch, then it cannot be equal
+                    % to obj. Return false early.
+                    return;
+                end
+                schemasToCompare{ii} = rb.Schema;
+            end
+
+            if ~isequal(obj.Schema, schemasToCompare{:})
+                % If the schemas are not equal, the record batches are not
+                % equal. Return false early.
+                return;
+            end
+
+            % Function that extracts the column stored at colIndex from the
+            % record batch stored at rbIndex in varargin.
+            getColumnFcn = @(rbIndex, colIndex) varargin{rbIndex}.column(colIndex);
+
+            rbIndices = 1:numel(varargin);
+            for ii = 1:obj.NumColumns
+                colIndices = repmat(ii, [1 numel(rbIndices)]);
+                % Gather all columns at index ii across the record
+                % batches stored in varargin. Compare these columns with
+                % the corresponding column in obj. If they are not equal,
+                % then the record batches are not equal. Return false.
+                columnsToCompare = arrayfun(getColumnFcn, rbIndices, colIndices, UniformOutput=false);
+                if ~isequal(obj.column(ii), columnsToCompare{:})
+                    return;
+                end
+            end
+            tf = true;
         end
     end
 
