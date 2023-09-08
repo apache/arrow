@@ -13,28 +13,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using static Apache.Arrow.Acero.CLib;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class ExecPlan
     {
-        private unsafe CLib.GArrowExecutePlan* _planPtr;
+        private readonly unsafe GArrowExecutePlan* _planPtr;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowExecutePlan* d_garrow_execute_plan_new(out GError** error);
+        private static d_garrow_execute_plan_new garrow_execute_plan_new = FuncLoader.LoadFunction<d_garrow_execute_plan_new>("garrow_execute_plan_new");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate bool d_garrow_execute_plan_validate(GArrowExecutePlan* plan, out GError** error);
+        private static d_garrow_execute_plan_validate garrow_execute_plan_validate = FuncLoader.LoadFunction<d_garrow_execute_plan_validate>("garrow_execute_plan_validate");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate bool d_garrow_execute_plan_start(GArrowExecutePlan* plan);
+        private static d_garrow_execute_plan_start garrow_execute_plan_start = FuncLoader.LoadFunction<d_garrow_execute_plan_start>("garrow_execute_plan_start");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate bool d_garrow_execute_plan_wait(GArrowExecutePlan* plan);
+        private static d_garrow_execute_plan_wait garrow_execute_plan_wait = FuncLoader.LoadFunction<d_garrow_execute_plan_wait>("garrow_execute_plan_wait");
+
+        public unsafe GArrowExecutePlan* Handle => _planPtr;
 
         public unsafe ExecPlan()
         {
-            GError** error;
-
-            _planPtr = CLib.garrow_execute_plan_new(out error);
+            _planPtr = garrow_execute_plan_new(out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
 
         public unsafe bool Validate()
         {
-            GError** error;
-
-            var valid = CLib.garrow_execute_plan_validate(_planPtr, out error);
+            bool valid = garrow_execute_plan_validate(_planPtr, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
 
@@ -43,17 +58,12 @@ namespace Apache.Arrow.Acero
 
         public unsafe void StartProducing()
         {
-            CLib.garrow_execute_plan_start(_planPtr);
+            garrow_execute_plan_start(_planPtr);
         }
 
         public unsafe void Wait()
         {
-            CLib.garrow_execute_plan_wait(_planPtr);
-        }
-
-        internal unsafe CLib.GArrowExecutePlan* GetPtr()
-        {
-            return _planPtr;
+            garrow_execute_plan_wait(_planPtr);
         }
     }
 }

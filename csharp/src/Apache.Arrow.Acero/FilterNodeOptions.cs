@@ -13,22 +13,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using static Apache.Arrow.Acero.CLib;
+using System;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class FilterNodeOptions : ExecNodeOptions
     {
-        private unsafe GArrowFilterNodeOptions* _optionsPtr;
+        private readonly unsafe GArrowFilterNodeOptions* _optionsPtr;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        protected unsafe delegate GArrowFilterNodeOptions* d_garrow_filter_node_options_new(IntPtr expression);
+        protected static d_garrow_filter_node_options_new garrow_filter_node_options_new = FuncLoader.LoadFunction<d_garrow_filter_node_options_new>("garrow_filter_node_options_new");
+
+        public unsafe GArrowFilterNodeOptions* Handle => _optionsPtr;
 
         public unsafe FilterNodeOptions(Expression expr)
         {
-            _optionsPtr = CLib.garrow_filter_node_options_new(expr.GetPtr());
-        }
-
-        internal unsafe GArrowFilterNodeOptions* GetPtr()
-        {
-            return _optionsPtr;
+            _optionsPtr = garrow_filter_node_options_new(expr.Handle);
         }
     }
 }

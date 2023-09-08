@@ -13,12 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using static Apache.Arrow.Acero.CLib;
+using System;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public abstract class ExecNode
     {
-        public abstract unsafe GArrowExecuteNode* GetPtr();
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        protected unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_node(GArrowExecutePlan* plan, IntPtr factory_name, IntPtr inputs, IntPtr options, out GError** error);
+        protected static d_garrow_execute_plan_build_node garrow_execute_plan_build_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_node>("garrow_execute_plan_build_node");
+
+        public abstract unsafe GArrowExecuteNode* Handle { get; }
     }
 }

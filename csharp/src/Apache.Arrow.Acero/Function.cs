@@ -14,12 +14,22 @@
 // limitations under the License.
 
 using System;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class Function : Expression
     {
-        private IntPtr _ptr;
+        private readonly IntPtr _expressionPtr;
+        private readonly IntPtr _functionNamePtr;
+        private readonly GLib.List _functionArgs;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowFilterNodeOptions* d_garrow_call_expression_new(IntPtr function, IntPtr arguments, GArrowFunctionOptions* options);
+        private static d_garrow_call_expression_new garrow_call_expression_new = FuncLoader.LoadFunction<d_garrow_call_expression_new>("garrow_call_expression_new");
+
+        public override IntPtr Handle => _expressionPtr;
 
         public unsafe Function(string functionName, Expression lhs, Expression rhs)
             : this(functionName, new[] { lhs, rhs })
@@ -28,19 +38,18 @@ namespace Apache.Arrow.Acero
 
         public unsafe Function(string functionName, params Expression[] args)
         {
-            var functionNamePtr = StringUtil.ToCStringUtf8(functionName);
+            _functionNamePtr = GLib.Marshaller.StringToPtrGStrdup(functionName);
+            _functionArgs = new GLib.List(IntPtr.Zero);
 
-            var list = new GLib.List(IntPtr.Zero);
+            foreach (Expression arg in args)
+                _functionArgs.Append(arg.Handle);
 
-            foreach (var arg in args)
-                list.Append(arg.GetPtr());
-
-            _ptr = (IntPtr)CLib.garrow_call_expression_new((IntPtr)functionNamePtr, list.Handle, null);
+            _expressionPtr = (IntPtr)garrow_call_expression_new(_functionNamePtr, _functionArgs.Handle, null);
         }
 
-        public override IntPtr GetPtr()
+        ~Function()
         {
-            return _ptr;
+            GLib.Marshaller.Free(_functionNamePtr);
         }
     }
 

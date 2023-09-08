@@ -13,26 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using static Apache.Arrow.Acero.CLib;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
-    public class RecordBatchSourceNode : ExecNode
+    public abstract class SourceNode : ExecNode
     {
-        private unsafe CLib.GArrowExecuteNode* _nodePtr;
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        protected unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_source_node(GArrowExecutePlan* plan, GArrowSourceNodeOptions* options, out GError** error);
+        protected static d_garrow_execute_plan_build_source_node garrow_execute_plan_build_source_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_source_node>("garrow_execute_plan_build_source_node");
+    }
+
+    public class RecordBatchSourceNode : SourceNode
+    {
+        private unsafe GArrowExecuteNode* _nodePtr;
+
+        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
 
         public unsafe RecordBatchSourceNode(RecordBatchSourceNodeOptions options, ExecPlan plan)
         {
-            GError** error;
-
-            _nodePtr = CLib.garrow_execute_plan_build_source_node(plan.GetPtr(), options.GetPtr(), out error);
+            _nodePtr = garrow_execute_plan_build_source_node(plan.Handle, options.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
-        }
-
-        public override unsafe CLib.GArrowExecuteNode* GetPtr()
-        {
-            return _nodePtr;
         }
     }
 }

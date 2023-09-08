@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using Apache.Arrow.Acero.CLib;
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 using System;
@@ -21,7 +22,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
-using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero.Tests
 {
@@ -38,17 +38,17 @@ namespace Apache.Arrow.Acero.Tests
         public async Task TestRecordBatchSource()
         {
             // arrange
-            var recordBatch = TestData.GetCustomersRecordBatch();
+            RecordBatch recordBatch = TestData.GetCustomersRecordBatch();
 
             var recordBatchSource = new Declaration("record_batch_source",
                 new RecordBatchSourceNodeOptions(recordBatch));
 
             // act
-            var schema = TestData.GetCustomersSchema();
-            var result = recordBatchSource.ToRecordBatchReader(schema);
+            Schema schema = TestData.GetCustomersSchema();
+            IArrowArrayStream result = recordBatchSource.ToRecordBatchReader(schema);
 
             // assert
-            var table = await ConvertStreamToTable(result);
+            Table table = await ConvertStreamToTable(result);
 
             AssertTable(table,
                 """
@@ -61,7 +61,7 @@ namespace Apache.Arrow.Acero.Tests
 
         private void AssertTable(Table table, string expected, int? rowCount = null, int columnPadding = 10)
         {
-            var actual = PrintPrintTable(table, columnPadding);
+            string actual = PrintPrintTable(table, columnPadding);
 
             _output.WriteLine(actual);
 
@@ -86,11 +86,11 @@ namespace Apache.Arrow.Acero.Tests
                 new string[] { "customerId" },
                 new string[] { "customerId" });
 
-            var hashJoin = new Declaration("hashjoin", 
+            var hashJoin = new Declaration("hashjoin",
                 options: hashJoinOptions, inputs: new List<Declaration> { left, right });
 
             // act
-            var result = hashJoin.ToRecordBatchReader(
+            IArrowArrayStream result = hashJoin.ToRecordBatchReader(
                 new Schema.Builder()
                     .Field(new Field("customerId", StringType.Default, true))
                     .Field(new Field("firstName", StringType.Default, true))
@@ -101,7 +101,7 @@ namespace Apache.Arrow.Acero.Tests
                 .Build());
 
             // assert
-            var table = await ConvertStreamToTable(result);
+            Table table = await ConvertStreamToTable(result);
 
             AssertTable(table,
                 """
@@ -116,7 +116,7 @@ namespace Apache.Arrow.Acero.Tests
         public async Task TestSingleFilter()
         {
             // arrange
-            var recordBatch = TestData.GetCustomersRecordBatch();
+            RecordBatch recordBatch = TestData.GetCustomersRecordBatch();
 
             var recordBatchSource = new Declaration("record_batch_source",
                 new RecordBatchSourceNodeOptions(recordBatch));
@@ -129,11 +129,11 @@ namespace Apache.Arrow.Acero.Tests
             });
 
             // act
-            var schema = TestData.GetCustomersSchema();
-            var result = orderBy.ToRecordBatchReader(schema);
+            Schema schema = TestData.GetCustomersSchema();
+            IArrowArrayStream result = orderBy.ToRecordBatchReader(schema);
 
             // assert
-            var table = await ConvertStreamToTable(result);
+            Table table = await ConvertStreamToTable(result);
 
             AssertTable(table,
                 """
@@ -146,7 +146,7 @@ namespace Apache.Arrow.Acero.Tests
         public async Task TestMultiFilter()
         {
             // arrange
-            var recordBatch = TestData.GetCustomersRecordBatch();
+            RecordBatch recordBatch = TestData.GetCustomersRecordBatch();
 
             var recordBatchSource = new Declaration("record_batch_source",
                 new RecordBatchSourceNodeOptions(recordBatch));
@@ -161,11 +161,11 @@ namespace Apache.Arrow.Acero.Tests
             });
 
             // act
-            var schema = TestData.GetCustomersSchema();
-            var result = orderBy.ToRecordBatchReader(schema);
+            Schema schema = TestData.GetCustomersSchema();
+            IArrowArrayStream result = orderBy.ToRecordBatchReader(schema);
 
             // assert
-            var table = await ConvertStreamToTable(result);
+            Table table = await ConvertStreamToTable(result);
 
             AssertTable(table,
                 """
@@ -188,11 +188,11 @@ namespace Apache.Arrow.Acero.Tests
             var union = new Declaration("union", inputs: new List<Declaration> { left, right });
 
             // act
-            var schema = TestData.GetCustomersSchema();
-            var result = union.ToRecordBatchReader(schema);
+            Schema schema = TestData.GetCustomersSchema();
+            IArrowArrayStream result = union.ToRecordBatchReader(schema);
 
             // assert
-            var table = await ConvertStreamToTable(result);
+            Table table = await ConvertStreamToTable(result);
 
             AssertTable(table,
                 """
@@ -228,13 +228,13 @@ namespace Apache.Arrow.Acero.Tests
             });
 
             // act
-            var result = project.ToRecordBatchReader(
+            IArrowArrayStream result = project.ToRecordBatchReader(
                 new Schema.Builder()
                     .Field(new Field("fullName", StringType.Default, true))
                 .Build());
 
             // assert
-            var table = await ConvertStreamToTable(result);
+            Table table = await ConvertStreamToTable(result);
 
             AssertTable(table,
                 """
@@ -250,10 +250,10 @@ namespace Apache.Arrow.Acero.Tests
             Schema schema = null;
 
             var recordBatches = new List<RecordBatch>();
-            
+
             while (true)
             {
-                var recordBatch = await result.ReadNextRecordBatchAsync();
+                RecordBatch recordBatch = await result.ReadNextRecordBatchAsync();
                 if (recordBatch == null) break;
 
                 if (schema == null)
@@ -269,25 +269,25 @@ namespace Apache.Arrow.Acero.Tests
         {
             var sb = new StringBuilder();
 
-            for (var i = 0; i < table.ColumnCount; i++)
+            for (int i = 0; i < table.ColumnCount; i++)
             {
                 sb.Append(table.Column(i).Name.PadRight(columnPadding) + " | ");
             }
 
             sb.AppendLine();
 
-            for (var i = 0; i < table.RowCount; i++)
+            for (int i = 0; i < table.RowCount; i++)
             {
-                for (var j = 0; j < table.ColumnCount; j++)
+                for (int j = 0; j < table.ColumnCount; j++)
                 {
-                    var sliced = table.Column(j).Slice(i, 1);
+                    Column sliced = table.Column(j).Slice(i, 1);
 
-                    for (var k = 0; k < sliced.Data.ArrayCount; k++)
+                    for (int k = 0; k < sliced.Data.ArrayCount; k++)
                     {
                         if (sliced.Data.Array(k).Length == 0)
                             continue;
 
-                        var data = sliced.Data.Array(k);
+                        Array data = sliced.Data.Array(k);
                         string value;
 
                         switch (data)

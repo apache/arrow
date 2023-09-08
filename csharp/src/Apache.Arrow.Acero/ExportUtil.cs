@@ -13,61 +13,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 using Apache.Arrow.C;
 using Apache.Arrow.Ipc;
-using static Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     internal static class ExportUtil
     {
-        public static unsafe CLib.GArrowSchema* ExportAndGetSchemaPtr(Schema schema)
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowRecordBatch* d_garrow_record_batch_import(CArrowArray* c_abi_array, GArrowSchema* schema, out GError** error);
+        private static d_garrow_record_batch_import garrow_record_batch_import = FuncLoader.LoadFunction<d_garrow_record_batch_import>("garrow_record_batch_import");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowSchema* d_garrow_schema_import(CArrowSchema* c_abi_schema, out GError** error);
+        private static d_garrow_schema_import garrow_schema_import = FuncLoader.LoadFunction<d_garrow_schema_import>("garrow_schema_import");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowRecordBatchReader* d_garrow_record_batch_reader_import(CArrowArrayStream* c_abi_array_stream, out GError** error);
+        private static d_garrow_record_batch_reader_import garrow_record_batch_reader_import = FuncLoader.LoadFunction<d_garrow_record_batch_reader_import>("garrow_record_batch_reader_import");
+
+        public static unsafe GArrowSchema* ExportAndGetSchemaPtr(Schema schema)
         {
-            // allocate a C ABI ArrowSchema
             CArrowSchema* cSchema = CArrowSchema.Create();
-
-            // export the c# schema to the newly allocated CArrowSchema
             CArrowSchemaExporter.ExportSchema(schema, cSchema);
-
-            // Import CArrowSchema into a GArrowSchema
-            GError** error;
-            var gSchema = CLib.garrow_schema_import(cSchema, out error);
+            GArrowSchema* gSchema = garrow_schema_import(cSchema, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
 
             return gSchema;
         }
 
-        public static unsafe CLib.GArrowRecordBatch* ExportAndGetRecordBatchPtr(RecordBatch recordBatch)
+        public static unsafe GArrowRecordBatch* ExportAndGetRecordBatchPtr(RecordBatch recordBatch)
         {
-            var schemaPtr = ExportAndGetSchemaPtr(recordBatch.Schema);
+            GArrowSchema* schemaPtr = ExportAndGetSchemaPtr(recordBatch.Schema);
 
-            // allocate  a C ABI CArrowArray
             CArrowArray* cArray = CArrowArray.Create();
-
-            // export the c# record batch to the CArrowArray
             CArrowArrayExporter.ExportRecordBatch(recordBatch, cArray);
-
-            // import the CArrowArray into a gArrowRecordBatch
-            GError** error;
-            var gRecordBatch = CLib.garrow_record_batch_import(cArray, schemaPtr, out error);
+            GArrowRecordBatch* gRecordBatch = garrow_record_batch_import(cArray, schemaPtr, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
 
             return gRecordBatch;
         }
 
-        public static unsafe CLib.GArrowRecordBatchReader* ExportAndGetRecordBatchReaderPtr(IArrowArrayStream recordBatchReader)
+        public static unsafe GArrowRecordBatchReader* ExportAndGetRecordBatchReaderPtr(IArrowArrayStream recordBatchReader)
         {
-            // Allocate a CArrowArray
             CArrowArrayStream* cArrayStream = CArrowArrayStream.Create();
-
-            // export the c# record batch to the CArrowArray
             CArrowArrayStreamExporter.ExportArrayStream(recordBatchReader, cArrayStream);
-
-            // next import the c arrow as a gArrowRecordBatch
-            GError** error;
-            var gRecordBatchReader = CLib.garrow_record_batch_reader_import(cArrayStream, out error);
+            GArrowRecordBatchReader* gRecordBatchReader = garrow_record_batch_reader_import(cArrayStream, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
 

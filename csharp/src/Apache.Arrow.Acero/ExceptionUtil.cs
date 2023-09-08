@@ -1,5 +1,5 @@
 ﻿using System;
-using static Apache.Arrow.Acero.CLib;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {

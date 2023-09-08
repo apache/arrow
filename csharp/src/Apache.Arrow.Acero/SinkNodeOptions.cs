@@ -13,42 +13,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Runtime.InteropServices;
 using Apache.Arrow.C;
 using Apache.Arrow.Ipc;
-using static Apache.Arrow.Acero.CLib;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class SinkNodeOptions : ExecNodeOptions
     {
-        private readonly unsafe CLib.GArrowSinkNodeOptions* _optionsPtr;
+        private readonly unsafe GArrowSinkNodeOptions* _optionsPtr;
         private readonly Schema _schema;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        protected unsafe delegate GArrowSinkNodeOptions* d_garrow_sink_node_options_new();
+        protected static d_garrow_sink_node_options_new garrow_sink_node_options_new = FuncLoader.LoadFunction<d_garrow_sink_node_options_new>("garrow_sink_node_options_new");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        protected unsafe delegate GArrowRecordBatchReader* d_garrow_sink_node_options_get_reader(GArrowSinkNodeOptions* options, GArrowSchema* schema);
+        protected static d_garrow_sink_node_options_get_reader garrow_sink_node_options_get_reader = FuncLoader.LoadFunction<d_garrow_sink_node_options_get_reader>("garrow_sink_node_options_get_reader");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate CArrowArrayStream* d_garrow_record_batch_reader_export(GArrowRecordBatchReader* reader, out GError** error);
+        private static d_garrow_record_batch_reader_export garrow_record_batch_reader_export = FuncLoader.LoadFunction<d_garrow_record_batch_reader_export>("garrow_record_batch_reader_export");
+
+        internal unsafe GArrowSinkNodeOptions* Handle => _optionsPtr;
 
         public unsafe SinkNodeOptions(Schema schema)
         {
-            _optionsPtr = CLib.garrow_sink_node_options_new();
+            _optionsPtr = garrow_sink_node_options_new();
             _schema = schema;
         }
 
         public unsafe IArrowArrayStream GetRecordBatchReader()
         {
-            var schemaPtr = ExportUtil.ExportAndGetSchemaPtr(_schema);
-            var recordBatchReaderPtr = CLib.garrow_sink_node_options_get_reader(_optionsPtr, schemaPtr);
-
-            GError** error;
-
-            var arrayStreamPtr = CLib.garrow_record_batch_reader_export(recordBatchReaderPtr, out error);
+            GArrowSchema* schemaPtr = ExportUtil.ExportAndGetSchemaPtr(_schema);
+            GArrowRecordBatchReader* recordBatchReaderPtr = garrow_sink_node_options_get_reader(_optionsPtr, schemaPtr);
+            CArrowArrayStream* arrayStreamPtr = garrow_record_batch_reader_export(recordBatchReaderPtr, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
 
-            var arrayStream = CArrowArrayStreamImporter.ImportArrayStream(arrayStreamPtr);
+            IArrowArrayStream arrayStream = CArrowArrayStreamImporter.ImportArrayStream(arrayStreamPtr);
 
             return arrayStream;
-        }
-
-        internal unsafe CLib.GArrowSinkNodeOptions* GetPtr()
-        {
-            return _optionsPtr;
         }
     }
 }

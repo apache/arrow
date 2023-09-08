@@ -14,35 +14,53 @@
 // limitations under the License.
 
 using System;
-using static Apache.Arrow.Acero.CLib;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class LiteralExpression : Expression
     {
-        private IntPtr _ptr;
+        private unsafe readonly GArrowFieldExpression* _expressionPtr;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowFieldExpression* d_garrow_literal_expression_new(GArrowDatum* datum);
+        private static d_garrow_literal_expression_new garrow_literal_expression_new = FuncLoader.LoadFunction<d_garrow_literal_expression_new>("garrow_literal_expression_new");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowScalarDatum* d_garrow_scalar_datum_new(IntPtr value);
+        private static d_garrow_scalar_datum_new garrow_scalar_datum_new = FuncLoader.LoadFunction<d_garrow_scalar_datum_new>("garrow_scalar_datum_new");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowBuffer* d_garrow_buffer_new(IntPtr data, long size);
+        private static d_garrow_buffer_new garrow_buffer_new = FuncLoader.LoadFunction<d_garrow_buffer_new>("garrow_buffer_new");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowStringScalar* d_garrow_string_scalar_new(GArrowBuffer* value);
+        private static d_garrow_string_scalar_new garrow_string_scalar_new = FuncLoader.LoadFunction<d_garrow_string_scalar_new>("garrow_string_scalar_new");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowInt32Scalar* d_garrow_int32_scalar_new(int value);
+        private static d_garrow_int32_scalar_new garrow_int32_scalar_new = FuncLoader.LoadFunction<d_garrow_int32_scalar_new>("garrow_int32_scalar_new");
+
+        public unsafe override IntPtr Handle => (IntPtr)_expressionPtr;
 
         public unsafe LiteralExpression(string literal)
         {
-            var dataPtr = (IntPtr)StringUtil.ToCStringUtf8(literal);
-            var bufferPtr = CLib.garrow_buffer_new(dataPtr, literal.Length);
-            var scalarPtr = CLib.garrow_string_scalar_new(bufferPtr);
-            var datumPtr = (IntPtr)CLib.garrow_scalar_datum_new((IntPtr)scalarPtr);
+            IntPtr dataPtr = GLib.Marshaller.StringToPtrGStrdup(literal);
+            GArrowBuffer* bufferPtr = garrow_buffer_new(dataPtr, literal.Length);
+            GArrowStringScalar* scalarPtr = garrow_string_scalar_new(bufferPtr);
+            GArrowScalarDatum* datumPtr = garrow_scalar_datum_new((IntPtr)scalarPtr);
 
-            _ptr = (IntPtr)CLib.garrow_literal_expression_new((GArrowDatum*)datumPtr);
+            _expressionPtr = garrow_literal_expression_new((GArrowDatum*)datumPtr);
         }
 
         public unsafe LiteralExpression(int literal)
         {
-            var scalarPtr = CLib.garrow_int32_scalar_new(literal);
-            var datumPtr = (IntPtr)CLib.garrow_scalar_datum_new((IntPtr)scalarPtr);
+            GArrowInt32Scalar* scalarPtr = garrow_int32_scalar_new(literal);
+            GArrowScalarDatum* datumPtr = garrow_scalar_datum_new((IntPtr)scalarPtr);
 
-            _ptr = (IntPtr)CLib.garrow_literal_expression_new((GArrowDatum*)datumPtr);
-        }
-
-        public override IntPtr GetPtr()
-        {
-            return _ptr;
+            _expressionPtr = garrow_literal_expression_new((GArrowDatum*)datumPtr);
         }
     }
 }

@@ -15,29 +15,31 @@
 
 using System;
 using System.Collections.Generic;
-using static Apache.Arrow.Acero.CLib;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class ProjectNodeOptions : ExecNodeOptions
     {
-        private unsafe GArrowProjectNodeOptions* _optionsPtr;
+        private readonly unsafe GArrowProjectNodeOptions* _optionsPtr;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowProjectNodeOptions* d_garrow_project_node_options_new(GList* expressions, IntPtr names, int n_names);
+        private static d_garrow_project_node_options_new garrow_project_node_options_new = FuncLoader.LoadFunction<d_garrow_project_node_options_new>("garrow_project_node_options_new");
+
+        internal unsafe GArrowProjectNodeOptions* Handle => _optionsPtr;
 
         public unsafe ProjectNodeOptions(List<Expression> expressions, List<string> names)
         {
             var list = new GLib.List(IntPtr.Zero);
 
-            foreach (var expression in expressions)
-                list.Append(expression.GetPtr());
+            foreach (Expression expression in expressions)
+                list.Append(expression.Handle);
 
-            var namesPtr = StringUtil.GetStringArrayPtr(names.ToArray());
+            IntPtr namesPtr = GLib.Marshaller.StringArrayToStrvPtr(names.ToArray());
 
-            _optionsPtr = CLib.garrow_project_node_options_new((GList*)list.Handle, namesPtr, names.Count);
-        }
-
-        internal unsafe GArrowProjectNodeOptions* GetPtr()
-        {
-            return _optionsPtr;
+            _optionsPtr = garrow_project_node_options_new((GList*)list.Handle, namesPtr, names.Count);
         }
     }
 }

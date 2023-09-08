@@ -13,25 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using Apache.Arrow.C;
+using System.Runtime.InteropServices;
 using Apache.Arrow.Ipc;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class RecordBatchReaderSourceNodeOptions : ExecNodeOptions
     {
-        private unsafe CLib.GArrowSourceNodeOptions* _optionsPtr;
+        private readonly unsafe GArrowSourceNodeOptions* _optionsPtr;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        protected unsafe delegate GArrowSourceNodeOptions* d_garrow_source_node_options_new_record_batch_reader(GArrowRecordBatchReader* reader);
+        protected static d_garrow_source_node_options_new_record_batch_reader garrow_source_node_options_new_record_batch_reader = FuncLoader.LoadFunction<d_garrow_source_node_options_new_record_batch_reader>("garrow_source_node_options_new_record_batch_reader");
+
+        public unsafe GArrowSourceNodeOptions* Handle => _optionsPtr;
 
         public unsafe RecordBatchReaderSourceNodeOptions(IArrowArrayStream recordBatchReader)
         {
-            var recordBatchReaderPtr = ExportUtil.ExportAndGetRecordBatchReaderPtr(recordBatchReader);
+            GArrowRecordBatchReader* recordBatchReaderPtr = ExportUtil.ExportAndGetRecordBatchReaderPtr(recordBatchReader);
 
-            _optionsPtr = CLib.garrow_source_node_options_new_record_batch_reader(recordBatchReaderPtr);
-        }
-
-        internal unsafe CLib.GArrowSourceNodeOptions* GetPtr()
-        {
-            return _optionsPtr;
+            _optionsPtr = garrow_source_node_options_new_record_batch_reader(recordBatchReaderPtr);
         }
     }
 }

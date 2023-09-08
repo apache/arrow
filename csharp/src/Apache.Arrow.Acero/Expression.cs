@@ -14,17 +14,24 @@
 // limitations under the License.
 
 using System;
+using System.Runtime.InteropServices;
 
 namespace Apache.Arrow.Acero
 {
     public abstract class Expression
     {
-        public abstract IntPtr GetPtr();
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate IntPtr d_garrow_expression_to_string(IntPtr expression);
+        private static d_garrow_expression_to_string garrow_expression_to_string = FuncLoader.LoadFunction<d_garrow_expression_to_string>("garrow_expression_to_string");
+
+        public abstract IntPtr Handle { get; }
 
         public override unsafe string ToString()
         {
-            var strPtr = CLib.garrow_expression_to_string(GetPtr());
-            return StringUtil.PtrToStringUtf8((byte*)strPtr);
+            IntPtr strPtr = garrow_expression_to_string(Handle);
+            string str = GLib.Marshaller.PtrToStringGFree(strPtr);
+
+            return str;
         }
     }
 }

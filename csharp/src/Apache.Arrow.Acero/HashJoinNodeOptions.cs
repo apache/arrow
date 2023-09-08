@@ -13,29 +13,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using static Apache.Arrow.Acero.CLib;
+using System.Runtime.InteropServices;
+using System;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class HashJoinNodeOptions : ExecNodeOptions
     {
-        private unsafe GArrowHashJoinNodeOptions* _optionsPtr;
+        private readonly unsafe GArrowHashJoinNodeOptions* _optionsPtr;
+        private readonly IntPtr _leftKeysPtr;
+        private readonly IntPtr _rightKeysPtr;
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate GArrowHashJoinNodeOptions* d_garrow_hash_join_node_options_new(GArrowJoinType type, IntPtr left_keys, uint n_left_keys, IntPtr right_keys, uint n_right_keys, out GError** error);
+        private static d_garrow_hash_join_node_options_new garrow_hash_join_node_options_new = FuncLoader.LoadFunction<d_garrow_hash_join_node_options_new>("garrow_hash_join_node_options_new");
+
+        internal unsafe GArrowHashJoinNodeOptions* Handle => _optionsPtr;
 
         public unsafe HashJoinNodeOptions(GArrowJoinType joinType, string[] leftKeys, string[] rightKeys)
         {
-            var leftKeysPtr = StringUtil.GetStringArrayPtr(leftKeys);
-            var rightKeysPtr = StringUtil.GetStringArrayPtr(rightKeys);
+            _leftKeysPtr = GLib.Marshaller.StringArrayToStrvPtr(leftKeys);
+            _rightKeysPtr = GLib.Marshaller.StringArrayToStrvPtr(leftKeys);
 
-            GError** error;
-
-            _optionsPtr = garrow_hash_join_node_options_new(joinType, leftKeysPtr, (uint)leftKeys.Length, rightKeysPtr, (uint)rightKeys.Length, out error);
+            _optionsPtr = garrow_hash_join_node_options_new(joinType, _leftKeysPtr, (uint)leftKeys.Length, _rightKeysPtr, (uint)rightKeys.Length, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
 
-        internal unsafe GArrowHashJoinNodeOptions* GetPtr()
+        ~HashJoinNodeOptions()
         {
-            return _optionsPtr;
+            GLib.Marshaller.StrFreeV(_leftKeysPtr);
+            GLib.Marshaller.StrFreeV(_rightKeysPtr);
         }
     }
 }

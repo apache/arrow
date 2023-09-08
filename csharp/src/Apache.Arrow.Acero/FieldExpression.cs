@@ -14,28 +14,33 @@
 // limitations under the License.
 
 using System;
-using static Apache.Arrow.Acero.CLib;
+using System.Runtime.InteropServices;
+using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class FieldExpression : Expression
     {
-        private IntPtr _ptr;
+        private readonly IntPtr _expressionPtr;
+        private readonly IntPtr _referencePtr;
 
-        public unsafe FieldExpression(string field)
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+        private unsafe delegate IntPtr d_garrow_field_expression_new(IntPtr reference, out GError** error);
+        private static d_garrow_field_expression_new garrow_field_expression_new = FuncLoader.LoadFunction<d_garrow_field_expression_new>("garrow_field_expression_new");
+
+        public override IntPtr Handle => _expressionPtr;
+
+        public unsafe FieldExpression(string reference)
         {
-            var reference = (nint)StringUtil.ToCStringUtf8(field);
-
-            GError** error;
-
-            _ptr = (IntPtr)CLib.garrow_field_expression_new(reference, out error);
+            _referencePtr = GLib.Marshaller.StringToPtrGStrdup(reference);
+            _expressionPtr = garrow_field_expression_new(_referencePtr, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
 
-        public override IntPtr GetPtr()
+        ~FieldExpression()
         {
-            return _ptr;
+            GLib.Marshaller.Free(_referencePtr);
         }
     }
 }
