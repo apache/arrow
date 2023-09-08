@@ -58,7 +58,7 @@
 #include "arrow/status.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/util/async_generator.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
@@ -66,13 +66,17 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/range.h"
+#include "arrow/util/string.h"
 
 namespace arrow {
 namespace fs {
 
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::PlatformFilename;
+using ::arrow::internal::ToChars;
 using ::arrow::internal::UriEscape;
+using ::arrow::internal::Zip;
 
 using ::arrow::fs::internal::ConnectRetryStrategy;
 using ::arrow::fs::internal::ErrorToStatus;
@@ -145,11 +149,6 @@ class ShortRetryStrategy : public S3RetryStrategy {
 
 class AwsTestMixin : public ::testing::Test {
  public:
-  // We set this environment variable to speed up tests by ensuring
-  // DefaultAWSCredentialsProviderChain does not query (inaccessible)
-  // EC2 metadata endpoint
-  AwsTestMixin() : ec2_metadata_disabled_guard_("AWS_EC2_METADATA_DISABLED", "true") {}
-
   void SetUp() override {
 #ifdef AWS_CPP_SDK_S3_NOT_SHARED
     auto aws_log_level = Aws::Utils::Logging::LogLevel::Fatal;
@@ -168,7 +167,6 @@ class AwsTestMixin : public ::testing::Test {
   }
 
  private:
-  EnvVarGuard ec2_metadata_disabled_guard_;
 #ifdef AWS_CPP_SDK_S3_NOT_SHARED
   Aws::SDKOptions aws_options_;
 #endif
@@ -185,7 +183,7 @@ class S3TestMixin : public AwsTestMixin {
     Status connect_status;
     int retries = kNumServerRetries;
     do {
-      InitServerAndClient();
+      ASSERT_OK(InitServerAndClient());
       connect_status = OutcomeToStatus("ListBuckets", client_->ListBuckets());
     } while (!connect_status.ok() && --retries > 0);
     ASSERT_OK(connect_status);
@@ -198,8 +196,8 @@ class S3TestMixin : public AwsTestMixin {
   }
 
  protected:
-  void InitServerAndClient() {
-    ASSERT_OK_AND_ASSIGN(minio_, GetMinioEnv()->GetOneServer());
+  Status InitServerAndClient() {
+    ARROW_ASSIGN_OR_RAISE(minio_, GetMinioEnv()->GetOneServer());
     client_config_.reset(new Aws::Client::ClientConfiguration());
     client_config_->endpointOverride = ToAwsString(minio_->connect_string());
     client_config_->scheme = Aws::Http::Scheme::HTTP;
@@ -211,6 +209,7 @@ class S3TestMixin : public AwsTestMixin {
         new Aws::S3::S3Client(credentials_, *client_config_,
                               Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
                               use_virtual_addressing));
+    return Status::OK();
   }
 
   // How many times to try launching a server in a row before decreeing failure
@@ -302,6 +301,13 @@ TEST_F(S3OptionsTest, FromUri) {
 
   // Invalid option
   ASSERT_RAISES(Invalid, S3Options::FromUri("s3://mybucket/?xxx=zzz", &path));
+
+  // Endpoint from environment variable
+  {
+    EnvVarGuard endpoint_guard("AWS_ENDPOINT_URL", "http://127.0.0.1:9000");
+    ASSERT_OK_AND_ASSIGN(options, S3Options::FromUri("s3://mybucket/", &path));
+    ASSERT_EQ(options.endpoint_override, "http://127.0.0.1:9000");
+  }
 }
 
 TEST_F(S3OptionsTest, FromAccessKey) {
@@ -457,15 +463,18 @@ class TestS3FS : public S3TestMixin {
     }
   }
 
-  void MakeFileSystem() {
+  Result<std::shared_ptr<S3FileSystem>> MakeNewFileSystem(
+      io::IOContext io_context = io::default_io_context()) {
     options_.ConfigureAccessKey(minio_->access_key(), minio_->secret_key());
     options_.scheme = "http";
     options_.endpoint_override = minio_->connect_string();
     if (!options_.retry_strategy) {
       options_.retry_strategy = std::make_shared<ShortRetryStrategy>();
     }
-    ASSERT_OK_AND_ASSIGN(fs_, S3FileSystem::Make(options_));
+    return S3FileSystem::Make(options_, io_context);
   }
+
+  void MakeFileSystem() { ASSERT_OK_AND_ASSIGN(fs_, MakeNewFileSystem()); }
 
   template <typename Matcher>
   void AssertMetadataRoundtrip(const std::string& path,
@@ -783,6 +792,81 @@ TEST_F(TestS3FS, GetFileInfoGenerator) {
   AssertInfoAllBucketsRecursive(infos);
 
   // Non-root dir case is tested by generic tests
+}
+
+TEST_F(TestS3FS, GetFileInfoGeneratorStress) {
+  // This test is slow because it needs to create a bunch of seed files.  However, it is
+  // the only test that stresses listing and deleting when there are more than 1000 files
+  // and paging is required.
+  constexpr int32_t kNumDirs = 4;
+  constexpr int32_t kNumFilesPerDir = 512;
+  FileInfoVector expected_infos;
+
+  ASSERT_OK(fs_->CreateDir("stress"));
+  for (int32_t i = 0; i < kNumDirs; i++) {
+    const std::string dir_path = "stress/" + ToChars(i);
+    ASSERT_OK(fs_->CreateDir(dir_path));
+    expected_infos.emplace_back(dir_path, FileType::Directory);
+
+    std::vector<Future<>> tasks;
+    for (int32_t j = 0; j < kNumFilesPerDir; j++) {
+      // Create the files in parallel in hopes of speeding up this process as much as
+      // possible
+      const std::string file_name = ToChars(j);
+      const std::string file_path = dir_path + "/" + file_name;
+      expected_infos.emplace_back(file_path, FileType::File);
+      ASSERT_OK_AND_ASSIGN(Future<> task,
+                           ::arrow::internal::GetCpuThreadPool()->Submit(
+                               [fs = fs_, file_name, file_path]() -> Status {
+                                 ARROW_ASSIGN_OR_RAISE(
+                                     std::shared_ptr<io::OutputStream> out_str,
+                                     fs->OpenOutputStream(file_path));
+                                 ARROW_RETURN_NOT_OK(out_str->Write(file_name));
+                                 return out_str->Close();
+                               }));
+      tasks.push_back(std::move(task));
+    }
+    ASSERT_FINISHES_OK(AllFinished(tasks));
+  }
+  SortInfos(&expected_infos);
+
+  FileSelector select;
+  FileInfoVector infos;
+  select.base_dir = "stress";
+  select.recursive = true;
+
+  // 32 is pretty fast, listing is much faster than the create step above
+  constexpr int32_t kNumTasks = 32;
+  for (int i = 0; i < kNumTasks; i++) {
+    CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+    SortInfos(&infos);
+    // One info for each directory and one info for each file
+    ASSERT_EQ(infos.size(), expected_infos.size());
+    for (const auto&& [info, expected] : Zip(infos, expected_infos)) {
+      AssertFileInfo(info, expected.path(), expected.type());
+    }
+  }
+
+  ASSERT_OK(fs_->DeleteDirContents("stress"));
+
+  CollectFileInfoGenerator(fs_->GetFileInfoGenerator(select), &infos);
+  ASSERT_EQ(infos.size(), 0);
+}
+
+TEST_F(TestS3FS, GetFileInfoGeneratorCancelled) {
+  FileSelector select;
+  FileInfoVector infos;
+  select.base_dir = "bucket";
+  select.recursive = true;
+
+  StopSource stop_source;
+  io::IOContext cancellable_context(stop_source.token());
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<S3FileSystem> cancellable_fs,
+                       MakeNewFileSystem(cancellable_context));
+  stop_source.RequestStop();
+  FileInfoGenerator generator = cancellable_fs->GetFileInfoGenerator(select);
+  auto file_infos = CollectAsyncGenerator(std::move(generator));
+  ASSERT_FINISHES_AND_RAISES(Cancelled, file_infos);
 }
 
 TEST_F(TestS3FS, CreateDir) {
@@ -1141,6 +1225,18 @@ TEST_F(TestS3FS, FileSystemFromUri) {
   std::string path;
   ASSERT_OK_AND_ASSIGN(auto fs, FileSystemFromUri(ss.str(), &path));
   ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  ASSERT_OK_AND_ASSIGN(path, fs->PathFromUri(ss.str()));
+  ASSERT_EQ(path, "bucket/somedir/subdir/subfile");
+
+  // Incorrect scheme
+  ASSERT_THAT(fs->PathFromUri("file:///@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid,
+                     testing::HasSubstr("expected a URI with one of the schemes (s3)")));
+
+  // Not a URI
+  ASSERT_THAT(fs->PathFromUri("/@bucket/somedir/subdir/subfile"),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Expected a URI")));
 
   // Check the filesystem has the right connection parameters
   AssertFileInfo(fs.get(), path, FileType::File, 8);

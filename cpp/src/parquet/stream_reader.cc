@@ -16,6 +16,7 @@
 // under the License.
 
 #include "parquet/stream_reader.h"
+#include "arrow/util/decimal.h"
 
 #include <set>
 #include <utility>
@@ -35,7 +36,7 @@ constexpr int64_t StreamReader::kBatchSizeOne;
 // then it will allow the Parquet file to use the converted type
 // NONE.
 //
-static const std::set<std::pair<ConvertedType::type, ConvertedType::type> >
+static const std::set<std::pair<ConvertedType::type, ConvertedType::type>>
     converted_type_exceptions = {{ConvertedType::INT_32, ConvertedType::NONE},
                                  {ConvertedType::INT_64, ConvertedType::NONE},
                                  {ConvertedType::INT_32, ConvertedType::DECIMAL},
@@ -275,6 +276,45 @@ StreamReader& StreamReader::operator>>(optional<std::string>& v) {
   return *this;
 }
 
+StreamReader& StreamReader::operator>>(optional<::arrow::Decimal128>& v) {
+  const auto& node = nodes_[column_index_];
+  if (node->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {
+    const int type_length = node->type_length();
+    CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::DECIMAL, type_length);
+
+    FixedLenByteArray flba;
+    if (ReadOptional(&flba)) {
+      PARQUET_ASSIGN_OR_THROW(v,
+                              ::arrow::Decimal128::FromBigEndian(flba.ptr, type_length));
+    } else {
+      v.reset();
+    }
+  } else if (node->physical_type() == Type::BYTE_ARRAY) {
+    CheckColumn(Type::BYTE_ARRAY, ConvertedType::DECIMAL);
+
+    ByteArray ba;
+    if (ReadOptional(&ba)) {
+      PARQUET_ASSIGN_OR_THROW(v, ::arrow::Decimal128::FromBigEndian(ba.ptr, ba.len));
+    } else {
+      v.reset();
+    }
+  } else {
+    ParquetException::NYI("Decimal128 is not implemented for non-binary types");
+  }
+  return *this;
+}
+
+StreamReader& StreamReader::operator>>(::arrow::Decimal128& v) {
+  const auto& node = nodes_[column_index_];
+  std::optional<::arrow::Decimal128> maybe_v;
+  *this >> maybe_v;
+  if (!maybe_v.has_value()) {
+    ThrowReadFailedException(node);
+  }
+  v = std::move(maybe_v.value());
+  return *this;
+}
+
 void StreamReader::ReadFixedLength(char* ptr, int len) {
   CheckColumn(Type::FIXED_LEN_BYTE_ARRAY, ConvertedType::NONE, len);
   FixedLenByteArray flba;
@@ -401,7 +441,7 @@ int64_t StreamReader::SkipRows(int64_t num_rows_to_skip) {
   while (!eof_ && (num_rows_remaining_to_skip > 0)) {
     int64_t num_rows_in_row_group = row_group_reader_->metadata()->num_rows();
     int64_t num_rows_remaining_in_row_group =
-        num_rows_in_row_group - current_row_ - row_group_row_offset_;
+        num_rows_in_row_group - (current_row_ - row_group_row_offset_);
 
     if (num_rows_remaining_in_row_group > num_rows_remaining_to_skip) {
       for (auto reader : column_readers_) {

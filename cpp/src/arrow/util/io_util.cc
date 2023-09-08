@@ -45,6 +45,7 @@
 #include <random>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <thread>
 #include <utility>
 #include <vector>
@@ -1896,7 +1897,8 @@ std::vector<NativePathString> GetPlatformTemporaryDirs() {
 }
 
 std::string MakeRandomName(int num_chars) {
-  static const std::string chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  constexpr std::string_view chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+
   std::default_random_engine gen(
       static_cast<std::default_random_engine::result_type>(GetRandomSeed()));
   std::uniform_int_distribution<int> dist(0, static_cast<int>(chars.length() - 1));
@@ -2138,7 +2140,8 @@ int64_t GetCurrentRSS() {
   return static_cast<int64_t>(info.WorkingSetSize);
 
 #elif defined(__APPLE__)
-  // OSX ------------------------------------------------------
+// OSX ------------------------------------------------------
+#ifdef MACH_TASK_BASIC_INFO
   struct mach_task_basic_info info;
   mach_msg_type_number_t infoCount = MACH_TASK_BASIC_INFO_COUNT;
   if (task_info(mach_task_self(), MACH_TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
@@ -2146,6 +2149,15 @@ int64_t GetCurrentRSS() {
     ARROW_LOG(WARNING) << "Can't resolve RSS value";
     return 0;
   }
+#else
+  struct task_basic_info info;
+  mach_msg_type_number_t infoCount = TASK_BASIC_INFO_COUNT;
+  if (task_info(mach_task_self(), TASK_BASIC_INFO, (task_info_t)&info, &infoCount) !=
+      KERN_SUCCESS) {
+    ARROW_LOG(WARNING) << "Can't resolve RSS value";
+    return 0;
+  }
+#endif
   return static_cast<int64_t>(info.resident_size);
 
 #elif defined(__linux__)

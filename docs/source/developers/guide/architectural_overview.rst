@@ -45,7 +45,7 @@ refer to:
 R package Architectural Overview
 --------------------------------
 
-.. figure:: /developers/images/R_architectural_overview.png
+.. figure:: ../images/R_architectural_overview.png
    :alt: Main parts of R package architecture: dplyr-*,
          dplyr-funcs*, tools, tests and src/.
 

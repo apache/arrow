@@ -18,36 +18,32 @@
 # cython: profile=False
 # distutils: language = c++
 
-import io
 from textwrap import indent
 import warnings
-
-import numpy as np
-
-from libcpp cimport nullptr
 
 from cython.operator cimport dereference as deref
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.lib cimport (_Weakrefable, Buffer, Array, Schema,
+from pyarrow.lib cimport (_Weakrefable, Buffer, Schema,
                           check_status,
                           MemoryPool, maybe_unbox_memory_pool,
                           Table, NativeFile,
                           pyarrow_wrap_chunked_array,
                           pyarrow_wrap_schema,
                           pyarrow_wrap_table,
-                          pyarrow_wrap_buffer,
                           pyarrow_wrap_batch,
                           pyarrow_wrap_scalar,
                           NativeFile, get_reader, get_writer,
                           string_to_timeunit)
 
 from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
-                         _stringify_path, _datetime_from_int,
+                         _stringify_path,
                          tobytes, frombytes)
 
 cimport cpython as cp
 
+_DEFAULT_ROW_GROUP_SIZE = 1024*1024
+_MAX_ROW_GROUP_SIZE = 64*1024*1024
 
 cdef class Statistics(_Weakrefable):
     """Statistics for a single column in a single row group."""
@@ -179,17 +175,18 @@ cdef class Statistics(_Weakrefable):
     @property
     def null_count(self):
         """Number of null values in chunk (int)."""
-        return self.statistics.get().null_count()
+        if self.has_null_count:
+            return self.statistics.get().null_count()
+        else:
+            return None
 
     @property
     def distinct_count(self):
-        """
-        Distinct number of values in chunk (int).
-
-        If this is not set, will return 0.
-        """
-        # This seems to be zero if not set. See: ARROW-11793
-        return self.statistics.get().distinct_count()
+        """Distinct number of values in chunk (int)."""
+        if self.has_distinct_count:
+            return self.statistics.get().distinct_count()
+        else:
+            return None
 
     @property
     def num_values(self):
@@ -466,7 +463,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def dictionary_page_offset(self):
-        """Offset of dictionary page reglative to column chunk offset (int)."""
+        """Offset of dictionary page relative to column chunk offset (int)."""
         if self.has_dictionary_page:
             return self.metadata.dictionary_page_offset()
         else:
@@ -474,7 +471,7 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def data_page_offset(self):
-        """Offset of data page reglative to column chunk offset (int)."""
+        """Offset of data page relative to column chunk offset (int)."""
         return self.metadata.data_page_offset()
 
     @property
@@ -496,6 +493,16 @@ cdef class ColumnChunkMetaData(_Weakrefable):
     def total_uncompressed_size(self):
         """Uncompressed size in bytes (int)."""
         return self.metadata.total_uncompressed_size()
+
+    @property
+    def has_offset_index(self):
+        """Whether the column chunk has an offset index"""
+        return self.metadata.GetOffsetIndexLocation().has_value()
+
+    @property
+    def has_column_index(self):
+        """Whether the column chunk has a column index"""
+        return self.metadata.GetColumnIndexLocation().has_value()
 
 
 cdef class RowGroupMetaData(_Weakrefable):
@@ -714,7 +721,7 @@ cdef class FileMetaData(_Weakrefable):
         """
         Parquet format version used in file (str, such as '1.0', '2.4').
 
-        If version is missing or unparsable, will default to assuming '2.4'.
+        If version is missing or unparsable, will default to assuming '2.6'.
         """
         cdef ParquetVersion version = self._metadata.version()
         if version == ParquetVersion_V1:
@@ -726,9 +733,9 @@ cdef class FileMetaData(_Weakrefable):
         elif version == ParquetVersion_V2_6:
             return '2.6'
         else:
-            warnings.warn('Unrecognized file version, assuming 2.4: {}'
+            warnings.warn('Unrecognized file version, assuming 2.6: {}'
                           .format(version))
-            return '2.4'
+            return '2.6'
 
     @property
     def created_by(self):
@@ -1176,14 +1183,28 @@ cdef class ParquetReader(_Weakrefable):
              FileDecryptionProperties decryption_properties=None,
              thrift_string_size_limit=None,
              thrift_container_size_limit=None):
+        """
+        Open a parquet file for reading.
+
+        Parameters
+        ----------
+        source : str, pathlib.Path, pyarrow.NativeFile, or file-like object
+        use_memory_map : bool, default False
+        read_dictionary : iterable[int or str], optional
+        metadata : FileMetaData, optional
+        buffer_size : int, default 0
+        pre_buffer : bool, default False
+        coerce_int96_timestamp_unit : str, optional
+        decryption_properties : FileDecryptionProperties, optional
+        thrift_string_size_limit : int, optional
+        thrift_container_size_limit : int, optional
+        """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
             CReaderProperties properties = default_reader_properties()
             ArrowReaderProperties arrow_props = (
                 default_arrow_reader_properties())
-            c_string path
             FileReaderBuilder builder
-            TimeUnit int96_timestamp_unit_code
 
         if metadata is not None:
             c_metadata = metadata.sp_metadata
@@ -1280,18 +1301,39 @@ cdef class ParquetReader(_Weakrefable):
         return self.reader.get().num_row_groups()
 
     def set_use_threads(self, bint use_threads):
+        """
+        Parameters
+        ----------
+        use_threads : bool
+        """
         self.reader.get().set_use_threads(use_threads)
 
     def set_batch_size(self, int64_t batch_size):
+        """
+        Parameters
+        ----------
+        batch_size : int64
+        """
         self.reader.get().set_batch_size(batch_size)
 
     def iter_batches(self, int64_t batch_size, row_groups, column_indices=None,
                      bint use_threads=True):
+        """
+        Parameters
+        ----------
+        batch_size : int64
+        row_groups : list[int]
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Yields
+        ------
+        next : RecordBatch
+        """
         cdef:
             vector[int] c_row_groups
             vector[int] c_column_indices
             shared_ptr[CRecordBatch] record_batch
-            shared_ptr[TableBatchReader] batch_reader
             unique_ptr[CRecordBatchReader] recordbatchreader
 
         self.set_batch_size(batch_size)
@@ -1332,10 +1374,32 @@ cdef class ParquetReader(_Weakrefable):
 
     def read_row_group(self, int i, column_indices=None,
                        bint use_threads=True):
+        """
+        Parameters
+        ----------
+        i : int
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         return self.read_row_groups([i], column_indices, use_threads)
 
     def read_row_groups(self, row_groups not None, column_indices=None,
                         bint use_threads=True):
+        """
+        Parameters
+        ----------
+        row_groups : list[int]
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_row_groups
@@ -1362,6 +1426,16 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def read_all(self, column_indices=None, bint use_threads=True):
+        """
+        Parameters
+        ----------
+        column_indices : list[int], optional
+        use_threads : bool, default True
+
+        Returns
+        -------
+        table : pyarrow.Table
+        """
         cdef:
             shared_ptr[CTable] ctable
             vector[int] c_column_indices
@@ -1383,6 +1457,16 @@ cdef class ParquetReader(_Weakrefable):
         return pyarrow_wrap_table(ctable)
 
     def scan_contents(self, column_indices=None, batch_size=65536):
+        """
+        Parameters
+        ----------
+        column_indices : list[int], optional
+        batch_size : int32, default 65536
+
+        Returns
+        -------
+        num_rows : int64
+        """
         cdef:
             vector[int] c_column_indices
             int32_t c_batch_size
@@ -1430,6 +1514,18 @@ cdef class ParquetReader(_Weakrefable):
         return self._column_idx_map[tobytes(column_name)]
 
     def read_column(self, int column_index):
+        """
+        Read the column at the specified index.
+
+        Parameters
+        ----------
+        column_index : int
+            Index of the column.
+
+        Returns
+        -------
+        column : pyarrow.ChunkedArray
+        """
         cdef shared_ptr[CChunkedArray] out
         with nogil:
             check_status(self.reader.get()
@@ -1462,7 +1558,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         data_page_version=None,
         FileEncryptionProperties encryption_properties=None,
         write_batch_size=None,
-        dictionary_pagesize_limit=None) except *:
+        dictionary_pagesize_limit=None,
+        write_page_index=False) except *:
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
@@ -1597,6 +1694,22 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         props.encryption(
             (<FileEncryptionProperties>encryption_properties).unwrap())
 
+    # For backwards compatibility reasons we cap the maximum row group size
+    # at 64Mi rows.  This could be changed in the future, though it would be
+    # a breaking change.
+    #
+    # The user can always specify a smaller row group size (and the default
+    # is smaller) when calling write_table.  If the call to write_table uses
+    # a size larger than this then it will be latched to this value.
+    props.max_row_group_length(_MAX_ROW_GROUP_SIZE)
+
+    # page index
+
+    if write_page_index:
+        props.enable_write_page_index()
+    else:
+        props.disable_write_page_index()
+
     properties = props.build()
 
     return properties
@@ -1607,7 +1720,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         coerce_timestamps=None,
         allow_truncated_timestamps=False,
         writer_engine_version=None,
-        use_compliant_nested_type=False,
+        use_compliant_nested_type=True,
         store_schema=True) except *:
     """Arrow writer properties"""
     cdef:
@@ -1691,7 +1804,7 @@ cdef class ParquetWriter(_Weakrefable):
         int64_t dictionary_pagesize_limit
         object store_schema
 
-    def __cinit__(self, where, Schema schema, use_dictionary=None,
+    def __cinit__(self, where, Schema schema not None, use_dictionary=None,
                   compression=None, version=None,
                   write_statistics=None,
                   MemoryPool memory_pool=None,
@@ -1704,11 +1817,12 @@ cdef class ParquetWriter(_Weakrefable):
                   column_encoding=None,
                   writer_engine_version=None,
                   data_page_version=None,
-                  use_compliant_nested_type=False,
+                  use_compliant_nested_type=True,
                   encryption_properties=None,
                   write_batch_size=None,
                   dictionary_pagesize_limit=None,
-                  store_schema=True):
+                  store_schema=True,
+                  write_page_index=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -1738,7 +1852,8 @@ cdef class ParquetWriter(_Weakrefable):
             data_page_version=data_page_version,
             encryption_properties=encryption_properties,
             write_batch_size=write_batch_size,
-            dictionary_pagesize_limit=dictionary_pagesize_limit
+            dictionary_pagesize_limit=dictionary_pagesize_limit,
+            write_page_index=write_page_index
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,
@@ -1767,7 +1882,7 @@ cdef class ParquetWriter(_Weakrefable):
             int64_t c_row_group_size
 
         if row_group_size is None or row_group_size == -1:
-            c_row_group_size = ctable.num_rows()
+            c_row_group_size = min(ctable.num_rows(), _DEFAULT_ROW_GROUP_SIZE)
         elif row_group_size == 0:
             raise ValueError('Row group size cannot be 0')
         else:

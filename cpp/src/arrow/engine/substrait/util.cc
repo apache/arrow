@@ -22,12 +22,13 @@
 #include <string_view>
 #include <utility>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/extension_set.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/status.h"
@@ -44,11 +45,16 @@ Result<std::shared_ptr<RecordBatchReader>> ExecuteSerializedPlan(
     const Buffer& substrait_buffer, const ExtensionIdRegistry* registry,
     compute::FunctionRegistry* func_registry, const ConversionOptions& conversion_options,
     bool use_threads, MemoryPool* memory_pool) {
-  ARROW_ASSIGN_OR_RAISE(compute::Declaration plan,
+  ARROW_ASSIGN_OR_RAISE(PlanInfo plan_info,
                         DeserializePlan(substrait_buffer, registry,
                                         /*ext_set_out=*/nullptr, conversion_options));
-  return compute::DeclarationToReader(std::move(plan), use_threads, memory_pool,
-                                      func_registry);
+  acero::QueryOptions query_options;
+  query_options.memory_pool = memory_pool;
+  query_options.function_registry = func_registry;
+  query_options.use_threads = use_threads;
+  query_options.field_names = plan_info.names;
+  return acero::DeclarationToReader(std::move(plan_info.root.declaration),
+                                    std::move(query_options));
 }
 
 Result<std::shared_ptr<Buffer>> SerializeJsonPlan(const std::string& substrait_json) {
@@ -62,6 +68,16 @@ std::shared_ptr<ExtensionIdRegistry> MakeExtensionIdRegistry() {
 const std::string& default_extension_types_uri() {
   static std::string uri(engine::kArrowExtTypesUri);
   return uri;
+}
+
+Status CheckVersion(uint32_t major_version, uint32_t minor_version) {
+  if (major_version < kSubstraitMinimumMajorVersion &&
+      minor_version < kSubstraitMinimumMinorVersion) {
+    return Status::Invalid("Can only parse Substrait messages with a version >= ",
+                           kSubstraitMinimumMajorVersion, ".",
+                           kSubstraitMinimumMinorVersion);
+  }
+  return Status::OK();
 }
 
 }  // namespace engine

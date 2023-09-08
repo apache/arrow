@@ -24,10 +24,10 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // A BinaryBuilder is used to build a Binary array using the Append methods.
@@ -125,10 +125,22 @@ func (b *BinaryBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BinaryBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *BinaryBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.appendNextOffset()
 	b.UnsafeAppendBoolToBitmap(true)
+}
+
+func (b *BinaryBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 // AppendValues will append the values in the v slice. The valid slice determines which values
@@ -289,7 +301,26 @@ func (b *BinaryBuilder) appendNextOffset() {
 	b.appendOffsetVal(numBytes)
 }
 
-func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *BinaryBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	if b.dtype.IsUtf8() {
+		b.Append([]byte(s))
+		return nil
+	}
+
+	decodedVal, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		return fmt.Errorf("could not decode base64 string: %w", err)
+	}
+	b.Append(decodedVal)
+	return nil
+}
+
+func (b *BinaryBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -316,9 +347,9 @@ func (b *BinaryBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *BinaryBuilder) unmarshal(dec *json.Decoder) error {
+func (b *BinaryBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -336,7 +367,7 @@ func (b *BinaryBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("binary builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

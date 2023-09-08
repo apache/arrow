@@ -67,12 +67,6 @@ class Version(SemVer):
         )
 
 
-ORIGINAL_ARROW_REGEX = re.compile(
-    r"\*This issue was originally created as " +
-    r"\[(?P<issue>ARROW\-(?P<issue_id>(\d+)))\]"
-)
-
-
 class Issue:
 
     def __init__(self, key, type, summary, github_issue=None):
@@ -92,10 +86,8 @@ class Issue:
 
     @classmethod
     def from_github(cls, github_issue):
-        original_jira = cls.original_jira_id(github_issue)
-        key = original_jira or github_issue.number
         return cls(
-            key=key,
+            key=github_issue.number,
             type=next(
                 iter(
                     [
@@ -123,16 +115,6 @@ class Issue:
     @cached_property
     def is_pr(self):
         return bool(self._github_issue and self._github_issue.pull_request)
-
-    @classmethod
-    def original_jira_id(cls, github_issue):
-        # All migrated issues contain body
-        if not github_issue.body:
-            return None
-        matches = ORIGINAL_ARROW_REGEX.search(github_issue.body)
-        if matches:
-            values = matches.groupdict()
-            return values['issue']
 
 
 class Jira(JIRA):

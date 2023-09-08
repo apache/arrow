@@ -19,6 +19,7 @@
 
 #include <arrow/array.h>
 #include <arrow/array/concatenate.h>
+#include <arrow/record_batch.h>
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/util/byte_size.h>
 

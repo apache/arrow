@@ -21,6 +21,8 @@
 
 #include <memory>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/compute/api_aggregate.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/type_fwd.h"
@@ -44,7 +46,36 @@ Result<DeclarationInfo> FromProto(const substrait::Rel&, const ExtensionSet&,
 /// is preferred in the Substrait space rather than internal components of
 /// Acero execution engine.
 ARROW_ENGINE_EXPORT Result<std::unique_ptr<substrait::Rel>> ToProto(
-    const compute::Declaration&, ExtensionSet*, const ConversionOptions&);
+    const acero::Declaration&, ExtensionSet*, const ConversionOptions&);
+
+namespace internal {
+
+/// \brief Parse an aggregate relation's measure
+///
+/// \param[in] agg_measure the measure
+/// \param[in] ext_set an extension mapping to use in parsing
+/// \param[in] conversion_options options to control how the conversion is done
+/// \param[in] input_schema the schema to which field refs apply
+/// \param[in] is_hash whether the measure is a hash one (i.e., aggregation keys exist)
+ARROW_ENGINE_EXPORT
+Result<compute::Aggregate> ParseAggregateMeasure(
+    const substrait::AggregateRel::Measure& agg_measure, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options, bool is_hash,
+    const std::shared_ptr<Schema> input_schema);
+
+/// \brief Make an aggregate declaration info
+///
+/// \param[in] input_decl the input declaration to use
+/// \param[in] output_schema the schema to which field refs apply
+/// \param[in] aggregates the aggregates to use
+/// \param[in] keys the field-refs for grouping keys to use
+/// \param[in] segment_keys the field-refs for segment keys to use
+ARROW_ENGINE_EXPORT Result<DeclarationInfo> MakeAggregateDeclaration(
+    acero::Declaration input_decl, std::shared_ptr<Schema> output_schema,
+    std::vector<compute::Aggregate> aggregates, std::vector<FieldRef> keys,
+    std::vector<FieldRef> segment_keys);
+
+}  // namespace internal
 
 }  // namespace engine
 }  // namespace arrow

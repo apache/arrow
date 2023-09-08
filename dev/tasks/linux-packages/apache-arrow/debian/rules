@@ -16,17 +16,8 @@ BUILD_TYPE=release
 override_dh_auto_configure:
 	if dpkg -l nvidia-cuda-toolkit > /dev/null 2>&1; then	\
 	  ARROW_CUDA=ON;					\
-	  ARROW_PLASMA=ON;					\
 	else							\
 	  ARROW_CUDA=OFF;					\
-	  ARROW_PLASMA=OFF;					\
-	fi;							\
-	if [ $$(arch) = "x86_64" ]; then			\
-	  ARROW_FLIGHT=ON;					\
-	  ARROW_FLIGHT_SQL=ON;					\
-	else							\
-	  ARROW_FLIGHT=OFF;					\
-	  ARROW_FLIGHT_SQL=OFF;					\
 	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
@@ -39,8 +30,8 @@ override_dh_auto_configure:
 	  -DARROW_CUDA=$${ARROW_CUDA}				\
 	  -DARROW_DATASET=ON					\
 	  -DARROW_FILESYSTEM=ON					\
-	  -DARROW_FLIGHT=$${ARROW_FLIGHT}			\
-	  -DARROW_FLIGHT_SQL=$${ARROW_FLIGHT_SQL}		\
+	  -DARROW_FLIGHT=ON					\
+	  -DARROW_FLIGHT_SQL=ON					\
 	  -DARROW_GANDIVA=ON					\
 	  -DARROW_GCS=ON					\
 	  -DARROW_HDFS=ON					\
@@ -49,7 +40,6 @@ override_dh_auto_configure:
 	  -DARROW_ORC=ON					\
 	  -DARROW_PACKAGE_KIND=deb				\
 	  -DARROW_PARQUET=ON					\
-	  -DARROW_PLASMA=$${ARROW_PLASMA}			\
 	  -DARROW_S3=ON						\
 	  -DARROW_USE_CCACHE=OFF				\
 	  -DARROW_WITH_BROTLI=ON				\
@@ -111,14 +101,12 @@ override_dh_auto_test:
 	#   env									\
 	#     ARROW_TEST_DATA=$(CURDIR)/arrow-testing/data			\
 	#     PARQUET_TEST_DATA=$(CURDIR)/parquet-testing/data			\
-	#       ctest --exclude-regex 'arrow-cuda-test|plasma-client_tests'
+	#       ctest --exclude-regex 'arrow-cuda-test'
 
 # libarrow.so: avoid failing with "Unknown DWARF DW_OP_172"
 # libgandiva.so: avoid failing with "Unknown DWARF DW_OP_255"
 #   See also: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=949296
-# plasma-store-server: avoid failing with "Unknown DWARF DW_OP_1"
 override_dh_dwz:
 	dh_dwz \
 	  --exclude=libarrow.so \
-	  --exclude=libgandiva.so \
-	  --exclude=plasma-store-server
+	  --exclude=libgandiva.so

@@ -18,12 +18,9 @@
 # cython: language_level = 3
 
 import collections
-import contextlib
 import enum
 import re
-import socket
 import time
-import threading
 import warnings
 import weakref
 
@@ -43,7 +40,7 @@ import pyarrow.lib as lib
 cdef CFlightCallOptions DEFAULT_CALL_OPTIONS
 
 
-cdef int check_flight_status(const CStatus& status) nogil except -1:
+cdef int check_flight_status(const CStatus& status) except -1 nogil:
     cdef shared_ptr[FlightStatusDetail] detail
 
     if status.ok():
@@ -126,7 +123,6 @@ cdef class FlightCallOptions(_Weakrefable):
             Serialization options for reading IPC format.
         """
         cdef IpcWriteOptions c_write_options
-        cdef IpcReadOptions c_read_options
 
         if timeout is not None:
             self.options.timeout = CTimeoutDuration(timeout)
@@ -552,7 +548,7 @@ cdef class FlightDescriptor(_Weakrefable):
         elif self.descriptor_type == DescriptorType.CMD:
             return f"<pyarrow.flight.FlightDescriptor cmd={self.command!r}>"
         else:
-            return f"<pyarrow.flight.FlightDescriptor UNKNOWN>"
+            return "<pyarrow.flight.FlightDescriptor UNKNOWN>"
 
     @staticmethod
     cdef CFlightDescriptor unwrap(descriptor) except *:
@@ -841,6 +837,12 @@ cdef class FlightInfo(_Weakrefable):
     cdef:
         unique_ptr[CFlightInfo] info
 
+    @staticmethod
+    cdef wrap(CFlightInfo c_info):
+        cdef FlightInfo obj = FlightInfo.__new__(FlightInfo)
+        obj.info.reset(new CFlightInfo(move(c_info)))
+        return obj
+
     def __init__(self, Schema schema, FlightDescriptor descriptor, endpoints,
                  total_records, total_bytes):
         """Create a FlightInfo object from a schema, descriptor, and endpoints.
@@ -1006,12 +1008,12 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         return pyarrow_wrap_table(c_table)
 
     def read_chunk(self):
-        """Read the next RecordBatch along with any metadata.
+        """Read the next FlightStreamChunk along with any metadata.
 
         Returns
         -------
-        data : RecordBatch
-            The next RecordBatch in the stream.
+        data : FlightStreamChunk
+            The next FlightStreamChunk in the stream.
         app_metadata : Buffer or None
             Application-specific metadata for the batch as defined by
             Flight.
@@ -1043,7 +1045,9 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
         """
         cdef RecordBatchReader reader
         reader = RecordBatchReader.__new__(RecordBatchReader)
-        reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+        with nogil:
+            reader.reader = GetResultValue(MakeRecordBatchReader(self.reader))
+
         return reader
 
 
@@ -1221,6 +1225,66 @@ cdef class FlightMetadataWriter(_Weakrefable):
             check_flight_status(self.writer.get().WriteMetadata(deref(buf)))
 
 
+class AsyncioCall:
+    """State for an async RPC using asyncio."""
+
+    def __init__(self) -> None:
+        import asyncio
+        self._future = asyncio.get_running_loop().create_future()
+
+    def as_awaitable(self) -> object:
+        return self._future
+
+    def wakeup(self, result_or_exception) -> None:
+        # Mark the Future done from within its loop (asyncio
+        # objects are generally not thread-safe)
+        loop = self._future.get_loop()
+        if isinstance(result_or_exception, BaseException):
+            loop.call_soon_threadsafe(
+                self._future.set_exception, result_or_exception)
+        else:
+            loop.call_soon_threadsafe(
+                self._future.set_result, result_or_exception)
+
+
+cdef class AsyncioFlightClient:
+    """
+    A FlightClient with an asyncio-based async interface.
+
+    This interface is EXPERIMENTAL.
+    """
+
+    cdef:
+        FlightClient _client
+
+    def __init__(self, FlightClient client) -> None:
+        self._client = client
+
+    async def get_flight_info(
+        self,
+        descriptor: FlightDescriptor,
+        *,
+        options: FlightCallOptions = None,
+    ):
+        call = AsyncioCall()
+        self._get_flight_info(call, descriptor, options)
+        return await call.as_awaitable()
+
+    cdef _get_flight_info(self, call, descriptor, options):
+        cdef:
+            CFlightCallOptions* c_options = \
+                FlightCallOptions.unwrap(options)
+            CFlightDescriptor c_descriptor = \
+                FlightDescriptor.unwrap(descriptor)
+            CFuture[CFlightInfo] c_future
+
+        with nogil:
+            c_future = self._client.client.get().GetFlightInfoAsync(
+                deref(c_options), c_descriptor)
+
+        BindFuture(move(c_future), call.wakeup, FlightInfo.wrap)
+
+
 cdef class FlightClient(_Weakrefable):
     """A client to a Flight service.
 
@@ -1283,7 +1347,6 @@ cdef class FlightClient(_Weakrefable):
               write_size_limit_bytes, disable_server_verification,
               generic_options):
         cdef:
-            int c_port = 0
             CLocation c_location = Location.unwrap(location)
             CFlightClientOptions c_options = CFlightClientOptions.Defaults()
             function[cb_client_middleware_start_call] start_call = \
@@ -1322,6 +1385,14 @@ cdef class FlightClient(_Weakrefable):
         with nogil:
             check_flight_status(CFlightClient.Connect(c_location, c_options
                                                       ).Value(&self.client))
+
+    @property
+    def supports_async(self):
+        return self.client.get().supports_async()
+
+    def as_async(self) -> None:
+        check_status(self.client.get().CheckAsyncSupport())
+        return AsyncioFlightClient(self)
 
     def wait_for_available(self, timeout=5):
         """Block until the server can be contacted.
@@ -1758,6 +1829,14 @@ cdef class ServerCallContext(_Weakrefable):
     def is_cancelled(self):
         """Check if the current RPC call has been canceled by the client."""
         return self.context.is_cancelled()
+
+    def add_header(self, key, value):
+        """Add a response header."""
+        self.context.AddHeader(tobytes(key), tobytes(value))
+
+    def add_trailer(self, key, value):
+        """Add a response trailer."""
+        self.context.AddTrailer(tobytes(key), tobytes(value))
 
     def get_middleware(self, key):
         """
@@ -3019,7 +3098,7 @@ cdef class FlightServerBase(_Weakrefable):
     def serve(self):
         """Block until the server shuts down.
 
-        This method only returns if shutdown() is called or a signal a
+        This method only returns if shutdown() is called or a signal is
         received.
         """
         if self.server.get() == nullptr:
@@ -3044,6 +3123,8 @@ cdef class FlightServerBase(_Weakrefable):
         method, as then the server will block forever waiting for that
         request to finish. Instead, call this method from a background
         thread.
+
+        This method should only be called once.
         """
         # Must not hold the GIL: shutdown waits for pending RPCs to
         # complete. Holding the GIL means Python-implemented Flight

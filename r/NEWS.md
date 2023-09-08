@@ -17,7 +17,110 @@
   under the License.
 -->
 
-# arrow 11.0.0.9000
+# arrow 13.0.0.9000
+
+# arrow 13.0.0
+
+## Breaking changes
+
+* Input objects which inherit only from `data.frame` and no other classes now have the `class` attribute dropped, resulting in now always returning tibbles from file reading functions and `arrow_table()`, which results in consistency in the type of returned objects.  Calling `as.data.frame()` on Arrow Tabular objects now always returns a `data.frame` object (#34775)
+
+## New features
+
+* `open_dataset()` now works with ND-JSON files (#35055)
+* Calling `schema()` on multiple Arrow objects now returns the object's schema (#35543)
+* dplyr `.by`/`by` argument now supported in arrow implementation of dplyr verbs  (@eitsupi, #35667)
+* Binding for `dplyr::case_when()` now accepts `.default` parameter to match the update in dplyr 1.1.0 (#35502)
+
+## Minor improvements and fixes
+
+* Convenience function `arrow_array()` can be used to create Arrow Arrays (#36381)
+* Convenience function `scalar()` can be used to create Arrow Scalars  (#36265)
+* Prevent crashed when passing data between arrow and duckdb by always calling `RecordBatchReader::ReadNext()` from DuckDB from the main R thread (#36307)
+* Issue a warning for `set_io_thread_count()` with `num_threads` < 2 (#36304)
+* Ensure missing grouping variables are added to the beginning of the variable list (#36305)
+* CSV File reader options class objects can print the selected values (#35955)
+* Schema metadata can be set as a named character vector (#35954)
+* Ensure that the RStringViewer helper class does not own any Array references (#35812)
+* `strptime()` in arrow will return a timezone-aware timestamp if `%z` is part of the format string (#35671)
+* Column ordering when combining `group_by()` and `across()` now matches dplyr (@eitsupi, #35473)
+
+## Installation
+
+* Link to correct version of OpenSSL when using autobrew (#36551)
+* Require cmake 3.16 in bundled build script (#36321)
+
+## Docs
+
+* Split out R6 classes and convenience functions to improve readability (#36394)
+* Enable pkgdown built-in search (@eitsupi, #36374)
+* Re-organise reference page on pkgdown site to improve readability (#36171)
+
+# arrow 12.0.1.1
+
+* Update a package version reference to be text only instead of numeric due to CRAN update requiring this (#36353, #36364)
+
+# arrow 12.0.1
+
+* Update the version of the date library vendored with Arrow C++ library 
+  for compatibility with tzdb 0.4.0 (#35594, #35612).
+* Update some tests for compatibility with waldo 0.5.1 (#35131, #35308).
+
+# arrow 12.0.0
+
+## New features
+
+* The `read_parquet()` and `read_feather()` functions can now accept URL
+  arguments (#33287, #34708).
+* The `json_credentials` argument in `GcsFileSystem$create()` now accepts
+  a file path containing the appropriate authentication token (@amoeba,
+  #34421, #34524).
+* The `$options` member of `GcsFileSystem` objects can now be inspected
+  (@amoeba, #34422, #34477).
+* The `read_csv_arrow()` and `read_json_arrow()` functions now accept literal text input wrapped in
+  `I()` to improve compatability with `readr::read_csv()` (@eitsupi, #18487,
+  #33968).
+* Nested fields can now be accessed using `$` and `[[` in dplyr expressions
+  (#18818, #19706).
+
+## Installation
+
+* Hosted static libarrow binaries for Ubuntu 18.04 and 20.04 had previously
+  been built on Ubuntu 18.04, which will stop receiving LTS updates as of May
+  2023. These binaries are now built on Centos 7 (#32292, #34048).
+
+## Minor improvements and fixes
+
+* Fix crash that occurred at process exit related to finalizing the S3
+  filesystem component (#15054, #33858).
+* Implement the Arrow C++ `FetchNode` and `OrderByNode` to improve performance
+  and simplify building query plans from dplyr expressions (#34437, #34685).
+* Fix a bug where different R metadata were written depending on subtle
+  argument passing semantics in `arrow_table()` (#35038, #35039).
+* Improve error message when attempting to convert a `data.frame` with `NULL`
+  column names to a `Table` (#15247, #34798).
+* Vignettes were updated to reflect improvements in the `open_csv_dataset()`
+  family of functions (#33998, #34710).
+* Fixed a crash that occurred when arrow ALTREP vectors were
+  materialized and converted back to arrow Arrays (#34211, #34489).
+* Improved conda install instructions (#32512, #34398).
+* Improved documentation URL configurations (@eitsupi, #34276).
+* Updated links to JIRA issues that were migrated to GitHub
+  (@eitsupi, #33631, #34260).
+* The `dplyr::n()` function is now mapped to the `count_all` kernel to improve
+  performance and simplify the R implementation (#33892, #33917).
+* Improved the experience of using the `s3_bucket()` filesystem helper
+  with `endpoint_override` and fixed surprising behaviour that occurred
+  when passing some combinations of arguments (@cboettig, #33904, #34009).
+* Do not raise error if `schema` is supplied and `col_names = TRUE` in
+  `open_csv_dataset()` (#34217, #34092).
+
+# arrow 11.0.0.3
+
+## Minor improvements and fixes
+
+* `open_csv_dataset()` allows a schema to be specified. (#34217)
+* To ensure compatibility with an upcoming dplyr release, we no longer call `dplyr:::check_names()` (#34369)
 
 # arrow 11.0.0.2
 

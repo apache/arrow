@@ -21,7 +21,7 @@ package compute
 import (
 	"sync"
 
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 )
@@ -52,6 +52,7 @@ func GetFunctionRegistry() FunctionRegistry {
 		RegisterScalarArithmetic(registry)
 		RegisterScalarComparisons(registry)
 		RegisterVectorHash(registry)
+		RegisterVectorRunEndFuncs(registry)
 	})
 	return registry
 }

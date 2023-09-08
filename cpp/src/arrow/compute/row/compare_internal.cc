@@ -22,7 +22,8 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "arrow/compute/exec/util.h"
+#include "arrow/compute/util.h"
+#include "arrow/compute/util_internal.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/ubsan.h"
 
@@ -41,7 +42,7 @@ void KeyCompare::NullUpdateColumnToRow(uint32_t id_col, uint32_t num_rows_to_com
     return;
   }
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2()) {
     num_processed = NullUpdateColumnToRow_avx2(use_selection, id_col, num_rows_to_compare,
                                                sel_left_maybe_null, left_to_right_map,
@@ -129,7 +130,7 @@ void KeyCompare::CompareBinaryColumnToRow(uint32_t offset_within_row,
                                           const RowTableImpl& rows,
                                           uint8_t* match_bytevector) {
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2()) {
     num_processed = CompareBinaryColumnToRow_avx2(
         use_selection, offset_within_row, num_rows_to_compare, sel_left_maybe_null,
@@ -296,7 +297,7 @@ void KeyCompare::CompareVarBinaryColumnToRow(uint32_t id_varbinary_col,
                                              const RowTableImpl& rows,
                                              uint8_t* match_bytevector) {
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2()) {
     num_processed = CompareVarBinaryColumnToRow_avx2(
         use_selection, is_first_varbinary_col, id_varbinary_col, num_rows_to_compare,
@@ -312,7 +313,7 @@ void KeyCompare::CompareVarBinaryColumnToRow(uint32_t id_varbinary_col,
 void KeyCompare::AndByteVectors(LightContext* ctx, uint32_t num_elements,
                                 uint8_t* bytevector_A, const uint8_t* bytevector_B) {
   uint32_t num_processed = 0;
-#if defined(ARROW_HAVE_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2)
   if (ctx->has_avx2()) {
     num_processed = AndByteVectors_avx2(num_elements, bytevector_A, bytevector_B);
   }

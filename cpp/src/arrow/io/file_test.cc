@@ -36,6 +36,7 @@
 #include "arrow/buffer.h"
 #include "arrow/io/file.h"
 #include "arrow/io/interfaces.h"
+#include "arrow/io/stdio.h"
 #include "arrow/io/test_common.h"
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
@@ -1073,6 +1074,65 @@ TEST_F(TestMemoryMappedFile, ThreadSafety) {
   thread2.join();
 
   ASSERT_EQ(niter * 2, correct_count);
+}
+
+// ----------------------------------------------------------------------
+// Stdio tests
+
+class TestStdio : public FileTestFixture {
+ public:
+  void CreateStdinWithData(const char* data, size_t size) {
+    EnsureFileDeleted();
+
+    ASSERT_OK_AND_ASSIGN(auto file, FileOutputStream::Open(path_, false));
+    ASSERT_OK(file->Write(data, size));
+    ASSERT_OK(file->Close());
+    cin_.reset(new std::ifstream(path_));
+    std::cin.rdbuf(cin_->rdbuf());
+  }
+
+ protected:
+  std::shared_ptr<std::ifstream> cin_;
+};
+
+TEST_F(TestStdio, ReadStdinReadAtOnce) {
+  const char data[] = "testdata";
+  CreateStdinWithData(data, sizeof(data));
+
+  StdinStream input;
+  char buffer[sizeof(data)];
+  ASSERT_OK_AND_ASSIGN(auto res, input.Read(sizeof(buffer), buffer));
+  ASSERT_EQ(sizeof(data), res);
+  ASSERT_EQ(0, std::memcmp(buffer, data, sizeof(data)));
+  ASSERT_EQ(sizeof(data), input.Tell());
+}
+
+TEST_F(TestStdio, ReadStdinReadUnalignedBuffer) {
+  const char data[] = "testdata";
+  CreateStdinWithData(data, sizeof(data));
+
+  StdinStream input;
+  char buffer[sizeof(data) + 16];
+  ASSERT_OK_AND_ASSIGN(auto res, input.Read(sizeof(buffer), buffer));
+  ASSERT_EQ(sizeof(data), res);
+  ASSERT_EQ(0, std::memcmp(buffer, data, sizeof(data)));
+  ASSERT_EQ(sizeof(data), input.Tell());
+}
+
+TEST_F(TestStdio, ReadStdinReadAfterClose) {
+  const char data[] = "testdata";
+  CreateStdinWithData(data, sizeof(data));
+
+  StdinStream input;
+  char buffer[4];
+  ASSERT_OK_AND_ASSIGN(auto res, input.Read(sizeof(buffer), buffer));
+  ASSERT_EQ(sizeof(buffer), res);
+  ASSERT_EQ(0, std::memcmp(buffer, data, sizeof(buffer)));
+  ASSERT_EQ(sizeof(buffer), input.Tell());
+  cin_->close();
+  ASSERT_OK_AND_ASSIGN(res, input.Read(sizeof(buffer), buffer));
+  ASSERT_EQ(0, res);
+  ASSERT_EQ(sizeof(buffer), input.Tell());
 }
 
 }  // namespace io

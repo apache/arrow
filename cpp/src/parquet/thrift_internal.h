@@ -46,7 +46,7 @@
 #include "parquet/statistics.h"
 #include "parquet/types.h"
 
-#include "generated/parquet_types.h"  // IYWU pragma: export
+#include "generated/parquet_types.h"  // IWYU pragma: export
 
 namespace parquet {
 
@@ -246,6 +246,14 @@ static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encrypt
   return encryption_algorithm;
 }
 
+static inline SortingColumn FromThrift(format::SortingColumn thrift_sorting_column) {
+  SortingColumn sorting_column;
+  sorting_column.column_idx = thrift_sorting_column.column_idx;
+  sorting_column.nulls_first = thrift_sorting_column.nulls_first;
+  sorting_column.descending = thrift_sorting_column.descending;
+  return sorting_column;
+}
+
 // ----------------------------------------------------------------------
 // Convert Thrift enums from Parquet enums
 
@@ -293,6 +301,26 @@ static inline format::CompressionCodec::type ToThrift(Compression::type type) {
       DCHECK(false) << "Cannot reach here";
       return format::CompressionCodec::UNCOMPRESSED;
   }
+}
+
+static inline format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
+  switch (type) {
+    case BoundaryOrder::Unordered:
+    case BoundaryOrder::Ascending:
+    case BoundaryOrder::Descending:
+      return static_cast<format::BoundaryOrder::type>(type);
+    default:
+      DCHECK(false) << "Cannot reach here";
+      return format::BoundaryOrder::UNORDERED;
+  }
+}
+
+static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
+  format::SortingColumn thrift_sorting_column;
+  thrift_sorting_column.column_idx = sorting_column.column_idx;
+  thrift_sorting_column.descending = sorting_column.descending;
+  thrift_sorting_column.nulls_first = sorting_column.nulls_first;
+  return thrift_sorting_column;
 }
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
@@ -407,8 +435,7 @@ class ThriftDeserializer {
 #if PARQUET_THRIFT_VERSION_MAJOR > 0 || PARQUET_THRIFT_VERSION_MINOR >= 14
     auto conf = std::make_shared<apache::thrift::TConfiguration>();
     conf->setMaxMessageSize(std::numeric_limits<int>::max());
-    return std::shared_ptr<ThriftBuffer>(
-        new ThriftBuffer(buf, len, ThriftBuffer::OBSERVE, conf));
+    return std::make_shared<ThriftBuffer>(buf, len, ThriftBuffer::OBSERVE, conf);
 #else
     return std::make_shared<ThriftBuffer>(buf, len);
 #endif

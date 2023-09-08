@@ -21,7 +21,6 @@ from functools import partial
 import datetime
 import sys
 
-import pickle
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
@@ -83,7 +82,10 @@ def get_many_types():
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
         pa.union([pa.field('a', pa.binary(10), nullable=False),
                   pa.field('b', pa.string())], mode=pa.lib.UnionMode_SPARSE),
-        pa.dictionary(pa.int32(), pa.string())
+        pa.dictionary(pa.int32(), pa.string()),
+        pa.run_end_encoded(pa.int16(), pa.int32()),
+        pa.run_end_encoded(pa.int32(), pa.string()),
+        pa.run_end_encoded(pa.int64(), pa.uint8())
     )
 
 
@@ -207,6 +209,11 @@ def test_is_union():
                                         pa.field('c', pa.string())],
                                        mode=mode))
     assert not types.is_union(pa.list_(pa.int32()))
+
+
+def test_is_run_end_encoded():
+    assert types.is_run_end_encoded(pa.run_end_encoded(pa.int32(), pa.int64()))
+    assert not types.is_run_end_encoded(pa.utf8())
 
 
 # TODO(wesm): is_map, once implemented
@@ -572,6 +579,10 @@ def test_map_type():
     assert ty == ty_metadata
     assert not ty.equals(ty_metadata, check_metadata=True)
 
+    for keys_sorted in [True, False]:
+        assert pa.map_(pa.utf8(), pa.int32(),
+                       keys_sorted=keys_sorted).keys_sorted == keys_sorted
+
     with pytest.raises(TypeError):
         pa.map_(None)
     with pytest.raises(TypeError):
@@ -778,10 +789,10 @@ def test_types_hashable():
         assert in_dict[type_] == i
 
 
-def test_types_picklable():
+def test_types_picklable(pickle_module):
     for ty in get_many_types():
-        data = pickle.dumps(ty)
-        assert pickle.loads(data) == ty
+        data = pickle_module.dumps(ty)
+        assert pickle_module.loads(data) == ty
 
 
 def test_types_weakref():
@@ -816,6 +827,24 @@ def test_fields_weakrefable():
     assert wr() is not None
     del field
     assert wr() is None
+
+
+def test_run_end_encoded_type():
+    ty = pa.run_end_encoded(pa.int64(), pa.utf8())
+    assert isinstance(ty, pa.RunEndEncodedType)
+    assert ty.run_end_type == pa.int64()
+    assert ty.value_type == pa.utf8()
+    assert ty.num_buffers == 1  # buffers expected to be {NULLPTR}
+    assert ty.num_fields == 2
+
+    with pytest.raises(TypeError):
+        pa.run_end_encoded(pa.int64(), None)
+
+    with pytest.raises(TypeError):
+        pa.run_end_encoded(None, pa.utf8())
+
+    with pytest.raises(ValueError):
+        pa.run_end_encoded(pa.int8(), pa.utf8())
 
 
 @pytest.mark.parametrize('t,check_func', [
@@ -1163,9 +1192,9 @@ def test_is_boolean_value():
 @h.example(
     pa.field(name='', type=pa.null(), metadata={'0': '', '': ''})
 )
-def test_pickling(field):
-    data = pickle.dumps(field)
-    assert pickle.loads(data) == field
+def test_pickling(pickle_module, field):
+    data = pickle_module.dumps(field)
+    assert pickle_module.loads(data) == field
 
 
 @h.given(

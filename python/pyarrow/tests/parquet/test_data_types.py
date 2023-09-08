@@ -64,7 +64,7 @@ def test_parquet_2_0_roundtrip(tempdir, chunk_size, use_legacy_dataset):
     assert arrow_table.schema.pandas_metadata is not None
 
     _write_table(arrow_table, filename, version='2.6',
-                 coerce_timestamps='ms', chunk_size=chunk_size)
+                 chunk_size=chunk_size)
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
     assert table_read.schema.pandas_metadata is not None
@@ -163,7 +163,7 @@ def test_direct_read_dictionary_subfield(use_legacy_dataset):
     pq.write_table(table, bio)
     contents = bio.getvalue()
     result = pq.read_table(pa.BufferReader(contents),
-                           read_dictionary=['f0.list.item'],
+                           read_dictionary=['f0.list.element'],
                            use_legacy_dataset=use_legacy_dataset)
 
     arr = pa.array(data[0])

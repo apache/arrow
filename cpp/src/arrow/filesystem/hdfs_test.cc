@@ -119,6 +119,8 @@ class TestHadoopFileSystem : public ::testing::Test, public HadoopFileSystemTest
     ARROW_LOG(INFO) << "!!! uri = " << ss.str();
     ASSERT_OK_AND_ASSIGN(uri_fs, FileSystemFromUri(ss.str(), &path));
     ASSERT_EQ(path, "/");
+    ASSERT_OK_AND_ASSIGN(path, uri_fs->PathFromUri(ss.str()));
+    ASSERT_EQ(path, "/");
 
     // Sanity check
     ASSERT_OK(uri_fs->CreateDir("AB"));

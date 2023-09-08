@@ -111,6 +111,8 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
     if not isinstance(res, (Array, ChunkedArray)):
         raise TypeError("The object's __arrow_array__ method does not "
                         "return a pyarrow Array or ChunkedArray.")
+    if isinstance(res, ChunkedArray) and res.num_chunks==1:
+        res = res.chunk(0)
     return res
 
 
@@ -697,7 +699,9 @@ cdef class _PandasConvertible(_Weakrefable):
             bint safe=True,
             bint split_blocks=False,
             bint self_destruct=False,
-            types_mapper=None
+            str maps_as_pydicts=None,
+            types_mapper=None,
+            bint coerce_temporal_nanoseconds=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -718,12 +722,15 @@ cdef class _PandasConvertible(_Weakrefable):
         integer_object_nulls : bool, default False
             Cast integers with nulls to objects
         date_as_object : bool, default True
-            Cast dates to objects. If False, convert to datetime64[ns] dtype.
+            Cast dates to objects. If False, convert to datetime64 dtype with
+            the equivalent time unit (if supported). Note: in pandas version
+            < 2.0, only datetime64[ns] conversion is supported.
         timestamp_as_object : bool, default False
             Cast non-nanosecond timestamps (np.datetime64) to objects. This is
-            useful if you have timestamps that don't fit in the normal date
-            range of nanosecond timestamps (1678 CE-2262 CE).
-            If False, all timestamps are converted to datetime64[ns] dtype.
+            useful in pandas version 1.x if you have timestamps that don't fit
+            in the normal date range of nanosecond timestamps (1678 CE-2262 CE).
+            Non-nanosecond timestamps are supported in pandas version 2.0.
+            If False, all timestamps are converted to datetime64 dtype.
         use_threads : bool, default True
             Whether to parallelize the conversion using multiple threads.
         deduplicate_objects : bool, default True
@@ -751,6 +758,19 @@ cdef class _PandasConvertible(_Weakrefable):
             Note that you may not see always memory usage improvements. For
             example, if multiple columns share an underlying allocation,
             memory can't be freed until all columns are converted.
+        maps_as_pydicts : str, optional, default `None`
+            Valid values are `None`, 'lossy', or 'strict'.
+            The default behavior (`None`), is to convert Arrow Map arrays to
+            Python association lists (list-of-tuples) in the same order as the
+            Arrow Map, as in [(key1, value1), (key2, value2), ...].
+
+            If 'lossy' or 'strict', convert Arrow Map arrays to native Python dicts.
+            This can change the ordering of (key, value) pairs, and will
+            deduplicate multiple keys, resulting in a possible loss of data.
+
+            If 'lossy', this key deduplication results in a warning printed
+            when detected. If 'strict', this instead results in an exception
+            being raised when detected.
         types_mapper : function, default None
             A function mapping a pyarrow DataType to a pandas ExtensionDtype.
             This can be used to override the default pandas type for conversion
@@ -759,6 +779,13 @@ cdef class _PandasConvertible(_Weakrefable):
             expected to return a pandas ExtensionDtype or ``None`` if the
             default conversion should be used for that type. If you have
             a dictionary mapping, you can pass ``dict.get`` as function.
+        coerce_temporal_nanoseconds : bool, default False
+            Only applicable to pandas version >= 2.0.
+            A legacy option to coerce date32, date64, duration, and timestamp
+            time units to nanoseconds when converting to pandas. This is the
+            default behavior in pandas version 1.x. Set this option to True if
+            you'd like to use this coercion when using pandas version >= 2.0
+            for backwards compatibility (not recommended otherwise).
 
         Returns
         -------
@@ -795,6 +822,9 @@ cdef class _PandasConvertible(_Weakrefable):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
         >>> batch.to_pandas()
            n_legs        animals
         0       2       Flamingo
@@ -830,7 +860,9 @@ cdef class _PandasConvertible(_Weakrefable):
             deduplicate_objects=deduplicate_objects,
             safe=safe,
             split_blocks=split_blocks,
-            self_destruct=self_destruct
+            self_destruct=self_destruct,
+            maps_as_pydicts=maps_as_pydicts,
+            coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         return self._to_pandas(options, categories=categories,
                                ignore_metadata=ignore_metadata,
@@ -850,7 +882,22 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.safe_cast = options['safe']
     result.split_blocks = options['split_blocks']
     result.self_destruct = options['self_destruct']
+    result.coerce_temporal_nanoseconds = options['coerce_temporal_nanoseconds']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
+
+    maps_as_pydicts = options['maps_as_pydicts']
+    if maps_as_pydicts is None:
+        result.maps_as_pydicts = MapConversionType.DEFAULT
+    elif maps_as_pydicts == "lossy":
+        result.maps_as_pydicts = MapConversionType.LOSSY
+    elif maps_as_pydicts == "strict":
+        result.maps_as_pydicts = MapConversionType.STRICT_
+    else:
+        raise ValueError(
+            "Invalid value for 'maps_as_pydicts': "
+            + "valid values are 'lossy', 'strict' or `None` (default). "
+            + f"Received '{maps_as_pydicts}'."
+        )
     return result
 
 
@@ -1218,6 +1265,17 @@ cdef class Array(_PandasConvertible):
         return frombytes(result, safe=True)
 
     def format(self, **kwargs):
+        """
+        DEPRECATED, use pyarrow.Array.to_string
+
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        str
+        """
         import warnings
         warnings.warn('Array.format is deprecated, use Array.to_string')
         return self.to_string(**kwargs)
@@ -1234,6 +1292,15 @@ cdef class Array(_PandasConvertible):
             return NotImplemented
 
     def equals(Array self, Array other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Array
+
+        Returns
+        -------
+        bool
+        """
         return self.ap.Equals(deref(other.ap))
 
     def __len__(self):
@@ -1260,6 +1327,16 @@ cdef class Array(_PandasConvertible):
         """
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
+
+    def is_nan(self):
+        """
+        Return BooleanArray indicating the NaN values.
+
+        Returns
+        -------
+        array : boolean Array
+        """
+        return _pc().call_function('is_nan', [self])
 
     def is_valid(self):
         """
@@ -1447,6 +1524,9 @@ cdef class Array(_PandasConvertible):
         supported for primitive arrays with the same memory layout as NumPy
         (i.e. integers, floating point, ..) and without any nulls.
 
+        For the extension arrays, this method simply delegates to the
+        underlying storage array.
+
         Parameters
         ----------
         zero_copy_only : bool, default True
@@ -1478,6 +1558,7 @@ cdef class Array(_PandasConvertible):
         # so it can't be done if the user requested a zero_copy.
         c_options.decode_dictionaries = not zero_copy_only
         c_options.zero_copy_only = zero_copy_only
+        c_options.to_numpy = True
 
         with nogil:
             check_status(ConvertArrayToPandas(c_options, self.sp_array,
@@ -1626,9 +1707,25 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
 
     original_type = obj.type
     name = obj._name
+    dtype = None
 
-    # ARROW-3789(wesm): Convert date/timestamp types to datetime64[ns]
-    c_options.coerce_temporal_nanoseconds = True
+    if types_mapper:
+        dtype = types_mapper(original_type)
+    elif original_type.id == _Type_EXTENSION:
+        try:
+            dtype = original_type.to_pandas_dtype()
+        except NotImplementedError:
+            pass
+
+    # Only call __from_arrow__ for Arrow extension types or when explicitly
+    # overridden via types_mapper
+    if hasattr(dtype, '__from_arrow__'):
+        arr = dtype.__from_arrow__(obj)
+        return pandas_api.series(arr, name=name, copy=False)
+
+    if pandas_api.is_v1():
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+        c_options.coerce_temporal_nanoseconds = True
 
     if isinstance(obj, Array):
         with nogil:
@@ -1654,7 +1751,7 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
     else:
         dtype = None
 
-    result = pandas_api.series(arr, dtype=dtype, name=name)
+    result = pandas_api.series(arr, dtype=dtype, name=name, copy=False)
 
     if (isinstance(original_type, TimestampType) and
             original_type.tz is not None and
@@ -1670,10 +1767,9 @@ cdef wrap_array_output(PyObject* output):
     cdef object obj = PyObject_to_object(output)
 
     if isinstance(obj, dict):
-        return pandas_api.categorical_type(obj['indices'],
-                                           categories=obj['dictionary'],
-                                           ordered=obj['ordered'],
-                                           fastpath=True)
+        return _pandas_api.categorical_type.from_codes(
+            obj['indices'], categories=obj['dictionary'], ordered=obj['ordered']
+        )
     else:
         return obj
 
@@ -1868,7 +1964,7 @@ cdef class BaseListArray(Array):
         The returned Array is logically a concatenation of all the sub-lists
         in this Array.
 
-        Note that this method is different from ``self.values()`` in that
+        Note that this method is different from ``self.values`` in that
         it takes care of the slicing offset as well as null elements backed
         by non-empty sub-lists.
 
@@ -2007,6 +2103,72 @@ cdef class ListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the ListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        ListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from sub-lists:
+
+        >>> import pyarrow as pa
+        >>> array = pa.array([[1, 2], None, [3, 4, None, 6]])
+        >>> array.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.ListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
+        <pyarrow.lib.Int64Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        """
         cdef CListArray* arr = <CListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2094,6 +2256,74 @@ cdef class LargeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the LargeListArray
+        ignoring the array's offset.
+
+        If any of the list elements are null, but are backed by a
+        non-empty sub-list, those elements will be included in the
+        output.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        values taking into consideration the array's offset.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        LargeListArray.flatten : ...
+
+        Examples
+        --------
+
+        The values include null elements from the sub-lists:
+
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, 4, None, 6]],
+        ...     type=pa.large_list(pa.int32()),
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+
+        If an array is sliced, the slice still uses the same
+        underlying data as the original array, just with an
+        offset. Since values ignores the offset, the values are the
+        same:
+
+        >>> sliced = array.slice(1, 2)
+        >>> sliced
+        <pyarrow.lib.LargeListArray object at ...>
+        [
+          null,
+          [
+            3,
+            4,
+            null,
+            6
+          ]
+        ]
+        >>> sliced.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          3,
+          4,
+          null,
+          6
+        ]
+        """
         cdef CLargeListArray* arr = <CLargeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2250,6 +2480,42 @@ cdef class FixedSizeListArray(BaseListArray):
 
     @property
     def values(self):
+        """
+        Return the underlying array of values which backs the
+        FixedSizeListArray.
+
+        Note even null elements are included.
+
+        Compare with :meth:`flatten`, which returns only the non-null
+        sub-list values.
+
+        Returns
+        -------
+        values : Array
+
+        See Also
+        --------
+        FixedSizeListArray.flatten : ...
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> array = pa.array(
+        ...     [[1, 2], None, [3, None]],
+        ...     type=pa.list_(pa.int32(), 2)
+        ... )
+        >>> array.values
+        <pyarrow.lib.Int32Array object at ...>
+        [
+          1,
+          2,
+          null,
+          null,
+          3,
+          null
+        ]
+
+        """
         cdef CFixedSizeListArray* arr = <CFixedSizeListArray*> self.ap
         return pyarrow_wrap_array(arr.values())
 
@@ -2260,6 +2526,19 @@ cdef class UnionArray(Array):
     """
 
     def child(self, int pos):
+        """
+        DEPRECATED, use field() instead.
+
+        Parameters
+        ----------
+        pos : int
+            The physical index of the union child field (not its type code).
+
+        Returns
+        -------
+        field : pyarrow.Field
+            The given child field.
+        """
         import warnings
         warnings.warn("child is deprecated, use field", FutureWarning)
         return self.field(pos)
@@ -2841,6 +3120,170 @@ cdef class StructArray(Array):
         return self.take(indices)
 
 
+cdef class RunEndEncodedArray(Array):
+    """
+    Concrete class for Arrow run-end encoded arrays.
+    """
+
+    @staticmethod
+    def _from_arrays(type, allow_none_for_type, logical_length, run_ends, values, logical_offset):
+        cdef:
+            int64_t _logical_length
+            Array _run_ends
+            Array _values
+            int64_t _logical_offset
+            shared_ptr[CDataType] c_type
+            shared_ptr[CRunEndEncodedArray] ree_array
+
+        _logical_length = <int64_t>logical_length
+        _logical_offset = <int64_t>logical_offset
+
+        type = ensure_type(type, allow_none=allow_none_for_type)
+        if type is not None:
+            _run_ends = asarray(run_ends, type=type.run_end_type)
+            _values = asarray(values, type=type.value_type)
+            c_type = pyarrow_unwrap_data_type(type)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.Make(
+                    c_type, _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        else:
+            _run_ends = asarray(run_ends)
+            _values = asarray(values)
+            with nogil:
+                ree_array = GetResultValue(CRunEndEncodedArray.MakeFromArrays(
+                    _logical_length, _run_ends.sp_array, _values.sp_array, _logical_offset))
+        cdef Array result = pyarrow_wrap_array(<shared_ptr[CArray]>ree_array)
+        result.validate(full=True)
+        return result
+
+    @staticmethod
+    def from_arrays(run_ends, values, type=None):
+        """
+        Construct RunEndEncodedArray from run_ends and values arrays.
+
+        Parameters
+        ----------
+        run_ends : Array (int16, int32, or int64 type)
+            The run_ends array.
+        values : Array (any type)
+            The values array.
+        type : pyarrow.DataType, optional
+            The run_end_encoded(run_end_type, value_type) array type.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        logical_length = run_ends[-1] if len(run_ends) > 0 else 0
+        return RunEndEncodedArray._from_arrays(type, True, logical_length,
+                                               run_ends, values, 0)
+
+    @staticmethod
+    def from_buffers(DataType type, length, buffers, null_count=-1, offset=0,
+                     children=None):
+        """
+        Construct a RunEndEncodedArray from all the parameters that make up an
+        Array.
+
+        RunEndEncodedArrays do not have buffers, only children arrays, but this
+        implementation is needed to satisfy the Array interface.
+
+        Parameters
+        ----------
+        type : DataType
+            The run_end_encoded(run_end_type, value_type) type.
+        length : int
+            The logical length of the run-end encoded array. Expected to match
+            the last value of the run_ends array (children[0]) minus the offset.
+        buffers : List[Buffer]
+            Empty List or [None].
+        null_count : int, default -1
+            The number of null entries in the array. Run-end encoded arrays
+            are specified to not have valid bits and null_count always equals 0.
+        offset : int, default 0
+            The array's logical offset (in values, not in bytes) from the
+            start of each buffer.
+        children : List[Array]
+            Nested type children containing the run_ends and values arrays.
+
+        Returns
+        -------
+        RunEndEncodedArray
+        """
+        children = children or []
+
+        if type.num_fields != len(children):
+            raise ValueError("RunEndEncodedType's expected number of children "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_fields, len(children)))
+
+        # buffers are validated as if we needed to pass them to C++, but
+        # _make_from_arrays will take care of filling in the expected
+        # buffers array containing a single NULL buffer on the C++ side
+        if len(buffers) == 0:
+            buffers = [None]
+        if buffers[0] is not None:
+            raise ValueError("RunEndEncodedType expects None as validity "
+                             "bitmap, buffers[0] is not None")
+        if type.num_buffers != len(buffers):
+            raise ValueError("RunEndEncodedType's expected number of buffers "
+                             "({0}) did not match the passed number "
+                             "({1}).".format(type.num_buffers, len(buffers)))
+
+        # null_count is also validated as if we needed it
+        if null_count != -1 and null_count != 0:
+            raise ValueError("RunEndEncodedType's expected null_count (0) "
+                             "did not match passed number ({0})".format(null_count))
+
+        return RunEndEncodedArray._from_arrays(type, False, length, children[0],
+                                               children[1], offset)
+
+    @property
+    def run_ends(self):
+        """
+        An array holding the logical indexes of each run-end.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.run_ends())
+
+    @property
+    def values(self):
+        """
+        An array holding the values of each run.
+
+        The physical offset to the array is applied.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return pyarrow_wrap_array(ree_array.values())
+
+    def find_physical_offset(self):
+        """
+        Find the physical offset of this REE array.
+
+        This is the offset of the run that contains the value of the first
+        logical element of this array considering its offet.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalOffset()
+
+    def find_physical_length(self):
+        """
+        Find the physical length of this REE array.
+
+        The physical length of an REE is the number of physical values (and
+        run-ends) necessary to represent the logical range of values from offset
+        to length.
+
+        This function uses binary-search, so it has a O(log N) cost.
+        """
+        cdef CRunEndEncodedArray* ree_array = <CRunEndEncodedArray*>(self.ap)
+        return ree_array.FindPhysicalLength()
+
+
 cdef class ExtensionArray(Array):
     """
     Concrete class for Arrow extension arrays.
@@ -2881,37 +3324,114 @@ cdef class ExtensionArray(Array):
         result.validate()
         return result
 
-    def _to_pandas(self, options, **kwargs):
-        pandas_dtype = None
-        try:
-            pandas_dtype = self.type.to_pandas_dtype()
-        except NotImplementedError:
-            pass
 
-        # pandas ExtensionDtype that implements conversion from pyarrow
-        if hasattr(pandas_dtype, '__from_arrow__'):
-            arr = pandas_dtype.__from_arrow__(self)
-            return pandas_api.series(arr)
+class FixedShapeTensorArray(ExtensionArray):
+    """
+    Concrete class for fixed shape tensor extension arrays.
 
-        # otherwise convert the storage array with the base implementation
-        return Array._to_pandas(self.storage, options, **kwargs)
+    Examples
+    --------
+    Define the extension type for tensor array
 
-    def to_numpy(self, **kwargs):
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), [2, 2])
+
+    Create an extension array
+
+    >>> arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    >>> storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    >>> pa.ExtensionArray.from_storage(tensor_type, storage)
+    <pyarrow.lib.FixedShapeTensorArray object at ...>
+    [
+      [
+        1,
+        2,
+        3,
+        4
+      ],
+      [
+        10,
+        20,
+        30,
+        40
+      ],
+      [
+        100,
+        200,
+        300,
+        400
+      ]
+    ]
+    """
+
+    def to_numpy_ndarray(self):
         """
-        Convert extension array to a numpy ndarray.
+        Convert fixed shape tensor extension array to a numpy array (with dim+1).
 
-        This method simply delegates to the underlying storage array.
+        Note: ``permutation`` should be trivial (``None`` or ``[0, 1, ..., len(shape)-1]``).
+        """
+        if self.type.permutation is None or self.type.permutation == list(range(len(self.type.shape))):
+            np_flat = np.asarray(self.storage.flatten())
+            numpy_tensor = np_flat.reshape((len(self),) + tuple(self.type.shape))
+            return numpy_tensor
+        else:
+            raise ValueError(
+                'Only non-permuted tensors can be converted to numpy tensors.')
+
+    @staticmethod
+    def from_numpy_ndarray(obj):
+        """
+        Convert numpy tensors (ndarrays) to a fixed shape tensor extension array.
+        The first dimension of ndarray will become the length of the fixed
+        shape tensor array.
+
+        Numpy array needs to be C-contiguous in memory
+        (``obj.flags["C_CONTIGUOUS"]==True``).
 
         Parameters
         ----------
-        **kwargs : dict, optional
-            See `Array.to_numpy` for parameter description.
+        obj : numpy.ndarray
 
-        See Also
+        Examples
         --------
-        Array.to_numpy
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = np.array(
+        ...         [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        ...         dtype=np.float32)
+        >>> pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+        <pyarrow.lib.FixedShapeTensorArray object at ...>
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        ]
         """
-        return self.storage.to_numpy(**kwargs)
+        if not obj.flags["C_CONTIGUOUS"]:
+            raise ValueError('The data in the numpy array need to be in a single, '
+                             'C-style contiguous segment.')
+
+        arrow_type = from_numpy_dtype(obj.dtype)
+        shape = obj.shape[1:]
+        size = obj.size / obj.shape[0]
+
+        return ExtensionArray.from_storage(
+            fixed_shape_tensor(arrow_type, shape),
+            FixedSizeListArray.from_arrays(np.ravel(obj, order='C'), size)
+        )
 
 
 cdef dict _array_classes = {
@@ -2950,6 +3470,7 @@ cdef dict _array_classes = {
     _Type_DECIMAL128: Decimal128Array,
     _Type_DECIMAL256: Decimal256Array,
     _Type_STRUCT: StructArray,
+    _Type_RUN_END_ENCODED: RunEndEncodedArray,
     _Type_EXTENSION: ExtensionArray,
 }
 
@@ -2994,7 +3515,7 @@ cdef object get_values(object obj, bint* is_series):
         result = obj
         is_series[0] = False
     else:
-        result = pandas_api.series(obj).values
+        result = pandas_api.series(obj, copy=False).values
         is_series[0] = False
 
     return result

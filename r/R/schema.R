@@ -75,22 +75,7 @@
 #'   Files with compressed metadata are readable by older versions of arrow, but
 #'   the metadata is dropped.
 #'
-#' @rdname Schema
-#' @name Schema
-#' @examples
-#' schema(a = int32(), b = float64())
-#'
-#' schema(
-#'   field("b", double()),
-#'   field("c", bool(), nullable = FALSE),
-#'   field("d", string())
-#' )
-#'
-#' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
-#' tab1 <- arrow_table(df)
-#' tab1$schema
-#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
-#' tab2$schema
+#' @rdname Schema-class
 #' @export
 Schema <- R6Class("Schema",
   inherit = ArrowObject,
@@ -130,6 +115,32 @@ Schema <- R6Class("Schema",
       codes <- set_names(codes, names)
 
       call2("schema", !!!codes)
+    },
+    WithNames = function(names) {
+      if (!inherits(names, "character")) {
+        abort(
+          paste("Replacement names must be character vector, not", class(names)[1])
+        )
+      }
+
+      if (length(names) != length(self$names)) {
+        abort(
+          c(
+            "Replacement names must contain same number of items as current names",
+            i = paste("Current names length:", length(self$names)),
+            x = paste("Replacement names length:", length(names))
+          )
+        )
+      }
+
+      existing_metadata <- self$metadata
+      renamed_schema <- Schema__WithNames(self, names)
+
+      # if we have R metadata containing column names, update names there too
+      if (!is.null(existing_metadata$r$columns)) {
+        names(existing_metadata$r$columns) <- names
+      }
+      renamed_schema$WithMetadata(existing_metadata)
     }
   ),
   active = list(
@@ -203,9 +214,13 @@ prepare_key_value_metadata <- function(metadata) {
       call. = FALSE
     )
   }
-  if (is.list(metadata[["r"]])) {
+
+  metadata <- as.list(metadata)
+
+  if (!is_empty(metadata) && is.list(metadata[["r"]])) {
     metadata[["r"]] <- .serialize_arrow_r_metadata(metadata[["r"]])
   }
+
   map_chr(metadata, as.character)
 }
 
@@ -214,10 +229,61 @@ print_schema_fields <- function(s) {
   paste(map_chr(s$fields, ~ .$ToString()), collapse = "\n")
 }
 
-#' @param ... [fields][field] or field name/[data type][data-type] pairs
+#' Create a schema or extract one from an object.
+#'
+#' @seealso [Schema] for detailed documentation of the Schema R6 object
+#' @param ... [fields][field], field name/[data type][data-type] pairs (or a list of), or object from which to extract
+#'  a schema
+#' @examples
+#' # Create schema using pairs of field names and data types
+#' schema(a = int32(), b = float64())
+#'
+#' # Create a schema using a list of pairs of field names and data types
+#' schema(list(a = int8(), b = string()))
+#'
+#' # Create schema using fields
+#' schema(
+#'   field("b", double()),
+#'   field("c", bool(), nullable = FALSE),
+#'   field("d", string())
+#' )
+#'
+#' # Extract schemas from objects
+#' df <- data.frame(col1 = 2:4, col2 = c(0.1, 0.3, 0.5))
+#' tab1 <- arrow_table(df)
+#' schema(tab1)
+#' tab2 <- arrow_table(df, schema = schema(col1 = int8(), col2 = float32()))
+#' schema(tab2)
 #' @export
-#' @rdname Schema
-schema <- Schema$create
+schema <- function(...) {
+  dots <- list2(...)
+
+  if (length(dots) == 1 && !is_bare_list(dots[[1]]) && is.null(names(dots)) && !inherits(dots[[1]], "Field")) {
+    return(infer_schema(dots[[1]]))
+  }
+
+  Schema$create(!!!dots)
+}
+
+#' Extract a schema from an object
+#'
+#' @param x An object which has a schema, e.g. a `Dataset`
+#' @export
+infer_schema <- function(x) {
+  UseMethod("infer_schema")
+}
+
+#' @export
+infer_schema.ArrowTabular <- function(x) x$schema
+
+#' @export
+infer_schema.RecordBatchReader <- function(x) x$schema
+
+#' @export
+infer_schema.Dataset <- function(x) x$schema
+
+#' @export
+infer_schema.arrow_dplyr_query <- function(x) implicit_schema(x)
 
 #' @export
 names.Schema <- function(x) x$names
@@ -314,7 +380,7 @@ length.Schema <- function(x) x$num_fields
 #' @export
 as.list.Schema <- function(x, ...) x$fields
 
-#' read a Schema from a stream
+#' Read a Schema from a stream
 #'
 #' @param stream a `Message`, `InputStream`, or `Buffer`
 #' @param ... currently ignored
@@ -357,7 +423,7 @@ print.arrow_r_metadata <- function(x, ...) {
   invisible(x)
 }
 
-#' Convert an object to an Arrow DataType
+#' Convert an object to an Arrow Schema
 #'
 #' @param x An object to convert to a [schema()]
 #' @param ... Passed to S3 methods.
@@ -381,10 +447,13 @@ as_schema.Schema <- function(x, ...) {
 #' @rdname as_schema
 #' @export
 as_schema.StructType <- function(x, ...) {
-  schema(!!!x$fields())
+  schema(x$fields())
 }
 
 #' @export
 as.data.frame.Schema <- function(x, row.names = NULL, optional = FALSE, ...) {
   as.data.frame(Table__from_schema(x))
 }
+
+#' @export
+`names<-.Schema` <- function(x, value) x$WithNames(value)

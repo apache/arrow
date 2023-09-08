@@ -31,6 +31,7 @@
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
@@ -79,6 +80,44 @@ TEST_F(TestRecordBatch, Equals) {
   // Different metadata
   ASSERT_TRUE(b1->Equals(*b2));
   ASSERT_FALSE(b1->Equals(*b2, /*check_metadata=*/true));
+}
+
+TEST_F(TestRecordBatch, EqualOptions) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array2);
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->Equals(*b2, /*check_metadata=*/false,
+                          EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_TRUE(b1->Equals(*b2, /*check_metadata=*/false,
+                         EqualOptions::Defaults().nans_equal(true)));
+}
+
+TEST_F(TestRecordBatch, ApproxEqualOptions) {
+  int length = 2;
+  auto f = field("f", float64());
+
+  std::vector<std::shared_ptr<Field>> fields = {f};
+  auto schema = ::arrow::schema(fields);
+  std::shared_ptr<Array> array1, array2;
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.5, NAN}, &array1);
+  ArrayFromVector<DoubleType>(float64(), {true, true}, {0.501, NAN}, &array2);
+
+  auto b1 = RecordBatch::Make(schema, length, {array1});
+  auto b2 = RecordBatch::Make(schema, length, {array2});
+
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(false)));
+  EXPECT_FALSE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true)));
+
+  EXPECT_TRUE(b1->ApproxEquals(*b2, EqualOptions::Defaults().nans_equal(true).atol(0.1)));
 }
 
 TEST_F(TestRecordBatch, Validate) {
@@ -331,6 +370,19 @@ TEST_F(TestRecordBatch, ToFromEmptyStructArray) {
   ASSERT_TRUE(batch1->Equals(*batch2));
 }
 
+TEST_F(TestRecordBatch, FromSlicedStructArray) {
+  static constexpr int64_t kLength = 10;
+  std::shared_ptr<Array> x_arr = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]");
+  StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
+  std::shared_ptr<Array> sliced = struct_array.Slice(5, 3);
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[5, 6, 7]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
+}
+
 TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
   random::RandomArrayGenerator gen(42);
   ASSERT_RAISES(TypeError, RecordBatch::FromStructArray(gen.ArrayOf(int32(), 6)));
@@ -339,7 +391,11 @@ TEST_F(TestRecordBatch, FromStructArrayInvalidType) {
 TEST_F(TestRecordBatch, FromStructArrayInvalidNullCount) {
   auto struct_array =
       ArrayFromJSON(struct_({field("f1", int32())}), R"([{"f1": 1}, null])");
-  ASSERT_RAISES(Invalid, RecordBatch::FromStructArray(struct_array));
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(struct_array));
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int32(), "[1, null]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("f1", int32())}), 2, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
 }
 
 TEST_F(TestRecordBatch, MakeEmpty) {
@@ -355,6 +411,31 @@ TEST_F(TestRecordBatch, MakeEmpty) {
   AssertSchemaEqual(*schema, *empty->schema());
   ASSERT_OK(empty->ValidateFull());
   ASSERT_EQ(empty->num_rows(), 0);
+}
+
+// See: https://github.com/apache/arrow/issues/35450
+TEST_F(TestRecordBatch, ToStructArrayMismatchedColumnLengths) {
+  constexpr int kNumRows = 5;
+  FieldVector fields = {field("x", int64()), field("y", int64())};
+  ArrayVector columns = {
+      ArrayFromJSON(int64(), "[0, 1, 2, 3, 4]"),
+      ArrayFromJSON(int64(), "[0, 1, 2, 3, 4, 5, 6, 7, 8, 9]"),
+  };
+
+  // Sanity check
+  auto batch = RecordBatch::Make(schema({fields[0]}), kNumRows, {columns[0]});
+  ASSERT_OK_AND_ASSIGN(auto array, batch->ToStructArray());
+  ASSERT_EQ(array->length(), kNumRows);
+
+  // One column with a mismatched length
+  batch = RecordBatch::Make(schema({fields[1]}), kNumRows, {columns[1]});
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+  // Mix of columns with matching and non-matching lengths
+  batch = RecordBatch::Make(schema(fields), kNumRows, columns);
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
+  std::swap(columns[0], columns[1]);
+  batch = RecordBatch::Make(schema(fields), kNumRows, columns);
+  ASSERT_RAISES(Invalid, batch->ToStructArray());
 }
 
 class TestRecordBatchReader : public ::testing::Test {
@@ -440,32 +521,38 @@ TEST_F(TestRecordBatchReader, ToTable) {
   ASSERT_EQ(table->column(0)->chunks().size(), 0);
 }
 
-ARROW_SUPPRESS_DEPRECATION_WARNING
-TEST_F(TestRecordBatchReader, DeprecatedReadAllToRecordBatches) {
-  RecordBatchVector batches;
-  ASSERT_OK(reader_->ReadAll(&batches));
-  ASSERT_EQ(batches.size(), batches_.size());
-  for (size_t index = 0; index < batches.size(); index++) {
-    AssertBatchesEqual(*batches[index], *batches_[index]);
-  }
+TEST_F(TestRecordBatch, ReplaceSchema) {
+  const int length = 10;
 
-  ASSERT_OK(reader_->ReadAll(&batches));
-  ASSERT_EQ(batches.size(), 0);
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8());
+  auto f2 = field("f2", int16());
+  auto f3 = field("f3", int8());
+
+  auto schema = ::arrow::schema({f0, f1, f2});
+
+  random::RandomArrayGenerator gen(42);
+
+  auto a0 = gen.ArrayOf(int32(), length);
+  auto a1 = gen.ArrayOf(uint8(), length);
+  auto a2 = gen.ArrayOf(int16(), length);
+
+  auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
+
+  f0 = field("fd0", int32());
+  f1 = field("fd1", uint8());
+  f2 = field("fd2", int16());
+
+  schema = ::arrow::schema({f0, f1, f2});
+  ASSERT_OK_AND_ASSIGN(auto mutated, b1->ReplaceSchema(schema));
+  auto expected = RecordBatch::Make(schema, length, b1->columns());
+  ASSERT_TRUE(mutated->Equals(*expected));
+
+  schema = ::arrow::schema({f0, f1, f3});
+  ASSERT_RAISES(Invalid, b1->ReplaceSchema(schema));
+
+  schema = ::arrow::schema({f0, f1});
+  ASSERT_RAISES(Invalid, b1->ReplaceSchema(schema));
 }
-
-TEST_F(TestRecordBatchReader, DeprecatedReadAllToTable) {
-  std::shared_ptr<Table> table;
-
-  ASSERT_OK(reader_->ReadAll(&table));
-  const auto& chunks = table->column(0)->chunks();
-  ASSERT_EQ(chunks.size(), batches_.size());
-  for (size_t index = 0; index < batches_.size(); index++) {
-    AssertArraysEqual(*chunks[index], *batches_[index]->column(0));
-  }
-
-  ASSERT_OK(reader_->ReadAll(&table));
-  ASSERT_EQ(table->column(0)->chunks().size(), 0);
-}
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace arrow

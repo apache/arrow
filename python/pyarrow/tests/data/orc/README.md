@@ -19,4 +19,4 @@
 
 The ORC and JSON files come from the `examples` directory in the Apache ORC
 source tree:
-https://github.com/apache/orc/tree/master/examples
+https://github.com/apache/orc/tree/main/examples

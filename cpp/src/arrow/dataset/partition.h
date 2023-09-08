@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include "arrow/compute/exec/expression.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/util/compare.h"
@@ -90,7 +90,8 @@ class ARROW_DS_EXPORT Partitioning : public util::EqualityComparable<Partitionin
 
   virtual Result<PartitionPathFormat> Format(const compute::Expression& expr) const = 0;
 
-  /// \brief A default Partitioning which always yields scalar(true)
+  /// \brief A default Partitioning which is a DirectoryPartitioning
+  /// with an empty schema.
   static std::shared_ptr<Partitioning> Default();
 
   /// \brief The partition schema.
@@ -185,6 +186,8 @@ class ARROW_DS_EXPORT KeyValuePartitioning : public Partitioning {
   Result<PartitionPathFormat> Format(const compute::Expression& expr) const override;
 
   const ArrayVector& dictionaries() const { return dictionaries_; }
+
+  SegmentEncoding segment_encoding() const { return options_.segment_encoding; }
 
   bool Equals(const Partitioning& other) const override;
 

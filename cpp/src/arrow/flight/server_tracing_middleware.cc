@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/server_tracing_middleware.h"
+#include "arrow/flight/server.h"
 
 #include <string>
 #include <string_view>
@@ -122,19 +123,19 @@ class TracingServerMiddleware::Impl {
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   virtual ~TracingServerMiddlewareFactory() = default;
-  Status StartCall(const CallInfo& info, const CallHeaders& incoming_headers,
+  Status StartCall(const CallInfo& info, const ServerCallContext& context,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     constexpr char kServiceName[] = "arrow.flight.protocol.FlightService";
 
-    FlightServerCarrier carrier(incoming_headers);
-    auto context = otel::context::RuntimeContext::GetCurrent();
+    FlightServerCarrier carrier(context.incoming_headers());
+    auto otel_context = otel::context::RuntimeContext::GetCurrent();
     auto propagator =
         otel::context::propagation::GlobalTextMapPropagator::GetGlobalPropagator();
-    auto new_context = propagator->Extract(carrier, context);
+    auto new_otel_context = propagator->Extract(carrier, otel_context);
 
     otel::trace::StartSpanOptions options;
     options.kind = otel::trace::SpanKind::kServer;
-    options.parent = otel::trace::GetSpan(new_context)->GetContext();
+    options.parent = otel::trace::GetSpan(new_otel_context)->GetContext();
 
     auto* tracer = arrow::internal::tracing::GetTracer();
     auto method_name = ToString(info.method);
@@ -167,7 +168,7 @@ class TracingServerMiddleware::Impl {
 class TracingServerMiddlewareFactory : public ServerMiddlewareFactory {
  public:
   virtual ~TracingServerMiddlewareFactory() = default;
-  Status StartCall(const CallInfo&, const CallHeaders&,
+  Status StartCall(const CallInfo&, const ServerCallContext&,
                    std::shared_ptr<ServerMiddleware>* middleware) override {
     std::unique_ptr<TracingServerMiddleware::Impl> impl(
         new TracingServerMiddleware::Impl());

@@ -31,6 +31,7 @@
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/config.h"
 #include "gtest/gtest.h"
 
 using namespace std::string_view_literals;  // NOLINT
@@ -276,6 +277,35 @@ TEST_F(DatasetWriterTestFixture, MaxRowsOneWrite) {
                      {"testdir/chunk-3.arrow", 30, 5}});
 }
 
+TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithFunctor) {
+  // Left padding with up to four zeros
+  write_options_.max_rows_per_group = 10;
+  write_options_.max_rows_per_file = 10;
+  write_options_.basename_template_functor = [](int v) {
+    size_t n_zero = 4;
+    return std::string(n_zero - std::min(n_zero, std::to_string(v).length()), '0') +
+           std::to_string(v);
+  };
+  auto dataset_writer = MakeDatasetWriter();
+  dataset_writer->WriteRecordBatch(MakeBatch(25), "");
+  EndWriterChecked(dataset_writer.get());
+  AssertCreatedData({{"testdir/chunk-0000.arrow", 0, 10},
+                     {"testdir/chunk-0001.arrow", 10, 10},
+                     {"testdir/chunk-0002.arrow", 20, 5}});
+}
+
+TEST_F(DatasetWriterTestFixture, MaxRowsOneWriteWithBrokenFunctor) {
+  // Rewriting an exiting file will error out
+  write_options_.max_rows_per_group = 10;
+  write_options_.max_rows_per_file = 10;
+  write_options_.basename_template_functor = [](int v) { return "SAME"; };
+  auto dataset_writer = MakeDatasetWriter();
+  dataset_writer->WriteRecordBatch(MakeBatch(25), "");
+  dataset_writer->Finish();
+  test_done_with_tasks_.MarkFinished();
+  ASSERT_FINISHES_AND_RAISES(Invalid, scheduler_finished_);
+}
+
 TEST_F(DatasetWriterTestFixture, MaxRowsManyWrites) {
   write_options_.max_rows_per_file = 10;
   write_options_.max_rows_per_group = 10;
@@ -351,6 +381,9 @@ TEST_F(DatasetWriterTestFixture, MinRowGroupBackpressure) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   // Use a gated filesystem to queue up many writes behind a file open to make sure the
   // file isn't opened multiple times.
   auto gated_fs = UseGatedFs();
@@ -365,6 +398,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesSameFile) {
 }
 
 TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   // NBATCHES must be less than I/O executor concurrency to avoid deadlock / test failure
   constexpr int NBATCHES = 6;
   auto gated_fs = UseGatedFs();
@@ -383,6 +419,9 @@ TEST_F(DatasetWriterTestFixture, ConcurrentWritesDifferentFiles) {
 }
 
 TEST_F(DatasetWriterTestFixture, MaxOpenFiles) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Concurrent writes tests need threads";
+#endif
   auto gated_fs = UseGatedFs();
   std::atomic<bool> paused = false;
   write_options_.max_open_files = 2;

@@ -22,6 +22,7 @@
 #include <string>
 
 #include "arrow/adapters/orc/adapter.h"
+#include "arrow/adapters/orc/util.h"
 #include "arrow/array.h"
 #include "arrow/buffer.h"
 #include "arrow/buffer_builder.h"
@@ -34,7 +35,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
-#include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
 
 namespace liborc = orc;
@@ -81,7 +81,8 @@ class MemoryOutputStream : public liborc::OutputStream {
  private:
   std::vector<char> data_;
   std::string name_;
-  uint64_t length_, natural_write_size_;
+  uint64_t length_;
+  const uint64_t natural_write_size_ = 64 * 1024;
 };
 
 std::shared_ptr<Buffer> GenerateFixedDifferenceBuffer(int32_t fixed_length,
@@ -124,30 +125,25 @@ Result<std::shared_ptr<Array>> GenerateRandomDate64Array(int64_t size,
       date64(), rand.Int64(size, kMilliMin, kMilliMax, null_probability));
 }
 
-Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(int64_t size,
-                                                            TimeUnit::type type,
-                                                            double null_probability) {
+Result<std::shared_ptr<Array>> GenerateRandomTimestampArray(
+    int64_t size, std::shared_ptr<TimestampType> type, double null_probability) {
   random::RandomArrayGenerator rand(kRandomSeed);
-  switch (type) {
+  switch (type->unit()) {
     case TimeUnit::type::SECOND: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::SECOND),
-          rand.Int64(size, kSecondMin, kSecondMax, null_probability));
+          type, rand.Int64(size, kSecondMin, kSecondMax, null_probability));
     }
     case TimeUnit::type::MILLI: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::MILLI),
-          rand.Int64(size, kMilliMin, kMilliMax, null_probability));
+          type, rand.Int64(size, kMilliMin, kMilliMax, null_probability));
     }
     case TimeUnit::type::MICRO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::MICRO),
-          rand.Int64(size, kMicroMin, kMicroMax, null_probability));
+          type, rand.Int64(size, kMicroMin, kMicroMax, null_probability));
     }
     case TimeUnit::type::NANO: {
       return CastInt64ArrayToTemporalArray<TimestampArray>(
-          timestamp(TimeUnit::NANO),
-          rand.Int64(size, kNanoMin, kNanoMax, null_probability));
+          type, rand.Int64(size, kNanoMin, kNanoMax, null_probability));
     }
     default: {
       return Status::TypeError("Unknown or unsupported Arrow TimeUnit: ", type);
@@ -196,12 +192,11 @@ std::shared_ptr<ChunkedArray> GenerateRandomChunkedArray(
         break;
       }
       case Type::TIMESTAMP: {
-        EXPECT_OK_AND_ASSIGN(
-            arrays[j],
-            GenerateRandomTimestampArray(
-                current_size_chunks[j],
-                internal::checked_pointer_cast<TimestampType>(data_type)->unit(),
-                null_probability));
+        EXPECT_OK_AND_ASSIGN(arrays[j],
+                             GenerateRandomTimestampArray(
+                                 current_size_chunks[j],
+                                 internal::checked_pointer_cast<TimestampType>(data_type),
+                                 null_probability));
         break;
       }
       default:
@@ -341,7 +336,7 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
 
 TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   MemoryOutputStream mem_stream(kDefaultMemStreamSize);
-  ORC_UNIQUE_PTR<liborc::Type> type(
+  std::unique_ptr<liborc::Type> type(
       liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
 
   constexpr uint64_t stripe_size = 1024;  // 1K
@@ -459,6 +454,188 @@ TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   EXPECT_EQ(num_rows / reader_batch_size, batches);
 }
 
+TEST(TestAdapterRead, ReadCharAndVarcharType) {
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  auto orc_type = liborc::Type::buildTypeFromString("struct<c1:char(6),c2:varchar(6)>");
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+
+  constexpr int64_t row_count = 2;
+  auto batch = writer->createRowBatch(row_count);
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+
+  // Verify that longer data will be truncated by ORC char and varchar types.
+  // In addition, ORC char type will pad the data with spaces if the data is shorter.
+  const std::vector<std::string> data = {"abcd", "ABCDEFGH"};
+  const std::vector<std::vector<std::string>> expected_data = {{"abcd  ", "ABCDEF"},
+                                                               {"abcd", "ABCDEF"}};
+
+  for (uint64_t col = 0; col < orc_type->getSubtypeCount(); ++col) {
+    auto str_batch =
+        internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[col]);
+    str_batch->hasNulls = false;
+    str_batch->numElements = row_count;
+    for (int64_t row = 0; row < row_count; ++row) {
+      str_batch->data[row] = const_cast<char*>(data[row].c_str());
+      str_batch->length[row] = static_cast<int64_t>(data[row].size());
+    }
+  }
+  batch->numElements = row_count;
+  writer->add(*batch);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream = std::make_shared<io::BufferReader>(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+                               mem_stream.getLength()));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(row_count, reader->NumberOfRows());
+  ASSERT_EQ(1, reader->NumberOfStripes());
+
+  EXPECT_OK_AND_ASSIGN(auto stripe_reader, reader->NextStripeReader(row_count));
+  std::shared_ptr<RecordBatch> record_batch;
+  ASSERT_OK(stripe_reader->ReadNext(&record_batch));
+  ASSERT_NE(nullptr, record_batch);
+  ASSERT_EQ(row_count, record_batch->num_rows());
+
+  for (int col = 0; col < record_batch->num_columns(); ++col) {
+    auto str_array = checked_pointer_cast<StringArray>(record_batch->column(col));
+    for (int row = 0; row < row_count; ++row) {
+      EXPECT_EQ(expected_data[col][row], str_array->GetString(row));
+    }
+  }
+  ASSERT_OK(stripe_reader->ReadNext(&record_batch));
+  ASSERT_EQ(nullptr, record_batch);
+}
+
+TEST(TestAdapterRead, ReadFieldAttributes) {
+  const std::string id_key = "iceberg.id";
+  const std::string required_key = "iceberg.required";
+
+  auto set_attributes = [&](liborc::Type* type, const std::string& id,
+                            const std::string& required) {
+    type->setAttribute(id_key, id);
+    type->setAttribute(required_key, required);
+  };
+
+  auto check_attributes = [&](const std::shared_ptr<arrow::Field>& field,
+                              const std::string& expect_id,
+                              const std::string& expect_required) {
+    auto field_metadata = field->metadata();
+    ASSERT_NE(field_metadata, nullptr);
+    ASSERT_EQ(expect_id, field_metadata->Get(id_key));
+    ASSERT_EQ(expect_required, field_metadata->Get(required_key));
+  };
+
+  auto c1_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c1_type.get(), "1", "true");
+
+  auto c2_elem_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c2_elem_type.get(), "3", "false");
+  auto c2_type = liborc::createListType(std::move(c2_elem_type));
+  set_attributes(c2_type.get(), "2", "false");
+
+  auto c3_key_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c3_key_type.get(), "5", "true");
+  auto c3_value_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c3_value_type.get(), "6", "false");
+  auto c3_type = liborc::createMapType(std::move(c3_key_type), std::move(c3_value_type));
+  set_attributes(c3_type.get(), "4", "false");
+
+  auto c4_sub_type = liborc::createPrimitiveType(liborc::TypeKind::INT);
+  set_attributes(c4_sub_type.get(), "8", "false");
+  auto c4_type = liborc::createStructType();
+  c4_type->addStructField("c4_1", std::move(c4_sub_type));
+  set_attributes(c4_type.get(), "7", "false");
+
+  auto orc_type = liborc::createStructType();
+  orc_type->addStructField("c1", std::move(c1_type));
+  orc_type->addStructField("c2", std::move(c2_type));
+  orc_type->addStructField("c3", std::move(c3_type));
+  orc_type->addStructField("c4", std::move(c4_type));
+
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream = std::make_shared<io::BufferReader>(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+                               mem_stream.getLength()));
+  ASSERT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_EQ(0, reader->NumberOfRows());
+
+  ASSERT_OK_AND_ASSIGN(auto schema, reader->ReadSchema());
+  ASSERT_EQ(4, schema->num_fields());
+
+  // check top level fields
+  check_attributes(schema->field(0), "1", "true");
+  check_attributes(schema->field(1), "2", "false");
+  check_attributes(schema->field(2), "4", "false");
+  check_attributes(schema->field(3), "7", "false");
+
+  // check list element type
+  auto list_type = checked_pointer_cast<arrow::ListType>(schema->field(1)->type());
+  check_attributes(list_type->value_field(), "3", "false");
+
+  // check map key/value types
+  auto map_type = checked_pointer_cast<arrow::MapType>(schema->field(2)->type());
+  check_attributes(map_type->key_field(), "5", "true");
+  check_attributes(map_type->item_field(), "6", "false");
+
+  // check struct sub-field type
+  auto struct_type = checked_pointer_cast<arrow::StructType>(schema->field(3)->type());
+  check_attributes(struct_type->field(0), "8", "false");
+}
+
+TEST(TestAdapterReadWrite, FieldAttributesRoundTrip) {
+  EXPECT_OK_AND_ASSIGN(auto buffer_output_stream, io::BufferOutputStream::Create(1024));
+  auto write_options = adapters::orc::WriteOptions();
+  write_options.compression = Compression::UNCOMPRESSED;
+  EXPECT_OK_AND_ASSIGN(auto writer, adapters::orc::ORCFileWriter::Open(
+                                        buffer_output_stream.get(), write_options));
+
+  auto schema = ::arrow::schema(
+      {::arrow::field("c0", ::arrow::int64(), /*nullable=*/true,
+                      key_value_metadata({"k0"}, {"v0"})),
+       ::arrow::field("c1", ::arrow::utf8(), /*nullable=*/true,
+                      key_value_metadata({"k1"}, {"v1"})),
+       ::arrow::field(
+           "c2", ::arrow::list(::arrow::field("item", ::arrow::int64(), /*nullable=*/true,
+                                              key_value_metadata({"k2"}, {"v2"})))),
+       ::arrow::field("c3",
+                      std::make_shared<MapType>(
+                          ::arrow::field("key", ::arrow::utf8(), /*nullable=*/false,
+                                         key_value_metadata({"k3"}, {"v3"})),
+                          ::arrow::field("value", ::arrow::int64(), /*nullable=*/true,
+                                         key_value_metadata({"k4"}, {"v4"})))),
+       ::arrow::field("c4", ::arrow::struct_({::arrow::field(
+                                "sub", ::arrow::int64(),
+                                /*nullable=*/true, key_value_metadata({"k5"}, {"v5"}))})),
+       ::arrow::field("c5",
+                      ::arrow::sparse_union(
+                          {::arrow::field("_union_0", ::arrow::int64(), /*nullable=*/true,
+                                          key_value_metadata({"k6"}, {"v6"})),
+                           ::arrow::field("_union_1", ::arrow::utf8(), /*nullable=*/true,
+                                          key_value_metadata({"k7"}, {"v7"}))},
+                          {0, 1}))});
+  auto expected_output_table = ::arrow::TableFromJSON(
+      schema, {R"([[1, "a", [1, 2], [["a", 1]], {"sub": 1}, null]])"});
+  ARROW_EXPECT_OK(writer->Write(*expected_output_table));
+  ARROW_EXPECT_OK(writer->Close());
+
+  EXPECT_OK_AND_ASSIGN(auto buffer, buffer_output_stream->Finish());
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(buffer));
+  EXPECT_OK_AND_ASSIGN(
+      auto reader, adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  EXPECT_OK_AND_ASSIGN(auto actual_output_table, reader->Read());
+  ASSERT_OK(actual_output_table->ValidateFull());
+  AssertTablesEqual(*expected_output_table, *actual_output_table);
+
+  // Check schema equality with metadata.
+  EXPECT_OK_AND_ASSIGN(auto read_schema, reader->ReadSchema());
+  AssertSchemaEqual(schema, read_schema, /*check_metadata=*/true);
+}
+
 // Trivial
 
 class TestORCWriterTrivialNoWrite : public ::testing::Test {};
@@ -486,7 +663,8 @@ class TestORCWriterTrivialNoConversion : public ::testing::Test {
          field("int32", int32()), field("int64", int64()), field("float", float32()),
          field("double", float64()), field("decimal128nz", decimal128(25, 6)),
          field("decimal128z", decimal128(32, 0)), field("date32", date32()),
-         field("ts3", timestamp(TimeUnit::NANO)), field("string", utf8()),
+         field("ts3", timestamp(TimeUnit::NANO)),
+         field("ts4", timestamp(TimeUnit::NANO, "UTC")), field("string", utf8()),
          field("binary", binary()),
          field("struct", struct_({field("a", utf8()), field("b", int64())})),
          field("list", list(int32())),
@@ -526,6 +704,7 @@ TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
       field("double", float64()),
       field("date32", date32()),
       field("ts3", timestamp(TimeUnit::NANO)),
+      field("ts4", timestamp(TimeUnit::NANO), "UTC"),
       field("string", utf8()),
       field("binary", binary()),
   });
@@ -838,6 +1017,79 @@ TEST_F(TestORCWriterSingleArray, WriteListOfMap) {
       rand.Map(value_key_array, value_item_array, 2 * num_rows, 0.2);
   std::shared_ptr<Array> array = rand.List(*value_array, num_rows, 0.4);
   AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
+}
+
+namespace {
+
+// The random array generator fills random unselected values in the child arrays
+// of SparseUnionArray. However, orc file only contains dense union type meaning
+// that these unselected values will not be written to the file (so we can never
+// read them back and compare equality in the unit test). Because the orc reader
+// fills unselected values to nulls when reading from the file. So flattening
+// the SparseUnionArray before writing makes it easy for the array equality check.
+std::shared_ptr<Array> FlattenSparseUnionArray(std::shared_ptr<Array> array) {
+  auto union_array = checked_pointer_cast<SparseUnionArray>(array);
+  ArrayVector children;
+  for (int i = 0; i < array->num_fields(); ++i) {
+    ASSIGN_OR_ABORT(auto flattened_child, union_array->GetFlattenedField(i));
+    children.emplace_back(std::move(flattened_child));
+  }
+  return std::make_shared<SparseUnionArray>(array->type(), array->length(),
+                                            std::move(children),
+                                            union_array->type_codes(), array->offset());
+}
+
+void TestUnionConversion(std::shared_ptr<Array> array) {
+  auto length = array->length();
+  auto orc_type = liborc::Type::buildTypeFromString("uniontype<string,int>");
+
+  // Workaround for an unfortunate breaking change introduced by ORC-1.9.0.
+  MemoryOutputStream mem_stream(/*capacity=*/1024);
+  auto writer = CreateWriter(/*stripe_size=*/1024, *orc_type, &mem_stream);
+  auto orc_batch = writer->createRowBatch(length);
+  // auto orc_batch = orc_type->createRowBatch(length, *liborc::getDefaultPool());
+
+  // Convert from arrow to orc
+  int arrow_chunk_offset = 0;
+  int64_t arrow_index_offset = 0;
+  ASSERT_OK(adapters::orc::WriteBatch(ChunkedArray{array}, length, &arrow_chunk_offset,
+                                      &arrow_index_offset, orc_batch.get()));
+
+  // Convert from orc to arrow
+  ASSIGN_OR_ABORT(auto array_builder, MakeBuilder(array->type()));
+  ASSERT_OK(adapters::orc::AppendBatch(orc_type.get(), orc_batch.get(), 0, length,
+                                       array_builder.get()));
+  std::shared_ptr<Array> result;
+  ASSERT_OK(array_builder->Finish(&result));
+
+  // Compare the result
+  AssertArraysEqual(*array, *result);
+}
+
+}  // namespace
+
+TEST_F(TestORCWriterSingleArray, WriteSparseUnion) {
+  constexpr int64_t num_rows = 1024;
+  auto type =
+      sparse_union({field("_union_0", utf8()), field("_union_1", int32())}, {0, 1});
+  auto array =
+      FlattenSparseUnionArray(rand.ArrayOf(type, num_rows, /*null_probability=*/0.4));
+  AssertArrayWriteReadEqual(array, array, kDefaultSmallMemStreamSize * 10);
+}
+
+TEST(TestWriteReadORCBatch, SparseUnionConversion) {
+  random::RandomArrayGenerator rand(kRandomSeed);
+  auto type = sparse_union({field("a", utf8()), field("b", int32())}, {0, 1});
+  auto array = FlattenSparseUnionArray(
+      rand.ArrayOf(type, /*size=*/1024, /*null_probability=*/0.4));
+  TestUnionConversion(std::move(array));
+}
+
+TEST(TestWriteReadORCBatch, DenseUnionConversion) {
+  random::RandomArrayGenerator rand(kRandomSeed);
+  auto type = dense_union({field("a", utf8()), field("b", int32())}, {0, 1});
+  auto array = rand.ArrayOf(type, /*size=*/1024, /*null_probability=*/0.4);
+  TestUnionConversion(std::move(array));
 }
 
 class TestORCWriterMultipleWrite : public ::testing::Test {

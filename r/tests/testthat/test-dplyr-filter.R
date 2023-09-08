@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]
@@ -421,5 +423,58 @@ test_that("filter() with across()", {
       ) %>%
       collect(),
     tbl
+  )
+})
+
+test_that(".by argument", {
+  compare_dplyr_binding(
+    .input %>%
+      filter(is.na(lgl), .by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(is.na(lgl), .by = starts_with("chr")) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = chr) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = c(int, chr)) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      filter(.by = c("int", "chr")) %>%
+      select(chr, int, lgl) %>%
+      collect(),
+    tbl
+  )
+  # filter should pulling not grouped data into R when using the .by argument
+  compare_dplyr_binding(
+    .input %>%
+      filter(int > 2, pnorm(dbl) > .99, .by = chr) %>%
+      collect(),
+    tbl,
+    warning = "Expression pnorm\\(dbl\\) > 0.99 not supported in Arrow; pulling data into R"
+  )
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      filter(is.na(lgl), .by = chr),
+    "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })

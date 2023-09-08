@@ -24,8 +24,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v14/arrow"
+	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
 )
 
 const (
@@ -131,6 +131,10 @@ func (b ByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
+func (b ByteArray) Bytes() []byte {
+	return b
+}
+
 type byteArrayTraits struct{}
 
 func (byteArrayTraits) BytesRequired(n int) int {
@@ -160,6 +164,10 @@ func (b FixedLenByteArray) Len() int {
 // String returns a string representation of the FixedLenByteArray
 func (b FixedLenByteArray) String() string {
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+func (b FixedLenByteArray) Bytes() []byte {
+	return b
 }
 
 type fixedLenByteArrayTraits struct{}

@@ -26,8 +26,12 @@
 
 @PACKAGE_INIT@
 
+set(ARROW_TESTING_SYSTEM_DEPENDENCIES "@ARROW_TESTING_SYSTEM_DEPENDENCIES@")
+
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+
+arrow_find_dependencies("${ARROW_TESTING_SYSTEM_DEPENDENCIES}")
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowTestingTargets.cmake")
 

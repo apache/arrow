@@ -32,7 +32,8 @@ performance data IO.
 
 Apache Arrow is an ideal in-memory transport layer for data that is being read
 or written with Parquet files. We have been concurrently developing the `C++
-implementation of Apache Parquet <http://github.com/apache/parquet-cpp>`_,
+implementation of 
+Apache Parquet <https://github.com/apache/arrow/tree/main/cpp/tools/parquet>`_,
 which includes a native, multithreaded C++ adapter to and from in-memory Arrow
 data. PyArrow includes Python bindings to this code, which thus enables reading
 and writing Parquet files with pandas as well.

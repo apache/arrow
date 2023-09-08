@@ -18,24 +18,31 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
+filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
   # TODO something with the .preserve argument
-  filts <- expand_across(.data, quos(...))
-  if (length(filts) == 0) {
-    # Nothing to do
-    return(.data)
+  out <- as_adq(.data)
+
+  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+
+  if (by$from_by) {
+    out$group_by_vars <- by$names
   }
 
-  .data <- as_adq(.data)
+  filts <- expand_across(out, quos(...))
+  if (length(filts) == 0) {
+    # Nothing to do
+    return(as_adq(.data))
+  }
+
   # tidy-eval the filter expressions inside an Arrow data_mask
-  filters <- lapply(filts, arrow_eval, arrow_mask(.data))
+  filters <- lapply(filts, arrow_eval, arrow_mask(out))
   bad_filters <- map_lgl(filters, ~ inherits(., "try-error"))
   if (any(bad_filters)) {
     # This is similar to abandon_ship() except that the filter eval is
     # vectorized, and we apply filters that _did_ work before abandoning ship
     # with the rest
     expr_labs <- map_chr(filts[bad_filters], format_expr)
-    if (query_on_dataset(.data)) {
+    if (query_on_dataset(out)) {
       # Abort. We don't want to auto-collect if this is a Dataset because that
       # could blow up, too big.
       stop(
@@ -60,12 +67,21 @@ filter.arrow_dplyr_query <- function(.data, ..., .preserve = FALSE) {
         call. = FALSE
       )
       # Set any valid filters first, then collect and then apply the invalid ones in R
-      .data <- set_filters(.data, filters[!bad_filters])
-      return(dplyr::filter(dplyr::collect(.data), !!!filts[bad_filters]))
+      out <- dplyr::collect(set_filters(out, filters[!bad_filters]))
+      if (by$from_by) {
+        out <- dplyr::ungroup(out)
+      }
+      return(dplyr::filter(out, !!!filts[bad_filters], .by = {{ .by }}))
     }
   }
 
-  set_filters(.data, filters)
+  out <- set_filters(out, filters)
+
+  if (by$from_by) {
+    out$group_by_vars <- character()
+  }
+
+  out
 }
 filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
 

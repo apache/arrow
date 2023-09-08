@@ -17,7 +17,6 @@
 
 from collections import OrderedDict
 from collections.abc import Iterable
-import pickle
 import sys
 import weakref
 
@@ -301,14 +300,14 @@ def test_chunked_array_equals():
             pa.struct([pa.field('a', pa.int64()), pa.field('b', pa.string())]))
     ]
 )
-def test_chunked_array_pickle(data, typ):
+def test_chunked_array_pickle(data, typ, pickle_module):
     arrays = []
     while data:
         arrays.append(pa.array(data[:2], type=typ))
         data = data[2:]
     array = pa.chunked_array(arrays, type=typ)
     array.validate()
-    result = pickle.loads(pickle.dumps(array))
+    result = pickle_module.loads(pickle_module.dumps(array))
     result.validate()
     assert result.equals(array)
 
@@ -511,7 +510,7 @@ def test_recordbatch_basics():
         ('c0', [0, 1, 2, 3, 4]),
         ('c1', [-10, -5, 0, None, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     with pytest.raises(IndexError):
         # bounds checking
@@ -529,7 +528,10 @@ def test_recordbatch_basics():
     assert batch.schema == schema
     assert str(batch) == """pyarrow.RecordBatch
 c0: int16
-c1: int32"""
+c1: int32
+----
+c0: [0,1,2,3,4]
+c1: [-10,-5,0,null,10]"""
 
     assert batch.to_string(show_metadata=True) == """\
 pyarrow.RecordBatch
@@ -544,6 +546,28 @@ foo: 'bar'"""
     assert wr() is not None
     del batch
     assert wr() is None
+
+
+def test_recordbatch_dunder_init():
+    with pytest.raises(TypeError, match='RecordBatch'):
+        pa.RecordBatch()
+
+
+def test_recordbatch_itercolumns():
+    data = [
+        pa.array(range(5), type='int16'),
+        pa.array([-10, -5, 0, None, 10], type='int32')
+    ]
+    batch = pa.record_batch(data, ['c0', 'c1'])
+
+    columns = []
+    for col in batch.itercolumns():
+        columns.append(col)
+
+    assert batch.columns == columns
+    assert batch == pa.record_batch(columns, names=batch.column_names)
+    assert batch != pa.record_batch(columns[1:], names=batch.column_names[1:])
+    assert batch != columns
 
 
 def test_recordbatch_equals():
@@ -638,7 +662,7 @@ def test_recordbatch_empty_metadata():
     assert batch.schema.metadata is None
 
 
-def test_recordbatch_pickle():
+def test_recordbatch_pickle(pickle_module):
     data = [
         pa.array(range(5), type='int8'),
         pa.array([-10, -5, 0, 5, 10], type='float32')
@@ -650,7 +674,7 @@ def test_recordbatch_pickle():
     schema = pa.schema(fields, metadata={b'foo': b'bar'})
     batch = pa.record_batch(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(batch))
+    result = pickle_module.loads(pickle_module.dumps(batch))
     assert result.equals(batch)
     assert result.schema == schema
 
@@ -687,7 +711,7 @@ def test_recordbatch_select_column():
     assert batch.column('a').equals(batch.column(0))
 
     with pytest.raises(
-            KeyError, match='Field "d" does not exist in record batch schema'):
+            KeyError, match='Field "d" does not exist in schema'):
         batch.column('d')
 
     with pytest.raises(TypeError):
@@ -924,7 +948,7 @@ def test_table_basics():
         ('a', [0, 1, 2, 3, 4]),
         ('b', [-10, -5, 0, 5, 10])
     ])
-    assert type(pydict) == dict
+    assert isinstance(pydict, dict)
 
     columns = []
     for col in table.itercolumns():
@@ -947,6 +971,11 @@ def test_table_basics():
     assert wr() is not None
     del table
     assert wr() is None
+
+
+def test_table_dunder_init():
+    with pytest.raises(TypeError, match='Table'):
+        pa.Table()
 
 
 def test_table_from_arrays_preserves_column_metadata():
@@ -992,7 +1021,7 @@ def test_table_from_lists():
     assert result.equals(expected)
 
 
-def test_table_pickle():
+def test_table_pickle(pickle_module):
     data = [
         pa.chunked_array([[1, 2], [3, 4]], type=pa.uint32()),
         pa.chunked_array([["some", "strings", None, ""]], type=pa.string()),
@@ -1002,7 +1031,7 @@ def test_table_pickle():
                        metadata={b'foo': b'bar'})
     table = pa.Table.from_arrays(data, schema=schema)
 
-    result = pickle.loads(pickle.dumps(table))
+    result = pickle_module.loads(pickle_module.dumps(table))
     result.validate()
     assert result.equals(table)
 
@@ -1039,7 +1068,7 @@ def test_table_select_column():
     assert table.column('a').equals(table.column(0))
 
     with pytest.raises(KeyError,
-                       match='Field "d" does not exist in table schema'):
+                       match='Field "d" does not exist in schema'):
         table.column('d')
 
     with pytest.raises(TypeError):
@@ -1056,7 +1085,7 @@ def test_table_column_with_duplicates():
                       pa.array([7, 8, 9])], names=['a', 'b', 'a'])
 
     with pytest.raises(KeyError,
-                       match='Field "a" exists 2 times in table schema'):
+                       match='Field "a" exists 2 times in schema'):
         table.column('a')
 
 
@@ -1989,6 +2018,7 @@ def test_table_select():
     assert result.equals(expected)
 
 
+@pytest.mark.acero
 def test_table_group_by():
     def sorted_by_keys(d):
         # Ensure a guaranteed order of keys for aggregation results.
@@ -2156,7 +2186,7 @@ def test_table_to_recordbatchreader():
     assert reader.read_next_batch().num_rows == 1
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2183,7 +2213,7 @@ def test_table_join():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_unique_key():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2210,7 +2240,7 @@ def test_table_join_unique_key():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_collisions():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2234,7 +2264,7 @@ def test_table_join_collisions():
     ], names=["colA", "colB", "colVals", "colB", "colVals"])
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_filter_expression():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2258,7 +2288,7 @@ def test_table_filter_expression():
     })
 
 
-@pytest.mark.dataset
+@pytest.mark.acero
 def test_table_join_many_columns():
     t1 = pa.table({
         "colA": [1, 2, 6],
@@ -2384,7 +2414,10 @@ def test_table_join_asof_collisions():
         "on": [2, 3, 4],
     })
 
-    msg = "colVals present in both tables. AsofJoin does not support column collisions."
+    msg = (
+        "Columns {'colVals'} present in both tables. "
+        "AsofJoin does not support column collisions."
+    )
     with pytest.raises(ValueError, match=msg):
         t1.join_asof(
             t2, on="on", by=["colA", "colB"], tolerance=1,
@@ -2454,3 +2487,60 @@ def test_record_batch_sort():
     assert sorted_rb_dict["a"] == [5, 7, 7, 35]
     assert sorted_rb_dict["b"] == [2, 3, 4, 1]
     assert sorted_rb_dict["c"] == ["foobar", "bar", "foo", "car"]
+
+
+@pytest.mark.parametrize("constructor", [pa.table, pa.record_batch])
+def test_numpy_asarray(constructor):
+    table = constructor([[1, 2, 3], [4.0, 5.0, 6.0]], names=["a", "b"])
+    result = np.asarray(table)
+    expected = np.array([[1, 4], [2, 5], [3, 6]], dtype="float64")
+    np.testing.assert_allclose(result, expected)
+
+    result = np.asarray(table, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+    # no columns
+    table2 = table.select([])
+    result = np.asarray(table2)
+    expected = np.empty((3, 0))
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "float64"
+    result = np.asarray(table2, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+    # no rows
+    table3 = table.slice(0, 0)
+    result = np.asarray(table3)
+    expected = np.empty((0, 2))
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "float64"
+    result = np.asarray(table3, dtype="int32")
+    np.testing.assert_allclose(result, expected)
+    assert result.dtype == "int32"
+
+
+@pytest.mark.acero
+def test_invalid_non_join_column():
+    NUM_ITEMS = 30
+    t1 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'array_column': [[z for z in range(3)] for x in range(NUM_ITEMS)],
+    })
+    t2 = pa.Table.from_pydict({
+        'id': range(NUM_ITEMS),
+        'value': [x for x in range(NUM_ITEMS)]
+    })
+
+    # check as left table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t1.join(t2, 'id', join_type='inner')
+    exp_error_msg = "Data type list<item: int64> is not supported " \
+        + "in join non-key field array_column"
+    assert exp_error_msg in str(excinfo.value)
+
+    # check as right table
+    with pytest.raises(pa.lib.ArrowInvalid) as excinfo:
+        t2.join(t1, 'id', join_type='inner')
+    assert exp_error_msg in str(excinfo.value)

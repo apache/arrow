@@ -17,11 +17,11 @@
 
 import Foundation
 public class ArrowField {
-    let type: ArrowType.Info
+    let type: ArrowType
     let name: String
     let isNullable: Bool
     
-    init(_ name: String, type: ArrowType.Info, isNullable: Bool) {
+    init(_ name: String, type: ArrowType, isNullable: Bool) {
         self.name = name
         self.type = type
         self.isNullable = isNullable
@@ -29,8 +29,8 @@ public class ArrowField {
 }
 
 public class ArrowSchema {
-    let fields: [ArrowField]
-    let fieldLookup: [String: Int]
+    public let fields: [ArrowField]
+    public let fieldLookup: [String: Int]
     init(_ fields: [ArrowField]) {
         var fieldLookup = [String: Int]()
         for (index, field) in fields.enumerated() {
@@ -41,28 +41,32 @@ public class ArrowSchema {
         self.fieldLookup = fieldLookup
     }
     
-    func field(_ index: Int) -> ArrowField {
+    public func field(_ index: Int) -> ArrowField {
         return self.fields[index]
     }
 
-    func fieldIndex(_ name: String) -> Int? {
+    public func fieldIndex(_ name: String) -> Int? {
         return self.fieldLookup[name]
     }
 
     public class Builder {
         private var fields: [ArrowField] = []
         
-        func addField(_ field: ArrowField) -> Builder {
+        public init() {}
+        
+        @discardableResult
+        public func addField(_ field: ArrowField) -> Builder {
             fields.append(field)
             return self
         }
 
-        func addField(_ name: String, type: ArrowType.Info, isNullable: Bool) -> Builder {
+        @discardableResult
+        public func addField(_ name: String, type: ArrowType, isNullable: Bool) -> Builder {
             fields.append(ArrowField(name, type: type, isNullable: isNullable))
             return self
         }
         
-        func finish() -> ArrowSchema {
+        public func finish() -> ArrowSchema {
             return ArrowSchema(fields)
         }
     }

@@ -366,7 +366,7 @@ public class RangeEqualsVisitor implements VectorVisitor<Boolean, Range> {
             return false;
           }
         } else {
-          boolean ret = ((BitVector) leftVector).get(leftIndex) == ((BitVector) rightVector).get(leftIndex);
+          boolean ret = ((BitVector) leftVector).get(leftIndex) == ((BitVector) rightVector).get(rightIndex);
           if (!ret) {
             return false;
           }

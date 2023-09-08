@@ -59,6 +59,7 @@ namespace Apache.Arrow.Tests
                 {
                     builder.Field(CreateField(new DictionaryType(Int32Type.Default, StringType.Default, false), i));
                     builder.Field(CreateField(new FixedSizeBinaryType(16), i));
+                    builder.Field(CreateField(new FixedSizeListType(Int32Type.Default, 3), i));
                 }
 
                 //builder.Field(CreateField(HalfFloatType.Default));
@@ -122,11 +123,13 @@ namespace Apache.Arrow.Tests
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<StringType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
-            IArrowTypeVisitor<FixedSizeBinaryType>
+            IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<NullType>
         {
             private int Length { get; }
             public IArrowArray Array { get; private set; }
@@ -269,6 +272,32 @@ namespace Apache.Arrow.Tests
                 Array = builder.Build();
             }
 
+            public void Visit(FixedSizeListType type)
+            {
+                var builder = new FixedSizeListArray.Builder(type.ValueField, type.ListSize).Reserve(Length);
+
+                //Todo : Support various types
+                var valueBuilder = (Int32Array.Builder)builder.ValueBuilder;
+
+                for (var i = 0; i < Length; i++)
+                {
+                    if (type.Fields[0].IsNullable && (i % 3) == 0)
+                    {
+                        builder.AppendNull();
+                    }
+                    else
+                    {
+                        builder.Append();
+                        for (var j = 0; j < type.ListSize; j++)
+                        {
+                            valueBuilder.Append(i * type.ListSize + j);
+                        }
+                    }
+                }
+
+                Array = builder.Build();
+            }
+
             public void Visit(StructType type)
             {
                 IArrowArray[] childArrays = new IArrowArray[type.Fields.Count];
@@ -315,6 +344,11 @@ namespace Apache.Arrow.Tests
 
                 ArrayData arrayData = new ArrayData(type, Length, 0, 0, new[] { validityBuffer, valueBuffer });
                 Array = new FixedSizeBinaryArray(arrayData);
+            }
+
+            public void Visit(NullType type)
+            {
+                Array = new NullArray(Length);
             }
 
             private void GenerateArray<T, TArray, TArrayBuilder>(IArrowArrayBuilder<T, TArray, TArrayBuilder> builder, Func<int, T> generator)

@@ -39,4 +39,16 @@ class TestTableBatchReader < Test::Unit::TestCase
     reader = Arrow::TableBatchReader.new(table)
     assert_equal(table.schema, reader.schema)
   end
+
+  def test_max_chunk_size
+    array = build_int32_array([1, 2, 3])
+    table = build_table("number" => array)
+    reader = Arrow::TableBatchReader.new(table)
+    reader.max_chunk_size = 2
+    assert_equal(build_record_batch("number" => build_int32_array([1, 2])),
+                 reader.read_next)
+    assert_equal(build_record_batch("number" => build_int32_array([3])),
+                 reader.read_next)
+    assert_nil(reader.read_next)
+  end
 end

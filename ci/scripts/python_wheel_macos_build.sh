@@ -59,6 +59,7 @@ pip install \
 pip install "delocate>=0.10.3"
 
 echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
+: ${ARROW_ACERO:=ON}
 : ${ARROW_DATASET:=ON}
 : ${ARROW_FLIGHT:=ON}
 : ${ARROW_GANDIVA:=OFF}
@@ -69,7 +70,6 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_ORC:=ON}
 : ${ARROW_PARQUET:=ON}
 : ${PARQUET_REQUIRE_ENCRYPTION:=ON}
-: ${ARROW_PLASMA:=ON}
 : ${ARROW_SUBSTRAIT:=ON}
 : ${ARROW_S3:=ON}
 : ${ARROW_SIMD_LEVEL:="SSE4_2"}
@@ -91,6 +91,7 @@ mkdir -p ${build_dir}/build
 pushd ${build_dir}/build
 
 cmake \
+    -DARROW_ACERO=${ARROW_ACERO} \
     -DARROW_BUILD_SHARED=ON \
     -DARROW_BUILD_STATIC=OFF \
     -DARROW_BUILD_TESTS=OFF \
@@ -110,7 +111,6 @@ cmake \
     -DARROW_ORC=${ARROW_ORC} \
     -DARROW_PACKAGE_KIND="python-wheel-macos" \
     -DARROW_PARQUET=${ARROW_PARQUET} \
-    -DARROW_PLASMA=${ARROW_PLASMA} \
     -DARROW_RPATH_ORIGIN=ON \
     -DARROW_S3=${ARROW_S3} \
     -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL} \
@@ -144,6 +144,7 @@ export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=1
 export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR}
 export PYARROW_INSTALL_TESTS=1
+export PYARROW_WITH_ACERO=${ARROW_ACERO}
 export PYARROW_WITH_DATASET=${ARROW_DATASET}
 export PYARROW_WITH_FLIGHT=${ARROW_FLIGHT}
 export PYARROW_WITH_GANDIVA=${ARROW_GANDIVA}
@@ -152,7 +153,6 @@ export PYARROW_WITH_HDFS=${ARROW_HDFS}
 export PYARROW_WITH_ORC=${ARROW_ORC}
 export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
-export PYARROW_WITH_PLASMA=${ARROW_PLASMA}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
 export PYARROW_CMAKE_OPTIONS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
@@ -169,7 +169,7 @@ popd
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
-if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\|plasma\)"; then
+if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi

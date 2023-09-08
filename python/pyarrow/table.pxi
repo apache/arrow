@@ -160,6 +160,17 @@ cdef class ChunkedArray(_PandasConvertible):
         return frombytes(result, safe=True)
 
     def format(self, **kwargs):
+        """
+        DEPRECATED, use pyarrow.ChunkedArray.to_string
+
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        str
+        """
         import warnings
         warnings.warn('ChunkedArray.format is deprecated, '
                       'use ChunkedArray.to_string')
@@ -327,6 +338,30 @@ cdef class ChunkedArray(_PandasConvertible):
         options = _pc().NullOptions(nan_is_null=nan_is_null)
         return _pc().call_function('is_null', [self], options)
 
+    def is_nan(self):
+        """
+        Return boolean array indicating the NaN values.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arr = pa.chunked_array([[2, np.nan, 4], [4, None, 100]])
+        >>> arr.is_nan()
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            false,
+            true,
+            false,
+            false,
+            null,
+            false
+          ]
+        ]
+        """
+        return _pc().is_nan(self)
+
     def is_valid(self):
         """
         Return boolean array indicating the non-null values.
@@ -436,9 +471,15 @@ cdef class ChunkedArray(_PandasConvertible):
     def _to_pandas(self, options, types_mapper=None, **kwargs):
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def to_numpy(self):
+    def to_numpy(self, zero_copy_only=False):
         """
         Return a NumPy copy of this array (experimental).
+
+        Parameters
+        ----------
+        zero_copy_only : bool, default False
+            Introduced for signature consistence with pyarrow.Array.to_numpy.
+            This must be False here since NumPy arrays' buffer must be contiguous.
 
         Returns
         -------
@@ -451,17 +492,16 @@ cdef class ChunkedArray(_PandasConvertible):
         >>> n_legs.to_numpy()
         array([  2,   2,   4,   4,   5, 100])
         """
+        if zero_copy_only:
+            raise ValueError(
+                "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"
+            )
         cdef:
             PyObject* out
             PandasOptions c_options
             object values
 
-        if self.type.id == _Type_EXTENSION:
-            storage_array = chunked_array(
-                [chunk.storage for chunk in self.iterchunks()],
-                type=self.type.storage_type
-            )
-            return storage_array.to_numpy()
+        c_options.to_numpy = True
 
         with nogil:
             check_status(
@@ -1422,8 +1462,632 @@ cdef _sanitize_arrays(arrays, names, schema, metadata,
             converted_arrays.append(item)
     return converted_arrays
 
+cdef class _Tabular(_PandasConvertible):
+    """Internal: An interface for common operations on tabular objects."""
 
-cdef class RecordBatch(_PandasConvertible):
+    def __init__(self):
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, use "
+                        f"one of the `{self.__class__.__name__}.from_*` functions instead.")
+
+    def __array__(self, dtype=None):
+        column_arrays = [
+            np.asarray(self.column(i), dtype=dtype) for i in range(self.num_columns)
+        ]
+        if column_arrays:
+            arr = np.stack(column_arrays, axis=1)
+        else:
+            arr = np.empty((self.num_rows, 0), dtype=dtype)
+        return arr
+
+    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
+        """
+        Return the dataframe interchange object implementing the interchange protocol.
+
+        Parameters
+        ----------
+        nan_as_null : bool, default False
+            Whether to tell the DataFrame to overwrite null values in the data
+            with ``NaN`` (or ``NaT``).
+        allow_copy : bool, default True
+            Whether to allow memory copying when exporting. If set to False
+            it would cause non-zero-copy exports to fail.
+
+        Returns
+        -------
+        DataFrame interchange object
+            The object which consuming library can use to ingress the dataframe.
+
+        Notes
+        -----
+        Details on the interchange protocol:
+        https://data-apis.org/dataframe-protocol/latest/index.html
+        `nan_as_null` currently has no effect; once support for nullable extension
+        dtypes is added, this value should be propagated to columns.
+        """
+
+        from pyarrow.interchange.dataframe import _PyArrowDataFrame
+
+        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
+
+    def __eq__(self, other):
+        try:
+            return self.equals(other)
+        except TypeError:
+            return NotImplemented
+
+    def __getitem__(self, key):
+        """
+        Slice or return column at given index or column name
+
+        Parameters
+        ----------
+        key : integer, str, or slice
+            Slices with step not equal to 1 (or None) will produce a copy
+            rather than a zero-copy view
+
+        Returns
+        -------
+        Array (from RecordBatch) or ChunkedArray (from Table) for column input.
+        RecordBatch or Table for slice input.
+        """
+        if isinstance(key, slice):
+            return _normalize_slice(self, key)
+
+        return self.column(key)
+
+    def __len__(self):
+        return self.num_rows
+
+    def __repr__(self):
+        if not self._is_initialized():
+            raise ValueError("This object's internal pointer is NULL, do not "
+                             "use any methods or attributes on this object")
+        return self.to_string(preview_cols=10)
+
+    def _column(self, int i):
+        raise NotImplementedError
+
+    def _ensure_integer_index(self, i):
+        """
+        Ensure integer index (convert string column name to integer if needed).
+        """
+        if isinstance(i, (bytes, str)):
+            field_indices = self.schema.get_all_field_indices(i)
+
+            if len(field_indices) == 0:
+                raise KeyError("Field \"{}\" does not exist in schema"
+                               .format(i))
+            elif len(field_indices) > 1:
+                raise KeyError("Field \"{}\" exists {} times in schema"
+                               .format(i, len(field_indices)))
+            else:
+                return field_indices[0]
+        elif isinstance(i, int):
+            return i
+        else:
+            raise TypeError("Index must either be string or integer")
+
+    def _is_initialized(self):
+        raise NotImplementedError
+
+    def column(self, i):
+        """
+        Select single column from Table or RecordBatch.
+
+        Parameters
+        ----------
+        i : int or string
+            The index or name of the column to retrieve.
+
+        Returns
+        -------
+        column : Array (for RecordBatch) or ChunkedArray (for Table)
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+
+        Select a column by numeric index:
+
+        >>> table.column(0)
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            2,
+            4,
+            5,
+            100
+          ]
+        ]
+
+        Select a column by its name:
+
+        >>> table.column("animals")
+        <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            "Flamingo",
+            "Horse",
+            "Brittle stars",
+            "Centipede"
+          ]
+        ]
+        """
+        return self._column(self._ensure_integer_index(i))
+
+    @property
+    def column_names(self):
+        """
+        Names of the Table or RecordBatch columns.
+
+        Returns
+        -------
+        list of str
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> table = pa.Table.from_arrays([[2, 4, 5, 100],
+        ...                               ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
+        ...                               names=['n_legs', 'animals'])
+        >>> table.column_names
+        ['n_legs', 'animals']
+        """
+        return [self.field(i).name for i in range(self.num_columns)]
+
+    @property
+    def columns(self):
+        """
+        List of all columns in numerical order.
+
+        Returns
+        -------
+        columns : list of Array (for RecordBatch) or list of ChunkedArray (for Table)
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.columns
+        [<pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            null,
+            4,
+            5,
+            null
+          ]
+        ], <pyarrow.lib.ChunkedArray object at ...>
+        [
+          [
+            "Flamingo",
+            "Horse",
+            null,
+            "Centipede"
+          ]
+        ]]
+        """
+        return [self._column(i) for i in range(self.num_columns)]
+
+    def drop_null(self):
+        """
+        Remove rows that contain missing values from a Table or RecordBatch.
+
+        See :func:`pyarrow.compute.drop_null` for full usage.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object with the same schema, with rows containing
+            no missing values.
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.drop_null()
+        pyarrow.Table
+        year: double
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
+        """
+        return _pc().drop_null(self)
+
+    def field(self, i):
+        """
+        Select a schema field by its column name or numeric index.
+
+        Parameters
+        ----------
+        i : int or string
+            The index or name of the field to retrieve.
+
+        Returns
+        -------
+        Field
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.field(0)
+        pyarrow.Field<n_legs: int64>
+        >>> table.field(1)
+        pyarrow.Field<animals: string>
+        """
+        return self.schema.field(i)
+
+    @classmethod
+    def from_pydict(cls, mapping, schema=None, metadata=None):
+        """
+        Construct a Table or RecordBatch from Arrow arrays or columns.
+
+        Parameters
+        ----------
+        mapping : dict or Mapping
+            A mapping of strings to Arrays or Python lists.
+        schema : Schema, default None
+            If not passed, will be inferred from the Mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        Table or RecordBatch
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
+        >>> pydict = {'n_legs': n_legs, 'animals': animals}
+
+        Construct a Table from a dictionary of arrays:
+
+        >>> pa.Table.from_pydict(pydict)
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4,5,100]]
+        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
+        >>> pa.Table.from_pydict(pydict).schema
+        n_legs: int64
+        animals: string
+
+        Construct a Table from a dictionary of arrays with metadata:
+
+        >>> my_metadata={"n_legs": "Number of legs per animal"}
+        >>> pa.Table.from_pydict(pydict, metadata=my_metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+
+        Construct a Table from a dictionary of arrays with pyarrow schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> pa.Table.from_pydict(pydict, schema=my_schema).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+        """
+
+        return _from_pydict(cls=cls,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    @classmethod
+    def from_pylist(cls, mapping, schema=None, metadata=None):
+        """
+        Construct a Table or RecordBatch from list of rows / dictionaries.
+
+        Parameters
+        ----------
+        mapping : list of dicts of rows
+            A mapping of strings to row values.
+        schema : Schema, default None
+            If not passed, will be inferred from the first row of the
+            mapping values.
+        metadata : dict or Mapping, default None
+            Optional metadata for the schema (if inferred).
+
+        Returns
+        -------
+        Table or RecordBatch
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
+        ...           {'n_legs': 4, 'animals': 'Dog'}]
+
+        Construct a Table from a list of rows:
+
+        >>> pa.Table.from_pylist(pylist)
+        pyarrow.Table
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [[2,4]]
+        animals: [["Flamingo","Dog"]]
+
+        Construct a Table from a list of rows with metadata:
+
+        >>> my_metadata={"n_legs": "Number of legs per animal"}
+        >>> pa.Table.from_pylist(pylist, metadata=my_metadata).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+
+        Construct a Table from a list of rows with pyarrow schema:
+
+        >>> my_schema = pa.schema([
+        ...     pa.field('n_legs', pa.int64()),
+        ...     pa.field('animals', pa.string())],
+        ...     metadata={"n_legs": "Number of legs per animal"})
+        >>> pa.Table.from_pylist(pylist, schema=my_schema).schema
+        n_legs: int64
+        animals: string
+        -- schema metadata --
+        n_legs: 'Number of legs per animal'
+        """
+
+        return _from_pylist(cls=cls,
+                            mapping=mapping,
+                            schema=schema,
+                            metadata=metadata)
+
+    def itercolumns(self):
+        """
+        Iterator over all columns in their numerical order.
+
+        Yields
+        ------
+        Array (for RecordBatch) or ChunkedArray (for Table)
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> for i in table.itercolumns():
+        ...     print(i.null_count)
+        ...
+        2
+        1
+        """
+        for i in range(self.num_columns):
+            yield self._column(i)
+
+    @property
+    def num_columns(self):
+        raise NotImplementedError
+
+    @property
+    def num_rows(self):
+        raise NotImplementedError
+
+    @property
+    def schema(self):
+        raise NotImplementedError
+
+    def sort_by(self, sorting, **kwargs):
+        """
+        Sort the Table or RecordBatch by one or multiple columns.
+
+        Parameters
+        ----------
+        sorting : str or list[tuple(name, order)]
+            Name of the column to use to sort (ascending), or
+            a list of multiple sorting conditions where
+            each entry is a tuple with column name
+            and sorting order ("ascending" or "descending")
+        **kwargs : dict, optional
+            Additional sorting options.
+            As allowed by :class:`SortOptions`
+
+        Returns
+        -------
+        Table or RecordBatch
+            A new tabular object sorted according to the sort keys.
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pandas as pd
+        >>> import pyarrow as pa
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                    "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.sort_by('animal')
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animal: string
+        ----
+        year: [[2019,2021,2021,2020,2022,2022]]
+        n_legs: [[5,100,4,2,4,2]]
+        animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
+        """
+        if isinstance(sorting, str):
+            sorting = [(sorting, "ascending")]
+
+        indices = _pc().sort_indices(
+            self,
+            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
+        )
+        return self.take(indices)
+
+    def take(self, object indices):
+        """
+        Select rows from a Table or RecordBatch.
+
+        See :func:`pyarrow.compute.take` for full usage.
+
+        Parameters
+        ----------
+        indices : Array or array-like
+            The indices in the tabular object whose rows will be returned.
+
+        Returns
+        -------
+        Table or RecordBatch
+            A tabular object with the same schema, containing the taken rows.
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> import pandas as pd
+        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
+        ...                    'n_legs': [2, 4, 5, 100],
+        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
+        >>> table = pa.Table.from_pandas(df)
+        >>> table.take([1,3])
+        pyarrow.Table
+        year: int64
+        n_legs: int64
+        animals: string
+        ----
+        year: [[2022,2021]]
+        n_legs: [[4,100]]
+        animals: [["Horse","Centipede"]]
+        """
+        return _pc().take(self, indices)
+
+    def to_pydict(self):
+        """
+        Convert the Table or RecordBatch to a dict or OrderedDict.
+
+        Returns
+        -------
+        dict
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
+        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
+        >>> table = pa.Table.from_arrays([n_legs, animals], names=["n_legs", "animals"])
+        >>> table.to_pydict()
+        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
+        """
+        entries = []
+        for i in range(self.num_columns):
+            name = self.field(i).name
+            column = self[i].to_pylist()
+            entries.append((name, column))
+        return ordered_dict(entries)
+
+    def to_pylist(self):
+        """
+        Convert the Table or RecordBatch to a list of rows / dictionaries.
+
+        Returns
+        -------
+        list
+
+        Examples
+        --------
+        Table (works similarly for RecordBatch)
+
+        >>> import pyarrow as pa
+        >>> data = [[2, 4, 5, 100],
+        ...         ["Flamingo", "Horse", "Brittle stars", "Centipede"]]
+        >>> table = pa.table(data, names=["n_legs", "animals"])
+        >>> table.to_pylist()
+        [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
+        """
+        pydict = self.to_pydict()
+        names = self.schema.names
+        pylist = [{column: pydict[column][row] for column in names}
+                  for row in range(self.num_rows)]
+        return pylist
+
+    def to_string(self, *, show_metadata=False, preview_cols=0):
+        """
+        Return human-readable string representation of Table or RecordBatch.
+
+        Parameters
+        ----------
+        show_metadata : bool, default False
+            Display Field-level and Schema-level KeyValueMetadata.
+        preview_cols : int, default 0
+            Display values of the columns for the first N columns.
+
+        Returns
+        -------
+        str
+        """
+        # Use less verbose schema output.
+        schema_as_string = self.schema.to_string(
+            show_field_metadata=show_metadata,
+            show_schema_metadata=show_metadata
+        )
+        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
+        pieces = [title]
+        if preview_cols:
+            pieces.append('----')
+            for i in range(min(self.num_columns, preview_cols)):
+                pieces.append('{}: {}'.format(
+                    self.field(i).name,
+                    self.column(i).to_string(indent=0, skip_new_lines=True)
+                ))
+            if preview_cols < self.num_columns:
+                pieces.append('...')
+        return '\n'.join(pieces)
+
+
+cdef class RecordBatch(_Tabular):
     """
     Batch of rows of columns of equal length
 
@@ -1445,6 +2109,9 @@ cdef class RecordBatch(_PandasConvertible):
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
     >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names).to_pandas()
        n_legs        animals
     0       2       Flamingo
@@ -1469,6 +2136,12 @@ cdef class RecordBatch(_PandasConvertible):
     day: int64
     n_legs: int64
     animals: string
+    ----
+    year: [2020,2022,2021,2022]
+    month: [3,5,7,9]
+    day: [1,5,9,13]
+    n_legs: [2,4,5,100]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede"]
     >>> pa.RecordBatch.from_pandas(df).to_pandas()
        year  month  day  n_legs        animals
     0  2020      3    1       2       Flamingo
@@ -1503,181 +2176,27 @@ cdef class RecordBatch(_PandasConvertible):
     day: int64
     n_legs: int64
     animals: string
+    ----
+    year: [2020,2022,2021,2022]
+    month: [3,5,7,9]
+    day: [1,5,9,13]
+    n_legs: [2,4,5,100]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede"]
     """
 
     def __cinit__(self):
         self.batch = NULL
         self._schema = None
 
-    def __init__(self):
-        raise TypeError("Do not call RecordBatch's constructor directly, use "
-                        "one of the `RecordBatch.from_*` functions instead.")
-
     cdef void init(self, const shared_ptr[CRecordBatch]& batch):
         self.sp_batch = batch
         self.batch = batch.get()
 
-    # ----------------------------------------------------------------------
-    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
-        """
-        Return the dataframe interchange object implementing the interchange protocol.
-
-        Parameters
-        ----------
-        nan_as_null : bool, default False
-            Whether to tell the DataFrame to overwrite null values in the data
-            with ``NaN`` (or ``NaT``).
-        allow_copy : bool, default True
-            Whether to allow memory copying when exporting. If set to False
-            it would cause non-zero-copy exports to fail.
-
-        Returns
-        -------
-        DataFrame interchange object
-            The object which consuming library can use to ingress the dataframe.
-
-        Notes
-        -----
-        Details on the interchange protocol:
-        https://data-apis.org/dataframe-protocol/latest/index.html
-        `nan_as_null` currently has no effect; once support for nullable extension
-        dtypes is added, this value should be propagated to columns.
-        """
-
-        from pyarrow.interchange.dataframe import _PyArrowDataFrame
-
-        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
-
-    # ----------------------------------------------------------------------
-
-    @staticmethod
-    def from_pydict(mapping, schema=None, metadata=None):
-        """
-        Construct a RecordBatch from Arrow arrays or columns.
-
-        Parameters
-        ----------
-        mapping : dict or Mapping
-            A mapping of strings to Arrays or Python lists.
-        schema : Schema, default None
-            If not passed, will be inferred from the Mapping values.
-        metadata : dict or Mapping, default None
-            Optional metadata for the schema (if inferred).
-
-        Returns
-        -------
-        RecordBatch
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = [2, 2, 4, 4, 5, 100]
-        >>> animals = ["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"]
-        >>> pydict = {'n_legs': n_legs, 'animals': animals}
-
-        Construct a RecordBatch from arrays:
-
-        >>> pa.RecordBatch.from_pydict(pydict)
-        pyarrow.RecordBatch
-        n_legs: int64
-        animals: string
-        >>> pa.RecordBatch.from_pydict(pydict).to_pandas()
-           n_legs        animals
-        0       2       Flamingo
-        1       2         Parrot
-        2       4            Dog
-        3       4          Horse
-        4       5  Brittle stars
-        5     100      Centipede
-
-        Construct a RecordBatch with schema:
-
-        >>> my_schema = pa.schema([
-        ...     pa.field('n_legs', pa.int64()),
-        ...     pa.field('animals', pa.string())],
-        ...     metadata={"n_legs": "Number of legs per animal"})
-        >>> pa.RecordBatch.from_pydict(pydict, schema=my_schema).schema
-        n_legs: int64
-        animals: string
-        -- schema metadata --
-        n_legs: 'Number of legs per animal'
-        """
-
-        return _from_pydict(cls=RecordBatch,
-                            mapping=mapping,
-                            schema=schema,
-                            metadata=metadata)
-
-    @staticmethod
-    def from_pylist(mapping, schema=None, metadata=None):
-        """
-        Construct a RecordBatch from list of rows / dictionaries.
-
-        Parameters
-        ----------
-        mapping : list of dicts of rows
-            A mapping of strings to row values.
-        schema : Schema, default None
-            If not passed, will be inferred from the first row of the
-            mapping values.
-        metadata : dict or Mapping, default None
-            Optional metadata for the schema (if inferred).
-
-        Returns
-        -------
-        RecordBatch
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
-        ...           {'n_legs': 4, 'animals': 'Dog'}]
-        >>> pa.RecordBatch.from_pylist(pylist)
-        pyarrow.RecordBatch
-        n_legs: int64
-        animals: string
-        >>> pa.RecordBatch.from_pylist(pylist).to_pandas()
-           n_legs   animals
-        0       2  Flamingo
-        1       4       Dog
-
-        Construct a RecordBatch with metadata:
-
-        >>> my_metadata={"n_legs": "Number of legs per animal"}
-        >>> pa.RecordBatch.from_pylist(pylist, metadata=my_metadata).schema
-        n_legs: int64
-        animals: string
-        -- schema metadata --
-        n_legs: 'Number of legs per animal'
-        """
-
-        return _from_pylist(cls=RecordBatch,
-                            mapping=mapping,
-                            schema=schema,
-                            metadata=metadata)
+    def _is_initialized(self):
+        return self.batch != NULL
 
     def __reduce__(self):
         return _reconstruct_record_batch, (self.columns, self.schema)
-
-    def __len__(self):
-        return self.batch.num_rows()
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
-
-    def to_string(self, show_metadata=False):
-        # Use less verbose schema output.
-        schema_as_string = self.schema.to_string(
-            show_field_metadata=show_metadata,
-            show_schema_metadata=show_metadata
-        )
-        return 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
-
-    def __repr__(self):
-        return self.to_string()
 
     def validate(self, *, full=False):
         """
@@ -1791,7 +2310,7 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch.num_rows
         6
         """
-        return len(self)
+        return self.batch.num_rows()
 
     @property
     def schema(self):
@@ -1817,125 +2336,6 @@ cdef class RecordBatch(_PandasConvertible):
             self._schema = pyarrow_wrap_schema(self.batch.schema())
 
         return self._schema
-
-    def field(self, i):
-        """
-        Select a schema field by its column name or numeric index
-
-        Parameters
-        ----------
-        i : int or string
-            The index or name of the field to retrieve
-
-        Returns
-        -------
-        pyarrow.Field
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.field(0)
-        pyarrow.Field<n_legs: int64>
-        >>> batch.field(1)
-        pyarrow.Field<animals: string>
-        """
-        return self.schema.field(i)
-
-    @property
-    def columns(self):
-        """
-        List of all columns in numerical order
-
-        Returns
-        -------
-        list of pyarrow.Array
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.columns
-        [<pyarrow.lib.Int64Array object at ...>
-        [
-          2,
-          2,
-          4,
-          4,
-          5,
-          100
-        ], <pyarrow.lib.StringArray object at ...>
-        [
-          "Flamingo",
-          "Parrot",
-          "Dog",
-          "Horse",
-          "Brittle stars",
-          "Centipede"
-        ]]
-        """
-        return [self.column(i) for i in range(self.num_columns)]
-
-    def _ensure_integer_index(self, i):
-        """
-        Ensure integer index (convert string column name to integer if needed).
-        """
-        if isinstance(i, (bytes, str)):
-            field_indices = self.schema.get_all_field_indices(i)
-
-            if len(field_indices) == 0:
-                raise KeyError(
-                    "Field \"{}\" does not exist in record batch schema"
-                    .format(i))
-            elif len(field_indices) > 1:
-                raise KeyError(
-                    "Field \"{}\" exists {} times in record batch schema"
-                    .format(i, len(field_indices)))
-            else:
-                return field_indices[0]
-        elif isinstance(i, int):
-            return i
-        else:
-            raise TypeError("Index must either be string or integer")
-
-    def column(self, i):
-        """
-        Select single column from record batch
-
-        Parameters
-        ----------
-        i : int or string
-            The index or name of the column to retrieve.
-
-        Returns
-        -------
-        column : pyarrow.Array
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.column(1)
-        <pyarrow.lib.StringArray object at ...>
-        [
-          "Flamingo",
-          "Parrot",
-          "Dog",
-          "Horse",
-          "Brittle stars",
-          "Centipede"
-        ]
-        """
-        return self._column(self._ensure_integer_index(i))
 
     def _column(self, int i):
         """
@@ -2018,28 +2418,14 @@ cdef class RecordBatch(_PandasConvertible):
     def __sizeof__(self):
         return super(RecordBatch, self).__sizeof__() + self.nbytes
 
-    def __getitem__(self, key):
-        """
-        Slice or return column at given index or column name
-
-        Parameters
-        ----------
-        key : integer, str, or slice
-            Slices with step not equal to 1 (or None) will produce a copy
-            rather than a zero-copy view
-
-        Returns
-        -------
-        value : Array (index/column) or RecordBatch (slice)
-        """
-        if isinstance(key, slice):
-            return _normalize_slice(self, key)
-
-        return self.column(key)
-
     def serialize(self, memory_pool=None):
         """
-        Write RecordBatch to Buffer as encapsulated IPC message.
+        Write RecordBatch to Buffer as encapsulated IPC message, which does not
+        include a Schema.
+
+        To reconstruct a RecordBatch from the encapsulated IPC message Buffer
+        returned by this function, a Schema must be passed separately. See
+        Examples.
 
         Parameters
         ----------
@@ -2057,8 +2443,19 @@ cdef class RecordBatch(_PandasConvertible):
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
         ...                                     names=["n_legs", "animals"])
-        >>> batch.serialize()
+        >>> buf = batch.serialize()
+        >>> buf
         <pyarrow.Buffer address=0x... size=... is_cpu=True is_mutable=True>
+
+        Reconstruct RecordBatch from IPC message Buffer and original Schema
+
+        >>> pa.ipc.read_record_batch(buf, batch.schema)
+        pyarrow.RecordBatch
+        n_legs: int64
+        animals: string
+        ----
+        n_legs: [2,2,4,4,5,100]
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         """
         cdef shared_ptr[CBuffer] buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
@@ -2226,67 +2623,6 @@ cdef class RecordBatch(_PandasConvertible):
 
         return result
 
-    def take(self, object indices):
-        """
-        Select rows from the record batch.
-
-        See :func:`pyarrow.compute.take` for full usage.
-
-        Parameters
-        ----------
-        indices : Array or array-like
-            The indices in the record batch whose rows will be returned.
-
-        Returns
-        -------
-        taken : RecordBatch
-            A record batch with the same schema, containing the taken rows.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.take([1,3,4]).to_pandas()
-           n_legs        animals
-        0       2         Parrot
-        1       4          Horse
-        2       5  Brittle stars
-        """
-        return _pc().take(self, indices)
-
-    def drop_null(self):
-        """
-        Remove missing values from a RecordBatch.
-        See :func:`pyarrow.compute.drop_null` for full usage.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", None, "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pandas()
-           n_legs    animals
-        0       2   Flamingo
-        1       2     Parrot
-        2       4        Dog
-        3       4      Horse
-        4       5       None
-        5     100  Centipede
-        >>> batch.drop_null().to_pandas()
-           n_legs    animals
-        0       2   Flamingo
-        1       2     Parrot
-        2       4        Dog
-        3       4      Horse
-        4     100  Centipede
-        """
-        return _pc().drop_null(self)
-
     def select(self, object columns):
         """
         Select columns of the RecordBatch.
@@ -2316,12 +2652,16 @@ cdef class RecordBatch(_PandasConvertible):
         >>> batch.select([1])
         pyarrow.RecordBatch
         animals: string
+        ----
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
 
         Select columns by names:
 
         >>> batch.select(["n_legs"])
         pyarrow.RecordBatch
         n_legs: int64
+        ----
+        n_legs: [2,2,4,4,5,100]
         """
         cdef:
             shared_ptr[CRecordBatch] c_batch
@@ -2336,85 +2676,6 @@ cdef class RecordBatch(_PandasConvertible):
             c_batch = GetResultValue(self.batch.SelectColumns(move(c_indices)))
 
         return pyarrow_wrap_batch(c_batch)
-
-    def sort_by(self, sorting, **kwargs):
-        """
-        Sort the RecordBatch by one or multiple columns.
-
-        Parameters
-        ----------
-        sorting : str or list[tuple(name, order)]
-            Name of the column to use to sort (ascending), or
-            a list of multiple sorting conditions where
-            each entry is a tuple with column name
-            and sorting order ("ascending" or "descending")
-        **kwargs : dict, optional
-            Additional sorting options.
-            As allowed by :class:`SortOptions`
-
-        Returns
-        -------
-        RecordBatch
-            A new record batch sorted according to the sort keys.
-        """
-        if isinstance(sorting, str):
-            sorting = [(sorting, "ascending")]
-
-        indices = _pc().sort_indices(
-            self,
-            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
-        )
-        return self.take(indices)
-
-    def to_pydict(self):
-        """
-        Convert the RecordBatch to a dict or OrderedDict.
-
-        Returns
-        -------
-        dict
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pydict()
-        {'n_legs': [2, 2, 4, 4, 5, 100], 'animals': ['Flamingo', 'Parrot', ..., 'Centipede']}
-        """
-        entries = []
-        for i in range(self.batch.num_columns()):
-            name = bytes(self.batch.column_name(i)).decode('utf8')
-            column = self[i].to_pylist()
-            entries.append((name, column))
-        return ordered_dict(entries)
-
-    def to_pylist(self):
-        """
-        Convert the RecordBatch to a list of rows / dictionaries.
-
-        Returns
-        -------
-        list
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
-        >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
-        >>> batch.to_pylist()
-        [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 2, ...}, {'n_legs': 100, 'animals': 'Centipede'}]
-        """
-
-        pydict = self.to_pydict()
-        names = self.schema.names
-        pylist = [{column: pydict[column][row] for column in names}
-                  for row in range(self.num_rows)]
-        return pylist
 
     def _to_pandas(self, options, **kwargs):
         return Table.from_batches([self])._to_pandas(options, **kwargs)
@@ -2472,6 +2733,12 @@ cdef class RecordBatch(_PandasConvertible):
         day: int64
         n_legs: int64
         animals: string
+        ----
+        year: [2020,2022,2021,2022]
+        month: [3,5,7,9]
+        day: [1,5,9,13]
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
 
         Convert pandas DataFrame to RecordBatch using schema:
 
@@ -2483,12 +2750,17 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,4,5,100]
+        animals: ["Flamingo","Horse","Brittle stars","Centipede"]
 
         Convert pandas DataFrame to RecordBatch specifying columns:
 
         >>> pa.RecordBatch.from_pandas(df, columns=["n_legs"])
         pyarrow.RecordBatch
         n_legs: int64
+        ----
+        n_legs: [2,4,5,100]
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
@@ -2536,6 +2808,9 @@ cdef class RecordBatch(_PandasConvertible):
         pyarrow.RecordBatch
         n_legs: int64
         animals: string
+        ----
+        n_legs: [2,2,4,4,5,100]
+        animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         >>> pa.RecordBatch.from_arrays([n_legs, animals], names=names).to_pandas()
            n_legs        animals
         0       2       Flamingo
@@ -2729,8 +3004,9 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         c_options.extension_columns = {tobytes(col)
                                        for col in extension_columns}
 
-    # ARROW-3789(wesm); Convert date/timestamp types to datetime64[ns]
-    c_options.coerce_temporal_nanoseconds = True
+    if pandas_api.is_v1():
+        # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
+        c_options.coerce_temporal_nanoseconds = True
 
     if c_options.self_destruct:
         # Move the shared_ptr, table is now unsafe to use further
@@ -2748,7 +3024,7 @@ def table_to_blocks(options, Table table, categories, extension_columns):
     return PyObject_to_object(result_obj)
 
 
-cdef class Table(_PandasConvertible):
+cdef class Table(_Tabular):
     """
     A collection of top-level named, equal length Arrow arrays.
 
@@ -2863,52 +3139,12 @@ cdef class Table(_PandasConvertible):
     def __cinit__(self):
         self.table = NULL
 
-    def __init__(self):
-        raise TypeError("Do not call Table's constructor directly, use one of "
-                        "the `Table.from_*` functions instead.")
-
-    def to_string(self, *, show_metadata=False, preview_cols=0):
-        """
-        Return human-readable string representation of Table.
-
-        Parameters
-        ----------
-        show_metadata : bool, default False
-            Display Field-level and Schema-level KeyValueMetadata.
-        preview_cols : int, default 0
-            Display values of the columns for the first N columns.
-
-        Returns
-        -------
-        str
-        """
-        # Use less verbose schema output.
-        schema_as_string = self.schema.to_string(
-            show_field_metadata=show_metadata,
-            show_schema_metadata=show_metadata
-        )
-        title = 'pyarrow.{}\n{}'.format(type(self).__name__, schema_as_string)
-        pieces = [title]
-        if preview_cols:
-            pieces.append('----')
-            for i in range(min(self.num_columns, preview_cols)):
-                pieces.append('{}: {}'.format(
-                    self.field(i).name,
-                    self.column(i).to_string(indent=0, skip_new_lines=True)
-                ))
-            if preview_cols < self.num_columns:
-                pieces.append('...')
-        return '\n'.join(pieces)
-
-    def __repr__(self):
-        if self.table == NULL:
-            raise ValueError("Table's internal pointer is NULL, do not use "
-                             "any methods or attributes on this object")
-        return self.to_string(preview_cols=10)
-
     cdef void init(self, const shared_ptr[CTable]& table):
         self.sp_table = table
         self.table = table.get()
+
+    def _is_initialized(self):
+        return self.table != NULL
 
     def validate(self, *, full=False):
         """
@@ -2938,55 +3174,6 @@ cdef class Table(_PandasConvertible):
         # data twice
         columns = [col for col in self.columns]
         return _reconstruct_table, (columns, self.schema)
-
-    def __getitem__(self, key):
-        """
-        Slice or return column at given index or column name.
-
-        Parameters
-        ----------
-        key : integer, str, or slice
-            Slices with step not equal to 1 (or None) will produce a copy
-            rather than a zero-copy view.
-
-        Returns
-        -------
-        ChunkedArray (index/column) or Table (slice)
-        """
-        if isinstance(key, slice):
-            return _normalize_slice(self, key)
-
-        return self.column(key)
-
-    # ----------------------------------------------------------------------
-    def __dataframe__(self, nan_as_null: bool = False, allow_copy: bool = True):
-        """
-        Return the dataframe interchange object implementing the interchange protocol.
-        Parameters
-        ----------
-        nan_as_null : bool, default False
-            Whether to tell the DataFrame to overwrite null values in the data
-            with ``NaN`` (or ``NaT``).
-        allow_copy : bool, default True
-            Whether to allow memory copying when exporting. If set to False
-            it would cause non-zero-copy exports to fail.
-        Returns
-        -------
-        DataFrame interchange object
-            The object which consuming library can use to ingress the dataframe.
-        Notes
-        -----
-        Details on the interchange protocol:
-        https://data-apis.org/dataframe-protocol/latest/index.html
-        `nan_as_null` currently has no effect; once support for nullable extension
-        dtypes is added, this value should be propagated to columns.
-        """
-
-        from pyarrow.interchange.dataframe import _PyArrowDataFrame
-
-        return _PyArrowDataFrame(self, nan_as_null, allow_copy)
-
-    # ----------------------------------------------------------------------
 
     def slice(self, offset=0, length=None):
         """
@@ -3121,71 +3308,9 @@ cdef class Table(_PandasConvertible):
         animals: [["Flamingo","Horse",null]]
         """
         if isinstance(mask, _pc().Expression):
-            return _pc()._exec_plan._filter_table(self, mask,
-                                                  output_type=Table)
+            return _pac()._filter_table(self, mask)
         else:
             return _pc().filter(self, mask, null_selection_behavior)
-
-    def take(self, object indices):
-        """
-        Select rows from the table.
-
-        See :func:`pyarrow.compute.take` for full usage.
-
-        Parameters
-        ----------
-        indices : Array or array-like
-            The indices in the table whose rows will be returned.
-
-        Returns
-        -------
-        taken : Table
-            A table with the same schema, containing the taken rows.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.take([1,3])
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2022,2021]]
-        n_legs: [[4,100]]
-        animals: [["Horse","Centipede"]]
-        """
-        return _pc().take(self, indices)
-
-    def drop_null(self):
-        """
-        Remove missing values from a Table.
-        See :func:`pyarrow.compute.drop_null` for full usage.
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
-        ...                   'n_legs': [2, 4, 5, 100],
-        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.drop_null()
-        pyarrow.Table
-        year: double
-        n_legs: int64
-        animals: string
-        ----
-        year: [[2022,2021]]
-        n_legs: [[4,100]]
-        animals: [["Horse","Centipede"]]
-        """
-        return _pc().drop_null(self)
 
     def select(self, object columns):
         """
@@ -3470,12 +3595,6 @@ cdef class Table(_PandasConvertible):
                 deref(self.table), pool))
 
         return pyarrow_wrap_table(c_result)
-
-    def __eq__(self, other):
-        try:
-            return self.equals(other)
-        except TypeError:
-            return NotImplemented
 
     def equals(self, Table other, bint check_metadata=False):
         """
@@ -3772,116 +3891,6 @@ cdef class Table(_PandasConvertible):
         return result
 
     @staticmethod
-    def from_pydict(mapping, schema=None, metadata=None):
-        """
-        Construct a Table from Arrow arrays or columns.
-
-        Parameters
-        ----------
-        mapping : dict or Mapping
-            A mapping of strings to Arrays or Python lists.
-        schema : Schema, default None
-            If not passed, will be inferred from the Mapping values.
-        metadata : dict or Mapping, default None
-            Optional metadata for the schema (if inferred).
-
-        Returns
-        -------
-        Table
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
-        >>> pydict = {'n_legs': n_legs, 'animals': animals}
-
-        Construct a Table from a dictionary of arrays:
-
-        >>> pa.Table.from_pydict(pydict)
-        pyarrow.Table
-        n_legs: int64
-        animals: string
-        ----
-        n_legs: [[2,4,5,100]]
-        animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
-        >>> pa.Table.from_pydict(pydict).schema
-        n_legs: int64
-        animals: string
-
-        Construct a Table from a dictionary of arrays with metadata:
-
-        >>> my_metadata={"n_legs": "Number of legs per animal"}
-        >>> pa.Table.from_pydict(pydict, metadata=my_metadata).schema
-        n_legs: int64
-        animals: string
-        -- schema metadata --
-        n_legs: 'Number of legs per animal'
-        """
-
-        return _from_pydict(cls=Table,
-                            mapping=mapping,
-                            schema=schema,
-                            metadata=metadata)
-
-    @staticmethod
-    def from_pylist(mapping, schema=None, metadata=None):
-        """
-        Construct a Table from list of rows / dictionaries.
-
-        Parameters
-        ----------
-        mapping : list of dicts of rows
-            A mapping of strings to row values.
-        schema : Schema, default None
-            If not passed, will be inferred from the first row of the
-            mapping values.
-        metadata : dict or Mapping, default None
-            Optional metadata for the schema (if inferred).
-
-        Returns
-        -------
-        Table
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> n_legs = pa.array([2, 4, 5, 100])
-        >>> animals = pa.array(["Flamingo", "Horse", "Brittle stars", "Centipede"])
-        >>> pylist = [{'n_legs': 2, 'animals': 'Flamingo'},
-        ...           {'year': 2021, 'animals': 'Centipede'}]
-
-        Construct a Table from a list of rows:
-
-        >>> pa.Table.from_pylist(pylist)
-        pyarrow.Table
-        n_legs: int64
-        animals: string
-        ----
-        n_legs: [[2,null]]
-        animals: [["Flamingo","Centipede"]]
-
-        Construct a Table from a list of rows with pyarrow schema:
-
-        >>> my_schema = pa.schema([
-        ...     pa.field('year', pa.int64()),
-        ...     pa.field('n_legs', pa.int64()),
-        ...     pa.field('animals', pa.string())],
-        ...     metadata={"year": "Year of entry"})
-        >>> pa.Table.from_pylist(pylist, schema=my_schema).schema
-        year: int64
-        n_legs: int64
-        animals: string
-        -- schema metadata --
-        year: 'Year of entry'
-        """
-
-        return _from_pylist(cls=Table,
-                            mapping=mapping,
-                            schema=schema,
-                            metadata=metadata)
-
-    @staticmethod
     def from_batches(batches, Schema schema=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
@@ -4090,60 +4099,6 @@ cdef class Table(_PandasConvertible):
             types_mapper=types_mapper)
         return pandas_api.data_frame(mgr)
 
-    def to_pydict(self):
-        """
-        Convert the Table to a dict or OrderedDict.
-
-        Returns
-        -------
-        dict
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.to_pydict()
-        {'n_legs': [2, 4, 5, 100], 'animals': ['Flamingo', 'Horse', 'Brittle stars', 'Centipede']}
-        """
-        cdef:
-            size_t i
-            size_t num_columns = self.table.num_columns()
-            list entries = []
-            ChunkedArray column
-
-        for i in range(num_columns):
-            column = self.column(i)
-            entries.append((self.field(i).name, column.to_pylist()))
-
-        return ordered_dict(entries)
-
-    def to_pylist(self):
-        """
-        Convert the Table to a list of rows / dictionaries.
-
-        Returns
-        -------
-        list
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.to_pylist()
-        [{'n_legs': 2, 'animals': 'Flamingo'}, {'n_legs': 4, 'animals': 'Horse'}, ...
-        """
-        pydict = self.to_pydict()
-        names = self.schema.names
-        pylist = [{column: pydict[column][row] for column in names}
-                  for row in range(self.num_rows)]
-        return pylist
-
     @property
     def schema(self):
         """
@@ -4168,102 +4123,6 @@ cdef class Table(_PandasConvertible):
         """
         return pyarrow_wrap_schema(self.table.schema())
 
-    def field(self, i):
-        """
-        Select a schema field by its column name or numeric index.
-
-        Parameters
-        ----------
-        i : int or string
-            The index or name of the field to retrieve.
-
-        Returns
-        -------
-        Field
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.field(0)
-        pyarrow.Field<n_legs: int64>
-        >>> table.field(1)
-        pyarrow.Field<animals: string>
-        """
-        return self.schema.field(i)
-
-    def _ensure_integer_index(self, i):
-        """
-        Ensure integer index (convert string column name to integer if needed).
-        """
-        if isinstance(i, (bytes, str)):
-            field_indices = self.schema.get_all_field_indices(i)
-
-            if len(field_indices) == 0:
-                raise KeyError("Field \"{}\" does not exist in table schema"
-                               .format(i))
-            elif len(field_indices) > 1:
-                raise KeyError("Field \"{}\" exists {} times in table schema"
-                               .format(i, len(field_indices)))
-            else:
-                return field_indices[0]
-        elif isinstance(i, int):
-            return i
-        else:
-            raise TypeError("Index must either be string or integer")
-
-    def column(self, i):
-        """
-        Select a column by its column name, or numeric index.
-
-        Parameters
-        ----------
-        i : int or string
-            The index or name of the column to retrieve.
-
-        Returns
-        -------
-        ChunkedArray
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-
-        Select a column by numeric index:
-
-        >>> table.column(0)
-        <pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            2,
-            4,
-            5,
-            100
-          ]
-        ]
-
-        Select a column by its name:
-
-        >>> table.column("animals")
-        <pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            "Flamingo",
-            "Horse",
-            "Brittle stars",
-            "Centipede"
-          ]
-        ]
-        """
-        return self._column(self._ensure_integer_index(i))
-
     def _column(self, int i):
         """
         Select a column by its numeric index.
@@ -4282,67 +4141,6 @@ cdef class Table(_PandasConvertible):
             self.table.column(index))
         result._name = self.schema[index].name
         return result
-
-    def itercolumns(self):
-        """
-        Iterator over all columns in their numerical order.
-
-        Yields
-        ------
-        ChunkedArray
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
-        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> for i in table.itercolumns():
-        ...     print(i.null_count)
-        ...
-        2
-        1
-        """
-        for i in range(self.num_columns):
-            yield self._column(i)
-
-    @property
-    def columns(self):
-        """
-        List of all columns in numerical order.
-
-        Returns
-        -------
-        list of ChunkedArray
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [None, 4, 5, None],
-        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.columns
-        [<pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            null,
-            4,
-            5,
-            null
-          ]
-        ], <pyarrow.lib.ChunkedArray object at ...>
-        [
-          [
-            "Flamingo",
-            "Horse",
-            null,
-            "Centipede"
-          ]
-        ]]
-        """
-        return [self._column(i) for i in range(self.num_columns)]
 
     @property
     def num_columns(self):
@@ -4388,9 +4186,6 @@ cdef class Table(_PandasConvertible):
         4
         """
         return self.table.num_rows()
-
-    def __len__(self):
-        return self.num_rows
 
     @property
     def shape(self):
@@ -4684,28 +4479,6 @@ cdef class Table(_PandasConvertible):
 
         return pyarrow_wrap_table(c_table)
 
-    @property
-    def column_names(self):
-        """
-        Names of the table's columns.
-
-        Returns
-        -------
-        list of str
-
-        Examples
-        --------
-        >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'n_legs': [2, 4, 5, 100],
-        ...                    'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.column_names
-        ['n_legs', 'animals']
-        """
-        names = self.table.ColumnNames()
-        return [frombytes(name) for name in names]
-
     def rename_columns(self, names):
         """
         Create new table with columns renamed to provided names.
@@ -4856,61 +4629,13 @@ cdef class Table(_PandasConvertible):
         >>> table = pa.Table.from_pandas(df)
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
-        n_legs_sum: int64
         year: int64
+        n_legs_sum: int64
         ----
-        n_legs_sum: [[2,6,104,5]]
         year: [[2020,2022,2021,2019]]
+        n_legs_sum: [[2,6,104,5]]
         """
         return TableGroupBy(self, keys)
-
-    def sort_by(self, sorting, **kwargs):
-        """
-        Sort the table by one or multiple columns.
-
-        Parameters
-        ----------
-        sorting : str or list[tuple(name, order)]
-            Name of the column to use to sort (ascending), or
-            a list of multiple sorting conditions where
-            each entry is a tuple with column name
-            and sorting order ("ascending" or "descending")
-        **kwargs : dict, optional
-            Additional sorting options.
-            As allowed by :class:`SortOptions`
-
-        Returns
-        -------
-        Table
-            A new table sorted according to the sort keys.
-
-        Examples
-        --------
-        >>> import pandas as pd
-        >>> import pyarrow as pa
-        >>> df = pd.DataFrame({'year': [2020, 2022, 2021, 2022, 2019, 2021],
-        ...                    'n_legs': [2, 2, 4, 4, 5, 100],
-        ...                    'animal': ["Flamingo", "Parrot", "Dog", "Horse",
-        ...                    "Brittle stars", "Centipede"]})
-        >>> table = pa.Table.from_pandas(df)
-        >>> table.sort_by('animal')
-        pyarrow.Table
-        year: int64
-        n_legs: int64
-        animal: string
-        ----
-        year: [[2019,2021,2021,2020,2022,2022]]
-        n_legs: [[5,100,4,2,4,2]]
-        animal: [["Brittle stars","Centipede","Dog","Flamingo","Horse","Parrot"]]
-        """
-        if isinstance(sorting, str):
-            sorting = [(sorting, "ascending")]
-
-        indices = _pc().sort_indices(
-            self,
-            options=_pc().SortOptions(sort_keys=sorting, **kwargs)
-        )
-        return self.take(indices)
 
     def join(self, right_table, keys, right_keys=None, join_type="left outer",
              left_suffix=None, right_suffix=None, coalesce_keys=True,
@@ -5021,10 +4746,12 @@ cdef class Table(_PandasConvertible):
         """
         if right_keys is None:
             right_keys = keys
-        return _pc()._exec_plan._perform_join(join_type, self, keys, right_table, right_keys,
-                                              left_suffix=left_suffix, right_suffix=right_suffix,
-                                              use_threads=use_threads, coalesce_keys=coalesce_keys,
-                                              output_type=Table)
+        return _pac()._perform_join(
+            join_type, self, keys, right_table, right_keys,
+            left_suffix=left_suffix, right_suffix=right_suffix,
+            use_threads=use_threads, coalesce_keys=coalesce_keys,
+            output_type=Table
+        )
 
     def join_asof(self, right_table, on, by, tolerance, right_on=None, right_by=None):
         """
@@ -5098,8 +4825,9 @@ cdef class Table(_PandasConvertible):
             right_on = on
         if right_by is None:
             right_by = by
-        return _pc()._exec_plan._perform_join_asof(self, on, by, right_table, right_on, right_by,
-                                                   tolerance, output_type=Table)
+        return _pac()._perform_join_asof(self, on, by,
+                                         right_table, right_on, right_by,
+                                         tolerance, output_type=Table)
 
 
 def _reconstruct_table(arrays, schema):
@@ -5148,6 +4876,9 @@ def record_batch(data, names=None, schema=None, metadata=None):
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
     >>> pa.record_batch([n_legs, animals], names=["n_legs", "animals"]).to_pandas()
        n_legs        animals
     0       2       Flamingo
@@ -5166,6 +4897,9 @@ def record_batch(data, names=None, schema=None, metadata=None):
     pyarrow.RecordBatch
     n_legs: int64
     animals: string
+    ----
+    n_legs: [2,2,4,4,5,100]
+    animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
     >>> pa.record_batch([n_legs, animals],
     ...                  names=names,
     ...                  metadata = my_metadata).schema
@@ -5189,6 +4923,13 @@ def record_batch(data, names=None, schema=None, metadata=None):
     day: int64
     n_legs: int64
     animals: string
+    ----
+    year: [2020,2022,2021,2022]
+    month: [3,5,7,9]
+    day: [1,5,9,13]
+    n_legs: [2,4,5,100]
+    animals: ["Flamingo","Horse","Brittle stars","Centipede"]
+
     >>> pa.record_batch(df).to_pandas()
        year  month  day  n_legs        animals
     0  2020      3    1       2       Flamingo
@@ -5536,11 +5277,11 @@ class TableGroupBy:
 
     >>> pa.TableGroupBy(t,"keys").aggregate([("values", "sum")])
     pyarrow.Table
-    values_sum: int64
     keys: string
+    values_sum: int64
     ----
-    values_sum: [[3,7,5]]
     keys: [["a","b","c"]]
+    values_sum: [[3,7,5]]
     """
 
     def __init__(self, table, keys):
@@ -5566,6 +5307,9 @@ list[tuple(str, str, FunctionOptions)]
             column names, for unary, nullary and n-ary aggregation functions
             respectively.
 
+            For the list of function names and respective aggregation
+            function options see :ref:`py-grouped-aggrs`.
+
         Returns
         -------
         Table
@@ -5578,20 +5322,58 @@ list[tuple(str, str, FunctionOptions)]
         ...       pa.array(["a", "a", "b", "b", "c"]),
         ...       pa.array([1, 2, 3, 4, 5]),
         ... ], names=["keys", "values"])
+
+        Sum the column "values" over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([("values", "sum")])
         pyarrow.Table
-        values_sum: int64
         keys: string
+        values_sum: int64
         ----
-        values_sum: [[3,7,5]]
         keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
+
+        Count the rows over the grouped column "keys":
+
         >>> t.group_by("keys").aggregate([([], "count_all")])
         pyarrow.Table
-        count_all: int64
         keys: string
+        count_all: int64
         ----
-        count_all: [[2,2,1]]
         keys: [["a","b","c"]]
+        count_all: [[2,2,1]]
+
+        Do multiple aggregations:
+
+        >>> t.group_by("keys").aggregate([
+        ...    ("values", "sum"),
+        ...    ("keys", "count")
+        ... ])
+        pyarrow.Table
+        keys: string
+        values_sum: int64
+        keys_count: int64
+        ----
+        keys: [["a","b","c"]]
+        values_sum: [[3,7,5]]
+        keys_count: [[2,2,1]]
+
+        Count the number of non-null values for column "values"
+        over the grouped column "keys":
+
+        >>> import pyarrow.compute as pc
+        >>> t.group_by(["keys"]).aggregate([
+        ...    ("values", "count", pc.CountOptions(mode="only_valid"))
+        ... ])
+        pyarrow.Table
+        keys: string
+        values_count: int64
+        ----
+        keys: [["a","b","c"]]
+        values_count: [[2,2,1]]
+
+        Get a single row for each group in column "keys":
+
         >>> t.group_by("keys").aggregate([])
         pyarrow.Table
         keys: string
@@ -5620,11 +5402,6 @@ list[tuple(str, str, FunctionOptions)]
                 aggr_name = func_nohash
             else:
                 aggr_name = "_".join(target) + "_" + func_nohash
-            # Calculate target indices by resolving field names
-            target_indices = [
-                self._table.schema.get_field_index(f) for f in target]
-            group_by_aggrs.append((target_indices, func, opt, aggr_name))
+            group_by_aggrs.append((target, func, opt, aggr_name))
 
-        key_indices = [
-            self._table.schema.get_field_index(k) for k in self.keys]
-        return _pc()._group_by(self._table, group_by_aggrs, key_indices)
+        return _pac()._group_by(self._table, group_by_aggrs, self.keys)

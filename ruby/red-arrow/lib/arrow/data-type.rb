@@ -199,5 +199,14 @@ module Arrow
       args.unshift(self) unless builder_class.buildable?(args)
       builder_class.build(*args)
     end
+
+    # @return [Arrow::Scalar} A corresponding {Arrow::Scalar} class
+    #   for this data type.
+    #
+    # @since 12.0.0
+    def scalar_class
+      base_name = self.class.name.gsub(/DataType\z/, "")
+      ::Arrow.const_get("#{base_name}Scalar")
+    end
   end
 end

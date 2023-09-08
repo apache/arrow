@@ -68,26 +68,26 @@ tab <- Table$create(tbl)
 test_that("[, [[, $ for Table", {
   expect_identical(names(tab), names(tbl))
 
-  expect_data_frame(tab[6:7, ], tbl[6:7, ])
-  expect_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
-  expect_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
+  expect_equal_data_frame(tab[6:7, ], tbl[6:7, ])
+  expect_equal_data_frame(tab[6:7, 2:4], tbl[6:7, 2:4])
+  expect_equal_data_frame(tab[, c("dbl", "fct")], tbl[, c(2, 5)])
   expect_as_vector(tab[, "chr", drop = TRUE], tbl$chr)
   # Take within a single chunk
-  expect_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
-  expect_data_frame(tab[rep(c(FALSE, TRUE), 5), ], tbl[c(2, 4, 6, 8, 10), ])
+  expect_equal_data_frame(tab[c(7, 3, 5), 2:4], tbl[c(7, 3, 5), 2:4])
+  expect_equal_data_frame(tab[rep(c(FALSE, TRUE), 5), ], tbl[c(2, 4, 6, 8, 10), ])
   # bool ChunkedArray (with one chunk)
-  expect_data_frame(tab[tab$lgl, ], tbl[tbl$lgl, ])
+  expect_equal_data_frame(tab[tab$lgl, ], tbl[tbl$lgl, ])
   # ChunkedArray with multiple chunks
   c1 <- c(TRUE, FALSE, TRUE, TRUE, FALSE)
   c2 <- c(FALSE, FALSE, TRUE, TRUE, FALSE)
   ca <- ChunkedArray$create(c1, c2)
-  expect_data_frame(tab[ca, ], tbl[c(1, 3, 4, 8, 9), ])
+  expect_equal_data_frame(tab[ca, ], tbl[c(1, 3, 4, 8, 9), ])
   # int Array
-  expect_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
+  expect_equal_data_frame(tab[Array$create(5:6), 2:4], tbl[6:7, 2:4])
   # ChunkedArray
-  expect_data_frame(tab[ChunkedArray$create(5L, 6L), 2:4], tbl[6:7, 2:4])
+  expect_equal_data_frame(tab[ChunkedArray$create(5L, 6L), 2:4], tbl[6:7, 2:4])
   # Expression
-  expect_data_frame(tab[tab$int > 6, ], tbl[tbl$int > 6, ])
+  expect_equal_data_frame(tab[tab$int > 6, ], tbl[tbl$int > 6, ])
 
   expect_as_vector(tab[["int"]], tbl$int)
   expect_as_vector(tab$int, tbl$int)
@@ -95,9 +95,9 @@ test_that("[, [[, $ for Table", {
   expect_null(tab$qwerty)
   expect_null(tab[["asdf"]])
   # List-like column slicing
-  expect_data_frame(tab[2:4], tbl[2:4])
-  expect_data_frame(tab[c(2, 1)], tbl[c(2, 1)])
-  expect_data_frame(tab[-3], tbl[-3])
+  expect_equal_data_frame(tab[2:4], tbl[2:4])
+  expect_equal_data_frame(tab[c(2, 1)], tbl[c(2, 1)])
+  expect_equal_data_frame(tab[-3], tbl[-3])
 
   expect_error(tab[[c(4, 3)]])
   expect_error(tab[[NA]], "'i' must be character or numeric, not logical")
@@ -112,21 +112,21 @@ test_that("[, [[, $ for Table", {
   expect_error(tab[, c(6, NA)], "Column indices cannot be NA")
 
   skip("Table with 0 cols doesn't know how many rows it should have")
-  expect_data_frame(tab[0], tbl[0])
+  expect_equal_data_frame(tab[0], tbl[0])
 })
 
 test_that("[[<- assignment", {
   # can remove a column
   tab[["chr"]] <- NULL
-  expect_data_frame(tab, tbl[-4])
+  expect_equal_data_frame(tab, tbl[-4])
 
   # can remove a column by index
   tab[[4]] <- NULL
-  expect_data_frame(tab, tbl[1:3])
+  expect_equal_data_frame(tab, tbl[1:3])
 
   # can add a named column
   tab[["new"]] <- letters[10:1]
-  expect_data_frame(tab, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
+  expect_equal_data_frame(tab, dplyr::bind_cols(tbl[1:3], new = letters[10:1]))
 
   # can replace a column by index
   tab[[2]] <- as.numeric(10:1)
@@ -177,10 +177,10 @@ test_that("[[<- assignment", {
 
 test_that("Table$Slice", {
   tab2 <- tab$Slice(5)
-  expect_data_frame(tab2, tbl[6:10, ])
+  expect_equal_data_frame(tab2, tbl[6:10, ])
 
   tab3 <- tab$Slice(5, 2)
-  expect_data_frame(tab3, tbl[6:7, ])
+  expect_equal_data_frame(tab3, tbl[6:7, ])
 
   # Input validation
   expect_error(tab$Slice("ten"))
@@ -199,16 +199,16 @@ test_that("Table$Slice", {
 })
 
 test_that("head and tail on Table", {
-  expect_data_frame(head(tab), head(tbl))
-  expect_data_frame(head(tab, 4), head(tbl, 4))
-  expect_data_frame(head(tab, 40), head(tbl, 40))
-  expect_data_frame(head(tab, -4), head(tbl, -4))
-  expect_data_frame(head(tab, -40), head(tbl, -40))
-  expect_data_frame(tail(tab), tail(tbl))
-  expect_data_frame(tail(tab, 4), tail(tbl, 4))
-  expect_data_frame(tail(tab, 40), tail(tbl, 40))
-  expect_data_frame(tail(tab, -4), tail(tbl, -4))
-  expect_data_frame(tail(tab, -40), tail(tbl, -40))
+  expect_equal_data_frame(head(tab), head(tbl))
+  expect_equal_data_frame(head(tab, 4), head(tbl, 4))
+  expect_equal_data_frame(head(tab, 40), head(tbl, 40))
+  expect_equal_data_frame(head(tab, -4), head(tbl, -4))
+  expect_equal_data_frame(head(tab, -40), head(tbl, -40))
+  expect_equal_data_frame(tail(tab), tail(tbl))
+  expect_equal_data_frame(tail(tab, 4), tail(tbl, 4))
+  expect_equal_data_frame(tail(tab, 40), tail(tbl, 40))
+  expect_equal_data_frame(tail(tab, -4), tail(tbl, -4))
+  expect_equal_data_frame(tail(tab, -40), tail(tbl, -40))
 })
 
 test_that("Table print method", {
@@ -265,10 +265,9 @@ test_that("table() handles ... of arrays, chunked arrays, vectors", {
     tab$schema,
     schema(a = int32(), b = int32(), c = float64(), x = int32(), y = utf8())
   )
-  res <- as.data.frame(tab)
-  expect_equal(names(res), c("a", "b", "c", "x", "y"))
-  expect_equal(
-    res,
+
+  expect_equal_data_frame(
+    tab,
     tibble::tibble(a = 1:10, b = 1:10, c = v, x = 1:10, y = letters[1:10])
   )
 })
@@ -280,14 +279,14 @@ test_that("table() auto splices (ARROW-5718)", {
   tab2 <- Table$create(!!!df)
   expect_equal(tab1, tab2)
   expect_equal(tab1$schema, schema(x = int32(), y = utf8()))
-  expect_equal(as.data.frame(tab1), df)
+  expect_equal_data_frame(tab1, df)
 
   s <- schema(x = float64(), y = utf8())
   tab3 <- Table$create(df, schema = s)
   tab4 <- Table$create(!!!df, schema = s)
   expect_equal(tab3, tab4)
   expect_equal(tab3$schema, s)
-  expect_equal(as.data.frame(tab3), df)
+  expect_equal_data_frame(tab3, df)
 })
 
 test_that("Validation when creating table with schema (ARROW-10953)", {
@@ -366,7 +365,7 @@ test_that("Can create table with specific dictionary types", {
     expect_equal(sch, tab$schema)
     if (i != int64()) {
       # TODO: same downcast to int32 as we do for int64() type elsewhere
-      expect_identical(as.data.frame(tab), fact)
+      expect_equal_data_frame(tab, fact)
     }
   }
 })
@@ -380,7 +379,7 @@ test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
   res <- tibble::tibble(f = factor(c("a", "c", NA), levels = c("a", "b", "c", "d")))
   tab <- Table$create(b1, b2, b3, b4)
 
-  expect_identical(as.data.frame(tab), res)
+  expect_equal_data_frame(tab, res)
 })
 
 test_that("Table$SelectColumns()", {
@@ -410,24 +409,24 @@ test_that("Table$create() with different length columns", {
 })
 
 test_that("Table$create() scalar recycling with vectors", {
-  expect_data_frame(
+  expect_equal_data_frame(
     Table$create(a = 1:10, b = 5),
     tibble::tibble(a = 1:10, b = 5)
   )
 })
 
 test_that("Table$create() scalar recycling with Scalars, Arrays, and ChunkedArrays", {
-  expect_data_frame(
+  expect_equal_data_frame(
     Table$create(a = Array$create(1:10), b = Scalar$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
 
-  expect_data_frame(
+  expect_equal_data_frame(
     Table$create(a = Array$create(1:10), b = Array$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
 
-  expect_data_frame(
+  expect_equal_data_frame(
     Table$create(a = Array$create(1:10), b = ChunkedArray$create(5)),
     tibble::tibble(a = 1:10, b = 5)
   )
@@ -704,4 +703,40 @@ test_that("can create empty table from schema", {
   expect_r6_class(out, "Table")
   expect_equal(nrow(out), 0)
   expect_equal(out$schema, schema)
+})
+
+test_that("as_arrow_table() errors on data.frame with NULL names", {
+  df <- data.frame(a = 1, b = "two")
+  names(df) <- NULL
+  expect_error(as_arrow_table(df), "Input data frame columns must be named")
+})
+
+test_that("# GH-35038 - passing in multiple arguments doesn't affect return type", {
+
+  df <- data.frame(x = 1)
+  out1 <- as.data.frame(arrow_table(df, name = "1"))
+  out2 <- as.data.frame(arrow_table(name = "1", df))
+
+  expect_s3_class(out1, c("data.frame"), exact = TRUE)
+  expect_s3_class(out2, c("data.frame"), exact = TRUE)
+})
+
+test_that("as.data.frame() on ArrowTabular objects returns a base R data.frame regardless of input type", {
+  df <- data.frame(x = 1)
+  out1 <- as.data.frame(arrow_table(df))
+  expect_s3_class(out1, "data.frame", exact = TRUE)
+
+  tib <- tibble::tibble(x = 1)
+  out2 <- as.data.frame(arrow_table(tib))
+  expect_s3_class(out2, "data.frame", exact = TRUE)
+})
+
+test_that("collect() on ArrowTabular objects returns a tibble regardless of input type", {
+  df <- data.frame(x = 1)
+  out1 <- dplyr::collect(arrow_table(df))
+  expect_s3_class(out1, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
+
+  tib <- tibble::tibble(x = 1)
+  out2 <- dplyr::collect(arrow_table(tib))
+  expect_s3_class(out2, c("tbl_df", "tbl", "data.frame"), exact = TRUE)
 })

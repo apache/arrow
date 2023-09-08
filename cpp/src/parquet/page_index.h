@@ -26,8 +26,10 @@
 namespace parquet {
 
 class ColumnDescriptor;
+class EncodedStatistics;
 class FileMetaData;
 class InternalFileDecryptor;
+struct PageIndexLocation;
 class ReaderProperties;
 class RowGroupMetaData;
 class RowGroupPageIndexReader;
@@ -62,7 +64,7 @@ class PARQUET_EXPORT ColumnIndex {
 
   /// \brief The ordering of lower and upper bounds.
   ///
-  /// The boundary order applies accross all lower bounds, and all upper bounds,
+  /// The boundary order applies across all lower bounds, and all upper bounds,
   /// respectively. However, the order between lower bounds and upper bounds
   /// cannot be derived from this.
   virtual BoundaryOrder::type boundary_order() const = 0;
@@ -159,6 +161,9 @@ struct PageIndexSelection {
   bool offset_index = false;
 };
 
+PARQUET_EXPORT
+std::ostream& operator<<(std::ostream& out, const PageIndexSelection& params);
+
 struct RowGroupIndexReadRange {
   /// Base start and total size of column index of all column chunks in a row group.
   /// If none of the column chunks have column index, it is set to std::nullopt.
@@ -248,6 +253,118 @@ class PARQUET_EXPORT PageIndexReader {
   ///          is corrupted.
   static RowGroupIndexReadRange DeterminePageIndexRangesInRowGroup(
       const RowGroupMetaData& row_group_metadata, const std::vector<int32_t>& columns);
+};
+
+/// \brief Interface for collecting column index of data pages in a column chunk.
+class PARQUET_EXPORT ColumnIndexBuilder {
+ public:
+  /// \brief API convenience to create a ColumnIndexBuilder.
+  static std::unique_ptr<ColumnIndexBuilder> Make(const ColumnDescriptor* descr);
+
+  virtual ~ColumnIndexBuilder() = default;
+
+  /// \brief Add statistics of a data page.
+  ///
+  /// If the ColumnIndexBuilder has seen any corrupted statistics, it will
+  /// not update statistics any more.
+  ///
+  /// \param stats Page statistics in the encoded form.
+  virtual void AddPage(const EncodedStatistics& stats) = 0;
+
+  /// \brief Complete the column index.
+  ///
+  /// Once called, AddPage() can no longer be called.
+  /// WriteTo() and Build() can only called after Finish() has been called.
+  virtual void Finish() = 0;
+
+  /// \brief Serialize the column index thrift message.
+  ///
+  /// If the ColumnIndexBuilder has seen any corrupted statistics, it will
+  /// not write any data to the sink.
+  ///
+  /// \param[out] sink output stream to write the serialized message.
+  virtual void WriteTo(::arrow::io::OutputStream* sink) const = 0;
+
+  /// \brief Create a ColumnIndex directly.
+  ///
+  /// \return If the ColumnIndexBuilder has seen any corrupted statistics, it simply
+  /// returns nullptr. Otherwise the column index is built and returned.
+  virtual std::unique_ptr<ColumnIndex> Build() const = 0;
+};
+
+/// \brief Interface for collecting offset index of data pages in a column chunk.
+class PARQUET_EXPORT OffsetIndexBuilder {
+ public:
+  /// \brief API convenience to create a OffsetIndexBuilder.
+  static std::unique_ptr<OffsetIndexBuilder> Make();
+
+  virtual ~OffsetIndexBuilder() = default;
+
+  /// \brief Add page location of a data page.
+  virtual void AddPage(int64_t offset, int32_t compressed_page_size,
+                       int64_t first_row_index) = 0;
+
+  /// \brief Add page location of a data page.
+  void AddPage(const PageLocation& page_location) {
+    AddPage(page_location.offset, page_location.compressed_page_size,
+            page_location.first_row_index);
+  }
+
+  /// \brief Complete the offset index.
+  ///
+  /// In the buffered row group mode, data pages are flushed into memory
+  /// sink and the OffsetIndexBuilder has only collected the relative offset
+  /// which requires adjustment once they are flushed to the file.
+  ///
+  /// \param final_position Final stream offset to add for page offset adjustment.
+  virtual void Finish(int64_t final_position) = 0;
+
+  /// \brief Serialize the offset index thrift message.
+  ///
+  /// \param[out] sink output stream to write the serialized message.
+  virtual void WriteTo(::arrow::io::OutputStream* sink) const = 0;
+
+  /// \brief Create an OffsetIndex directly.
+  virtual std::unique_ptr<OffsetIndex> Build() const = 0;
+};
+
+/// \brief Interface for collecting page index of a parquet file.
+class PARQUET_EXPORT PageIndexBuilder {
+ public:
+  /// \brief API convenience to create a PageIndexBuilder.
+  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema);
+
+  virtual ~PageIndexBuilder() = default;
+
+  /// \brief Start a new row group.
+  virtual void AppendRowGroup() = 0;
+
+  /// \brief Get the ColumnIndexBuilder from column ordinal.
+  ///
+  /// \param i Column ordinal.
+  /// \return ColumnIndexBuilder for the column and its memory ownership belongs to
+  /// the PageIndexBuilder.
+  virtual ColumnIndexBuilder* GetColumnIndexBuilder(int32_t i) = 0;
+
+  /// \brief Get the OffsetIndexBuilder from column ordinal.
+  ///
+  /// \param i Column ordinal.
+  /// \return OffsetIndexBuilder for the column and its memory ownership belongs to
+  /// the PageIndexBuilder.
+  virtual OffsetIndexBuilder* GetOffsetIndexBuilder(int32_t i) = 0;
+
+  /// \brief Complete the page index builder and no more write is allowed.
+  virtual void Finish() = 0;
+
+  /// \brief Serialize the page index thrift message.
+  ///
+  /// Only valid column indexes and offset indexes are serialized and their locations
+  /// are set.
+  ///
+  /// \param[out] sink The output stream to write the page index.
+  /// \param[out] location The location of all page index to the start of sink.
+  virtual void WriteTo(::arrow::io::OutputStream* sink,
+                       PageIndexLocation* location) const = 0;
 };
 
 }  // namespace parquet

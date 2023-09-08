@@ -23,11 +23,11 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 type BooleanBuilder struct {
@@ -77,9 +77,34 @@ func (b *BooleanBuilder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *BooleanBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *BooleanBuilder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.UnsafeAppend(false)
+}
+
+func (b *BooleanBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
+}
+
+func (b *BooleanBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	val, err := strconv.ParseBool(s)
+	if err != nil {
+		return err
+	}
+	b.Append(val)
+	return nil
 }
 
 func (b *BooleanBuilder) UnsafeAppend(v bool) {
@@ -172,7 +197,7 @@ func (b *BooleanBuilder) newData() *Data {
 	return res
 }
 
-func (b *BooleanBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *BooleanBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -205,9 +230,9 @@ func (b *BooleanBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *BooleanBuilder) unmarshal(dec *json.Decoder) error {
+func (b *BooleanBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -226,7 +251,11 @@ func (b *BooleanBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("boolean builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
+}
+
+func (b *BooleanBuilder) Value(i int) bool {
+	return bitutil.BitIsSet(b.rawData, i)
 }
 
 var (

@@ -15,7 +15,7 @@ index 5a14562..924b1b7 100644
  vcpkg_cmake_install()
  vcpkg_copy_pdbs()
 diff --git a/ports/snappy/portfile.cmake b/ports/snappy/portfile.cmake
-index df95a08..d740ce7 100644
+index 8f3f3f9..745b0fb 100644
 --- a/ports/snappy/portfile.cmake
 +++ b/ports/snappy/portfile.cmake
 @@ -9,6 +9,7 @@ vcpkg_from_github(
@@ -28,7 +28,7 @@ index df95a08..d740ce7 100644
  vcpkg_cmake_configure(
 diff --git a/ports/snappy/snappy-disable-bmi.patch b/ports/snappy/snappy-disable-bmi.patch
 new file mode 100644
-index 0000000000..a57ce0c22f
+index 0000000..a57ce0c
 --- /dev/null
 +++ b/ports/snappy/snappy-disable-bmi.patch
 @@ -0,0 +1,19 @@
@@ -51,16 +51,3 @@ index 0000000000..a57ce0c22f
 + }
 + 
 + static inline bool LeftShiftOverflows(uint8_t value, uint32_t shift) {
-diff --git a/scripts/cmake/vcpkg_find_acquire_program.cmake b/scripts/cmake/vcpkg_find_acquire_program.cmake
-index 4611af6..d11936f 100644
---- a/scripts/cmake/vcpkg_find_acquire_program.cmake
-+++ b/scripts/cmake/vcpkg_find_acquire_program.cmake
-@@ -239,7 +239,7 @@ function(vcpkg_find_acquire_program program)
-             set(paths_to_search "${DOWNLOADS}/tools/python/${tool_subdirectory}")
-             vcpkg_list(SET post_install_command "${CMAKE_COMMAND}" -E rm python310._pth)
-         else()
--            set(program_name python3)
-+            set(program_name python)
-             set(brew_package_name "python")
-             set(apt_package_name "python3")
-         endif()

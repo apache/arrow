@@ -70,6 +70,8 @@ module Arrow
       require "arrow/decimal256-array"
       require "arrow/decimal256-array-builder"
       require "arrow/decimal256-data-type"
+      require "arrow/dense-union-array"
+      require "arrow/dense-union-array-builder"
       require "arrow/dense-union-data-type"
       require "arrow/dictionary-array"
       require "arrow/dictionary-data-type"
@@ -109,6 +111,8 @@ module Arrow
       require "arrow/sort-key"
       require "arrow/sort-options"
       require "arrow/source-node-options"
+      require "arrow/sparse-union-array"
+      require "arrow/sparse-union-array-builder"
       require "arrow/sparse-union-data-type"
       require "arrow/string-dictionary-array-builder"
       require "arrow/string-array-builder"
@@ -134,6 +138,7 @@ module Arrow
       require "arrow/timestamp-array"
       require "arrow/timestamp-array-builder"
       require "arrow/timestamp-data-type"
+      require "arrow/union-array-builder"
       require "arrow/writable"
     end
 

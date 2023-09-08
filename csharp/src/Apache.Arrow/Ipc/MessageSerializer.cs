@@ -59,7 +59,7 @@ namespace Apache.Arrow.Ipc
             for (int i = 0; i < schema.FieldsLength; i++)
             {
                 Flatbuf.Field field = schema.Fields(i).GetValueOrDefault();
-                fields.Add(FieldFromFlatbuffer(field, ref dictionaryMemo));
+                fields.Add(FieldFromFlatbuffer(field, ref dictionaryMemo, allowBlankName: false));
             }
 
             Dictionary<string, string> metadata = schema.CustomMetadataLength > 0 ? new Dictionary<string, string>() : null;
@@ -73,13 +73,14 @@ namespace Apache.Arrow.Ipc
             return new Schema(fields, metadata, copyCollections: false);
         }
 
-        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, ref DictionaryMemo dictionaryMemo)
+        private static Field FieldFromFlatbuffer(Flatbuf.Field flatbufField, ref DictionaryMemo dictionaryMemo, bool allowBlankName)
         {
+            bool allowBlankNameChild = flatbufField.ChildrenLength == 1 && flatbufField.TypeType == Flatbuf.Type.FixedSizeList;
             Field[] childFields = flatbufField.ChildrenLength > 0 ? new Field[flatbufField.ChildrenLength] : null;
             for (int i = 0; i < flatbufField.ChildrenLength; i++)
             {
                 Flatbuf.Field? childFlatbufField = flatbufField.Children(i);
-                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, ref dictionaryMemo);
+                childFields[i] = FieldFromFlatbuffer(childFlatbufField.Value, ref dictionaryMemo, allowBlankNameChild);
             }
 
             Flatbuf.DictionaryEncoding? dictionaryEncoding = flatbufField.Dictionary;
@@ -103,7 +104,7 @@ namespace Apache.Arrow.Ipc
                 metadata[keyValue.Key] = keyValue.Value;
             }
 
-            var arrowField = new Field(flatbufField.Name, type, flatbufField.Nullable, metadata, copyCollections: false);
+            var arrowField = new Field(flatbufField.Name, type, flatbufField.Nullable, metadata, copyCollections: false, allowBlankName);
 
             if (dictionaryEncoding.HasValue)
             {
@@ -118,6 +119,8 @@ namespace Apache.Arrow.Ipc
         {
             switch (field.TypeType)
             {
+                case Flatbuf.Type.Null:
+                    return Types.NullType.Default;
                 case Flatbuf.Type.Int:
                     Flatbuf.Int intMetaData = field.Type<Flatbuf.Int>().Value;
                     return MessageSerializer.GetNumberType(intMetaData.BitWidth, intMetaData.IsSigned);
@@ -135,7 +138,7 @@ namespace Apache.Arrow.Ipc
                             throw new InvalidDataException("Unsupported floating point precision");
                     }
                 case Flatbuf.Type.Bool:
-                    return new Types.BooleanType();
+                    return Types.BooleanType.Default;
                 case Flatbuf.Type.Decimal:
                     Flatbuf.Decimal decMeta = field.Type<Flatbuf.Decimal>().Value;
                     switch (decMeta.BitWidth)
@@ -163,9 +166,9 @@ namespace Apache.Arrow.Ipc
                     switch (timeMeta.BitWidth)
                     {
                         case 32:
-                            return new Types.Time32Type(timeMeta.Unit.ToArrow());
+                            return (Time32Type)TimeType.FromTimeUnit(timeMeta.Unit.ToArrow());
                         case 64:
-                            return new Types.Time64Type(timeMeta.Unit.ToArrow());
+                            return (Time64Type)TimeType.FromTimeUnit(timeMeta.Unit.ToArrow());
                         default:
                             throw new InvalidDataException("Unsupported time bit width");
                     }
@@ -176,9 +179,9 @@ namespace Apache.Arrow.Ipc
                     return new Types.TimestampType(unit, timezone);
                 case Flatbuf.Type.Interval:
                     Flatbuf.Interval intervalMetadata = field.Type<Flatbuf.Interval>().Value;
-                    return new Types.IntervalType(intervalMetadata.Unit.ToArrow());
+                    return Types.IntervalType.FromIntervalUnit(intervalMetadata.Unit.ToArrow());
                 case Flatbuf.Type.Utf8:
-                    return new Types.StringType();
+                    return Types.StringType.Default;
                 case Flatbuf.Type.FixedSizeBinary:
                     Flatbuf.FixedSizeBinary fixedSizeBinaryMetadata = field.Type<Flatbuf.FixedSizeBinary>().Value;
                     return new Types.FixedSizeBinaryType(fixedSizeBinaryMetadata.ByteWidth);
@@ -190,6 +193,13 @@ namespace Apache.Arrow.Ipc
                         throw new InvalidDataException($"List type must have exactly one child.");
                     }
                     return new Types.ListType(childFields[0]);
+                case Flatbuf.Type.FixedSizeList:
+                    if (childFields == null || childFields.Length != 1)
+                    {
+                        throw new InvalidDataException($"Fixed-size list type must have exactly one child.");
+                    }
+                    Flatbuf.FixedSizeList fixedSizeListMetadata = field.Type<Flatbuf.FixedSizeList>().Value;
+                    return new Types.FixedSizeListType(childFields[0], fixedSizeListMetadata.ListSize);
                 case Flatbuf.Type.Struct_:
                     Debug.Assert(childFields != null);
                     return new Types.StructType(childFields);

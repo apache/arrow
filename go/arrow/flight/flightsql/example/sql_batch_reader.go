@@ -26,11 +26,14 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 func getArrowTypeFromString(dbtype string) arrow.DataType {
@@ -56,7 +59,7 @@ func getArrowTypeFromString(dbtype string) arrow.DataType {
 		return arrow.PrimitiveTypes.Float64
 	case "blob":
 		return arrow.BinaryTypes.Binary
-	case "text", "date", "char":
+	case "text", "date", "char", "clob":
 		return arrow.BinaryTypes.String
 	default:
 		panic("invalid sqlite type: " + dbtype)
@@ -257,12 +260,19 @@ func (r *SqlBatchReader) Next() bool {
 	rows := 0
 	for rows < maxBatchSize && r.rows.Next() {
 		if err := r.rows.Scan(r.rowdest...); err != nil {
-			r.err = err
+			// Not really useful except for testing Flight SQL clients
+			detail := wrapperspb.StringValue{Value: r.schema.String()}
+			if st, sterr := status.New(codes.Unknown, err.Error()).WithDetails(&detail); sterr != nil {
+				r.err = err
+			} else {
+				r.err = st.Err()
+			}
 			return false
 		}
 
 		for i, v := range r.rowdest {
 			fb := r.bldr.Field(i)
+
 			switch v := v.(type) {
 			case *uint8:
 				fb.(*array.Uint8Builder).Append(*v)

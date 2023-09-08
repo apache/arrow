@@ -18,6 +18,7 @@
 # cython: language_level = 3
 
 from cpython.datetime cimport datetime, PyDateTime_DateTime
+from cython cimport binding
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow_python cimport PyDateTime_to_TimePoint
@@ -505,6 +506,15 @@ cdef class FileSystem(_Weakrefable):
         return self.wrapped
 
     def equals(self, FileSystem other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.fs.FileSystem
+
+        Returns
+        -------
+        bool
+        """
         return self.fs.Equals(other.unwrap())
 
     def __eq__(self, other):
@@ -1097,11 +1107,12 @@ cdef class LocalFileSystem(FileSystem):
         FileSystem.init(self, c_fs)
         self.localfs = <CLocalFileSystem*> c_fs.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.
-        return cls(**kwargs)
+        return LocalFileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CLocalFileSystemOptions opts = self.localfs.options()
@@ -1590,9 +1601,6 @@ def _copy_files(FileSystem source_fs, str source_path,
         vector[CFileLocator] c_sources
         CFileLocator c_destination
         vector[CFileLocator] c_destinations
-        FileSystem fs
-        CStatus c_status
-        shared_ptr[CFileSystem] c_fs
 
     c_source.filesystem = source_fs.unwrap()
     c_source.path = tobytes(source_path)

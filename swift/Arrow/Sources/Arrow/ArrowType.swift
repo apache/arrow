@@ -17,10 +17,22 @@
 
 import Foundation
 
-enum ValidationError: Error {
-    case unknownType
-    case outOfBounds(index: UInt)
+public typealias Time32 = Int32
+public typealias Time64 = Int64
+
+func FlatBuffersVersion_23_1_4() {
+}
+                                                                                  
+public enum ArrowError: Error {
+    case none
+    case unknownType(String)
+    case runtimeError(String)
+    case outOfBounds(index: Int64)
     case arrayHasNoElements
+    case unknownError(String)
+    case notImplemented
+    case ioError(String)
+    case invalid(String)
 }
 
 public enum ArrowTypeId {
@@ -60,15 +72,42 @@ public enum ArrowTypeId {
     case Unknown
 }
 
+public enum ArrowTime32Unit {
+    case Seconds
+    case Milliseconds
+}
+
+public enum ArrowTime64Unit {
+    case Microseconds
+    case Nanoseconds
+}
+
+public class ArrowTypeTime32: ArrowType {
+    let unit: ArrowTime32Unit
+    public init(_ unit: ArrowTime32Unit) {
+        self.unit = unit
+        super.init(ArrowType.ArrowTime32)
+    }
+}
+
+public class ArrowTypeTime64: ArrowType {
+    let unit: ArrowTime64Unit
+    public init(_ unit: ArrowTime64Unit) {
+        self.unit = unit
+        super.init(ArrowType.ArrowTime64)
+    }
+}
+
 public class ArrowType {
+    public private(set) var info: ArrowType.Info
     public static let ArrowInt8 = Info.PrimitiveInfo(ArrowTypeId.Int8)
     public static let ArrowInt16 = Info.PrimitiveInfo(ArrowTypeId.Int16)
     public static let ArrowInt32 = Info.PrimitiveInfo(ArrowTypeId.Int32)
     public static let ArrowInt64 = Info.PrimitiveInfo(ArrowTypeId.Int64)
+    public static let ArrowUInt8 = Info.PrimitiveInfo(ArrowTypeId.UInt8)
     public static let ArrowUInt16 = Info.PrimitiveInfo(ArrowTypeId.UInt16)
     public static let ArrowUInt32 = Info.PrimitiveInfo(ArrowTypeId.UInt32)
     public static let ArrowUInt64 = Info.PrimitiveInfo(ArrowTypeId.UInt64)
-    public static let ArrowUInt8 = Info.PrimitiveInfo(ArrowTypeId.UInt8)
     public static let ArrowFloat = Info.PrimitiveInfo(ArrowTypeId.Float)
     public static let ArrowDouble = Info.PrimitiveInfo(ArrowTypeId.Double)
     public static let ArrowUnknown = Info.PrimitiveInfo(ArrowTypeId.Unknown)
@@ -76,10 +115,18 @@ public class ArrowType {
     public static let ArrowBool = Info.PrimitiveInfo(ArrowTypeId.Boolean)
     public static let ArrowDate32 = Info.PrimitiveInfo(ArrowTypeId.Date32)
     public static let ArrowDate64 = Info.PrimitiveInfo(ArrowTypeId.Date64)
+    public static let ArrowBinary = Info.VariableInfo(ArrowTypeId.Binary)
+    public static let ArrowTime32 = Info.TimeInfo(ArrowTypeId.Time32)
+    public static let ArrowTime64 = Info.TimeInfo(ArrowTypeId.Time64)
 
+    public init(_ info: ArrowType.Info) {
+        self.info = info
+    }
+    
     public enum Info {
         case PrimitiveInfo(ArrowTypeId)
         case VariableInfo(ArrowTypeId)
+        case TimeInfo(ArrowTypeId)
     }
 
     public static func infoForNumericType<T>(_ t: T.Type) -> ArrowType.Info {
@@ -112,12 +159,14 @@ public class ArrowType {
 extension ArrowType.Info: Equatable {
     public static func==(lhs: ArrowType.Info, rhs: ArrowType.Info) -> Bool {
         switch(lhs, rhs) {
-            case (.PrimitiveInfo(let lhsId), .PrimitiveInfo(let rhsId)):
-                return lhsId == rhsId
-            case (.VariableInfo(let lhsId), .VariableInfo(let rhsId)):
-                return lhsId == rhsId
-            case (.VariableInfo(_), .PrimitiveInfo(_)), (.PrimitiveInfo(_), .VariableInfo(_)):
-                return false
+        case (.PrimitiveInfo(let lhsId), .PrimitiveInfo(let rhsId)):
+            return lhsId == rhsId
+        case (.VariableInfo(let lhsId), .VariableInfo(let rhsId)):
+            return lhsId == rhsId
+        case (.TimeInfo(let lhsId), .TimeInfo(let rhsId)):
+            return lhsId == rhsId
+        default:
+            return false
         }
     }
 }
@@ -126,8 +175,10 @@ func getBytesFor<T>(_ data: T) -> Data? {
     let t = T.self
     if t == String.self {
         let temp = data as! String
-        return temp.data(using: .utf8);
-    }else {
+        return temp.data(using: .utf8)
+    } else if t == Data.self {
+        return data as? Data
+    } else {
         return nil
     }
 }

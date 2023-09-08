@@ -28,6 +28,7 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+find_dependency(ArrowAcero)
 find_dependency(Parquet)
 
 include("${CMAKE_CURRENT_LIST_DIR}/ArrowDatasetTargets.cmake")

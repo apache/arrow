@@ -28,7 +28,6 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/options.h"
 #include "arrow/datum.h"
 #include "arrow/record_batch.h"
 #include "arrow/scalar.h"
@@ -38,7 +37,6 @@
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
@@ -217,12 +215,14 @@ class ConstantGenerator : public ArrayGenerator {
 
 class StepGenerator : public ArrayGenerator {
  public:
-  StepGenerator(uint32_t start, uint32_t step) : start_(start), step_(step) {}
+  StepGenerator(uint32_t start, uint32_t step, bool signed_int)
+      : start_(start), step_(step), signed_int_(signed_int) {}
 
-  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
-    UInt32Builder builder;
+  template <typename BuilderType, typename CType>
+  Result<std::shared_ptr<Array>> DoGenerate(int64_t num_rows) {
+    BuilderType builder;
     ARROW_RETURN_NOT_OK(builder.Reserve(num_rows));
-    uint32_t val = start_;
+    CType val = start_;
     for (int64_t i = 0; i < num_rows; i++) {
       builder.UnsafeAppend(val);
       val += step_;
@@ -231,11 +231,22 @@ class StepGenerator : public ArrayGenerator {
     return builder.Finish();
   }
 
-  std::shared_ptr<DataType> type() const override { return uint32(); }
+  Result<std::shared_ptr<Array>> Generate(int64_t num_rows) override {
+    if (signed_int_) {
+      return DoGenerate<Int32Builder, int32_t>(num_rows);
+    } else {
+      return DoGenerate<UInt32Builder, uint32_t>(num_rows);
+    }
+  }
+
+  std::shared_ptr<DataType> type() const override {
+    return signed_int_ ? int32() : uint32();
+  }
 
  private:
   uint32_t start_;
   uint32_t step_;
+  bool signed_int_;
 };
 
 static constexpr random::SeedType kTestSeed = 42;
@@ -309,15 +320,6 @@ class DataGeneratorImpl : public DataGenerator,
     return batches;
   }
 
-  Result<::arrow::compute::Declaration> SourceNode(int64_t rows_per_batch,
-                                                   int num_batches) override {
-    ARROW_ASSIGN_OR_RAISE(std::vector<::arrow::compute::ExecBatch> batches,
-                          ExecBatches(rows_per_batch, num_batches));
-    return ::arrow::compute::Declaration(
-        "exec_batch_source",
-        ::arrow::compute::ExecBatchSourceNodeOptions(schema_, std::move(batches)));
-  }
-
   Result<std::shared_ptr<::arrow::Table>> Table(int64_t rows_per_chunk,
                                                 int num_chunks = 1) override {
     ARROW_ASSIGN_OR_RAISE(RecordBatchVector batches,
@@ -373,12 +375,6 @@ class GTestDataGeneratorImpl : public GTestDataGenerator {
     EXPECT_OK_AND_ASSIGN(auto batches, target_->ExecBatches(rows_per_batch, num_batches));
     return batches;
   }
-  ::arrow::compute::Declaration SourceNode(int64_t rows_per_batch,
-                                           int num_batches) override {
-    EXPECT_OK_AND_ASSIGN(auto source_node,
-                         target_->SourceNode(rows_per_batch, num_batches));
-    return source_node;
-  }
 
   std::shared_ptr<::arrow::Table> Table(int64_t rows_per_chunk, int num_chunks) override {
     EXPECT_OK_AND_ASSIGN(auto table, target_->Table(rows_per_chunk, num_chunks));
@@ -402,8 +398,8 @@ std::shared_ptr<ArrayGenerator> Constant(std::shared_ptr<Scalar> value) {
   return std::make_shared<ConstantGenerator>(std::move(value));
 }
 
-std::shared_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step) {
-  return std::make_shared<StepGenerator>(start, step);
+std::shared_ptr<ArrayGenerator> Step(uint32_t start, uint32_t step, bool signed_int) {
+  return std::make_shared<StepGenerator>(start, step, signed_int);
 }
 
 std::shared_ptr<ArrayGenerator> Random(std::shared_ptr<DataType> type) {

@@ -27,15 +27,15 @@ API Reference
    api/datatypes
    api/arrays
    api/memory
+   api/tables
    api/compute
+   api/acero
    api/substrait
    api/files
-   api/tables
    api/ipc
    api/flight
    api/formats
    api/filesystems
    api/dataset
-   api/plasma
    api/cuda
    api/misc

@@ -177,7 +177,7 @@ test_that("feather read/write round trip", {
   tab1 <- read_feather(feather_file, as_data_frame = FALSE)
   expect_r6_class(tab1, "Table")
 
-  expect_equal(tib, as.data.frame(tab1))
+  expect_equal_data_frame(tib, tab1)
 })
 
 test_that("Read feather from raw vector", {
@@ -326,4 +326,13 @@ test_that("Error is created when feather reads a parquet file", {
 
 test_that("The read_ipc_file function is an alias of read_feather", {
   expect_identical(read_ipc_file, read_feather)
+})
+
+test_that("Can read Feather files from a URL", {
+  skip_if_offline()
+  skip_on_cran()
+  feather_url <- "https://github.com/apache/arrow-testing/raw/master/data/arrow-ipc-stream/integration/1.0.0-littleendian/generated_datetime.arrow_file" # nolint
+  fu <- read_feather(feather_url)
+  expect_true(tibble::is_tibble(fu))
+  expect_identical(dim(fu), c(17L, 15L))
 })

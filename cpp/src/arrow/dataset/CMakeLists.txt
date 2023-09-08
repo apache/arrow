@@ -31,10 +31,9 @@ set(ARROW_DATASET_SRCS
     scanner.cc
     scan_node.cc)
 
+set(ARROW_DATASET_PKG_CONFIG_REQUIRES "arrow-acero")
 if(ARROW_PARQUET)
-  set(ARROW_DATASET_PKG_CONFIG_REQUIRES parquet)
-else()
-  set(ARROW_DATASET_PKG_CONFIG_REQUIRES arrow)
+  string(APPEND ARROW_DATASET_PKG_CONFIG_REQUIRES " parquet")
 endif()
 
 set(ARROW_DATASET_STATIC_LINK_LIBS)
@@ -43,15 +42,15 @@ set(ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS)
 set(ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS)
 
 if(ARROW_CSV)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_csv.cc)
+  list(APPEND ARROW_DATASET_SRCS file_csv.cc)
 endif()
 
 if(ARROW_JSON)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_json.cc)
+  list(APPEND ARROW_DATASET_SRCS file_json.cc)
 endif()
 
 if(ARROW_ORC)
-  set(ARROW_DATASET_SRCS ${ARROW_DATASET_SRCS} file_orc.cc)
+  list(APPEND ARROW_DATASET_SRCS file_orc.cc)
 endif()
 
 if(ARROW_PARQUET)
@@ -61,13 +60,13 @@ if(ARROW_PARQUET)
   list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS Parquet::parquet_shared)
   list(APPEND ARROW_DATASET_SRCS file_parquet.cc)
   list(APPEND ARROW_DATASET_PRIVATE_INCLUDES ${PROJECT_SOURCE_DIR}/src/parquet)
-else()
-  list(APPEND ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
-  list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 endif()
 
-list(APPEND ARROW_DATASET_STATIC_LINK_LIBS arrow_static ${ARROW_STATIC_LINK_LIBS})
-list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_shared)
+list(APPEND ARROW_DATASET_STATIC_INSTALL_INTERFACE_LIBS ArrowAcero::arrow_acero_static)
+list(APPEND ARROW_DATASET_SHARED_INSTALL_INTERFACE_LIBS ArrowAcero::arrow_acero_shared)
+
+list(APPEND ARROW_DATASET_STATIC_LINK_LIBS arrow_acero_static ${ARROW_STATIC_LINK_LIBS})
+list(APPEND ARROW_DATASET_SHARED_LINK_LIBS arrow_acero_shared)
 
 add_arrow_lib(arrow_dataset
               CMAKE_PACKAGE_NAME
@@ -98,14 +97,26 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static ${ARROW_TEST_STATIC_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_static arrow_acero_testing
+                                   ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
-  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared ${ARROW_TEST_SHARED_LINK_LIBS})
+  set(ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_shared arrow_acero_testing
+                                   ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
 foreach(LIB_TARGET ${ARROW_DATASET_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_DS_EXPORTING)
 endforeach()
+
+# Define arrow_dataset_testing object library for common test files
+if(ARROW_TESTING)
+  add_library(arrow_dataset_testing OBJECT test_util_internal.cc)
+  # Even though this is still just an object library we still need to "link" our
+  # dependencies so that include paths are configured correctly
+  target_link_libraries(arrow_dataset_testing ${ARROW_DATASET_TEST_LINK_LIBS})
+  target_link_libraries(arrow_dataset_testing ${ARROW_GTEST_GTEST})
+  list(APPEND ARROW_DATASET_TEST_LINK_LIBS arrow_dataset_testing)
+endif()
 
 # Adding unit tests part of the "dataset" portion of the test suite
 function(ADD_ARROW_DATASET_TEST REL_TEST_NAME)
@@ -147,6 +158,8 @@ add_arrow_dataset_test(file_ipc_test)
 add_arrow_dataset_test(file_test)
 add_arrow_dataset_test(partition_test)
 add_arrow_dataset_test(scanner_test)
+add_arrow_dataset_test(subtree_test)
+add_arrow_dataset_test(write_node_test)
 
 if(ARROW_CSV)
   add_arrow_dataset_test(file_csv_test)

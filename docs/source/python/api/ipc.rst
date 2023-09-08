@@ -46,25 +46,3 @@ Inter-Process Communication
    ipc.RecordBatchFileWriter
    ipc.RecordBatchStreamReader
    ipc.RecordBatchStreamWriter
-
-Serialization
--------------
-
-.. warning::
-
-   The serialization functionality is deprecated in pyarrow 2.0, and will
-   be removed in a future version. Use the standard library ``pickle`` or
-   the IPC functionality of pyarrow (see :ref:`ipc`).
-
-
-.. autosummary::
-   :toctree: ../generated/
-
-   serialize
-   serialize_to
-   deserialize
-   deserialize_components
-   deserialize_from
-   read_serialized
-   SerializedPyObject
-   SerializationContext

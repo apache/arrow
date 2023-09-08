@@ -1,7 +1,7 @@
 ---
 title: "Data analysis with dplyr syntax"
 description: >
-  Learn how to use the dplyr backend supplied by arrow 
+  Learn how to use the dplyr backend supplied by arrow
 output: rmarkdown::html_vignette
 ---
 
@@ -61,7 +61,7 @@ sw %>%
   collect()
 ```
 
-Note, however, that window functions such as `ntile()` are not yet supported. 
+Note, however, that window functions such as `ntile()` are not yet supported.
 
 ## Two-table dplyr verbs
 
@@ -109,7 +109,7 @@ register_scalar_function(
 )
 ```
 
-In this expression, the `name` argument specifies the name by which it will be recognized in the context of the arrow/dplyr pipeline and `fun` is the function itself. The `in_type` and `out_type` arguments are used to specify the expected data type for the input and output, and `auto_convert` specifies whether arrow should automatically convert any R inputs to their Arrow equivalents. 
+In this expression, the `name` argument specifies the name by which it will be recognized in the context of the arrow/dplyr pipeline and `fun` is the function itself. The `in_type` and `out_type` arguments are used to specify the expected data type for the input and output, and `auto_convert` specifies whether arrow should automatically convert any R inputs to their Arrow equivalents.
 
 Once registered, the following works:
 
@@ -119,7 +119,7 @@ sw %>%
   collect()
 ```
 
-To learn more, see `help("register_scalar_function", package = "arrow")`. 
+To learn more, see `help("register_scalar_function", package = "arrow")`.
 
 ## Handling unsupported expressions
 
@@ -127,7 +127,7 @@ For dplyr queries on Table objects, which are held in memory and should
 usually be representable as data frames, if the arrow package detects
 an unimplemented function within a dplyr verb, it automatically calls
 `collect()` to return the data as an R data frame before processing
-that dplyr verb. As an example, neither `lm()` nor `residuals()` are 
+that dplyr verb. As an example, neither `lm()` nor `residuals()` are
 implemented, so if we write code that computes the residuals for a
 linear regression model, this automatic collection takes place:
 
@@ -139,9 +139,9 @@ sw %>%
 
 For queries on `Dataset` objects -- which can be larger
 than memory -- arrow is more conservative and always raises an
-error if it detects an unsupported expression. To illustrate this 
+error if it detects an unsupported expression. To illustrate this
 behavior, we can write the `starwars` data to disk and then open
-it as a Dataset. When we use the same pipeline on the Dataset, 
+it as a Dataset. When we use the same pipeline on the Dataset,
 we obtain an error:
 
 ```{r, error=TRUE}
@@ -165,8 +165,48 @@ sw2 %>%
   transmute(name, height, mass, res = residuals(lm(mass ~ height)))
 ```
 
+Because window functions are not supported, computing an aggregation like `mean()` on a grouped table or within a rowwise opertation like `filter()` is not supported:
+
+```{r}
+sw %>%
+  select(1:4) %>%
+  filter(!is.na(hair_color)) %>%
+  group_by(hair_color) %>%
+  filter(height < mean(height, na.rm = TRUE))
+```
+
+This operation is sometimes referred to as a windowed aggregate and can be accomplished in Arrow by computing the aggregation separately, for example within a join operation:
+
+```{r}
+sw %>%
+  select(1:4) %>%
+  filter(!is.na(hair_color)) %>%
+  left_join(
+    sw %>%
+      group_by(hair_color) %>%
+      summarize(mean_height = mean(height, na.rm = TRUE))
+    ) %>%
+  filter(height < mean_height) %>%
+  select(!mean_height) %>%
+  collect()
+```
+
+Alternatively, [DuckDB](https:\www.duckdb.org) supports Arrow natively, so you can pass the `Table` object to DuckDB without paying a performance penalty using the helper function `to_duckdb()` and pass the object back to Arrow with `to_arrow()`:
+
+```{r}
+sw %>%
+  select(1:4) %>%
+  filter(!is.na(hair_color)) %>%
+  to_duckdb() %>%
+  group_by(hair_color) %>%
+  filter(height < mean(height, na.rm = TRUE)) %>%
+  to_arrow() %>%
+  # perform other arrow operations...
+  collect()
+```
+
 ## Further reading
 
 - To learn more about multi-file datasets, see the [dataset article](./dataset.html).
 - To learn more about user-registered functions, see `help("register_scalar_function", package = "arrow")`.
-- To learn more about writing dplyr bindings as an arrow developer, see the [article on writing bindings](./developers/writing_bindings.html). 
+- To learn more about writing dplyr bindings as an arrow developer, see the [article on writing bindings](./developers/writing_bindings.html).

@@ -21,6 +21,7 @@
 
 #include "arrow/util/key_value_metadata.h"
 #include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/schema.h"
 #include "parquet/statistics.h"
 #include "parquet/test_util.h"
@@ -65,7 +66,6 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
   // column metadata
   col1_builder->SetStatistics(stats_int);
   col2_builder->SetStatistics(stats_float);
-  dict_encoding_stats.clear();
   col1_builder->Finish(nrows / 2, /*dictionary_page_offset=*/0, 0, 10, 512, 600,
                        /*has_dictionary=*/false, false, dict_encoding_stats,
                        data_encoding_stats);
@@ -77,6 +77,13 @@ std::unique_ptr<parquet::FileMetaData> GenerateTableMetaData(
 
   // Return the metadata accessor
   return f_builder->Finish();
+}
+
+void AssertEncodings(const ColumnChunkMetaData& data,
+                     const std::set<parquet::Encoding::type>& expected) {
+  std::set<parquet::Encoding::type> encodings(data.encodings().begin(),
+                                              data.encodings().end());
+  ASSERT_EQ(encodings, expected);
 }
 
 TEST(Metadata, TestBuildAccess) {
@@ -159,8 +166,18 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg1_column2->compression());
     ASSERT_EQ(nrows / 2, rg1_column1->num_values());
     ASSERT_EQ(nrows / 2, rg1_column2->num_values());
-    ASSERT_EQ(3, rg1_column1->encodings().size());
-    ASSERT_EQ(3, rg1_column2->encodings().size());
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg1_column1, encodings);
+    }
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg1_column2, encodings);
+    }
     ASSERT_EQ(512, rg1_column1->total_compressed_size());
     ASSERT_EQ(512, rg1_column2->total_compressed_size());
     ASSERT_EQ(600, rg1_column1->total_uncompressed_size());
@@ -196,8 +213,17 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(nrows / 2, rg2_column2->num_values());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column1->compression());
     ASSERT_EQ(DEFAULT_COMPRESSION_TYPE, rg2_column2->compression());
-    ASSERT_EQ(2, rg2_column1->encodings().size());
-    ASSERT_EQ(3, rg2_column2->encodings().size());
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg2_column1, encodings);
+    }
+    {
+      std::set<parquet::Encoding::type> encodings{parquet::Encoding::RLE,
+                                                  parquet::Encoding::RLE_DICTIONARY,
+                                                  parquet::Encoding::PLAIN};
+      AssertEncodings(*rg2_column2, encodings);
+    }
     ASSERT_EQ(512, rg2_column1->total_compressed_size());
     ASSERT_EQ(512, rg2_column2->total_compressed_size());
     ASSERT_EQ(600, rg2_column1->total_uncompressed_size());
@@ -208,7 +234,7 @@ TEST(Metadata, TestBuildAccess) {
     ASSERT_EQ(10, rg2_column1->data_page_offset());
     ASSERT_EQ(26, rg2_column2->data_page_offset());
     ASSERT_EQ(2, rg2_column1->encoding_stats().size());
-    ASSERT_EQ(2, rg2_column2->encoding_stats().size());
+    ASSERT_EQ(3, rg2_column2->encoding_stats().size());
 
     // Test FileMetaData::set_file_path
     ASSERT_TRUE(rg2_column1->file_path().empty());
@@ -284,14 +310,60 @@ TEST(Metadata, TestKeyValueMetadata) {
   auto kvmeta = std::make_shared<KeyValueMetadata>();
   kvmeta->Append("test_key", "test_value");
 
-  auto f_builder = FileMetaDataBuilder::Make(&schema, props, kvmeta);
+  auto f_builder = FileMetaDataBuilder::Make(&schema, props);
 
   // Read the metadata
-  auto f_accessor = f_builder->Finish();
+  auto f_accessor = f_builder->Finish(kvmeta);
 
   // Key value metadata
   ASSERT_TRUE(f_accessor->key_value_metadata());
   EXPECT_TRUE(f_accessor->key_value_metadata()->Equals(*kvmeta));
+}
+
+TEST(Metadata, TestAddKeyValueMetadata) {
+  schema::NodeVector fields;
+  fields.push_back(schema::Int32("int_col", Repetition::REQUIRED));
+  auto schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  auto kv_meta = std::make_shared<KeyValueMetadata>();
+  kv_meta->Append("test_key_1", "test_value_1");
+  kv_meta->Append("test_key_2", "test_value_2_");
+
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder().disable_dictionary()->build();
+  auto file_writer =
+      parquet::ParquetFileWriter::Open(sink, schema, writer_props, kv_meta);
+
+  // Key value metadata that will be added to the file.
+  auto kv_meta_added = std::make_shared<KeyValueMetadata>();
+  kv_meta_added->Append("test_key_2", "test_value_2");
+  kv_meta_added->Append("test_key_3", "test_value_3");
+
+  file_writer->AddKeyValueMetadata(kv_meta_added);
+  file_writer->Close();
+
+  // Throw if appending key value metadata to closed file.
+  auto kv_meta_ignored = std::make_shared<KeyValueMetadata>();
+  kv_meta_ignored->Append("test_key_4", "test_value_4");
+  EXPECT_THROW(file_writer->AddKeyValueMetadata(kv_meta_ignored), ParquetException);
+
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+
+  ASSERT_NE(nullptr, file_reader->metadata());
+  ASSERT_NE(nullptr, file_reader->metadata()->key_value_metadata());
+  auto read_kv_meta = file_reader->metadata()->key_value_metadata();
+
+  // Verify keys that were added before file writer was closed are present.
+  for (int i = 1; i <= 3; ++i) {
+    auto index = std::to_string(i);
+    PARQUET_ASSIGN_OR_THROW(auto value, read_kv_meta->Get("test_key_" + index));
+    EXPECT_EQ("test_value_" + index, value);
+  }
+  // Verify keys that were added after file writer was closed are not present.
+  EXPECT_FALSE(read_kv_meta->Contains("test_key_4"));
 }
 
 TEST(Metadata, TestHasBloomFilter) {
@@ -345,6 +417,49 @@ TEST(Metadata, TestReadPageIndex) {
     ASSERT_EQ(oi_lengths.at(i), oi_location->length);
     ASSERT_FALSE(col_chunk_metadata->bloom_filter_offset().has_value());
   }
+}
+
+TEST(Metadata, TestSortingColumns) {
+  schema::NodeVector fields;
+  fields.push_back(schema::Int32("sort_col", Repetition::REQUIRED));
+  fields.push_back(schema::Int32("int_col", Repetition::REQUIRED));
+
+  auto schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  std::vector<SortingColumn> sorting_columns;
+  {
+    SortingColumn sorting_column;
+    sorting_column.column_idx = 0;
+    sorting_column.descending = false;
+    sorting_column.nulls_first = false;
+    sorting_columns.push_back(sorting_column);
+  }
+
+  auto sink = CreateOutputStream();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->set_sorting_columns(sorting_columns)
+                          ->build();
+
+  EXPECT_EQ(sorting_columns, writer_props->sorting_columns());
+
+  auto file_writer = parquet::ParquetFileWriter::Open(sink, schema, writer_props);
+
+  auto row_group_writer = file_writer->AppendBufferedRowGroup();
+  row_group_writer->Close();
+  file_writer->Close();
+
+  PARQUET_ASSIGN_OR_THROW(auto buffer, sink->Finish());
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+
+  ASSERT_NE(nullptr, file_reader->metadata());
+  ASSERT_EQ(1, file_reader->metadata()->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+  auto* row_group_read_metadata = row_group_reader->metadata();
+  ASSERT_NE(nullptr, row_group_read_metadata);
+  EXPECT_EQ(sorting_columns, row_group_read_metadata->sorting_columns());
 }
 
 TEST(ApplicationVersion, Basics) {

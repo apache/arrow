@@ -21,15 +21,27 @@ import pyarrow as pa
 import pyarrow.compute as pc
 from pyarrow.compute import field
 
-from pyarrow._acero import (
-    TableSourceNodeOptions,
-    FilterNodeOptions,
-    ProjectNodeOptions,
-    AggregateNodeOptions,
-    HashJoinNodeOptions,
-    AsofJoinNodeOptions,
-    Declaration,
-)
+try:
+    from pyarrow.acero import (
+        Declaration,
+        TableSourceNodeOptions,
+        FilterNodeOptions,
+        ProjectNodeOptions,
+        AggregateNodeOptions,
+        OrderByNodeOptions,
+        HashJoinNodeOptions,
+        AsofJoinNodeOptions,
+    )
+except ImportError:
+    pass
+
+try:
+    import pyarrow.dataset as ds
+    from pyarrow.acero import ScanNodeOptions
+except ImportError:
+    ds = None
+
+pytestmark = pytest.mark.acero
 
 
 @pytest.fixture
@@ -198,7 +210,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected = pa.table({"count(a)": [1, 1], "b": ["foo", "bar"]})
+    expected = pa.table({"b": ["foo", "bar"], "count(a)": [1, 1]})
     assert result.equals(expected)
 
     # specify function options
@@ -209,7 +221,7 @@ def test_aggregate_hash():
         table_source, Declaration("aggregate", aggr_opts)
     ])
     result = decl.to_table()
-    expected_all = pa.table({"count(a)": [2, 1], "b": ["foo", "bar"]})
+    expected_all = pa.table({"b": ["foo", "bar"], "count(a)": [2, 1]})
     assert result.equals(expected_all)
 
     # specify keys as field references
@@ -230,6 +242,43 @@ def test_aggregate_hash():
     ])
     with pytest.raises(ValueError):
         _ = decl.to_table()
+
+
+def test_order_by():
+    table = pa.table({'a': [1, 2, 3, 4], 'b': [1, 3, None, 2]})
+    table_source = Declaration("table_source", TableSourceNodeOptions(table))
+
+    ord_opts = OrderByNodeOptions([("b", "ascending")])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
+    result = decl.to_table()
+    expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
+    assert result.equals(expected)
+
+    ord_opts = OrderByNodeOptions([(field("b"), "descending")])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
+    result = decl.to_table()
+    expected = pa.table({"a": [2, 4, 1, 3], "b": [3, 2, 1, None]})
+    assert result.equals(expected)
+
+    ord_opts = OrderByNodeOptions([(1, "descending")], null_placement="at_start")
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
+    result = decl.to_table()
+    expected = pa.table({"a": [3, 2, 4, 1], "b": [None, 3, 2, 1]})
+    assert result.equals(expected)
+
+    # emtpy ordering
+    ord_opts = OrderByNodeOptions([])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
+    with pytest.raises(
+        ValueError, match="`ordering` must be an explicit non-empty ordering"
+    ):
+        _ = decl.to_table()
+
+    with pytest.raises(ValueError, match="\"decreasing\" is not a valid sort order"):
+        _ = OrderByNodeOptions([("b", "decreasing")])
+
+    with pytest.raises(ValueError, match="\"start\" is not a valid null placement"):
+        _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
 
 
 def test_hash_join():
@@ -326,3 +375,39 @@ def test_asof_join():
                 "asofjoin", options=join_opts, inputs=[left_source, right_source])
             result = joined.to_table()
             assert result == expected
+
+
+@pytest.mark.dataset
+def test_scan(tempdir):
+    table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
+    ds.write_dataset(table, tempdir / "dataset", format="parquet")
+    dataset = ds.dataset(tempdir / "dataset", format="parquet")
+    decl = Declaration("scan", ScanNodeOptions(dataset))
+    result = decl.to_table()
+    assert result.schema.names == [
+        "a", "b", "__fragment_index", "__batch_index",
+        "__last_in_fragment", "__filename"
+    ]
+    assert result.select(["a", "b"]).equals(table)
+
+    # using a filter only does pushdown (depending on file format), not actual filter
+
+    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 1)
+    decl = Declaration("scan", scan_opts)
+    # fragment not filtered based on min/max statistics
+    assert decl.to_table().num_rows == 3
+
+    scan_opts = ScanNodeOptions(dataset, filter=field('a') > 4)
+    decl = Declaration("scan", scan_opts)
+    # full fragment filtered based on min/max statistics
+    assert decl.to_table().num_rows == 0
+
+    # projection scan option
+
+    scan_opts = ScanNodeOptions(dataset, columns={"a2": pc.multiply(field("a"), 2)})
+    decl = Declaration("scan", scan_opts)
+    result = decl.to_table()
+    # "a" is included in the result (needed later on for the actual projection)
+    assert result["a"].to_pylist() == [1, 2, 3]
+    # "b" is still included, but without data as it will be removed by the projection
+    assert pc.all(result["b"].is_null()).as_py()

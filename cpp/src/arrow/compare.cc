@@ -486,7 +486,7 @@ class RangeDataEqualsImpl {
     const auto& right_values = *right_.child_data[1];
 
     auto it = ree_util::MergedRunsIterator(left, right);
-    for (; !it.isEnd(); ++it) {
+    for (; !it.is_end(); ++it) {
       RangeDataEqualsImpl impl(options_, floating_approximate_, left_values, right_values,
                                it.index_into_left_array(), it.index_into_right_array(),
                                /*range_length=*/1);

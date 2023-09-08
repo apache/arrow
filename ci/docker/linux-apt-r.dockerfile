@@ -47,10 +47,6 @@ RUN apt-get update -y && \
         libxml2-dev \
         libgit2-dev \
         libssl-dev \
-        # install clang to mirror what was done on Travis
-        clang \
-        clang-format \
-        clang-tidy \
         # R CMD CHECK --as-cran needs pdflatex to build the package manual
         texlive-latex-base \
         # Need locales so we can set UTF-8
@@ -100,6 +96,7 @@ COPY python/requirements-build.txt /arrow/python/
 RUN pip install -r arrow/python/requirements-build.txt
 
 ENV \
+    ARROW_ACERO=ON \
     ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
@@ -114,7 +111,6 @@ ENV \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=OFF \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=OFF \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_GLOG=OFF \

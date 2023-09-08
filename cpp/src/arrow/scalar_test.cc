@@ -334,13 +334,12 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_TRUE(struct_nan.ApproxEquals(struct_other_nan, options));
   }
 
-  void TestListOf() {
-    auto ty = list(type_);
-
-    ListScalar list_val(ArrayFromJSON(type_, "[0, null, 1.0]"), ty);
-    ListScalar list_other_val(ArrayFromJSON(type_, "[0, null, 1.1]"), ty);
-    ListScalar list_nan(ArrayFromJSON(type_, "[0, null, NaN]"), ty);
-    ListScalar list_other_nan(ArrayFromJSON(type_, "[0, null, NaN]"), ty);
+  template <typename ListScalarClass>
+  void TestListOf(const std::shared_ptr<DataType>& list_ty) {
+    ListScalarClass list_val(ArrayFromJSON(type_, "[0, null, 1.0]"), list_ty);
+    ListScalarClass list_other_val(ArrayFromJSON(type_, "[0, null, 1.1]"), list_ty);
+    ListScalarClass list_nan(ArrayFromJSON(type_, "[0, null, NaN]"), list_ty);
+    ListScalarClass list_other_nan(ArrayFromJSON(type_, "[0, null, NaN]"), list_ty);
 
     EqualOptions options = EqualOptions::Defaults().atol(0.05);
     ASSERT_TRUE(list_val.Equals(list_val, options));
@@ -391,6 +390,10 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_TRUE(list_nan.ApproxEquals(list_other_nan, options));
   }
 
+  void TestListOf() { TestListOf<ListScalar>(list(type_)); }
+
+  void TestLargeListOf() { TestListOf<LargeListScalar>(large_list(type_)); }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Scalar> scalar_val_, scalar_other_, scalar_nan_, scalar_other_nan_,
@@ -408,6 +411,8 @@ TYPED_TEST(TestRealScalar, ApproxEquals) { this->TestApproxEquals(); }
 TYPED_TEST(TestRealScalar, StructOf) { this->TestStructOf(); }
 
 TYPED_TEST(TestRealScalar, ListOf) { this->TestListOf(); }
+
+TYPED_TEST(TestRealScalar, LargeListOf) { this->TestLargeListOf(); }
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
@@ -1058,13 +1063,31 @@ std::shared_ptr<DataType> MakeListType<FixedSizeListType>(
   return fixed_size_list(std::move(value_type), list_size);
 }
 
+template <typename ScalarType>
+void CheckListCast(const ScalarType& scalar, const std::shared_ptr<DataType>& to_type) {
+  EXPECT_OK_AND_ASSIGN(auto cast_scalar, scalar.CastTo(to_type));
+  ASSERT_OK(cast_scalar->ValidateFull());
+  ASSERT_EQ(*cast_scalar->type, *to_type);
+
+  ASSERT_EQ(scalar.is_valid, cast_scalar->is_valid);
+  ASSERT_TRUE(scalar.is_valid);
+  ASSERT_ARRAYS_EQUAL(*scalar.value,
+                      *checked_cast<const BaseListScalar&>(*cast_scalar).value);
+}
+
+void CheckInvalidListCast(const Scalar& scalar, const std::shared_ptr<DataType>& to_type,
+                          const std::string& expected_message) {
+  EXPECT_RAISES_WITH_CODE_AND_MESSAGE_THAT(StatusCode::Invalid,
+                                           ::testing::HasSubstr(expected_message),
+                                           scalar.CastTo(to_type));
+}
+
 template <typename T>
 class TestListScalar : public ::testing::Test {
  public:
   using ScalarType = typename TypeTraits<T>::ScalarType;
 
   void SetUp() {
-    //     type_ = std::make_shared<T>(int16());
     type_ = MakeListType<T>(int16(), 3);
     value_ = ArrayFromJSON(int16(), "[1, 2, null]");
   }
@@ -1106,6 +1129,49 @@ class TestListScalar : public ::testing::Test {
     ASSERT_RAISES(Invalid, scalar.ValidateFull());
   }
 
+  void TestHashing() {
+    // GH-35521: the hash value of a non-null list scalar should not
+    // depend on the presence or absence of a null bitmap in the underlying
+    // list values.
+    ScalarType empty_bitmap_scalar(ArrayFromJSON(int16(), "[1, 2, 3]"));
+    ASSERT_OK(empty_bitmap_scalar.ValidateFull());
+    // Underlying list array doesn't have a null bitmap
+    ASSERT_EQ(empty_bitmap_scalar.value->data()->buffers[0], nullptr);
+
+    auto list_array = ArrayFromJSON(type_, "[[1, 2, 3], [4, 5, null]]");
+    ASSERT_OK_AND_ASSIGN(auto set_bitmap_scalar_uncasted, list_array->GetScalar(0));
+    auto set_bitmap_scalar = checked_pointer_cast<ScalarType>(set_bitmap_scalar_uncasted);
+    // Underlying list array has a null bitmap
+    ASSERT_NE(set_bitmap_scalar->value->data()->buffers[0], nullptr);
+    // ... yet it's hashing equal to the other scalar
+    ASSERT_EQ(empty_bitmap_scalar.hash(), set_bitmap_scalar->hash());
+
+    // GH-35360: the hash value of a scalar from a list of structs should
+    // pay attention to the offset so it hashes the equivalent validity bitmap
+    auto list_struct_type = list(struct_({field("a", int64())}));
+    auto a =
+        ArrayFromJSON(list_struct_type, R"([[{"a": 5}, {"a": 6}], [{"a": 7}, null]])");
+    auto b = ArrayFromJSON(list_struct_type, R"([[{"a": 7}, null]])");
+    EXPECT_OK_AND_ASSIGN(auto a0, a->GetScalar(0));
+    EXPECT_OK_AND_ASSIGN(auto a1, a->GetScalar(1));
+    EXPECT_OK_AND_ASSIGN(auto b0, b->GetScalar(0));
+    ASSERT_EQ(a1->hash(), b0->hash());
+    ASSERT_NE(a0->hash(), b0->hash());
+  }
+
+  void TestCast() {
+    ScalarType scalar(value_);
+    CheckListCast(scalar, list(value_->type()));
+    CheckListCast(scalar, large_list(value_->type()));
+    CheckListCast(
+        scalar, fixed_size_list(value_->type(), static_cast<int32_t>(value_->length())));
+
+    CheckInvalidListCast(scalar, fixed_size_list(value_->type(), 5),
+                         "Cannot cast " + scalar.type->ToString() + " of length " +
+                             std::to_string(value_->length()) +
+                             " to fixed size list of length 5");
+  }
+
  protected:
   std::shared_ptr<DataType> type_;
   std::shared_ptr<Array> value_;
@@ -1118,6 +1184,10 @@ TYPED_TEST_SUITE(TestListScalar, ListScalarTestTypes);
 TYPED_TEST(TestListScalar, Basics) { this->TestBasics(); }
 
 TYPED_TEST(TestListScalar, ValidateErrors) { this->TestValidateErrors(); }
+
+TYPED_TEST(TestListScalar, Hashing) { this->TestHashing(); }
+
+TYPED_TEST(TestListScalar, Cast) { this->TestCast(); }
 
 TEST(TestFixedSizeListScalar, ValidateErrors) {
   const auto ty = fixed_size_list(int16(), 3);
@@ -1143,6 +1213,22 @@ TEST(TestMapScalar, Basics) {
 
 TEST(TestMapScalar, NullScalar) {
   CheckMakeNullScalar(map(utf8(), field("value", int8())));
+}
+
+TEST(TestMapScalar, Cast) {
+  auto key_value_type = struct_({field("key", utf8(), false), field("value", int8())});
+  auto value = ArrayFromJSON(key_value_type,
+                             R"([{"key": "a", "value": 1}, {"key": "b", "value": 2}])");
+  auto scalar = MapScalar(value);
+
+  CheckListCast(scalar, list(key_value_type));
+  CheckListCast(scalar, large_list(key_value_type));
+  CheckListCast(scalar, fixed_size_list(key_value_type, 2));
+
+  CheckInvalidListCast(scalar, fixed_size_list(key_value_type, 5),
+                       "Cannot cast " + scalar.type->ToString() + " of length " +
+                           std::to_string(value->length()) +
+                           " to fixed size list of length 5");
 }
 
 TEST(TestStructScalar, FieldAccess) {

@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 left <- example_data
 left$some_grouping <- rep(c(1, 2), 5)
 

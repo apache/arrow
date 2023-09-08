@@ -31,8 +31,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
 
     cdef cppclass CFileInfo "arrow::fs::FileInfo":
         CFileInfo()
-        CFileInfo(CFileInfo&&)
-        CFileInfo& operator=(CFileInfo&&)
+        CFileInfo(CFileInfo)
+        CFileInfo& operator=(CFileInfo)
         CFileInfo(const CFileInfo&)
         CFileInfo& operator=(const CFileInfo&)
 
@@ -225,6 +225,7 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         c_string endpoint_override
         c_string scheme
         c_string default_bucket_location
+        optional[c_string] project_id
         optional[double] retry_limit_seconds
         shared_ptr[const CKeyValueMetadata] default_metadata
         c_bool Equals(const CS3Options& other)

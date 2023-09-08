@@ -60,6 +60,7 @@ RUN \
     libzstd-dev \
     llvm-dev \
     lsb-release \
+    meson \
     ninja-build \
     nlohmann-json3-dev \
     pkg-config \
@@ -75,6 +76,4 @@ RUN \
     apt install -y -V ${quiet} nvidia-cuda-toolkit; \
   fi && \
   apt clean && \
-  python3 -m pip install --no-use-pep517 meson && \
-  ln -s /usr/local/bin/meson /usr/bin/ && \
   rm -rf /var/lib/apt/lists/*

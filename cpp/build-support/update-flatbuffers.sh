@@ -37,11 +37,3 @@ $FLATC --cpp --cpp-std c++11 \
   --scoped-enums \
   -o "$OUT_DIR" \
   "${FILES[@]}"
-
-PLASMA_FBS=("$SOURCE_DIR"/plasma/{plasma,common}.fbs)
-
-$FLATC --cpp --cpp-std c++11 \
-  -o "$SOURCE_DIR/plasma" \
-  --gen-object-api \
-  --scoped-enums \
-  "${PLASMA_FBS[@]}"

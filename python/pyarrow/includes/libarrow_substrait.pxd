@@ -21,6 +21,7 @@ from libcpp.vector cimport vector as std_vector
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 
 ctypedef CResult[CDeclaration] CNamedTableProvider(const std_vector[c_string]&, const CSchema&)
 
@@ -39,6 +40,7 @@ cdef extern from "arrow/engine/substrait/options.h" namespace "arrow::engine" no
         CConversionOptions()
         ConversionStrictness strictness
         function[CNamedTableProvider] named_table_provider
+        c_bool allow_arrow_extensions
 
 cdef extern from "arrow/engine/substrait/extension_set.h" \
         namespace "arrow::engine" nogil:
@@ -48,6 +50,23 @@ cdef extern from "arrow/engine/substrait/extension_set.h" \
 
     ExtensionIdRegistry* default_extension_id_registry()
 
+cdef extern from "arrow/engine/substrait/relation.h" namespace "arrow::engine" nogil:
+
+    cdef cppclass CNamedExpression "arrow::engine::NamedExpression":
+        CExpression expression
+        c_string name
+
+    cdef cppclass CBoundExpressions "arrow::engine::BoundExpressions":
+        std_vector[CNamedExpression] named_expressions
+        shared_ptr[CSchema] schema
+
+cdef extern from "arrow/engine/substrait/serde.h" namespace "arrow::engine" nogil:
+
+    CResult[shared_ptr[CBuffer]] SerializeExpressions(
+        const CBoundExpressions& bound_expressions, const CConversionOptions& conversion_options)
+
+    CResult[CBoundExpressions] DeserializeExpressions(
+        const CBuffer& serialized_expressions)
 
 cdef extern from "arrow/engine/substrait/util.h" namespace "arrow::engine" nogil:
     CResult[shared_ptr[CRecordBatchReader]] ExecuteSerializedPlan(

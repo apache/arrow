@@ -1,14 +1,12 @@
 #!/bin/sh
-
-set -e
-set -x
+set -ex
 
 # Build dependencies
 export ARROW_HOME=$PREFIX
 export PARQUET_HOME=$PREFIX
 export SETUPTOOLS_SCM_PRETEND_VERSION=$PKG_VERSION
 export PYARROW_BUILD_TYPE=release
-export PYARROW_BUNDLE_ARROW_CPP_HEADERS=0
+export PYARROW_WITH_ACERO=1
 export PYARROW_WITH_DATASET=1
 export PYARROW_WITH_FLIGHT=1
 export PYARROW_WITH_GANDIVA=1
@@ -17,7 +15,6 @@ export PYARROW_WITH_HDFS=1
 export PYARROW_WITH_ORC=1
 export PYARROW_WITH_PARQUET=1
 export PYARROW_WITH_PARQUET_ENCRYPTION=1
-export PYARROW_WITH_PLASMA=1
 export PYARROW_WITH_S3=1
 export PYARROW_WITH_SUBSTRAIT=1
 export PYARROW_CMAKE_GENERATOR=Ninja
@@ -41,9 +38,9 @@ if [[ "${target_platform}" == osx-* ]]; then
     CXXFLAGS="${CXXFLAGS} -D_LIBCPP_DISABLE_AVAILABILITY"
 fi
 
-# Limit number of threads used to avoid hardware oversubscription
 if [[ "${target_platform}" == "linux-aarch64" ]] || [[ "${target_platform}" == "linux-ppc64le" ]]; then
-     export CMAKE_BUILD_PARALLEL_LEVEL=4
+    # Limit number of threads used to avoid hardware oversubscription
+    export CMAKE_BUILD_PARALLEL_LEVEL=4
 fi
 
 cd python

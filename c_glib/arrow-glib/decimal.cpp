@@ -166,7 +166,8 @@ garrow_decimal_to_string_scale(typename DecimalConverter<Decimal>::GArrowType *d
 {
   DecimalConverter<Decimal> converter;
   const auto arrow_decimal = converter.get_raw(decimal);
-  return g_strdup(arrow_decimal->ToString(scale).c_str());
+  const auto string = arrow_decimal->ToString(scale);
+  return g_strdup(string.c_str());
 }
 
 template <typename Decimal>
@@ -175,7 +176,8 @@ garrow_decimal_to_string(typename DecimalConverter<Decimal>::GArrowType *decimal
 {
   DecimalConverter<Decimal> converter;
   const auto arrow_decimal = converter.get_raw(decimal);
-  return g_strdup(arrow_decimal->ToIntegerString().c_str());
+  const auto string = arrow_decimal->ToIntegerString();
+  return g_strdup(string.c_str());
 }
 
 template <typename Decimal>

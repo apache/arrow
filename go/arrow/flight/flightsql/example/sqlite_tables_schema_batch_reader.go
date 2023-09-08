@@ -25,12 +25,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/flight"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
@@ -179,7 +179,7 @@ func (s *SqliteTablesSchemaBatchReader) Next() bool {
 			columnFields = append(columnFields, arrow.Field{
 				Name:     name,
 				Type:     getArrowTypeFromString(typ),
-				Nullable: nn == 1,
+				Nullable: nn == 0,
 				Metadata: getColumnMetadata(bldr, getSqlTypeFromTypeName(typ), tableName),
 			})
 		}

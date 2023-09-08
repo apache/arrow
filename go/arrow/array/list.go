@@ -22,11 +22,11 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 type ListLike interface {
@@ -42,6 +42,8 @@ type List struct {
 	offsets []int32
 }
 
+var _ ListLike = (*List)(nil)
+
 // NewListData returns a new List array value, from data.
 func NewListData(data arrow.ArrayData) *List {
 	a := &List{}
@@ -52,6 +54,13 @@ func NewListData(data arrow.ArrayData) *List {
 
 func (a *List) ListValues() arrow.Array { return a.values }
 
+func (a *List) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
+
 func (a *List) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -60,7 +69,7 @@ func (a *List) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -72,9 +81,7 @@ func (a *List) String() string {
 }
 
 func (a *List) newListValue(i int) arrow.Array {
-	j := i + a.array.data.offset
-	beg := int64(a.offsets[j])
-	end := int64(a.offsets[j+1])
+	beg, end := a.ValueOffsets(i)
 	return NewSlice(a.values, beg, end)
 }
 
@@ -87,7 +94,7 @@ func (a *List) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
-func (a *List) getOneForMarshal(i int) interface{} {
+func (a *List) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -110,7 +117,7 @@ func (a *List) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -154,7 +161,8 @@ func (a *List) Release() {
 
 func (a *List) ValueOffsets(i int) (start, end int64) {
 	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
-	start, end = int64(a.offsets[i+a.data.offset]), int64(a.offsets[i+a.data.offset+1])
+	j := i + a.array.data.offset
+	start, end = int64(a.offsets[j]), int64(a.offsets[j+1])
 	return
 }
 
@@ -164,6 +172,8 @@ type LargeList struct {
 	values  arrow.Array
 	offsets []int64
 }
+
+var _ ListLike = (*LargeList)(nil)
 
 // NewLargeListData returns a new LargeList array value, from data.
 func NewLargeListData(data arrow.ArrayData) *LargeList {
@@ -175,6 +185,13 @@ func NewLargeListData(data arrow.ArrayData) *LargeList {
 
 func (a *LargeList) ListValues() arrow.Array { return a.values }
 
+func (a *LargeList) ValueStr(i int) string {
+	if !a.IsValid(i) {
+		return NullValueStr
+	}
+	return string(a.GetOneForMarshal(i).(json.RawMessage))
+}
+
 func (a *LargeList) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -183,7 +200,7 @@ func (a *LargeList) String() string {
 			o.WriteString(" ")
 		}
 		if !a.IsValid(i) {
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 			continue
 		}
 		sub := a.newListValue(i)
@@ -195,9 +212,7 @@ func (a *LargeList) String() string {
 }
 
 func (a *LargeList) newListValue(i int) arrow.Array {
-	j := i + a.array.data.offset
-	beg := int64(a.offsets[j])
-	end := int64(a.offsets[j+1])
+	beg, end := a.ValueOffsets(i)
 	return NewSlice(a.values, beg, end)
 }
 
@@ -210,7 +225,7 @@ func (a *LargeList) setData(data *Data) {
 	a.values = MakeFromData(data.childData[0])
 }
 
-func (a *LargeList) getOneForMarshal(i int) interface{} {
+func (a *LargeList) GetOneForMarshal(i int) interface{} {
 	if a.IsNull(i) {
 		return nil
 	}
@@ -233,7 +248,7 @@ func (a *LargeList) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(a.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(a.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -267,7 +282,8 @@ func (a *LargeList) Offsets() []int64 { return a.offsets }
 
 func (a *LargeList) ValueOffsets(i int) (start, end int64) {
 	debug.Assert(i >= 0 && i < a.array.data.length, "index out of range")
-	start, end = a.offsets[i], a.offsets[i+1]
+	j := i + a.array.data.offset
+	start, end = a.offsets[j], a.offsets[j+1]
 	return
 }
 
@@ -412,8 +428,20 @@ func (b *baseListBuilder) AppendNull() {
 	b.appendNextOffset()
 }
 
+func (b *baseListBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *baseListBuilder) AppendEmptyValue() {
 	b.Append(true)
+}
+
+func (b *baseListBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *ListBuilder) AppendValues(offsets []int32, valid []bool) {
@@ -531,7 +559,16 @@ func (b *baseListBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *baseListBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	return b.UnmarshalOne(json.NewDecoder(strings.NewReader(s)))
+}
+
+func (b *baseListBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -540,7 +577,7 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	switch t {
 	case json.Delim('['):
 		b.Append(true)
-		if err := b.values.unmarshal(dec); err != nil {
+		if err := b.values.Unmarshal(dec); err != nil {
 			return err
 		}
 		// consume ']'
@@ -558,9 +595,9 @@ func (b *baseListBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *baseListBuilder) unmarshal(dec *json.Decoder) error {
+func (b *baseListBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -578,7 +615,7 @@ func (b *baseListBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (
@@ -586,4 +623,14 @@ var (
 	_ arrow.Array = (*LargeList)(nil)
 	_ Builder     = (*ListBuilder)(nil)
 	_ Builder     = (*LargeListBuilder)(nil)
+
+	_ ListLike = (*List)(nil)
+	_ ListLike = (*LargeList)(nil)
+	_ ListLike = (*FixedSizeList)(nil)
+	_ ListLike = (*Map)(nil)
+
+	_ ListLikeBuilder = (*ListBuilder)(nil)
+	_ ListLikeBuilder = (*LargeListBuilder)(nil)
+	_ ListLikeBuilder = (*FixedSizeListBuilder)(nil)
+	_ ListLikeBuilder = (*MapBuilder)(nil)
 )

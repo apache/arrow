@@ -15,39 +15,63 @@
 # specific language governing permissions and limitations
 # under the License.
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
-# Compiler id for Apple Clang is now AppleClang.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
+#
+# Compiler id for Apple Clang is now AppleClang.
 cmake_policy(SET CMP0025 NEW)
 
-# Only interpret if() arguments as variables or keywords when unquoted.
+# https://cmake.org/cmake/help/latest/policy/CMP0042.html
+#
+# Enable MACOSX_RPATH by default. @rpath in a target's install name is
+# a more flexible and powerful mechanism than @executable_path or
+# @loader_path for locating shared libraries.
+cmake_policy(SET CMP0042 NEW)
+
 # https://www.cmake.org/cmake/help/latest/policy/CMP0054.html
+#
+# Only interpret if() arguments as variables or keywords when unquoted.
 cmake_policy(SET CMP0054 NEW)
 
-# Support new if() IN_LIST operator.
 # https://www.cmake.org/cmake/help/latest/policy/CMP0057.html
+#
+# Support new if() IN_LIST operator.
 cmake_policy(SET CMP0057 NEW)
 
+# https://www.cmake.org/cmake/help/latest/policy/CMP0063.html
+#
 # Adapted from Apache Kudu: https://github.com/apache/kudu/commit/bd549e13743a51013585
 # Honor visibility properties for all target types.
-# https://www.cmake.org/cmake/help/latest/policy/CMP0063.html
 cmake_policy(SET CMP0063 NEW)
 
-# RPATH settings on macOS do not affect install_name.
 # https://cmake.org/cmake/help/latest/policy/CMP0068.html
-if(POLICY CMP0068)
-  cmake_policy(SET CMP0068 NEW)
-endif()
+#
+# RPATH settings on macOS do not affect install_name.
+cmake_policy(SET CMP0068 NEW)
 
-# find_package() uses <PackageName>_ROOT variables.
 # https://cmake.org/cmake/help/latest/policy/CMP0074.html
-if(POLICY CMP0074)
-  cmake_policy(SET CMP0074 NEW)
+#
+# find_package() uses <PackageName>_ROOT variables.
+cmake_policy(SET CMP0074 NEW)
+
+# https://cmake.org/cmake/help/latest/policy/CMP0091.html
+#
+# MSVC runtime library flags are selected by an abstraction.
+cmake_policy(SET CMP0091 NEW)
+
+# https://cmake.org/cmake/help/latest/policy/CMP0135.html
+#
+# CMP0135 is for solving re-building and re-downloading.
+# We don't have a real problem with the OLD behavior for now
+# but we use the NEW behavior explicitly to suppress CMP0135
+# warnings.
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
 endif()
 
-set(ARROW_VERSION "12.0.0-SNAPSHOT")
+set(ARROW_VERSION "14.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -128,6 +152,7 @@ set(ARROW_DOC_DIR "share/doc/${PROJECT_NAME}")
 set(BUILD_SUPPORT_DIR "${CMAKE_SOURCE_DIR}/build-support")
 
 set(ARROW_LLVM_VERSIONS
+    "16.0"
     "15.0"
     "14.0"
     "13.0"
@@ -165,19 +190,15 @@ if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
 endif()
 
 # Needed for linting targets, etc.
-if(${CMAKE_VERSION} VERSION_LESS "3.12.0")
-  find_package(PythonInterp)
-else()
-  # Use the first Python installation on PATH, not the newest one
-  set(Python3_FIND_STRATEGY "LOCATION")
-  # On Windows, use registry last, not first
-  set(Python3_FIND_REGISTRY "LAST")
-  # On macOS, use framework last, not first
-  set(Python3_FIND_FRAMEWORK "LAST")
+# Use the first Python installation on PATH, not the newest one
+set(Python3_FIND_STRATEGY "LOCATION")
+# On Windows, use registry last, not first
+set(Python3_FIND_REGISTRY "LAST")
+# On macOS, use framework last, not first
+set(Python3_FIND_FRAMEWORK "LAST")
 
-  find_package(Python3)
-  set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
-endif()
+find_package(Python3)
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 
 # ----------------------------------------------------------------------
 # cmake options
@@ -230,11 +251,6 @@ if(ARROW_USE_CCACHE
     # meaningful to the compiler
     set(ENV{CCACHE_COMMENTS} "1")
   endif()
-endif()
-
-if(ARROW_USE_PRECOMPILED_HEADERS AND ${CMAKE_VERSION} VERSION_LESS "3.16.0")
-  message(WARNING "Precompiled headers need CMake 3.16.0 or later, disabling")
-  set(ARROW_USE_PRECOMPILED_HEADERS OFF)
 endif()
 
 if(ARROW_OPTIONAL_INSTALL)
@@ -343,8 +359,19 @@ if(${CLANG_TIDY_FOUND})
 endif()
 
 if(UNIX)
-  add_custom_target(iwyu ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
-  add_custom_target(iwyu-all ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh all)
+  add_custom_target(iwyu
+                    ${CMAKE_COMMAND}
+                    -E
+                    env
+                    "PYTHON=${PYTHON_EXECUTABLE}"
+                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh)
+  add_custom_target(iwyu-all
+                    ${CMAKE_COMMAND}
+                    -E
+                    env
+                    "PYTHON=${PYTHON_EXECUTABLE}"
+                    ${BUILD_SUPPORT_DIR}/iwyu/iwyu.sh
+                    all)
 endif(UNIX)
 
 # datetime code used by iOS requires zlib support
@@ -491,15 +518,22 @@ enable_testing()
 
 # For arrow.pc. Cflags.private, Libs.private and Requires.private are
 # used when "pkg-config --cflags --libs --static arrow" is used.
+set(ARROW_PC_CFLAGS "")
 set(ARROW_PC_CFLAGS_PRIVATE " -DARROW_STATIC")
 set(ARROW_PC_LIBS_PRIVATE "")
 set(ARROW_PC_REQUIRES_PRIVATE "")
+
+# For arrow-flight.pc.
+set(ARROW_FLIGHT_PC_REQUIRES_PRIVATE "")
 
 # For arrow-testing.pc.
 set(ARROW_TESTING_PC_CFLAGS "")
 set(ARROW_TESTING_PC_CFLAGS_PRIVATE " -DARROW_TESTING_STATIC")
 set(ARROW_TESTING_PC_LIBS "")
 set(ARROW_TESTING_PC_REQUIRES "")
+
+# For parquet.pc.
+set(PARQUET_PC_REQUIRES_PRIVATE "")
 
 include(ThirdpartyToolchain)
 
@@ -657,6 +691,23 @@ set(ARROW_SHARED_INSTALL_INTERFACE_LIBS)
 set(ARROW_STATIC_LINK_LIBS arrow::flatbuffers arrow::hadoop)
 set(ARROW_STATIC_INSTALL_INTERFACE_LIBS)
 
+# We must use google-cloud-cpp::storage first. If
+# google-cloud-cpp::storage depends on bundled Abseil, bundled Abseil
+# and system Abseil may be mixed.
+#
+# For example, if Boost::headers is used before
+# google-cloud-cpp::storage AND Boost::headers has
+# -I/opt/homebrew/include AND /opt/homebrew/include/absl/ exists,
+# /opt/homebrew/include/absl/**/*.h are used instead of .h provided by
+# bundled Abseil.
+if(ARROW_GCS)
+  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
+  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
+  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
+    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
+  endif()
+endif()
+
 if(ARROW_USE_BOOST)
   list(APPEND ARROW_SHARED_LINK_LIBS Boost::headers)
   list(APPEND ARROW_STATIC_LINK_LIBS Boost::headers)
@@ -723,14 +774,6 @@ if(ARROW_ORC)
   endif()
 endif()
 
-if(ARROW_GCS)
-  list(APPEND ARROW_SHARED_LINK_LIBS google-cloud-cpp::storage)
-  list(APPEND ARROW_STATIC_LINK_LIBS google-cloud-cpp::storage)
-  if(google_cloud_cpp_storage_SOURCE STREQUAL "SYSTEM")
-    list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS google-cloud-cpp::storage)
-  endif()
-endif()
-
 if(ARROW_USE_GLOG)
   list(APPEND ARROW_SHARED_LINK_LIBS glog::glog)
   list(APPEND ARROW_STATIC_LINK_LIBS glog::glog)
@@ -780,6 +823,11 @@ if(ARROW_WITH_OPENTELEMETRY)
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
   endif()
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS CURL::libcurl)
+endif()
+
+if(ARROW_WITH_AZURE_SDK)
+  list(APPEND ARROW_SHARED_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
+  list(APPEND ARROW_STATIC_LINK_LIBS ${AZURE_SDK_LINK_LIBRARIES})
 endif()
 
 if(ARROW_WITH_UTF8PROC)
@@ -837,8 +885,8 @@ if(NOT MSVC_TOOLCHAIN)
   list(APPEND ARROW_SHARED_LINK_LIBS ${CMAKE_DL_LIBS})
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers GTest::gtest_main GTest::gtest
-                              GTest::gmock)
+set(ARROW_TEST_LINK_TOOLCHAIN arrow::flatbuffers ${ARROW_GTEST_GTEST_MAIN}
+                              ${ARROW_GTEST_GTEST} ${ARROW_GTEST_GMOCK})
 
 if(ARROW_BUILD_TESTS)
   add_dependencies(arrow_test_dependencies ${ARROW_TEST_LINK_TOOLCHAIN})
@@ -931,10 +979,6 @@ list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS ${ARROW_SYSTEM_LINK_LIBS})
 #
 # Subdirectories
 #
-
-if(NOT WIN32 AND ARROW_PLASMA)
-  add_subdirectory(src/plasma)
-endif()
 
 add_subdirectory(src/arrow)
 

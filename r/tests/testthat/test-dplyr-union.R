@@ -16,6 +16,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 withr::local_options(list(arrow.summarise.sort = FALSE))
 
 test_that("union_all", {

@@ -251,6 +251,8 @@ class PARQUET_EXPORT RowGroupMetaData {
   const SchemaDescriptor* schema() const;
   // Indicate if all of the RowGroup's ColumnChunks can be decompressed.
   bool can_decompress() const;
+  // Sorting columns of the row group if any.
+  std::vector<SortingColumn> sorting_columns() const;
 
  private:
   explicit RowGroupMetaData(
@@ -506,20 +508,43 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
   std::unique_ptr<RowGroupMetaDataBuilderImpl> impl_;
 };
 
+/// \brief Public struct for location to all page indexes in a parquet file.
+struct PageIndexLocation {
+  /// Alias type of page index location of a row group. The index location
+  /// is located by column ordinal. If the column does not have the page index,
+  /// its value is set to std::nullopt.
+  using RowGroupIndexLocation = std::vector<std::optional<IndexLocation>>;
+  /// Alias type of page index location of a parquet file. The index location
+  /// is located by the row group ordinal.
+  using FileIndexLocation = std::map<size_t, RowGroupIndexLocation>;
+  /// Row group column index locations which uses row group ordinal as the key.
+  FileIndexLocation column_index_location;
+  /// Row group offset index locations which uses row group ordinal as the key.
+  FileIndexLocation offset_index_location;
+};
+
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
-  // API convenience to get a MetaData reader
+  ARROW_DEPRECATED("Deprecated in 12.0.0. Use overload without KeyValueMetadata instead.")
   static std::unique_ptr<FileMetaDataBuilder> Make(
       const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props,
-      std::shared_ptr<const KeyValueMetadata> key_value_metadata = NULLPTR);
+      std::shared_ptr<const KeyValueMetadata> key_value_metadata);
+
+  // API convenience to get a MetaData builder
+  static std::unique_ptr<FileMetaDataBuilder> Make(
+      const SchemaDescriptor* schema, std::shared_ptr<WriterProperties> props);
 
   ~FileMetaDataBuilder();
 
   // The prior RowGroupMetaDataBuilder (if any) is destroyed
   RowGroupMetaDataBuilder* AppendRowGroup();
 
+  // Update location to all page indexes in the parquet file
+  void SetPageIndexLocation(const PageIndexLocation& location);
+
   // Complete the Thrift structure
-  std::unique_ptr<FileMetaData> Finish();
+  std::unique_ptr<FileMetaData> Finish(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata = NULLPTR);
 
   // crypto metadata
   std::unique_ptr<FileCryptoMetaData> GetCryptoMetaData();

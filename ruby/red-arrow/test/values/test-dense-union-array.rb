@@ -64,12 +64,23 @@ module ValuesDenseUnionArrayTests
                                arrays)
   end
 
+  def remove_field_names(values)
+    values.collect do |value|
+      if value.nil?
+        value
+      else
+        value.values[0]
+      end
+    end
+  end
+
   def test_null
     values = [
       {"0" => nil},
     ]
     target = build(:null, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_boolean
@@ -78,7 +89,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:boolean, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_int8
@@ -87,7 +99,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:int8, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_uint8
@@ -96,7 +109,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:uint8, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_int16
@@ -105,7 +119,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:int16, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_uint16
@@ -114,7 +129,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:uint16, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_int32
@@ -123,7 +139,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:int32, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_uint32
@@ -132,7 +149,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:uint32, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_int64
@@ -141,7 +159,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:int64, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_uint64
@@ -150,7 +169,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:uint64, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_float
@@ -159,7 +179,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:float, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_double
@@ -168,7 +189,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:double, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_binary
@@ -177,7 +199,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:binary, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_string
@@ -186,7 +209,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:string, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_date32
@@ -195,7 +219,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:date32, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_date64
@@ -204,7 +229,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:date64, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_timestamp_second
@@ -217,7 +243,8 @@ module ValuesDenseUnionArrayTests
                      unit: :second,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_timestamp_milli
@@ -230,7 +257,8 @@ module ValuesDenseUnionArrayTests
                      unit: :milli,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_timestamp_micro
@@ -243,7 +271,8 @@ module ValuesDenseUnionArrayTests
                      unit: :micro,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_timestamp_nano
@@ -256,7 +285,8 @@ module ValuesDenseUnionArrayTests
                      unit: :nano,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_time32_second
@@ -271,7 +301,8 @@ module ValuesDenseUnionArrayTests
                      unit: :second,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_time32_milli
@@ -286,7 +317,8 @@ module ValuesDenseUnionArrayTests
                      unit: :milli,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_time64_micro
@@ -301,7 +333,8 @@ module ValuesDenseUnionArrayTests
                      unit: :micro,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_time64_nano
@@ -316,7 +349,8 @@ module ValuesDenseUnionArrayTests
                      unit: :nano,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_decimal128
@@ -330,7 +364,8 @@ module ValuesDenseUnionArrayTests
                      scale: 2,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_decimal256
@@ -344,7 +379,8 @@ module ValuesDenseUnionArrayTests
                      scale: 2,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_month_interval
@@ -353,7 +389,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:month_interval, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_day_time_interval
@@ -362,7 +399,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:day_time_interval, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_month_day_nano_interval
@@ -371,7 +409,8 @@ module ValuesDenseUnionArrayTests
       {"1" => nil},
     ]
     target = build(:month_day_nano_interval, values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_list
@@ -387,7 +426,8 @@ module ValuesDenseUnionArrayTests
                      },
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_struct
@@ -406,7 +446,8 @@ module ValuesDenseUnionArrayTests
                      ],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_map
@@ -420,14 +461,15 @@ module ValuesDenseUnionArrayTests
                      item: :boolean,
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 
   def test_sparse_union
-    omit("Need to add support for SparseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
       {"1" => nil},
+      {"0" => {"field2" => 29}},
       {"0" => {"field2" => nil}},
     ]
     target = build({
@@ -445,14 +487,15 @@ module ValuesDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(remove_field_names(values)),
+                 target.values)
   end
 
   def test_dense_union
-    omit("Need to add support for DenseUnionArrayBuilder")
     values = [
       {"0" => {"field1" => true}},
       {"1" => nil},
+      {"0" => {"field2" => 29}},
       {"0" => {"field2" => nil}},
     ]
     target = build({
@@ -470,25 +513,25 @@ module ValuesDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    values)
-    assert_equal(values, target.values)
+    assert_equal(remove_field_names(remove_field_names(values)),
+                 target.values)
   end
 
   def test_dictionary
-    omit("Need to add support for DictionaryArrayBuilder")
     values = [
       {"0" => "Ruby"},
       {"1" => nil},
       {"0" => "GLib"},
     ]
-    dictionary = Arrow::StringArray.new(["GLib", "Ruby"])
     target = build({
-                                        type: :dictionary,
-                                        index_data_type: :int8,
-                                        dictionary: dictionary,
-                                        ordered: true,
-                                      },
-                                      values)
-    assert_equal(values, target.values)
+                     type: :dictionary,
+                     index_data_type: :int8,
+                     value_data_type: :string,
+                     ordered: false,
+                   },
+                   values)
+    assert_equal(remove_field_names(values),
+                 target.values)
   end
 end
 

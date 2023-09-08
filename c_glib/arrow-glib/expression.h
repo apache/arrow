@@ -23,17 +23,6 @@
 
 G_BEGIN_DECLS
 
-#define GARROW_TYPE_EXPRESSION (garrow_expression_get_type())
-G_DECLARE_DERIVABLE_TYPE(GArrowExpression,
-                         garrow_expression,
-                         GARROW,
-                         EXPRESSION,
-                         GObject)
-struct _GArrowExpressionClass
-{
-  GObjectClass parent_class;
-};
-
 GARROW_AVAILABLE_IN_6_0
 gchar *
 garrow_expression_to_string(GArrowExpression *expression);

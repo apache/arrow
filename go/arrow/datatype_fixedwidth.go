@@ -17,10 +17,11 @@
 package arrow
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"time"
+
+	"github.com/apache/arrow/go/v14/internal/json"
 
 	"golang.org/x/xerrors"
 )
@@ -106,7 +107,7 @@ func (d Date64) FormattedString() string {
 }
 
 // TimestampFromStringInLocation is like TimestampFromString, but treats the time instant
-// as if it were in the passed timezone before converting to UTC for internal representation.
+// as if it were in the provided timezone before converting to UTC for internal representation.
 func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location) (Timestamp, bool, error) {
 	if len(val) < 10 {
 		return 0, false, fmt.Errorf("%w: invalid timestamp string", ErrInvalid)
@@ -167,17 +168,8 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 		out = out.In(loc).UTC()
 	}
 
-	switch unit {
-	case Second:
-		return Timestamp(out.Unix()), zoneFmt != "", nil
-	case Millisecond:
-		return Timestamp(out.Unix()*1e3 + int64(out.Nanosecond())/1e6), zoneFmt != "", nil
-	case Microsecond:
-		return Timestamp(out.Unix()*1e6 + int64(out.Nanosecond())/1e3), zoneFmt != "", nil
-	case Nanosecond:
-		return Timestamp(out.UnixNano()), zoneFmt != "", nil
-	}
-	return 0, zoneFmt != "", fmt.Errorf("%w: unexpected timestamp unit: %s", ErrInvalid, unit)
+	ts, err := TimestampFromTime(out, unit)
+	return ts, zoneFmt != "", err
 }
 
 // TimestampFromString parses a string and returns a timestamp for the given unit
@@ -187,10 +179,10 @@ func TimestampFromStringInLocation(val string, unit TimeUnit, loc *time.Location
 // or a space, and [.zzzzzzzzz] can be either left out or up to 9 digits of
 // fractions of a second.
 //
-//	 YYYY-MM-DD
-//	 YYYY-MM-DD[T]HH
-//   YYYY-MM-DD[T]HH:MM
-//   YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzz]
+//	YYYY-MM-DD
+//	YYYY-MM-DD[T]HH
+//	YYYY-MM-DD[T]HH:MM
+//	YYYY-MM-DD[T]HH:MM:SS[.zzzzzzzz]
 //
 // You can also optionally have an ending Z to indicate UTC or indicate a specific
 // timezone using ±HH, ±HHMM or ±HH:MM at the end of the string.
@@ -200,10 +192,32 @@ func TimestampFromString(val string, unit TimeUnit) (Timestamp, error) {
 }
 
 func (t Timestamp) ToTime(unit TimeUnit) time.Time {
-	if unit == Second {
+	switch unit {
+	case Second:
 		return time.Unix(int64(t), 0).UTC()
+	case Millisecond:
+		return time.UnixMilli(int64(t)).UTC()
+	case Microsecond:
+		return time.UnixMicro(int64(t)).UTC()
+	default:
+		return time.Unix(0, int64(t)).UTC()
 	}
-	return time.Unix(0, int64(t)*int64(unit.Multiplier())).UTC()
+}
+
+// TimestampFromTime allows converting time.Time to Timestamp
+func TimestampFromTime(val time.Time, unit TimeUnit) (Timestamp, error) {
+	switch unit {
+	case Second:
+		return Timestamp(val.Unix()), nil
+	case Millisecond:
+		return Timestamp(val.Unix()*1e3 + int64(val.Nanosecond())/1e6), nil
+	case Microsecond:
+		return Timestamp(val.Unix()*1e6 + int64(val.Nanosecond())/1e3), nil
+	case Nanosecond:
+		return Timestamp(val.UnixNano()), nil
+	default:
+		return 0, fmt.Errorf("%w: unexpected timestamp unit: %s", ErrInvalid, unit)
+	}
 }
 
 // Time32FromString parses a string to return a Time32 value in the given unit,
@@ -319,6 +333,8 @@ const (
 
 var TimeUnitValues = []TimeUnit{Second, Millisecond, Microsecond, Nanosecond}
 
+// Multiplier returns a time.Duration value to multiply by in order to
+// convert the value into nanoseconds
 func (u TimeUnit) Multiplier() time.Duration {
 	return [...]time.Duration{time.Second, time.Millisecond, time.Microsecond, time.Nanosecond}[uint(u)&3]
 }
@@ -358,9 +374,9 @@ func (t *TimestampType) Fingerprint() string {
 // BitWidth returns the number of bits required to store a single element of this data type in memory.
 func (*TimestampType) BitWidth() int { return 64 }
 
-func (TimestampType) Bytes() int { return Int64SizeBytes }
+func (*TimestampType) Bytes() int { return Int64SizeBytes }
 
-func (TimestampType) Layout() DataTypeLayout {
+func (*TimestampType) Layout() DataTypeLayout {
 	return DataTypeLayout{Buffers: []BufferSpec{SpecBitmap(), SpecFixedWidth(TimestampSizeBytes)}}
 }
 
@@ -428,15 +444,9 @@ func (t *TimestampType) GetToTimeFunc() (func(Timestamp) time.Time, error) {
 	case Second:
 		return func(v Timestamp) time.Time { return time.Unix(int64(v), 0).In(tz) }, nil
 	case Millisecond:
-		factor := int64(time.Second / time.Millisecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Millisecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMilli(int64(v)).In(tz) }, nil
 	case Microsecond:
-		factor := int64(time.Second / time.Microsecond)
-		return func(v Timestamp) time.Time {
-			return time.Unix(int64(v)/factor, (int64(v)%factor)*int64(time.Microsecond)).In(tz)
-		}, nil
+		return func(v Timestamp) time.Time { return time.UnixMicro(int64(v)).In(tz) }, nil
 	case Nanosecond:
 		return func(v Timestamp) time.Time { return time.Unix(0, int64(v)).In(tz) }, nil
 	}

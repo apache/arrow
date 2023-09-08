@@ -34,11 +34,15 @@
 #include <arrow/compute/type_fwd.h>
 #include <arrow/csv/type_fwd.h>
 
+#if defined(ARROW_R_WITH_ACERO)
+#include <arrow/acero/options.h>
+#include <arrow/acero/type_fwd.h>
+namespace acero = ::arrow::acero;
+#endif
+
 #if defined(ARROW_R_WITH_DATASET)
 #include <arrow/dataset/type_fwd.h>
 #endif
-
-#include <arrow/compute/exec/options.h>
 
 #include <arrow/filesystem/type_fwd.h>
 #include <arrow/io/type_fwd.h>
@@ -50,15 +54,6 @@
 
 #include <arrow/type_fwd.h>
 #include <arrow/util/type_fwd.h>
-
-namespace arrow {
-namespace compute {
-
-class ExecPlan;
-class ExecNode;
-
-}  // namespace compute
-}  // namespace arrow
 
 class ExecPlanReader;
 
@@ -239,6 +234,7 @@ void Init_Altrep_classes(DllInfo* dll);
 
 SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array);
 bool is_arrow_altrep(SEXP x);
+bool is_unmaterialized_arrow_altrep(SEXP x);
 std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP);
 
 }  // namespace altrep
@@ -274,6 +270,7 @@ R6_CLASS_NAME(arrow::csv::WriteOptions, "CsvWriteOptions");
 
 #if defined(ARROW_R_WITH_PARQUET)
 R6_CLASS_NAME(parquet::ArrowReaderProperties, "ParquetArrowReaderProperties");
+R6_CLASS_NAME(parquet::ReaderProperties, "ParquetReaderProperties");
 R6_CLASS_NAME(parquet::ArrowWriterProperties, "ParquetArrowWriterProperties");
 R6_CLASS_NAME(parquet::WriterProperties, "ParquetWriterProperties");
 R6_CLASS_NAME(parquet::arrow::FileReader, "ParquetFileReader");

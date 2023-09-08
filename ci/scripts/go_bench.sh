@@ -41,7 +41,7 @@ pushd ${source_dir}
 # lots of benchmarks, they can take a while
 # the timeout is for *ALL* benchmarks together,
 # not per benchmark
-go test -bench=. -benchmem -timeout 20m -run=^$ ./... | tee bench_stat.dat
+go test -bench=. -benchmem -timeout 40m -run=^$ ./... | tee bench_stat.dat
 
 popd
 

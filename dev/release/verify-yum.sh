@@ -55,9 +55,10 @@ have_flight=yes
 have_gandiva=yes
 have_glib=yes
 have_parquet=yes
-have_python=yes
 have_ruby=yes
+have_vala=yes
 ruby_devel_packages=(ruby-devel)
+enablerepo_epel="--enablerepo=epel"
 install_command="dnf install -y --enablerepo=crb"
 uninstall_command="dnf remove -y"
 clean_command="dnf clean"
@@ -77,22 +78,11 @@ case "${distribution}-${distribution_version}" in
     distribution_prefix="almalinux"
     ruby_devel_packages+=(redhat-rpm-config)
     ;;
-  amzn-2)
+  amzn-*)
     distribution_prefix="amazon-linux"
-    cmake_package=cmake3
-    cmake_command=cmake3
-    if [ "$(arch)" != "aarch64" ]; then
-      have_arrow_libs=yes
-    fi
-    have_flight=no
-    have_gandiva=no
-    have_python=no
-    have_ruby=no
-    install_command="yum install -y"
-    uninstall_command="yum remove -y"
-    clean_command="yum clean"
-    info_command="yum info"
-    amazon-linux-extras install epel -y
+    enablerepo_epel=""
+    install_command="dnf install -y"
+    info_command="dnf info"
     ;;
   centos-7)
     distribution_prefix="centos"
@@ -103,8 +93,8 @@ case "${distribution}-${distribution_version}" in
     have_arrow_libs=yes
     have_flight=no
     have_gandiva=no
-    have_python=no
     have_ruby=no
+    have_vala=no
     install_command="yum install -y"
     uninstall_command="yum remove -y"
     clean_command="yum clean"
@@ -123,7 +113,6 @@ case "${distribution}-${distribution_version}" in
     ;;
 esac
 if [ "$(arch)" = "aarch64" ]; then
-  have_flight=no
   have_gandiva=no
 fi
 
@@ -149,7 +138,6 @@ if [ "${TYPE}" = "local" ]; then
     amzn)
       package_version+=".${distribution}${distribution_version}"
       release_path+="/amazon-linux"
-      amazon-linux-extras install -y epel
       ;;
     centos)
       package_version+=".el${distribution_version}"
@@ -198,7 +186,7 @@ echo "::endgroup::"
 
 
 echo "::group::Test Apache Arrow C++"
-${install_command} --enablerepo=epel arrow-devel-${package_version}
+${install_command} ${enablerepo_epel} arrow-devel-${package_version}
 if [ -n "${devtoolset}" ]; then
   ${install_command} ${scl_package}
 fi
@@ -223,7 +211,7 @@ pushd build/minimal_build
 ${cmake_command} .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
 ./arrow-example
 popd
 echo "::endgroup::"
@@ -232,19 +220,21 @@ if [ "${have_glib}" = "yes" ]; then
   echo "::group::Test Apache Arrow GLib"
   export G_DEBUG=fatal-warnings
 
-  ${install_command} --enablerepo=epel arrow-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-glib-doc-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-glib-devel-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-glib-doc-${package_version}
 
-  ${install_command} vala
-  cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
-  pushd build/vala
-  valac --pkg arrow-glib --pkg posix build.vala
-  ./build
-  popd
+  if [ "${have_vala}" = "yes" ]; then
+    ${install_command} vala
+    cp -a "${TOP_SOURCE_DIR}/c_glib/example/vala" build/
+    pushd build/vala
+    valac --pkg arrow-glib --pkg posix build.vala
+    ./build
+    popd
+  fi
 
   if [ "${have_ruby}" = "yes" ]; then
     ${install_command} "${ruby_devel_packages[@]}"
-    gem install gobject-introspection
+    MAKEFLAGS="-j$(nproc)" gem install gobject-introspection
     ruby -r gi -e "p GI.load('Arrow')"
   fi
   echo "::endgroup::"
@@ -252,44 +242,32 @@ fi
 
 if [ "${have_flight}" = "yes" ]; then
   echo "::group::Test Apache Arrow Flight"
-  ${install_command} --enablerepo=epel arrow-flight-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-glib-doc-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-flight-glib-devel-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-flight-glib-doc-${package_version}
   if [ "${have_ruby}" = "yes" ]; then
     ruby -r gi -e "p GI.load('ArrowFlight')"
   fi
   echo "::endgroup::"
 
   echo "::group::Test Apache Arrow Flight SQL"
-  ${install_command} --enablerepo=epel arrow-flight-sql-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel arrow-flight-sql-glib-doc-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-flight-sql-glib-devel-${package_version}
+  ${install_command} ${enablerepo_epel} arrow-flight-sql-glib-doc-${package_version}
   if [ "${have_ruby}" = "yes" ]; then
     ruby -r gi -e "p GI.load('ArrowFlightSQL')"
   fi
   echo "::endgroup::"
 fi
 
-echo "::group::Test Plasma"
-if [ "${have_glib}" = "yes" ]; then
-  ${install_command} --enablerepo=epel plasma-glib-devel-${package_version}
-  ${install_command} --enablerepo=epel plasma-glib-doc-${package_version}
-  if [ "${have_ruby}" = "yes" ]; then
-    ruby -r gi -e "p GI.load('Plasma')"
-  fi
-else
-  ${install_command} --enablerepo=epel plasma-devel-${package_version}
-fi
-echo "::endgroup::"
-
 if [ "${have_gandiva}" = "yes" ]; then
   echo "::group::Test Gandiva"
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel gandiva-glib-devel-${package_version}
-    ${install_command} --enablerepo=epel gandiva-glib-doc-${package_version}
+    ${install_command} ${enablerepo_epel} gandiva-glib-devel-${package_version}
+    ${install_command} ${enablerepo_epel} gandiva-glib-doc-${package_version}
     if [ "${have_ruby}" = "yes" ]; then
       ruby -r gi -e "p GI.load('Gandiva')"
     fi
   else
-    ${install_command} --enablerepo=epel gandiva-devel-${package_version}
+    ${install_command} ${enablerepo_epel} gandiva-devel-${package_version}
   fi
   echo "::endgroup::"
 fi
@@ -297,13 +275,13 @@ fi
 if [ "${have_parquet}" = "yes" ]; then
   echo "::group::Test Apache Parquet"
   if [ "${have_glib}" = "yes" ]; then
-    ${install_command} --enablerepo=epel parquet-glib-devel-${package_version}
-    ${install_command} --enablerepo=epel parquet-glib-doc-${package_version}
+    ${install_command} ${enablerepo_epel} parquet-glib-devel-${package_version}
+    ${install_command} ${enablerepo_epel} parquet-glib-doc-${package_version}
     if [ "${have_ruby}" = "yes" ]; then
       ruby -r gi -e "p GI.load('Parquet')"
     fi
   else
-    ${install_command} --enablerepo=epel parquet-devel-${package_version}
+    ${install_command} ${enablerepo_epel} parquet-devel-${package_version}
   fi
   echo "::endgroup::"
 fi
@@ -314,12 +292,12 @@ if ${install_command} \
      https://apache.jfrog.io/artifactory/arrow/${distribution_prefix}/${repository_version}/apache-arrow-release-latest.rpm; then
   ${clean_command} all
   if [ "${have_arrow_libs}" = "yes" ]; then
-    ${install_command} arrow-libs
+    ${install_command} ${enablerepo_epel} arrow-libs
   else
     major_version=$(echo ${VERSION} | grep -E -o '^[0-9]+')
     previous_major_version="$((${major_version} - 1))"
-    if ${info_command} arrow${previous_major_version}-libs; then
-      ${install_command} arrow${previous_major_version}-libs
+    if ${info_command} ${enablerepo_epel} arrow${previous_major_version}-libs; then
+      ${install_command} ${enablerepo_epel} arrow${previous_major_version}-libs
     fi
   fi
 fi

@@ -18,21 +18,24 @@ package file_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
 	"io"
-	"math/rand"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet/compress"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	format "github.com/apache/arrow/go/v12/parquet/internal/gen-go/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/thrift"
-	"github.com/apache/arrow/go/v12/parquet/metadata"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/compress"
+	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
+	format "github.com/apache/arrow/go/v14/parquet/internal/gen-go/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/thrift"
+	"github.com/apache/arrow/go/v14/parquet/metadata"
+	"github.com/apache/arrow/go/v14/parquet/schema"
 	libthrift "github.com/apache/thrift/lib/go/thrift"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -63,6 +66,19 @@ func checkStatistics(t *testing.T, stats format.Statistics, actual metadata.Enco
 	if stats.IsSetDistinctCount() {
 		assert.Equal(t, stats.GetDistinctCount(), actual.DistinctCount)
 	}
+}
+
+type testReader struct {
+	*bytes.Reader
+}
+
+// ReadAt for testReader returns io.EOF when off + len(b) is exactly the length of the underlying input source.
+func (tr testReader) ReadAt(b []byte, off int64) (int, error) {
+	n, err := tr.Reader.ReadAt(b, off)
+	if err == nil && (int64(n)+off == tr.Size()) {
+		return n, io.EOF
+	}
+	return n, err
 }
 
 type PageSerdeSuite struct {
@@ -271,6 +287,20 @@ func (p *PageSerdeSuite) TestCompression() {
 	}
 }
 
+func TestWithEOFReader(t *testing.T) {
+	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
+		schema.NewInt32Node("int_col", parquet.Repetitions.Required, -1)}, -1)
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST))
+
+	var buf bytes.Buffer
+	wr := file.NewParquetWriter(&buf, root, file.WithWriterProps(props))
+	require.NoError(t, wr.Close())
+
+	r := bytes.NewReader(buf.Bytes())
+	_, err := file.NewParquetReader(testReader{Reader: r})
+	assert.NoError(t, err)
+}
+
 func TestInvalidHeaders(t *testing.T) {
 	badHeader := []byte("PAR2")
 	_, err := file.NewParquetReader(bytes.NewReader(badHeader))
@@ -302,4 +332,56 @@ func TestIncompleteMetadata(t *testing.T) {
 	defer buf.Release()
 	_, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
 	assert.Error(t, err)
+}
+
+func TestDeltaLengthByteArrayPackingWithNulls(t *testing.T) {
+	// produce file with DeltaLengthByteArray Encoding with mostly null values but one actual value.
+	root, _ := schema.NewGroupNode("schema", parquet.Repetitions.Repeated, schema.FieldList{
+		schema.NewByteArrayNode("byte_array_col", parquet.Repetitions.Optional, -1),
+	}, -1)
+	props := parquet.NewWriterProperties(parquet.WithVersion(parquet.V2_LATEST),
+		parquet.WithEncoding(parquet.Encodings.DeltaLengthByteArray), parquet.WithDictionaryDefault(false))
+	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+
+	writer := file.NewParquetWriter(sink, root, file.WithWriterProps(props))
+	rgw := writer.AppendRowGroup()
+	ccw, err := rgw.NextColumn()
+	assert.NoError(t, err)
+	const elements = 500
+	data := make([]parquet.ByteArray, elements)
+	data[0] = parquet.ByteArray{1, 2, 3, 4, 5, 6, 7, 8}
+
+	defLvls := make([]int16, elements)
+	repLvls := make([]int16, elements)
+	defLvls[0] = 1
+
+	_, err = ccw.(*file.ByteArrayColumnChunkWriter).WriteBatch(data, defLvls, repLvls)
+	assert.NoError(t, err)
+	assert.NoError(t, ccw.Close())
+	assert.NoError(t, rgw.Close())
+	assert.NoError(t, writer.Close())
+	buf := sink.Finish()
+	defer buf.Release()
+
+	// read file back in
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	assert.NoError(t, err)
+	defer reader.Close()
+	ccr, err := reader.RowGroup(0).Column(0)
+	assert.NoError(t, err)
+	const batchSize = 500
+
+	for ccr.HasNext() {
+		readData := make([]parquet.ByteArray, batchSize)
+		readdevLvls := make([]int16, batchSize)
+		readrepLvls := make([]int16, batchSize)
+		cr := ccr.(*file.ByteArrayColumnChunkReader)
+
+		total, read, err := cr.ReadBatch(batchSize, readData, readdevLvls, readrepLvls)
+		assert.NoError(t, err)
+		assert.Equal(t, int64(batchSize), total)
+		assert.Equal(t, 1, read)
+		assert.Equal(t, data[0], readData[0])
+		assert.NotNil(t, readData[0])
+	}
 }

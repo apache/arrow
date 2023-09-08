@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/internal/bitutils"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/apache/arrow/go/v12/parquet"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/internal/bitutils"
+	"github.com/apache/arrow/go/v14/internal/utils"
+	"github.com/apache/arrow/go/v14/parquet"
 )
 
 // PlainByteArrayEncoder encodes byte arrays according to the spec for Plain encoding
@@ -95,9 +95,6 @@ func (enc *DictByteArrayEncoder) WriteDict(out []byte) {
 // PutByteArray adds a single byte array to buffer, updating the dictionary
 // and encoded size if it's a new value
 func (enc *DictByteArrayEncoder) PutByteArray(in parquet.ByteArray) {
-	if in == nil {
-		in = empty[:]
-	}
 	memoIdx, found, err := enc.memo.GetOrInsert(in)
 	if err != nil {
 		panic(err)

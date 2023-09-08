@@ -25,12 +25,15 @@
 
 GParquetColumnChunkMetadata *
 gparquet_column_chunk_metadata_new_raw(
-  parquet::ColumnChunkMetaData *parquet_metadata);
+  parquet::ColumnChunkMetaData *parquet_metadata,
+  GParquetRowGroupMetadata *owner);
 parquet::ColumnChunkMetaData *
 gparquet_column_chunk_metadata_get_raw(GParquetColumnChunkMetadata *metadata);
 
 GParquetRowGroupMetadata *
-gparquet_row_group_metadata_new_raw(parquet::RowGroupMetaData *parquet_metadata);
+gparquet_row_group_metadata_new_raw(
+  parquet::RowGroupMetaData *parquet_metadata,
+  GParquetFileMetadata *owner);
 parquet::RowGroupMetaData *
 gparquet_row_group_metadata_get_raw(GParquetRowGroupMetadata *metadata);
 

@@ -23,12 +23,12 @@ import (
 	"strconv"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/float16"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/float16"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 type Float16Builder struct {
@@ -78,9 +78,21 @@ func (b *Float16Builder) AppendNull() {
 	b.UnsafeAppendBoolToBitmap(false)
 }
 
+func (b *Float16Builder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *Float16Builder) AppendEmptyValue() {
 	b.Reserve(1)
 	b.UnsafeAppend(float16.Num{})
+}
+
+func (b *Float16Builder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 func (b *Float16Builder) UnsafeAppendBoolToBitmap(isValid bool) {
@@ -176,7 +188,21 @@ func (b *Float16Builder) newData() (data *Data) {
 	return
 }
 
-func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
+func (b *Float16Builder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	v, err := strconv.ParseFloat(s, 32)
+	if err != nil {
+		b.AppendNull()
+		return err
+	}
+	b.Append(float16.New(float32(v)))
+	return nil
+}
+
+func (b *Float16Builder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -210,9 +236,9 @@ func (b *Float16Builder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *Float16Builder) unmarshal(dec *json.Decoder) error {
+func (b *Float16Builder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -233,5 +259,5 @@ func (b *Float16Builder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("float16 builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }

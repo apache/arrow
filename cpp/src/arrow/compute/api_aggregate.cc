@@ -203,6 +203,16 @@ Result<Datum> Sum(const Datum& value, const ScalarAggregateOptions& options,
   return CallFunction("sum", {value}, &options, ctx);
 }
 
+Result<Datum> First(const Datum& value, const ScalarAggregateOptions& options,
+                    ExecContext* ctx) {
+  return CallFunction("first", {value}, &options, ctx);
+}
+
+Result<Datum> Last(const Datum& value, const ScalarAggregateOptions& options,
+                   ExecContext* ctx) {
+  return CallFunction("last", {value}, &options, ctx);
+}
+
 Result<Datum> MinMax(const Datum& value, const ScalarAggregateOptions& options,
                      ExecContext* ctx) {
   return CallFunction("min_max", {value}, &options, ctx);

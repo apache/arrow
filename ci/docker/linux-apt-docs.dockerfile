@@ -68,7 +68,9 @@ ENV PATH=/opt/apache-maven-${maven}/bin:$PATH
 RUN mvn -version
 
 ARG node=16
-RUN wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
+RUN apt-get purge -y npm && \
+    apt-get autoremove -y --purge && \
+    wget -q -O - https://deb.nodesource.com/setup_${node}.x | bash - && \
     apt-get install -y nodejs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
@@ -93,7 +95,8 @@ COPY r/DESCRIPTION /arrow/r/
 RUN /arrow/ci/scripts/r_deps.sh /arrow && \
     R -e "install.packages('pkgdown')"
 
-ENV ARROW_BUILD_STATIC=OFF \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_STATIC=OFF \
     ARROW_BUILD_TESTS=OFF \
     ARROW_BUILD_UTILITIES=OFF \
     ARROW_COMPUTE=ON \

@@ -118,8 +118,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, column_properties.compression(), Codec::UseDefaultCompressionLevel(),
-        metadata_.get(), /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
+        sink_, column_properties.compression(), metadata_.get(),
+        /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ false,
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);
     std::shared_ptr<ColumnWriter> writer =
@@ -162,6 +162,20 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
   }
 
+  void TestRequiredWithCodecOptions(Encoding::type encoding,
+                                    Compression::type compression, bool enable_dictionary,
+                                    bool enable_statistics, int64_t num_rows = SMALL_SIZE,
+                                    const std::shared_ptr<CodecOptions>& codec_options =
+                                        std::make_shared<CodecOptions>(),
+                                    bool enable_checksum = false) {
+    this->GenerateData(num_rows);
+
+    this->WriteRequiredWithCodecOptions(encoding, compression, enable_dictionary,
+                                        enable_statistics, codec_options, num_rows,
+                                        enable_checksum);
+    ASSERT_NO_FATAL_FAILURE(this->ReadAndCompare(compression, num_rows, enable_checksum));
+  }
+
   void TestDictionaryFallbackEncoding(ParquetVersion::type version) {
     this->GenerateData(VERY_LARGE_SIZE);
     ColumnProperties column_properties;
@@ -184,31 +198,40 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     ASSERT_EQ(VERY_LARGE_SIZE, this->values_read_);
     this->values_.resize(VERY_LARGE_SIZE);
     ASSERT_EQ(this->values_, this->values_out_);
-    std::vector<Encoding::type> encodings = this->metadata_encodings();
+    std::vector<Encoding::type> encodings_vector = this->metadata_encodings();
+    std::set<Encoding::type> encodings(encodings_vector.begin(), encodings_vector.end());
 
     if (this->type_num() == Type::BOOLEAN) {
       // Dictionary encoding is not allowed for boolean type
-      // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case
-      std::vector<Encoding::type> expected({Encoding::PLAIN, Encoding::RLE});
+      std::set<Encoding::type> expected;
+      if (version == ParquetVersion::PARQUET_1_0) {
+        // There are 2 encodings (PLAIN, RLE) in a non dictionary encoding case for
+        // version 1.0. Note that RLE is used for DL/RL.
+        expected = {Encoding::PLAIN, Encoding::RLE};
+      } else {
+        // There is only 1 encoding (RLE) in a fallback case for version 2.0
+        expected = {Encoding::RLE};
+      }
       ASSERT_EQ(encodings, expected);
     } else if (version == ParquetVersion::PARQUET_1_0) {
-      // There are 4 encodings (PLAIN_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case
+      // There are 3 encodings (PLAIN_DICTIONARY, PLAIN, RLE) in a fallback case
       // for version 1.0
-      std::vector<Encoding::type> expected(
-          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      std::set<Encoding::type> expected(
+          {Encoding::PLAIN_DICTIONARY, Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     } else {
-      // There are 4 encodings (RLE_DICTIONARY, PLAIN, RLE, PLAIN) in a fallback case for
+      // There are 3 encodings (RLE_DICTIONARY, PLAIN, RLE) in a fallback case for
       // version 2.0
-      std::vector<Encoding::type> expected(
-          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE, Encoding::PLAIN});
+      std::set<Encoding::type> expected(
+          {Encoding::RLE_DICTIONARY, Encoding::PLAIN, Encoding::RLE});
       ASSERT_EQ(encodings, expected);
     }
 
     std::vector<parquet::PageEncodingStats> encoding_stats =
         this->metadata_encoding_stats();
     if (this->type_num() == Type::BOOLEAN) {
-      ASSERT_EQ(encoding_stats[0].encoding, Encoding::PLAIN);
+      ASSERT_EQ(encoding_stats[0].encoding,
+                version == ParquetVersion::PARQUET_1_0 ? Encoding::PLAIN : Encoding::RLE);
       ASSERT_EQ(encoding_stats[0].page_type, PageType::DATA_PAGE);
     } else if (version == ParquetVersion::PARQUET_1_0) {
       std::vector<Encoding::type> expected(
@@ -237,7 +260,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
                                  bool enable_checksum) {
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
-    column_properties.set_compression_level(compression_level);
+    column_properties.set_codec_options(
+        std::make_shared<CodecOptions>(compression_level));
     std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
         num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
     writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
@@ -255,11 +279,28 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         bit_util::BytesForBits(static_cast<uint32_t>(this->values_.size())) + 1, 255);
     ColumnProperties column_properties(encoding, compression, enable_dictionary,
                                        enable_statistics);
-    column_properties.set_compression_level(compression_level);
+    column_properties.set_codec_options(
+        std::make_shared<CodecOptions>(compression_level));
     std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
         num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
     writer->WriteBatchSpaced(this->values_.size(), nullptr, nullptr, valid_bits.data(), 0,
                              this->values_ptr_);
+    // The behaviour should be independent from the number of Close() calls
+    writer->Close();
+    writer->Close();
+  }
+
+  void WriteRequiredWithCodecOptions(Encoding::type encoding,
+                                     Compression::type compression,
+                                     bool enable_dictionary, bool enable_statistics,
+                                     const std::shared_ptr<CodecOptions>& codec_options,
+                                     int64_t num_rows, bool enable_checksum) {
+    ColumnProperties column_properties(encoding, compression, enable_dictionary,
+                                       enable_statistics);
+    column_properties.set_codec_options(codec_options);
+    std::shared_ptr<TypedColumnWriter<TestType>> writer = this->BuildWriter(
+        num_rows, column_properties, ParquetVersion::PARQUET_1_0, enable_checksum);
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
     // The behaviour should be independent from the number of Close() calls
     writer->Close();
     writer->Close();
@@ -521,6 +562,14 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndGzipCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::GZIP, false, true,
                                  LARGE_SIZE);
 }
+
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithGzipCodecOptions) {
+  auto codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
+  codec_options->gzip_format = ::arrow::util::GZipFormat::GZIP;
+  codec_options->window_bits = 12;
+  this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::GZIP, false, false,
+                                     LARGE_SIZE, codec_options);
+}
 #endif
 
 #ifdef ARROW_WITH_LZ4
@@ -649,6 +698,7 @@ TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion1_0) {
 
 TYPED_TEST(TestPrimitiveWriter, DictionaryFallbackVersion2_0) {
   this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_4);
+  this->TestDictionaryFallbackEncoding(ParquetVersion::PARQUET_2_6);
 }
 
 TEST(TestWriter, NullValuesBuffer) {
@@ -688,7 +738,6 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainChecksum) {
 }
 
 TYPED_TEST(TestPrimitiveWriter, RequiredDictChecksum) {
-  // Note: DictionaryPage will not have checksum.
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::UNCOMPRESSED,
                                  /* enable_dictionary */ true, false, SMALL_SIZE,
                                  Codec::UseDefaultCompressionLevel(),
@@ -716,21 +765,36 @@ TEST_F(TestValuesWriterInt32Type, OptionalNullValueChunk) {
   ASSERT_EQ(0, this->values_read_);
 }
 
+class TestBooleanValuesWriter : public TestPrimitiveWriter<BooleanType> {
+ public:
+  void TestWithEncoding(ParquetVersion::type version, Encoding::type encoding) {
+    this->SetUpSchema(Repetition::REQUIRED);
+    auto writer = this->BuildWriter(SMALL_SIZE, ColumnProperties(), version,
+                                    /*enable_checksum*/ false);
+    for (int i = 0; i < SMALL_SIZE; i++) {
+      bool value = (i % 2 == 0) ? true : false;
+      writer->WriteBatch(1, nullptr, nullptr, &value);
+    }
+    writer->Close();
+    this->ReadColumn();
+    for (int i = 0; i < SMALL_SIZE; i++) {
+      ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
+    }
+    const auto& encodings = this->metadata_encodings();
+    auto iter = std::find(encodings.begin(), encodings.end(), encoding);
+    ASSERT_TRUE(iter != encodings.end());
+  }
+};
+
 // PARQUET-764
 // Correct bitpacking for boolean write at non-byte boundaries
-using TestBooleanValuesWriter = TestPrimitiveWriter<BooleanType>;
 TEST_F(TestBooleanValuesWriter, AlternateBooleanValues) {
-  this->SetUpSchema(Repetition::REQUIRED);
-  auto writer = this->BuildWriter();
-  for (int i = 0; i < SMALL_SIZE; i++) {
-    bool value = (i % 2 == 0) ? true : false;
-    writer->WriteBatch(1, nullptr, nullptr, &value);
-  }
-  writer->Close();
-  this->ReadColumn();
-  for (int i = 0; i < SMALL_SIZE; i++) {
-    ASSERT_EQ((i % 2 == 0) ? true : false, this->values_out_[i]) << i;
-  }
+  TestWithEncoding(ParquetVersion::PARQUET_1_0, Encoding::PLAIN);
+}
+
+// Default encoding for boolean is RLE when using V2 pages
+TEST_F(TestBooleanValuesWriter, RleEncodedBooleanValues) {
+  TestWithEncoding(ParquetVersion::PARQUET_2_4, Encoding::RLE);
 }
 
 // PARQUET-979
@@ -817,8 +881,7 @@ TEST(TestColumnWriter, RepeatedListsUpdateSpacedBug) {
 
   auto metadata = ColumnChunkMetaDataBuilder::Make(props, schema.Column(0));
   std::unique_ptr<PageWriter> pager =
-      PageWriter::Open(sink, Compression::UNCOMPRESSED,
-                       Codec::UseDefaultCompressionLevel(), metadata.get());
+      PageWriter::Open(sink, Compression::UNCOMPRESSED, metadata.get());
   std::shared_ptr<ColumnWriter> writer =
       ColumnWriter::Make(metadata.get(), std::move(pager), props.get());
   auto typed_writer = std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
@@ -1349,7 +1412,7 @@ class ColumnWriterTestSizeEstimated : public ::testing::Test {
                                                  schema_descriptor_->Column(0));
 
     std::unique_ptr<PageWriter> pager = PageWriter::Open(
-        sink_, compression, Codec::UseDefaultCompressionLevel(), metadata_.get(),
+        sink_, compression, metadata_.get(),
         /* row_group_ordinal */ -1, /* column_chunk_ordinal*/ -1,
         ::arrow::default_memory_pool(), /* buffered_row_group */ buffered,
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR,

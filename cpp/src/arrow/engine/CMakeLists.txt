@@ -21,6 +21,7 @@ arrow_install_all_headers("arrow/engine")
 
 set(ARROW_SUBSTRAIT_SRCS
     substrait/expression_internal.cc
+    substrait/extended_expression_internal.cc
     substrait/extension_set.cc
     substrait/extension_types.cc
     substrait/options.cc
@@ -64,7 +65,8 @@ endforeach()
 
 set(ARROW_SUBSTRAIT_TEST_LINK_LIBS ${ARROW_SUBSTRAIT_LINK_lIBS} ${ARROW_TEST_LINK_LIBS})
 if(ARROW_TEST_LINKAGE STREQUAL "static")
-  list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static)
+  list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_static
+       arrow_substrait_static)
 else()
   list(APPEND ARROW_SUBSTRAIT_TEST_LINK_LIBS arrow_substrait_shared)
 endif()
@@ -75,6 +77,7 @@ add_arrow_test(substrait_test
                substrait/function_test.cc
                substrait/serde_test.cc
                substrait/protobuf_test_util.cc
+               substrait/test_util.cc
                EXTRA_LINK_LIBS
                ${ARROW_SUBSTRAIT_TEST_LINK_LIBS}
                PREFIX

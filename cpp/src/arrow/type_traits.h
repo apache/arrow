@@ -709,7 +709,7 @@ using enable_if_list_type = enable_if_t<is_list_type<T>::value, R>;
 
 template <typename T>
 using is_list_like_type =
-    std::integral_constant<bool, is_base_list_type<T>::value ||
+    std::integral_constant<bool, is_var_length_list_type<T>::value ||
                                      is_fixed_size_list_type<T>::value>;
 
 template <typename T, typename R = void>
@@ -981,6 +981,23 @@ constexpr bool is_decimal(Type::type type_id) {
   return false;
 }
 
+/// \brief Check for a type that can be used as a run-end in Run-End Encoded
+/// arrays
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id can represent a run-end value
+constexpr bool is_run_end_type(Type::type type_id) {
+  switch (type_id) {
+    case Type::INT16:
+    case Type::INT32:
+    case Type::INT64:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a primitive type
 ///
 /// This predicate doesn't match null, decimals and binary-like types.
@@ -1162,6 +1179,22 @@ constexpr bool is_fixed_width(Type::type type_id) {
   return is_primitive(type_id) || is_dictionary(type_id) || is_fixed_size_binary(type_id);
 }
 
+/// \brief Check for a variable-length list type
+///
+/// \param[in] type_id the type-id to check
+/// \return whether type-id is a variable-length list type one
+constexpr bool is_var_length_list(Type::type type_id) {
+  switch (type_id) {
+    case Type::LIST:
+    case Type::LARGE_LIST:
+    case Type::MAP:
+      return true;
+    default:
+      break;
+  }
+  return false;
+}
+
 /// \brief Check for a list-like type
 ///
 /// \param[in] type_id the type-id to check
@@ -1291,6 +1324,29 @@ static inline int offset_bit_width(Type::type type_id) {
   }
   return 0;
 }
+
+/// \brief Get the alignment a buffer should have to be considered "value aligned"
+///
+/// Some buffers are frequently type-punned.  For example, in an int32 array the
+/// values buffer is frequently cast to int32_t*
+///
+/// This sort of punning is technically only valid if the pointer is aligned to a
+/// proper width (e.g. 4 bytes in the case of int32).  However, most modern compilers
+/// are quite permissive if we get this wrong.  Note that this alignment is something
+/// that is guaranteed by malloc (e.g. new int32_t[] will return a buffer that is 4
+/// byte aligned) or common libraries (e.g. numpy) but it is not currently guaranteed
+/// by flight (GH-32276).
+///
+/// We call this "value aligned" and this method will calculate that required alignment.
+///
+/// \param type_id the type of the array containing the buffer
+///                Note: this should be the indices type for a dictionary array since
+///                A dictionary array's buffers are indices.  It should be the storage
+///                type for an extension array.
+/// \param buffer_index the index of the buffer to check, for example 0 will typically
+///                     give you the alignment expected of the validity buffer
+/// \return the required value alignment in bytes (1 if no alignment required)
+int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index);
 
 /// \brief Check for an integer type (signed or unsigned)
 ///
@@ -1442,6 +1498,16 @@ static inline bool is_fixed_size_binary(const DataType& type) {
 /// Convenience for checking using the type's id
 static inline bool is_fixed_width(const DataType& type) {
   return is_fixed_width(type.id());
+}
+
+/// \brief Check for a variable-length list type
+///
+/// \param[in] type the type to check
+/// \return whether type is a variable-length list type
+///
+/// Convenience for checking using the type's id
+static inline bool is_var_length_list(const DataType& type) {
+  return is_var_length_list(type.id());
 }
 
 /// \brief Check for a list-like type

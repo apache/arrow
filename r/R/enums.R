@@ -78,7 +78,9 @@ Type <- enum("Type::type",
   DURATION = 33L,
   LARGE_STRING = 34L,
   LARGE_BINARY = 35L,
-  LARGE_LIST = 36L
+  LARGE_LIST = 36L,
+  INTERVAL_MONTH_DAY_NANO = 37L,
+  RUN_END_ENCODED = 38L
 )
 
 TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
@@ -96,9 +98,7 @@ StatusCode <- enum("StatusCode",
   OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
   Invalid = 4L, IOError = 5L, CapacityError = 6L, IndexError = 7L,
   UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
-  PythonError = 12L, RError = 13L,
-  PlasmaObjectExists = 20L, PlasmaObjectNotFound = 21L,
-  PlasmaStoreFull = 22L, PlasmaObjectAlreadySealed = 23L
+  PythonError = 12L, RError = 13L
 )
 
 #' @rdname enums

@@ -66,10 +66,6 @@ This argument configuration also applies to `clean` and `test` scripts.
 To run tests on the bundles, you need to build them first.
 To run tests directly on the sources without bundling, use the `src` target (e.g. `yarn test -t src`).
 
-* `yarn deploy`
-
-Uses [lerna](https://github.com/lerna/lerna) to publish each build target to npm with [conventional](https://conventionalcommits.org/) [changelogs](https://github.com/conventional-changelog/conventional-changelog/tree/master/packages/conventional-changelog-cli).
-
 * `yarn doc`
 
 Compiles the documentation with [Typedoc](https://typedoc.org/). Use `yarn doc --watch` to automatically rebuild when the docs change.
@@ -82,7 +78,7 @@ You can change the target you want to test by changing the imports in `perf/inde
 
 # Testing Bundling
 
-The bunldes use `apache-arrow` so make sure to build it with `yarn build -t apache-arrow`. To bundle with a variety of bundlers, run `yarn test:bundle` or `yarn gulp bundle`.
+The bundles use `apache-arrow` so make sure to build it with `yarn build -t apache-arrow`. To bundle with a variety of bundlers, run `yarn test:bundle` or `yarn gulp bundle`.
 
 Run `yarn gulp bundle:webpack:analyze` to open [Webpack Bundle Analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer).
 

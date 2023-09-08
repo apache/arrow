@@ -17,14 +17,14 @@
 package arrjson
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/arrio"
-	"github.com/apache/arrow/go/v12/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/arrio"
+	"github.com/apache/arrow/go/v14/arrow/internal/dictutils"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 const (

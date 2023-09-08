@@ -929,7 +929,8 @@ gchar *
 garrow_array_to_string(GArrowArray *array, GError **error)
 {
   const auto arrow_array = garrow_array_get_raw(array);
-  return g_strdup(arrow_array->ToString().c_str());
+  const auto string = arrow_array->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -3653,6 +3654,9 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
         type = GARROW_TYPE_EXTENSION_ARRAY;
       }
     }
+    break;
+  case arrow::Type::type::RUN_END_ENCODED:
+    type = GARROW_TYPE_RUN_END_ENCODED_ARRAY;
     break;
   default:
     type = GARROW_TYPE_ARRAY;

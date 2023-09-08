@@ -51,10 +51,11 @@ bool IsCodecSupported(Compression::type codec) {
 }
 
 std::unique_ptr<Codec> GetCodec(Compression::type codec) {
-  return GetCodec(codec, Codec::UseDefaultCompressionLevel());
+  return GetCodec(codec, CodecOptions());
 }
 
-std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options) {
   std::unique_ptr<Codec> result;
   if (codec == Compression::LZO) {
     throw ParquetException(
@@ -69,8 +70,24 @@ std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) 
     throw ParquetException(ss.str());
   }
 
-  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, compression_level));
+  PARQUET_ASSIGN_OR_THROW(result, Codec::Create(codec, codec_options));
   return result;
+}
+
+// use compression level to create Codec
+std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level) {
+  return GetCodec(codec, CodecOptions{compression_level});
+}
+
+bool PageCanUseChecksum(PageType::type pageType) {
+  switch (pageType) {
+    case PageType::type::DATA_PAGE:
+    case PageType::type::DATA_PAGE_V2:
+    case PageType::type::DICTIONARY_PAGE:
+      return true;
+    default:
+      return false;
+  }
 }
 
 std::string FormatStatValue(Type::type parquet_type, ::std::string_view val) {

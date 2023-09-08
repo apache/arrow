@@ -24,19 +24,51 @@ test_that("FileSystem$from_uri with gs://", {
 })
 
 test_that("GcsFileSystem$create() options", {
-  # TODO: expose options as a list so we can confirm they are set?
   expect_r6_class(GcsFileSystem$create(), "GcsFileSystem")
   expect_r6_class(GcsFileSystem$create(anonymous = TRUE), "GcsFileSystem")
+
+  # Verify default options
+  expect_equal(GcsFileSystem$create()$options, list(
+    anonymous = FALSE,
+    scheme = "https",
+    retry_limit_seconds = 15
+  ))
+
+  # Verify a more complete set of options round-trips
+  options <- list(
+    anonymous = TRUE,
+    endpoint_override = "localhost:8888",
+    scheme = "http",
+    default_bucket_location = "here",
+    retry_limit_seconds = 30,
+    default_metadata = c(a = "list", of = "stuff")
+  )
+
+  fs <- do.call(GcsFileSystem$create, options)
+
   expect_r6_class(
-    GcsFileSystem$create(
-      anonymous = TRUE,
-      scheme = "http",
-      endpoint_override = "localhost:8888",
-      default_bucket_location = "here",
-      retry_limit_seconds = 30,
-      default_metadata = c(a = "list", of = "stuff")
-    ),
+    fs,
     "GcsFileSystem"
+  )
+
+  expect_equal(
+    fs$options,
+    options
+  )
+
+  # Expiration round-trips
+  options <- list(
+    expiration = as.POSIXct("2030-01-01", tz = "UTC"),
+    access_token = "MY_TOKEN"
+  )
+  fs <- do.call(GcsFileSystem$create, options)
+
+  expect_equal(fs$options$expiration, options$expiration)
+
+  # Verify create fails if expiration isn't a POSIXct
+  expect_error(
+    GcsFileSystem$create(access_token = "", expiration = ""),
+    "must be of class POSIXct, not"
   )
 })
 
@@ -59,6 +91,30 @@ test_that("GcsFileSystem$create() input validation", {
   )
 })
 
+test_that("GcsFileSystem$create() can read json_credentials", {
+  # From string
+  fs <- GcsFileSystem$create(json_credentials = "fromstring")
+  expect_equal(fs$options$json_credentials, "fromstring")
+
+  # From disk
+  cred_string <- '{"key" : "valu\u00e9"}'
+  cred_string_bytes_utf8 <- iconv(
+    cred_string,
+    from = Encoding(cred_string),
+    to = "UTF-8",
+    toRaw = TRUE
+  )[[1]]
+
+  cred_path <- tempfile()
+  on.exit(unlink(cred_path))
+  con <- file(cred_path, open = "wb")
+  writeBin(cred_string_bytes_utf8, con)
+  close(con)
+
+  fs <- GcsFileSystem$create(json_credentials = cred_path)
+  expect_equal(fs$options$json_credentials, "{\"key\" : \"valué\"}")
+})
+
 skip_on_cran()
 skip_if_not(system('python -c "import testbench"') == 0, message = "googleapis-storage-testbench is not installed.")
 library(dplyr)
@@ -76,7 +132,8 @@ fs <- GcsFileSystem$create(
   endpoint_override = sprintf("localhost:%s", testbench_port),
   retry_limit_seconds = 1,
   scheme = "http",
-  anonymous = TRUE # Will fail to resolve host name if anonymous isn't TRUE
+  anonymous = TRUE, # Will fail to resolve host name if anonymous isn't TRUE
+  project_id = "test-project-id"
 )
 
 now <- as.character(as.numeric(Sys.time()))
@@ -99,7 +156,12 @@ gcs_path <- function(...) {
   paste(now, ..., sep = "/")
 }
 gcs_uri <- function(...) {
-  template <- "gs://anonymous@%s?scheme=http&endpoint_override=localhost%s%s&retry_limit_seconds=1"
+  template <- paste0("gs://anonymous@%s?",
+                     paste("scheme=http",
+                           "endpoint_override=localhost%s%s",
+                           "retry_limit_seconds=1",
+                           "project_id=test-project-id",
+                           sep = "&"))
   sprintf(template, gcs_path(...), "%3A", testbench_port)
 }
 

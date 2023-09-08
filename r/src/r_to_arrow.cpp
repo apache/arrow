@@ -1498,7 +1498,7 @@ std::shared_ptr<arrow::Table> Table__from_dots(SEXP lst, SEXP schema_sxp,
     } else if (Rf_inherits(x, "Array")) {
       columns[j] = std::make_shared<arrow::ChunkedArray>(
           cpp11::as_cpp<std::shared_ptr<arrow::Array>>(x));
-    } else if (arrow::r::altrep::is_arrow_altrep(x)) {
+    } else if (arrow::r::altrep::is_unmaterialized_arrow_altrep(x)) {
       columns[j] = arrow::r::altrep::vec_to_arrow_altrep_bypass(x);
     } else {
       arrow::r::RConversionOptions options;

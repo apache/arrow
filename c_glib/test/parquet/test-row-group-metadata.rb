@@ -45,7 +45,6 @@ class TestParquetRowGroupMetadata < Test::Unit::TestCase
   end
 
   test("#==") do
-    omit("parquet::RowGroupMetaData::Equals() isn't stable.")
     reader = Parquet::ArrowFileReader.new(@file.path)
     other_metadata = reader.metadata.get_row_group(0)
     assert do

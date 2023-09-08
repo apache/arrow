@@ -20,7 +20,7 @@ import { targetDir, mainExport, esmRequire, gCCLanguageNames, publicModulePaths,
 import fs from 'fs';
 import gulp from 'gulp';
 import path from 'path';
-import mkdirp from 'mkdirp';
+import { mkdirp } from 'mkdirp';
 import sourcemaps from 'gulp-sourcemaps';
 import { memoizeTask } from './memoize-task.js';
 import { compileBinFiles } from './typescript-task.js';

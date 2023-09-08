@@ -26,6 +26,7 @@ from pyarrow.fs import LocalFileSystem, SubTreeFileSystem
 from pyarrow.tests.parquet.common import (
     parametrize_legacy_dataset, parametrize_legacy_dataset_not_supported)
 from pyarrow.util import guid
+from pyarrow.vendored.version import Version
 
 try:
     import pyarrow.parquet as pq
@@ -58,7 +59,7 @@ def test_pandas_parquet_custom_metadata(tempdir):
     arrow_table = pa.Table.from_pandas(df)
     assert b'pandas' in arrow_table.schema.metadata
 
-    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
+    _write_table(arrow_table, filename)
 
     metadata = pq.read_metadata(filename).metadata
     assert b'pandas' in metadata
@@ -112,7 +113,7 @@ def test_pandas_parquet_column_multiindex(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
     assert arrow_table.schema.pandas_metadata is not None
 
-    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
+    _write_table(arrow_table, filename)
 
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
@@ -135,7 +136,7 @@ def test_pandas_parquet_2_0_roundtrip_read_pandas_no_index_written(
     # While index_columns should be empty, columns needs to be filled still.
     assert js['columns']
 
-    _write_table(arrow_table, filename, version='2.6', coerce_timestamps='ms')
+    _write_table(arrow_table, filename)
     table_read = pq.read_pandas(
         filename, use_legacy_dataset=use_legacy_dataset)
 
@@ -255,7 +256,7 @@ def test_pandas_parquet_pyfile_roundtrip(tempdir, use_legacy_dataset):
     arrow_table = pa.Table.from_pandas(df)
 
     with filename.open('wb') as f:
-        _write_table(arrow_table, f, version="2.4")
+        _write_table(arrow_table, f, version="2.6")
 
     data = io.BytesIO(filename.read_bytes())
 
@@ -343,7 +344,12 @@ def test_index_column_name_duplicate(tempdir, use_legacy_dataset):
         }
     }
     path = str(tempdir / 'data.parquet')
-    dfx = pd.DataFrame(data).set_index('time', drop=False)
+
+    # Pandas v2 defaults to [ns], but Arrow defaults to [us] time units
+    # so we need to cast the pandas dtype. Pandas v1 will always silently
+    # coerce to [ns] due to lack of non-[ns] support.
+    dfx = pd.DataFrame(data, dtype='datetime64[us]').set_index('time', drop=False)
+
     tdfx = pa.Table.from_pandas(dfx)
     _write_table(tdfx, path)
     arrow_table = _read_table(path, use_legacy_dataset=use_legacy_dataset)
@@ -557,6 +563,30 @@ def test_pandas_categorical_roundtrip(use_legacy_dataset):
 
 
 @pytest.mark.pandas
+def test_categories_with_string_pyarrow_dtype(tempdir):
+    # gh-33727: writing to parquet should not fail
+    if Version(pd.__version__) < Version("1.3.0"):
+        pytest.skip("PyArrow backed string data type introduced in pandas 1.3.0")
+
+    df1 = pd.DataFrame({"x": ["foo", "bar", "foo"]}, dtype="string[pyarrow]")
+    df1 = df1.astype("category")
+
+    df2 = pd.DataFrame({"x": ["foo", "bar", "foo"]})
+    df2 = df2.astype("category")
+
+    # categories should be converted to pa.Array
+    assert pa.array(df1["x"]) == pa.array(df2["x"])
+    assert pa.array(df1["x"].cat.categories.values) == pa.array(
+        df2["x"].cat.categories.values)
+
+    path = str(tempdir / 'cat.parquet')
+    pq.write_table(pa.table(df1), path)
+    result = pq.read_table(path).to_pandas()
+
+    tm.assert_frame_equal(result, df2)
+
+
+@pytest.mark.pandas
 @parametrize_legacy_dataset
 def test_write_to_dataset_pandas_preserve_extensiondtypes(
     tempdir, use_legacy_dataset
@@ -643,7 +673,9 @@ def test_dataset_read_pandas_common_metadata(
     paths = []
     for i in range(nfiles):
         df = _test_dataframe(size, seed=i)
-        df.index = pd.Index(np.arange(i * size, (i + 1) * size), name='index')
+        df.index = pd.Index(
+            np.arange(i * size, (i + 1) * size, dtype="int64"), name='index'
+        )
 
         path = dirpath / '{}.parquet'.format(i)
 

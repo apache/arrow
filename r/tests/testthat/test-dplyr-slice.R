@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 
 test_that("slice_head/tail, ungrouped", {
@@ -154,6 +156,28 @@ test_that("slice_* not supported with groups", {
   )
   expect_error(
     slice_sample(grouped, n = 5),
+    "Slicing grouped data not supported in Arrow"
+  )
+
+  # with the by argument
+  expect_error(
+    slice_head(arrow_table(tbl), n = 5, by = lgl),
+    "Slicing grouped data not supported in Arrow"
+  )
+  expect_error(
+    slice_tail(arrow_table(tbl), n = 5, by = lgl),
+    "Slicing grouped data not supported in Arrow"
+  )
+  expect_error(
+    slice_min(arrow_table(tbl), int, n = 5, by = lgl),
+    "Slicing grouped data not supported in Arrow"
+  )
+  expect_error(
+    slice_max(arrow_table(tbl), int, n = 5, by = lgl),
+    "Slicing grouped data not supported in Arrow"
+  )
+  expect_error(
+    slice_sample(arrow_table(tbl), n = 5, by = lgl),
     "Slicing grouped data not supported in Arrow"
   )
 })

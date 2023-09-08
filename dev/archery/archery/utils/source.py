@@ -221,4 +221,4 @@ class ArrowSources:
         )
 
     def __repr__(self):
-        return self.path
+        return os.fspath(self.path)

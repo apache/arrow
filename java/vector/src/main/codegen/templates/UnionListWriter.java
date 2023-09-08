@@ -37,6 +37,10 @@ package org.apache.arrow.vector.complex.impl;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 <#include "/@includes/vv_imports.ftl" />
 
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
+
 /*
  * This class is generated using freemarker and the ${.template_name} template.
  */
@@ -103,55 +107,31 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     super.setPosition(index);
   }
 
-  <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
-  <#assign fields = minor.fields!type.fields />
-  <#assign uncappedName = name?uncap_first/>
-  <#if uncappedName == "int" ><#assign uncappedName = "integer" /></#if>
-  <#if !minor.typeParams?? >
-
+  <#list vv.types as type><#list type.minor as minor>
+  <#assign lowerName = minor.class?uncap_first />
+  <#if lowerName == "int" ><#assign lowerName = "integer" /></#if>
+  <#assign upperName = minor.class?upper_case />
+  <#assign capName = minor.class?cap_first />
+  <#assign vectName = capName />
   @Override
-  public ${name}Writer ${uncappedName}() {
+  public ${minor.class}Writer ${lowerName}() {
     return this;
   }
 
+  <#if minor.typeParams?? >
   @Override
-  public ${name}Writer ${uncappedName}(String name) {
-    structName = name;
-    return writer.${uncappedName}(name);
+  public ${minor.class}Writer ${lowerName}(String name<#list minor.typeParams as typeParam>, ${typeParam.type} ${typeParam.name}</#list>) {
+    return writer.${lowerName}(name<#list minor.typeParams as typeParam>, ${typeParam.name}</#list>);
   }
   </#if>
+
+  @Override
+  public ${minor.class}Writer ${lowerName}(String name) {
+    structName = name;
+    return writer.${lowerName}(name);
+  }
+
   </#list></#list>
-
-  @Override
-  public DecimalWriter decimal() {
-    return this;
-  }
-
-  @Override
-  public DecimalWriter decimal(String name, int scale, int precision) {
-    return writer.decimal(name, scale, precision);
-  }
-
-  @Override
-  public DecimalWriter decimal(String name) {
-    return writer.decimal(name);
-  }
-
-  @Override
-  public Decimal256Writer decimal256() {
-    return this;
-  }
-
-  @Override
-  public Decimal256Writer decimal256(String name, int scale, int precision) {
-    return writer.decimal256(name, scale, precision);
-  }
-
-  @Override
-  public Decimal256Writer decimal256(String name) {
-    return writer.decimal256(name);
-  }
-
 
   @Override
   public StructWriter struct() {
@@ -241,18 +221,6 @@ public class Union${listName}Writer extends AbstractFieldWriter {
   }
 
   @Override
-  public void write(DecimalHolder holder) {
-    writer.write(holder);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  @Override
-  public void write(Decimal256Holder holder) {
-    writer.write(holder);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  @Override
   public void writeNull() {
     if (!listStarted){
       vector.setNull(idx());
@@ -261,65 +229,53 @@ public class Union${listName}Writer extends AbstractFieldWriter {
     }
   }
 
-  public void writeDecimal(long start, ArrowBuf buffer, ArrowType arrowType) {
-    writer.writeDecimal(start, buffer, arrowType);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  public void writeDecimal(long start, ArrowBuf buffer) {
-    writer.writeDecimal(start, buffer);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  public void writeDecimal(BigDecimal value) {
-    writer.writeDecimal(value);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  public void writeBigEndianBytesToDecimal(byte[] value, ArrowType arrowType){
-    writer.writeBigEndianBytesToDecimal(value, arrowType);
-    writer.setPosition(writer.idx() + 1);
-  }
-
-  public void writeDecimal256(long start, ArrowBuf buffer, ArrowType arrowType) {
-    writer.writeDecimal256(start, buffer, arrowType);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  public void writeDecimal256(long start, ArrowBuf buffer) {
-    writer.writeDecimal256(start, buffer);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  public void writeDecimal256(BigDecimal value) {
-    writer.writeDecimal256(value);
-    writer.setPosition(writer.idx()+1);
-  }
-
-  public void writeBigEndianBytesToDecimal256(byte[] value, ArrowType arrowType){
-    writer.writeBigEndianBytesToDecimal256(value, arrowType);
-    writer.setPosition(writer.idx() + 1);
-  }
-
-
   <#list vv.types as type>
     <#list type.minor as minor>
       <#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
-      <#if !minor.typeParams?? >
   @Override
   public void write${name}(<#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
     writer.write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     writer.setPosition(writer.idx()+1);
   }
 
+  <#if is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  @Override
+  public void write(${name}Holder holder) {
+    writer.write(holder);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  <#elseif minor.class?starts_with("Decimal")>
+  public void write${name}(long start, ArrowBuf buffer, ArrowType arrowType) {
+    writer.write${name}(start, buffer, arrowType);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  @Override
+  public void write(${name}Holder holder) {
+    writer.write(holder);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void write${name}(BigDecimal value) {
+    writer.write${name}(value);
+    writer.setPosition(writer.idx()+1);
+  }
+
+  public void writeBigEndianBytesTo${name}(byte[] value, ArrowType arrowType){
+    writer.writeBigEndianBytesTo${name}(value, arrowType);
+    writer.setPosition(writer.idx() + 1);
+  }
+  <#else>
+  @Override
   public void write(${name}Holder holder) {
     writer.write${name}(<#list fields as field>holder.${field.name}<#if field_has_next>, </#if></#list>);
     writer.setPosition(writer.idx()+1);
   }
+  </#if>
 
-      </#if>
     </#list>
   </#list>
 }

@@ -87,18 +87,18 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' If a file name or URI, an Arrow [InputStream] will be opened and
 #' closed when finished. If an input stream is provided, it will be left
 #' open.
-#' @param as_data_frame Should the function return a `data.frame` (default) or
+#' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
 #' @param ... extra parameters passed to `read_feather()`.
 #'
-#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
 #' @seealso [write_feather()] for writing IPC files. [RecordBatchReader] for a
 #' lower-level interface.
 #' @export
 read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   if (!inherits(file, "InputStream")) {
-    file <- make_readable_file(file)
+    file <- make_readable_file(file, random_access = FALSE)
     on.exit(file$close())
   }
 
@@ -106,7 +106,7 @@ read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   # https://issues.apache.org/jira/browse/ARROW-6830
   out <- RecordBatchStreamReader$create(file)$read_table()
   if (as_data_frame) {
-    out <- as.data.frame(out)
+    out <- collect.ArrowTabular(out)
   }
   out
 }

@@ -38,7 +38,7 @@
 #' @param schema [Schema] that describes the table.
 #' @param ... Additional options passed to `JsonTableReader$create()`
 #'
-#' @return A `data.frame`, or a Table if `as_data_frame = FALSE`.
+#' @return A `tibble`, or a Table if `as_data_frame = FALSE`.
 #' @export
 #' @examplesIf arrow_with_json()
 #' tf <- tempfile()
@@ -84,7 +84,7 @@ read_json_arrow <- function(file,
   }
 
   if (isTRUE(as_data_frame)) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }

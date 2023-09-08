@@ -33,7 +33,7 @@ else()
 endif()
 
 set(ORC_STATIC_TEST_LINK_LIBS orc::liborc ${ARROW_LIBRARIES_FOR_STATIC_TESTS}
-                              GTest::gtest_main GTest::gtest)
+                              ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST})
 
 add_arrow_test(adapter_test
                PREFIX

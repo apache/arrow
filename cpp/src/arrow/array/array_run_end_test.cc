@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include "arrow/array.h"
@@ -112,45 +113,119 @@ TEST_P(TestRunEndEncodedArray, FromRunEndsAndValues) {
   ASSERT_EQ(ree_array->data()->null_count, 0);
   ASSERT_EQ(ree_array->offset(), 1);
 
-  ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                             "Invalid: Run end type must be int16, int32 or int64",
-                             RunEndEncodedArray::Make(30, string_values, int32_values));
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: Run ends array cannot contain null values",
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Invalid: Run end type must be int16, int32 or int64"),
+      RunEndEncodedArray::Make(30, string_values, int32_values));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Invalid: Null count must be 0 for run ends array, but is 3"),
       RunEndEncodedArray::Make(30, run_end_only_null, int32_values));
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: Values array has to be at least as long as run ends array",
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Invalid: Length of run_ends is greater than the length of values: 3 > 2"),
       RunEndEncodedArray::Make(30, run_end_values, ArrayFromJSON(int32(), "[2, 0]")));
 }
 
-TEST_P(TestRunEndEncodedArray, FindOffsetAndLength) {
+TEST_P(TestRunEndEncodedArray, FindPhysicalRange) {
   auto run_ends = ArrayFromJSON(run_end_type, "[100, 200, 300, 400, 500]");
   auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "REE"])");
   ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(500, run_ends, values));
 
+  auto Range = [](int64_t offset, int64_t length) -> std::pair<int64_t, int64_t> {
+    return std::make_pair(offset, length);
+  };
   ASSERT_EQ(ree_array->FindPhysicalOffset(), 0);
   ASSERT_EQ(ree_array->FindPhysicalLength(), 5);
+  ASSERT_EQ(ree_util::FindPhysicalRange(*ree_array->data(), ree_array->offset(),
+                                        ree_array->length()),
+            Range(0, 5));
 
   auto slice = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(199, 5));
   ASSERT_EQ(slice->FindPhysicalOffset(), 1);
   ASSERT_EQ(slice->FindPhysicalLength(), 2);
+  ASSERT_EQ(ree_util::FindPhysicalRange(*slice->data(), slice->offset(), slice->length()),
+            Range(1, 2));
 
   auto slice2 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(199, 101));
   ASSERT_EQ(slice2->FindPhysicalOffset(), 1);
   ASSERT_EQ(slice2->FindPhysicalLength(), 2);
+  ASSERT_EQ(
+      ree_util::FindPhysicalRange(*slice2->data(), slice2->offset(), slice2->length()),
+      Range(1, 2));
 
   auto slice3 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(400, 100));
   ASSERT_EQ(slice3->FindPhysicalOffset(), 4);
   ASSERT_EQ(slice3->FindPhysicalLength(), 1);
+  ASSERT_EQ(
+      ree_util::FindPhysicalRange(*slice3->data(), slice3->offset(), slice3->length()),
+      Range(4, 1));
 
   auto slice4 = std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(0, 150));
   ASSERT_EQ(slice4->FindPhysicalOffset(), 0);
   ASSERT_EQ(slice4->FindPhysicalLength(), 2);
+  ASSERT_EQ(
+      ree_util::FindPhysicalRange(*slice4->data(), slice4->offset(), slice4->length()),
+      Range(0, 2));
 
   auto zero_length_at_end =
       std::dynamic_pointer_cast<RunEndEncodedArray>(ree_array->Slice(500, 0));
   ASSERT_EQ(zero_length_at_end->FindPhysicalOffset(), 5);
   ASSERT_EQ(zero_length_at_end->FindPhysicalLength(), 0);
+  ASSERT_EQ(ree_util::FindPhysicalRange(*zero_length_at_end->data(),
+                                        zero_length_at_end->offset(),
+                                        zero_length_at_end->length()),
+            Range(5, 0));
+}
+
+TEST_P(TestRunEndEncodedArray, LogicalRunEnds) {
+  auto run_ends = ArrayFromJSON(run_end_type, "[100, 200, 300, 400, 500]");
+  auto values = ArrayFromJSON(utf8(), R"(["Hello", "beautiful", "world", "of", "REE"])");
+  ASSERT_OK_AND_ASSIGN(auto ree_array, RunEndEncodedArray::Make(500, run_ends, values));
+
+  auto* pool = default_memory_pool();
+  ASSERT_OK_AND_ASSIGN(auto logical_run_ends, ree_array->LogicalRunEnds(pool));
+  ASSERT_ARRAYS_EQUAL(*logical_run_ends, *run_ends);
+
+  // offset=0, length=0
+  auto slice = ree_array->Slice(0, 0);
+  auto ree_slice = checked_cast<const RunEndEncodedArray*>(slice.get());
+  ASSERT_OK_AND_ASSIGN(logical_run_ends, ree_slice->LogicalRunEnds(pool));
+  ASSERT_ARRAYS_EQUAL(*logical_run_ends, *ArrayFromJSON(run_end_type, "[]"));
+
+  // offset=0, length=<a run-end>
+  for (int i = 1; i < 5; i++) {
+    auto expected_run_ends = run_ends->Slice(0, i);
+    slice = ree_array->Slice(0, i * 100);
+    ree_slice = checked_cast<const RunEndEncodedArray*>(slice.get());
+    ASSERT_OK_AND_ASSIGN(logical_run_ends, ree_slice->LogicalRunEnds(pool));
+    ASSERT_ARRAYS_EQUAL(*logical_run_ends, *expected_run_ends);
+  }
+
+  // offset=0, length=<length in the middle of a run>
+  for (int i = 2; i < 5; i++) {
+    std::shared_ptr<Array> expected_run_ends;
+    {
+      std::string expected_run_ends_json = "[100";
+      for (int j = 2; j < i; j++) {
+        expected_run_ends_json += ", " + std::to_string(j * 100);
+      }
+      expected_run_ends_json += ", " + std::to_string(i * 100 - 50) + "]";
+      expected_run_ends = ArrayFromJSON(run_end_type, expected_run_ends_json);
+    }
+    slice = ree_array->Slice(0, i * 100 - 50);
+    ree_slice = checked_cast<const RunEndEncodedArray*>(slice.get());
+    ASSERT_OK_AND_ASSIGN(logical_run_ends, ree_slice->LogicalRunEnds(pool));
+    ASSERT_ARRAYS_EQUAL(*logical_run_ends, *expected_run_ends);
+  }
+
+  // offset != 0
+  slice = ree_array->Slice(50, 400);
+  ree_slice = checked_cast<const RunEndEncodedArray*>(slice.get());
+  const auto expected_run_ends = ArrayFromJSON(run_end_type, "[50, 150, 250, 350, 400]");
+  ASSERT_OK_AND_ASSIGN(logical_run_ends, ree_slice->LogicalRunEnds(pool));
+  ASSERT_ARRAYS_EQUAL(*logical_run_ends, *expected_run_ends);
 }
 
 TEST_P(TestRunEndEncodedArray, Builder) {
@@ -252,22 +327,40 @@ TEST_P(TestRunEndEncodedArray, Builder) {
           R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])"));
       continue;
     }
-    if (step == 10) {
-      ASSERT_EQ(builder->length(), 505);
+    // Append empty values
+    ASSERT_OK(builder->AppendEmptyValues(10));
+    if (step == 11) {
+      ASSERT_EQ(builder->length(), 515);
+      ASSERT_OK(BuilderEquals(
+          *builder, 515, "[1, 3, 105, 165, 205, 305, 405, 505, 515]",
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended", ""])"));
+      continue;
+    }
+    // Append NULL after empty
+    ASSERT_OK(builder->AppendNull());
+    if (step == 12) {
+      ASSERT_EQ(builder->length(), 516);
+      ASSERT_OK(BuilderEquals(
+          *builder, 516, "[1, 3, 105, 165, 205, 305, 405, 505, 515, 516]",
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended", "", null])"));
+      continue;
+    }
+    if (step == 13) {
+      ASSERT_EQ(builder->length(), 516);
       ASSERT_EQ(*builder->type(), *run_end_encoded(run_end_type, utf8()));
 
       auto expected_run_ends =
-          ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505]");
+          ArrayFromJSON(run_end_type, "[1, 3, 105, 165, 205, 305, 405, 505, 515, 516]");
       auto expected_values = ArrayFromJSON(
           value_type,
-          R"(["unique", null, "common", "common", "appended", "common", "common", "appended"])");
+          R"(["unique", null, "common", "common", "appended", "common", "common", "appended", "", null])");
 
       ASSERT_OK_AND_ASSIGN(auto array, builder->Finish());
       auto ree_array = std::dynamic_pointer_cast<RunEndEncodedArray>(array);
       ASSERT_NE(ree_array, NULLPTR);
       ASSERT_ARRAYS_EQUAL(*expected_run_ends, *ree_array->run_ends());
       ASSERT_ARRAYS_EQUAL(*expected_values, *ree_array->values());
-      ASSERT_EQ(array->length(), 505);
+      ASSERT_EQ(array->length(), 516);
       ASSERT_EQ(array->offset(), 0);
       break;
     }
@@ -320,10 +413,11 @@ TEST_P(TestRunEndEncodedArray, Validate) {
 
   auto empty_run_ends = MakeArray(empty_array->data()->Copy());
   empty_run_ends->data()->length = 1;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                             "Invalid: Run-end encoded array has non-zero length 1, "
-                             "but run ends array has zero length",
-                             empty_run_ends->Validate());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Invalid: Run-end encoded array has non-zero length 1, "
+                           "but run ends array has zero length"),
+      empty_run_ends->Validate());
 
   auto offset_length_overflow = MakeArray(good_array->data()->Copy());
   offset_length_overflow->data()->offset = std::numeric_limits<int64_t>::max();
@@ -341,11 +435,12 @@ TEST_P(TestRunEndEncodedArray, Validate) {
   too_large_for_ree16->data()->offset = std::numeric_limits<int16_t>::max();
   too_large_for_ree16->data()->length = 1;
   if (run_end_type->id() == Type::INT16) {
-    ASSERT_RAISES_WITH_MESSAGE(
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        "Invalid: Offset + length of a run-end encoded array must fit in a value"
-        " of the run end type int16, but offset + length is 32768 while"
-        " the allowed maximum is 32767",
+        ::testing::HasSubstr(
+            "Invalid: Offset + length of a run-end encoded array must fit in a value"
+            " of the run end type int16, but offset + length is 32768 while"
+            " the allowed maximum is 32767"),
         too_large_for_ree16->Validate());
   } else {
     ASSERT_OK(too_large_for_ree16->ValidateFull());
@@ -356,57 +451,74 @@ TEST_P(TestRunEndEncodedArray, Validate) {
   too_large_for_ree32->data()->offset = std::numeric_limits<int32_t>::max();
   too_large_for_ree32->data()->length = 1;
   if (run_end_type->id() == Type::INT16) {
-    ASSERT_RAISES_WITH_MESSAGE(
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        "Invalid: Offset + length of a run-end encoded array must fit in a "
-        "value of the run end type int16, but offset + length "
-        "is 2147483648 while the allowed maximum is 32767",
+        ::testing::HasSubstr(
+            "Invalid: Offset + length of a run-end encoded array must fit in a "
+            "value of the run end type int16, but offset + length "
+            "is 2147483648 while the allowed maximum is 32767"),
         too_large_for_ree32->Validate());
   } else if (run_end_type->id() == Type::INT32) {
-    ASSERT_RAISES_WITH_MESSAGE(
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
         Invalid,
-        "Invalid: Offset + length of a run-end encoded array must fit in a "
-        "value of the run end type int32, but offset + length "
-        "is 2147483648 while the allowed maximum is 2147483647",
+        ::testing::HasSubstr(
+            "Invalid: Offset + length of a run-end encoded array must fit in a "
+            "value of the run end type int32, but offset + length "
+            "is 2147483648 while the allowed maximum is 2147483647"),
         too_large_for_ree32->Validate());
   } else {
     ASSERT_OK(too_large_for_ree32->ValidateFull());
   }
 
+  std::shared_ptr<Array> has_null_buffer = MakeArray(good_array->data()->Copy());
+  std::shared_ptr<Buffer> null_bitmap;
+  BitmapFromVector<bool>({true, false}, &null_bitmap);
+  has_null_buffer->data()->buffers[0] = null_bitmap;
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          std::string("Invalid: Run end encoded array should not have a null bitmap.")),
+      has_null_buffer->Validate());
+
   auto too_many_children = MakeArray(good_array->data()->Copy());
   too_many_children->data()->child_data.push_back(NULLPTR);
-  ASSERT_RAISES_WITH_MESSAGE(
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      std::string("Invalid: Expected 2 child arrays in array of type "
-                  "run_end_encoded<run_ends: ") +
-          run_end_type->ToString() + ", values: string>, got 3",
+      ::testing::HasSubstr(
+          std::string("Invalid: Expected 2 child arrays in array of type "
+                      "run_end_encoded<run_ends: ") +
+          run_end_type->ToString() + ", values: string>, got 3"),
       too_many_children->Validate());
 
   auto run_ends_nullptr = MakeArray(good_array->data()->Copy());
   run_ends_nullptr->data()->child_data[0] = NULLPTR;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Run ends array is null pointer",
-                             run_ends_nullptr->Validate());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid: Run ends array is null pointer"),
+      run_ends_nullptr->Validate());
 
   auto values_nullptr = MakeArray(good_array->data()->Copy());
   values_nullptr->data()->child_data[1] = NULLPTR;
-  ASSERT_RAISES_WITH_MESSAGE(Invalid, "Invalid: Values array is null pointer",
-                             values_nullptr->Validate());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, ::testing::HasSubstr("Invalid: Values array is null pointer"),
+      values_nullptr->Validate());
 
   auto run_ends_string = MakeArray(good_array->data()->Copy());
   run_ends_string->data()->child_data[0] = values->data();
-  ASSERT_RAISES_WITH_MESSAGE(
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      std::string("Invalid: Run ends array of run_end_encoded<run_ends: ") +
+      ::testing::HasSubstr(
+          std::string("Invalid: Run ends array of run_end_encoded<run_ends: ") +
           run_end_type->ToString() + ", values: string> must be " +
-          run_end_type->ToString() + ", but run end type is string",
+          run_end_type->ToString() + ", but run end type is string"),
       run_ends_string->Validate());
 
   auto wrong_type = MakeArray(good_array->data()->Copy());
   wrong_type->data()->type = run_end_encoded(run_end_type, uint16());
-  ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                             "Invalid: Parent type says this array encodes uint16 "
-                             "values, but value type is string",
-                             wrong_type->Validate());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Invalid: Parent type says this array encodes uint16 "
+                           "values, but value type is string"),
+      wrong_type->Validate());
 
   {
     // malformed_array has its buffers deallocated after the RunEndEncodedArray is
@@ -439,37 +551,42 @@ TEST_P(TestRunEndEncodedArray, Validate) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> run_end_zero_array,
                        RunEndEncodedArray::Make(40, run_ends_with_zero, values));
   ASSERT_OK(run_end_zero_array->Validate());
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: All run ends must be greater than 0 but the first run end is 0",
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Invalid: All run ends must be greater than 0 but the first run end is 0"),
       run_end_zero_array->ValidateFull());
   // The whole run ends array has to be valid even if the parent is sliced
   run_end_zero_array = run_end_zero_array->Slice(30, 0);
-  ASSERT_RAISES_WITH_MESSAGE(
-      Invalid, "Invalid: All run ends must be greater than 0 but the first run end is 0",
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Invalid: All run ends must be greater than 0 but the first run end is 0"),
       run_end_zero_array->ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<Array> run_ends_not_ordered_array,
                        RunEndEncodedArray::Make(40, run_ends_not_ordered, values));
   ASSERT_OK(run_ends_not_ordered_array->Validate());
-  ASSERT_RAISES_WITH_MESSAGE(
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      "Invalid: Every run end must be strictly greater than the previous run end, but "
-      "run_ends[3] is 40 and run_ends[2] is 40",
+      ::testing::HasSubstr("Invalid: Every run end must be strictly greater than the "
+                           "previous run end, but "
+                           "run_ends[3] is 40 and run_ends[2] is 40"),
       run_ends_not_ordered_array->ValidateFull());
   // The whole run ends array has to be valid even if the parent is sliced
   run_ends_not_ordered_array = run_ends_not_ordered_array->Slice(30, 0);
-  ASSERT_RAISES_WITH_MESSAGE(
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      "Invalid: Every run end must be strictly greater than the previous run end, but "
-      "run_ends[3] is 40 and run_ends[2] is 40",
+      ::testing::HasSubstr("Invalid: Every run end must be strictly greater than the "
+                           "previous run end, but "
+                           "run_ends[3] is 40 and run_ends[2] is 40"),
       run_ends_not_ordered_array->ValidateFull());
 
-  ASSERT_OK_AND_ASSIGN(auto run_ends_too_low_array,
-                       RunEndEncodedArray::Make(40, run_ends_too_low, values));
-  ASSERT_RAISES_WITH_MESSAGE(Invalid,
-                             "Invalid: Last run end is 39 but it should match 40"
-                             " (offset: 0, length: 40)",
-                             run_ends_too_low_array->Validate());
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr("Invalid: Last run end is 39 but it should match 40"
+                           " (offset: 0, length: 40)"),
+      RunEndEncodedArray::Make(40, run_ends_too_low, values));
 }
 
 TEST_P(TestRunEndEncodedArray, Compare) {
@@ -546,12 +663,13 @@ TEST_P(TestRunEndEncodedArray, Concatenate) {
                                            default_memory_pool()));
   ASSERT_ARRAYS_EQUAL(*empty_array, *result);
 
-  ASSERT_RAISES_WITH_MESSAGE(
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      std::string("Invalid: arrays to be concatenated must be identically typed, but "
-                  "run_end_encoded<run_ends: ") +
+      ::testing::HasSubstr(
+          std::string("Invalid: arrays to be concatenated must be identically typed, but "
+                      "run_end_encoded<run_ends: ") +
           run_end_type->ToString() + ", values: int32> and run_end_encoded<run_ends: " +
-          run_end_type->ToString() + ", values: string> were encountered.",
+          run_end_type->ToString() + ", values: string> were encountered."),
       Concatenate({int32_array, string_array}, default_memory_pool()));
 }
 

@@ -21,24 +21,30 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
-import pickle
 import pytest
 import struct
+import subprocess
 import sys
 import weakref
 
 import numpy as np
-try:
-    import pickle5
-except ImportError:
-    pickle5 = None
 
 import pyarrow as pa
 import pyarrow.tests.strategies as past
 
 
 def test_total_bytes_allocated():
+    code = """if 1:
+    import pyarrow as pa
+
     assert pa.total_allocated_bytes() == 0
+    """
+    res = subprocess.run([sys.executable, "-c", code],
+                         universal_newlines=True, stderr=subprocess.PIPE)
+    if res.returncode != 0:
+        print(res.stderr, file=sys.stderr)
+        res.check_returncode()  # fail
+    assert len(res.stderr.splitlines()) == 0
 
 
 def test_weakref():
@@ -168,6 +174,21 @@ def test_to_numpy_zero_copy():
     np.testing.assert_array_equal(np_arr, expected)
 
 
+def test_chunked_array_to_numpy_zero_copy():
+    elements = [[2, 2, 4], [4, 5, 100]]
+
+    chunked_arr = pa.chunked_array(elements)
+
+    msg = "zero_copy_only must be False for pyarrow.ChunkedArray.to_numpy"
+
+    with pytest.raises(ValueError, match=msg):
+        chunked_arr.to_numpy(zero_copy_only=True)
+
+    np_arr = chunked_arr.to_numpy()
+    expected = [2, 2, 4, 4, 5, 100]
+    np.testing.assert_array_equal(np_arr, expected)
+
+
 def test_to_numpy_unsupported_types():
     # ARROW-2871: Some primitive types are not yet supported in to_numpy
     bool_arr = pa.array([True, False, True])
@@ -212,8 +233,9 @@ def test_to_numpy_writable():
 
 
 @pytest.mark.parametrize('unit', ['s', 'ms', 'us', 'ns'])
-def test_to_numpy_datetime64(unit):
-    arr = pa.array([1, 2, 3], pa.timestamp(unit))
+@pytest.mark.parametrize('tz', [None, "UTC"])
+def test_to_numpy_datetime64(unit, tz):
+    arr = pa.array([1, 2, 3], pa.timestamp(unit, tz=tz))
     expected = np.array([1, 2, 3], dtype="datetime64[{}]".format(unit))
     np_arr = arr.to_numpy()
     np.testing.assert_array_equal(np_arr, expected)
@@ -274,7 +296,7 @@ def test_asarray():
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert type(np_arr[0]) == pa.lib.Int64Value
+    assert isinstance(np_arr[0], pa.lib.Int64Value)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
@@ -1414,16 +1436,19 @@ def test_chunked_array_data_warns():
 
 
 def test_cast_integers_unsafe():
-    # We let NumPy do the unsafe casting
+    # We let NumPy do the unsafe casting.
+    # Note that NEP50 in the NumPy spec no longer allows
+    # the np.array() constructor to pass the dtype directly
+    # if it results in an unsafe cast.
     unsafe_cases = [
         (np.array([50000], dtype='i4'), 'int32',
-         np.array([50000], dtype='i2'), pa.int16()),
+         np.array([50000]).astype(dtype='i2'), pa.int16()),
         (np.array([70000], dtype='i4'), 'int32',
-         np.array([70000], dtype='u2'), pa.uint16()),
+         np.array([70000]).astype(dtype='u2'), pa.uint16()),
         (np.array([-1], dtype='i4'), 'int32',
-         np.array([-1], dtype='u2'), pa.uint16()),
+         np.array([-1]).astype(dtype='u2'), pa.uint16()),
         (np.array([50000], dtype='u2'), pa.uint16(),
-         np.array([50000], dtype='i2'), pa.int16())
+         np.array([50000]).astype(dtype='i2'), pa.int16())
     ]
 
     for case in unsafe_cases:
@@ -1977,21 +2002,21 @@ pickle_test_parametrize = pytest.mark.parametrize(
 
 
 @pickle_test_parametrize
-def test_array_pickle(data, typ):
+def test_array_pickle(data, typ, pickle_module):
     # Allocate here so that we don't have any Arrow data allocated.
     # This is needed to ensure that allocator tests can be reliable.
     array = pa.array(data, type=typ)
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
-        result = pickle.loads(pickle.dumps(array, proto))
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        result = pickle_module.loads(pickle_module.dumps(array, proto))
         assert array.equals(result)
 
 
-def test_array_pickle_dictionary():
+def test_array_pickle_dictionary(pickle_module):
     # not included in the above as dictionary array cannot be created with
     # the pa.array function
     array = pa.DictionaryArray.from_arrays([0, 1, 2, 0, 1], ['a', 'b', 'c'])
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
-        result = pickle.loads(pickle.dumps(array, proto))
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        result = pickle_module.loads(pickle_module.dumps(array, proto))
         assert array.equals(result)
 
 
@@ -2001,27 +2026,23 @@ def test_array_pickle_dictionary():
         size=st.integers(min_value=0, max_value=10)
     )
 )
-def test_pickling(arr):
-    data = pickle.dumps(arr)
-    restored = pickle.loads(data)
+def test_pickling(pickle_module, arr):
+    data = pickle_module.dumps(arr)
+    restored = pickle_module.loads(data)
     assert arr.equals(restored)
 
 
 @pickle_test_parametrize
-def test_array_pickle5(data, typ):
+def test_array_pickle_protocol5(data, typ, pickle_module):
     # Test zero-copy pickling with protocol 5 (PEP 574)
-    picklemod = pickle5 or pickle
-    if pickle5 is None and picklemod.HIGHEST_PROTOCOL < 5:
-        pytest.skip("need pickle5 package or Python 3.8+")
-
     array = pa.array(data, type=typ)
     addresses = [buf.address if buf is not None else 0
                  for buf in array.buffers()]
 
-    for proto in range(5, pickle.HIGHEST_PROTOCOL + 1):
+    for proto in range(5, pickle_module.HIGHEST_PROTOCOL + 1):
         buffers = []
-        pickled = picklemod.dumps(array, proto, buffer_callback=buffers.append)
-        result = picklemod.loads(pickled, buffers=buffers)
+        pickled = pickle_module.dumps(array, proto, buffer_callback=buffers.append)
+        result = pickle_module.loads(pickled, buffers=buffers)
         assert array.equals(result)
 
         result_addresses = [buf.address if buf is not None else 0
@@ -2151,12 +2172,15 @@ def test_pandas_null_sentinels_index():
     assert result.equals(expected)
 
 
-def test_array_from_numpy_datetimeD():
+def test_array_roundtrip_from_numpy_datetimeD():
     arr = np.array([None, datetime.date(2017, 4, 4)], dtype='datetime64[D]')
 
     result = pa.array(arr)
     expected = pa.array([None, datetime.date(2017, 4, 4)], type=pa.date32())
     assert result.equals(expected)
+    result = result.to_numpy(zero_copy_only=False)
+    np.testing.assert_array_equal(result, arr)
+    assert result.dtype == arr.dtype
 
 
 def test_array_from_naive_datetimes():
@@ -3283,6 +3307,7 @@ def test_array_protocol():
         pa.array(arr)
 
     # ARROW-7066 - allow ChunkedArray output
+    # GH-33727 - if num_chunks=1 return Array
     class MyArray2:
         def __init__(self, data):
             self.data = data
@@ -3292,7 +3317,21 @@ def test_array_protocol():
 
     arr = MyArray2(np.array([1, 2, 3], dtype='int64'))
     result = pa.array(arr)
-    expected = pa.chunked_array([[1, 2, 3]], type=pa.int64())
+    expected = pa.array([1, 2, 3], type=pa.int64())
+    assert result.equals(expected)
+
+    class MyArray3:
+        def __init__(self, data1, data2):
+            self.data1 = data1
+            self.data2 = data2
+
+        def __arrow_array__(self, type=None):
+            return pa.chunked_array([self.data1, self.data2], type=type)
+
+    np_arr = np.array([1, 2, 3], dtype='int64')
+    arr = MyArray3(np_arr, np_arr)
+    result = pa.array(arr)
+    expected = pa.chunked_array([[1, 2, 3], [1, 2, 3]], type=pa.int64())
     assert result.equals(expected)
 
 
@@ -3327,6 +3366,16 @@ def test_to_pandas_timezone():
     arr = pa.chunked_array([arr])
     s = arr.to_pandas()
     assert s.dt.tz is not None
+
+
+@pytest.mark.pandas
+def test_to_pandas_float16_list():
+    # https://github.com/apache/arrow/issues/36168
+    expected = [[np.float16(1)], [np.float16(2)], [np.float16(3)]]
+    arr = pa.array(expected)
+    result = arr.to_pandas()
+    assert result[0].dtype == "float16"
+    assert result.tolist() == expected
 
 
 def test_array_sort():
@@ -3407,3 +3456,74 @@ def test_array_accepts_pyarrow_array():
     # Test memory_pool keyword is accepted
     result = pa.array(arr, memory_pool=pa.default_memory_pool())
     assert arr == result
+
+
+def check_run_end_encoded(ree_array, run_ends, values, logical_length, physical_length,
+                          physical_offset):
+    assert ree_array.run_ends.to_pylist() == run_ends
+    assert ree_array.values.to_pylist() == values
+    assert len(ree_array) == logical_length
+    assert ree_array.find_physical_length() == physical_length
+    assert ree_array.find_physical_offset() == physical_offset
+
+
+def check_run_end_encoded_from_arrays_with_type(ree_type=None):
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+    ree_array = pa.RunEndEncodedArray.from_arrays(run_ends, values, ree_type)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+
+
+def test_run_end_encoded_from_arrays():
+    check_run_end_encoded_from_arrays_with_type()
+    for run_end_type in [pa.int16(), pa.int32(), pa.int64()]:
+        for value_type in [pa.uint32(), pa.int32(), pa.uint64(), pa.int64()]:
+            ree_type = pa.run_end_encoded(run_end_type, value_type)
+            check_run_end_encoded_from_arrays_with_type(ree_type)
+
+
+def test_run_end_encoded_from_buffers():
+    run_ends = [3, 5, 10, 19]
+    values = [1, 2, 1, 3]
+
+    ree_type = pa.run_end_encoded(run_end_type=pa.int32(), value_type=pa.uint8())
+    length = 19
+    buffers = [None]
+    null_count = 0
+    offset = 0
+    children = [run_ends, values]
+
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                                   null_count, offset,
+                                                   children)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+    # buffers = []
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length, [],
+                                                   null_count, offset,
+                                                   children)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+    # null_count = -1
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                                   -1, offset,
+                                                   children)
+    check_run_end_encoded(ree_array, run_ends, values, 19, 4, 0)
+    # offset = 4
+    ree_array = pa.RunEndEncodedArray.from_buffers(ree_type, length - 4, buffers,
+                                                   null_count, 4, children)
+    check_run_end_encoded(ree_array, run_ends, values, length - 4, 3, 1)
+    # buffers = [None, None]
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, [None, None],
+                                           null_count, offset, children)
+    # children = None
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                           null_count, offset, None)
+    # len(children) == 1
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                           null_count, offset, [run_ends])
+    # null_count = 1
+    with pytest.raises(ValueError):
+        pa.RunEndEncodedArray.from_buffers(ree_type, length, buffers,
+                                           1, offset, children)

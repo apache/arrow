@@ -20,36 +20,45 @@
 import pyarrow as pa
 from pyarrow.util import _is_iterable, _stringify_path, _is_path_like
 
-from pyarrow._dataset import (  # noqa
-    CsvFileFormat,
-    CsvFragmentScanOptions,
-    Dataset,
-    DatasetFactory,
-    DirectoryPartitioning,
-    FeatherFileFormat,
-    FilenamePartitioning,
-    FileFormat,
-    FileFragment,
-    FileSystemDataset,
-    FileSystemDatasetFactory,
-    FileSystemFactoryOptions,
-    FileWriteOptions,
-    Fragment,
-    FragmentScanOptions,
-    HivePartitioning,
-    IpcFileFormat,
-    IpcFileWriteOptions,
-    InMemoryDataset,
-    Partitioning,
-    PartitioningFactory,
-    Scanner,
-    TaggedRecordBatch,
-    UnionDataset,
-    UnionDatasetFactory,
-    WrittenFile,
-    _get_partition_keys,
-    _filesystemdataset_write,
-)
+try:
+    from pyarrow._dataset import (  # noqa
+        CsvFileFormat,
+        CsvFragmentScanOptions,
+        JsonFileFormat,
+        JsonFragmentScanOptions,
+        Dataset,
+        DatasetFactory,
+        DirectoryPartitioning,
+        FeatherFileFormat,
+        FilenamePartitioning,
+        FileFormat,
+        FileFragment,
+        FileSystemDataset,
+        FileSystemDatasetFactory,
+        FileSystemFactoryOptions,
+        FileWriteOptions,
+        Fragment,
+        FragmentScanOptions,
+        HivePartitioning,
+        IpcFileFormat,
+        IpcFileWriteOptions,
+        InMemoryDataset,
+        Partitioning,
+        PartitioningFactory,
+        Scanner,
+        TaggedRecordBatch,
+        UnionDataset,
+        UnionDatasetFactory,
+        WrittenFile,
+        get_partition_keys,
+        get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
+        _filesystemdataset_write,
+    )
+except ImportError as exc:
+    raise ImportError(
+        f"The pyarrow installation is not built with support for 'dataset' ({str(exc)})"
+    ) from None
+
 # keep Expression functionality exposed here for backwards compatibility
 from pyarrow.compute import Expression, scalar, field  # noqa
 
@@ -296,6 +305,8 @@ def _ensure_format(obj):
         if not _orc_available:
             raise ValueError(_orc_msg)
         return OrcFileFormat()
+    elif obj == "json":
+        return JsonFileFormat()
     else:
         raise ValueError("format '{}' is not supported".format(obj))
 
@@ -597,7 +608,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         Optionally provide the Schema for the Dataset, in which case it will
         not be inferred from the source.
     format : FileFormat or str
-        Currently "parquet", "ipc"/"arrow"/"feather", "csv", and "orc" are
+        Currently "parquet", "ipc"/"arrow"/"feather", "csv", "json", and "orc" are
         supported. For Feather, only version 2 files are supported.
     filesystem : FileSystem or URI string, default None
         If a single path is given as source and filesystem is None, then the

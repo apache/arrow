@@ -26,8 +26,7 @@
 
 using parquet::ParquetCipher;
 
-namespace parquet {
-namespace encryption {
+namespace parquet::encryption {
 
 constexpr int kGcmTagLength = 16;
 constexpr int kNonceLength = 12;
@@ -129,5 +128,4 @@ void QuickUpdatePageAad(int32_t new_page_ordinal, std::string* AAD);
 // Wraps OpenSSL RAND_bytes function
 void RandBytes(unsigned char* buf, int num);
 
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption

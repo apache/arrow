@@ -20,9 +20,9 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // Map represents an immutable sequence of Key/Value structs. It is a
@@ -31,6 +31,8 @@ type Map struct {
 	*List
 	keys, items arrow.Array
 }
+
+var _ ListLike = (*Map)(nil)
 
 // NewMapData returns a new Map array value, from data
 func NewMapData(data arrow.ArrayData) *Map {
@@ -126,7 +128,7 @@ type MapBuilder struct {
 // building using keys in sorted order for each value. The KeysSorted value will just be
 // used when creating the DataType for the map.
 //
-// Example
+// # Example
 //
 // Simple example provided of converting a []map[string]int32 to an array.Map
 // by using a MapBuilder:
@@ -148,7 +150,7 @@ type MapBuilder struct {
 func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysSorted bool) *MapBuilder {
 	etype := arrow.MapOf(keytype, itemtype)
 	etype.KeysSorted = keysSorted
-	listBldr := NewListBuilder(mem, etype.ValueType())
+	listBldr := NewListBuilder(mem, etype.Elem())
 	keyBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(0)
 	keyBldr.Retain()
 	itemBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(1)
@@ -165,7 +167,7 @@ func NewMapBuilder(mem memory.Allocator, keytype, itemtype arrow.DataType, keysS
 }
 
 func NewMapBuilderWithType(mem memory.Allocator, dt *arrow.MapType) *MapBuilder {
-	listBldr := NewListBuilder(mem, dt.ValueType())
+	listBldr := NewListBuilder(mem, dt.Elem())
 	keyBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(0)
 	keyBldr.Retain()
 	itemBldr := listBldr.ValueBuilder().(*StructBuilder).FieldBuilder(1)
@@ -176,7 +178,7 @@ func NewMapBuilderWithType(mem memory.Allocator, dt *arrow.MapType) *MapBuilder 
 		itemBuilder: itemBldr,
 		etype:       dt,
 		keytype:     dt.KeyType(),
-		itemtype:    dt.ValueType(),
+		itemtype:    dt.ItemType(),
 		keysSorted:  dt.KeysSorted,
 	}
 }
@@ -208,6 +210,11 @@ func (b *MapBuilder) Cap() int { return b.listBuilder.Cap() }
 // NullN returns the number of null values in the array builder.
 func (b *MapBuilder) NullN() int { return b.listBuilder.NullN() }
 
+// IsNull returns if a previously appended value at a given index is null or not.
+func (b *MapBuilder) IsNull(i int) bool {
+	return b.listBuilder.IsNull(i)
+}
+
 // Append adds a new Map element to the array, calling Append(false) is
 // equivalent to calling AppendNull.
 func (b *MapBuilder) Append(v bool) {
@@ -220,8 +227,21 @@ func (b *MapBuilder) AppendNull() {
 	b.Append(false)
 }
 
+// AppendNulls adds null map entry to the array.
+func (b *MapBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
 func (b *MapBuilder) AppendEmptyValue() {
 	b.Append(true)
+}
+
+func (b *MapBuilder) AppendEmptyValues(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendEmptyValue()
+	}
 }
 
 // Reserve enough space for n maps
@@ -300,12 +320,16 @@ func (b *MapBuilder) ValueBuilder() Builder {
 	return b.listBuilder.ValueBuilder()
 }
 
-func (b *MapBuilder) unmarshalOne(dec *json.Decoder) error {
-	return b.listBuilder.unmarshalOne(dec)
+func (b *MapBuilder) AppendValueFromString(s string) error {
+	return b.listBuilder.AppendValueFromString(s)
 }
 
-func (b *MapBuilder) unmarshal(dec *json.Decoder) error {
-	return b.listBuilder.unmarshal(dec)
+func (b *MapBuilder) UnmarshalOne(dec *json.Decoder) error {
+	return b.listBuilder.UnmarshalOne(dec)
+}
+
+func (b *MapBuilder) Unmarshal(dec *json.Decoder) error {
+	return b.listBuilder.Unmarshal(dec)
 }
 
 func (b *MapBuilder) UnmarshalJSON(data []byte) error {
@@ -319,7 +343,7 @@ func (b *MapBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("map builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

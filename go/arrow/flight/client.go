@@ -26,11 +26,12 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
+	"github.com/apache/arrow/go/v14/arrow/flight/gen/flight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 type (
@@ -65,7 +66,9 @@ type Client interface {
 	// in order to use the Handshake endpoints of the service.
 	Authenticate(context.Context, ...grpc.CallOption) error
 	AuthenticateBasicToken(ctx context.Context, username string, password string, opts ...grpc.CallOption) (context.Context, error)
+	CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (CancelFlightInfoResult, error)
 	Close() error
+	RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error)
 	// join the interface from the FlightServiceClient instead of re-defining all
 	// the endpoints here.
 	FlightServiceClient
@@ -120,10 +123,6 @@ func CreateClientMiddleware(middleware CustomClientMiddleware) ClientMiddleware 
 			}
 
 			if err != nil {
-				if isHdrs {
-					md, _ := cs.Header()
-					hdrs.HeadersReceived(ctx, metadata.Join(md, cs.Trailer()))
-				}
 				if isPostcall {
 					post.CallCompleted(ctx, err)
 				}
@@ -271,6 +270,10 @@ func NewFlightClient(addr string, auth ClientAuthHandler, opts ...grpc.DialOptio
 // being the inner most wrapper around the actual call. It also passes along the dialoptions passed in such
 // as TLS certs and so on.
 func NewClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []ClientMiddleware, opts ...grpc.DialOption) (Client, error) {
+	return NewClientWithMiddlewareCtx(context.Background(), addr, auth, middleware, opts...)
+}
+
+func NewClientWithMiddlewareCtx(ctx context.Context, addr string, auth ClientAuthHandler, middleware []ClientMiddleware, opts ...grpc.DialOption) (Client, error) {
 	unary := make([]grpc.UnaryClientInterceptor, 0, len(middleware))
 	stream := make([]grpc.StreamClientInterceptor, 0, len(middleware))
 	if auth != nil {
@@ -288,7 +291,7 @@ func NewClientWithMiddleware(addr string, auth ClientAuthHandler, middleware []C
 		}
 	}
 	opts = append(opts, grpc.WithChainUnaryInterceptor(unary...), grpc.WithChainStreamInterceptor(stream...))
-	conn, err := grpc.Dial(addr, opts...)
+	conn, err := grpc.DialContext(ctx, addr, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -348,10 +351,73 @@ func (c *client) Authenticate(ctx context.Context, opts ...grpc.CallOption) erro
 	return c.authHandler.Authenticate(ctx, &clientAuthConn{stream})
 }
 
+// ReadUntilEOF will drain a stream until either an error is returned
+// or EOF is encountered and nil is returned.
+func ReadUntilEOF(stream FlightService_DoActionClient) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
+			return err
+		}
+	}
+}
+
+func (c *client) CancelFlightInfo(ctx context.Context, request *CancelFlightInfoRequest, opts ...grpc.CallOption) (result CancelFlightInfoResult, err error) {
+	var action flight.Action
+	action.Type = CancelFlightInfoActionType
+	action.Body, err = proto.Marshal(request)
+	if err != nil {
+		return
+	}
+	stream, err := c.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		return
+	}
+	if err = proto.Unmarshal(res.Body, &result); err != nil {
+		return
+	}
+	err = ReadUntilEOF(stream)
+	return
+}
+
 func (c *client) Close() error {
 	c.FlightServiceClient = nil
 	if cl, ok := c.conn.(io.Closer); ok {
 		return cl.Close()
 	}
 	return nil
+}
+
+func (c *client) RenewFlightEndpoint(ctx context.Context, request *RenewFlightEndpointRequest, opts ...grpc.CallOption) (*FlightEndpoint, error) {
+	var err error
+	var action flight.Action
+	action.Type = RenewFlightEndpointActionType
+	action.Body, err = proto.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+	stream, err := c.DoAction(ctx, &action, opts...)
+	if err != nil {
+		return nil, err
+	}
+	res, err := stream.Recv()
+	if err != nil {
+		return nil, err
+	}
+	var renewedEndpoint FlightEndpoint
+	err = proto.Unmarshal(res.Body, &renewedEndpoint)
+	if err != nil {
+		return nil, err
+	}
+	err = ReadUntilEOF(stream)
+	if err != nil {
+		return nil, err
+	}
+	return &renewedEndpoint, nil
 }

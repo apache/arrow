@@ -39,7 +39,7 @@ namespace Apache.Arrow.Flight
             TotalRecords = flightInfo.TotalRecords;
         }
 
-        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = 0, long totalBytes = 0)
+        public FlightInfo(Schema schema, FlightDescriptor descriptor, IReadOnlyList<FlightEndpoint> endpoints, long totalRecords = -1, long totalBytes = -1)
         {
             Schema = schema;
             Descriptor = descriptor;
@@ -64,7 +64,9 @@ namespace Apache.Arrow.Flight
             var response = new Protocol.FlightInfo()
             {
                 Schema = serializedSchema,
-                FlightDescriptor = Descriptor.ToProtocol()
+                FlightDescriptor = Descriptor.ToProtocol(),
+                TotalBytes = TotalBytes,
+                TotalRecords = TotalRecords
             };
 
             foreach(var endpoint in Endpoints)

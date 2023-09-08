@@ -39,7 +39,7 @@ Arrow uses Google's Flatbuffers to transport metadata.  The java version of the 
 requires the generated flatbuffer classes can only be used with the same version that
 generated them.  Arrow packages a version of the arrow-vector module that shades flatbuffers
 and arrow-format into a single JAR.  Using the classifier "shade-format-flatbuffers" in your
-pom.xml will make use of this JAR, you can then exclude/resolve the original dependency to
+`pom.xml` will make use of this JAR, you can then exclude/resolve the original dependency to
 a version of your choosing.
 
 ### Updating the flatbuffers generated code
@@ -77,20 +77,20 @@ done
 There are several system/environmental variables that users can configure.  These trade off safety (they turn off checking) for speed.  Typically they are only used in production settings after the code has been thoroughly tested without using them.
 
 * Bounds Checking for memory accesses: Bounds checking is on by default.  You can disable it by setting either the
-system property("arrow.enable_unsafe_memory_access") or the environmental variable
-("ARROW_ENABLE_UNSAFE_MEMORY_ACCESS") to "true". When both the system property and the environmental
+system property(`arrow.enable_unsafe_memory_access`) or the environmental variable
+(`ARROW_ENABLE_UNSAFE_MEMORY_ACCESS`) to `true`. When both the system property and the environmental
 variable are set, the system property takes precedence.
 
-* null checking for gets: ValueVector get methods (not getObject) methods by default verify the slot is not null.  You can disable it by setting either the
-system property("arrow.enable_null_check_for_get") or the environmental variable
-("ARROW_ENABLE_NULL_CHECK_FOR_GET") to "false". When both the system property and the environmental
+* null checking for gets: `ValueVector` get methods (not `getObject`) methods by default verify the slot is not null.  You can disable it by setting either the
+system property(`arrow.enable_null_check_for_get`) or the environmental variable
+(`ARROW_ENABLE_NULL_CHECK_FOR_GET`) to `false`. When both the system property and the environmental
 variable are set, the system property takes precedence.
 
 ## Java Properties
 
- * For java 9 or later, should set "-Dio.netty.tryReflectionSetAccessible=true".
-This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by netty.
- * To support duplicate fields in a `StructVector` enable "-Darrow.struct.conflict.policy=CONFLICT_APPEND".
+ * For Java 9 or later, should set `-Dio.netty.tryReflectionSetAccessible=true`.
+This fixes `java.lang.UnsupportedOperationException: sun.misc.Unsafe or java.nio.DirectByteBuffer.(long, int) not available`. thrown by Netty.
+ * To support duplicate fields in a `StructVector` enable `-Darrow.struct.conflict.policy=CONFLICT_APPEND`.
 Duplicate fields are ignored (`CONFLICT_REPLACE`) by default and overwritten. To support different policies for
 conflicting or duplicate fields set this JVM flag or use the correct static constructor methods for `StructVector`s.
 
@@ -108,13 +108,13 @@ standard Java, org.\*, com.\*
 `VariableDeclarationUsageDistance` due to the existing code base. These rules
 should be followed when possible.
 
-Refer to `java/dev/checkstyle/checkstyle.xml for rule specifics.
+Refer to [checkstyle.xml](dev/checkstyle/checkstyle.xml) for rule specifics.
 
 ## Test Logging Configuration
 
 When running tests, Arrow Java uses the Logback logger with SLF4J. By default,
-it uses the logback.xml present in the corresponding module's src/test/resources
-directory, which has the default log level set to INFO.
+it uses the `logback.xml` present in the corresponding module's `src/test/resources`
+directory, which has the default log level set to `INFO`.
 Arrow Java can be built with an alternate logback configuration file using the
 following command run in the project root directory:
 

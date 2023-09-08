@@ -87,26 +87,24 @@ class TableTest < Test::Unit::TestCase
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       target_rows = Arrow::BooleanArray.new(target_rows_raw)
       assert_equal(<<-TABLE, @table.slice(target_rows).to_s)
-	 count	visible
-0	(null)	 (null)
-1	     2	false  
-2	     4	 (null)
-3	    16	true   
-4	    64	 (null)
-5	   128	 (null)
+	count	visible
+0	    2	false  
+1	    4	 (null)
+2	   16	true   
+3	   64	 (null)
+4	  128	 (null)
       TABLE
     end
 
     test("Array: boolean") do
       target_rows_raw = [nil, true, true, false, true, false, true, true]
       assert_equal(<<-TABLE, @table.slice(target_rows_raw).to_s)
-	 count	visible
-0	(null)	 (null)
-1	     2	false  
-2	     4	 (null)
-3	    16	true   
-4	    64	 (null)
-5	   128	 (null)
+	count	visible
+0	    2	false  
+1	    4	 (null)
+2	   16	true   
+3	   64	 (null)
+4	  128	 (null)
       TABLE
     end
 
@@ -198,24 +196,18 @@ class TableTest < Test::Unit::TestCase
 
     test("{key: true}") do
       assert_equal(<<-TABLE, @table.slice(visible: true).to_s)
-	 count	visible
-0	     1	true   
-1	(null)	 (null)
-2	     8	true   
-3	    16	true   
-4	(null)	 (null)
-5	(null)	 (null)
+	count	visible
+0	    1	true   
+1	    8	true   
+2	   16	true   
       TABLE
     end
 
     test("{key: false}") do
       assert_equal(<<-TABLE, @table.slice(visible: false).to_s)
-	 count	visible
-0	     2	false  
-1	(null)	 (null)
-2	    32	false  
-3	(null)	 (null)
-4	(null)	 (null)
+	count	visible
+0	    2	false  
+1	   32	false  
       TABLE
     end
 
@@ -286,11 +278,8 @@ class TableTest < Test::Unit::TestCase
 
     test("{key1: Range, key2: true}") do
       assert_equal(<<-TABLE, @table.slice(count: 0..8, visible: false).to_s)
-	 count	visible
-0	     2	false  
-1	(null)	 (null)
-2	(null)	 (null)
-3	(null)	 (null)
+	count	visible
+0	    2	false  
       TABLE
     end
 
@@ -598,6 +587,13 @@ class TableTest < Test::Unit::TestCase
       assert_equal(<<-TABLE, selected_table.to_s)
 	a
 0	1
+      TABLE
+    end
+
+    test("empty result") do
+      selected_table = @table.filter([false] * @table.size).select_columns(:a)
+      assert_equal(<<-TABLE, selected_table.to_s)
+	a
       TABLE
     end
   end

@@ -18,6 +18,8 @@
 library(dplyr, warn.conflicts = FALSE)
 library(stringr)
 
+skip_if_not_available("acero")
+
 tbl <- example_data
 # Add some better string data
 tbl$verses <- verses[[1]]
@@ -67,6 +69,17 @@ test_that("transmute", {
       select(int, chr) %>%
       filter(int > 5) %>%
       transmute(int = int + 6L) %>%
+      collect(),
+    tbl
+  )
+})
+
+test_that("transmute after group_by", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr, int) %>%
+      transmute(dbl + 1) %>%
       collect(),
     tbl
   )
@@ -395,6 +408,15 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       collect(),
     tbl
   )
+  # Check the column order when .keep = "none"
+  compare_dplyr_binding(
+    .input %>%
+      select(chr, int) %>%
+      group_by(chr) %>%
+      mutate(int + 1, .keep = "none") %>%
+      collect(),
+    tbl
+  )
   expect_warning(
     tbl %>%
       Table$create() %>%
@@ -416,6 +438,78 @@ test_that("Can mutate after group_by as long as there are no aggregations", {
       collect(),
     "window functions not currently supported in Arrow; pulling data into R",
     fixed = TRUE
+  )
+})
+
+test_that("Can mutate with .by argument as long as there are no aggregations", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(int = int + 6L, .by = chr) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(int = int + 6L, .by = starts_with("chr")) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(new_col = int + 6L, .by = c(chr, int)) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(int, chr) %>%
+      mutate(new_col = int + 6L, .by = c("chr", "int")) %>%
+      collect(),
+    tbl
+  )
+  compare_dplyr_binding(
+    .input %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean` in `mutate()` to test that
+      # `all_funs()` does not incorrectly identify it as an aggregate function
+      mutate(mean = mean + 6L, .by = chr) %>%
+      collect(),
+    tbl
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(int, chr) %>%
+      mutate(avg_int = mean(int), .by = chr) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+  expect_warning(
+    tbl %>%
+      Table$create() %>%
+      select(mean = int, chr) %>%
+      # rename `int` to `mean` and use `mean(mean)` in `mutate()` to test that
+      # `all_funs()` detects `mean()` despite the collision with a column name
+      mutate(avg_int = mean(mean), .by = chr) %>%
+      collect(),
+    "window functions not currently supported in Arrow; pulling data into R",
+    fixed = TRUE
+  )
+})
+
+test_that("Can't supply .by after group_by", {
+  expect_error(
+    tbl %>%
+      arrow_table() %>%
+      select(int, chr) %>%
+      group_by(chr) %>%
+      mutate(int = int + 6L, .by = chr) %>%
+      collect(),
+    "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })
 
@@ -648,5 +742,43 @@ test_that("Can use across() within transmute()", {
       ) %>%
       collect(),
     example_data
+  )
+})
+
+test_that("across() does not select grouping variables within mutate()", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr) %>%
+      mutate(across(everything(), round)) %>%
+      collect(),
+    example_data
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      mutate(across(chr, as.character)),
+    "Column `chr` doesn't exist"
+  )
+})
+
+test_that("across() does not select grouping variables within transmute()", {
+  compare_dplyr_binding(
+    .input %>%
+      select(int, dbl, chr) %>%
+      group_by(chr) %>%
+      transmute(across(everything(), round)) %>%
+      collect(),
+    example_data
+  )
+
+  expect_error(
+    example_data %>%
+      arrow_table() %>%
+      group_by(chr) %>%
+      transmute(across(chr, as.character)),
+    "Column `chr` doesn't exist"
   )
 })

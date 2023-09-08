@@ -66,8 +66,14 @@ jobs:
         run: |
           unzip pr_review.zip
           echo "pr_review_path=$(pwd)/event.json" >> $GITHUB_OUTPUT
+      - name: Download committers file
+        id: committers
+        run: |
+          url="https://raw.githubusercontent.com/apache/arrow-site/main/_data/committers.yml"
+          curl -sL -o committers.yml $url
+          echo "committers_path=$(pwd)/committers.yml" >> $GITHUB_OUTPUT
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           path: arrow
           repository: apache/arrow
@@ -89,9 +95,11 @@ jobs:
             # workflow_run is executed on PR review. Update to original event.
             archery trigger-bot \
               --event-name "pull_request_review" \
-              --event-payload "${{ steps.extract.outputs.pr_review_path }}"
+              --event-payload "${{ steps.extract.outputs.pr_review_path }}" \
+              --committers-file "${{ steps.committers.outputs.committers_path }}"
           else
             archery trigger-bot \
               --event-name "${{ github.event_name }}" \
-              --event-payload "${{ github.event_path }}"
+              --event-payload "${{ github.event_path }}" \
+              --committers-file "${{ steps.committers.outputs.committers_path }}"
           fi

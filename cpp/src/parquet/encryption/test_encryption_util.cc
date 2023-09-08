@@ -37,9 +37,7 @@ using parquet::Type;
 using parquet::schema::GroupNode;
 using parquet::schema::PrimitiveNode;
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 std::string data_file(const char* file) {
   std::string dir_string(parquet::test::get_data_dir());
@@ -322,9 +320,23 @@ void ReadAndVerifyColumn(RowGroupReader* rg_reader, RowGroupMetadata* rg_md,
   }
   ASSERT_EQ(rows_read, rows_should_read);
   ASSERT_EQ(values_read, rows_should_read);
-  ASSERT_EQ(read_col_data.values, expected_column_data.values);
   // make sure we got the same number of values the metadata says
   ASSERT_EQ(col_md->num_values(), rows_read);
+  // GH-35571: need to use approximate floating-point comparison because of
+  // precision issues on MinGW32 (the values generated in the C++ test code
+  // may not exactly match those from the parquet-testing data files).
+  if constexpr (std::is_floating_point_v<typename DType::c_type>) {
+    ASSERT_EQ(read_col_data.rows(), expected_column_data.rows());
+    for (int i = 0; i < read_col_data.rows(); ++i) {
+      if constexpr (std::is_same_v<float, typename DType::c_type>) {
+        EXPECT_FLOAT_EQ(expected_column_data.values[i], read_col_data.values[i]);
+      } else {
+        EXPECT_DOUBLE_EQ(expected_column_data.values[i], read_col_data.values[i]);
+      }
+    }
+  } else {
+    ASSERT_EQ(expected_column_data.values, read_col_data.values);
+  }
 }
 
 void FileDecryptor::DecryptFile(
@@ -497,6 +509,4 @@ void FileDecryptor::CheckFile(parquet::ParquetFileReader* file_reader,
   }
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

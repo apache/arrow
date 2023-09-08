@@ -130,6 +130,8 @@ module VersionDetectable
     else
       @previous_compatible_version = nil
     end
+    r_versions = top_dir + "r" + "pkgdown" + "assets" + "versions.json"
+    @previous_r_version = r_versions.read[/"name": "(.+?) \(release\)"/, 1]
   end
 
   def compute_so_version(version)

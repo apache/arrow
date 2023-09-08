@@ -57,9 +57,17 @@ G_BEGIN_DECLS
  * #GArrowSparseUnionArray is a class for sparse union array.
  *
  * #GArrowDictionaryArray is a class for dictionary array. It can
- * store data with dictionary and indices. It's space effective than
- * normal array when the array has many same values. You can convert a
- * normal array to dictionary array by garrow_array_dictionary_encode().
+ * store data with dictionary and indices. It's more space effective
+ * than normal array when the array has many same values. You can
+ * convert a normal array to a dictionary array by
+ * garrow_array_dictionary_encode().
+ *
+ * #GArrowRunEndEncodedArray is a class for run-end encoded array. It
+ * can store data with run-ends and values. It's more space effective
+ * than normal array when the array has many continuous same
+ * values. You can convert a normal array to a run-end encoded array
+ * by garrow_array_run_end_encode(). You can convert a run-end encoded
+ * array to a normal array by garrow_run_end_encoded_array_decode().
  */
 
 typedef struct GArrowListArrayPrivate_ {
@@ -1114,6 +1122,44 @@ garrow_union_array_class_init(GArrowUnionArrayClass *klass)
 }
 
 /**
+ * garrow_union_array_get_type_code:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the logical type code of the value in the union.
+ *
+ * Returns: The i-th logical type code of the value.
+ *
+ * Since: 12.0.0
+ */
+gint8
+garrow_union_array_get_type_code(GArrowUnionArray *array,
+                                 gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_union_array =
+    std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+  return arrow_union_array->type_code(i);
+}
+
+/**
+ * garrow_union_array_get_child_id:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the physical child ID containing value in the union.
+ *
+ * Returns: The physical child ID containing the i-th value.
+ *
+ * Since: 12.0.0
+ */
+gint
+garrow_union_array_get_child_id(GArrowUnionArray *array,
+                                gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_union_array =
+    std::static_pointer_cast<arrow::UnionArray>(arrow_array);
+  return arrow_union_array->child_id(i);
+}
+
+/**
  * garrow_union_array_get_field
  * @array: A #GArrowUnionArray.
  * @i: The index of the field in the union.
@@ -1483,6 +1529,25 @@ garrow_dense_union_array_new_data_type(GArrowDenseUnionDataType *data_type,
     "[dense-union-array][new][data-type]");
 }
 
+/**
+ * garrow_dense_union_array_get_value_offset:
+ * @array: A #GArrowUnionArray.
+ * @i: The index of the offset of the value in the union.
+ *
+ * Returns: The offset of the i-th value.
+ *
+ * Since: 12.0.0
+ */
+gint32
+garrow_dense_union_array_get_value_offset(GArrowDenseUnionArray *array,
+                                          gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_dense_union_array =
+    std::static_pointer_cast<arrow::DenseUnionArray>(arrow_array);
+  return arrow_dense_union_array->value_offset(i);
+}
+
 
 typedef struct GArrowDictionaryArrayPrivate_ {
   GArrowArray *indices;
@@ -1702,5 +1767,331 @@ garrow_dictionary_array_get_dictionary_data_type(GArrowDictionaryArray *array)
   auto data_type = garrow_array_get_value_data_type(GARROW_ARRAY(array));
   return GARROW_DICTIONARY_DATA_TYPE(data_type);
 }
+
+
+struct GArrowRunEndEncodedArrayPrivate {
+  GArrowArray *run_ends;
+  GArrowArray *values;
+};
+
+enum {
+  PROP_RUN_ENDS = 1,
+  PROP_VALUES,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowRunEndEncodedArray,
+                           garrow_run_end_encoded_array,
+                           GARROW_TYPE_ARRAY)
+
+#define GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(obj)        \
+  static_cast<GArrowRunEndEncodedArrayPrivate *>(            \
+    garrow_run_end_encoded_array_get_instance_private(       \
+      GARROW_RUN_END_ENCODED_ARRAY(obj)))
+
+static void
+garrow_run_end_encoded_array_dispose(GObject *object)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(object);
+
+  if (priv->run_ends) {
+    g_object_unref(priv->run_ends);
+    priv->run_ends = nullptr;
+  }
+
+  if (priv->values) {
+    g_object_unref(priv->values);
+    priv->values = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_run_end_encoded_array_parent_class)->dispose(object);
+}
+
+static void
+garrow_run_end_encoded_array_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_RUN_ENDS:
+    priv->run_ends = GARROW_ARRAY(g_value_dup_object(value));
+    break;
+  case PROP_VALUES:
+    priv->values = GARROW_ARRAY(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_run_end_encoded_array_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_RUN_ENDS:
+    g_value_set_object(value, priv->run_ends);
+    break;
+  case PROP_VALUES:
+    g_value_set_object(value, priv->values);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_run_end_encoded_array_init(GArrowRunEndEncodedArray *object)
+{
+}
+
+static void
+garrow_run_end_encoded_array_class_init(GArrowRunEndEncodedArrayClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_run_end_encoded_array_dispose;
+  gobject_class->set_property = garrow_run_end_encoded_array_set_property;
+  gobject_class->get_property = garrow_run_end_encoded_array_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object("run-ends",
+                             "The run-ends",
+                             "The GArrowArray for run-ends",
+                             GARROW_TYPE_ARRAY,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RUN_ENDS, spec);
+
+  spec = g_param_spec_object("values",
+                             "The values",
+                             "The GArrowArray for values",
+                             GARROW_TYPE_ARRAY,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE |
+                                                      G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_VALUES, spec);
+}
+
+/**
+ * garrow_run_end_encoded_array_new:
+ * @data_type: The data type of the run-end encoded array.
+ * @logical_length: The logical length of the run-end encoded array.
+ * @run_ends: The run-ends of the run-end encoded array.
+ * @values: The values of the run-end encoded array.
+ * @logical_offset: The offset of the run-end encoded array.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowRunEndEncodedArray
+ *   or %NULL on error.
+ *
+ * Since: 13.0.0
+ */
+GArrowRunEndEncodedArray *
+garrow_run_end_encoded_array_new(GArrowDataType *data_type,
+                                 gint64 logical_length,
+                                 GArrowArray *run_ends,
+                                 GArrowArray *values,
+                                 gint64 logical_offset,
+                                 GError **error)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  const auto arrow_run_ends = garrow_array_get_raw(run_ends);
+  const auto arrow_values = garrow_array_get_raw(values);
+  auto arrow_run_end_encoded_array_result =
+      arrow::RunEndEncodedArray::Make(
+        arrow_data_type,
+        logical_length,
+        arrow_run_ends,
+        arrow_values,
+        logical_offset);
+  if (garrow::check(error,
+                    arrow_run_end_encoded_array_result,
+                    "[run-end-encoded-array][new]")) {
+    auto arrow_array =
+      std::static_pointer_cast<arrow::Array>(*arrow_run_end_encoded_array_result);
+    auto run_end_encoded_array =
+      garrow_array_new_raw(&arrow_array,
+                           "array", &arrow_array,
+                           "value-data-type", data_type,
+                           "run-ends", run_ends,
+                           "values", values,
+                           NULL);
+    return GARROW_RUN_END_ENCODED_ARRAY(run_end_encoded_array);
+  } else {
+    return nullptr;
+  }
+}
+
+/**
+ * garrow_run_end_encoded_array_get_run_ends:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: (transfer full): The indexes of each run-end.
+ *
+ *   The physical offset to the array is applied.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_run_ends(GArrowRunEndEncodedArray *array)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(array);
+  if (priv->run_ends) {
+    g_object_ref(priv->run_ends);
+    return priv->run_ends;
+  }
+
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_run_ends = arrow_run_end_encoded_array->run_ends();
+  return garrow_array_new_raw(&arrow_run_ends);
+}
+
+/**
+ * garrow_run_end_encoded_array_get_values:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: (transfer full): The values of each run.
+ *
+ *   The physical offset to the array is applied.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_values(GArrowRunEndEncodedArray *array)
+{
+  auto priv = GARROW_RUN_END_ENCODED_ARRAY_GET_PRIVATE(array);
+  if (priv->values) {
+    g_object_ref(priv->values);
+    return priv->values;
+  }
+
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_values = arrow_run_end_encoded_array->values();
+  return garrow_array_new_raw(&arrow_values);
+}
+
+/**
+ * garrow_run_end_encoded_array_get_logical_run_ends:
+ * @array: A #GArrowRunEndEncodedArray.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (transfer full): The logical indexes of each run-end or
+ *   %NULL on error.
+ *
+ *   If a non-zero logical offset is set, this function allocates a
+ *   new array and rewrites all the run end values to be relative to
+ *   the logical offset and cuts the end of the array to the logical
+ *   length.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_logical_run_ends(
+  GArrowRunEndEncodedArray *array,
+  GError **error)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_memory_pool = arrow::default_memory_pool();
+  auto arrow_logical_run_ends_result =
+    arrow_run_end_encoded_array->LogicalRunEnds(arrow_memory_pool);
+  if (garrow::check(error,
+                    arrow_logical_run_ends_result,
+                    "[run-end-encoded-array][get-logical-run-ends]")) {
+    auto arrow_array =
+      std::static_pointer_cast<arrow::Array>(*arrow_logical_run_ends_result);
+    return garrow_array_new_raw(&arrow_array,
+                                "array", &arrow_array,
+                                NULL);
+  } else {
+    return nullptr;
+  }
+}
+
+/**
+ * garrow_run_end_encoded_array_get_logical_values:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: (transfer full): The logical values of each run.
+ *
+ *   If a non-zero logical offset is set, this function allocates a
+ *   new array containing only the values within the logical range.
+ *
+ * Since: 13.0.0
+ */
+GArrowArray *
+garrow_run_end_encoded_array_get_logical_values(GArrowRunEndEncodedArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  auto arrow_logical_values =
+    std::static_pointer_cast<arrow::Array>(
+      arrow_run_end_encoded_array->LogicalValues());
+  return garrow_array_new_raw(&arrow_logical_values,
+                              "array", &arrow_logical_values,
+                              NULL);
+}
+
+/**
+ * garrow_run_end_encoded_array_find_physical_offset:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: Find the physical offset of this array.
+ *
+ *   This function uses binary-search, so it has a O(log N) cost.
+ *
+ * Since: 13.0.0
+ */
+gint64
+garrow_run_end_encoded_array_find_physical_offset(
+  GArrowRunEndEncodedArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  return arrow_run_end_encoded_array->FindPhysicalOffset();
+}
+
+/**
+ * garrow_run_end_encoded_array_find_physical_length:
+ * @array: A #GArrowRunEndEncodedArray.
+ *
+ * Returns: Find the physical length of this array.
+ *
+ *   The physical length of an run-end encoded array is the number of
+ *   physical values (and run-ends) necessary to represent the logical
+ *   range of values from offset to length.
+ *
+ *   Avoid calling this function if the physical length can be
+ *   estabilished in some other way (e.g. when iterating over the runs
+ *   sequentially until the end). This function uses binary-search, so
+ *   it has a O(log N) cost.
+ *
+ * Since: 13.0.0
+ */
+gint64
+garrow_run_end_encoded_array_find_physical_length(
+  GArrowRunEndEncodedArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_run_end_encoded_array =
+    std::static_pointer_cast<arrow::RunEndEncodedArray>(arrow_array);
+  return arrow_run_end_encoded_array->FindPhysicalLength();
+}
+
 
 G_END_DECLS

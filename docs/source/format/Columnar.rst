@@ -256,15 +256,15 @@ Would look like: ::
     * Length: 5, Null count: 1
     * Validity bitmap buffer:
 
-      |Byte 0 (validity bitmap) | Bytes 1-63            |
-      |-------------------------|-----------------------|
-      | 00011101                | 0 (padding)           |
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00011101                 | 0 (padding)           |
 
     * Value Buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 1          | unspecified | 2           | 4           | 8           | unspecified |
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |-------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 1           | unspecified | 2           | 4           | 8           | unspecified (padding) |
 
 **Example Layout: Non-null int32 Array**
 
@@ -279,9 +279,9 @@ Would look like: ::
 
     * Value Buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 1          | 2           | 3           | 4           | 8           | unspecified |
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |-------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 1           | 2           | 3           | 4           | 8           | unspecified (padding) |
 
 or with the bitmap elided: ::
 
@@ -289,9 +289,9 @@ or with the bitmap elided: ::
     * Validity bitmap buffer: Not required
     * Value Buffer:
 
-      |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 1          | 2           | 3           | 4           | 8           | unspecified |
+      | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | bytes 12-15 | bytes 16-19 | Bytes 20-63           |
+      |-------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 1           | 2           | 3           | 4           | 8           | unspecified (padding) |
 
 Variable-size Binary Layout
 ---------------------------
@@ -324,6 +324,31 @@ location for all values is valid and well defined.
 Generally the first slot in the offsets array is 0, and the last slot
 is the length of the values array. When serializing this layout, we
 recommend normalizing the offsets to start at 0.
+
+**Example Layout: ``VarBinary``**
+
+``['joe', null, null, 'mark']``
+
+will be represented as follows: ::
+
+  * Length: 4, Null count: 2
+  * Validity bitmap buffer:
+
+    | Byte 0 (validity bitmap) | Bytes 1-63            |
+    |--------------------------|-----------------------|
+    | 00001001                 | 0 (padding)           |
+
+  * Offsets buffer:
+
+    | Bytes 0-19     | Bytes 20-63           |
+    |----------------|-----------------------|
+    | 0, 3, 3, 3, 7  | unspecified (padding) |
+
+   * Value buffer:
+
+    | Bytes 0-6      | Bytes 7-63            |
+    |----------------|-----------------------|
+    | joemark        | unspecified (padding) |
 
 .. _variable-size-list-layout:
 
@@ -363,18 +388,18 @@ will have the following representation: ::
 
     * Offsets buffer (int32)
 
-      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63 |
-      |------------|-------------|-------------|-------------|-------------|-------------|
-      | 0          | 3           | 3           | 7           | 7           | unspecified |
+      | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-63           |
+      |------------|-------------|-------------|-------------|-------------|-----------------------|
+      | 0          | 3           | 3           | 7           | 7           | unspecified (padding) |
 
     * Values array (Int8array):
       * Length: 7,  Null count: 0
       * Validity bitmap buffer: Not required
       * Values buffer (int8)
 
-        | Bytes 0-6                    | Bytes 7-63  |
-        |------------------------------|-------------|
-        | 12, -7, 25, 0, -127, 127, 50 | unspecified |
+        | Bytes 0-6                    | Bytes 7-63            |
+        |------------------------------|-----------------------|
+        | 12, -7, 25, 0, -127, 127, 50 | unspecified (padding) |
 
 **Example Layout: ``List<List<Int8>>``**
 
@@ -387,9 +412,9 @@ will be represented as follows: ::
     * Validity bitmap buffer: Not required
     * Offsets buffer (int32)
 
-      | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
-      |------------|------------|------------|-------------|-------------|
-      | 0          |  2         |  5         |  6          | unspecified |
+      | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 | Bytes 16-63           |
+      |------------|------------|------------|-------------|-----------------------|
+      | 0          |  2         |  5         |  6          | unspecified (padding) |
 
     * Values array (`List<Int8>`)
       * Length: 6, Null count: 1
@@ -401,17 +426,17 @@ will be represented as follows: ::
 
       * Offsets buffer (int32)
 
-        | Bytes 0-27           | Bytes 28-63 |
-        |----------------------|-------------|
-        | 0, 2, 4, 7, 7, 8, 10 | unspecified |
+        | Bytes 0-27           | Bytes 28-63           |
+        |----------------------|-----------------------|
+        | 0, 2, 4, 7, 7, 8, 10 | unspecified (padding) |
 
       * Values array (Int8):
         * Length: 10, Null count: 0
         * Validity bitmap buffer: Not required
 
-          | Bytes 0-9                     | Bytes 10-63 |
-          |-------------------------------|-------------|
-          | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified |
+          | Bytes 0-9                     | Bytes 10-63           |
+          |-------------------------------|-----------------------|
+          | 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 | unspecified (padding) |
 
 Fixed-Size List Layout
 ----------------------
@@ -486,9 +511,9 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
     * Length: 4, Null count: 1
     * Validity bitmap buffer:
 
-      |Byte 0 (validity bitmap) | Bytes 1-63            |
-      |-------------------------|-----------------------|
-      | 00001011                | 0 (padding)           |
+      | Byte 0 (validity bitmap) | Bytes 1-63            |
+      |--------------------------|-----------------------|
+      | 00001011                 | 0 (padding)           |
 
     * Children arrays:
       * field-0 array (`VarBinary`):
@@ -501,19 +526,15 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
         * Offsets buffer:
 
-          | Bytes 0-19     |
-          |----------------|
-          | 0, 3, 3, 3, 7  |
+          | Bytes 0-19     | Bytes 20-63           |
+          |----------------|-----------------------|
+          | 0, 3, 3, 3, 7  | unspecified (padding) |
 
-         * Values array:
-            * Length: 7, Null count: 0
-            * Validity bitmap buffer: Not required
+         * Value buffer:
 
-            * Value buffer:
-
-              | Bytes 0-6      |
-              |----------------|
-              | joemark        |
+          | Bytes 0-6      | Bytes 7-63            |
+          |----------------|-----------------------|
+          | joemark        | unspecified (padding) |
 
       * field-1 array (int32 array):
         * Length: 4, Null count: 1
@@ -525,9 +546,9 @@ The layout for ``[{'joe', 1}, {null, 2}, null, {'mark', 4}]`` would be: ::
 
         * Value Buffer:
 
-          |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63 |
-          |------------|-------------|-------------|-------------|-------------|
-          | 1          | 2           | unspecified | 4           | unspecified |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-63           |
+          |-------------|-------------|-------------|-------------|-----------------------|
+          | 1           | 2           | unspecified | 4           | unspecified (padding) |
 
 Struct Validity
 ~~~~~~~~~~~~~~~
@@ -589,26 +610,26 @@ will have the following layout: ::
     * Length: 4, Null count: 0
     * Types buffer:
 
-      |Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63  |
-      |---------|-------------|----------|----------|-------------|
-      | 0       | 0           | 0        | 1        | unspecified |
+      | Byte 0   | Byte 1      | Byte 2   | Byte 3   | Bytes 4-63            |
+      |----------|-------------|----------|----------|-----------------------|
+      | 0        | 0           | 0        | 1        | unspecified (padding) |
 
     * Offset buffer:
 
-      |Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63 |
-      |----------|-------------|------------|-------------|-------------|
-      | 0        | 1           | 2          | 0           | unspecified |
+      | Bytes 0-3 | Bytes 4-7   | Bytes 8-11 | Bytes 12-15 | Bytes 16-63           |
+      |-----------|-------------|------------|-------------|-----------------------|
+      | 0         | 1           | 2          | 0           | unspecified (padding) |
 
     * Children arrays:
       * Field-0 array (f: Float32):
-        * Length: 2, Null count: 1
+        * Length: 3, Null count: 1
         * Validity bitmap buffer: 00000101
 
         * Value Buffer:
 
-          | Bytes 0-11     | Bytes 12-63  |
-          |----------------|-------------|
-          | 1.2, null, 3.4 | unspecified |
+          | Bytes 0-11     | Bytes 12-63           |
+          |----------------|-----------------------|
+          | 1.2, null, 3.4 | unspecified (padding) |
 
 
       * Field-1 array (i: Int32):
@@ -617,9 +638,9 @@ will have the following layout: ::
 
         * Value Buffer:
 
-          | Bytes 0-3 | Bytes 4-63  |
-          |-----------|-------------|
-          | 5         | unspecified |
+          | Bytes 0-3 | Bytes 4-63            |
+          |-----------|-----------------------|
+          | 5         | unspecified (padding) |
 
 Sparse Union
 ~~~~~~~~~~~~
@@ -656,29 +677,29 @@ will have the following layout: ::
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
-          |Byte 0 (validity bitmap) | Bytes 1-63            |
-          |-------------------------|-----------------------|
-          |00010001                 | 0 (padding)           |
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00010001                 | 0 (padding)           |
 
         * Value buffer:
 
-          |Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
-          |------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
-          | 5          | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
+          | Bytes 0-3   | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
+          |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
+          | 5           | unspecified | unspecified | unspecified | 4           |  unspecified | unspecified (padding) |
 
       * f (Float32):
         * Length: 6, Null count: 4
         * Validity bitmap buffer:
 
-          |Byte 0 (validity bitmap) | Bytes 1-63            |
-          |-------------------------|-----------------------|
-          | 00001010                | 0 (padding)           |
+          | Byte 0 (validity bitmap) | Bytes 1-63            |
+          |--------------------------|-----------------------|
+          | 00001010                 | 0 (padding)           |
 
         * Value buffer:
 
-          |Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23  | Bytes 24-63           |
-          |-------------|-------------|-------------|-------------|-------------|--------------|-----------------------|
-          | unspecified |  1.2        | unspecified | 3.4         | unspecified |  unspecified | unspecified (padding) |
+          | Bytes 0-3    | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-63           |
+          |--------------|-------------|-------------|-------------|-------------|-------------|-----------------------|
+          | unspecified  | 1.2         | unspecified | 3.4         | unspecified | unspecified | unspecified (padding) |
 
       * s (`VarBinary`)
         * Length: 6, Null count: 4
@@ -690,17 +711,15 @@ will have the following layout: ::
 
         * Offsets buffer (Int32)
 
-          | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63 |
-          |------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|
-          | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified |
+          | Bytes 0-3  | Bytes 4-7   | Bytes 8-11  | Bytes 12-15 | Bytes 16-19 | Bytes 20-23 | Bytes 24-27 | Bytes 28-63            |
+          |------------|-------------|-------------|-------------|-------------|-------------|-------------|------------------------|
+          | 0          | 0           | 0           | 3           | 3           | 3           | 7           | unspecified (padding)  |
 
-        * Values array (VarBinary):
-          * Length: 7,  Null count: 0
-          * Validity bitmap buffer: Not required
+        * Values buffer:
 
-            | Bytes 0-6  | Bytes 7-63            |
-            |------------|-----------------------|
-            | joemark    | unspecified (padding) |
+          | Bytes 0-6  | Bytes 7-63            |
+          |------------|-----------------------|
+          | joemark    | unspecified (padding) |
 
 Only the slot in the array corresponding to the type index is considered. All
 "unselected" values are ignored and could be any semantically correct array
@@ -1326,4 +1345,4 @@ the Arrow spec.
 .. _Intel performance guide: https://software.intel.com/en-us/articles/practical-intel-avx-optimization-on-2nd-generation-intel-core-processors
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
-.. _Parquet: https://parquet.apache.org/documentation/latest/
+.. _Parquet: https://parquet.apache.org/docs/

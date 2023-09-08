@@ -20,13 +20,6 @@
 set -ex
 
 source_dir=${1}/go
-ARCH=`uname -m`
-
-# Arm64 CI is triggered by travis and run in arm64v8/golang:1.17-bullseye
-if [ "aarch64" == "$ARCH" ]; then
-# Install `staticcheck`
-  GO111MODULE=on go install honnef.co/go/tools/cmd/staticcheck@v0.2.2
-fi
 
 pushd ${source_dir}/arrow
 

@@ -157,7 +157,7 @@ write_ipc_file <- function(x,
 #' @inheritParams read_delim_arrow
 #' @inheritParams make_readable_file
 #'
-#' @return A `data.frame` if `as_data_frame` is `TRUE` (the default), or an
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
 #'
 #' @export
@@ -196,7 +196,8 @@ read_feather <- function(file, col_select = NULL, as_data_frame = TRUE, mmap = T
   )
 
   if (isTRUE(as_data_frame)) {
-    out <- as.data.frame(out)
+    df <- out$to_data_frame()
+    out <- apply_arrow_r_metadata(df, out$metadata$r)
   }
   out
 }

@@ -30,13 +30,11 @@
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
 
-namespace arrow {
-namespace util {
+namespace arrow::util {
 
 class Codec;
 
-}  // namespace util
-}  // namespace arrow
+}  // namespace arrow::util
 
 namespace parquet {
 
@@ -488,6 +486,10 @@ PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec);
 
 PARQUET_EXPORT
+std::unique_ptr<Codec> GetCodec(Compression::type codec,
+                                const CodecOptions& codec_options);
+
+PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);
 
 struct ParquetCipher {
@@ -517,6 +519,8 @@ struct PageType {
   };
 };
 
+bool PageCanUseChecksum(PageType::type pageType);
+
 class ColumnOrder {
  public:
   enum type { UNDEFINED, TYPE_DEFINED_ORDER };
@@ -543,6 +547,27 @@ struct BoundaryOrder {
   };
 };
 
+/// \brief SortingColumn is a proxy around format::SortingColumn.
+struct PARQUET_EXPORT SortingColumn {
+  // The column index (in this row group)
+  int32_t column_idx;
+
+  // If true, indicates this column is sorted in descending order.
+  bool descending;
+
+  // If true, nulls will come before non-null values, otherwise, nulls go at the end.
+  bool nulls_first;
+};
+
+inline bool operator==(const SortingColumn& left, const SortingColumn& right) {
+  return left.nulls_first == right.nulls_first && left.descending == right.descending &&
+         left.column_idx == right.column_idx;
+}
+
+inline bool operator!=(const SortingColumn& left, const SortingColumn& right) {
+  return !(left == right);
+}
+
 // ----------------------------------------------------------------------
 
 struct ByteArray {
@@ -552,6 +577,11 @@ struct ByteArray {
   ByteArray(::std::string_view view)  // NOLINT implicit conversion
       : ByteArray(static_cast<uint32_t>(view.size()),
                   reinterpret_cast<const uint8_t*>(view.data())) {}
+
+  explicit operator std::string_view() const {
+    return std::string_view{reinterpret_cast<const char*>(ptr), len};
+  }
+
   uint32_t len;
   const uint8_t* ptr;
 };

@@ -18,12 +18,11 @@
 #include <immintrin.h>
 
 #include "arrow/compute/row/compare_internal.h"
+#include "arrow/compute/util.h"
 #include "arrow/util/bit_util.h"
 
 namespace arrow {
 namespace compute {
-
-#if defined(ARROW_HAVE_AVX2)
 
 inline __m256i set_first_n_bytes_avx2(int n) {
   constexpr uint64_t kByteSequence0To7 = 0x0706050403020100ULL;
@@ -668,8 +667,6 @@ uint32_t KeyCompare::CompareVarBinaryColumnToRow_avx2(
 
   return num_rows_to_compare;
 }
-
-#endif
 
 }  // namespace compute
 }  // namespace arrow

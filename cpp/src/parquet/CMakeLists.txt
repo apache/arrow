@@ -114,12 +114,13 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS GTest::gtest_main GTest::gtest Boost::headers)
+set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST}
+                          ${ARROW_GTEST_GTEST_MAIN} Boost::headers)
 
 if(APPLE)
-  set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
+  list(APPEND PARQUET_MIN_TEST_LIBS ${CMAKE_DL_LIBS})
 elseif(NOT MSVC)
-  set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
+  list(APPEND PARQUET_MIN_TEST_LIBS pthread ${CMAKE_DL_LIBS})
 endif()
 
 set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
@@ -155,6 +156,7 @@ set(PARQUET_SRCS
     arrow/schema_internal.cc
     arrow/writer.cc
     bloom_filter.cc
+    bloom_filter_reader.cc
     column_reader.cc
     column_scanner.cc
     column_writer.cc
@@ -210,10 +212,14 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
-  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
-  set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${BMI2_FLAGS}")
+  if(ARROW_HAVE_RUNTIME_BMI2)
+    # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
+    # the BMI2 path.
+    set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
+    set_source_files_properties(level_conversion_bmi2.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                      "${BMI2_FLAGS}")
+  endif()
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
@@ -334,6 +340,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/parquet_version.h"
 add_parquet_test(internals-test
                  SOURCES
                  bloom_filter_test.cc
+                 bloom_filter_reader_test.cc
                  properties_test.cc
                  statistics_test.cc
                  encoding_test.cc
@@ -399,10 +406,14 @@ endif()
 add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc test_util.cc)
 add_parquet_test(schema_test)
 
+add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
+                      benchmark_util.cc)
 add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
+add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
+                      benchmark_util.cc)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
 
 if(ARROW_WITH_BROTLI)

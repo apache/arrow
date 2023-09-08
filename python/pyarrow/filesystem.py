@@ -25,7 +25,7 @@ import warnings
 from os.path import join as pjoin
 
 import pyarrow as pa
-from pyarrow.util import implements, _stringify_path, _is_path_like, _DEPR_MSG
+from pyarrow.util import doc, _stringify_path, _is_path_like, _DEPR_MSG
 
 
 _FS_DEPR_MSG = _DEPR_MSG.format(
@@ -260,12 +260,12 @@ class LocalFileSystem(FileSystem):
         warnings.warn(_FS_DEPR_MSG, FutureWarning, stacklevel=2)
         return cls._get_instance()
 
-    @implements(FileSystem.ls)
+    @doc(FileSystem.ls)
     def ls(self, path):
         path = _stringify_path(path)
         return sorted(pjoin(path, x) for x in os.listdir(path))
 
-    @implements(FileSystem.mkdir)
+    @doc(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
         path = _stringify_path(path)
         if create_parents:
@@ -273,26 +273,26 @@ class LocalFileSystem(FileSystem):
         else:
             os.mkdir(path)
 
-    @implements(FileSystem.isdir)
+    @doc(FileSystem.isdir)
     def isdir(self, path):
         path = _stringify_path(path)
         return os.path.isdir(path)
 
-    @implements(FileSystem.isfile)
+    @doc(FileSystem.isfile)
     def isfile(self, path):
         path = _stringify_path(path)
         return os.path.isfile(path)
 
-    @implements(FileSystem._isfilestore)
+    @doc(FileSystem._isfilestore)
     def _isfilestore(self):
         return True
 
-    @implements(FileSystem.exists)
+    @doc(FileSystem.exists)
     def exists(self, path):
         path = _stringify_path(path)
         return os.path.exists(path)
 
-    @implements(FileSystem.open)
+    @doc(FileSystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing.
@@ -324,15 +324,15 @@ class DaskFileSystem(FileSystem):
             FutureWarning, stacklevel=2)
         self.fs = fs
 
-    @implements(FileSystem.isdir)
+    @doc(FileSystem.isdir)
     def isdir(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(FileSystem.isfile)
+    @doc(FileSystem.isfile)
     def isfile(self, path):
         raise NotImplementedError("Unsupported file system API")
 
-    @implements(FileSystem._isfilestore)
+    @doc(FileSystem._isfilestore)
     def _isfilestore(self):
         """
         Object Stores like S3 and GCSFS are based on key lookups, not true
@@ -340,17 +340,17 @@ class DaskFileSystem(FileSystem):
         """
         return False
 
-    @implements(FileSystem.delete)
+    @doc(FileSystem.delete)
     def delete(self, path, recursive=False):
         path = _stringify_path(path)
         return self.fs.rm(path, recursive=recursive)
 
-    @implements(FileSystem.exists)
+    @doc(FileSystem.exists)
     def exists(self, path):
         path = _stringify_path(path)
         return self.fs.exists(path)
 
-    @implements(FileSystem.mkdir)
+    @doc(FileSystem.mkdir)
     def mkdir(self, path, create_parents=True):
         path = _stringify_path(path)
         if create_parents:
@@ -358,7 +358,7 @@ class DaskFileSystem(FileSystem):
         else:
             return self.fs.mkdir(path)
 
-    @implements(FileSystem.open)
+    @doc(FileSystem.open)
     def open(self, path, mode='rb'):
         """
         Open file for reading or writing.
@@ -380,7 +380,7 @@ class DaskFileSystem(FileSystem):
 
 class S3FSWrapper(DaskFileSystem):
 
-    @implements(FileSystem.isdir)
+    @doc(FileSystem.isdir)
     def isdir(self, path):
         path = _sanitize_s3(_stringify_path(path))
         try:
@@ -392,7 +392,7 @@ class S3FSWrapper(DaskFileSystem):
         except OSError:
             return False
 
-    @implements(FileSystem.isfile)
+    @doc(FileSystem.isfile)
     def isfile(self, path):
         path = _sanitize_s3(_stringify_path(path))
         try:

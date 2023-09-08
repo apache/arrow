@@ -178,7 +178,7 @@ open_dataset <- function(sources,
                          partitioning = hive_partition(),
                          hive_style = NA,
                          unify_schemas = NULL,
-                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text"),
+                         format = c("parquet", "arrow", "ipc", "feather", "csv", "tsv", "text", "json"),
                          factory_options = list(),
                          ...) {
   stop_if_no_datasets()
@@ -231,7 +231,7 @@ open_dataset <- function(sources,
 #' Open a multi-file dataset of CSV or other delimiter-separated format
 #'
 #' A wrapper around [open_dataset] which explicitly includes parameters mirroring [read_csv_arrow()],
-#' [read_delim_arrow()], and [read_tsv_arrow()] to allows for easy switching between functions
+#' [read_delim_arrow()], and [read_tsv_arrow()] to allow for easy switching between functions
 #' for opening single files and functions for opening datasets.
 #'
 #' @inheritParams open_dataset

@@ -41,9 +41,15 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import io.grpc.Channel;
 import io.grpc.MethodDescriptor;
 import io.grpc.ServerServiceDefinition;
+import io.grpc.health.v1.HealthCheckRequest;
+import io.grpc.health.v1.HealthCheckResponse;
+import io.grpc.health.v1.HealthGrpc;
+import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.NettyServerBuilder;
+import io.grpc.protobuf.services.HealthStatusManager;
 
 public class TestServerOptions {
 
@@ -162,6 +168,32 @@ public class TestServerOptions {
       }
     } finally {
       executorService.shutdown();
+    }
+  }
+
+  /*
+   * This is an extension of builderConsumer test.
+   * Test that Flight interceptors don't break other registered services
+   */
+  @Test
+  public void addHealthCheckService() throws Exception {
+    final HealthStatusManager statusManager = new HealthStatusManager();
+    final Consumer<NettyServerBuilder> consumer = (builder) -> {
+      builder.addService(statusManager.getHealthService());
+    };
+    final Location location = forGrpcInsecure(LOCALHOST, 5555);
+    try (
+        BufferAllocator a = new RootAllocator(Long.MAX_VALUE);
+        Producer producer = new Producer(a);
+        FlightServer s = FlightServer.builder(a, location, producer)
+            .transportHint("grpc.builderConsumer", consumer).build().start();
+    ) {
+      Channel channel = NettyChannelBuilder.forAddress(location.toSocketAddress()).usePlaintext().build();
+      HealthCheckResponse response = HealthGrpc
+              .newBlockingStub(channel)
+              .check(HealthCheckRequest.getDefaultInstance());
+
+      assertEquals(response.getStatus(), HealthCheckResponse.ServingStatus.SERVING);
     }
   }
 }

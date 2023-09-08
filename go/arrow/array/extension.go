@@ -20,9 +20,9 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // ExtensionArray is the interface that needs to be implemented to handle
@@ -38,7 +38,6 @@ type ExtensionArray interface {
 	ExtensionType() arrow.ExtensionType
 	// Storage returns the underlying storage array for this array.
 	Storage() arrow.Array
-
 	// by having a non-exported function in the interface, it means that
 	// consumers must embed ExtensionArrayBase in their structs in order
 	// to fulfill this interface.
@@ -75,28 +74,12 @@ func NewExtensionArrayWithStorage(dt arrow.ExtensionType, storage arrow.Array) a
 		panic(fmt.Errorf("arrow/array: storage type %s for extension type %s, does not match expected type %s", storage.DataType(), dt.ExtensionName(), dt.StorageType()))
 	}
 
-	base := ExtensionArrayBase{}
-	base.refCount = 1
-	base.storage = storage.(arraymarshal)
-	storage.Retain()
-
 	storageData := storage.Data().(*Data)
 	// create a new data instance with the ExtensionType as the datatype but referencing the
 	// same underlying buffers to share them with the storage array.
-	baseData := NewData(dt, storageData.length, storageData.buffers, storageData.childData, storageData.nulls, storageData.offset)
-	defer baseData.Release()
-	base.array.setData(baseData)
-
-	// use the ExtensionType's ArrayType to construct the correctly typed object
-	// to use as the ExtensionArray interface. reflect.New returns a pointer to
-	// the newly created object.
-	arr := reflect.New(base.ExtensionType().ArrayType())
-	// set the embedded ExtensionArrayBase to the value we created above. We know
-	// that this field will exist because the interface requires embedding ExtensionArrayBase
-	// so we don't have to separately check, this will panic if called on an ArrayType
-	// that doesn't embed ExtensionArrayBase which is what we want.
-	arr.Elem().FieldByName("ExtensionArrayBase").Set(reflect.ValueOf(base))
-	return arr.Interface().(ExtensionArray)
+	data := NewData(dt, storageData.length, storageData.buffers, storageData.childData, storageData.nulls, storageData.offset)
+	defer data.Release()
+	return NewExtensionData(data)
 }
 
 // NewExtensionData expects a data with a datatype of arrow.ExtensionType and
@@ -121,21 +104,20 @@ func NewExtensionData(data arrow.ArrayData) ExtensionArray {
 // ExtensionArrayBase is the base struct for user-defined Extension Array types
 // and must be embedded in any user-defined extension arrays like so:
 //
-//   type UserDefinedArray struct {
-//       array.ExtensionArrayBase
-//   }
-//
+//	type UserDefinedArray struct {
+//	    array.ExtensionArrayBase
+//	}
 type ExtensionArrayBase struct {
 	array
-	storage arraymarshal
+	storage arrow.Array
 }
 
 func (e *ExtensionArrayBase) String() string {
 	return fmt.Sprintf("(%s)%s", e.data.dtype, e.storage)
 }
 
-func (e *ExtensionArrayBase) getOneForMarshal(i int) interface{} {
-	return e.storage.getOneForMarshal(i)
+func (e *ExtensionArrayBase) GetOneForMarshal(i int) interface{} {
+	return e.storage.GetOneForMarshal(i)
 }
 
 func (e *ExtensionArrayBase) MarshalJSON() ([]byte, error) {
@@ -181,7 +163,13 @@ func (e *ExtensionArrayBase) setData(data *Data) {
 	storageData := NewData(extType.StorageType(), data.length, data.buffers, data.childData, data.nulls, data.offset)
 	storageData.SetDictionary(data.dictionary)
 	defer storageData.Release()
-	e.storage = MakeFromData(storageData).(arraymarshal)
+	e.storage = MakeFromData(storageData)
+}
+
+// ValueStr returns the value at index i as a string.
+// This needs to be implemented by the extension array type.
+func (e *ExtensionArrayBase) ValueStr(i int) string {
+	panic("arrow/array: ValueStr wasn't implemented by this extension array type")
 }
 
 // no-op function that exists simply to force embedding this in any extension array types.
@@ -207,18 +195,18 @@ type ExtensionBuilder struct {
 // the appropriate extension array type and set the storage correctly, resetting the builder for
 // reuse.
 //
-// Example
+// # Example
 //
 // Simple example assuming an extension type of a UUID defined as a FixedSizeBinary(16) was registered
 // using the type name "uuid":
 //
-//   uuidType := arrow.GetExtensionType("uuid")
-//   bldr := array.NewExtensionBuilder(memory.DefaultAllocator, uuidType)
-//   defer bldr.Release()
-//   uuidBldr := bldr.StorageBuilder().(*array.FixedSizeBinaryBuilder)
-//   /* build up the fixed size binary array as usual via Append/AppendValues */
-//   uuidArr := bldr.NewExtensionArray()
-//   defer uuidArr.Release()
+//	uuidType := arrow.GetExtensionType("uuid")
+//	bldr := array.NewExtensionBuilder(memory.DefaultAllocator, uuidType)
+//	defer bldr.Release()
+//	uuidBldr := bldr.StorageBuilder().(*array.FixedSizeBinaryBuilder)
+//	/* build up the fixed size binary array as usual via Append/AppendValues */
+//	uuidArr := bldr.NewExtensionArray()
+//	defer uuidArr.Release()
 //
 // Because the storage builder is embedded in the Extension builder it also means
 // that any of the functions available on the Builder interface can be called on

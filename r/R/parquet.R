@@ -24,8 +24,8 @@
 #' @param props [ParquetArrowReaderProperties]
 #' @param ... Additional arguments passed to `ParquetFileReader$create()`
 #'
-#' @return A [arrow::Table][Table], or a `data.frame` if `as_data_frame` is
-#' `TRUE` (the default).
+#' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
+#' Arrow [Table] otherwise.
 #' @examplesIf arrow_with_parquet() && !getFromNamespace("on_linux_dev", "arrow")()
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
@@ -70,7 +70,7 @@ read_parquet <- function(file,
   }
 
   if (as_data_frame) {
-    tab <- as.data.frame(tab)
+    tab <- collect.ArrowTabular(tab)
   }
   tab
 }
@@ -457,6 +457,7 @@ ParquetFileWriter$create <- function(schema,
 #'    (e.g. `RandomAccessFile`).
 #' - `props` Optional [ParquetArrowReaderProperties]
 #' - `mmap` Logical: whether to memory-map the file (default `TRUE`)
+#' - `reader_props` Optional [ParquetReaderProperties]
 #' - `...` Additional arguments, currently ignored
 #'
 #' @section Methods:
@@ -541,12 +542,13 @@ ParquetFileReader <- R6Class("ParquetFileReader",
 ParquetFileReader$create <- function(file,
                                      props = ParquetArrowReaderProperties$create(),
                                      mmap = TRUE,
+                                     reader_props = ParquetReaderProperties$create(),
                                      ...) {
   file <- make_readable_file(file, mmap)
   assert_is(props, "ParquetArrowReaderProperties")
   assert_is(file, "RandomAccessFile")
 
-  parquet___arrow___FileReader__OpenFile(file, props)
+  parquet___arrow___FileReader__OpenFile(file, props, reader_props)
 }
 
 #' @title ParquetArrowReaderProperties class
@@ -606,7 +608,6 @@ ParquetArrowReaderProperties$create <- function(use_threads = option_use_threads
 calculate_chunk_size <- function(rows, columns,
                                  target_cells_per_group = getOption("arrow.parquet_cells_per_group", 2.5e8),
                                  max_chunks = getOption("arrow.parquet_max_chunks", 200)) {
-
   # Ensure is a float to prevent integer overflow issues
   num_cells <- as.numeric(rows) * as.numeric(columns)
 
@@ -625,4 +626,48 @@ calculate_chunk_size <- function(rows, columns,
   chunk_size <- ceiling(rows / num_chunks)
 
   chunk_size
+}
+
+#' @title ParquetReaderProperties class
+#' @rdname ParquetReaderProperties
+#' @name ParquetReaderProperties
+#' @docType class
+#' @usage NULL
+#' @format NULL
+#' @description This class holds settings to control how a Parquet file is read
+#' by [ParquetFileReader].
+#'
+#' @section Factory:
+#'
+#' The `ParquetReaderProperties$create()` factory method instantiates the object
+#' and takes no arguments.
+#'
+#' @section Methods:
+#'
+#' - `$thrift_string_size_limit()`
+#' - `$set_thrift_string_size_limit()`
+#' - `$thrift_container_size_limit()`
+#' - `$set_thrift_container_size_limit()`
+#'
+#' @export
+ParquetReaderProperties <- R6Class("ParquetReaderProperties",
+  inherit = ArrowObject,
+  public = list(
+    thrift_string_size_limit = function() {
+      parquet___arrow___ReaderProperties__get_thrift_string_size_limit(self)
+    },
+    set_thrift_string_size_limit = function(size) {
+      parquet___arrow___ReaderProperties__set_thrift_string_size_limit(self, size)
+    },
+    thrift_container_size_limit = function() {
+      parquet___arrow___ReaderProperties__get_thrift_container_size_limit(self)
+    },
+    set_thrift_container_size_limit = function(size) {
+      parquet___arrow___ReaderProperties__set_thrift_container_size_limit(self, size)
+    }
+  )
+)
+
+ParquetReaderProperties$create <- function() {
+  parquet___arrow___ReaderProperties__Make()
 }

@@ -45,14 +45,16 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql"
-	"github.com/apache/arrow/go/v12/arrow/flight/flightsql/schema_ref"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/arrow/scalar"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/flight"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql"
+	"github.com/apache/arrow/go/v14/arrow/flight/flightsql/schema_ref"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow/scalar"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	_ "modernc.org/sqlite"
 )
@@ -60,7 +62,9 @@ import (
 func genRandomString() []byte {
 	const length = 16
 	max := int('z')
-	min := int('0')
+	// don't include ':' as a valid byte to generate
+	// because we use it as a separator for the transactions
+	min := int('<')
 
 	out := make([]byte, length)
 	for i := range out {
@@ -149,12 +153,12 @@ func CreateDB() (*sql.DB, error) {
 
 	_, err = db.Exec(`
 	CREATE TABLE foreignTable (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 		foreignName varchar(100),
 		value int);
 
 	CREATE TABLE intTable (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 		keyName varchar(100),
 		value int,
 		foreignId int references foreignTable(id));
@@ -249,7 +253,7 @@ func (s *SQLiteFlightSQLServer) DoGetStatement(ctx context.Context, cmd flightsq
 	if txnid != "" {
 		tx, loaded := s.openTransactions.Load(txnid)
 		if !loaded {
-			return nil, nil, fmt.Errorf("%w: invalid transaction id specified", arrow.ErrInvalid)
+			return nil, nil, fmt.Errorf("%w: invalid transaction id specified: %s", arrow.ErrInvalid, txnid)
 		}
 		db = tx.(*sql.Tx)
 	}
@@ -460,6 +464,9 @@ type dbQueryCtx interface {
 func doGetQuery(ctx context.Context, mem memory.Allocator, db dbQueryCtx, query string, schema *arrow.Schema, args ...interface{}) (*arrow.Schema, <-chan flight.StreamChunk, error) {
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
+		// Not really useful except for testing Flight SQL clients
+		trailers := metadata.Pairs("afsql-sqlite-query", query)
+		grpc.SetTrailer(ctx, trailers)
 		return nil, nil, err
 	}
 
@@ -643,6 +650,9 @@ func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context
 	if len(args) == 0 {
 		result, err := stmt.stmt.ExecContext(ctx)
 		if err != nil {
+			if strings.Contains(err.Error(), "no such table") {
+				return 0, status.Error(codes.NotFound, err.Error())
+			}
 			return 0, err
 		}
 
@@ -653,6 +663,9 @@ func (s *SQLiteFlightSQLServer) DoPutPreparedStatementUpdate(ctx context.Context
 	for _, p := range args {
 		result, err := stmt.stmt.ExecContext(ctx, p...)
 		if err != nil {
+			if strings.Contains(err.Error(), "no such table") {
+				return totalAffected, status.Error(codes.NotFound, err.Error())
+			}
 			return totalAffected, err
 		}
 

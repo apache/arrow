@@ -37,7 +37,7 @@ repos:
         entry: --entrypoint /bin/hadolint hadolint/hadolint:latest -
         exclude: ^dev/.*$
   - repo: https://github.com/pycqa/flake8
-    rev: 5.0.3
+    rev: 6.1.0
     hooks:
       - id: flake8
         name: Python Format
@@ -47,3 +47,8 @@ repos:
           - python
         exclude: vendored
         args: [--config, python/setup.cfg]
+  - repo: https://github.com/MarcoGorelli/cython-lint
+    rev: v0.12.5
+    hooks:
+      - id: cython-lint
+        args: [--no-pycodestyle]

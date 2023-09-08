@@ -228,7 +228,8 @@ arrow::Status AddMetadataFromDots(SEXP lst, int num_fields,
   // "top level" attributes, only relevant if the first object is not named and a data
   // frame
   cpp11::strings names = Rf_getAttrib(lst, R_NamesSymbol);
-  if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame")) {
+  if (names[0] == "" && Rf_inherits(VECTOR_ELT(lst, 0), "data.frame") &&
+      Rf_xlength(lst) == 1) {
     SEXP top_level = metadata[0] = arrow_attributes(VECTOR_ELT(lst, 0), true);
     if (!Rf_isNull(top_level) && XLENGTH(top_level) > 0) {
       has_top_level_metadata = true;

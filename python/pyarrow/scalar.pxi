@@ -16,6 +16,7 @@
 # under the License.
 
 import collections
+from cython cimport binding
 
 
 cdef class Scalar(_Weakrefable):
@@ -67,27 +68,29 @@ cdef class Scalar(_Weakrefable):
         """
         return self.wrapped.get().is_valid
 
-    def cast(self, object target_type):
+    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None):
         """
-        Attempt a safe cast to target data type.
+        Cast scalar value to another data type.
+
+        See :func:`pyarrow.compute.cast` for usage.
 
         Parameters
         ----------
-        target_type : DataType or string coercible to DataType
-            The type to cast the scalar to.
+        target_type : DataType, default None
+            Type to cast scalar to.
+        safe : boolean, default True
+            Whether to check for conversion errors such as overflow.
+        options : CastOptions, default None
+            Additional checks pass by CastOptions
+        memory_pool : MemoryPool, optional
+            memory pool to use for allocations during function execution.
 
         Returns
         -------
         scalar : A Scalar of the given target data type.
         """
-        cdef:
-            DataType type = ensure_type(target_type)
-            shared_ptr[CScalar] result
-
-        with nogil:
-            result = GetResultValue(self.wrapped.get().CastTo(type.sp_type))
-
-        return Scalar.wrap(result)
+        return _pc().cast(self, target_type, safe=safe,
+                          options=options, memory_pool=memory_pool)
 
     def validate(self, *, full=False):
         """
@@ -121,6 +124,15 @@ cdef class Scalar(_Weakrefable):
         return str(self.as_py())
 
     def equals(self, Scalar other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Scalar
+
+        Returns
+        -------
+        bool
+        """
         return self.wrapped.get().Equals(other.unwrap().get()[0])
 
     def __eq__(self, other):
@@ -520,6 +532,23 @@ cdef class TimestampScalar(Scalar):
 
         return _datetime_from_int(sp.value, unit=dtype.unit(), tzinfo=tzinfo)
 
+    def __repr__(self):
+        """
+        Return the representation of TimestampScalar using `strftime` to avoid
+        original repr datetime values being out of range.
+        """
+        cdef:
+            CTimestampScalar* sp = <CTimestampScalar*> self.wrapped.get()
+            CTimestampType* dtype = <CTimestampType*> sp.type.get()
+
+        if not dtype.timezone().empty():
+            type_format = str(_pc().strftime(self, format="%Y-%m-%dT%H:%M:%S%z"))
+        else:
+            type_format = str(_pc().strftime(self))
+        return '<pyarrow.{}: {!r}>'.format(
+            self.__class__.__name__, type_format
+        )
+
 
 cdef class DurationScalar(Scalar):
     """
@@ -783,7 +812,7 @@ cdef class MapScalar(ListScalar):
         if arr is None:
             raise IndexError(i)
         dct = arr[_normalize_index(i, len(arr))]
-        return (dct['key'], dct['value'])
+        return (dct[self.type.key_field.name], dct[self.type.item_field.name])
 
     def __iter__(self):
         """
@@ -792,7 +821,7 @@ cdef class MapScalar(ListScalar):
         arr = self.values
         if array is None:
             raise StopIteration
-        for k, v in zip(arr.field('key'), arr.field('value')):
+        for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 
     def as_py(self):
@@ -808,8 +837,9 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
-    @classmethod
-    def _reconstruct(cls, type, is_valid, index, dictionary):
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(type, is_valid, index, dictionary):
         cdef:
             CDictionaryScalarIndexAndDictionary value
             shared_ptr[CDictionaryScalar] wrapped
@@ -878,6 +908,25 @@ cdef class DictionaryScalar(Scalar):
         Return this encoded value as a Python object.
         """
         return self.value.as_py() if self.is_valid else None
+
+
+cdef class RunEndEncodedScalar(Scalar):
+    """
+    Concrete class for RunEndEncoded scalars.
+    """
+    @property
+    def value(self):
+        """
+        Return underlying value as a scalar.
+        """
+        cdef CRunEndEncodedScalar* sp = <CRunEndEncodedScalar*> self.wrapped.get()
+        return Scalar.wrap(sp.value)
+
+    def as_py(self):
+        """
+        Return underlying value as a Python object.
+        """
+        return self.value.as_py()
 
 
 cdef class UnionScalar(Scalar):
@@ -1010,6 +1059,7 @@ cdef dict _scalar_classes = {
     _Type_STRUCT: StructScalar,
     _Type_MAP: MapScalar,
     _Type_DICTIONARY: DictionaryScalar,
+    _Type_RUN_END_ENCODED: RunEndEncodedScalar,
     _Type_SPARSE_UNION: UnionScalar,
     _Type_DENSE_UNION: UnionScalar,
     _Type_INTERVAL_MONTH_DAY_NANO: MonthDayNanoIntervalScalar,

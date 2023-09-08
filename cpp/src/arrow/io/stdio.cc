@@ -75,12 +75,9 @@ Result<int64_t> StdinStream::Tell() const { return pos_; }
 
 Result<int64_t> StdinStream::Read(int64_t nbytes, void* out) {
   std::cin.read(reinterpret_cast<char*>(out), nbytes);
-  if (std::cin) {
-    pos_ += nbytes;
-    return nbytes;
-  } else {
-    return 0;
-  }
+  nbytes = std::cin.gcount();
+  pos_ += nbytes;
+  return nbytes;
 }
 
 Result<std::shared_ptr<Buffer>> StdinStream::Read(int64_t nbytes) {

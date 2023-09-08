@@ -18,7 +18,7 @@
 #' @include arrow-object.R
 
 
-#' @title class arrow::ExtensionArray
+#' @title ExtensionArray class
 #'
 #' @usage NULL
 #' @format NULL
@@ -60,7 +60,7 @@ ExtensionArray$create <- function(x, type) {
   type$WrapArray(storage)
 }
 
-#' @title class arrow::ExtensionType
+#' @title ExtensionType class
 #'
 #' @usage NULL
 #' @format NULL

@@ -26,13 +26,13 @@ import (
 	"testing"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/encoding"
-	"github.com/apache/arrow/go/v12/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v12/parquet/schema"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/encoding"
+	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v14/parquet/schema"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -646,6 +646,30 @@ func TestWriteDeltaBitPackedInt64(t *testing.T) {
 			assert.Equalf(t, values[i:j], valueBuf, "indexes %d:%d", i, j)
 		}
 	})
+
+	t.Run("GH-37102", func(t *testing.T) {
+		values := []int64{
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 3000000000000000000, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			0, 0,
+		}
+
+		enc := encoding.NewEncoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, false, column, memory.DefaultAllocator)
+		enc.(encoding.Int64Encoder).Put(values)
+		buf, _ := enc.FlushValues()
+		defer buf.Release()
+
+		dec := encoding.NewDecoder(parquet.Types.Int64, parquet.Encodings.DeltaBinaryPacked, column, memory.DefaultAllocator)
+		dec.(encoding.Int64Decoder).SetData(len(values), buf.Bytes())
+
+		valueBuf := make([]int64, len(values))
+
+		decoded, _ := dec.(encoding.Int64Decoder).Decode(valueBuf)
+		assert.Equal(t, len(valueBuf), decoded)
+		assert.Equal(t, values, valueBuf)
+	})
 }
 
 func TestDeltaLengthByteArrayEncoding(t *testing.T) {
@@ -742,4 +766,41 @@ func TestDeltaBitPacking(t *testing.T) {
 		values = values[n:]
 	}
 	assert.Equal(t, dec.ValuesLeft(), 0)
+}
+
+func TestBooleanPlainDecoderAfterFlushing(t *testing.T) {
+	descr := schema.NewColumn(schema.NewBooleanNode("bool", parquet.Repetitions.Optional, -1), 0, 0)
+	enc := encoding.NewEncoder(parquet.Types.Boolean, parquet.Encodings.Plain, false, descr, memory.DefaultAllocator)
+	benc := enc.(encoding.BooleanEncoder)
+
+	dec := encoding.NewDecoder(parquet.Types.Boolean, parquet.Encodings.Plain, descr, memory.DefaultAllocator)
+	decSlice := make([]bool, 1)
+	bdec := dec.(encoding.BooleanDecoder)
+
+	// Write and extract two different values
+	// This is validating that `FlushValues` wholly
+	// resets the encoder state.
+	benc.Put([]bool{true})
+	buf1, err := benc.FlushValues()
+	assert.NoError(t, err)
+
+	benc.Put([]bool{false})
+	buf2, err := benc.FlushValues()
+	assert.NoError(t, err)
+
+	// Decode buf1, expect true
+	err = bdec.SetData(1, buf1.Buf())
+	assert.NoError(t, err)
+	n, err := bdec.Decode(decSlice)
+	assert.NoError(t, err)
+	assert.Equal(t, n, 1)
+	assert.Equal(t, decSlice[0], true)
+
+	// Decode buf2, expect false
+	err = bdec.SetData(1, buf2.Buf())
+	assert.NoError(t, err)
+	n, err = bdec.Decode(decSlice)
+	assert.NoError(t, err)
+	assert.Equal(t, n, 1)
+	assert.Equal(t, decSlice[0], false)
 }

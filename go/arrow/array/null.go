@@ -23,10 +23,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // Null represents an immutable, degenerate array with no physical storage.
@@ -58,6 +58,10 @@ func NewNullData(data arrow.ArrayData) *Null {
 	return a
 }
 
+func (a *Null) ValueStr(int) string { return NullValueStr }
+
+func (a *Null) Value(int) interface{} { return nil }
+
 func (a *Null) String() string {
 	o := new(strings.Builder)
 	o.WriteString("[")
@@ -65,7 +69,7 @@ func (a *Null) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		o.WriteString("(null)")
+		o.WriteString(NullValueStr)
 	}
 	o.WriteString("]")
 	return o.String()
@@ -77,7 +81,7 @@ func (a *Null) setData(data *Data) {
 	a.array.data.nulls = a.array.data.length
 }
 
-func (a *Null) getOneForMarshal(i int) interface{} {
+func (a *Null) GetOneForMarshal(i int) interface{} {
 	return nil
 }
 
@@ -114,7 +118,23 @@ func (b *NullBuilder) AppendNull() {
 	b.builder.nulls++
 }
 
+func (b *NullBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
+}
+
+func (b *NullBuilder) AppendValueFromString(s string) error {
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+	return fmt.Errorf("cannot convert %q to null", s)
+}
+
 func (b *NullBuilder) AppendEmptyValue() { b.AppendNull() }
+
+func (b *NullBuilder) AppendEmptyValues(n int) { b.AppendNulls(n) }
 
 func (*NullBuilder) Reserve(size int) {}
 func (*NullBuilder) Resize(size int)  {}
@@ -150,7 +170,7 @@ func (b *NullBuilder) newData() (data *Data) {
 	return
 }
 
-func (b *NullBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *NullBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -169,9 +189,9 @@ func (b *NullBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *NullBuilder) unmarshal(dec *json.Decoder) error {
+func (b *NullBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -189,7 +209,7 @@ func (b *NullBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("null builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

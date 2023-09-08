@@ -46,8 +46,6 @@ Major components of the project include:
  - [Go libraries](https://github.com/apache/arrow/tree/main/go)
  - [Java libraries](https://github.com/apache/arrow/tree/main/java)
  - [JavaScript libraries](https://github.com/apache/arrow/tree/main/js)
- - [Plasma Object Store](https://github.com/apache/arrow/tree/main/cpp/src/plasma):
-   a shared-memory blob store, part of the C++ codebase
  - [Python libraries](https://github.com/apache/arrow/tree/main/python)
  - [R libraries](https://github.com/apache/arrow/tree/main/r)
  - [Ruby libraries](https://github.com/apache/arrow/tree/main/ruby)

@@ -49,8 +49,9 @@ Computation inputs are represented as a general :class:`Datum` class,
 which is a tagged union of several shapes of data such as :class:`Scalar`,
 :class:`Array` and :class:`ChunkedArray`.  Many compute functions support
 both array (chunked or not) and scalar inputs, however some will mandate
-either.  For example, while ``sort_indices`` requires its first and only
-input to be an array.
+particular input types. For example, while ``array_sort_indices`` requires its 
+first and only input to be an array, the generalized ``sort_indices`` 
+function accepts an array, chunked array, record batch or table.
 
 .. _invoking-compute-functions:
 
@@ -212,7 +213,13 @@ the input to a single output value.
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | count_distinct     | Unary   | Non-nested types | Scalar Int64           | :struct:`CountOptions`           | \(2)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| first              | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(11) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| first_last         | Unary   | Numeric, Binary  | Scalar Struct          | :struct:`ScalarAggregateOptions` | \(11) |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | index              | Unary   | Any              | Scalar Int64           | :struct:`IndexOptions`           | \(3)  |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| last               | Unary   | Numeric, Binary  | Scalar Input type      | :struct:`ScalarAggregateOptions` | \(11) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | max                | Unary   | Non-nested types | Scalar Input type      | :struct:`ScalarAggregateOptions` |       |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
@@ -272,6 +279,8 @@ the input to a single output value.
 * \(10) tdigest/t-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+* \(11) Result is based on the ordering of input data
 
   Decimal arguments are cast to Float64 first.
 
@@ -340,6 +349,12 @@ equivalents above and reflects how they are implemented internally.
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_distinct           | Unary   | Any                                | List of input type     | :struct:`CountOptions`           | \(2) \(3) |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_first              | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_first_last         | Unary   | Numeric, Binary                    | Struct                 | :struct:`ScalarAggregateOptions` | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
+| hash_last               | Unary   | Numeric, Binary                    | Input type             | :struct:`ScalarAggregateOptions` | \(10)     |
++-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_list               | Unary   | Any                                | List of input type     |                                  | \(3)      |
 +-------------------------+---------+------------------------------------+------------------------+----------------------------------+-----------+
 | hash_max                | Unary   | Non-nested, non-binary/string-like | Input type             | :struct:`ScalarAggregateOptions` |           |
@@ -397,6 +412,8 @@ equivalents above and reflects how they are implemented internally.
 * \(9) T-digest computes approximate quantiles, and so only needs a
   fixed amount of memory. See the `reference implementation
   <https://github.com/tdunning/t-digest>`_ for details.
+
+* \(10) Result is based on ordering of the input data.
 
   Decimal arguments are cast to Float64 first.
 
@@ -546,32 +563,40 @@ representation based on the rounding criterion.
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 | floor             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
-| round             | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundOptions`           | (1)(2) |
+| round             | Unary      | Numeric     | Input Type              | :struct:`RoundOptions`           | (1)(2) |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
-| round_to_multiple | Unary      | Numeric     | Float32/Float64/Decimal | :struct:`RoundToMultipleOptions` | (1)(3) |
+| round_to_multiple | Unary      | Numeric     | Input Type              | :struct:`RoundToMultipleOptions` | (1)(3) |
++-------------------+------------+-------------+-------------------------+----------------------------------+--------+
+| round_binary      | Binary     | Numeric     | Input Type              | :struct:`RoundBinaryOptions`     | (1)(4) |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 | trunc             | Unary      | Numeric     | Float32/Float64/Decimal |                                  |        |
 +-------------------+------------+-------------+-------------------------+----------------------------------+--------+
 
-* \(1) Output value is a 64-bit floating-point for integral inputs and the
-  retains the same type for floating-point and decimal inputs.  By default
-  rounding functions displace a value to the nearest integer using
-  HALF_TO_EVEN to resolve ties.  Options are available to control the rounding
-  criterion.  Both ``round`` and ``round_to_multiple`` have the ``round_mode``
-  option to set the rounding mode.
+* \(1)  By default rounding functions change a value to the nearest 
+  integer using HALF_TO_EVEN to resolve ties.  Options are available to control 
+  the rounding criterion.  All ``round`` functions have the 
+  ``round_mode`` option to set the rounding mode.
 * \(2) Round to a number of digits where the ``ndigits`` option of
   :struct:`RoundOptions` specifies the rounding precision in terms of number
   of digits.  A negative value corresponds to digits in the non-fractional
   part.  For example, -2 corresponds to rounding to the nearest multiple of
   100 (zeroing the ones and tens digits).  Default value of ``ndigits`` is 0
-  which rounds to the nearest integer.
+  which rounds to the nearest integer. For integer inputs a non-negative 
+  ``ndigits`` value is ignored and the input is returned unchanged. For integer
+  inputs, if ``-ndigits`` is larger than the maximum number of digits the 
+  input type can hold, an error is returned.
 * \(3) Round to a multiple where the ``multiple`` option of
   :struct:`RoundToMultipleOptions` specifies the rounding scale.  The rounding
-  multiple has to be a positive value.  For example, 100 corresponds to
-  rounding to the nearest multiple of 100 (zeroing the ones and tens digits).
-  Default value of ``multiple`` is 1 which rounds to the nearest integer.
+  multiple has to be a positive value and can be casted to input type.  
+  For example, 100 corresponds to rounding to the nearest multiple of 100 
+  (zeroing the ones and tens digits). Default value of ``multiple`` is 1 which 
+  rounds to the nearest integer.
+* \(4) Round the first input to multiple of the second input. The rounding
+  multiple has to be a positive value and can be casted to the first input type.  
+  For example, 100 corresponds to rounding to the nearest multiple of 100 
+  (zeroing the ones and tens digits).
 
-For ``round`` and ``round_to_multiple``, the following rounding modes are available.
+For ``round`` functions, the following rounding modes are available.
 Tie-breaking modes are prefixed with HALF and round non-ties to the nearest integer.
 The example values are given for default values of ``ndigits`` and ``multiple``.
 
@@ -609,9 +634,9 @@ The example values are given for default values of ``ndigits`` and ``multiple``.
 |                       |                                                              | -3.5 -> -3, -4.5 -> -5    |
 +-----------------------+--------------------------------------------------------------+---------------------------+
 
-The following table gives examples of how ``ndigits`` (for the ``round``
-function) and ``multiple`` (for ``round_to_multiple``) influence the operance
-performed, respectively.
+The following table gives examples of how ``ndigits`` (for the ``round`` 
+and ``round_binary`` functions) and ``multiple`` (for ``round_to_multiple``) 
+influence the operation performed, respectively.
 
 +--------------------+-------------------+---------------------------+
 | Round ``multiple`` | Round ``ndigits`` | Operation performed       |
@@ -1412,7 +1437,7 @@ null input value is converted into a null output value.
 
 * \(4) Offsets are unchanged, the keys and values are cast from respective input
   to output types (if a conversion is available). If output type is a list of
-  struct, the key field is output as the first field and the value field the 
+  struct, the key field is output as the first field and the value field the
   second field, regardless of field names chosen.
 
 * \(5) Any input type that can be cast to the resulting extension's storage type.
@@ -1596,28 +1621,43 @@ Array-wise ("vector") functions
 Cumulative Functions
 ~~~~~~~~~~~~~~~~~~~~
 
-Cumulative functions are vector functions that perform a running total on their
-input using an given binary associatve operation and output an array containing
-the corresponding intermediate running values. The input is expected to be of
-numeric type. By default these functions do not detect overflow. They are also
-available in an overflow-checking variant, suffixed ``_checked``, which returns
-an ``Invalid`` :class:`Status` when overflow is detected.
+Cumulative functions are vector functions that perform a running accumulation on 
+their input using a given binary associative operation with an identidy element 
+(a monoid) and output an array containing the corresponding intermediate running 
+values. The input is expected to be of numeric type. By default these functions 
+do not detect overflow. They are alsoavailable in an overflow-checking variant, 
+suffixed ``_checked``, which returns an ``Invalid`` :class:`Status` when 
+overflow is detected.
 
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| Function name          | Arity | Input types | Output type | Options class                  | Notes |
-+========================+=======+=============+=============+================================+=======+
-| cumulative_sum         | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
-| cumulative_sum_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeSumOptions` | \(1)  |
-+------------------------+-------+-------------+-------------+--------------------------------+-------+
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| Function name           | Arity | Input types | Output type | Options class                  | Notes     |
++=========================+=======+=============+=============+================================+===========+
+| cumulative_sum          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_sum_checked  | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_prod         | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_prod_checked | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_max          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_min          | Unary | Numeric     | Numeric     | :struct:`CumulativeOptions`    | \(1)      |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
+| cumulative_mean         | Unary | Numeric     | Float64     | :struct:`CumulativeOptions`    | \(1) \(2) |
++-------------------------+-------+-------------+-------------+--------------------------------+-----------+
 
-* \(1) CumulativeSumOptions has two optional parameters. The first parameter
-  :member:`CumulativeSumOptions::start` is a starting value for the running
-  sum. It has a default value of 0. Specified values of ``start`` must have the
-  same type as the input. The second parameter 
-  :member:`CumulativeSumOptions::skip_nulls` is a boolean. When set to
+* \(1) CumulativeOptions has two optional parameters. The first parameter
+  :member:`CumulativeOptions::start` is a starting value for the running
+  accumulation. It has a default value of 0 for `sum`, 1 for `prod`, min of 
+  input type for `max`, and max of input type for `min`. Specified values of 
+  ``start`` must be castable to the input type. The second parameter
+  :member:`CumulativeOptions::skip_nulls` is a boolean. When set to
   false (the default), the first encountered null is propagated. When set to
-  true, each null in the input produces a corresponding null in the output.
+  true, each null in the input produces a corresponding null in the output and
+  doesn't affect the accumulation forward.
+
+* \(2) :member:`CumulativeOptions::start` is ignored.
 
 Associative transforms
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1652,28 +1692,26 @@ These functions select and return a subset of their input.
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 | Function name | Arity  | Input type 1 | Input type 2 | Output type  | Options class           | Notes     |
 +===============+========+==============+==============+==============+=========================+===========+
-| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
+| array_filter  | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| array_take    | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1) \(2) |
+| drop_null     | Unary  | Any          | -            | Input type 1 |                         | \(1)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(1) \(3) |
+| filter        | Binary | Any          | Boolean      | Input type 1 | :struct:`FilterOptions` | \(2)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
-| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(1) \(4) |
+| take          | Binary | Any          | Integer      | Input type 1 | :struct:`TakeOptions`   | \(3)      |
 +---------------+--------+--------------+--------------+--------------+-------------------------+-----------+
 
-* \(1) Sparse unions are unsupported.
-
-* \(2) Each element in the input is appended to the output iff it is non-null.
+* \(1) Each element in the input is appended to the output iff it is non-null.
   If the input is a record batch or table, any null value in a column drops
   the entire row.
 
-* \(3) Each element in input 1 (the values) is appended to the output iff
+* \(2) Each element in input 1 (the values) is appended to the output iff
   the corresponding element in input 2 (the filter) is true.  How
   nulls in the filter are handled can be configured using FilterOptions.
 
-* \(4) For each element *i* in input 2 (the indices), the *i*'th element
+* \(3) For each element *i* in input 2 (the indices), the *i*'th element
   in input 1 (the values) is appended to the output.
 
 Containment tests
@@ -1819,3 +1857,28 @@ replaced, based on the remaining inputs.
   results in a corresponding null in the output.
 
   Also see: :ref:`if_else <cpp-compute-scalar-selections>`.
+
+Pairwise functions
+~~~~~~~~~~~~~~~~~~~~
+Pairwise functions are unary vector functions that perform a binary operation on 
+a pair of elements in the input array, typically on adjacent elements. The n-th
+output is computed by applying the binary operation to the n-th and (n-p)-th inputs, 
+where p is the period. The default period is 1, in which case the binary
+operation is applied to adjacent pairs of inputs. The period can also be
+negative, in which case the n-th output is computed by applying the binary
+operation to the n-th and (n+abs(p))-th inputs.
+
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| Function name          | Arity | Input types          | Output type          | Options class                  | Notes    |
++========================+=======+======================+======================+================================+==========+
+| pairwise_diff          | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(2)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+| pairwise_diff_checked  | Unary | Numeric/Temporal     | Numeric/Temporal     | :struct:`PairwiseOptions`      | \(1)(3)  |
++------------------------+-------+----------------------+----------------------+--------------------------------+----------+
+
+* \(1) Computes the first order difference of an array, It internally calls 
+  the scalar function ``Subtract`` (or the checked variant) to compute 
+  differences, so its behavior and supported types are the same as 
+  ``Subtract``. The period can be specified in :struct:`PairwiseOptions`. 
+* \(2) Wraps around the result when overflow is detected.
+* \(3) Returns an ``Invalid`` :class:`Status` when overflow is detected.

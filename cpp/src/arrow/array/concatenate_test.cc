@@ -36,6 +36,7 @@
 #include "arrow/buffer.h"
 #include "arrow/status.h"
 #include "arrow/testing/builder.h"
+#include "arrow/testing/extension_type.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -527,6 +528,13 @@ TEST_F(ConcatenateTest, DenseUnionType) {
     [5, "Hello world!"]
   ])"),
       *concat_array_type_codes);
+}
+
+TEST_F(ConcatenateTest, ExtensionType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    auto storage = this->GeneratePrimitive<Int16Type>(size, null_probability);
+    *out = ExtensionType::WrapArray(smallint(), storage);
+  });
 }
 
 TEST_F(ConcatenateTest, OffsetOverflow) {

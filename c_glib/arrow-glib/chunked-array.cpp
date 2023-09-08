@@ -384,7 +384,8 @@ gchar *
 garrow_chunked_array_to_string(GArrowChunkedArray *chunked_array, GError **error)
 {
   const auto arrow_chunked_array = garrow_chunked_array_get_raw(chunked_array);
-  return g_strdup(arrow_chunked_array->ToString().c_str());
+  const auto string = arrow_chunked_array->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**

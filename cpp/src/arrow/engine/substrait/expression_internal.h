@@ -20,6 +20,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "arrow/compute/type_fwd.h"
 #include "arrow/datum.h"
@@ -33,6 +34,10 @@ namespace arrow {
 namespace engine {
 
 class SubstraitCall;
+
+ARROW_ENGINE_EXPORT
+Result<FieldRef> DirectReferenceFromProto(const substrait::Expression::FieldReference*,
+                                          const ExtensionSet&, const ConversionOptions&);
 
 ARROW_ENGINE_EXPORT
 Result<compute::Expression> FromProto(const substrait::Expression&, const ExtensionSet&,

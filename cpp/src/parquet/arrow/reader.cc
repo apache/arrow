@@ -76,8 +76,7 @@ using parquet::internal::RecordReader;
 
 namespace bit_util = arrow::bit_util;
 
-namespace parquet {
-namespace arrow {
+namespace parquet::arrow {
 namespace {
 
 ::arrow::Result<std::shared_ptr<ArrayData>> ChunksToSingle(const ChunkedArray& chunked) {
@@ -258,16 +257,6 @@ class FileReaderImpl : public FileReader {
   Status GetSchema(std::shared_ptr<::arrow::Schema>* out) override {
     return FromParquetSchema(reader_->metadata()->schema(), reader_properties_,
                              reader_->metadata()->key_value_metadata(), out);
-  }
-
-  Status ReadSchemaField(int i, std::shared_ptr<ChunkedArray>* out) override {
-    auto included_leaves = VectorToSharedSet(Iota(reader_->metadata()->num_columns()));
-    std::vector<int> row_groups = Iota(reader_->metadata()->num_row_groups());
-
-    std::unique_ptr<ColumnReaderImpl> reader;
-    RETURN_NOT_OK(GetFieldReader(i, included_leaves, row_groups, &reader));
-
-    return ReadColumn(i, row_groups, reader.get(), out);
   }
 
   Status ReadColumn(int i, const std::vector<int>& row_groups, ColumnReader* reader,
@@ -754,7 +743,7 @@ Status StructReader::GetRepLevels(const int16_t** data, int64_t* length) {
   *data = nullptr;
   if (children_.size() == 0) {
     *length = 0;
-    return Status::Invalid("StructReader had no childre");
+    return Status::Invalid("StructReader had no children");
   }
 
   // This method should only be called when this struct or one of its parents
@@ -842,7 +831,15 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
     auto storage_field = arrow_field->WithType(
         checked_cast<const ExtensionType&>(*arrow_field->type()).storage_type());
     RETURN_NOT_OK(GetReader(field, storage_field, ctx, out));
-    *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
+    if (*out) {
+      auto storage_type = (*out)->field()->type();
+      if (!storage_type->Equals(storage_field->type())) {
+        return Status::Invalid(
+            "Due to column pruning only part of an extension's storage type was loaded.  "
+            "An extension type cannot be created without all of its fields");
+      }
+      *out = std::make_unique<ExtensionReader>(arrow_field, std::move(*out));
+    }
     return Status::OK();
   }
 
@@ -870,7 +867,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       return Status::OK();
     }
 
-    // These two types might not be equal if there column pruning occurred.
+    // These two types might not be equal if there is column pruning occurred.
     // further down the stack.
     const std::shared_ptr<DataType> reader_child_type = child_reader->field()->type();
     // This should really never happen but was raised as a question on the code
@@ -892,7 +889,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
                      *schema_child_type.field(1)->type())) {
         list_field = list_field->WithType(std::make_shared<::arrow::MapType>(
             reader_child_type->field(
-                0),  // field 0 is unchanged baed on previous if statement
+                0),  // field 0 is unchanged based on previous if statement
             reader_child_type->field(1)));
       }
       // Map types are list<struct<key, value>> so use ListReader
@@ -1406,5 +1403,4 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
 
 }  // namespace internal
 
-}  // namespace arrow
-}  // namespace parquet
+}  // namespace parquet::arrow

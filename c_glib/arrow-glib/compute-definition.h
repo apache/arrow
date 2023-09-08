@@ -46,5 +46,16 @@ struct _GArrowCastOptionsClass
   GArrowFunctionOptionsClass parent_class;
 };
 
+#define GARROW_TYPE_EXPRESSION (garrow_expression_get_type())
+G_DECLARE_DERIVABLE_TYPE(GArrowExpression,
+                         garrow_expression,
+                         GARROW,
+                         EXPRESSION,
+                         GObject)
+struct _GArrowExpressionClass
+{
+  GObjectClass parent_class;
+};
+
 
 G_END_DECLS

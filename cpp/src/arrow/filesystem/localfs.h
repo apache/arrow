@@ -82,6 +82,7 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
   std::string type_name() const override { return "local"; }
 
   Result<std::string> NormalizePath(std::string path) override;
+  Result<std::string> PathFromUri(const std::string& uri_string) const override;
 
   bool Equals(const FileSystem& other) const override;
 
@@ -120,14 +121,6 @@ class ARROW_EXPORT LocalFileSystem : public FileSystem {
  protected:
   LocalFileSystemOptions options_;
 };
-
-namespace internal {
-
-// Return whether the string is detected as a local absolute path.
-ARROW_EXPORT
-bool DetectAbsolutePath(const std::string& s);
-
-}  // namespace internal
 
 }  // namespace fs
 }  // namespace arrow

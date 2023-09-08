@@ -146,7 +146,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   const std::shared_ptr<Field>& field(int i) const { return children_[i]; }
 
   /// \brief Return the children fields associated with this type.
-  const std::vector<std::shared_ptr<Field>>& fields() const { return children_; }
+  const FieldVector& fields() const { return children_; }
 
   /// \brief Return the number of children fields associated with this type.
   int num_fields() const { return static_cast<int>(children_.size()); }
@@ -204,7 +204,7 @@ class ARROW_EXPORT DataType : public std::enable_shared_from_this<DataType>,
   std::string ComputeMetadataFingerprint() const override;
 
   Type::type id_;
-  std::vector<std::shared_ptr<Field>> children_;
+  FieldVector children_;
 
  private:
   ARROW_DISALLOW_COPY_AND_ASSIGN(DataType);
@@ -421,7 +421,7 @@ class ARROW_EXPORT Field : public detail::Fingerprintable,
       const std::shared_ptr<Field>& other,
       MergeOptions options = MergeOptions::Defaults()) const;
 
-  std::vector<std::shared_ptr<Field>> Flatten() const;
+  FieldVector Flatten() const;
 
   /// \brief Indicate if fields are equals.
   ///
@@ -922,7 +922,7 @@ class ARROW_EXPORT BaseListType : public NestedType {
   ~BaseListType() override;
   const std::shared_ptr<Field>& value_field() const { return children_[0]; }
 
-  std::shared_ptr<DataType> value_type() const { return children_[0]->type(); }
+  const std::shared_ptr<DataType>& value_type() const { return children_[0]->type(); }
 };
 
 /// \brief Concrete type class for list data
@@ -1078,7 +1078,7 @@ class ARROW_EXPORT StructType : public NestedType {
 
   static constexpr const char* type_name() { return "struct"; }
 
-  explicit StructType(const std::vector<std::shared_ptr<Field>>& fields);
+  explicit StructType(const FieldVector& fields);
 
   ~StructType() override;
 
@@ -1093,7 +1093,7 @@ class ARROW_EXPORT StructType : public NestedType {
   std::shared_ptr<Field> GetFieldByName(const std::string& name) const;
 
   /// Return all fields having this name
-  std::vector<std::shared_ptr<Field>> GetAllFieldsByName(const std::string& name) const;
+  FieldVector GetAllFieldsByName(const std::string& name) const;
 
   /// Returns -1 if name not found or if there are multiple fields having the
   /// same name
@@ -1125,8 +1125,8 @@ class ARROW_EXPORT UnionType : public NestedType {
   static constexpr int kInvalidChildId = -1;
 
   static Result<std::shared_ptr<DataType>> Make(
-      const std::vector<std::shared_ptr<Field>>& fields,
-      const std::vector<int8_t>& type_codes, UnionMode::type mode = UnionMode::SPARSE) {
+      const FieldVector& fields, const std::vector<int8_t>& type_codes,
+      UnionMode::type mode = UnionMode::SPARSE) {
     if (mode == UnionMode::SPARSE) {
       return sparse_union(fields, type_codes);
     } else {
@@ -1152,10 +1152,9 @@ class ARROW_EXPORT UnionType : public NestedType {
   UnionMode::type mode() const;
 
  protected:
-  UnionType(std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes,
-            Type::type id);
+  UnionType(FieldVector fields, std::vector<int8_t> type_codes, Type::type id);
 
-  static Status ValidateParameters(const std::vector<std::shared_ptr<Field>>& fields,
+  static Status ValidateParameters(const FieldVector& fields,
                                    const std::vector<int8_t>& type_codes,
                                    UnionMode::type mode);
 
@@ -1183,12 +1182,11 @@ class ARROW_EXPORT SparseUnionType : public UnionType {
 
   static constexpr const char* type_name() { return "sparse_union"; }
 
-  SparseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                  std::vector<int8_t> type_codes);
+  SparseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
   // A constructor variant that validates input parameters
-  static Result<std::shared_ptr<DataType>> Make(
-      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+  static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
+                                                std::vector<int8_t> type_codes);
 
   std::string name() const override { return "sparse_union"; }
 };
@@ -1213,12 +1211,11 @@ class ARROW_EXPORT DenseUnionType : public UnionType {
 
   static constexpr const char* type_name() { return "dense_union"; }
 
-  DenseUnionType(std::vector<std::shared_ptr<Field>> fields,
-                 std::vector<int8_t> type_codes);
+  DenseUnionType(FieldVector fields, std::vector<int8_t> type_codes);
 
   // A constructor variant that validates input parameters
-  static Result<std::shared_ptr<DataType>> Make(
-      std::vector<std::shared_ptr<Field>> fields, std::vector<int8_t> type_codes);
+  static Result<std::shared_ptr<DataType>> Make(FieldVector fields,
+                                                std::vector<int8_t> type_codes);
 
   std::string name() const override { return "dense_union"; }
 };
@@ -1232,6 +1229,7 @@ class ARROW_EXPORT RunEndEncodedType : public NestedType {
 
   explicit RunEndEncodedType(std::shared_ptr<DataType> run_end_type,
                              std::shared_ptr<DataType> value_type);
+  ~RunEndEncodedType() override;
 
   DataTypeLayout layout() const override {
     // A lot of existing code expects at least one buffer
@@ -1689,10 +1687,30 @@ class ARROW_EXPORT FieldPath {
 
   /// \brief Retrieve the referenced column from a RecordBatch or Table
   Result<std::shared_ptr<Array>> Get(const RecordBatch& batch) const;
+  Result<std::shared_ptr<ChunkedArray>> Get(const Table& table) const;
 
   /// \brief Retrieve the referenced child from an Array or ArrayData
   Result<std::shared_ptr<Array>> Get(const Array& array) const;
   Result<std::shared_ptr<ArrayData>> Get(const ArrayData& data) const;
+
+  /// \brief Retrieve the referenced child from a ChunkedArray
+  Result<std::shared_ptr<ChunkedArray>> Get(const ChunkedArray& chunked_array) const;
+
+  /// \brief Retrieve the referenced child/column from an Array, ArrayData, ChunkedArray,
+  /// RecordBatch, or Table
+  ///
+  /// Unlike `FieldPath::Get`, these variants are not zero-copy and the retrieved child's
+  /// null bitmap is ANDed with its ancestors'
+  Result<std::shared_ptr<Array>> GetFlattened(const Array& array,
+                                              MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ArrayData>> GetFlattened(const ArrayData& data,
+                                                  MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const ChunkedArray& chunked_array,
+                                                     MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<Array>> GetFlattened(const RecordBatch& batch,
+                                              MemoryPool* pool = NULLPTR) const;
+  Result<std::shared_ptr<ChunkedArray>> GetFlattened(const Table& table,
+                                                     MemoryPool* pool = NULLPTR) const;
 
  private:
   std::vector<int> indices_;
@@ -1802,6 +1820,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     return true;
   }
 
+  /// \brief Return true if this ref is a name or a nested sequence of only names
+  ///
+  /// Useful for determining if iteration is possible without recursion or inner loops
+  bool IsNameSequence() const {
+    if (IsName()) return true;
+    if (const auto* nested = nested_refs()) {
+      for (const auto& ref : *nested) {
+        if (!ref.IsName()) return false;
+      }
+      return !nested->empty();
+    }
+    return false;
+  }
+
   const FieldPath* field_path() const {
     return IsFieldPath() ? &std::get<FieldPath>(impl_) : NULLPTR;
   }
@@ -1823,7 +1855,9 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   /// \brief Convenience function which applies FindAll to arg's type or schema.
   std::vector<FieldPath> FindAll(const ArrayData& array) const;
   std::vector<FieldPath> FindAll(const Array& array) const;
+  std::vector<FieldPath> FindAll(const ChunkedArray& chunked_array) const;
   std::vector<FieldPath> FindAll(const RecordBatch& batch) const;
+  std::vector<FieldPath> FindAll(const Table& table) const;
 
   /// \brief Convenience function: raise an error if matches is empty.
   template <typename T>
@@ -1879,6 +1913,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
     }
     return out;
   }
+  /// \brief Get all children matching this FieldRef.
+  ///
+  /// Unlike `FieldRef::GetAll`, this variant is not zero-copy and the retrieved
+  /// children's null bitmaps are ANDed with their ancestors'
+  template <typename T>
+  Result<std::vector<GetType<T>>> GetAllFlattened(const T& root,
+                                                  MemoryPool* pool = NULLPTR) const {
+    std::vector<GetType<T>> out;
+    for (const auto& match : FindAll(root)) {
+      ARROW_ASSIGN_OR_RAISE(auto child, match.GetFlattened(root, pool));
+      out.push_back(std::move(child));
+    }
+    return out;
+  }
 
   /// \brief Get the single child matching this FieldRef.
   /// Emit an error if none or multiple match.
@@ -1886,6 +1934,15 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
   Result<GetType<T>> GetOne(const T& root) const {
     ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
     return match.Get(root).ValueOrDie();
+  }
+  /// \brief Get the single child matching this FieldRef.
+  ///
+  /// Unlike `FieldRef::GetOne`, this variant is not zero-copy and the retrieved
+  /// child's null bitmap is ANDed with its ancestors'
+  template <typename T>
+  Result<GetType<T>> GetOneFlattened(const T& root, MemoryPool* pool = NULLPTR) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOne(root));
+    return match.GetFlattened(root, pool);
   }
 
   /// \brief Get the single child matching this FieldRef.
@@ -1897,6 +1954,20 @@ class ARROW_EXPORT FieldRef : public util::EqualityComparable<FieldRef> {
       return static_cast<GetType<T>>(NULLPTR);
     }
     return match.Get(root).ValueOrDie();
+  }
+  /// \brief Get the single child matching this FieldRef.
+  ///
+  /// Return nullptr if none match, emit an error if multiple match.
+  /// Unlike `FieldRef::GetOneOrNone`, this variant is not zero-copy and the
+  /// retrieved child's null bitmap is ANDed with its ancestors'
+  template <typename T>
+  Result<GetType<T>> GetOneOrNoneFlattened(const T& root,
+                                           MemoryPool* pool = NULLPTR) const {
+    ARROW_ASSIGN_OR_RAISE(auto match, FindOneOrNone(root));
+    if (match.empty()) {
+      return static_cast<GetType<T>>(NULLPTR);
+    }
+    return match.GetFlattened(root, pool);
   }
 
  private:
@@ -2067,8 +2138,7 @@ class ARROW_EXPORT SchemaBuilder {
   /// \brief Construct a SchemaBuilder from a list of fields
   /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
   SchemaBuilder(
-      std::vector<std::shared_ptr<Field>> fields,
-      ConflictPolicy conflict_policy = CONFLICT_APPEND,
+      FieldVector fields, ConflictPolicy conflict_policy = CONFLICT_APPEND,
       Field::MergeOptions field_merge_options = Field::MergeOptions::Defaults());
   /// \brief Construct a SchemaBuilder from a schema, preserving the metadata
   /// `field_merge_options` is only effective when `conflict_policy` == `CONFLICT_MERGE`.
@@ -2093,7 +2163,7 @@ class ARROW_EXPORT SchemaBuilder {
   ///
   /// \param[in] fields to add to the constructed Schema.
   /// \return The first failure encountered, if any.
-  Status AddFields(const std::vector<std::shared_ptr<Field>>& fields);
+  Status AddFields(const FieldVector& fields);
 
   /// \brief Add fields of a Schema to the constructed Schema.
   ///

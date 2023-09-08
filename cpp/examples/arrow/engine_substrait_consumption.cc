@@ -26,14 +26,15 @@
 
 namespace eng = arrow::engine;
 namespace cp = arrow::compute;
+namespace ac = arrow::acero;
 
-class IgnoringConsumer : public cp::SinkNodeConsumer {
+class IgnoringConsumer : public ac::SinkNodeConsumer {
  public:
   explicit IgnoringConsumer(size_t tag) : tag_{tag} {}
 
   arrow::Status Init(const std::shared_ptr<arrow::Schema>& schema,
-                     cp::BackpressureControl* backpressure_control,
-                     cp::ExecPlan* plan) override {
+                     ac::BackpressureControl* backpressure_control,
+                     ac::ExecPlan* plan) override {
     return arrow::Status::OK();
   }
 
@@ -130,8 +131,8 @@ arrow::Status RunSubstraitConsumer(int argc, char** argv) {
   // Arrow. Therefore, deserializing a plan requires a factory for consumers: each
   // time the root of a substrait relation tree is deserialized, an Arrow consumer is
   // constructed into which its batches will be piped.
-  std::vector<std::shared_ptr<cp::SinkNodeConsumer>> consumers;
-  std::function<std::shared_ptr<cp::SinkNodeConsumer>()> consumer_factory = [&] {
+  std::vector<std::shared_ptr<ac::SinkNodeConsumer>> consumers;
+  std::function<std::shared_ptr<ac::SinkNodeConsumer>()> consumer_factory = [&] {
     // All batches produced by the plan will be fed into IgnoringConsumers:
     auto tag = consumers.size();
     consumers.emplace_back(new IgnoringConsumer{tag});
@@ -139,19 +140,19 @@ arrow::Status RunSubstraitConsumer(int argc, char** argv) {
   };
 
   // Deserialize each relation tree in the substrait plan to an Arrow compute Declaration
-  arrow::Result<std::vector<cp::Declaration>> maybe_decls =
+  arrow::Result<std::vector<ac::Declaration>> maybe_decls =
       eng::DeserializePlans(*serialized_plan, consumer_factory);
   ARROW_RETURN_NOT_OK(maybe_decls.status());
-  ARROW_ASSIGN_OR_RAISE(std::vector<cp::Declaration> decls, std::move(maybe_decls));
+  ARROW_ASSIGN_OR_RAISE(std::vector<ac::Declaration> decls, std::move(maybe_decls));
 
   // It's safe to drop the serialized plan; we don't leave references to its memory
   serialized_plan.reset();
 
   // Construct an empty plan (note: configure Function registry and ThreadPool here)
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<cp::ExecPlan> plan, cp::ExecPlan::Make());
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<ac::ExecPlan> plan, ac::ExecPlan::Make());
 
   // Add decls to plan (note: configure ExecNode registry before this point)
-  for (const cp::Declaration& decl : decls) {
+  for (const ac::Declaration& decl : decls) {
     ARROW_RETURN_NOT_OK(decl.AddToPlan(plan.get()).status());
   }
 

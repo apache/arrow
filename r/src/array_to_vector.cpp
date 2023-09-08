@@ -761,7 +761,7 @@ class Converter_Struct : public Converter {
       SEXP data_i = VECTOR_ELT(data, i);
 
       // only ingest if the column is not altrep
-      if (!altrep::is_arrow_altrep(data_i)) {
+      if (!altrep::is_unmaterialized_arrow_altrep(data_i)) {
         StopIfNotOk(converters[i]->Ingest_all_nulls(data_i, start, n));
       }
     }
@@ -778,7 +778,7 @@ class Converter_Struct : public Converter {
       SEXP data_i = VECTOR_ELT(data, i);
 
       // only ingest if the column is not altrep
-      if (!altrep::is_arrow_altrep(data_i)) {
+      if (!altrep::is_unmaterialized_arrow_altrep(data_i)) {
         StopIfNotOk(converters[i]->Ingest_some_nulls(VECTOR_ELT(data, i), arrays[i],
                                                      start, n, chunk_index));
       }

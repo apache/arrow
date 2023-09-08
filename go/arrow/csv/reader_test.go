@@ -20,18 +20,18 @@ import (
 	"bytes"
 	stdcsv "encoding/csv"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/csv"
-	"github.com/apache/arrow/go/v12/arrow/decimal128"
-	"github.com/apache/arrow/go/v12/arrow/decimal256"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/csv"
+	"github.com/apache/arrow/go/v14/arrow/decimal128"
+	"github.com/apache/arrow/go/v14/arrow/decimal256"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -163,6 +163,62 @@ func Example_withChunk() {
 	// rec[3]["str"]: ["str-9"]
 }
 
+func TestCSVReadInvalidFields(t *testing.T) {
+	tests := []struct {
+		Name          string
+		Data          string
+		Fields        []arrow.Field
+		ExpectedError bool
+	}{
+		{
+			Name: "ValidListInt64",
+			Data: "{}",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: false,
+		},
+		{
+			Name: "InvalidListInt64T1",
+			Data: "{",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: true,
+		},
+		{
+			Name: "InvalidListInt64T2",
+			Data: "}",
+			Fields: []arrow.Field{
+				{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			},
+			ExpectedError: true,
+		},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.Name, func(t *testing.T) {
+			f := bytes.NewBufferString(tc.Data)
+			schema := arrow.NewSchema(tc.Fields, nil)
+
+			r := csv.NewReader(
+				f, schema,
+				csv.WithComma(','),
+			)
+			defer r.Release()
+			for r.Next() {
+			}
+			parseErr := r.Err()
+			if tc.ExpectedError && parseErr == nil {
+				t.Fatal("Expected error, but none found")
+			}
+			if !tc.ExpectedError && parseErr != nil {
+				t.Fatalf("Not expecting error, but got %v", parseErr)
+			}
+		})
+	}
+}
+
 func TestCSVReaderParseError(t *testing.T) {
 	f := bytes.NewBufferString(`## a simple set of data: int64;float64;string
 0;0;str-0
@@ -233,32 +289,46 @@ func TestCSVReaderParseError(t *testing.T) {
 
 func TestCSVReader(t *testing.T) {
 	tests := []struct {
-		Name   string
-		File   string
-		Header bool
-	}{{
-		Name:   "NoHeader",
-		File:   "testdata/types.csv",
-		Header: false,
-	}, {
-		Name:   "Header",
-		File:   "testdata/header.csv",
-		Header: true,
-	}}
+		Name             string
+		File             string
+		Header           bool
+		StringsCanBeNull bool
+	}{
+		{
+			Name:   "NoHeader",
+			File:   "testdata/types.csv",
+			Header: false,
+		}, {
+			Name:   "Header",
+			File:   "testdata/header.csv",
+			Header: true,
+		},
+		{
+			Name:             "NoHeader_StringsCanBeNull",
+			File:             "testdata/types.csv",
+			Header:           false,
+			StringsCanBeNull: true,
+		}, {
+			Name:             "Header_StringsCanBeNull",
+			File:             "testdata/header.csv",
+			Header:           true,
+			StringsCanBeNull: true,
+		},
+	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			testCSVReader(t, test.File, test.Header)
+			testCSVReader(t, test.File, test.Header, test.StringsCanBeNull)
 		})
 	}
 }
 
 var defaultNullValues = []string{"", "NULL", "null", "N/A"}
 
-func testCSVReader(t *testing.T, filepath string, withHeader bool) {
+func testCSVReader(t *testing.T, filepath string, withHeader bool, stringsCanBeNull bool) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile(filepath)
+	raw, err := os.ReadFile(filepath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -274,10 +344,19 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 			{Name: "u16", Type: arrow.PrimitiveTypes.Uint16},
 			{Name: "u32", Type: arrow.PrimitiveTypes.Uint32},
 			{Name: "u64", Type: arrow.PrimitiveTypes.Uint64},
+			{Name: "f16", Type: arrow.FixedWidthTypes.Float16},
 			{Name: "f32", Type: arrow.PrimitiveTypes.Float32},
 			{Name: "f64", Type: arrow.PrimitiveTypes.Float64},
 			{Name: "str", Type: arrow.BinaryTypes.String},
+			{Name: "large_str", Type: arrow.BinaryTypes.LargeString},
 			{Name: "ts", Type: arrow.FixedWidthTypes.Timestamp_ms},
+			{Name: "list(i64)", Type: arrow.ListOf(arrow.PrimitiveTypes.Int64)},
+			{Name: "large_list(i64)", Type: arrow.LargeListOf(arrow.PrimitiveTypes.Int64)},
+			{Name: "fixed_size_list(i64)", Type: arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int64)},
+			{Name: "binary", Type: arrow.BinaryTypes.Binary},
+			{Name: "large_binary", Type: arrow.BinaryTypes.LargeBinary},
+			{Name: "fixed_size_binary", Type: &arrow.FixedSizeBinaryType{ByteWidth: 3}},
+			{Name: "uuid", Type: types.NewUUIDType()},
 		},
 		nil,
 	)
@@ -285,7 +364,7 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		csv.WithAllocator(mem),
 		csv.WithComment('#'), csv.WithComma(';'),
 		csv.WithHeader(withHeader),
-		csv.WithNullReader(true, defaultNullValues...),
+		csv.WithNullReader(stringsCanBeNull, defaultNullValues...),
 	)
 	defer r.Release()
 
@@ -297,7 +376,6 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 	}
 
 	out := new(bytes.Buffer)
-
 	n := 0
 	for r.Next() {
 		rec := r.Record()
@@ -306,12 +384,21 @@ func testCSVReader(t *testing.T, filepath string, withHeader bool) {
 		}
 		n++
 	}
-
+	if err := r.Err(); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
 	if got, want := n, 3; got != want {
 		t.Fatalf("invalid number of rows: got=%d, want=%d", got, want)
 	}
 
-	want := `rec[0]["bool"]: [true]
+	str1Value := `""`
+	str2Value := `"null"`
+	if stringsCanBeNull {
+		str1Value = array.NullValueStr
+		str2Value = array.NullValueStr
+	}
+
+	want := fmt.Sprintf(`rec[0]["bool"]: [true]
 rec[0]["i8"]: [-1]
 rec[0]["i16"]: [-1]
 rec[0]["i32"]: [-1]
@@ -320,10 +407,19 @@ rec[0]["u8"]: [1]
 rec[0]["u16"]: [1]
 rec[0]["u32"]: [1]
 rec[0]["u64"]: [1]
+rec[0]["f16"]: [1.0996094]
 rec[0]["f32"]: [1.1]
 rec[0]["f64"]: [1.1]
 rec[0]["str"]: ["str-1"]
+rec[0]["large_str"]: ["str-1"]
 rec[0]["ts"]: [1652054461000]
+rec[0]["list(i64)"]: [[1 2 3]]
+rec[0]["large_list(i64)"]: [[1 2 3]]
+rec[0]["fixed_size_list(i64)"]: [[1 2 3]]
+rec[0]["binary"]: ["\x00\x01\x02"]
+rec[0]["large_binary"]: ["\x00\x01\x02"]
+rec[0]["fixed_size_binary"]: ["\x00\x01\x02"]
+rec[0]["uuid"]: ["00000000-0000-0000-0000-000000000001"]
 rec[1]["bool"]: [false]
 rec[1]["i8"]: [-2]
 rec[1]["i16"]: [-2]
@@ -333,10 +429,19 @@ rec[1]["u8"]: [2]
 rec[1]["u16"]: [2]
 rec[1]["u32"]: [2]
 rec[1]["u64"]: [2]
+rec[1]["f16"]: [2.1992188]
 rec[1]["f32"]: [2.2]
 rec[1]["f64"]: [2.2]
-rec[1]["str"]: ["str-2"]
+rec[1]["str"]: [%s]
+rec[1]["large_str"]: [%s]
 rec[1]["ts"]: [1652140799000]
+rec[1]["list(i64)"]: [[]]
+rec[1]["large_list(i64)"]: [[]]
+rec[1]["fixed_size_list(i64)"]: [[4 5 6]]
+rec[1]["binary"]: [(null)]
+rec[1]["large_binary"]: [(null)]
+rec[1]["fixed_size_binary"]: [(null)]
+rec[1]["uuid"]: ["00000000-0000-0000-0000-000000000002"]
 rec[2]["bool"]: [(null)]
 rec[2]["i8"]: [(null)]
 rec[2]["i16"]: [(null)]
@@ -346,15 +451,22 @@ rec[2]["u8"]: [(null)]
 rec[2]["u16"]: [(null)]
 rec[2]["u32"]: [(null)]
 rec[2]["u64"]: [(null)]
+rec[2]["f16"]: [(null)]
 rec[2]["f32"]: [(null)]
 rec[2]["f64"]: [(null)]
-rec[2]["str"]: [(null)]
+rec[2]["str"]: [%s]
+rec[2]["large_str"]: [%s]
 rec[2]["ts"]: [(null)]
-`
-
-	if got, want := out.String(), want; got != want {
-		t.Fatalf("invalid output:\ngot= %s\nwant=%s\n", got, want)
-	}
+rec[2]["list(i64)"]: [(null)]
+rec[2]["large_list(i64)"]: [(null)]
+rec[2]["fixed_size_list(i64)"]: [(null)]
+rec[2]["binary"]: [(null)]
+rec[2]["large_binary"]: [(null)]
+rec[2]["fixed_size_binary"]: [(null)]
+rec[2]["uuid"]: [(null)]
+`, str1Value, str1Value, str2Value, str2Value)
+	got, want := out.String(), want
+	require.Equal(t, want, got)
 
 	if r.Err() != nil {
 		t.Fatalf("unexpected error: %v", r.Err())
@@ -366,7 +478,7 @@ rec[2]["ts"]: [(null)]
 			csv.WithAllocator(mem),
 			csv.WithComment('#'), csv.WithComma(';'),
 			csv.WithHeader(withHeader),
-			csv.WithNullReader(true),
+			csv.WithNullReader(stringsCanBeNull),
 		)
 
 		r.Next()
@@ -380,7 +492,7 @@ func TestCSVReaderWithChunk(t *testing.T) {
 	mem := memory.NewCheckedAllocator(memory.NewGoAllocator())
 	defer mem.AssertSize(t, 0)
 
-	raw, err := ioutil.ReadFile("testdata/simple.csv")
+	raw, err := os.ReadFile("testdata/simple.csv")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -826,7 +938,7 @@ func TestInferCSVOptions(t *testing.T) {
 	}, nil)
 	expRec, _, _ := array.RecordFromJSON(mem, expSchema, strings.NewReader(`[
 		{"f64": 1.1, "i32": -1, "bool": true, "str": "str-1", "i64": -1, "u64": 1, "i8": -1},
-		{"f64": 2.2, "i32": -2, "bool": false, "str": "str-2", "i64": -2, "u64": 2, "i8": -2},
+		{"f64": 2.2, "i32": -2, "bool": false, "str": null, "i64": -2, "u64": 2, "i8": -2},
 		{"f64": null, "i32": null, "bool": null, "str": null, "i64": null, "u64": null, "i8": null}
 	]`))
 	defer expRec.Release()

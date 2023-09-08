@@ -639,70 +639,45 @@ struct ValidateArrayImpl {
 
   template <typename RunEndCType>
   Status ValidateRunEndEncoded(const RunEndEncodedType& type) {
-    // Overflow was already checked at this point
-    if (data.offset + data.length > std::numeric_limits<RunEndCType>::max()) {
+    if (data.child_data.size() != 2) {
       return Status::Invalid(
-          "Offset + length of a run-end encoded array must fit in a value"
-          " of the run end type ",
-          *type.run_end_type(), ", but offset + length is ", data.offset + data.length,
-          " while the allowed maximum is ", std::numeric_limits<RunEndCType>::max());
+          "Run end encoded array should have 2 children; this array has ",
+          data.child_data.size());
     }
-    if (!data.child_data[0]) {
+
+    if (data.buffers.size() > 0 && data.buffers[0] != nullptr) {
+      return Status::Invalid("Run end encoded array should not have a null bitmap.");
+    }
+
+    const auto& run_ends_data = data.child_data[0];
+    const auto& values_data = data.child_data[1];
+
+    if (!run_ends_data) {
       return Status::Invalid("Run ends array is null pointer");
     }
-    if (!data.child_data[1]) {
+    if (!values_data) {
       return Status::Invalid("Values array is null pointer");
     }
-    const ArrayData& run_ends_data = *data.child_data[0];
-    const ArrayData& values_data = *data.child_data[1];
-    if (*run_ends_data.type != *type.run_end_type()) {
-      return Status::Invalid("Run ends array of ", type, " must be ",
-                             *type.run_end_type(), ", but run end type is ",
-                             *run_ends_data.type);
-    }
-    if (*values_data.type != *type.value_type()) {
-      return Status::Invalid("Parent type says this array encodes ", *type.value_type(),
-                             " values, but value type is ", *values_data.type);
-    }
-    const Status run_ends_valid = RecurseInto(run_ends_data);
+    // We must validate child array buffers are valid before making additional checks.
+    const Status run_ends_valid = RecurseInto(*run_ends_data);
     if (!run_ends_valid.ok()) {
       return Status::Invalid("Run ends array invalid: ", run_ends_valid.message());
     }
-    const Status values_valid = RecurseInto(values_data);
+    const Status values_valid = RecurseInto(*values_data);
     if (!values_valid.ok()) {
       return Status::Invalid("Values array invalid: ", values_valid.message());
     }
-    if (data.GetNullCount() != 0) {
-      return Status::Invalid("Null count must be 0 for run-end encoded array, but is ",
-                             data.GetNullCount());
-    }
-    if (run_ends_data.GetNullCount() != 0) {
-      return Status::Invalid("Null count must be 0 for run ends array, but is ",
-                             run_ends_data.GetNullCount());
-    }
-    if (run_ends_data.length > values_data.length) {
-      return Status::Invalid("Length of run_ends is greater than the length of values: ",
-                             run_ends_data.length, " > ", values_data.length);
-    }
-    if (run_ends_data.length == 0) {
-      if (data.length == 0) {
-        return Status::OK();
-      }
-      return Status::Invalid("Run-end encoded array has non-zero length ", data.length,
-                             ", but run ends array has zero length");
-    }
-    if (!run_ends_data.buffers[1]->is_cpu()) {
+
+    RETURN_NOT_OK(ree_util::ValidateRunEndEncodedChildren(
+        type, data.length, run_ends_data, values_data, data.GetNullCount(), data.offset));
+
+    if (run_ends_data->length == 0) {
       return Status::OK();
     }
-    ArraySpan span(data);
-    const auto* run_ends = ree_util::RunEnds<RunEndCType>(span);
-    // The last run-end is the logical offset + the logical length.
-    if (run_ends[run_ends_data.length - 1] < data.offset + data.length) {
-      return Status::Invalid("Last run end is ", run_ends[run_ends_data.length - 1],
-                             " but it should match ", data.offset + data.length,
-                             " (offset: ", data.offset, ", length: ", data.length, ")");
-    }
+
     if (full_validation) {
+      ArraySpan span(data);
+      const auto* run_ends = ree_util::RunEnds<RunEndCType>(span);
       const int64_t run_ends_length = ree_util::RunEndsArray(span).length;
       if (run_ends[0] < 1) {
         return Status::Invalid(

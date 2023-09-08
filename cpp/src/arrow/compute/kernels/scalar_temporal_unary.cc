@@ -1237,7 +1237,6 @@ const std::string GetZone(const std::string& format) {
         zone = "UTC";
         break;
       }
-      cur++;
     } else {
       count = 0;
     }

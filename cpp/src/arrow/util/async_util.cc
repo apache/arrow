@@ -201,10 +201,14 @@ class AsyncTaskSchedulerImpl : public AsyncTaskScheduler {
     }
     // Capture `task` to keep it alive until finished
     if (!submit_result->TryAddCallback([this, task_inner = std::move(task)]() mutable {
-          return [this, task_inner2 = std::move(task_inner)](const Status& st) {
+          return [this, task_inner2 = std::move(task_inner)](const Status& st) mutable {
 #ifdef ARROW_WITH_OPENTELEMETRY
             TraceTaskFinished(task_inner2.get());
 #endif
+            // OnTaskFinished might trigger the scheduler to end.  We want to ensure that
+            // is the very last thing that happens after all task destructors have run so
+            // we eagerly destroy the task first.
+            task_inner2.reset();
             OnTaskFinished(st);
           };
         })) {
@@ -322,7 +326,7 @@ class ThrottledAsyncTaskSchedulerImpl
       return true;
     } else {
       lk.unlock();
-      return SubmitTask(std::move(task), latched_cost);
+      return SubmitTask(std::move(task), latched_cost, /*in_continue=*/false);
     }
   }
 
@@ -331,18 +335,30 @@ class ThrottledAsyncTaskSchedulerImpl
   const util::tracing::Span& span() const override { return target_->span(); }
 
  private:
-  bool SubmitTask(std::unique_ptr<Task> task, int latched_cost) {
+  bool SubmitTask(std::unique_ptr<Task> task, int latched_cost, bool in_continue) {
     // Wrap the task with a wrapper that runs it and then checks to see if there are any
     // queued tasks
     std::string_view name = task->name();
     return target_->AddSimpleTask(
-        [latched_cost, inner_task = std::move(task),
+        [latched_cost, in_continue, inner_task = std::move(task),
          self = shared_from_this()]() mutable -> Result<Future<>> {
           ARROW_ASSIGN_OR_RAISE(Future<> inner_fut, (*inner_task)());
-          return inner_fut.Then([latched_cost, self = std::move(self)] {
+          if (!inner_fut.TryAddCallback([&] {
+                return [latched_cost, self = std::move(self)](const Status& st) -> void {
+                  if (st.ok()) {
+                    self->throttle_->Release(latched_cost);
+                    self->ContinueTasks();
+                  }
+                };
+              })) {
+            // If the task is already finished then don't run ContinueTasks
+            // if we are already running it so we can avoid stack overflow
             self->throttle_->Release(latched_cost);
-            self->ContinueTasks();
-          });
+            if (!in_continue) {
+              self->ContinueTasks();
+            }
+          }
+          return inner_fut;
         },
         name);
   }
@@ -371,7 +387,7 @@ class ThrottledAsyncTaskSchedulerImpl
       } else {
         std::unique_ptr<Task> next_task = queue_->Pop();
         lk.unlock();
-        if (!SubmitTask(std::move(next_task), next_cost)) {
+        if (!SubmitTask(std::move(next_task), next_cost, /*in_continue=*/true)) {
           return;
         }
         lk.lock();

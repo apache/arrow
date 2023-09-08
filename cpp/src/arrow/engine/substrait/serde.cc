@@ -24,24 +24,25 @@
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/message.h>
-#include <google/protobuf/stubs/status.h>
 #include <google/protobuf/util/json_util.h>
 #include <google/protobuf/util/message_differencer.h>
 #include <google/protobuf/util/type_resolver.h>
 #include <google/protobuf/util/type_resolver_util.h>
 
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/buffer.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/engine/substrait/expression_internal.h"
+#include "arrow/engine/substrait/extended_expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/plan_internal.h"
 #include "arrow/engine/substrait/relation.h"
 #include "arrow/engine/substrait/relation_internal.h"
 #include "arrow/engine/substrait/type_fwd.h"
 #include "arrow/engine/substrait/type_internal.h"
+#include "arrow/engine/substrait/util.h"
 #include "arrow/type.h"
 
 namespace arrow {
@@ -67,7 +68,7 @@ Result<Message> ParseFromBuffer(const Buffer& buf) {
 }
 
 Result<std::shared_ptr<Buffer>> SerializePlan(
-    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const acero::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto subs_plan,
                         PlanToProto(declaration, ext_set, conversion_options));
@@ -75,15 +76,29 @@ Result<std::shared_ptr<Buffer>> SerializePlan(
   return Buffer::FromString(std::move(serialized));
 }
 
+Result<std::shared_ptr<Buffer>> SerializeExpressions(
+    const BoundExpressions& bound_expressions,
+    const ConversionOptions& conversion_options, ExtensionSet* ext_set) {
+  ExtensionSet throwaway_ext_set;
+  if (ext_set == nullptr) {
+    ext_set = &throwaway_ext_set;
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      std::unique_ptr<substrait::ExtendedExpression> extended_expression,
+      ToProto(bound_expressions, ext_set, conversion_options));
+  std::string serialized = extended_expression->SerializeAsString();
+  return Buffer::FromString(std::move(serialized));
+}
+
 Result<std::shared_ptr<Buffer>> SerializeRelation(
-    const compute::Declaration& declaration, ExtensionSet* ext_set,
+    const acero::Declaration& declaration, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto relation, ToProto(declaration, ext_set, conversion_options));
   std::string serialized = relation->SerializeAsString();
   return Buffer::FromString(std::move(serialized));
 }
 
-Result<compute::Declaration> DeserializeRelation(
+Result<acero::Declaration> DeserializeRelation(
     const Buffer& buf, const ExtensionSet& ext_set,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto rel, ParseFromBuffer<substrait::Rel>(buf));
@@ -91,68 +106,54 @@ Result<compute::Declaration> DeserializeRelation(
   return std::move(decl_info.declaration);
 }
 
-using DeclarationFactory = std::function<Result<compute::Declaration>(
-    compute::Declaration, std::vector<std::string> names)>;
+using DeclarationFactory = std::function<Result<acero::Declaration>(
+    acero::Declaration, std::vector<std::string> names)>;
 
 namespace {
 
 DeclarationFactory MakeConsumingSinkDeclarationFactory(
     const ConsumerFactory& consumer_factory) {
   return [&consumer_factory](
-             compute::Declaration input,
-             std::vector<std::string> names) -> Result<compute::Declaration> {
-    std::shared_ptr<compute::SinkNodeConsumer> consumer = consumer_factory();
+             acero::Declaration input,
+             std::vector<std::string> names) -> Result<acero::Declaration> {
+    std::shared_ptr<acero::SinkNodeConsumer> consumer = consumer_factory();
     if (consumer == nullptr) {
       return Status::Invalid("consumer factory is exhausted");
     }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::ConsumingSinkNodeOptions>(
-            compute::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
-    return compute::Declaration::Sequence(
-        {std::move(input), {"consuming_sink", options}});
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::ConsumingSinkNodeOptions>(
+            acero::ConsumingSinkNodeOptions{std::move(consumer), std::move(names)});
+    return acero::Declaration::Sequence({std::move(input), {"consuming_sink", options}});
   };
 }
 
 DeclarationFactory MakeWriteDeclarationFactory(
     const WriteOptionsFactory& write_options_factory) {
   return [&write_options_factory](
-             compute::Declaration input,
-             std::vector<std::string> names) -> Result<compute::Declaration> {
+             acero::Declaration input,
+             std::vector<std::string> names) -> Result<acero::Declaration> {
     std::shared_ptr<dataset::WriteNodeOptions> options = write_options_factory();
     if (options == nullptr) {
       return Status::Invalid("write options factory is exhausted");
     }
-    return compute::Declaration::Sequence(
+    return acero::Declaration::Sequence(
         {std::move(input), {"write", std::move(*options)}});
   };
 }
 
-DeclarationFactory MakeNoSinkDeclarationFactory() {
-  return [](compute::Declaration input,
-            std::vector<std::string> names) -> Result<compute::Declaration> {
-    return input;
-  };
-}
-
-constexpr uint32_t kMinimumMajorVersion = 0;
-constexpr uint32_t kMinimumMinorVersion = 20;
-
-Result<std::vector<compute::Declaration>> DeserializePlans(
+Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, DeclarationFactory declaration_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
 
-  if (plan.version().major_number() < kMinimumMajorVersion &&
-      plan.version().minor_number() < kMinimumMinorVersion) {
-    return Status::Invalid("Can only parse plans with a version >= ",
-                           kMinimumMajorVersion, ".", kMinimumMinorVersion);
-  }
+  ARROW_RETURN_NOT_OK(
+      CheckVersion(plan.version().major_number(), plan.version().minor_number()));
 
   ARROW_ASSIGN_OR_RAISE(auto ext_set,
                         GetExtensionSetFromPlan(plan, conversion_options, registry));
 
-  std::vector<compute::Declaration> sink_decls;
+  std::vector<acero::Declaration> sink_decls;
   for (const substrait::PlanRel& plan_rel : plan.relations()) {
     ARROW_ASSIGN_OR_RAISE(
         auto decl_info,
@@ -161,6 +162,13 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
     std::vector<std::string> names;
     if (plan_rel.has_root()) {
       names.assign(plan_rel.root().names().begin(), plan_rel.root().names().end());
+    }
+    if (names.size() > 0) {
+      if (decl_info.output_schema->num_fields() != plan_rel.root().names_size()) {
+        return Status::Invalid("Substrait plan has ", plan_rel.root().names_size(),
+                               " names that cannot be applied to extension schema:\n",
+                               decl_info.output_schema->ToString(false));
+      }
     }
 
     // pipe each relation
@@ -178,7 +186,7 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
 
 }  // namespace
 
-Result<std::vector<compute::Declaration>> DeserializePlans(
+Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, const ConsumerFactory& consumer_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
@@ -186,7 +194,7 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
                           registry, ext_set_out, conversion_options);
 }
 
-Result<std::vector<compute::Declaration>> DeserializePlans(
+Result<std::vector<acero::Declaration>> DeserializePlans(
     const Buffer& buf, const WriteOptionsFactory& write_options_factory,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
@@ -194,29 +202,59 @@ Result<std::vector<compute::Declaration>> DeserializePlans(
                           registry, ext_set_out, conversion_options);
 }
 
-ARROW_ENGINE_EXPORT Result<compute::Declaration> DeserializePlan(
+ARROW_ENGINE_EXPORT Result<PlanInfo> DeserializePlan(
     const Buffer& buf, const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
-  ARROW_ASSIGN_OR_RAISE(std::vector<compute::Declaration> top_level_decls,
-                        DeserializePlans(buf, MakeNoSinkDeclarationFactory(), registry,
-                                         ext_set_out, conversion_options));
-  if (top_level_decls.empty()) {
-    return Status::Invalid("No RelRoot in plan");
+  ARROW_ASSIGN_OR_RAISE(auto plan, ParseFromBuffer<substrait::Plan>(buf));
+  ARROW_RETURN_NOT_OK(
+      CheckVersion(plan.version().major_number(), plan.version().minor_number()));
+
+  ARROW_ASSIGN_OR_RAISE(auto ext_set,
+                        GetExtensionSetFromPlan(plan, conversion_options, registry));
+
+  if (plan.relations_size() == 0) {
+    return Status::Invalid("Plan has no relations");
   }
-  if (top_level_decls.size() != 1) {
-    return Status::Invalid("Multiple top level declarations found in Substrait plan");
+  if (plan.relations_size() > 1) {
+    return Status::NotImplemented("Common sub-plans");
   }
-  return top_level_decls[0];
+  const substrait::PlanRel& root_rel = plan.relations(0);
+
+  ARROW_ASSIGN_OR_RAISE(
+      auto decl_info,
+      FromProto(root_rel.has_root() ? root_rel.root().input() : root_rel.rel(), ext_set,
+                conversion_options));
+
+  std::vector<std::string> names;
+  if (root_rel.has_root()) {
+    names.assign(root_rel.root().names().begin(), root_rel.root().names().end());
+    ARROW_ASSIGN_OR_RAISE(decl_info.output_schema,
+                          decl_info.output_schema->WithNames(names));
+  }
+
+  if (ext_set_out) {
+    *ext_set_out = std::move(ext_set);
+  }
+
+  return PlanInfo{std::move(decl_info), std::move(names)};
+}
+
+Result<BoundExpressions> DeserializeExpressions(
+    const Buffer& buf, const ExtensionIdRegistry* registry,
+    const ConversionOptions& conversion_options, ExtensionSet* ext_set_out) {
+  ARROW_ASSIGN_OR_RAISE(auto extended_expression,
+                        ParseFromBuffer<substrait::ExtendedExpression>(buf));
+  return FromProto(extended_expression, ext_set_out, conversion_options, registry);
 }
 
 namespace {
 
-Result<std::shared_ptr<compute::ExecPlan>> MakeSingleDeclarationPlan(
-    std::vector<compute::Declaration> declarations) {
+Result<std::shared_ptr<acero::ExecPlan>> MakeSingleDeclarationPlan(
+    std::vector<acero::Declaration> declarations) {
   if (declarations.size() > 1) {
     return Status::Invalid("DeserializePlan does not support multiple root relations");
   } else {
-    ARROW_ASSIGN_OR_RAISE(auto plan, compute::ExecPlan::Make());
+    ARROW_ASSIGN_OR_RAISE(auto plan, acero::ExecPlan::Make());
     ARROW_RETURN_NOT_OK(declarations[0].AddToPlan(plan.get()));
     return std::move(plan);
   }
@@ -224,21 +262,21 @@ Result<std::shared_ptr<compute::ExecPlan>> MakeSingleDeclarationPlan(
 
 }  // namespace
 
-Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
-    const Buffer& buf, const std::shared_ptr<compute::SinkNodeConsumer>& consumer,
+Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
+    const Buffer& buf, const std::shared_ptr<acero::SinkNodeConsumer>& consumer,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {
   struct SingleConsumer {
-    std::shared_ptr<compute::SinkNodeConsumer> operator()() {
+    std::shared_ptr<acero::SinkNodeConsumer> operator()() {
       if (factory_done) {
         Status::Invalid("SingleConsumer invoked more than once").Warn();
-        return std::shared_ptr<compute::SinkNodeConsumer>{};
+        return std::shared_ptr<acero::SinkNodeConsumer>{};
       }
       factory_done = true;
       return consumer;
     }
     bool factory_done;
-    std::shared_ptr<compute::SinkNodeConsumer> consumer;
+    std::shared_ptr<acero::SinkNodeConsumer> consumer;
   };
   ARROW_ASSIGN_OR_RAISE(auto declarations,
                         DeserializePlans(buf, SingleConsumer{false, consumer}, registry,
@@ -246,7 +284,7 @@ Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
   return MakeSingleDeclarationPlan(declarations);
 }
 
-Result<std::shared_ptr<compute::ExecPlan>> DeserializePlan(
+Result<std::shared_ptr<acero::ExecPlan>> DeserializePlan(
     const Buffer& buf, const std::shared_ptr<dataset::WriteNodeOptions>& write_options,
     const ExtensionIdRegistry* registry, ExtensionSet* ext_set_out,
     const ConversionOptions& conversion_options) {

@@ -297,7 +297,8 @@ gchar *
 garrow_data_type_to_string(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  return g_strdup(arrow_data_type->ToString().c_str());
+  const auto string = arrow_data_type->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -327,7 +328,8 @@ gchar *
 garrow_data_type_get_name(GArrowDataType *data_type)
 {
   const auto arrow_data_type = garrow_data_type_get_raw(data_type);
-  return g_strdup(arrow_data_type->name().c_str());
+  const auto name = arrow_data_type->name();
+  return g_strdup(name.c_str());
 }
 
 
@@ -1770,7 +1772,8 @@ garrow_extension_data_type_get_extension_name(GArrowExtensionDataType *data_type
   auto arrow_data_type =
     std::static_pointer_cast<arrow::ExtensionType>(
       garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type)));
-  return g_strdup(arrow_data_type->extension_name().c_str());
+  const auto name = arrow_data_type->extension_name();
+  return g_strdup(name.c_str());
 }
 
 /**
@@ -2236,6 +2239,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
       }
     }
     type = GARROW_TYPE_EXTENSION_DATA_TYPE;
+    break;
+  case arrow::Type::type::RUN_END_ENCODED:
+    type = GARROW_TYPE_RUN_END_ENCODED_DATA_TYPE;
     break;
   default:
     type = GARROW_TYPE_DATA_TYPE;

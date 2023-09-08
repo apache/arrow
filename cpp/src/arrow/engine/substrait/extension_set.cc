@@ -28,12 +28,15 @@
 #include "arrow/engine/substrait/options.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/hash_util.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 
 namespace arrow {
+
+using internal::checked_pointer_cast;
 namespace engine {
 namespace {
 
@@ -229,6 +232,8 @@ Status ExtensionSet::AddUri(Id id) {
   return Status::OK();
 }
 
+Id ExtensionSet::RegisterPlanSpecificId(Id id) { return plan_specific_ids_->Emplace(id); }
+
 // Creates an extension set from the Substrait plan's top-level extensions block
 Result<ExtensionSet> ExtensionSet::Make(
     std::unordered_map<uint32_t, std::string_view> uris,
@@ -339,6 +344,9 @@ const int* GetIndex(const KeyToIndex& key_to_index, const Key& key) {
 
 namespace {
 
+ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
+    const std::string& arrow_function_name);
+
 ExtensionIdRegistry::SubstraitCallToArrow kSimpleSubstraitToArrow =
     [](const SubstraitCall& call) -> Result<::arrow::compute::Expression> {
   std::vector<::arrow::compute::Expression> args;
@@ -353,6 +361,11 @@ ExtensionIdRegistry::SubstraitCallToArrow kSimpleSubstraitToArrow =
     args.push_back(std::move(arg));
   }
   return ::arrow::compute::call(std::string(call.id().name), std::move(args));
+};
+
+ExtensionIdRegistry::SubstraitAggregateToArrow kSimpleSubstraitAggregateToArrow =
+    [](const SubstraitCall& call) -> Result<::arrow::compute::Aggregate> {
+  return DecodeBasicAggregate(std::string(call.id().name))(call);
 };
 
 struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
@@ -592,6 +605,9 @@ struct ExtensionIdRegistryImpl : ExtensionIdRegistry {
 
   Result<SubstraitAggregateToArrow> GetSubstraitAggregateToArrow(
       Id substrait_function_id) const override {
+    if (substrait_function_id.uri == kArrowSimpleExtensionFunctionsUri) {
+      return kSimpleSubstraitAggregateToArrow;
+    }
     auto maybe_converter = substrait_to_arrow_agg_.find(substrait_function_id);
     if (maybe_converter == substrait_to_arrow_agg_.end()) {
       if (parent_) {
@@ -862,13 +878,32 @@ ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessOverflowableArithmetic
       };
 }
 
-ExtensionIdRegistry::ArrowToSubstraitCall EncodeOptionlessComparison(Id substrait_fn_id) {
+ExtensionIdRegistry::ArrowToSubstraitCall EncodeBasic(Id substrait_fn_id) {
   return
       [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
-        // nullable=true isn't quite correct but we don't know the nullability of
-        // the inputs
+        // nullable=true errs on the side of caution
         SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
                                      /*nullable=*/true);
+        for (std::size_t i = 0; i < call.arguments.size(); i++) {
+          substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
+        }
+        return std::move(substrait_call);
+      };
+}
+
+ExtensionIdRegistry::ArrowToSubstraitCall EncodeIsNull(Id substrait_fn_id) {
+  return
+      [substrait_fn_id](const compute::Expression::Call& call) -> Result<SubstraitCall> {
+        if (call.options != nullptr) {
+          auto null_opts = checked_pointer_cast<compute::NullOptions>(call.options);
+          if (null_opts->nan_is_null) {
+            return Status::Invalid(
+                "Substrait does not support is_null with nan_is_null=true.  You can use "
+                "is_null || is_nan instead");
+          }
+        }
+        SubstraitCall substrait_call(substrait_fn_id, call.type.GetSharedPtr(),
+                                     /*nullable=*/false);
         for (std::size_t i = 0; i < call.arguments.size(); i++) {
           substrait_call.SetValueArg(static_cast<int>(i), call.arguments[i]);
         }
@@ -880,7 +915,7 @@ ExtensionIdRegistry::SubstraitCallToArrow DecodeOptionlessBasicMapping(
     const std::string& function_name, int max_args) {
   return [function_name,
           max_args](const SubstraitCall& call) -> Result<compute::Expression> {
-    if (call.size() > max_args) {
+    if (max_args >= 0 && call.size() > max_args) {
       return Status::NotImplemented("Acero does not have a kernel for ", function_name,
                                     " that receives ", call.size(), " arguments");
     }
@@ -943,23 +978,51 @@ ExtensionIdRegistry::SubstraitAggregateToArrow DecodeBasicAggregate(
         return Status::Invalid("Expected aggregate call ", call.id().uri, "#",
                                call.id().name, " to have at least one argument");
       }
-      case 1: {
+      default: {
+        // Handles all arity > 0
+
+        std::shared_ptr<compute::FunctionOptions> options = nullptr;
+        if (arrow_function_name == "stddev" || arrow_function_name == "variance") {
+          // See the following URL for the spec of stddev and variance:
+          // https://github.com/substrait-io/substrait/blob/
+          // 73228b4112d79eb1011af0ebb41753ce23ca180c/
+          // extensions/functions_arithmetic.yaml#L1240
+          auto maybe_dist = call.GetOption("distribution");
+          if (maybe_dist) {
+            auto& prefs = **maybe_dist;
+            if (prefs.size() != 1) {
+              return Status::Invalid("expected a single preference for ",
+                                     arrow_function_name, " but got ", prefs.size());
+            }
+            int ddof;
+            if (prefs[0] == "POPULATION") {
+              ddof = 1;
+            } else if (prefs[0] == "SAMPLE") {
+              ddof = 0;
+            } else {
+              return Status::Invalid("unknown distribution preference ", prefs[0]);
+            }
+            options = std::make_shared<compute::VarianceOptions>(ddof);
+          }
+        }
         fixed_arrow_func += arrow_function_name;
 
-        ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(0));
-        const FieldRef* arg_ref = arg.field_ref();
-        if (!arg_ref) {
-          return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
-                                 call.id().name, " to have a direct reference");
+        std::vector<FieldRef> target;
+        for (int i = 0; i < call.size(); i++) {
+          ARROW_ASSIGN_OR_RAISE(compute::Expression arg, call.GetValueArg(i));
+          const FieldRef* arg_ref = arg.field_ref();
+          if (!arg_ref) {
+            return Status::Invalid("Expected an aggregate call ", call.id().uri, "#",
+                                   call.id().name, " to have a direct reference");
+          }
+          // Copy arg_ref here because field_ref() return const FieldRef*
+          target.emplace_back(*arg_ref);
         }
-
-        return compute::Aggregate{std::move(fixed_arrow_func), *arg_ref, ""};
+        return compute::Aggregate{std::move(fixed_arrow_func),
+                                  options ? std::move(options) : nullptr,
+                                  std::move(target), ""};
       }
-      default:
-        break;
     }
-    return Status::NotImplemented(
-        "Only nullary and unary aggregate functions are currently supported");
   };
 }
 
@@ -994,14 +1057,15 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     // -------------- Substrait -> Arrow Functions -----------------
     // Mappings with a _checked variant
     for (const auto& function_name :
-         {"add", "subtract", "multiply", "divide", "power", "sqrt", "abs"}) {
+         {"add", "subtract", "multiply", "divide", "negate", "power", "sqrt", "abs"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessOverflowableArithmetic(function_name)));
     }
 
-    // Mappings without a _checked variant
-    for (const auto& function_name : {"exp", "sign"}) {
+    // Mappings either without a _checked variant or substrait has no overflow option
+    for (const auto& function_name :
+         {"exp", "sign", "cos", "sin", "tan", "acos", "asin", "atan", "atan2"}) {
       DCHECK_OK(
           AddSubstraitCallToArrow({kSubstraitArithmeticFunctionsUri, function_name},
                                   DecodeOptionlessUncheckedArithmetic(function_name)));
@@ -1057,6 +1121,21 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     DCHECK_OK(
         AddSubstraitCallToArrow({kSubstraitBooleanFunctionsUri, "not"},
                                 DecodeOptionlessBasicMapping("invert", /*max_args=*/1)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitArithmeticFunctionsUri, "bitwise_not"},
+        DecodeOptionlessBasicMapping("bit_wise_not", /*max_args=*/1)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitArithmeticFunctionsUri, "bitwise_or"},
+        DecodeOptionlessBasicMapping("bit_wise_or", /*max_args=*/2)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitArithmeticFunctionsUri, "bitwise_and"},
+        DecodeOptionlessBasicMapping("bit_wise_and", /*max_args=*/2)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitArithmeticFunctionsUri, "bitwise_xor"},
+        DecodeOptionlessBasicMapping("bit_wise_xor", /*max_args=*/2)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitComparisonFunctionsUri, "coalesce"},
+        DecodeOptionlessBasicMapping("coalesce", /*max_args=*/-1)));
     DCHECK_OK(AddSubstraitCallToArrow({kSubstraitDatetimeFunctionsUri, "extract"},
                                       DecodeTemporalExtractionMapping()));
     DCHECK_OK(AddSubstraitCallToArrow({kSubstraitStringFunctionsUri, "concat"},
@@ -1064,23 +1143,39 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
     DCHECK_OK(
         AddSubstraitCallToArrow({kSubstraitComparisonFunctionsUri, "is_null"},
                                 DecodeOptionlessBasicMapping("is_null", /*max_args=*/1)));
+    DCHECK_OK(
+        AddSubstraitCallToArrow({kSubstraitComparisonFunctionsUri, "is_nan"},
+                                DecodeOptionlessBasicMapping("is_nan", /*max_args=*/1)));
+    DCHECK_OK(AddSubstraitCallToArrow(
+        {kSubstraitComparisonFunctionsUri, "is_finite"},
+        DecodeOptionlessBasicMapping("is_finite", /*max_args=*/1)));
     DCHECK_OK(AddSubstraitCallToArrow(
         {kSubstraitComparisonFunctionsUri, "is_not_null"},
         DecodeOptionlessBasicMapping("is_valid", /*max_args=*/1)));
 
     // --------------- Substrait -> Arrow Aggregates --------------
-    for (const auto& fn_name : {"sum", "min", "max"}) {
+    for (const auto& fn_name : {"sum", "min", "max", "variance"}) {
       DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, fn_name},
                                              DecodeBasicAggregate(fn_name)));
     }
     DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "avg"},
                                            DecodeBasicAggregate("mean")));
-    DCHECK_OK(
-        AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, "count"},
-                                     DecodeBasicAggregate("count")));
+    DCHECK_OK(AddSubstraitAggregateToArrow({kSubstraitArithmeticFunctionsUri, "std_dev"},
+                                           DecodeBasicAggregate("stddev")));
+    for (const auto& fn_name : {"count"}) {
+      DCHECK_OK(
+          AddSubstraitAggregateToArrow({kSubstraitAggregateGenericFunctionsUri, fn_name},
+                                       DecodeBasicAggregate(fn_name)));
+    }
+    for (const auto& fn_name : {"first", "last"}) {
+      DCHECK_OK(AddSubstraitAggregateToArrow({kArrowSimpleExtensionFunctionsUri, fn_name},
+                                             DecodeBasicAggregate(fn_name)));
+    }
 
     // --------------- Arrow -> Substrait Functions ---------------
-    for (const auto& fn_name : {"add", "subtract", "multiply", "divide"}) {
+    // Functions with a _checked variant
+    for (const auto& fn_name :
+         {"add", "subtract", "multiply", "divide", "negate", "power", "abs"}) {
       Id fn_id{kSubstraitArithmeticFunctionsUri, fn_name};
       DCHECK_OK(AddArrowToSubstraitCall(
           fn_name, EncodeOptionlessOverflowableArithmetic<false>(fn_id)));
@@ -1088,11 +1183,49 @@ struct DefaultExtensionIdRegistry : ExtensionIdRegistryImpl {
           AddArrowToSubstraitCall(std::string(fn_name) + "_checked",
                                   EncodeOptionlessOverflowableArithmetic<true>(fn_id)));
     }
-    // Comparison operators
-    for (const auto& fn_name : {"equal", "is_not_distinct_from"}) {
-      Id fn_id{kSubstraitComparisonFunctionsUri, fn_name};
-      DCHECK_OK(AddArrowToSubstraitCall(fn_name, EncodeOptionlessComparison(fn_id)));
+    // Functions with no options...
+    //   ...and the same name
+    for (const auto& fn_pair : std::vector<std::pair<std::string_view, std::string_view>>{
+             {kSubstraitComparisonFunctionsUri, "equal"},
+             {kSubstraitComparisonFunctionsUri, "not_equal"},
+             {kSubstraitComparisonFunctionsUri, "is_not_distinct_from"},
+             {kSubstraitComparisonFunctionsUri, "is_nan"},
+             {kSubstraitComparisonFunctionsUri, "is_finite"},
+             {kSubstraitComparisonFunctionsUri, "coalesce"},
+             {kSubstraitArithmeticFunctionsUri, "sqrt"},
+             {kSubstraitArithmeticFunctionsUri, "sign"},
+             {kSubstraitArithmeticFunctionsUri, "exp"},
+             {kSubstraitArithmeticFunctionsUri, "cos"},
+             {kSubstraitArithmeticFunctionsUri, "sin"},
+             {kSubstraitArithmeticFunctionsUri, "tan"},
+             {kSubstraitArithmeticFunctionsUri, "acos"},
+             {kSubstraitArithmeticFunctionsUri, "asin"},
+             {kSubstraitArithmeticFunctionsUri, "atan"},
+             {kSubstraitArithmeticFunctionsUri, "atan2"}}) {
+      Id fn_id{fn_pair.first, fn_pair.second};
+      DCHECK_OK(AddArrowToSubstraitCall(std::string(fn_pair.second), EncodeBasic(fn_id)));
     }
+    //   ...and different names
+    for (const auto& fn_triple :
+         std::vector<std::tuple<std::string_view, std::string_view, std::string>>{
+             {kSubstraitComparisonFunctionsUri, "lt", "less"},
+             {kSubstraitComparisonFunctionsUri, "gt", "greater"},
+             {kSubstraitComparisonFunctionsUri, "lte", "less_equal"},
+             {kSubstraitComparisonFunctionsUri, "gte", "greater_equal"},
+             {kSubstraitComparisonFunctionsUri, "is_not_null", "is_valid"},
+             {kSubstraitArithmeticFunctionsUri, "bitwise_and", "bit_wise_and"},
+             {kSubstraitArithmeticFunctionsUri, "bitwise_not", "bit_wise_not"},
+             {kSubstraitArithmeticFunctionsUri, "bitwise_or", "bit_wise_or"},
+             {kSubstraitArithmeticFunctionsUri, "bitwise_xor", "bit_wise_xor"},
+             {kSubstraitBooleanFunctionsUri, "and", "and_kleene"},
+             {kSubstraitBooleanFunctionsUri, "or", "or_kleene"},
+             {kSubstraitBooleanFunctionsUri, "not", "invert"}}) {
+      Id fn_id{std::get<0>(fn_triple), std::get<1>(fn_triple)};
+      DCHECK_OK(AddArrowToSubstraitCall(std::get<2>(fn_triple), EncodeBasic(fn_id)));
+    }
+
+    DCHECK_OK(AddArrowToSubstraitCall(
+        "is_null", EncodeIsNull({kSubstraitComparisonFunctionsUri, "is_null"})));
   }
 };
 

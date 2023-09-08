@@ -160,11 +160,14 @@ cdef class PartitioningFactory(_Weakrefable):
     cdef:
         shared_ptr[CPartitioningFactory] wrapped
         CPartitioningFactory* factory
+        object constructor
+        object options
 
     cdef init(self, const shared_ptr[CPartitioningFactory]& sp)
 
     @staticmethod
-    cdef wrap(const shared_ptr[CPartitioningFactory]& sp)
+    cdef wrap(const shared_ptr[CPartitioningFactory]& sp,
+              object constructor, object options)
 
     cdef inline shared_ptr[CPartitioningFactory] unwrap(self)
 

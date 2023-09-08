@@ -16,7 +16,6 @@
 # under the License.
 
 import os
-import pickle
 import shutil
 import subprocess
 import weakref
@@ -25,6 +24,7 @@ import sys
 
 import numpy as np
 import pyarrow as pa
+from pyarrow.vendored.version import Version
 
 import pytest
 
@@ -216,12 +216,12 @@ def test_ext_type_as_py():
         assert result.as_py() == expected
 
 
-def test_uuid_type_pickle():
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_uuid_type_pickle(pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = UuidType()
-        ser = pickle.dumps(ty, protocol=proto)
+        ser = pickle_module.dumps(ty, protocol=proto)
         del ty
-        ty = pickle.loads(ser)
+        ty = pickle_module.loads(ser)
         wr = weakref.ref(ty)
         assert ty.extension_name == "arrow.py_extension_type"
         del ty
@@ -339,8 +339,8 @@ def test_ext_scalar_from_array():
     assert len(scalars_a) == 4
 
     assert ty1.__arrow_ext_scalar_class__() == UuidScalarType
-    assert type(a[0]) == UuidScalarType
-    assert type(scalars_a[0]) == UuidScalarType
+    assert isinstance(a[0], UuidScalarType)
+    assert isinstance(scalars_a[0], UuidScalarType)
 
     for s, val in zip(scalars_a, data):
         assert isinstance(s, pa.ExtensionScalar)
@@ -409,14 +409,14 @@ def test_ext_scalar_from_storage():
     assert s.value == pa.scalar(b"0123456789abcdef", ty.storage_type)
 
 
-def test_ext_array_pickling():
-    for proto in range(0, pickle.HIGHEST_PROTOCOL + 1):
+def test_ext_array_pickling(pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
         ty = ParamExtType(3)
         storage = pa.array([b"foo", b"bar"], type=pa.binary(3))
         arr = pa.ExtensionArray.from_storage(ty, storage)
-        ser = pickle.dumps(arr, protocol=proto)
+        ser = pickle_module.dumps(arr, protocol=proto)
         del ty, storage, arr
-        arr = pickle.loads(ser)
+        arr = pickle_module.loads(ser)
         arr.validate()
         assert isinstance(arr, pa.ExtensionArray)
         assert arr.type == ParamExtType(3)
@@ -629,6 +629,22 @@ def test_casting_dict_array_to_extension_type():
                                UUID('30313233-3435-3637-3839-616263646566')]
 
 
+def test_concat():
+    arr1 = pa.array([1, 2, 3], IntegerType())
+    arr2 = pa.array([4, 5, 6], IntegerType())
+
+    result = pa.concat_arrays([arr1, arr2])
+    expected = pa.array([1, 2, 3, 4, 5, 6], IntegerType())
+    assert result.equals(expected)
+
+    # nested in a struct
+    struct_arr1 = pa.StructArray.from_arrays([arr1], names=["a"])
+    struct_arr2 = pa.StructArray.from_arrays([arr2], names=["a"])
+    result = pa.concat_arrays([struct_arr1, struct_arr2])
+    expected = pa.StructArray.from_arrays([expected], names=["a"])
+    assert result.equals(expected)
+
+
 def test_null_storage_type():
     ext_type = AnnotatedType(pa.null(), {"key": "value"})
     storage = pa.array([None] * 10, pa.null())
@@ -720,7 +736,7 @@ class PeriodType(pa.ExtensionType):
 
     def __eq__(self, other):
         if isinstance(other, pa.BaseExtensionType):
-            return (type(self) == type(other) and
+            return (isinstance(self, type(other)) and
                     self.freq == other.freq)
         else:
             return NotImplemented
@@ -740,7 +756,21 @@ class PeriodTypeWithClass(PeriodType):
         return PeriodTypeWithClass(freq)
 
 
-@pytest.fixture(params=[PeriodType('D'), PeriodTypeWithClass('D')])
+class PeriodTypeWithToPandasDtype(PeriodType):
+    @classmethod
+    def __arrow_ext_deserialize__(cls, storage_type, serialized):
+        freq = PeriodType.__arrow_ext_deserialize__(
+            storage_type, serialized).freq
+        return PeriodTypeWithToPandasDtype(freq)
+
+    def to_pandas_dtype(self):
+        import pandas as pd
+        return pd.PeriodDtype(freq=self.freq)
+
+
+@pytest.fixture(params=[PeriodType('D'),
+                        PeriodTypeWithClass('D'),
+                        PeriodTypeWithToPandasDtype('D')])
 def registered_period_type(request):
     # setup
     period_type = request.param
@@ -768,7 +798,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     arr = pa.ExtensionArray.from_storage(period_type, storage)
     batch = pa.RecordBatch.from_arrays([arr], ["ext"])
     # check the built array has exactly the expected clss
-    assert type(arr) == period_class
+    assert isinstance(arr, period_class)
 
     buf = ipc_write_batch(batch)
     del batch
@@ -776,7 +806,7 @@ def test_generic_ext_type_ipc(registered_period_type):
 
     result = batch.column(0)
     # check the deserialized array class is the expected one
-    assert type(result) == period_class
+    assert isinstance(result, period_class)
     assert result.type.extension_name == "test.period"
     assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
@@ -799,7 +829,7 @@ def test_generic_ext_type_ipc(registered_period_type):
     result = batch.column(0)
     assert isinstance(result.type, PeriodType)
     assert result.type.freq == 'H'
-    assert type(result) == period_class
+    assert isinstance(result, period_class)
 
 
 def test_generic_ext_type_ipc_unknown(registered_period_type):
@@ -834,6 +864,31 @@ def test_generic_ext_type_equality():
     period_type3 = PeriodType('H')
     assert period_type == period_type2
     assert not period_type == period_type3
+
+
+def test_generic_ext_type_pickling(registered_period_type, pickle_module):
+    # GH-36038
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        period_type, _ = registered_period_type
+        ser = pickle_module.dumps(period_type, protocol=proto)
+        period_type_pickled = pickle_module.loads(ser)
+        assert period_type == period_type_pickled
+
+
+def test_generic_ext_array_pickling(registered_period_type, pickle_module):
+    for proto in range(0, pickle_module.HIGHEST_PROTOCOL + 1):
+        period_type, _ = registered_period_type
+        storage = pa.array([1, 2, 3, 4], pa.int64())
+        arr = pa.ExtensionArray.from_storage(period_type, storage)
+        ser = pickle_module.dumps(arr, protocol=proto)
+        del storage, arr
+        arr = pickle_module.loads(ser)
+        arr.validate()
+        assert isinstance(arr, pa.ExtensionArray)
+        assert arr.type == period_type
+        assert arr.type.storage_type == pa.int64()
+        assert arr.storage.type == pa.int64()
+        assert arr.storage.to_pylist() == [1, 2, 3, 4]
 
 
 def test_generic_ext_type_register(registered_period_type):
@@ -916,6 +971,9 @@ def test_parquet_extension_with_nested_storage(tmpdir):
     assert table.column('structs').type == mystruct_array.type
     assert table.column('lists').type == mylist_array.type
     assert table == orig_table
+
+    with pytest.raises(pa.ArrowInvalid, match='without all of its fields'):
+        pq.ParquetFile(filename).read(columns=['structs.left'])
 
 
 @pytest.mark.parquet
@@ -1037,7 +1095,8 @@ def test_empty_take():
     ([1, 2, 3], IntegerType),
     (["cat", "dog", "horse"], LabelType)
 ))
-@pytest.mark.parametrize("into", ("to_numpy", "to_pandas"))
+@pytest.mark.parametrize(
+    "into", ["to_numpy", pytest.param("to_pandas", marks=pytest.mark.pandas)])
 def test_extension_array_to_numpy_pandas(data, ty, into):
     storage = pa.array(data)
     ext_arr = pa.ExtensionArray.from_storage(ty(), storage)
@@ -1127,3 +1186,168 @@ def test_cpp_extension_in_python(tmpdir):
     reconstructed_array = batch.column(0)
     assert reconstructed_array.type == uuid_type
     assert reconstructed_array == array
+
+
+def test_tensor_type():
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.int8(), 6)
+    assert tensor_type.shape == [2, 3]
+    assert tensor_type.dim_names is None
+    assert tensor_type.permutation is None
+
+    tensor_type = pa.fixed_shape_tensor(pa.float64(), [2, 2, 3],
+                                        permutation=[0, 2, 1])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.float64(), 12)
+    assert tensor_type.shape == [2, 2, 3]
+    assert tensor_type.dim_names is None
+    assert tensor_type.permutation == [0, 2, 1]
+
+    tensor_type = pa.fixed_shape_tensor(pa.bool_(), [2, 2, 3],
+                                        dim_names=['C', 'H', 'W'])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+    assert tensor_type.storage_type == pa.list_(pa.bool_(), 12)
+    assert tensor_type.shape == [2, 2, 3]
+    assert tensor_type.dim_names == ['C', 'H', 'W']
+    assert tensor_type.permutation is None
+
+
+def test_tensor_class_methods():
+    tensor_type = pa.fixed_shape_tensor(pa.float32(), [2, 3])
+    storage = pa.array([[1, 2, 3, 4, 5, 6], [1, 2, 3, 4, 5, 6]],
+                       pa.list_(pa.float32(), 6))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    expected = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr.to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
+    expected = np.array([[[1, 2, 3], [4, 5, 6]]], dtype=np.float32)
+    result = arr[:1].to_numpy_ndarray()
+    np.testing.assert_array_equal(result, expected)
+
+    arr = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        dtype=np.float32, order="C")
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+    assert isinstance(tensor_array_from_numpy.type, pa.FixedShapeTensorType)
+    assert tensor_array_from_numpy.type.value_type == pa.float32()
+    assert tensor_array_from_numpy.type.shape == [2, 3]
+
+    arr = np.array(
+        [[[1, 2, 3], [4, 5, 6]], [[1, 2, 3], [4, 5, 6]]],
+        dtype=np.float32, order="F")
+    with pytest.raises(ValueError, match="C-style contiguous segment"):
+        pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1])
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    with pytest.raises(ValueError, match="non-permuted tensors"):
+        arr.to_numpy_ndarray()
+
+
+@pytest.mark.parametrize("tensor_type", (
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3]),
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], permutation=[0, 2, 1]),
+    pa.fixed_shape_tensor(pa.int8(), [2, 2, 3], dim_names=['C', 'H', 'W'])
+))
+def test_tensor_type_ipc(tensor_type):
+    storage = pa.array([[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]], pa.list_(pa.int8(), 12))
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    # check the built array has exactly the expected clss
+    tensor_class = tensor_type.__arrow_ext_class__()
+    assert isinstance(arr, tensor_class)
+
+    buf = ipc_write_batch(batch)
+    del batch
+    batch = ipc_read_batch(buf)
+
+    result = batch.column(0)
+    # check the deserialized array class is the expected one
+    assert isinstance(result, tensor_class)
+    assert result.type.extension_name == "arrow.fixed_shape_tensor"
+    assert arr.storage.to_pylist() == [[1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6]]
+
+    # we get back an actual TensorType
+    assert isinstance(result.type, pa.FixedShapeTensorType)
+    assert result.type.value_type == pa.int8()
+    assert result.type.shape == [2, 2, 3]
+
+
+def test_tensor_type_equality():
+    tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3])
+    assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
+
+    tensor_type2 = pa.fixed_shape_tensor(pa.int8(), [2, 2, 3])
+    tensor_type3 = pa.fixed_shape_tensor(pa.uint8(), [2, 2, 3])
+    assert tensor_type == tensor_type2
+    assert not tensor_type == tensor_type3
+
+
+@pytest.mark.pandas
+def test_extension_to_pandas_storage_type(registered_period_type):
+    period_type, _ = registered_period_type
+    np_arr = np.array([1, 2, 3, 4], dtype='i8')
+    storage = pa.array([1, 2, 3, 4], pa.int64())
+    arr = pa.ExtensionArray.from_storage(period_type, storage)
+
+    if isinstance(period_type, PeriodTypeWithToPandasDtype):
+        pandas_dtype = period_type.to_pandas_dtype()
+    else:
+        pandas_dtype = np_arr.dtype
+
+    # Test arrays
+    result = arr.to_pandas()
+    assert result.dtype == pandas_dtype
+
+    # Test chunked arrays
+    chunked_arr = pa.chunked_array([arr])
+    result = chunked_arr.to_numpy()
+    assert result.dtype == np_arr.dtype
+
+    result = chunked_arr.to_pandas()
+    assert result.dtype == pandas_dtype
+
+    # Test Table.to_pandas
+    data = [
+        pa.array([1, 2, 3, 4]),
+        pa.array(['foo', 'bar', None, None]),
+        pa.array([True, None, True, False]),
+        arr
+    ]
+    my_schema = pa.schema([('f0', pa.int8()),
+                           ('f1', pa.string()),
+                           ('f2', pa.bool_()),
+                           ('ext', period_type)])
+    table = pa.Table.from_arrays(data, schema=my_schema)
+    result = table.to_pandas()
+    assert result["ext"].dtype == pandas_dtype
+
+    import pandas as pd
+    # Skip tests for 2.0.x, See: GH-35821
+    if (
+        Version(pd.__version__) >= Version("2.1.0")
+    ):
+        # Check the usage of types_mapper
+        result = table.to_pandas(types_mapper=pd.ArrowDtype)
+        assert isinstance(result["ext"].dtype, pd.ArrowDtype)
+
+
+def test_tensor_type_is_picklable(pickle_module):
+    # GH-35599
+
+    expected_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
+    result = pickle_module.loads(pickle_module.dumps(expected_type))
+
+    assert result == expected_type
+
+    arr = [[1, 2, 3, 4], [10, 20, 30, 40], [100, 200, 300, 400]]
+    storage = pa.array(arr, pa.list_(pa.int32(), 4))
+    expected_arr = pa.ExtensionArray.from_storage(expected_type, storage)
+    result = pickle_module.loads(pickle_module.dumps(expected_arr))
+
+    assert result == expected_arr

@@ -67,7 +67,9 @@ import static org.apache.arrow.vector.types.UnionMode.Sparse;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.checkedCastToInt;
 import static org.apache.arrow.memory.util.LargeMemoryUtil.capAtMaxInt;
 
-
+<#function is_timestamp_tz type>
+  <#return type?starts_with("TimeStamp") && type?ends_with("TZ")>
+</#function>
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
@@ -269,18 +271,24 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
       <#assign fields = minor.fields!type.fields />
       <#assign uncappedName = name?uncap_first/>
       <#assign lowerCaseName = name?lower_case/>
-      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
+      <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
 
   private ${name}Vector ${uncappedName}Vector;
 
-  public ${name}Vector get${name}Vector(<#if minor.class?starts_with("Decimal")> ArrowType arrowType</#if>) {
-    return get${name}Vector(null<#if minor.class?starts_with("Decimal")>, arrowType</#if>);
+  <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+  public ${name}Vector get${name}Vector() {
+    if (${uncappedName}Vector == null) {
+      throw new IllegalArgumentException("No ${name} present. Provide ArrowType argument to create a new vector");
+    }
+    return ${uncappedName}Vector;
   }
-
-  public ${name}Vector get${name}Vector(String name<#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
+  public ${name}Vector get${name}Vector(ArrowType arrowType) {
+    return get${name}Vector(null, arrowType);
+  }
+  public ${name}Vector get${name}Vector(String name, ArrowType arrowType) {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalStruct.size();
-      ${uncappedName}Vector = addOrGet(name, MinorType.${name?upper_case},<#if minor.class?starts_with("Decimal")> arrowType,</#if> ${name}Vector.class);
+      ${uncappedName}Vector = addOrGet(name, MinorType.${name?upper_case}, arrowType, ${name}Vector.class);
       if (internalStruct.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
         if (callBack != null) {
@@ -290,10 +298,21 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
     }
     return ${uncappedName}Vector;
   }
-  <#if minor.class?starts_with("Decimal")>
+  <#else>
   public ${name}Vector get${name}Vector() {
+    return get${name}Vector(null);
+  }
+
+  public ${name}Vector get${name}Vector(String name) {
     if (${uncappedName}Vector == null) {
-      throw new IllegalArgumentException("No ${uncappedName} present. Provide ArrowType argument to create a new vector");
+      int vectorCount = internalStruct.size();
+      ${uncappedName}Vector = addOrGet(name, MinorType.${name?upper_case}, ${name}Vector.class);
+      if (internalStruct.size() > vectorCount) {
+        ${uncappedName}Vector.allocateNew();
+        if (callBack != null) {
+          callBack.doWork();
+        }
+      }
     }
     return ${uncappedName}Vector;
   }
@@ -658,9 +677,9 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
+          <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
         case ${name?upper_case}:
-        return get${name}Vector(name<#if minor.class?starts_with("Decimal")>, arrowType</#if>);
+        return get${name}Vector(name<#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">, arrowType</#if>);
           </#if>
         </#list>
       </#list>
@@ -745,11 +764,15 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
           <#assign name = minor.class?cap_first />
           <#assign fields = minor.fields!type.fields />
           <#assign uncappedName = name?uncap_first/>
-          <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
+          <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
       case ${name?upper_case}:
         Nullable${name}Holder ${uncappedName}Holder = new Nullable${name}Holder();
         reader.read(${uncappedName}Holder);
-        setSafe(index, ${uncappedName}Holder<#if minor.class?starts_with("Decimal")>, arrowType</#if>);
+        <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+        setSafe(index, ${uncappedName}Holder, arrowType);
+        <#else>
+        setSafe(index, ${uncappedName}Holder);
+        </#if>
         break;
           </#if>
         </#list>
@@ -766,17 +789,24 @@ public class UnionVector extends AbstractContainerVector implements FieldVector 
         throw new UnsupportedOperationException();
       }
     }
+
     <#list vv.types as type>
       <#list type.minor as minor>
         <#assign name = minor.class?cap_first />
         <#assign fields = minor.fields!type.fields />
         <#assign uncappedName = name?uncap_first/>
-        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") >
-    public void setSafe(int index, Nullable${name}Holder holder<#if minor.class?starts_with("Decimal")>, ArrowType arrowType</#if>) {
+        <#if !minor.typeParams?? || minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+    <#if minor.class?starts_with("Decimal") || is_timestamp_tz(minor.class) || minor.class == "Duration" || minor.class == "FixedSizeBinary">
+    public void setSafe(int index, Nullable${name}Holder holder, ArrowType arrowType) {
       setType(index, MinorType.${name?upper_case});
-      get${name}Vector(null<#if minor.class?starts_with("Decimal")>, arrowType</#if>).setSafe(index, holder);
+      get${name}Vector(null, arrowType).setSafe(index, holder);
     }
-
+    <#else>
+    public void setSafe(int index, Nullable${name}Holder holder) {
+      setType(index, MinorType.${name?upper_case});
+      get${name}Vector(null).setSafe(index, holder);
+    }
+    </#if>
         </#if>
       </#list>
     </#list>

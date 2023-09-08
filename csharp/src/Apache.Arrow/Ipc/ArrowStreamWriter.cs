@@ -23,7 +23,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Apache.Arrow.Arrays;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 
 namespace Apache.Arrow.Ipc
 {
@@ -38,6 +38,9 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<UInt16Array>,
             IArrowArrayVisitor<UInt32Array>,
             IArrowArrayVisitor<UInt64Array>,
+#if NET5_0_OR_GREATER
+            IArrowArrayVisitor<HalfFloatArray>,
+#endif
             IArrowArrayVisitor<FloatArray>,
             IArrowArrayVisitor<DoubleArray>,
             IArrowArrayVisitor<BooleanArray>,
@@ -47,13 +50,15 @@ namespace Apache.Arrow.Ipc
             IArrowArrayVisitor<Time32Array>,
             IArrowArrayVisitor<Time64Array>,
             IArrowArrayVisitor<ListArray>,
+            IArrowArrayVisitor<FixedSizeListArray>,
             IArrowArrayVisitor<StringArray>,
             IArrowArrayVisitor<BinaryArray>,
             IArrowArrayVisitor<FixedSizeBinaryArray>,
             IArrowArrayVisitor<StructArray>,
             IArrowArrayVisitor<Decimal128Array>,
             IArrowArrayVisitor<Decimal256Array>,
-            IArrowArrayVisitor<DictionaryArray>
+            IArrowArrayVisitor<DictionaryArray>,
+            IArrowArrayVisitor<NullArray>
         {
             public readonly struct Buffer
             {
@@ -87,6 +92,9 @@ namespace Apache.Arrow.Ipc
             public void Visit(UInt16Array array) => CreateBuffers(array);
             public void Visit(UInt32Array array) => CreateBuffers(array);
             public void Visit(UInt64Array array) => CreateBuffers(array);
+#if NET5_0_OR_GREATER
+            public void Visit(HalfFloatArray array) => CreateBuffers(array);
+#endif
             public void Visit(FloatArray array) => CreateBuffers(array);
             public void Visit(DoubleArray array) => CreateBuffers(array);
             public void Visit(TimestampArray array) => CreateBuffers(array);
@@ -100,6 +108,13 @@ namespace Apache.Arrow.Ipc
             {
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.ValueOffsetsBuffer));
+
+                array.Values.Accept(this);
+            }
+
+            public void Visit(FixedSizeListArray array)
+            {
+                _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
 
                 array.Values.Accept(this);
             }
@@ -148,6 +163,11 @@ namespace Apache.Arrow.Ipc
 
                 _buffers.Add(CreateBuffer(array.NullBitmapBuffer));
                 _buffers.Add(CreateBuffer(array.IndicesBuffer));
+            }
+
+            public void Visit(NullArray array)
+            {
+                // There are no buffers for a NullArray
             }
 
             private void CreateBuffers(BooleanArray array)

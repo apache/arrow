@@ -82,7 +82,8 @@ static void BenchmarkCSVChunking(benchmark::State& state,  // NOLINT non-const r
   while (state.KeepRunning()) {
     std::shared_ptr<Buffer> whole, partial;
     ABORT_NOT_OK(chunker->Process(block, &whole, &partial));
-    benchmark::DoNotOptimize(whole->size());
+    auto size = whole->size();
+    benchmark::DoNotOptimize(size);
   }
 
   state.SetBytesProcessed(state.iterations() * csv.length());

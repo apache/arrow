@@ -21,7 +21,10 @@
 
 #include "arrow/result.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/macros.h"
+
 #include "generated/parquet_types.h"
+
 #include "parquet/bloom_filter.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
@@ -129,7 +132,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   if (bloom_filter_size + header_size <= header_buf->size()) {
     // The bloom filter data is entirely contained in the buffer we just read
     // => just return it.
-    BlockSplitBloomFilter bloom_filter;
+    BlockSplitBloomFilter bloom_filter(properties.memory_pool());
     bloom_filter.Init(header_buf->data() + header_size, bloom_filter_size);
     return bloom_filter;
   }
@@ -150,7 +153,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   if (ARROW_PREDICT_FALSE(read_size < required_read_size)) {
     throw ParquetException("Bloom Filter read failed: not enough data");
   }
-  BlockSplitBloomFilter bloom_filter;
+  BlockSplitBloomFilter bloom_filter(properties.memory_pool());
   bloom_filter.Init(buffer->data(), bloom_filter_size);
   return bloom_filter;
 }
@@ -180,50 +183,41 @@ void BlockSplitBloomFilter::WriteTo(ArrowOutputStream* sink) const {
   PARQUET_THROW_NOT_OK(sink->Write(data_->data(), num_bytes_));
 }
 
-void BlockSplitBloomFilter::SetMask(uint32_t key, BlockMask& block_mask) const {
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    block_mask.item[i] = key * SALT[i];
-  }
-
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    block_mask.item[i] = block_mask.item[i] >> 27;
-  }
-
-  for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    block_mask.item[i] = UINT32_C(0x1) << block_mask.item[i];
-  }
-}
-
 bool BlockSplitBloomFilter::FindHash(uint64_t hash) const {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   const uint32_t* bitset32 = reinterpret_cast<const uint32_t*>(data_->data());
 
-  // Calculate mask for bucket.
-  BlockMask block_mask;
-  SetMask(key, block_mask);
-
   for (int i = 0; i < kBitsSetPerBlock; ++i) {
-    if (0 == (bitset32[kBitsSetPerBlock * bucket_index + i] & block_mask.item[i])) {
+    // Calculate mask for key in the given bitset.
+    const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
+    if (ARROW_PREDICT_FALSE(0 ==
+                            (bitset32[kBitsSetPerBlock * bucket_index + i] & mask))) {
       return false;
     }
   }
   return true;
 }
 
-void BlockSplitBloomFilter::InsertHash(uint64_t hash) {
+void BlockSplitBloomFilter::InsertHashImpl(uint64_t hash) {
   const uint32_t bucket_index =
       static_cast<uint32_t>(((hash >> 32) * (num_bytes_ / kBytesPerFilterBlock)) >> 32);
   const uint32_t key = static_cast<uint32_t>(hash);
   uint32_t* bitset32 = reinterpret_cast<uint32_t*>(data_->mutable_data());
 
-  // Calculate mask for bucket.
-  BlockMask block_mask;
-  SetMask(key, block_mask);
-
   for (int i = 0; i < kBitsSetPerBlock; i++) {
-    bitset32[bucket_index * kBitsSetPerBlock + i] |= block_mask.item[i];
+    // Calculate mask for key in the given bitset.
+    const uint32_t mask = UINT32_C(0x1) << ((key * SALT[i]) >> 27);
+    bitset32[bucket_index * kBitsSetPerBlock + i] |= mask;
+  }
+}
+
+void BlockSplitBloomFilter::InsertHash(uint64_t hash) { InsertHashImpl(hash); }
+
+void BlockSplitBloomFilter::InsertHashes(const uint64_t* hashes, int num_values) {
+  for (int i = 0; i < num_values; ++i) {
+    InsertHashImpl(hashes[i]);
   }
 }
 

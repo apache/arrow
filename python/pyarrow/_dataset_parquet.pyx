@@ -19,6 +19,7 @@
 
 """Dataset support for Parquest file format."""
 
+from cython cimport binding
 from cython.operator cimport dereference as deref
 
 import os
@@ -31,7 +32,6 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_dataset cimport *
 from pyarrow.includes.libarrow_dataset_parquet cimport *
 from pyarrow._fs cimport FileSystem
-from pyarrow.util import _is_path_like, _stringify_path
 
 from pyarrow._compute cimport Expression, _bind
 from pyarrow._dataset cimport (
@@ -50,7 +50,7 @@ from pyarrow._dataset cimport (
 
 from pyarrow._parquet cimport (
     _create_writer_properties, _create_arrow_writer_properties,
-    FileMetaData, RowGroupMetaData, ColumnChunkMetaData
+    FileMetaData,
 )
 
 
@@ -179,6 +179,15 @@ cdef class ParquetFileFormat(FileFormat):
         return parquet_read_options
 
     def make_write_options(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+
+        Returns
+        -------
+        pyarrow.dataset.FileWriteOptions
+        """
         opts = FileFormat.make_write_options(self)
         (<ParquetFileWriteOptions> opts).update(**kwargs)
         return opts
@@ -190,6 +199,15 @@ cdef class ParquetFileFormat(FileFormat):
             super()._set_default_fragment_scan_options(options)
 
     def equals(self, ParquetFileFormat other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.ParquetFileFormat
+
+        Returns
+        -------
+        bool
+        """
         return (
             self.read_options.equals(other.read_options) and
             self.default_fragment_scan_options ==
@@ -209,6 +227,27 @@ cdef class ParquetFileFormat(FileFormat):
 
     def make_fragment(self, file, filesystem=None,
                       Expression partition_expression=None, row_groups=None):
+        """
+        Make a FileFragment from a given file.
+
+        Parameters
+        ----------
+        file : file-like object, path-like or str
+            The file or file path to make a fragment from.
+        filesystem : Filesystem, optional
+            If `filesystem` is given, `file` must be a string and specifies
+            the path of the file to read from the filesystem.
+        partition_expression : Expression, optional
+            An expression that is guaranteed true for all rows in the fragment.  Allows
+            fragment to be potentially skipped while scanning with a filter.
+        row_groups : Iterable, optional
+            The indices of the row groups to include
+
+        Returns
+        -------
+        fragment : Fragment
+            The file fragment
+        """
         cdef:
             vector[int] c_row_groups
 
@@ -482,6 +521,15 @@ cdef class ParquetReadOptions(_Weakrefable):
             self._coerce_int96_timestamp_unit = TimeUnit_NANO
 
     def equals(self, ParquetReadOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.ParquetReadOptions
+
+        Returns
+        -------
+        bool
+        """
         return (self.dictionary_columns == other.dictionary_columns and
                 self.coerce_int96_timestamp_unit ==
                 other.coerce_int96_timestamp_unit)
@@ -507,10 +555,16 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         object _properties
 
     def update(self, **kwargs):
+        """
+        Parameters
+        ----------
+        **kwargs : dict
+        """
         arrow_fields = {
             "use_deprecated_int96_timestamps",
             "coerce_timestamps",
             "allow_truncated_timestamps",
+            "use_compliant_nested_type",
         }
 
         setters = set()
@@ -566,7 +620,7 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
         self._properties = dict(
             use_dictionary=True,
             compression="snappy",
-            version="1.0",
+            version="2.6",
             write_statistics=None,
             data_page_size=None,
             compression_level=None,
@@ -576,10 +630,15 @@ cdef class ParquetFileWriteOptions(FileWriteOptions):
             use_deprecated_int96_timestamps=False,
             coerce_timestamps=None,
             allow_truncated_timestamps=False,
-            use_compliant_nested_type=False,
+            use_compliant_nested_type=True,
         )
         self._set_properties()
         self._set_arrow_properties()
+
+    def __repr__(self):
+        return "<pyarrow.dataset.ParquetFileWriteOptions {0}>".format(
+            " ".join([f"{key}={value}" for key, value in self._properties.items()])
+        )
 
 
 cdef set _PARQUET_READ_OPTIONS = {
@@ -694,6 +753,15 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
         self.reader_properties().set_thrift_container_size_limit(size)
 
     def equals(self, ParquetFragmentScanOptions other):
+        """
+        Parameters
+        ----------
+        other : pyarrow.dataset.ParquetFragmentScanOptions
+
+        Returns
+        -------
+        bool
+        """
         attrs = (
             self.use_buffered_stream, self.buffer_size, self.pre_buffer,
             self.thrift_string_size_limit, self.thrift_container_size_limit)
@@ -703,9 +771,12 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             other.thrift_container_size_limit)
         return attrs == other_attrs
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
+    @staticmethod
+    @binding(True)  # Required for Cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return ParquetFragmentScanOptions(**kwargs)
 
     def __reduce__(self):
         kwargs = dict(
@@ -715,7 +786,7 @@ cdef class ParquetFragmentScanOptions(FragmentScanOptions):
             thrift_string_size_limit=self.thrift_string_size_limit,
             thrift_container_size_limit=self.thrift_container_size_limit,
         )
-        return type(self)._reconstruct, (kwargs,)
+        return ParquetFragmentScanOptions._reconstruct, (kwargs,)
 
 
 cdef class ParquetFactoryOptions(_Weakrefable):
@@ -785,7 +856,7 @@ cdef class ParquetFactoryOptions(_Weakrefable):
         c_factory = self.options.partitioning.factory()
         if c_factory.get() == nullptr:
             return None
-        return PartitioningFactory.wrap(c_factory)
+        return PartitioningFactory.wrap(c_factory, None, None)
 
     @partitioning_factory.setter
     def partitioning_factory(self, PartitioningFactory value):

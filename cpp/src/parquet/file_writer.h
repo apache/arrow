@@ -163,6 +163,9 @@ class PARQUET_EXPORT ParquetFileWriter {
       return key_value_metadata_;
     }
 
+    virtual void AddKeyValueMetadata(
+        const std::shared_ptr<const KeyValueMetadata>& key_value_metadata) = 0;
+
     // Return const-pointer to make it clear that this object is not to be copied
     const SchemaDescriptor* schema() const { return &schema_; }
 
@@ -208,6 +211,13 @@ class PARQUET_EXPORT ParquetFileWriter {
   /// Ownership is solely within the ParquetFileWriter. The RowGroupWriter is only valid
   /// until the next call to AppendRowGroup or AppendBufferedRowGroup or Close.
   RowGroupWriter* AppendBufferedRowGroup();
+
+  /// \brief Add key-value metadata to the file.
+  /// \param[in] key_value_metadata the metadata to add.
+  /// \note This will overwrite any existing metadata with the same key.
+  /// \throw ParquetException if Close() has been called.
+  void AddKeyValueMetadata(
+      const std::shared_ptr<const KeyValueMetadata>& key_value_metadata);
 
   /// Number of columns.
   ///

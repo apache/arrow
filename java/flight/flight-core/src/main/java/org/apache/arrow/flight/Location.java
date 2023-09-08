@@ -60,7 +60,7 @@ public class Location {
    *
    * @return null if could not be converted
    */
-  SocketAddress toSocketAddress() {
+  public SocketAddress toSocketAddress() {
     switch (uri.getScheme()) {
       case LocationSchemes.GRPC:
       case LocationSchemes.GRPC_TLS:

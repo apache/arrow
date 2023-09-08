@@ -24,15 +24,22 @@
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
-from pyarrow.includes.libarrow_dataset cimport *
-from pyarrow.lib cimport (Table, check_status, pyarrow_unwrap_table, pyarrow_wrap_table,
+from pyarrow.includes.libarrow_acero cimport *
+from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
-from pyarrow._compute cimport Expression, FunctionOptions, _ensure_field_ref, _true
-from pyarrow.compute import field
+from pyarrow._compute cimport (
+    Expression, FunctionOptions, _ensure_field_ref, _true,
+    unwrap_null_placement, unwrap_sort_order
+)
 
 
 cdef class ExecNodeOptions(_Weakrefable):
+    """
+    Base class for the node options.
+
+    Use one of the subclasses to construct an options object.
+    """
     __slots__ = ()  # avoid mistakingly creating attributes
 
     cdef void init(self, const shared_ptr[CExecNodeOptions]& sp):
@@ -222,6 +229,51 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 
     def __init__(self, aggregates, keys=None):
         self._set_options(aggregates, keys)
+
+
+cdef class _OrderByNodeOptions(ExecNodeOptions):
+
+    def _set_options(self, sort_keys, null_placement):
+        cdef:
+            vector[CSortKey] c_sort_keys
+
+        for name, order in sort_keys:
+            c_sort_keys.push_back(
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+            )
+
+        self.wrapped.reset(
+            new COrderByNodeOptions(
+                COrdering(c_sort_keys, unwrap_null_placement(null_placement))
+            )
+        )
+
+
+class OrderByNodeOptions(_OrderByNodeOptions):
+    """
+    Make a node which applies a new ordering to the data.
+
+    Currently this node works by accumulating all data, sorting, and then
+    emitting the new data with an updated batch index.
+    Larger-than-memory sort is not currently supported.
+
+    This is the option class for the "order_by" node factory.
+
+    Parameters
+    ----------
+    sort_keys : sequence of (name, order) tuples
+        Names of field/column keys to sort the input on,
+        along with the order each field/column is sorted in.
+        Accepted values for `order` are "ascending", "descending".
+        Each field reference can be a string column name or expression.
+    null_placement : str, default "at_end"
+        Where nulls in input should be sorted, only applying to
+        columns/fields mentioned in `sort_keys`.
+        Accepted values are "at_start", "at_end".
+    """
+
+    def __init__(self, sort_keys=(), *, null_placement="at_end"):
+        self._set_options(sort_keys, null_placement)
 
 
 cdef class _HashJoinNodeOptions(ExecNodeOptions):

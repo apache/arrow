@@ -209,8 +209,7 @@ class RleEncoder {
     // bit-packed repeated value
     int min_repeated_run_size =
         1 + static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
-    int repeated_max_size = static_cast<int>(::arrow::bit_util::CeilDiv(num_values, 8)) *
-                            min_repeated_run_size;
+    int repeated_max_size = num_runs * min_repeated_run_size;
 
     return std::max(literal_max_size, repeated_max_size);
   }

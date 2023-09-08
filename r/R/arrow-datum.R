@@ -151,7 +151,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     gamma = ,
     digamma = ,
     trigamma = ,
-    cumsum = ,
+    cumsum = eval_array_expression("cumulative_sum_checked", x),
     cumprod = ,
     cummax = ,
     cummin = ,

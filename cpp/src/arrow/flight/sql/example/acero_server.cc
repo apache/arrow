@@ -22,8 +22,8 @@
 #include <mutex>
 #include <unordered_map>
 
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/options.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/options.h"
 #include "arrow/engine/substrait/serde.h"
 #include "arrow/flight/sql/types.h"
 #include "arrow/type.h"
@@ -91,13 +91,14 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
     // GetFlightInfoSubstraitPlan encodes the plan into the ticket
     std::shared_ptr<Buffer> serialized_plan =
         Buffer::FromString(command.statement_handle);
-    ARROW_ASSIGN_OR_RAISE(compute::Declaration plan,
+    ARROW_ASSIGN_OR_RAISE(engine::PlanInfo plan,
                           engine::DeserializePlan(*serialized_plan));
 
-    ARROW_LOG(INFO) << "DoGetStatement: executing plan "
-                    << compute::DeclarationToString(plan).ValueOr("Invalid plan");
+    ARROW_LOG(INFO)
+        << "DoGetStatement: executing plan "
+        << acero::DeclarationToString(plan.root.declaration).ValueOr("Invalid plan");
 
-    ARROW_ASSIGN_OR_RAISE(auto reader, compute::DeclarationToReader(plan));
+    ARROW_ASSIGN_OR_RAISE(auto reader, acero::DeclarationToReader(plan.root.declaration));
     return std::make_unique<RecordBatchStream>(std::move(reader));
   }
 
@@ -157,18 +158,19 @@ class AceroFlightSqlServer : public FlightSqlServerBase {
   arrow::Result<std::shared_ptr<arrow::Schema>> GetPlanSchema(
       const std::string& serialized_plan) {
     std::shared_ptr<Buffer> plan_buf = Buffer::FromString(serialized_plan);
-    ARROW_ASSIGN_OR_RAISE(compute::Declaration plan, engine::DeserializePlan(*plan_buf));
-    return compute::DeclarationToSchema(plan);
+    ARROW_ASSIGN_OR_RAISE(engine::PlanInfo plan, engine::DeserializePlan(*plan_buf));
+    return acero::DeclarationToSchema(plan.root.declaration);
   }
 
   arrow::Result<std::unique_ptr<FlightInfo>> MakeFlightInfo(
       const std::string& plan, const FlightDescriptor& descriptor, const Schema& schema) {
     ARROW_ASSIGN_OR_RAISE(auto ticket, CreateStatementQueryTicket(plan));
-    std::vector<FlightEndpoint> endpoints{
-        FlightEndpoint{Ticket{std::move(ticket)}, /*locations=*/{}}};
-    ARROW_ASSIGN_OR_RAISE(auto info,
-                          FlightInfo::Make(schema, descriptor, std::move(endpoints),
-                                           /*total_records=*/-1, /*total_bytes=*/-1));
+    std::vector<FlightEndpoint> endpoints{FlightEndpoint{
+        Ticket{std::move(ticket)}, /*locations=*/{}, /*expiration_time=*/std::nullopt}};
+    ARROW_ASSIGN_OR_RAISE(
+        auto info,
+        FlightInfo::Make(schema, descriptor, std::move(endpoints),
+                         /*total_records=*/-1, /*total_bytes=*/-1, /*ordered=*/false));
     return std::make_unique<FlightInfo>(std::move(info));
   }
 

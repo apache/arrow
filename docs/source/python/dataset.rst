@@ -33,11 +33,6 @@
 Tabular Datasets
 ================
 
-.. warning::
-
-    The ``pyarrow.dataset`` module is experimental (specifically the classes),
-    and a stable API is not yet guaranteed.
-
 The ``pyarrow.dataset`` module provides functionality to efficiently work with
 tabular, potentially larger than memory, and multi-file datasets. This includes:
 

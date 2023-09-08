@@ -42,10 +42,11 @@ export class ListBuilder<T extends DataType = any, TNull = any> extends Variable
             if (typeof value === 'undefined') {
                 offsets.set(index, 0);
             } else {
-                const n = value.length;
+                const v = value as T['TValue'];
+                const n = v.length;
                 const start = offsets.set(index, n).buffer[index];
                 for (let i = -1; ++i < n;) {
-                    child.set(start + i, value[i]);
+                    child.set(start + i, v[i]);
                 }
             }
         }

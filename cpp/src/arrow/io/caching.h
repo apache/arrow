@@ -43,10 +43,14 @@ struct ARROW_EXPORT CacheOptions {
   int64_t range_size_limit;
   /// \brief A lazy cache does not perform any I/O until requested.
   bool lazy;
+  /// \brief The maximum number of ranges to be prefetched. This is only used
+  ///   for lazy cache to asynchronously read some ranges after reading the target range.
+  int64_t prefetch_limit = 0;
 
   bool operator==(const CacheOptions& other) const {
     return hole_size_limit == other.hole_size_limit &&
-           range_size_limit == other.range_size_limit && lazy == other.lazy;
+           range_size_limit == other.range_size_limit && lazy == other.lazy &&
+           prefetch_limit == other.prefetch_limit;
   }
 
   /// \brief Construct CacheOptions from network storage metrics (e.g. S3).
@@ -109,11 +113,11 @@ class ARROW_EXPORT ReadRangeCache {
   /// Construct a read cache with given options
   explicit ReadRangeCache(std::shared_ptr<RandomAccessFile> file, IOContext ctx,
                           CacheOptions options)
-      : ReadRangeCache(file, file.get(), ctx, options) {}
+      : ReadRangeCache(file, file.get(), std::move(ctx), options) {}
 
   /// Construct a read cache with an unowned file
   ReadRangeCache(RandomAccessFile* file, IOContext ctx, CacheOptions options)
-      : ReadRangeCache(NULLPTR, file, ctx, options) {}
+      : ReadRangeCache(NULLPTR, file, std::move(ctx), options) {}
 
   ~ReadRangeCache();
 

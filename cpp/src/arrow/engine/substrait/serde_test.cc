@@ -28,18 +28,17 @@
 #include <gtest/gtest-matchers.h>
 #include <gtest/gtest.h>
 
+#include "arrow/acero/asof_join_node.h"
+#include "arrow/acero/exec_plan.h"
+#include "arrow/acero/map_node.h"
+#include "arrow/acero/options.h"
+#include "arrow/acero/util.h"
 #include "arrow/buffer.h"
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/exec.h"
-#include "arrow/compute/exec/asof_join_node.h"
-#include "arrow/compute/exec/exec_plan.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/expression_internal.h"
-#include "arrow/compute/exec/map_node.h"
-#include "arrow/compute/exec/options.h"
-#include "arrow/compute/exec/test_util.h"
-#include "arrow/compute/exec/util.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/dataset.h"
@@ -54,6 +53,7 @@
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
 #include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/test_util.h"
 #include "arrow/engine/substrait/util.h"
 #include "arrow/filesystem/filesystem.h"
 #include "arrow/filesystem/localfs.h"
@@ -71,6 +71,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/async_generator_fwd.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/config.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/hash_util.h"
@@ -91,14 +92,14 @@ namespace engine {
 
 Status AddPassFactory(
     const std::string& factory_name,
-    compute::ExecFactoryRegistry* registry = compute::default_exec_factory_registry()) {
+    acero::ExecFactoryRegistry* registry = acero::default_exec_factory_registry()) {
+  using acero::ExecNode;
+  using acero::ExecNodeOptions;
+  using acero::ExecPlan;
   using compute::ExecBatch;
-  using compute::ExecNode;
-  using compute::ExecNodeOptions;
-  using compute::ExecPlan;
-  struct PassNode : public compute::MapNode {
+  struct PassNode : public acero::MapNode {
     static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                  const compute::ExecNodeOptions& options) {
+                                  const acero::ExecNodeOptions& options) {
       RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, "PassNode"));
       return plan->EmplaceNode<PassNode>(plan, inputs, inputs[0]->output_schema());
     }
@@ -113,7 +114,7 @@ Status AddPassFactory(
   return registry->AddFactory(factory_name, PassNode::Make);
 }
 
-const auto kNullConsumer = std::make_shared<compute::NullSinkNodeConsumer>();
+const auto kNullConsumer = std::make_shared<acero::NullSinkNodeConsumer>();
 
 void WriteIpcData(const std::string& path,
                   const std::shared_ptr<fs::FileSystem> file_system,
@@ -137,10 +138,10 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
-  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  auto& other_declrs = std::get<acero::Declaration>(sink_decls[0].inputs[0]);
 
   ASSERT_OK_AND_ASSIGN(auto output_table,
-                       compute::DeclarationToTable(other_declrs, /*use_threads=*/false));
+                       acero::DeclarationToTable(other_declrs, /*use_threads=*/false));
 
   if (!include_columns.empty()) {
     ASSERT_OK_AND_ASSIGN(output_table, output_table->SelectColumns(include_columns));
@@ -155,7 +156,7 @@ void CheckRoundTripResult(const std::shared_ptr<Table> expected_table,
   }
   ASSERT_OK_AND_ASSIGN(output_table, output_table->CombineChunks());
   ASSERT_OK_AND_ASSIGN(auto merged_expected, expected_table->CombineChunks());
-  compute::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
+  engine::AssertTablesEqualIgnoringOrder(merged_expected, output_table);
 }
 
 const std::shared_ptr<Schema> kBoringSchema = schema({
@@ -202,14 +203,14 @@ inline compute::Expression UseBoringRefs(const compute::Expression& expr) {
   return compute::Expression{std::move(modified_call)};
 }
 
-int CountProjectNodeOptionsInDeclarations(const compute::Declaration& input) {
+int CountProjectNodeOptionsInDeclarations(const acero::Declaration& input) {
   int counter = 0;
   if (input.factory_name == "project") {
     counter++;
   }
   const auto& inputs = input.inputs;
   for (const auto& in : inputs) {
-    counter += CountProjectNodeOptionsInDeclarations(std::get<compute::Declaration>(in));
+    counter += CountProjectNodeOptionsInDeclarations(std::get<acero::Declaration>(in));
   }
   return counter;
 }
@@ -225,7 +226,7 @@ void ValidateNumProjectNodes(int expected_projections, const std::shared_ptr<Buf
   ASSERT_OK_AND_ASSIGN(auto sink_decls, DeserializePlans(
                                             *buf, [] { return kNullConsumer; },
                                             ext_id_reg, &ext_set, conversion_options));
-  auto& other_declrs = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  auto& other_declrs = std::get<acero::Declaration>(sink_decls[0].inputs[0]);
   int num_projections = CountProjectNodeOptionsInDeclarations(other_declrs);
   ASSERT_EQ(num_projections, expected_projections);
 }
@@ -814,6 +815,19 @@ TEST(Substrait, Cast) {
   ASSERT_TRUE(expr.call());
 
   ASSERT_THAT(expr.call()->arguments[0].call()->function_name, "cast");
+
+  std::shared_ptr<compute::FunctionOptions> call_opts =
+      expr.call()->arguments[0].call()->options;
+
+  ASSERT_TRUE(!!call_opts);
+  std::shared_ptr<compute::CastOptions> cast_opts =
+      std::dynamic_pointer_cast<compute::CastOptions>(call_opts);
+  ASSERT_TRUE(!!cast_opts);
+  // It is unclear whether a Substrait cast should be safe or not.  In the meantime we are
+  // assuming it is unsafe based on the behavior of many SQL engines.
+  ASSERT_TRUE(cast_opts->allow_int_overflow);
+  ASSERT_TRUE(cast_opts->allow_float_truncate);
+  ASSERT_TRUE(cast_opts->allow_decimal_truncate);
 }
 
 TEST(Substrait, CastRequiresFailureBehavior) {
@@ -953,9 +967,9 @@ TEST(Substrait, ReadRel) {
 /// \brief Create a NamedTableProvider that provides `table` regardless of the name
 NamedTableProvider AlwaysProvideSameTable(std::shared_ptr<Table> table) {
   return [table = std::move(table)](const std::vector<std::string>&, const Schema&) {
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
   };
 }
 
@@ -1132,7 +1146,7 @@ TEST(Substrait, ExtensionSetFromPlanExhaustedFactory) {
     ASSERT_RAISES(
         Invalid,
         DeserializePlans(
-            *buf, []() -> std::shared_ptr<compute::SinkNodeConsumer> { return nullptr; },
+            *buf, []() -> std::shared_ptr<acero::SinkNodeConsumer> { return nullptr; },
             ext_id_reg, &ext_set));
     ASSERT_RAISES(
         Invalid,
@@ -1231,11 +1245,11 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations,
-                       DeserializePlans(*buf, compute::NullSinkNodeConsumer::Make));
+                       DeserializePlans(*buf, acero::NullSinkNodeConsumer::Make));
   ASSERT_EQ(declarations.size(), 1);
-  compute::Declaration* decl = &declarations[0];
+  acero::Declaration* decl = &declarations[0];
   ASSERT_EQ(decl->factory_name, "consuming_sink");
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
@@ -1249,10 +1263,10 @@ TEST(Substrait, DeserializeWithConsumerFactory) {
 TEST(Substrait, DeserializeSinglePlanWithConsumerFactory) {
   ASSERT_OK_AND_ASSIGN(std::string substrait_json, GetSubstraitJSON());
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
-  ASSERT_OK_AND_ASSIGN(std::shared_ptr<compute::ExecPlan> plan,
-                       DeserializePlan(*buf, compute::NullSinkNodeConsumer::Make()));
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<acero::ExecPlan> plan,
+                       DeserializePlan(*buf, acero::NullSinkNodeConsumer::Make()));
   ASSERT_EQ(2, plan->nodes().size());
-  compute::ExecNode* sink_node = plan->nodes()[1];
+  acero::ExecNode* sink_node = plan->nodes()[1];
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
   auto& prev_node = sink_node->inputs()[0];
@@ -1284,13 +1298,13 @@ TEST(Substrait, DeserializeWithWriteOptionsFactory) {
   ASSERT_OK_AND_ASSIGN(auto buf, SerializeJsonPlan(substrait_json));
   ASSERT_OK_AND_ASSIGN(auto declarations, DeserializePlans(*buf, write_options_factory));
   ASSERT_EQ(declarations.size(), 1);
-  compute::Declaration* decl = &declarations[0];
+  acero::Declaration* decl = &declarations[0];
   ASSERT_EQ(decl->factory_name, "write");
   ASSERT_EQ(decl->inputs.size(), 1);
-  decl = std::get_if<compute::Declaration>(&decl->inputs[0]);
+  decl = std::get_if<acero::Declaration>(&decl->inputs[0]);
   ASSERT_NE(decl, nullptr);
   ASSERT_EQ(decl->factory_name, "scan");
-  ASSERT_OK_AND_ASSIGN(auto plan, compute::ExecPlan::Make());
+  ASSERT_OK_AND_ASSIGN(auto plan, acero::ExecPlan::Make());
   ASSERT_OK_AND_ASSIGN(auto sink_node, declarations[0].AddToPlan(plan.get()));
   ASSERT_STREQ(sink_node->kind_name(), "ConsumingSinkNode");
   ASSERT_EQ(sink_node->num_inputs(), 1);
@@ -1482,16 +1496,16 @@ TEST(Substrait, JoinPlanBasic) {
 
     auto join_decl = sink_decls[0].inputs[0];
 
-    const auto& join_rel = std::get<compute::Declaration>(join_decl);
+    const auto& join_rel = std::get<acero::Declaration>(join_decl);
 
     const auto& join_options =
-        checked_cast<const compute::HashJoinNodeOptions&>(*join_rel.options);
+        checked_cast<const acero::HashJoinNodeOptions&>(*join_rel.options);
 
     EXPECT_EQ(join_rel.factory_name, "hashjoin");
-    EXPECT_EQ(join_options.join_type, compute::JoinType::INNER);
+    EXPECT_EQ(join_options.join_type, acero::JoinType::INNER);
 
-    const auto& left_rel = std::get<compute::Declaration>(join_rel.inputs[0]);
-    const auto& right_rel = std::get<compute::Declaration>(join_rel.inputs[1]);
+    const auto& left_rel = std::get<acero::Declaration>(join_rel.inputs[0]);
+    const auto& right_rel = std::get<acero::Declaration>(join_rel.inputs[1]);
 
     const auto& l_options =
         checked_cast<const dataset::ScanNodeOptions&>(*left_rel.options);
@@ -1505,7 +1519,7 @@ TEST(Substrait, JoinPlanBasic) {
         r_options.dataset->schema(),
         schema({field("X", int32()), field("Y", int32()), field("A", int32())}));
 
-    EXPECT_EQ(join_options.key_cmp[0], compute::JoinKeyCmp::EQ);
+    EXPECT_EQ(join_options.key_cmp[0], acero::JoinKeyCmp::EQ);
   }
 }
 
@@ -1857,10 +1871,10 @@ TEST(Substrait, AggregateBasic) {
                        DeserializePlans(*buf, [] { return kNullConsumer; }));
   auto agg_decl = sink_decls[0].inputs[0];
 
-  const auto& agg_rel = std::get<compute::Declaration>(agg_decl);
+  const auto& agg_rel = std::get<acero::Declaration>(agg_decl);
 
   const auto& agg_options =
-      checked_cast<const compute::AggregateNodeOptions&>(*agg_rel.options);
+      checked_cast<const acero::AggregateNodeOptions&>(*agg_rel.options);
 
   EXPECT_EQ(agg_rel.factory_name, "aggregate");
   EXPECT_EQ(agg_options.aggregates[0].name, "");
@@ -2237,11 +2251,10 @@ TEST(SubstraitRoundTrip, BasicPlan) {
 
   arrow::AsyncGenerator<std::optional<compute::ExecBatch>> sink_gen;
 
-  auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration(
-           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"}),
-       compute::Declaration({"sink", compute::SinkNodeOptions{&sink_gen}, "e"})});
+  auto declarations = acero::Declaration::Sequence(
+      {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       acero::Declaration({"filter", acero::FilterNodeOptions{filter}, "f"}),
+       acero::Declaration({"sink", acero::SinkNodeOptions{&sink_gen}, "e"})});
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -2254,10 +2267,9 @@ TEST(SubstraitRoundTrip, BasicPlan) {
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // filter declaration
-  const auto& roundtripped_filter =
-      std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  const auto& roundtripped_filter = std::get<acero::Declaration>(sink_decls[0].inputs[0]);
   const auto& filter_opts =
-      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter.options));
+      checked_cast<const acero::FilterNodeOptions&>(*(roundtripped_filter.options));
   auto roundtripped_expr = filter_opts.filter_expression;
 
   if (auto* call = roundtripped_expr.call()) {
@@ -2270,7 +2282,7 @@ TEST(SubstraitRoundTrip, BasicPlan) {
   }
   // scan declaration
   const auto& roundtripped_scan =
-      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
+      std::get<acero::Declaration>(roundtripped_filter.inputs[0]);
   const auto& dataset_opts =
       checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan.options));
   const auto& roundripped_ds = dataset_opts.dataset;
@@ -2346,12 +2358,11 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   auto comp_right_value = compute::field_ref(filter_col_right);
   auto filter = compute::equal(comp_left_value, comp_right_value);
 
-  auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration(
-           {"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
-       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
+  auto declarations = acero::Declaration::Sequence(
+      {acero::Declaration({"scan", dataset::ScanNodeOptions{dataset, scan_options}, "s"}),
+       acero::Declaration({"filter", acero::FilterNodeOptions{filter}, "f"})});
 
-  ASSERT_OK_AND_ASSIGN(auto expected_table, compute::DeclarationToTable(declarations));
+  ASSERT_OK_AND_ASSIGN(auto expected_table, acero::DeclarationToTable(declarations));
 
   std::shared_ptr<ExtensionIdRegistry> sp_ext_id_reg = MakeExtensionIdRegistry();
   ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
@@ -2364,9 +2375,9 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
       DeserializePlans(
           *serialized_plan, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
   // filter declaration
-  auto& roundtripped_filter = std::get<compute::Declaration>(sink_decls[0].inputs[0]);
+  auto& roundtripped_filter = std::get<acero::Declaration>(sink_decls[0].inputs[0]);
   const auto& filter_opts =
-      checked_cast<const compute::FilterNodeOptions&>(*(roundtripped_filter.options));
+      checked_cast<const acero::FilterNodeOptions&>(*(roundtripped_filter.options));
   auto roundtripped_expr = filter_opts.filter_expression;
 
   if (auto* call = roundtripped_expr.call()) {
@@ -2379,7 +2390,7 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
   }
   // scan declaration
   const auto& roundtripped_scan =
-      std::get<compute::Declaration>(roundtripped_filter.inputs[0]);
+      std::get<acero::Declaration>(roundtripped_filter.inputs[0]);
   const auto& dataset_opts =
       checked_cast<const dataset::ScanNodeOptions&>(*(roundtripped_scan.options));
   const auto& roundripped_ds = dataset_opts.dataset;
@@ -2398,8 +2409,8 @@ TEST(SubstraitRoundTrip, BasicPlanEndToEnd) {
     EXPECT_TRUE(l_frag->Equals(*r_frag));
   }
   ASSERT_OK_AND_ASSIGN(auto rnd_trp_table,
-                       compute::DeclarationToTable(roundtripped_filter));
-  compute::AssertTablesEqualIgnoringOrder(expected_table, rnd_trp_table);
+                       acero::DeclarationToTable(roundtripped_filter));
+  engine::AssertTablesEqualIgnoringOrder(expected_table, rnd_trp_table);
 }
 
 TEST(SubstraitRoundTrip, FilterNamedTable) {
@@ -2410,11 +2421,10 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
       schema({field("A", int32()), field("B", int32()), field("C", int32())});
   auto filter = compute::equal(compute::field_ref("A"), compute::field_ref("B"));
 
-  auto declarations = compute::Declaration::Sequence(
-      {compute::Declaration({"named_table",
-                             compute::NamedTableNodeOptions{table_names, dummy_schema},
-                             "n"}),
-       compute::Declaration({"filter", compute::FilterNodeOptions{filter}, "f"})});
+  auto declarations = acero::Declaration::Sequence(
+      {acero::Declaration(
+           {"named_table", acero::NamedTableNodeOptions{table_names, dummy_schema}, "n"}),
+       acero::Declaration({"filter", acero::FilterNodeOptions{filter}, "f"})});
 
   ExtensionSet ext_set{};
   ASSERT_OK_AND_ASSIGN(auto serialized_plan, SerializePlan(declarations, &ext_set));
@@ -2432,7 +2442,7 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
   NamedTableProvider table_provider =
       [&input_table, &table_names, &dummy_schema](
           const std::vector<std::string>& names,
-          const Schema& schema) -> Result<compute::Declaration> {
+          const Schema& schema) -> Result<acero::Declaration> {
     if (table_names != names) {
       return Status::Invalid("Table name mismatch");
     }
@@ -2440,9 +2450,9 @@ TEST(SubstraitRoundTrip, FilterNamedTable) {
       return Status::Invalid("Table schema mismatch");
     }
 
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(input_table);
-    return compute::Declaration("table_source", {}, std::move(options), "mock_source");
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(input_table);
+    return acero::Declaration("table_source", {}, std::move(options), "mock_source");
   };
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
@@ -3186,9 +3196,9 @@ TEST(SubstraitRoundTrip, JoinRel) {
             output_table = right_table;
           }
         }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
+        std::shared_ptr<acero::ExecNodeOptions> options =
+            std::make_shared<acero::TableSourceNodeOptions>(std::move(output_table));
+        return acero::Declaration("table_source", {}, options, "mock_source");
       };
 
   ConversionOptions conversion_options;
@@ -3337,9 +3347,9 @@ TEST(SubstraitRoundTrip, JoinRelWithEmit) {
             output_table = right_table;
           }
         }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
+        std::shared_ptr<acero::ExecNodeOptions> options =
+            std::make_shared<acero::TableSourceNodeOptions>(std::move(output_table));
+        return acero::Declaration("table_source", {}, options, "mock_source");
       };
 
   ConversionOptions conversion_options;
@@ -3440,12 +3450,124 @@ TEST(SubstraitRoundTrip, AggregateRel) {
   ASSERT_OK_AND_ASSIGN(auto buf,
                        internal::SubstraitFromJSON("Plan", substrait_json,
                                                    /*ignore_unknown_fields=*/false));
-  auto output_schema = schema({field("aggregates", int64()), field("keys", int32())});
+  auto output_schema = schema({field("keys", int32()), field("aggregates", int64())});
   auto expected_table = TableFromJSON(output_schema, {R"([
-      [80, 10],
-      [90, 20],
-      [60, 30],
-      [60, 40]
+      [10, 80],
+      [20, 90],
+      [30, 60],
+      [40, 60]
+  ])"});
+
+  NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  CheckRoundTripResult(std::move(expected_table), buf,
+                       /*include_columns=*/{}, conversion_options);
+}
+
+TEST(SubstraitRoundTrip, AggregateRelOptions) {
+  auto dummy_schema =
+      schema({field("A", int32()), field("B", int32()), field("C", int32())});
+
+  // creating a dummy dataset using a dummy table
+  auto input_table = TableFromJSON(dummy_schema, {R"([
+      [10, 1, 10],
+      [20, 2, 10],
+      [30, 3, 20],
+      [30, 1, 20],
+      [20, 2, 30],
+      [10, 3, 30]
+  ])"});
+
+  std::string substrait_json = R"({
+    "version": { "major_number": 9999, "minor_number": 9999, "patch_number": 9999 },
+    "relations": [{
+      "rel": {
+        "aggregate": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": ["A", "B", "C"],
+                "struct": {
+                  "types": [{
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }, {
+                    "i32": {}
+                  }]
+                }
+              },
+              "namedTable" : {
+                "names": ["A"]
+              }
+            }
+          },
+          "groupings": [{
+            "groupingExpressions": [{
+              "selection": {
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                }
+              }
+            }]
+          }],
+          "measures": [{
+            "measure": {
+              "functionReference": 0,
+              "arguments": [{
+                "value": {
+                  "selection": {
+                    "directReference": {
+                      "structField": {
+                        "field": 2
+                      }
+                    }
+                  }
+                }
+            }],
+              "options": [{
+                "name": "distribution",
+                "preference": [
+                  "POPULATION"
+                ]
+              }],
+              "sorts": [],
+              "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+              "invocation": "AGGREGATION_INVOCATION_ALL",
+              "outputType": {
+                "i64": {}
+              }
+            }
+          }]
+        }
+      }
+    }],
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "variance"
+      }
+    }],
+  })";
+
+  ASSERT_OK_AND_ASSIGN(auto buf,
+                       internal::SubstraitFromJSON("Plan", substrait_json,
+                                                   /*ignore_unknown_fields=*/false));
+  auto output_schema = schema({field("keys", int32()), field("aggregates", float64())});
+  auto expected_table = TableFromJSON(output_schema, {R"([
+      [10, 200],
+      [20, 200],
+      [30, 0]
   ])"});
 
   NamedTableProvider table_provider = AlwaysProvideSameTable(std::move(input_table));
@@ -3480,7 +3602,7 @@ TEST(SubstraitRoundTrip, AggregateRelEmit) {
         "aggregate": {
           "common": {
           "emit": {
-            "outputMapping": [0]
+            "outputMapping": [1]
           }
         },
           "input": {
@@ -3678,11 +3800,11 @@ TEST(Substrait, IsthmusPlan) {
 NamedTableProvider ProvideMadeTable(
     std::function<Result<std::shared_ptr<Table>>(const std::vector<std::string>&)> make) {
   return [make](const std::vector<std::string>& names,
-                const Schema&) -> Result<compute::Declaration> {
+                const Schema&) -> Result<acero::Declaration> {
     ARROW_ASSIGN_OR_RAISE(auto table, make(names));
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(table);
-    return compute::Declaration("table_source", {}, options, "mock_source");
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
   };
 }
 
@@ -3816,7 +3938,7 @@ TEST(Substrait, ProjectWithMultiFieldExpressions) {
             }]
           }
         },
-        "names": ["A", "B", "C", "D"]
+        "names": ["A", "B", "C"]
       }
     }]
   })";
@@ -4252,9 +4374,9 @@ TEST(Substrait, SetRelationBasic) {
             output_table = table2;
           }
         }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
+        std::shared_ptr<acero::ExecNodeOptions> options =
+            std::make_shared<acero::TableSourceNodeOptions>(std::move(output_table));
+        return acero::Declaration("table_source", {}, options, "mock_source");
       };
 
   ConversionOptions conversion_options;
@@ -4337,6 +4459,9 @@ TEST(Substrait, SetRelationBasic) {
 }
 
 TEST(Substrait, PlanWithAsOfJoinExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -4347,7 +4472,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 5]
+                "outputMapping": [0, 1, 2, 3]
               }
             },
             "inputs": [
@@ -4517,7 +4642,7 @@ TEST(Substrait, PlanWithAsOfJoinExtension) {
   ValidateNumProjectNodes(1, buf, conversion_options);
   ASSERT_OK_AND_ASSIGN(
       auto out_schema,
-      compute::asofjoin::MakeOutputSchema(
+      acero::asofjoin::MakeOutputSchema(
           input_schema, {{FieldRef(0), {FieldRef(1)}}, {FieldRef(0), {FieldRef(1)}}}));
   auto expected_table = TableFromJSON(
       out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
@@ -4794,9 +4919,9 @@ TEST(Substrait, CompoundEmitFilterless) {
             output_table = right_table;
           }
         }
-        std::shared_ptr<compute::ExecNodeOptions> options =
-            std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-        return compute::Declaration("table_source", {}, options, "mock_source");
+        std::shared_ptr<acero::ExecNodeOptions> options =
+            std::make_shared<acero::TableSourceNodeOptions>(std::move(output_table));
+        return acero::Declaration("table_source", {}, options, "mock_source");
       };
 
   ConversionOptions conversion_options;
@@ -5112,7 +5237,7 @@ TEST(Substrait, CompoundEmitWithFilter) {
 
   NamedTableProvider table_provider = [left_table, right_table](
                                           const std::vector<std::string>& names,
-                                          const Schema&) -> Result<compute::Declaration> {
+                                          const Schema&) -> Result<acero::Declaration> {
     std::shared_ptr<Table> output_table;
     for (const auto& name : names) {
       if (name == "left") {
@@ -5125,9 +5250,9 @@ TEST(Substrait, CompoundEmitWithFilter) {
     if (!output_table) {
       return Status::Invalid("NamedTableProvider couldn't set the table");
     }
-    std::shared_ptr<compute::ExecNodeOptions> options =
-        std::make_shared<compute::TableSourceNodeOptions>(std::move(output_table));
-    return compute::Declaration("table_source", {}, options, "mock_source");
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(std::move(output_table));
+    return acero::Declaration("table_source", {}, options, "mock_source");
   };
 
   ConversionOptions conversion_options;
@@ -5136,7 +5261,230 @@ TEST(Substrait, CompoundEmitWithFilter) {
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
+TEST(Substrait, SortAndFetch) {
+  // Sort by A, ascending, take items [2, 5), then sort by B descending
+  std::string substrait_json = R"({
+    "version": {
+        "major_number": 9999,
+        "minor_number": 9999,
+        "patch_number": 9999
+    },
+    "relations": [
+        {
+            "rel": {
+                "sort": {
+                    "input": {
+                        "fetch": {
+                            "input": {
+                                "sort": {
+                                    "input": {
+                                        "read": {
+                                            "base_schema": {
+                                                "names": [
+                                                    "A",
+                                                    "B"
+                                                ],
+                                                "struct": {
+                                                    "types": [
+                                                        {
+                                                            "i32": {}
+                                                        },
+                                                        {
+                                                            "i32": {}
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "namedTable": {
+                                                "names": [
+                                                    "table"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "sorts": [
+                                        {
+                                            "expr": {
+                                                "selection": {
+                                                    "directReference": {
+                                                        "structField": {
+                                                            "field": 0
+                                                        }
+                                                    },
+                                                    "rootReference": {}
+                                                }
+                                            },
+                                            "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+                                        }
+                                    ]
+                                }
+                            },
+                            "offset": 2,
+                            "count": 3
+                        }
+                    },
+                    "sorts": [
+                        {
+                            "expr": {
+                                "selection": {
+                                    "directReference": {
+                                        "structField": {
+                                            "field": 1
+                                        }
+                                    },
+                                    "rootReference": {}
+                                }
+                            },
+                            "direction": "SORT_DIRECTION_DESC_NULLS_LAST"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "extension_uris": [],
+    "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [null, null],
+      [5, 8],
+      [null, null],
+      [null, null],
+      [3, 4],
+      [9, 6],
+      [4, 5]
+  ])"});
+
+  // First sort by A, ascending, nulls first to yield rows:
+  // 0, 2, 3, 4, 6, 1, 5
+  // Apply fetch to grab rows 3, 4, 6
+  // Then sort by B, descending, to yield rows 6, 4, 3
+
+  auto output_table = TableFromJSON(test_schema, {R"([
+    [4, 5],
+    [3, 4],
+    [null, null]
+  ])"});
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider =
+      AlwaysProvideSameTable(std::move(input_table));
+
+  CheckRoundTripResult(std::move(output_table), buf, {}, conversion_options);
+}
+
+TEST(Substrait, MixedSort) {
+  // Substrait allows two sort keys with differing direction but Acero
+  // does not.  We should detect this and reject it.
+  std::string substrait_json = R"({
+  "version": {
+    "major_number": 9999,
+    "minor_number": 9999,
+    "patch_number": 9999
+  },
+  "relations": [
+    {
+      "rel": {
+        "sort": {
+          "input": {
+            "read": {
+              "base_schema": {
+                "names": [
+                  "A",
+                  "B"
+                ],
+                "struct": {
+                  "types": [
+                    {
+                      "i32": {}
+                    },
+                    {
+                      "i32": {}
+                    }
+                  ]
+                }
+              },
+              "namedTable": {
+                "names": [
+                  "table"
+                ]
+              }
+            }
+          },
+          "sorts": [
+            {
+              "expr": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 0
+                    }
+                  },
+                  "rootReference": {}
+                }
+              },
+              "direction": "SORT_DIRECTION_ASC_NULLS_FIRST"
+            },
+            {
+              "expr": {
+                "selection": {
+                  "directReference": {
+                    "structField": {
+                      "field": 1
+                    }
+                  },
+                  "rootReference": {}
+                }
+              },
+              "direction": "SORT_DIRECTION_ASC_NULLS_LAST"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "extension_uris": [],
+  "extensions": []
+})";
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+  auto test_schema = schema({field("A", int32()), field("B", int32())});
+
+  auto input_table = TableFromJSON(test_schema, {R"([
+      [null, null],
+      [5, 8],
+      [null, null],
+      [null, null],
+      [3, 4],
+      [9, 6],
+      [4, 5]
+  ])"});
+
+  NamedTableProvider table_provider = [&](const std::vector<std::string>& names,
+                                          const Schema&) {
+    std::shared_ptr<acero::ExecNodeOptions> options =
+        std::make_shared<acero::TableSourceNodeOptions>(input_table);
+    return acero::Declaration("table_source", {}, options, "mock_source");
+  };
+
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+
+  ASSERT_THAT(
+      DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
+                      conversion_options),
+      Raises(StatusCode::NotImplemented, testing::HasSubstr("mixed null placement")));
+}
+
 TEST(Substrait, PlanWithExtension) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
+
   // This demos an extension relation
   std::string substrait_json = R"({
     "extensionUris": [],
@@ -5147,7 +5495,7 @@ TEST(Substrait, PlanWithExtension) {
           "extension_multi": {
             "common": {
               "emit": {
-                "outputMapping": [0, 1, 2, 5]
+                "outputMapping": [0, 1, 2, 3]
               }
             },
             "inputs": [
@@ -5317,7 +5665,7 @@ TEST(Substrait, PlanWithExtension) {
 
   ASSERT_OK_AND_ASSIGN(
       auto out_schema,
-      compute::asofjoin::MakeOutputSchema(
+      acero::asofjoin::MakeOutputSchema(
           input_schema, {{FieldRef(0), {FieldRef(1)}}, {FieldRef(0), {FieldRef(1)}}}));
   auto expected_table = TableFromJSON(
       out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
@@ -5325,6 +5673,9 @@ TEST(Substrait, PlanWithExtension) {
 }
 
 TEST(Substrait, AsOfJoinDefaultEmit) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "ASOF join requires threading";
+#endif
   std::string substrait_json = R"({
     "extensionUris": [],
     "extensions": [],
@@ -5466,7 +5817,7 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
             }
           }
         },
-        "names": ["time", "key", "value1", "time2", "key2", "value2"]
+        "names": ["time", "key", "value1", "value2"]
       }
     }],
     "expectedTypeUrls": []
@@ -5498,12 +5849,10 @@ TEST(Substrait, AsOfJoinDefaultEmit) {
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
 
   auto out_schema = schema({field("time", int32()), field("key", int32()),
-                            field("value1", float64()), field("time2", int32()),
-                            field("key2", int32()), field("value2", float64())});
+                            field("value1", float64()), field("value2", float64())});
 
   auto expected_table = TableFromJSON(
-      out_schema,
-      {"[[2, 1, 1.1, 2, 1, 1.2], [4, 1, 2.1, 4, 1, 1.2], [6, 2, 3.1, 6, 2, 3.2]]"});
+      out_schema, {"[[2, 1, 1.1, 1.2], [4, 1, 2.1, 1.2], [6, 2, 3.1, 3.2]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
 }
 
@@ -5579,10 +5928,10 @@ TEST(Substrait, PlanWithNamedTapExtension) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   conversion_options.named_tap_provider =
-      [](const std::string& tap_kind, std::vector<compute::Declaration::Input> inputs,
+      [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
          const std::string& tap_name,
-         std::shared_ptr<Schema> tap_schema) -> Result<compute::Declaration> {
-    return compute::Declaration{tap_kind, std::move(inputs), compute::ExecNodeOptions{}};
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
+    return acero::Declaration{tap_kind, std::move(inputs), acero::ExecNodeOptions{}};
   };
 
   ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
@@ -5592,6 +5941,228 @@ TEST(Substrait, PlanWithNamedTapExtension) {
   auto expected_table =
       TableFromJSON(output_schema, {"[[2, 1, 1.1], [4, 1, 2.1], [6, 2, 3.1]]"});
   CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
+TEST(Substrait, PlanWithSegmentedAggregateExtension) {
+  // This demos an extension relation
+  std::string substrait_json = R"({
+    "extensionUris": [{
+      "extension_uri_anchor": 0,
+      "uri": "https://github.com/substrait-io/substrait/blob/main/extensions/functions_arithmetic.yaml"
+    }],
+    "extensions": [{
+      "extension_function": {
+        "extension_uri_reference": 0,
+        "function_anchor": 0,
+        "name": "sum"
+      }
+    }],
+    "relations": [{
+      "root": {
+        "input": {
+          "extension_single": {
+            "input": {
+              "read": {
+                "common": {
+                  "direct": {
+                  }
+                },
+                "baseSchema": {
+                  "names": ["time", "key", "value"],
+                  "struct": {
+                    "types": [
+                      {
+                        "i32": {
+                          "typeVariationReference": 0,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "i32": {
+                          "typeVariationReference": 0,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      },
+                      {
+                        "fp64": {
+                          "typeVariationReference": 0,
+                          "nullability": "NULLABILITY_NULLABLE"
+                        }
+                      }
+                    ],
+                    "typeVariationReference": 0,
+                    "nullability": "NULLABILITY_REQUIRED"
+                  }
+                },
+                "namedTable": {
+                  "names": ["T"]
+                }
+              }
+            },
+            "detail": {
+              "@type": "/arrow.substrait_ext.SegmentedAggregateRel",
+              "grouping_keys": [{
+                "directReference": {
+                  "structField": {
+                    "field": 1
+                  }
+                },
+                "rootReference": {}
+              }],
+              "segment_keys": [{
+                "directReference": {
+                  "structField": {
+                    "field": 0
+                  }
+                },
+                "rootReference": {}
+              }],
+              "measures": [{
+                "measure": {
+                  "functionReference": 0,
+                  "arguments": [{
+                    "value": {
+                      "selection": {
+                        "directReference": {
+                          "structField": {
+                            "field": 2
+                          }
+                        }
+                      }
+                    }
+                  }],
+                  "sorts": [],
+                  "phase": "AGGREGATION_PHASE_INITIAL_TO_RESULT",
+                  "outputType": {
+                    "i64": {}
+                  }
+                }
+              }]
+            }
+          }
+        },
+        "names": ["k", "t", "v"]
+      }
+    }],
+    "expectedTypeUrls": []
+  })";
+
+  std::shared_ptr<Schema> input_schema =
+      schema({field("time", int32()), field("key", int32()), field("value", float64())});
+  NamedTableProvider table_provider = AlwaysProvideSameTable(
+      TableFromJSON(input_schema, {"[[1, 1, 1], [1, 2, 2], [1, 1, 3],"
+                                   " [2, 2, 4], [2, 1, 5], [2, 2, 6]]"}));
+  ConversionOptions conversion_options;
+  conversion_options.named_table_provider = std::move(table_provider);
+  conversion_options.named_tap_provider =
+      [](const std::string& tap_kind, std::vector<acero::Declaration::Input> inputs,
+         const std::string& tap_name,
+         std::shared_ptr<Schema> tap_schema) -> Result<acero::Declaration> {
+    return acero::Declaration{tap_kind, std::move(inputs), acero::ExecNodeOptions{}};
+  };
+
+  ASSERT_OK_AND_ASSIGN(auto buf, internal::SubstraitFromJSON("Plan", substrait_json));
+
+  std::shared_ptr<Schema> output_schema =
+      schema({field("k", int32()), field("t", int32()), field("v", float64())});
+  auto expected_table =
+      TableFromJSON(output_schema, {"[[1, 1, 4], [1, 2, 2], [2, 2, 10], [2, 1, 5]]"});
+  CheckRoundTripResult(std::move(expected_table), buf, {}, conversion_options);
+}
+
+void CheckExpressionRoundTrip(const Schema& schema,
+                              const compute::Expression& expression) {
+  ASSERT_OK_AND_ASSIGN(compute::Expression bound_expression, expression.Bind(schema));
+  BoundExpressions bound_expressions;
+  bound_expressions.schema = std::make_shared<Schema>(schema);
+  bound_expressions.named_expressions = {{std::move(bound_expression), "some_name"}};
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> buf,
+                       SerializeExpressions(bound_expressions));
+
+  ASSERT_OK_AND_ASSIGN(BoundExpressions round_tripped, DeserializeExpressions(*buf));
+
+  AssertSchemaEqual(schema, *round_tripped.schema);
+  ASSERT_EQ(1, round_tripped.named_expressions.size());
+  ASSERT_EQ("some_name", round_tripped.named_expressions[0].name);
+  ASSERT_EQ(bound_expressions.named_expressions[0].expression,
+            round_tripped.named_expressions[0].expression);
+}
+
+TEST(Substrait, ExtendedExpressionSerialization) {
+  std::shared_ptr<Schema> test_schema =
+      schema({field("a", int32()), field("b", int32()), field("c", float32()),
+              field("nested", struct_({field("x", float32()), field("y", float32())}))});
+  // Basic a + b
+  CheckExpressionRoundTrip(
+      *test_schema, compute::call("add", {compute::field_ref(0), compute::field_ref(1)}));
+  // Nested struct reference
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(FieldPath{3, 0}));
+  // Struct return type
+  CheckExpressionRoundTrip(*test_schema, compute::field_ref(3));
+  // c + nested.y
+  CheckExpressionRoundTrip(
+      *test_schema,
+      compute::call("add", {compute::field_ref(2), compute::field_ref(FieldPath{3, 1})}));
+}
+
+TEST(Substrait, ExtendedExpressionInvalidPlans) {
+  // The schema defines the type as {"x", "y"} but output_names has {"a", "y"}
+  constexpr std::string_view kBadOuptutNames = R"(
+    {
+      "referredExpr":[
+        {
+          "expression":{
+            "selection":{
+              "directReference":{
+                "structField":{
+                  "field":3
+                }
+              },
+              "rootReference":{}
+            }
+          },
+          "outputNames":["a", "y", "some_name"]
+        }
+      ],
+      "baseSchema":{
+        "names":["a","b","c","nested","x","y"],
+        "struct":{
+          "types":[
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "i32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+            },
+            {
+              "struct":{
+                "types":[
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  },
+                  {
+                    "fp32":{"nullability":"NULLABILITY_NULLABLE"}
+                  }
+                ],
+                "nullability":"NULLABILITY_NULLABLE"
+              }
+            }
+          ]
+        }
+      },
+      "version":{"majorNumber":9999}
+    }
+  )";
+
+  ASSERT_OK_AND_ASSIGN(
+      auto buf, internal::SubstraitFromJSON("ExtendedExpression", kBadOuptutNames));
+
+  ASSERT_THAT(DeserializeExpressions(*buf),
+              Raises(StatusCode::Invalid, testing::HasSubstr("Ambiguous plan")));
 }
 
 }  // namespace engine

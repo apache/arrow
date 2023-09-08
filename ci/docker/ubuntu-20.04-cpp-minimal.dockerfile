@@ -33,6 +33,7 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libcurl4-openssl-dev \
         python3-pip \
+        tzdata \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
@@ -74,7 +75,8 @@ RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-ENV ARROW_BUILD_TESTS=ON \
+ENV ARROW_ACERO=ON \
+    ARROW_BUILD_TESTS=ON \
     ARROW_DATASET=ON \
     ARROW_FLIGHT=ON \
     ARROW_GANDIVA=ON \
@@ -85,7 +87,6 @@ ENV ARROW_BUILD_TESTS=ON \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
     ARROW_USE_CCACHE=ON \
     ARROW_WITH_BROTLI=ON \

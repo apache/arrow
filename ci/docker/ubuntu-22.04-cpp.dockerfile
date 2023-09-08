@@ -98,15 +98,18 @@ RUN apt-get update -y -q && \
         libssl-dev \
         libthrift-dev \
         libutf8proc-dev \
+        libxml2-dev \
         libzstd-dev \
         make \
         ninja-build \
         nlohmann-json3-dev \
+        npm \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
         python3-dev \
         python3-pip \
+        python3-venv \
         rapidjson-dev \
         rsync \
         tzdata \
@@ -152,6 +155,9 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
 
+COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_azurite.sh
+
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
@@ -160,12 +166,10 @@ RUN /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 # provided by the distribution:
 # - Abseil is old
 # - libc-ares-dev does not install CMake config files
-# - flatbuffer is not packaged
 # - libgtest-dev only provide sources
-# - libprotobuf-dev only provide sources
-# ARROW-17051: this build uses static Protobuf, so we must also use
-# static Arrow to run Flight/Flight SQL tests
 ENV absl_SOURCE=BUNDLED \
+    ARROW_ACERO=ON \
+    ARROW_AZURE=ON \
     ARROW_BUILD_STATIC=ON \
     ARROW_BUILD_TESTS=ON \
     ARROW_DEPENDENCY_SOURCE=SYSTEM \
@@ -180,8 +184,8 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_NO_DEPRECATED_API=ON \
     ARROW_ORC=ON \
     ARROW_PARQUET=ON \
-    ARROW_PLASMA=ON \
     ARROW_S3=ON \
+    ARROW_SUBSTRAIT=ON \
     ARROW_USE_ASAN=OFF \
     ARROW_USE_CCACHE=ON \
     ARROW_USE_UBSAN=OFF \
@@ -192,13 +196,14 @@ ENV absl_SOURCE=BUNDLED \
     ARROW_WITH_SNAPPY=ON \
     ARROW_WITH_ZLIB=ON \
     ARROW_WITH_ZSTD=ON \
+    ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-${llvm}/bin/llvm-symbolizer \
     AWSSDK_SOURCE=BUNDLED \
+    Azure_SOURCE=BUNDLED \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     GTest_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    Protobuf_SOURCE=BUNDLED \
     PYTHON=python3 \
     xsimd_SOURCE=BUNDLED

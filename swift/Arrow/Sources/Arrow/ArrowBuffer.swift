@@ -34,6 +34,20 @@ public class ArrowBuffer {
         self.rawPointer.deallocate()
     }
 
+    func append(to data: inout Data) {
+        let ptr  = UnsafePointer(rawPointer.assumingMemoryBound(to: UInt8.self))
+        data.append(ptr, count: Int(capacity));
+    }
+
+    static func createBuffer(_ data: [UInt8], length: UInt) -> ArrowBuffer {
+        let byteCount = UInt(data.count)
+        let capacity = alignTo64(byteCount)
+        let memory = MemoryAllocator(64)
+        let rawPointer = memory.allocateArray(Int(capacity))
+        rawPointer.copyMemory(from: data, byteCount: data.count)
+        return ArrowBuffer(length: length, capacity: capacity, rawPointer: rawPointer)
+    }
+
     static func createBuffer(_ length: UInt, size: UInt, doAlign: Bool = true) -> ArrowBuffer {
         let actualLen = max(length, ArrowBuffer.min_length)
         let byteCount = size * actualLen
@@ -45,7 +59,7 @@ public class ArrowBuffer {
         let memory = MemoryAllocator(64)
         let rawPointer = memory.allocateArray(Int(capacity))
         rawPointer.initializeMemory(as: UInt8.self, repeating: 0, count: Int(capacity))
-        return ArrowBuffer(length: actualLen, capacity: capacity, rawPointer: rawPointer)
+        return ArrowBuffer(length: length, capacity: capacity, rawPointer: rawPointer)
     }
 
     static func copyCurrent(_ from: ArrowBuffer, to: inout ArrowBuffer, len: UInt) {

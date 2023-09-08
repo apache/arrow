@@ -43,28 +43,38 @@ struct ARROW_PYTHON_EXPORT UdfOptions {
   std::shared_ptr<DataType> output_type;
 };
 
-/// \brief A context passed as the first argument of scalar UDF functions.
-struct ARROW_PYTHON_EXPORT ScalarUdfContext {
+/// \brief A context passed as the first argument of UDF functions.
+struct ARROW_PYTHON_EXPORT UdfContext {
   MemoryPool* pool;
   int64_t batch_length;
 };
 
 using UdfWrapperCallback = std::function<PyObject*(
-    PyObject* user_function, const ScalarUdfContext& context, PyObject* inputs)>;
+    PyObject* user_function, const UdfContext& context, PyObject* inputs)>;
 
 /// \brief register a Scalar user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterScalarFunction(
-    PyObject* user_function, UdfWrapperCallback wrapper,
-    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
+    compute::FunctionRegistry* registry = NULLPTR);
 
 /// \brief register a Table user-defined-function from Python
 Status ARROW_PYTHON_EXPORT RegisterTabularFunction(
-    PyObject* user_function, UdfWrapperCallback wrapper,
-    const UdfOptions& options, compute::FunctionRegistry* registry = NULLPTR);
-
-Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT CallTabularFunction(
-    const std::string& func_name, const std::vector<Datum>& args,
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
     compute::FunctionRegistry* registry = NULLPTR);
+
+/// \brief register a Aggregate user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterAggregateFunction(
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
+    compute::FunctionRegistry* registry = NULLPTR);
+
+/// \brief register a Vector user-defined-function from Python
+Status ARROW_PYTHON_EXPORT RegisterVectorFunction(
+    PyObject* user_function, UdfWrapperCallback wrapper, const UdfOptions& options,
+    compute::FunctionRegistry* registry = NULLPTR);
+
+Result<std::shared_ptr<RecordBatchReader>> ARROW_PYTHON_EXPORT
+CallTabularFunction(const std::string& func_name, const std::vector<Datum>& args,
+                    compute::FunctionRegistry* registry = NULLPTR);
 
 }  // namespace py
 

@@ -41,8 +41,9 @@
 #include "arrow/buffer.h"
 #include "arrow/builder.h"
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/exec/expression.h"
-#include "arrow/compute/exec/expression_internal.h"
+#include "arrow/compute/cast.h"
+#include "arrow/compute/expression.h"
+#include "arrow/compute/expression_internal.h"
 #include "arrow/engine/substrait/extension_set.h"
 #include "arrow/engine/substrait/extension_types.h"
 #include "arrow/engine/substrait/options.h"
@@ -138,6 +139,105 @@ std::string EnumToString(int value, const google::protobuf::EnumDescriptor* desc
   return value_desc->name();
 }
 
+Result<compute::Expression> FromProto(const substrait::Expression::ReferenceSegment* ref,
+                                      const ExtensionSet& ext_set,
+                                      const ConversionOptions& conversion_options,
+                                      std::optional<compute::Expression> in_expr) {
+  auto in_ref = ref;
+  auto& current = in_expr;
+  while (ref != nullptr) {
+    switch (ref->reference_type_case()) {
+      case substrait::Expression::ReferenceSegment::kStructField: {
+        auto index = ref->struct_field().field();
+        if (!current) {
+          // Root StructField (column selection)
+          current = compute::field_ref(FieldRef(index));
+        } else if (auto current_ref = current->field_ref()) {
+          // Nested StructFields on the root (selection of struct-typed column
+          // combined with selecting struct fields)
+          current = compute::field_ref(FieldRef(*current_ref, index));
+        } else if (current->call() && current->call()->function_name == "struct_field") {
+          // Nested StructFields on top of an arbitrary expression
+          auto* field_options =
+              checked_cast<compute::StructFieldOptions*>(current->call()->options.get());
+          field_options->field_ref = FieldRef(std::move(field_options->field_ref), index);
+        } else {
+          // First StructField on top of an arbitrary expression
+          current = compute::call("struct_field", {std::move(*current)},
+                                  arrow::compute::StructFieldOptions({index}));
+        }
+
+        // Segment handled, continue with child segment (if any)
+        if (ref->struct_field().has_child()) {
+          ref = &ref->struct_field().child();
+        } else {
+          ref = nullptr;
+        }
+        break;
+      }
+      case substrait::Expression::ReferenceSegment::kListElement: {
+        if (!current) {
+          // Root ListField (illegal)
+          return Status::Invalid(
+              "substrait::ListElement cannot take a Relation as an argument");
+        }
+
+        // ListField on top of an arbitrary expression
+        current = compute::call(
+            "list_element",
+            {std::move(*current), compute::literal(ref->list_element().offset())});
+
+        // Segment handled, continue with child segment (if any)
+        if (ref->list_element().has_child()) {
+          ref = &ref->list_element().child();
+        } else {
+          ref = nullptr;
+        }
+        break;
+      }
+      default:
+        // Unimplemented construct, break current of loop
+        current.reset();
+        ref = nullptr;
+    }
+  }
+  if (current) {
+    return *std::move(current);
+  }
+
+  return Status::NotImplemented(
+      "conversion to arrow::compute::Expression from Substrait reference segment: ",
+      in_ref ? in_ref->DebugString() : "null");
+}
+
+Result<compute::Expression> FromProto(const substrait::Expression::FieldReference* fref,
+                                      const ExtensionSet& ext_set,
+                                      const ConversionOptions& conversion_options,
+                                      std::optional<compute::Expression> in_expr) {
+  if (fref->reference_type_case() !=
+          substrait::Expression::FieldReference::kDirectReference ||
+      fref->root_type_case() != substrait::Expression::FieldReference::kRootReference) {
+    return Status::NotImplemented("substrait::FieldReference not direct root reference");
+  }
+  auto& dref = fref->direct_reference();
+  return FromProto(&dref, ext_set, conversion_options, std::move(in_expr));
+}
+
+Result<FieldRef> DirectReferenceFromProto(
+    const substrait::Expression::FieldReference* fref, const ExtensionSet& ext_set,
+    const ConversionOptions& conversion_options) {
+  ARROW_ASSIGN_OR_RAISE(compute::Expression expr,
+                        FromProto(fref, ext_set, conversion_options, {}));
+  const FieldRef* field_ref = expr.field_ref();
+  if (field_ref) {
+    return *field_ref;
+  } else {
+    return Status::Invalid(
+        "A direct reference was expected but a more complex expression was given "
+        "instead");
+  }
+}
+
 Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool is_hash,
                                 const ExtensionSet& ext_set,
                                 const ConversionOptions& conversion_options) {
@@ -170,6 +270,9 @@ Result<SubstraitCall> FromProto(const substrait::AggregateFunction& func, bool i
     ARROW_RETURN_NOT_OK(DecodeArg(func.arguments(i), static_cast<uint32_t>(i), &call,
                                   ext_set, conversion_options));
   }
+  for (int i = 0; i < func.options_size(); i++) {
+    ARROW_RETURN_NOT_OK(DecodeOption(func.options(i), &call));
+  }
   return std::move(call);
 }
 
@@ -193,67 +296,7 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       }
 
       const auto* ref = &expr.selection().direct_reference();
-      while (ref != nullptr) {
-        switch (ref->reference_type_case()) {
-          case substrait::Expression::ReferenceSegment::kStructField: {
-            auto index = ref->struct_field().field();
-            if (!out) {
-              // Root StructField (column selection)
-              out = compute::field_ref(FieldRef(index));
-            } else if (auto out_ref = out->field_ref()) {
-              // Nested StructFields on the root (selection of struct-typed column
-              // combined with selecting struct fields)
-              out = compute::field_ref(FieldRef(*out_ref, index));
-            } else if (out->call() && out->call()->function_name == "struct_field") {
-              // Nested StructFields on top of an arbitrary expression
-              auto* field_options =
-                  checked_cast<compute::StructFieldOptions*>(out->call()->options.get());
-              field_options->field_ref =
-                  FieldRef(std::move(field_options->field_ref), index);
-            } else {
-              // First StructField on top of an arbitrary expression
-              out = compute::call("struct_field", {std::move(*out)},
-                                  arrow::compute::StructFieldOptions({index}));
-            }
-
-            // Segment handled, continue with child segment (if any)
-            if (ref->struct_field().has_child()) {
-              ref = &ref->struct_field().child();
-            } else {
-              ref = nullptr;
-            }
-            break;
-          }
-          case substrait::Expression::ReferenceSegment::kListElement: {
-            if (!out) {
-              // Root ListField (illegal)
-              return Status::Invalid(
-                  "substrait::ListElement cannot take a Relation as an argument");
-            }
-
-            // ListField on top of an arbitrary expression
-            out = compute::call(
-                "list_element",
-                {std::move(*out), compute::literal(ref->list_element().offset())});
-
-            // Segment handled, continue with child segment (if any)
-            if (ref->list_element().has_child()) {
-              ref = &ref->list_element().child();
-            } else {
-              ref = nullptr;
-            }
-            break;
-          }
-          default:
-            // Unimplemented construct, break out of loop
-            out.reset();
-            ref = nullptr;
-        }
-      }
-      if (out) {
-        return *std::move(out);
-      }
-      break;
+      return FromProto(ref, ext_set, conversion_options, std::move(out));
     }
 
     case substrait::Expression::kIfThen: {
@@ -296,6 +339,22 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       return compute::call("case_when", std::move(args));
     }
 
+    case substrait::Expression::kSingularOrList: {
+      const auto& or_list = expr.singular_or_list();
+
+      ARROW_ASSIGN_OR_RAISE(compute::Expression value,
+                            FromProto(or_list.value(), ext_set, conversion_options));
+
+      std::vector<compute::Expression> option_eqs;
+      for (const auto& option : or_list.options()) {
+        ARROW_ASSIGN_OR_RAISE(compute::Expression arrow_option,
+                              FromProto(option, ext_set, conversion_options));
+        option_eqs.push_back(compute::call("equal", {value, arrow_option}));
+      }
+
+      return compute::or_(option_eqs);
+    }
+
     case substrait::Expression::kScalarFunction: {
       const auto& scalar_fn = expr.scalar_function();
 
@@ -336,8 +395,9 @@ Result<compute::Expression> FromProto(const substrait::Expression& expr,
       if (cast_exp.failure_behavior() ==
           substrait::Expression::Cast::FailureBehavior::
               Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_THROW_EXCEPTION) {
-        return compute::call("cast", {std::move(input)},
-                             compute::CastOptions::Safe(std::move(type_nullable.first)));
+        return compute::call(
+            "cast", {std::move(input)},
+            compute::CastOptions::Unsafe(std::move(type_nullable.first)));
       } else if (cast_exp.failure_behavior() ==
                  substrait::Expression::Cast::FailureBehavior::
                      Expression_Cast_FailureBehavior_FAILURE_BEHAVIOR_RETURN_NULL) {
@@ -1012,7 +1072,66 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
                              " arguments but no argument could be found at index ", i);
     }
   }
+
+  for (const auto& option : call.options()) {
+    substrait::FunctionOption* fn_option = scalar_fn->add_options();
+    fn_option->set_name(option.first);
+    for (const auto& opt_val : option.second) {
+      std::string* pref = fn_option->add_preference();
+      *pref = opt_val;
+    }
+  }
+
   return std::move(scalar_fn);
+}
+
+Result<std::vector<std::unique_ptr<substrait::Expression>>> DatumToLiterals(
+    const Datum& datum, ExtensionSet* ext_set,
+    const ConversionOptions& conversion_options) {
+  std::vector<std::unique_ptr<substrait::Expression>> literals;
+
+  auto ScalarToLiteralExpr = [&](const std::shared_ptr<Scalar>& scalar)
+      -> Result<std::unique_ptr<substrait::Expression>> {
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::Literal> literal,
+                          ToProto(scalar, ext_set, conversion_options));
+    auto literal_expr = std::make_unique<substrait::Expression>();
+    literal_expr->set_allocated_literal(literal.release());
+    return literal_expr;
+  };
+
+  switch (datum.kind()) {
+    case Datum::Kind::SCALAR: {
+      ARROW_ASSIGN_OR_RAISE(auto literal_expr, ScalarToLiteralExpr(datum.scalar()));
+      literals.push_back(std::move(literal_expr));
+      break;
+    }
+    case Datum::Kind::ARRAY: {
+      std::shared_ptr<Array> values = datum.make_array();
+      for (int64_t i = 0; i < values->length(); i++) {
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, values->GetScalar(i));
+        ARROW_ASSIGN_OR_RAISE(auto literal_expr, ScalarToLiteralExpr(scalar));
+        literals.push_back(std::move(literal_expr));
+      }
+      break;
+    }
+    case Datum::Kind::CHUNKED_ARRAY: {
+      std::shared_ptr<ChunkedArray> values = datum.chunked_array();
+      for (const auto& chunk : values->chunks()) {
+        for (int64_t i = 0; i < chunk->length(); i++) {
+          ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar, chunk->GetScalar(i));
+          ARROW_ASSIGN_OR_RAISE(auto literal_expr, ScalarToLiteralExpr(scalar));
+          literals.push_back(std::move(literal_expr));
+        }
+      }
+      break;
+    }
+    case Datum::Kind::RECORD_BATCH:
+    case Datum::Kind::TABLE:
+    case Datum::Kind::NONE:
+      return Status::Invalid("Expected a literal or an array of literals, got ",
+                             datum.ToString());
+  }
+  return literals;
 }
 
 Result<std::unique_ptr<substrait::Expression>> ToProto(
@@ -1121,15 +1240,89 @@ Result<std::unique_ptr<substrait::Expression>> ToProto(
 
     out->set_allocated_if_then(if_then.release());
     return std::move(out);
+  } else if (call->function_name == "cast") {
+    auto cast = std::make_unique<substrait::Expression::Cast>();
+
+    // Arrow's cast function does not have a "return null" option and so throw exception
+    // is the only behavior we can support.
+    cast->set_failure_behavior(
+        substrait::Expression::Cast::FAILURE_BEHAVIOR_THROW_EXCEPTION);
+
+    std::shared_ptr<compute::CastOptions> cast_options =
+        internal::checked_pointer_cast<compute::CastOptions>(call->options);
+    if (!cast_options->is_unsafe()) {
+      return Status::Invalid("Substrait is only capable of representing unsafe casts");
+    }
+
+    if (arguments.size() != 1) {
+      return Status::Invalid(
+          "A call to the cast function must have exactly one argument");
+    }
+
+    cast->set_allocated_input(arguments[0].release());
+
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Type> to_type,
+                          ToProto(*cast_options->to_type.type, /*nullable=*/true, ext_set,
+                                  conversion_options));
+
+    cast->set_allocated_type(to_type.release());
+
+    out->set_allocated_cast(cast.release());
+    return std::move(out);
+  } else if (call->function_name == "is_in") {
+    auto or_list = std::make_unique<substrait::Expression::SingularOrList>();
+
+    if (arguments.size() != 1) {
+      return Status::Invalid(
+          "A call to the is_in function must have exactly one argument");
+    }
+
+    or_list->set_allocated_value(arguments[0].release());
+    std::shared_ptr<compute::SetLookupOptions> is_in_options =
+        internal::checked_pointer_cast<compute::SetLookupOptions>(call->options);
+
+    // TODO(GH-36420) Acero does not currently handle nulls correctly
+    ARROW_ASSIGN_OR_RAISE(
+        std::vector<std::unique_ptr<substrait::Expression>> options,
+        DatumToLiterals(is_in_options->value_set, ext_set, conversion_options));
+    for (auto& option : options) {
+      or_list->mutable_options()->AddAllocated(option.release());
+    }
+    out->set_allocated_singular_or_list(or_list.release());
+    return std::move(out);
   }
 
   // other expression types dive into extensions immediately
-  ARROW_ASSIGN_OR_RAISE(
-      ExtensionIdRegistry::ArrowToSubstraitCall converter,
-      ext_set->registry()->GetArrowToSubstraitCall(call->function_name));
-  ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
-  ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn,
-                        EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  Result<ExtensionIdRegistry::ArrowToSubstraitCall> maybe_converter =
+      ext_set->registry()->GetArrowToSubstraitCall(call->function_name);
+
+  ExtensionIdRegistry::ArrowToSubstraitCall converter;
+  std::unique_ptr<substrait::Expression::ScalarFunction> scalar_fn;
+  if (maybe_converter.ok()) {
+    converter = *maybe_converter;
+    ARROW_ASSIGN_OR_RAISE(SubstraitCall substrait_call, converter(*call));
+    ARROW_ASSIGN_OR_RAISE(
+        scalar_fn, EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  } else if (maybe_converter.status().IsNotImplemented() &&
+             conversion_options.allow_arrow_extensions) {
+    if (call->options) {
+      return Status::NotImplemented(
+          "The function ", call->function_name,
+          " has no Substrait mapping.  Arrow extensions are enabled but the call "
+          "contains function options and there is no current mechanism to encode those.");
+    }
+    Id persistent_id = ext_set->RegisterPlanSpecificId(
+        {kArrowSimpleExtensionFunctionsUri, call->function_name});
+    SubstraitCall substrait_call(persistent_id, call->type.GetSharedPtr(),
+                                 /*nullable=*/true);
+    for (int i = 0; i < static_cast<int>(call->arguments.size()); i++) {
+      substrait_call.SetValueArg(i, call->arguments[i]);
+    }
+    ARROW_ASSIGN_OR_RAISE(
+        scalar_fn, EncodeSubstraitCall(substrait_call, ext_set, conversion_options));
+  } else {
+    return maybe_converter.status();
+  }
   out->set_allocated_scalar_function(scalar_fn.release());
   return std::move(out);
 }

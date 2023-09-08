@@ -45,10 +45,25 @@ echo "::group::Prepare repository"
 
 export DEBIAN_FRONTEND=noninteractive
 
-APT_INSTALL="apt install -y -V --no-install-recommends"
+retry()
+{
+  local n_retries=0
+  local max_n_retries=3
+  while ! "$@"; do
+    n_retries=$((n_retries + 1))
+    if [ ${n_retries} -eq ${max_n_retries} ]; then
+      echo "Failed: $@"
+      return 1
+    fi
+    echo "Retry: $@"
+  done
+}
+
+APT_INSTALL="retry apt install -y -V --no-install-recommends"
 
 apt update
 ${APT_INSTALL} \
+  base-files \
   ca-certificates \
   curl \
   lsb-release
@@ -63,31 +78,21 @@ case "${TYPE}" in
     ;;
 esac
 
-have_flight=yes
-have_plasma=yes
-have_python=yes
 workaround_missing_packages=()
 case "${distribution}-${code_name}" in
-  debian-bookworm)
-    sed \
-      -i"" \
-      -e "s/ main$/ main contrib non-free/g" \
-      /etc/apt/sources.list.d/debian.sources
-    ;;
-  debian-*)
+  debian-bullseye)
     sed \
       -i"" \
       -e "s/ main$/ main contrib non-free/g" \
       /etc/apt/sources.list
     ;;
-  ubuntu-bionic)
-    have_python=no
+  debian-*)
+    sed \
+      -i"" \
+      -e "s/ main$/ main contrib non-free/g" \
+      /etc/apt/sources.list.d/debian.sources
     ;;
 esac
-if [ "$(arch)" = "aarch64" ]; then
-  have_flight=no
-  have_plasma=no
-fi
 
 if [ "${TYPE}" = "local" ]; then
   case "${VERSION}" in
@@ -161,7 +166,7 @@ pushd build/minimal_build
 cmake .
 make -j$(nproc)
 ./arrow-example
-c++ -std=c++17 -o arrow-example example.cc $(pkg-config --cflags --libs arrow)
+c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
 ./arrow-example
 popd
 echo "::endgroup::"
@@ -194,29 +199,17 @@ ruby -r gi -e "p GI.load('ArrowDataset')"
 echo "::endgroup::"
 
 
-if [ "${have_flight}" = "yes" ]; then
-  echo "::group::Test Apache Arrow Flight"
-  ${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
-  ${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
-  ruby -r gi -e "p GI.load('ArrowFlight')"
-  echo "::endgroup::"
+echo "::group::Test Apache Arrow Flight"
+${APT_INSTALL} libarrow-flight-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlight')"
+echo "::endgroup::"
 
-  echo "::group::Test Apache Arrow Flight SQL"
-  ${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
-  ${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
-  ruby -r gi -e "p GI.load('ArrowFlightSQL')"
-  echo "::endgroup::"
-fi
-
-
-if [ "${have_plasma}" = "yes" ]; then
-  echo "::group::Test Plasma"
-  ${APT_INSTALL} libplasma-glib-dev=${package_version}
-  ${APT_INSTALL} libplasma-glib-doc=${package_version}
-  ${APT_INSTALL} plasma-store-server=${package_version}
-  ruby -r gi -e "p GI.load('Plasma')"
-  echo "::endgroup::"
-fi
+echo "::group::Test Apache Arrow Flight SQL"
+${APT_INSTALL} libarrow-flight-sql-glib-dev=${package_version}
+${APT_INSTALL} libarrow-flight-sql-glib-doc=${package_version}
+ruby -r gi -e "p GI.load('ArrowFlightSQL')"
+echo "::endgroup::"
 
 
 echo "::group::Test Gandiva"

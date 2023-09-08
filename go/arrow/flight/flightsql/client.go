@@ -22,12 +22,12 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/flight"
-	pb "github.com/apache/arrow/go/v12/arrow/flight/internal/flight"
-	"github.com/apache/arrow/go/v12/arrow/ipc"
-	"github.com/apache/arrow/go/v12/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/flight"
+	pb "github.com/apache/arrow/go/v14/arrow/flight/gen/flight"
+	"github.com/apache/arrow/go/v14/arrow/ipc"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -39,7 +39,11 @@ import (
 // its arguments to flight.NewClientWithMiddleware to create the
 // underlying Flight Client.
 func NewClient(addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
-	cl, err := flight.NewClientWithMiddleware(addr, auth, middleware, opts...)
+	return NewClientCtx(context.Background(), addr, auth, middleware, opts...)
+}
+
+func NewClientCtx(ctx context.Context, addr string, auth flight.ClientAuthHandler, middleware []flight.ClientMiddleware, opts ...grpc.DialOption) (*Client, error) {
+	cl, err := flight.NewClientWithMiddlewareCtx(ctx, addr, auth, middleware, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -395,8 +399,6 @@ func (c *Client) Prepare(ctx context.Context, query string, opts ...grpc.CallOpt
 	if stream, err = c.Client.DoAction(ctx, &action, opts...); err != nil {
 		return
 	}
-	defer stream.CloseSend()
-
 	return parsePreparedStatementResponse(c, c.Alloc, stream)
 }
 
@@ -420,12 +422,14 @@ func (c *Client) PrepareSubstrait(ctx context.Context, plan SubstraitPlan, opts 
 	if stream, err = c.Client.DoAction(ctx, &action, opts...); err != nil {
 		return
 	}
-	defer stream.CloseSend()
-
 	return parsePreparedStatementResponse(c, c.Alloc, stream)
 }
 
 func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.FlightService_DoActionClient) (*PreparedStatement, error) {
+	if err := results.CloseSend(); err != nil {
+		return nil, err
+	}
+
 	res, err := results.Recv()
 	if err != nil {
 		return nil, err
@@ -457,6 +461,12 @@ func parsePreparedStatementResponse(c *Client, mem memory.Allocator, results pb.
 		}
 	}
 
+	// XXX: assuming server will not return a result and then an error
+	// (or else we need to also try to clean up the statement)
+	if err = flight.ReadUntilEOF(results); err != nil {
+		return nil, err
+	}
+
 	return &PreparedStatement{
 		client:        c,
 		handle:        message.PreparedStatementHandle,
@@ -476,6 +486,9 @@ func (c *Client) getSchema(ctx context.Context, desc *flight.FlightDescriptor, o
 // Close will close the underlying flight Client in use by this flightsql.Client
 func (c *Client) Close() error { return c.Client.Close() }
 
+// Deprecated: In 13.0.0. Use CancelFlightInfo instead if you can
+// assume that server requires 13.0.0 or later. Otherwise, you may
+// need to use CancelQuery and/or CancelFlightInfo.
 func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts ...grpc.CallOption) (cancelResult CancelResult, err error) {
 	const actionType = CancelQueryActionType
 
@@ -505,6 +518,10 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 		return
 	}
 
+	if err = flight.ReadUntilEOF(stream); err != nil {
+		return
+	}
+
 	if err = proto.Unmarshal(res.Body, &cmdResult); err != nil {
 		return
 	}
@@ -515,6 +532,14 @@ func (c *Client) CancelQuery(ctx context.Context, info *flight.FlightInfo, opts 
 
 	cancelResult = result.GetResult()
 	return
+}
+
+func (c *Client) CancelFlightInfo(ctx context.Context, request *flight.CancelFlightInfoRequest, opts ...grpc.CallOption) (flight.CancelFlightInfoResult, error) {
+	return c.Client.CancelFlightInfo(ctx, request, opts...)
+}
+
+func (c *Client) RenewFlightEndpoint(ctx context.Context, request *flight.RenewFlightEndpointRequest, opts ...grpc.CallOption) (*flight.FlightEndpoint, error) {
+	return c.Client.RenewFlightEndpoint(ctx, request, opts...)
 }
 
 func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) (*Txn, error) {
@@ -535,6 +560,10 @@ func (c *Client) BeginTransaction(ctx context.Context, opts ...grpc.CallOption) 
 
 	var txn pb.ActionBeginTransactionResult
 	if err = readResult(stream, &txn); err != nil {
+		return nil, err
+	}
+
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return nil, err
 	}
 
@@ -714,8 +743,6 @@ func (tx *Txn) Prepare(ctx context.Context, query string, opts ...grpc.CallOptio
 	if stream, err = tx.c.Client.DoAction(ctx, &action, opts...); err != nil {
 		return
 	}
-	defer stream.CloseSend()
-
 	return parsePreparedStatementResponse(tx.c, tx.c.Alloc, stream)
 }
 
@@ -745,8 +772,6 @@ func (tx *Txn) PrepareSubstrait(ctx context.Context, plan SubstraitPlan, opts ..
 	if stream, err = tx.c.Client.DoAction(ctx, &action, opts...); err != nil {
 		return
 	}
-	defer stream.CloseSend()
-
 	return parsePreparedStatementResponse(tx.c, tx.c.Alloc, stream)
 }
 
@@ -775,10 +800,7 @@ func (tx *Txn) Commit(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	if _, err = stream.Recv(); err == io.EOF {
-		err = nil
-	}
-	return err
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
@@ -806,11 +828,7 @@ func (tx *Txn) Rollback(ctx context.Context, opts ...grpc.CallOption) error {
 	}
 
 	tx.txn = nil
-	if _, err = stream.Recv(); err == io.EOF {
-		err = nil
-	}
-
-	return err
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.CallOption) (Savepoint, error) {
@@ -839,6 +857,10 @@ func (tx *Txn) BeginSavepoint(ctx context.Context, name string, opts ...grpc.Cal
 
 	var savepoint pb.ActionBeginSavepointResult
 	if err = readResult(stream, &savepoint); err != nil {
+		return nil, err
+	}
+
+	if err = flight.ReadUntilEOF(stream); err != nil {
 		return nil, err
 	}
 
@@ -872,11 +894,7 @@ func (tx *Txn) ReleaseSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
-
-	if _, err = stream.Recv(); err == io.EOF {
-		err = nil
-	}
-	return err
+	return flight.ReadUntilEOF(stream)
 }
 
 func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc.CallOption) error {
@@ -902,11 +920,7 @@ func (tx *Txn) RollbackSavepoint(ctx context.Context, sp Savepoint, opts ...grpc
 	if err := stream.CloseSend(); err != nil {
 		return err
 	}
-
-	if _, err = stream.Recv(); err == io.EOF {
-		err = nil
-	}
-	return err
+	return flight.ReadUntilEOF(stream)
 }
 
 // PreparedStatement represents a constructed PreparedStatement on the server
@@ -1099,7 +1113,9 @@ func (p *PreparedStatement) clearParameters() {
 func (p *PreparedStatement) SetParameters(binding arrow.Record) {
 	p.clearParameters()
 	p.paramBinding = binding
-	p.paramBinding.Retain()
+	if p.paramBinding != nil {
+		p.paramBinding.Retain()
+	}
 }
 
 // SetRecordReader takes a RecordReader to send as the parameter bindings when
@@ -1143,11 +1159,15 @@ func (p *PreparedStatement) Close(ctx context.Context, opts ...grpc.CallOption) 
 	}
 
 	action := &flight.Action{Type: actionType, Body: body}
-	_, err = p.client.Client.DoAction(ctx, action, opts...)
+	stream, err := p.client.Client.DoAction(ctx, action, opts...)
 	if err != nil {
 		return err
 	}
 
+	if err = stream.CloseSend(); err != nil {
+		return err
+	}
+
 	p.closed = true
-	return nil
+	return flight.ReadUntilEOF(stream)
 }

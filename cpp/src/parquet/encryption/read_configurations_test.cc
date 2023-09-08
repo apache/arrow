@@ -81,9 +81,7 @@
 
  */
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 using parquet::test::ParquetTestException;
 
@@ -236,7 +234,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
-  // parqeut file.
+  // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
@@ -254,7 +252,7 @@ TEST_P(TestDecryptionConfiguration, TestDecryption) {
   }
 
   // Iterate over the decryption configurations and use each one to read the encrypted
-  // parqeut file.
+  // parquet file.
   for (unsigned index = 0; index < vector_of_decryption_configurations_.size(); ++index) {
     unsigned decryption_config_num = index + 1;
     CheckResults(file_name, decryption_config_num, encryption_config_num);
@@ -272,6 +270,4 @@ INSTANTIATE_TEST_SUITE_P(
             5, "encrypt_columns_and_footer_disable_aad_storage.parquet.encrypted"),
         std::make_tuple(6, "encrypt_columns_and_footer_ctr.parquet.encrypted")));
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

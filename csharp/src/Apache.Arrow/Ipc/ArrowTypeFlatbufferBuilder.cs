@@ -16,7 +16,7 @@
 using System;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
-using FlatBuffers;
+using Google.FlatBuffers;
 using DateUnit = Apache.Arrow.Flatbuf.DateUnit;
 using TimeUnit = Apache.Arrow.Types.TimeUnit;
 
@@ -60,12 +60,14 @@ namespace Apache.Arrow.Ipc
             IArrowTypeVisitor<BinaryType>,
             IArrowTypeVisitor<TimestampType>,
             IArrowTypeVisitor<ListType>,
+            IArrowTypeVisitor<FixedSizeListType>,
             IArrowTypeVisitor<UnionType>,
             IArrowTypeVisitor<StructType>,
             IArrowTypeVisitor<Decimal128Type>,
             IArrowTypeVisitor<Decimal256Type>,
             IArrowTypeVisitor<DictionaryType>,
-            IArrowTypeVisitor<FixedSizeBinaryType>
+            IArrowTypeVisitor<FixedSizeBinaryType>,
+            IArrowTypeVisitor<NullType>
         {
             private FlatBufferBuilder Builder { get; }
 
@@ -107,6 +109,13 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.List,
                     Flatbuf.List.EndList(Builder));
+            }
+
+            public void Visit(FixedSizeListType type)
+            {
+                Result = FieldType.Build(
+                    Flatbuf.Type.FixedSizeList,
+                    Flatbuf.FixedSizeList.CreateFixedSizeList(Builder, type.ListSize));
             }
 
             public void Visit(UnionType type)
@@ -216,6 +225,14 @@ namespace Apache.Arrow.Ipc
                 Result = FieldType.Build(
                     Flatbuf.Type.FixedSizeBinary,
                     Flatbuf.FixedSizeBinary.CreateFixedSizeBinary(Builder, type.ByteWidth));
+            }
+
+            public void Visit(NullType type)
+            {
+                Flatbuf.Null.StartNull(Builder);
+                Result = FieldType.Build(
+                    Flatbuf.Type.Null,
+                    Flatbuf.Null.EndNull(Builder));
             }
 
             public void Visit(IArrowType type)

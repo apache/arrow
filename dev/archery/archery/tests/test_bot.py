@@ -97,7 +97,7 @@ def test_noop_events(load_fixture, fixture_name):
     payload = load_fixture(fixture_name)
 
     handler = Mock()
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     handler.assert_not_called()
@@ -139,7 +139,7 @@ def test_unathorized_user_comment(load_fixture, responses):
 
     payload = load_fixture('event-issue-comment-by-non-authorized-user.json')
     payload["comment"]["body"] = '@ursabot crossbow submit -g nightly'
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     print([c.request.body for c in responses.calls])
@@ -179,7 +179,7 @@ def test_issue_comment_without_pull_request(load_fixture, responses):
         pass
 
     payload = load_fixture('event-issue-comment-without-pull-request.json')
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     post = responses.calls[2]
@@ -222,7 +222,7 @@ def test_respond_with_usage(load_fixture, responses):
         raise CommandError('test-usage')
 
     payload = load_fixture('event-issue-comment-with-empty-command.json')
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     post = responses.calls[3]
@@ -275,7 +275,7 @@ def test_issue_comment_with_commands(load_fixture, responses, command,
     payload = load_fixture('event-issue-comment-build-command.json')
     payload["comment"]["body"] = command
 
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     post = responses.calls[3]
@@ -326,7 +326,7 @@ def test_issue_comment_invalid_commands(load_fixture, responses, command,
     payload = load_fixture('event-issue-comment-build-command.json')
     payload["comment"]["body"] = command
 
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     # Setting reaction is always the last call
@@ -341,7 +341,7 @@ def test_issue_comment_with_commands_bot_not_first(load_fixture, responses):
     payload = load_fixture('event-issue-comment-build-command.json')
     payload["comment"]["body"] = 'with a comment\n@ursabot build'
 
-    bot = CommentBot(name='ursabot', token='', handler=handler)
+    bot = CommentBot(name='ursabot', handler=handler)
     bot.handle('issue_comment', payload)
 
     handler.assert_not_called()
@@ -375,7 +375,44 @@ def test_open_pull_request(load_fixture, responses, fixture_name, expected_label
     )
     payload = load_fixture(fixture_name)
 
-    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload)
+    bot.handle()
+
+    # Setting awaiting committer review or awaiting review label
+    post = responses.calls[-1]
+    assert json.loads(post.request.body) == [expected_label]
+
+
+@pytest.mark.parametrize(('fixture_name', 'expected_label'), [
+    ('event-pull-request-target-opened-non-committer.json',
+     PullRequestState.committer_review.value),
+])
+def test_open_pull_request_with_committer_list(load_fixture, responses, fixture_name,
+                                               expected_label):
+    responses.add(
+        responses.GET,
+        github_url('/repositories/169101701/pulls/26'),
+        json=load_fixture('pull-request-26.json'),
+        status=200
+    )
+    responses.add(
+        responses.GET,
+        github_url('/repos/ursa-labs/ursabot/issues/26/labels'),
+        json=[],
+        status=200
+    )
+    responses.add(
+        responses.POST,
+        github_url(
+            '/repos/ursa-labs/ursabot/issues/26/labels'
+        ),
+        status=201
+    )
+    payload = load_fixture(fixture_name)
+
+    # Even though the author_association is not committer the list overrides.
+    bot = PullRequestWorkflowBot(
+        'pull_request_target', payload, committers=['kszucs'])
     bot.handle()
 
     # Setting awaiting committer review or awaiting review label
@@ -416,7 +453,7 @@ def test_open_pull_request_with_existing_label(
     payload = load_fixture(fixture_name)
     payload['pull_request']['labels'] = ['awaiting review']
 
-    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload)
     bot.handle()
 
     post = responses.calls[-1]
@@ -465,7 +502,7 @@ def test_pull_request_review_awaiting_review(
     payload['pull_request']['labels'] = ['awaiting review']
     payload['review']['state'] = review_state
 
-    bot = PullRequestWorkflowBot('pull_request_review', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_review', payload)
     bot.handle()
 
     post = responses.calls[-1]
@@ -508,7 +545,7 @@ def test_pull_request_committer_review_awaiting_change_review(
     payload['pull_request']['labels'] = ['awaiting change review']
     payload['review']['state'] = review_state
 
-    bot = PullRequestWorkflowBot('pull_request_review', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_review', payload)
     bot.handle()
 
     post = responses.calls[-1]
@@ -535,7 +572,7 @@ def test_pull_request_non_committer_review_awaiting_change_review(
     payload['pull_request']['labels'] = ['awaiting change review']
     payload['review']['state'] = review_state
 
-    bot = PullRequestWorkflowBot('pull_request_review', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_review', payload)
     bot.handle()
 
     # No requests to delete post new labels on non-committer reviews
@@ -572,7 +609,7 @@ def test_pull_request_synchronize_event_on_awaiting_changes(
         status=201
     )
 
-    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload)
     bot.handle()
     # after push event label changes.
     post = responses.calls[-1]
@@ -596,7 +633,7 @@ def test_pull_request_synchronize_event_on_awaiting_review(
         status=200
     )
 
-    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload)
     bot.handle()
     # No requests to delete or post new labels on push awaiting review
     assert len(responses.calls) == 2
@@ -626,7 +663,7 @@ def test_pull_request_synchronize_event_on_existing_pr_without_state(
         status=201
     )
 
-    bot = PullRequestWorkflowBot('pull_request_target', payload, token='')
+    bot = PullRequestWorkflowBot('pull_request_target', payload)
     bot.handle()
     # after push event label get set to default
     post = responses.calls[-1]

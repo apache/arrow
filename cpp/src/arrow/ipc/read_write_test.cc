@@ -25,6 +25,7 @@
 #include <unordered_set>
 
 #include <flatbuffers/flatbuffers.h>
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -52,6 +53,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/ubsan.h"
 
 #include "generated/Message_generated.h"  // IWYU pragma: keep
 
@@ -234,7 +236,7 @@ class TestSchemaMetadata : public ::testing::Test {
     io::BufferReader reader(buffer);
     DictionaryMemo in_memo;
     ASSERT_OK_AND_ASSIGN(auto actual_schema, ReadSchema(&reader, &in_memo));
-    AssertSchemaEqual(schema, *actual_schema);
+    AssertSchemaEqual(schema, *actual_schema, /* check_metadata= */ true);
   }
 };
 
@@ -257,6 +259,15 @@ TEST_F(TestSchemaMetadata, PrimitiveFields) {
   CheckSchemaRoundtrip(schema);
 }
 
+TEST_F(TestSchemaMetadata, PrimitiveFieldsWithKeyValueMetadata) {
+  auto f1 = field("f1", std::make_shared<Int64Type>(), false,
+                  key_value_metadata({"k1"}, {"v1"}));
+  auto f2 = field("f2", std::make_shared<StringType>(), true,
+                  key_value_metadata({"k2"}, {"v2"}));
+  Schema schema({f1, f2});
+  CheckSchemaRoundtrip(schema);
+}
+
 TEST_F(TestSchemaMetadata, NestedFields) {
   auto type = list(int32());
   auto f0 = field("f0", type);
@@ -266,6 +277,29 @@ TEST_F(TestSchemaMetadata, NestedFields) {
   auto f1 = field("f1", type2);
 
   Schema schema({f0, f1});
+  CheckSchemaRoundtrip(schema);
+}
+
+// Verify that nullable=false is well-preserved for child fields of map type.
+TEST_F(TestSchemaMetadata, MapField) {
+  auto key = field("key", int32(), false);
+  auto item = field("value", int32(), false);
+  auto f0 = field("f0", std::make_shared<MapType>(key, item));
+  Schema schema({f0});
+  CheckSchemaRoundtrip(schema);
+}
+
+// Verify that key value metadata is well-preserved for child fields of nested type.
+TEST_F(TestSchemaMetadata, NestedFieldsWithKeyValueMetadata) {
+  auto metadata = key_value_metadata({"foo"}, {"bar"});
+  auto inner_field = field("inner", int32(), false, metadata);
+  auto f0 = field("f0", list(inner_field), false, metadata);
+  auto f1 = field("f1", struct_({inner_field}), false, metadata);
+  auto f2 = field("f2",
+                  std::make_shared<MapType>(field("key", int32(), false, metadata),
+                                            field("value", int32(), false, metadata)),
+                  false, metadata);
+  Schema schema({f0, f1, f2});
   CheckSchemaRoundtrip(schema);
 }
 
@@ -540,12 +574,12 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
 
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
-  io::BufferReader reader(data);
-  ASSERT_RAISES(Invalid, ReadMessage(&reader));
+  auto reader = io::BufferReader::FromString(data);
+  ASSERT_RAISES(Invalid, ReadMessage(reader.get()));
 
   // But no error on unsignaled EOS
-  io::BufferReader reader2("");
-  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(&reader2));
+  auto reader2 = io::BufferReader::FromString("");
+  ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(reader2.get()));
   ASSERT_EQ(nullptr, message);
 }
 
@@ -732,6 +766,69 @@ TEST_F(TestWriteRecordBatch, WriteWithCompression) {
     IpcWriteOptions write_options = IpcWriteOptions::Defaults();
     ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
     ASSERT_RAISES(Invalid, SerializeRecordBatch(*batch, write_options));
+  }
+}
+
+TEST_F(TestWriteRecordBatch, WriteWithCompressionAndMinSavings) {
+  // A small batch that's known to be compressible
+  auto batch = RecordBatchFromJSON(schema({field("n", int64())}), R"([
+    {"n":0},{"n":1},{"n":2},{"n":3},{"n":4},
+    {"n":5},{"n":6},{"n":7},{"n":8},{"n":9}])");
+
+  auto prefixed_size = [](const Buffer& buffer) -> int64_t {
+    if (buffer.size() < int64_t(sizeof(int64_t))) return 0;
+    return bit_util::FromLittleEndian(util::SafeLoadAs<int64_t>(buffer.data()));
+  };
+  auto content_size = [](const Buffer& buffer) -> int64_t {
+    return buffer.size() - sizeof(int64_t);
+  };
+
+  for (auto codec : {Compression::LZ4_FRAME, Compression::ZSTD}) {
+    if (!util::Codec::IsAvailable(codec)) {
+      continue;
+    }
+
+    auto write_options = IpcWriteOptions::Defaults();
+    ASSERT_OK_AND_ASSIGN(write_options.codec, util::Codec::Create(codec));
+    auto read_options = IpcReadOptions::Defaults();
+
+    IpcPayload payload;
+    ASSERT_OK(GetRecordBatchPayload(*batch, write_options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 2);
+    // Compute the savings when body buffers are compressed unconditionally. We also
+    // validate that our test batch is indeed compressible.
+    const int64_t uncompressed_size = prefixed_size(*payload.body_buffers[1]);
+    const int64_t compressed_size = content_size(*payload.body_buffers[1]);
+    ASSERT_LT(compressed_size, uncompressed_size);
+    ASSERT_GT(compressed_size, 0);
+    const double expected_savings =
+        1.0 - static_cast<double>(compressed_size) / uncompressed_size;
+
+    // Using the known savings % as the minimum should yield the same outcome.
+    write_options.min_space_savings = expected_savings;
+    payload = IpcPayload();
+    ASSERT_OK(GetRecordBatchPayload(*batch, write_options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 2);
+    ASSERT_EQ(prefixed_size(*payload.body_buffers[1]), uncompressed_size);
+    ASSERT_EQ(content_size(*payload.body_buffers[1]), compressed_size);
+    CheckRoundtrip(*batch, write_options, read_options);
+
+    // Slightly bump the threshold. The body buffer should now be prefixed with -1 and its
+    // content left uncompressed.
+    write_options.min_space_savings = std::nextafter(expected_savings, 1.0);
+    payload = IpcPayload();
+    ASSERT_OK(GetRecordBatchPayload(*batch, write_options, &payload));
+    ASSERT_EQ(payload.body_buffers.size(), 2);
+    ASSERT_EQ(prefixed_size(*payload.body_buffers[1]), -1);
+    ASSERT_EQ(content_size(*payload.body_buffers[1]), uncompressed_size);
+    CheckRoundtrip(*batch, write_options, read_options);
+
+    for (double out_of_range : {std::nextafter(1.0, 2.0), std::nextafter(0.0, -1.0)}) {
+      write_options.min_space_savings = out_of_range;
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          Invalid, ::testing::StartsWith("Invalid: min_space_savings not in range [0,1]"),
+          SerializeRecordBatch(*batch, write_options));
+    }
   }
 }
 
@@ -1085,6 +1182,13 @@ struct FileWriterHelper {
     ARROW_ASSIGN_OR_RAISE(auto reader,
                           RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
     return reader->metadata();
+  }
+
+  Result<std::shared_ptr<Table>> ReadAll() {
+    auto buf_reader = std::make_shared<io::BufferReader>(buffer_);
+    ARROW_ASSIGN_OR_RAISE(auto reader,
+                          RecordBatchFileReader::Open(buf_reader.get(), footer_offset_));
+    return reader->ToTable();
   }
 
   std::shared_ptr<ResizableBuffer> buffer_;
@@ -1778,6 +1882,21 @@ TEST(TestIpcFileFormat, FooterMetaData) {
   ASSERT_TRUE(out_metadata->Equals(*metadata));
 }
 
+TEST(TestIpcFileFormat, ReaderToTable) {
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  FileWriterHelper helper;
+  ASSERT_OK(helper.Init(batch->schema(), IpcWriteOptions::Defaults()));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.WriteBatch(batch));
+  ASSERT_OK(helper.Finish());
+
+  ASSERT_OK_AND_ASSIGN(auto out_table, helper.ReadAll());
+  ASSERT_OK_AND_ASSIGN(auto expected_table, Table::FromRecordBatches({batch, batch}));
+  ASSERT_TABLES_EQUAL(*expected_table, *out_table);
+}
+
 TEST_F(TestWriteRecordBatch, RawAndSerializedSizes) {
   // ARROW-8823: Recording total raw and serialized record batch sizes in WriteStats
   FileWriterHelper helper;
@@ -1985,29 +2104,28 @@ TEST(TestRecordBatchStreamReader, NotEnoughDictionaries) {
   // error
   ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
 
-  auto AssertFailsWith = [](std::shared_ptr<Buffer> stream, const std::string& ex_error) {
+  auto Read = [](std::shared_ptr<Buffer> stream) -> Status {
     io::BufferReader reader(stream);
-    ASSERT_OK_AND_ASSIGN(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
+    ARROW_ASSIGN_OR_RAISE(auto ipc_reader, RecordBatchStreamReader::Open(&reader));
     std::shared_ptr<RecordBatch> batch;
-    Status s = ipc_reader->ReadNext(&batch);
-    ASSERT_TRUE(s.IsInvalid());
-    ASSERT_EQ(ex_error, s.message().substr(0, ex_error.size()));
+    return ipc_reader->ReadNext(&batch);
   };
 
   // Stream terminates before reading all dictionaries
   std::shared_ptr<Buffer> truncated_stream;
   SpliceMessages(buffer, {0, 1}, &truncated_stream);
-  std::string ex_message =
-      ("IPC stream ended without reading the expected number (3)"
-       " of dictionaries");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream ended without "
+                             "reading the expected number (3) of dictionaries",
+                             Read(truncated_stream));
 
   // One of the dictionaries is missing, then we see a record batch
   SpliceMessages(buffer, {0, 1, 2, 4}, &truncated_stream);
-  ex_message =
-      ("IPC stream did not have the expected number (3) of dictionaries "
-       "at the start of the stream");
-  AssertFailsWith(truncated_stream, ex_message);
+  ASSERT_RAISES_WITH_MESSAGE(Invalid,
+                             "Invalid: IPC stream did not have "
+                             "the expected number (3) of dictionaries "
+                             "at the start of the stream",
+                             Read(truncated_stream));
 }
 
 TEST(TestRecordBatchStreamReader, MalformedInput) {
@@ -2916,11 +3034,7 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
     auto read_options = IpcReadOptions::Defaults();
     EXPECT_OK_AND_ASSIGN(auto reader,
                          RecordBatchFileReader::Open(buffer_reader.get(), read_options));
-    std::vector<std::shared_ptr<RecordBatch>> expected_batches;
-    for (int i = 0; i < reader->num_record_batches(); i++) {
-      EXPECT_OK_AND_ASSIGN(auto expected_batch, reader->ReadRecordBatch(i));
-      expected_batches.push_back(expected_batch);
-    }
+    EXPECT_OK_AND_ASSIGN(auto expected_batches, reader->ToRecordBatches());
     return expected_batches;
   }
 

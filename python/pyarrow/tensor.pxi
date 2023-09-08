@@ -316,6 +316,17 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCOOTensor
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            Data used to populate the rows.
+        dim_names : list[str], optional
+            Names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCOOTensor
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -549,11 +560,24 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
@@ -600,6 +624,10 @@ shape: {0.shape}""".format(self)
             The dense numpy array that should be converted.
         dim_names : list, optional
             The names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCSRMatrix
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -780,11 +808,24 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
@@ -814,6 +855,17 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCSCMatrix
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            Data used to populate the rows.
+        dim_names : list[str], optional
+            Names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCSCMatrix
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -995,11 +1047,24 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):
@@ -1037,6 +1102,17 @@ shape: {0.shape}""".format(self)
     def from_dense_numpy(cls, obj, dim_names=None):
         """
         Convert numpy.ndarray to arrow::SparseCSFTensor
+
+        Parameters
+        ----------
+        obj : numpy.ndarray
+            Data used to populate the rows.
+        dim_names : list[str], optional
+            Names of the dimensions.
+
+        Returns
+        -------
+        pyarrow.SparseCSFTensor
         """
         return cls.from_tensor(Tensor.from_numpy(obj, dim_names=dim_names))
 
@@ -1187,11 +1263,24 @@ shape: {0.shape}""".format(self)
         return self.stp.size()
 
     def dim_name(self, i):
+        """
+        Returns the name of the i-th tensor dimension.
+
+        Parameters
+        ----------
+        i : int
+            The physical index of the tensor dimension.
+
+        Returns
+        -------
+        str
+        """
         return frombytes(self.stp.dim_name(i))
 
     @property
     def dim_names(self):
-        return tuple(frombytes(x) for x in tuple(self.stp.dim_names()))
+        names_tuple = tuple(self.stp.dim_names())
+        return tuple(frombytes(x) for x in names_tuple)
 
     @property
     def non_zero_length(self):

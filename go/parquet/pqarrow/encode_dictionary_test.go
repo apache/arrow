@@ -26,14 +26,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/array"
-	"github.com/apache/arrow/go/v12/arrow/compute"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/file"
-	"github.com/apache/arrow/go/v12/parquet/internal/testutils"
-	"github.com/apache/arrow/go/v12/parquet/pqarrow"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/compute"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/file"
+	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
+	"github.com/apache/arrow/go/v14/parquet/pqarrow"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -61,8 +61,8 @@ func (ps *ParquetIOTestSuite) TestSingleColumnOptionalDictionaryWrite() {
 			defer arr.Release()
 
 			sc := ps.makeSimpleSchema(arr.DataType(), parquet.Repetitions.Optional)
-			data := ps.writeColumn(sc, arr)
-			ps.readAndCheckSingleColumnFile(data, values)
+			data := ps.writeColumn(mem, sc, arr)
+			ps.readAndCheckSingleColumnFile(mem, data, values)
 		})
 	}
 }
@@ -103,7 +103,7 @@ func (ad *ArrowWriteDictionarySuite) TestStatisticsWithFallback() {
 	}
 
 	testIndices := []arrow.Array{
-        // ["b", null, "a", "b", null, "a"]
+		// ["b", null, "a", "b", null, "a"]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, null, 3, 0, null, 3]`),
 		// ["b", "c", null, "b", "c", null]
 		ad.fromJSON(mem, arrow.PrimitiveTypes.Int32, `[0, 1, null, 0, 1, null]`),
@@ -400,7 +400,7 @@ func (ar *ArrowReadDictSuite) writeSimple() {
 		pqarrow.DefaultWriterProps()))
 }
 
-func (ArrowReadDictSuite) NullProbabilities() []float64 {
+func (*ArrowReadDictSuite) NullProbabilities() []float64 {
 	return []float64{0.0, 0.5, 1}
 }
 
@@ -543,6 +543,7 @@ func (ar *ArrowReadDictSuite) TestIncrementalReads() {
 	for i := 0; i < numReads; i++ {
 		chunk, err := col.NextBatch(int64(batchSize))
 		ar.Require().NoError(err)
+		defer chunk.Release()
 		// no need to manually release chunk, like other record readers
 		// the col reader holds onto the current record and will release it
 		// when the next is requested or when the reader is released
@@ -703,4 +704,45 @@ func TestArrowWriteNestedSubfieldDictionary(t *testing.T) {
 	defer actual.Release()
 
 	assert.Truef(t, array.TableEqual(tbl, actual), "expected: %s\ngot: %s", tbl, actual)
+}
+
+func TestDictOfEmptyStringsRoundtrip(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	schema := arrow.NewSchema([]arrow.Field{
+		{Name: "reserved1", Type: arrow.BinaryTypes.String, Nullable: true},
+	}, nil)
+
+	bldr := array.NewStringBuilder(mem)
+	defer bldr.Release()
+
+	for i := 0; i < 6; i++ {
+		bldr.AppendEmptyValue()
+	}
+
+	arr := bldr.NewArray()
+	defer arr.Release()
+	col1 := arrow.NewColumnFromArr(schema.Field(0), arr)
+	defer col1.Release()
+	tbl := array.NewTable(schema, []arrow.Column{col1}, 6)
+	defer tbl.Release()
+
+	var buf bytes.Buffer
+	require.NoError(t, pqarrow.WriteTable(tbl, &buf, 6,
+		parquet.NewWriterProperties(parquet.WithDictionaryDefault(true)),
+		pqarrow.NewArrowWriterProperties()))
+
+	result, err := pqarrow.ReadTable(context.Background(), bytes.NewReader(buf.Bytes()), nil, pqarrow.ArrowReadProperties{}, mem)
+	require.NoError(t, err)
+	defer result.Release()
+
+	assert.EqualValues(t, 6, result.NumRows())
+	assert.EqualValues(t, 1, result.NumCols())
+	col := result.Column(0).Data().Chunk(0)
+	assert.Equal(t, arrow.STRING, col.DataType().ID())
+
+	for i := 0; i < 6; i++ {
+		assert.Zero(t, col.(*array.String).Value(i))
+	}
 }

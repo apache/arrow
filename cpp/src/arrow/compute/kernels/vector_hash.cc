@@ -27,6 +27,7 @@
 #include "arrow/array/dict_internal.h"
 #include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
+#include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
@@ -740,16 +741,16 @@ void AddHashKernels(VectorFunction* func, VectorKernel base, OutputType out_ty) 
   }
 }
 
-const FunctionDoc unique_doc(
-    "Compute unique elements",
-    ("Return an array with distinct values.  Nulls in the input are ignored."),
-    {"array"});
+const FunctionDoc unique_doc("Compute unique elements",
+                             ("Return an array with distinct values.\n"
+                              "Nulls are considered as a distinct value as well."),
+                             {"array"});
 
 const FunctionDoc value_counts_doc(
     "Compute counts of unique elements",
     ("For each distinct value, compute the number of times it occurs in the array.\n"
      "The result is returned as an array of `struct<input type, int64>`.\n"
-     "Nulls in the input are ignored."),
+     "Nulls in the input are counted and included in the output as well."),
     {"array"});
 
 const DictionaryEncodeOptions* GetDefaultDictionaryEncodeOptions() {
@@ -762,6 +763,38 @@ const FunctionDoc dictionary_encode_doc(
     ("Return a dictionary-encoded version of the input array."), {"array"},
     "DictionaryEncodeOptions");
 
+// ----------------------------------------------------------------------
+// This function does not use any hashing utilities
+// but is kept in this file to be near dictionary_encode
+// Dictionary decode implementation
+
+const FunctionDoc dictionary_decode_doc{
+    "Decodes a DictionaryArray to an Array",
+    ("Return a plain-encoded version of the array input\n"
+     "This function does nothing if the input is not a dictionary."),
+    {"dictionary_array"}};
+
+class DictionaryDecodeMetaFunction : public MetaFunction {
+ public:
+  DictionaryDecodeMetaFunction()
+      : MetaFunction("dictionary_decode", Arity::Unary(), dictionary_decode_doc) {}
+
+  Result<Datum> ExecuteImpl(const std::vector<Datum>& args,
+                            const FunctionOptions* options,
+                            ExecContext* ctx) const override {
+    if (args[0].type() == nullptr || args[0].type()->id() != Type::DICTIONARY) {
+      return args[0];
+    }
+
+    if (args[0].is_array() || args[0].is_chunked_array()) {
+      DictionaryType* dict_type = checked_cast<DictionaryType*>(args[0].type().get());
+      CastOptions cast_options = CastOptions::Safe(dict_type->value_type());
+      return CallFunction("cast", args, &cast_options, ctx);
+    } else {
+      return Status::TypeError("Expected an Array or a Chunked Array");
+    }
+  }
+};
 }  // namespace
 
 void RegisterVectorHash(FunctionRegistry* registry) {
@@ -817,6 +850,10 @@ void RegisterVectorHash(FunctionRegistry* registry) {
   // a no-op
 
   DCHECK_OK(registry->AddFunction(std::move(dict_encode)));
+}
+
+void RegisterDictionaryDecode(FunctionRegistry* registry) {
+  DCHECK_OK(registry->AddFunction(std::make_shared<DictionaryDecodeMetaFunction>()));
 }
 
 }  // namespace internal

@@ -24,9 +24,9 @@
 
 #include <memory>
 
+#include "arrow/python/visibility.h"
 #include "arrow/type.h"
 #include "arrow/util/macros.h"
-#include "arrow/python/visibility.h"
 
 #include "common.h"
 

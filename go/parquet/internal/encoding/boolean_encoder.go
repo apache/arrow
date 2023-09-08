@@ -17,9 +17,9 @@
 package encoding
 
 import (
-	"github.com/apache/arrow/go/v12/arrow/bitutil"
-	"github.com/apache/arrow/go/v12/parquet"
-	"github.com/apache/arrow/go/v12/parquet/internal/utils"
+	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/parquet"
+	"github.com/apache/arrow/go/v14/parquet/internal/utils"
 )
 
 const (
@@ -82,6 +82,8 @@ func (enc *PlainBooleanEncoder) FlushValues() (Buffer, error) {
 		toFlush := int(enc.wr.Pos())
 		enc.append(enc.bitsBuffer[:bitutil.BytesForBits(int64(toFlush))])
 	}
+
+	enc.wr.Reset(0, boolsInBuf)
 
 	return enc.sink.Finish(), nil
 }

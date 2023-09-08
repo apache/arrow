@@ -52,6 +52,10 @@ class ExtensionArray;
 
 int64_t Array::null_count() const { return data_->GetNullCount(); }
 
+int64_t Array::ComputeLogicalNullCount() const {
+  return data_->ComputeLogicalNullCount();
+}
+
 namespace internal {
 
 struct ScalarFromArraySlotImpl {
@@ -175,6 +179,10 @@ struct ScalarFromArraySlotImpl {
                                 array_.length());
     }
 
+    // Skip checking for nulls in RUN_END_ENCODED arrays to avoid potentially
+    // making two O(log n) searches for the physical index of the slot -- one
+    // here and another in Visit(const RunEndEncodedArray&) in case the values
+    // is not null.
     if (array_.type()->id() != Type::RUN_END_ENCODED && array_.IsNull(index_)) {
       auto null = MakeNullScalar(array_.type());
       if (is_dictionary(array_.type()->id())) {

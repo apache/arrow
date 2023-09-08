@@ -64,7 +64,6 @@ garrow_record_batch_builder_constructed(GObject *object)
   for (int i = 0; i < n_columns; ++i) {
     auto arrow_array_builder = arrow_builder->GetField(i);
     auto array_builder = garrow_array_builder_new_raw(arrow_array_builder);
-    garrow_array_builder_release_ownership(array_builder);
     g_ptr_array_add(priv->column_builders, array_builder);
   }
 

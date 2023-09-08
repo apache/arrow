@@ -69,6 +69,35 @@ TEST(TypeMatcher, TimestampTypeUnit) {
   ASSERT_FALSE(matcher->Equals(*match::Time32TypeUnit(TimeUnit::MILLI)));
 }
 
+TEST(TypeMatcher, RunEndInteger) {
+  auto matcher = match::RunEndInteger();
+  ASSERT_FALSE(matcher->Matches(*int8()));
+  ASSERT_FALSE(matcher->Matches(*uint8()));
+  ASSERT_FALSE(matcher->Matches(*uint16()));
+  ASSERT_FALSE(matcher->Matches(*uint32()));
+  ASSERT_FALSE(matcher->Matches(*uint64()));
+
+  ASSERT_TRUE(matcher->Matches(*int16()));
+  ASSERT_TRUE(matcher->Matches(*int32()));
+  ASSERT_TRUE(matcher->Matches(*int64()));
+}
+
+TEST(TypeMatcher, RunEndEncoded) {
+  auto string_ree_matcher = match::RunEndEncoded(match::SameTypeId(Type::STRING));
+  auto int32_ree_matcher = match::RunEndEncoded(match::SameTypeId(Type::INT32));
+  auto empty_ree_matcher =
+      match::RunEndEncoded(match::SameTypeId(Type::INT8), match::SameTypeId(Type::INT32));
+  for (auto run_end_type : {int16(), int32(), int64()}) {
+    ASSERT_TRUE(string_ree_matcher->Matches(*run_end_encoded(run_end_type, utf8())));
+    ASSERT_FALSE(string_ree_matcher->Matches(*run_end_encoded(run_end_type, int32())));
+
+    ASSERT_FALSE(int32_ree_matcher->Matches(*run_end_encoded(run_end_type, utf8())));
+    ASSERT_TRUE(int32_ree_matcher->Matches(*run_end_encoded(run_end_type, int32())));
+
+    ASSERT_FALSE(empty_ree_matcher->Matches(*run_end_encoded(run_end_type, int32())));
+  }
+}
+
 // ----------------------------------------------------------------------
 // InputType
 

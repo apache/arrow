@@ -22,19 +22,18 @@ package hashing
 import (
 	"bytes"
 	"math"
-	"math/bits"
 	"reflect"
 	"unsafe"
-
-	"github.com/apache/arrow/go/v12/parquet"
-
-	"github.com/zeebo/xxh3"
 )
 
 //go:generate go run ../../arrow/_tools/tmpl/main.go -i -data=types.tmpldata xxh3_memo_table.gen.go.tmpl
 
 type TypeTraits interface {
 	BytesRequired(n int) int
+}
+
+type ByteSlice interface {
+	Bytes() []byte
 }
 
 // MemoTable interface for hash tables and dictionary encoding.
@@ -54,6 +53,12 @@ type MemoTable interface {
 	// the table (if false, the value was inserted). An error is returned
 	// if val is not the appropriate type for the table.
 	GetOrInsert(val interface{}) (idx int, existed bool, err error)
+	// GetOrInsertBytes returns the index of the table the specified value is,
+	// and a boolean indicating whether or not the value was found in
+	// the table (if false, the value was inserted). An error is returned
+	// if val is not the appropriate type for the table. This function is intended to be used by
+	// the BinaryMemoTable to prevent uncessary allocations of the data when converting from a []byte to interface{}.
+	GetOrInsertBytes(val []byte) (idx int, existed bool, err error)
 	// GetOrInsertNull returns the index of the null value in the table,
 	// inserting one if it hasn't already been inserted. It returns a boolean
 	// indicating if the null value already existed or not in the table.
@@ -74,78 +79,6 @@ type NumericMemoTable interface {
 	MemoTable
 	WriteOutLE(out []byte)
 	WriteOutSubsetLE(offset int, out []byte)
-}
-
-func hashInt(val uint64, alg uint64) uint64 {
-	// Two of xxhash's prime multipliers (which are chosen for their
-	// bit dispersion properties)
-	var multipliers = [2]uint64{11400714785074694791, 14029467366897019727}
-	// Multiplying by the prime number mixes the low bits into the high bits,
-	// then byte-swapping (which is a single CPU instruction) allows the
-	// combined high and low bits to participate in the initial hash table index.
-	return bits.ReverseBytes64(multipliers[alg] * val)
-}
-
-func hashFloat32(val float32, alg uint64) uint64 {
-	// grab the raw byte pattern of the
-	bt := *(*[4]byte)(unsafe.Pointer(&val))
-	x := uint64(*(*uint32)(unsafe.Pointer(&bt[0])))
-	hx := hashInt(x, alg)
-	hy := hashInt(x, alg^1)
-	return 4 ^ hx ^ hy
-}
-
-func hashFloat64(val float64, alg uint64) uint64 {
-	bt := *(*[8]byte)(unsafe.Pointer(&val))
-	hx := hashInt(uint64(*(*uint32)(unsafe.Pointer(&bt[4]))), alg)
-	hy := hashInt(uint64(*(*uint32)(unsafe.Pointer(&bt[0]))), alg^1)
-	return 8 ^ hx ^ hy
-}
-
-func hashString(val string, alg uint64) uint64 {
-	buf := *(*[]byte)(unsafe.Pointer(&val))
-	(*reflect.SliceHeader)(unsafe.Pointer(&buf)).Cap = len(val)
-	return hash(buf, alg)
-}
-
-// prime constants used for slightly increasing the hash quality further
-var exprimes = [2]uint64{1609587929392839161, 9650029242287828579}
-
-// for smaller amounts of bytes this is faster than even calling into
-// xxh3 to do the hash, so we specialize in order to get the benefits
-// of that performance.
-func hash(b []byte, alg uint64) uint64 {
-	n := uint32(len(b))
-	if n <= 16 {
-		switch {
-		case n > 8:
-			// 8 < length <= 16
-			// apply same principle as above, but as two 64-bit ints
-			x := *(*uint64)(unsafe.Pointer(&b[n-8]))
-			y := *(*uint64)(unsafe.Pointer(&b[0]))
-			hx := hashInt(x, alg)
-			hy := hashInt(y, alg^1)
-			return uint64(n) ^ hx ^ hy
-		case n >= 4:
-			// 4 < length <= 8
-			// we can read the bytes as two overlapping 32-bit ints, apply different
-			// hash functions to each in parallel
-			// then xor the results
-			x := *(*uint32)(unsafe.Pointer(&b[n-4]))
-			y := *(*uint32)(unsafe.Pointer(&b[0]))
-			hx := hashInt(uint64(x), alg)
-			hy := hashInt(uint64(y), alg^1)
-			return uint64(n) ^ hx ^ hy
-		case n > 0:
-			x := uint32((n << 24) ^ (uint32(b[0]) << 16) ^ (uint32(b[n/2]) << 8) ^ uint32(b[n-1]))
-			return hashInt(uint64(x), alg)
-		case n == 0:
-			return 1
-		}
-	}
-
-	// increase differentiation enough to improve hash quality
-	return xxh3.Hash(b) + exprimes[alg]
 }
 
 const (
@@ -241,16 +174,14 @@ func (s *BinaryMemoTable) Size() int {
 }
 
 // helper function to easily return a byte slice for any given value
-// regardless of the type if it's a []byte, parquet.ByteArray,
-// parquet.FixedLenByteArray or string.
+// regardless of the type if it's a []byte, string, or fulfills the
+// ByteSlice interface.
 func (BinaryMemoTable) valAsByteSlice(val interface{}) []byte {
 	switch v := val.(type) {
 	case []byte:
 		return v
-	case parquet.ByteArray:
-		return *(*[]byte)(unsafe.Pointer(&v))
-	case parquet.FixedLenByteArray:
-		return *(*[]byte)(unsafe.Pointer(&v))
+	case ByteSlice:
+		return v.Bytes()
 	case string:
 		var out []byte
 		h := (*reflect.StringHeader)(unsafe.Pointer(&v))
@@ -270,11 +201,9 @@ func (BinaryMemoTable) getHash(val interface{}) uint64 {
 	case string:
 		return hashString(v, 0)
 	case []byte:
-		return hash(v, 0)
-	case parquet.ByteArray:
-		return hash(*(*[]byte)(unsafe.Pointer(&v)), 0)
-	case parquet.FixedLenByteArray:
-		return hash(*(*[]byte)(unsafe.Pointer(&v)), 0)
+		return Hash(v, 0)
+	case ByteSlice:
+		return Hash(v.Bytes(), 0)
 	default:
 		panic("invalid type for binarymemotable")
 	}
@@ -288,10 +217,8 @@ func (b *BinaryMemoTable) appendVal(val interface{}) {
 		b.builder.AppendString(v)
 	case []byte:
 		b.builder.Append(v)
-	case parquet.ByteArray:
-		b.builder.Append(*(*[]byte)(unsafe.Pointer(&v)))
-	case parquet.FixedLenByteArray:
-		b.builder.Append(*(*[]byte)(unsafe.Pointer(&v)))
+	case ByteSlice:
+		b.builder.Append(v.Bytes())
 	}
 }
 
@@ -308,6 +235,22 @@ func (b *BinaryMemoTable) Get(val interface{}) (int, bool) {
 		return int(p.payload.val), ok
 	}
 	return KeyNotFound, false
+}
+
+// GetOrInsertBytes returns the index of the given value in the table, if not found
+// it is inserted into the table. The return value 'found' indicates whether the value
+// was found in the table (true) or inserted (false) along with any possible error.
+func (b *BinaryMemoTable) GetOrInsertBytes(val []byte) (idx int, found bool, err error) {
+	h := Hash(val, 0)
+	p, found := b.lookup(h, val)
+	if found {
+		idx = int(p.payload.val)
+	} else {
+		idx = b.Size()
+		b.builder.Append(val)
+		b.tbl.Insert(p, h, int32(idx), -1)
+	}
+	return
 }
 
 // GetOrInsert returns the index of the given value in the table, if not found
@@ -339,9 +282,18 @@ func (b *BinaryMemoTable) GetOrInsertNull() (idx int, found bool) {
 	return
 }
 
+func (b *BinaryMemoTable) Value(i int) []byte {
+	return b.builder.Value(i)
+}
+
 // helper function to get the offset into the builder data for a given
 // index value.
 func (b *BinaryMemoTable) findOffset(idx int) uintptr {
+	if b.builder.DataLen() == 0 {
+		// only empty strings, short circuit
+		return 0
+	}
+
 	val := b.builder.Value(idx)
 	for len(val) == 0 {
 		idx++

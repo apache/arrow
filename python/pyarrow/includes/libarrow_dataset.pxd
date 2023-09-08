@@ -22,6 +22,7 @@ from libcpp cimport bool as c_bool
 
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
+from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.includes.libarrow_fs cimport *
 
 
@@ -276,17 +277,25 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
         CCSVReadOptions read_options
         function[StreamWrapFunc] stream_transform_func
 
+    cdef cppclass CJsonFileFormat "arrow::dataset::JsonFileFormat"(CFileFormat):
+        pass
+
+    cdef cppclass CJsonFragmentScanOptions "arrow::dataset::JsonFragmentScanOptions"(CFragmentScanOptions):
+        CJSONParseOptions parse_options
+        CJSONReadOptions read_options
+
     cdef cppclass CPartitioning "arrow::dataset::Partitioning":
         c_string type_name() const
         CResult[CExpression] Parse(const c_string & path) const
         const shared_ptr[CSchema] & schema()
+        c_bool Equals(const CPartitioning& other) const
 
     cdef cppclass CSegmentEncoding" arrow::dataset::SegmentEncoding":
-        pass
+        bint operator==(CSegmentEncoding)
 
-    CSegmentEncoding CSegmentEncodingNone\
+    CSegmentEncoding CSegmentEncoding_None\
         " arrow::dataset::SegmentEncoding::None"
-    CSegmentEncoding CSegmentEncodingUri\
+    CSegmentEncoding CSegmentEncoding_Uri\
         " arrow::dataset::SegmentEncoding::Uri"
 
     cdef cppclass CKeyValuePartitioningOptions \
@@ -321,6 +330,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
                               CKeyValuePartitioningOptions options)
 
         vector[shared_ptr[CArray]] dictionaries() const
+        CSegmentEncoding segment_encoding()
 
     cdef cppclass CDirectoryPartitioning \
             "arrow::dataset::DirectoryPartitioning"(CPartitioning):
@@ -344,6 +354,7 @@ cdef extern from "arrow/dataset/api.h" namespace "arrow::dataset" nogil:
             CHivePartitioningFactoryOptions)
 
         vector[shared_ptr[CArray]] dictionaries() const
+        c_string null_fallback() const
 
     cdef cppclass CFilenamePartitioning \
             "arrow::dataset::FilenamePartitioning"(CPartitioning):

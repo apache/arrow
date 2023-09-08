@@ -71,6 +71,14 @@ class TestSparseUnionArray < Test::Unit::TestCase
                      @array.value_data_type)
       end
 
+      def test_type_code
+        assert_equal(11, @array.get_type_code(0))
+      end
+
+      def test_child_id
+        assert_equal(0, @array.get_child_id(0))
+      end
+
       def test_field
         assert_equal([
                        build_int16_array([1, nil, nil, nil, 5]),

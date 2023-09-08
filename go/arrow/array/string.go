@@ -23,9 +23,9 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
 )
 
 // String represents an immutable sequence of variable-length UTF-8 strings.
@@ -54,6 +54,13 @@ func (a *String) Value(i int) string {
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
 
+func (a *String) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
 // ValueOffset returns the offset of the value at index i.
 func (a *String) ValueOffset(i int) int {
 	if i < 0 || i > a.array.data.length {
@@ -66,22 +73,27 @@ func (a *String) ValueOffset64(i int) int64 {
 	return int64(a.ValueOffset(i))
 }
 
+func (a *String) ValueLen(i int) int {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	beg := a.array.data.offset + i
+	return int(a.offsets[beg+1] - a.offsets[beg])
+}
+
 func (a *String) ValueOffsets() []int32 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1
 	return a.offsets[beg:end]
 }
 
-func (a *String) ValueBytes() (ret []byte) {
+func (a *String) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *String) String() string {
@@ -93,7 +105,7 @@ func (a *String) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -132,7 +144,7 @@ func (a *String) setData(data *Data) {
 	}
 }
 
-func (a *String) getOneForMarshal(i int) interface{} {
+func (a *String) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -189,6 +201,13 @@ func (a *LargeString) Value(i int) string {
 	return a.values[a.offsets[i]:a.offsets[i+1]]
 }
 
+func (a *LargeString) ValueStr(i int) string {
+	if a.IsNull(i) {
+		return NullValueStr
+	}
+	return a.Value(i)
+}
+
 // ValueOffset returns the offset of the value at index i.
 func (a *LargeString) ValueOffset(i int) int64 {
 	if i < 0 || i > a.array.data.length {
@@ -207,16 +226,13 @@ func (a *LargeString) ValueOffsets() []int64 {
 	return a.offsets[beg:end]
 }
 
-func (a *LargeString) ValueBytes() (ret []byte) {
+func (a *LargeString) ValueBytes() []byte {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length
-	data := a.values[a.offsets[beg]:a.offsets[end]]
-
-	s := (*reflect.SliceHeader)(unsafe.Pointer(&ret))
-	s.Data = (*reflect.StringHeader)(unsafe.Pointer(&data)).Data
-	s.Len = len(data)
-	s.Cap = len(data)
-	return
+	if a.array.data.buffers[2] != nil {
+		return a.array.data.buffers[2].Bytes()[a.offsets[beg]:a.offsets[end]]
+	}
+	return nil
 }
 
 func (a *LargeString) String() string {
@@ -228,7 +244,7 @@ func (a *LargeString) String() string {
 		}
 		switch {
 		case a.IsNull(i):
-			o.WriteString("(null)")
+			o.WriteString(NullValueStr)
 		default:
 			fmt.Fprintf(o, "%q", a.Value(i))
 		}
@@ -267,7 +283,7 @@ func (a *LargeString) setData(data *Data) {
 	}
 }
 
-func (a *LargeString) getOneForMarshal(i int) interface{} {
+func (a *LargeString) GetOneForMarshal(i int) interface{} {
 	if a.IsValid(i) {
 		return a.Value(i)
 	}
@@ -277,11 +293,7 @@ func (a *LargeString) getOneForMarshal(i int) interface{} {
 func (a *LargeString) MarshalJSON() ([]byte, error) {
 	vals := make([]interface{}, a.Len())
 	for i := 0; i < a.Len(); i++ {
-		if a.IsValid(i) {
-			vals[i] = a.Value(i)
-		} else {
-			vals[i] = nil
-		}
+		vals[i] = a.GetOneForMarshal(i)
 	}
 	return json.Marshal(vals)
 }
@@ -311,7 +323,9 @@ func NewStringBuilder(mem memory.Allocator) *StringBuilder {
 	return b
 }
 
-func (b *StringBuilder) Type() arrow.DataType { return arrow.BinaryTypes.String }
+func (b *StringBuilder) Type() arrow.DataType {
+	return arrow.BinaryTypes.String
+}
 
 // Append appends a string to the builder.
 func (b *StringBuilder) Append(v string) {
@@ -349,7 +363,7 @@ func (b *StringBuilder) NewStringArray() (a *String) {
 	return
 }
 
-func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *StringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -370,9 +384,9 @@ func (b *StringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *StringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *StringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -390,7 +404,7 @@ func (b *StringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 // A LargeStringBuilder is used to build a LargeString array using the Append methods.
@@ -446,7 +460,7 @@ func (b *LargeStringBuilder) NewLargeStringArray() (a *LargeString) {
 	return
 }
 
-func (b *LargeStringBuilder) unmarshalOne(dec *json.Decoder) error {
+func (b *LargeStringBuilder) UnmarshalOne(dec *json.Decoder) error {
 	t, err := dec.Token()
 	if err != nil {
 		return err
@@ -467,9 +481,9 @@ func (b *LargeStringBuilder) unmarshalOne(dec *json.Decoder) error {
 	return nil
 }
 
-func (b *LargeStringBuilder) unmarshal(dec *json.Decoder) error {
+func (b *LargeStringBuilder) Unmarshal(dec *json.Decoder) error {
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
@@ -487,7 +501,7 @@ func (b *LargeStringBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("string builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 type StringLikeBuilder interface {

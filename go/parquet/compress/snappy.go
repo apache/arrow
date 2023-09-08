@@ -18,7 +18,6 @@ package compress
 
 import (
 	"io"
-	"io/ioutil"
 
 	"github.com/golang/snappy"
 )
@@ -42,7 +41,7 @@ func (snappyCodec) Decode(dst, src []byte) []byte {
 }
 
 func (snappyCodec) NewReader(r io.Reader) io.ReadCloser {
-	return ioutil.NopCloser(snappy.NewReader(r))
+	return io.NopCloser(snappy.NewReader(r))
 }
 
 func (snappyCodec) CompressBound(len int64) int64 {

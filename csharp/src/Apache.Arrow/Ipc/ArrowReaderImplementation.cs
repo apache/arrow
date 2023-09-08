@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using FlatBuffers;
 using System;
 using System.Buffers;
 using System.Collections.Generic;
@@ -24,6 +23,7 @@ using System.Threading.Tasks;
 using Apache.Arrow.Flatbuf;
 using Apache.Arrow.Types;
 using Apache.Arrow.Memory;
+using Google.FlatBuffers;
 using Type = System.Type;
 
 namespace Apache.Arrow.Ipc
@@ -232,12 +232,6 @@ namespace Apache.Arrow.Ipc
             IBufferCreator bufferCreator)
         {
 
-            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
-            if (!recordBatchEnumerator.MoveNextBuffer())
-            {
-                throw new Exception("Unable to move to the next buffer.");
-            }
-
             int fieldLength = (int)fieldNode.Length;
             int fieldNullCount = (int)fieldNode.NullCount;
 
@@ -251,8 +245,19 @@ namespace Apache.Arrow.Ipc
                 throw new InvalidDataException("Null count length must be >= 0"); // TODO:Localize exception message
             }
 
+            if (field.DataType.TypeId == ArrowTypeId.Null)
+            {
+                return new ArrayData(field.DataType, fieldLength, fieldNullCount, 0, System.Array.Empty<ArrowBuffer>());
+            }
+
+            ArrowBuffer nullArrowBuffer = BuildArrowBuffer(bodyData, recordBatchEnumerator.CurrentBuffer, bufferCreator);
+            if (!recordBatchEnumerator.MoveNextBuffer())
+            {
+                throw new Exception("Unable to move to the next buffer.");
+            }
+
             ArrowBuffer[] arrowBuff;
-            if (field.DataType.TypeId == ArrowTypeId.Struct)
+            if (field.DataType.TypeId == ArrowTypeId.Struct || field.DataType.TypeId == ArrowTypeId.FixedSizeList)
             {
                 arrowBuff = new[] { nullArrowBuffer };
             }

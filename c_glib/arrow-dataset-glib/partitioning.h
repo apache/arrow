@@ -71,21 +71,9 @@ gchar *
 gadataset_partitioning_get_type_name(GADatasetPartitioning *partitioning);
 
 
-#define GADATASET_TYPE_DEFAULT_PARTITIONING     \
-  (gadataset_default_partitioning_get_type())
-G_DECLARE_DERIVABLE_TYPE(GADatasetDefaultPartitioning,
-                         gadataset_default_partitioning,
-                         GADATASET,
-                         DEFAULT_PARTITIONING,
-                         GADatasetPartitioning)
-struct _GADatasetDefaultPartitioningClass
-{
-  GADatasetPartitioningClass parent_class;
-};
-
-GARROW_AVAILABLE_IN_11_0
-GADatasetDefaultPartitioning *
-gadataset_default_partitioning_new(void);
+GARROW_AVAILABLE_IN_12_0
+GADatasetPartitioning *
+gadataset_partitioning_create_default(void);
 
 
 #define GADATASET_TYPE_KEY_VALUE_PARTITIONING_OPTIONS   \

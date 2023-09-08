@@ -21,36 +21,29 @@
 # SOFTWARE.
 
 sources:
+  "10.0.1":
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-10.0.1/apache-arrow-10.0.1.tar.gz?action=download"
+    sha256: "c814e0670112a22c1a6ec03ab420a52ae236a9a42e9e438c3cbd37f37e658fb3"
   "10.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-10.0.0.tar.gz"
-    sha256: "2852b21f93ee84185a9d838809c9a9c41bf6deca741bed1744e0fdba6cc19e3f"
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-10.0.0/apache-arrow-10.0.0.tar.gz?action=download"
+    sha256: "5b46fa4c54f53e5df0019fe0f9d421e93fc906b625ebe8e89eed010d561f1f12"
   "8.0.1":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-8.0.1.tar.gz"
-    sha256: "e4c86329be769f2c8778aacc8d6220a9a13c90d59d4988f9349d51299dacbd11"
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-8.0.1/apache-arrow-8.0.1.tar.gz?action=download"
+    sha256: "82d46929f7574715551da21700f100b39f99c3c4d6790f26cac86d869d64e94e"
   "8.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-8.0.0.tar.gz"
-    sha256: "19ece12de48e51ce4287d2dee00dc358fbc5ff02f41629d16076f77b8579e272"
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-8.0.0/apache-arrow-8.0.0.tar.gz?action=download"
+    sha256: "ad9a05705117c989c116bae9ac70492fe015050e1b80fb0e38fde4b5d863aaa3"
   "7.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-7.0.0.tar.gz"
-    sha256: "57e13c62f27b710e1de54fd30faed612aefa22aa41fa2c0c3bacd204dd18a8f3"
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-7.0.0/apache-arrow-7.0.0.tar.gz?action=download"
+    sha256: "e8f49b149a15ecef4e40fcfab1b87c113c6b1ee186005c169e5cdf95d31a99de"
   "2.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-2.0.0.tar.gz"
-    sha256: "ea299df9cf440cfc43393ce12ee6d9a4c9d0dfa9fde33c3bc9b70ec25520a844"
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-2.0.0/apache-arrow-2.0.0.tar.gz?action=download"
+    sha256: "be0342cc847bb340d86aeaef43596a0b6c1dbf1ede9c789a503d939e01c71fbe"
   "1.0.0":
-    url: "https://github.com/apache/arrow/archive/apache-arrow-1.0.0.tar.gz"
-    sha256: "08fbd4c633c08939850d619ca0224c75d7a0526467c721c0838b8aa7efccb270"
+    url: "https://www.apache.org/dyn/closer.lua/arrow/arrow-1.0.0/apache-arrow-1.0.0.tar.gz?action=download"
+    sha256: "86ddb9feb48203a5aaf9cc4f2827525e20a2ca4d7239e492af17e74532ccf243"
 patches:
-  "10.0.0":
-    - patch_file: "patches/10.0.0-0001-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
-    - patch_file: "patches/10.0.0-0002-fix-cmake.patch"
-      patch_description: "use cci package"
-      patch_type: "conan"
   "8.0.1":
-    - patch_file: "patches/8.0.0-0003-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
     - patch_file: "patches/8.0.0-0005-install-utils.patch"
       patch_description: "enable utilis installation"
       patch_type: "conan"
@@ -58,9 +51,6 @@ patches:
       patch_description: "use cci package"
       patch_type: "conan"
   "8.0.0":
-    - patch_file: "patches/8.0.0-0003-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
     - patch_file: "patches/8.0.0-0005-install-utils.patch"
       patch_description: "enable utilis installation"
       patch_type: "conan"
@@ -68,9 +58,6 @@ patches:
       patch_description: "use cci package"
       patch_type: "conan"
   "7.0.0":
-    - patch_file: "patches/7.0.0-0003-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
     - patch_file: "patches/7.0.0-0006-install-utils.patch"
       patch_description: "enable utilis installation"
       patch_type: "conan"
@@ -80,26 +67,20 @@ patches:
   "2.0.0":
     - patch_file: "patches/2.0.0-0003-fix-shared-msvc.patch"
       patch_description: "make shared enabled in msvc"
-      patch_type: "backport"
-    - patch_file: "patches/1.0.0-0004-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
+      patch_type: "official"
     - patch_file: "patches/2.0.0-0005-gandiva-engine.patch"
       patch_description: "fix grandiva compilation error"
-      patch_type: "backport"
+      patch_type: "official"
     - patch_file: "patches/2.0.0-0008-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"
   "1.0.0":
     - patch_file: "patches/1.0.0-0003-fix-shared-msvc.patch"
       patch_description: "make shared enabled in msvc"
-      patch_type: "backport"
-    - patch_file: "patches/1.0.0-0004-mallctl-takes-size_t.patch"
-      patch_description: "use size_t instead of ssize_t"
-      patch_type: "backport"
+      patch_type: "official"
     - patch_file: "patches/1.0.0-0005-fix-make12-namespace.patch"
       patch_description: "fix ambiguous `make12` function between std and date"
-      patch_type: "backport"
+      patch_type: "official"
     - patch_file: "patches/1.0.0-0006-fix-cmake.patch"
       patch_description: "use cci package"
       patch_type: "conan"

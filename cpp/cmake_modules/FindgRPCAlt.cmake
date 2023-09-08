@@ -33,6 +33,8 @@ pkg_check_modules(GRPCPP_PC grpc++)
 if(GRPCPP_PC_FOUND)
   set(gRPCAlt_VERSION "${GRPCPP_PC_VERSION}")
   set(GRPCPP_INCLUDE_DIRECTORIES ${GRPCPP_PC_INCLUDEDIR})
+  # gRPC's pkg-config file neglects to specify pthreads.
+  find_package(Threads REQUIRED)
   if(ARROW_GRPC_USE_SHARED)
     set(GRPCPP_LINK_LIBRARIES ${GRPCPP_PC_LINK_LIBRARIES})
     set(GRPCPP_LINK_OPTIONS ${GRPCPP_PC_LDFLAGS_OTHER})
@@ -48,19 +50,22 @@ if(GRPCPP_PC_FOUND)
     set(GRPCPP_LINK_OPTIONS ${GRPCPP_PC_STATIC_LDFLAGS_OTHER})
     set(GRPCPP_COMPILE_OPTIONS ${GRPCPP_PC_STATIC_CFLAGS_OTHER})
   endif()
+  list(APPEND GRPCPP_LINK_LIBRARIES Threads::Threads)
   list(GET GRPCPP_LINK_LIBRARIES 0 GRPCPP_IMPORTED_LOCATION)
   list(REMOVE_AT GRPCPP_LINK_LIBRARIES 0)
   find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin
                HINTS ${GRPCPP_PC_PREFIX}
                NO_DEFAULT_PATH
                PATH_SUFFIXES "bin")
-  set(gRPCAlt_FIND_PACKAGE_ARGS gRPCAlt REQUIRED_VARS GRPCPP_IMPORTED_LOCATION
-                                GRPC_CPP_PLUGIN)
-  if(gRPCAlt_VERSION)
-    list(APPEND gRPCAlt_FIND_PACKAGE_ARGS VERSION_VAR gRPCAlt_VERSION)
-  endif()
-  find_package_handle_standard_args(${gRPCAlt_FIND_PACKAGE_ARGS})
+endif()
+set(gRPCAlt_FIND_PACKAGE_ARGS gRPCAlt REQUIRED_VARS GRPCPP_IMPORTED_LOCATION
+                              GRPC_CPP_PLUGIN)
+if(gRPCAlt_VERSION)
+  list(APPEND gRPCAlt_FIND_PACKAGE_ARGS VERSION_VAR gRPCAlt_VERSION)
+endif()
+find_package_handle_standard_args(${gRPCAlt_FIND_PACKAGE_ARGS})
 
+if(gRPCAlt_FOUND)
   # gRPC does not expose the reflection library via pkg-config, but it should be alongside the main library
   get_filename_component(GRPCPP_IMPORTED_DIRECTORY ${GRPCPP_IMPORTED_LOCATION} DIRECTORY)
   if(ARROW_GRPC_USE_SHARED)
@@ -74,11 +79,7 @@ if(GRPCPP_PC_FOUND)
                NAMES grpc++_reflection ${GRPCPP_REFLECTION_LIB_NAME}
                PATHS ${GRPCPP_IMPORTED_DIRECTORY}
                NO_DEFAULT_PATH)
-else()
-  set(gRPCAlt_FOUND FALSE)
-endif()
 
-if(gRPCAlt_FOUND)
   add_library(gRPC::grpc++ UNKNOWN IMPORTED)
   set_target_properties(gRPC::grpc++
                         PROPERTIES IMPORTED_LOCATION "${GRPCPP_IMPORTED_LOCATION}"

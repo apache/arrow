@@ -42,6 +42,12 @@ namespace Apache.Arrow
                     return new UInt64Array.Builder();
                 case ArrowTypeId.Int64:
                     return new Int64Array.Builder();
+                case ArrowTypeId.HalfFloat:
+#if NET5_0_OR_GREATER
+                    return new HalfFloatArray.Builder();
+#else
+                    throw new NotSupportedException("Half-float arrays are not supported by this target framework.");
+#endif
                 case ArrowTypeId.Float:
                     return new FloatArray.Builder();
                 case ArrowTypeId.Double:
@@ -62,6 +68,8 @@ namespace Apache.Arrow
                     return new Time64Array.Builder(dataType as Time64Type);
                 case ArrowTypeId.List:
                     return new ListArray.Builder(dataType as ListType);
+                case ArrowTypeId.FixedSizeList:
+                    return new FixedSizeListArray.Builder(dataType as FixedSizeListType);
                 case ArrowTypeId.Decimal128:
                     return new Decimal128Array.Builder(dataType as Decimal128Type);
                 case ArrowTypeId.Decimal256:
@@ -70,7 +78,6 @@ namespace Apache.Arrow
                 case ArrowTypeId.Union:
                 case ArrowTypeId.Dictionary:
                 case ArrowTypeId.FixedSizedBinary:
-                case ArrowTypeId.HalfFloat:
                 case ArrowTypeId.Interval:
                 case ArrowTypeId.Map:
                 default:

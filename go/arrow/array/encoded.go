@@ -23,12 +23,12 @@ import (
 	"reflect"
 	"sync/atomic"
 
-	"github.com/apache/arrow/go/v12/arrow"
-	"github.com/apache/arrow/go/v12/arrow/encoded"
-	"github.com/apache/arrow/go/v12/arrow/internal/debug"
-	"github.com/apache/arrow/go/v12/arrow/memory"
-	"github.com/apache/arrow/go/v12/internal/utils"
-	"github.com/goccy/go-json"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/encoded"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
+	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/json"
+	"github.com/apache/arrow/go/v14/internal/utils"
 )
 
 // RunEndEncoded represents an array containing two children:
@@ -74,22 +74,24 @@ func (r *RunEndEncoded) Release() {
 // run, only over the range of run values inside the logical offset/length
 // range of the parent array.
 //
-// Example
+// # Example
 //
 // For this array:
-//     RunEndEncoded: { Offset: 150, Length: 1500 }
-//         RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
-//         Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
+//
+//	RunEndEncoded: { Offset: 150, Length: 1500 }
+//	    RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
+//	    Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
 //
 // LogicalValuesArray will return the following array:
-//     [ "f", "g" ]
+//
+//	[ "f", "g" ]
 //
 // This is because the offset of 150 tells it to skip the values until
 // "f" which corresponds with the logical offset (the run from 10 - 1000),
 // and stops after "g" because the length + offset goes to 1650 which is
 // within the run from 1000 - 1750, corresponding to the "g" value.
 //
-// Note
+// # Note
 //
 // The return from this needs to be Released.
 func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
@@ -109,15 +111,17 @@ func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
 // that are adjusted so the new array can have an offset of 0. As a result
 // this method can be expensive to call for an array with a non-zero offset.
 //
-// Example
+// # Example
 //
 // For this array:
-//     RunEndEncoded: { Offset: 150, Length: 1500 }
-//         RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
-//         Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
+//
+//	RunEndEncoded: { Offset: 150, Length: 1500 }
+//	    RunEnds: [ 1, 2, 4, 6, 10, 1000, 1750, 2000 ]
+//	    Values:  [ "a", "b", "c", "d", "e", "f", "g", "h" ]
 //
 // LogicalRunEndsArray will return the following array:
-//     [ 850, 1500 ]
+//
+//	[ 850, 1500 ]
 //
 // This is because the offset of 150 tells us to skip all run-ends less
 // than 150 (by finding the physical offset), and we adjust the run-ends
@@ -125,7 +129,7 @@ func (r *RunEndEncoded) LogicalValuesArray() arrow.Array {
 // so we know we don't want to go past the 1750 run end. Thus the last
 // run-end is determined by doing: min(1750 - 150, 1500) = 1500.
 //
-// Note
+// # Note
 //
 // The return from this needs to be Released
 func (r *RunEndEncoded) LogicalRunEndsArray(mem memory.Allocator) arrow.Array {
@@ -192,6 +196,19 @@ func (r *RunEndEncoded) GetPhysicalLength() int {
 	return encoded.GetPhysicalLength(r.data)
 }
 
+// GetPhysicalIndex can be used to get the run-encoded value instead of costly LogicalValuesArray
+// in the following way:
+//
+//	r.Values().(valuetype).Value(r.GetPhysicalIndex(i))
+func (r *RunEndEncoded) GetPhysicalIndex(i int) int {
+	return encoded.FindPhysicalIndex(r.data, i+r.data.offset)
+}
+
+// ValueStr will return the str representation of the value at the logical offset i.
+func (r *RunEndEncoded) ValueStr(i int) string {
+	return r.values.ValueStr(r.GetPhysicalIndex(i))
+}
+
 func (r *RunEndEncoded) String() string {
 	var buf bytes.Buffer
 	buf.WriteByte('[')
@@ -200,22 +217,19 @@ func (r *RunEndEncoded) String() string {
 			buf.WriteByte(',')
 		}
 
-		value := r.values.(arraymarshal).getOneForMarshal(i)
+		value := r.values.GetOneForMarshal(i)
 		if byts, ok := value.(json.RawMessage); ok {
 			value = string(byts)
 		}
-		fmt.Fprintf(&buf, "{%d -> %v}",
-			r.ends.(arraymarshal).getOneForMarshal(i),
-			value)
+		fmt.Fprintf(&buf, "{%d -> %v}", r.ends.GetOneForMarshal(i), value)
 	}
 
 	buf.WriteByte(']')
 	return buf.String()
 }
 
-func (r *RunEndEncoded) getOneForMarshal(i int) interface{} {
-	physIndex := encoded.FindPhysicalIndex(r.data, i+r.data.offset)
-	return r.values.(arraymarshal).getOneForMarshal(physIndex)
+func (r *RunEndEncoded) GetOneForMarshal(i int) interface{} {
+	return r.values.GetOneForMarshal(r.GetPhysicalIndex(i))
 }
 
 func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
@@ -226,7 +240,7 @@ func (r *RunEndEncoded) MarshalJSON() ([]byte, error) {
 		if i != 0 {
 			buf.WriteByte(',')
 		}
-		if err := enc.Encode(r.getOneForMarshal(i)); err != nil {
+		if err := enc.Encode(r.GetOneForMarshal(i)); err != nil {
 			return nil, err
 		}
 	}
@@ -270,7 +284,10 @@ type RunEndEncodedBuilder struct {
 	values    Builder
 	maxRunEnd uint64
 
+	// currently, mixing AppendValueFromString & UnmarshalOne is unsupported
 	lastUnmarshalled interface{}
+	unmarshalled     bool // tracks if Unmarshal was called (in case lastUnmarshalled is nil)
+	lastStr          *string
 }
 
 func NewRunEndEncodedBuilder(mem memory.Allocator, runEnds, encoded arrow.DataType) *RunEndEncodedBuilder {
@@ -321,6 +338,8 @@ func (b *RunEndEncodedBuilder) addLength(n uint64) {
 
 func (b *RunEndEncodedBuilder) finishRun() {
 	b.lastUnmarshalled = nil
+	b.lastStr = nil
+	b.unmarshalled = false
 	if b.length == 0 {
 		return
 	}
@@ -336,23 +355,33 @@ func (b *RunEndEncodedBuilder) finishRun() {
 }
 
 func (b *RunEndEncodedBuilder) ValueBuilder() Builder { return b.values }
+
 func (b *RunEndEncodedBuilder) Append(n uint64) {
 	b.finishRun()
 	b.addLength(n)
 }
+
 func (b *RunEndEncodedBuilder) AppendRuns(runs []uint64) {
 	for _, r := range runs {
 		b.finishRun()
 		b.addLength(r)
 	}
 }
+
 func (b *RunEndEncodedBuilder) ContinueRun(n uint64) {
 	b.addLength(n)
 }
+
 func (b *RunEndEncodedBuilder) AppendNull() {
 	b.finishRun()
 	b.values.AppendNull()
 	b.addLength(1)
+}
+
+func (b *RunEndEncodedBuilder) AppendNulls(n int) {
+	for i := 0; i < n; i++ {
+		b.AppendNull()
+	}
 }
 
 func (b *RunEndEncodedBuilder) NullN() int {
@@ -361,6 +390,10 @@ func (b *RunEndEncodedBuilder) NullN() int {
 
 func (b *RunEndEncodedBuilder) AppendEmptyValue() {
 	b.AppendNull()
+}
+
+func (b *RunEndEncodedBuilder) AppendEmptyValues(n int) {
+	b.AppendNulls(n)
 }
 
 func (b *RunEndEncodedBuilder) Reserve(n int) {
@@ -391,13 +424,42 @@ func (b *RunEndEncodedBuilder) newData() (data *Data) {
 	defer runEnds.Release()
 
 	data = NewData(
-		b.dt, b.length, []*memory.Buffer{nil},
+		b.dt, b.length, []*memory.Buffer{},
 		[]arrow.ArrayData{runEnds.Data(), values.Data()}, 0, 0)
 	b.reset()
 	return
 }
 
-func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
+// AppendValueFromString can't be used in conjunction with UnmarshalOne
+func (b *RunEndEncodedBuilder) AppendValueFromString(s string) error {
+	// we don't support mixing AppendValueFromString & UnmarshalOne
+	if b.unmarshalled {
+		return fmt.Errorf("%w: mixing AppendValueFromString & UnmarshalOne not yet implemented", arrow.ErrNotImplemented)
+	}
+
+	if s == NullValueStr {
+		b.AppendNull()
+		return nil
+	}
+
+	if b.lastStr != nil && s == *b.lastStr {
+		b.ContinueRun(1)
+		return nil
+	}
+
+	b.Append(1)
+	lastStr := s
+	b.lastStr = &lastStr
+	return b.ValueBuilder().AppendValueFromString(s)
+}
+
+// UnmarshalOne can't be used in conjunction with AppendValueFromString
+func (b *RunEndEncodedBuilder) UnmarshalOne(dec *json.Decoder) error {
+	// we don't support mixing AppendValueFromString & UnmarshalOne
+	if b.lastStr != nil {
+		return fmt.Errorf("%w: mixing AppendValueFromString & UnmarshalOne not yet implemented", arrow.ErrNotImplemented)
+	}
+
 	var value interface{}
 	if err := dec.Decode(&value); err != nil {
 		return err
@@ -422,19 +484,22 @@ func (b *RunEndEncodedBuilder) unmarshalOne(dec *json.Decoder) error {
 
 	b.Append(1)
 	b.lastUnmarshalled = value
-	return b.ValueBuilder().unmarshalOne(json.NewDecoder(bytes.NewReader(data)))
+	b.unmarshalled = true
+	return b.ValueBuilder().UnmarshalOne(json.NewDecoder(bytes.NewReader(data)))
 }
 
-func (b *RunEndEncodedBuilder) unmarshal(dec *json.Decoder) error {
+// Unmarshal can't be used in conjunction with AppendValueFromString (as it calls UnmarshalOne)
+func (b *RunEndEncodedBuilder) Unmarshal(dec *json.Decoder) error {
 	b.finishRun()
 	for dec.More() {
-		if err := b.unmarshalOne(dec); err != nil {
+		if err := b.UnmarshalOne(dec); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// UnmarshalJSON can't be used in conjunction with AppendValueFromString (as it calls UnmarshalOne)
 func (b *RunEndEncodedBuilder) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	t, err := dec.Token()
@@ -446,7 +511,7 @@ func (b *RunEndEncodedBuilder) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("list builder must unpack from json array, found %s", delim)
 	}
 
-	return b.unmarshal(dec)
+	return b.Unmarshal(dec)
 }
 
 var (

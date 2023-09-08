@@ -134,6 +134,8 @@ class PARQUET_EXPORT StreamReader {
 
   StreamReader& operator>>(std::string& v);
 
+  StreamReader& operator>>(::arrow::Decimal128& v);
+
   // Input operators for optional fields.
 
   StreamReader& operator>>(optional<bool>& v);
@@ -165,6 +167,8 @@ class PARQUET_EXPORT StreamReader {
   StreamReader& operator>>(optional<char>& v);
 
   StreamReader& operator>>(optional<std::string>& v);
+
+  StreamReader& operator>>(optional<::arrow::Decimal128>& v);
 
   template <std::size_t N>
   StreamReader& operator>>(optional<std::array<char, N>>& v) {

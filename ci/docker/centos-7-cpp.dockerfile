@@ -17,28 +17,27 @@
 
 FROM centos:centos7
 
-RUN yum install -y \
-  centos-release-scl \
-  curl \
-  diffutils \
-  gcc-c++ \
-  libcurl-devel \
-  make \
-  openssl-devel \
-  wget \
-  which
-
 # devtoolset is required for C++17
-RUN yum install -y devtoolset-8
-
-# yum install cmake version is too old
-ARG cmake=3.23.1
-RUN mkdir /opt/cmake-${cmake}
-RUN wget -nv -O - https://github.com/Kitware/CMake/releases/download/v${cmake}/cmake-${cmake}-Linux-x86_64.tar.gz | \
-  tar -xzf -  --strip-components=1 -C /opt/cmake-${cmake}
+RUN \
+  yum install -y \
+    centos-release-scl \
+    epel-release && \
+  yum install -y \
+    cmake3 \
+    curl \
+    devtoolset-8 \
+    diffutils \
+    gcc-c++ \
+    libcurl-devel \
+    make \
+    openssl-devel \
+    openssl11-devel \
+    wget \
+    which
 
 COPY ci/scripts/install_sccache.sh /arrow/ci/scripts/
 RUN bash /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin
 
-ENV PATH=/opt/cmake-${cmake}/bin:$PATH \
-  ARROW_R_DEV=TRUE 
+ENV \
+  ARROW_R_DEV=TRUE \
+  CMAKE=/usr/bin/cmake3

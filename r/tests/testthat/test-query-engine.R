@@ -17,6 +17,8 @@
 
 library(dplyr, warn.conflicts = FALSE)
 
+skip_if_not_available("acero")
+
 test_that("ExecPlanReader does not start evaluating a query", {
   skip_if_not(CanRunWithCapturedR())
 

@@ -37,9 +37,7 @@
 #include "parquet/file_reader.h"
 #include "parquet/test_util.h"
 
-namespace parquet {
-namespace encryption {
-namespace test {
+namespace parquet::encryption::test {
 
 class TestEncryptionKeyManagement : public ::testing::Test {
  protected:
@@ -326,6 +324,9 @@ TEST_F(TestEncryptionKeyManagement, KeyRotationWithInternalMaterial) {
 }
 
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   this->SetupCryptoFactory(true);
 
   this->WriteEncryptedParquetFiles();
@@ -333,6 +334,9 @@ TEST_F(TestEncryptionKeyManagementMultiThread, WrapLocally) {
 }
 
 TEST_F(TestEncryptionKeyManagementMultiThread, WrapOnServer) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   this->SetupCryptoFactory(false);
 
   this->WriteEncryptedParquetFiles();
@@ -387,6 +391,4 @@ TEST_F(TestEncryptionKeyManagement, ReadParquetMRExternalKeyMaterialFile) {
   }
 }
 
-}  // namespace test
-}  // namespace encryption
-}  // namespace parquet
+}  // namespace parquet::encryption::test

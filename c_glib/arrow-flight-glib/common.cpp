@@ -284,7 +284,8 @@ gchar *
 gaflight_location_to_string(GAFlightLocation *location)
 {
   const auto flight_location = gaflight_location_get_raw(location);
-  return g_strdup(flight_location->ToString().c_str());
+  const auto string = flight_location->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -301,7 +302,8 @@ gchar *
 gaflight_location_get_scheme(GAFlightLocation *location)
 {
   const auto flight_location = gaflight_location_get_raw(location);
-  return g_strdup(flight_location->scheme().c_str());
+  const auto scheme = flight_location->scheme();
+  return g_strdup(scheme.c_str());
 }
 
 /**
@@ -406,8 +408,9 @@ gaflight_descriptor_class_init(GAFlightDescriptorClass *klass)
 gchar *
 gaflight_descriptor_to_string(GAFlightDescriptor *descriptor)
 {
-  auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
-  return g_strdup(flight_descriptor->ToString().c_str());
+  const auto flight_descriptor = gaflight_descriptor_get_raw(descriptor);
+  const auto string = flight_descriptor->ToString();
+  return g_strdup(string.c_str());
 }
 
 /**
@@ -1220,10 +1223,12 @@ gaflight_stream_chunk_get_metadata(GAFlightStreamChunk *chunk)
 
 typedef struct GAFlightRecordBatchReaderPrivate_ {
   arrow::flight::MetadataRecordBatchReader *reader;
+  bool is_owner;
 } GAFlightRecordBatchReaderPrivate;
 
 enum {
   PROP_READER = 1,
+  PROP_IS_OWNER,
 };
 
 G_DEFINE_TYPE_WITH_PRIVATE(GAFlightRecordBatchReader,
@@ -1239,9 +1244,9 @@ static void
 gaflight_record_batch_reader_finalize(GObject *object)
 {
   auto priv = GAFLIGHT_RECORD_BATCH_READER_GET_PRIVATE(object);
-
-  delete priv->reader;
-
+  if (priv->is_owner) {
+    delete priv->reader;
+  }
   G_OBJECT_CLASS(gaflight_info_parent_class)->finalize(object);
 }
 
@@ -1258,6 +1263,9 @@ gaflight_record_batch_reader_set_property(GObject *object,
     priv->reader =
       static_cast<arrow::flight::MetadataRecordBatchReader *>(
         g_value_get_pointer(value));
+    break;
+  case PROP_IS_OWNER:
+    priv->is_owner = g_value_get_boolean(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1280,11 +1288,19 @@ gaflight_record_batch_reader_class_init(GAFlightRecordBatchReaderClass *klass)
 
   GParamSpec *spec;
   spec = g_param_spec_pointer("reader",
-                              "Reader",
-                              "The raw arrow::flight::MetadataRecordBatchReader *",
+                              nullptr,
+                              nullptr,
                               static_cast<GParamFlags>(G_PARAM_WRITABLE |
                                                        G_PARAM_CONSTRUCT_ONLY));
   g_object_class_install_property(gobject_class, PROP_READER, spec);
+
+  spec = g_param_spec_boolean("is-owner",
+                              nullptr,
+                              nullptr,
+                              TRUE,
+                              static_cast<GParamFlags>(G_PARAM_WRITABLE |
+                                                       G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_IS_OWNER, spec);
 }
 
 /**

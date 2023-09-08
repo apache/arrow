@@ -28,6 +28,7 @@
 
 include(CMakeFindDependencyMacro)
 find_dependency(Arrow)
+find_dependency(ArrowAcero)
 find_dependency(ArrowDataset)
 find_dependency(Parquet)
 

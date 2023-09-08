@@ -17,14 +17,15 @@
 
 # cython: language_level = 3
 
-from pyarrow.lib cimport (check_status, pyarrow_wrap_metadata,
+from cython cimport binding
+
+from pyarrow.lib cimport (pyarrow_wrap_metadata,
                           pyarrow_unwrap_metadata)
-from pyarrow.lib import frombytes, tobytes, KeyValueMetadata, ensure_metadata
+from pyarrow.lib import frombytes, tobytes, ensure_metadata
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
 from pyarrow._fs cimport FileSystem, TimePoint_to_ns, PyDateTime_to_TimePoint
-from cython.operator cimport dereference as deref
 
 from datetime import datetime, timedelta, timezone
 
@@ -76,6 +77,11 @@ cdef class GcsFileSystem(FileSystem):
     retry_time_limit : timedelta, default None
         Set the maximum amount of time the GCS client will attempt to retry
         transient errors. Subsecond granularity is ignored.
+    project_id : str, default None
+        The GCP project identifier to use for creating buckets.
+        If not set, the library uses the GOOGLE_CLOUD_PROJECT environment
+        variable. Most I/O operations do not need a project id, only applications
+        that create new buckets need a project id.
     """
 
     cdef:
@@ -87,7 +93,8 @@ cdef class GcsFileSystem(FileSystem):
                  scheme=None,
                  endpoint_override=None,
                  default_metadata=None,
-                 retry_time_limit=None):
+                 retry_time_limit=None,
+                 project_id=None):
         cdef:
             CGcsOptions options
             shared_ptr[CGcsFileSystem] wrapped
@@ -137,6 +144,8 @@ cdef class GcsFileSystem(FileSystem):
         if retry_time_limit is not None:
             time_limit_seconds = retry_time_limit.total_seconds()
             options.retry_limit_seconds = time_limit_seconds
+        if project_id is not None:
+            options.project_id = <c_string>tobytes(project_id)
 
         with nogil:
             wrapped = GetResultValue(CGcsFileSystem.Make(options))
@@ -147,16 +156,19 @@ cdef class GcsFileSystem(FileSystem):
         FileSystem.init(self, wrapped)
         self.gcsfs = <CGcsFileSystem*> wrapped.get()
 
-    @classmethod
-    def _reconstruct(cls, kwargs):
-        return cls(**kwargs)
-
     def _expiration_datetime_from_options(self):
         expiration_ns = TimePoint_to_ns(
             self.gcsfs.options().credentials.expiration())
         if expiration_ns == 0:
             return None
         return datetime.fromtimestamp(expiration_ns / 1.0e9, timezone.utc)
+
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(kwargs):
+        # __reduce__ doesn't allow passing named arguments directly to the
+        # reconstructor, hence this wrapper.
+        return GcsFileSystem(**kwargs)
 
     def __reduce__(self):
         cdef CGcsOptions opts = self.gcsfs.options()
@@ -166,6 +178,9 @@ cdef class GcsFileSystem(FileSystem):
         if opts.retry_limit_seconds.has_value():
             retry_time_limit = timedelta(
                 seconds=opts.retry_limit_seconds.value())
+        project_id = None
+        if opts.project_id.has_value():
+            project_id = frombytes(opts.project_id.value())
         return (
             GcsFileSystem._reconstruct, (dict(
                 access_token=frombytes(opts.credentials.access_token()),
@@ -177,7 +192,8 @@ cdef class GcsFileSystem(FileSystem):
                 default_bucket_location=frombytes(
                     opts.default_bucket_location),
                 default_metadata=pyarrow_wrap_metadata(opts.default_metadata),
-                retry_time_limit=retry_time_limit
+                retry_time_limit=retry_time_limit,
+                project_id=project_id
             ),))
 
     @property
@@ -186,3 +202,11 @@ cdef class GcsFileSystem(FileSystem):
         The GCP location this filesystem will write to.
         """
         return frombytes(self.gcsfs.options().default_bucket_location)
+
+    @property
+    def project_id(self):
+        """
+        The GCP project id this filesystem will use.
+        """
+        if self.gcsfs.options().project_id.has_value():
+            return frombytes(self.gcsfs.options().project_id.value())
