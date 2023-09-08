@@ -26,7 +26,6 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 
-
 namespace arrow {
 
 namespace compute {
