@@ -2425,6 +2425,71 @@ def test_table_join_asof_collisions():
         )
 
 
+@pytest.mark.dataset
+def test_table_join_asof_by_length_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "colB": [10, 20, 60],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2, 3, 4],
+    })
+
+    msg = "inconsistent size of by-key across inputs"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA", "colB"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+def test_table_join_asof_by_type_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99., 2., 1.],
+        "on": [2, 3, 4],
+    })
+
+    msg = "Expected by-key type int64 but got double for field colA in input 1"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
+def test_table_join_asof_on_type_mismatch():
+    t1 = pa.table({
+        "colA": [1, 2, 6],
+        "on": [1, 2, 3],
+    })
+
+    t2 = pa.table({
+        "colVals": ["Z", "B", "A"],
+        "colUniq": [100, 200, 300],
+        "colA": [99, 2, 1],
+        "on": [2., 3., 4.],
+    })
+
+    msg = "Expected on-key type int64 but got double for field on in input 1"
+    with pytest.raises(pa.lib.ArrowInvalid, match=msg):
+        t1.join_asof(
+            t2, on="on", by=["colA"], tolerance=1,
+            right_on="on", right_by=["colA"],
+        )
+
+
 def test_table_cast_invalid():
     # Casting a nullable field to non-nullable should be invalid!
     table = pa.table({'a': [None, 1], 'b': [None, True]})
