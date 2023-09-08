@@ -97,6 +97,10 @@ classdef Table < matlab.mixin.CustomDisplay & matlab.mixin.Scalar
             T = obj.table();
         end
 
+        function tf = isequal(obj, varargin)
+            tf = arrow.tabular.internal.isequal(obj, varargin{:});
+        end
+
     end
 
     methods (Access = private)
