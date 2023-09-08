@@ -4768,8 +4768,16 @@ cdef class Table(_Tabular):
         on : str
             The column from current table that should be used as the on key
             of the join operation left side.
+
+            An inexact match is used on the “on” key.i.e., a row is considered a
+            match iff left_on - tolerance <= right_on <= left_on.
+
+            The input dataset must be sorted by the “on” key. Must be a single
+            field of a common type.
+
+            Currently, the “on” key must be an integer, date, or timestamp type.
         by : str or list[str]
-            The columns from current table that should be used as the by keys
+            The columns from current table that should be used as the keys
             of the join operation left side.
         tolerance : int
             The tolerance for inexact "on" key matching. A right row is considered
@@ -4786,7 +4794,7 @@ cdef class Table(_Tabular):
             on the join operation right side.
             When ``None`` use the same key name as the left table.
         right_by : str or list[str], default None
-            The columns from the right_table that should be used as by keys
+            The columns from the right_table that should be used as keys
             on the join operation right side.
             When ``None`` use the same key names as the left table.
 
