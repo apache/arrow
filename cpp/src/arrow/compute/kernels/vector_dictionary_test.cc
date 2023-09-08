@@ -19,12 +19,12 @@
 
 #include "arrow/array.h"
 #include "arrow/chunked_array.h"
+#include "arrow/compute/api.h"
+#include "arrow/compute/kernels/test_util.h"
 #include "arrow/status.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/util/decimal.h"
-#include "arrow/compute/api.h"
-#include "arrow/compute/kernels/test_util.h"
 
 namespace arrow {
 
