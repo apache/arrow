@@ -588,7 +588,9 @@ Result<Datum> DictionaryEncode(
 
 /// \brief Compact a dictionary array
 ///
-/// The output removes unused values in dictionary from the input.
+/// The output removes unused values in dictionary from the input, which 
+/// remove unused values in dictionary.
+/// The function assume every indice is effective.
 ///
 /// \param[in] value array-like input, which should be a dictionary type.
 /// \param[in] ctx the function execution context, optional

@@ -15,20 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstring>
-#include <memory>
-#include <mutex>
-
 #include "arrow/array/array_base.h"
 #include "arrow/array/array_dict.h"
-#include "arrow/array/array_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/dict_internal.h"
-#include "arrow/array/util.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernels/common_internal.h"
 #include "arrow/result.h"
-#include "arrow/util/hashing.h"
 
 namespace arrow {
 
@@ -42,7 +35,8 @@ namespace {
 const FunctionDoc dictionary_compaction_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
-     "which would remove unused values in dictionary."),
+     "which would remove unused values in dictionary.\n"
+     "The function assume every indice is effective."),
     {"dictionary_array"}};
 
 class DictionaryCompactionKernel : public KernelState {

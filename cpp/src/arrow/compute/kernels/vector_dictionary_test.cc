@@ -15,30 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <algorithm>
-#include <cstdint>
-#include <cstdio>
-#include <functional>
-#include <locale>
-#include <memory>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
-
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
-#include "arrow/array/builder_decimal.h"
-#include "arrow/buffer.h"
 #include "arrow/chunked_array.h"
 #include "arrow/status.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
-#include "arrow/type_fwd.h"
-#include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
-
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util.h"
 
