@@ -336,10 +336,8 @@ Result<std::shared_ptr<Array>> FlattenListViewArray(const ListViewArrayT& list_v
         SliceArrayWithOffsets(*value_array, offsets[first_i], end_offset));
   }
 
-  // Final attempt to avoid invoking Concatenate().
-  if (non_null_fragments.size() == 1) {
-    return non_null_fragments[0];
-  } else if (non_null_fragments.size() == 0) {
+  // Concatenate needs at least one fragment to work.
+  if (non_null_fragments.size() == 0) {
     return MakeEmptyArray(value_array->type(), memory_pool);
   }
 

@@ -731,8 +731,11 @@ class ConcatenateImpl {
 }  // namespace
 
 Result<std::shared_ptr<Array>> Concatenate(const ArrayVector& arrays, MemoryPool* pool) {
-  if (arrays.size() == 0) {
-    return Status::Invalid("Must pass at least one array");
+  switch (arrays.size()) {
+    case 0:
+      return Status::Invalid("Must pass at least one array");
+    case 1:
+      return arrays[0];
   }
 
   // gather ArrayData of input arrays
