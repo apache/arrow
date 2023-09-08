@@ -24,9 +24,8 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
 #include "arrow/util/logging.h"
-namespace arrow {
-namespace compute {
-namespace internal {
+
+namespace arrow::compute::internal {
 
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
@@ -257,6 +256,4 @@ SumType SumArray(const ArraySpan& data, Status* status) {
       data, [](ValueType v) { return static_cast<SumType>(v); }, status);
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal
