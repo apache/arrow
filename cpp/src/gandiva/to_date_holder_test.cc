@@ -149,4 +149,33 @@ TEST_F(TestToDateHolder, TestSimpleDateTimeMakeError) {
   EXPECT_EQ(status.IsInvalid(), true) << status.message();
 }
 
+TEST_F(TestToDateHolder, TestSimpleDateYearMonth) {
+  std::shared_ptr<ToDateHolder> to_date_holder;
+  ASSERT_OK(ToDateHolder::Make("YYYY-MM", 1, &to_date_holder));
+
+  auto& to_date = *to_date_holder;
+  bool out_valid;
+  std::string s("2012-12");
+  int64_t millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1354320000000);
+
+  s = std::string("2012-01");
+  millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 1325376000000);
+}
+
+TEST_F(TestToDateHolder, TestSimpleDateYear) {
+  std::shared_ptr<ToDateHolder> to_date_holder;
+  ASSERT_OK(ToDateHolder::Make("YYYY", 1, &to_date_holder));
+
+  auto& to_date = *to_date_holder;
+  bool out_valid;
+  std::string s("1999");
+  int64_t millis_since_epoch =
+      to_date(&execution_context_, s.data(), (int)s.length(), true, &out_valid);
+  EXPECT_EQ(millis_since_epoch, 915148800000);
+}
+
 }  // namespace gandiva
