@@ -17,10 +17,10 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "arrow/util/bit_util.h"
 #include "arrow/util/simd.h"
+
+#include <cstdint>
 
 namespace arrow::bit_util {
 

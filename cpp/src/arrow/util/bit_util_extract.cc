@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/bit_util_extract.h"
-
 #include <cstdint>
+
+#include "arrow/util/bit_util_extract.h"
 
 namespace arrow::bit_util {
 
