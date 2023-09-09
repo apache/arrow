@@ -327,8 +327,8 @@ Result<Datum> DictionaryEncode(const Datum& value, const DictionaryEncodeOptions
   return CallFunction("dictionary_encode", {value}, &options, ctx);
 }
 
-Result<Datum> DictionaryCompaction(const Datum& value, ExecContext* ctx) {
-  return CallFunction("dictionary_compaction", {value}, ctx);
+Result<Datum> DictionaryCompact(const Datum& value, ExecContext* ctx) {
+  return CallFunction("dictionary_compact", {value}, ctx);
 }
 
 Result<Datum> RunEndEncode(const Datum& value, const RunEndEncodeOptions& options,

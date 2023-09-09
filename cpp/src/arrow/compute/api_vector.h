@@ -599,7 +599,7 @@ Result<Datum> DictionaryEncode(
 /// \since 13.0.0
 /// \note API not yet finalized
 ARROW_EXPORT
-Result<Datum> DictionaryCompaction(const Datum& value, ExecContext* ctx = NULLPTR);
+Result<Datum> DictionaryCompact(const Datum& value, ExecContext* ctx = NULLPTR);
 
 /// \brief Run-end-encode values in an array-like object
 ///

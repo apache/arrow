@@ -30,35 +30,56 @@ namespace arrow {
 
 namespace compute {
 
-class TestDictionaryCompactionKernel : public ::testing::Test {};
+class TestDictionaryCompactKernel : public ::testing::Test {};
 
-void CheckDictionaryCompaction(const std::shared_ptr<DataType>& dict_type,
-                               const std::string& input_dictionary_json,
-                               const std::string& input_index_json,
-                               const std::string& expected_dictionary_json,
-                               const std::string& expected_index_json) {
+void CheckDictionaryCompact(const std::shared_ptr<DataType>& dict_type,
+                            const std::string& input_dictionary_json,
+                            const std::string& input_index_json,
+                            const std::string& expected_dictionary_json,
+                            const std::string& expected_index_json) {
   auto input = DictArrayFromJSON(dict_type, input_index_json, input_dictionary_json);
   auto expected =
       DictArrayFromJSON(dict_type, expected_index_json, expected_dictionary_json);
 
-  ASSERT_OK_AND_ASSIGN(Datum actual_datum, DictionaryCompaction(input));
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum, DictionaryCompact(input));
   ValidateOutput(actual_datum);
   std::shared_ptr<Array> actual = actual_datum.make_array();
   AssertArraysEqual(*expected, *actual, /*verbose=*/true);
 }
 
-void CheckDictionaryCompactionOnChunks(const std::shared_ptr<DataType>& dict_type,
-                                       const ArrayVector& input,
-                                       const ArrayVector& expected) {
+void CheckDictionaryCompact(const std::shared_ptr<DataType>& dict_type,
+                            const std::string& input_dictionary_json,
+                            const std::shared_ptr<Array>& input_index,
+                            const std::string& expected_dictionary_json,
+                            const std::string& expected_index_json) {
+  const DictionaryType& casted_dict_type =
+      checked_cast<const DictionaryType&>(*dict_type);
+  std::shared_ptr<Array> input_dictionary =
+      ArrayFromJSON(casted_dict_type.value_type(), input_dictionary_json);
+  std::shared_ptr<Array> input =
+      std::make_shared<DictionaryArray>(dict_type, input_index, input_dictionary);
+
+  std::shared_ptr<Array> expected =
+      DictArrayFromJSON(dict_type, expected_index_json, expected_dictionary_json);
+
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum, DictionaryCompact(input));
+  ValidateOutput(actual_datum);
+  std::shared_ptr<Array> actual = actual_datum.make_array();
+  AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+}
+
+void CheckDictionaryCompactOnChunks(const std::shared_ptr<DataType>& dict_type,
+                                    const ArrayVector& input,
+                                    const ArrayVector& expected) {
   auto input_chunked_array = std::make_shared<ChunkedArray>(input, dict_type);
 
-  ASSERT_OK_AND_ASSIGN(Datum actual_datum, DictionaryCompaction(input_chunked_array));
+  ASSERT_OK_AND_ASSIGN(Datum actual_datum, DictionaryCompact(input_chunked_array));
   ValidateOutput(actual_datum);
   auto actual = actual_datum.chunked_array();
   AssertChunkedEqual(*actual, expected);
 }
 
-TEST_F(TestDictionaryCompactionKernel, DictionaryArray) {
+TEST_F(TestDictionaryCompactKernel, DictionaryArray) {
   std::shared_ptr<arrow::DataType> type;
   std::shared_ptr<arrow::DataType> dict_type;
 
@@ -67,30 +88,69 @@ TEST_F(TestDictionaryCompactionKernel, DictionaryArray) {
 
     type = boolean();
     dict_type = dictionary(index_type, type);
+
     // input is compacted
-    CheckDictionaryCompaction(dict_type, "[]", "[]", "[]", "[]");
-    CheckDictionaryCompaction(dict_type, "[true, false]", "[0, 1, 0]", "[true, false]",
-                              "[0, 1, 0]");
-    CheckDictionaryCompaction(dict_type, "[true, null, false]", "[2, 1, 0]",
-                              "[true, null, false]", "[2, 1, 0]");
-    CheckDictionaryCompaction(dict_type, "[true, false]", "[0, null, 1, 0]",
-                              "[true, false]", "[0, null, 1, 0]");
-    CheckDictionaryCompaction(dict_type, "[true, null, false]", "[2, null, 1, 0]",
-                              "[true, null, false]", "[2, null, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[]", "[]", "[]", "[]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0, 1, 0]", "[true, false]",
+                           "[0, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1, 0]",
+                           "[true, null, false]", "[2, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0, null, 1, 0]", "[true, false]",
+                           "[0, null, 1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1, 0]",
+                           "[true, null, false]", "[2, null, 1, 0]");
+
     // input isn't compacted
-    CheckDictionaryCompaction(dict_type, "[null]", "[]", "[]", "[]");
-    CheckDictionaryCompaction(dict_type, "[false]", "[null]", "[]", "[null]");
-    CheckDictionaryCompaction(dict_type, "[true, false]", "[0]", "[true]", "[0]");
-    CheckDictionaryCompaction(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",
-                              "[1, 0]");
-    CheckDictionaryCompaction(dict_type, "[true, false]", "[0, null]", "[true]",
-                              "[0, null]");
-    CheckDictionaryCompaction(dict_type, "[true, null, false]", "[2, null, 1]",
-                              "[null, false]", "[1, null, 0]");
+    CheckDictionaryCompact(dict_type, "[null]", "[]", "[]", "[]");
+    CheckDictionaryCompact(dict_type, "[false]", "[null]", "[]", "[null]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0]", "[true]", "[0]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",
+                           "[1, 0]");
+    CheckDictionaryCompact(dict_type, "[true, false]", "[0, null]", "[true]",
+                           "[0, null]");
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1]",
+                           "[null, false]", "[1, null, 0]");
   }
 }
 
-TEST_F(TestDictionaryCompactionKernel, DictionaryArrayChunks) {
+TEST_F(TestDictionaryCompactKernel, DictionaryArraySlice) {
+  std::shared_ptr<arrow::DataType> type;
+  std::shared_ptr<arrow::DataType> dict_type;
+
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+
+    type = boolean();
+    dict_type = dictionary(index_type, type);
+
+    std::shared_ptr<Array> original_indice =
+        ArrayFromJSON(index_type, "[0, 0, 1, 1, 0, 1]");
+    CheckDictionaryCompact(dict_type, "[true, false]", original_indice->Slice(1),
+                           "[true, false]", "[0, 1, 1, 0, 1]");
+    CheckDictionaryCompact(dict_type, "[true, false]", original_indice->Slice(5),
+                           "[false]", "[0]");
+
+    original_indice = ArrayFromJSON(index_type, "[0, 0, 1, 1, null]");
+    CheckDictionaryCompact(dict_type, "[true, false]", original_indice->Slice(1),
+                           "[true, false]", "[0, 1, 1, null]");
+    CheckDictionaryCompact(dict_type, "[true, false]", original_indice->Slice(3),
+                           "[false]", "[0, null]");
+
+    original_indice = ArrayFromJSON(index_type, "[0, 0, 2, 1, 1]");
+    CheckDictionaryCompact(dict_type, "[true, false, null]", original_indice->Slice(1),
+                           "[true, false, null]", "[0, 2, 1, 1]");
+    CheckDictionaryCompact(dict_type, "[true, false, null]", original_indice->Slice(3),
+                           "[false]", "[0, 0]");
+
+    original_indice = ArrayFromJSON(index_type, "[0, 0, 2, 1, 1, null]");
+    CheckDictionaryCompact(dict_type, "[true, false, null]", original_indice->Slice(1),
+                           "[true, false, null]", "[0, 2, 1, 1, null]");
+    CheckDictionaryCompact(dict_type, "[true, false, null]", original_indice->Slice(3),
+                           "[false]", "[0, 0, null]");
+  }
+}
+
+TEST_F(TestDictionaryCompactKernel, DictionaryArrayChunks) {
   ArrayVector input;
   ArrayVector expected;
   std::shared_ptr<arrow::DataType> type;
@@ -115,7 +175,7 @@ TEST_F(TestDictionaryCompactionKernel, DictionaryArrayChunks) {
         DictArrayFromJSON(dict_type, "[0, null, 1, 0]", "[true, false]"),
         DictArrayFromJSON(dict_type, "[2, null, 1, 0]", "[true, null, false]"),
     };
-    CheckDictionaryCompactionOnChunks(dict_type, input, expected);
+    CheckDictionaryCompactOnChunks(dict_type, input, expected);
     // input isn't compacted
     input = {
         DictArrayFromJSON(dict_type, "[null]", "[false]"),
@@ -131,7 +191,7 @@ TEST_F(TestDictionaryCompactionKernel, DictionaryArrayChunks) {
         DictArrayFromJSON(dict_type, "[0, null]", "[true]"),
         DictArrayFromJSON(dict_type, "[1, null, 0]", "[null, false]"),
     };
-    CheckDictionaryCompactionOnChunks(dict_type, input, expected);
+    CheckDictionaryCompactOnChunks(dict_type, input, expected);
   }
 }
 

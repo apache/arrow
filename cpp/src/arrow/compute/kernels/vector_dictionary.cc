@@ -32,21 +32,21 @@ namespace {
 
 // Dictionary compaction implementation
 
-const FunctionDoc dictionary_compaction_doc{
+const FunctionDoc dictionary_compact_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
      "which would remove unused values in dictionary.\n"
      "The function assume every indice is effective."),
     {"dictionary_array"}};
 
-class DictionaryCompactionKernel : public KernelState {
+class DictionaryCompactKernel : public KernelState {
  public:
   virtual Result<std::shared_ptr<Array>> Exec(std::shared_ptr<Array> dict_array,
                                               ExecContext* ctx) const = 0;
 };
 
 template <typename IndiceArrowType>
-class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
+class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
   using BuilderType = NumericBuilder<IndiceArrowType>;
   using CType = typename IndiceArrowType::c_type;
 
@@ -96,7 +96,7 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
     std::vector<CType> dict_indice;
     bool need_change_indice = false;
-    CType len = (CType)dict->length();
+    CType len = static_cast<CType>(dict->length());
     for (CType i = 0; i < len; i++) {
       if (dict_used[i]) {
         dict_indice.push_back(i);
@@ -152,41 +152,41 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
   }
 };
 
-Result<std::unique_ptr<KernelState>> DictionaryCompactionInit(
+Result<std::unique_ptr<KernelState>> DictionaryCompactInit(
     KernelContext* ctx, const KernelInitArgs& args) {
   const auto& dict_type =
       checked_cast<const DictionaryType&>(*(args.inputs[0].owned_type));
   switch (dict_type.index_type()->id()) {
     case Type::UINT8:
-      return std::make_unique<DictionaryCompactionKernelImpl<UInt8Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<UInt8Type>>();
     case Type::INT8:
-      return std::make_unique<DictionaryCompactionKernelImpl<Int8Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<Int8Type>>();
     case Type::UINT16:
-      return std::make_unique<DictionaryCompactionKernelImpl<UInt16Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<UInt16Type>>();
     case Type::INT16:
-      return std::make_unique<DictionaryCompactionKernelImpl<Int16Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<Int16Type>>();
     case Type::UINT32:
-      return std::make_unique<DictionaryCompactionKernelImpl<UInt32Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<UInt32Type>>();
     case Type::INT32:
-      return std::make_unique<DictionaryCompactionKernelImpl<Int32Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<Int32Type>>();
     case Type::UINT64:
-      return std::make_unique<DictionaryCompactionKernelImpl<UInt64Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<UInt64Type>>();
     case Type::INT64:
-      return std::make_unique<DictionaryCompactionKernelImpl<Int64Type>>();
+      return std::make_unique<DictionaryCompactKernelImpl<Int64Type>>();
     default:
       ARROW_CHECK(false) << "unreachable";
       return Status::TypeError("Expected an Indice Type of Int or UInt");
   }
 }
 
-Status DictionaryCompactionExec(KernelContext* ctx, const ExecSpan& batch,
+Status DictionaryCompactExec(KernelContext* ctx, const ExecSpan& batch,
                                 ExecResult* out) {
   if (batch[0].is_scalar()) {
     return Status::TypeError("Expected an Array or a Chunked Array");
   }
 
-  const DictionaryCompactionKernel& Kernel =
-      checked_cast<const DictionaryCompactionKernel&>(*ctx->state());
+  const DictionaryCompactKernel& Kernel =
+      checked_cast<const DictionaryCompactKernel&>(*ctx->state());
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> compacted_dict_array,
                         Kernel.Exec(batch[0].array.ToArray(), ctx->exec_context()));
   out->value = compacted_dict_array->data();
@@ -196,14 +196,14 @@ Status DictionaryCompactionExec(KernelContext* ctx, const ExecSpan& batch,
 
 void RegisterVectorDictionary(FunctionRegistry* registry) {
   VectorKernel base;
-  base.init = DictionaryCompactionInit;
-  base.exec = DictionaryCompactionExec;
+  base.init = DictionaryCompactInit;
+  base.exec = DictionaryCompactExec;
   base.signature = KernelSignature::Make({Type::DICTIONARY}, FirstType);
 
-  auto dictionary_compaction = std::make_shared<VectorFunction>(
-      "dictionary_compaction", Arity::Unary(), dictionary_compaction_doc);
-  DCHECK_OK(dictionary_compaction->AddKernel(base));
-  DCHECK_OK(registry->AddFunction(std::move(dictionary_compaction)));
+  auto dictionary_compact = std::make_shared<VectorFunction>(
+      "dictionary_compact", Arity::Unary(), dictionary_compact_doc);
+  DCHECK_OK(dictionary_compact->AddKernel(base));
+  DCHECK_OK(registry->AddFunction(std::move(dictionary_compact)));
 }
 
 }  // namespace internal
