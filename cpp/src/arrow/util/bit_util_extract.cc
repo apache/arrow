@@ -19,7 +19,7 @@
 
 #include <cstdint>
 
-namespace arrow::bit_util::internal {
+namespace arrow::bit_util {
 
 // clang-format off
 /* Python code to generate lookup table:
@@ -53,6 +53,8 @@ print('\n};')
 
 */
 // clang-format on
+
+namespace {
 
 constexpr int kLookupBits = 5;
 constexpr uint8_t kPextTable[1 << kLookupBits][1 << kLookupBits] = {
@@ -218,6 +220,10 @@ constexpr uint8_t kPextTable[1 << kLookupBits][1 << kLookupBits] = {
     },
 };
 
+}  // namespace
+
+namespace detail {
+
 /// \brief Fallback to lookup table method
 ///
 /// \pre select_bitmap != ~uint64_t{0}
@@ -237,4 +243,5 @@ uint64_t ExtractBitsSoftwareFallback(uint64_t bitmap, uint64_t select_bitmap) {
   return bit_value;
 }
 
-}  // namespace arrow::bit_util::internal
+}  // namespace detail
+}  // namespace arrow::bit_util

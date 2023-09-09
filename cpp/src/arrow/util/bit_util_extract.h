@@ -24,7 +24,7 @@
 
 namespace arrow::bit_util {
 
-namespace internal {
+namespace detail {
 
 uint64_t ExtractBitsSoftwareFallback(uint64_t bitmap, uint64_t select_bitmap);
 
@@ -40,7 +40,7 @@ inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
   return ExtractBitsSoftwareFallback(bitmap, select_bitmap);
 }
 
-}  // namespace internal
+}  // namespace detail
 
 #ifdef ARROW_HAVE_BMI2
 
@@ -69,7 +69,7 @@ inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
 using extract_bitmap_t = uint64_t;
 inline extract_bitmap_t ExtractBits(extract_bitmap_t bitmap,
                                     extract_bitmap_t select_bitmap) {
-  return internal::ExtractBitsSoftware(bitmap, select_bitmap);
+  return detail::ExtractBitsSoftware(bitmap, select_bitmap);
 }
 
 #endif
