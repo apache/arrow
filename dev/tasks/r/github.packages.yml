@@ -300,7 +300,7 @@ jobs:
         shell: Rscript {0}
         env:
           ARROW_R_DEV: "true"
-          ARROW_DOWNLOADED_BINARIES: "${{github.workspace}}/repo/libarrow/bin/macos-amd64-openssl-3.0/arrow-${{ needs.source.outputs.pkg_versio  }}.zip"
+          ARROW_DOWNLOADED_BINARIES: "{{ '${{github.workspace}}' }}/repo/libarrow/bin/macos-amd64-openssl-3.0/arrow-{{ '${{ needs.source.outputs.pkg_versio  }}' }}.zip"
         run: |
           install.packages('arrow',repos = "http://cran.us.r-project.org")
           remove.packages('arrow')
