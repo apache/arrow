@@ -104,12 +104,28 @@ TEST_F(TestDictionaryCompactKernel, DictionaryArray) {
     CheckDictionaryCompact(dict_type, "[null]", "[]", "[]", "[]");
     CheckDictionaryCompact(dict_type, "[false]", "[null]", "[]", "[null]");
     CheckDictionaryCompact(dict_type, "[true, false]", "[0]", "[true]", "[0]");
-    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",
-                           "[1, 0]");
     CheckDictionaryCompact(dict_type, "[true, false]", "[0, null]", "[true]",
                            "[0, null]");
+
+    // input isn't compacted && its indice needs to be adjusted
+    CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, 1]", "[null, false]",
+                           "[1, 0]");
     CheckDictionaryCompact(dict_type, "[true, null, false]", "[2, null, 1]",
                            "[null, false]", "[1, null, 0]");
+
+    type = int64();
+    dict_type = dictionary(index_type, type);
+
+    // input isn't compacted && its indice needs to be adjusted
+    CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
+                           "[0, 2, 4, 4, 6, 4, 2, 0, 6]", "[3, 7, 12, 21]",
+                           "[0, 1, 2, 2, 3, 2, 1, 0, 3]");
+    CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
+                           "[4, 6, 7, 7, 6, 4, 6, 6, 6]", "[12, 21, 8]",
+                           "[0, 1, 2, 2, 1, 0, 1, 1, 1]");
+    CheckDictionaryCompact(dict_type, "[3, 4, 7, 0, 12, 191, 21, 8]",
+                           "[7, 4, 7, 7, 7, 7, 4, 7, 7]", "[12, 8]",
+                           "[1, 0, 1, 1, 1, 1, 0, 1, 1]");
   }
 }
 
