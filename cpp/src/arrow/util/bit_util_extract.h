@@ -19,6 +19,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/simd.h"
+#include "arrow/util/visibility.h"
 
 #include <cstdint>
 
@@ -26,7 +27,8 @@ namespace arrow::bit_util {
 
 namespace detail {
 
-uint64_t ExtractBitsSoftwareFallback(uint64_t bitmap, uint64_t select_bitmap);
+ARROW_EXPORT uint64_t ExtractBitsSoftwareFallback(uint64_t bitmap,
+                                                  uint64_t select_bitmap);
 
 /// \brief A software emulation of _pext_u64
 inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
