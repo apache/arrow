@@ -236,18 +236,6 @@ BufferSpan OffsetsForScalar(uint8_t* scratch_space, offset_type value_size) {
   return {scratch_space, sizeof(offset_type) * 2};
 }
 
-template <typename RunEndType>
-void FillRunEndsArrayForScalar(ArraySpan* span, const DataType* run_end_type) {
-  using RunEndCType = typename RunEndType::c_type;
-  auto buffer = reinterpret_cast<RunEndCType*>(span->scratch_space);
-  buffer[0] = static_cast<RunEndCType>(1);
-  span->type = run_end_type;
-  span->length = 1;
-  span->null_count = 0;
-  span->buffers[1].data = reinterpret_cast<uint8_t*>(buffer);
-  span->buffers[1].size = sizeof(RunEndCType);
-}
-
 int GetNumBuffers(const DataType& type) {
   switch (type.id()) {
     case Type::NA:
@@ -443,22 +431,6 @@ void ArraySpan::FillFromScalar(const Scalar& value) {
         this->child_data[i].FillFromScalar(*scalar.value[i]);
       }
     }
-  } else if (type_id == Type::RUN_END_ENCODED) {
-    const auto& scalar = checked_cast<const RunEndEncodedScalar&>(value);
-    this->child_data.resize(2);
-    auto& run_end_type = scalar.run_end_type();
-    switch (run_end_type->id()) {
-      case Type::INT16:
-        FillRunEndsArrayForScalar<Int16Type>(&this->child_data[0], run_end_type.get());
-        break;
-      case Type::INT32:
-        FillRunEndsArrayForScalar<Int32Type>(&this->child_data[0], run_end_type.get());
-        break;
-      default:
-        DCHECK_EQ(run_end_type->id(), Type::INT64);
-        FillRunEndsArrayForScalar<Int64Type>(&this->child_data[0], run_end_type.get());
-    }
-    this->child_data[1].FillFromScalar(*scalar.value);
   } else if (type_id == Type::EXTENSION) {
     // Pass through storage
     const auto& scalar = checked_cast<const ExtensionScalar&>(value);
