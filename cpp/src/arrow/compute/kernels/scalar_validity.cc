@@ -20,6 +20,7 @@
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
 
+#include "arrow/type.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
@@ -159,17 +160,16 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return Status::OK();
   }
 
-  const auto& options = NanOptionsState::Get(ctx);
   uint8_t* out_bitmap = out_span->buffers[1].data;
   if (arr.GetNullCount() > 0) {
     // Input has nulls => output is the inverted null (validity) bitmap.
     InvertBitmap(arr.buffers[0].data, arr.offset, arr.length, out_bitmap,
                  out_span->offset);
   } else {
-    // Input has no nulls => output is entirely false.
+    // Input has no nulls => output is entirely false...
     bit_util::SetBitsTo(out_bitmap, out_span->offset, out_span->length, false);
-    // Except for union/ree which never has physical nulls, but can have logical
-    // nulls from the child arrays -> set those bits to true
+    // ...except for some types (e.g. unions types and REE) which do not
+    // represent nulls in the validity bitmap.
     const auto t = arr.type->id();
     if (t == Type::SPARSE_UNION) {
       SetSparseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
@@ -177,9 +177,12 @@ Status IsNullExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
       SetDenseUnionLogicalNullBits(arr, out_bitmap, out_span->offset);
     } else if (t == Type::RUN_END_ENCODED) {
       SetREELogicalNullBits(arr, out_bitmap, out_span->offset);
+    } else {
+      DCHECK(arrow::internal::HasValidityBitmap(t));
     }
   }
 
+  const auto& options = NanOptionsState::Get(ctx);
   if (is_floating(arr.type->id()) && options.nan_is_null) {
     switch (arr.type->id()) {
       case Type::FLOAT:
