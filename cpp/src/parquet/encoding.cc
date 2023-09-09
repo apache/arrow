@@ -3300,14 +3300,19 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
   void SetData(int num_values, const uint8_t* data, int len) override {
     num_values_ = num_values;
-    decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    if (decoder_) {
+      decoder_->Reset(data, len);
+    } else {
+      decoder_ = std::make_shared<::arrow::bit_util::BitReader>(data, len);
+    }
     prefix_len_decoder_.SetDecoder(num_values, decoder_);
 
     // get the number of encoded prefix lengths
     int num_prefix = prefix_len_decoder_.ValidValuesCount();
     // call prefix_len_decoder_.Decode to decode all the prefix lengths.
     // all the prefix lengths are buffered in buffered_prefix_length_.
-    PARQUET_THROW_NOT_OK(buffered_prefix_length_->Resize(num_prefix * sizeof(int32_t)));
+    PARQUET_THROW_NOT_OK(buffered_prefix_length_->Resize(num_prefix * sizeof(int32_t),
+                                                         /*shrink_to_fit=*/false));
     int ret = prefix_len_decoder_.Decode(
         reinterpret_cast<int32_t*>(buffered_prefix_length_->mutable_data()), num_prefix);
     DCHECK_EQ(ret, num_prefix);
@@ -3323,7 +3328,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
 
     // TODO: read corrupted files written with bug(PARQUET-246). last_value_ should be set
     // to last_value_in_previous_page_ when decoding a new page(except the first page)
-    last_value_ = "";
+    last_value_.clear();
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
@@ -3370,7 +3375,7 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
       }
     }
-    PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size));
+    PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size, false));
 
     string_view prefix{last_value_};
     uint8_t* data_ptr = buffered_data_->mutable_data();
@@ -3378,12 +3383,15 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
       if (ARROW_PREDICT_FALSE(static_cast<size_t>(prefix_len_ptr[i]) > prefix.length())) {
         throw ParquetException("prefix length too large in DELTA_BYTE_ARRAY");
       }
-      memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
-      // buffer[i] currently points to the string suffix
-      memcpy(data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
-      buffer[i].ptr = data_ptr;
-      buffer[i].len += prefix_len_ptr[i];
-      data_ptr += buffer[i].len;
+      // If the prefix length is zero, the prefix can be ignored.
+      if (prefix_len_ptr[i] != 0) {
+        memcpy(data_ptr, prefix.data(), prefix_len_ptr[i]);
+        // buffer[i] currently points to the string suffix
+        memcpy(data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
+        buffer[i].ptr = data_ptr;
+        buffer[i].len += prefix_len_ptr[i];
+        data_ptr += buffer[i].len;
+      }
       prefix = std::string_view{buffer[i]};
     }
     prefix_len_offset_ += max_values;

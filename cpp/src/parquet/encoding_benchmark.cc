@@ -737,6 +737,90 @@ static void BM_DeltaLengthDecodingSpacedByteArray(benchmark::State& state) {
 BENCHMARK(BM_PlainDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 BENCHMARK(BM_DeltaLengthDecodingSpacedByteArray)->Apply(ByteArrayCustomArguments);
 
+void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* out,
+                                int min_size, int max_size, double prefixed_probability) {
+  std::default_random_engine gen(seed);
+  std::uniform_int_distribution<int> dist_size(min_size, max_size);
+  std::uniform_int_distribution<int> dist_byte(0, 255);
+  std::bernoulli_distribution dist_has_prefix(prefixed_probability);
+  std::uniform_real_distribution<double> dist_prefix_length(0, 1);
+
+  for (int i = 0; i < n; ++i) {
+    int len = dist_size(gen);
+    out[i].len = len;
+    out[i].ptr = buf;
+
+    bool do_prefix = dist_has_prefix(gen) && i > 0;
+    int prefix_len = 0;
+    if (do_prefix) {
+      int max_prefix_len = std::min(len, static_cast<int>(out[i - 1].len));
+      prefix_len = static_cast<int>(std::ceil(max_prefix_len * dist_prefix_length(gen)));
+    }
+    for (int j = 0; j < prefix_len; ++j) {
+      buf[j] = out[i - 1].ptr[j];
+    }
+    for (int j = prefix_len; j < len; ++j) {
+      buf[j] = static_cast<uint8_t>(dist_byte(gen));
+    }
+    buf += len;
+  }
+}
+
+static void BM_DeltaEncodingByteArray(benchmark::State& state) {
+  // Using arrow generator to generate random data.
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  std::vector<ByteArray> values;
+  std::vector<uint8_t> buf(max_length * array_size);
+  values.resize(array_size);
+  prefixed_random_byte_array(array_size, /*seed=*/0, buf.data(), values.data(),
+                             /*min_size=*/0, max_length,
+                             /*prefixed_probability=*/0.5);
+  int64_t actual_length = 0;
+  for (auto v : values) {
+    actual_length += v.len;
+  }
+
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetItemsProcessed(state.iterations() * array_size);
+  state.SetBytesProcessed(state.iterations() * actual_length);
+}
+
+static void BM_DeltaDecodingByteArray(benchmark::State& state) {
+  // Using arrow generator to generate random data.
+  int32_t max_length = static_cast<int32_t>(state.range(0));
+  int32_t array_size = static_cast<int32_t>(state.range(1));
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  std::vector<ByteArray> values;
+  std::vector<uint8_t> input_buf(max_length * array_size);
+  values.resize(array_size);
+  prefixed_random_byte_array(array_size, /*seed=*/0, input_buf.data(), values.data(),
+                             /*min_size=*/0, max_length,
+                             /*prefixed_probability=*/0.5);
+  int64_t actual_length = 0;
+  for (auto v : values) {
+    actual_length += v.len;
+  }
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  for (auto _ : state) {
+    decoder->SetData(array_size, buf->data(), static_cast<int>(buf->size()));
+    decoder->Decode(values.data(), static_cast<int>(values.size()));
+    ::benchmark::DoNotOptimize(values);
+  }
+  state.SetItemsProcessed(state.iterations() * array_size);
+  state.SetBytesProcessed(state.iterations() * actual_length);
+}
+
+BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayCustomArguments);
+BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayCustomArguments);
+
 static void BM_RleEncodingBoolean(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);
   auto encoder = MakeEncoder(Type::BOOLEAN, Encoding::RLE);
