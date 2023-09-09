@@ -96,7 +96,7 @@ class DictionaryCompactionKernelImpl : public DictionaryCompactionKernel {
     }
     std::vector<CType> dict_indice;
     bool need_change_indice = false;
-    CType len = (CType)dict->length();
+    CType len = static_cast<CType>(dict->length());
     for (CType i = 0; i < len; i++) {
       if (dict_used[i]) {
         dict_indice.push_back(i);
