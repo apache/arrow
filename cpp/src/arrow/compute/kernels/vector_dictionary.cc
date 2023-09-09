@@ -35,8 +35,8 @@ namespace {
 const FunctionDoc dictionary_compact_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
-     "which would remove unused values in dictionary.\n"
-     "The function assume every indice is effective."),
+     "which removes unused values in dictionary.\n"
+     "The function assumes every indice is effective."),
     {"dictionary_array"}};
 
 class DictionaryCompactKernel : public KernelState {
@@ -152,8 +152,8 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
   }
 };
 
-Result<std::unique_ptr<KernelState>> DictionaryCompactInit(
-    KernelContext* ctx, const KernelInitArgs& args) {
+Result<std::unique_ptr<KernelState>> DictionaryCompactInit(KernelContext* ctx,
+                                                           const KernelInitArgs& args) {
   const auto& dict_type =
       checked_cast<const DictionaryType&>(*(args.inputs[0].owned_type));
   switch (dict_type.index_type()->id()) {
@@ -179,8 +179,7 @@ Result<std::unique_ptr<KernelState>> DictionaryCompactInit(
   }
 }
 
-Status DictionaryCompactExec(KernelContext* ctx, const ExecSpan& batch,
-                                ExecResult* out) {
+Status DictionaryCompactExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   if (batch[0].is_scalar()) {
     return Status::TypeError("Expected an Array or a Chunked Array");
   }
