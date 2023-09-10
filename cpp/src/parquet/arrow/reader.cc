@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <queue>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -58,6 +59,7 @@ using arrow::Future;
 using arrow::Int32Array;
 using arrow::ListArray;
 using arrow::MemoryPool;
+using arrow::RecordBatch;
 using arrow::RecordBatchReader;
 using arrow::ResizableBuffer;
 using arrow::Result;
@@ -316,6 +318,23 @@ class FileReaderImpl : public FileReader {
     return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()), table);
   }
 
+  Result<AsyncBatchGenerator> DoReadRowGroupsAsync(
+      const std::vector<int>& row_groups, const std::vector<int>& indices,
+      ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches);
+
+  AsyncBatchGenerator ReadRowGroupsAsync(const std::vector<int>& row_groups,
+                                         const std::vector<int>& indices,
+                                         ::arrow::internal::Executor* cpu_executor,
+                                         bool allow_sliced_batches) override {
+    Result<AsyncBatchGenerator> batch_gen =
+        DoReadRowGroupsAsync(row_groups, indices, cpu_executor, allow_sliced_batches);
+    if (batch_gen.ok()) {
+      return batch_gen.MoveValueUnsafe();
+    }
+    return ::arrow::MakeFailingGenerator<std::shared_ptr<RecordBatch>>(
+        batch_gen.status());
+  }
+
   Status ReadRowGroup(int row_group_index, const std::vector<int>& column_indices,
                       std::shared_ptr<Table>* out) override {
     return ReadRowGroups({row_group_index}, column_indices, out);
@@ -323,6 +342,28 @@ class FileReaderImpl : public FileReader {
 
   Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
     return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
+  }
+
+  AsyncBatchGenerator ReadRowGroupAsync(int row_group_index,
+                                        ::arrow::internal::Executor* cpu_executor,
+                                        bool allow_sliced_batches) override {
+    return ReadRowGroupsAsync({row_group_index}, Iota(reader_->metadata()->num_columns()),
+                              cpu_executor, allow_sliced_batches);
+  }
+
+  AsyncBatchGenerator ReadRowGroupAsync(int row_group_index,
+                                        const std::vector<int>& column_indices,
+                                        ::arrow::internal::Executor* cpu_executor,
+                                        bool allow_sliced_batches) override {
+    return ReadRowGroupsAsync({row_group_index}, column_indices, cpu_executor,
+                              allow_sliced_batches);
+  }
+
+  AsyncBatchGenerator ReadRowGroupsAsync(const std::vector<int>& row_groups,
+                                         ::arrow::internal::Executor* cpu_executor,
+                                         bool allow_sliced_batches) override {
+    return ReadRowGroupsAsync(row_groups, Iota(reader_->metadata()->num_columns()),
+                              cpu_executor, allow_sliced_batches);
   }
 
   Status GetRecordBatchReader(const std::vector<int>& row_group_indices,
@@ -1231,6 +1272,124 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
                              /*cpu_executor=*/nullptr);
   ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
   return Status::OK();
+}
+
+struct AsyncBatchGeneratorState {
+  ::arrow::internal::Executor* io_executor;
+  ::arrow::internal::Executor* cpu_executor;
+  std::vector<std::shared_ptr<ColumnReaderImpl>> column_readers;
+  std::queue<std::shared_ptr<RecordBatch>> overflow;
+  std::shared_ptr<::arrow::Schema> schema;
+  int64_t batch_size;
+  int64_t rows_remaining;
+  bool use_threads;
+  bool allow_sliced_batches;
+};
+
+class AsyncBatchGeneratorImpl {
+ public:
+  explicit AsyncBatchGeneratorImpl(std::shared_ptr<AsyncBatchGeneratorState> state)
+      : state_(std::move(state)) {}
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    if (!state_->overflow.empty()) {
+      std::shared_ptr<RecordBatch> next = std::move(state_->overflow.front());
+      state_->overflow.pop();
+      return next;
+    }
+
+    if (state_->rows_remaining == 0) {
+      // Exhausted
+      return Future<std::shared_ptr<RecordBatch>>::MakeFinished(
+          ::arrow::IterationEnd<std::shared_ptr<RecordBatch>>());
+    }
+
+    int64_t rows_in_batch = std::min(state_->rows_remaining, state_->batch_size);
+    state_->rows_remaining -= rows_in_batch;
+
+    // We read the columns in parallel.  Each reader returns a chunked array.  This is
+    // probably because we might need to chunk a column if that column is too large.  We
+    // do provide a batch size but perhaps that column has massive strings or something
+    // like that.
+    Future<std::vector<std::shared_ptr<ChunkedArray>>> chunked_arrays_fut =
+        ::arrow::internal::OptionalParallelForAsync(
+            state_->use_threads, state_->column_readers,
+            [rows_in_batch](std::size_t, std::shared_ptr<ColumnReaderImpl> column_reader)
+                -> Result<std::shared_ptr<ChunkedArray>> {
+              std::shared_ptr<ChunkedArray> chunked_array;
+              ARROW_RETURN_NOT_OK(
+                  column_reader->NextBatch(rows_in_batch, &chunked_array));
+              return chunked_array;
+            });
+
+    // Grab the first batch of data and return it.  If there is more than one batch then
+    // throw the reamining batches into overflow and they will be fetched on the next call
+    return chunked_arrays_fut.Then(
+        [state = state_,
+         rows_in_batch](const std::vector<std::shared_ptr<ChunkedArray>>& chunks)
+            -> Result<std::shared_ptr<RecordBatch>> {
+          std::shared_ptr<Table> table =
+              Table::Make(state->schema, chunks, rows_in_batch);
+          ::arrow::TableBatchReader batch_reader(*table);
+          std::shared_ptr<RecordBatch> first;
+          while (true) {
+            ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> next_batch,
+                                  batch_reader.Next());
+            if (!next_batch) {
+              break;
+            }
+            if (first) {
+              if (!state->allow_sliced_batches) {
+                return Status::Invalid(
+                    "The setting allow_sliced_batches is set to false and data was "
+                    "encountered that was too large to fit in a single batch.");
+              }
+              state->overflow.push(std::move(next_batch));
+            } else {
+              first = std::move(next_batch);
+            }
+          }
+          if (!first) {
+            // TODO(weston): Test this case
+            return Status::Invalid("Unexpected empty row group");
+          }
+          return first;
+        });
+  }
+
+ private:
+  std::shared_ptr<AsyncBatchGeneratorState> state_;
+};
+
+Result<FileReaderImpl::AsyncBatchGenerator> FileReaderImpl::DoReadRowGroupsAsync(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices,
+    ::arrow::internal::Executor* cpu_executor, bool allow_sliced_batches) {
+  RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
+
+  if (reader_properties_.pre_buffer()) {
+    BEGIN_PARQUET_CATCH_EXCEPTIONS
+    parquet_reader()->PreBuffer(row_groups, column_indices,
+                                reader_properties_.io_context(),
+                                reader_properties_.cache_options());
+    END_PARQUET_CATCH_EXCEPTIONS
+  }
+
+  auto generator_state = std::make_shared<AsyncBatchGeneratorState>();
+  generator_state->io_executor = reader_properties_.io_context().executor();
+  generator_state->cpu_executor = cpu_executor;
+  generator_state->use_threads = reader_properties_.use_threads();
+  generator_state->allow_sliced_batches = allow_sliced_batches;
+  RETURN_NOT_OK(GetFieldReaders(column_indices, row_groups,
+                                &generator_state->column_readers,
+                                &generator_state->schema));
+
+  generator_state->batch_size = properties().batch_size();
+  generator_state->rows_remaining = 0;
+  for (int row_group : row_groups) {
+    generator_state->rows_remaining +=
+        parquet_reader()->metadata()->RowGroup(row_group)->num_rows();
+  }
+
+  return AsyncBatchGeneratorImpl(std::move(generator_state));
 }
 
 Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(

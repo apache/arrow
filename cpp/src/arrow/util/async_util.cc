@@ -65,6 +65,9 @@ class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
 
   void Pause() override {
     std::lock_guard lg(mutex_);
+    if (paused_) {
+      return;
+    }
     paused_ = true;
     if (!backoff_.is_valid()) {
       backoff_ = Future<>::Make();
@@ -73,6 +76,9 @@ class ThrottleImpl : public ThrottledAsyncTaskScheduler::Throttle {
 
   void Resume() override {
     std::unique_lock lk(mutex_);
+    if (!paused_) {
+      return;
+    }
     paused_ = false;
     // Might be a useless notification if our current cost is full
     // or no one is waiting but it should be ok.

@@ -134,14 +134,15 @@ Future<std::optional<int64_t>> FileFormat::CountRows(
 }
 
 Future<std::shared_ptr<InspectedFragment>> FileFormat::InspectFragment(
-    const FileSource& source, const FragmentScanOptions* format_options,
-    compute::ExecContext* exec_context) const {
+    const FileFragment& fragment, const FileSource& source,
+    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
   return Status::NotImplemented("This format does not yet support the scan2 node");
 }
 
 Future<std::shared_ptr<FragmentScanner>> FileFormat::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) const {
+    const FileSource& source, const FragmentScanRequest& request,
+    InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
+    compute::ExecContext* exec_context) const {
   return Status::NotImplemented("This format does not yet support the scan2 node");
 }
 
@@ -174,23 +175,23 @@ Result<RecordBatchGenerator> FileFragment::ScanBatchesAsync(
   return format_->ScanBatchesAsync(options, self);
 }
 
-Future<std::shared_ptr<InspectedFragment>> FileFragment::InspectFragment(
+Future<std::shared_ptr<InspectedFragment>> FileFragment::InspectFragmentImpl(
     const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
   const FragmentScanOptions* realized_format_options = format_options;
   if (format_options == nullptr) {
     realized_format_options = format_->default_fragment_scan_options.get();
   }
-  return format_->InspectFragment(source_, realized_format_options, exec_context);
+  return format_->InspectFragment(*this, source_, realized_format_options, exec_context);
 }
 
 Future<std::shared_ptr<FragmentScanner>> FileFragment::BeginScan(
-    const FragmentScanRequest& request, const InspectedFragment& inspected_fragment,
-    const FragmentScanOptions* format_options, compute::ExecContext* exec_context) {
-  const FragmentScanOptions* realized_format_options = format_options;
-  if (format_options == nullptr) {
+    const FragmentScanRequest& request, InspectedFragment* inspected_fragment,
+    compute::ExecContext* exec_context) {
+  const FragmentScanOptions* realized_format_options = request.format_scan_options;
+  if (realized_format_options == nullptr) {
     realized_format_options = format_->default_fragment_scan_options.get();
   }
-  return format_->BeginScan(request, inspected_fragment, realized_format_options,
+  return format_->BeginScan(source_, request, inspected_fragment, realized_format_options,
                             exec_context);
 }
 

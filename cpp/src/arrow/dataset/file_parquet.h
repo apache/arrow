@@ -26,20 +26,20 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/compute/expression.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
+#include "arrow/dataset/partition.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
-#include "arrow/io/caching.h"
+#include "arrow/filesystem/type_fwd.h"
+#include "arrow/type_fwd.h"
+#include "arrow/util/future.h"
 
 namespace parquet {
-class ParquetFileReader;
 class Statistics;
-class ColumnChunkMetaData;
-class RowGroupMetaData;
 class FileMetaData;
-class FileDecryptionProperties;
-class FileEncryptionProperties;
 
 class ReaderProperties;
 class ArrowReaderProperties;
@@ -94,6 +94,16 @@ class ARROW_DS_EXPORT ParquetFileFormat : public FileFormat {
 
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
+
+  Future<std::shared_ptr<InspectedFragment>> InspectFragment(
+      const FileFragment& fragment, const FileSource& source,
+      const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const override;
+
+  Future<std::shared_ptr<FragmentScanner>> BeginScan(
+      const FileSource& source, const FragmentScanRequest& request,
+      InspectedFragment* inspected_fragment, const FragmentScanOptions* format_options,
+      compute::ExecContext* exec_context) const override;
 
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
@@ -172,7 +182,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
   static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
-      const Field& field, const parquet::Statistics& statistics);
+      const compute::Expression& field_expr, const std::shared_ptr<DataType>& field_type,
+      const parquet::Statistics& statistics);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
@@ -213,19 +224,76 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   friend class ParquetDatasetFactory;
 };
 
+enum class ParquetScanStrategy { kLeastMemory, kMaxSpeed, kCustom };
+
 /// \brief Per-scan options for Parquet fragments
 class ARROW_DS_EXPORT ParquetFragmentScanOptions : public FragmentScanOptions {
  public:
   ParquetFragmentScanOptions();
   std::string type_name() const override { return kParquetTypeName; }
 
-  /// Reader properties. Not all properties are respected: memory_pool comes from
-  /// ScanOptions.
+  /// There are several fine-grained parquet reader properties that are difficult
+  /// to understand and configure correctly.  This often leads to poor performance
+  /// or poor RAM utilization.
+  ///
+  /// As a result, we have created common configurations of these properties.  This
+  /// option allows you to select one of these configurations.
+  ///
+  /// kMaxSpeed - This configuration will enable pre-buffering and caching.  Row groups
+  ///             will be read in their entirety, batch size is 32Ki.  Stream
+  ///             buffering is disabled.
+  ///
+  /// kLeastMemory - This configuration will disable pre-buffering.  Stream buffering
+  ///             will be enabled.  Row groups will be read 32Ki rows at a time.
+  ///
+  /// kCustom - Pre-buffering, stream buffering, and batch size settings will be
+  ///           configured according to reader_properties and arrow_reader_properties.
+  ParquetScanStrategy scan_strategy = ParquetScanStrategy::kLeastMemory;
+
+  /// Reader properties.
+  ///
+  /// Not all properties are respected:
+  ///
+  /// * memory_pool comes from ScanOptions.
+  /// * buffered_stream will be ignored if scan_strategy != kCustom
+  /// * buffer_size will be ignored if scan_strategy != kCustom
   std::shared_ptr<parquet::ReaderProperties> reader_properties;
-  /// Arrow reader properties. Not all properties are respected: batch_size comes from
-  /// ScanOptions. Additionally, dictionary columns come from
-  /// ParquetFileFormat::ReaderOptions::dict_columns.
+  /// Arrow reader properties.
+  ///
+  /// Not all properties are respected:
+  ///
+  /// * batch_size will come from:
+  ///   * ScanOptions if using ScanOptions
+  ///   * ignored if using ScanV2Options and strategy != kCustom (we always use 32Ki)
+  ///   * this arrow_reader_properties if using ScanV2Options and strategy == kCustom
+  /// * dictionary columns come from ParquetFileFormat::ReaderOptions::dict_columns
+  /// * pre_buffer will be ignored if using ScanV2Options and scan_strategy != kCustom
+  /// * cache_options will be ignored if using ScanV2Options and scan_strategy != kCustom
+  /// * use_threads will come from:
+  ///   * ScanOptions if using ScanOptions
+  ///   * true if using ScanV2Options and the query executor has capacity > 1
+  ///   * false if using ScanV2Options and the query executor has capacity == 1
   std::shared_ptr<parquet::ArrowReaderProperties> arrow_reader_properties;
+
+  /// \brief Are parquet files allowed to contain extremely large values
+  ///
+  /// The scan will read the parquet file in batches.  This is controlled by
+  /// arrow_reader_properties.  It is generally safe to assume that one batch
+  /// of rows will fit in a RecordBatch.  However, if the rows contain string data
+  /// and the batch size is large, or if there are extremely large strings present
+  /// in the data, then it may be possible that a single batch of data has more than
+  /// 2GiB of data in a single column, which is not allowed, and we will need to split
+  /// the batch.
+  ///
+  /// For example, if there is a string column, and the batch size is set to its
+  /// default value of 32Ki then a batch will be a jumbo if the strings are, on average,
+  /// 64KiB each.  You can avoid this, if needed,  by using a custom scan strategy and
+  /// setting a smaller batch size.
+  ///
+  /// If this setting is true it will have a negative impact on performance.  We won't
+  /// know in advance how many batches are contained in the file and this makes it
+  /// difficult to both scan files in parallel and sequence batches.
+  bool allow_jumbo_values = false;
 };
 
 class ARROW_DS_EXPORT ParquetFileWriteOptions : public FileWriteOptions {

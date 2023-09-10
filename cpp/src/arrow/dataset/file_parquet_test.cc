@@ -23,6 +23,7 @@
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
+#include "arrow/dataset/plan.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
@@ -720,15 +721,41 @@ INSTANTIATE_TEST_SUITE_P(TestScan, TestParquetFileFormatScan,
 
 TEST(TestParquetStatistics, NullMax) {
   auto field = ::arrow::field("x", float32());
+  auto field_ref = compute::field_ref("x");
   ASSERT_OK_AND_ASSIGN(std::string dir_string,
                        arrow::internal::GetEnvVar("PARQUET_TEST_DATA"));
   auto reader =
       parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
   auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
-  auto stat_expression =
-      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  auto stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(
+      field_ref, float32(), *statistics);
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
 }
+
+class TestParquetFileFormatScanNode
+    : public FileFormatScanNodeMixin<ParquetFormatHelper> {
+  void SetUp() override { internal::Initialize(); }
+
+  const FragmentScanOptions* GetFormatOptions() override { return &scan_options_; }
+
+ protected:
+  ParquetFragmentScanOptions scan_options_;
+};
+
+TEST_P(TestParquetFileFormatScanNode, Inspect) { TestInspect(); }
+TEST_P(TestParquetFileFormatScanNode, Scan) { TestScan(); }
+TEST_P(TestParquetFileFormatScanNode, ScanSomeColumns) { TestScanSomeColumns(); }
+TEST_P(TestParquetFileFormatScanNode, ScanSomeNestedColumns) {
+  TestScanSomeNestedColumns();
+}
+TEST_P(TestParquetFileFormatScanNode, StatisticsFiltering) { TestStatisticsFiltering(); }
+TEST_P(TestParquetFileFormatScanNode, ScanWithInvalidOptions) {
+  TestInvalidFormatScanOptions();
+}
+
+INSTANTIATE_TEST_SUITE_P(TestScanNode, TestParquetFileFormatScanNode,
+                         ::testing::ValuesIn(TestFormatParams::Values()),
+                         TestFormatParams::ToTestNameString);
 
 }  // namespace dataset
 }  // namespace arrow

@@ -36,6 +36,8 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/expression.h"
 #include "arrow/compute/kernel.h"
+#include "arrow/compute/type_fwd.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
@@ -44,6 +46,7 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/test_util.h"
 #include "arrow/record_batch.h"
+#include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/generator.h"
@@ -1021,6 +1024,11 @@ class FileFormatScanMixin : public FileFormatFixtureMixin<FormatHelper>,
   using FileFormatFixtureMixin<FormatHelper>::opts_;
 };
 
+class InvalidFragmentScanOptions : public FragmentScanOptions {
+ public:
+  std::string type_name() const override { return "invalid"; }
+};
+
 template <typename FormatHelper, int64_t MaxNumRows = (1UL << 17)>
 class FileFormatFixtureMixinV2 : public ::testing::Test {
  public:
@@ -1066,6 +1074,11 @@ class FileFormatFixtureMixinV2 : public ::testing::Test {
 
   void SetDatasetSchema(std::vector<std::shared_ptr<Field>> fields) {
     dataset_schema_ = schema(std::move(fields));
+    SetScanProjectionAllColumns();
+  }
+
+  void SetDatasetSchema(std::shared_ptr<Schema> schema) {
+    dataset_schema_ = std::move(schema);
     SetScanProjectionAllColumns();
   }
 
@@ -1155,6 +1168,18 @@ class FileFormatFixtureMixinV2 : public ::testing::Test {
 
     ASSERT_OK_AND_ASSIGN(auto actual, format_->Inspect(*source.get()));
     AssertSchemaEqual(*actual, *reader->schema(), /*check_metadata=*/false);
+  }
+
+  void TestInvalidFormatScanOptions() {
+    auto reader = this->GetRandomData(schema({field("f64", float64())}));
+    auto source = this->MakeBufferSource(reader.get());
+
+    InvalidFragmentScanOptions invalid_options;
+    auto fragment = this->MakeFragment(*source);
+    ASSERT_THAT(
+        fragment->InspectFragmentImpl(&invalid_options, compute::default_exec_context()),
+        Finishes(Raises(StatusCode::Invalid,
+                        testing::HasSubstr("scan options of type invalid"))));
   }
 
   void TestIsSupported() {
@@ -1265,6 +1290,14 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
                                     GetParam().num_batches);
   }
 
+  Result<std::shared_ptr<RecordBatchReader>> ReaderFromBatches(
+      std::vector<std::shared_ptr<RecordBatch>> batches) {
+    std::shared_ptr<Schema> schema = batches[0]->schema();
+    Iterator<std::shared_ptr<RecordBatch>> batch_it =
+        MakeVectorIterator(std::move(batches));
+    return RecordBatchReader::MakeFromIterator(std::move(batch_it), schema);
+  }
+
   // Scan the fragment through the scanner.
   Result<std::unique_ptr<RecordBatchReader>> Scan(std::shared_ptr<Fragment> fragment,
                                                   bool add_filter_fields = true) {
@@ -1280,14 +1313,25 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     return reader;
   }
 
+  Result<std::shared_ptr<Table>> ScanToTable(std::shared_ptr<Fragment> fragment,
+                                             bool add_filter_fields = true) {
+    ARROW_ASSIGN_OR_RAISE(std::unique_ptr<RecordBatchReader> scanner,
+                          this->Scan(fragment, /*add_filter_fields=*/false));
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    for (auto maybe_batch : *scanner) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, maybe_batch);
+      batches.push_back(batch);
+    }
+    return Table::FromRecordBatches(batches);
+  }
+
   // Return a batch iterator which scans the fragment through the scanner.
   //
   // For interface compatibility with `FileFormatScanMixin`
   RecordBatchIterator Batches(const std::shared_ptr<Fragment>& fragment,
                               bool use_readahead = true) {
     if (!use_readahead) {
-      opts_->target_bytes_readahead = 0;
-      opts_->fragment_readahead = 0;
+      opts_->scan_task_readahead = 0;
     }
     EXPECT_OK_AND_ASSIGN(auto reader, this->Scan(fragment));
     struct ReaderIterator {
@@ -1297,7 +1341,13 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     return RecordBatchIterator(ReaderIterator{std::move(reader)});
   }
 
-  // Shared test cases
+  // Basic scan test
+  //
+  // We generate some random data and encode it in a buffer as parquet
+  // The dataset schema matches the data schema
+  // We create one fragment from the buffer
+  // We scan all columns and all rows
+  // We ensure we get the correct # of rows back
   void TestScan() {
     // Basic test to make sure we can scan data
     auto random_data = GetRandomData(schema({field("f64", float64())}));
@@ -1315,11 +1365,14 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     ASSERT_EQ(row_count, GetParam().expected_rows());
   }
 
-  // TestScanBatchSize is no longer relevant because batch size is an internal concern.
-  // Consumers should only really care about batch sizing at the sink.
-
-  // Ensure file formats only return columns needed to fulfill filter/projection
-  void TestScanProjected() {
+  // Ensure file formats only return columns that are asked for in `columns`
+  // We create test data with 4 columns
+  // We ask for only one of them (f64)
+  // We set a row filter that relies on a different column (i32)
+  //   This row filter matches all rows (note, this row filter is just
+  //   noise. Mainly making sure we aren't loading "materialized refs")
+  // We expect to get back all rows and only the one column we asked for
+  void TestScanSomeColumns() {
     auto f32 = field("f32", float32());
     auto f64 = field("f64", float64());
     auto i32 = field("i32", int32());
@@ -1328,8 +1381,9 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     this->SetScanProjectionRefs({"f64"});
     this->SetScanFilter(equal(field_ref("i32"), literal(0)));
 
-    // We expect f64 since it is asked for and i32 since it is needed for the filter
-    auto expected_schema = schema({f64, i32});
+    // We expect f64 since it is asked for
+    // Even though i32 is asked for in the filter, it should not be returned
+    auto expected_schema = schema({f64});
 
     auto reader = this->GetRandomData(dataset_schema_);
     auto source = this->MakeBufferSource(reader.get());
@@ -1338,7 +1392,7 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     int64_t row_count = 0;
 
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                         this->Scan(fragment));
+                         this->Scan(fragment, /*add_filter_fields=*/false));
     for (auto maybe_batch : *scanner) {
       ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
       row_count += batch->num_rows();
@@ -1353,199 +1407,82 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
     ASSERT_EQ(row_count, expected_rows());
   }
 
-  void TestScanMissingFilterField() {
-    auto f32 = field("f32", float32());
-    auto f64 = field("f64", float64());
-    this->SetDatasetSchema({f32, f64});
-    this->SetScanProjectionRefs({"f64"});
-    this->SetScanFilter(equal(field_ref("f32"), literal(0)));
+  // For file formats that support nested columns we need to test various
+  // scanning scenarios where only part of a nested column is asked for.
+  //
+  // The schema is:
+  //
+  // A   B   C
+  //     |
+  //  E - - D
+  //        |
+  //     F - - G
+  void TestScanSomeNestedColumns() {
+    auto a = field("A", float32());
+    auto c = field("C", float32());
+    auto e = field("E", float32());
+    auto f = field("F", float32());
+    auto g = field("G", float32());
+    auto d = field("D", struct_({f, g}));
+    auto b = field("B", struct_({e, d}));
+    this->SetDatasetSchema({a, b, c});
 
-    auto reader = this->GetRandomData(dataset_schema_);
-    auto source = this->MakeBufferSource(reader.get());
-    auto fragment = this->MakeFragment(*source);
-
-    // At the moment, all formats support this.  CSV & JSON simply ignore
-    // the filter field entirely.  Parquet filters with statistics which doesn't require
-    // loading columns.
-    //
-    // However, it seems valid that a format would reject this case as well.  Perhaps it
-    // is not worth testing.
-    ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                         this->Scan(fragment));
-  }
-
-  void TestScanProjectedNested(bool fine_grained_selection = false) {
-    // "struct1": {
-    //   "f32",
-    //   "i32"
-    // }
-    // "struct2": {
-    //   "f64",
-    //   "i64",
-    //   "struct1": {
-    //     "f32",
-    //     "i32"
-    //   }
-    // }
-    auto f32 = field("f32", float32());
-    auto f64 = field("f64", float64());
-    auto i32 = field("i32", int32());
-    auto i64 = field("i64", int64());
-    auto struct1 = field("struct1", struct_({f32, i32}));
-    auto struct2 = field("struct2", struct_({f64, i64, struct1}));
-    this->SetDatasetSchema({struct1, struct2, f32, f64, i32, i64});
-    this->SetScanProjectionRefs(
-        {".struct1.f32", ".struct2.struct1", ".struct2.struct1.f32"});
-    this->SetScanFilter(greater_equal(field_ref(FieldRef("struct2", "i64")), literal(0)));
-
-    std::shared_ptr<Schema> physical_schema;
-    if (fine_grained_selection) {
-      // Some formats, like Parquet, let you pluck only a part of a complex type
-      physical_schema = schema(
-          {field("struct1", struct_({f32})), field("struct2", struct_({i64, struct1}))});
-    } else {
-      // Otherwise, the entire top-level field is returned
-      physical_schema = schema({struct1, struct2});
-    }
-    std::shared_ptr<Schema> projected_schema = schema({
-        field(".struct1.f32", float32()),
-        field(".struct2.struct1", struct1->type()),
-        field(".struct2.struct1.f32", float32()),
-    });
-
-    {
+    auto CheckProjection = [&](std::vector<FieldPath> projection,
+                               std::shared_ptr<Schema> expected_schema) {
+      this->SetScanProjection(projection);
       auto reader = this->GetRandomData(dataset_schema_);
       auto source = this->MakeBufferSource(reader.get());
       auto fragment = this->MakeFragment(*source);
+      ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table, ScanToTable(fragment));
+      AssertSchemaEqual(*table->schema(), *expected_schema, /*check_metadata=*/false);
+    };
 
-      int64_t row_count = 0;
-      ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                           this->Scan(fragment));
-      for (auto maybe_batch : *scanner) {
-        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        row_count += batch->num_rows();
-        AssertSchemaEqual(*batch->schema(), *projected_schema,
-                          /*check_metadata=*/false);
-      }
-      ASSERT_EQ(row_count, expected_rows());
-    }
-    {
-      // File includes a duplicated name in struct2
-      auto struct2_physical = field("struct2", struct_({f64, i64, struct1, i64}));
-      auto reader =
-          this->GetRandomData(schema({struct1, struct2_physical, f32, f64, i32, i64}));
-      auto source = this->MakeBufferSource(reader.get());
-      auto fragment = this->MakeFragment(*source);
-
-      ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                           this->Scan(fragment));
-      EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr("i64"),
-                                      scanner->Next().status());
-    }
-    {
-      // File is missing a child in struct1
-      auto struct1_physical = field("struct1", struct_({i32}));
-      auto reader =
-          this->GetRandomData(schema({struct1_physical, struct2, f32, f64, i32, i64}));
-      auto source = this->MakeBufferSource(reader.get());
-      auto fragment = this->MakeFragment(*source);
-
-      physical_schema = schema({physical_schema->field(1)});
-
-      int64_t row_count = 0;
-      ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                           this->Scan(fragment));
-      for (auto maybe_batch : *scanner) {
-        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        row_count += batch->num_rows();
-        ASSERT_THAT(
-            batch->schema()->fields(),
-            ::testing::UnorderedPointwise(PointeesEqual(), physical_schema->fields()))
-            << "EXPECTED:\n"
-            << physical_schema->ToString() << "\nACTUAL:\n"
-            << batch->schema()->ToString();
-      }
-      ASSERT_EQ(row_count, expected_rows());
-    }
+    // Only F
+    CheckProjection({{1, 1, 0}}, schema({f}));
+    // A and F
+    CheckProjection({{0}, {1, 1, 0}}, schema({a, f}));
+    // Different order
+    CheckProjection({{1, 1, 0}, {0}}, schema({f, a}));
+    // Duplicates
+    CheckProjection({{0}, {1, 1, 0}, {0}}, schema({a, f, a}));
+    // // A and F and E
+    CheckProjection({{0}, {1, 1, 0}, {1, 0}}, schema({a, f, e}));
   }
 
-  void TestScanProjectedMissingCols() {
-    auto f32 = field("f32", float32());
-    auto f64 = field("f64", float64());
-    auto i32 = field("i32", int32());
-    auto i64 = field("i64", int64());
-    this->SetDatasetSchema({f64, i64, f32, i32});
-    this->SetScanProjectionRefs({"f64", "i32"});
-    this->SetScanFilter(equal(field_ref("i32"), literal(0)));
+  // Some formats support filtering out entire row groups based
+  // on row group statistics.  This test case generates row groups
+  // that should be easily excluded and then makes sure the group
+  // is not included in the results.
+  void TestStatisticsFiltering() {
+    auto test_schema = schema({field("i32", int32()), field("f64", float64()),
+                               field("struct", struct_({field("nested_i32", int32())}))});
+    auto positive_values = RecordBatchFromJSON(test_schema, R"([
+      [1, 1.0, { "nested_i32": 1 }],
+      [2, 2.0, { "nested_i32": 2 }],
+      [3, 3.0, { "nested_i32": 3 }]
+    ])");
+    auto negative_values = RecordBatchFromJSON(test_schema, R"([
+      [-1, -1.0, { "nested_i32": -1 }],
+      [-2, -2.0, { "nested_i32": -2 }]
+    ])");
+    this->SetDatasetSchema(test_schema);
+    this->SetScanProjection({});
 
-    auto data_without_i32 = this->GetRandomData(schema({f64, i64, f32}));
-    auto data_without_f64 = this->GetRandomData(schema({i64, f32, i32}));
-    auto data_with_all = this->GetRandomData(schema({f64, i64, f32, i32}));
+    auto CheckFilter = [&](compute::Expression filter, int32_t num_expected_rows) {
+      this->SetScanFilter(std::move(filter));
 
-    auto readers = {data_with_all.get(), data_without_i32.get(), data_without_f64.get()};
-    for (auto reader : readers) {
-      SCOPED_TRACE(reader->schema()->ToString());
-      auto source = this->MakeBufferSource(reader);
+      ASSERT_OK_AND_ASSIGN(auto reader,
+                           this->ReaderFromBatches({positive_values, negative_values}));
+      auto source = this->MakeBufferSource(reader.get());
       auto fragment = this->MakeFragment(*source);
+      ASSERT_OK_AND_ASSIGN(std::shared_ptr<Table> table, ScanToTable(fragment));
+      ASSERT_EQ(table->num_rows(), num_expected_rows);
+    };
 
-      // in the case where a file doesn't contain a referenced field, we materialize it
-      // as nulls
-      std::shared_ptr<Schema> expected_schema = schema({f64, i32});
-
-      int64_t row_count = 0;
-      ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                           this->Scan(fragment));
-      for (auto maybe_batch : *scanner) {
-        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        row_count += batch->num_rows();
-        ASSERT_THAT(
-            batch->schema()->fields(),
-            ::testing::UnorderedPointwise(PointeesEqual(), expected_schema->fields()))
-            << "EXPECTED:\n"
-            << expected_schema->ToString() << "\nACTUAL:\n"
-            << batch->schema()->ToString();
-      }
-      ASSERT_EQ(row_count, expected_rows());
-    }
-  }
-
-  void TestScanWithDuplicateColumn() {
-    // A duplicate column is ignored if not requested.
-    auto i32 = field("i32", int32());
-    auto i64 = field("i64", int64());
-    this->SetDatasetSchema({i32, i32, i64});
-    this->SetScanProjectionRefs({"i64"});
-    auto expected_schema = schema({i64});
-    auto reader = this->GetRandomData(dataset_schema_);
-    auto source = this->MakeBufferSource(reader.get());
-    auto fragment = this->MakeFragment(*source);
-
-    int64_t row_count = 0;
-
-    ASSERT_OK_AND_ASSIGN(std::unique_ptr<RecordBatchReader> scanner,
-                         this->Scan(fragment));
-    for (auto maybe_batch : *scanner) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
-    }
-
-    ASSERT_EQ(row_count, expected_rows());
-
-    // Duplicate columns ok if column selection uses paths
-    row_count = 0;
-    expected_schema = schema({i32, i32});
-    this->SetScanProjection({{0}, {1}});
-    ASSERT_OK_AND_ASSIGN(scanner, this->Scan(fragment));
-    for (auto maybe_batch : *scanner) {
-      ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-      row_count += batch->num_rows();
-      AssertSchemaEqual(*batch->schema(), *expected_schema,
-                        /*check_metadata=*/false);
-    }
-
-    ASSERT_EQ(row_count, expected_rows());
+    CheckFilter(greater(field_ref("i32"), literal(0)), 3);
+    CheckFilter(less(field_ref("i32"), literal(0)), 2);
+    CheckFilter(greater(field_ref({2, 0}), literal(0)), 3);
+    CheckFilter(less(field_ref({2, 0}), literal(0)), 2);
   }
 
   void TestScanWithPushdownNulls() {
@@ -1570,6 +1507,25 @@ class FileFormatScanNodeMixin : public FileFormatFixtureMixinV2<FormatHelper>,
       row_count += batch->num_rows();
     }
     ASSERT_EQ(row_count, 1);
+  }
+
+  void TestInspect() {
+    auto f32 = field("f32", float32());
+    auto f64 = field("f64", float64());
+    auto i32 = field("i32", int32());
+    auto i64 = field("i64", int64());
+    std::shared_ptr<Schema> test_schema = schema({f32, f64, i32, i64});
+
+    auto reader = this->GetRandomData(test_schema);
+    auto source = this->MakeBufferSource(reader.get());
+    std::shared_ptr<Fragment> fragment = this->MakeFragment(*source);
+
+    ASSERT_FINISHES_OK_AND_ASSIGN(
+        std::shared_ptr<InspectedFragment> inspection,
+        fragment->InspectFragment(/*scan_options=*/{}, compute::threaded_exec_context(),
+                                  /*should_cache=false*/ false));
+
+    ASSERT_EQ(inspection->column_names, test_schema->field_names());
   }
 
  protected:
