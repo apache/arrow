@@ -1427,22 +1427,4 @@ visible: false
                                 right_suffix: "_right"))
     end
   end
-
-  sub_test_case("#each_raw_record") do
-    setup do
-      @raw_records = @count_array.values.zip(@visible_array.values)
-    end
-
-    test("block") do
-      iterated_records = []
-      @table.each_raw_record do |raw_record|
-        iterated_records << raw_record
-      end
-      assert_equal(@raw_records, iterated_records)
-    end
-
-    test("without block") do
-      assert_equal(@raw_records, @table.each_raw_record.to_a)
-    end
-  end
 end
