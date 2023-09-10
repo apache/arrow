@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/testing/json_integration.h"
+#include "arrow/integration/json_integration.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -24,25 +24,19 @@
 #include <utility>
 
 #include "arrow/buffer.h"
+#include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/testing/json_internal.h"
 #include "arrow/type.h"
 #include "arrow/util/logging.h"
 
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+using arrow::ipc::DictionaryFieldMapper;
+using arrow::ipc::DictionaryMemo;
 
-namespace arrow {
-
-using ipc::DictionaryFieldMapper;
-using ipc::DictionaryMemo;
-
-namespace testing {
+namespace arrow::internal::integration {
 
 // ----------------------------------------------------------------------
 // Writer implementation
@@ -211,5 +205,4 @@ Result<std::shared_ptr<RecordBatch>> IntegrationJsonReader::ReadRecordBatch(int 
   return impl_->ReadRecordBatch(i);
 }
 
-}  // namespace testing
-}  // namespace arrow
+}  // namespace arrow::internal::integration

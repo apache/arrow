@@ -31,6 +31,8 @@
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/integration/json_integration.h"
+#include "arrow/integration/json_internal.h"
 #include "arrow/io/file.h"
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/reader.h"
@@ -41,8 +43,6 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/testing/json_integration.h"
-#include "arrow/testing/json_internal.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -65,15 +65,13 @@ DEFINE_bool(validate_date64, true,
 DEFINE_bool(validate_times, true,
             "Validate that values for TIME32 and TIME64 are within their valid ranges");
 
-namespace arrow {
+namespace arrow::internal::integration {
 
-using internal::TemporaryDir;
-using ipc::DictionaryFieldMapper;
-using ipc::DictionaryMemo;
-using ipc::IpcWriteOptions;
-using ipc::MetadataVersion;
-
-namespace testing {
+using ::arrow::internal::TemporaryDir;
+using ::arrow::ipc::DictionaryFieldMapper;
+using ::arrow::ipc::DictionaryMemo;
+using ::arrow::ipc::IpcWriteOptions;
+using ::arrow::ipc::MetadataVersion;
 
 using namespace ::arrow::ipc::test;  // NOLINT
 
@@ -1176,8 +1174,7 @@ const std::vector<ipc::test::MakeRecordBatch*> kBatchCases = {
 INSTANTIATE_TEST_SUITE_P(TestJsonRoundTrip, TestJsonRoundTrip,
                          ::testing::ValuesIn(kBatchCases));
 
-}  // namespace testing
-}  // namespace arrow
+}  // namespace arrow::internal::integration
 
 int main(int argc, char** argv) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -1186,7 +1183,7 @@ int main(int argc, char** argv) {
 
   if (FLAGS_integration) {
     arrow::Status result =
-        arrow::testing::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
+        arrow::internal::integration::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
     if (!result.ok()) {
       std::cout << "Error message: " << result.ToString() << std::endl;
       ret = 1;

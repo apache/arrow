@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/testing/json_internal.h"
+#include "arrow/integration/json_internal.h"
 
 #include <cstdint>
 #include <cstdlib>
@@ -53,19 +53,16 @@
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_type_inline.h"
 
-namespace arrow {
+using arrow::internal::checked_cast;
+using arrow::internal::Enumerate;
+using arrow::internal::ParseValue;
+using arrow::internal::Zip;
 
-using internal::checked_cast;
-using internal::Enumerate;
-using internal::ParseValue;
-using internal::Zip;
+using arrow::ipc::DictionaryFieldMapper;
+using arrow::ipc::DictionaryMemo;
+using arrow::ipc::internal::FieldPosition;
 
-using ipc::DictionaryFieldMapper;
-using ipc::DictionaryMemo;
-using ipc::internal::FieldPosition;
-
-namespace testing {
-namespace json {
+namespace arrow::internal::integration::json {
 
 namespace {
 
@@ -1814,6 +1811,4 @@ Status WriteArray(const std::string& name, const Array& array, RjWriter* json_wr
   return converter.Write();
 }
 
-}  // namespace json
-}  // namespace testing
-}  // namespace arrow
+}  // namespace arrow::internal::integration::json

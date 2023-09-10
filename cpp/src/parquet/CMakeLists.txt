@@ -114,12 +114,13 @@ else()
   set(ARROW_LIBRARIES_FOR_STATIC_TESTS arrow_testing_shared arrow_shared)
 endif()
 
-set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GTEST_MAIN} ${ARROW_GTEST_GTEST} Boost::headers)
+set(PARQUET_MIN_TEST_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST}
+                          ${ARROW_GTEST_GTEST_MAIN} Boost::headers)
 
 if(APPLE)
-  set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} ${CMAKE_DL_LIBS})
+  list(APPEND PARQUET_MIN_TEST_LIBS ${CMAKE_DL_LIBS})
 elseif(NOT MSVC)
-  set(PARQUET_MIN_TEST_LIBS ${PARQUET_MIN_TEST_LIBS} pthread ${CMAKE_DL_LIBS})
+  list(APPEND PARQUET_MIN_TEST_LIBS pthread ${CMAKE_DL_LIBS})
 endif()
 
 set(PARQUET_SHARED_TEST_LINK_LIBS arrow_testing_shared ${PARQUET_MIN_TEST_LIBS}
@@ -211,10 +212,14 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   #
   # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
   # CMake 3.11 or later.
-  set(BMI2_FLAGS "${AVX2_FLAGS} -DARROW_HAVE_BMI2 -mbmi2")
-  set_source_files_properties(level_conversion_bmi2.cc
-                              PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
-                                                                    "${BMI2_FLAGS}")
+  if(ARROW_HAVE_RUNTIME_BMI2)
+    # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
+    # the BMI2 path.
+    set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
+    set_source_files_properties(level_conversion_bmi2.cc
+                                PROPERTIES SKIP_PRECOMPILE_HEADERS ON COMPILE_FLAGS
+                                                                      "${BMI2_FLAGS}")
+  endif()
 endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
