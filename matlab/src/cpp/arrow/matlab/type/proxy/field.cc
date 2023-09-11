@@ -30,8 +30,8 @@
 namespace arrow::matlab::type::proxy {
 
     Field::Field(std::shared_ptr<arrow::Field> field) : field{std::move(field)} {
-        REGISTER_METHOD(Field, name);
-        REGISTER_METHOD(Field, type);
+        REGISTER_METHOD(Field, getName);
+        REGISTER_METHOD(Field, getType);
         REGISTER_METHOD(Field, toString);
     }
 
@@ -39,7 +39,7 @@ namespace arrow::matlab::type::proxy {
         return field;
     }
 
-    void Field::name(libmexclass::proxy::method::Context& context) {
+    void Field::getName(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
 
@@ -49,16 +49,19 @@ namespace arrow::matlab::type::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void Field::type(libmexclass::proxy::method::Context& context) {
+    void Field::getType(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
 
         const auto& datatype = field->type();
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto proxy, type::proxy::wrap(datatype), context, error::FIELD_FAILED_TO_CREATE_TYPE_PROXY); 
         const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(proxy);
+        const auto type_id = static_cast<int32_t>(datatype->id());
 
         mda::ArrayFactory factory;
-        context.outputs[0] = factory.createScalar(proxy_id);
-        context.outputs[1] = factory.createScalar(static_cast<uint64_t>(datatype->id()));
+        mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
+        output[0]["ProxyID"] = factory.createScalar(proxy_id);
+        output[0]["TypeID"] = factory.createScalar(type_id);
+        context.outputs[0] = output;
     }
 
     void Field::toString(libmexclass::proxy::method::Context& context) {

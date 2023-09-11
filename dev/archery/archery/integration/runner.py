@@ -132,6 +132,7 @@ class IntegrationRunner(object):
                 skip = set()
             if name == 'union' and prefix == '0.17.1':
                 skip.add("Java")
+                skip.add("JS")
             if prefix == '1.0.0-bigendian' or prefix == '1.0.0-littleendian':
                 skip.add("C#")
                 skip.add("Java")
@@ -500,33 +501,78 @@ def run_all_tests(with_cpp=True, with_java=True, with_js=True,
 
 
 def write_js_test_json(directory):
+    datagen.generate_primitive_case([], name='primitive_no_batches').write(
+        os.path.join(directory, 'primitive-no-batches.json')
+    )
+    datagen.generate_primitive_case([17, 20], name='primitive').write(
+        os.path.join(directory, 'primitive.json')
+    )
+    datagen.generate_primitive_case([0, 0, 0], name='primitive_zerolength').write(
+        os.path.join(directory, 'primitive-empty.json')
+    )
+    # datagen.generate_primitive_large_offsets_case([17, 20]).write(
+    #     os.path.join(directory, 'primitive-large-offsets.json')
+    # )
+    datagen.generate_null_case([10, 0]).write(
+        os.path.join(directory, 'null.json')
+    )
+    datagen.generate_null_trivial_case([0, 0]).write(
+        os.path.join(directory, 'null-trivial.json')
+    )
+    datagen.generate_decimal128_case().write(
+        os.path.join(directory, 'decimal128.json')
+    )
+    # datagen.generate_decimal256_case().write(
+    #     os.path.join(directory, 'decimal256.json')
+    # )
+    datagen.generate_datetime_case().write(
+        os.path.join(directory, 'datetime.json')
+    )
+    # datagen.generate_duration_case().write(
+    #     os.path.join(directory, 'duration.json')
+    # )
+    # datagen.generate_interval_case().write(
+    #     os.path.join(directory, 'interval.json')
+    # )
+    # datagen.generate_month_day_nano_interval_case().write(
+    #     os.path.join(directory, 'month_day_nano_interval.json')
+    # )
     datagen.generate_map_case().write(
         os.path.join(directory, 'map.json')
+    )
+    datagen.generate_non_canonical_map_case().write(
+        os.path.join(directory, 'non_canonical_map.json')
     )
     datagen.generate_nested_case().write(
         os.path.join(directory, 'nested.json')
     )
-    datagen.generate_decimal128_case().write(
-        os.path.join(directory, 'decimal.json')
+    datagen.generate_recursive_nested_case().write(
+        os.path.join(directory, 'recursive-nested.json')
     )
-    datagen.generate_decimal256_case().write(
-        os.path.join(directory, 'decimal256.json')
+    # datagen.generate_nested_large_offsets_case().write(
+    #     os.path.join(directory, 'nested-large-offsets.json')
+    # )
+    datagen.generate_unions_case().write(
+        os.path.join(directory, 'unions.json')
     )
-    datagen.generate_datetime_case().write(
-        os.path.join(directory, 'datetime.json')
+    datagen.generate_custom_metadata_case().write(
+        os.path.join(directory, 'custom-metadata.json')
     )
+    # datagen.generate_duplicate_fieldnames_case().write(
+    #     os.path.join(directory, 'duplicate-fieldnames.json')
+    # )
     datagen.generate_dictionary_case().write(
         os.path.join(directory, 'dictionary.json')
     )
     datagen.generate_dictionary_unsigned_case().write(
-        os.path.join(directory, 'dictionary_unsigned.json')
+        os.path.join(directory, 'dictionary-unsigned.json')
     )
-    datagen.generate_primitive_case([]).write(
-        os.path.join(directory, 'primitive_no_batches.json')
+    datagen.generate_nested_dictionary_case().write(
+        os.path.join(directory, 'dictionary-nested.json')
     )
-    datagen.generate_primitive_case([7, 10]).write(
-        os.path.join(directory, 'primitive.json')
-    )
-    datagen.generate_primitive_case([0, 0, 0]).write(
-        os.path.join(directory, 'primitive-empty.json')
+    # datagen.generate_run_end_encoded_case().write(
+    #     os.path.join(directory, 'run_end_encoded.json')
+    # )
+    datagen.generate_extension_case().write(
+        os.path.join(directory, 'extension.json')
     )

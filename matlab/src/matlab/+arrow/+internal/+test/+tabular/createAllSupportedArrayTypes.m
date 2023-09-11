@@ -32,6 +32,7 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
     matlabData  = cell(numClasses, 1);
     
     timeClasses = getTimeArrayClasses();
+    dateClasses = getDateArrayClasses();
     numericArrayToMatlabTypeDict = getNumericArrayToMatlabDictionary();
 
     for ii = 1:numel(classes)
@@ -54,6 +55,10 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
             matlabData{ii} = randomDurations(opts.NumRows);
             cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
             arrowArrays{ii} = eval(cmd);
+        elseif ismember(name, dateClasses)
+            matlabData{ii} = randomDatetimes(opts.NumRows);
+            cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
+            arrowArrays{ii} = eval(cmd);
         else
             error("arrow:test:SupportedArrayCase", ...
                 "Missing if-branch for array class " + name); 
@@ -67,6 +72,16 @@ function classes = getArrayClassNames()
     % Removes all Abstract classes from the list of all subclasses
     abstract = [metaClass.Abstract];
     metaClass(abstract) = [];
+
+    % Remove all classes that don't inherit from arrow.array.Array
+    isArraySubclass = true(size(metaClass));
+    for ii = 1:numel(metaClass)
+        allSuperClasses = superclasses(metaClass(ii).Name);
+        isArraySubclass(ii) = ismember("arrow.array.Array", allSuperClasses);
+    end
+    metaClass(~isArraySubclass) = [];
+
+    % Return the class names as a string array
     classes = string({metaClass.Name});
 end
 
@@ -84,6 +99,10 @@ end
 
 function timeClasses = getTimeArrayClasses()
     timeClasses = compose("arrow.array.Time%dArray", [32 64]);
+end
+
+function dateClasses = getDateArrayClasses()
+    dateClasses = compose("arrow.array.Date%dArray", [32 64]);
 end
 
 function number = randomNumbers(numberType, numElements)

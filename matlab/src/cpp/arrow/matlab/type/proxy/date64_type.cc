@@ -15,14 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Dummy file for checking if IOOptions exists in SDKOptions.
-// This was introduced when the AWS SDK switched to using the
-// CRT for I/O.
+#include "arrow/matlab/type/proxy/date64_type.h"
 
-#include <aws/core/Aws.h>
+namespace arrow::matlab::type::proxy {
 
-int main() {
-  Aws::SDKOptions aws_options;
-  auto io_options = aws_options.ioOptions;
-  return 0;
+    Date64Type::Date64Type(std::shared_ptr<arrow::Date64Type> date64_type) : DateType(std::move(date64_type)) {}
+
+    libmexclass::proxy::MakeResult Date64Type::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+        using Date64TypeProxy = arrow::matlab::type::proxy::Date64Type;
+
+        const auto type = arrow::date64();
+        const auto date64_type = std::static_pointer_cast<arrow::Date64Type>(type);
+        return std::make_shared<Date64TypeProxy>(std::move(date64_type));
+    }
 }

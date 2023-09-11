@@ -38,7 +38,7 @@ jobs:
       UBUNTU: "22.04"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Free up disk space
