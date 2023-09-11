@@ -1331,8 +1331,8 @@ def test_concat_tables():
 
 
 def test_concat_tables_permissive():
-    t1 = pa.Table.from_arrays(list(range(10)), names=('a',))
-    t2 = pa.Table.from_arrays(list(range(10, 20)), names=('a',))
+    t1 = pa.Table.from_arrays([list(range(10))], names=('a',))
+    t2 = pa.Table.from_arrays([list(range(10, 20))], names=('a',))
 
     result = pa.concat_tables([t1, t2], field_merge_options="permissive")
     result.validate()
@@ -1340,7 +1340,7 @@ def test_concat_tables_permissive():
 
 
 def test_concat_tables_invalid_option():
-    t = pa.Table.from_arrays(list(range(10)), names=('a',))
+    t = pa.Table.from_arrays([list(range(10))], names=('a',))
 
     with pytest.raises(ValueError):
         pa.concat_tables([t, t], field_merge_options="invalid")
@@ -1404,7 +1404,7 @@ def test_concat_tables_with_promotion_error():
     t2 = pa.Table.from_arrays(
         [pa.array([1, 2], type=pa.float32())], ["f"])
 
-    with pytest.raises(pa.ArrowInvalid):
+    with pytest.raises(pa.ArrowTypeError, match="Unable to merge:"):
         pa.concat_tables([t1, t2], promote=True)
 
 
