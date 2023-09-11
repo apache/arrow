@@ -671,8 +671,9 @@ TEST(TestNullSumKernel, Basics) {
 
 TEST(TestSumKernel, Overflow) {
   for (const auto& ty : {uint64(), int64()}) {
-    auto scalar = ScalarFromJSON(ty, "10000000000000000");
-    int64_t length = 100000;
+    auto scalar = ScalarFromJSON(
+        ty, ty->id() == Type::UINT64 ? "184467440737095517" : "92233720368547759");
+    int64_t length = 100;
     auto array = MakeArrayFromScalar(*scalar, length).ValueOrDie();
     ASSERT_RAISES(Invalid, SumChecked(array));
   }
