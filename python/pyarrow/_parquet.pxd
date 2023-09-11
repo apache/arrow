@@ -590,7 +590,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     dictionary_pagesize_limit=*,
     write_page_index=*
     write_page_checksum=*,
-    sorting_columns=*) except *
+    sorting_columns=*,
+) except *
 
 
 cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
@@ -599,7 +600,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     allow_truncated_timestamps=*,
     writer_engine_version=*,
     use_compliant_nested_type=*,
-    store_schema=*) except *
+    store_schema=*,
+) except *
 
 cdef class ParquetSchema(_Weakrefable):
     cdef:
