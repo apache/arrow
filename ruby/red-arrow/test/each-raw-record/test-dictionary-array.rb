@@ -29,12 +29,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [nil],
     ]
-    iterated_records = []
     target = build(Arrow::NullArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_boolean
@@ -43,12 +39,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [false],
     ]
-    iterated_records = []
     target = build(Arrow::BooleanArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int8
@@ -57,12 +49,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 7) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::Int8Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint8
@@ -71,12 +59,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 8) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::UInt8Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int16
@@ -85,12 +69,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 15) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::Int16Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint16
@@ -99,12 +79,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 16) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::UInt16Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int32
@@ -113,12 +89,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 31) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::Int32Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint32
@@ -127,12 +99,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 32) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::UInt32Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int64
@@ -141,12 +109,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 63) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::Int64Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint64
@@ -155,12 +119,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [(2 ** 64) - 1],
     ]
-    iterated_records = []
     target = build(Arrow::UInt64Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_float
@@ -169,12 +129,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [1.0],
     ]
-    iterated_records = []
     target = build(Arrow::FloatArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_double
@@ -183,12 +139,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [1.0],
     ]
-    iterated_records = []
     target = build(Arrow::DoubleArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_binary
@@ -197,12 +149,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       ["\xff".b],
     ]
-    iterated_records = []
     target = build(Arrow::BinaryArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_string
@@ -211,12 +159,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       ["\u3042"], # U+3042 HIRAGANA LETTER A
     ]
-    iterated_records = []
-    target = build(Arrow::StringArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    target = build(Arrow::StringArray.new(records.collect(&:first)))    
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_date32
@@ -225,12 +169,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Date.new(2017, 8, 23)],
     ]
-    iterated_records = []
     target = build(Arrow::Date32Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_date64
@@ -239,12 +179,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [DateTime.new(2017, 8, 23, 14, 57, 2)],
     ]
-    iterated_records = []
     target = build(Arrow::Date64Array.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_second
@@ -253,12 +189,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Time.parse("2017-08-23T14:57:02Z")],
     ]
-    iterated_records = []
     target = build(Arrow::TimestampArray.new(:second, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_milli
@@ -267,12 +199,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Time.parse("2017-08-23T14:57:02.987Z")],
     ]
-    iterated_records = []
     target = build(Arrow::TimestampArray.new(:milli, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_micro
@@ -281,12 +209,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Time.parse("2017-08-23T14:57:02.987654Z")],
     ]
-    iterated_records = []
     target = build(Arrow::TimestampArray.new(:micro, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_nano
@@ -295,12 +219,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Time.parse("2017-08-23T14:57:02.987654321Z")],
     ]
-    iterated_records = []
     target = build(Arrow::TimestampArray.new(:nano, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time32_second
@@ -310,12 +230,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Arrow::Time.new(unit, 60 * 60 * 2 + 9)], # 02:00:09
     ]
-    iterated_records = []
     target = build(Arrow::Time32Array.new(unit, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time32_milli
@@ -325,12 +241,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1000 + 987)], # 02:00:09.987
     ]
-    iterated_records = []
     target = build(Arrow::Time32Array.new(unit, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time64_micro
@@ -342,12 +254,8 @@ module EachRawRecordDictionaryArrayTests
       # 02:00:09.987654
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654)],
     ]
-    iterated_records = []
     target = build(Arrow::Time64Array.new(unit, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time64_nano
@@ -359,12 +267,8 @@ module EachRawRecordDictionaryArrayTests
       # 02:00:09.987654321
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321)],
     ]
-    iterated_records = []
     target = build(Arrow::Time64Array.new(unit, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_decimal128
@@ -373,13 +277,9 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [BigDecimal("29.29")],
     ]
-    iterated_records = []
     data_type = Arrow::Decimal128DataType.new(8, 2)
     target = build(Arrow::Decimal128Array.new(data_type, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_decimal256
@@ -388,13 +288,9 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [BigDecimal("29.29")],
     ]
-    iterated_records = []
     data_type = Arrow::Decimal256DataType.new(38, 2)
     target = build(Arrow::Decimal256Array.new(data_type, records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, target.raw_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_month_interval
@@ -403,12 +299,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [12],
     ]
-    iterated_records = []
     target = build(Arrow::MonthIntervalArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_day_time_interval
@@ -417,12 +309,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [{day: 2, millisecond: 300}],
     ]
-    iterated_records = []
     target = build(Arrow::DayTimeIntervalArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_month_day_nano_interval
@@ -431,12 +319,8 @@ module EachRawRecordDictionaryArrayTests
       [nil],
       [{month: 2, day: 3, nanosecond: 400}],
     ]
-    iterated_records = []
     target = build(Arrow::MonthDayNanoIntervalArray.new(records.collect(&:first)))
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 end
 
