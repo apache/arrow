@@ -2,7 +2,7 @@
   "name": "apache-arrow",
   "description": "Apache Arrow columnar in-memory format",
   "bin": {
-    "arrow2csv": "bin/arrow2csv.js"
+    "arrow2csv": "bin/arrow2csv.cjs"
   },
   "type": "module",
   "scripts": {
@@ -11,8 +11,8 @@
     "build": "cross-env NODE_NO_WARNINGS=1 gulp build",
     "clean": "cross-env NODE_NO_WARNINGS=1 gulp clean",
     "debug": "cross-env NODE_NO_WARNINGS=1 gulp debug",
-    "perf": "node --loader ts-node/esm/transpile-only ./perf/index.ts",
-    "test:integration": "node ./bin/integration.js --mode validate",
+    "perf": "perf/index.ts",
+    "test:integration": "bin/integration.ts --mode validate",
     "release": "./npm-release.sh",
     "clean:all": "yarn clean && yarn clean:testdata",
     "clean:testdata": "gulp clean:testdata",

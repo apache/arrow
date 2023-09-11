@@ -1,4 +1,4 @@
-#! /usr/bin/env node
+#! /usr/bin/env -S node --loader ts-node/esm/transpile-only
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
@@ -19,22 +19,21 @@
 
 // @ts-check
 
-const fs = require('fs');
-const path = require('path');
-const eos = require('util').promisify(require('stream').finished);
-const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
-const { RecordBatchReader, RecordBatchFileWriter } = require(`../index${extension}`);
+import * as fs from 'fs';
+import * as Path from 'path';
+import { finished as eos } from 'stream/promises';
+import { RecordBatchReader, RecordBatchStreamWriter } from '../index.ts';
 
 (async () => {
 
-    const readable = process.argv.length < 3 ? process.stdin : fs.createReadStream(path.resolve(process.argv[2]));
-    const writable = process.argv.length < 4 ? process.stdout : fs.createWriteStream(path.resolve(process.argv[3]));
+    const readable = process.argv.length < 3 ? process.stdin : fs.createReadStream(Path.resolve(process.argv[2]));
+    const writable = process.argv.length < 4 ? process.stdout : fs.createWriteStream(Path.resolve(process.argv[3]));
 
-    const streamToFile = readable
+    const fileToStream = readable
         .pipe(RecordBatchReader.throughNode())
-        .pipe(RecordBatchFileWriter.throughNode())
+        .pipe(RecordBatchStreamWriter.throughNode())
         .pipe(writable);
 
-    await eos(streamToFile);
+    await eos(fileToStream);
 
 })().catch((e) => { console.error(e); process.exit(1); });
