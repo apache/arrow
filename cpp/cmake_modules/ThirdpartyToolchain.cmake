@@ -1322,10 +1322,9 @@ macro(build_snappy)
 
   set(Snappy_TARGET Snappy::snappy-static)
   add_library(${Snappy_TARGET} STATIC IMPORTED)
-  set_target_properties(${Snappy_TARGET}
-                        PROPERTIES IMPORTED_LOCATION "${SNAPPY_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${SNAPPY_PREFIX}/include")
+  set_target_properties(${Snappy_TARGET} PROPERTIES IMPORTED_LOCATION
+                                                    "${SNAPPY_STATIC_LIB}")
+  target_include_directories(${Snappy_TARGET} BEFORE INTERFACE "${SNAPPY_PREFIX}/include")
   add_dependencies(toolchain snappy_ep)
   add_dependencies(${Snappy_TARGET} snappy_ep)
 
@@ -1381,21 +1380,22 @@ macro(build_brotli)
   file(MAKE_DIRECTORY "${BROTLI_INCLUDE_DIR}")
 
   add_library(Brotli::brotlicommon STATIC IMPORTED)
-  set_target_properties(Brotli::brotlicommon
-                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_COMMON}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlicommon PROPERTIES IMPORTED_LOCATION
+                                                        "${BROTLI_STATIC_LIBRARY_COMMON}")
+  target_include_directories(Brotli::brotlicommon BEFORE
+                             INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlicommon brotli_ep)
 
   add_library(Brotli::brotlienc STATIC IMPORTED)
-  set_target_properties(Brotli::brotlienc
-                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_ENC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlienc PROPERTIES IMPORTED_LOCATION
+                                                     "${BROTLI_STATIC_LIBRARY_ENC}")
+  target_include_directories(Brotli::brotlienc BEFORE INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlienc brotli_ep)
 
   add_library(Brotli::brotlidec STATIC IMPORTED)
-  set_target_properties(Brotli::brotlidec
-                        PROPERTIES IMPORTED_LOCATION "${BROTLI_STATIC_LIBRARY_DEC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${BROTLI_INCLUDE_DIR}")
+  set_target_properties(Brotli::brotlidec PROPERTIES IMPORTED_LOCATION
+                                                     "${BROTLI_STATIC_LIBRARY_DEC}")
+  target_include_directories(Brotli::brotlidec BEFORE INTERFACE "${BROTLI_INCLUDE_DIR}")
   add_dependencies(Brotli::brotlidec brotli_ep)
 
   list(APPEND
@@ -1487,9 +1487,8 @@ macro(build_glog)
   file(MAKE_DIRECTORY "${GLOG_INCLUDE_DIR}")
 
   add_library(glog::glog STATIC IMPORTED)
-  set_target_properties(glog::glog
-                        PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GLOG_INCLUDE_DIR}")
+  set_target_properties(glog::glog PROPERTIES IMPORTED_LOCATION "${GLOG_STATIC_LIB}")
+  target_include_directories(glog::glog BEFORE INTERFACE "${GLOG_INCLUDE_DIR}")
   add_dependencies(glog::glog glog_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS glog::glog)
@@ -1548,9 +1547,9 @@ macro(build_gflags)
   add_thirdparty_lib(gflags::gflags_static STATIC ${GFLAGS_STATIC_LIB})
   add_dependencies(gflags::gflags_static gflags_ep)
   set(GFLAGS_LIBRARY gflags::gflags_static)
-  set_target_properties(${GFLAGS_LIBRARY}
-                        PROPERTIES INTERFACE_COMPILE_DEFINITIONS "GFLAGS_IS_A_DLL=0"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GFLAGS_INCLUDE_DIR}")
+  set_target_properties(${GFLAGS_LIBRARY} PROPERTIES INTERFACE_COMPILE_DEFINITIONS
+                                                     "GFLAGS_IS_A_DLL=0")
+  target_include_directories(${GFLAGS_LIBRARY} BEFORE INTERFACE "${GFLAGS_INCLUDE_DIR}")
   if(MSVC)
     set_target_properties(${GFLAGS_LIBRARY} PROPERTIES INTERFACE_LINK_LIBRARIES
                                                        "shlwapi.lib")
@@ -1651,9 +1650,8 @@ macro(build_thrift)
   add_library(thrift::thrift STATIC IMPORTED)
   # The include directory must exist before it is referenced by a target.
   file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(thrift::thrift
-                        PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${THRIFT_INCLUDE_DIR}")
+  set_target_properties(thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}")
+  target_include_directories(thrift::thrift BEFORE INTERFACE "${THRIFT_INCLUDE_DIR}")
   if(ARROW_USE_BOOST)
     target_link_libraries(thrift::thrift INTERFACE Boost::headers)
   endif()
@@ -1741,15 +1739,15 @@ macro(build_protobuf)
   set(Protobuf_INCLUDE_DIRS "${PROTOBUF_INCLUDE_DIR}")
 
   add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotobuf
-                        PROPERTIES IMPORTED_LOCATION "${PROTOBUF_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${PROTOBUF_INCLUDE_DIR}")
+  set_target_properties(arrow::protobuf::libprotobuf PROPERTIES IMPORTED_LOCATION
+                                                                "${PROTOBUF_STATIC_LIB}")
+  target_include_directories(arrow::protobuf::libprotobuf BEFORE
+                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
   add_library(arrow::protobuf::libprotoc STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotoc
-                        PROPERTIES IMPORTED_LOCATION "${PROTOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${PROTOBUF_INCLUDE_DIR}")
+  set_target_properties(arrow::protobuf::libprotoc PROPERTIES IMPORTED_LOCATION
+                                                              "${PROTOC_STATIC_LIB}")
+  target_include_directories(arrow::protobuf::libprotoc BEFORE
+                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
   add_executable(arrow::protobuf::protoc IMPORTED)
   set_target_properties(arrow::protobuf::protoc PROPERTIES IMPORTED_LOCATION
                                                            "${PROTOBUF_COMPILER}")
@@ -2021,9 +2019,9 @@ macro(build_jemalloc)
   add_library(jemalloc::jemalloc STATIC IMPORTED)
   set_target_properties(jemalloc::jemalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-                                   IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${JEMALLOC_INCLUDE_DIR}")
+                                   IMPORTED_LOCATION "${JEMALLOC_STATIC_LIB}")
+  target_include_directories(jemalloc::jemalloc BEFORE
+                             INTERFACE "${JEMALLOC_INCLUDE_DIR}")
   add_dependencies(jemalloc::jemalloc jemalloc_ep)
 
   list(APPEND ARROW_BUNDLED_STATIC_LIBS jemalloc::jemalloc)
@@ -2079,9 +2077,9 @@ if(ARROW_MIMALLOC)
   add_library(mimalloc::mimalloc STATIC IMPORTED)
   set_target_properties(mimalloc::mimalloc
                         PROPERTIES INTERFACE_LINK_LIBRARIES Threads::Threads
-                                   IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${MIMALLOC_INCLUDE_DIR}")
+                                   IMPORTED_LOCATION "${MIMALLOC_STATIC_LIB}")
+  target_include_directories(mimalloc::mimalloc BEFORE
+                             INTERFACE "${MIMALLOC_INCLUDE_DIR}")
   if(WIN32)
     set_property(TARGET mimalloc::mimalloc
                  APPEND
@@ -2220,17 +2218,17 @@ macro(build_benchmark)
   file(MAKE_DIRECTORY "${GBENCHMARK_INCLUDE_DIR}")
 
   add_library(benchmark::benchmark STATIC IMPORTED)
-  set_target_properties(benchmark::benchmark
-                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GBENCHMARK_INCLUDE_DIR}")
+  set_target_properties(benchmark::benchmark PROPERTIES IMPORTED_LOCATION
+                                                        "${GBENCHMARK_STATIC_LIB}")
+  target_include_directories(benchmark::benchmark BEFORE
+                             INTERFACE "${GBENCHMARK_INCLUDE_DIR}")
   target_compile_definitions(benchmark::benchmark INTERFACE "BENCHMARK_STATIC_DEFINE")
 
   add_library(benchmark::benchmark_main STATIC IMPORTED)
   set_target_properties(benchmark::benchmark_main
-                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GBENCHMARK_INCLUDE_DIR}")
+                        PROPERTIES IMPORTED_LOCATION "${GBENCHMARK_MAIN_STATIC_LIB}")
+  target_include_directories(benchmark::benchmark_main BEFORE
+                             INTERFACE "${GBENCHMARK_INCLUDE_DIR}")
 
   add_dependencies(toolchain-benchmarks gbenchmark_ep)
   add_dependencies(benchmark::benchmark gbenchmark_ep)
@@ -2374,9 +2372,8 @@ macro(build_zlib)
   add_library(ZLIB::ZLIB STATIC IMPORTED)
   set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
   set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-  set_target_properties(ZLIB::ZLIB
-                        PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES}
-                                   INTERFACE_INCLUDE_DIRECTORIES ${ZLIB_INCLUDE_DIRS})
+  set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+  target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
 
   add_dependencies(toolchain zlib_ep)
   add_dependencies(ZLIB::ZLIB zlib_ep)
@@ -2412,9 +2409,8 @@ macro(build_lz4)
 
   file(MAKE_DIRECTORY "${LZ4_PREFIX}/include")
   add_library(LZ4::lz4 STATIC IMPORTED)
-  set_target_properties(LZ4::lz4
-                        PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${LZ4_PREFIX}/include")
+  set_target_properties(LZ4::lz4 PROPERTIES IMPORTED_LOCATION "${LZ4_STATIC_LIB}")
+  target_include_directories(LZ4::lz4 BEFORE INTERFACE "${LZ4_PREFIX}/include")
   add_dependencies(toolchain lz4_ep)
   add_dependencies(LZ4::lz4 lz4_ep)
 
@@ -2463,9 +2459,10 @@ macro(build_zstd)
   file(MAKE_DIRECTORY "${ZSTD_PREFIX}/include")
 
   add_library(zstd::libzstd_static STATIC IMPORTED)
-  set_target_properties(zstd::libzstd_static
-                        PROPERTIES IMPORTED_LOCATION "${ZSTD_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ZSTD_PREFIX}/include")
+  set_target_properties(zstd::libzstd_static PROPERTIES IMPORTED_LOCATION
+                                                        "${ZSTD_STATIC_LIB}")
+  target_include_directories(zstd::libzstd_static BEFORE
+                             INTERFACE "${ZSTD_PREFIX}/include")
 
   add_dependencies(toolchain zstd_ep)
   add_dependencies(zstd::libzstd_static zstd_ep)
@@ -2521,9 +2518,8 @@ macro(build_re2)
 
   file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
   add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(re2::re2
-                        PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${RE2_PREFIX}/include")
+  set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
+  target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
 
   add_dependencies(toolchain re2_ep)
   add_dependencies(re2::re2 re2_ep)
@@ -2585,10 +2581,8 @@ macro(build_bzip2)
 
   file(MAKE_DIRECTORY "${BZIP2_PREFIX}/include")
   add_library(BZip2::BZip2 STATIC IMPORTED)
-  set_target_properties(BZip2::BZip2
-                        PROPERTIES IMPORTED_LOCATION "${BZIP2_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${BZIP2_PREFIX}/include")
+  set_target_properties(BZip2::BZip2 PROPERTIES IMPORTED_LOCATION "${BZIP2_STATIC_LIB}")
+  target_include_directories(BZip2::BZip2 BEFORE INTERFACE "${BZIP2_PREFIX}/include")
   set(BZIP2_INCLUDE_DIR "${BZIP2_PREFIX}/include")
 
   add_dependencies(toolchain bzip2_ep)
@@ -2599,13 +2593,6 @@ endmacro()
 
 if(ARROW_WITH_BZ2)
   resolve_dependency(BZip2 PC_PACKAGE_NAMES bzip2)
-
-  if(NOT TARGET BZip2::BZip2)
-    add_library(BZip2::BZip2 UNKNOWN IMPORTED)
-    set_target_properties(BZip2::BZip2
-                          PROPERTIES IMPORTED_LOCATION "${BZIP2_LIBRARIES}"
-                                     INTERFACE_INCLUDE_DIRECTORIES "${BZIP2_INCLUDE_DIR}")
-  endif()
 
   if(${BZip2_SOURCE} STREQUAL "SYSTEM"
      AND NOT bzip2_PC_FOUND
@@ -2647,9 +2634,9 @@ macro(build_utf8proc)
   add_library(utf8proc::utf8proc STATIC IMPORTED)
   set_target_properties(utf8proc::utf8proc
                         PROPERTIES IMPORTED_LOCATION "${UTF8PROC_STATIC_LIB}"
-                                   INTERFACE_COMPILE_DEFINITIONS "UTF8PROC_STATIC"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${UTF8PROC_PREFIX}/include")
+                                   INTERFACE_COMPILE_DEFINITIONS "UTF8PROC_STATIC")
+  target_include_directories(utf8proc::utf8proc BEFORE
+                             INTERFACE "${UTF8PROC_PREFIX}/include")
 
   add_dependencies(toolchain utf8proc_ep)
   add_dependencies(utf8proc::utf8proc utf8proc_ep)
@@ -2691,9 +2678,8 @@ macro(build_cares)
 
   add_dependencies(toolchain cares_ep)
   add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(c-ares::cares
-                        PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${CARES_INCLUDE_DIR}")
+  set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
+  target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
   add_dependencies(c-ares::cares cares_ep)
 
   if(APPLE)
@@ -2904,15 +2890,14 @@ macro(build_absl)
         "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
     )
     add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-    set_target_properties(absl::${_ABSL_LIB}
-                          PROPERTIES IMPORTED_LOCATION ${_ABSL_STATIC_LIBRARY}
-                                     INTERFACE_INCLUDE_DIRECTORIES "${ABSL_INCLUDE_DIR}")
+    set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
+                                                        ${_ABSL_STATIC_LIBRARY})
+    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
     list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
   endforeach()
   foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
     add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
-    set_target_properties(absl::${_ABSL_LIB} PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                        "${ABSL_INCLUDE_DIR}")
+    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
   endforeach()
 
   # Extracted the dependency information using the Abseil pkg-config files:
@@ -3832,9 +3817,9 @@ macro(build_grpc)
   file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
 
   add_library(gRPC::upb STATIC IMPORTED)
-  set_target_properties(gRPC::upb
-                        PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_UPB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+  set_target_properties(gRPC::upb PROPERTIES IMPORTED_LOCATION
+                                             "${GRPC_STATIC_LIBRARY_UPB}")
+  target_include_directories(gRPC::upb BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   set(GRPC_GPR_ABSL_LIBRARIES
       # We need a flattened list of Abseil libraries for the static linking case,
@@ -3895,20 +3880,21 @@ macro(build_grpc)
   add_library(gRPC::gpr STATIC IMPORTED)
   set_target_properties(gRPC::gpr
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GPR}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
                                    INTERFACE_LINK_LIBRARIES "${GRPC_GPR_ABSL_LIBRARIES}")
+  target_include_directories(gRPC::gpr BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::address_sorting STATIC IMPORTED)
   set_target_properties(gRPC::address_sorting
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
+  target_include_directories(gRPC::address_sorting BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc++_reflection STATIC IMPORTED)
   set_target_properties(gRPC::grpc++_reflection
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}")
+                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}")
+  target_include_directories(gRPC::grpc++_reflection BEFORE
+                             INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc STATIC IMPORTED)
   set(GRPC_LINK_LIBRARIES
@@ -3922,15 +3908,15 @@ macro(build_grpc)
       Threads::Threads)
   set_target_properties(gRPC::grpc
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPC}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
                                    INTERFACE_LINK_LIBRARIES "${GRPC_LINK_LIBRARIES}")
+  target_include_directories(gRPC::grpc BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_library(gRPC::grpc++ STATIC IMPORTED)
   set(GRPCPP_LINK_LIBRARIES gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
   set_target_properties(gRPC::grpc++
                         PROPERTIES IMPORTED_LOCATION "${GRPC_STATIC_LIBRARY_GRPCPP}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${GRPC_INCLUDE_DIR}"
                                    INTERFACE_LINK_LIBRARIES "${GRPCPP_LINK_LIBRARIES}")
+  target_include_directories(gRPC::grpc++ BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
 
   add_executable(gRPC::grpc_cpp_plugin IMPORTED)
   set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
@@ -4047,10 +4033,9 @@ macro(build_crc32c_once)
     # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
     file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
     add_library(Crc32c::crc32c STATIC IMPORTED)
-    set_target_properties(Crc32c::crc32c
-                          PROPERTIES IMPORTED_LOCATION ${_CRC32C_STATIC_LIBRARY}
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${CRC32C_INCLUDE_DIR}")
+    set_target_properties(Crc32c::crc32c PROPERTIES IMPORTED_LOCATION
+                                                    ${_CRC32C_STATIC_LIBRARY})
+    target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
     add_dependencies(Crc32c::crc32c crc32c_ep)
   endif()
 endmacro()
@@ -4078,9 +4063,8 @@ macro(build_nlohmann_json)
   file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
 
   add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-  set_target_properties(nlohmann_json::nlohmann_json
-                        PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                   "${NLOHMANN_JSON_INCLUDE_DIR}")
+  target_include_directories(nlohmann_json::nlohmann_json BEFORE
+                             INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
   add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
 endmacro()
 if(ARROW_WITH_NLOHMANN_JSON)
@@ -4189,9 +4173,9 @@ macro(build_google_cloud_cpp_storage)
   add_library(google-cloud-cpp::common STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::common
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}")
+  target_include_directories(google-cloud-cpp::common BEFORE
+                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Refer to https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/google_cloud_cpp_common.cmake
   # (subsitute `main` for the SHA of the version we use)
   # Version 1.39.0 is at a different place (they refactored after):
@@ -4211,9 +4195,9 @@ macro(build_google_cloud_cpp_storage)
   add_library(google-cloud-cpp::rest-internal STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::rest-internal
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}")
+  target_include_directories(google-cloud-cpp::rest-internal BEFORE
+                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   set_property(TARGET google-cloud-cpp::rest-internal
                PROPERTY INTERFACE_LINK_LIBRARIES
                         absl::span
@@ -4226,9 +4210,9 @@ macro(build_google_cloud_cpp_storage)
   add_library(google-cloud-cpp::storage STATIC IMPORTED)
   set_target_properties(google-cloud-cpp::storage
                         PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}"
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
+                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}")
+  target_include_directories(google-cloud-cpp::storage BEFORE
+                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
   # Update this from https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/google_cloud_cpp_storage.cmake
   set_property(TARGET google-cloud-cpp::storage
                PROPERTY INTERFACE_LINK_LIBRARIES
@@ -4389,9 +4373,8 @@ macro(build_orc)
   set(ORC_VENDORED 1)
 
   add_library(orc::liborc STATIC IMPORTED)
-  set_target_properties(orc::liborc
-                        PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}"
-                                   INTERFACE_INCLUDE_DIRECTORIES "${ORC_INCLUDE_DIR}")
+  set_target_properties(orc::liborc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
+  target_include_directories(orc::liborc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
   set(ORC_LINK_LIBRARIES LZ4::lz4 ZLIB::ZLIB ${ARROW_ZSTD_LIBZSTD} ${Snappy_TARGET})
   # Protobuf generated files may use ABSL_DCHECK*() and
   # absl::log_internal_check_op is needed for them.
@@ -4450,9 +4433,8 @@ macro(build_opentelemetry)
 
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
     add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
-    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
-                          PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                     "${OPENTELEMETRY_INCLUDE_DIR}")
+    target_include_directories(opentelemetry-cpp::${_OPENTELEMETRY_LIB} BEFORE
+                               INTERFACE "${OPENTELEMETRY_INCLUDE_DIR}")
   endforeach()
   foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
     # N.B. OTel targets and libraries don't follow any consistent naming scheme
@@ -4744,15 +4726,15 @@ macro(build_awssdk)
       set(_AWSSDK_TARGET_NAME AWS::${_AWSSDK_LIB})
     endif()
     add_library(${_AWSSDK_TARGET_NAME} STATIC IMPORTED)
-    set_target_properties(${_AWSSDK_TARGET_NAME}
-                          PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
-                                     INTERFACE_INCLUDE_DIRECTORIES
-                                     "${AWSSDK_INCLUDE_DIR}")
+    set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
+                                                            ${_AWSSDK_STATIC_LIBRARY})
+    target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
+                               INTERFACE "${AWSSDK_INCLUDE_DIR}")
     if(${_AWSSDK_LIB} STREQUAL "aws-lc")
-      set_target_properties(${_AWSSDK_TARGET_NAME}
-                            PROPERTIES IMPORTED_LOCATION ${_AWSSDK_STATIC_LIBRARY}
-                                       INTERFACE_INCLUDE_DIRECTORIES
-                                       "${AWS_LC_INCLUDE_DIR}")
+      set_target_properties(${_AWSSDK_TARGET_NAME} PROPERTIES IMPORTED_LOCATION
+                                                              ${_AWSSDK_STATIC_LIBRARY})
+      target_include_directories(${_AWSSDK_TARGET_NAME} BEFORE
+                                 INTERFACE "${AWS_LC_INCLUDE_DIR}")
     endif()
     set("${_AWSSDK_LIB_NAME_PREFIX}_STATIC_LIBRARY" ${_AWSSDK_STATIC_LIBRARY})
 
