@@ -386,6 +386,78 @@ classdef tRecordBatch < matlab.unittest.TestCase
             testCase.verifyError(@() recordBatch.column(name), "arrow:badsubscript:NonScalar");
         end
 
+        function TestIsEqualTrue(testCase)
+            % Verify two record batches are considered equal if:
+            %   1. They have the same schema
+            %   2. Their corresponding columns are equal
+            import arrow.tabular.RecordBatch
+
+            a1 = arrow.array([1 2 3]);
+            a2 = arrow.array(["A" "B" "C"]);
+            a3 = arrow.array([true true false]);
+
+            rb1 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            rb2 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            testCase.verifyTrue(isequal(rb1, rb2));
+
+            % Compare zero-column record batches
+            rb3 = RecordBatch.fromArrays();
+            rb4 = RecordBatch.fromArrays();
+            testCase.verifyTrue(isequal(rb3, rb4));
+
+            % Compare zero-row record batches
+            a4 = arrow.array([]);
+            a5 = arrow.array(strings(0, 0));
+            rb5 = RecordBatch.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            rb6 = RecordBatch.fromArrays(a4, a5, ColumnNames=["D" "E"]);
+            testCase.verifyTrue(isequal(rb5, rb6));
+
+            % Call isequal with more than two arguments
+            testCase.verifyTrue(isequal(rb3, rb4, rb3, rb4));
+        end
+
+        function TestIsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+            import arrow.tabular.RecordBatch
+
+            a1 = arrow.array([1 2 3]);
+            a2 = arrow.array(["A" "B" "C"]);
+            a3 = arrow.array([true true false]);
+            a4 = arrow.array(["A" missing "C"]); 
+            a5 = arrow.array([1 2]);
+            a6 = arrow.array(["A" "B"]);
+            a7 = arrow.array([true true]);
+
+            rb1 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            rb2 = RecordBatch.fromArrays(a1, a2, a3, ...
+                ColumnNames=["D", "E", "F"]);
+            rb3 = RecordBatch.fromArrays(a1, a4, a3, ...
+                ColumnNames=["A", "B", "C"]);
+            rb4 = RecordBatch.fromArrays(a5, a6, a7, ...
+                ColumnNames=["A", "B", "C"]);
+            rb5 = RecordBatch.fromArrays(a1, a2, a3, a1, ...
+                ColumnNames=["A", "B", "C", "D"]);
+
+            % The column names are not equal
+            testCase.verifyFalse(isequal(rb1, rb2));
+
+            % The columns are not equal
+            testCase.verifyFalse(isequal(rb1, rb3));
+
+            % The number of rows are not equal
+            testCase.verifyFalse(isequal(rb1, rb4));
+
+            % The number of columns are not equal
+            testCase.verifyFalse(isequal(rb1, rb5));
+
+            % Call isequal with more than two arguments
+            testCase.verifyFalse(isequal(rb1, rb2, rb3, rb4));
+        end
+
+
     end
 
     methods

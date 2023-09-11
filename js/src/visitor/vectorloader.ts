@@ -24,7 +24,7 @@ import { Visitor } from '../visitor.js';
 import { packBools } from '../util/bit.js';
 import { encodeUtf8 } from '../util/utf8.js';
 import { Int64, Int128 } from '../util/int.js';
-import { UnionMode, DateUnit } from '../enum.js';
+import { UnionMode, DateUnit, MetadataVersion } from '../enum.js';
 import { toArrayBufferView } from '../util/buffer.js';
 import { BufferRegion, FieldNode } from '../ipc/metadata/message.js';
 
@@ -42,12 +42,14 @@ export class VectorLoader extends Visitor {
     private buffers: BufferRegion[];
     private buffersIndex = -1;
     private dictionaries: Map<number, Vector<any>>;
-    constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
+    private readonly metadataVersion: MetadataVersion;
+    constructor(bytes: Uint8Array, nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>, metadataVersion = MetadataVersion.V5) {
         super();
         this.bytes = bytes;
         this.nodes = nodes;
         this.buffers = buffers;
         this.dictionaries = dictionaries;
+        this.metadataVersion = metadataVersion;
     }
 
     public visit<T extends DataType>(node: Field<T> | T): Data<T> {
@@ -93,14 +95,19 @@ export class VectorLoader extends Visitor {
     public visitStruct<T extends type.Struct>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), children: this.visitMany(type.children) });
     }
-    public visitUnion<T extends type.Union>(type: T) {
-        return type.mode === UnionMode.Sparse ? this.visitSparseUnion(type as type.SparseUnion) : this.visitDenseUnion(type as type.DenseUnion);
+    public visitUnion<T extends type.Union>(type: T, { length, nullCount } = this.nextFieldNode()) {
+        if (this.metadataVersion < MetadataVersion.V5) {
+            this.readNullBitmap(type, nullCount);
+        }
+        return type.mode === UnionMode.Sparse
+            ? this.visitSparseUnion(type as type.SparseUnion, { length, nullCount })
+            : this.visitDenseUnion(type as type.DenseUnion, { length, nullCount });
     }
     public visitDenseUnion<T extends type.DenseUnion>(type: T, { length, nullCount } = this.nextFieldNode()) {
-        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), typeIds: this.readTypeIds(type), valueOffsets: this.readOffsets(type), children: this.visitMany(type.children) });
+        return makeData({ type, length, nullCount, typeIds: this.readTypeIds(type), valueOffsets: this.readOffsets(type), children: this.visitMany(type.children) });
     }
     public visitSparseUnion<T extends type.SparseUnion>(type: T, { length, nullCount } = this.nextFieldNode()) {
-        return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), typeIds: this.readTypeIds(type), children: this.visitMany(type.children) });
+        return makeData({ type, length, nullCount, typeIds: this.readTypeIds(type), children: this.visitMany(type.children) });
     }
     public visitDictionary<T extends type.Dictionary>(type: T, { length, nullCount } = this.nextFieldNode()) {
         return makeData({ type, length, nullCount, nullBitmap: this.readNullBitmap(type, nullCount), data: this.readData(type.indices), dictionary: this.readDictionary(type) });
@@ -133,8 +140,8 @@ export class VectorLoader extends Visitor {
 /** @ignore */
 export class JSONVectorLoader extends VectorLoader {
     private sources: any[][];
-    constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>) {
-        super(new Uint8Array(0), nodes, buffers, dictionaries);
+    constructor(sources: any[][], nodes: FieldNode[], buffers: BufferRegion[], dictionaries: Map<number, Vector<any>>, metadataVersion: MetadataVersion) {
+        super(new Uint8Array(0), nodes, buffers, dictionaries, metadataVersion);
         this.sources = sources;
     }
     protected readNullBitmap<T extends DataType>(_type: T, nullCount: number, { offset } = this.nextBufferRange()) {

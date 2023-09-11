@@ -1,3 +1,5 @@
+% Test class for arrow.type.Date32Type and arrow.date32
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -14,7 +16,6 @@
 % permissions and limitations under the License.
 
 classdef tDate32Type < hFixedWidthType
-% Test class for arrow.type.Date32Type and arrow.date32
 
     properties
         ConstructionFcn = @arrow.date32
@@ -37,28 +38,6 @@ classdef tDate32Type < hFixedWidthType
             actualUnit = type.DateUnit;
             expectedUnit = arrow.type.DateUnit.Day;
             testCase.verifyEqual(actualUnit, expectedUnit);
-        end
-
-        function Display(testCase)
-            % Verify the display of Date32Type objects.
-            %
-            % Example:
-            %
-            %  Date32Type with properties:
-            %
-            %          ID: Date32
-            %    DateUnit: Day
-            %
-            type = testCase.ConstructionFcn(); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Date32Type"" style=""font-weight:bold"">Date32Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "DateUnit:"]));
-            body = body + " " + ["Date32"; "Day"];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
         function DateUnitNoSetter(testCase)

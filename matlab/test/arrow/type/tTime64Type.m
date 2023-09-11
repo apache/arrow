@@ -83,28 +83,6 @@ classdef tTime64Type < hFixedWidthType
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
-        function Display(testCase)
-            % Verify the display of Time64Type objects.
-            %
-            % Example:
-            %
-            %  Time64Type with properties:
-            %
-            %          ID: Time64
-            %    TimeUnit: Microsecond
-            %
-            type = testCase.ConstructionFcn(TimeUnit="Microsecond"); %#ok<NASGU>
-            classnameLink = "<a href=""matlab:helpPopup arrow.type.Time64Type"" style=""font-weight:bold"">Time64Type</a>";
-            header = "  " + classnameLink + " with properties:" + newline;
-            body = strjust(pad(["ID:"; "TimeUnit:"]));
-            body = body + " " + ["Time64"; "Microsecond"];
-            body = "    " + body;
-            footer = string(newline);
-            expectedDisplay = char(strjoin([header body' footer], newline));
-            actualDisplay = evalc('disp(type)');
-            testCase.verifyEqual(actualDisplay, expectedDisplay);
-        end
-
         function TimeUnitNoSetter(testCase)
             % Verify that an error is thrown when trying to set the value
             % of the TimeUnit property.

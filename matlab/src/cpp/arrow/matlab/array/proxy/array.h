@@ -36,11 +36,11 @@ class Array : public libmexclass::proxy::Proxy {
 
         void toString(libmexclass::proxy::method::Context& context);
 
-        void length(libmexclass::proxy::method::Context& context);
+        void getLength(libmexclass::proxy::method::Context& context);
 
-        void valid(libmexclass::proxy::method::Context& context);
+        void getValid(libmexclass::proxy::method::Context& context);
 
-        void type(libmexclass::proxy::method::Context& context);
+        void getType(libmexclass::proxy::method::Context& context);
 
         virtual void toMATLAB(libmexclass::proxy::method::Context& context) = 0;
 
