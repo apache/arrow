@@ -239,6 +239,8 @@ the input to a single output value.
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | sum                | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(7)  |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
+| sum_checked        | Unary   | Numeric          | Scalar Numeric         | :struct:`ScalarAggregateOptions` | \(7)  |
++--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | tdigest            | Unary   | Numeric          | Float64                | :struct:`TDigestOptions`         | \(10) |
 +--------------------+---------+------------------+------------------------+----------------------------------+-------+
 | variance           | Unary   | Numeric          | Scalar Float64         | :struct:`VarianceOptions`        | \(9)  |
