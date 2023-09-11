@@ -253,7 +253,9 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.4.5
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -282,8 +284,10 @@ jobs:
           go-version: ${{ matrix.go }}
           cache: true
           cache-dependency-path: go/go.sum
-      - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.4.5
+      - name: Install staticcheck      
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
@@ -344,7 +348,9 @@ jobs:
         shell: bash
         run: brew install apache-arrow pkg-config
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.4.5
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Add To pkg config path
         shell: bash
         run: |
@@ -405,7 +411,9 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
-        run: go install honnef.co/go/tools/cmd/staticcheck@v0.4.5
+        run: |
+          . .env
+          go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
       - name: Build
         shell: bash
         run: ci/scripts/go_build.sh $(pwd)
