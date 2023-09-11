@@ -23,10 +23,10 @@ from ..utils.source import ARROW_ROOT_DEFAULT
 
 
 _EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'js/bin')
-_VALIDATE = os.path.join(_EXE_PATH, 'integration.js')
-_JSON_TO_ARROW = os.path.join(_EXE_PATH, 'json-to-arrow.js')
-_STREAM_TO_FILE = os.path.join(_EXE_PATH, 'stream-to-file.js')
-_FILE_TO_STREAM = os.path.join(_EXE_PATH, 'file-to-stream.js')
+_VALIDATE = os.path.join(_EXE_PATH, 'integration.ts')
+_JSON_TO_ARROW = os.path.join(_EXE_PATH, 'json-to-arrow.ts')
+_STREAM_TO_FILE = os.path.join(_EXE_PATH, 'stream-to-file.ts')
+_FILE_TO_STREAM = os.path.join(_EXE_PATH, 'file-to-stream.ts')
 
 
 class JSTester(Tester):

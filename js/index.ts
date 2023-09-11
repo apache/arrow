@@ -15,4 +15,4 @@
 // specific language governing permissions and limitations
 // under the License.
 
-export * from './src/Arrow.node';
+export * from './src/Arrow.node.ts';
