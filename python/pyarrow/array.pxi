@@ -2366,9 +2366,10 @@ cdef class MapArray(ListArray):
 
         Examples
         --------
-        First construct a rectangular model of the data. The total of 5 respondents
-        answered the question "How much did you like the movie x?". The value -1
-        means that the values is missing.
+        First, let's understand the structure of our dataset when viewed in a rectangular data model. 
+        The total of 5 respondents answered the question "How much did you like the movie x?".
+        The value -1 in the integer array means that the value is missing. The boolean array
+        represents the null bitmask corresponding to the missing values in the integer array.
 
         >>> movies_rectangular = np.ma.masked_array([
         >>>     [10, -1, -1],
@@ -2403,13 +2404,13 @@ cdef class MapArray(ListArray):
         >>> ]
         >>> likings = [
         >>>     10, #  -------- row 1
-        >>>     8, 4, 9, #  --- row 2
-        >>>     10, 5 #  ------ row 3
+        >>>     8, 4, 5, #  --- row 2
+        >>>     10, 3 #  ------ row 3
         >>> ]
         >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
         0                                  [(Dark Knight, 10)]
         1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
-        2              [(Meet the Parents, 10), (Superman, 5)]
+        2              [(Meet the Parents, 10), (Superman, 3)]
         3                                                   []
         4                                                   []
         dtype: object
@@ -2430,7 +2431,7 @@ cdef class MapArray(ListArray):
         >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
         0                                  [(Dark Knight, 10)]
         1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
-        2              [(Meet the Parents, 10), (Superman, 5)]
+        2              [(Meet the Parents, 10), (Superman, 3)]
         3                                                 None
         4                                                 None
         dtype: object
