@@ -5649,13 +5649,13 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
   auto schema = ::arrow::schema(
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
   auto table = ::arrow::TableFromJSON(schema, {R"([
-[1,     "a"      ],
-[2,     "b"   ],
-[3,     "c"   ],
-[null,  "d"],
-[5,     null],
-[6,     "f"    ]
-])"});
+        [1,     "a"],
+        [2,     "b"],
+        [3,     "c"],
+        [null,  "d"],
+        [5,     null],
+        [6,     "f"]
+  ])"});
   WriteFile(writer_properties, table);
 
   ReadBloomFilters(/*expect_num_row_groups=*/2);

@@ -142,15 +142,12 @@ static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = false;
 static constexpr int32_t DEFAULT_BLOOM_FILTER_NDV = 1024 * 1024;
 static constexpr double DEFAULT_BLOOM_FILTER_FPP = 0.05;
 
-struct BloomFilterOptions {
+struct PARQUET_EXPORT BloomFilterOptions {
   /// The number of distinct values to expect to be inserted into the bloom.
   int32_t ndv = DEFAULT_BLOOM_FILTER_NDV;
   /// The false positive probability expected from the bloom.
   double fpp = DEFAULT_BLOOM_FILTER_FPP;
 };
-
-static constexpr std::optional<BloomFilterOptions> DEFAULT_IS_BLOOM_FILTER_OPTIONS =
-    std::nullopt;
 
 class PARQUET_EXPORT ColumnProperties {
  public:
@@ -159,9 +156,7 @@ class PARQUET_EXPORT ColumnProperties {
                    bool dictionary_enabled = DEFAULT_IS_DICTIONARY_ENABLED,
                    bool statistics_enabled = DEFAULT_ARE_STATISTICS_ENABLED,
                    size_t max_stats_size = DEFAULT_MAX_STATISTICS_SIZE,
-                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED,
-                   std::optional<BloomFilterOptions> bloom_filter_options =
-                       DEFAULT_IS_BLOOM_FILTER_OPTIONS)
+                   bool page_index_enabled = DEFAULT_IS_PAGE_INDEX_ENABLED)
       : encoding_(encoding),
         codec_(codec),
         dictionary_enabled_(dictionary_enabled),
@@ -204,7 +199,8 @@ class PARQUET_EXPORT ColumnProperties {
     if (bloom_filter_options) {
       if (bloom_filter_options->fpp > 1.0 || bloom_filter_options->fpp < 0.0) {
         throw ParquetException(
-            "Bloom Filter False positive probability must be between 0.0 and 1.0");
+            "Bloom Filter False positive probability must be between 0.0 and 1.0, got " +
+            std::to_string(bloom_filter_options->fpp));
       }
     }
     bloom_filter_options_ = bloom_filter_options;
@@ -830,8 +826,9 @@ class PARQUET_EXPORT WriterProperties {
   }
 
   bool bloom_filter_enabled() const {
-    // Note: we disallow enable bloom filter by default for now.
-    // So no need to check `default_column_properties_.bloom_filter_enabled()`.
+    // Note: We do not encourage enabling bloom filter for all columns. So
+    // default_column_properties_.bloom_filter_enabled is always false and
+    // cannot be altered by user. Thus we can safely skip checking it here.
     return std::any_of(column_properties_.begin(), column_properties_.end(),
                        [](auto& p) { return p.second.bloom_filter_enabled(); });
   }

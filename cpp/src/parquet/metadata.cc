@@ -1835,9 +1835,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
           if (iter != file_bloom_filter_location.cend()) {
             const auto& row_group_bloom_filter_location = iter->second;
             for (size_t i = 0; i < row_group_bloom_filter_location.size(); ++i) {
-              if (i >= row_group_metadata.columns.size()) {
-                throw ParquetException("Cannot find metadata for column ordinal ", i);
-              }
+              DCHECK(i < row_group_metadata.columns.size());
               auto& column = row_group_metadata.columns.at(i);
               auto& column_metadata = column.meta_data;
               const auto& bloom_filter_location = row_group_bloom_filter_location.at(i);

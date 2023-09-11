@@ -375,6 +375,9 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // In Parquet standard, the Bloom filter data can be stored before the page indexes
       // after all row groups or stored between row groups. We choose to store it before
       // the page indexes after all row groups.
+      // Also, Putting all bloom filters together may provide a good chance to coalesce
+      // I/Os of different bloom filters. Especially when only one column has enabled it,
+      // which is the common case.
       WriteBloomFilter();
       WritePageIndex();
 
