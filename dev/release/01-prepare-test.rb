@@ -168,8 +168,6 @@ class PrepareTest < Test::Unit::TestCase
               "+        \"name\": \"#{@next_compatible_version} (dev)\",",
               "-        \"name\": \"#{@previous_compatible_version} (stable)\",",
               "+        \"name\": \"#{@release_compatible_version} (stable)\",",
-            ],
-            [
               "+    {",
               "+        \"name\": \"#{@previous_compatible_version}\",",
               "+        \"version\": \"#{@previous_compatible_version}/\",",
