@@ -18,6 +18,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/type/proxy/field.h"
+#include "arrow/matlab/type/proxy/get_field.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 #include "libmexclass/error/Error.h"
@@ -38,13 +39,6 @@ namespace arrow::matlab::tabular::proxy {
             error_message_stream << "'.";
             return Error{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME, error_message_stream.str()};
         }
-
-        libmexclass::error::Error makeEmptySchemaError() {
-            using namespace libmexclass::error;
-            return Error{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA,
-                         "Numeric indexing using the field method is not supported for schemas with no fields."};
-        }
-
     }
 
     Schema::Schema(std::shared_ptr<arrow::Schema> schema) : schema{std::move(schema)} {
@@ -79,44 +73,22 @@ namespace arrow::matlab::tabular::proxy {
 
     void Schema::getFieldByIndex(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
-        using namespace libmexclass::proxy;
-        using FieldProxy = arrow::matlab::type::proxy::Field;
         mda::ArrayFactory factory;
 
         mda::StructArray args = context.inputs[0];
         const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
         const auto matlab_index = int32_t(index_mda[0]);
-        // Note: MATLAB uses 1-based indexing, so subtract 1.
-        // arrow::Schema::field does not do any bounds checking.
-        const int32_t index = matlab_index - 1;
-        const auto num_fields = schema->num_fields();
 
-        if (num_fields == 0) {
-            const auto& error = makeEmptySchemaError();
+        auto maybe_field_proxy_id = type::proxy::getFieldByIndex(schema, matlab_index);
+
+        if (std::holds_alternative<uint64_t>(maybe_field_proxy_id)) {
+            // Extract the Proxy ID and return it to MATLAB
+            auto field_proxy_id = std::get<uint64_t>(maybe_field_proxy_id);
+            context.outputs[0] = factory.createScalar(field_proxy_id);
+        } else {
+            auto error = std::get<libmexclass::error::Error>(maybe_field_proxy_id);
             context.error = error;
-            return;
         }
-
-        if (matlab_index < 1 || matlab_index > num_fields) {
-            using namespace libmexclass::error;
-            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_NUMERIC_FIELD_INDEX};
-            std::stringstream error_message_stream;
-            error_message_stream << "Invalid field index: ";
-            error_message_stream << matlab_index;
-            error_message_stream << ". Field index must be between 1 and the number of fields (";
-            error_message_stream << num_fields;
-            error_message_stream << ").";
-            const std::string& error_message = error_message_stream.str();
-            context.error = Error{error_message_id, error_message}; 
-            return;
-        }
-
-        const auto& field = schema->field(index);
-        auto field_proxy = std::make_shared<FieldProxy>(field);
-        const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
-        const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
-
-        context.outputs[0] = field_proxy_id_mda;
     }
 
     void Schema::getFieldByName(libmexclass::proxy::method::Context& context) {
