@@ -56,18 +56,18 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: java-jni-manylinux-2014-${{ hashFiles('cpp/**', 'java/**') }}
           restore-keys: java-jni-manylinux-2014-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: 3.8
       - name: Setup Archery
@@ -96,18 +96,18 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v3
+        uses: actions/cache@88522ab9f39a2ea568f7027eddc7d8d8bc9d59c8 # v3.3.1
         with:
           path: .docker
           key: maven-${{ hashFiles('java/**') }}
           restore-keys: maven-
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@61a6322f88396a6271a6ee3565807d608ecaddd1 # v4.7.0
         with:
           python-version: 3.8
       - name: Setup Archery
