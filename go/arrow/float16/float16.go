@@ -17,6 +17,7 @@
 package float16
 
 import (
+	"encoding/binary"
 	"math"
 	"strconv"
 )
@@ -28,6 +29,11 @@ import (
 type Num struct {
 	bits uint16
 }
+
+var (
+	MaxNum = Num{bits: 0b0111101111111111}
+	MinNum = MaxNum.Negate()
+)
 
 // New creates a new half-precision floating point value from the provided
 // float32 value.
@@ -84,6 +90,11 @@ func (n Num) Mul(rhs Num) Num {
 
 func (n Num) Div(rhs Num) Num {
 	return New(n.Float32() / rhs.Float32())
+}
+
+// Equal returns true if the value represented by n is == other
+func (n Num) Equal(other Num) bool {
+	return n.Float32() == other.Float32()
 }
 
 // Greater returns true if the value represented by n is > other
@@ -161,5 +172,23 @@ func (n Num) Sign() int {
 	return -1
 }
 
+func (n Num) Signbit() bool { return (n.bits & 0x8000) != 0 }
+
+func (n Num) IsNaN() bool { return (n.bits & 0x7fff) > 0x7c00 }
+
 func (f Num) Uint16() uint16 { return f.bits }
 func (f Num) String() string { return strconv.FormatFloat(float64(f.Float32()), 'g', -1, 32) }
+
+func FromLEBytes(src []byte) Num {
+	return Num{bits: binary.LittleEndian.Uint16(src)}
+}
+
+func (f Num) PutLEBytes(dst []byte) {
+	binary.LittleEndian.PutUint16(dst, f.bits)
+}
+
+func (f Num) ToLEBytes() []byte {
+	dst := make([]byte, 2)
+	f.PutLEBytes(dst)
+	return dst
+}
