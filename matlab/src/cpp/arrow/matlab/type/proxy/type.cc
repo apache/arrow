@@ -17,13 +17,17 @@
 
 #include "arrow/matlab/type/proxy/type.h"
 
+#include "arrow/matlab/type/proxy/get_field.h"
+
 #include "libmexclass/proxy/ProxyManager.h"
+
 
 namespace arrow::matlab::type::proxy {
 
     Type::Type(std::shared_ptr<arrow::DataType> type) : data_type{std::move(type)} {
         REGISTER_METHOD(Type, getTypeID);
         REGISTER_METHOD(Type, getNumFields);
+        REGISTER_METHOD(Type, getFieldByIndex);
         REGISTER_METHOD(Type, isEqual);
     }
 
@@ -45,6 +49,26 @@ namespace arrow::matlab::type::proxy {
         
         auto num_fields_mda = factory.createScalar(data_type->num_fields());
         context.outputs[0] = num_fields_mda;
+    }
+
+    void Type::getFieldByIndex(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
+        const auto matlab_index = int32_t(index_mda[0]);
+
+        auto maybe_field_proxy_id = proxy::getFieldByIndex(data_type, matlab_index);
+
+        if (std::holds_alternative<uint64_t>(maybe_field_proxy_id)) {
+            // Extract the Proxy ID and return it to MATLAB
+            auto field_proxy_id = std::get<uint64_t>(maybe_field_proxy_id);
+            context.outputs[0] = factory.createScalar(field_proxy_id);
+        } else {
+            auto error = std::get<libmexclass::error::Error>(maybe_field_proxy_id);
+            context.error = error;
+        }
     }
 
     void Type::isEqual(libmexclass::proxy::method::Context& context) {
