@@ -2363,6 +2363,77 @@ cdef class MapArray(ListArray):
         Returns
         -------
         map_array : MapArray
+
+        Examples
+        --------
+        First construct a rectangular model of the data. The total of 5 respondents
+        answered the question "How much did you like the movie x?". The value -1
+        means that the values is missing.
+
+        >>> movies_rectangular = np.ma.masked_array([
+        >>>     [10, -1, -1],
+        >>>     [8, 4, 5],
+        >>>     [-1, 10, 3],
+        >>>     [-1, -1, -1],
+        >>>     [-1, -1, -1]
+        >>> ],
+        >>> [
+        >>>     [False, True, True],
+        >>>     [False, False, False],
+        >>>     [True, False, False],
+        >>>     [True, True, True],
+        >>>     [True, True, True],
+        >>> ])
+
+        To represent the same data with the MapArray and from_arrays, the data is
+        formed like this:
+
+        >>> offsets = [
+        >>>     0, #  -- row 1 start
+        >>>     1, #  -- row 2 start
+        >>>     4, #  -- row 3 start
+        >>>     6, #  -- row 4 start
+        >>>     6, #  -- row 5 start
+        >>>     6, #  -- row 5 end
+        >>> ]
+        >>> movies = [
+        >>>     "Dark Knight", #  ---------------------------------- row 1
+        >>>     "Dark Knight", "Meet the Parents", "Superman", #  -- row 2
+        >>>     "Meet the Parents", "Superman", #  ----------------- row 3
+        >>> ]
+        >>> likings = [
+        >>>     10, #  -------- row 1
+        >>>     8, 4, 9, #  --- row 2
+        >>>     10, 5 #  ------ row 3
+        >>> ]
+        >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
+        0                                  [(Dark Knight, 10)]
+        1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
+        2              [(Meet the Parents, 10), (Superman, 5)]
+        3                                                   []
+        4                                                   []
+        dtype: object
+
+        If the data in the empty rows needs to be marked as missing, it's possible
+        to do so by modifying the offsets argument, so that we specify `None` as
+        the starting positions of the rows we want marked as missing. The end row
+        offset still has to refer to the existing value from keys (and values):
+
+        >>> offsets = [
+        >>>     0, #  ----- row 1 start
+        >>>     1, #  ----- row 2 start
+        >>>     4, #  ----- row 3 start
+        >>>     None, #  -- row 4 start
+        >>>     None, #  -- row 5 start
+        >>>     6, #  ----- row 5 end
+        >>> ]
+        >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
+        0                                  [(Dark Knight, 10)]
+        1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
+        2              [(Meet the Parents, 10), (Superman, 5)]
+        3                                                 None
+        4                                                 None
+        dtype: object
         """
         cdef:
             Array _offsets, _keys, _items
