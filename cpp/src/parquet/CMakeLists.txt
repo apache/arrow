@@ -21,6 +21,17 @@ add_custom_target(parquet-benchmarks)
 add_custom_target(parquet-tests)
 add_dependencies(parquet-all parquet parquet-tests parquet-benchmarks)
 
+# If libparquet.a is only built, "pkg-config --cflags --libs parquet"
+# outputs build flags for static linking not shared
+# linking. PARQUET_PC_* except PARQUET_PC_*_PRIVATE are for the static
+# linking case.
+if(NOT ARROW_BUILD_SHARED AND ARROW_BUILD_STATIC)
+  string(APPEND PARQUET_PC_CFLAGS "${PARQUET_PC_CFLAGS_PRIVATE}")
+  set(PARQUET_PC_CFLAGS_PRIVATE "")
+  string(APPEND PARQUET_PC_REQUIRES "${PARQUET_PC_REQUIRES_PRIVATE}")
+  set(PARQUET_PC_REQUIRES_PRIVATE "")
+endif()
+
 function(ADD_PARQUET_TEST REL_TEST_NAME)
   set(one_value_args)
   set(multi_value_args EXTRA_DEPENDENCIES LABELS)
