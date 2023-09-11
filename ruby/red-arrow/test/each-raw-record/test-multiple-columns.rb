@@ -22,17 +22,13 @@ module EachRawRecordMultipleColumnsTests
       [nil, 0, "GLib"],
       [false, 2 ** 8 - 1, nil],
     ]
-    iterated_records = []
     target = build([
                      {name: :column0, type: :boolean},
                      {name: :column1, type: :uint8},
                      {name: :column2, type: :string},
                    ],
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_4_elements
@@ -41,7 +37,6 @@ module EachRawRecordMultipleColumnsTests
       [nil, 0, "GLib", nil],
       [false, 2 ** 8 - 1, nil, (2 ** 63) - 1],
     ]
-    iterated_records = []
     target = build([
                      {name: :column0, type: :boolean},
                      {name: :column1, type: :uint8},
@@ -49,10 +44,7 @@ module EachRawRecordMultipleColumnsTests
                      {name: :column3, type: :int64},
                    ],
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 end
 

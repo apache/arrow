@@ -41,11 +41,7 @@ class EachRawRecordTableTest < Test::Unit::TestCase
     record_batches = raw_record_batches.collect do |record_batch|
       Arrow::RecordBatch.new(schema, record_batch)
     end
-    iterated_records = []
     table = Arrow::Table.new(schema, record_batches)
-    table.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(raw_records, iterated_records)
+    assert_equal(raw_records, table.each_raw_record.to_a)
   end
 end

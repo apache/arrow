@@ -305,9 +305,10 @@ namespace red_arrow {
   }
 
   VALUE
-  record_batch_each_raw_record(VALUE rb_record_batch){
+  record_batch_each_raw_record(VALUE rb_record_batch) {
     auto garrow_record_batch = GARROW_RECORD_BATCH(RVAL2GOBJ(rb_record_batch));
     auto record_batch = garrow_record_batch_get_raw(garrow_record_batch).get();
+    RETURN_SIZED_ENUMERATOR(rb_record_batch, 0, nullptr, record_batch->num_rows());
 
     try {
       RawRecordsProducer producer;
@@ -323,6 +324,7 @@ namespace red_arrow {
   table_each_raw_record(VALUE rb_table) {
     auto garrow_table = GARROW_TABLE(RVAL2GOBJ(rb_table));
     auto table = garrow_table_get_raw(garrow_table).get();
+    RETURN_SIZED_ENUMERATOR(rb_table, 0, nullptr, table->num_rows());
 
     try {
       RawRecordsProducer producer;

@@ -92,13 +92,9 @@ module EachRawRecordDenseUnionArrayTests
     records = [
       [{"0" => nil}],
     ]
-    iterated_records = []
     target = build(:null, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_boolean
@@ -106,13 +102,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => true}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:boolean, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_int8
@@ -120,13 +112,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => -(2 ** 7)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:int8, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_uint8
@@ -134,13 +122,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => (2 ** 8) - 1}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:uint8, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_int16
@@ -148,13 +132,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => -(2 ** 15)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:int16, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_uint16
@@ -162,13 +142,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => (2 ** 16) - 1}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:uint16, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_int32
@@ -176,13 +152,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => -(2 ** 31)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:int32, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_uint32
@@ -190,13 +162,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => (2 ** 32) - 1}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:uint32, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_int64
@@ -204,13 +172,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => -(2 ** 63)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:int64, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_uint64
@@ -218,13 +182,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => (2 ** 64) - 1}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:uint64, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_float
@@ -232,13 +192,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => -1.0}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:float, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_double
@@ -246,13 +202,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => -1.0}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:double, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_binary
@@ -260,13 +212,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => "\xff".b}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:binary, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_string
@@ -274,13 +222,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => "Ruby"}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:string, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_date32
@@ -288,13 +232,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Date.new(1960, 1, 1)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:date32, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 target.raw_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_date64
@@ -302,13 +242,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => DateTime.new(1960, 1, 1, 2, 9, 30)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:date64, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_timestamp_second
@@ -316,17 +252,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Time.parse("1960-01-01T02:09:30Z")}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :timestamp,
                      unit: :second,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_timestamp_milli
@@ -334,17 +266,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Time.parse("1960-01-01T02:09:30.123Z")}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :timestamp,
                      unit: :milli,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_timestamp_micro
@@ -352,17 +280,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Time.parse("1960-01-01T02:09:30.123456Z")}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :timestamp,
                      unit: :micro,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_timestamp_nano
@@ -370,17 +294,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Time.parse("1960-01-01T02:09:30.123456789Z")}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :timestamp,
                      unit: :nano,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_time32_second
@@ -390,17 +310,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Arrow::Time.new(unit, 60 * 10)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :time32,
                      unit: :second,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_time32_milli
@@ -410,17 +326,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Arrow::Time.new(unit, (60 * 10) * 1000 + 123)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :time32,
                      unit: :milli,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_time64_micro
@@ -430,17 +342,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000 + 123_456)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :time64,
                      unit: :micro,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_time64_nano
@@ -450,17 +358,13 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => Arrow::Time.new(unit, (60 * 10) * 1_000_000_000 + 123_456_789)}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :time64,
                      unit: :nano,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_decimal128
@@ -468,18 +372,14 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => BigDecimal("92.92")}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :decimal128,
                      precision: 8,
                      scale: 2,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_decimal256
@@ -487,18 +387,14 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => BigDecimal("92.92")}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :decimal256,
                      precision: 38,
                      scale: 2,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_month_interval
@@ -506,13 +402,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => 1}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:month_interval, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_day_time_interval
@@ -520,13 +412,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => {day: 1, millisecond: 100}}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:day_time_interval, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_month_day_nano_interval
@@ -534,13 +422,9 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => {month: 1, day: 1, nanosecond: 100}}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build(:month_day_nano_interval, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_list
@@ -548,7 +432,6 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => [true, nil, false]}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :list,
                      field: {
@@ -557,11 +440,8 @@ module EachRawRecordDenseUnionArrayTests
                      },
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_struct
@@ -570,7 +450,6 @@ module EachRawRecordDenseUnionArrayTests
       [{"1" => nil}],
       [{"0" => {"sub_field" => nil}}],
     ]
-    iterated_records = []
     target = build({
                      type: :struct,
                      fields: [
@@ -581,11 +460,8 @@ module EachRawRecordDenseUnionArrayTests
                      ],
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_map
@@ -593,18 +469,14 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => {"key1" => true, "key2" => nil}}],
       [{"1" => nil}],
     ]
-    iterated_records = []
     target = build({
                      type: :map,
                      key: :string,
                      item: :boolean,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_sparse_union
@@ -614,7 +486,6 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => {"field2" => 29}}],
       [{"0" => {"field2" => nil}}],
     ]
-    iterated_records = []
     target = build({
                      type: :sparse_union,
                      fields: [
@@ -630,11 +501,8 @@ module EachRawRecordDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(remove_field_names(records)),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_dense_union
@@ -644,7 +512,6 @@ module EachRawRecordDenseUnionArrayTests
       [{"0" => {"field2" => 29}}],
       [{"0" => {"field2" => nil}}],
     ]
-    iterated_records = []
     target = build({
                      type: :dense_union,
                      fields: [
@@ -660,11 +527,8 @@ module EachRawRecordDenseUnionArrayTests
                      type_codes: [0, 1],
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(remove_field_names(records)),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 
   def test_dictionary
@@ -673,7 +537,6 @@ module EachRawRecordDenseUnionArrayTests
       [{"1" => nil}],
       [{"0" => "GLib"}],
     ]
-    iterated_records = []
     target = build({
                      type: :dictionary,
                      index_data_type: :int8,
@@ -681,11 +544,8 @@ module EachRawRecordDenseUnionArrayTests
                      ordered: false,
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
     assert_equal(remove_field_names(records),
-                 iterated_records)
+                 target.each_raw_record.to_a)
   end
 end
 
