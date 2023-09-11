@@ -61,7 +61,6 @@ namespace arrow::matlab::type::proxy {
         }
     }
 
-
     using FieldProxyIDOrError = std::variant<uint64_t, libmexclass::error::Error>;
 
     template <typename T>
