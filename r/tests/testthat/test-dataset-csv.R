@@ -594,12 +594,16 @@ test_that("CSVReadOptions field access", {
   expect_equal(options$encoding, "UTF-8")
 })
 
-test_that("GH-34640 - CSV datasets are read in correctly when both schema and partitiong supplied", {
+test_that("GH-34640 - CSV datasets are read in correctly when both schema and partitioning supplied", {
   ds <- open_dataset(
     csv_dir,
     partitioning = schema(part = int32()),
     format = "csv",
-    schema(int = int64(), dbl = int64(), lgl = bool(), chr = utf8(), fct = utf8(), ts = timestamp(unit = "s"), part = int32())
+    schema(
+      int = int64(), dbl = int64(), lgl = bool(), chr = utf8(),
+      fct = utf8(), ts = timestamp(unit = "s"), part = int32()
+    ),
+    skip = 1
   )
   expect_r6_class(ds$format, "CsvFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
@@ -617,5 +621,4 @@ test_that("GH-34640 - CSV datasets are read in correctly when both schema and pa
       filter(integer > 6) %>%
       summarize(mean = mean(integer))
   )
-
 })
