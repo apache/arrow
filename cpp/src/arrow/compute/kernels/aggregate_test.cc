@@ -141,129 +141,114 @@ void ValidateSum(const Array& array, const ScalarAggregateOptions& options =
 
 using UnaryOp = Result<Datum>(const Datum&, const ScalarAggregateOptions&, ExecContext*);
 
-template <UnaryOp& Op, typename ScalarAggregateOptions, typename ScalarType>
-void ValidateBooleanAgg(const std::string& json,
+template <typename ScalarAggregateOptions, typename ScalarType>
+void ValidateBooleanAgg(UnaryOp&& op, const std::string& json,
                         const std::shared_ptr<ScalarType>& expected,
                         const ScalarAggregateOptions& options) {
   SCOPED_TRACE(json);
   auto array = ArrayFromJSON(boolean(), json);
-  ASSERT_OK_AND_ASSIGN(Datum result, Op(array, options, nullptr));
+  ASSERT_OK_AND_ASSIGN(Datum result, op(array, options, nullptr));
   AssertScalarsEqual(*expected, *result.scalar(), /*verbose=*/true);
 }
 
-template <UnaryOp& SumOp>
-void TestBooleanAggregationSum() {
+void TestBooleanAggregationSum(UnaryOp&& sum_op) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<SumOp>("[]", std::make_shared<UInt64Scalar>(), options);
-  ValidateBooleanAgg<SumOp>("[null]", std::make_shared<UInt64Scalar>(), options);
-  ValidateBooleanAgg<SumOp>("[null, false]", std::make_shared<UInt64Scalar>(0), options);
-  ValidateBooleanAgg<SumOp>("[true]", std::make_shared<UInt64Scalar>(1), options);
-  ValidateBooleanAgg<SumOp>("[true, false, true]", std::make_shared<UInt64Scalar>(2),
-                            options);
-  ValidateBooleanAgg<SumOp>("[true, false, true, true, null]",
-                            std::make_shared<UInt64Scalar>(3), options);
+  ValidateBooleanAgg(sum_op, "[]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg(sum_op, "[null]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg(sum_op, "[null, false]", std::make_shared<UInt64Scalar>(0), options);
+  ValidateBooleanAgg(sum_op, "[true]", std::make_shared<UInt64Scalar>(1), options);
+  ValidateBooleanAgg(sum_op, "[true, false, true]", std::make_shared<UInt64Scalar>(2),
+                     options);
+  ValidateBooleanAgg(sum_op, "[true, false, true, true, null]",
+                     std::make_shared<UInt64Scalar>(3), options);
 
   const ScalarAggregateOptions& options_min_count_zero =
       ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  ValidateBooleanAgg<SumOp>("[]", std::make_shared<UInt64Scalar>(0),
-                            options_min_count_zero);
-  ValidateBooleanAgg<SumOp>("[null]", std::make_shared<UInt64Scalar>(0),
-                            options_min_count_zero);
+  ValidateBooleanAgg(sum_op, "[]", std::make_shared<UInt64Scalar>(0),
+                     options_min_count_zero);
+  ValidateBooleanAgg(sum_op, "[null]", std::make_shared<UInt64Scalar>(0),
+                     options_min_count_zero);
 
   std::string json = "[true, null, false, null]";
-  ValidateBooleanAgg<SumOp>(json, std::make_shared<UInt64Scalar>(1),
-                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
-  ValidateBooleanAgg<SumOp>(json, std::make_shared<UInt64Scalar>(1),
-                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
-  ValidateBooleanAgg<SumOp>(json, std::make_shared<UInt64Scalar>(),
-                            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
-  ValidateBooleanAgg<SumOp>(
-      "[]", std::make_shared<UInt64Scalar>(0),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateBooleanAgg<SumOp>(
-      json, std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateBooleanAgg<SumOp>(
-      "[]", std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
-  ValidateBooleanAgg<SumOp>(
-      json, std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg(sum_op, "[]", std::make_shared<UInt64Scalar>(0),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg(sum_op, "[]", std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
   json = "[true, false]";
-  ValidateBooleanAgg<SumOp>(
-      json, std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
-  ValidateBooleanAgg<SumOp>(
-      json, std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
-  ValidateBooleanAgg<SumOp>(
-      json, std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/1));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/2));
+  ValidateBooleanAgg(sum_op, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
-  EXPECT_THAT(SumOp(MakeScalar(true), ScalarAggregateOptions::Defaults(), nullptr),
+  EXPECT_THAT(sum_op(MakeScalar(true), ScalarAggregateOptions::Defaults(), nullptr),
               ResultWith(Datum(std::make_shared<UInt64Scalar>(1))));
-  EXPECT_THAT(SumOp(MakeScalar(false), ScalarAggregateOptions::Defaults(), nullptr),
+  EXPECT_THAT(sum_op(MakeScalar(false), ScalarAggregateOptions::Defaults(), nullptr),
               ResultWith(Datum(std::make_shared<UInt64Scalar>(0))));
   EXPECT_THAT(
-      SumOp(MakeNullScalar(boolean()), ScalarAggregateOptions::Defaults(), nullptr),
+      sum_op(MakeNullScalar(boolean()), ScalarAggregateOptions::Defaults(), nullptr),
       ResultWith(Datum(MakeNullScalar(uint64()))));
   EXPECT_THAT(
-      SumOp(MakeNullScalar(boolean()),
-            ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0), nullptr),
+      sum_op(MakeNullScalar(boolean()),
+             ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0), nullptr),
       ResultWith(ScalarFromJSON(uint64(), "0")));
   EXPECT_THAT(
-      SumOp(MakeNullScalar(boolean()),
-            ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0), nullptr),
+      sum_op(MakeNullScalar(boolean()),
+             ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0), nullptr),
       ResultWith(ScalarFromJSON(uint64(), "null")));
 }
 
 TEST(TestBooleanAggregation, Sum) {
-  TestBooleanAggregationSum<Sum>();
-  TestBooleanAggregationSum<SumChecked>();
+  TestBooleanAggregationSum(Sum);
+  TestBooleanAggregationSum(SumChecked);
 }
 
 TEST(TestBooleanAggregation, Product) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<Product>("[]", std::make_shared<UInt64Scalar>(), options);
-  ValidateBooleanAgg<Product>("[null]", std::make_shared<UInt64Scalar>(), options);
-  ValidateBooleanAgg<Product>("[null, false]", std::make_shared<UInt64Scalar>(0),
-                              options);
-  ValidateBooleanAgg<Product>("[true]", std::make_shared<UInt64Scalar>(1), options);
-  ValidateBooleanAgg<Product>("[true, false, true]", std::make_shared<UInt64Scalar>(0),
-                              options);
-  ValidateBooleanAgg<Product>("[true, false, true, true, null]",
-                              std::make_shared<UInt64Scalar>(0), options);
+  ValidateBooleanAgg(Product, "[]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg(Product, "[null]", std::make_shared<UInt64Scalar>(), options);
+  ValidateBooleanAgg(Product, "[null, false]", std::make_shared<UInt64Scalar>(0),
+                     options);
+  ValidateBooleanAgg(Product, "[true]", std::make_shared<UInt64Scalar>(1), options);
+  ValidateBooleanAgg(Product, "[true, false, true]", std::make_shared<UInt64Scalar>(0),
+                     options);
+  ValidateBooleanAgg(Product, "[true, false, true, true, null]",
+                     std::make_shared<UInt64Scalar>(0), options);
 
   const ScalarAggregateOptions& options_min_count_zero =
       ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  ValidateBooleanAgg<Product>("[]", std::make_shared<UInt64Scalar>(1),
-                              options_min_count_zero);
-  ValidateBooleanAgg<Product>("[null]", std::make_shared<UInt64Scalar>(1),
-                              options_min_count_zero);
+  ValidateBooleanAgg(Product, "[]", std::make_shared<UInt64Scalar>(1),
+                     options_min_count_zero);
+  ValidateBooleanAgg(Product, "[null]", std::make_shared<UInt64Scalar>(1),
+                     options_min_count_zero);
 
   const char* json = "[true, null, true, null]";
-  ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
-  ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
-  ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
-  ValidateBooleanAgg<Product>(
-      "[]", std::make_shared<UInt64Scalar>(1),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateBooleanAgg<Product>(
-      "[]", std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
-  ValidateBooleanAgg<Product>(
-      json, std::make_shared<UInt64Scalar>(),
-      ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(Product, json, std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateBooleanAgg(Product, json, std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
+  ValidateBooleanAgg(Product, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg(Product, "[]", std::make_shared<UInt64Scalar>(1),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg(Product, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg(Product, "[]", std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(Product, json, std::make_shared<UInt64Scalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
   EXPECT_THAT(Product(MakeScalar(true)),
               ResultWith(Datum(std::make_shared<UInt64Scalar>(1))));
@@ -281,40 +266,40 @@ TEST(TestBooleanAggregation, Product) {
 
 TEST(TestBooleanAggregation, Mean) {
   const ScalarAggregateOptions& options = ScalarAggregateOptions::Defaults();
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(), options);
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(), options);
-  ValidateBooleanAgg<Mean>("[null, false]", std::make_shared<DoubleScalar>(0), options);
-  ValidateBooleanAgg<Mean>("[true]", std::make_shared<DoubleScalar>(1), options);
-  ValidateBooleanAgg<Mean>("[true, false, true, false]",
-                           std::make_shared<DoubleScalar>(0.5), options);
-  ValidateBooleanAgg<Mean>("[true, null]", std::make_shared<DoubleScalar>(1), options);
-  ValidateBooleanAgg<Mean>("[true, null, false, true, true]",
-                           std::make_shared<DoubleScalar>(0.75), options);
-  ValidateBooleanAgg<Mean>("[true, null, false, false, false]",
-                           std::make_shared<DoubleScalar>(0.25), options);
+  ValidateBooleanAgg(Mean, "[]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg(Mean, "[null]", std::make_shared<DoubleScalar>(), options);
+  ValidateBooleanAgg(Mean, "[null, false]", std::make_shared<DoubleScalar>(0), options);
+  ValidateBooleanAgg(Mean, "[true]", std::make_shared<DoubleScalar>(1), options);
+  ValidateBooleanAgg(Mean, "[true, false, true, false]",
+                     std::make_shared<DoubleScalar>(0.5), options);
+  ValidateBooleanAgg(Mean, "[true, null]", std::make_shared<DoubleScalar>(1), options);
+  ValidateBooleanAgg(Mean, "[true, null, false, true, true]",
+                     std::make_shared<DoubleScalar>(0.75), options);
+  ValidateBooleanAgg(Mean, "[true, null, false, false, false]",
+                     std::make_shared<DoubleScalar>(0.25), options);
 
   const ScalarAggregateOptions& options_min_count_zero =
       ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/0);
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN),
-                           options_min_count_zero);
-  ValidateBooleanAgg<Mean>("[null]", std::make_shared<DoubleScalar>(NAN),
-                           options_min_count_zero);
+  ValidateBooleanAgg(Mean, "[]", std::make_shared<DoubleScalar>(NAN),
+                     options_min_count_zero);
+  ValidateBooleanAgg(Mean, "[null]", std::make_shared<DoubleScalar>(NAN),
+                     options_min_count_zero);
 
   const char* json = "[true, null, false, null]";
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
-                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(0.5),
-                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-                           ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(NAN),
-                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
-  ValidateBooleanAgg<Mean>("[]", std::make_shared<DoubleScalar>(),
-                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
-  ValidateBooleanAgg<Mean>(json, std::make_shared<DoubleScalar>(),
-                           ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(Mean, json, std::make_shared<DoubleScalar>(0.5),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/1));
+  ValidateBooleanAgg(Mean, json, std::make_shared<DoubleScalar>(0.5),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/2));
+  ValidateBooleanAgg(Mean, json, std::make_shared<DoubleScalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/true, /*min_count=*/3));
+  ValidateBooleanAgg(Mean, "[]", std::make_shared<DoubleScalar>(NAN),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg(Mean, json, std::make_shared<DoubleScalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/0));
+  ValidateBooleanAgg(Mean, "[]", std::make_shared<DoubleScalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
+  ValidateBooleanAgg(Mean, json, std::make_shared<DoubleScalar>(),
+                     ScalarAggregateOptions(/*skip_nulls=*/false, /*min_count=*/3));
 
   EXPECT_THAT(Mean(MakeScalar(true)), ResultWith(ScalarFromJSON(float64(), "1.0")));
   EXPECT_THAT(Mean(MakeScalar(false)), ResultWith(ScalarFromJSON(float64(), "0.0")));
