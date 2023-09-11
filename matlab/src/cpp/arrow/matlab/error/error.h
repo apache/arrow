@@ -196,5 +196,7 @@ namespace arrow::matlab::error {
     static const char* CHUNKED_ARRAY_NUMERIC_INDEX_WITH_EMPTY_CHUNKED_ARRAY = "arrow:chunkedarray:NumericIndexWithEmptyChunkedArray";
     static const char* CHUNKED_ARRAY_INVALID_NUMERIC_CHUNK_INDEX = "arrow:chunkedarray:InvalidNumericChunkIndex";
 
-
+    static const char* ARROW_UNKNOWN_FIELD_NAME = "arrow:badsubscript:UnknownFieldName";
+    static const char* ARROW_ZERO_FIELDS_NUMERIC_INDEX = "arrow:badsubscript:ZeroFieldsNumericIndex";
+    static const char* ARROW_INVALID_NUMERIC_FIELD_INDEX = "arrow:badsubscript:InvalidNumericFieldIndex";
 }
