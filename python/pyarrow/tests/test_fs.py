@@ -696,6 +696,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         selector = FileSelector(base_dir, allow_not_found=False,
                                 recursive=True)
         assert selector.base_dir == base_dir
+
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+s3":
             # s3fs only lists directories if they are not empty, but depending
