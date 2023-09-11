@@ -5089,6 +5089,8 @@ def concat_tables(tables, c_bool promote=False, MemoryPool memory_pool=None,
                 options.field_merge_options = CField.CMergeOptions.Permissive()
             elif field_merge_options == "default":
                 options.field_merge_options = CField.CMergeOptions.Defaults()
+            else:
+                raise ValueError(f"Invalid merge option: {field_merge_options}")
         else:
             options.field_merge_options = (
                 <FieldMergeOptions> field_merge_options).c_options

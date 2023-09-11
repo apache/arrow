@@ -316,7 +316,7 @@ Result<std::shared_ptr<Table>> ConcatenateTables(
 
 namespace compute {
 class CastOptions;
-};
+}
 
 /// \brief Promotes a table to conform to the given schema.
 ///
