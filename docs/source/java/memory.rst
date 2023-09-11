@@ -329,8 +329,7 @@ How this works:
     public static void checkGlobalCleanUpResources() {
         ...
         if (!allocator.getChildAllocators().isEmpty()) {
-          throw new IllegalStateException(...)
-          ));
+          throw new IllegalStateException(...);
         } else if (allocator.getAllocatedMemory() != 0) {
           throw new IllegalStateException(...);
         }
