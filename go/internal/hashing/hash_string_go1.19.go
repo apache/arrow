@@ -24,6 +24,9 @@ import (
 )
 
 func hashString(val string, alg uint64) uint64 {
+	if val == "" {
+		return Hash([]byte{}, alg)
+	}
 	// highly efficient way to get byte slice without copy before
 	// the introduction of unsafe.StringData in go1.20
 	// (https://stackoverflow.com/questions/59209493/how-to-use-unsafe-get-a-byte-slice-from-a-string-without-memory-copy)
