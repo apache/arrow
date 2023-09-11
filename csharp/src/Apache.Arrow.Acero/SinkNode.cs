@@ -21,19 +21,17 @@ namespace Apache.Arrow.Acero
 {
     public class SinkNode : ExecNode
     {
-        private readonly unsafe GArrowExecuteNode* _nodePtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_sink_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowSinkNodeOptions* options, out GError** error);
         protected static d_garrow_execute_plan_build_sink_node garrow_execute_plan_build_sink_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_sink_node>("garrow_execute_plan_build_sink_node");
 
-        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
-
-        public unsafe SinkNode(SinkNodeOptions _options, ExecPlan plan, List<ExecNode> inputs)
+        public unsafe SinkNode(SinkNodeOptions _options, ExecPlan plan, List<ExecNode> inputs) : base(plan, inputs)
         {
-            _nodePtr = garrow_execute_plan_build_sink_node(plan.Handle, inputs[0].Handle, _options.Handle, out GError** error);
+            Handle = garrow_execute_plan_build_sink_node(plan.Handle, inputs[0].Handle, _options.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
+
+        public override void Dispose() { }
     }
 }

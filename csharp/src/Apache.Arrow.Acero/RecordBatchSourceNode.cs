@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Acero.CLib;
 
@@ -23,19 +24,19 @@ namespace Apache.Arrow.Acero
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_source_node(GArrowExecutePlan* plan, GArrowSourceNodeOptions* options, out GError** error);
         protected static d_garrow_execute_plan_build_source_node garrow_execute_plan_build_source_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_source_node>("garrow_execute_plan_build_source_node");
+
+        protected SourceNode(ExecPlan plan, List<ExecNode> inputs) : base(plan, inputs) { }
     }
 
     public class RecordBatchSourceNode : SourceNode
     {
-        private unsafe GArrowExecuteNode* _nodePtr;
-
-        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
-
-        public unsafe RecordBatchSourceNode(RecordBatchSourceNodeOptions options, ExecPlan plan)
+        public unsafe RecordBatchSourceNode(RecordBatchSourceNodeOptions options, ExecPlan plan) : base(plan, new List<ExecNode>())
         {
-            _nodePtr = garrow_execute_plan_build_source_node(plan.Handle, options.Handle, out GError** error);
+            Handle = garrow_execute_plan_build_source_node(plan.Handle, options.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
+
+        public override void Dispose() { }
     }
 }

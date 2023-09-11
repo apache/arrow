@@ -20,38 +20,55 @@ using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
-    public class UnionNode : ExecNode
+    public class UnionNode : ExecNode, IDisposable
     {
-        private readonly unsafe GArrowExecuteNode* _nodePtr;
+        private readonly unsafe GArrowExecuteNodeOptions* _optionsPtr;
+        private readonly IntPtr _factoryNamePtr;
+        private readonly GLib.List _inputs;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate IntPtr d_garrow_sink_node_options_new();
         protected static d_garrow_sink_node_options_new garrow_sink_node_options_new = FuncLoader.LoadFunction<d_garrow_sink_node_options_new>("garrow_sink_node_options_new");
 
-        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
-
-        public unsafe UnionNode(ExecPlan plan, List<ExecNode> nodes)
+        public unsafe UnionNode(ExecPlan plan, List<ExecNode> inputs) : base(plan, inputs)
         {
-            string factoryName = "union";
-            IntPtr factoryNamePtr = GLib.Marshaller.StringToPtrGStrdup(factoryName);
+            _factoryNamePtr = GLib.Marshaller.StringToPtrGStrdup("union");
 
-            ExecNode lhs = nodes[0];
-            ExecNode rhs = nodes[1];
+            ExecNode lhs = inputs[0];
+            ExecNode rhs = inputs[1];
 
-            var list = new GLib.List(IntPtr.Zero);
-            list.Append((IntPtr)lhs.Handle);
-            list.Append((IntPtr)rhs.Handle);
+            _inputs = new GLib.List(IntPtr.Zero);
+            _inputs.Append((IntPtr)lhs.Handle);
+            _inputs.Append((IntPtr)rhs.Handle);
 
-            // todo: using this ptr causes the following error
-            // g_object_new_valist: invalid unclassed object pointer for value type 'GArrowExecuteNodeOptions'
-            //IntPtr optionsPtr = GLib.Marshaller.StructureToPtrAlloc(new GArrowExecuteNodeOptions());
+            _optionsPtr = (GArrowExecuteNodeOptions*)Marshal.AllocHGlobal(sizeof(GArrowExecuteNodeOptions));
+            *_optionsPtr = default;
 
-            // for now just use the sink options
-            IntPtr optionsPtr2 = garrow_sink_node_options_new();
-
-            _nodePtr = garrow_execute_plan_build_node(plan.Handle, factoryNamePtr, list.Handle, optionsPtr2, out GError** error);
+            Handle = garrow_execute_plan_build_node(plan.Handle, _factoryNamePtr, _inputs.Handle, (IntPtr)_optionsPtr, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
+        }
+
+        public override void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual unsafe void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _inputs.Dispose();
+            }
+
+            GLib.Marshaller.Free(_factoryNamePtr);
+            Marshal.FreeHGlobal((IntPtr)_optionsPtr);
+        }
+
+        ~UnionNode()
+        {
+            Dispose(false);
         }
     }
 }

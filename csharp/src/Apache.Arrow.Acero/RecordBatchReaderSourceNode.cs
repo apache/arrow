@@ -13,21 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Generic;
 using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class RecordBatchReaderSourceNode : SourceNode
     {
-        private unsafe GArrowExecuteNode* _nodePtr;
-
-        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
-
-        public unsafe RecordBatchReaderSourceNode(RecordBatchReaderSourceNodeOptions options, ExecPlan plan)
+        public unsafe RecordBatchReaderSourceNode(RecordBatchReaderSourceNodeOptions options, ExecPlan plan) : base(plan, new List<ExecNode>())
         {
-            _nodePtr = garrow_execute_plan_build_source_node(plan.Handle, options.Handle, out GError** error);
+            Handle = garrow_execute_plan_build_source_node(plan.Handle, options.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
+
+        public override void Dispose() { }
     }
 }

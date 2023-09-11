@@ -13,32 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Acero.CLib;
+using Apache.Arrow.C;
 
 namespace Apache.Arrow.Acero
 {
-    public class FieldExpression : Expression
+    public class ExportedRecordBatch
     {
-        private readonly IntPtr _referencePtr;
+        private readonly ExportedSchema _exportedSchema;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private unsafe delegate IntPtr d_garrow_field_expression_new(IntPtr reference, out GError** error);
-        private static d_garrow_field_expression_new garrow_field_expression_new = FuncLoader.LoadFunction<d_garrow_field_expression_new>("garrow_field_expression_new");
+        private unsafe delegate GArrowRecordBatch* d_garrow_record_batch_import(CArrowArray* c_abi_array, GArrowSchema* schema, out GError** error);
+        private static d_garrow_record_batch_import garrow_record_batch_import = FuncLoader.LoadFunction<d_garrow_record_batch_import>("garrow_record_batch_import");
 
-        public unsafe FieldExpression(string reference)
+        public unsafe GArrowRecordBatch* Handle { get; }
+
+        public unsafe ExportedRecordBatch(RecordBatch recordBatch)
         {
-            _referencePtr = GLib.Marshaller.StringToPtrGStrdup(reference);
+            _exportedSchema = new ExportedSchema(recordBatch.Schema);
 
-            Handle = garrow_field_expression_new(_referencePtr, out GError** error);
+            CArrowArray* cArray = CArrowArray.Create();
+            CArrowArrayExporter.ExportRecordBatch(recordBatch, cArray);
+            Handle = garrow_record_batch_import(cArray, _exportedSchema.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
-        }
-
-        ~FieldExpression()
-        {
-            GLib.Marshaller.Free(_referencePtr);
         }
     }
 }

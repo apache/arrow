@@ -21,15 +21,12 @@ namespace Apache.Arrow.Acero
 {
     public class Function : Expression
     {
-        private readonly IntPtr _expressionPtr;
         private readonly IntPtr _functionNamePtr;
         private readonly GLib.List _functionArgs;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private unsafe delegate GArrowFilterNodeOptions* d_garrow_call_expression_new(IntPtr function, IntPtr arguments, GArrowFunctionOptions* options);
         private static d_garrow_call_expression_new garrow_call_expression_new = FuncLoader.LoadFunction<d_garrow_call_expression_new>("garrow_call_expression_new");
-
-        public override IntPtr Handle => _expressionPtr;
 
         public unsafe Function(string functionName, Expression lhs, Expression rhs)
             : this(functionName, new[] { lhs, rhs })
@@ -44,7 +41,7 @@ namespace Apache.Arrow.Acero
             foreach (Expression arg in args)
                 _functionArgs.Append(arg.Handle);
 
-            _expressionPtr = (IntPtr)garrow_call_expression_new(_functionNamePtr, _functionArgs.Handle, null);
+            Handle = (IntPtr)garrow_call_expression_new(_functionNamePtr, _functionArgs.Handle, null);
         }
 
         ~Function()

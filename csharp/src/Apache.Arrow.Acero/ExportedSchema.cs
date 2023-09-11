@@ -13,32 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-using System;
 using System.Runtime.InteropServices;
 using Apache.Arrow.Acero.CLib;
+using Apache.Arrow.C;
 
 namespace Apache.Arrow.Acero
 {
-    public class FieldExpression : Expression
+    public class ExportedSchema
     {
-        private readonly IntPtr _referencePtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-        private unsafe delegate IntPtr d_garrow_field_expression_new(IntPtr reference, out GError** error);
-        private static d_garrow_field_expression_new garrow_field_expression_new = FuncLoader.LoadFunction<d_garrow_field_expression_new>("garrow_field_expression_new");
+        private unsafe delegate GArrowSchema* d_garrow_schema_import(CArrowSchema* c_abi_schema, out GError** error);
+        private static d_garrow_schema_import garrow_schema_import = FuncLoader.LoadFunction<d_garrow_schema_import>("garrow_schema_import");
 
-        public unsafe FieldExpression(string reference)
+        public unsafe GArrowSchema* Handle { get; }
+
+        public unsafe ExportedSchema(Schema schema)
         {
-            _referencePtr = GLib.Marshaller.StringToPtrGStrdup(reference);
-
-            Handle = garrow_field_expression_new(_referencePtr, out GError** error);
+            CArrowSchema* cSchema = CArrowSchema.Create();
+            CArrowSchemaExporter.ExportSchema(schema, cSchema);
+            Handle = garrow_schema_import(cSchema, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
-        }
-
-        ~FieldExpression()
-        {
-            GLib.Marshaller.Free(_referencePtr);
         }
     }
 }

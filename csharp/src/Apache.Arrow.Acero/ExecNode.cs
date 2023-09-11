@@ -14,17 +14,38 @@
 // limitations under the License.
 
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
-    public abstract class ExecNode
+    public abstract class ExecNode : IDisposable
     {
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_node(GArrowExecutePlan* plan, IntPtr factory_name, IntPtr inputs, IntPtr options, out GError** error);
         protected static d_garrow_execute_plan_build_node garrow_execute_plan_build_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_node>("garrow_execute_plan_build_node");
 
-        public abstract unsafe GArrowExecuteNode* Handle { get; }
+        public unsafe GArrowExecuteNode* Handle { get; protected set; }
+
+        public ExecPlan Plan { get; }
+
+        public ExecNode Output { get; set; }
+
+        public List<ExecNode> Inputs { get; }
+
+        public ExecNode(ExecPlan plan, List<ExecNode> inputs)
+        {
+            Plan = plan;
+            Inputs = inputs;
+
+            foreach (ExecNode input in inputs)
+                input.Output = this;
+        }
+
+        public virtual Task Init() => Task.CompletedTask;
+
+        public abstract void Dispose();
     }
 }

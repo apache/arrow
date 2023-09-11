@@ -21,8 +21,6 @@ namespace Apache.Arrow.Acero
 {
     public class LiteralExpression : Expression
     {
-        private unsafe readonly GArrowFieldExpression* _expressionPtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private unsafe delegate GArrowFieldExpression* d_garrow_literal_expression_new(GArrowDatum* datum);
         private static d_garrow_literal_expression_new garrow_literal_expression_new = FuncLoader.LoadFunction<d_garrow_literal_expression_new>("garrow_literal_expression_new");
@@ -43,8 +41,6 @@ namespace Apache.Arrow.Acero
         private unsafe delegate GArrowInt32Scalar* d_garrow_int32_scalar_new(int value);
         private static d_garrow_int32_scalar_new garrow_int32_scalar_new = FuncLoader.LoadFunction<d_garrow_int32_scalar_new>("garrow_int32_scalar_new");
 
-        public unsafe override IntPtr Handle => (IntPtr)_expressionPtr;
-
         public unsafe LiteralExpression(string literal)
         {
             IntPtr dataPtr = GLib.Marshaller.StringToPtrGStrdup(literal);
@@ -52,7 +48,7 @@ namespace Apache.Arrow.Acero
             GArrowStringScalar* scalarPtr = garrow_string_scalar_new(bufferPtr);
             GArrowScalarDatum* datumPtr = garrow_scalar_datum_new((IntPtr)scalarPtr);
 
-            _expressionPtr = garrow_literal_expression_new((GArrowDatum*)datumPtr);
+            Handle = (IntPtr)garrow_literal_expression_new((GArrowDatum*)datumPtr);
         }
 
         public unsafe LiteralExpression(int literal)
@@ -60,7 +56,7 @@ namespace Apache.Arrow.Acero
             GArrowInt32Scalar* scalarPtr = garrow_int32_scalar_new(literal);
             GArrowScalarDatum* datumPtr = garrow_scalar_datum_new((IntPtr)scalarPtr);
 
-            _expressionPtr = garrow_literal_expression_new((GArrowDatum*)datumPtr);
+            Handle = (IntPtr)garrow_literal_expression_new((GArrowDatum*)datumPtr);
         }
     }
 }

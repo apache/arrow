@@ -24,14 +24,13 @@ namespace Apache.Arrow.Acero
         private unsafe delegate IntPtr d_garrow_expression_to_string(IntPtr expression);
         private static d_garrow_expression_to_string garrow_expression_to_string = FuncLoader.LoadFunction<d_garrow_expression_to_string>("garrow_expression_to_string");
 
-        public abstract IntPtr Handle { get; }
+        public IntPtr Handle { get; protected set; }
 
         public override unsafe string ToString()
         {
             IntPtr strPtr = garrow_expression_to_string(Handle);
-            string str = GLib.Marshaller.PtrToStringGFree(strPtr);
 
-            return str;
+            return GLib.Marshaller.PtrToStringGFree(strPtr);
         }
     }
 }

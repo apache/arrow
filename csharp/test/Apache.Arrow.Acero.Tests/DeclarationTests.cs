@@ -16,9 +16,7 @@
 using Apache.Arrow.Acero.CLib;
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
-using System;
 using System.Collections.Generic;
-using System.Text;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
@@ -45,7 +43,7 @@ namespace Apache.Arrow.Acero.Tests
 
             // act
             Schema schema = TestData.GetCustomersSchema();
-            IArrowArrayStream result = recordBatchSource.ToRecordBatchReader(schema);
+            IArrowArrayStream result = await recordBatchSource.ToRecordBatchReader(schema);
 
             // assert
             Table table = await ConvertStreamToTable(result);
@@ -59,9 +57,48 @@ namespace Apache.Arrow.Acero.Tests
                 """, rowCount: 3);
         }
 
+        [Fact]
+        public async Task TestNestedDeclarations()
+        {
+            // arrange
+            var left = Declaration.FromSequence(new List<Declaration> {
+                new Declaration("record_batch_source", new RecordBatchSourceNodeOptions(TestData.GetCustomersRecordBatch())),
+                new Declaration("filter", new FilterNodeOptions(
+                    new Equal(new FieldExpression("firstName"), new LiteralExpression("Luke"))
+                ))
+            });
+
+            var right = Declaration.FromSequence(new List<Declaration> {
+                new Declaration("record_batch_source", new RecordBatchSourceNodeOptions(TestData.GetCustomersRecordBatch())),
+                new Declaration("filter", new FilterNodeOptions(
+                    new Equal(new FieldExpression("firstName"), new LiteralExpression("Luke"))
+                ))
+            });
+
+            var union = new Declaration("union", inputs: new List<Declaration> { left, right });
+
+            // act
+            IArrowArrayStream result = await union.ToRecordBatchReader(
+                new Schema.Builder()
+                    .Field(new Field("customerId", StringType.Default, true))
+                    .Field(new Field("firstName", StringType.Default, true))
+                    .Field(new Field("lastName", StringType.Default, true))
+                .Build());
+
+            // assert
+            Table table = await ConvertStreamToTable(result);
+
+            AssertTable(table,
+                """
+                customerId | firstName  | lastName   | 
+                c1         | Luke       | Skywalker  | 
+                c1         | Luke       | Skywalker  | 
+                """, rowCount: 2);
+        }
+
         private void AssertTable(Table table, string expected, int? rowCount = null, int columnPadding = 10)
         {
-            string actual = PrintPrintTable(table, columnPadding);
+            string actual = table.PrettyPrint(columnPadding);
 
             _output.WriteLine(actual);
 
@@ -90,7 +127,7 @@ namespace Apache.Arrow.Acero.Tests
                 options: hashJoinOptions, inputs: new List<Declaration> { left, right });
 
             // act
-            IArrowArrayStream result = hashJoin.ToRecordBatchReader(
+            IArrowArrayStream result = await hashJoin.ToRecordBatchReader(
                 new Schema.Builder()
                     .Field(new Field("customerId", StringType.Default, true))
                     .Field(new Field("firstName", StringType.Default, true))
@@ -130,7 +167,7 @@ namespace Apache.Arrow.Acero.Tests
 
             // act
             Schema schema = TestData.GetCustomersSchema();
-            IArrowArrayStream result = orderBy.ToRecordBatchReader(schema);
+            IArrowArrayStream result = await orderBy.ToRecordBatchReader(schema);
 
             // assert
             Table table = await ConvertStreamToTable(result);
@@ -162,7 +199,7 @@ namespace Apache.Arrow.Acero.Tests
 
             // act
             Schema schema = TestData.GetCustomersSchema();
-            IArrowArrayStream result = orderBy.ToRecordBatchReader(schema);
+            IArrowArrayStream result = await orderBy.ToRecordBatchReader(schema);
 
             // assert
             Table table = await ConvertStreamToTable(result);
@@ -189,7 +226,7 @@ namespace Apache.Arrow.Acero.Tests
 
             // act
             Schema schema = TestData.GetCustomersSchema();
-            IArrowArrayStream result = union.ToRecordBatchReader(schema);
+            IArrowArrayStream result = await union.ToRecordBatchReader(schema);
 
             // assert
             Table table = await ConvertStreamToTable(result);
@@ -228,7 +265,7 @@ namespace Apache.Arrow.Acero.Tests
             });
 
             // act
-            IArrowArrayStream result = project.ToRecordBatchReader(
+            IArrowArrayStream result = await project.ToRecordBatchReader(
                 new Schema.Builder()
                     .Field(new Field("fullName", StringType.Default, true))
                 .Build());
@@ -245,7 +282,7 @@ namespace Apache.Arrow.Acero.Tests
                 """, rowCount: 3, columnPadding: 15);
         }
 
-        private async Task<Table> ConvertStreamToTable(IArrowArrayStream result)
+        private static async Task<Table> ConvertStreamToTable(IArrowArrayStream result)
         {
             Schema schema = null;
 
@@ -263,54 +300,6 @@ namespace Apache.Arrow.Acero.Tests
             }
 
             return Table.TableFromRecordBatches(schema, recordBatches);
-        }
-
-        public static string PrintPrintTable(Table table, int columnPadding = 10)
-        {
-            var sb = new StringBuilder();
-
-            for (int i = 0; i < table.ColumnCount; i++)
-            {
-                sb.Append(table.Column(i).Name.PadRight(columnPadding) + " | ");
-            }
-
-            sb.AppendLine();
-
-            for (int i = 0; i < table.RowCount; i++)
-            {
-                for (int j = 0; j < table.ColumnCount; j++)
-                {
-                    Column sliced = table.Column(j).Slice(i, 1);
-
-                    for (int k = 0; k < sliced.Data.ArrayCount; k++)
-                    {
-                        if (sliced.Data.Array(k).Length == 0)
-                            continue;
-
-                        Array data = sliced.Data.Array(k);
-                        string value;
-
-                        switch (data)
-                        {
-                            case StringArray stringArray:
-                                value = stringArray.GetString(0);
-                                break;
-
-                            case Int32Array int32Array:
-                                value = int32Array.GetValue(0).ToString();
-                                break;
-
-                            default:
-                                throw new Exception("Array type not supported");
-                        }
-
-                        sb.Append(value.PadRight(columnPadding) + " | ");
-                    }
-                }
-                sb.AppendLine();
-            }
-
-            return sb.ToString().Trim('\n').Trim('\r');
         }
 
         public class TestResult

@@ -12,11 +12,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-// using Apache.Arrow.Ipc;
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using Apache.Arrow.Ipc;
 
 namespace Apache.Arrow.Acero
@@ -25,13 +25,15 @@ namespace Apache.Arrow.Acero
     {
         private readonly string _factoryName;
         private readonly ExecNodeOptions _options;
+        private readonly ExecNodeFactoryRegistry _registry;
 
         public List<Declaration> Inputs { get; set; } = new();
 
-        public Declaration(string factoryName, ExecNodeOptions options = null, List<Declaration> inputs = null)
+        public Declaration(string factoryName, ExecNodeOptions options = null, List<Declaration> inputs = null, ExecNodeFactoryRegistry registry = null)
         {
             _factoryName = factoryName;
             _options = options;
+            _registry = registry ?? new DefaultExecNodeFactoryRegistry();
 
             if (inputs != null) Inputs = inputs;
         }
@@ -57,12 +59,12 @@ namespace Apache.Arrow.Acero
             return first;
         }
 
-        public IArrowArrayStream ToRecordBatchReader(Schema schema)
+        public Task<IArrowArrayStream> ToRecordBatchReader(Schema schema)
         {
             return ToRecordBatchReader(this, schema);
         }
 
-        public static IArrowArrayStream ToRecordBatchReader(Declaration declaration, Schema schema)
+        public static async Task<IArrowArrayStream> ToRecordBatchReader(Declaration declaration, Schema schema)
         {
             var sinkNodeOptions = new SinkNodeOptions(schema);
             var plan = new ExecPlan();
@@ -79,6 +81,8 @@ namespace Apache.Arrow.Acero
             if (!plan.Validate())
                 throw new InvalidOperationException("Plan is not valid");
 
+            await plan.Init();
+
             plan.StartProducing();
             plan.Wait();
 
@@ -87,40 +91,19 @@ namespace Apache.Arrow.Acero
 
         private ExecNode AddToPlan(ExecPlan plan)
         {
-            var nodes = new List<ExecNode>();
+            var inputNodes = new List<ExecNode>();
 
             foreach (Declaration input in Inputs)
             {
-                ExecNode node = input.AddToPlan(plan);
-                nodes.Add(node);
+                ExecNode inputNode = input.AddToPlan(plan);
+                inputNodes.Add(inputNode);
             }
 
-            switch (_factoryName)
-            {
-                case "sink":
-                    return new SinkNode(_options as SinkNodeOptions, plan, nodes);
+            ExecNode node = _registry.MakeNode(_factoryName, plan, _options, inputNodes);
 
-                case "record_batch_source":
-                    return new RecordBatchSourceNode(_options as RecordBatchSourceNodeOptions, plan);
+            plan.AddNode(node);
 
-                case "record_batch_reader_source":
-                    return new RecordBatchReaderSourceNode(_options as RecordBatchReaderSourceNodeOptions, plan);
-
-                case "hashjoin":
-                    return new HashJoinNode(_options as HashJoinNodeOptions, plan, nodes);
-
-                case "filter":
-                    return new FilterNode(_options as FilterNodeOptions, plan, nodes);
-
-                case "union":
-                    return new UnionNode(plan, nodes);
-
-                case "project":
-                    return new ProjectNode(_options as ProjectNodeOptions, plan, nodes);
-
-                default:
-                    throw new Exception($"Unknown factory {_factoryName}");
-            }
+            return node;
         }
     }
 }

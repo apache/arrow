@@ -22,8 +22,7 @@ namespace Apache.Arrow.Acero
 {
     public class SinkNodeOptions : ExecNodeOptions
     {
-        private readonly unsafe GArrowSinkNodeOptions* _optionsPtr;
-        private readonly Schema _schema;
+        private readonly ExportedSchema _exportedSchema;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowSinkNodeOptions* d_garrow_sink_node_options_new();
@@ -37,18 +36,18 @@ namespace Apache.Arrow.Acero
         private unsafe delegate CArrowArrayStream* d_garrow_record_batch_reader_export(GArrowRecordBatchReader* reader, out GError** error);
         private static d_garrow_record_batch_reader_export garrow_record_batch_reader_export = FuncLoader.LoadFunction<d_garrow_record_batch_reader_export>("garrow_record_batch_reader_export");
 
-        internal unsafe GArrowSinkNodeOptions* Handle => _optionsPtr;
+        internal unsafe GArrowSinkNodeOptions* Handle { get; }
 
         public unsafe SinkNodeOptions(Schema schema)
         {
-            _optionsPtr = garrow_sink_node_options_new();
-            _schema = schema;
+            _exportedSchema = new ExportedSchema(schema);
+
+            Handle = garrow_sink_node_options_new();
         }
 
         public unsafe IArrowArrayStream GetRecordBatchReader()
         {
-            GArrowSchema* schemaPtr = ExportUtil.ExportAndGetSchemaPtr(_schema);
-            GArrowRecordBatchReader* recordBatchReaderPtr = garrow_sink_node_options_get_reader(_optionsPtr, schemaPtr);
+            GArrowRecordBatchReader* recordBatchReaderPtr = garrow_sink_node_options_get_reader(Handle, _exportedSchema.Handle);
             CArrowArrayStream* arrayStreamPtr = garrow_record_batch_reader_export(recordBatchReaderPtr, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);

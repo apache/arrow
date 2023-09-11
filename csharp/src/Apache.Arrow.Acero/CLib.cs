@@ -13,6 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System;
+using System.Runtime.InteropServices;
+
 namespace Apache.Arrow.Acero
 {
     namespace CLib
@@ -27,7 +30,11 @@ namespace Apache.Arrow.Acero
         public struct GArrowHashJoinNodeOptions { }
         public struct GArrowSinkNodeOptions { }
         public struct GArrowRecordBatchReader { }
-        public struct GArrowExecuteNodeOptions { }
+        [StructLayout(LayoutKind.Sequential)]
+        public struct GArrowExecuteNodeOptions
+        {
+            IntPtr debug_opts;
+        }
         public struct GArrowFilterNodeOptions { }
         public struct GArrowExpression { }
         public struct GArrowCallExpression { }

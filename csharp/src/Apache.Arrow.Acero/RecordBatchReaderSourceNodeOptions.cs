@@ -21,19 +21,19 @@ namespace Apache.Arrow.Acero
 {
     public class RecordBatchReaderSourceNodeOptions : ExecNodeOptions
     {
-        private readonly unsafe GArrowSourceNodeOptions* _optionsPtr;
+        private readonly ExportedRecordBatchReader _exportedRecordBatchReader;
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowSourceNodeOptions* d_garrow_source_node_options_new_record_batch_reader(GArrowRecordBatchReader* reader);
         protected static d_garrow_source_node_options_new_record_batch_reader garrow_source_node_options_new_record_batch_reader = FuncLoader.LoadFunction<d_garrow_source_node_options_new_record_batch_reader>("garrow_source_node_options_new_record_batch_reader");
 
-        public unsafe GArrowSourceNodeOptions* Handle => _optionsPtr;
+        public unsafe GArrowSourceNodeOptions* Handle { get; }
 
         public unsafe RecordBatchReaderSourceNodeOptions(IArrowArrayStream recordBatchReader)
         {
-            GArrowRecordBatchReader* recordBatchReaderPtr = ExportUtil.ExportAndGetRecordBatchReaderPtr(recordBatchReader);
+            _exportedRecordBatchReader = new ExportedRecordBatchReader(recordBatchReader);
 
-            _optionsPtr = garrow_source_node_options_new_record_batch_reader(recordBatchReaderPtr);
+            Handle = garrow_source_node_options_new_record_batch_reader(_exportedRecordBatchReader.Handle);
         }
     }
 }

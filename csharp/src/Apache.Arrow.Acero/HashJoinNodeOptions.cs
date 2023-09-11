@@ -21,7 +21,6 @@ namespace Apache.Arrow.Acero
 {
     public class HashJoinNodeOptions : ExecNodeOptions
     {
-        private readonly unsafe GArrowHashJoinNodeOptions* _optionsPtr;
         private readonly IntPtr _leftKeysPtr;
         private readonly IntPtr _rightKeysPtr;
 
@@ -29,14 +28,14 @@ namespace Apache.Arrow.Acero
         private unsafe delegate GArrowHashJoinNodeOptions* d_garrow_hash_join_node_options_new(GArrowJoinType type, IntPtr left_keys, uint n_left_keys, IntPtr right_keys, uint n_right_keys, out GError** error);
         private static d_garrow_hash_join_node_options_new garrow_hash_join_node_options_new = FuncLoader.LoadFunction<d_garrow_hash_join_node_options_new>("garrow_hash_join_node_options_new");
 
-        internal unsafe GArrowHashJoinNodeOptions* Handle => _optionsPtr;
+        public unsafe GArrowHashJoinNodeOptions* Handle { get; }
 
         public unsafe HashJoinNodeOptions(GArrowJoinType joinType, string[] leftKeys, string[] rightKeys)
         {
             _leftKeysPtr = GLib.Marshaller.StringArrayToStrvPtr(leftKeys);
             _rightKeysPtr = GLib.Marshaller.StringArrayToStrvPtr(leftKeys);
 
-            _optionsPtr = garrow_hash_join_node_options_new(joinType, _leftKeysPtr, (uint)leftKeys.Length, _rightKeysPtr, (uint)rightKeys.Length, out GError** error);
+            Handle = garrow_hash_join_node_options_new(joinType, _leftKeysPtr, (uint)leftKeys.Length, _rightKeysPtr, (uint)rightKeys.Length, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }

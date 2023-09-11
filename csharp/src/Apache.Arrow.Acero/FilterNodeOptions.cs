@@ -21,17 +21,15 @@ namespace Apache.Arrow.Acero
 {
     public class FilterNodeOptions : ExecNodeOptions
     {
-        private readonly unsafe GArrowFilterNodeOptions* _optionsPtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowFilterNodeOptions* d_garrow_filter_node_options_new(IntPtr expression);
         protected static d_garrow_filter_node_options_new garrow_filter_node_options_new = FuncLoader.LoadFunction<d_garrow_filter_node_options_new>("garrow_filter_node_options_new");
 
-        public unsafe GArrowFilterNodeOptions* Handle => _optionsPtr;
+        public unsafe GArrowFilterNodeOptions* Handle { get; }
 
         public unsafe FilterNodeOptions(Expression expr)
         {
-            _optionsPtr = garrow_filter_node_options_new(expr.Handle);
+            Handle = garrow_filter_node_options_new(expr.Handle);
         }
     }
 }

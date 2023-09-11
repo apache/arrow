@@ -21,22 +21,21 @@ namespace Apache.Arrow.Acero
 {
     public class HashJoinNode : ExecNode
     {
-        private readonly unsafe GArrowExecuteNode* _nodePtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_hash_join_node(GArrowExecutePlan* plan, GArrowExecuteNode* left, GArrowExecuteNode* right, GArrowHashJoinNodeOptions* options, out GError** error);
         private static d_garrow_execute_plan_build_hash_join_node garrow_execute_plan_build_hash_join_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_hash_join_node>("garrow_execute_plan_build_hash_join_node");
 
-        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
-
         public unsafe HashJoinNode(HashJoinNodeOptions options, ExecPlan plan, List<ExecNode> inputs)
+            : base(plan, inputs)
         {
             ExecNode left = inputs[0];
             ExecNode right = inputs[1];
 
-            _nodePtr = garrow_execute_plan_build_hash_join_node(plan.Handle, left.Handle, right.Handle, options.Handle, out GError** error);
+            Handle = garrow_execute_plan_build_hash_join_node(plan.Handle, left.Handle, right.Handle, options.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
-        } 
+        }
+
+        public override void Dispose() { }
     }
 }

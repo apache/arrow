@@ -22,13 +22,11 @@ namespace Apache.Arrow.Acero
 {
     public class ProjectNodeOptions : ExecNodeOptions
     {
-        private readonly unsafe GArrowProjectNodeOptions* _optionsPtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private unsafe delegate GArrowProjectNodeOptions* d_garrow_project_node_options_new(GList* expressions, IntPtr names, int n_names);
         private static d_garrow_project_node_options_new garrow_project_node_options_new = FuncLoader.LoadFunction<d_garrow_project_node_options_new>("garrow_project_node_options_new");
 
-        internal unsafe GArrowProjectNodeOptions* Handle => _optionsPtr;
+        public unsafe GArrowProjectNodeOptions* Handle { get; }
 
         public unsafe ProjectNodeOptions(List<Expression> expressions, List<string> names)
         {
@@ -39,7 +37,7 @@ namespace Apache.Arrow.Acero
 
             IntPtr namesPtr = GLib.Marshaller.StringArrayToStrvPtr(names.ToArray());
 
-            _optionsPtr = garrow_project_node_options_new((GList*)list.Handle, namesPtr, names.Count);
+            Handle = garrow_project_node_options_new((GList*)list.Handle, namesPtr, names.Count);
         }
     }
 }

@@ -13,15 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Apache.Arrow.Acero.CLib;
 
 namespace Apache.Arrow.Acero
 {
     public class ExecPlan
     {
-        private readonly unsafe GArrowExecutePlan* _planPtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         private unsafe delegate GArrowExecutePlan* d_garrow_execute_plan_new(out GError** error);
         private static d_garrow_execute_plan_new garrow_execute_plan_new = FuncLoader.LoadFunction<d_garrow_execute_plan_new>("garrow_execute_plan_new");
@@ -38,32 +38,74 @@ namespace Apache.Arrow.Acero
         private unsafe delegate bool d_garrow_execute_plan_wait(GArrowExecutePlan* plan);
         private static d_garrow_execute_plan_wait garrow_execute_plan_wait = FuncLoader.LoadFunction<d_garrow_execute_plan_wait>("garrow_execute_plan_wait");
 
-        public unsafe GArrowExecutePlan* Handle => _planPtr;
+        public unsafe GArrowExecutePlan* Handle { get; }
+
+        public List<ExecNode> Nodes { get; internal set; } = new();
 
         public unsafe ExecPlan()
         {
-            _planPtr = garrow_execute_plan_new(out GError** error);
+            Handle = garrow_execute_plan_new(out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
 
         public unsafe bool Validate()
         {
-            bool valid = garrow_execute_plan_validate(_planPtr, out GError** error);
+            bool valid = garrow_execute_plan_validate(Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
 
             return valid;
         }
 
+        public async Task Init()
+        {
+            ExecNode[] sortedNodes = TopoSort();
+
+            foreach (ExecNode node in sortedNodes)
+                await node.Init();
+        }
+
         public unsafe void StartProducing()
         {
-            garrow_execute_plan_start(_planPtr);
+            garrow_execute_plan_start(Handle);
         }
 
         public unsafe void Wait()
         {
-            garrow_execute_plan_wait(_planPtr);
+            garrow_execute_plan_wait(Handle);
+        }
+
+        internal void AddNode(ExecNode node)
+        {
+            Nodes.Add(node);
+        }
+
+        /// <summary>
+        /// Sort nodes, producers precede consumers
+        /// https://github.com/apache/arrow/blob/main/cpp/src/arrow/acero/exec_plan.cc#L239
+        /// </summary>
+        /// <returns>Sorted nodes</returns>
+        public ExecNode[] TopoSort()
+        {
+            var visited = new List<ExecNode>();
+            var sorted = new ExecNode[Nodes.Count];
+
+            foreach (ExecNode node in Nodes)
+                Visit(node);
+
+            return sorted;
+
+            void Visit(ExecNode node)
+            {
+                if (visited.Contains(node)) return;
+
+                foreach (ExecNode input in node.Inputs)
+                    Visit(input);
+
+                sorted[visited.Count] = node;
+                visited.Add(node);
+            }
         }
     }
 }

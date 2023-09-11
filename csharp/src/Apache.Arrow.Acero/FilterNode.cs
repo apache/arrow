@@ -21,19 +21,18 @@ namespace Apache.Arrow.Acero
 {
     public class FilterNode : ExecNode
     {
-        private readonly unsafe GArrowExecuteNode* _nodePtr;
-
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         protected unsafe delegate GArrowExecuteNode* d_garrow_execute_plan_build_filter_node(GArrowExecutePlan* plan, GArrowExecuteNode* input, GArrowFilterNodeOptions* options, out GError** error);
         protected static d_garrow_execute_plan_build_filter_node garrow_execute_plan_build_filter_node = FuncLoader.LoadFunction<d_garrow_execute_plan_build_filter_node>("garrow_execute_plan_build_filter_node");
 
-        public override unsafe GArrowExecuteNode* Handle => _nodePtr;
-
         public unsafe FilterNode(FilterNodeOptions options, ExecPlan plan, List<ExecNode> nodes)
+            : base(plan, nodes)
         {
-            _nodePtr = garrow_execute_plan_build_filter_node(plan.Handle, nodes[0].Handle, options.Handle, out GError** error);
+            Handle = garrow_execute_plan_build_filter_node(plan.Handle, nodes[0].Handle, options.Handle, out GError** error);
 
             ExceptionUtil.ThrowOnError(error);
         }
+
+        public override void Dispose() { }
     }
 }
