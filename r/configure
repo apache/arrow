@@ -279,6 +279,16 @@ do_autobrew () {
 # either from pkg-config or by inferring things about the directory in $1
 set_pkg_vars () {
   if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
+    set_lib_dir_with_pc
+  else
+    set_lib_dir_without_pc $1
+  fi
+
+  # Check cmake options for enabled features. This uses LIB_DIR that
+  # is set by the above set_lib_dir_* call.
+  add_feature_flags
+
+  if [ "$PKG_CONFIG_AVAILABLE" = "true" ]; then
     set_pkg_vars_with_pc
   else
     set_pkg_vars_without_pc $1
@@ -288,23 +298,27 @@ set_pkg_vars () {
   if [ "$ARROW_R_CXXFLAGS" ]; then
     PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
   fi
-
-  # Finally, check cmake options for enabled features
-  add_feature_flags
 }
 
 # If we have pkg-config, it will tell us what libarrow needs
-set_pkg_vars_with_pc () {
+set_lib_dir_with_pc () {
   LIB_DIR="`${PKG_CONFIG} --variable=libdir --silence-errors ${PKG_CONFIG_NAME}`"
-  PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${PKG_CONFIG_NAME}` $PKG_CFLAGS"
-  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${PKG_CONFIG_NAME}`
-  PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${PKG_CONFIG_NAME}`
+}
+set_pkg_vars_with_pc () {
+  pkg_config_names="${PKG_CONFIG_NAME} ${PKG_CONFIG_NAMES_FEATURES}"
+  PKG_CFLAGS="`${PKG_CONFIG} --cflags --silence-errors ${pkg_config_names}` $PKG_CFLAGS"
+  PKG_CFLAGS="$PKG_CFLAGS $PKG_CFLAGS_FEATURES"
+  PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other --silence-errors ${pkg_config_names}`
+  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
+  PKG_DIRS=`${PKG_CONFIG} --libs-only-L --silence-errors ${pkg_config_names}`
 }
 
 # If we don't have pkg-config, we can make some inferences
-set_pkg_vars_without_pc () {
+set_lib_dir_without_pc () {
   LIB_DIR="$1/lib"
-  PKG_CFLAGS="-I$1/include $PKG_CFLAGS"
+}
+set_pkg_vars_without_pc () {
+  PKG_CFLAGS="-I$1/include $PKG_CFLAGS $PKG_CFLAGS_FEATURES"
   if grep -q "_GLIBCXX_USE_CXX11_ABI=0" "${LIB_DIR}/pkgconfig/arrow.pc"; then
     PKG_CFLAGS="${PKG_CFLAGS} -D_GLIBCXX_USE_CXX11_ABI=0"
   fi
@@ -312,10 +326,12 @@ set_pkg_vars_without_pc () {
   if [ "${OPENSSL_ROOT_DIR}" != "" ]; then
     PKG_DIRS="${PKG_DIRS} -L${OPENSSL_ROOT_DIR}/lib"
   fi
-  PKG_LIBS="-larrow"
+  PKG_LIBS="$PKG_LIBS_FEATURES_WITHOUT_PC"
+  PKG_LIBS="$PKG_LIBS -larrow"
   if [ -n "$(find "$LIB_DIR" -name 'libarrow_bundled_dependencies.*')" ]; then
     PKG_LIBS="$PKG_LIBS -larrow_bundled_dependencies"
   fi
+  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
 
   # If on Raspberry Pi, need to manually link against latomic
   # See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81358 for similar example
@@ -327,6 +343,11 @@ set_pkg_vars_without_pc () {
 }
 
 add_feature_flags () {
+  PKG_CFLAGS_FEATURES=""
+  PKG_CONFIG_NAMES_FEATURES=""
+  PKG_LIBS_FEATURES=""
+  PKG_LIBS_FEATURES_WITHOUT_PC=""
+
   # Now we need to check what features it was built with and enable
   # the corresponding feature flags in the R bindings (-DARROW_R_WITH_stuff).
   # We do this by inspecting ArrowOptions.cmake, which the libarrow build
@@ -336,39 +357,43 @@ add_feature_flags () {
     echo "*** $ARROW_OPTS_CMAKE not found; some features will not be enabled"
   else
     if arrow_built_with ARROW_PARQUET; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_PARQUET"
-      PKG_LIBS="-lparquet $PKG_LIBS"
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_PARQUET"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES parquet"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-lparquet $PKG_LIBS_FEATURES_WITHOUT_PC"
       # NOTE: parquet is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_DATASET; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_DATASET"
-      PKG_LIBS="-larrow_dataset $PKG_LIBS"
-      # NOTE: arrow-dataset is assumed to have the same -L flag as arrow
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_DATASET"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-dataset"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_dataset $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_dataset is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_ACERO; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_ACERO"
-      PKG_LIBS="-larrow_acero $PKG_LIBS"
-      # NOTE: arrow-acero is assumed to have the same -L flag as arrow
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_ACERO"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-acero"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_acero $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_acero is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_SUBSTRAIT; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_SUBSTRAIT"
-      PKG_LIBS="-larrow_substrait $PKG_LIBS"
-      # NOTE: arrow-substrait is assumed to have the same -L flag as arrow
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_SUBSTRAIT"
+      PKG_CONFIG_NAMES_FEATURES="$PKG_CONFIG_NAMES_FEATURES arrow-substrait"
+      PKG_LIBS_FEATURES_WITHOUT_PC="-larrow_substrait $PKG_LIBS_FEATURES_WITHOUT_PC"
+      # NOTE: arrow_substrait is assumed to have the same -L flag as arrow
       # so there is no need to add its location to PKG_DIRS
     fi
     if arrow_built_with ARROW_JSON; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_JSON"
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_JSON"
     fi
     if arrow_built_with ARROW_S3; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_S3"
-      PKG_LIBS="$PKG_LIBS $S3_LIBS"
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_S3"
+      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES $S3_LIBS"
     fi
     if arrow_built_with ARROW_GCS; then
-      PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
-      PKG_LIBS="$PKG_LIBS $GCS_LIBS"
+      PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
+      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES $GCS_LIBS"
     fi
   fi
 }
