@@ -22,6 +22,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow"
 	"github.com/apache/arrow/go/v14/arrow/array"
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
+	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 	"github.com/apache/arrow/go/v14/arrow/memory"
 	"golang.org/x/exp/rand"
 	"gonum.org/v1/gonum/stat/distuv"
@@ -374,6 +375,103 @@ func (r *RandomArrayGenerator) Numeric(dt arrow.Type, size int64, min, max int64
 		return r.Float64(size, float64(min), float64(max), nullprob)
 	}
 	panic("invalid type for random numeric array")
+}
+
+// Generate an array of random offsets based on a given sizes array for
+// list-view arrays.
+//
+// Pre-condition: every non-null sizes[i] <= valuesLength.
+func viewOffsetsFromLengthsArray(
+	seed uint64, avgLength int32, valuesLength int32,
+	sizesArray *array.Int32, forceEmptyNulls bool,
+	zeroUndefinedOffsets bool) *memory.Buffer {
+	sizes := sizesArray.Int32Values()
+	offsets := make([]int32, sizesArray.Len())
+
+	offsetDeltaRand := rand.New(rand.NewSource(seed))
+	sampleOffsetDelta := func() int32 {
+		return int32(offsetDeltaRand.Int63n(2*int64(avgLength)) - int64(avgLength))
+	}
+	offsetBase := int32(0)
+	for i := 0; i < sizesArray.Len(); i += 1 {
+		// We want to always sample the offsetDeltaRand to make sure different
+		// options regarding nulls and empty views don't affect the other offsets.
+		offset := offsetBase + sampleOffsetDelta()
+		if sizesArray.IsNull(i) {
+			if forceEmptyNulls {
+				sizes[i] = 0
+			}
+			if zeroUndefinedOffsets {
+				offsets[i] = 0
+			} else {
+				offsets[i] = offset
+			}
+			continue
+		}
+
+		size := sizes[i]
+		if size == 0 {
+			if zeroUndefinedOffsets {
+				offsets[i] = 0
+			} else {
+				offsets[i] = offset
+			}
+		} else {
+			// Ensure that the size is not too large.
+			if size > valuesLength {
+				size = valuesLength
+				sizes[i] = size // Fix the size.
+			}
+			// Ensure the offset is not negative or too large.
+			if offset < 0 {
+				offset = 0
+			} else if offset > valuesLength-size {
+				offset = valuesLength - size
+			}
+			offsets[i] = offset
+		}
+		offsetBase += avgLength
+	}
+
+	return memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(offsets))
+}
+
+func (r *RandomArrayGenerator) listView(dt arrow.VarLenListLikeType, length int64,
+	minLength, maxLength int32, nullprob float64,
+	forceEmptyNulls bool, zeroUndefinedOffsets bool) *array.ListView {
+	lengths := r.Int32(length, minLength, maxLength, nullprob).(*array.Int32)
+	defer lengths.Release()
+
+	// List-views don't have to be disjoint, so let's make the valuesLength a
+	// multiple of the average list-view size. To make sure every list view
+	// into the values array can fit, it should be at least maxLength.
+	avgLength := minLength + (maxLength-minLength)/2
+	valuesLength := int64(avgLength) * (length - int64(lengths.NullN()))
+	if valuesLength < int64(maxLength) {
+		valuesLength = int64(maxLength)
+	}
+	debug.Assert(valuesLength < math.MaxInt32, "valuesLength must be less than math.MaxInt32")
+
+	values := r.ArrayOf(dt.Elem().ID(), int64(valuesLength), 0.0)
+	defer values.Release()
+	offsets := viewOffsetsFromLengthsArray(r.seed, avgLength, int32(valuesLength), lengths,
+		forceEmptyNulls, zeroUndefinedOffsets)
+
+	buffers := []*memory.Buffer{
+		memory.NewBufferBytes(lengths.NullBitmapBytes()),
+		offsets,
+		memory.NewBufferBytes(arrow.Int32Traits.CastToBytes(lengths.Int32Values())),
+	}
+	childData := []arrow.ArrayData{values.Data()}
+	data := array.NewData(dt, int(length), buffers, childData, int(lengths.NullN()), 0)
+	defer data.Release()
+	return array.NewListViewData(data)
+}
+
+func (r *RandomArrayGenerator) ListView(dt arrow.VarLenListLikeType, length int64, minLength, maxLength int32, nullprob float64) *array.ListView {
+	forceEmptyNulls := false
+	zeroUndefineOffsets := false
+	return r.listView(dt, length, minLength, maxLength, nullprob, forceEmptyNulls, zeroUndefineOffsets)
 }
 
 func (r *RandomArrayGenerator) ArrayOf(dt arrow.Type, size int64, nullprob float64) arrow.Array {
