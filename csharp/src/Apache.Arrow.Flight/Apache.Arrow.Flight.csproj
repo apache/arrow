@@ -7,7 +7,7 @@
   <ItemGroup>
     <PackageReference Include="Google.Protobuf" Version="3.24.2" />
     <PackageReference Include="Grpc.Net.Client" Version="2.57.0" />
-    <PackageReference Include="Grpc.Tools" Version="2.57.0" PrivateAssets="All" />
+    <PackageReference Include="Grpc.Tools" Version="2.58.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)'=='netstandard2.0'">
