@@ -1405,6 +1405,7 @@ def chunked_array(arrays, type=None):
         c_result = GetResultValue(CChunkedArray.Make(c_arrays, c_type))
     return pyarrow_wrap_chunked_array(c_result)
 
+
 def _reconstruct_chunked_array(restore_table, buffer):
     """
     Restore an IPC serialized ChunkedArray.
