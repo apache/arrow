@@ -111,7 +111,7 @@ class TestDatasetFileSystemDatasetFactory < Test::Unit::TestCase
       message = "[file-system-dataset-factory][finish]: " +
                 "Type error: Unable to merge: " +
                 "Field point has incompatible types: int16 vs int32"
-      error = assert_raise(Arrow::Error::Error) do
+      error = assert_raise(Arrow::Error::Type) do
         @factory.finish(options)
       end
       assert_equal(message, error.message.lines(chomp: true).first)
