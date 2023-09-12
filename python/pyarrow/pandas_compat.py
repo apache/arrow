@@ -26,13 +26,14 @@ from copy import deepcopy
 from itertools import zip_longest
 import json
 import operator
+import pickle
 import re
 import warnings
 
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api, builtin_pickle, frombytes  # noqa
+from pyarrow.lib import _pandas_api, frombytes  # noqa
 
 
 _logical_type_map = {}
@@ -720,7 +721,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None):
                                 klass=_int.DatetimeTZBlock,
                                 dtype=dtype)
     elif 'object' in item:
-        block = _int.make_block(builtin_pickle.loads(block_arr),
+        block = _int.make_block(pickle.loads(block_arr),
                                 placement=placement)
     elif 'py_array' in item:
         # create ExtensionBlock
