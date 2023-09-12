@@ -230,13 +230,15 @@ TEST(FlightTypes, FlightInfo) {
   auto desc1 = FlightDescriptor::Command("foo");
   auto desc2 = FlightDescriptor::Command("bar");
   auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
-  auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}, std::nullopt, "\xCA\xFE\xD0\x0D"};
+  auto endpoint2 =
+      FlightEndpoint{Ticket{"foo"}, {location}, std::nullopt, "\xCA\xFE\xD0\x0D"};
   std::vector<FlightInfo> values = {
       MakeFlightInfo(schema1, desc1, {}, -1, -1, false, ""),
       MakeFlightInfo(schema1, desc2, {}, -1, -1, true, ""),
       MakeFlightInfo(schema2, desc1, {}, -1, -1, false, ""),
       MakeFlightInfo(schema1, desc1, {endpoint1}, -1, 42, true, ""),
-      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false, "\xDE\xAD\xC0\xDE"),
+      MakeFlightInfo(schema1, desc2, {endpoint1, endpoint2}, 64, -1, false,
+                     "\xDE\xAD\xC0\xDE"),
   };
   std::vector<std::string> reprs = {
       "<FlightInfo schema=(serialized) descriptor=<FlightDescriptor cmd='foo'> "
@@ -253,7 +255,8 @@ TEST(FlightTypes, FlightInfo) {
       "endpoints=[<FlightEndpoint ticket=<Ticket ticket='foo'> locations=[] "
       "expiration_time=null app_metadata=''>, <FlightEndpoint ticket=<Ticket "
       "ticket='foo'> "
-      "locations=[grpc+tcp://localhost:1234] expiration_time=null app_metadata='CAFED00D'>] "
+      "locations=[grpc+tcp://localhost:1234] expiration_time=null "
+      "app_metadata='CAFED00D'>] "
       "total_records=64 total_bytes=-1 ordered=false app_metadata='DEADC0DE'>",
   };
 

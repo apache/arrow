@@ -533,9 +533,9 @@ FlightInfo MakeFlightInfo(const Schema& schema, const FlightDescriptor& descript
                           const std::vector<FlightEndpoint>& endpoints,
                           int64_t total_records, int64_t total_bytes, bool ordered,
                           std::string app_metadata) {
-  EXPECT_OK_AND_ASSIGN(auto info, FlightInfo::Make(schema, descriptor, endpoints,
-                                                   total_records, total_bytes, ordered, 
-                                                   std::move(app_metadata)));
+  EXPECT_OK_AND_ASSIGN(auto info,
+                       FlightInfo::Make(schema, descriptor, endpoints, total_records,
+                                        total_bytes, ordered, std::move(app_metadata)));
   return info;
 }
 
