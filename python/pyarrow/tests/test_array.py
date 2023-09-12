@@ -2068,15 +2068,15 @@ def test_array_pickle_protocol5(data, typ, pickle_module):
 @pickle_test_parametrize
 def test_array_pickle_slice_truncation(data, typ, pickle_module):
     arr = pa.array(data, type=typ)
-    serialized = pickle_module.dumps(arr)
+    serialized_arr = pickle_module.dumps(arr)
 
     slice_arr = arr.slice(10, 2)
-    serialized = pickle_module.dumps(slice_arr)
+    serialized_slice = pickle_module.dumps(slice_arr)
 
     # Check truncation upon serialization
-    assert len(serialized) <= 0.2 * len(serialized)
+    assert len(serialized_slice) <= 0.2 * len(serialized_arr)
 
-    post_pickle_slice = pickle_module.loads(serialized)
+    post_pickle_slice = pickle_module.loads(serialized_slice)
 
     # Check for post-roundtrip equality
     assert post_pickle_slice.equals(slice_arr)
