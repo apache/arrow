@@ -1308,7 +1308,7 @@ tasks:
     params:
       env:
         UBUNTU: 20.04
-      image: ubuntu-python-no-debug
+      image: ubuntu-python
 
   test-ubuntu-22.04-python-3:
     ci: github
