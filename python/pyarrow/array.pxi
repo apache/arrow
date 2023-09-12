@@ -3566,7 +3566,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         for i in range(len(self.storage)):
             with nogil:
                 ctensor = ext_array.GetTensor(i)
-            tensors.append(pyarrow_wrap_tensor(GetResultValue(ctensor)))
+            tensors.append(pyarrow_wrap_tensor(GetResultValue(ctensor)).to_numpy())
 
         return tensors
 

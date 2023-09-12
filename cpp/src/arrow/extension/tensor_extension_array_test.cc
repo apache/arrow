@@ -453,13 +453,15 @@ class TestVariableShapeTensorType : public ::testing::Test {
     shape_type_ = fixed_size_list(uint32(), ndim_);
     permutation_ = {0, 1, 2};
     dim_names_ = {"x", "y", "z"};
-    ext_type_ = internal::checked_pointer_cast<ExtensionType>(
-        variable_shape_tensor(value_type_, ndim_, permutation_, dim_names_));
+    ragged_dimensions_ = {1};
+    ext_type_ = internal::checked_pointer_cast<ExtensionType>(variable_shape_tensor(
+        value_type_, ndim_, permutation_, dim_names_, ragged_dimensions_));
     shapes_ =
         ArrayFromJSON(fixed_size_list(uint32(), ndim_), "[[2,3,1],[1,2,2],[3,1,3]]");
     data_ = ArrayFromJSON(list(value_type_),
                           "[[0,1,2,3,4,5],[6,7,8,9],[10,11,12,13,14,15,16,17,18]]");
-    serialized_ = R"({"permutation":[0,1,2],"dim_names":["x","y","z"]})";
+    serialized_ =
+        R"({"permutation":[0,1,2],"dim_names":["x","y","z"],"ragged_dimensions":[1]})";
     storage_arr_ = ArrayFromJSON(
         ext_type_->storage_type(),
         R"([[[2,3,1],[0,1,2,3,4,5]],[[1,2,2],[6,7,8,9]],[[3,1,3],[10,11,12,13,14,15,16,17,18]]])");
@@ -473,6 +475,7 @@ class TestVariableShapeTensorType : public ::testing::Test {
   std::shared_ptr<DataType> data_type_;
   std::shared_ptr<DataType> shape_type_;
   std::vector<int64_t> permutation_;
+  std::vector<int64_t> ragged_dimensions_;
   std::vector<std::string> dim_names_;
   std::shared_ptr<ExtensionType> ext_type_;
   std::shared_ptr<Array> shapes_;
@@ -565,6 +568,8 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
       variable_shape_tensor(value_type_, 3, {0, 1, 2}, {"H", "W", "C"}));
   CheckSerializationRoundtrip<T>(
       variable_shape_tensor(value_type_, 3, {2, 0, 1}, {"C", "H", "W"}));
+  CheckSerializationRoundtrip<T>(
+      variable_shape_tensor(value_type_, 3, {2, 0, 1}, {"C", "H", "W"}, {0, 1, 2}));
 
   auto storage_type = ext_type_->storage_type();
   CheckDeserializationRaises(ext_type_, boolean(), R"({"shape":[3,4]})",

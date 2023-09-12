@@ -1286,13 +1286,22 @@ def test_variable_shape_tensor_class_method(value_type):
     ndim = 2
     shape_type = pa.list_(pa.uint32(), ndim)
     arrow_type = pa.from_numpy_dtype(value_type)
-    tensor_type = pa.variable_shape_tensor(arrow_type, ndim)
+    tensor_type = pa.variable_shape_tensor(
+        arrow_type,
+        ndim,
+        dim_names=["H", "W"],
+        permutation=[0, 1],
+        ragged_dimensions=[0],
+    )
     fields = [pa.field("shape", shape_type), pa.field("data", pa.list_(arrow_type))]
 
     shapes = pa.array([[2, 3], [1, 2]], shape_type)
     values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(arrow_type))
     struct_arr = pa.StructArray.from_arrays([shapes, values], fields=fields)
     arr = pa.ExtensionArray.from_storage(tensor_type, struct_arr)
+    basic_arr = pa.ExtensionArray.from_storage(
+        pa.variable_shape_tensor(arrow_type, ndim), struct_arr
+    )
 
     storage = pa.array(
         [([2, 3], [1, 2, 3, 4, 5, 6]), ([1, 2], [7, 8])], type=pa.struct(fields)
@@ -1307,12 +1316,12 @@ def test_variable_shape_tensor_class_method(value_type):
     ]
     assert all(zip(x == y for x, y in zip(arr.to_numpy_ndarray(), ndarray_list)))
 
-    from_ndarray_list = pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
-    assert from_ndarray_list.equals(arr)
-
+    assert pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list).equals(
+        basic_arr
+    )
     assert pa.VariableShapeTensorArray.from_numpy_ndarray(
         arr.to_numpy_ndarray()
-    ).equals(arr)
+    ).equals(basic_arr)
 
     assert arr.to_pylist() == [
         {"data": [1, 2, 3, 4, 5, 6], "shape": [2, 3]},
@@ -1353,7 +1362,8 @@ def test_tensor_type_ipc(tensor_type):
 @pytest.mark.parametrize("tensor_type", (
     pa.variable_shape_tensor(pa.int8(), 2),
     pa.variable_shape_tensor(pa.int8(), 2, permutation=[1, 0]),
-    pa.variable_shape_tensor(pa.int8(), 2, dim_names=['H', 'W'])
+    pa.variable_shape_tensor(pa.int8(), 2, dim_names=['H', 'W']),
+    pa.variable_shape_tensor(pa.int8(), 2, ragged_dimensions=[0, 1]),
 ))
 def test_variable_shape_tensor_type_ipc(tensor_type):
     shape_type = tensor_type.storage_type.field(0).type
