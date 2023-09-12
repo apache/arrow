@@ -598,7 +598,7 @@ class GrpcServerTransport : public internal::ServerTransport {
     } else if (scheme == kSchemeGrpcUnix) {
       std::stringstream address;
       address << "unix:" << uri.path();
-      builder.AddListeningPort(address.str(), ::grpc::InsecureServerCredentials());
+      builder.AddListeningPort(address.str(), ::grpc::InsecureServerCredentials(), &port);
       location_ = options.location;
     } else {
       return Status::NotImplemented("Scheme is not supported: " + scheme);
@@ -616,6 +616,10 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     grpc_server_ = builder.BuildAndStart();
     if (!grpc_server_) {
+      if (port == 0) {
+        return Status::Invalid("Server did not start properly. Unable to bind to port ",
+                               uri.port_text());
+      }
       return Status::UnknownError("Server did not start properly");
     }
 
