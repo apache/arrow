@@ -596,7 +596,8 @@ class ARROW_FLIGHT_EXPORT FlightInfo {
                                         const FlightDescriptor& descriptor,
                                         const std::vector<FlightEndpoint>& endpoints,
                                         int64_t total_records, int64_t total_bytes,
-                                        bool ordered = false, std::string app_metadata = "");
+                                        bool ordered = false,
+                                        std::string app_metadata = "");
 
   /// \brief Deserialize the Arrow schema of the dataset. Populate any
   ///   dictionary encoded fields into a DictionaryMemo for
