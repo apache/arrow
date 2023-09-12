@@ -41,7 +41,6 @@ class FileCryptoMetaData;
 class InternalFileDecryptor;
 class Decryptor;
 class Encryptor;
-class FooterSigningEncryptor;
 
 namespace schema {
 

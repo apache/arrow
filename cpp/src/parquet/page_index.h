@@ -25,17 +25,13 @@
 
 namespace parquet {
 
-class ColumnDescriptor;
 class Decryptor;
-class EncodedStatistics;
 class Encryptor;
-class FileMetaData;
 class InternalFileDecryptor;
 class InternalFileEncryptor;
+
+class EncodedStatistics;
 struct PageIndexLocation;
-class ReaderProperties;
-class RowGroupMetaData;
-class RowGroupPageIndexReader;
 
 /// \brief ColumnIndex is a proxy around format::ColumnIndex.
 class PARQUET_EXPORT ColumnIndex {
@@ -44,13 +40,8 @@ class PARQUET_EXPORT ColumnIndex {
   static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
                                            const void* serialized_index,
                                            uint32_t index_len,
-                                           const ReaderProperties& properties);
-
-  static std::unique_ptr<ColumnIndex> Make(const ColumnDescriptor& descr,
-                                           const void* serialized_index,
-                                           uint32_t index_len,
                                            const ReaderProperties& properties,
-                                           Decryptor* decryptor);
+                                           Decryptor* decryptor = NULLPTR);
 
   virtual ~ColumnIndex() = default;
 
@@ -135,12 +126,8 @@ class PARQUET_EXPORT OffsetIndex {
   /// \brief Create a OffsetIndex from a serialized thrift message.
   static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
                                            uint32_t index_len,
-                                           const ReaderProperties& properties);
-
-  static std::unique_ptr<OffsetIndex> Make(const void* serialized_index,
-                                           uint32_t index_len,
                                            const ReaderProperties& properties,
-                                           Decryptor* decryptor);
+                                           Decryptor* decryptor = NULLPTR);
 
   virtual ~OffsetIndex() = default;
 
@@ -200,11 +187,8 @@ class PARQUET_EXPORT PageIndexReader {
   /// that creates this PageIndexReader.
   static std::shared_ptr<PageIndexReader> Make(
       ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-      const ReaderProperties& properties);
-
-  static std::shared_ptr<PageIndexReader> Make(
-      ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-      const ReaderProperties& properties, InternalFileDecryptor* file_decryptor);
+      const ReaderProperties& properties,
+      InternalFileDecryptor* file_decryptor = NULLPTR);
 
   /// \brief Get the page index reader of a specific row group.
   /// \param[in] i row group ordinal to get page index reader.
@@ -351,10 +335,8 @@ class PARQUET_EXPORT OffsetIndexBuilder {
 class PARQUET_EXPORT PageIndexBuilder {
  public:
   /// \brief API convenience to create a PageIndexBuilder.
-  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema);
-
-  static std::unique_ptr<PageIndexBuilder> Make(const SchemaDescriptor* schema,
-                                                InternalFileEncryptor* file_encryptor);
+  static std::unique_ptr<PageIndexBuilder> Make(
+      const SchemaDescriptor* schema, InternalFileEncryptor* file_encryptor = NULLPTR);
 
   virtual ~PageIndexBuilder() = default;
 

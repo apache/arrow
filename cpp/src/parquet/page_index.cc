@@ -18,6 +18,7 @@
 #include "parquet/page_index.h"
 #include "parquet/encoding.h"
 #include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
@@ -231,9 +232,12 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     auto descr = row_group_metadata_->schema()->Column(i);
 
     // Get decryptor of column index if encrypted.
-    std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-    auto decryptor = GetColumnMetaDecryptor(crypto_metadata.get(), /*column_ordinal=*/i,
-                                            encryption::kColumnIndex);
+    std::shared_ptr<Decryptor> decryptor = parquet::GetColumnMetaDecryptor(
+        col_chunk->crypto_metadata().get(), file_decryptor_);
+    if (decryptor != nullptr) {
+      UpdateDecryptor(decryptor, row_group_ordinal_, /*column_ordinal=*/i,
+                      encryption::kColumnIndex);
+    }
 
     return ColumnIndex::Make(*descr, column_index_buffer_->data() + buffer_offset, length,
                              properties_, decryptor.get());
@@ -267,9 +271,12 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     uint32_t length = static_cast<uint32_t>(offset_index_location->length);
 
     // Get decryptor of offset index if encrypted.
-    std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-    auto decryptor = GetColumnMetaDecryptor(crypto_metadata.get(), /*column_ordinal=*/i,
-                                            encryption::kOffsetIndex);
+    std::shared_ptr<Decryptor> decryptor =
+        GetColumnMetaDecryptor(col_chunk->crypto_metadata().get(), file_decryptor_);
+    if (decryptor != nullptr) {
+      UpdateDecryptor(decryptor, row_group_ordinal_, /*column_ordinal=*/i,
+                      encryption::kOffsetIndex);
+    }
 
     return OffsetIndex::Make(offset_index_buffer_->data() + buffer_offset, length,
                              properties_, decryptor.get());
@@ -310,34 +317,6 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                              ",length:", index_read_range->length,
                              "], row group: ", row_group_ordinal);
     }
-  }
-
-  /// Get decryptor if the file is encrypted
-  std::shared_ptr<Decryptor> GetColumnMetaDecryptor(
-      const ColumnCryptoMetaData* crypto_metadata, int column_ordinal,
-      int8_t module_type) const {
-    if (crypto_metadata == nullptr) {
-      return nullptr;
-    }
-    if (file_decryptor_ == nullptr) {
-      throw ParquetException("RowGroup is noted as encrypted but no file decryptor");
-    }
-    std::shared_ptr<Decryptor> decryptor;
-    if (crypto_metadata->encrypted_with_footer_key()) {
-      // The column is encrypted with footer key
-      decryptor = file_decryptor_->GetFooterDecryptorForColumnMeta();
-    } else {
-      // The column is encrypted with its own key
-      const std::string& column_key_metadata = crypto_metadata->key_metadata();
-      const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
-      decryptor =
-          file_decryptor_->GetColumnMetaDecryptor(column_path, column_key_metadata);
-    }
-    ARROW_DCHECK(!decryptor->file_aad().empty());
-    decryptor->UpdateAad(encryption::CreateModuleAad(decryptor->file_aad(), module_type,
-                                                     row_group_ordinal_, column_ordinal,
-                                                     kNonPageOrdinal));
-    return decryptor;
   }
 
  private:
@@ -890,14 +869,6 @@ RowGroupIndexReadRange PageIndexReader::DeterminePageIndexRangesInRowGroup(
 std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
                                                const void* serialized_index,
                                                uint32_t index_len,
-                                               const ReaderProperties& properties) {
-  return ColumnIndex::Make(descr, serialized_index, index_len, properties,
-                           /*decryptor=*/nullptr);
-}
-
-std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
-                                               const void* serialized_index,
-                                               uint32_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::ColumnIndex column_index;
@@ -938,13 +909,6 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
 
 std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
                                                uint32_t index_len,
-                                               const ReaderProperties& properties) {
-  return OffsetIndex::Make(serialized_index, index_len, properties,
-                           /*decryptor=*/nullptr);
-}
-
-std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
-                                               uint32_t index_len,
                                                const ReaderProperties& properties,
                                                Decryptor* decryptor) {
   format::OffsetIndex offset_index;
@@ -952,13 +916,6 @@ std::unique_ptr<OffsetIndex> OffsetIndex::Make(const void* serialized_index,
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
                                   &index_len, &offset_index, decryptor);
   return std::make_unique<OffsetIndexImpl>(offset_index);
-}
-
-std::shared_ptr<PageIndexReader> PageIndexReader::Make(
-    ::arrow::io::RandomAccessFile* input, std::shared_ptr<FileMetaData> file_metadata,
-    const ReaderProperties& properties) {
-  return PageIndexReader::Make(input, std::move(file_metadata), properties,
-                               /*file_decryptor=*/nullptr);
 }
 
 std::shared_ptr<PageIndexReader> PageIndexReader::Make(
@@ -996,10 +953,6 @@ std::unique_ptr<ColumnIndexBuilder> ColumnIndexBuilder::Make(
 
 std::unique_ptr<OffsetIndexBuilder> OffsetIndexBuilder::Make() {
   return std::make_unique<OffsetIndexBuilderImpl>();
-}
-
-std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(const SchemaDescriptor* schema) {
-  return std::make_unique<PageIndexBuilderImpl>(schema, /*file_encryptor=*/nullptr);
 }
 
 std::unique_ptr<PageIndexBuilder> PageIndexBuilder::Make(
