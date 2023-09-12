@@ -2372,41 +2372,41 @@ cdef class MapArray(ListArray):
         represents the null bitmask corresponding to the missing values in the integer array.
 
         >>> movies_rectangular = np.ma.masked_array([
-        >>>     [10, -1, -1],
-        >>>     [8, 4, 5],
-        >>>     [-1, 10, 3],
-        >>>     [-1, -1, -1],
-        >>>     [-1, -1, -1]
-        >>> ],
-        >>> [
-        >>>     [False, True, True],
-        >>>     [False, False, False],
-        >>>     [True, False, False],
-        >>>     [True, True, True],
-        >>>     [True, True, True],
-        >>> ])
+        ...     [10, -1, -1],
+        ...     [8, 4, 5],
+        ...     [-1, 10, 3],
+        ...     [-1, -1, -1],
+        ...     [-1, -1, -1]
+        ... ],
+        ... [
+        ...     [False, True, True],
+        ...     [False, False, False],
+        ...     [True, False, False],
+        ...     [True, True, True],
+        ...     [True, True, True],
+        ... ])
 
         To represent the same data with the MapArray and from_arrays, the data is
         formed like this:
 
         >>> offsets = [
-        >>>     0, #  -- row 1 start
-        >>>     1, #  -- row 2 start
-        >>>     4, #  -- row 3 start
-        >>>     6, #  -- row 4 start
-        >>>     6, #  -- row 5 start
-        >>>     6, #  -- row 5 end
-        >>> ]
+        ...     0, #  -- row 1 start
+        ...     1, #  -- row 2 start
+        ...     4, #  -- row 3 start
+        ...     6, #  -- row 4 start
+        ...     6, #  -- row 5 start
+        ...     6, #  -- row 5 end
+        ... ]
         >>> movies = [
-        >>>     "Dark Knight", #  ---------------------------------- row 1
-        >>>     "Dark Knight", "Meet the Parents", "Superman", #  -- row 2
-        >>>     "Meet the Parents", "Superman", #  ----------------- row 3
-        >>> ]
+        ...     "Dark Knight", #  ---------------------------------- row 1
+        ...     "Dark Knight", "Meet the Parents", "Superman", #  -- row 2
+        ...     "Meet the Parents", "Superman", #  ----------------- row 3
+        ... ]
         >>> likings = [
-        >>>     10, #  -------- row 1
-        >>>     8, 4, 5, #  --- row 2
-        >>>     10, 3 #  ------ row 3
-        >>> ]
+        ...     10, #  -------- row 1
+        ...     8, 4, 5, #  --- row 2
+        ...     10, 3 #  ------ row 3
+        ... ]
         >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
         0                                  [(Dark Knight, 10)]
         1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
@@ -2421,13 +2421,13 @@ cdef class MapArray(ListArray):
         offset still has to refer to the existing value from keys (and values):
 
         >>> offsets = [
-        >>>     0, #  ----- row 1 start
-        >>>     1, #  ----- row 2 start
-        >>>     4, #  ----- row 3 start
-        >>>     None, #  -- row 4 start
-        >>>     None, #  -- row 5 start
-        >>>     6, #  ----- row 5 end
-        >>> ]
+        ...     0, #  ----- row 1 start
+        ...     1, #  ----- row 2 start
+        ...     4, #  ----- row 3 start
+        ...     None, #  -- row 4 start
+        ...     None, #  -- row 5 start
+        ...     6, #  ----- row 5 end
+        ... ]
         >>> pa.MapArray.from_arrays(offsets, movies, likings).to_pandas()
         0                                  [(Dark Knight, 10)]
         1    [(Dark Knight, 8), (Meet the Parents, 4), (Sup...
