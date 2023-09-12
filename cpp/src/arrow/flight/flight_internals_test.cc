@@ -229,7 +229,7 @@ TEST(FlightTypes, FlightInfo) {
   Schema schema2({});
   auto desc1 = FlightDescriptor::Command("foo");
   auto desc2 = FlightDescriptor::Command("bar");
-  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt};
+  auto endpoint1 = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
   auto endpoint2 = FlightEndpoint{Ticket{"foo"}, {location}, std::nullopt, "\xCA\xFE\xD0\x0D"};
   std::vector<FlightInfo> values = {
       MakeFlightInfo(schema1, desc1, {}, -1, -1, false, ""),
@@ -264,7 +264,7 @@ TEST(FlightTypes, PollInfo) {
   ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("localhost", 1234));
   Schema schema({field("ints", int64())});
   auto desc = FlightDescriptor::Command("foo");
-  auto endpoint = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt};
+  auto endpoint = FlightEndpoint{Ticket{"foo"}, {}, std::nullopt, ""};
   auto info = MakeFlightInfo(schema, desc, {endpoint}, -1, 42, true, "");
   // 2023-06-19 03:14:06.004330100
   // We must use microsecond resolution here for portability.
