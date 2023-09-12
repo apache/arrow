@@ -19,6 +19,7 @@ from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer
 
 import atexit
 from collections.abc import Mapping
+import pickle
 import re
 import sys
 import warnings
@@ -1699,12 +1700,12 @@ cdef class PyExtensionType(ExtensionType):
                                   .format(type(self).__name__))
 
     def __arrow_ext_serialize__(self):
-        return builtin_pickle.dumps(self)
+        return pickle.dumps(self)
 
     @classmethod
     def __arrow_ext_deserialize__(cls, storage_type, serialized):
         try:
-            ty = builtin_pickle.loads(serialized)
+            ty = pickle.loads(serialized)
         except Exception:
             # For some reason, it's impossible to deserialize the
             # ExtensionType instance.  Perhaps the serialized data is
