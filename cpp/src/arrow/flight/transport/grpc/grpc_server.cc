@@ -572,7 +572,9 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     const std::string scheme = uri.scheme();
     int port = 0;
-    if (scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls) {
+    const bool isHostPortScheme =
+        scheme == kSchemeGrpc || scheme == kSchemeGrpcTcp || scheme == kSchemeGrpcTls;
+    if (isHostPortScheme) {
       std::stringstream address;
       address << arrow::internal::UriEncodeHost(uri.host()) << ':' << uri.port_text();
 
@@ -616,6 +618,10 @@ class GrpcServerTransport : public internal::ServerTransport {
 
     grpc_server_ = builder.BuildAndStart();
     if (!grpc_server_) {
+      if (isHostPortScheme && port == 0) {
+        return Status::IOError("Server did not start properly. Unable to bind to port ",
+                               uri.port_text());
+      }
       return Status::UnknownError("Server did not start properly");
     }
 
