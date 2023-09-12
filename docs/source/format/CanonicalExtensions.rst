@@ -206,6 +206,12 @@ Variable shape tensor
     This allows for interpreting the tensor correctly without accounting for
     uniform dimensions while still permitting optional optimizations that
     take advantage of the uniformity.
+  * **ragged_dimensions** = indices of ragged dimensions whose sizes may
+    differ. Dimensions where all elements have the same size are called
+    uniform dimensions. Indices are a subset of all possible dimension
+    indices ([0, 1, .., N-1]).
+    Ragged dimensions list can be left out. In that case all dimensions
+    are assumed ragged.
 
 * Description of the serialization:
 
@@ -226,6 +232,11 @@ Variable shape tensor
     with fixed height, variable width and three color channels:
 
     ``{ "dim_names": ["H", "W", "C"], "uniform_shape": [400, null, 3] }``
+
+  - Example with ``ragged_dimensions`` metadata for a set of color images
+    with variable width:
+
+    ``{ "dim_names": ["H", "W", "C"], "ragged_dimensions": [1] }``
 
   - Example of permuted 3-dimensional tensor:
 
