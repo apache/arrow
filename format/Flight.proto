@@ -366,6 +366,11 @@ message FlightInfo {
    * FlightEndpoints are in the same order as the data.
    */
   bool ordered = 6;
+
+  /*
+   * Application-defined metadata.
+   */
+  bytes app_metadata = 7;
 }
 
 /*
@@ -446,6 +451,11 @@ message FlightEndpoint {
    * application-defined whether DoGet requests may be retried.
    */
   google.protobuf.Timestamp expiration_time = 3;
+
+  /*
+   * Application-defined metadata.
+   */
+  bytes app_metadata = 4;
 }
 
 /*

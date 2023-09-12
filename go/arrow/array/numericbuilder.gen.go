@@ -86,7 +86,7 @@ func (b *Int64Builder) AppendEmptyValue() {
 }
 
 func (b *Int64Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -564,7 +564,7 @@ func (b *Float64Builder) AppendEmptyValue() {
 }
 
 func (b *Float64Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -803,7 +803,7 @@ func (b *Int32Builder) AppendEmptyValue() {
 }
 
 func (b *Int32Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -1042,7 +1042,7 @@ func (b *Uint32Builder) AppendEmptyValue() {
 }
 
 func (b *Uint32Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -1281,7 +1281,7 @@ func (b *Float32Builder) AppendEmptyValue() {
 }
 
 func (b *Float32Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -1520,7 +1520,7 @@ func (b *Int16Builder) AppendEmptyValue() {
 }
 
 func (b *Int16Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -1759,7 +1759,7 @@ func (b *Uint16Builder) AppendEmptyValue() {
 }
 
 func (b *Uint16Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -1998,7 +1998,7 @@ func (b *Int8Builder) AppendEmptyValue() {
 }
 
 func (b *Int8Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -2237,7 +2237,7 @@ func (b *Uint8Builder) AppendEmptyValue() {
 }
 
 func (b *Uint8Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -2477,7 +2477,7 @@ func (b *Time32Builder) AppendEmptyValue() {
 }
 
 func (b *Time32Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -2717,7 +2717,7 @@ func (b *Time64Builder) AppendEmptyValue() {
 }
 
 func (b *Time64Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -2956,7 +2956,7 @@ func (b *Date32Builder) AppendEmptyValue() {
 }
 
 func (b *Date32Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -3195,7 +3195,7 @@ func (b *Date64Builder) AppendEmptyValue() {
 }
 
 func (b *Date64Builder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
@@ -3435,7 +3435,7 @@ func (b *DurationBuilder) AppendEmptyValue() {
 }
 
 func (b *DurationBuilder) AppendEmptyValues(n int) {
-	for i := 0; i < n; i ++ {
+	for i := 0; i < n; i++ {
 		b.AppendEmptyValue()
 	}
 }
