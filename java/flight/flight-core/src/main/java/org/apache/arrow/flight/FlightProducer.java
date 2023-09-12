@@ -77,7 +77,12 @@ public interface FlightProducer {
    */
   default SchemaResult getSchema(CallContext context, FlightDescriptor descriptor) {
     FlightInfo info = getFlightInfo(context, descriptor);
-    return new SchemaResult(info.getSchema());
+    return new SchemaResult(info
+            .getSchemaOptional()
+            .orElseThrow(() ->
+                    CallStatus
+                            .INVALID_ARGUMENT
+                            .withDescription("No schema is present in FlightInfo").toRuntimeException()));
   }
 
 
