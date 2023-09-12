@@ -412,6 +412,7 @@ jobs:
           cache: true
           cache-dependency-path: go/go.sum
       - name: Install staticcheck
+        shell: bash
         run: |
           . .env
           go install honnef.co/go/tools/cmd/staticcheck@${STATICCHECK}
