@@ -283,8 +283,8 @@ test_that("array supports POSIXct (ARROW-3340)", {
   times[5] <- NA
   expect_array_roundtrip(times, timestamp("us", "UTC"))
 
-  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "US/Eastern") + 1:10
-  expect_array_roundtrip(times2, timestamp("us", "US/Eastern"))
+  times2 <- lubridate::ymd_hms("2018-10-07 19:04:05", tz = "America/New_York") + 1:10
+  expect_array_roundtrip(times2, timestamp("us", "America/New_York"))
 })
 
 test_that("array uses local timezone for POSIXct without timezone", {
