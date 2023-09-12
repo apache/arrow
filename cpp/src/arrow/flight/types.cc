@@ -329,7 +329,7 @@ std::string FlightInfo::ToString() const {
   ss << "] total_records=" << data_.total_records;
   ss << " total_bytes=" << data_.total_bytes;
   ss << " ordered=" << (data_.ordered ? "true" : "false");
-  ss << " app_metadata=" << std::hex << data_.app_metadata;
+  ss << " app_metadata='" << HexEncode(data_.app_metadata) << "'";
   ss << '>';
   return ss.str();
 }
@@ -538,7 +538,7 @@ std::string FlightEndpoint::ToString() const {
   } else {
     ss << "null";
   }
-  ss << " app_metadata=" << std::hex << app_metadata;
+  ss << " app_metadata='" << HexEncode(app_metadata) << "'";
   ss << ">";
   return ss.str();
 }
