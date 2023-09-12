@@ -46,6 +46,7 @@
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
     <error_prone_core.version>2.16</error_prone_core.version>
     <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <checker.version>3.38.0</checker.version>
   </properties>
 
   <scm>
@@ -376,7 +377,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.0.1</version>
+          <version>3.6.0</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
@@ -687,6 +688,12 @@
       <scope>test</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.checkerframework</groupId>
+      <artifactId>checker-qual</artifactId>
+      <version>${checker.version}</version>
+    </dependency>
+
   </dependencies>
 
   <reporting>
@@ -822,6 +829,7 @@
               <target>8</target>
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
+                <arg>-Awarns</arg><!-- -Awarns turns type-checking errors into warnings. -->
                 <arg>-XDcompilePolicy=simple</arg>
                 <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-sources)/.*</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
@@ -841,7 +849,16 @@
                   <artifactId>error_prone_core</artifactId>
                   <version>${error_prone_core.version}</version>
                 </path>
+                <path>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>checker</artifactId>
+                  <version>${checker.version}</version>
+                </path>
               </annotationProcessorPaths>
+              <annotationProcessors>
+                <!-- Add all the checkers you want to enable here -->
+                <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+              </annotationProcessors>
             </configuration>
           </plugin>
           <plugin>
