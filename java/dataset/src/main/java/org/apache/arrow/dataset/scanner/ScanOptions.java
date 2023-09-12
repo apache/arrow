@@ -89,8 +89,8 @@ public class ScanOptions {
   public static class Builder {
     private final long batchSize;
     private Optional<String[]> columns;
-    private Optional<ByteBuffer> substraitProjection;
-    private Optional<ByteBuffer> substraitFilter;
+    private ByteBuffer substraitProjection;
+    private ByteBuffer substraitFilter;
 
     /**
      * Constructor.
@@ -118,7 +118,7 @@ public class ScanOptions {
      * @param substraitProjection Expressions to evaluate for project new columns.
      * @return the ScanOptions configured.
      */
-    public Builder substraitProjection(Optional<ByteBuffer> substraitProjection) {
+    public Builder substraitProjection(ByteBuffer substraitProjection) {
       Preconditions.checkNotNull(substraitProjection);
       this.substraitProjection = substraitProjection;
       return this;
@@ -130,7 +130,7 @@ public class ScanOptions {
      * @param substraitFilter Expressions to evaluate for apply Filter.
      * @return the ScanOptions configured.
      */
-    public Builder substraitFilter(Optional<ByteBuffer> substraitFilter) {
+    public Builder substraitFilter(ByteBuffer substraitFilter) {
       Preconditions.checkNotNull(substraitFilter);
       this.substraitFilter = substraitFilter;
       return this;
@@ -144,7 +144,7 @@ public class ScanOptions {
   private ScanOptions(Builder builder) {
     batchSize = builder.batchSize;
     columns = builder.columns;
-    substraitProjection = builder.substraitProjection;
-    substraitFilter = builder.substraitFilter;
+    substraitProjection = Optional.ofNullable(builder.substraitProjection);
+    substraitFilter = Optional.ofNullable(builder.substraitFilter);
   }
 }
