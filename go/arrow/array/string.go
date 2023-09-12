@@ -73,6 +73,14 @@ func (a *String) ValueOffset64(i int) int64 {
 	return int64(a.ValueOffset(i))
 }
 
+func (a *String) ValueLen(i int) int {
+	if i < 0 || i >= a.array.data.length {
+		panic("arrow/array: index out of range")
+	}
+	beg := a.array.data.offset + i
+	return int(a.offsets[beg+1] - a.offsets[beg])
+}
+
 func (a *String) ValueOffsets() []int32 {
 	beg := a.array.data.offset
 	end := beg + a.array.data.length + 1

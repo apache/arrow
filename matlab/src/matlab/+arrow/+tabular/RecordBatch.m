@@ -1,3 +1,7 @@
+%RECORDBATCH A tabular data structure representing a set of 
+%arrow.array.Array objects with a fixed schema.
+
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -15,8 +19,6 @@
 
 classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                        matlab.mixin.Scalar
-%arrow.tabular.RecordBatch A tabular data structure representing
-% a set of arrow.array.Array objects with a fixed schema.
 
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
@@ -38,11 +40,11 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         end
 
         function numColumns = get.NumColumns(obj)
-            numColumns = obj.Proxy.numColumns();
+            numColumns = obj.Proxy.getNumColumns();
         end
 
         function columnNames = get.ColumnNames(obj)
-            columnNames = obj.Proxy.columnNames();
+            columnNames = obj.Proxy.getColumnNames();
         end
 
         function schema = get.Schema(obj)
@@ -91,6 +93,10 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         function T = toMATLAB(obj)
             T = obj.table();
         end
+
+        function tf = isequal(obj, varargin)
+            tf = arrow.tabular.internal.isequal(obj, varargin{:});
+        end
     end
 
     methods (Access = private)
@@ -116,7 +122,7 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.tabular.internal.getArrayProxyIDs
+            import arrow.array.internal.getArrayProxyIDs
             
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);

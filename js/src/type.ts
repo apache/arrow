@@ -585,10 +585,25 @@ export interface Map_<TKey extends DataType = any, TValue extends DataType = any
 
 /** @ignore */
 export class Map_<TKey extends DataType = any, TValue extends DataType = any> extends DataType<Type.Map, { [0]: Struct<{ key: TKey; value: TValue }> }> {
-    constructor(child: Field<Struct<{ key: TKey; value: TValue }>>, keysSorted = false) {
+    constructor(entries: Field<Struct<{ key: TKey; value: TValue }>>, keysSorted = false) {
         super();
-        this.children = [child];
+        this.children = [entries];
         this.keysSorted = keysSorted;
+        // ARROW-8716
+        // https://github.com/apache/arrow/issues/17168
+        if (entries) {
+            (entries as any)['name'] = 'entries';
+            if ((entries as any)?.type?.children) {
+                const key = (entries as any)?.type?.children[0];
+                if (key) {
+                    key['name'] = 'key';
+                }
+                const val = (entries as any)?.type?.children[1];
+                if (val) {
+                    val['name'] = 'value';
+                }
+            }
+        }
     }
     public declare readonly keysSorted: boolean;
     public declare readonly children: Field<Struct<{ key: TKey; value: TValue }>>[];

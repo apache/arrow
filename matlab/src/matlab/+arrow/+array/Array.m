@@ -39,11 +39,11 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         end
 
         function numElements = get.Length(obj)
-            numElements = obj.Proxy.length();
+            numElements = obj.Proxy.getLength();
         end
 
         function validElements = get.Valid(obj)
-            validElements = obj.Proxy.valid();
+            validElements = obj.Proxy.getValid();
         end
 
         function matlabArray = toMATLAB(obj)
@@ -51,9 +51,9 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         end
 
         function type = get.Type(obj)
-            [proxyID, typeID] = obj.Proxy.type();
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=proxyID);
+            typeStruct = obj.Proxy.getType();
+            traits = arrow.type.traits.traits(arrow.type.ID(typeStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.TypeProxyClassName, ID=typeStruct.ProxyID);
             type = traits.TypeConstructor(proxy);
         end
     end

@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
         with:
           path: arrow
           # fetch the tags for version number generation
@@ -60,7 +60,7 @@ jobs:
     if: startsWith(github.event.comment.body, '@github-actions autotune')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       - uses: r-lib/actions/pr-fetch@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -158,7 +158,7 @@ jobs:
     if: startsWith(github.event.comment.body, '@github-actions rebase')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
       - uses: r-lib/actions/pr-fetch@11a22a908006c25fe054c4ef0ac0436b1de3edbe # v2.6.4
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}

@@ -166,11 +166,9 @@ class ARROW_EXPORT Device : public std::enable_shared_from_this<Device>,
     /// @brief Block until sync event is completed.
     virtual Status Wait() = 0;
 
-    inline Status Record(const Stream& st) { return Record(st, 0); }
-
     /// @brief Record the wrapped event on the stream so it triggers
     /// the event when the stream gets to that point in its queue.
-    virtual Status Record(const Stream&, const unsigned int flags) = 0;
+    virtual Status Record(const Stream&) = 0;
 
    protected:
     /// If creating this with a passed in event, the caller must ensure
