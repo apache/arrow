@@ -355,6 +355,124 @@ func concatOffsets(buffers []*memory.Buffer, byteWidth int, mem memory.Allocator
 	}
 }
 
+func sumArraySizes(data []arrow.ArrayData) int {
+	outSize := 0
+	for _, arr := range data {
+		outSize += arr.Len()
+	}
+	return outSize
+}
+
+func putListViewOffsets32(in arrow.ArrayData, displacement int32, out *memory.Buffer, outOff int) {
+	debug.Assert(in.DataType().ID() == arrow.LIST_VIEW, "putListViewOffsets32: expected LIST_VIEW data")
+	inOff, inLen := in.Offset(), in.Len()
+	if inLen == 0 {
+		return
+	}
+	bitmap := in.Buffers()[0]
+	srcOffsets := arrow.Int32Traits.CastFromBytes(in.Buffers()[1].Bytes())[inOff : inOff+inLen]
+	srcSizes := arrow.Int32Traits.CastFromBytes(in.Buffers()[2].Bytes())[inOff : inOff+inLen]
+	isValidAndNonEmpty := func(i int) bool {
+		return (bitmap == nil || bitutil.BitIsSet(bitmap.Bytes(), inOff+i)) && srcSizes[i] > 0
+	}
+
+	dstOffsets := arrow.Int32Traits.CastFromBytes(out.Bytes())
+	for i, offset := range srcOffsets {
+		debug.Assert(!isValidAndNonEmpty(i) || offset+displacement >= 0, "putListViewOffsets32: offset underflow while concatenating arrays")
+		dstOffsets[outOff+i] = offset + displacement
+	}
+}
+
+func putListViewOffsets64(in arrow.ArrayData, displacement int64, out *memory.Buffer, outOff int) {
+	debug.Assert(in.DataType().ID() == arrow.LARGE_LIST_VIEW, "putListViewOffsets64: expected LARGE_LIST_VIEW data")
+	inOff, inLen := in.Offset(), in.Len()
+	if in.Len() == 0 {
+		return
+	}
+	bitmap := in.Buffers()[0]
+	srcOffsets := arrow.Int64Traits.CastFromBytes(in.Buffers()[1].Bytes())[in.Offset():(in.Offset() + in.Len())]
+	srcSizes := arrow.Int64Traits.CastFromBytes(in.Buffers()[2].Bytes())[inOff : inOff+inLen]
+	isValidAndNonEmpty := func(i int) bool {
+		return (bitmap == nil || bitutil.BitIsSet(bitmap.Bytes(), inOff+i)) && srcSizes[i] > 0
+	}
+
+	dstOffsets := arrow.Int64Traits.CastFromBytes(out.Bytes())
+	for i, offset := range srcOffsets {
+		debug.Assert(!isValidAndNonEmpty(i) || offset+displacement >= 0,
+			"putListViewOffsets64: offset underflow while concatenating arrays")
+		dstOffsets[outOff+i] = offset + displacement
+	}
+}
+
+// Concatenate buffers holding list-view offsets into a single buffer of offsets
+//
+// valueRanges contains the relevant ranges of values in the child array actually
+// referenced to by the views. Most commonly, these ranges will start from 0,
+// but when that is not the case, we need to adjust the displacement of offsets.
+// The concatenated child array does not contain values from the beginning
+// if they are not referenced to by any view.
+func concatListViewOffsets(data []arrow.ArrayData, byteWidth int, valueRanges []rng, mem memory.Allocator) (*memory.Buffer, error) {
+	outSize := sumArraySizes(data)
+	if byteWidth == 4 && outSize > math.MaxInt32 {
+		return nil, fmt.Errorf("%w: offset overflow while concatenating arrays", arrow.ErrInvalid)
+	}
+	out := memory.NewResizableBuffer(mem)
+	out.Resize(byteWidth * outSize)
+
+	numChildValues, elementsLength := 0, 0
+	for i, arr := range data {
+		displacement := numChildValues - valueRanges[i].offset
+		if byteWidth == 4 {
+			putListViewOffsets32(arr, int32(displacement), out, elementsLength)
+		} else {
+			putListViewOffsets64(arr, int64(displacement), out, elementsLength)
+		}
+		elementsLength += arr.Len()
+		numChildValues += valueRanges[i].len
+	}
+	debug.Assert(elementsLength == outSize, "implementation error")
+
+	return out, nil
+}
+
+func concatListView(data []arrow.ArrayData, offsetType arrow.FixedWidthDataType, out *Data, mem memory.Allocator) (err error) {
+	// Calculate the ranges of values that each list-view array uses
+	valueRanges := make([]rng, len(data))
+	for i, input := range data {
+		offset, len := rangeOfValuesUsed(input)
+		valueRanges[i].offset = offset
+		valueRanges[i].len = len
+	}
+
+	// Gather the children ranges of each input array
+	childData := gatherChildrenRanges(data, 0, valueRanges)
+	for _, c := range childData {
+		defer c.Release()
+	}
+
+	// Concatenate the values
+	values, err := concat(childData, mem)
+	if err != nil {
+		return err
+	}
+
+	// Concatenate the offsets
+	offsetBuffer, err := concatListViewOffsets(data, offsetType.Bytes(), valueRanges, mem)
+	if err != nil {
+		return err
+	}
+
+	// Concatenate the sizes
+	sizeBuffers := gatherBuffersFixedWidthType(data, 2, offsetType)
+	sizeBuffer := concatBuffers(sizeBuffers, mem)
+
+	out.childData = []arrow.ArrayData{values}
+	out.buffers[1] = offsetBuffer
+	out.buffers[2] = sizeBuffer
+
+	return nil
+}
+
 // concat is the implementation for actually performing the concatenation of the arrow.ArrayData
 // objects that we can call internally for nested types.
 func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, err error) {
@@ -480,6 +598,18 @@ func concat(data []arrow.ArrayData, mem memory.Allocator) (arr arrow.ArrayData, 
 		out.buffers[1] = offsetBuffer
 		out.childData = make([]arrow.ArrayData, 1)
 		out.childData[0], err = concat(childData, mem)
+		if err != nil {
+			return nil, err
+		}
+	case *arrow.ListViewType:
+		offsetType := arrow.PrimitiveTypes.Int32.(arrow.FixedWidthDataType)
+		err := concatListView(data, offsetType, out, mem)
+		if err != nil {
+			return nil, err
+		}
+	case *arrow.LargeListViewType:
+		offsetType := arrow.PrimitiveTypes.Int64.(arrow.FixedWidthDataType)
+		err := concatListView(data, offsetType, out, mem)
 		if err != nil {
 			return nil, err
 		}
