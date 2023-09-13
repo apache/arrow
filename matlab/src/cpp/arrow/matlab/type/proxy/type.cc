@@ -18,6 +18,8 @@
 #include "arrow/matlab/type/proxy/type.h"
 
 #include "arrow/matlab/type/proxy/get_field.h"
+#include "arrow/matlab/index/validate.h"
+#include "arrow/matlab/error/error.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -59,16 +61,26 @@ namespace arrow::matlab::type::proxy {
         const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
         const auto matlab_index = int32_t(index_mda[0]);
 
-        auto maybe_field_proxy_id = proxy::getFieldByIndex(data_type, matlab_index);
+        // Validate there is at least 1 field
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+            index::validateNonEmptyFields(data_type->num_fields()),
+            context,
+            error::ARROW_ZERO_FIELDS_NUMERIC_INDEX);
 
-        if (std::holds_alternative<uint64_t>(maybe_field_proxy_id)) {
-            // Extract the Proxy ID and return it to MATLAB
-            auto field_proxy_id = std::get<uint64_t>(maybe_field_proxy_id);
-            context.outputs[0] = factory.createScalar(field_proxy_id);
-        } else {
-            auto error = std::get<libmexclass::error::Error>(maybe_field_proxy_id);
-            context.error = error;
-        }
+        // Validate the matlab index provided is within [1, num_fields]
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+            index::validateNumericFieldIndexInRange(matlab_index, data_type->num_fields()),
+            context,
+            error::ARROW_INVALID_NUMERIC_FIELD_INDEX);
+
+        // Note: MATLAB uses 1-based indexing, so subtract 1.
+        // arrow::Schema::field does not do any bounds checking.
+        const int32_t index = matlab_index - 1;
+
+        auto field = data_type->field(index);
+        auto field_proxy = std::make_shared<proxy::Field>(std::move(field));
+        auto field_proxy_id  = libmexclass::proxy::ProxyManager::manageProxy(field_proxy);
+        context.outputs[0] = factory.createScalar(field_proxy_id);
     }
 
     void Type::isEqual(libmexclass::proxy::method::Context& context) {
