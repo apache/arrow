@@ -26,6 +26,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/bitutil"
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/apache/arrow/go/v14/internal/bitutils"
 	"github.com/apache/arrow/go/v14/internal/json"
 )
 
@@ -923,6 +924,174 @@ func (a *LargeListView) Retain() {
 func (a *LargeListView) Release() {
 	a.array.Release()
 	a.values.Release()
+}
+
+// Acessors for offsets and sizes to make ListView and LargeListView validation generic.
+type offsetsAndSizes interface {
+	offsetAt(slot int64) int64
+	sizeAt(slot int64) int64
+}
+
+var _ offsetsAndSizes = (*ListView)(nil)
+var _ offsetsAndSizes = (*LargeListView)(nil)
+
+func (a *ListView) offsetAt(slot int64) int64 { return int64(a.offsets[int64(a.data.offset)+slot]) }
+
+func (a *ListView) sizeAt(slot int64) int64 { return int64(a.sizes[int64(a.data.offset)+slot]) }
+
+func (a *LargeListView) offsetAt(slot int64) int64 { return a.offsets[int64(a.data.offset)+slot] }
+
+func (a *LargeListView) sizeAt(slot int64) int64 { return a.sizes[int64(a.data.offset)+slot] }
+
+func outOfBoundsListViewOffset(l offsetsAndSizes, slot int64, offsetLimit int64) error {
+	offset := l.offsetAt(slot)
+	return fmt.Errorf("%w: Offset invariant failure: offset for slot %d out of bounds. Expected %d to be at least 0 and less than %d", arrow.ErrInvalid, slot, offset, offsetLimit)
+}
+
+func outOfBoundsListViewSize(l offsetsAndSizes, slot int64, offsetLimit int64) error {
+	size := l.sizeAt(slot)
+	if size < 0 {
+		return fmt.Errorf("%w: Offset invariant failure: size for slot %d out of bounds: %d < 0", arrow.ErrInvalid, slot, size)
+	} else {
+		offset := l.offsetAt(slot)
+		return fmt.Errorf("%w: Offset invariant failure: size for slot %d out of bounds: %d + %d > %d", arrow.ErrInvalid, slot, offset, size, offsetLimit)
+	}
+}
+
+// Pre-condition: Basic validation has already been performed
+func (a *array) fullyValidateOffsetsAndSizes(l offsetsAndSizes, offsetLimit int64) error {
+	validity := a.NullBitmapBytes()
+
+	slot := int64(0)
+	if validity != nil {
+		counter := bitutils.NewBitBlockCounter(validity, int64(a.Offset()), int64(a.Len()))
+		var block bitutils.BitBlockCount
+		for i := 0; i < a.Len(); i += int(block.Len) {
+			block = counter.NextWord()
+			if block.NoneSet() {
+				continue
+			}
+			allSet := block.AllSet()
+			for j := 0; j < int(block.Len); j += 1 {
+				slot = int64(i + j)
+				valid := allSet || bitutil.BitIsSet(validity, a.Offset()+int(slot))
+				if valid {
+					size := l.sizeAt(slot)
+					if size > 0 {
+						offset := l.offsetAt(slot)
+						if offset < 0 || offset > offsetLimit {
+							return outOfBoundsListViewOffset(l, slot, offsetLimit)
+						}
+						if size > offsetLimit-offset {
+							return outOfBoundsListViewSize(l, slot, offsetLimit)
+						}
+					} else if size < 0 {
+						return outOfBoundsListViewSize(l, slot, offsetLimit)
+					}
+				}
+			}
+		}
+	} else {
+		for ; slot < int64(a.Len()); slot += 1 {
+			size := l.sizeAt(slot)
+			if size > 0 {
+				offset := l.offsetAt(slot)
+				if offset < 0 || offset > offsetLimit {
+					return outOfBoundsListViewOffset(l, slot, offsetLimit)
+				}
+				if size > offsetLimit-int64(offset) {
+					return outOfBoundsListViewSize(l, slot, offsetLimit)
+				}
+			} else if size < 0 {
+				return outOfBoundsListViewSize(l, slot, offsetLimit)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (a *array) validateOffsetsAndMaybeSizes(l offsetsAndSizes, offsetByteWidth int, isListView bool, offsetLimit int64, fullValidation bool) error {
+	nonEmpty := a.Len() > 0
+	if a.data.buffers[1] == nil {
+		// For length 0, an empty offsets buffer is accepted (ARROW-544).
+		if nonEmpty {
+			return fmt.Errorf("non-empty array but offsets are null")
+		} else {
+			return nil
+		}
+	}
+	if isListView {
+		if a.data.buffers[2] == nil {
+			if nonEmpty {
+				return fmt.Errorf("non-empty array but sizes are null")
+			} else {
+				return nil
+			}
+		}
+	}
+
+	var requiredOffsets int
+	if nonEmpty {
+		requiredOffsets = a.Len() + a.Offset()
+		if !isListView {
+			requiredOffsets += 1
+		}
+	} else {
+		requiredOffsets = 0
+	}
+	offsetsByteSize := a.data.buffers[1].Len()
+	if offsetsByteSize/offsetByteWidth < requiredOffsets {
+		return fmt.Errorf("offsets buffer size (bytes): %d isn't large enough for length: %d and offset: %d",
+			offsetsByteSize, a.Len(), a.Offset())
+	}
+	if isListView {
+		requiredSizes := a.Len() + a.Offset()
+		sizesBytesSize := a.data.buffers[2].Len()
+		if sizesBytesSize/offsetByteWidth < requiredSizes {
+			return fmt.Errorf("sizes buffer size (bytes): %d isn't large enough for length: %d and offset: %d",
+				sizesBytesSize, a.Len(), a.Offset())
+		}
+	}
+
+	if fullValidation && requiredOffsets > 0 {
+		if isListView {
+			return a.fullyValidateOffsetsAndSizes(l, offsetLimit)
+		} else {
+			// TODO: implement validation of List and LargeList
+			// return fullyValidateOffsets(offset_limit)
+			return nil
+		}
+	}
+	return nil
+}
+
+func (a *ListView) validate(fullValidation bool) error {
+	values := a.array.data.childData[0]
+	offsetLimit := values.Len()
+	return a.array.validateOffsetsAndMaybeSizes(a, 4, true, int64(offsetLimit), fullValidation)
+}
+
+func (a *ListView) Validate() error {
+	return a.validate(false)
+}
+
+func (a *ListView) ValidateFull() error {
+	return a.validate(true)
+}
+
+func (a *LargeListView) validate(fullValidation bool) error {
+	values := a.array.data.childData[0]
+	offsetLimit := values.Len()
+	return a.array.validateOffsetsAndMaybeSizes(a, 8, true, int64(offsetLimit), fullValidation)
+}
+
+func (a *LargeListView) Validate() error {
+	return a.validate(false)
+}
+
+func (a *LargeListView) ValidateFull() error {
+	return a.validate(true)
 }
 
 type baseListViewBuilder struct {
