@@ -82,112 +82,23 @@ target environment.**
 Supported environments
 ----------------------
 
-.. grid:: auto
+.. toctree::
+   :maxdepth: 1
 
-   .. grid-item::
+   C/GLib <c_glib/index>
+   C++ <cpp/index>
+   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
+   Go <https://pkg.go.dev/github.com/apache/arrow/go>
+   Java <java/index>
+   JavaScript <js/index>
+   Julia <https://arrow.apache.org/julia/>
+   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
+   Python <python/index>
+   R <r/index>
+   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
+   Rust <https://docs.rs/crate/arrow/>
+   Implementation Status for all of the languages <status>
 
-      .. button-ref:: c-glib
-         :ref-type: ref
-         :color: info
-         :shadow:
-
-         C/GLib
-
-   .. grid-item::
-
-      .. button-ref:: cpp
-         :ref-type: ref
-         :color: info
-         :expand:
-
-         C++
-
-   .. grid-item::
-
-      .. button-link:: https://github.com/apache/arrow/blob/main/csharp/README.md
-         :color: info
-         :expand:
-
-         C#
-   
-   .. grid-item::
-
-      .. button-link:: https://pkg.go.dev/github.com/apache/arrow/go
-         :color: info
-         :expand:
-
-         Go
-
-   .. grid-item::
-
-      .. button-ref:: java
-         :ref-type: ref
-         :color: info
-         :expand:
-
-         Java
-
-   .. grid-item::
-
-      .. button-ref:: js
-         :ref-type: ref
-         :color: info
-         :expand:
-
-         JavaScript
-
-   .. grid-item::
-
-      .. button-link:: https://arrow.apache.org/julia/
-         :color: info
-         :expand:
-
-         Julia
-
-   .. grid-item::
-
-      .. button-link:: https://github.com/apache/arrow/blob/main/matlab/README.md
-         :ref-type: ref
-         :color: info
-         :expand:
-
-         Matlab
-
-   .. grid-item::
-
-      .. button-ref:: python
-         :ref-type: ref
-         :color: info
-         :expand:
-
-         Python
-
-   .. grid-item::
-
-      .. button-ref:: r
-         :ref-type: ref
-         :color: info
-         :expand:
-
-         R
-
-   .. grid-item::
-
-      .. button-link:: https://github.com/apache/arrow/blob/main/ruby/README.md
-         :color: info
-         :expand:
-
-         Ruby
-
-   .. grid-item::
-
-      .. button-link:: https://docs.rs/crate/arrow/
-         :color: info
-         :expand:
-
-         Rust
-
-`Implementation Status for all of the languages <status>`_
 
 Cookbooks
 ---------
