@@ -473,17 +473,19 @@ build_libarrow <- function(src_dir, dst_dir) {
   env_vars <- env_vars_as_string(env_var_list)
 
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
-  status <- suppressWarnings(system(
+
+  status <- suppressWarnings(system2(
     paste(env_vars, "inst/build_arrow_static.sh"),
-    ignore.stdout = quietly, ignore.stderr = quietly
+    stdout = ifelse(quietly, NULL, TRUE),
+    stderr = ifelse(quietly, NULL, TRUE)
   ))
-  if (status != 0) {
+  if (!is.null(attr(status, "status"))) {
     # It failed :(
-    cat(
-      "**** Error building Arrow C++.",
-      ifelse(env_is("ARROW_R_DEV", "true"), "", "Re-run with ARROW_R_DEV=true for debug information."),
-      "\n"
-    )
+    cat("**** Error building Arrow C++.", "\n")
+    if (!env_is("ARROW_R_DEV", "true")) {
+      cat(status, fill = TRUE)
+      cat("Re-run with ARROW_R_DEV=true for more detailed debug information.")
+    }
   }
   invisible(status)
 }
