@@ -1,4 +1,4 @@
-#! /usr/bin/env -S node --loader ts-node/esm/transpile-only
+#! /usr/bin/env -S node --no-warnings --loader ts-node/esm/transpile-only
 
 // Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
