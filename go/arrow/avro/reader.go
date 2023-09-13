@@ -64,17 +64,11 @@ type OCFReader struct {
 	avroChanSize   int
 	recChan        chan arrow.Record
 
-	ocfDone  chan struct{}
-	avroDone bool
-	bldDone  chan struct{}
-	recDone  bool
+	bldDone chan struct{}
 
 	recChanSize int
 	chunk       int
-
-	done bool
-
-	mem memory.Allocator
+	mem         memory.Allocator
 }
 
 // NewReader returns a reader that reads from an Avro OCF file and creates
@@ -98,7 +92,6 @@ func NewOCFReader(r io.Reader, opts ...Option) (*OCFReader, error) {
 
 	rr.avroChan = make(chan any, rr.avroChanSize)
 	rr.recChan = make(chan arrow.Record, rr.recChanSize)
-	rr.ocfDone = make(chan struct{})
 	rr.bldDone = make(chan struct{})
 	schema, err := avro.Parse(string(ocfr.Metadata()["avro.schema"]))
 	if err != nil {
@@ -152,12 +145,9 @@ func (rr *OCFReader) Reuse(r io.Reader, opts ...Option) error {
 	rr.maxRec = 0
 	rr.avroDatumCount = 0
 	rr.primed = false
-	rr.avroDone = false
-	rr.recDone = false
 
 	rr.avroChan = make(chan any, rr.avroChanSize)
 	rr.recChan = make(chan arrow.Record, rr.recChanSize)
-	rr.ocfDone = make(chan struct{})
 	rr.bldDone = make(chan struct{})
 
 	rr.readerCtx, rr.readCancel = context.WithCancel(context.Background())

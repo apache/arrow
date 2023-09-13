@@ -35,7 +35,6 @@ func (r *OCFReader) decodeOCFToChan() {
 			if err != nil {
 				if errors.Is(err, io.EOF) {
 					r.err = nil
-					r.ocfDone <- struct{}{}
 					close(r.avroChan)
 					return
 				}
@@ -45,76 +44,41 @@ func (r *OCFReader) decodeOCFToChan() {
 			r.avroDatumCount++
 		}
 	}
-	r.ocfDone <- struct{}{}
 	close(r.avroChan)
 }
 
 func (r *OCFReader) recordFactory() {
 	r.primed = true
-	var drained bool
-	for !r.avroDone {
-		if r.chunk < 1 {
-			for !drained {
-				select {
-				case <-r.ocfDone:
-					if len(r.avroChan) == 0 {
-						drained = true
-						r.recChan <- r.bld.NewRecord()
-						r.bldDone <- struct{}{}
-						r.recDone = true
-						close(r.recChan)
-						return
-					}
-					r.avroDone = true
-				default:
-					if len(r.avroChan) > 0 || !r.avroDone {
-						data := <-r.avroChan
-						err := r.ldr.loadDatum(data)
-						if err != nil {
-							r.err = err
-							r.done = true
-							return
-						}
-					}
-				}
-			}
-		} else {
-			for i := 0; i < r.chunk && !drained; i++ {
-				select {
-				case <-r.ocfDone:
-					r.avroDone = true
-					if len(r.avroChan) == 0 {
-						drained = true
-						r.recChan <- r.bld.NewRecord()
-						r.bldDone <- struct{}{}
-						r.recDone = true
-						close(r.recChan)
-						return
-					} else {
-						data := <-r.avroChan
-						err := r.ldr.loadDatum(data)
-						if err != nil {
-							r.err = err
-							r.done = true
-							return
-						}
-					}
-				default:
-					if len(r.avroChan) > 0 || !r.avroDone {
-						data := <-r.avroChan
-						err := r.ldr.loadDatum(data)
-						if err != nil {
-							r.err = err
-							r.done = true
-							return
-						}
-					}
-				}
+	recChunk := 0
+	switch {
+	case r.chunk < 1:
+		for data := range r.avroChan {
+			err := r.ldr.loadDatum(data)
+			if err != nil {
+				r.err = err
+				return
 			}
 		}
 		r.recChan <- r.bld.NewRecord()
+		r.bldDone <- struct{}{}
+		close(r.recChan)
+	case r.chunk >= 1:
+		for data := range r.avroChan {
+			if recChunk == 0 {
+				r.bld.Reserve(r.chunk)
+			}
+			err := r.ldr.loadDatum(data)
+			if err != nil {
+				r.err = err
+				return
+			}
+			recChunk++
+			if recChunk >= r.chunk {
+				r.recChan <- r.bld.NewRecord()
+				recChunk = 0
+			}
+		}
+		r.bldDone <- struct{}{}
+		close(r.recChan)
 	}
-	r.bldDone <- struct{}{}
-	r.recDone = true
-	close(r.recChan)
 }
