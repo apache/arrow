@@ -79,7 +79,7 @@ TEST_OFFLINE_BUILD=`echo $TEST_OFFLINE_BUILD | tr '[:upper:]' '[:lower:]'`
 
 VERSION=`grep '^Version' DESCRIPTION | sed s/Version:\ //`
 UNAME=`uname -s`
-: ${PKG_CONFIG:="pkg-config --debug"}
+: ${PKG_CONFIG:="pkg-config"}
 
 # These will only be set in the bundled build
 S3_LIBS=""
@@ -130,7 +130,6 @@ fi
 # same process to find openssl, but doing it now allows us to catch it in
 # nixlibs.R and throw a nicer error.
 if [ "${OPENSSL_ROOT_DIR}" = "" ] && brew --prefix openssl >/dev/null 2>&1; then
-  echo "*** Found openssl via Homebrew."
   export OPENSSL_ROOT_DIR="`brew --prefix openssl`"
   export PKG_CONFIG_PATH="${OPENSSL_ROOT_DIR}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
 fi
@@ -142,10 +141,19 @@ fi
 find_or_build_libarrow () {
   if [ "$FORCE_BUNDLED_BUILD" = "true" ]; then
     do_bundled_build
+  elif [ "$FORCE_AUTOBREW" = "true" ]; then
+    do_autobrew
   else
     find_arrow
     if [ "$_LIBARROW_FOUND" = "false" ]; then
-             do_bundled_build
+      # If we haven't found a suitable version of libarrow, build it
+      if [ "$UNAME" = "Darwin" ] && ! echo $VERSION | grep -q "000"; then
+        # Only autobrew on release version (for testing, use FORCE_AUTOBREW above)
+        # (dev versions end in .9000, and nightly gets something like .10000xxx)
+        do_autobrew
+      else
+        do_bundled_build
+      fi
     fi
   fi
 }
@@ -402,7 +410,6 @@ arrow_built_with() {
 # First:
 find_or_build_libarrow
 
-echo "PKG_LIBS=$PKG_LIBS"
 # We should have a valid libarrow build in $_LIBARROW_FOUND
 # Now set `PKG_LIBS`, `PKG_DIRS`, and `PKG_CFLAGS` based on that.
 # _LIBARROW_FOUND should only be unset in the FORCE_AUTOBREW case,
