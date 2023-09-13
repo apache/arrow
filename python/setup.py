@@ -24,6 +24,7 @@ from os.path import join as pjoin
 import re
 import shlex
 import sys
+import configparser
 
 if sys.version_info >= (3, 10):
     import sysconfig
@@ -74,6 +75,32 @@ def strtobool(val):
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+def override_system_environment():
+    """
+    On emscripten (and possibly other cross-compile environments),
+    we are often building in an isolated build for cross-compiling
+    where configuring via environment variables is impractical.
+
+    Because of this, we allow an optional file named
+    'arrow_build_overrides.cfg', which is in configparser
+    format, with a single section named [environment]
+    """
+    parser = configparser.ConfigParser()
+    # make this case sensitive
+    parser.optionxform = str
+    if not os.path.exists("arrow_build_overrides.cfg"):
+        return
+    parser.read("arrow_build_overrides.cfg")
+    if "environment" not in parser:
+        return
+    for k, v in parser["environment"].items():
+        print("Override:", k, v)
+        if v:
+            os.environ[k] = v
+        else:
+            del os.environ[k]
 
 
 class build_ext(_build_ext):
@@ -135,6 +162,8 @@ class build_ext(_build_ext):
 
     def initialize_options(self):
         _build_ext.initialize_options(self)
+        override_system_environment()
+        
         self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
         if not self.cmake_generator and sys.platform == 'win32':
             self.cmake_generator = 'Visual Studio 15 2017 Win64'
@@ -305,6 +334,13 @@ class build_ext(_build_ext):
                 parallel = os.environ.get('PYARROW_PARALLEL')
                 if parallel:
                     build_tool_args.append(f'-j{parallel}')
+
+            if sysconfig.get_config_var("SOABI").find("emscripten") != -1:
+                cmake_options.append(
+                    "-DCMAKE_TOOLCHAIN_FILE="
+                    + source
+                    + "/cmake_modules/Emscripten/Platform/EmscriptenOverrides.cmake"
+                )
 
             # Generate the build files
             print("-- Running cmake for PyArrow")

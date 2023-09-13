@@ -44,3 +44,6 @@ pyarrow/_table_api.h
 manylinux1/arrow
 nm_arrow.log
 visible_symbols.log
+
+# build override configuration
+arrow_build_overrides.cfg
