@@ -284,6 +284,7 @@ jobs:
     runs-on: macos-11
     needs: [source, macos-cpp]
     steps:
+      - uses: r-lib/actions/setup-r@v2
       {{ macros.github_setup_local_r_repo(false, false, true)|indent }}
       - name: Prepare Dependency Installation
         shell: bash
