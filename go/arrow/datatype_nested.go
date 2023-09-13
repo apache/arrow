@@ -39,6 +39,10 @@ type (
 		Elem() DataType
 		ElemField() Field
 	}
+
+	VarLenListLikeType interface {
+		ListLikeType
+	}
 )
 
 // ListType describes a nested type in which each array slot contains
@@ -963,4 +967,11 @@ var (
 	_ ListLikeType = (*LargeListType)(nil)
 	_ ListLikeType = (*FixedSizeListType)(nil)
 	_ ListLikeType = (*MapType)(nil)
+
+	_ VarLenListLikeType = (*ListType)(nil)
+	_ VarLenListLikeType = (*LargeListType)(nil)
+	_ VarLenListLikeType = (*ListViewType)(nil)
+	_ VarLenListLikeType = (*LargeListViewType)(nil)
+	_ VarLenListLikeType = (*FixedSizeListType)(nil)
+	_ VarLenListLikeType = (*MapType)(nil)
 )
