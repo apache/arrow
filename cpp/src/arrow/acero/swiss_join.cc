@@ -440,7 +440,8 @@ void RowArray::DebugPrintToFile(const char* filename, bool print_sorted) const {
 Status RowArrayMerge::PrepareForMerge(RowArray* target,
                                       const std::vector<RowArray*>& sources,
                                       std::vector<int64_t>* first_target_row_id,
-                                      MemoryPool* pool) {
+                                      MemoryPool* pool,
+                                      bool check_key_size) {
   ARROW_DCHECK(!sources.empty());
 
   ARROW_DCHECK(sources[0]->is_initialized_);
@@ -473,7 +474,7 @@ Status RowArrayMerge::PrepareForMerge(RowArray* target,
     (*first_target_row_id)[sources.size()] = num_rows;
   }
 
-  if (num_bytes > std::numeric_limits<uint32_t>::max()) {
+  if (check_key_size && num_bytes > std::numeric_limits<uint32_t>::max()) {
     return Status::Invalid(
         "There are more than 2^32 bytes of key data.  Acero cannot "
         "process a join of this magnitude");
@@ -1331,7 +1332,7 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
     partition_keys[i] = prtn_states_[i].keys.keys();
   }
   RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(target_->map_.keys(), partition_keys,
-                                               &partition_keys_first_row_id_, pool_));
+                                               &partition_keys_first_row_id_, pool_, true));
 
   // 2. SwissTable:
   //
@@ -1354,7 +1355,7 @@ Status SwissTableForJoinBuild::PreparePrtnMerge() {
     }
     RETURN_NOT_OK(RowArrayMerge::PrepareForMerge(&target_->payloads_, partition_payloads,
                                                  &partition_payloads_first_row_id_,
-                                                 pool_));
+                                                 pool_, false));
   }
 
   // Check if we have duplicate keys
