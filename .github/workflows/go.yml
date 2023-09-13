@@ -55,22 +55,22 @@ jobs:
           - arch-label: AMD64
             arch: amd64
             go: 1.19
-            runs-on: ubuntu-latest            
+            runs-on: ubuntu-latest
           - arch-label: AMD64
             arch: amd64
             go: '1.20'
-            runs-on: ubuntu-latest            
+            runs-on: ubuntu-latest
           - arch-label: ARM64
             arch: arm64v8
-            go: 1.19            
+            go: 1.19
             runs-on: ["self-hosted", "arm", "linux"]
           - arch-label: ARM64
             arch: arm64v8
-            go: '1.20'            
+            go: '1.20'
             runs-on: ["self-hosted", "arm", "linux"]
     env:
       ARCH: ${{ matrix.arch }}
-      GO: ${{ matrix.go }}      
+      GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
@@ -156,9 +156,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']        
+        go: [1.19, '1.20']
     env:
-      GO: ${{ matrix.go }}      
+      GO: ${{ matrix.go }}
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v4
@@ -197,7 +197,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: [1.19, '1.20']        
+        go: [1.19, '1.20']
     env:
       GO: ${{ matrix.go }}
     steps:
