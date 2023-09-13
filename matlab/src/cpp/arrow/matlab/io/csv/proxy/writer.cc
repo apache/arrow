@@ -81,7 +81,6 @@ namespace arrow::matlab::io::csv::proxy {
                                             arrow::io::FileOutputStream::Open(filename),
                                             context,
                                             error::FAILED_TO_OPEN_FILE_FOR_WRITE);
-        write_props.version = arrow::ipc::csv::kFeatherV1Version;
         csv::WriteOptions options;
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(csv::WriteCSV(*table, options, output_stream.get()),
                                             context,
