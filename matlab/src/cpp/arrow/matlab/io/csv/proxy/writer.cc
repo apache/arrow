@@ -40,13 +40,14 @@ namespace arrow::matlab::io::csv::proxy {
         namespace mda = ::matlab::data;
         mda::StructArray opts = constructor_arguments[0];
         const mda::StringArray filename_mda = opts[0]["Filename"];
+        using WriterProxy = ::arrow::matlab::io::csv::proxy::Writer;
 
         const auto filename_utf16 = std::u16string(filename_mda[0]);
         MATLAB_ASSIGN_OR_ERROR(const auto filename_utf8,
                                arrow::util::UTF16StringToUTF8(filename_utf16),
                                error::UNICODE_CONVERSION_ERROR_ID);
 
-        return std::make_shared<Writer>(filename_utf8);
+        return std::make_shared<WriterProxy>(filename_utf8);
     }
 
     void Writer::getFilename(libmexclass::proxy::method::Context& context) {
