@@ -71,16 +71,17 @@ jobs:
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
-
+      - name: Install Deps
+        run: |
+          #brew bundle  --file=arrow/cpp/Brewfile
+          brew install sccache
+          brew install openssl@${{ matrix.openssl }}
       - name: Build libarrow
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           MACOSX_DEPLOYMENT_TARGET: "10.13"
         run: |
-          brew bundle  --file=arrow/cpp/Brewfile
-          brew install sccache
-          brew install openssl@{{ '${{ matrix.openssl }}' }}
           export OPENSSL_ROOT_DIR=$(brew --prefix openssl@{{'${{ matrix.openssl }}' }})
           cd arrow
           r/inst/build_arrow_static.sh
