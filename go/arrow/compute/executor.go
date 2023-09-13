@@ -1007,6 +1007,9 @@ func (v *vectorExecutor) WrapResults(ctx context.Context, out <-chan Datum, hasC
 	case <-ctx.Done():
 		return nil
 	case output = <-out:
+		if output == nil {
+			return nil
+		}
 		// if the inputs contained at least one chunked array
 		// then we want to return chunked output
 		if hasChunked {
