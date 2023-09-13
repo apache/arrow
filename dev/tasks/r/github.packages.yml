@@ -262,7 +262,8 @@ jobs:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
       # actions/checkout for some reason in this context
-      {{ macros.github_checkout_arrow(1, false)|indent }}
+      {{ macros.github_checkout_arrow(1, false, '3')|indent }}
+
       - name: Install system requirements
         env:
           ARROW_R_DEV: "TRUE" # To install curl/openssl in r_docker_configure.sh

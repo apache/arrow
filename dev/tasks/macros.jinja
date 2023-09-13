@@ -25,9 +25,9 @@ on:
       - "*-github-*"
 {% endmacro %}
 
-{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive") -%}
+{%- macro github_checkout_arrow(fetch_depth=1, submodules="recursive", action_v="4") -%}
   - name: Checkout Arrow
-    uses: actions/checkout@v4
+    uses: actions/checkout@v{{ action_v }}
     with:
       fetch-depth: {{ fetch_depth }}
       path: arrow

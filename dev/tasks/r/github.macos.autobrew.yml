@@ -34,7 +34,7 @@ jobs:
             - "{{ macros.r_release.ver }}"
             - "{{ macros.r_oldrel.ver }}"
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(action_v='3')|indent }}
       - name: Configure autobrew script
         run: |
           # minio and sccache are pre-installed on the self-hosted 10.13 runner
