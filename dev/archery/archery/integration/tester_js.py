@@ -57,20 +57,19 @@ class JSTester(Tester):
         return self._run(_VALIDATE, arrow_path, json_path, 'VALIDATE')
 
     def json_to_file(self, json_path, arrow_path):
-        cmd = ['node',
-               '--no-warnings', _JSON_TO_ARROW,
+        cmd = [_JSON_TO_ARROW,
                '-a', arrow_path,
                '-j', json_path]
         self.run_shell_command(cmd, cwd=ARROW_JS_ROOT)
 
     def stream_to_file(self, stream_path, file_path):
-        cmd = ['node', '--no-warnings', _STREAM_TO_FILE,
+        cmd = [_STREAM_TO_FILE,
                '<', stream_path,
                '>', file_path]
         self.run_shell_command(cmd, cwd=ARROW_JS_ROOT)
 
     def file_to_stream(self, file_path, stream_path):
-        cmd = ['node', '--no-warnings', _FILE_TO_STREAM,
+        cmd = [_FILE_TO_STREAM,
                '<', file_path,
                '>', stream_path]
         self.run_shell_command(cmd, cwd=ARROW_JS_ROOT)
