@@ -484,6 +484,10 @@ ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
                                                       std::string* out_path = NULLPTR);
 
+ARROW_EXPORT
+Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndFs(const std::string& uri_string,
+                                                           std::string* out_path, void* fsRef);
+
 /// \brief Create a new FileSystem by URI with a custom IO context
 ///
 /// Recognized schemes are "file", "mock", "hdfs", "viewfs", "s3",

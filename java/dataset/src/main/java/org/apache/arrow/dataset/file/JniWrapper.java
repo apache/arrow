@@ -49,6 +49,18 @@ public class JniWrapper {
    * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
    * intermediate shared_ptr of the factory instance.
    *
+   * @param uri file uri to read, either a file or a directory
+   * @param fileFormat file format ID
+   * @param fs the existing java context file system
+   * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.
+   * @see FileFormat
+   */
+  public native long makeFileSystemDatasetFactory(String uri, int fileFormat, Object fs);
+
+  /**
+   * Create FileSystemDatasetFactory and return its native pointer. The pointer is pointing to a
+   * intermediate shared_ptr of the factory instance.
+   *
    * @param uris List of file uris to read, each path pointing to an individual file
    * @param fileFormat file format ID
    * @return the native pointer of the arrow::dataset::FileSystemDatasetFactory instance.

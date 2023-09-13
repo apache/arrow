@@ -217,7 +217,7 @@ Result<std::shared_ptr<DatasetFactory>> FileSystemDatasetFactory::Make(
   // ARROW-12481.
   std::string internal_path;
   ARROW_ASSIGN_OR_RAISE(std::shared_ptr<fs::FileSystem> filesystem,
-                        fs::FileSystemFromUri(uri, &internal_path))
+                        fs::FileSystemFromUriAndFs(uri, &internal_path, options.java_fs_global_ref))
   ARROW_ASSIGN_OR_RAISE(fs::FileInfo file_info, filesystem->GetFileInfo(internal_path))
   if (file_info.IsDirectory()) {
     fs::FileSelector selector;

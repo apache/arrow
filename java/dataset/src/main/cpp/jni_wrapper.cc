@@ -604,6 +604,28 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljav
 /*
  * Class:     org_apache_arrow_dataset_file_JniWrapper
  * Method:    makeFileSystemDatasetFactory
+ * Signature: (Ljava/lang/String;ILjava/lang/Object;)J
+ */
+JNIEXPORT jlong JNICALL
+Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljava_lang_String_2ILjava_lang_Object_2(
+    JNIEnv* env, jobject, jstring uri, jint file_format_id, jobject fs) {
+  JNI_METHOD_START
+  std::shared_ptr<arrow::dataset::FileFormat> file_format =
+      JniGetOrThrow(GetFileFormat(file_format_id));
+  arrow::dataset::FileSystemFactoryOptions options;
+  jobject fsObj = env->NewGlobalRef(fs);
+  options.java_fs_global_ref = &fsObj;
+
+  std::shared_ptr<arrow::dataset::DatasetFactory> d =
+      JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
+          JStringToCString(env, uri), file_format, options));
+  return CreateNativeRef(d);
+  JNI_METHOD_END(-1L)
+}
+
+/*
+ * Class:     org_apache_arrow_dataset_file_JniWrapper
+ * Method:    makeFileSystemDatasetFactory
  * Signature: ([Ljava/lang/String;II)J
  */
 JNIEXPORT jlong JNICALL
