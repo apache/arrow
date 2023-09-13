@@ -1,4 +1,4 @@
-%WRITER Class for writing CSV files.
+%TABLEWRITER Writes tabular data in an arrow.tabular.Table to a CSV file.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -14,7 +14,7 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef Writer < matlab.mixin.Scalar
+classdef TableWriter < matlab.mixin.Scalar
 
     properties(Hidden, SetAccess=private, GetAccess=public)
         Proxy
@@ -25,18 +25,18 @@ classdef Writer < matlab.mixin.Scalar
     end
 
     methods
-        function obj = Writer(filename)
+        function obj = TableWriter(filename)
             arguments
                 filename(1, 1) {mustBeNonmissing, mustBeNonzeroLengthText}
             end
 
             args = struct(Filename=filename);
-            proxyName = "arrow.io.csv.proxy.Writer";
+            proxyName = "arrow.io.csv.proxy.TableWriter";
             obj.Proxy = arrow.internal.proxy.create(proxyName, args);
         end
 
-        function write(obj, recordBatch)
-            args = struct(RecordBatchProxyID=recordBatch.Proxy.ID);
+        function write(obj, table)
+            args = struct(TableProxyID=table.Proxy.ID);
             obj.Proxy.write(args);
         end
 

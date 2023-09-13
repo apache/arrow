@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/io/csv/proxy/writer.h"
-#include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/matlab/io/csv/proxy/table_writer.h"
+#include "arrow/matlab/tabular/proxy/table.h"
 #include "arrow/matlab/error/error.h"
 
 #include "arrow/result.h"
@@ -31,26 +31,26 @@
 
 namespace arrow::matlab::io::csv::proxy {
 
-    Writer::Writer(const std::string& filename) : filename{filename} {
-        REGISTER_METHOD(Writer, getFilename);
-        REGISTER_METHOD(Writer, write);
+    TableWriter::TableWriter(const std::string& filename) : filename{filename} {
+        REGISTER_METHOD(TableWriter, getFilename);
+        REGISTER_METHOD(TableWriter, write);
     }
 
-    libmexclass::proxy::MakeResult Writer::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
+    libmexclass::proxy::MakeResult TableWriter::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
         namespace mda = ::matlab::data;
         mda::StructArray opts = constructor_arguments[0];
         const mda::StringArray filename_mda = opts[0]["Filename"];
-        using WriterProxy = ::arrow::matlab::io::csv::proxy::Writer;
+        using TableWriterProxy = ::arrow::matlab::io::csv::proxy::TableWriter;
 
         const auto filename_utf16 = std::u16string(filename_mda[0]);
         MATLAB_ASSIGN_OR_ERROR(const auto filename_utf8,
                                arrow::util::UTF16StringToUTF8(filename_utf16),
                                error::UNICODE_CONVERSION_ERROR_ID);
 
-        return std::make_shared<WriterProxy>(filename_utf8);
+        return std::make_shared<TableWriterProxy>(filename_utf8);
     }
 
-    void Writer::getFilename(libmexclass::proxy::method::Context& context) {
+    void TableWriter::getFilename(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto utf16_filename,
                                             arrow::util::UTF8StringToUTF16(filename),
@@ -61,21 +61,18 @@ namespace arrow::matlab::io::csv::proxy {
         context.outputs[0] = str_mda;
     }
 
-    void Writer::write(libmexclass::proxy::method::Context& context) {
+    void TableWriter::write(libmexclass::proxy::method::Context& context) {
         namespace csv = ::arrow::csv;
         namespace mda = ::matlab::data;
+        using TableProxy = ::arrow::matlab::tabular::proxy::Table;
+
         mda::StructArray opts = context.inputs[0];
-        const mda::TypedArray<uint64_t> record_batch_proxy_id_mda = opts[0]["RecordBatchProxyID"];
-        const uint64_t record_batch_proxy_id = record_batch_proxy_id_mda[0];
+        const mda::TypedArray<uint64_t> table_proxy_id_mda = opts[0]["TableProxyID"];
+        const uint64_t table_proxy_id = table_proxy_id_mda[0];
 
-        auto proxy = libmexclass::proxy::ProxyManager::getProxy(record_batch_proxy_id);
-        auto record_batch_proxy = std::static_pointer_cast<arrow::matlab::tabular::proxy::RecordBatch>(proxy);
-        auto record_batch = record_batch_proxy->unwrap();
-
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto table,
-                                            arrow::Table::FromRecordBatches({record_batch}),
-                                            context,
-                                            error::TABLE_FROM_RECORD_BATCH);
+        auto proxy = libmexclass::proxy::ProxyManager::getProxy(table_proxy_id);
+        auto table_proxy = std::static_pointer_cast<TableProxy>(proxy);
+        auto table = table_proxy->unwrap();
 
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(std::shared_ptr<arrow::io::OutputStream> output_stream,
                                             arrow::io::FileOutputStream::Open(filename),
