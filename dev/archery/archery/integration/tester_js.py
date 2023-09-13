@@ -22,7 +22,8 @@ from .util import run_cmd, log
 from ..utils.source import ARROW_ROOT_DEFAULT
 
 
-_EXE_PATH = os.path.join(ARROW_ROOT_DEFAULT, 'js/bin')
+ARROW_JS_ROOT = os.path.join(ARROW_ROOT_DEFAULT, 'js')
+_EXE_PATH = os.path.join(ARROW_JS_ROOT, 'bin')
 _VALIDATE = os.path.join(_EXE_PATH, 'integration.ts')
 _JSON_TO_ARROW = os.path.join(_EXE_PATH, 'json-to-arrow.ts')
 _STREAM_TO_FILE = os.path.join(_EXE_PATH, 'stream-to-file.ts')
@@ -50,7 +51,7 @@ class JSTester(Tester):
         if self.debug:
             log(' '.join(cmd))
 
-        run_cmd(cmd)
+        run_cmd(cmd, cwd=ARROW_JS_ROOT)
 
     def validate(self, json_path, arrow_path, quirks=None):
         return self._run(_VALIDATE, arrow_path, json_path, 'VALIDATE')
@@ -60,16 +61,16 @@ class JSTester(Tester):
                '--no-warnings', _JSON_TO_ARROW,
                '-a', arrow_path,
                '-j', json_path]
-        self.run_shell_command(cmd)
+        self.run_shell_command(cmd, cwd=ARROW_JS_ROOT)
 
     def stream_to_file(self, stream_path, file_path):
         cmd = ['node', '--no-warnings', _STREAM_TO_FILE,
                '<', stream_path,
                '>', file_path]
-        self.run_shell_command(cmd)
+        self.run_shell_command(cmd, cwd=ARROW_JS_ROOT)
 
     def file_to_stream(self, file_path, stream_path):
         cmd = ['node', '--no-warnings', _FILE_TO_STREAM,
                '<', file_path,
                '>', stream_path]
-        self.run_shell_command(cmd)
+        self.run_shell_command(cmd, cwd=ARROW_JS_ROOT)
