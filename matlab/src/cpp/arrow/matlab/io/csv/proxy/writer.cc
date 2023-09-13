@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/io/feather/proxy/writer.h"
+#include "arrow/matlab/io/csv/proxy/writer.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/error/error.h"
 
@@ -29,7 +29,7 @@
 
 #include "libmexclass/proxy/ProxyManager.h"
 
-namespace arrow::matlab::io::feather::proxy {
+namespace arrow::matlab::io::csv::proxy {
 
     Writer::Writer(const std::string& filename) : filename{filename} {
         REGISTER_METHOD(Writer, getFilename);
