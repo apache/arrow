@@ -37,7 +37,7 @@ func TestNewScalarFunc(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "add(i32(1), i32(10), {overflow: [ERROR]}) => i32", fn.String())
-	assert.Equal(t, "add:i32_i32", fn.Name())
+	assert.Equal(t, "add:i32_i32", fn.CompoundName())
 }
 
 func TestFieldRefDotPath(t *testing.T) {
