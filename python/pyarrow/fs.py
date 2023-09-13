@@ -356,17 +356,11 @@ class FSSpecHandler(FileSystemHandler):
             selector.base_dir, maxdepth=maxdepth, withdirs=True, detail=True
         )
         for path, info in selected_files.items():
-            start = start_p = 0
-            end = len(selector.base_dir)
-            if path.startswith("/"):
-                start_p += 1
-            if selector.base_dir.startswith("/"):
-                start += 1
-            if selector.base_dir.endswith("/"):
-                end -= 1
+            _path = path.strip("/")
+            base_dir = selector.base_dir.strip("/")
             # Need to exclude base directory from selected files if present
             # (fsspec filesystems, see GH-37555)
-            if path[start_p:] != selector.base_dir[start:end]:
+            if _path != base_dir:
                 infos.append(self._create_file_info(path, info))
 
         return infos
