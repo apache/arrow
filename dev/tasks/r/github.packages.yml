@@ -303,13 +303,10 @@ jobs:
           ARROW_R_DEV: "true"
           ARROW_DOWNLOADED_BINARIES: "{{ '${{github.workspace}}' }}/repo/libarrow/bin/macos-amd64-openssl-3.0/arrow-{{ '${{ needs.source.outputs.pkg_versio  }}' }}.zip"
         run: |
-          install.packages('arrow',repos = "http://cran.us.r-project.org")
-          remove.packages('arrow')
           install.packages(
             "arrow",
             type = "source",
-            # The sub is necessary to prevent an error on windows.
-            repos = sub("file://", "file:", getOption("arrow.dev_repo") 
+            repos = getOption("arrow.dev_repo") 
           )
 
           # Test
