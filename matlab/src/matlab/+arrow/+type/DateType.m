@@ -36,9 +36,15 @@ classdef DateType < arrow.type.TemporalType
     end
 
     methods (Access=protected)
-        function group = getPropertyGroups(~)
+        function groups = getDisplayPropertyGroups(~)
             targets = ["ID" "DateUnit"];
-            group = matlab.mixin.util.PropertyGroup(targets);
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
+    methods(Hidden)
+        function data = preallocateMATLABArray(~, length)
+            data = NaT([length 1]);
         end
     end
 

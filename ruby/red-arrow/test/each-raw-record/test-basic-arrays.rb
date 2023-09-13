@@ -22,12 +22,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [nil],
     ]
-    iterated_records = []
     target = build({column: :null}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_boolean
@@ -36,12 +32,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [false],
     ]
-    iterated_records = []
     target = build({column: :boolean}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int8
@@ -50,12 +42,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 7) - 1],
     ]
-    iterated_records = []
     target = build({column: :int8}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint8
@@ -64,12 +52,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 8) - 1],
     ]
-    iterated_records = []
     target = build({column: :uint8}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int16
@@ -78,12 +62,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 15) - 1],
     ]
-    iterated_records = []
     target = build({column: :int16}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint16
@@ -92,12 +72,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 16) - 1],
     ]
-    iterated_records = []
     target = build({column: :uint16}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int32
@@ -106,12 +82,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 31) - 1],
     ]
-    iterated_records = []
     target = build({column: :int32}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint32
@@ -120,12 +92,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 32) - 1],
     ]
-    iterated_records = []
     target = build({column: :uint32}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_int64
@@ -134,12 +102,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 63) - 1],
     ]
-    iterated_records = []
     target = build({column: :int64}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_uint64
@@ -148,12 +112,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [(2 ** 64) - 1],
     ]
-    iterated_records = []
     target = build({column: :uint64}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_half_float
@@ -162,12 +122,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [1.5],
     ]
-    iterated_records = []
     target = build({column: :half_float}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_float
@@ -176,12 +132,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [1.0],
     ]
-    iterated_records = []
     target = build({column: :float}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_double
@@ -190,12 +142,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [1.0],
     ]
-    iterated_records = []
     target = build({column: :double}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_binary
@@ -204,12 +152,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       ["\xff".b],
     ]
-    iterated_records = []
     target = build({column: :binary}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_string
@@ -218,12 +162,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       ["\u3042"], # U+3042 HIRAGANA LETTER A
     ]
-    iterated_records = []
     target = build({column: :string}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_date32
@@ -232,12 +172,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Date.new(2017, 8, 23)],
     ]
-    iterated_records = []
     target = build({column: :date32}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_date64
@@ -246,12 +182,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [DateTime.new(2017, 8, 23, 14, 57, 2)],
     ]
-    iterated_records = []
     target = build({column: :date64}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_second
@@ -260,7 +192,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Time.parse("2017-08-23T14:57:02Z")],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :timestamp,
@@ -268,10 +199,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_milli
@@ -280,7 +208,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Time.parse("2017-08-23T14:57:02.987Z")],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :timestamp,
@@ -288,10 +215,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_micro
@@ -300,7 +224,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Time.parse("2017-08-23T14:57:02.987654Z")],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :timestamp,
@@ -308,10 +231,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_timestamp_nano
@@ -320,7 +240,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Time.parse("2017-08-23T14:57:02.987654321Z")],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :timestamp,
@@ -328,10 +247,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time32_second
@@ -341,7 +257,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Arrow::Time.new(unit, 60 * 60 * 2 + 9)], # 02:00:09
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :time32,
@@ -349,10 +264,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time32_milli
@@ -362,7 +274,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1000 + 987)], # 02:00:09.987
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :time32,
@@ -370,10 +281,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time64_micro
@@ -385,7 +293,6 @@ module EachRawRecordBasicArraysTests
       # 02:00:09.987654
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654)],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :time64,
@@ -393,10 +300,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_time64_nano
@@ -408,7 +312,6 @@ module EachRawRecordBasicArraysTests
       # 02:00:09.987654321
       [Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321)],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :time64,
@@ -416,10 +319,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_decimal128
@@ -428,7 +328,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [BigDecimal("29.29")],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :decimal128,
@@ -437,10 +336,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_decimal256
@@ -449,7 +345,6 @@ module EachRawRecordBasicArraysTests
       [nil],
       [BigDecimal("29.29")],
     ]
-    iterated_records = []
     target = build({
                      column: {
                        type: :decimal256,
@@ -458,10 +353,7 @@ module EachRawRecordBasicArraysTests
                      }
                    },
                    records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_month_interval
@@ -470,12 +362,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [12],
     ]
-    iterated_records = []
     target = build({column: :month_interval}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_day_time_interval
@@ -484,12 +372,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [{day: 2, millisecond: 300}],
     ]
-    iterated_records = []
     target = build({column: :day_time_interval}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 
   def test_month_day_nano_interval
@@ -498,12 +382,8 @@ module EachRawRecordBasicArraysTests
       [nil],
       [{month: 2, day: 3, nanosecond: 400}],
     ]
-    iterated_records = []
     target = build({column: :month_day_nano_interval}, records)
-    target.each_raw_record do |record|
-      iterated_records << record
-    end
-    assert_equal(records, iterated_records)
+    assert_equal(records, target.each_raw_record.to_a)
   end
 end
 
