@@ -79,64 +79,6 @@ target environment.**
 
          To the Development
 
-Supported environments
-----------------------
-
-.. toctree::
-   :maxdepth: 1
-
-   C/GLib <c_glib/index>
-   C++ <cpp/index>
-   C# <https://github.com/apache/arrow/blob/main/csharp/README.md>
-   Go <https://pkg.go.dev/github.com/apache/arrow/go>
-   Java <java/index>
-   JavaScript <js/index>
-   Julia <https://arrow.apache.org/julia/>
-   MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>
-   Python <python/index>
-   R <r/index>
-   Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
-   Rust <https://docs.rs/crate/arrow/>
-   Implementation Status for all of the languages <status>
-
-
-Cookbooks
----------
-
-.. grid::
-
-   .. grid-item::
-
-      .. button-link:: https://arrow.apache.org/cookbook/cpp/
-         :color: primary
-         :expand:
-
-         C++ cookbook
-
-   .. grid-item::
-
-      .. button-link:: https://arrow.apache.org/cookbook/java/
-         :color: primary
-         :expand:
-
-         Java cookbook
-
-   .. grid-item::
-
-      .. button-link:: https://arrow.apache.org/cookbook/py/
-         :color: primary
-         :expand:
-
-         Python cookbook
-
-   .. grid-item::
-
-      .. button-link:: https://arrow.apache.org/cookbook/r/
-         :color: primary
-         :expand:
-
-         R cookbook
-
 .. _toc.columnar:
 
 .. toctree::
@@ -153,11 +95,13 @@ Cookbooks
 
    developers/index
 
+Implementations
+---------------
+
 .. _toc.usage:
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
 
    C/GLib <c_glib/index>
    C++ <cpp/index>
@@ -173,11 +117,13 @@ Cookbooks
    Rust <https://docs.rs/crate/arrow/>
    status
 
+Examples
+--------
+
 .. _toc.cookbook:
 
 .. toctree::
    :maxdepth: 1
-   :hidden:
 
    C++ cookbook <https://arrow.apache.org/cookbook/cpp/>
    Java cookbook <https://arrow.apache.org/cookbook/java/>
