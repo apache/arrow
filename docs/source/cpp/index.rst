@@ -27,7 +27,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
-   .. grid-item-card:: Basic understanding
+   .. grid-item-card:: Getting started
       :class-card: contrib-card
       :shadow: none
 
@@ -42,7 +42,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
          :color: primary
          :expand:
 
-         Getting started
+         To Getting started
 
    .. grid-item-card:: User Guide
       :class-card: contrib-card
@@ -58,14 +58,14 @@ Welcome to the Apache Arrow C++ implementation documentation!
          :color: primary
          :expand:
 
-         User Guide
+         To the User Guide
 
 .. grid:: 2
    :gutter: 4
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
-   .. grid-item-card:: Examples of use
+   .. grid-item-card:: Examples
       :class-card: contrib-card
       :shadow: none
 
@@ -79,9 +79,9 @@ Welcome to the Apache Arrow C++ implementation documentation!
          :color: primary
          :expand:
 
-         Examples
+         To the Examples
 
-   .. grid-item-card:: Reference documentation
+   .. grid-item-card:: API Reference
       :class-card: contrib-card
       :shadow: none
 
@@ -94,7 +94,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
          :color: primary
          :expand:
 
-         API Reference
+         To the API Reference
 
 .. grid:: 1
    :gutter: 4
@@ -116,7 +116,7 @@ Welcome to the Apache Arrow C++ implementation documentation!
          :color: primary
          :expand:
 
-         C++ Cookbook
+         To the Cookbook
 
 .. toctree::
    :maxdepth: 2

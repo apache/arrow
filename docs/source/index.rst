@@ -42,7 +42,7 @@ target environment.**
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
-   .. grid-item-card:: Format
+   .. grid-item-card:: Specifications and protocols
       :class-card: contrib-card
       :shadow: none
 
@@ -57,9 +57,9 @@ target environment.**
          :color: primary
          :expand:
 
-         To the specifications
+         To the Specifications and protocols
 
-   .. grid-item-card:: Developing
+   .. grid-item-card:: Development
       :class-card: contrib-card
       :shadow: none
 
@@ -77,7 +77,7 @@ target environment.**
          :color: primary
          :expand:
 
-         To the documentation 
+         To the Development
 
 Supported environments
 ----------------------

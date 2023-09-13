@@ -76,7 +76,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
-   .. grid-item-card:: Community
+   .. grid-item-card:: Apache Arrow Community
       :img-top: ./images/users-solid.svg
       :class-card: contrib-card
       :shadow: none
@@ -91,9 +91,9 @@ All participation in the Apache Arrow project is governed by the ASF's
          :color: primary
          :expand:
 
-         Apache Arrow Community
+         To Apache Arrow Community
 
-   .. grid-item-card:: Bug reports
+   .. grid-item-card:: Bug reports and feature requests
       :img-top: ./images/bug-solid.svg
       :class-card: contrib-card
       :shadow: none
@@ -110,7 +110,7 @@ All participation in the Apache Arrow project is governed by the ASF's
          :color: primary
          :expand:
 
-         Bugs and Features
+         To Bug reports and feature requests
 
 .. dropdown:: Communicating through the mailing lists
    :animate: fade-in-slide-down
@@ -151,7 +151,7 @@ All participation in the Apache Arrow project is governed by the ASF's
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
-   .. grid-item-card:: New Contributors
+   .. grid-item-card:: New Contributor's guide
       :img-top: ./images/book-open-solid.svg
       :class-card: contrib-card
 
@@ -168,9 +168,9 @@ All participation in the Apache Arrow project is governed by the ASF's
          :color: primary
          :expand:
 
-         New Contributor's guide
+         To the New Contributor's guide
 
-   .. grid-item-card:: Overview
+   .. grid-item-card:: Contributing Overview
       :img-top: ./images/code-solid.svg
       :class-card: contrib-card
 
@@ -185,7 +185,7 @@ All participation in the Apache Arrow project is governed by the ASF's
          :color: primary
          :expand:
 
-         Contributing overview
+         To Contributing overview
 
 .. dropdown:: Continuous Integration
    :animate: fade-in-slide-down
