@@ -19,9 +19,10 @@ package array
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/apache/arrow/go/v14/arrow/internal/testing/tools"
 	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestBuilder_Init(t *testing.T) {
@@ -95,5 +96,29 @@ func TestBuilder_IsNull(t *testing.T) {
 	}
 	for i := 0; i < n; i++ {
 		assert.Equal(t, i%2 != 0, b.IsNull(i))
+	}
+}
+
+func TestBuilder_SetNull(t *testing.T) {
+	b := &builder{mem: memory.NewGoAllocator()}
+	n := 32
+	b.init(n)
+
+	for i := 0; i < n; i++ {
+		// Set everything to true
+		b.UnsafeAppendBoolToBitmap(true)
+	}
+	for i := 0; i < n; i++ {
+		if i%2 == 0 { // Set all even numbers to null
+			b.SetNull(i)
+		}
+	}
+
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			assert.True(t, b.IsNull(i))
+		} else {
+			assert.False(t, b.IsNull(i))
+		}
 	}
 }
