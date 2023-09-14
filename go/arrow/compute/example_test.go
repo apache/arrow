@@ -23,11 +23,11 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apache/arrow/go/v13/arrow"
-	"github.com/apache/arrow/go/v13/arrow/array"
-	"github.com/apache/arrow/go/v13/arrow/compute"
-	"github.com/apache/arrow/go/v13/arrow/compute/exec"
-	"github.com/apache/arrow/go/v13/arrow/memory"
+	"github.com/apache/arrow/go/v14/arrow"
+	"github.com/apache/arrow/go/v14/arrow/array"
+	"github.com/apache/arrow/go/v14/arrow/compute"
+	"github.com/apache/arrow/go/v14/arrow/compute/exec"
+	"github.com/apache/arrow/go/v14/arrow/memory"
 )
 
 // This example demonstrates how to register a custom scalar function.

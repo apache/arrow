@@ -1,3 +1,7 @@
+%RECORDBATCH A tabular data structure representing a set of 
+%arrow.array.Array objects with a fixed schema.
+
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -15,12 +19,11 @@
 
 classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                        matlab.mixin.Scalar
-%arrow.tabular.RecordBatch A tabular data structure representing
-% a set of arrow.array.Array objects with a fixed schema.
 
     properties (Dependent, SetAccess=private, GetAccess=public)
         NumColumns
         ColumnNames
+        Schema
     end
 
     properties (Hidden, SetAccess=private, GetAccess=public)
@@ -37,28 +40,40 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
         end
 
         function numColumns = get.NumColumns(obj)
-            numColumns = obj.Proxy.numColumns();
+            numColumns = obj.Proxy.getNumColumns();
         end
 
         function columnNames = get.ColumnNames(obj)
-            columnNames = obj.Proxy.columnNames();
+            columnNames = obj.Proxy.getColumnNames();
+        end
+
+        function schema = get.Schema(obj)
+            proxyID = obj.Proxy.getSchema();
+            proxy = libmexclass.proxy.Proxy(Name="arrow.tabular.proxy.Schema", ID=proxyID);
+            schema = arrow.tabular.Schema(proxy);
         end
 
         function arrowArray = column(obj, idx)
-            if ~isempty(idx) && isscalar(idx) && isnumeric(idx) && idx >= 1
-                args = struct(Index=int32(idx));
+            import arrow.internal.validate.*
+
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
+
+            if isnumeric(idx)
+                args = struct(Index=idx);
                 [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
-                traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-                proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
-                arrowArray = traits.ArrayConstructor(proxy);
             else
-                errid = "arrow:tabular:recordbatch:UnsupportedColumnIndexType";
-                msg = "Index must be a positive scalar integer.";
-                error(errid, msg);
+                args = struct(Name=idx);
+                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
             end
+            
+            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+            arrowArray = traits.ArrayConstructor(proxy);
         end
 
         function T = table(obj)
+            import arrow.tabular.internal.*
+
             numColumns = obj.NumColumns;
             matlabArrays = cell(1, numColumns);
             
@@ -67,14 +82,20 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
                 matlabArrays{ii} = toMATLAB(arrowArray);
             end
 
-            variableNames = matlab.lang.makeUniqueStrings(obj.ColumnNames);
-            % NOTE: Does not currently handle edge cases like ColumnNames
-            %       matching the table DimensionNames.
-            T = table(matlabArrays{:}, VariableNames=variableNames);
+            validVariableNames = makeValidVariableNames(obj.ColumnNames);
+            validDimensionNames = makeValidDimensionNames(validVariableNames);
+
+            T = table(matlabArrays{:}, ...
+                VariableNames=validVariableNames, ...
+                DimensionNames=validDimensionNames);
         end
 
         function T = toMATLAB(obj)
             T = obj.table();
+        end
+
+        function tf = isequal(obj, varargin)
+            tf = arrow.tabular.internal.isequal(obj, varargin{:});
         end
     end
 
@@ -87,6 +108,31 @@ classdef RecordBatch < matlab.mixin.CustomDisplay & ...
     methods (Access=protected)
         function displayScalarObject(obj)
             disp(obj.toString());
+        end
+    end
+
+    methods (Static, Access=public)
+        function recordBatch = fromArrays(arrowArrays, opts)
+            arguments(Repeating)
+                arrowArrays(1, 1) arrow.array.Array
+            end
+            arguments
+                opts.ColumnNames(1, :) string {mustBeNonmissing} = compose("Column%d", 1:numel(arrowArrays))
+            end
+
+            import arrow.tabular.internal.validateArrayLengths
+            import arrow.tabular.internal.validateColumnNames
+            import arrow.array.internal.getArrayProxyIDs
+            
+            numColumns = numel(arrowArrays);
+            validateArrayLengths(arrowArrays);
+            validateColumnNames(opts.ColumnNames, numColumns);
+
+            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
+            proxyName = "arrow.tabular.proxy.RecordBatch";
+            proxy = arrow.internal.proxy.create(proxyName, args);
+            recordBatch = arrow.tabular.RecordBatch(proxy);
         end
     end
 end

@@ -29,6 +29,7 @@ module ArrowFlightSQL
     end
 
     def require_libraries
+      require_relative "client"
       require_relative "server"
     end
 

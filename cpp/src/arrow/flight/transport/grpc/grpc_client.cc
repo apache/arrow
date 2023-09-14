@@ -179,6 +179,8 @@ class GrpcClientInterceptorAdapterFactory
       flight_method = FlightMethod::ListFlights;
     } else if (EndsWith(method, "/GetFlightInfo")) {
       flight_method = FlightMethod::GetFlightInfo;
+    } else if (EndsWith(method, "/PollFlightInfo")) {
+      flight_method = FlightMethod::PollFlightInfo;
     } else if (EndsWith(method, "/GetSchema")) {
       flight_method = FlightMethod::GetSchema;
     } else if (EndsWith(method, "/DoGet")) {
@@ -942,6 +944,25 @@ class GrpcClientImpl : public internal::ClientTransport {
     return Status::OK();
   }
 
+  Status PollFlightInfo(const FlightCallOptions& options,
+                        const FlightDescriptor& descriptor,
+                        std::unique_ptr<PollInfo>* info) override {
+    pb::FlightDescriptor pb_descriptor;
+    pb::PollInfo pb_response;
+
+    RETURN_NOT_OK(internal::ToProto(descriptor, &pb_descriptor));
+
+    ClientRpc rpc(options);
+    RETURN_NOT_OK(rpc.SetToken(auth_handler_.get()));
+    Status s = FromGrpcStatus(
+        stub_->PollFlightInfo(&rpc.context, pb_descriptor, &pb_response), &rpc.context);
+    RETURN_NOT_OK(s);
+
+    info->reset(new PollInfo());
+    RETURN_NOT_OK(internal::FromProto(pb_response, info->get()));
+    return Status::OK();
+  }
+
   arrow::Result<std::unique_ptr<SchemaResult>> GetSchema(
       const FlightCallOptions& options, const FlightDescriptor& descriptor) override {
     pb::FlightDescriptor pb_descriptor;
@@ -1013,16 +1034,17 @@ class GrpcClientImpl : public internal::ClientTransport {
         ->StartCall();
   }
 
-  bool supports_async() const override { return true; }
+  Status CheckAsyncSupport() const override { return Status::OK(); }
 #else
   void GetFlightInfoAsync(const FlightCallOptions& options,
                           const FlightDescriptor& descriptor,
                           std::shared_ptr<AsyncListener<FlightInfo>> listener) override {
-    listener->OnFinish(
-        Status::NotImplemented("gRPC 1.40 or newer is required to use async"));
+    listener->OnFinish(CheckAsyncSupport());
   }
 
-  bool supports_async() const override { return false; }
+  Status CheckAsyncSupport() const override {
+    return Status::NotImplemented("gRPC 1.40 or newer is required to use async");
+  }
 #endif
 
  private:

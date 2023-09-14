@@ -22,6 +22,7 @@
 
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
+#include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/type.h"
 #include "arrow/util/utf8.h"
 
@@ -51,9 +52,11 @@ namespace arrow::matlab::tabular::proxy {
 
     RecordBatch::RecordBatch(std::shared_ptr<arrow::RecordBatch> record_batch) : record_batch{record_batch} {
         REGISTER_METHOD(RecordBatch, toString);
-        REGISTER_METHOD(RecordBatch, numColumns);
-        REGISTER_METHOD(RecordBatch, columnNames);
+        REGISTER_METHOD(RecordBatch, getNumColumns);
+        REGISTER_METHOD(RecordBatch, getColumnNames);
         REGISTER_METHOD(RecordBatch, getColumnByIndex);
+        REGISTER_METHOD(RecordBatch, getColumnByName);
+        REGISTER_METHOD(RecordBatch, getSchema);
     }
 
     std::shared_ptr<arrow::RecordBatch> RecordBatch::unwrap() {
@@ -79,7 +82,7 @@ namespace arrow::matlab::tabular::proxy {
         for (const auto& arrow_array_proxy_id : arrow_array_proxy_ids) {
             auto proxy = libmexclass::proxy::ProxyManager::getProxy(arrow_array_proxy_id);
             auto arrow_array_proxy = std::static_pointer_cast<arrow::matlab::array::proxy::Array>(proxy);
-            auto arrow_array = arrow_array_proxy->getArray();
+            auto arrow_array = arrow_array_proxy->unwrap();
             arrow_arrays.push_back(arrow_array);
         }
 
@@ -101,7 +104,7 @@ namespace arrow::matlab::tabular::proxy {
         return record_batch_proxy;
     }
 
-    void RecordBatch::numColumns(libmexclass::proxy::method::Context& context) {
+    void RecordBatch::getNumColumns(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         const auto num_columns = record_batch->num_columns();
@@ -109,7 +112,7 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = num_columns_mda;
     }
 
-    void RecordBatch::columnNames(libmexclass::proxy::method::Context& context) {
+    void RecordBatch::getColumnNames(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
         mda::ArrayFactory factory;
         const int num_columns = record_batch->num_columns();
@@ -163,4 +166,47 @@ namespace arrow::matlab::tabular::proxy {
         context.outputs[0] = array_proxy_id_mda;
         context.outputs[1] = array_type_id_mda;
     }
+
+    void RecordBatch::getColumnByName(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::StringArray name_mda = args[0]["Name"];
+        const auto name_utf16 = std::u16string(name_mda[0]);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto name, arrow::util::UTF16StringToUTF8(name_utf16), context, error::UNICODE_CONVERSION_ERROR_ID);
+
+        const std::vector<std::string> names = {name};
+        const auto& schema = record_batch->schema();
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(schema->CanReferenceFieldsByNames(names), context, error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME);
+
+        const auto array = record_batch->GetColumnByName(name);
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
+                                            arrow::matlab::array::proxy::wrap(array),
+                                            context,
+                                            error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
+
+        const auto array_proxy_id = ProxyManager::manageProxy(array_proxy);
+        const auto array_proxy_id_mda = factory.createScalar(array_proxy_id);
+        const auto array_type_id_mda = factory.createScalar(static_cast<int32_t>(array->type_id()));
+
+        context.outputs[0] = array_proxy_id_mda;
+        context.outputs[1] = array_type_id_mda;
+    }
+
+    void RecordBatch::getSchema(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        using namespace libmexclass::proxy;
+        using SchemaProxy = arrow::matlab::tabular::proxy::Schema;
+        mda::ArrayFactory factory;
+
+        const auto schema = record_batch->schema();
+        const auto schema_proxy = std::make_shared<SchemaProxy>(std::move(schema));
+        const auto schema_proxy_id = ProxyManager::manageProxy(schema_proxy);
+        const auto schema_proxy_id_mda = factory.createScalar(schema_proxy_id);
+
+        context.outputs[0] = schema_proxy_id_mda;
+    }
+
 }

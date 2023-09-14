@@ -640,6 +640,14 @@ arrow::Future<FlightInfo> FlightClient::GetFlightInfoAsync(
   return future;
 }
 
+arrow::Result<std::unique_ptr<PollInfo>> FlightClient::PollFlightInfo(
+    const FlightCallOptions& options, const FlightDescriptor& descriptor) {
+  std::unique_ptr<PollInfo> info;
+  RETURN_NOT_OK(CheckOpen());
+  RETURN_NOT_OK(transport_->PollFlightInfo(options, descriptor, &info));
+  return info;
+}
+
 arrow::Result<std::unique_ptr<SchemaResult>> FlightClient::GetSchema(
     const FlightCallOptions& options, const FlightDescriptor& descriptor) {
   RETURN_NOT_OK(CheckOpen());
@@ -714,7 +722,9 @@ Status FlightClient::Close() {
   return Status::OK();
 }
 
-bool FlightClient::supports_async() const { return transport_->supports_async(); }
+bool FlightClient::supports_async() const { return transport_->CheckAsyncSupport().ok(); }
+
+Status FlightClient::CheckAsyncSupport() const { return transport_->CheckAsyncSupport(); }
 
 Status FlightClient::CheckOpen() const {
   if (closed_) {

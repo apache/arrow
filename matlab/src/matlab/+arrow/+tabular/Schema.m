@@ -1,3 +1,7 @@
+%SCHEMA A tabular schema which semantically describes
+% the names and types of the columns of an associated tabular
+% Arrow data type.
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -13,10 +17,8 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-classdef Schema < matlab.mixin.CustomDisplay
-%SCHEMA A tabular schema which semantically describes
-% the names and types of the columns of an associated tabular
-% Arrow data type.
+classdef Schema < matlab.mixin.CustomDisplay & ...
+                  matlab.mixin.Scalar
 
     properties (GetAccess=public, SetAccess=private, Hidden)
         Proxy
@@ -43,17 +45,16 @@ classdef Schema < matlab.mixin.CustomDisplay
         end
         
         function F = field(obj, idx)
-            idx = convertCharsToStrings(idx);
-            if ~isempty(idx) && isscalar(idx) && isnumeric(idx) && idx >= 1
-                args = struct(Index=int32(idx));
+            import arrow.internal.validate.*
+            
+            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
+
+            if isnumeric(idx)
+                args = struct(Index=idx);
                 proxyID = obj.Proxy.getFieldByIndex(args);
-            elseif isscalar(idx) && isstring(idx)
-                name = idx;
-                args = struct(Name=name);
-                proxyID = obj.Proxy.getFieldByName(args);
             else
-                error("arrow:tabular:schema:UnsupportedFieldIndexType", ...
-                      "Index must be a positive scalar integer or a valid field name.");
+                args = struct(Name=idx);
+                proxyID = obj.Proxy.getFieldByName(args);
             end
 
             proxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
@@ -74,7 +75,26 @@ classdef Schema < matlab.mixin.CustomDisplay
         function numFields = get.NumFields(obj)
             numFields = obj.Proxy.getNumFields();
         end
-        
+
+        function tf = isequal(obj, varargin)
+            narginchk(2, inf);
+            tf = false;
+            
+            fieldsToCompare = cell([1 numel(varargin)]);
+            for ii = 1:numel(varargin)
+                schema = varargin{ii};
+                if ~isa(schema, "arrow.tabular.Schema")
+                    % Return false early if schema is not actually an
+                    % arrow.tabular.Schema instance.
+                    return;
+                end
+
+                fieldsToCompare{ii} = schema.Fields;
+            end
+
+            % Return if the Schema Fields properties are equal
+            tf = isequal(obj.Fields, fieldsToCompare{:});
+        end
     end
 
     methods (Access = private)

@@ -1533,10 +1533,13 @@ def _make_dataset_for_pickling(tempdir, use_legacy_dataset=False, N=100):
     return dataset
 
 
-def _assert_dataset_is_picklable(dataset, pickler, use_legacy_dataset=False):
+@pytest.mark.pandas
+@parametrize_legacy_dataset
+def test_pickle_dataset(tempdir, datadir, use_legacy_dataset, pickle_module):
     def is_pickleable(obj):
-        return obj == pickler.loads(pickler.dumps(obj))
+        return obj == pickle_module.loads(pickle_module.dumps(obj))
 
+    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
     assert is_pickleable(dataset)
     if use_legacy_dataset:
         with pytest.warns(FutureWarning):
@@ -1553,24 +1556,6 @@ def _assert_dataset_is_picklable(dataset, pickler, use_legacy_dataset=False):
             assert metadata.num_row_groups
             for i in range(metadata.num_row_groups):
                 assert is_pickleable(metadata.row_group(i))
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_builtin_pickle_dataset(tempdir, datadir, use_legacy_dataset):
-    import pickle
-    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
-    _assert_dataset_is_picklable(
-        dataset, pickler=pickle, use_legacy_dataset=use_legacy_dataset)
-
-
-@pytest.mark.pandas
-@parametrize_legacy_dataset
-def test_cloudpickle_dataset(tempdir, datadir, use_legacy_dataset):
-    cp = pytest.importorskip('cloudpickle')
-    dataset = _make_dataset_for_pickling(tempdir, use_legacy_dataset)
-    _assert_dataset_is_picklable(
-        dataset, pickler=cp, use_legacy_dataset=use_legacy_dataset)
 
 
 @pytest.mark.pandas

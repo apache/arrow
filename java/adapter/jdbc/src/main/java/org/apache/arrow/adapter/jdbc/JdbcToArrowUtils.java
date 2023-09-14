@@ -208,7 +208,7 @@ public class JdbcToArrowUtils {
         return new ArrowType.Struct();
       default:
         // no-op, shouldn't get here
-        return null;
+        throw new UnsupportedOperationException("Unmapped JDBC type: " + fieldInfo.getJdbcType());
     }
   }
 
@@ -489,7 +489,7 @@ public class JdbcToArrowUtils {
         return new NullConsumer((NullVector) vector);
       default:
         // no-op, shouldn't get here
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException("No consumer for Arrow type: " + arrowType);
     }
   }
 }

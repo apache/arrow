@@ -139,25 +139,25 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             index = [];
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonScalar");
 
             index = 0;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonPositive");
 
             index = -1;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonPositive");
 
-            index = -1.23;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            index = 1.23;
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonInteger");
 
             index = NaN;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonInteger");
 
             index = {1};
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:UnsupportedIndexType");
 
             index = [1; 1];
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(index), "arrow:badsubscript:NonScalar");
         end
 
         function GetFieldByIndex(testCase)
@@ -375,7 +375,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.NumFields, int32(0));
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
-            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
 
             % 0x1 empty Field array.
@@ -384,7 +384,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.NumFields, int32(0));
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
-            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
 
             % 1x0 empty Field array.
@@ -393,7 +393,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.NumFields, int32(0));
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
-            testCase.verifyError(@() schema.field(0), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
             testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
         end
 
@@ -429,7 +429,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(field.Name, "B");
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt16);
 
-            % Should match the second field whose name is "123".
+            % Should match the third field whose name is "123".
             fieldName = '123';
             field = schema.field(fieldName);
             testCase.verifyEqual(field.Name, "123");
@@ -446,10 +446,10 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = [1, 2, 3];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
 
             fieldName = [1; 2; 3];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
         end
 
         function ErrorIfFieldNameIsNonScalar(testCase)
@@ -462,10 +462,71 @@ classdef tSchema < matlab.unittest.TestCase
             ]);
 
             fieldName = ["A", "B", "C"];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
 
             fieldName = ["A";  "B"; "C"];
-            testCase.verifyError(@() schema.field(fieldName), "arrow:tabular:schema:UnsupportedFieldIndexType");
+            testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
+        end
+
+        function TestIsEqualTrue(testCase)
+            % Schema objects are considered equal if:
+            %  1. They have the same number of fields
+            %  2. Their corresponding Fields properties are equal
+
+            schema1 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+            schema2 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+
+            % Create a Schema with zero fields
+            schema3 = arrow.recordBatch(table).Schema;
+            schema4 = arrow.recordBatch(table).Schema;
+            
+            testCase.verifyTrue(isequal(schema1, schema2));
+            testCase.verifyTrue(isequal(schema3, schema4));
+        end
+
+        function TestIsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+
+            schema1 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+            schema2 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+            schema3 = arrow.schema([...
+                arrow.field("A", arrow.float32), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+            schema4 = arrow.schema([...
+                arrow.field("C", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+
+            % Create a Schema with zero fields
+            schema5 = arrow.recordBatch(table).Schema;
+            
+            % Have different number of fields
+            testCase.verifyFalse(isequal(schema1, schema2));
+
+            % Fields properties are not equal
+            testCase.verifyFalse(isequal(schema2, schema3));
+            testCase.verifyFalse(isequal(schema2, schema4));
+            testCase.verifyFalse(isequal(schema4, schema5));
+
+            % Compare schema to double
+            testCase.verifyFalse(isequal(schema4, 5));
+
         end
 
     end

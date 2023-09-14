@@ -296,6 +296,19 @@ class ARROW_FLIGHT_EXPORT FlightClient {
     return GetFlightInfoAsync({}, descriptor);
   }
 
+  /// \brief Request and poll a long running query
+  /// \param[in] options Per-RPC options
+  /// \param[in] descriptor the dataset request or a descriptor returned by a
+  /// prioir PollFlightInfo call
+  /// \return Arrow result with the PollInfo describing the status of
+  /// the requested query
+  arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
+      const FlightCallOptions& options, const FlightDescriptor& descriptor);
+  arrow::Result<std::unique_ptr<PollInfo>> PollFlightInfo(
+      const FlightDescriptor& descriptor) {
+    return PollFlightInfo({}, descriptor);
+  }
+
   /// \brief Request schema for a single flight, which may be an existing
   /// dataset or a command to be executed
   /// \param[in] options Per-RPC options
@@ -382,6 +395,13 @@ class ARROW_FLIGHT_EXPORT FlightClient {
 
   /// \brief Whether this client supports asynchronous methods.
   bool supports_async() const;
+
+  /// \brief Check whether this client supports asynchronous methods.
+  ///
+  /// This is like supports_async(), except that a detailed error message
+  /// is returned if async support is not available.  If async support is
+  /// available, this function returns successfully.
+  Status CheckAsyncSupport() const;
 
  private:
   FlightClient();

@@ -16,6 +16,7 @@
 # under the License.
 
 import collections
+from cython cimport binding
 
 
 cdef class Scalar(_Weakrefable):
@@ -123,6 +124,15 @@ cdef class Scalar(_Weakrefable):
         return str(self.as_py())
 
     def equals(self, Scalar other not None):
+        """
+        Parameters
+        ----------
+        other : pyarrow.Scalar
+
+        Returns
+        -------
+        bool
+        """
         return self.wrapped.get().Equals(other.unwrap().get()[0])
 
     def __eq__(self, other):
@@ -827,8 +837,9 @@ cdef class DictionaryScalar(Scalar):
     Concrete class for dictionary-encoded scalars.
     """
 
-    @classmethod
-    def _reconstruct(cls, type, is_valid, index, dictionary):
+    @staticmethod
+    @binding(True)  # Required for cython < 3
+    def _reconstruct(type, is_valid, index, dictionary):
         cdef:
             CDictionaryScalarIndexAndDictionary value
             shared_ptr[CDictionaryScalar] wrapped

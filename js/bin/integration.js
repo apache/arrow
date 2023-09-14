@@ -21,17 +21,17 @@
 
 const fs = require('fs');
 const Path = require('path');
-const { promisify } = require('util');
-const glob = promisify(require('glob').glob);
+const { glob } = require('glob');
 const { zip } = require('ix/iterable/zip');
 const { parse: bignumJSONParse } = require('json-bignum');
 const argv = require(`command-line-args`)(cliOpts(), { partial: true });
+const extension = process.env.ARROW_JS_DEBUG === 'src' ? '.ts' : '.cjs';
 const {
     Table,
     RecordBatchReader,
     RecordBatchStreamWriter,
     util: { createElementComparator }
-} = require('../targets/apache-arrow/');
+} = require(`../index${extension}`);
 
 const exists = async (p) => {
     try {
