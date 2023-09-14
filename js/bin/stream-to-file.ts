@@ -17,8 +17,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// @ts-check
-
 import * as fs from 'fs';
 import * as path from 'path';
 import { finished as eos } from 'stream/promises';
