@@ -234,6 +234,10 @@ func (b *MapBuilder) AppendNulls(n int) {
 	}
 }
 
+func (b *MapBuilder) SetNull(i int) {
+	b.listBuilder.SetNull(i)
+}
+
 func (b *MapBuilder) AppendEmptyValue() {
 	b.Append(true)
 }
