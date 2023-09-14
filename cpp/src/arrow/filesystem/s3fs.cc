@@ -1472,21 +1472,23 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(UploadPart("", 0));
     }
 
+    auto self =
+        ::arrow::internal::checked_pointer_cast<ObjectOutputStream>(shared_from_this());
     // Wait for in-progress uploads to finish (if async writes are enabled)
-    return FlushAsync().Then([this]() {
-      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+    return FlushAsync().Then([self]() {
+      ARROW_ASSIGN_OR_RAISE(auto client_lock, self->holder_->Lock());
 
       // At this point, all part uploads have finished successfully
-      DCHECK_GT(part_number_, 1);
-      DCHECK_EQ(upload_state_->completed_parts.size(),
-                static_cast<size_t>(part_number_ - 1));
+      DCHECK_GT(self->part_number_, 1);
+      DCHECK_EQ(self->upload_state_->completed_parts.size(),
+                static_cast<size_t>(self->part_number_ - 1));
 
       S3Model::CompletedMultipartUpload completed_upload;
-      completed_upload.SetParts(upload_state_->completed_parts);
+      completed_upload.SetParts(self->upload_state_->completed_parts);
       S3Model::CompleteMultipartUploadRequest req;
-      req.SetBucket(ToAwsString(path_.bucket));
-      req.SetKey(ToAwsString(path_.key));
-      req.SetUploadId(upload_id_);
+      req.SetBucket(ToAwsString(self->path_.bucket));
+      req.SetKey(ToAwsString(self->path_.key));
+      req.SetUploadId(self->upload_id_);
       req.SetMultipartUpload(std::move(completed_upload));
 
       auto outcome =
@@ -1494,12 +1496,13 @@ class ObjectOutputStream final : public io::OutputStream {
       if (!outcome.IsSuccess()) {
         return ErrorToStatus(
             std::forward_as_tuple("When completing multiple part upload for key '",
-                                  path_.key, "' in bucket '", path_.bucket, "': "),
+                                  self->path_.key, "' in bucket '", self->path_.bucket,
+                                  "': "),
             "CompleteMultipartUpload", outcome.GetError());
       }
 
-      holder_ = nullptr;
-      closed_ = true;
+      self->holder_ = nullptr;
+      self->closed_ = true;
       return Status::OK();
     });
   }
