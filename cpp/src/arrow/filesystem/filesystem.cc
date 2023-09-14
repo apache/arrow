@@ -681,7 +681,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
                                                           const std::string& uri_string,
                                                           const io::IOContext& io_context,
                                                           std::string* out_path,
-                                                          void* fsRef) {
+                                                          std::shared_ptr<void> file_system_java) {
   const auto scheme = uri.scheme();
 
   if (scheme == "file") {
@@ -704,7 +704,7 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUriReal(const Uri& uri,
   if (scheme == "hdfs" || scheme == "viewfs") {
 #ifdef ARROW_HDFS
     ARROW_ASSIGN_OR_RAISE(auto options, HdfsOptions::FromUri(uri));
-    options.connection_config.fsRef = fsRef;
+    options.connection_config.filesystem_java = filesystem_java;
     if (out_path != nullptr) {
       *out_path = uri.path();
     }
@@ -753,9 +753,9 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_str
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndFs(const std::string& uri_string,
-                                                      std::string* out_path, void* fsRef) {
+                                                      std::string* out_path, std::shared_ptr<void> file_system_java) {
   ARROW_ASSIGN_OR_RAISE(auto fsuri, ParseFileSystemUri(uri_string))
-  return FileSystemFromUriReal(fsuri, uri_string, io::default_io_context(), out_path, fsRef);
+  return FileSystemFromUriReal(fsuri, uri_string, io::default_io_context(), out_path, file_system_java);
 }
 
 Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri_string,

@@ -90,7 +90,7 @@ struct HdfsConnectionConfig {
   std::string user;
   std::string kerb_ticket;
   std::unordered_map<std::string, std::string> extra_conf;
-  void* fsRef = nullptr;
+  std::shared_ptr<void> filesystem_java = nullptr;
 };
 
 class ARROW_EXPORT HadoopFileSystem : public FileSystem {

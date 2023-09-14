@@ -195,7 +195,7 @@ struct FileSystemFactoryOptions {
 
   /// when java context have a file system reference to be used
   // then use this file system reference in the context
-  void* java_fs_global_ref = nullptr;
+  std::shared_ptr<void> file_system_java = nullptr;
 };
 
 /// \brief FileSystemDatasetFactory creates a Dataset from a vector of

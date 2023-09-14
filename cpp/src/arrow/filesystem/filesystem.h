@@ -486,7 +486,8 @@ Result<std::shared_ptr<FileSystem>> FileSystemFromUri(const std::string& uri,
 
 ARROW_EXPORT
 Result<std::shared_ptr<FileSystem>> FileSystemFromUriAndFs(const std::string& uri_string,
-                                                           std::string* out_path, void* fsRef);
+                                                           std::string* out_path,
+                                                           std::shared_ptr<void> file_system_java);
 
 /// \brief Create a new FileSystem by URI with a custom IO context
 ///

@@ -614,7 +614,7 @@ Java_org_apache_arrow_dataset_file_JniWrapper_makeFileSystemDatasetFactory__Ljav
       JniGetOrThrow(GetFileFormat(file_format_id));
   arrow::dataset::FileSystemFactoryOptions options;
   jobject fsObj = env->NewGlobalRef(fs);
-  options.java_fs_global_ref = &fsObj;
+  options.file_system_java = &fsObj;
 
   std::shared_ptr<arrow::dataset::DatasetFactory> d =
       JniGetOrThrow(arrow::dataset::FileSystemDatasetFactory::Make(
