@@ -179,6 +179,8 @@ func (n Num) IsNaN() bool { return (n.bits & 0x7fff) > 0x7c00 }
 func (f Num) Uint16() uint16 { return f.bits }
 func (f Num) String() string { return strconv.FormatFloat(float64(f.Float32()), 'g', -1, 32) }
 
+func FromBits(src uint16) Num { return Num{bits: src} }
+
 func FromLEBytes(src []byte) Num {
 	return Num{bits: binary.LittleEndian.Uint16(src)}
 }
