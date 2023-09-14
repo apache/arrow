@@ -163,7 +163,7 @@ class build_ext(_build_ext):
     def initialize_options(self):
         _build_ext.initialize_options(self)
         override_system_environment()
-        
+
         self.cmake_generator = os.environ.get('PYARROW_CMAKE_GENERATOR')
         if not self.cmake_generator and sys.platform == 'win32':
             self.cmake_generator = 'Visual Studio 15 2017 Win64'
