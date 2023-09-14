@@ -377,7 +377,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
-          <version>3.6.0</version>
+          <version>3.1.2</version>
         </plugin>
         <plugin>
           <groupId>org.apache.rat</groupId>
@@ -687,13 +687,11 @@
       <version>0.9.44</version>
       <scope>test</scope>
     </dependency>
-
     <dependency>
       <groupId>org.checkerframework</groupId>
       <artifactId>checker-qual</artifactId>
       <version>${checker.version}</version>
     </dependency>
-
   </dependencies>
 
   <reporting>
@@ -829,7 +827,8 @@
               <target>8</target>
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
-                <arg>-Awarns</arg><!-- -Awarns turns type-checking errors into warnings. -->
+                <arg>-Awarns</arg> <!-- Treat checker errors as warnings -->
+                <arg>-AskipDefs=.*Test</arg> <!-- Skip analysis for Testing classes -->
                 <arg>-XDcompilePolicy=simple</arg>
                 <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/(target/generated-sources)/.*</arg>
                 <arg>-J--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED</arg>
@@ -856,6 +855,8 @@
                 </path>
               </annotationProcessorPaths>
               <annotationProcessors>
+                <!-- To support @Value.Immutable processors -->
+                <annotationProcessor>org.immutables.value.internal.$processor$.$Processor</annotationProcessor>
                 <!-- Add all the checkers you want to enable here -->
                 <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
               </annotationProcessors>
