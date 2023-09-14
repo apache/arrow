@@ -467,11 +467,11 @@ void DebugPrint(PyObject* obj) {
 }
 
 bool IsThreadingEnabled() {
-  #ifdef ARROW_ENABLE_THREADIN
-    return true;
-  #else
-    return false;
-  #endif
+#ifdef ARROW_ENABLE_THREADIN
+  return true;
+#else
+  return false;
+#endif
 }
 
 }  // namespace internal

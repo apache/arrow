@@ -68,6 +68,8 @@ if(POLICY CMP0095)
   cmake_policy(SET CMP0095 NEW)
 endif()
 
+option(DUMP_ARROW_ARGUMENTS "Dump the arrow arguments then quit" OFF)
+
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
 # On Windows, use registry last, not first
@@ -259,6 +261,23 @@ include(UseCython)
 include(GNUInstallDirs)
 
 find_package(Arrow REQUIRED)
+
+if(DUMP_ARROW_ARGUMENTS)
+  message(STATUS "----- ARROW_SETTINGS_DUMP -----")
+  get_cmake_property(_variableNames VARIABLES)
+  list (SORT _variableNames)
+  foreach (_variableName ${_variableNames})
+    unset(MATCHED)
+    string(REGEX MATCH ^ARROW_.* MATCHED ${_variableName})
+    if (NOT MATCHED)
+        continue()
+    endif()  
+      message(STATUS "${_variableName}=${${_variableName}}")
+  endforeach()
+  message(STATUS "----- ARROW_SETTINGS_END -----")
+  return()
+endif()
+
 
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)

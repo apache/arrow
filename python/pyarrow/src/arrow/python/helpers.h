@@ -157,7 +157,6 @@ void DebugPrint(PyObject* obj);
 ARROW_PYTHON_EXPORT
 bool IsThreadingEnabled();
 
-
 }  // namespace internal
 }  // namespace py
 }  // namespace arrow
