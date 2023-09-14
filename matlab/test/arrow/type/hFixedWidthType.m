@@ -50,7 +50,7 @@ classdef hFixedWidthType < matlab.unittest.TestCase
         end
 
         function TestFieldsProperty(testCase)
-            % Verify Fields is a 0x0 arrow.type.Field array
+            % Verify Fields is a 0x0 arrow.type.Field array.
             type = testCase.ArrowType;
             fields = type.Fields;
             testCase.verifyEqual(fields, arrow.type.Field.empty(0, 0));

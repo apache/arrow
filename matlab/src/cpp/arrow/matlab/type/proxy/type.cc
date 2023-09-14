@@ -66,7 +66,7 @@ namespace arrow::matlab::type::proxy {
             context,
             error::ARROW_NUMERIC_INDEX_ZERO_FIELDS);
 
-        // Validate the matlab index provided is within [1, num_fields]
+        // Validate the matlab index provided is within the range [1, num_fields]
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
             index::validateNumericFieldIndexInRange(matlab_index, data_type->num_fields()),
             context,

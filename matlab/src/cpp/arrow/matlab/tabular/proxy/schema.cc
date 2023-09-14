@@ -69,13 +69,13 @@ namespace arrow::matlab::tabular::proxy {
         const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
         const auto matlab_index = int32_t(index_mda[0]);
 
-         // Validate there is at least 1 field
+        // Validate there is at least 1 field
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
             index::validateNonEmptyFields(schema->num_fields()),
             context,
             error::ARROW_NUMERIC_INDEX_ZERO_FIELDS);
 
-        // Validate the matlab index provided is within [1, num_fields]
+        // Validate the matlab index provided is within the range [1, num_fields]
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
             index::validateNumericFieldIndexInRange(matlab_index, schema->num_fields()),
             context,
