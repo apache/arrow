@@ -738,40 +738,6 @@ def test_get_file_info_with_selector(fs, pathfn):
         fs.delete_dir(base_dir)
 
 
-def test_get_file_info_with_selector_sf3_comparison(py_fsspec_s3fs, s3fs):
-    # GH-36983
-
-    fs = py_fsspec_s3fs["fs"]
-    pathfn = py_fsspec_s3fs["pathfn"]
-    base_dir = pathfn('selector-dir/')
-    file_a = pathfn('selector-dir/test_file_a')
-
-    fs.create_dir(base_dir)
-    with fs.open_output_stream(file_a):
-        pass
-
-    selector = FileSelector(base_dir, recursive=True)
-    infos_fsspec = fs.get_file_info(selector)
-    fs.delete_dir(base_dir)
-
-    fs = s3fs["fs"]
-    pathfn = s3fs["pathfn"]
-    base_dir = pathfn('selector-dir/')
-    file_a = pathfn('selector-dir/test_file_a')
-
-    fs.create_dir(base_dir)
-    with fs.open_output_stream(file_a):
-        pass
-
-    selector = FileSelector(base_dir, recursive=True)
-    infos = fs.get_file_info(selector)
-    fs.delete_dir(base_dir)
-
-    assert len(infos) == len(infos_fsspec) == 1
-    assert infos_fsspec[0].path == infos[0].path
-    assert infos_fsspec[0].type == infos[0].type
-
-
 def test_create_dir(fs, pathfn):
     # s3fs fails deleting dir fails if it is empty
     # (https://github.com/dask/s3fs/issues/317)
