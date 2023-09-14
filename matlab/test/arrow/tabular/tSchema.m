@@ -250,7 +250,7 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Index is greater than NumFields.
             index = 100;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:InvalidNumericFieldIndex");
+            testCase.verifyError(@() schema.field(index), "arrow:index:InvalidNumericFieldIndex");
         end
 
         function ErrorIfFieldNameDoesNotExist(testCase)
@@ -376,7 +376,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:NumericIndexWithZeroFields");
 
             % 0x1 empty Field array.
             fields = arrow.type.Field.empty(0, 1);
@@ -385,7 +385,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:NumericIndexWithZeroFields");
 
             % 1x0 empty Field array.
             fields = arrow.type.Field.empty(1, 0);
@@ -394,7 +394,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:NumericIndexWithZeroFields");
         end
 
         function GetFieldByNameWithChar(testCase)

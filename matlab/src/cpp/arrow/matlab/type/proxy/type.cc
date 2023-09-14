@@ -15,14 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/matlab/type/proxy/type.h"
 
-#include "arrow/matlab/type/proxy/get_field.h"
-#include "arrow/matlab/index/validate.h"
 #include "arrow/matlab/error/error.h"
+#include "arrow/matlab/index/validate.h"
+#include "arrow/matlab/type/proxy/type.h"
+#include "arrow/matlab/type/proxy/field.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
-
 
 namespace arrow::matlab::type::proxy {
 
@@ -65,7 +64,7 @@ namespace arrow::matlab::type::proxy {
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
             index::validateNonEmptyFields(data_type->num_fields()),
             context,
-            error::ARROW_ZERO_FIELDS_NUMERIC_INDEX);
+            error::ARROW_NUMERIC_INDEX_ZERO_FIELDS);
 
         // Validate the matlab index provided is within [1, num_fields]
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
