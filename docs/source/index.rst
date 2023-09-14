@@ -42,12 +42,12 @@ target environment.**
    :padding: 2 2 0 0
    :class-container: sd-text-center
 
-   .. grid-item-card:: Specifications and protocols
+   .. grid-item-card:: Specifications and Protocols
       :class-card: contrib-card
       :shadow: none
 
       Read about the Apache Arrow format
-      specifications and protocols.
+      specifications and Protocols.
 
       +++
 
@@ -57,7 +57,7 @@ target environment.**
          :color: primary
          :expand:
 
-         To the Specifications and protocols
+         To the Specifications and Protocols
 
    .. grid-item-card:: Development
       :class-card: contrib-card
