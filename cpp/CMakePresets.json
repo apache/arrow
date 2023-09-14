@@ -46,6 +46,32 @@
       }
     },
     {
+      "name": "emscripten-overrides",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_BUILD_SHARED": "OFF",
+        "ARROW_BUILD_STATIC": "ON",
+        "ARROW_BUILD_TESTS": "OFF",
+        "ARROW_ENABLE_THREADING": "OFF",
+        "ARROW_CUDA": "OFF",
+        "ARROW_MIMALLOC": "OFF",
+        "ARROW_JEMALLOC": "OFF",
+        "ARROW_S3": "OFF",
+        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
+        "ZLIB_SOURCE": "SYSTEM",
+        "ARROW_IPC": "OFF",
+        "ARROW_ORC": "OFF",
+        "ARROW_SUBSTRAIT": "OFF",
+        "ARROW_DEPENDENCY_USE_SHARED": "OFF",
+        "ARROW_WITH_BROTLI": "OFF",
+        "ARROW_SIMD_LEVEL":"NONE",
+        "ARROW_RUNTIME_SIMD_LEVEL":"NONE",
+        "CMAKE_C_BYTE_ORDER":"LITTLE_ENDIAN",
+        "ARROW_WITH_OPENTELEMETRY":"OFF",
+        "CMAKE_TOOLCHAIN_FILE": { "type": "PATH", "value": "${sourceDir}/cmake_modules/Emscripten/Platform/EmscriptenOverrides.cmake" }
+      }
+    },
+    {
       "name": "features-minimal",
       "hidden": true,
       "cacheVariables": {
@@ -392,6 +418,16 @@
         "features-python-maximal"
       ],
       "displayName": "Release build for PyArrow with everything enabled",
+      "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-emscripten-python",
+      "inherits": [
+        "emscripten-overrides",
+        "base-release",
+        "features-python"
+      ],
+      "displayName": "Release build which builds an emscripten library, plus PyArrow for Pyodide",
       "cacheVariables": {}
     },
     {
