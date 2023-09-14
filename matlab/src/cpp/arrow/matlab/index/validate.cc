@@ -38,7 +38,7 @@ namespace arrow::matlab::index {
         }
     } // anonymous namespace 
 
-    arrow::Status validateNonEmptyFields(int32_t num_fields) {
+    arrow::Status validateNonEmptyFields(const int32_t num_fields) {
         if (num_fields == 0) {
             const auto msg = makeZeroFieldsErrorMessage();
             return arrow::Status::Invalid(std::move(msg));
@@ -46,7 +46,7 @@ namespace arrow::matlab::index {
         return arrow::Status::OK();
     }
 
-    arrow::Status validateNumericFieldIndexInRange(int32_t matlab_index, int32_t num_fields) {
+    arrow::Status validateNumericFieldIndexInRange(const int32_t matlab_index, const int32_t num_fields) {
         if (matlab_index < 1 || matlab_index > num_fields) {
             const auto msg = makeInvalidNumericFieldIndexErrorMessage(matlab_index, num_fields);
             return arrow::Status::Invalid(std::move(msg));
