@@ -17,8 +17,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// @ts-check
-
 import * as fs from 'fs';
 import * as Path from 'path';
 import { VectorLoader } from '../src/visitor/vectorloader.ts';
