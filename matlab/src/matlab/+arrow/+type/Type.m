@@ -46,16 +46,9 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
         function F = field(obj, idx)
             import arrow.internal.validate.*
 
-            idx = index.numericOrString(idx, "int32", AllowNonScalar=false);
-
-            if isnumeric(idx)
-                args = struct(Index=idx);
-                proxyID = obj.Proxy.getFieldByIndex(args);
-            else
-                args = struct(Name=idx);
-                proxyID = obj.Proxy.getFieldByName(args);
-            end
-
+            idx = index.numeric(idx, "int32", AllowNonScalar=false);
+            args = struct(Index=idx);
+            proxyID = obj.Proxy.getFieldByIndex(args);
             proxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
             F = arrow.type.Field(proxy);
         end
