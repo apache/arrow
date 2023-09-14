@@ -2371,6 +2371,7 @@ cdef class MapArray(ListArray):
         The value -1 in the integer array means that the value is missing. The boolean array
         represents the null bitmask corresponding to the missing values in the integer array.
 
+>>> import pyarrow as pa
         >>> movies_rectangular = np.ma.masked_array([
         ...     [10, -1, -1],
         ...     [8, 4, 5],
