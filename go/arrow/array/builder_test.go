@@ -19,10 +19,9 @@ package array
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/apache/arrow/go/v14/arrow/internal/testing/tools"
 	"github.com/apache/arrow/go/v14/arrow/memory"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBuilder_Init(t *testing.T) {
