@@ -25,7 +25,7 @@ message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(NOT DEFINED ARROW_CPU_FLAG)
   if(CMAKE_SYSTEM_NAME MATCHES "Emscripten")
-  set(ARROW_CPU_FLAG "emscripten")
+    set(ARROW_CPU_FLAG "emscripten")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "AMD64|amd64|X86|x86|i[3456]86|x64")
     set(ARROW_CPU_FLAG "x86")
   elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")

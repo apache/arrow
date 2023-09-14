@@ -26,8 +26,8 @@ include($ENV{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake)
 
 # ensure zlib is built with -fpic
 # and force us to link to the version in emscripten ports
-if( NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a )
-    execute_process( COMMAND embuilder --pic --force build zlib)
+if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+  execute_process(COMMAND embuilder --pic --force build zlib)
 endif()
 set(ZLIB_LIBRARY ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
 
@@ -47,10 +47,10 @@ set(CMAKE_CXX_FLAGS "-sUSE_ZLIB=1 -sSIDE_MODULE=1 -fPIC -fexceptions")
 set(Python3_INCLUDE_DIR $ENV{PYTHONINCLUDE})
 set(Python3_LIBRARY $ENV{CPYTHONLIB})
 set(Python3_NumPy_INCLUDE_DIR $ENV{NUMPY_LIB}/core/include)
-set(Python3_EXECUTABLE )
+set(Python3_EXECUTABLE)
 set(CMAKE_SHARED_LIBRARY_CREATE_C_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
 set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
 set(CMAKE_SHARED_LINKER_FLAGS "-sUSE_ZLIB=1 -sWASM_BIGINT=1 -fexceptions")
-set(CMAKE_STRIP FALSE)  
+set(CMAKE_STRIP FALSE)
 
 set(ENV{_PYTHON_SYSCONFIGDATA_NAME} $ENV{SYSCONFIG_NAME})

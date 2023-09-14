@@ -265,19 +265,18 @@ find_package(Arrow REQUIRED)
 if(DUMP_ARROW_ARGUMENTS)
   message(STATUS "----- ARROW_SETTINGS_DUMP -----")
   get_cmake_property(_variableNames VARIABLES)
-  list (SORT _variableNames)
-  foreach (_variableName ${_variableNames})
+  list(SORT _variableNames)
+  foreach(_variableName ${_variableNames})
     unset(MATCHED)
     string(REGEX MATCH ^ARROW_.* MATCHED ${_variableName})
-    if (NOT MATCHED)
-        continue()
-    endif()  
-      message(STATUS "${_variableName}=${${_variableName}}")
+    if(NOT MATCHED)
+      continue()
+    endif()
+    message(STATUS "${_variableName}=${${_variableName}}")
   endforeach()
   message(STATUS "----- ARROW_SETTINGS_END -----")
   return()
 endif()
-
 
 set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
@@ -600,11 +599,11 @@ if(PYARROW_BUILD_ACERO)
 
     set(ACERO_LINK_LIBS ArrowAcero::arrow_acero_shared)
     list(APPEND CYTHON_EXTENSIONS _acero)
-    else()
-      # ACERO is statically linked into libarrow_python already
-      set(ACERO_LINK_LIBS)
-      list(APPEND CYTHON_EXTENSIONS _acero)
-    endif()
+  else()
+    # ACERO is statically linked into libarrow_python already
+    set(ACERO_LINK_LIBS)
+    list(APPEND CYTHON_EXTENSIONS _acero)
+  endif()
 endif()
 
 # Dataset
@@ -624,7 +623,7 @@ if(PYARROW_BUILD_DATASET)
     set(DATASET_LINK_LIBS)
   endif()
   list(APPEND CYTHON_EXTENSIONS _dataset)
-  
+
 endif()
 
 # Parquet
