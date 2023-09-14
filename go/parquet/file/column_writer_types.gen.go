@@ -1629,7 +1629,12 @@ func (w *FixedLenByteArrayColumnChunkWriter) WriteDictIndices(indices arrow.Arra
 func (w *FixedLenByteArrayColumnChunkWriter) writeValues(values []parquet.FixedLenByteArray, numNulls int64) {
 	w.currentEncoder.(encoding.FixedLenByteArrayEncoder).Put(values)
 	if w.pageStatistics != nil {
-		w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).Update(values, numNulls)
+		s, ok := w.pageStatistics.(*metadata.FixedLenByteArrayStatistics)
+		if ok {
+			s.Update(values, numNulls)
+		} else {
+			w.pageStatistics.(*metadata.Float16Statistics).Update(values, numNulls)
+		}
 	}
 }
 
@@ -1641,7 +1646,12 @@ func (w *FixedLenByteArrayColumnChunkWriter) writeValuesSpaced(spacedValues []pa
 	}
 	if w.pageStatistics != nil {
 		nulls := numValues - numRead
-		w.pageStatistics.(*metadata.FixedLenByteArrayStatistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		s, ok := w.pageStatistics.(*metadata.FixedLenByteArrayStatistics)
+		if ok {
+			s.UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		} else {
+			w.pageStatistics.(*metadata.Float16Statistics).UpdateSpaced(spacedValues, validBits, validBitsOffset, nulls)
+		}
 	}
 }
 
