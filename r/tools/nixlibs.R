@@ -490,7 +490,7 @@ build_libarrow <- function(src_dir, dst_dir) {
       cat("**** Printing contents of build log because the build failed", 
           "while ARROW_R_DEV was set to FALSE\n")
       cat(readLines(build_log_path), sep = "\n")
-      cat("**** Complete build log is available at", build_log_path, "\n")
+      cat("**** Complete build log may still be present at", build_log_path, "\n")
     }
   }
   invisible(status)
