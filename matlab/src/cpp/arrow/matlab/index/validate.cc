@@ -23,7 +23,7 @@ namespace arrow::matlab::index {
 
     namespace {
         std::string makeZeroFieldsErrorMessage() {
-            return "Numeric indexing using the field method is not supported when the number of fields is 0";
+            return "Numeric indexing using the field method is not supported for objects with zero fields.";
         }
 
         std::string makeInvalidNumericFieldIndexErrorMessage(const int32_t matlab_index, const int32_t num_fields) {
