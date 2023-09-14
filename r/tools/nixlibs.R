@@ -475,9 +475,11 @@ build_libarrow <- function(src_dir, dst_dir) {
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
 
   status <- suppressWarnings(system2(
-    paste(env_vars, "inst/build_arrow_static.sh"),
-    stdout = ifelse(quietly, NULL, TRUE),
-    stderr = ifelse(quietly, NULL, TRUE)
+    "bash",
+    "inst/build_arrow_static.sh",
+    env = env_vars,
+    stdout = ifelse(quietly, TRUE, ""),
+    stderr = ifelse(quietly, TRUE, "")
   ))
   if (!is.null(attr(status, "status"))) {
     # It failed :(
