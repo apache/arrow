@@ -18,5 +18,8 @@
     },
     "allowImportingTsExtensions": true,
   },
-  "include": ["bin/**/*.ts", "src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"]
+  "include": ["bin/**/*.ts", "src/**/*.ts", "test/**/*.ts", "perf/**/*.ts"],
+  "ts-node": {
+    "swc": true
+  }
 }
