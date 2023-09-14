@@ -4,8 +4,6 @@
   "compilerOptions": {
     "target": "ES2020",
     "module": "ES2015",
-    "declaration": false,
-    "declarationMap": false,
     "noEmitHelpers": true,
     "importHelpers": false
   }

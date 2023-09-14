@@ -17,24 +17,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Alternatively, use bundles for performance tests
-// import * as Arrow from '../targets/es5/umd/Arrow.js';
+export { Arrow };
+
+import * as Arrow from '../src/Arrow.ts';
+// import Arrow from '../targets/es5/umd/Arrow.js';
 // import * as Arrow from '../targets/es5/esm/Arrow.js';
 // import * as Arrow from '../targets/es5/cjs/Arrow.js';
-// import * as Arrow from '../targets/es2015/umd/Arrow.js';
+// import Arrow from '../targets/es2015/umd/Arrow.js';
 // import * as Arrow from '../targets/es2015/esm/Arrow.js';
 // import * as Arrow from '../targets/es2015/cjs/Arrow.js';
-// import * as Arrow from '../targets/esnext/umd/Arrow.js';
+// import Arrow from '../targets/esnext/umd/Arrow.js';
 // import * as Arrow from '../targets/esnext/esm/Arrow.js';
 // import * as Arrow from '../targets/esnext/cjs/Arrow.js';
-
-import * as Arrow from '../src/Arrow.js';
 
 import config, { arrays, typedArrays, vectors } from './config.js';
 import b from 'benny';
 import { CaseResult, Summary } from 'benny/lib/internal/common-types';
 import kleur from 'kleur';
-export { Arrow };
 
 const { RecordBatchReader, RecordBatchStreamWriter } = Arrow;
 
