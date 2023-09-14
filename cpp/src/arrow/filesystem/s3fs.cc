@@ -1372,7 +1372,8 @@ class ObjectInputFile final : public io::RandomAccessFile {
 static constexpr int64_t kPartUploadSize = 10 * 1024 * 1024;
 
 // An OutputStream that writes to a S3 object
-class ObjectOutputStream final : public io::OutputStream {
+class ObjectOutputStream final : public io::OutputStream,
+                                 public std::enable_shared_from_this<ObjectOutputStream> {
  protected:
   struct UploadState;
 
@@ -1472,8 +1473,7 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(UploadPart("", 0));
     }
 
-    auto self =
-        ::arrow::internal::checked_pointer_cast<ObjectOutputStream>(shared_from_this());
+    auto self = shared_from_this();
     // Wait for in-progress uploads to finish (if async writes are enabled)
     return FlushAsync().Then([self]() {
       ARROW_ASSIGN_OR_RAISE(auto client_lock, self->holder_->Lock());

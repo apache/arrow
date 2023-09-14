@@ -200,9 +200,7 @@ class ARROW_EXPORT Readable {
   virtual const IOContext& io_context() const;
 };
 
-class ARROW_EXPORT OutputStream : virtual public FileInterface,
-                                  public Writable,
-                                  public std::enable_shared_from_this<OutputStream> {
+class ARROW_EXPORT OutputStream : virtual public FileInterface, public Writable {
  protected:
   OutputStream() = default;
 };
