@@ -25,6 +25,7 @@ import tempfile
 import numpy as np
 
 from .util import frombytes, tobytes, random_bytes, random_utf8
+from .util import SKIP_C_SCHEMA, SKIP_C_ARRAY
 
 
 def metadata_key_values(pairs):
@@ -1224,15 +1225,16 @@ class RecordBatch(object):
 class File(object):
 
     def __init__(self, name, schema, batches, dictionaries=None,
-                 skip=None, path=None, quirks=None):
+                 skip_testers=None, path=None, quirks=None):
         self.name = name
         self.schema = schema
         self.dictionaries = dictionaries or []
         self.batches = batches
-        self.skip = set()
+        self.skipped_testers = set()
+        self.skipped_formats = {}
         self.path = path
-        if skip:
-            self.skip.update(skip)
+        if skip_testers:
+            self.skipped_testers.update(skip_testers)
         # For tracking flags like whether to validate decimal values
         # fit into the given precision (ARROW-13558).
         self.quirks = set()
@@ -1258,13 +1260,38 @@ class File(object):
             f.write(json.dumps(self.get_json(), indent=2).encode('utf-8'))
         self.path = path
 
-    def skip_category(self, category):
-        """Skip this test for the given category.
-
-        Category should be SKIP_ARROW or SKIP_FLIGHT.
+    def skip_tester(self, tester):
+        """Skip this test for the given tester (such as 'C#').
         """
-        self.skip.add(category)
+        self.skipped_testers.add(tester)
         return self
+
+    def skip_format(self, format, tester='all'):
+        """Skip this test for the given format, and optionally tester.
+        """
+        self.skipped_formats.setdefault(format, set()).add(tester)
+        return self
+
+    def add_skips_from(self, other_file):
+        """Add skips from another File object.
+        """
+        self.skipped_testers.update(other_file.skipped_testers)
+        for format, testers in other_file.skipped_formats.items():
+            self.skipped_formats.setdefault(format, set()).update(testers)
+
+    def should_skip(self, tester, format):
+        """Whether this (tester, format) combination should be skipped.
+        """
+        if tester in self.skipped_testers:
+            return True
+        testers = self.skipped_formats.get(format, ())
+        return 'all' in testers or tester in testers
+
+    @property
+    def num_batches(self):
+        """The number of record batches in this file.
+        """
+        return len(self.batches)
 
 
 def get_field(name, type_, **kwargs):
@@ -1295,8 +1322,8 @@ def get_field(name, type_, **kwargs):
         raise TypeError(dtype)
 
 
-def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
-                   metadata=None):
+def _generate_file(name, fields, batch_sizes, *,
+                   dictionaries=None, metadata=None):
     schema = Schema(fields, metadata=metadata)
     batches = []
     for size in batch_sizes:
@@ -1307,7 +1334,7 @@ def _generate_file(name, fields, batch_sizes, dictionaries=None, skip=None,
 
         batches.append(RecordBatch(size, columns))
 
-    return File(name, schema, batches, dictionaries, skip=skip)
+    return File(name, schema, batches, dictionaries)
 
 
 def generate_custom_metadata_case():
@@ -1666,8 +1693,8 @@ def get_generated_json_files(tempdir=None):
         generate_primitive_case([0, 0, 0], name='primitive_zerolength'),
 
         generate_primitive_large_offsets_case([17, 20])
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
         generate_null_case([10, 0]),
 
@@ -1676,66 +1703,71 @@ def get_generated_json_files(tempdir=None):
         generate_decimal128_case(),
 
         generate_decimal256_case()
-        .skip_category('JS'),
+        .skip_tester('JS'),
 
         generate_datetime_case(),
 
         generate_duration_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
+        .skip_tester('C#')
+        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),  # TODO(ARROW-5239): Intervals + JS
+        .skip_tester('C#')
+        .skip_tester('JS'),  # TODO(ARROW-5239): Intervals + JS
 
         generate_month_day_nano_interval_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
         generate_map_case()
-        .skip_category('C#'),
+        .skip_tester('C#'),
 
         generate_non_canonical_map_case()
-        .skip_category('C#')
-        .skip_category('Java'),   # TODO(ARROW-8715)
+        .skip_tester('C#')
+        .skip_tester('Java')  # TODO(ARROW-8715)
+        # Canonical map names are restored on import, so the schemas are unequal
+        .skip_format(SKIP_C_SCHEMA, 'C++'),
 
         generate_nested_case(),
 
         generate_recursive_nested_case(),
 
         generate_nested_large_offsets_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
         generate_unions_case()
-        .skip_category('C#'),
+        .skip_tester('C#'),
 
         generate_custom_metadata_case()
-        .skip_category('C#'),
+        .skip_tester('C#'),
 
         generate_duplicate_fieldnames_case()
-        .skip_category('C#')
-        .skip_category('JS'),
+        .skip_tester('C#')
+        .skip_tester('JS'),
 
         generate_dictionary_case()
-        .skip_category('C#'),
+        .skip_tester('C#'),
 
         generate_dictionary_unsigned_case()
-        .skip_category('C#')
-        .skip_category('Java'),  # TODO(ARROW-9377)
+        .skip_tester('C#')
+        .skip_tester('Java'),  # TODO(ARROW-9377)
 
         generate_nested_dictionary_case()
-        .skip_category('C#')
-        .skip_category('Java'),  # TODO(ARROW-7779)
+        .skip_tester('C#')
+        .skip_tester('Java'),  # TODO(ARROW-7779)
 
         generate_run_end_encoded_case()
-        .skip_category('C#')
-        .skip_category('Java')
-        .skip_category('JS')
-        .skip_category('Rust'),
+        .skip_tester('C#')
+        .skip_tester('Java')
+        .skip_tester('JS')
+        .skip_tester('Rust'),
 
         generate_extension_case()
-        .skip_category('C#'),
+        .skip_tester('C#')
+        # TODO: ensure the extension is registered in the C++ entrypoint
+        .skip_format(SKIP_C_SCHEMA, 'C++')
+        .skip_format(SKIP_C_ARRAY, 'C++'),
     ]
 
     generated_paths = []
