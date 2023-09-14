@@ -484,7 +484,7 @@ build_libarrow <- function(src_dir, dst_dir) {
   if (!is.null(attr(status, "status"))) {
     # It failed :(
     cat("**** Error building Arrow C++.", "\n")
-    if (!env_is("ARROW_R_DEV", "true")) {
+    if (quietly) {
       cat(status, fill = TRUE)
       cat("Re-run with ARROW_R_DEV=true for more detailed debug information.")
     }
