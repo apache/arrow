@@ -57,9 +57,10 @@ type ToStringState = {
         if (state.closed) { break; }
         for await (reader of recordBatchReaders(source)) {
             hasReaders = true;
-            const transformToString = batchesToString(state, reader.schema);
+            const batches = stream.Readable.from(reader);
+            const toString = batchesToString(state, reader.schema);
             await pipeTo(
-                reader.pipe(transformToString),
+                batches.pipe(toString),
                 process.stdout, { end: false }
             ).catch(() => state.closed = true); // Handle EPIPE errors
         }
