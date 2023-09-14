@@ -493,7 +493,7 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
           JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
     for(arrow::engine::NamedExpression& named_expression :
                                         bounded_expression.named_expressions) {
-      if (!(named_expression.expression.type()->id() == arrow::Type::BOOL)) {
+      if (named_expression.expression.type()->id() != arrow::Type::BOOL) {
         project_exprs.push_back(std::move(named_expression.expression));
         project_names.push_back(std::move(named_expression.name));
       }
