@@ -18,7 +18,6 @@
 # under the License.
 
 import contextlib
-import functools
 import os
 import os.path
 from os.path import join as pjoin
@@ -136,12 +135,13 @@ class build_ext(_build_ext):
                       'bundle the Arrow C++ headers')] +
                     _build_ext.user_options)
 
-    @functools.cache
     def get_arrow_build_options(self):
         """
             read arrow options from cmake
         """
-        build_options = {}
+        if hasattr(self,"_arrow_build_options"):
+            return self._arrow_build_options
+        self._arrow_build_options = {}
         # first find the cmake file
         source = os.path.dirname(os.path.abspath(__file__))
         # now make a temp folder to run cmake in
@@ -168,8 +168,8 @@ class build_ext(_build_ext):
                     if m:
                         key = m.group(1)
                         value = m.group(2)
-                        build_options[key] = value
-        return build_options
+                        self._arrow_build_options[key] = value
+        return self._arrow_build_options
 
     def get_env_option(self, name, default):
         """
