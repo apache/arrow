@@ -19,12 +19,13 @@ import { targetDir, tsconfigName, observableFromStreams, shouldRunInChildProcess
 
 import gulp from 'gulp';
 import path from 'path';
-import ts from 'gulp-typescript';
 import tsc from 'typescript';
+import ts from 'gulp-typescript';
+import * as fs from 'fs/promises';
 import sourcemaps from 'gulp-sourcemaps';
 import { memoizeTask } from './memoize-task.js';
-import { ReplaySubject, forkJoin as ObservableForkJoin } from 'rxjs';
-import { mergeWith, takeLast, share } from 'rxjs/operators';
+import { ReplaySubject, forkJoin as ObservableForkJoin, defer as ObservableDefer } from 'rxjs';
+import { mergeWith, takeLast, share, concat } from 'rxjs/operators';
 
 export const typescriptTask = ((cache) => memoizeTask(cache, function typescript(target, format) {
     if (shouldRunInChildProcess(target, format)) {
@@ -45,7 +46,11 @@ export function compileBinFiles(target, format) {
     const out = targetDir(target, format);
     const tsconfigPath = path.join(`tsconfig`, `tsconfig.${tsconfigName('bin', 'cjs')}.json`);
     const tsconfigOverrides = format === 'esm' ? { target, module: 'ES2015' } : { target };
-    return compileTypescript(out, tsconfigPath, tsconfigOverrides, false);
+    return compileTypescript(out, tsconfigPath, tsconfigOverrides, false)
+      .pipe(takeLast(1))
+      .pipe(concat(ObservableDefer(() => {
+        return fs.chmod(path.join(out, 'bin', 'arrow2csv.js'), 0o755);
+      })));
 }
 
 function compileTypescript(out, tsconfigPath, tsconfigOverrides, writeSourcemaps = true) {
