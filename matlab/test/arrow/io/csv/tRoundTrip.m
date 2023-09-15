@@ -14,49 +14,36 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-classdef tRoundTrip < matlab.unittest.TestCase
+classdef tRoundTrip < CSVTest
 
-    properties
-        MatlabTableNumeric
-        MatlabTableString
-        ArrowTableNumeric
-        ArrowTableString
-        Filename
-    end
-
-    methods (TestClassSetup)
-
-        function initializeProperties(testCase)
-            % Seed the random number generator.
-            rng(1);
-
-            testCase.MatlabTableNumeric = array2table(rand(10000, 5), ...
-                VariableNames=["😀", "🌲", "🥭", " ", "ABC"]);
-            testCase.ArrowTableNumeric = arrow.table(testCase.MatlabTableNumeric);
-            testCase.MatlabTableString = table(["A"; "B"; "C"], ...
-                                               [""; " "; "   "], ...
-                                               ["😀"; "🌲"; "🥭"]);
-            testCase.ArrowTableString = arrow.table(testCase.MatlabTableString);
-        end
-
-    end
-
-    methods (TestMethodSetup)
-
-        function setupTempFile(testCase)
-            import matlab.unittest.fixtures.TemporaryFolderFixture
-            fixture = testCase.applyFixture(TemporaryFolderFixture);
-            testCase.Filename = fullfile(fixture.Folder, "temp.csv");
-        end
-
+    properties (TestParameter)
+        NumRows = { ...
+            2, ...
+            10, ...
+            100 ...
+        }
+        WithNulls = { ...
+            true, ...
+            false ...
+        }
+        ColumnNames = {...
+            ["A", "B", "C"], ...
+            ["😀", "🌲", "🥭", " ", "ABC"], ...
+            [" ", " ", " "]
+        }
     end
 
     methods(Test)
 
-        function Numeric(testCase)
+        function Numeric(testCase, NumRows, WithNulls, ColumnNames)
             import arrow.io.csv.*
 
-            arrowTableWrite = testCase.ArrowTableNumeric;
+            arrowTableWrite = testCase.makeArrowTable(...
+                Type="numeric", ...
+                NumRows=NumRows, ...
+                WithNulls=WithNulls, ...
+                ColumnNames=ColumnNames ...
+            );
 
             writer = TableWriter(testCase.Filename);
             reader = TableReader(testCase.Filename);
@@ -67,10 +54,15 @@ classdef tRoundTrip < matlab.unittest.TestCase
             testCase.verifyEqual(arrowTableRead, arrowTableWrite);
         end
 
-        function String(testCase)
+        function String(testCase, NumRows, ColumnNames)
             import arrow.io.csv.*
 
-            arrowTableWrite = testCase.ArrowTableString;
+            arrowTableWrite = testCase.makeArrowTable(...
+                Type="string", ...
+                NumRows=NumRows, ...
+                WithNulls=false, ...
+                ColumnNames=ColumnNames ...
+            );
 
             writer = TableWriter(testCase.Filename);
             reader = TableReader(testCase.Filename);
