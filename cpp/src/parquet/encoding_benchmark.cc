@@ -767,16 +767,16 @@ void prefixed_random_byte_array(int n, uint32_t seed, uint8_t* buf, ByteArray* o
 }
 
 static void BM_DeltaEncodingByteArray(benchmark::State& state) {
-  // Using arrow generator to generate random data.
-  int32_t max_length = static_cast<int32_t>(state.range(0));
-  int32_t array_size = static_cast<int32_t>(state.range(1));
-  double prefixed_probability = state.range(2) / 100;
+  int32_t min_length = static_cast<int32_t>(state.range(0));
+  int32_t max_length = static_cast<int32_t>(state.range(1));
+  int32_t array_size = static_cast<int32_t>(state.range(2));
+  double prefixed_probability = state.range(3) / 100;
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
   std::vector<ByteArray> values;
   std::vector<uint8_t> buf(max_length * array_size);
   values.resize(array_size);
   prefixed_random_byte_array(array_size, /*seed=*/0, buf.data(), values.data(),
-                             /*min_size=*/0, max_length,
+                             min_length, max_length,
                              /*prefixed_probability=*/prefixed_probability);
   int64_t actual_length = 0;
   for (auto v : values) {
@@ -792,16 +792,16 @@ static void BM_DeltaEncodingByteArray(benchmark::State& state) {
 }
 
 static void BM_DeltaDecodingByteArray(benchmark::State& state) {
-  // Using arrow generator to generate random data.
-  int32_t max_length = static_cast<int32_t>(state.range(0));
-  int32_t array_size = static_cast<int32_t>(state.range(1));
-  double prefixed_probability = state.range(2) / 100;
+  int32_t min_length = static_cast<int32_t>(state.range(0));
+  int32_t max_length = static_cast<int32_t>(state.range(1));
+  int32_t array_size = static_cast<int32_t>(state.range(2));
+  double prefixed_probability = state.range(3) / 100;
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
   std::vector<ByteArray> values;
   std::vector<uint8_t> input_buf(max_length * array_size);
   values.resize(array_size);
   prefixed_random_byte_array(array_size, /*seed=*/0, input_buf.data(), values.data(),
-                             /*min_size=*/0, max_length,
+                             min_length, max_length,
                              /*prefixed_probability=*/prefixed_probability);
   int64_t actual_length = 0;
   for (auto v : values) {
@@ -821,8 +821,18 @@ static void BM_DeltaDecodingByteArray(benchmark::State& state) {
 }
 
 static void ByteArrayDeltaCustomArguments(benchmark::internal::Benchmark* b) {
-  b->ArgsProduct({{8, 64, 1024}, {512, 2048}, {10, 90, 99}})
-      ->ArgNames({"max-string-length", "batch-size", "prefixed-probability"});
+  for (int max_string_length : {8, 64, 1024}) {
+    for (int batch_size : {512, 2048}) {
+      std::vector<std::pair<int, int>> prefix_gen_params = {
+          {10, 0}, {90, max_string_length / 2}, {99, max_string_length}};
+      for (auto& [prefixed_probability, min_prefix_string_length] : prefix_gen_params) {
+        b->Args({min_prefix_string_length, max_string_length, batch_size,
+                 prefixed_probability});
+      }
+    }
+  }
+  b->ArgNames({"min-prefix-string-length", "max-string-length", "batch-size",
+               "prefixed-probability"});
 }
 
 BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
