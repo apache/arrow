@@ -63,11 +63,15 @@ class ParquetFormatHelper {
  public:
   using FormatType = ParquetFileFormat;
 
-  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+  static Result<std::shared_ptr<Buffer>> Write(
+      RecordBatchReader* reader,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+          default_arrow_writer_properties()) {
     auto pool = ::arrow::default_memory_pool();
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
-    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink, default_writer_properties(),
+                                         arrow_properties));
     return sink->Finish();
   }
   static std::shared_ptr<ParquetFileFormat> MakeFormat() {
@@ -725,9 +729,30 @@ TEST(TestParquetStatistics, NullMax) {
   auto reader =
       parquet::ParquetFileReader::OpenFile(dir_string + "/nan_in_stats.parquet");
   auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
-  auto stat_expression =
-      ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  auto stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(
+      *field, *statistics, field->type());
   EXPECT_EQ(stat_expression->ToString(), "(x >= 1)");
+}
+
+TEST(TestParquetStatistics, SchemaCast) {
+  auto arrow_src_field = ::arrow::field("t", duration(TimeUnit::NANO));
+  auto table = TableFromJSON(schema({arrow_src_field}), {
+                                                            R"([{"t": 1}])",
+                                                        });
+  TableBatchReader table_reader(*table);
+  ArrowWriterProperties::Builder builder;
+  builder.store_schema();
+  ASSERT_OK_AND_ASSIGN(auto buffer,
+                       ParquetFormatHelper::Write(&table_reader, builder.build()));
+  std::shared_ptr<io::BufferReader> buffer_reader =
+      std::make_shared<io::BufferReader>(buffer);
+  auto reader = parquet::ParquetFileReader::Open(
+      buffer_reader, parquet::default_reader_properties(), nullptr);
+  auto statistics = reader->RowGroup(0)->metadata()->ColumnChunk(0)->statistics();
+  auto manifest_reduce_field = ::arrow::field("t", int64());
+  auto stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(
+      *manifest_reduce_field, *statistics, arrow_src_field->type());
+  EXPECT_EQ(stat_expression->ToString(), "(t == 1)");
 }
 
 }  // namespace dataset

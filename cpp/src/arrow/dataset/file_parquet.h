@@ -172,7 +172,8 @@ class ARROW_DS_EXPORT ParquetFileFragment : public FileFragment {
   Result<std::shared_ptr<Fragment>> Subset(std::vector<int> row_group_ids);
 
   static std::optional<compute::Expression> EvaluateStatisticsAsExpression(
-      const Field& field, const parquet::Statistics& statistics);
+      const Field& field, const parquet::Statistics& statistics,
+      const std::shared_ptr<DataType>& dest_type);
 
  private:
   ParquetFileFragment(FileSource source, std::shared_ptr<FileFormat> format,

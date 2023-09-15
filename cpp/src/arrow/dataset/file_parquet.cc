@@ -112,11 +112,16 @@ bool IsNan(const Scalar& value) {
 }
 
 std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
-    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata) {
+    const SchemaField& schema_field, const parquet::RowGroupMetaData& metadata,
+    const std::shared_ptr<arrow::DataType>& dest_type) {
   // For the remaining of this function, failure to extract/parse statistics
   // are ignored by returning nullptr. The goal is two fold. First
   // avoid an optimization which breaks the computation. Second, allow the
   // following columns to maybe succeed in extracting column statistics.
+  //
+  // Besides, dest_field may have different type with `schema_field`.
+  // `schema_field` uses deduced logical type in parquet, and `dest_type` is
+  // the dest arrow type.
 
   // For now, only leaf (primitive) types are supported.
   if (!schema_field.is_leaf()) {
@@ -131,7 +136,8 @@ std::optional<compute::Expression> ColumnChunkStatisticsAsExpression(
     return std::nullopt;
   }
 
-  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics);
+  return ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *statistics,
+                                                             dest_type);
 }
 
 void AddColumnIndices(const SchemaField& schema_field,
@@ -311,7 +317,8 @@ Result<bool> IsSupportedParquetFile(const ParquetFileFormat& format,
 }  // namespace
 
 std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpression(
-    const Field& field, const parquet::Statistics& statistics) {
+    const Field& field, const parquet::Statistics& statistics,
+    const std::shared_ptr<DataType>& dest_type) {
   auto field_expr = compute::field_ref(field.name());
 
   // Optimize for corner case where all values are nulls
@@ -324,8 +331,8 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     return std::nullopt;
   }
 
-  auto maybe_min = min->CastTo(field.type());
-  auto maybe_max = max->CastTo(field.type());
+  auto maybe_min = min->CastTo(dest_type);
+  auto maybe_max = max->CastTo(dest_type);
 
   if (maybe_min.ok() && maybe_max.ok()) {
     min = maybe_min.MoveValueUnsafe();
@@ -799,12 +806,13 @@ Result<std::vector<compute::Expression>> ParquetFileFragment::TestRowGroups(
     statistics_expressions_complete_[match[0]] = true;
 
     const SchemaField& schema_field = manifest_->schema_fields[match[0]];
+    auto dest_field = physical_schema_->field(match[0]);
     int i = 0;
     for (int row_group : *row_groups_) {
       auto row_group_metadata = metadata_->RowGroup(row_group);
 
-      if (auto minmax =
-              ColumnChunkStatisticsAsExpression(schema_field, *row_group_metadata)) {
+      if (auto minmax = ColumnChunkStatisticsAsExpression(
+              schema_field, *row_group_metadata, dest_field->type())) {
         FoldingAnd(&statistics_expressions_[i], std::move(*minmax));
         ARROW_ASSIGN_OR_RAISE(statistics_expressions_[i],
                               statistics_expressions_[i].Bind(*physical_schema_));
