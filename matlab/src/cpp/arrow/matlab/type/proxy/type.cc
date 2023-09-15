@@ -62,18 +62,18 @@ namespace arrow::matlab::type::proxy {
 
         // Validate there is at least 1 field
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
-            index::validateNonEmptyFields(data_type->num_fields()),
+            index::validateNonEmptyContainer(data_type->num_fields()),
             context,
             error::INDEX_EMPTY_CONTAINER);
 
         // Validate the matlab index provided is within the range [1, num_fields]
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
-            index::validateNumericFieldIndexInRange(matlab_index, data_type->num_fields()),
+            index::validateInRange(matlab_index, data_type->num_fields()),
             context,
             error::INDEX_OUT_OF_RANGE);
 
         // Note: MATLAB uses 1-based indexing, so subtract 1.
-        // arrow::Schema::field does not do any bounds checking.
+        // arrow::DataType::field does not do any bounds checking.
         const int32_t index = matlab_index - 1;
 
         auto field = data_type->field(index);

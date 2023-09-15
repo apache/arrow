@@ -22,11 +22,11 @@
 namespace arrow::matlab::index {
 
     namespace {
-        std::string makeZeroFieldsErrorMessage() {
+        std::string makeEmptyContainerErrorMessage() {
             return "Numeric indexing using the field method is not supported for objects with zero fields.";
         }
 
-        std::string makeInvalidNumericFieldIndexErrorMessage(const int32_t matlab_index, const int32_t num_fields) {
+        std::string makeIndexOutOfRangeErrorMessage(const int32_t matlab_index, const int32_t num_fields) {
             std::stringstream error_message_stream;
             error_message_stream << "Invalid field index: ";
             // matlab uses 1-based indexing
@@ -38,17 +38,17 @@ namespace arrow::matlab::index {
         }
     } // anonymous namespace 
 
-    arrow::Status validateNonEmptyFields(const int32_t num_fields) {
+    arrow::Status validateNonEmptyContainer(const int32_t num_fields) {
         if (num_fields == 0) {
-            const auto msg = makeZeroFieldsErrorMessage();
+            const auto msg = makeEmptyContainerErrorMessage();
             return arrow::Status::Invalid(std::move(msg));
         }
         return arrow::Status::OK();
     }
 
-    arrow::Status validateNumericFieldIndexInRange(const int32_t matlab_index, const int32_t num_fields) {
+    arrow::Status validateInRange(const int32_t matlab_index, const int32_t num_fields) {
         if (matlab_index < 1 || matlab_index > num_fields) {
-            const auto msg = makeInvalidNumericFieldIndexErrorMessage(matlab_index, num_fields);
+            const auto msg = makeIndexOutOfRangeErrorMessage(matlab_index, num_fields);
             return arrow::Status::Invalid(std::move(msg));
         }
         return arrow::Status::OK();

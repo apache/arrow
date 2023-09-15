@@ -21,6 +21,6 @@
 
 namespace arrow::matlab::index {
 
-    arrow::Status validateNonEmptyFields(const int32_t num_fields);
-    arrow::Status validateNumericFieldIndexInRange(const int32_t matlab_index, const int32_t num_fields);
+    arrow::Status validateNonEmptyContainer(const int32_t num_fields);
+    arrow::Status validateInRange(const int32_t matlab_index, const int32_t num_fields);
 }

@@ -71,13 +71,13 @@ namespace arrow::matlab::tabular::proxy {
 
         // Validate there is at least 1 field
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
-            index::validateNonEmptyFields(schema->num_fields()),
+            index::validateNonEmptyContainer(schema->num_fields()),
             context,
             error::INDEX_EMPTY_CONTAINER);
 
         // Validate the matlab index provided is within the range [1, num_fields]
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
-            index::validateNumericFieldIndexInRange(matlab_index, schema->num_fields()),
+            index::validateInRange(matlab_index, schema->num_fields()),
             context,
             error::INDEX_OUT_OF_RANGE);
 
