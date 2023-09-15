@@ -86,7 +86,7 @@ classdef tStringType < matlab.unittest.TestCase
             testCase.verifyError(@() type.field("A"), "arrow:badsubscript:NonNumeric");
 
             % NOTE: For StringType, Fields is always empty.
-            testCase.verifyError(@() type.field(1), "arrow:index:NumericIndexWithZeroFields");
+            testCase.verifyError(@() type.field(1), "arrow:index:EmptyContainer");
         end
 
     end

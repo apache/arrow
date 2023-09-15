@@ -71,7 +71,7 @@ classdef hFixedWidthType < matlab.unittest.TestCase
             testCase.verifyError(@() type.field("A"), "arrow:badsubscript:NonNumeric");
 
             % NOTE: For FixedWidthTypes, Fields is always empty.
-            testCase.verifyError(@() type.field(1), "arrow:index:NumericIndexWithZeroFields");
+            testCase.verifyError(@() type.field(1), "arrow:index:EmptyContainer");
         end
 
         function TestBitWidthNoSetter(testCase)
