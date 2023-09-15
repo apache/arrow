@@ -191,9 +191,6 @@ class build_ext(_build_ext):
             if cmake_default_name is not None:
                 # get name from arrow cmake options
                 cmake_options = self.get_arrow_build_options()
-                print(cmake_options)
-                print(cmake_default_name, "!!!===",
-                      cmake_options.get(cmake_default_name, default))
                 return strtobool(cmake_options.get(cmake_default_name, default))
             else:
                 return strtobool(default)

@@ -31,8 +31,6 @@ from io import BufferedIOBase, IOBase, TextIOBase, UnsupportedOperation
 from queue import Queue, Empty as QueueEmpty
 
 from pyarrow.util import _is_path_like, _stringify_path
-from pyarrow.lib import is_threading_enabled
-
 
 # 64K
 DEFAULT_BUFFER_SIZE = 2 ** 16
