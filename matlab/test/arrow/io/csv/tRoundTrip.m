@@ -36,41 +36,25 @@ classdef tRoundTrip < CSVTest
     methods(Test)
 
         function Numeric(testCase, NumRows, WithNulls, ColumnNames)
-            import arrow.io.csv.*
-
-            arrowTableWrite = testCase.makeArrowTable(...
+            arrowTable = testCase.makeArrowTable(...
                 Type="numeric", ...
                 NumRows=NumRows, ...
                 WithNulls=WithNulls, ...
                 ColumnNames=ColumnNames ...
             );
 
-            writer = TableWriter(testCase.Filename);
-            reader = TableReader(testCase.Filename);
-
-            writer.write(arrowTableWrite);
-            arrowTableRead = reader.read();
-
-            testCase.verifyEqual(arrowTableRead, arrowTableWrite);
+            testCase.verifyRoundTrip(arrowTable);
         end
 
         function String(testCase, NumRows, ColumnNames)
-            import arrow.io.csv.*
-
-            arrowTableWrite = testCase.makeArrowTable(...
+            arrowTable = testCase.makeArrowTable(...
                 Type="string", ...
                 NumRows=NumRows, ...
                 WithNulls=false, ...
                 ColumnNames=ColumnNames ...
             );
 
-            writer = TableWriter(testCase.Filename);
-            reader = TableReader(testCase.Filename);
-
-            writer.write(arrowTableWrite);
-            arrowTableRead = reader.read();
-
-            testCase.verifyEqual(arrowTableRead, arrowTableWrite);
+            testCase.verifyRoundTrip(arrowTable);
         end
 
     end

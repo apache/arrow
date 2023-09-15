@@ -41,6 +41,18 @@ classdef CSVTest < matlab.unittest.TestCase
 
     methods
 
+        function verifyRoundTrip(testCase, arrowTable)
+            import arrow.io.csv.*
+
+            writer = TableWriter(testCase.Filename);
+            reader = TableReader(testCase.Filename);
+
+            writer.write(arrowTable);
+            arrowTableRead = reader.read();
+
+            testCase.verifyEqual(arrowTableRead, arrowTable);
+        end
+
         function arrowTable = makeArrowTable(testCase, opts)
             arguments
                 testCase
