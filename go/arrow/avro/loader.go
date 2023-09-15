@@ -78,6 +78,9 @@ func (r *OCFReader) recordFactory() {
 				recChunk = 0
 			}
 		}
+		if recChunk != 0 {
+			r.recChan <- r.bld.NewRecord()
+		}
 		r.bldDone <- struct{}{}
 		close(r.recChan)
 	}
