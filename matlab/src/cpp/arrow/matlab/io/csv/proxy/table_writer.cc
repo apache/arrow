@@ -78,7 +78,7 @@ namespace arrow::matlab::io::csv::proxy {
                                             arrow::io::FileOutputStream::Open(filename),
                                             context,
                                             error::FAILED_TO_OPEN_FILE_FOR_WRITE);
-        csv::WriteOptions options;
+        csv::WriteOptions options = csv::WriteOptions::Defaults();
         MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(csv::WriteCSV(*table, options, output_stream.get()),
                                             context,
                                             error::CSV_FAILED_TO_WRITE_TABLE);

@@ -60,9 +60,9 @@ namespace arrow::matlab::io::csv::proxy {
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto source, arrow::io::ReadableFile::Open(filename, arrow::default_memory_pool()), context, error::FAILED_TO_OPEN_FILE_FOR_READ);
 
         const ::arrow::io::IOContext io_context;
-        const csv::ReadOptions read_options;
-        const csv::ParseOptions parse_options;
-        const csv::ConvertOptions convert_options;
+        const csv::ReadOptions read_options = csv::ReadOptions::Defaults();
+        const csv::ParseOptions parse_options = csv::ParseOptions::Defaults();
+        const csv::ConvertOptions convert_options = csv::ConvertOptions::Defaults();
 
         // Create a TableReader from the file input stream.
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto table_reader,
