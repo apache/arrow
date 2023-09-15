@@ -61,7 +61,7 @@ class TestArrayDatum < Test::Unit::TestCase
   end
 
   def test_to_string
-    assert_equal("Array", @datum.to_s)
+    assert_equal("Array([\n" + "  true,\n" + "  false\n" + "])", @datum.to_s)
   end
 
   def test_value
