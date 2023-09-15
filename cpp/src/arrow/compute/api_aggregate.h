@@ -138,7 +138,7 @@ class ARROW_EXPORT QuantileOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "QuantileOptions";
   static QuantileOptions Defaults() { return QuantileOptions{}; }
 
-  /// quantile must be between 0 and 1 inclusive
+  /// probability level of quantile must be between 0 and 1 inclusive
   std::vector<double> q;
   enum Interpolation interpolation;
   /// If true (the default), null values are ignored. Otherwise, if any value is null,
@@ -162,7 +162,7 @@ class ARROW_EXPORT TDigestOptions : public FunctionOptions {
   static constexpr char const kTypeName[] = "TDigestOptions";
   static TDigestOptions Defaults() { return TDigestOptions{}; }
 
-  /// quantile must be between 0 and 1 inclusive
+  /// probability level of quantile must be between 0 and 1 inclusive
   std::vector<double> q;
   /// compression parameter, default 100
   uint32_t delta;
