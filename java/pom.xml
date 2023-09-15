@@ -687,11 +687,6 @@
       <version>0.9.44</version>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>org.checkerframework</groupId>
-      <artifactId>checker-qual</artifactId>
-      <version>${checker.version}</version>
-    </dependency>
   </dependencies>
 
   <reporting>
@@ -763,6 +758,53 @@
       </modules>
     </profile>
 
+      <profile>
+          <id>checkerddsa</id>
+          <dependencies>
+              <dependency>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>checker</artifactId>
+                  <version>${checker.version}</version>
+                  <scope>provided</scope>
+              </dependency>
+              <dependency>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>jdk8</artifactId>
+                  <version>3.3.0</version>
+                  <scope>provided</scope>
+              </dependency>
+          </dependencies>
+          <build>
+              <plugins>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-dependency-plugin</artifactId>
+                      <executions>
+                          <execution>
+                              <goals>
+                                  <goal>properties</goal>
+                              </goals>
+                          </execution>
+                      </executions>
+                  </plugin>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-compiler-plugin</artifactId>
+                      <configuration>
+                          <source>8</source>
+                          <target>8</target>
+                          <annotationProcessors>
+                              <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+                          </annotationProcessors>
+                          <compilerArgs>
+                              <arg>-Xbootclasspath/p:${settings.localRepository}/org/checkerframework/jdk8/3.3.0/jdk8-3.3.0.jar</arg>
+                          </compilerArgs>
+                      </configuration>
+                  </plugin>
+              </plugins>
+          </build>
+      </profile>
+
     <profile>
       <!-- Use the version of arrow-vector that shades flatbuffers and packages format -->
       <id>shade-flatbuffers</id>
@@ -770,6 +812,55 @@
         <arrow.vector.classifier>shade-format-flatbuffers</arrow.vector.classifier>
       </properties>
     </profile>
+
+      <profile>
+          <id>checker</id>
+          <dependencies>
+              <dependency>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>checker</artifactId>
+                  <version>${checker.version}</version>
+                  <scope>provided</scope>
+              </dependency>
+              <dependency>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>jdk8</artifactId>
+                  <version>3.3.0</version>
+                  <scope>provided</scope>
+              </dependency>
+          </dependencies>
+          <build>
+              <plugins>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-dependency-plugin</artifactId>
+                      <version>2.10</version>
+                      <executions>
+                          <execution>
+                              <goals>
+                                  <goal>properties</goal>
+                              </goals>
+                          </execution>
+                      </executions>
+                  </plugin>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-compiler-plugin</artifactId>
+                      <version>3.3</version>
+                      <configuration>
+                          <source>8</source>
+                          <target>8</target>
+                          <annotationProcessors>
+                              <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+                          </annotationProcessors>
+                          <compilerArgs>
+                              <arg>-Xbootclasspath/p:${settings.localRepository}/org/checkerframework/jdk8/3.3.0/jdk8-3.3.0.jar</arg>
+                          </compilerArgs>
+                      </configuration>
+                  </plugin>
+              </plugins>
+          </build>
+      </profile>
 
     <profile>
       <id>error-prone-jdk8</id>
@@ -784,30 +875,134 @@
           <name>!m2e.version</name>
         </property>
       </activation>
+        <dependencies>
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker</artifactId>
+                <version>${checker.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>jdk8</artifactId>
+                <version>3.3.0</version>
+                <scope>provided</scope>
+            </dependency>
+        </dependencies>
       <build>
         <plugins>
+            <plugin>
+                <!-- This plugin will set the properties values using dependency information -->
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.10</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>properties</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-compiler-plugin</artifactId>
+              <version>3.3</version>
             <configuration>
               <fork>true</fork>
-              <compilerArgs combine.children="append">
-                <arg>-XDcompilePolicy=simple</arg>
-                <arg>-Xplugin:ErrorProne</arg>
-                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>
-              </compilerArgs>
-              <annotationProcessorPaths combine.children="append">
-                <path>
-                  <groupId>com.google.errorprone</groupId>
-                  <artifactId>error_prone_core</artifactId>
-                  <version>2.4.0</version>
-                </path>
-              </annotationProcessorPaths>
+                <source>8</source>
+                <target>8</target>
+                <annotationProcessors>
+                    <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+                </annotationProcessors>
+                <compilerArgs >
+                    <arg>-Xbootclasspath/p:${settings.localRepository}/org/checkerframework/jdk8/3.3.0/jdk8-3.3.0.jar</arg>
+                </compilerArgs>
+
+<!--              <annotationProcessorPaths combine.children="append">-->
+<!--                <path>-->
+<!--                  <groupId>com.google.errorprone</groupId>-->
+<!--                  <artifactId>error_prone_core</artifactId>-->
+<!--                  <version>2.4.0</version>-->
+<!--                </path>-->
+<!--              </annotationProcessorPaths>-->
+<!--                <annotationProcessors>-->
+<!--                    <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>-->
+<!--                </annotationProcessors>-->
+<!--                <annotationProcessors>-->
+<!--                    &lt;!&ndash; To support @Value.Immutable processors &ndash;&gt;-->
+<!--                    <annotationProcessor>org.immutables.value.internal.$processor$.$Processor</annotationProcessor>-->
+<!--                    &lt;!&ndash; Add all the checkers you want to enable here &ndash;&gt;-->
+<!--                    <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>-->
+<!--                </annotationProcessors>-->
             </configuration>
           </plugin>
         </plugins>
       </build>
     </profile>
+
+      <profile>
+          <id>error-prowwwne-jdk8</id>
+          <!--
+               Do not activate Error Prone while running with Eclipse/M2E as it causes incompatibilities
+               with other annotation processors.
+               See https://github.com/jbosstools/m2e-apt/issues/62 for details
+          -->
+          <activation>
+              <jdk>1.8</jdk>
+              <property>
+                  <name>!m2e.version</name>
+              </property>
+          </activation>
+          <dependencies>
+              <dependency>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>checker</artifactId>
+                  <version>${checker.version}</version>
+                  <scope>provided</scope>
+              </dependency>
+              <dependency>
+                  <groupId>org.checkerframework</groupId>
+                  <artifactId>jdk8</artifactId>
+                  <version>3.3.0</version>
+                  <scope>provided</scope>
+              </dependency>
+          </dependencies>
+          <build>
+              <plugins>
+                  <plugin>
+                      <!-- This plugin will set the properties values using dependency information -->
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-dependency-plugin</artifactId>
+                      <version>2.10</version>
+                      <executions>
+                          <execution>
+                              <goals>
+                                  <goal>properties</goal>
+                              </goals>
+                          </execution>
+                      </executions>
+                  </plugin>
+                  <plugin>
+                      <groupId>org.apache.maven.plugins</groupId>
+                      <artifactId>maven-compiler-plugin</artifactId>
+                      <configuration>
+                          <fork>true</fork>
+                          <source>8</source>
+                          <target>8</target>
+                          <compilerArgs>
+                              <arg>-Awarns</arg> <!-- Treat checker errors as warnings -->
+                              <arg>-AskipDefs=.*Test</arg> <!-- Skip analysis for Testing classes -->
+                              <arg>-Xbootclasspath/p:${settings.localRepository}/org/checkerframework/jdk8/3.3.0/jdk8-3.3.0.jar</arg>
+                          </compilerArgs>
+                          <annotationProcessors>
+                              <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+                          </annotationProcessors>
+                      </configuration>
+                  </plugin>
+              </plugins>
+          </build>
+      </profile>
 
     <profile>
       <id>error-prone-jdk11+</id>
