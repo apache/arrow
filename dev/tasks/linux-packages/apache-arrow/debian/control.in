@@ -317,7 +317,7 @@ Multi-Arch: same
 Depends:
   ${misc:Depends},
   libglib2.0-dev,
-  libarrow-dev (= ${binary:Version}),
+  libarrow-acero-dev (= ${binary:Version}),
   libarrow-glib1400 (= ${binary:Version}),
   gir1.2-arrow-1.0 (= ${binary:Version})
 Suggests: libarrow-glib-doc
