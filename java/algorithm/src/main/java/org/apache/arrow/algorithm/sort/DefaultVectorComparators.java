@@ -19,15 +19,31 @@ package org.apache.arrow.algorithm.sort;
 
 import static org.apache.arrow.vector.complex.BaseRepeatedValueVector.OFFSET_WIDTH;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+
 import org.apache.arrow.memory.util.ArrowBufPointer;
 import org.apache.arrow.memory.util.ByteFunctionHelpers;
 import org.apache.arrow.vector.BaseFixedWidthVector;
 import org.apache.arrow.vector.BaseVariableWidthVector;
 import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
+import org.apache.arrow.vector.DateDayVector;
+import org.apache.arrow.vector.DateMilliVector;
+import org.apache.arrow.vector.Decimal256Vector;
+import org.apache.arrow.vector.DecimalVector;
+import org.apache.arrow.vector.DurationVector;
 import org.apache.arrow.vector.Float4Vector;
 import org.apache.arrow.vector.Float8Vector;
 import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.IntervalDayVector;
+import org.apache.arrow.vector.IntervalMonthDayNanoVector;
 import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TimeMicroVector;
+import org.apache.arrow.vector.TimeMilliVector;
+import org.apache.arrow.vector.TimeNanoVector;
+import org.apache.arrow.vector.TimeSecVector;
+import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
@@ -69,6 +85,32 @@ public class DefaultVectorComparators {
         return (VectorValueComparator<T>) new UInt4Comparator();
       } else if (vector instanceof UInt8Vector) {
         return (VectorValueComparator<T>) new UInt8Comparator();
+      } else if (vector instanceof BitVector) {
+        return (VectorValueComparator<T>) new BitComparator();
+      } else if (vector instanceof DateDayVector) {
+        return (VectorValueComparator<T>) new DateDayComparator();
+      } else if (vector instanceof DateMilliVector) {
+        return (VectorValueComparator<T>) new DateMilliComparator();
+      } else if (vector instanceof Decimal256Vector) {
+        return (VectorValueComparator<T>) new Decimal256Comparator();
+      } else if (vector instanceof DecimalVector) {
+        return (VectorValueComparator<T>) new DecimalComparator();
+      } else if (vector instanceof DurationVector) {
+        return (VectorValueComparator<T>) new DurationComparator();
+      } else if (vector instanceof IntervalDayVector) {
+        return (VectorValueComparator<T>) new IntervalDayComparator();
+      } else if (vector instanceof IntervalMonthDayNanoVector) {
+        throw new IllegalArgumentException("No default comparator for " + vector.getClass().getCanonicalName());
+      } else if (vector instanceof TimeMicroVector) {
+        return (VectorValueComparator<T>) new TimeMicroComparator();
+      } else if (vector instanceof TimeMilliVector) {
+        return (VectorValueComparator<T>) new TimeMilliComparator();
+      } else if (vector instanceof TimeNanoVector) {
+        return (VectorValueComparator<T>) new TimeNanoComparator();
+      } else if (vector instanceof TimeSecVector) {
+        return (VectorValueComparator<T>) new TimeSecComparator();
+      } else if (vector instanceof TimeStampVector) {
+        return (VectorValueComparator<T>) new TimeStampComparator();
       }
     } else if (vector instanceof BaseVariableWidthVector) {
       return (VectorValueComparator<T>) new VariableWidthComparator();
@@ -342,6 +384,293 @@ public class DefaultVectorComparators {
     @Override
     public VectorValueComparator<Float8Vector> createNew() {
       return new Float8Comparator();
+    }
+  }
+
+  /**
+   * Default comparator for bit type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class BitComparator extends VectorValueComparator<BitVector> {
+
+    public BitComparator() {
+      super(-1);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      boolean value1 = vector1.get(index1) != 0;
+      boolean value2 = vector2.get(index2) != 0;
+
+      return Boolean.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<BitVector> createNew() {
+      return new BitComparator();
+    }
+  }
+
+  /**
+   * Default comparator for DateDay type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class DateDayComparator extends VectorValueComparator<DateDayVector> {
+
+    public DateDayComparator() {
+      super(DateDayVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int value1 = vector1.get(index1);
+      int value2 = vector2.get(index2);
+      return Integer.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<DateDayVector> createNew() {
+      return new DateDayComparator();
+    }
+  }
+
+  /**
+   * Default comparator for DateMilli type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class DateMilliComparator extends VectorValueComparator<DateMilliVector> {
+
+    public DateMilliComparator() {
+      super(DateMilliVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      long value1 = vector1.get(index1);
+      long value2 = vector2.get(index2);
+
+      return Long.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<DateMilliVector> createNew() {
+      return new DateMilliComparator();
+    }
+  }
+
+  /**
+   * Default comparator for Decimal256 type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class Decimal256Comparator extends VectorValueComparator<Decimal256Vector> {
+
+    public Decimal256Comparator() {
+      super(Decimal256Vector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      BigDecimal value1 = vector1.getObjectNotNull(index1);
+      BigDecimal value2 = vector2.getObjectNotNull(index2);
+
+      return value1.compareTo(value2);
+    }
+
+    @Override
+    public VectorValueComparator<Decimal256Vector> createNew() {
+      return new Decimal256Comparator();
+    }
+  }
+
+  /**
+   * Default comparator for Decimal type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class DecimalComparator extends VectorValueComparator<DecimalVector> {
+
+    public DecimalComparator() {
+      super(DecimalVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      BigDecimal value1 = vector1.getObjectNotNull(index1);
+      BigDecimal value2 = vector2.getObjectNotNull(index2);
+
+      return value1.compareTo(value2);
+    }
+
+    @Override
+    public VectorValueComparator<DecimalVector> createNew() {
+      return new DecimalComparator();
+    }
+  }
+
+  /**
+   * Default comparator for Duration type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class DurationComparator extends VectorValueComparator<DurationVector> {
+
+    public DurationComparator() {
+      super(DurationVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      Duration value1 = vector1.getObjectNotNull(index1);
+      Duration value2 = vector2.getObjectNotNull(index2);
+
+      return value1.compareTo(value2);
+    }
+
+    @Override
+    public VectorValueComparator<DurationVector> createNew() {
+      return new DurationComparator();
+    }
+  }
+
+  /**
+   * Default comparator for IntervalDay type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class IntervalDayComparator extends VectorValueComparator<IntervalDayVector> {
+
+    public IntervalDayComparator() {
+      super(IntervalDayVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      Duration value1 = vector1.getObjectNotNull(index1);
+      Duration value2 = vector2.getObjectNotNull(index2);
+
+      return value1.compareTo(value2);
+    }
+
+    @Override
+    public VectorValueComparator<IntervalDayVector> createNew() {
+      return new IntervalDayComparator();
+    }
+  }
+
+  /**
+   * Default comparator for TimeMicro type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class TimeMicroComparator extends VectorValueComparator<TimeMicroVector> {
+
+    public TimeMicroComparator() {
+      super(TimeMicroVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      long value1 = vector1.get(index1);
+      long value2 = vector2.get(index2);
+
+      return Long.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<TimeMicroVector> createNew() {
+      return new TimeMicroComparator();
+    }
+  }
+
+  /**
+   * Default comparator for TimeMilli type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class TimeMilliComparator extends VectorValueComparator<TimeMilliVector> {
+
+    public TimeMilliComparator() {
+      super(TimeMilliVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int value1 = vector1.get(index1);
+      int value2 = vector2.get(index2);
+
+      return Integer.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<TimeMilliVector> createNew() {
+      return new TimeMilliComparator();
+    }
+  }
+
+  /**
+   * Default comparator for TimeNano type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class TimeNanoComparator extends VectorValueComparator<TimeNanoVector> {
+
+    public TimeNanoComparator() {
+      super(TimeNanoVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      long value1 = vector1.get(index1);
+      long value2 = vector2.get(index2);
+
+      return Long.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<TimeNanoVector> createNew() {
+      return new TimeNanoComparator();
+    }
+  }
+
+  /**
+   * Default comparator for TimeSec type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class TimeSecComparator extends VectorValueComparator<TimeSecVector> {
+
+    public TimeSecComparator() {
+      super(TimeSecVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      int value1 = vector1.get(index1);
+      int value2 = vector2.get(index2);
+
+      return Integer.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<TimeSecVector> createNew() {
+      return new TimeSecComparator();
+    }
+  }
+
+  /**
+   * Default comparator for TimeSec type.
+   * The comparison is based on values, with null comes first.
+   */
+  public static class TimeStampComparator extends VectorValueComparator<TimeStampVector> {
+
+    public TimeStampComparator() {
+      super(TimeStampVector.TYPE_WIDTH);
+    }
+
+    @Override
+    public int compareNotNull(int index1, int index2) {
+      long value1 = vector1.get(index1);
+      long value2 = vector2.get(index2);
+
+      return Long.compare(value1, value2);
+    }
+
+    @Override
+    public VectorValueComparator<TimeStampVector> createNew() {
+      return new TimeStampComparator();
     }
   }
 
