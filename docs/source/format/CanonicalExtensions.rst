@@ -265,6 +265,9 @@ Variable shape tensor
    Values inside each **data** tensor element are stored in row-major/C-contiguous
    order according to the corresponding **shape**.
 
+  Elements in a variable shape tensor extension array are stored
+  in row-major/C-contiguous order.
+
 =========================
 Community Extension Types
 =========================
