@@ -262,8 +262,8 @@ Variable shape tensor
   This means the logical tensor has names [z, x, y] and shape [30, 10, 20].
 
 .. note::
-   Values inside each **data** tensor element are stored in row-major/C-contiguous
-   order according to the corresponding **shape**.
+   Elements in a variable shape tensor extension array are stored
+   in row-major/C-contiguous order.
 
 .. _json_extension:
 
