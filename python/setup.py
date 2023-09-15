@@ -139,7 +139,7 @@ class build_ext(_build_ext):
         """
             read arrow options from cmake
         """
-        if hasattr(self,"_arrow_build_options"):
+        if hasattr(self, "_arrow_build_options"):
             return self._arrow_build_options
         self._arrow_build_options = {}
         # first find the cmake file
