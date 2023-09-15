@@ -3375,7 +3375,8 @@ class DeltaByteArrayDecoderImpl : public DecoderImpl, virtual public TypedDecode
         throw ParquetException("excess expansion in DELTA_BYTE_ARRAY");
       }
     }
-    PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size, false));
+    // TODO(mwish): Release the buffer if it is too large.
+    PARQUET_THROW_NOT_OK(buffered_data_->Resize(data_size, /*shrink_to_fit=*/false));
 
     string_view prefix{last_value_};
     uint8_t* data_ptr = buffered_data_->mutable_data();

@@ -770,13 +770,14 @@ static void BM_DeltaEncodingByteArray(benchmark::State& state) {
   // Using arrow generator to generate random data.
   int32_t max_length = static_cast<int32_t>(state.range(0));
   int32_t array_size = static_cast<int32_t>(state.range(1));
+  double prefixed_probability = state.range(2) / 100;
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
   std::vector<ByteArray> values;
   std::vector<uint8_t> buf(max_length * array_size);
   values.resize(array_size);
   prefixed_random_byte_array(array_size, /*seed=*/0, buf.data(), values.data(),
                              /*min_size=*/0, max_length,
-                             /*prefixed_probability=*/0.5);
+                             /*prefixed_probability=*/prefixed_probability);
   int64_t actual_length = 0;
   for (auto v : values) {
     actual_length += v.len;
@@ -794,13 +795,14 @@ static void BM_DeltaDecodingByteArray(benchmark::State& state) {
   // Using arrow generator to generate random data.
   int32_t max_length = static_cast<int32_t>(state.range(0));
   int32_t array_size = static_cast<int32_t>(state.range(1));
+  double prefixed_probability = state.range(2) / 100;
   auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
   std::vector<ByteArray> values;
   std::vector<uint8_t> input_buf(max_length * array_size);
   values.resize(array_size);
   prefixed_random_byte_array(array_size, /*seed=*/0, input_buf.data(), values.data(),
                              /*min_size=*/0, max_length,
-                             /*prefixed_probability=*/0.5);
+                             /*prefixed_probability=*/prefixed_probability);
   int64_t actual_length = 0;
   for (auto v : values) {
     actual_length += v.len;
@@ -818,8 +820,13 @@ static void BM_DeltaDecodingByteArray(benchmark::State& state) {
   state.SetBytesProcessed(state.iterations() * actual_length);
 }
 
-BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayCustomArguments);
-BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayCustomArguments);
+static void ByteArrayDeltaCustomArguments(benchmark::internal::Benchmark* b) {
+  b->ArgsProduct({{8, 64, 1024}, {512, 2048}, {10, 90, 99}})
+      ->ArgNames({"max-string-length", "batch-size", "prefixed-probability"});
+}
+
+BENCHMARK(BM_DeltaEncodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
+BENCHMARK(BM_DeltaDecodingByteArray)->Apply(ByteArrayDeltaCustomArguments);
 
 static void BM_RleEncodingBoolean(benchmark::State& state) {
   std::vector<bool> values(state.range(0), true);
