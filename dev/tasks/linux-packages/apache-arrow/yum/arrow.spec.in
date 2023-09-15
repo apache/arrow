@@ -562,7 +562,7 @@ This package contains the libraries for Apache Arrow GLib.
 %package glib-devel
 Summary:	Libraries and header files for Apache Arrow GLib
 License:	Apache-2.0
-Requires:	%{name}-devel = %{version}-%{release}
+Requires:	%{name}-acero-devel = %{version}-%{release}
 Requires:	%{name}%{major_version}-glib-libs = %{version}-%{release}
 Requires:	glib2-devel
 Requires:	gobject-introspection-devel
