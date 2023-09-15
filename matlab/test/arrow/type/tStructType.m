@@ -172,5 +172,15 @@ classdef tStructType < matlab.unittest.TestCase
             % The corresponding elements in the Fields arrays are not equal
             tc.verifyFalse(isequal(type1, type3));
         end
+
+        function NonScalarInputsToStruct(tc)
+            % Verify arrow.struct() returns the expected
+            % arrow.type.StructType value when one of its inputs is a
+            % nonscalar arrow.type.Field array.
+            fields = [tc.Field1 tc.Field2 tc.Field3];
+            type = arrow.struct(fields, tc.Field1);
+            expectedFields = [tc.Field1 tc.Field2 tc.Field3 tc.Field1];
+            tc.verifyEqual(type.Fields, expectedFields);
+        end
     end
 end
