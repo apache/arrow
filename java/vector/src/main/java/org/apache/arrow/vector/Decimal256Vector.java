@@ -154,8 +154,18 @@ public final class Decimal256Vector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale, TYPE_WIDTH);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObject(int)}, but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public BigDecimal getObjectNotNull(int index) {
+    return DecimalUtility.getBigDecimalFromArrowBuf(valueBuffer, index, scale, TYPE_WIDTH);
   }
 
   /**

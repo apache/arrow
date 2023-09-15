@@ -168,11 +168,21 @@ public final class IntervalDayVector extends BaseFixedWidthVector {
     if (isSet(index) == 0) {
       return null;
     } else {
-      final long startIndex = (long) index * TYPE_WIDTH;
-      final int days = valueBuffer.getInt(startIndex);
-      final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
-      return Duration.ofDays(days).plusMillis(milliseconds);
+      return getObjectNotNull(index);
     }
+  }
+
+  /**
+   * Same as {@link #getObject(int)} but does not check for null.
+   *
+   * @param index   position of element
+   * @return element at given index
+   */
+  public Duration getObjectNotNull(int index) {
+    final long startIndex = (long) index * TYPE_WIDTH;
+    final int days = valueBuffer.getInt(startIndex);
+    final int milliseconds = valueBuffer.getInt(startIndex + MILLISECOND_OFFSET);
+    return Duration.ofDays(days).plusMillis(milliseconds);
   }
 
   /**
