@@ -17,31 +17,10 @@
 
 #pragma once
 
-#include "arrow/type.h"
+#include "arrow/status.h"
 
-#include "libmexclass/proxy/Proxy.h"
+namespace arrow::matlab::index {
 
-namespace arrow::matlab::type::proxy {
-
-class Type : public libmexclass::proxy::Proxy {
-    public:
-        Type(std::shared_ptr<arrow::DataType> type);
-    
-        virtual ~Type() {}
-
-        std::shared_ptr<arrow::DataType> unwrap();
-
-    protected:
-
-        void getTypeID(libmexclass::proxy::method::Context& context);
-
-        void getNumFields(libmexclass::proxy::method::Context& context);
-
-        void getFieldByIndex(libmexclass::proxy::method::Context& context);
-
-        void isEqual(libmexclass::proxy::method::Context& context);
-
-        std::shared_ptr<arrow::DataType> data_type;
-};
-
+    arrow::Status validateNonEmptyContainer(const int32_t num_fields);
+    arrow::Status validateInRange(const int32_t matlab_index, const int32_t num_fields);
 }

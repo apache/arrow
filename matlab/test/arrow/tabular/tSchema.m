@@ -239,7 +239,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
         end
 
-        function ErrorIfInvalidNumericFieldIndex(testCase)
+        function ErrorIfIndexIsOutOfRange(testCase)
             % Verify that an error is thrown when trying to access a field
             % with an invalid numeric index (e.g. greater than NumFields).
             schema = arrow.schema([...
@@ -250,7 +250,7 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Index is greater than NumFields.
             index = 100;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:InvalidNumericFieldIndex");
+            testCase.verifyError(@() schema.field(index), "arrow:index:OutOfRange");
         end
 
         function ErrorIfFieldNameDoesNotExist(testCase)
@@ -376,7 +376,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
 
             % 0x1 empty Field array.
             fields = arrow.type.Field.empty(0, 1);
@@ -385,7 +385,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
 
             % 1x0 empty Field array.
             fields = arrow.type.Field.empty(1, 0);
@@ -394,7 +394,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
         end
 
         function GetFieldByNameWithChar(testCase)

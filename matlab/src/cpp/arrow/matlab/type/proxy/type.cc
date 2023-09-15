@@ -15,7 +15,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+
+#include "arrow/matlab/error/error.h"
+#include "arrow/matlab/index/validate.h"
 #include "arrow/matlab/type/proxy/type.h"
+#include "arrow/matlab/type/proxy/field.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -24,6 +28,7 @@ namespace arrow::matlab::type::proxy {
     Type::Type(std::shared_ptr<arrow::DataType> type) : data_type{std::move(type)} {
         REGISTER_METHOD(Type, getTypeID);
         REGISTER_METHOD(Type, getNumFields);
+        REGISTER_METHOD(Type, getFieldByIndex);
         REGISTER_METHOD(Type, isEqual);
     }
 
@@ -45,6 +50,36 @@ namespace arrow::matlab::type::proxy {
         
         auto num_fields_mda = factory.createScalar(data_type->num_fields());
         context.outputs[0] = num_fields_mda;
+    }
+
+    void Type::getFieldByIndex(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+        mda::ArrayFactory factory;
+
+        mda::StructArray args = context.inputs[0];
+        const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
+        const auto matlab_index = int32_t(index_mda[0]);
+
+        // Validate there is at least 1 field
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+            index::validateNonEmptyContainer(data_type->num_fields()),
+            context,
+            error::INDEX_EMPTY_CONTAINER);
+
+        // Validate the matlab index provided is within the range [1, num_fields]
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+            index::validateInRange(matlab_index, data_type->num_fields()),
+            context,
+            error::INDEX_OUT_OF_RANGE);
+
+        // Note: MATLAB uses 1-based indexing, so subtract 1.
+        // arrow::DataType::field does not do any bounds checking.
+        const int32_t index = matlab_index - 1;
+
+        auto field = data_type->field(index);
+        auto field_proxy = std::make_shared<proxy::Field>(std::move(field));
+        auto field_proxy_id  = libmexclass::proxy::ProxyManager::manageProxy(field_proxy);
+        context.outputs[0] = factory.createScalar(field_proxy_id);
     }
 
     void Type::isEqual(libmexclass::proxy::method::Context& context) {
