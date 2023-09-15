@@ -473,17 +473,25 @@ build_libarrow <- function(src_dir, dst_dir) {
   env_vars <- env_vars_as_string(env_var_list)
 
   cat("**** arrow", ifelse(quietly, "", paste("with", env_vars)), "\n")
-  status <- suppressWarnings(system(
-    paste(env_vars, "inst/build_arrow_static.sh"),
-    ignore.stdout = quietly, ignore.stderr = quietly
+
+  build_log_path <- tempfile(fileext = ".log")
+  status <- suppressWarnings(system2(
+    "bash",
+    "inst/build_arrow_static.sh",
+    env = env_vars,
+    stdout = ifelse(quietly, build_log_path, ""),
+    stderr = ifelse(quietly, build_log_path, "")
   ))
+
   if (status != 0) {
     # It failed :(
-    cat(
-      "**** Error building Arrow C++.",
-      ifelse(env_is("ARROW_R_DEV", "true"), "", "Re-run with ARROW_R_DEV=true for debug information."),
-      "\n"
-    )
+    cat("**** Error building Arrow C++.", "\n")
+    if (quietly) {
+      cat("**** Printing contents of build log because the build failed", 
+          "while ARROW_R_DEV was set to FALSE\n")
+      cat(readLines(build_log_path), sep = "\n")
+      cat("**** Complete build log may still be present at", build_log_path, "\n")
+    }
   }
   invisible(status)
 }
