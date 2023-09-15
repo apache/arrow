@@ -3606,7 +3606,7 @@ test_that("with_tz() and force_tz() works", {
     "2012-01-01 01:02:03"
   ), tz = "UTC")
 
-  timestamps_non_utc <- force_tz(timestamps, "US/Central")
+  timestamps_non_utc <- force_tz(timestamps, "America/Chicago")
 
   nonexistent <- as_datetime(c(
     "2015-03-29 02:30:00",
@@ -3622,10 +3622,10 @@ test_that("with_tz() and force_tz() works", {
     .input %>%
       mutate(
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
-        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_2 = with_tz(timestamps, "America/Chicago"),
         timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata"),
         timestamps_force_tz_1 = force_tz(timestamps, "UTC"),
-        timestamps_force_tz_2 = force_tz(timestamps, "US/Central"),
+        timestamps_force_tz_2 = force_tz(timestamps, "America/Chicago"),
         timestamps_force_tz_3 = force_tz(timestamps, "Asia/Kolkata")
       ) %>%
       collect(),
@@ -3636,7 +3636,7 @@ test_that("with_tz() and force_tz() works", {
     .input %>%
       mutate(
         timestamps_with_tz_1 = with_tz(timestamps, "UTC"),
-        timestamps_with_tz_2 = with_tz(timestamps, "US/Central"),
+        timestamps_with_tz_2 = with_tz(timestamps, "America/Chicago"),
         timestamps_with_tz_3 = with_tz(timestamps, "Asia/Kolkata")
       ) %>%
       collect(),
@@ -3733,17 +3733,17 @@ test_that("with_tz() and force_tz() can add timezone to timestamp without timezo
 
   expect_equal(
     arrow_table(timestamps = timestamps) %>%
-      mutate(timestamps = with_tz(timestamps, "US/Central")) %>%
+      mutate(timestamps = with_tz(timestamps, "America/Chicago")) %>%
       compute(),
-    arrow_table(timestamps = timestamps$cast(timestamp("s", "US/Central")))
+    arrow_table(timestamps = timestamps$cast(timestamp("s", "America/Chicago")))
   )
 
   expect_equal(
     arrow_table(timestamps = timestamps) %>%
-      mutate(timestamps = force_tz(timestamps, "US/Central")) %>%
+      mutate(timestamps = force_tz(timestamps, "America/Chicago")) %>%
       compute(),
     arrow_table(
-      timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "US/Central"))
+      timestamps = call_function("assume_timezone", timestamps, options = list(timezone = "America/Chicago"))
     )
   )
 })
