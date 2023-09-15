@@ -16,16 +16,6 @@
 % permissions and limitations under the License.
 classdef tError < CSVTest
 
-    methods (TestMethodSetup)
-
-        function setupTestFilename(testCase)
-            import matlab.unittest.fixtures.TemporaryFolderFixture
-            fixture = testCase.applyFixture(TemporaryFolderFixture);
-            testCase.Filename = fullfile(fixture.Folder, "filename.csv");
-        end
-
-    end
-
     methods(Test)
 
         function EmptyCsvFile(testCase)
