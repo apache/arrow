@@ -78,8 +78,10 @@ def set_cpu_count(int count):
         raise ValueError("CPU count must be strictly positive")
     check_status(SetCpuThreadPoolCapacity(count))
 
+
 def is_threading_enabled():
     return libarrow_python.IsThreadingEnabled()
+
 
 Type_NA = _Type_NA
 Type_BOOL = _Type_BOOL
