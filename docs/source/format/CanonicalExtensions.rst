@@ -230,6 +230,16 @@ Variable shape tensor
 
 .. note::
 
+  With the exception of permutation all other parameters and storage
+  of VariableShapeTensor define the *physical* storage of the tensor.
+
+  For example, consider a tensor with:
+    shape = [10, 20, 30]
+    dim_names = [x, y, z]
+    permutations = [2, 0, 1]
+
+  This means the logical tensor has names [z, x, y] and shape [30, 10, 20].
+
   Elements in a variable shape tensor extension array are stored
   in row-major/C-contiguous order.
 
