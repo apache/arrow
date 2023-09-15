@@ -72,7 +72,7 @@ func (a *List) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			o.WriteString(NullValueStr)
 			continue
 		}
@@ -204,7 +204,7 @@ func (a *LargeList) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			o.WriteString(NullValueStr)
 			continue
 		}
@@ -667,7 +667,7 @@ func (a *ListView) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			o.WriteString(NullValueStr)
 			continue
 		}
@@ -814,7 +814,7 @@ func (a *LargeListView) String() string {
 		if i > 0 {
 			o.WriteString(" ")
 		}
-		if !a.IsValid(i) {
+		if a.IsNull(i) {
 			o.WriteString(NullValueStr)
 			continue
 		}
