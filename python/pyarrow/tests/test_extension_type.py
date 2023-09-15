@@ -1291,7 +1291,7 @@ def test_variable_shape_tensor_class_method(value_type):
         ndim,
         dim_names=["H", "W"],
         permutation=[0, 1],
-        ragged_dimensions=[0],
+        uniform_dimensions=[0],
     )
     fields = [pa.field("shape", shape_type), pa.field("data", pa.list_(arrow_type))]
 
@@ -1363,7 +1363,7 @@ def test_tensor_type_ipc(tensor_type):
     pa.variable_shape_tensor(pa.int8(), 2),
     pa.variable_shape_tensor(pa.int8(), 2, permutation=[1, 0]),
     pa.variable_shape_tensor(pa.int8(), 2, dim_names=['H', 'W']),
-    pa.variable_shape_tensor(pa.int8(), 2, ragged_dimensions=[0, 1]),
+    pa.variable_shape_tensor(pa.int8(), 2, uniform_dimensions=[0, 1]),
 ))
 def test_variable_shape_tensor_type_ipc(tensor_type):
     shape_type = tensor_type.storage_type.field(0).type

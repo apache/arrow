@@ -1610,13 +1610,13 @@ cdef class VariableShapeTensorType(BaseExtensionType):
             return None
 
     @property
-    def ragged_dimensions(self):
+    def uniform_dimensions(self):
         """
-        Indices of ragged dimensions.
+        Indices of uniform dimensions.
         """
-        ragged_dimensions = self.tensor_ext_type.ragged_dimensions()
-        if len(ragged_dimensions) != 0:
-            return ragged_dimensions
+        uniform_dimensions = self.tensor_ext_type.uniform_dimensions()
+        if len(uniform_dimensions) != 0:
+            return uniform_dimensions
         else:
             return None
 
@@ -1640,7 +1640,7 @@ cdef class VariableShapeTensorType(BaseExtensionType):
     def __reduce__(self):
         return variable_shape_tensor, (self.value_type, self.ndim,
                                        self.dim_names, self.permutation,
-                                       self.ragged_dimensions)
+                                       self.uniform_dimensions)
 
 cdef class FixedShapeTensorType(BaseExtensionType):
     """
@@ -4911,7 +4911,7 @@ def fixed_shape_tensor(DataType value_type, shape, dim_names=None, permutation=N
     return out
 
 
-def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation=None, ragged_dimensions=None):
+def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation=None, uniform_dimensions=None):
     """
     Create instance of variable shape tensor extension type with number of
     dimensions and optional names of tensor dimensions and indices of the
@@ -4932,9 +4932,10 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         of the logical layout corresponds to which dimension of the physical tensor.
         For more information on this parameter see
         :ref:`fixed_shape_tensor_extension`.
-    ragged_dimensions : tuple or list of integers, default None
-        Indices of the dimensions that are ragged. The indices contain a subset
-        of the values ``[0, 1, .., N-1]`` where N is the number of dimensions.
+    uniform_dimensions : tuple or list of integers, default None
+        Indices of the dimensions that are guaranteed to remain constant over the
+        whole array. The indices contain a subset of the values ``[0, 1, .., N-1]``
+        where N is the number of dimensions.
 
     Examples
     --------
@@ -4992,7 +4993,7 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         uint32_t c_ndim
         vector[int64_t] c_permutation
         vector[c_string] c_dim_names
-        vector[int64_t] c_ragged_dimensions
+        vector[int64_t] c_uniform_dimensions
         shared_ptr[CDataType] c_tensor_ext_type
 
     assert value_type is not None
@@ -5008,14 +5009,14 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         for x in dim_names:
             c_dim_names.push_back(tobytes(x))
 
-    if ragged_dimensions is not None:
-        for i in ragged_dimensions:
-            c_ragged_dimensions.push_back(i)
+    if uniform_dimensions is not None:
+        for i in uniform_dimensions:
+            c_uniform_dimensions.push_back(i)
 
     cdef VariableShapeTensorType out = VariableShapeTensorType.__new__(VariableShapeTensorType)
 
     c_tensor_ext_type = GetResultValue(CVariableShapeTensorType.Make(
-        value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_ragged_dimensions))
+        value_type.sp_type, c_ndim, c_permutation, c_dim_names, c_uniform_dimensions))
 
     out.init(c_tensor_ext_type)
 

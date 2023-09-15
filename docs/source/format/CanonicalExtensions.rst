@@ -194,12 +194,15 @@ Variable shape tensor
     When logical and physical layout are equal, the permutation will always
     be ([0, 1, .., N-1]) and can therefore be left out.
 
-  * **ragged_dimensions** = indices of ragged dimensions whose sizes may
-    differ. Dimensions where all elements have the same size are called
-    uniform dimensions. Indices are a subset of all possible dimension
-    indices ([0, 1, .., N-1]).
-    Ragged dimensions list can be left out. In that case all dimensions
-    are assumed ragged.
+  * **uniform_dimensions** = indices of dimensions whose sizes are
+    guaranteed to remain constant. Indices are a subset of all possible
+    dimension indices ([0, 1, .., N-1]).
+    The uniform dimensions must still be represented in the `shape` field,
+    and must always be the same value for all tensors in the array -- this
+    allows code to interpret the tensor correctly without accounting for
+    uniform dimensions while still permitting optional optimizations that
+    take advantage of the uniformity. uniform_dimensions can be left out,
+    in which case it is assumed that all dimensions might be variable.
 
 * Description of the serialization:
 
@@ -212,10 +215,10 @@ Variable shape tensor
 
     ``{ "dim_names": ["C", "H", "W"] }``
 
-  - Example with ``ragged_dimensions`` metadata for a set of color images
+  - Example with ``uniform_dimensions`` metadata for a set of color images
     with variable width:
 
-    ``{ "dim_names": ["H", "W", "C"], "ragged_dimensions": [1] }``
+    ``{ "dim_names": ["H", "W", "C"], "uniform_dimensions": [1] }``
 
   - Example of permuted 3-dimensional tensor:
 
