@@ -24,4 +24,19 @@ classdef StructType < arrow.type.Type
             obj@arrow.type.Type(proxy);
         end
     end
+
+    methods(Access = protected)
+        function groups = getDisplayPropertyGroups(obj)
+            targets = ["ID", "Fields"];
+            groups = matlab.mixin.util.PropertyGroup(targets);
+        end
+    end
+
+    methods(Hidden)
+        % TODO: Consider using a mixin approach to add this behavior
+        function preallocateMATLABArray(~)
+            error("arrow:type:UnsupportedFunction", ...
+                "preallocateMATLABArray is not supported for StructType");
+        end
+    end
 end
