@@ -18,6 +18,7 @@
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/tabular/proxy/schema.h"
 #include "arrow/matlab/type/proxy/field.h"
+#include "arrow/matlab/index/validate.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 #include "libmexclass/error/Error.h"
@@ -27,25 +28,6 @@
 #include <sstream>
 
 namespace arrow::matlab::tabular::proxy {
-
-    namespace {
-
-        libmexclass::error::Error makeUnknownFieldNameError(const std::string& name) {
-            using namespace libmexclass::error;
-            std::stringstream error_message_stream;
-            error_message_stream << "Unknown field name: '";
-            error_message_stream << name;
-            error_message_stream << "'.";
-            return Error{error::ARROW_TABULAR_SCHEMA_UNKNOWN_FIELD_NAME, error_message_stream.str()};
-        }
-
-        libmexclass::error::Error makeEmptySchemaError() {
-            using namespace libmexclass::error;
-            return Error{error::ARROW_TABULAR_SCHEMA_NUMERIC_FIELD_INDEX_WITH_EMPTY_SCHEMA,
-                         "Numeric indexing using the field method is not supported for schemas with no fields."};
-        }
-
-    }
 
     Schema::Schema(std::shared_ptr<arrow::Schema> schema) : schema{std::move(schema)} {
         REGISTER_METHOD(Schema, getFieldByIndex);
@@ -86,37 +68,27 @@ namespace arrow::matlab::tabular::proxy {
         mda::StructArray args = context.inputs[0];
         const mda::TypedArray<int32_t> index_mda = args[0]["Index"];
         const auto matlab_index = int32_t(index_mda[0]);
+
+        // Validate there is at least 1 field
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+            index::validateNonEmptyContainer(schema->num_fields()),
+            context,
+            error::INDEX_EMPTY_CONTAINER);
+
+        // Validate the matlab index provided is within the range [1, num_fields]
+        MATLAB_ERROR_IF_NOT_OK_WITH_CONTEXT(
+            index::validateInRange(matlab_index, schema->num_fields()),
+            context,
+            error::INDEX_OUT_OF_RANGE);
+
         // Note: MATLAB uses 1-based indexing, so subtract 1.
         // arrow::Schema::field does not do any bounds checking.
         const int32_t index = matlab_index - 1;
-        const auto num_fields = schema->num_fields();
 
-        if (num_fields == 0) {
-            const auto& error = makeEmptySchemaError();
-            context.error = error;
-            return;
-        }
-
-        if (matlab_index < 1 || matlab_index > num_fields) {
-            using namespace libmexclass::error;
-            const std::string& error_message_id = std::string{error::ARROW_TABULAR_SCHEMA_INVALID_NUMERIC_FIELD_INDEX};
-            std::stringstream error_message_stream;
-            error_message_stream << "Invalid field index: ";
-            error_message_stream << matlab_index;
-            error_message_stream << ". Field index must be between 1 and the number of fields (";
-            error_message_stream << num_fields;
-            error_message_stream << ").";
-            const std::string& error_message = error_message_stream.str();
-            context.error = Error{error_message_id, error_message}; 
-            return;
-        }
-
-        const auto& field = schema->field(index);
-        auto field_proxy = std::make_shared<FieldProxy>(field);
-        const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
-        const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
-
-        context.outputs[0] = field_proxy_id_mda;
+        auto field = schema->field(index);
+        auto field_proxy = std::make_shared<FieldProxy>(std::move(field));
+        auto field_proxy_id  = ProxyManager::manageProxy(field_proxy);
+        context.outputs[0] = factory.createScalar(field_proxy_id);
     }
 
     void Schema::getFieldByName(libmexclass::proxy::method::Context& context) {
@@ -135,9 +107,7 @@ namespace arrow::matlab::tabular::proxy {
         const auto field = schema->GetFieldByName(name);
         auto field_proxy = std::make_shared<FieldProxy>(field);
         const auto field_proxy_id = ProxyManager::manageProxy(field_proxy);
-        const auto field_proxy_id_mda = factory.createScalar(field_proxy_id);
-
-        context.outputs[0] = field_proxy_id_mda;
+        context.outputs[0] = factory.createScalar(field_proxy_id);
     }
 
     void Schema::getNumFields(libmexclass::proxy::method::Context& context) {
