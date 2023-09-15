@@ -160,8 +160,7 @@ This Java program:
       }
 
       public static void projectAndFilterDataset() {
-        //String uri = "file:///Users/dsusanibar/data/tpch_parquet/nation.parquet";
-        String uri = "file:////Users/dsusanibar/voltron/fork/consumer-testing/tests/data/tpch_parquet/nation.parquet";
+        String uri = "file:///Users/data/tpch_parquet/nation.parquet";
         ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
             .columns(Optional.empty())
             .substraitFilter(getSubstraitExpressionFilter())
