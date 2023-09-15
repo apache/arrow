@@ -19,6 +19,10 @@
 
 # arrow 13.0.0.9000
 
+# arrow 13.0.0.1
+
+* Remove reference to legacy timezones to prevent CRAN check failures (#37671)
+
 # arrow 13.0.0
 
 ## Breaking changes
