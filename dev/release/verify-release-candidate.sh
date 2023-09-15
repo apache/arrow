@@ -24,7 +24,7 @@
 # - JDK >=7
 # - gcc >= 4.8
 # - Node.js >= 11.12 (best way is to use nvm)
-# - Go >= 1.17
+# - Go >= 1.19
 # - Docker
 #
 # If using a non-system Boost, set BOOST_ROOT and add Boost libraries to
@@ -405,7 +405,7 @@ install_go() {
     return 0
   fi
 
-  local version=1.17.13
+  local version=1.19.13
   show_info "Installing go version ${version}..."
 
   local arch="$(uname -m)"
@@ -422,8 +422,9 @@ install_go() {
   fi
 
   local archive="go${version}.${os}-${arch}.tar.gz"
-  curl -sLO https://dl.google.com/go/$archive
+  curl -sLO https://go.dev/dl/$archive
 
+  ls -l
   local prefix=${ARROW_TMPDIR}/go
   mkdir -p $prefix
   tar -xzf $archive -C $prefix
@@ -860,12 +861,12 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go || exit 1
-  maybe_setup_conda compilers go=1.17 || exit 1
+  maybe_setup_conda compilers go=1.19 || exit 1
 
   pushd go
   go get -v ./...
   go test ./...
-  go install ./...
+  go install -buildvcs=false ./...
   go clean -modcache
   popd
 }
