@@ -301,7 +301,6 @@ struct ARROW_EXPORT Datum {
   bool operator==(const Datum& other) const { return Equals(other); }
   bool operator!=(const Datum& other) const { return !Equals(other); }
 
-  /// \brief Return a string representation of the kind of datum stored.
   std::string ToString() const;
 };
 
