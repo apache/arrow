@@ -493,27 +493,28 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
           JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
     for(arrow::engine::NamedExpression& named_expression :
                                         bounded_expression.named_expressions) {
-      if (named_expression.expression.type()->id() != arrow::Type::BOOL) {
-        project_exprs.push_back(std::move(named_expression.expression));
-        project_names.push_back(std::move(named_expression.name));
-      }
+      project_exprs.push_back(std::move(named_expression.expression));
+      project_names.push_back(std::move(named_expression.name));
     }
     JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
   }
   if (substrait_filter != nullptr) {
     std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
                                                                 substrait_filter);
-    std::optional<arrow::compute::Expression> filter_expr;
+    std::optional<arrow::compute::Expression> filter_expr = std::nullopt;
     arrow::engine::BoundExpressions bounded_expression =
           JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
     for(arrow::engine::NamedExpression& named_expression :
                                         bounded_expression.named_expressions) {
+      filter_expr = named_expression.expression;
       if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
-        if (filter_expr.has_value()) {
-          JniThrow("Only one filter expression may be provided");
-        }
         filter_expr = named_expression.expression;
+      } else {
+        JniThrow("There is no filter expression in the expression provided");
       }
+    }
+    if (filter_expr == std::nullopt) {
+      JniThrow("The filter expression has not been provided");
     }
     JniAssertOkOrThrow(scanner_builder->Filter(*filter_expr));
   }
