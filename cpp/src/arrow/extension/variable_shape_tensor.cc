@@ -116,12 +116,12 @@ std::string VariableShapeTensorType::Serialize() const {
     document.AddMember(rj::Value("dim_names", allocator), dim_names, allocator);
   }
 
-  if (!ragged_dimensions_.empty()) {
-    rj::Value ragged_dimensions(rj::kArrayType);
-    for (auto v : ragged_dimensions_) {
-      ragged_dimensions.PushBack(v, allocator);
+  if (!uniform_dimensions_.empty()) {
+    rj::Value uniform_dimensions(rj::kArrayType);
+    for (auto v : uniform_dimensions_) {
+      uniform_dimensions.PushBack(v, allocator);
     }
-    document.AddMember(rj::Value("ragged_dimensions", allocator), ragged_dimensions,
+    document.AddMember(rj::Value("uniform_dimensions", allocator), uniform_dimensions,
                        allocator);
   }
 
@@ -166,17 +166,17 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
     }
   }
 
-  std::vector<int64_t> ragged_dimensions;
-  if (document.HasMember("ragged_dimensions")) {
-    for (auto& x : document["ragged_dimensions"].GetArray()) {
-      ragged_dimensions.emplace_back(x.GetInt64());
+  std::vector<int64_t> uniform_dimensions;
+  if (document.HasMember("uniform_dimensions")) {
+    for (auto& x : document["uniform_dimensions"].GetArray()) {
+      uniform_dimensions.emplace_back(x.GetInt64());
     }
-    if (ragged_dimensions.size() > ndim) {
-      return Status::Invalid("Invalid ragged_dimensions");
+    if (uniform_dimensions.size() > ndim) {
+      return Status::Invalid("Invalid uniform_dimensions");
     }
   }
   return variable_shape_tensor(value_type, static_cast<uint32_t>(ndim), permutation,
-                               dim_names, ragged_dimensions);
+                               dim_names, uniform_dimensions);
 }
 
 std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
@@ -190,7 +190,7 @@ std::shared_ptr<Array> VariableShapeTensorType::MakeArray(
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
-    const std::vector<int64_t>& ragged_dimensions) {
+    const std::vector<int64_t>& uniform_dimensions) {
   if (!permutation.empty() && permutation.size() != ndim) {
     return Status::Invalid("permutation size must match ndim. Expected: ", ndim,
                            " Got: ", permutation.size());
@@ -199,19 +199,19 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     return Status::Invalid("dim_names size must match ndim. Expected: ", ndim,
                            " Got: ", dim_names.size());
   }
-  if (ragged_dimensions.size() > ndim) {
-    return Status::Invalid("ragged_dimensions size must be less or equal ndim.");
+  if (uniform_dimensions.size() > ndim) {
+    return Status::Invalid("uniform_dimensions size must be less or equal ndim.");
   }
   return std::make_shared<VariableShapeTensorType>(value_type, ndim, permutation,
-                                                   dim_names, ragged_dimensions);
+                                                   dim_names, uniform_dimensions);
 }
 
 std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
-    const std::vector<int64_t>& ragged_dimensions) {
+    const std::vector<int64_t>& uniform_dimensions) {
   auto maybe_type = VariableShapeTensorType::Make(value_type, ndim, permutation,
-                                                  dim_names, ragged_dimensions);
+                                                  dim_names, uniform_dimensions);
   ARROW_DCHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }

@@ -44,13 +44,13 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
                           const uint32_t& ndim,
                           const std::vector<int64_t>& permutation = {},
                           const std::vector<std::string>& dim_names = {},
-                          const std::vector<int64_t>& ragged_dimensions = {})
+                          const std::vector<int64_t>& uniform_dimensions = {})
       : ExtensionType(struct_({::arrow::field("shape", fixed_size_list(uint32(), ndim)),
                                ::arrow::field("data", list(value_type))})),
         value_type_(value_type),
         permutation_(permutation),
         dim_names_(dim_names),
-        ragged_dimensions_(ragged_dimensions) {}
+        uniform_dimensions_(uniform_dimensions) {}
 
   std::string extension_name() const override { return "arrow.variable_shape_tensor"; }
 
@@ -70,7 +70,7 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   const std::vector<std::string>& dim_names() const { return dim_names_; }
 
   /// Indexes of ragged dimensions.
-  const std::vector<int64_t>& ragged_dimensions() const { return ragged_dimensions_; }
+  const std::vector<int64_t>& uniform_dimensions() const { return uniform_dimensions_; }
 
   bool ExtensionEquals(const ExtensionType& other) const override;
 
@@ -88,14 +88,14 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
       const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
       const std::vector<int64_t>& permutation = {},
       const std::vector<std::string>& dim_names = {},
-      const std::vector<int64_t>& ragged_dimensions = {});
+      const std::vector<int64_t>& uniform_dimensions = {});
 
  private:
   std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> permutation_;
   std::vector<std::string> dim_names_;
-  std::vector<int64_t> ragged_dimensions_;
+  std::vector<int64_t> uniform_dimensions_;
 };
 
 /// \brief Return a VariableShapeTensorType instance.
@@ -103,7 +103,7 @@ ARROW_EXPORT std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, const uint32_t& ndim,
     const std::vector<int64_t>& permutation = {},
     const std::vector<std::string>& dim_names = {},
-    const std::vector<int64_t>& ragged_dimensions = {});
+    const std::vector<int64_t>& uniform_dimensions = {});
 
 }  // namespace extension
 }  // namespace arrow
