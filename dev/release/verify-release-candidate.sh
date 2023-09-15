@@ -861,12 +861,12 @@ test_go() {
   show_header "Build and test Go libraries"
 
   maybe_setup_go || exit 1
-  maybe_setup_conda compilers go=1.17 || exit 1
+  maybe_setup_conda compilers go=1.19 || exit 1
 
   pushd go
   go get -v ./...
   go test ./...
-  go install ./...
+  go install -buildvcs=false ./...
   go clean -modcache
   popd
 }
