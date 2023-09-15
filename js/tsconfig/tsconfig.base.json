@@ -1,5 +1,5 @@
 {
-  "exclude": ["../node_modules"],
+  "exclude": ["../node_modules", "../src/bin/*.ts"],
   "include": ["../src/**/*.ts"],
   "compileOnSave": false,
   "compilerOptions": {
