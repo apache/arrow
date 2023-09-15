@@ -225,6 +225,25 @@ public class FlightClientTester {
         XCTAssertEqual(num_call, 1)
     }
     
+    func doGetTestFlightData() async throws {
+        let ticket = FlightTicket("flight_ticket test".data(using: .utf8)!)
+        var num_call = 0
+        try await client?.doGet(ticket, flightDataClosure: { flightData in
+            let reader = ArrowReader();
+            let result = reader.fromStream(flightData.dataBody)
+            switch result {
+            case .success(let rb):
+                XCTAssertEqual(rb.schema?.fields.count, 3)
+                XCTAssertEqual(rb.batches[0].length, 4)
+                num_call += 1
+            case .failure(let error):
+                throw error
+            }
+        })
+        
+        XCTAssertEqual(num_call, 1)
+    }
+    
     func doPutTest() async throws {
         let rb = try makeRecordBatch()
         var num_call = 0
@@ -290,6 +309,7 @@ final class FlightTest: XCTestCase {
             try await clientImpl.doActionTest()
             try await clientImpl.getSchemaTest()
             try await clientImpl.doGetTest()
+            try await clientImpl.doGetTestFlightData()
             try await clientImpl.doPutTest()
             try await clientImpl.doExchangeTest()
             
