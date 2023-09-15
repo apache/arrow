@@ -467,7 +467,7 @@ void DebugPrint(PyObject* obj) {
 }
 
 bool IsThreadingEnabled() {
-#ifdef ARROW_ENABLE_THREADIN
+#ifdef ARROW_ENABLE_THREADING
   return true;
 #else
   return false;
