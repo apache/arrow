@@ -19,6 +19,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
 
     properties (Dependent, GetAccess=public, SetAccess=private)
         ID
+        Fields
         NumFields
     end
 
@@ -40,6 +41,29 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
 
         function typeID = get.ID(obj)
             typeID = arrow.type.ID(obj.Proxy.getTypeID());
+        end
+
+        function F = field(obj, idx)
+            import arrow.internal.validate.*
+
+            idx = index.numeric(idx, "int32", AllowNonScalar=false);
+            args = struct(Index=idx);
+            proxyID = obj.Proxy.getFieldByIndex(args);
+            proxy = libmexclass.proxy.Proxy(Name="arrow.type.proxy.Field", ID=proxyID);
+            F = arrow.type.Field(proxy);
+        end
+
+        function fields = get.Fields(obj)
+            numFields = obj.NumFields;
+            if numFields == 0
+                fields = arrow.type.Field.empty(0, 0);
+            else
+                fields = cell(1, numFields);
+                for ii = 1:numFields
+                    fields{ii} = obj.field(ii);
+                end
+                fields = horzcat(fields);
+            end
         end
     end
 
