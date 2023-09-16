@@ -107,7 +107,7 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
       using ConcreteMemoTable = typename DictionaryTraits<T>::MemoTableType;
       auto memo_table = checked_cast<ConcreteMemoTable*>(memo_table_);
       return DictionaryTraits<T>::GetDictionaryArrayData(pool_, value_type_, *memo_table,
-                                                         start_offset_, out_);
+                                                         start_offset_, out_).status();
     }
   };
 

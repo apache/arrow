@@ -29,6 +29,7 @@
 
 #include "arrow/array.h"
 #include "arrow/buffer.h"
+#include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
@@ -63,7 +64,7 @@ struct DictionaryTraits<BooleanType> {
   using T = BooleanType;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -82,7 +83,8 @@ struct DictionaryTraits<BooleanType> {
                                     : builder.Append(bool_values[i]));
     }
 
-    return builder.FinishInternal(out);
+    RETURN_NOT_OK(builder.FinishInternal(out));
+    return *out;
   }
 };  // namespace internal
 
@@ -91,7 +93,7 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
   using c_type = typename T::c_type;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -113,7 +115,7 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
         ComputeNullBitmap(pool, memo_table, start_offset, &null_count, &null_bitmap));
 
     *out = ArrayData::Make(type, dict_length, {null_bitmap, dict_buffer}, null_count);
-    return Status::OK();
+    return *out;
   }
 };
 
@@ -121,7 +123,7 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_base_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -152,7 +154,7 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
                            {null_bitmap, std::move(dict_offsets), std::move(dict_data)},
                            null_count);
 
-    return Status::OK();
+    return *out;
   }
 };
 
@@ -160,7 +162,7 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Status GetDictionaryArrayData(MemoryPool* pool,
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
                                        const std::shared_ptr<DataType>& type,
                                        const MemoTableType& memo_table,
                                        int64_t start_offset,
@@ -184,7 +186,7 @@ struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
 
     *out = ArrayData::Make(type, dict_length, {null_bitmap, std::move(dict_data)},
                            null_count);
-    return Status::OK();
+    return *out;
   }
 };
 
