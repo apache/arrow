@@ -58,6 +58,7 @@ set(SRC_FILES
     expression.cc
     expression_registry.cc
     exported_funcs_registry.cc
+    exported_funcs.cc
     filter.cc
     function_ir_builder.cc
     function_registry.cc

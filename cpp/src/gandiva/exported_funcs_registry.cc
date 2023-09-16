@@ -27,4 +27,9 @@ void ExportedFuncsRegistry::AddMappings(Engine* engine) {
   }
 }
 
+ExportedFuncsRegistry::list_type& ExportedFuncsRegistry::registered() {
+  static list_type registered_list;
+  return registered_list;
+}
+
 }  // namespace gandiva
