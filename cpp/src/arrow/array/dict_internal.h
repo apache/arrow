@@ -64,11 +64,10 @@ struct DictionaryTraits<BooleanType> {
   using T = BooleanType;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset,
+      std::shared_ptr<ArrayData>* out) {
     if (start_offset < 0) {
       return Status::Invalid("invalid start_offset ", start_offset);
     }
@@ -93,11 +92,10 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
   using c_type = typename T::c_type;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset,
+      std::shared_ptr<ArrayData>* out) {
     auto dict_length = static_cast<int64_t>(memo_table.size()) - start_offset;
     // This makes a copy, but we assume a dictionary array is usually small
     // compared to the size of the dictionary-using array.
@@ -123,11 +121,10 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_base_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset,
+      std::shared_ptr<ArrayData>* out) {
     using offset_type = typename T::offset_type;
 
     // Create the offsets buffer
@@ -162,11 +159,10 @@ template <typename T>
 struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
-  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(MemoryPool* pool,
-                                       const std::shared_ptr<DataType>& type,
-                                       const MemoTableType& memo_table,
-                                       int64_t start_offset,
-                                       std::shared_ptr<ArrayData>* out) {
+  static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
+      MemoryPool* pool, const std::shared_ptr<DataType>& type,
+      const MemoTableType& memo_table, int64_t start_offset,
+      std::shared_ptr<ArrayData>* out) {
     const T& concrete_type = internal::checked_cast<const T&>(*type);
 
     // Create the data buffer
