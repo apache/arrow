@@ -27,7 +27,9 @@ public class FlightInfo {
     public var endpoints: [FlightEndpoint] {
         return self.flightInfo.endpoint.map { FlightEndpoint($0) }
     }
-    public var schema: Data { flightInfo.schema }
+    public var schema: ArrowSchema? {
+        return schemaFromMessage(self.flightInfo.schema)
+    }
 
     var endpoint: [Arrow_Flight_Protocol_FlightEndpoint] = []
     init(_ flightInfo: Arrow_Flight_Protocol_FlightInfo) {

@@ -34,9 +34,9 @@ final class TableTests: XCTestCase {
     }
 
     func testTable() throws {
-        let uint8Builder: NumberArrayBuilder<UInt8> = try ArrowArrayBuilders.loadNumberArrayBuilder()
-        uint8Builder.append(10)
-        uint8Builder.append(22)
+        let doubleBuilder: NumberArrayBuilder<Double> = try ArrowArrayBuilders.loadNumberArrayBuilder()
+        doubleBuilder.append(11.11)
+        doubleBuilder.append(22.22)
         let stringBuilder = try ArrowArrayBuilders.loadStringArrayBuilder()
         stringBuilder.append("test10")
         stringBuilder.append("test22")
@@ -46,14 +46,14 @@ final class TableTests: XCTestCase {
         date32Builder.append(date1)
         date32Builder.append(date2)
         let table = try ArrowTable.Builder()
-            .addColumn("col1", arrowArray: uint8Builder.finish())
+            .addColumn("col1", arrowArray: doubleBuilder.finish())
             .addColumn("col2", arrowArray: stringBuilder.finish())
             .addColumn("col3", arrowArray: date32Builder.finish())
             .finish()
         let schema = table.schema
         XCTAssertEqual(schema.fields.count, 3)
         XCTAssertEqual(schema.fields[0].name, "col1")
-        XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowUInt8)
+        XCTAssertEqual(schema.fields[0].type.info, ArrowType.ArrowDouble)
         XCTAssertEqual(schema.fields[0].isNullable, false)
         XCTAssertEqual(schema.fields[1].name, "col2")
         XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
@@ -62,12 +62,14 @@ final class TableTests: XCTestCase {
         XCTAssertEqual(schema.fields[1].type.info, ArrowType.ArrowString)
         XCTAssertEqual(schema.fields[1].isNullable, false)
         XCTAssertEqual(table.columns.count, 3)
-        let col1: ChunkedArray<UInt8> = table.columns[0].data()
+        let col1: ChunkedArray<Double> = table.columns[0].data()
         let col2: ChunkedArray<String> = table.columns[1].data()
         let col3: ChunkedArray<Date> = table.columns[2].data()
         XCTAssertEqual(col1.length, 2)
         XCTAssertEqual(col2.length, 2)
         XCTAssertEqual(col3.length, 2)
+        XCTAssertEqual(col1[0], 11.11)
+        XCTAssertEqual(col2[1], "test22")
     }
 
     func testTableWithChunkedData() throws {

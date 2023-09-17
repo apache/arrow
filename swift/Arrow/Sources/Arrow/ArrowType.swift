@@ -123,6 +123,17 @@ public class ArrowType {
         self.info = info
     }
 
+    public var id: ArrowTypeId {
+        switch self.info {
+        case .primitiveInfo(let id):
+            return id
+        case .timeInfo(let id):
+            return id
+        case .variableInfo(let id):
+            return id
+        }
+    }
+
     public enum Info {
         case primitiveInfo(ArrowTypeId)
         case variableInfo(ArrowTypeId)
