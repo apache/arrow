@@ -25,15 +25,15 @@ glog:
 google_cloud_cpp:
 - '2.12'
 libabseil:
-- '20230125'
+- '20230802'
 libcrc32c:
 - '1.1'
 libcurl:
 - '8'
 libgrpc:
-- '1.56'
+- '1.57'
 libprotobuf:
-- 4.23.3
+- 4.23.4
 lz4_c:
 - 1.9.3
 numpy:

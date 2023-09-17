@@ -1,5 +1,5 @@
 MACOSX_DEPLOYMENT_TARGET:
-- '10.9'
+- '10.13'
 aws_crt_cpp:
 - 0.23.1
 aws_sdk_cpp:
@@ -27,11 +27,11 @@ glog:
 google_cloud_cpp:
 - '2.12'
 libabseil:
-- '20230125'
+- '20230802'
 libgrpc:
-- '1.56'
+- '1.57'
 libprotobuf:
-- 4.23.3
+- 4.23.4
 lz4_c:
 - 1.9.3
 macos_machine:
