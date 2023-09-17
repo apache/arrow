@@ -114,6 +114,8 @@ outputs:
         - libgrpc
         - libprotobuf
         - libutf8proc
+        # gandiva requires shared libllvm
+        - llvm  # [unix]
         - lz4-c
         - nlohmann_json
         # gandiva depends on openssl
@@ -340,13 +342,16 @@ outputs:
         - pytest
         - pytest-lazy-fixture
         - backports.zoneinfo     # [py<39]
+        - boto3
         - cffi
         - cloudpickle
         - cython <3
         - fastparquet
         - fsspec
         - hypothesis
+        - minio-server
         - pandas
+        - s3fs >=2023
         - scipy
         # these are generally (far) behind on migrating abseil/grpc/protobuf,
         # and using them as test dependencies blocks the migrator unnecessarily
@@ -361,6 +366,8 @@ outputs:
       source_files:
         - testing/data
       commands:
+        - cd ${SP_DIR}                                      # [unix]
+        - cd %SP_DIR%                                       # [win]
         - export ARROW_TEST_DATA="${SRC_DIR}/testing/data"  # [unix]
         - set "ARROW_TEST_DATA=%SRC_DIR%\testing\data"      # [win]
 
@@ -370,26 +377,31 @@ outputs:
         # skip tests that raise SIGINT and crash the test suite
         {% set tests_to_skip = tests_to_skip + " or (test_csv and test_cancellation)" %}  # [linux]
         {% set tests_to_skip = tests_to_skip + " or (test_flight and test_interrupt)" %}  # [linux]
-        # cannot pass -D_LIBCPP_DISABLE_AVAILABILITY to test suite for our older macos sdk
-        {% set tests_to_skip = tests_to_skip + " or test_cpp_extension_in_python" %}      # [osx]
         # skip tests that make invalid(-for-conda) assumptions about the compilers setup
         {% set tests_to_skip = tests_to_skip + " or test_cython_api" %}                   # [unix]
         {% set tests_to_skip = tests_to_skip + " or test_visit_strings" %}                # [unix]
         # skip tests that cannot succeed in emulation
         {% set tests_to_skip = tests_to_skip + " or test_debug_memory_pool_disabled" %}   # [aarch64 or ppc64le]
         {% set tests_to_skip = tests_to_skip + " or test_env_var_io_thread_count" %}      # [aarch64 or ppc64le]
+        # XMinioInvalidObjectName on osx/win: "Object name contains unsupported characters"
+        {% set tests_to_skip = tests_to_skip + " or test_write_to_dataset_with_partitions_s3fs" %}  # [osx or win]
         # vvvvvvv TESTS THAT SHOULDN'T HAVE TO BE SKIPPED vvvvvvv
+        # currently broken
+        {% set tests_to_skip = tests_to_skip + " or test_fastparquet_cross_compatibility" %}
         # new fsspec changed behaviour, see https://github.com/apache/arrow/issues/37555
         {% set tests_to_skip = tests_to_skip + " or test_get_file_info_with_selector" %}
-        # segfaults on OSX: to investigate ASAP
-        {% set tests_to_skip = tests_to_skip + " or test_flight" %}                       # [osx]
+        # problems with minio
+        {% set tests_to_skip = tests_to_skip + " or (test_delete_dir and S3FileSystem)" %}
+        {% set tests_to_skip = tests_to_skip + " or (test_delete_dir_contents and S3FileSystem)" %}
+        {% set tests_to_skip = tests_to_skip + " or (test_get_file_info and S3FileSystem)" %}
+        {% set tests_to_skip = tests_to_skip + " or (test_move_directory and S3FileSystem)" %}
         # gandiva tests are segfaulting on ppc
-        {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                      # [ppc64le]
+        {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                                # [ppc64le]
         # test failures on ppc (both failing with: Float value was truncated converting to int32)
         {% set tests_to_skip = tests_to_skip + " or test_safe_cast_from_float_with_nans_to_int" %}  # [ppc64le]
         {% set tests_to_skip = tests_to_skip + " or test_float_with_null_as_integer" %}             # [ppc64le]
         # ^^^^^^^ TESTS THAT SHOULDN'T HAVE TO BE SKIPPED ^^^^^^^
-        - pytest --pyargs pyarrow -rfEs -k "not ({{ tests_to_skip }})"
+        - pytest pyarrow/ -rfEs -k "not ({{ tests_to_skip }})"
     {% endif %}
 
     about:
