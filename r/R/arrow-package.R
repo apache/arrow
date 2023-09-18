@@ -200,7 +200,7 @@ configure_tzdb <- function() {
     # On MacOS only, Check if we are running in under emulation, and warn this will not work
     rosetta <- identical(sysname, "darwin") && identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
     if (rosetta) {
-            packageStartupMessage(
+      packageStartupMessage(
         paste(
           "It appears that you are running R and Arrow in emulation",
           "(typically, this is running an x86 build of R on an ARM or",
