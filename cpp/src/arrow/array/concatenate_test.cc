@@ -92,8 +92,14 @@ class ConcatenateTest : public ::testing::Test {
       for (auto null_probability : this->null_probabilities_) {
         std::shared_ptr<Array> array;
         factory(size, null_probability, &array);
+        ASSERT_OK(array->ValidateFull());
         auto expected = array->Slice(offsets.front(), offsets.back() - offsets.front());
+        ASSERT_OK(expected->ValidateFull());
         auto slices = this->Slices(array, offsets);
+        for (auto slice : slices) {
+          ASSERT_OK(slice->ValidateFull());
+        }
+        ASSERT_OK(expected->ValidateFull());
         ASSERT_OK_AND_ASSIGN(auto actual, Concatenate(slices));
         AssertArraysEqual(*expected, *actual);
         if (actual->data()->buffers[0]) {
@@ -151,6 +157,13 @@ TEST_F(ConcatenateTest, NullType) {
 TEST_F(ConcatenateTest, StringType) {
   Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
     *out = rng_.String(size, /*min_length =*/0, /*max_length =*/15, null_probability);
+    ASSERT_OK((**out).ValidateFull());
+  });
+}
+
+TEST_F(ConcatenateTest, StringViewType) {
+  Check([this](int32_t size, double null_probability, std::shared_ptr<Array>* out) {
+    *out = rng_.StringView(size, /*min_length =*/0, /*max_length =*/15, null_probability);
     ASSERT_OK((**out).ValidateFull());
   });
 }

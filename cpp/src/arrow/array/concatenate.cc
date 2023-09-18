@@ -230,6 +230,35 @@ class ConcatenateImpl {
     return ConcatenateBuffers(value_buffers, pool_).Value(&out_->buffers[2]);
   }
 
+  Status Visit(const BinaryViewType& type) {
+    out_->buffers.resize(2);
+
+    for (const auto& in_data : in_) {
+      for (const auto& buf : util::span(in_data->buffers).subspan(2)) {
+        out_->buffers.push_back(buf);
+      }
+    }
+
+    ARROW_ASSIGN_OR_RAISE(auto view_buffers, Buffers(1, BinaryViewType::kSize));
+    ARROW_ASSIGN_OR_RAISE(auto view_buffer, ConcatenateBuffers(view_buffers, pool_));
+
+    auto* s = view_buffer->mutable_data_as<BinaryViewType::c_type>();
+    size_t preceding_buffer_count = 0;
+
+    int64_t i = in_[0]->length;
+    for (size_t in_index = 1; in_index < in_.size(); ++in_index) {
+      preceding_buffer_count += in_[in_index - 1]->buffers.size() - 2;
+
+      for (int64_t end_i = i + in_[in_index]->length; i < end_i; ++i) {
+        if (s[i].is_inline()) continue;
+        s[i].ref.buffer_index += static_cast<int32_t>(preceding_buffer_count);
+      }
+    }
+
+    out_->buffers[1] = std::move(view_buffer);
+    return Status::OK();
+  }
+
   Status Visit(const ListType&) {
     std::vector<Range> value_ranges;
     ARROW_ASSIGN_OR_RAISE(auto index_buffers, Buffers(1, sizeof(int32_t)));

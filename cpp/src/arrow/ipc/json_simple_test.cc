@@ -271,7 +271,13 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestHalfFloat, TestIntegers, HalfFloatType);
 template <typename T>
 class TestStrings : public ::testing::Test {
  public:
-  std::shared_ptr<DataType> type() { return TypeTraits<T>::type_singleton(); }
+  std::shared_ptr<DataType> type() const {
+    if constexpr (is_binary_view_like_type<T>::value) {
+      return T::is_utf8 ? utf8_view() : binary_view();
+    } else {
+      return TypeTraits<T>::type_singleton();
+    }
+  }
 };
 
 TYPED_TEST_SUITE_P(TestStrings);
@@ -327,6 +333,8 @@ INSTANTIATE_TYPED_TEST_SUITE_P(TestString, TestStrings, StringType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestBinary, TestStrings, BinaryType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeString, TestStrings, LargeStringType);
 INSTANTIATE_TYPED_TEST_SUITE_P(TestLargeBinary, TestStrings, LargeBinaryType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestStringView, TestStrings, StringViewType);
+INSTANTIATE_TYPED_TEST_SUITE_P(TestBinaryView, TestStrings, BinaryViewType);
 
 TEST(TestNull, Basics) {
   std::shared_ptr<DataType> type = null();

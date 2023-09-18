@@ -302,6 +302,7 @@ class ArrayPrinter : public PrettyPrinter {
                   std::is_base_of<FixedSizeBinaryArray, T>::value ||
                   std::is_base_of<BinaryArray, T>::value ||
                   std::is_base_of<LargeBinaryArray, T>::value ||
+                  std::is_base_of<BinaryViewArray, T>::value ||
                   std::is_base_of<ListArray, T>::value ||
                   std::is_base_of<LargeListArray, T>::value ||
                   std::is_base_of<MapArray, T>::value ||

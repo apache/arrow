@@ -41,6 +41,60 @@ namespace arrow {
 using internal::checked_cast;
 
 // ----------------------------------------------------------------------
+// Binary/StringView
+BinaryViewBuilder::BinaryViewBuilder(const std::shared_ptr<DataType>& type,
+                                     MemoryPool* pool)
+    : BinaryViewBuilder(pool) {}
+
+Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
+                                           int64_t length) {
+  auto bitmap = array.GetValues<uint8_t>(0, 0);
+  auto values = array.GetValues<BinaryViewType::c_type>(1) + offset;
+
+  int64_t out_of_line_total = 0;
+  for (int64_t i = 0; i < length; i++) {
+    if (!values[i].is_inline()) {
+      out_of_line_total += static_cast<int64_t>(values[i].size());
+    }
+  }
+  RETURN_NOT_OK(Reserve(length));
+  RETURN_NOT_OK(ReserveData(out_of_line_total));
+
+  for (int64_t i = 0; i < length; i++) {
+    if (bitmap && !bit_util::GetBit(bitmap, array.offset + offset + i)) {
+      UnsafeAppendNull();
+      continue;
+    }
+
+    UnsafeAppend(
+        util::FromIndexOffsetBinaryView(values[i], array.GetVariadicBuffers().data()));
+  }
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::FinishInternal(std::shared_ptr<ArrayData>* out) {
+  ARROW_ASSIGN_OR_RAISE(auto null_bitmap, null_bitmap_builder_.FinishWithLength(length_));
+  ARROW_ASSIGN_OR_RAISE(auto data, data_builder_.FinishWithLength(length_));
+  BufferVector buffers = {null_bitmap, data};
+  for (auto&& buffer : data_heap_builder_.Finish()) {
+    buffers.push_back(std::move(buffer));
+  }
+  *out = ArrayData::Make(type(), length_, std::move(buffers), null_count_);
+  Reset();
+  return Status::OK();
+}
+
+Status BinaryViewBuilder::ReserveData(int64_t length) {
+  return data_heap_builder_.Reserve(length);
+}
+
+void BinaryViewBuilder::Reset() {
+  ArrayBuilder::Reset();
+  data_builder_.Reset();
+  data_heap_builder_.Reset();
+}
+
+// ----------------------------------------------------------------------
 // Fixed width binary
 
 FixedSizeBinaryBuilder::FixedSizeBinaryBuilder(const std::shared_ptr<DataType>& type,
@@ -125,8 +179,8 @@ const uint8_t* FixedSizeBinaryBuilder::GetValue(int64_t i) const {
 
 std::string_view FixedSizeBinaryBuilder::GetView(int64_t i) const {
   const uint8_t* data_ptr = byte_builder_.data();
-  return std::string_view(reinterpret_cast<const char*>(data_ptr + i * byte_width_),
-                          byte_width_);
+  return {reinterpret_cast<const char*>(data_ptr + i * byte_width_),
+          static_cast<size_t>(byte_width_)};
 }
 
 // ----------------------------------------------------------------------
@@ -173,10 +227,10 @@ Status ChunkedStringBuilder::Finish(ArrayVector* out) {
   RETURN_NOT_OK(ChunkedBinaryBuilder::Finish(out));
 
   // Change data type to string/utf8
-  for (size_t i = 0; i < out->size(); ++i) {
-    std::shared_ptr<ArrayData> data = (*out)[i]->data();
+  for (auto& chunk : *out) {
+    std::shared_ptr<ArrayData> data = chunk->data()->Copy();
     data->type = ::arrow::utf8();
-    (*out)[i] = std::make_shared<StringArray>(data);
+    chunk = std::make_shared<StringArray>(std::move(data));
   }
   return Status::OK();
 }
