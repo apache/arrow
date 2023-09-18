@@ -62,7 +62,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
                 for ii = 1:numFields
                     fields{ii} = obj.field(ii);
                 end
-                fields = horzcat(fields);
+                fields = horzcat(fields{:});
             end
         end
     end
