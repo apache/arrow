@@ -17,7 +17,7 @@ classdef StringArray < arrow.array.Array
 % arrow.array.StringArray
 
     properties (Hidden, GetAccess=public, SetAccess=private)
-        NullSubstitionValue = string(missing);
+        NullSubstitutionValue = string(missing);
     end
 
     methods
@@ -35,7 +35,7 @@ classdef StringArray < arrow.array.Array
 
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
-            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
+            matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
         end
     end
 

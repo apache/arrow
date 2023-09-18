@@ -17,6 +17,7 @@
 
 #include "arrow/matlab/array/proxy/struct_array.h"
 #include "arrow/matlab/array/proxy/wrap.h"
+#include "arrow/matlab/bit/pack.h"
 #include "arrow/matlab/error/error.h"
 #include "arrow/matlab/index/validate.h"
 
@@ -40,6 +41,7 @@ namespace arrow::matlab::array::proxy {
         mda::StructArray opts = constructor_arguments[0];
         const mda::TypedArray<uint64_t> arrow_array_proxy_ids = opts[0]["ArrayProxyIDs"];
         const mda::StringArray field_names_mda = opts[0]["FieldNames"];
+        const mda::TypedArray<bool> validity_bitmap_mda = opts[0]["Valid"];
 
         std::vector<std::shared_ptr<arrow::Array>> arrow_arrays;
         arrow_arrays.reserve(arrow_array_proxy_ids.getNumberOfElements());
@@ -62,9 +64,15 @@ namespace arrow::matlab::array::proxy {
             field_names.push_back(field_name_utf8);
         }
 
+
+        // Pack the validity bitmap values.
+        MATLAB_ASSIGN_OR_ERROR(auto validity_bitmap_buffer,
+                               bit::packValid(validity_bitmap_mda), 
+                               error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
+
         // TODO: Add custom error
         MATLAB_ASSIGN_OR_ERROR(auto array, 
-                               arrow::StructArray::Make(arrow_arrays, field_names),
+                               arrow::StructArray::Make(arrow_arrays, field_names, validity_bitmap_buffer),
                                error::SCHEMA_BUILDER_FINISH_ERROR_ID);
 
         auto struct_array = std::static_pointer_cast<arrow::StructArray>(array);

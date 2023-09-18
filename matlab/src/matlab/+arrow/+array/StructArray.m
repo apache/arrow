@@ -72,7 +72,7 @@ classdef StructArray < arrow.array.Array
                 arrowArray = obj.field(ii);
                 matlabArray = toMATLAB(arrowArray);
                 if any(invalid)
-                    matlabArray(idx, :) = arrowArray.NullSubstitutionValue;
+                    matlabArray(invalid, :) = arrowArray.NullSubstitutionValue;
                 end
                 matlabArrays{ii} = matlabArray;
             end
