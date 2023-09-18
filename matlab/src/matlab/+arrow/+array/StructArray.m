@@ -67,12 +67,13 @@ classdef StructArray < arrow.array.Array
             matlabArrays = cell(1, numFields);
             
             invalid = ~obj.Valid;
-
+            numInvalid = nnz(invalid);
+            
             for ii = 1:numFields
                 arrowArray = obj.field(ii);
                 matlabArray = toMATLAB(arrowArray);
-                if any(invalid)
-                    matlabArray(invalid, :) = arrowArray.NullSubstitutionValue;
+                if numInvalid ~= 0
+                    matlabArray(invalid, :) = repmat(arrowArray.NullSubstitutionValue, [numInvalid 1]);
                 end
                 matlabArrays{ii} = matlabArray;
             end
