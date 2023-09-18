@@ -47,6 +47,27 @@ classdef tError < CSVTest
             testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
+        function InvalidWriterWriteType(testCase)
+            import arrow.io.csv.*
+            writer = TableWriter(testCase.Filename);
+            fcn = @() writer.write("text");
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+        end
+
+        function WriterFilenameNoSetter(testCase)
+            import arrow.io.csv.*
+            writer = TableWriter(testCase.Filename);
+            fcn = @() setfield(writer, "Filename", "filename.csv");
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
+        end
+
+        function ReaderFilenameNoSetter(testCase)
+            import arrow.io.csv.*
+            reader = TableReader(testCase.Filename);
+            fcn = @() setfield(reader, "Filename", "filename.csv");
+            testCase.verifyError(fcn, "MATLAB:class:SetProhibited");
+        end
+
     end
 
 end

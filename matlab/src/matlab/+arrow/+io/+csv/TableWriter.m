@@ -20,7 +20,7 @@ classdef TableWriter < matlab.mixin.Scalar
         Proxy
     end
 
-    properties(Dependent)
+    properties(Dependent, SetAccess=private, GetAccess=public)
         Filename
     end
 
@@ -36,6 +36,10 @@ classdef TableWriter < matlab.mixin.Scalar
         end
 
         function write(obj, table)
+            arguments
+                obj (1, 1) arrow.io.csv.TableWriter
+                table (1, 1) arrow.tabular.Table
+            end
             args = struct(TableProxyID=table.Proxy.ID);
             obj.Proxy.write(args);
         end
