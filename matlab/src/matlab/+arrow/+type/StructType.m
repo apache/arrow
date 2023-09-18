@@ -32,8 +32,12 @@ classdef StructType < arrow.type.Type
         end
     end
 
-    methods(Hidden)
-        % TODO: Consider using a mixin approach to add this behavior
+    methods (Hidden)
+        % TODO: Consider using a mixin approach to add this behavior. For
+        % example, ChunkedArray's toMATLAB method could check if its 
+        % Type inherits from a mixin called "Preallocateable" (or something
+        % more descriptive). If so, we can call preallocateMATLABArray
+        % in the toMATLAB method.
         function preallocateMATLABArray(~)
             error("arrow:type:UnsupportedFunction", ...
                 "preallocateMATLABArray is not supported for StructType");
