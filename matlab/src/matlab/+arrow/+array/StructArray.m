@@ -21,6 +21,10 @@ classdef StructArray < arrow.array.Array
         NumFields
     end
 
+    properties (Hidden, Dependent, GetAccess=public, SetAccess=private)
+        NullSubstitutionValue
+    end
+
     methods
         function obj = StructArray(proxy)
             arguments
@@ -62,17 +66,32 @@ classdef StructArray < arrow.array.Array
             numFields = obj.NumFields;
             matlabArrays = cell(1, numFields);
             
+            invalid = ~obj.Valid;
+
             for ii = 1:numFields
                 arrowArray = obj.field(ii);
-                matlabArrays{ii} = toMATLAB(arrowArray);
+                matlabArray = toMATLAB(arrowArray);
+                if any(invalid)
+                    matlabArray(idx, :) = arrowArray.NullSubstitutionValue;
+                end
+                matlabArrays{ii} = matlabArray;
             end
 
-            validVariableNames = makeValidVariableNames(obj.FieldNames);
+            fieldNames = [obj.Type.Fields.Name];
+            validVariableNames = makeValidVariableNames(fieldNames);
             validDimensionNames = makeValidDimensionNames(validVariableNames);
 
             T = table(matlabArrays{:}, ...
                 VariableNames=validVariableNames, ...
                 DimensionNames=validDimensionNames);
+        end
+
+        function nullSubVal = get.NullSubstitutionValue(obj)
+            numFields = obj.NumFields;
+            nullSubVal = cell(1, numFields);
+            for ii = 1:obj.NumFields
+                nullSubVal{ii} = obj.field(ii).NullSubstitutionValue;
+            end
         end
     end
 
@@ -83,6 +102,7 @@ classdef StructArray < arrow.array.Array
             end
             arguments
                 opts.FieldNames(1, :) string {mustBeNonmissing} = compose("Field%d", 1:numel(arrowArrays))
+                opts.Valid
             end
 
             import arrow.tabular.internal.validateArrayLengths
