@@ -26,7 +26,7 @@ classdef StructArray < arrow.array.Array
             arguments
                 proxy(1, 1) libmexclass.proxy.Proxy {validate(proxy, "arrow.array.proxy.StructArray")}
             end
-
+            import arrow.internal.proxy.validate
             obj@arrow.array.Array(proxy);
         end
 
