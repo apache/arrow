@@ -1060,7 +1060,7 @@ cdef class FileSystemDataset(Dataset):
             return Partitioning.wrap(c_partitioning)
         except TypeError:
             # e.g. type_name "default"
-            return None
+            return Nonesubs
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
@@ -1076,8 +1076,8 @@ cdef class FileSystemDataset(Dataset):
         )
 
     @classmethod
-    def from_paths(cls, paths, schema=None, format=None, filesystem=None,
-                   partitions=None, root_partition=None):
+    def from_paths(cls, paths, schema=None, format=None,
+                   filesystem=None, partitions=None, root_partition=None):
         """
         A Dataset created from a list of paths on a particular filesystem.
 
