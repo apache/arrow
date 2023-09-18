@@ -17,7 +17,7 @@ classdef StructTraits < arrow.type.traits.TypeTraits
 
     properties (Constant)
         % TODO: When arrow.array.StructArray is implemented, set these
-        % proeprties appropriately
+        % properties appropriately
         ArrayConstructor = missing
         ArrayClassName = missing
         ArrayProxyClassName = missing
@@ -28,7 +28,7 @@ classdef StructTraits < arrow.type.traits.TypeTraits
         TypeProxyClassName = "arrow.type.proxy.StructType"
 
         % TODO: When arrow.array.StructArray is implemented, set these
-        % proeprties appropriately
+        % properties appropriately
         MatlabConstructor = missing
         MatlabClassName = missing
     end
