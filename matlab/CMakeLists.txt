@@ -19,7 +19,7 @@ cmake_minimum_required(VERSION 3.20)
 
 # Build the Arrow C++ libraries.
 function(build_arrow)
-  set(options BUILD_GTEST)
+  set(options)
   set(one_value_args)
   set(multi_value_args)
 
@@ -37,69 +37,51 @@ function(build_arrow)
   set(ARROW_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${ARROW_PREFIX}"
                        "-DCMAKE_INSTALL_LIBDIR=lib" "-DARROW_BUILD_STATIC=OFF")
 
-  if(Arrow_FOUND
-     AND NOT GTest_FOUND
-     AND ARG_BUILD_GTEST)
-    # If find_package has already found a valid Arrow installation, then
-    # we don't want to link against the Arrow libraries that will be built
-    # from source.
-    #
-    # However, we still need to create a library target to trigger building
-    # of the arrow_ep target, which will ultimately build the bundled
-    # GoogleTest binaries.
-    add_library(arrow_shared_for_gtest SHARED IMPORTED)
-    set(ARROW_LIBRARY_TARGET arrow_shared_for_gtest)
+  add_library(arrow_shared SHARED IMPORTED)
+  set(ARROW_LIBRARY_TARGET arrow_shared)
+
+  # Set the runtime shared library (.dll, .so, or .dylib)
+  if(WIN32)
+    # The shared library (i.e. .dll) is located in the "bin" directory.
+    set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/bin")
   else()
-    add_library(arrow_shared SHARED IMPORTED)
-    set(ARROW_LIBRARY_TARGET arrow_shared)
-
-    # Set the runtime shared library (.dll, .so, or .dylib)
-    if(WIN32)
-      # The shared library (i.e. .dll) is located in the "bin" directory.
-      set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/bin")
-    else()
-      # The shared library (i.e. .so or .dylib) is located in the "lib" directory.
-      set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/lib")
-    endif()
-
-    set(ARROW_SHARED_LIB_FILENAME
-        "${CMAKE_SHARED_LIBRARY_PREFIX}arrow${CMAKE_SHARED_LIBRARY_SUFFIX}")
-    set(ARROW_SHARED_LIB "${ARROW_SHARED_LIBRARY_DIR}/${ARROW_SHARED_LIB_FILENAME}")
-
-    set_target_properties(arrow_shared PROPERTIES IMPORTED_LOCATION ${ARROW_SHARED_LIB})
-
-    # Set the link-time import library (.lib)
-    if(WIN32)
-      # The import library (i.e. .lib) is located in the "lib" directory.
-      set(ARROW_IMPORT_LIB_FILENAME
-          "${CMAKE_IMPORT_LIBRARY_PREFIX}arrow${CMAKE_IMPORT_LIBRARY_SUFFIX}")
-      set(ARROW_IMPORT_LIB "${ARROW_PREFIX}/lib/${ARROW_IMPORT_LIB_FILENAME}")
-
-      set_target_properties(arrow_shared PROPERTIES IMPORTED_IMPLIB ${ARROW_IMPORT_LIB})
-    endif()
-
-    # Set the include directories
-    set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
-    file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
-    set_target_properties(arrow_shared PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
-                                                  ${ARROW_INCLUDE_DIR})
-
-    # Set the build byproducts for the ExternalProject build
-    # The appropriate libraries need to be guaranteed to be available when linking the test
-    # executables.
-    if(WIN32)
-      set(ARROW_BUILD_BYPRODUCTS "${ARROW_IMPORT_LIB}")
-    else()
-      set(ARROW_BUILD_BYPRODUCTS "${ARROW_SHARED_LIB}")
-    endif()
+    # The shared library (i.e. .so or .dylib) is located in the "lib" directory.
+    set(ARROW_SHARED_LIBRARY_DIR "${ARROW_PREFIX}/lib")
   endif()
 
-  # Building the Arrow C++ libraries and bundled GoogleTest binaries requires ExternalProject.
+  set(ARROW_SHARED_LIB_FILENAME
+      "${CMAKE_SHARED_LIBRARY_PREFIX}arrow${CMAKE_SHARED_LIBRARY_SUFFIX}")
+  set(ARROW_SHARED_LIB "${ARROW_SHARED_LIBRARY_DIR}/${ARROW_SHARED_LIB_FILENAME}")
+
+  set_target_properties(arrow_shared PROPERTIES IMPORTED_LOCATION ${ARROW_SHARED_LIB})
+
+  # Set the link-time import library (.lib)
+  if(WIN32)
+    # The import library (i.e. .lib) is located in the "lib" directory.
+    set(ARROW_IMPORT_LIB_FILENAME
+        "${CMAKE_IMPORT_LIBRARY_PREFIX}arrow${CMAKE_IMPORT_LIBRARY_SUFFIX}")
+    set(ARROW_IMPORT_LIB "${ARROW_PREFIX}/lib/${ARROW_IMPORT_LIB_FILENAME}")
+
+    set_target_properties(arrow_shared PROPERTIES IMPORTED_IMPLIB ${ARROW_IMPORT_LIB})
+  endif()
+
+  # Set the include directories
+  set(ARROW_INCLUDE_DIR "${ARROW_PREFIX}/include")
+  file(MAKE_DIRECTORY "${ARROW_INCLUDE_DIR}")
+  set_target_properties(arrow_shared PROPERTIES INTERFACE_INCLUDE_DIRECTORIES
+                                                ${ARROW_INCLUDE_DIR})
+
+  # Set the build byproducts for the ExternalProject build
+  # The appropriate libraries need to be guaranteed to be available when linking the test
+  # executables.
+  if(WIN32)
+    set(ARROW_BUILD_BYPRODUCTS "${ARROW_IMPORT_LIB}")
+  else()
+    set(ARROW_BUILD_BYPRODUCTS "${ARROW_SHARED_LIB}")
+  endif()
+
+  # Building the Arrow C++ libraries requires ExternalProject.
   include(ExternalProject)
-
-  if(ARG_BUILD_GTEST)
-    enable_gtest()
-  endif()
 
   externalproject_add(arrow_ep
                       SOURCE_DIR "${CMAKE_SOURCE_DIR}/../cpp"
@@ -109,9 +91,6 @@ function(build_arrow)
 
   add_dependencies(${ARROW_LIBRARY_TARGET} arrow_ep)
 
-  if(ARG_BUILD_GTEST)
-    build_gtest()
-  endif()
 endfunction()
 
 set(CMAKE_CXX_STANDARD 17)
