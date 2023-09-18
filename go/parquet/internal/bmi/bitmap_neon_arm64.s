@@ -22,13 +22,13 @@ LBB0_2:
     WORD $0xea010181 // ands    x1, x12, x1
     WORD $0xaa000140 // orr    x0, x10, x0
     WORD $0xd37ff929 // lsl    x9, x9, #1
-    BNE LBB0_2
+    BNE LBB0_2  
     WORD $0xa8c17bfd // ldp    x29, x30, [sp], #16
-    MOVD R0, res+16(FP)
+    MOVD R0, res+16(FP)    
     RET
 LBB0_4:
-    WORD $0xaa1f03e0 // mov    x0, xzr
     WORD $0xa8c17bfd // ldp    x29, x30, [sp], #16
+    MOVD ZR, res+16(FP)
     RET
 
 // func _levels_to_bitmap_neon(levels unsafe.Pointer, numLevels int, rhs int16) (res uint64)

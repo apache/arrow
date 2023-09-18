@@ -14,40 +14,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !noasm
-// +build !noasm
-
-package utils
+package bmi_test
 
 import (
-	"os"
-	"strings"
+	"fmt"
+	"testing"
 
-	"github.com/klauspost/cpuid/v2"
+	"github.com/apache/arrow/go/v14/parquet/internal/bmi"
+	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	// Added ability to enable extension via environment:
-	// ARM_ENABLE_EXT=NEON go test
-	if ext, ok := os.LookupEnv("ARM_ENABLE_EXT"); ok {
-		exts := strings.Split(ext, ",")
-
-		for _, x := range exts {
-			switch x {
-			case "NEON":
-				cpuid.CPU.Enable(cpuid.ASIMD)
-			case "AES":
-				cpuid.CPU.Enable(cpuid.AESARM)
-			case "PMULL":
-				cpuid.CPU.Enable(cpuid.PMULL)
-			default:
-				cpuid.CPU.Disable(cpuid.ASIMD, cpuid.AESARM, cpuid.PMULL)
-			}
-		}
+// Testing the issue in GH-37712
+func TestBasicExtractBits(t *testing.T) {
+	tests := []struct {
+		bitmap, selection uint64
+		expected          uint64
+	}{
+		{0, 0, 0},
+		{0xFF, 0, 0},
+		{0xFF, ^uint64(0), 0xFF},
+		{0xFF00FF, 0xAAAA, 0x000F},
+		{0xFF0AFF, 0xAFAA, 0x00AF},
+		{0xFFAAFF, 0xAFAA, 0x03AF},
+		{0xFECBDA9876543210, 0xF00FF00FF00FF00F, 0xFBD87430},
 	}
-	if cpuid.CPU.Has(cpuid.ASIMD) {
-		unpack32 = unpack32NEON
-	} else { // default to the pure go implementation if no avx2 available
-		unpack32 = unpack32Default
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d-%d=>%d", tt.bitmap, tt.selection, tt.expected), func(t *testing.T) {
+			assert.Equal(t, tt.expected, bmi.ExtractBits(tt.bitmap, tt.selection))
+		})
 	}
 }
