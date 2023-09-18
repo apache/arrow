@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# Build the Arrow C++ libraries as using ExternalProject_Add.
+# Build the Arrow C++ libraries using ExternalProject_Add.
 function(build_arrow)
   set(options)
   set(one_value_args)
