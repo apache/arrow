@@ -108,6 +108,7 @@ classdef StructArray < arrow.array.Array
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
             import arrow.array.internal.getArrayProxyIDs
+            import arrow.internal.validate.parseValid
 
             if numel(arrowArrays) == 0
                 error("arrow:struct:ZeroFields", ...
@@ -116,9 +117,11 @@ classdef StructArray < arrow.array.Array
 
             validateArrayLengths(arrowArrays);
             validateColumnNames(opts.FieldNames,  numel(arrowArrays));
+            validElements = parseValid(opts, arrowArrays{1}.Length);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
-            args = struct(ArrayProxyIDs=arrayProxyIDs, FieldNames=opts.FieldNames);
+            args = struct(ArrayProxyIDs=arrayProxyIDs, ...
+                FieldNames=opts.FieldNames, Valid=validElements);
             proxyName = "arrow.array.proxy.StructArray";
             proxy = arrow.internal.proxy.create(proxyName, args);
             array = arrow.array.StructArray(proxy);
