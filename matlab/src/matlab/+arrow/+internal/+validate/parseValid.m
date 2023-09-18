@@ -1,3 +1,5 @@
+%PARSEVALID Utility function for parsing the Valid name-value pair. 
+
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
 % this work for additional information regarding copyright ownership.
@@ -12,26 +14,6 @@
 % WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
-
-function validElements = parseValidElements(data, opts)
-% Returns a logical vector of the validElements in data. 
-%
-% opts is a scalar struct that is required to have a field called
-% InferNulls. opts may have a field named Valid. If so, it takes 
-% precedence over InferNulls.
-
-    if isfield(opts, "Valid")
-        validElements = arrow.internal.validate.parseValid(numel(data), opts.Valid);
-    else
-        validElements = parseInferNulls(data, opts.InferNulls);
-    end
-    
-    if ~isempty(validElements) && all(validElements)
-        % Check if validElements contains only true values. 
-        % If so, return an empty logical array.
-        validElements = logical.empty(0, 1);
-    end
-end
 
 function validElements = parseValid(numElements, valid)
     if islogical(valid)
@@ -53,17 +35,5 @@ function validElements = parseValid(numElements, valid)
         % specified by opts.Valid.
         validElements = false([numElements 1]);
         validElements(valid) = true;
-    end
-end
-
-function validElements = parseInferNulls(data, inferNulls)
-    if inferNulls && ~(isinteger(data) || islogical(data))
-        % Only call ismissing on data types that have a "missing" value,
-        % i.e. double, single, string, datetime, duration.
-        validElements = ~ismissing(data);
-        validElements = reshape(validElements, [], 1);
-    else
-        % Return an empty logical to represent all elements are valid. 
-        validElements = logical.empty(0, 1);
     end
 end
