@@ -44,8 +44,10 @@
     <forkCount>2</forkCount>
     <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
     <errorprone.javac.version>9+181-r4173-1</errorprone.javac.version>
-    <error_prone_core.version>2.16</error_prone_core.version>
-    <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+    <pinjdk8.errorprone.core.version>2.10.0</pinjdk8.errorprone.core.version>
+    <errorprone.core.version>2.21.1</errorprone.core.version>
+    <immutables.version>2.9.3</immutables.version>
+    <maven.compiler.plugin.version>3.10.1</maven.compiler.plugin.version>
     <checker.version>3.38.0</checker.version>
   </properties>
 
@@ -392,7 +394,7 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
-          <version>${maven-compiler-plugin.version}</version>
+          <version>${maven.compiler.plugin.version}</version>
           <configuration>
             <annotationProcessorPaths>
               <path>
@@ -569,7 +571,7 @@
       <dependency>
         <groupId>org.immutables</groupId>
         <artifactId>value</artifactId>
-        <version>2.8.2</version>
+        <version>${immutables.version}</version>
         <scope>provided</scope>
       </dependency>
       <dependency>
@@ -771,133 +773,94 @@
       </properties>
     </profile>
 
-<!--    <profile>-->
-<!--      <id>error-prone-jdk8</id>-->
-<!--      &lt;!&ndash;-->
-<!--           Do not activate Error Prone while running with Eclipse/M2E as it causes incompatibilities-->
-<!--           with other annotation processors.-->
-<!--           See https://github.com/jbosstools/m2e-apt/issues/62 for details-->
-<!--      &ndash;&gt;-->
-<!--      <activation>-->
-<!--        <jdk>1.8</jdk>-->
-<!--        <property>-->
-<!--          <name>!m2e.version</name>-->
-<!--        </property>-->
-<!--      </activation>-->
-<!--      <build>-->
-<!--        <plugins>-->
-<!--          <plugin>-->
-<!--            <groupId>org.apache.maven.plugins</groupId>-->
-<!--            <artifactId>maven-compiler-plugin</artifactId>-->
-<!--            <configuration>-->
-<!--              <fork>true</fork>-->
-<!--              <compilerArgs combine.children="append">-->
-<!--                <arg>-XDcompilePolicy=simple</arg>-->
-<!--                <arg>-Xplugin:ErrorProne</arg>-->
-<!--                <arg>-J-Xbootclasspath/p:${settings.localRepository}/com/google/errorprone/javac/${errorprone.javac.version}/javac-${errorprone.javac.version}.jar</arg>-->
-<!--              </compilerArgs>-->
-<!--              <annotationProcessorPaths combine.children="append">-->
-<!--                <path>-->
-<!--                  <groupId>com.google.errorprone</groupId>-->
-<!--                  <artifactId>error_prone_core</artifactId>-->
-<!--                  <version>2.4.0</version>-->
-<!--                </path>-->
-<!--              </annotationProcessorPaths>-->
-<!--            </configuration>-->
-<!--          </plugin>-->
-<!--        </plugins>-->
-<!--      </build>-->
-<!--    </profile>-->
-
-      <profile>
-          <id>checkerframework</id>
-          <!-- If you omit the activation block, run mvn with "-P checkerframework" to run checkers. -->
-          <activation>
-              <jdk>[1.8,)</jdk>
-          </activation>
-          <build>
-              <plugins>
-                  <plugin>
-                      <artifactId>maven-compiler-plugin</artifactId>
-                      <version>3.10.1</version>
-                      <configuration>
-                          <fork>true</fork> <!-- Must fork or else JVM arguments are ignored. -->
-                          <annotationProcessorPaths>
-                              <path>
-                                  <groupId>org.checkerframework</groupId>
-                                  <artifactId>checker</artifactId>
-                                  <version>3.38.0</version>
-                              </path>
-                              <path>
-                                  <groupId>com.google.errorprone</groupId>
-                                  <artifactId>error_prone_core</artifactId>
-                                  <version>2.4.0</version>
-                              </path>
-                          </annotationProcessorPaths>
-                          <annotationProcessors>
-                              <!-- Add all the checkers you want to enable here -->
-                              <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
-                          </annotationProcessors>
-                          <compilerArgs>
-                              <arg>-XDcompilePolicy=simple</arg>
-                              <arg>-Xplugin:ErrorProne</arg>
-                              <arg>-Xmaxerrs</arg>
-                              <arg>10000</arg>
-                              <arg>-Xmaxwarns</arg>
-                              <arg>10000</arg>
-                              <!-- <arg>-Awarns</arg> --> <!-- -Awarns turns type-checking errors into warnings. -->
-                          </compilerArgs>
-                      </configuration>
-                  </plugin>
-              </plugins>
-          </build>
-      </profile>
-
-      <profile>
-          <id>checkerframework-jdk8</id>
-          <activation>
-              <jdk>1.8</jdk>
-          </activation>
-          <!-- using github.com/google/error-prone-javac is required when running on JDK 8 -->
-          <properties>
-              <javac.version>9+181-r4173-1</javac.version>
-          </properties>
-          <build>
-              <plugins>
-                  <plugin>
-                      <!-- This plugin execution will copy the com.google.errorprone:javac jar file to
-                           your project’s output directory without adding that jar as an explicit
-                           dependency. -->
-                      <groupId>org.apache.maven.plugins</groupId>
-                      <artifactId>maven-dependency-plugin</artifactId>
-                      <executions>
-                          <execution>
-                              <goals>
-                                  <goal>copy</goal>
-                              </goals>
-                              <phase>process-sources</phase>
-                              <configuration>
-                                  <artifact>com.google.errorprone:javac:${javac.version}:jar</artifact>
-                                  <outputDirectory>${project.build.directory}/javac</outputDirectory>
-                              </configuration>
-                          </execution>
-                      </executions>
-                  </plugin>
-                  <plugin>
-                      <groupId>org.apache.maven.plugins</groupId>
-                      <artifactId>maven-compiler-plugin</artifactId>
-                      <configuration>
-                          <compilerArgs combine.children="append">
-                              <arg>-J-Xbootclasspath/p:${project.build.directory}/javac/javac-${javac.version}.jar</arg>
-                          </compilerArgs>
-                      </configuration>
-                  </plugin>
-              </plugins>
-          </build>
-      </profile>
+    <profile>
+      <id>error-prone-checkerframework-jdk8</id>
+      <activation>
+          <jdk>1.8</jdk>
+      </activation>
+      <build>
+          <plugins>
+              <plugin>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <configuration>
+                      <fork>true</fork>
+                      <annotationProcessorPaths>
+                          <path>
+                              <groupId>org.checkerframework</groupId>
+                              <artifactId>checker</artifactId>
+                              <version>${checker.version}</version>
+                          </path>
+                          <path>
+                              <groupId>com.google.errorprone</groupId>
+                              <artifactId>error_prone_core</artifactId>
+                              <version>${pinjdk8.errorprone.core.version}</version>
+                          </path>
+                          <path>
+                              <groupId>org.immutables</groupId>
+                              <artifactId>value</artifactId>
+                              <version>${immutables.version}</version>
+                          </path>
+                      </annotationProcessorPaths>
+                      <annotationProcessors>
+                          <!-- To support @Value.Immutable processors -->
+                          <annotationProcessor>org.immutables.value.internal.$processor$.$Processor</annotationProcessor>
+                          <!-- Add all the checkers you want to enable here -->
+                          <annotationProcessor>org.checkerframework.checker.nullness.NullnessChecker</annotationProcessor>
+                      </annotationProcessors>
+                      <compilerArgs>
+                          <arg>-XDcompilePolicy=simple</arg>
+                          <arg>-Xplugin:ErrorProne</arg>
+                          <arg>-Xmaxerrs</arg>
+                          <arg>10000</arg>
+                          <arg>-Xmaxwarns</arg>
+                          <arg>10000</arg>
+                          <arg>-Awarns</arg> <!-- Treat checker errors as warnings -->
+                          <arg>-AskipDefs=.*Test</arg> <!-- Skip analysis for Testing classes -->
+                      </compilerArgs>
+                  </configuration>
+              </plugin>
+          </plugins>
+      </build>
+    </profile>
 
     <profile>
-      <id>error-prone-jdk11+</id>
+      <id>checkerframework-jdk8</id>
+      <activation>
+          <jdk>1.8</jdk>
+      </activation>
+      <build>
+          <plugins>
+              <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-dependency-plugin</artifactId>
+                  <executions>
+                      <execution>
+                          <goals>
+                              <goal>copy</goal>
+                          </goals>
+                          <phase>process-sources</phase>
+                          <configuration>
+                              <artifact>com.google.errorprone:javac:${errorprone.javac.version}:jar</artifact>
+                              <outputDirectory>${project.build.directory}/javac</outputDirectory>
+                          </configuration>
+                      </execution>
+                  </executions>
+              </plugin>
+              <plugin>
+                  <groupId>org.apache.maven.plugins</groupId>
+                  <artifactId>maven-compiler-plugin</artifactId>
+                  <configuration>
+                      <compilerArgs combine.children="append">
+                          <arg>-J-Xbootclasspath/p:${project.build.directory}/javac/javac-${errorprone.javac.version}.jar</arg>
+                      </compilerArgs>
+                  </configuration>
+              </plugin>
+          </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>error-prone-checkerframework-jdk11+</id>
       <activation>
         <jdk>[11,]</jdk>
         <property>
@@ -914,6 +877,10 @@
               <target>8</target>
               <encoding>UTF-8</encoding>
               <compilerArgs combine.children="append">
+                <arg>-Xmaxerrs</arg>
+                <arg>10000</arg>
+                <arg>-Xmaxwarns</arg>
+                <arg>10000</arg>
                 <arg>-Awarns</arg> <!-- Treat checker errors as warnings -->
                 <arg>-AskipDefs=.*Test</arg> <!-- Skip analysis for Testing classes -->
                 <arg>-XDcompilePolicy=simple</arg>
@@ -933,7 +900,7 @@
                 <path>
                   <groupId>com.google.errorprone</groupId>
                   <artifactId>error_prone_core</artifactId>
-                  <version>${error_prone_core.version}</version>
+                  <version>${errorprone.core.version}</version>
                 </path>
                 <path>
                   <groupId>org.checkerframework</groupId>
