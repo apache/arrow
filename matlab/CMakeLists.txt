@@ -127,7 +127,7 @@ endif()
 
 find_package(Arrow QUIET)
 if(NOT Arrow_FOUND)
-    build_arrow()
+  build_arrow()
 endif()
 
 # MATLAB is Required
