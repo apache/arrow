@@ -41,14 +41,14 @@ classdef StructArray < arrow.array.Array
 
             if isnumeric(idx)
                 args = struct(Index=idx);
-                [proxyID, typeID] = obj.Proxy.getColumnByIndex(args);
+                fieldStruct = obj.Proxy.getFieldByIndex(args);
             else
                 args = struct(Name=idx);
-                [proxyID, typeID] = obj.Proxy.getColumnByName(args);
+                fieldStruct = obj.Proxy.getFieldByName(args);
             end
             
-            traits = arrow.type.traits.traits(arrow.type.ID(typeID));
-            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=proxyID);
+            traits = arrow.type.traits.traits(arrow.type.ID(fieldStruct.TypeID));
+            proxy = libmexclass.proxy.Proxy(Name=traits.ArrayProxyClassName, ID=fieldStruct.ProxyID);
             F = traits.ArrayConstructor(proxy);
         end
 
