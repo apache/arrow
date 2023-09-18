@@ -258,7 +258,7 @@ For large tables used in a multi-process "data processing pipeline", a user coul
 ## Testing 
 To ensure code quality, we would like to include the following testing infrastructure, at a minimum: 
 1. C++ APIs 
-   - GoogleTest C++ Unit Tests 
+   - C++ Unit Tests
    - Integration with CI workflows 
 2. MATLAB APIs  
    - [MATLAB Class-Based Unit Tests] 
