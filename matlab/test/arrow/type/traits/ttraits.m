@@ -199,6 +199,18 @@ classdef ttraits < matlab.unittest.TestCase
             testCase.verifyEqual(actualTraits, expectedTraits);
         end
 
+        function TestStruct(testCase)
+            import arrow.type.traits.*
+            import arrow.type.*
+
+            type = ID.Struct;
+            expectedTraits = StructTraits();
+
+            actualTraits = traits(type);
+
+            testCase.verifyEqual(actualTraits, expectedTraits);
+        end
+
         function TestMatlabUInt8(testCase)
             import arrow.type.traits.*
 
