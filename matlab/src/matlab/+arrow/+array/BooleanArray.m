@@ -16,7 +16,7 @@
 classdef BooleanArray < arrow.array.Array
 % arrow.array.BooleanArray
 
-    properties (Hidden, SetAccess=private)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitionValue = false;
     end
 
