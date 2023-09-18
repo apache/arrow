@@ -21,7 +21,7 @@ function validElements = parseValidElements(data, opts)
 % precedence over InferNulls.
 
     if isfield(opts, "Valid")
-        validElements = arrow.internal.validate.parseValid(numel(data), opts.Valid);
+        validElements = arrow.internal.validate.parseValid(opts, numel(data));
     else
         validElements = parseInferNulls(data, opts.InferNulls);
     end

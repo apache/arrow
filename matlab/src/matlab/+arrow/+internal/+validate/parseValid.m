@@ -15,7 +15,16 @@
 % implied.  See the License for the specific language governing
 % permissions and limitations under the License.
 
-function validElements = parseValid(numElements, valid)
+function validElements = parseValid(opts, numElements)
+    if ~isfield(opts, "Valid")
+        % If Valid is not a field in opts, just return an empty logical
+        % array.
+        validElements = logical.empty(0, 1);
+         return;
+    end
+
+    valid = opts.Valid;
+
     if islogical(valid)
         validElements = reshape(valid, [], 1);
         if ~isscalar(validElements)
