@@ -48,7 +48,7 @@ classdef tStructType < matlab.unittest.TestCase
 
         function EmptyFieldError(tc)
             % Verify arrow.struct() errors if given an empty 
-            % array arrow.type.Field as one of its inputs.
+            % arrow.type.Field array as one of its inputs.
             fcn = @() arrow.struct(tc.Field1, arrow.type.Field.empty(0, 0));
             tc.verifyError(fcn, "MATLAB:validators:mustBeNonempty");
         end
@@ -142,7 +142,7 @@ classdef tStructType < matlab.unittest.TestCase
 
         function FieldIndexNonNumberError(tc)
             % Verify field() throws an error if not provided a number as 
-            % the integer.
+            % the index.
   
             type = arrow.struct(tc.Field1, tc.Field2, tc.Field3);
             fcn = @() type.field("A");
