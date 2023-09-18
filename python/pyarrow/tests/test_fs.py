@@ -738,6 +738,49 @@ def test_get_file_info_with_selector(fs, pathfn):
         fs.delete_dir(base_dir)
 
 
+@pytest.mark.s3
+def test_get_file_info_with_selector_sf3_comparison(s3_server):
+    # GH-36983: test that base dir is ignored by both
+    from pyarrow.fs import S3FileSystem
+
+    host, port, access_key, secret_key = s3_server['connection']
+
+    fs = S3FileSystem(
+        access_key=access_key,
+        secret_key=secret_key,
+        endpoint_override='{}:{}'.format(host, port),
+        scheme='http',
+        allow_bucket_creation=True,
+        allow_bucket_deletion=True
+    )
+
+    base_dir = 'selector-dir/'
+    file_a = 'selector-dir/test_file_a'
+
+    fs.create_dir(base_dir)
+    with fs.open_output_stream(file_a):
+        pass
+
+    selector = FileSelector(base_dir, allow_not_found=False,
+                            recursive=True)
+
+    s3fs = pytest.importorskip("s3fs")
+    fs_fsspec = s3fs.S3FileSystem(
+        key=access_key,
+        secret=secret_key,
+        client_kwargs=dict(endpoint_url='http://{}:{}'.format(host, port))
+    )
+    fsspec_s3fs = PyFileSystem(FSSpecHandler(fs_fsspec))
+
+    infos = fs.get_file_info(selector)
+    infos_fsspec = fsspec_s3fs.get_file_info(selector)
+
+    assert len(infos) == len(infos_fsspec) == 1
+    assert infos_fsspec[0].path.strip("/") == infos[0].path.strip("/")
+
+    fs.delete_dir(base_dir)
+
+
 def test_create_dir(fs, pathfn):
     # s3fs fails deleting dir fails if it is empty
     # (https://github.com/dask/s3fs/issues/317)
