@@ -17,7 +17,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-# Build the Arrow C++ libraries.
+# Build the Arrow C++ libraries as using ExternalProject_Add.
 function(build_arrow)
   set(options)
   set(one_value_args)
@@ -72,8 +72,6 @@ function(build_arrow)
                                                 ${ARROW_INCLUDE_DIR})
 
   # Set the build byproducts for the ExternalProject build
-  # The appropriate libraries need to be guaranteed to be available when linking the test
-  # executables.
   if(WIN32)
     set(ARROW_BUILD_BYPRODUCTS "${ARROW_IMPORT_LIB}")
   else()
