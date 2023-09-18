@@ -114,64 +114,6 @@ function(build_arrow)
   endif()
 endfunction()
 
-macro(enable_gtest)
-  set(ARROW_GTEST_INCLUDE_DIR "${ARROW_PREFIX}/include/arrow-gtest")
-
-  set(ARROW_GTEST_IMPORT_LIB_DIR "${ARROW_PREFIX}/lib")
-  if(WIN32)
-    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_PREFIX}/bin")
-  else()
-    set(ARROW_GTEST_SHARED_LIB_DIR "${ARROW_PREFIX}/lib")
-  endif()
-  set(ARROW_GTEST_IMPORT_LIB
-      "${ARROW_GTEST_IMPORT_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}arrow_gtest${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-  )
-  set(ARROW_GTEST_MAIN_IMPORT_LIB
-      "${ARROW_GTEST_IMPORT_LIB_DIR}/${CMAKE_IMPORT_LIBRARY_PREFIX}arrow_gtest_main${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-  )
-  set(ARROW_GTEST_SHARED_LIB
-      "${ARROW_GTEST_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}arrow_gtest${CMAKE_SHARED_LIBRARY_SUFFIX}"
-  )
-  set(ARROW_GTEST_MAIN_SHARED_LIB
-      "${ARROW_GTEST_SHARED_LIB_DIR}/${CMAKE_SHARED_LIBRARY_PREFIX}arrow_gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}"
-  )
-
-  list(APPEND ARROW_CMAKE_ARGS "-DARROW_BUILD_TESTS=ON")
-
-  # The appropriate libraries need to be guaranteed to be available when linking the test
-  # executables.
-  if(WIN32)
-    # On Windows, add the gtest link libraries as BUILD_BYPRODUCTS for arrow_ep.
-    list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_IMPORT_LIB}"
-         "${ARROW_GTEST_MAIN_IMPORT_LIB}")
-  else()
-    # On Linux and macOS, add the gtest shared libraries as BUILD_BYPRODUCTS for arrow_ep.
-    list(APPEND ARROW_BUILD_BYPRODUCTS "${ARROW_GTEST_SHARED_LIB}"
-         "${ARROW_GTEST_MAIN_SHARED_LIB}")
-  endif()
-endmacro()
-
-# Build the GoogleTest binaries that are bundled with the Arrow C++ libraries.
-macro(build_gtest)
-  file(MAKE_DIRECTORY "${ARROW_GTEST_INCLUDE_DIR}")
-
-  # Create target GTest::gtest
-  add_library(GTest::gtest SHARED IMPORTED)
-  set_target_properties(GTest::gtest
-                        PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_IMPORT_LIB}
-                                   IMPORTED_LOCATION ${ARROW_GTEST_SHARED_LIB}
-                                   INTERFACE_INCLUDE_DIRECTORIES
-                                   ${ARROW_GTEST_INCLUDE_DIR})
-  add_dependencies(GTest::gtest arrow_ep)
-
-  # Create target GTest::gtest_main
-  add_library(GTest::gtest_main SHARED IMPORTED)
-  set_target_properties(GTest::gtest_main
-                        PROPERTIES IMPORTED_IMPLIB ${ARROW_GTEST_MAIN_IMPORT_LIB}
-                                   IMPORTED_LOCATION ${ARROW_GTEST_MAIN_SHARED_LIB})
-  add_dependencies(GTest::gtest_main arrow_ep)
-endmacro()
-
 set(CMAKE_CXX_STANDARD 17)
 
 set(MLARROW_VERSION "14.0.0-SNAPSHOT")
