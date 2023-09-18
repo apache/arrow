@@ -18,7 +18,7 @@ classdef tError < CSVTest
 
     methods(Test)
 
-        function EmptyCsvFile(testCase)
+        function EmptyFile(testCase)
             import arrow.io.csv.*
 
             arrowTableWrite = arrow.table();
@@ -29,6 +29,22 @@ classdef tError < CSVTest
             writer.write(arrowTableWrite);
             fcn = @() reader.read();
             testCase.verifyError(fcn, "arrow:io:csv:FailedToReadTable");
+        end
+
+        function InvalidWriterFilenameType(testCase)
+            import arrow.io.csv.*
+            fcn = @() TableWriter(table);
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+            fcn = @() TableWriter(["a", "b"]);
+            testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
+        end
+
+        function InvalidReaderFilenameType(testCase)
+            import arrow.io.csv.*
+            fcn = @() TableReader(table);
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
+            fcn = @() TableReader(["a", "b"]);
+            testCase.verifyError(fcn, "MATLAB:validation:IncompatibleSize");
         end
 
     end

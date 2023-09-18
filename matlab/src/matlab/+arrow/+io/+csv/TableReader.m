@@ -29,7 +29,7 @@ classdef TableReader
 
         function obj = TableReader(filename)
             arguments
-                filename(1, 1) {mustBeNonmissing, mustBeNonzeroLengthText}
+                filename (1, 1) string {mustBeNonmissing, mustBeNonzeroLengthText}
             end
 
             args = struct(Filename=filename);
