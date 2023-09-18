@@ -1060,7 +1060,7 @@ cdef class FileSystemDataset(Dataset):
             return Partitioning.wrap(c_partitioning)
         except TypeError:
             # e.g. type_name "default"
-            return Nonesubs
+            return None
 
     cdef void init(self, const shared_ptr[CDataset]& sp):
         Dataset.init(self, sp)
