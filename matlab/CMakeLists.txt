@@ -185,8 +185,6 @@ if(WIN32)
   set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
 endif()
 
-option(MATLAB_BUILD_TESTS "Build the C++ tests for the MATLAB interface" OFF)
-
 # Add tools/cmake directory to the CMAKE_MODULE_PATH.
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/tools/cmake)
 
@@ -208,56 +206,9 @@ else()
   set(MATLAB_BUILD_OUTPUT_DIR "${CMAKE_BINARY_DIR}")
 endif()
 
-# Only build the MATLAB interface C++ tests if MATLAB_BUILD_TESTS=ON.
-if(MATLAB_BUILD_TESTS)
-  # find_package(GTest) supports custom GTEST_ROOT as well as package managers.
-  find_package(GTest)
-
-  if(NOT GTest_FOUND)
-    # find_package(Arrow) supports custom ARROW_HOME as well as package
-    # managers.
-    find_package(Arrow QUIET)
-    # Trigger an automatic build of the Arrow C++ libraries and bundled
-    # GoogleTest binaries. If a valid Arrow installation was not already
-    # found by find_package, then build_arrow will use the Arrow
-    # C++ libraries that are built from source.
-    build_arrow(BUILD_GTEST)
-  else()
-    # On Windows, IMPORTED_LOCATION needs to be set to indicate where the shared
-    # libraries live when GTest is found.
-    if(WIN32)
-      set(GTEST_SHARED_LIB_DIR "${GTEST_ROOT}/bin")
-      set(GTEST_SHARED_LIBRARY_FILENAME
-          "${CMAKE_SHARED_LIBRARY_PREFIX}gtest${CMAKE_SHARED_LIBRARY_SUFFIX}")
-      set(GTEST_SHARED_LIBRARY_LIB
-          "${GTEST_SHARED_LIB_DIR}/${GTEST_SHARED_LIBRARY_FILENAME}")
-
-      set(GTEST_MAIN_SHARED_LIB_DIR "${GTEST_ROOT}/bin")
-      set(GTEST_MAIN_SHARED_LIBRARY_FILENAME
-          "${CMAKE_SHARED_LIBRARY_PREFIX}gtest_main${CMAKE_SHARED_LIBRARY_SUFFIX}")
-      set(GTEST_MAIN_SHARED_LIBRARY_LIB
-          "${GTEST_MAIN_SHARED_LIB_DIR}/${GTEST_MAIN_SHARED_LIBRARY_FILENAME}")
-
-      set_target_properties(GTest::gtest PROPERTIES IMPORTED_LOCATION
-                                                    "${GTEST_SHARED_LIBRARY_LIB}")
-
-      set_target_properties(GTest::gtest_main
-                            PROPERTIES IMPORTED_LOCATION
-                                       "${GTEST_MAIN_SHARED_LIBRARY_LIB}")
-    endif()
-
-    find_package(Arrow QUIET)
-    if(NOT Arrow_FOUND)
-      # Trigger an automatic build of the Arrow C++ libraries.
-      build_arrow()
-    endif()
-  endif()
-
-else()
-  find_package(Arrow QUIET)
-  if(NOT Arrow_FOUND)
+find_package(Arrow QUIET)
+if(NOT Arrow_FOUND)
     build_arrow()
-  endif()
 endif()
 
 # MATLAB is Required
@@ -309,56 +260,6 @@ if(NOT Arrow_FOUND)
 else()
   # If not building Arrow, ARROW_INCLUDE_DIR derived from ARROW_PREFIX set to the ARROW_HOME specified with cmake would be non-empty.
   message(STATUS "ARROW_INCLUDE_DIR: ${ARROW_INCLUDE_DIR}")
-endif()
-
-# ##############################################################################
-# C++ Tests
-# ##############################################################################
-# Only build the C++ tests if MATLAB_BUILD_TESTS=ON.
-if(MATLAB_BUILD_TESTS)
-  enable_testing()
-
-  # Define a test executable target. TODO: Remove the placeholder test. This is
-  # just for testing GoogleTest integration.
-  add_executable(placeholder_test ${CMAKE_SOURCE_DIR}/src/placeholder_test.cc)
-
-  # Declare a dependency on the GTest::gtest and GTest::gtest_main IMPORTED
-  # targets.
-  target_link_libraries(placeholder_test GTest::gtest GTest::gtest_main)
-
-  # Ensure using GTest:gtest and GTest::gtest_main on macOS without
-  # specifying DYLD_LIBRARY_DIR.
-  set_target_properties(placeholder_test
-                        PROPERTIES BUILD_RPATH
-                                   "$<TARGET_FILE_DIR:GTest::gtest>;$<TARGET_FILE_DIR:GTest::gtest_main>"
-  )
-
-  # Add test targets for C++ tests.
-  add_test(PlaceholderTestTarget placeholder_test)
-
-  # On Windows:
-  # Add the directory of gtest.dll and gtest_main.dll to the %PATH% for running
-  # all tests.
-  # Add the directory of libmx.dll, libmex.dll, and libarrow.dll to the %PATH% for running
-  # CheckNumArgsTestTarget.
-  # Note: When appending to the path using set_test_properties' ENVIRONMENT property,
-  #       make sure that we escape ';' to prevent CMake from interpreting the input as
-  #       a list of strings.
-  if(WIN32)
-    get_target_property(GTEST_SHARED_LIB GTest::gtest IMPORTED_LOCATION)
-    get_filename_component(GTEST_SHARED_LIB_DIR ${GTEST_SHARED_LIB} DIRECTORY)
-
-    get_target_property(GTEST_MAIN_SHARED_LIB GTest::gtest_main IMPORTED_LOCATION)
-    get_filename_component(GTEST_MAIN_SHARED_LIB_DIR ${GTEST_MAIN_SHARED_LIB} DIRECTORY)
-
-    set_tests_properties(PlaceholderTestTarget
-                         PROPERTIES ENVIRONMENT
-                                    "PATH=${GTEST_SHARED_LIB_DIR}\;${GTEST_MAIN_SHARED_LIB_DIR}\;$ENV{PATH}"
-    )
-
-    get_target_property(ARROW_SHARED_LIB arrow_shared IMPORTED_LOCATION)
-    get_filename_component(ARROW_SHARED_LIB_DIR ${ARROW_SHARED_LIB} DIRECTORY)
-  endif()
 endif()
 
 # ##############################################################################
