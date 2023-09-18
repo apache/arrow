@@ -31,6 +31,7 @@ namespace arrow::matlab::type::proxy {
         const mda::TypedArray<uint64_t> field_proxy_ids_mda = args[0]["FieldProxyIDs"];
 
         std::vector<std::shared_ptr<arrow::Field>> fields;
+        fields.reserve(field_proxy_ids_mda.getNumberOfElements());
         for (const auto proxy_id : field_proxy_ids_mda) {
             using namespace libmexclass::proxy;
             auto proxy = std::static_pointer_cast<proxy::Field>(ProxyManager::getProxy(proxy_id));
