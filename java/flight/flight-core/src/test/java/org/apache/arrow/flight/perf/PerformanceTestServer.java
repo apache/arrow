@@ -18,7 +18,6 @@
 package org.apache.arrow.flight.perf;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -115,7 +114,7 @@ public class PerformanceTestServer implements AutoCloseable {
         try {
           Token token = Token.parseFrom(ticket.getBytes());
           Perf perf = token.getDefinition();
-          Schema schema = Schema.deserialize(ByteBuffer.wrap(perf.getSchema().toByteArray()));
+          Schema schema = Schema.deserializeMessage(perf.getSchema().asReadOnlyByteBuffer());
           root = VectorSchemaRoot.create(schema, allocator);
           BigIntVector a = (BigIntVector) root.getVector("a");
           BigIntVector b = (BigIntVector) root.getVector("b");
