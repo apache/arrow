@@ -144,10 +144,9 @@ class IntegrationJsonReader::Impl {
   }
 
   Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(int i) {
-    DCHECK_GE(i, 0) << "i out of bounds";
-    DCHECK_LT(i, static_cast<int>(record_batches_->GetArray().Size()))
-        << "i out of bounds";
-
+    if (i < 0 || i >= static_cast<int>(record_batches_->GetArray().Size())) {
+      return Status::IndexError("record batch index ", i, " out of bounds");
+    }
     return json::ReadRecordBatch(record_batches_->GetArray()[i], schema_,
                                  &dictionary_memo_, pool_);
   }

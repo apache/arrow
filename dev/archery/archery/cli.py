@@ -723,8 +723,12 @@ def _set_default(opt, default):
               envvar="ARCHERY_INTEGRATION_WITH_RUST")
 @click.option('--write_generated_json', default="",
               help='Generate test JSON to indicated path')
+@click.option('--run-ipc', is_flag=True, default=False,
+              help='Run IPC integration tests')
 @click.option('--run-flight', is_flag=True, default=False,
               help='Run Flight integration tests')
+@click.option('--run-c-data', is_flag=True, default=False,
+              help='Run C Data Interface integration tests')
 @click.option('--debug', is_flag=True, default=False,
               help='Run executables in debug mode as relevant')
 @click.option('--serial', is_flag=True, default=False,
@@ -753,15 +757,19 @@ def integration(with_all=False, random_seed=12345, **args):
     gen_path = args['write_generated_json']
 
     languages = ['cpp', 'csharp', 'java', 'js', 'go', 'rust']
+    formats = ['ipc', 'flight', 'c_data']
 
     enabled_languages = 0
     for lang in languages:
-        param = 'with_{}'.format(lang)
+        param = f'with_{lang}'
         if with_all:
             args[param] = with_all
+        enabled_languages += args[param]
 
-        if args[param]:
-            enabled_languages += 1
+    enabled_formats = 0
+    for fmt in formats:
+        param = f'run_{fmt}'
+        enabled_formats += args[param]
 
     if gen_path:
         # XXX See GH-37575: this option is only used by the JS test suite
@@ -769,8 +777,13 @@ def integration(with_all=False, random_seed=12345, **args):
         os.makedirs(gen_path, exist_ok=True)
         write_js_test_json(gen_path)
     else:
+        if enabled_formats == 0:
+            raise click.UsageError(
+                "Need to enable at least one format to test "
+                "(IPC, Flight, C Data Interface); try --help")
         if enabled_languages == 0:
-            raise Exception("Must enable at least 1 language to test")
+            raise click.UsageError(
+                "Need to enable at least one language to test; try --help")
         run_all_tests(**args)
 
 
