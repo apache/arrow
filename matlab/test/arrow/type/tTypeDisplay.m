@@ -189,7 +189,7 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             testCase.verifyEqual(actualDisplay, expectedDisplay);
         end
 
-        function Display(testCase)
+        function TimestampTypeDisplay(testCase)
             % Verify the display of TimestampType objects.
             %
             % Example:
@@ -210,6 +210,32 @@ classdef tTypeDisplay < matlab.unittest.TestCase
             expectedDisplay = char(strjoin([header body' footer], newline));
             actualDisplay = evalc('disp(type)');
             testCase.verifyEqual(actualDisplay, expectedDisplay);
+        end
+
+        function StructTypeDisplay(testCase)
+            % Verify the display of StructType objects.
+            %
+            % Example:
+            %
+            %  StructType with properties:
+            %
+            %          ID: Struct
+            %      Fields: [1x2 arrow.type.Field]
+
+            fieldA = arrow.field("A", arrow.int32());
+            fieldB = arrow.field("B", arrow.timestamp(TimeZone="America/Anchorage"));
+            type = arrow.struct(fieldA, fieldB); %#ok<NASGU>
+            classnameLink = makeLinkString(FullClassName="arrow.type.StructType", ClassName="StructType", BoldFont=true);
+            header = "  " + classnameLink + " with properties:" + newline;
+            body = strjust(pad(["ID:"; "Fields:"]));
+            dimensionString = makeDimensionString([1 2]);
+            fieldString = compose("[%s %s]", dimensionString, "arrow.type.Field");
+            body = body + " " + ["Struct"; fieldString];
+            body = "    " + body;
+            footer = string(newline);
+            expectedDisplay = char(strjoin([header body' footer], newline));
+            actualDisplay = evalc('disp(type)');
+            testCase.verifyDisplay(actualDisplay, expectedDisplay);
         end
     end
 
