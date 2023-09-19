@@ -65,7 +65,7 @@ classdef StructArray < arrow.array.Array
 
             numFields = obj.NumFields;
             matlabArrays = cell(1, numFields);
-            
+
             invalid = ~obj.Valid;
             numInvalid = nnz(invalid);
             
@@ -73,6 +73,9 @@ classdef StructArray < arrow.array.Array
                 arrowArray = obj.field(ii);
                 matlabArray = toMATLAB(arrowArray);
                 if numInvalid ~= 0
+                    % MATLAB tables do not have "null"-values themselves,
+                    % so we represent the Struct Array's null values by
+                    % setting each variable to its type-specifc "null" value.
                     matlabArray(invalid, :) = repmat(arrowArray.NullSubstitutionValue, [numInvalid 1]);
                 end
                 matlabArrays{ii} = matlabArray;
@@ -88,6 +91,9 @@ classdef StructArray < arrow.array.Array
         end
 
         function nullSubVal = get.NullSubstitutionValue(obj)
+            % Return a cell array containing each field's type-specifc
+            % "null" value. For example, NaN is the type-specific null
+            % value for Float64Arrays and Float64Arrays
             numFields = obj.NumFields;
             nullSubVal = cell(1, numFields);
             for ii = 1:obj.NumFields
@@ -117,7 +123,7 @@ classdef StructArray < arrow.array.Array
             end
 
             validateArrayLengths(arrowArrays);
-            validateColumnNames(opts.FieldNames,  numel(arrowArrays));
+            validateColumnNames(opts.FieldNames, numel(arrowArrays));
             validElements = parseValid(opts, arrowArrays{1}.Length);
 
             arrayProxyIDs = getArrayProxyIDs(arrowArrays);
