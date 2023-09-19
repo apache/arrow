@@ -590,6 +590,17 @@ class TestS3FS : public S3TestMixin {
     AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
   }
 
+  void TestOpenOutputStreamCloseAsyncDestructor() {
+    std::shared_ptr<io::OutputStream> stream;
+    ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/somefile"));
+    ASSERT_OK(stream->Write("new data"));
+    // Destructor implicitly closes stream and completes the multipart upload.
+    auto closeAsyncFut = stream->CloseAsync();
+    stream.reset();
+    ASSERT_OK(closeAsyncFut.MoveResult());
+    AssertObjectContents(client_.get(), "bucket", "somefile", "new data");
+  }
+
  protected:
   S3Options options_;
   std::shared_ptr<S3FileSystem> fs_;
@@ -1175,6 +1186,16 @@ TEST_F(TestS3FS, OpenOutputStreamDestructorSyncWrite) {
   options_.background_writes = false;
   MakeFileSystem();
   TestOpenOutputStreamDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorBackgroundWrites) {
+  TestOpenOutputStreamCloseAsyncDestructor();
+}
+
+TEST_F(TestS3FS, OpenOutputStreamAsyncDestructorSyncWrite) {
+  options_.background_writes = false;
+  MakeFileSystem();
+  TestOpenOutputStreamCloseAsyncDestructor();
 }
 
 TEST_F(TestS3FS, OpenOutputStreamMetadata) {
