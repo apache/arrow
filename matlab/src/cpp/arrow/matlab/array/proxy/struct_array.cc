@@ -54,6 +54,7 @@ namespace arrow::matlab::array::proxy {
             arrow_arrays.push_back(arrow_array);
         }
 
+        // Convert the utf-16 encoded field names into utf-8 encoded strings
         std::vector<std::string> field_names;
         field_names.reserve(field_names_mda.getNumberOfElements());
         for (const auto& field_name : field_names_mda) {
@@ -64,17 +65,17 @@ namespace arrow::matlab::array::proxy {
             field_names.push_back(field_name_utf8);
         }
 
-
         // Pack the validity bitmap values.
         MATLAB_ASSIGN_OR_ERROR(auto validity_bitmap_buffer,
                                bit::packValid(validity_bitmap_mda), 
                                error::BITPACK_VALIDITY_BITMAP_ERROR_ID);
 
-        // TODO: Add custom error
+        // Create the StructArray 
         MATLAB_ASSIGN_OR_ERROR(auto array, 
                                arrow::StructArray::Make(arrow_arrays, field_names, validity_bitmap_buffer),
-                               error::SCHEMA_BUILDER_FINISH_ERROR_ID);
+                               error::STRUCT_ARRAY_MAKE_FAILED);
 
+        // Construct the StructArray Proxy
         auto struct_array = std::static_pointer_cast<arrow::StructArray>(array);
         return std::make_shared<proxy::StructArray>(std::move(struct_array));
     }
@@ -114,12 +115,11 @@ namespace arrow::matlab::array::proxy {
             context, error::INDEX_OUT_OF_RANGE);
 
         // Note: MATLAB uses 1-based indexing, so subtract 1.
-        // arrow::Schema::field does not do any bounds checking.
         const int32_t index = matlab_index - 1;
 
         auto field_array = struct_array->field(index);
 
-          // Wrap the array within a proxy object if possible.
+        // Wrap the array within a proxy object if possible.
         MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto field_array_proxy,
                                             proxy::wrap(field_array),
                                             context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
@@ -153,7 +153,7 @@ namespace arrow::matlab::array::proxy {
         auto field_array = struct_array->GetFieldByName(name);
         if (!field_array) {
             // Return an error if we could not query the field by name.
-            const auto msg = "Unable to extract field with the name " + name + ".";
+            const auto msg = "Could not find field named " + name ".";
             context.error = libmexclass::error::Error{
                 error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME, msg};
             return;
