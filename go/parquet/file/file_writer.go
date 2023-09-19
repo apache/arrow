@@ -30,21 +30,19 @@ import (
 
 // Writer is the primary interface for writing a parquet file
 type Writer struct {
-	sink           utils.WriteCloserTell
-	open           bool
-	props          *parquet.WriterProperties
-	rowGroups      int
-	nrows          int
-	metadata       metadata.FileMetaDataBuilder
-	fileEncryptor  encryption.FileEncryptor
-	rowGroupWriter *rowGroupWriter
+	sink                    utils.WriteCloserTell
+	open                    bool
+	props                   *parquet.WriterProperties
+	rowGroups               int
+	nrows                   int
+	metadata                metadata.FileMetaDataBuilder
+	fileEncryptor           encryption.FileEncryptor
+	rowGroupWriter          *rowGroupWriter
+	initialKeyValueMetadata metadata.KeyValueMetadata
 
 	// The Schema of this writer
 	Schema *schema.Schema
-	// The current FileMetadata to write
-	FileMetadata *metadata.FileMetaData
 	// The current keyvalue metadata
-	KeyValueMetadata metadata.KeyValueMetadata
 }
 
 type WriteOption func(*Writer)
@@ -57,7 +55,7 @@ func WithWriterProps(props *parquet.WriterProperties) WriteOption {
 
 func WithWriteMetadata(meta metadata.KeyValueMetadata) WriteOption {
 	return func(w *Writer) {
-		w.KeyValueMetadata = meta
+		w.initialKeyValueMetadata = meta
 	}
 }
 
@@ -78,7 +76,7 @@ func NewParquetWriter(w io.Writer, sc *schema.GroupNode, opts ...WriteOption) *W
 	if fw.props == nil {
 		fw.props = parquet.NewWriterProperties()
 	}
-	fw.metadata = *metadata.NewFileMetadataBuilder(fw.Schema, fw.props, fw.KeyValueMetadata)
+	fw.metadata = *metadata.NewFileMetadataBuilder(fw.Schema, fw.props, fw.initialKeyValueMetadata)
 	fw.startFile()
 	return fw
 }
@@ -154,6 +152,11 @@ func (fw *Writer) startFile() {
 	}
 }
 
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (fw *Writer) AppendKeyValueMetadata(key string, value string) error {
+	return fw.metadata.AppendKeyValueMetadata(key, value)
+}
+
 // Close closes any open row group writer and writes the file footer. Subsequent
 // calls to close will have no effect.
 func (fw *Writer) Close() (err error) {
@@ -180,11 +183,12 @@ func (fw *Writer) Close() (err error) {
 
 		fileEncryptProps := fw.props.FileEncryptionProperties()
 		if fileEncryptProps == nil { // non encrypted file
-			if fw.FileMetadata, err = fw.metadata.Finish(); err != nil {
+			fileMetadata, err := fw.metadata.Finish()
+			if err != nil {
 				return err
 			}
 
-			_, err = writeFileMetadata(fw.FileMetadata, fw.sink)
+			_, err = writeFileMetadata(fileMetadata, fw.sink)
 			return err
 		}
 
@@ -193,12 +197,12 @@ func (fw *Writer) Close() (err error) {
 	return nil
 }
 
-func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) (err error) {
+func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) error {
 	// encrypted file with encrypted footer
 	if props.EncryptedFooter() {
-		fw.FileMetadata, err = fw.metadata.Finish()
+		fileMetadata, err := fw.metadata.Finish()
 		if err != nil {
-			return
+			return err
 		}
 
 		footerLen := int64(0)
@@ -211,7 +215,7 @@ func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) (e
 
 		footerLen += n
 		footerEncryptor := fw.fileEncryptor.GetFooterEncryptor()
-		n, err = writeEncryptedFileMetadata(fw.FileMetadata, fw.sink, footerEncryptor, true)
+		n, err = writeEncryptedFileMetadata(fileMetadata, fw.sink, footerEncryptor, true)
 		if err != nil {
 			return err
 		}
@@ -224,11 +228,12 @@ func (fw *Writer) closeEncryptedFile(props *parquet.FileEncryptionProperties) (e
 			return err
 		}
 	} else {
-		if fw.FileMetadata, err = fw.metadata.Finish(); err != nil {
-			return
+		fileMetadata, err := fw.metadata.Finish()
+		if err != nil {
+			return err
 		}
 		footerSigningEncryptor := fw.fileEncryptor.GetFooterSigningEncryptor()
-		if _, err = writeEncryptedFileMetadata(fw.FileMetadata, fw.sink, footerSigningEncryptor, false); err != nil {
+		if _, err = writeEncryptedFileMetadata(fileMetadata, fw.sink, footerSigningEncryptor, false); err != nil {
 			return err
 		}
 	}
