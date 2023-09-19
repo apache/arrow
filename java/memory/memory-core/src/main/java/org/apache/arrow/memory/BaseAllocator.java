@@ -30,6 +30,7 @@ import org.apache.arrow.memory.util.AssertionUtil;
 import org.apache.arrow.memory.util.CommonUtil;
 import org.apache.arrow.memory.util.HistoricalLog;
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.immutables.value.Value;
 
 /**
@@ -42,7 +43,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
 
   public static final String DEBUG_ALLOCATOR = "arrow.memory.debug.allocator";
   public static final int DEBUG_LOG_LENGTH = 6;
-  public static final boolean DEBUG;
+  public static final @Nullable boolean DEBUG;
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseAllocator.class);
 
   // Initialize this before DEFAULT_CONFIG as DEFAULT_CONFIG will eventually initialize the allocation manager,
@@ -64,15 +65,16 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   // Package exposed for sharing between AllocatorManger and BaseAllocator objects
   private final String name;
   private final RootAllocator root;
-  private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
+
+  private final @Nullable Object DEBUG_LOCK = DEBUG ? new Object() : null;
   private final AllocationListener listener;
   private final BaseAllocator parentAllocator;
   private final Map<BaseAllocator, Object> childAllocators;
   private final ArrowBuf empty;
   // members used purely for debugging
-  private final IdentityHashMap<BufferLedger, Object> childLedgers;
-  private final IdentityHashMap<Reservation, Object> reservations;
-  private final HistoricalLog historicalLog;
+  private final @Nullable IdentityHashMap<BufferLedger, Object> childLedgers;
+  private final @Nullable IdentityHashMap<Reservation, Object> reservations;
+  private final @Nullable HistoricalLog historicalLog;
   private final RoundingPolicy roundingPolicy;
   private final AllocationManager.Factory allocationManagerFactory;
 
@@ -87,8 +89,9 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    *
    * @see Config
    */
+  @SuppressWarnings({"nullness:assignment", "nullness:method.invocation"})
   protected BaseAllocator(
-      final BaseAllocator parentAllocator,
+      final @Nullable BaseAllocator parentAllocator,
       final String name,
       final Config config) throws OutOfMemoryException {
     super(parentAllocator, name, config.getInitReservation(), config.getMaxAllocation());
@@ -154,7 +157,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
     }
   }
 
-  public static boolean isDebug() {
+  public static @Nullable boolean isDebug() {
     return DEBUG;
   }
 
@@ -183,6 +186,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    * we have a new ledger
    * associated with this allocator.
    */
+  @SuppressWarnings({"nullness:locking.nullable", "nullness:argument"})
   void associateLedger(BufferLedger ledger) {
     assertOpen();
     if (DEBUG) {
@@ -285,7 +289,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
   }
 
   @Override
-  public ArrowBuf buffer(final long initialRequestSize, BufferManager manager) {
+  public ArrowBuf buffer(final long initialRequestSize, @Nullable BufferManager manager) {
     assertOpen();
 
     Preconditions.checkArgument(initialRequestSize >= 0, "the requested size must be non-negative");
@@ -332,7 +336,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
    */
   private ArrowBuf bufferWithoutReservation(
       final long size,
-      BufferManager bufferManager) throws OutOfMemoryException {
+      @Nullable BufferManager bufferManager) throws OutOfMemoryException {
     assertOpen();
 
     final AllocationManager manager = newAllocationManager(size);
@@ -824,6 +828,7 @@ abstract class BaseAllocator extends Accountant implements BufferAllocator {
      * <p>If {@linkplain #DEBUG} is true this will capture a historical
      * log of events relevant to this Reservation.
      */
+    @SuppressWarnings({"nullness:argument"})
     public Reservation() {
       if (DEBUG) {
         historicalLog = new HistoricalLog("Reservation[allocator[%s], %d]", name, System

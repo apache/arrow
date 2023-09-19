@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import javax.annotation.concurrent.ThreadSafe;
 
 import org.apache.arrow.util.Preconditions;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Provides a concurrent way to manage account for memory usage without locking. Used as basis
@@ -59,7 +60,7 @@ class Accountant implements AutoCloseable {
    */
   private final AtomicLong locallyHeldMemory = new AtomicLong();
 
-  public Accountant(Accountant parent, String name, long reservation, long maxAllocation) {
+  public Accountant(@Nullable Accountant parent, String name, long reservation, long maxAllocation) {
     Preconditions.checkNotNull(name, "name must not be null");
     Preconditions.checkArgument(reservation >= 0, "The initial reservation size must be non-negative.");
     Preconditions.checkArgument(maxAllocation >= 0, "The maximum allocation limit must be non-negative.");
@@ -103,7 +104,7 @@ class Accountant implements AutoCloseable {
     }
   }
 
-  private AllocationOutcome.Status allocateBytesInternal(long size, AllocationOutcomeDetails details) {
+  private AllocationOutcome.Status allocateBytesInternal(long size, @Nullable AllocationOutcomeDetails details) {
     final AllocationOutcome.Status status = allocate(size,
         true /*incomingUpdatePeek*/, false /*forceAllocation*/, details);
     if (!status.isOk()) {
@@ -168,7 +169,7 @@ class Accountant implements AutoCloseable {
    * @return The outcome of the allocation.
    */
   private AllocationOutcome.Status allocate(final long size, final boolean incomingUpdatePeak,
-      final boolean forceAllocation, AllocationOutcomeDetails details) {
+      final boolean forceAllocation, @Nullable AllocationOutcomeDetails details) {
     final long oldLocal = locallyHeldMemory.getAndAdd(size);
     final long newLocal = oldLocal + size;
     // Borrowed from Math.addExact (but avoid exception here)
