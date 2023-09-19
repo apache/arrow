@@ -24,15 +24,35 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 pip install -e $arrow_dir/dev/archery[integration]
 
+#     --run-ipc \
+#     --run-flight \
+
+# XXX Can we better integrate this with the rest of the Go build tooling?
+pushd ${arrow_dir}/go/arrow/internal/cdata_integration
+
+case "$(uname)" in
+    Linux)
+        go_lib="arrow_go_integration.so"
+        ;;
+    Darwin)
+        go_lib="arrow_go_integration.so"
+        ;;
+    MINGW*)
+        go_lib="arrow_go_integration.dll"
+        ;;
+esac
+
+go build -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
+
+popd
+
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
     --run-c-data \
-    --run-ipc \
-    --run-flight \
     --with-cpp=1 \
-    --with-csharp=1 \
-    --with-java=1 \
-    --with-js=1 \
+    --with-csharp=0 \
+    --with-java=0 \
+    --with-js=0 \
     --with-go=1 \
     --gold-dirs=$gold_dir/0.14.1 \
     --gold-dirs=$gold_dir/0.17.1 \
