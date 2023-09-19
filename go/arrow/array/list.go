@@ -1177,7 +1177,6 @@ func (b *LargeListViewBuilder) NewLargeListViewArray() (a *LargeListView) {
 }
 
 func (b *baseListViewBuilder) newData() (data *Data) {
-	debug.Assert(b.offsets.Len() == b.sizes.Len(), "offsets and sizes should have the same length")
 	values := b.values.NewArray()
 	defer values.Release()
 
