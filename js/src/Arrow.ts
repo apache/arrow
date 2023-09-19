@@ -99,6 +99,7 @@ import * as util_bit_ from './util/bit.js';
 import * as util_math_ from './util/math.js';
 import * as util_buffer_ from './util/buffer.js';
 import * as util_vector_ from './util/vector.js';
+import * as util_pretty_ from './util/pretty.js';
 import { compareSchemas, compareFields, compareTypes } from './visitor/typecomparator.js';
 
 /** @ignore */
@@ -109,6 +110,7 @@ export const util = {
     ...util_math_,
     ...util_buffer_,
     ...util_vector_,
+    ...util_pretty_,
     compareSchemas,
     compareFields,
     compareTypes,

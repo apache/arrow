@@ -21,6 +21,7 @@
 from libc.stdlib cimport malloc, free
 
 import codecs
+import pickle
 import re
 import sys
 import threading
@@ -1368,7 +1369,7 @@ cdef class Buffer(_Weakrefable):
 
     def __reduce_ex__(self, protocol):
         if protocol >= 5:
-            bufobj = builtin_pickle.PickleBuffer(self)
+            bufobj = pickle.PickleBuffer(self)
         elif self.buffer.get().is_mutable():
             # Need to pass a bytearray to recreate a mutable buffer when
             # unpickling.
