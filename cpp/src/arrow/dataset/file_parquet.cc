@@ -89,7 +89,8 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
 }
 
 parquet::ArrowReaderProperties MakeArrowReaderProperties(
-    const ParquetFileFormat& format, const parquet::FileMetaData& metadata, const ScanOptions& options, const ParquetFragmentScanOptions& parquet_scan_options) {
+    const ParquetFileFormat& format, const parquet::FileMetaData& metadata,
+    const ScanOptions& options, const ParquetFragmentScanOptions& parquet_scan_options) {
   auto arrow_properties = MakeArrowReaderProperties(format, metadata);
   arrow_properties.set_batch_size(options.batch_size);
   // Must be set here since the sync ScanTask handles pre-buffering itself
@@ -455,7 +456,8 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   auto reader = std::move(reader_opt).ValueOrDie();
 
   std::shared_ptr<parquet::FileMetaData> reader_metadata = reader->metadata();
-  auto arrow_properties = MakeArrowReaderProperties(*this, *reader_metadata, *options, *parquet_scan_options);
+  auto arrow_properties =
+      MakeArrowReaderProperties(*this, *reader_metadata, *options, *parquet_scan_options);
   std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
   RETURN_NOT_OK(parquet::arrow::FileReader::Make(
       options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
@@ -488,7 +490,8 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
         ARROW_ASSIGN_OR_RAISE(std::unique_ptr<parquet::ParquetFileReader> reader,
                               reader_fut.MoveResult());
         std::shared_ptr<parquet::FileMetaData> metadata = reader->metadata();
-        auto arrow_properties = MakeArrowReaderProperties(*this, *metadata, *options, *parquet_scan_options);
+        auto arrow_properties =
+            MakeArrowReaderProperties(*this, *metadata, *options, *parquet_scan_options);
         std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
         RETURN_NOT_OK(parquet::arrow::FileReader::Make(options->pool, std::move(reader),
                                                        std::move(arrow_properties),

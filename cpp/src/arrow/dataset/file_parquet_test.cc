@@ -373,9 +373,7 @@ TEST_F(TestParquetFileFormat, SingleThreadExecutor) {
   // Reset capacity for io executor
   struct PoolResetGuard {
     int original_capacity = io::GetIOThreadPoolCapacity();
-    ~PoolResetGuard() {
-      DCHECK_OK(io::SetIOThreadPoolCapacity(original_capacity));
-    }
+    ~PoolResetGuard() { DCHECK_OK(io::SetIOThreadPoolCapacity(original_capacity)); }
   } guard;
   ASSERT_OK(io::SetIOThreadPoolCapacity(1));
 
@@ -383,8 +381,7 @@ TEST_F(TestParquetFileFormat, SingleThreadExecutor) {
 
   ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
   auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
-  auto source =
-      std::make_shared<FileSource>(std::move(buffer_reader), buffer->size());
+  auto source = std::make_shared<FileSource>(std::move(buffer_reader), buffer->size());
   auto options = std::make_shared<ScanOptions>();
 
   {
