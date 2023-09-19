@@ -28,6 +28,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 	"github.com/apache/arrow/go/v14/arrow/memory"
 	"github.com/hamba/avro/ocf"
+	"github.com/tidwall/sjson"
 
 	avro "github.com/hamba/avro/v2"
 )
@@ -40,11 +41,18 @@ type (
 	config *OCFReader
 )
 
+type schemaEdit struct {
+	method string
+	path   string
+	value  any
+}
+
 // Reader wraps goavro/OCFReader and creates array.Records from a schema.
 type OCFReader struct {
-	r          *ocf.Decoder
-	avroSchema string
-	schema     *arrow.Schema
+	r               *ocf.Decoder
+	avroSchema      string
+	avroSchemaEdits []schemaEdit
+	schema          *arrow.Schema
 
 	refs   int64
 	bld    *array.RecordBuilder
@@ -72,7 +80,7 @@ type OCFReader struct {
 }
 
 // NewReader returns a reader that reads from an Avro OCF file and creates
-// arrow.Records from the converted schema.
+// arrow.Records from the converted avro data.
 func NewOCFReader(r io.Reader, opts ...Option) (*OCFReader, error) {
 	ocfr, err := ocf.NewDecoder(r)
 	if err != nil {
@@ -98,6 +106,20 @@ func NewOCFReader(r io.Reader, opts ...Option) (*OCFReader, error) {
 		return nil, fmt.Errorf("%w: could not parse avro header", arrow.ErrInvalid)
 	}
 	rr.avroSchema = schema.String()
+	if len(rr.avroSchemaEdits) > 0 {
+		// execute schema edits
+		for _, e := range rr.avroSchemaEdits {
+			err := rr.editAvroSchema(e)
+			if err != nil {
+				return nil, fmt.Errorf("%w: could not edit avro schema", arrow.ErrInvalid)
+			}
+		}
+		// validate edited schema
+		schema, err = avro.Parse(rr.avroSchema)
+		if err != nil {
+			return nil, fmt.Errorf("%w: could not parse modified avro schema", arrow.ErrInvalid)
+		}
+	}
 	rr.schema, err = ArrowSchemaFromAvro(schema)
 	if err != nil {
 		return nil, fmt.Errorf("%w: could not convert avro schema", arrow.ErrInvalid)
@@ -187,6 +209,25 @@ func (r *OCFReader) Close() {
 	r.err = r.readerCtx.Err()
 }
 
+func (r *OCFReader) editAvroSchema(e schemaEdit) error {
+	var err error
+	switch e.method {
+	case "set":
+		r.avroSchema, err = sjson.Set(r.avroSchema, e.path, e.value)
+		if err != nil {
+			return fmt.Errorf("%w: schema edit 'set %s = %v' failure - %w", arrow.ErrInvalid, e.path, e.value, err)
+		}
+	case "delete":
+		r.avroSchema, err = sjson.Delete(r.avroSchema, e.path)
+		if err != nil {
+			return fmt.Errorf("%w: schema edit 'delete' failure - %w", arrow.ErrInvalid, err)
+		}
+	default:
+		return fmt.Errorf("%w: schema edit method must be 'set' or 'delete'", arrow.ErrInvalid)
+	}
+	return nil
+}
+
 // Next returns whether a Record can be received from the converted record queue.
 // The user should check Err() after call to Next that return false to check
 // if an error took place.
@@ -243,6 +284,21 @@ func WithRecordCacheSize(n int) Option {
 		} else {
 			cfg.recChanSize = n
 		}
+	}
+}
+
+// WithSchemaEdit specifies modifications to the Avro schema. Supported methods are 'set' and
+// 'delete'. Set sets the value for the specified path. Delete deletes the value for the specified path.
+// A path is in dot syntax, such as "fields.1" or "fields.0.type". The modified Avro schema is
+// validated before conversion to Arrow schema - NewOCFReader will return an error if the modified schema
+// cannot be parsed.
+func WithSchemaEdit(method, path string, value any) Option {
+	return func(cfg config) {
+		var e schemaEdit
+		e.method = method
+		e.path = path
+		e.value = value
+		cfg.avroSchemaEdits = append(cfg.avroSchemaEdits, e)
 	}
 }
 
