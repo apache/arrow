@@ -80,10 +80,6 @@ namespace arrow::matlab::array::proxy {
         return std::make_shared<proxy::StructArray>(std::move(struct_array));
     }
 
-    void StructArray::toMATLAB(libmexclass::proxy::method::Context& context) {
-        
-    }
-
     void StructArray::getNumFields(libmexclass::proxy::method::Context& context) {
         namespace mda = ::matlab::data;
 
@@ -153,7 +149,7 @@ namespace arrow::matlab::array::proxy {
         auto field_array = struct_array->GetFieldByName(name);
         if (!field_array) {
             // Return an error if we could not query the field by name.
-            const auto msg = "Could not find field named " + name ".";
+            const auto msg = "Could not find field named " + name + ".";
             context.error = libmexclass::error::Error{
                 error::ARROW_TABULAR_SCHEMA_AMBIGUOUS_FIELD_NAME, msg};
             return;

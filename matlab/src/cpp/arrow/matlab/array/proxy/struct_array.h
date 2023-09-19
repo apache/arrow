@@ -30,9 +30,7 @@ class StructArray : public arrow::matlab::array::proxy::Array {
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
     protected:
-        
-        void toMATLAB(libmexclass::proxy::method::Context& context) override;
-        
+
         void getNumFields(libmexclass::proxy::method::Context& context);
 
         void getFieldByIndex(libmexclass::proxy::method::Context& context);
