@@ -242,7 +242,7 @@ on_macos_10_13_or_lower <- function() {
 }
 
 on_rosetta <- function() {
-  identical(tolower(Sys.info()[["sysname"]]), "darwin") && 
+  identical(tolower(Sys.info()[["sysname"]]), "darwin") &&
     identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
 }
 
