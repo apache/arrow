@@ -183,6 +183,22 @@ configure_tzdb <- function() {
   # Just to be extra safe, let's wrap this in a try();
   # we don't want a failed startup message to prevent the package from loading
   try({
+        # On MacOS only, Check if we are running in under emulation, and warn this will not work
+    if (on_rosetta()) {
+      packageStartupMessage(
+        paste(
+          "Warning:",
+          "  It appears that you are running R and Arrow in emulation (i.e. you're",
+          "  running an Intel version of R on a non-Intel mac). This configuration is",
+          "  not supported by arrow, you should install a native (arm64) build of R",
+          "  and use arrow with that. See https://cran.r-project.org/bin/macosx/",
+          "",
+          sep = "\n"
+        )
+      )
+    }
+
+
     features <- arrow_info()$capabilities
     # That has all of the #ifdef features, plus the compression libs and the
     # string libraries (but not the memory allocators, they're added elsewhere)
@@ -223,6 +239,11 @@ on_linux_dev <- function() {
 on_macos_10_13_or_lower <- function() {
   identical(unname(Sys.info()["sysname"]), "Darwin") &&
     package_version(unname(Sys.info()["release"])) < "18.0.0"
+}
+
+on_rosetta <- function() {
+  identical(tolower(Sys.info()[["sysname"]]), "darwin") &&
+    identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
 }
 
 option_use_threads <- function() {
