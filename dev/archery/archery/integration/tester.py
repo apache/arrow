@@ -188,6 +188,7 @@ class CDataImporter(ABC):
         success : bool
             The final value of the predicate.
         """
+        raise NotImplementedError
 
 
 class Tester:
