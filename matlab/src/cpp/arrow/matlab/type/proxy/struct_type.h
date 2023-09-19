@@ -17,31 +17,18 @@
 
 #pragma once
 
-#include "arrow/type.h"
-
-#include "libmexclass/proxy/Proxy.h"
+#include "arrow/matlab/type/proxy/type.h"
 
 namespace arrow::matlab::type::proxy {
 
-class Type : public libmexclass::proxy::Proxy {
+    class StructType : public arrow::matlab::type::proxy::Type {
+
     public:
-        Type(std::shared_ptr<arrow::DataType> type);
-    
-        virtual ~Type() {}
+        StructType(std::shared_ptr<arrow::StructType> struct_type);
 
-        std::shared_ptr<arrow::DataType> unwrap();
+        ~StructType() {}
 
-    protected:
-
-        void getTypeID(libmexclass::proxy::method::Context& context);
-
-        void getNumFields(libmexclass::proxy::method::Context& context);
-
-        void getFieldByIndex(libmexclass::proxy::method::Context& context);
-
-        void isEqual(libmexclass::proxy::method::Context& context);
-
-        std::shared_ptr<arrow::DataType> data_type;
+        static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments);
 };
 
 }
