@@ -180,6 +180,28 @@ public class ${eName}WriterImpl extends AbstractFieldWriter {
     vector.setValueCount(idx()+1);
   }
   </#if>
+
+  <#if minor.class?ends_with("VarBinary")>
+  public void writeTo${minor.class}(byte[] value) {
+    vector.setSafe(idx(), value);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeTo${minor.class}(byte[] value, int offset, int length) {
+    vector.setSafe(idx(), value, offset, length);
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeTo${minor.class}(ByteBuffer value) {
+    vector.setSafe(idx(), value, 0, value.remaining());
+    vector.setValueCount(idx() + 1);
+  }
+
+  public void writeTo${minor.class}(ByteBuffer value, int offset, int length) {
+    vector.setSafe(idx(), value, offset, length);
+    vector.setValueCount(idx() + 1);
+  }
+  </#if>
 }
 
 <@pp.changeOutputFile name="/org/apache/arrow/vector/complex/writer/${eName}Writer.java" />
@@ -223,6 +245,17 @@ public interface ${eName}Writer extends BaseWriter {
   @Deprecated
   public void writeBigEndianBytesTo${minor.class}(byte[] value);
 </#if>
+
+<#if minor.class?ends_with("VarBinary")>
+  public void writeTo${minor.class}(byte[] value);
+
+  public void writeTo${minor.class}(byte[] value, int offset, int length);
+
+  public void writeTo${minor.class}(ByteBuffer value);
+
+  public void writeTo${minor.class}(ByteBuffer value, int offset, int length);
+</#if>
+
 }
 
 </#list>
