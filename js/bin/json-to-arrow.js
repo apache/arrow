@@ -53,10 +53,10 @@ const arrowPaths = [...(argv.arrow || [])];
 
     }));
 })()
-.then((x) => +x || 0, (e) => {
-    e && process.stderr.write(`${e}`);
-    return process.exitCode || 1;
-}).then((code = 0) => process.exit(code));
+    .then((x) => x ?? 0, (e) => {
+        e && process.stderr.write(`${e}`);
+        return process.exitCode || 1;
+    }).then((code = 0) => process.exit(code));
 
 function cliOpts() {
     return [

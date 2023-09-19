@@ -239,7 +239,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(field.Type.ID, arrow.type.ID.UInt32);
         end
 
-        function ErrorIfInvalidNumericFieldIndex(testCase)
+        function ErrorIfIndexIsOutOfRange(testCase)
             % Verify that an error is thrown when trying to access a field
             % with an invalid numeric index (e.g. greater than NumFields).
             schema = arrow.schema([...
@@ -250,7 +250,7 @@ classdef tSchema < matlab.unittest.TestCase
 
             % Index is greater than NumFields.
             index = 100;
-            testCase.verifyError(@() schema.field(index), "arrow:tabular:schema:InvalidNumericFieldIndex");
+            testCase.verifyError(@() schema.field(index), "arrow:index:OutOfRange");
         end
 
         function ErrorIfFieldNameDoesNotExist(testCase)
@@ -376,7 +376,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
 
             % 0x1 empty Field array.
             fields = arrow.type.Field.empty(0, 1);
@@ -385,7 +385,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
 
             % 1x0 empty Field array.
             fields = arrow.type.Field.empty(1, 0);
@@ -394,7 +394,7 @@ classdef tSchema < matlab.unittest.TestCase
             testCase.verifyEqual(schema.FieldNames, string.empty(1, 0));
             testCase.verifyEqual(schema.Fields, arrow.type.Field.empty(0, 0));
             testCase.verifyError(@() schema.field(0), "arrow:badsubscript:NonPositive");
-            testCase.verifyError(@() schema.field(1), "arrow:tabular:schema:NumericFieldIndexWithEmptySchema");
+            testCase.verifyError(@() schema.field(1), "arrow:index:EmptyContainer");
         end
 
         function GetFieldByNameWithChar(testCase)
@@ -466,6 +466,67 @@ classdef tSchema < matlab.unittest.TestCase
 
             fieldName = ["A";  "B"; "C"];
             testCase.verifyError(@() schema.field(fieldName), "arrow:badsubscript:NonScalar");
+        end
+
+        function TestIsEqualTrue(testCase)
+            % Schema objects are considered equal if:
+            %  1. They have the same number of fields
+            %  2. Their corresponding Fields properties are equal
+
+            schema1 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+            schema2 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+
+            % Create a Schema with zero fields
+            schema3 = arrow.recordBatch(table).Schema;
+            schema4 = arrow.recordBatch(table).Schema;
+            
+            testCase.verifyTrue(isequal(schema1, schema2));
+            testCase.verifyTrue(isequal(schema3, schema4));
+        end
+
+        function TestIsEqualFalse(testCase)
+            % Verify isequal returns false when expected.
+
+            schema1 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+                arrow.field("123", arrow.uint32)
+            ]);
+            schema2 = arrow.schema([...
+                arrow.field("A", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+            schema3 = arrow.schema([...
+                arrow.field("A", arrow.float32), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+            schema4 = arrow.schema([...
+                arrow.field("C", arrow.uint8), ...
+                arrow.field("B", arrow.uint16), ...
+            ]);
+
+            % Create a Schema with zero fields
+            schema5 = arrow.recordBatch(table).Schema;
+            
+            % Have different number of fields
+            testCase.verifyFalse(isequal(schema1, schema2));
+
+            % Fields properties are not equal
+            testCase.verifyFalse(isequal(schema2, schema3));
+            testCase.verifyFalse(isequal(schema2, schema4));
+            testCase.verifyFalse(isequal(schema4, schema5));
+
+            % Compare schema to double
+            testCase.verifyFalse(isequal(schema4, 5));
+
         end
 
     end

@@ -47,9 +47,7 @@ export abstract class UnionBuilder<T extends Union, TNull = any> extends Builder
         if (childTypeId === undefined) {
             childTypeId = this._valueToChildTypeId(this, value, index);
         }
-        if (this.setValid(index, this.isValid(value))) {
-            this.setValue(index, value, childTypeId);
-        }
+        this.setValue(index, value, childTypeId);
         return this;
     }
 

@@ -30,6 +30,7 @@
 #include "arrow/pretty_print.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging.h"
 
@@ -111,12 +112,29 @@ bool ChunkedArray::Equals(const ChunkedArray& other) const {
       .ok();
 }
 
-bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
-  if (this == other.get()) {
-    return true;
+namespace {
+
+bool mayHaveNaN(const arrow::DataType& type) {
+  if (type.num_fields() == 0) {
+    return is_floating(type.id());
+  } else {
+    for (const auto& field : type.fields()) {
+      if (mayHaveNaN(*field->type())) {
+        return true;
+      }
+    }
   }
+  return false;
+}
+
+}  //  namespace
+
+bool ChunkedArray::Equals(const std::shared_ptr<ChunkedArray>& other) const {
   if (!other) {
     return false;
+  }
+  if (this == other.get() && !mayHaveNaN(*type_)) {
+    return true;
   }
   return Equals(*other.get());
 }

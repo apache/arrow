@@ -133,7 +133,7 @@ Development Guidelines
 Applications should generally:
 
 * Use the BufferAllocator interface in APIs instead of RootAllocator.
-* Create one RootAllocator at the start of the program.
+* Create one RootAllocator at the start of the program and explicitly pass it when needed.
 * ``close()`` allocators after use (whether they are child allocators or the RootAllocator), either manually or preferably via a try-with-resources statement.
 
 
@@ -287,6 +287,53 @@ Finally, enabling the ``TRACE`` logging level will automatically provide this st
    |        at BaseAllocator.close (BaseAllocator.java:405)
    |        at RootAllocator.close (RootAllocator.java:29)
    |        at (#8:1)
+
+Sometimes, explicitly passing allocators around is difficult. For example, it
+can be hard to pass around extra state, like an allocator, through layers of 
+existing application or framework code. A global or singleton allocator instance
+can be useful here, though it should not be your first choice.
+
+How this works:
+
+1. Set up a global allocator in a singleton class.
+2. Provide methods to create child allocators from the global allocator.
+3. Give child allocators proper names to make it easier to figure out where
+   allocations occurred in case of errors.
+4. Ensure that resources are properly closed.
+5. Check that the global allocator is empty at some suitable point, such as
+   right before program shutdown.
+6. If it is not empty, review the above allocation bugs.
+
+.. code-block:: java
+
+    //1
+    private static final BufferAllocator allocator = new RootAllocator();
+    private static final AtomicInteger childNumber = new AtomicInteger(0);
+    ...
+    //2
+    public static BufferAllocator getChildAllocator() {
+        return allocator.newChildAllocator(nextChildName(), 0, Long.MAX_VALUE);
+    }
+    ...
+    //3
+    private static String nextChildName() {
+        return "Allocator-Child-" + childNumber.incrementAndGet();
+    }
+    ...
+    //4: Business code
+    try (BufferAllocator allocator = GlobalAllocator.getChildAllocator()) {
+        ...
+    }
+    ...
+    //5
+    public static void checkGlobalCleanUpResources() {
+        ...
+        if (!allocator.getChildAllocators().isEmpty()) {
+          throw new IllegalStateException(...);
+        } else if (allocator.getAllocatedMemory() != 0) {
+          throw new IllegalStateException(...);
+        }
+    }
 
 .. _`ArrowBuf`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html
 .. _`ArrowBuf.print()`: https://arrow.apache.org/docs/java/reference/org/apache/arrow/memory/ArrowBuf.html#print-java.lang.StringBuilder-int-org.apache.arrow.memory.BaseAllocator.Verbosity-

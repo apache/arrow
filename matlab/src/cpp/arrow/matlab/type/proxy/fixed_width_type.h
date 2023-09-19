@@ -27,7 +27,7 @@ class FixedWidthType : public arrow::matlab::type::proxy::Type {
         virtual ~FixedWidthType() {}
 
     protected:
-        void bitWidth(libmexclass::proxy::method::Context& context);
+        void getBitWidth(libmexclass::proxy::method::Context& context);
 
 };
 

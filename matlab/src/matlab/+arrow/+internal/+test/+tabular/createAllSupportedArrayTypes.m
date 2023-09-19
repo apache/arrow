@@ -72,6 +72,16 @@ function classes = getArrayClassNames()
     % Removes all Abstract classes from the list of all subclasses
     abstract = [metaClass.Abstract];
     metaClass(abstract) = [];
+
+    % Remove all classes that don't inherit from arrow.array.Array
+    isArraySubclass = true(size(metaClass));
+    for ii = 1:numel(metaClass)
+        allSuperClasses = superclasses(metaClass(ii).Name);
+        isArraySubclass(ii) = ismember("arrow.array.Array", allSuperClasses);
+    end
+    metaClass(~isArraySubclass) = [];
+
+    % Return the class names as a string array
     classes = string({metaClass.Name});
 end
 
@@ -92,7 +102,7 @@ function timeClasses = getTimeArrayClasses()
 end
 
 function dateClasses = getDateArrayClasses()
-    dateClasses = compose("arrow.array.Date%dArray", 32);
+    dateClasses = compose("arrow.array.Date%dArray", [32 64]);
 end
 
 function number = randomNumbers(numberType, numElements)
