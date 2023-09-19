@@ -1454,6 +1454,20 @@ class ObjectOutputStream final : public io::OutputStream {
 
   // OutputStream interface
 
+  Status EnsureReadyToFlushFromClose() {
+    if (current_part_) {
+      // Upload last part
+      RETURN_NOT_OK(CommitCurrentPart());
+    }
+
+    // S3 mandates at least one part, upload an empty one if necessary
+    if (part_number_ == 1) {
+      RETURN_NOT_OK(UploadPart("", 0));
+    }
+
+    return Status::OK();
+  }
+
   Status FinishPartUploadAfterFlush() {
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
@@ -1487,15 +1501,7 @@ class ObjectOutputStream final : public io::OutputStream {
   Status Close() override {
     if (closed_) return Status::OK();
 
-    if (current_part_) {
-      // Upload last part
-      RETURN_NOT_OK(CommitCurrentPart());
-    }
-
-    // S3 mandates at least one part, upload an empty one if necessary
-    if (part_number_ == 1) {
-      RETURN_NOT_OK(UploadPart("", 0));
-    }
+    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
 
     RETURN_NOT_OK(Flush());
     return FinishPartUploadAfterFlush();
@@ -1504,15 +1510,7 @@ class ObjectOutputStream final : public io::OutputStream {
   Future<> CloseAsync() override {
     if (closed_) return Status::OK();
 
-    if (current_part_) {
-      // Upload last part
-      RETURN_NOT_OK(CommitCurrentPart());
-    }
-
-    // S3 mandates at least one part, upload an empty one if necessary
-    if (part_number_ == 1) {
-      RETURN_NOT_OK(UploadPart("", 0));
-    }
+    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
 
     auto self = std::dynamic_pointer_cast<ObjectOutputStream>(shared_from_this());
     // Wait for in-progress uploads to finish (if async writes are enabled)

@@ -595,6 +595,8 @@ class TestS3FS : public S3TestMixin {
     ASSERT_OK_AND_ASSIGN(stream, fs_->OpenOutputStream("bucket/somefile"));
     ASSERT_OK(stream->Write("new data"));
     // Destructor implicitly closes stream and completes the multipart upload.
+    // GH-37670: Testing it doesn't matter whether flush is triggered asynchronously
+    // after CloseAsync or synchronously after stream.reset().
     auto closeAsyncFut = stream->CloseAsync();
     stream.reset();
     ASSERT_OK(closeAsyncFut.MoveResult());
