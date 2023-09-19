@@ -1524,7 +1524,7 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
     std::shared_ptr<RecordBatch> batch_ints;
     ASSERT_OK(MakeIntRecordBatch(&batch_ints));
 
-    std::shared_ptr<Schema> schema = batch_ints->schema();
+    auto schema = batch_ints->schema();
 
     WriterHelper writer_helper;
     ASSERT_OK(writer_helper.Init(schema, IpcWriteOptions::Defaults()));
