@@ -505,7 +505,7 @@ class IntegrationRunner(object):
 
         elif test_case.should_skip(consumer.name, SKIP_C_ARRAY):
             log(f'-- Skipping test because consumer {consumer.name} does '
-                f'not support C ArrowSchema')
+                f'not support C ArrowArray')
             outcome.skipped = True
 
         else:
