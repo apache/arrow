@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "functions": [
+    {
+      "name": "greet",
+      "aliases": [
+      ],
+      "param_types": [
+        {
+          "type": "timestamp",
+          "unit": "second"
+        },
+        {
+          "type": "list",
+          "value_type": {
+            "type": "int32"
+          }
+        }
+      ],
+      "return_type": {
+        "type": "decimal",
+        "precision": 10,
+        "scale": 2
+      },
+      "result_nullable": "never",
+      "can_return_errors": true,
+      "pc_name": "greet_timestamp_list"
+    }
+  ]
+}

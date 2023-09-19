@@ -1,0 +1,35 @@
+{
+  "version": "1.0",
+  "functions": [
+    {
+      "name": "say_hello",
+      "aliases": [
+        "hello"
+      ],
+      "param_types": [
+        {
+          "type": "utf8"
+        }
+      ],
+      "return_type": {
+        "type": "int64"
+      },
+      "result_nullable": "never",
+      "can_return_errors": true,
+      "pc_name": "say_hello_utf8"
+    },
+    {
+      "name": "say_goodbye",
+      "aliases": [
+      ],
+      "param_types": [
+      ],
+      "return_type": {
+        "type": "utf8"
+      },
+      "result_nullable": "never",
+      "can_return_errors": true,
+      "pc_name": "say_goodbye"
+    }
+  ]
+}

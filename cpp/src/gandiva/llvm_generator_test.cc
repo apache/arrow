@@ -27,6 +27,7 @@
 #include "gandiva/expression.h"
 #include "gandiva/func_descriptor.h"
 #include "gandiva/function_registry.h"
+#include "gandiva/tests/ext_dir_setter.h"
 #include "gandiva/tests/test_util.h"
 
 namespace gandiva {
@@ -48,6 +49,16 @@ TEST_F(TestLLVMGenerator, VerifyPCFunctions) {
   for (auto& iter : registry_) {
     EXPECT_NE(module->getFunction(iter.pc_name()), nullptr);
   }
+}
+
+TEST_F(TestLLVMGenerator, VerifyExtendedPCFunctions) {
+  ExtensionDirSetter ext_dir_setter("extended_funcs");
+  std::unique_ptr<LLVMGenerator> generator;
+  ASSERT_OK(LLVMGenerator::Make(TestConfiguration(), false, &generator));
+
+  llvm::Module* module = generator->module();
+  ASSERT_OK(generator->engine_->LoadFunctionIRs());
+  EXPECT_NE(module->getFunction("multiply_by_two_int32"), nullptr);
 }
 
 TEST_F(TestLLVMGenerator, TestAdd) {

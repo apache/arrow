@@ -65,6 +65,7 @@ set(SRC_FILES
     function_registry.cc
     function_registry_arithmetic.cc
     function_registry_datetime.cc
+    function_registry_external.cc
     function_registry_hash.cc
     function_registry_math_ops.cc
     function_registry_string.cc
@@ -232,6 +233,7 @@ add_gandiva_test(internals-test
                  bitmap_accumulator_test.cc
                  engine_llvm_test.cc
                  function_registry_test.cc
+                 function_registry_external_test.cc
                  function_signature_test.cc
                  llvm_types_test.cc
                  llvm_generator_test.cc
@@ -253,3 +255,4 @@ add_gandiva_test(internals-test
 
 add_subdirectory(precompiled)
 add_subdirectory(tests)
+add_subdirectory(extension_tests)

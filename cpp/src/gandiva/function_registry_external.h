@@ -17,35 +17,13 @@
 
 #pragma once
 
+#include <string>
 #include <vector>
-#include "gandiva/function_registry_common.h"
-#include "gandiva/gandiva_aliases.h"
+
+#include <arrow/result.h>
 #include "gandiva/native_function.h"
-#include "gandiva/visibility.h"
 
 namespace gandiva {
-
-///\brief Registry of pre-compiled IR functions.
-class GANDIVA_EXPORT FunctionRegistry {
- public:
-  using iterator = const NativeFunction*;
-
-  /// Lookup a pre-compiled function by its signature.
-  const NativeFunction* LookupSignature(const FunctionSignature& signature) const;
-
-  iterator begin() const;
-  iterator end() const;
-  iterator back() const;
-
- private:
-  static SignatureMap InitPCMap();
-
-  static std::vector<NativeFunction> pc_registry_;
-  static SignatureMap pc_registry_map_;
-
-  FRIEND_TEST(TestFunctionRegistry, LookupExternalFuncs);
-  FRIEND_TEST(TestFunctionRegistry, LookupMultipleFuncs);
-  FRIEND_TEST(TestProjector, TestExtendedFunctions);
-};
-
-}  // namespace gandiva
+GANDIVA_EXPORT arrow::Result<std::vector<NativeFunction>> GetExternalFunctionRegistry(
+    const std::string& registry_dir = "");
+}

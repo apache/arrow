@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <set>
 #include <string>
@@ -92,6 +93,7 @@ class GANDIVA_EXPORT Engine {
   /// load pre-compiled IR modules from precompiled_bitcode.cc and merge them into
   /// the main module.
   Status LoadPreCompiledIR();
+  Status LoadExtendedPreCompiledIR(const std::filesystem::path& dir_path);
 
   // Create and add mappings for cpp functions that can be accessed from LLVM.
   void AddGlobalMappings();

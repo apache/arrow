@@ -16,12 +16,12 @@
 // under the License.
 
 #include "gandiva/function_registry.h"
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <string>
 #include <unordered_set>
+#include "gandiva/tests/ext_dir_setter.h"
 
 namespace gandiva {
 
@@ -92,5 +92,37 @@ TEST_F(TestFunctionRegistry, TestNoDuplicates) {
       << "The following signatures are defined more than once possibly pointing to "
          "different precompiled functions:\n"
       << stream.str();
+}
+
+TEST_F(TestFunctionRegistry, LookupMultipleFuncs) {
+  ExtensionDirSetter ext_dir_setter("multiple_functions_registry", []() {
+    FunctionRegistry::pc_registry_.clear();
+    FunctionRegistry::pc_registry_map_ = FunctionRegistry::InitPCMap();
+  });
+
+  FunctionSignature say_hello_utf8("say_hello", {arrow::utf8()}, arrow::int64());
+  auto say_hello_func = registry_.LookupSignature(say_hello_utf8);
+  EXPECT_NE(say_hello_func, nullptr);
+  EXPECT_EQ(say_hello_func->signatures().size(), 2);
+  EXPECT_EQ(say_hello_func->pc_name(), "say_hello_utf8");
+
+  FunctionSignature say_goodbye("say_goodbye", {}, arrow::utf8());
+  auto say_goodbye_func = registry_.LookupSignature(say_goodbye);
+  EXPECT_NE(say_goodbye_func, nullptr);
+  EXPECT_EQ(say_goodbye_func->signatures().size(), 1);
+  EXPECT_EQ(say_goodbye_func->pc_name(), "say_goodbye");
+}
+
+TEST_F(TestFunctionRegistry, LookupExternalFuncs) {
+  ExtensionDirSetter ext_dir_setter("extended_funcs", []() {
+    FunctionRegistry::pc_registry_.clear();
+    FunctionRegistry::pc_registry_map_ = FunctionRegistry::InitPCMap();
+  });
+
+  FunctionSignature multiply_by_two_int32("multiply_by_two", {arrow::int32()},
+                                          arrow::int64());
+  auto func = registry_.LookupSignature(multiply_by_two_int32);
+  EXPECT_NE(func, nullptr);
+  EXPECT_EQ(func->pc_name(), "multiply_by_two_int32");
 }
 }  // namespace gandiva

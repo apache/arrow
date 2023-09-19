@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "functions": [
+    {
+      "name": "say_goodbye",
+      "aliases": [
+        "goodbye"
+      ],
+      "param_types": [
+      ],
+      "return_type": {
+        "type": "utf8"
+      },
+      "result_nullable": "if_null",
+      "pc_name": "say_goodbye"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "version": "1.0",
+  "functions": [
+    {
+      "name": "multiply_by_two",
+      "aliases": [
+      ],
+      "param_types": [
+        {
+          "type": "int32"
+        }
+      ],
+      "return_type": {
+        "type": "int64"
+      },
+      "pc_name": "multiply_by_two_int32"
+    }
+  ]
+}

@@ -16,8 +16,11 @@
 // under the License.
 
 #include "gandiva/function_registry.h"
+#include "arrow/util/io_util.h"
+#include "arrow/util/logging.h"
 #include "gandiva/function_registry_arithmetic.h"
 #include "gandiva/function_registry_datetime.h"
+#include "gandiva/function_registry_external.h"
 #include "gandiva/function_registry_hash.h"
 #include "gandiva/function_registry_math_ops.h"
 #include "gandiva/function_registry_string.h"
@@ -45,6 +48,25 @@ std::vector<NativeFunction> FunctionRegistry::pc_registry_;
 
 SignatureMap FunctionRegistry::pc_registry_map_ = InitPCMap();
 
+std::vector<NativeFunction> LoadExternalFunctionRegistry() {
+  std::string ext_dir;
+  auto maybe_ext_dir_env = ::arrow::internal::GetEnvVar("GANDIVA_EXTENSION_DIR");
+
+  std::vector<NativeFunction> funcs;
+  if (maybe_ext_dir_env.ok()) {
+    auto ext_dir_env = *maybe_ext_dir_env;
+    auto result = GetExternalFunctionRegistry(ext_dir_env);
+    if (result.ok()) {
+      funcs = *result;
+    } else {
+      ARROW_LOG(WARNING) << "Failed to load external function registry: "
+                         << result.status().message();
+    }
+  }
+
+  return funcs;
+}
+
 SignatureMap FunctionRegistry::InitPCMap() {
   SignatureMap map;
 
@@ -64,6 +86,10 @@ SignatureMap FunctionRegistry::InitPCMap() {
 
   auto v6 = GetDateTimeArithmeticFunctionRegistry();
   pc_registry_.insert(std::end(pc_registry_), v6.begin(), v6.end());
+
+  auto v7 = LoadExternalFunctionRegistry();
+  pc_registry_.insert(std::end(pc_registry_), v7.begin(), v7.end());
+
   for (auto& elem : pc_registry_) {
     for (auto& func_signature : elem.signatures()) {
       map.insert(std::make_pair(&(func_signature), &elem));

@@ -75,6 +75,7 @@
 #pragma warning(pop)
 #endif
 
+#include "arrow/util/io_util.h"
 #include "gandiva/configuration.h"
 #include "gandiva/decimal_ir.h"
 #include "gandiva/exported_funcs_registry.h"
@@ -137,6 +138,13 @@ Status Engine::LoadFunctionIRs() {
   if (!functions_loaded_) {
     ARROW_RETURN_NOT_OK(LoadPreCompiledIR());
     ARROW_RETURN_NOT_OK(DecimalIR::AddFunctions(this));
+    auto maybe_ext_dir_env = ::arrow::internal::GetEnvVar("GANDIVA_EXTENSION_DIR");
+    if (maybe_ext_dir_env.ok()) {
+      auto ext_dir_env = *maybe_ext_dir_env;
+      if (!ext_dir_env.empty()) {
+        ARROW_RETURN_NOT_OK(LoadExtendedPreCompiledIR(ext_dir_env));
+      }
+    }
     functions_loaded_ = true;
   }
   return Status::OK();
@@ -220,6 +228,42 @@ static void SetDataLayout(llvm::Module* module) {
 }
 // end of the mofified method from MLIR
 
+// Loading extended IR files from the given directory
+// all .bc files under the given directory will be loaded and parsed
+Status Engine::LoadExtendedPreCompiledIR(const std::filesystem::path& dir_path) {
+  for (const auto& entry : std::filesystem::directory_iterator(dir_path)) {
+    if (entry.is_regular_file() && entry.path().extension() == ".bc") {
+      llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> buffer_or_error =
+          llvm::MemoryBuffer::getFile(entry.path().string());
+
+      ARROW_RETURN_IF(!buffer_or_error,
+                      Status::CodeGenError("Could not load module from IR file: ",
+                                           entry.path().string() + " Error: " +
+                                               buffer_or_error.getError().message()));
+
+      auto buffer = std::move(buffer_or_error.get());
+
+      auto module_or_error =
+          llvm::parseBitcodeFile(buffer->getMemBufferRef(), *context());
+      if (!module_or_error) {
+        std::string str;
+        llvm::raw_string_ostream stream(str);
+        stream << module_or_error.takeError();
+        return Status::CodeGenError("Failed to parse bitcode file: " +
+                                    entry.path().string() + " Error: " + stream.str());
+      }
+      auto ir_module = std::move(module_or_error.get());
+
+      ARROW_RETURN_IF(llvm::verifyModule(*ir_module, &llvm::errs()),
+                      Status::CodeGenError("verify of IR Module failed"));
+      ARROW_RETURN_IF(llvm::Linker::linkModules(*module_, std::move(ir_module)),
+                      Status::CodeGenError("failed to link IR Modules"));
+    }
+  }
+
+  return Status::OK();
+}
+
 // Handling for pre-compiled IR libraries.
 Status Engine::LoadPreCompiledIR() {
   auto bitcode = llvm::StringRef(reinterpret_cast<const char*>(kPrecompiledBitcode),
@@ -233,11 +277,10 @@ Status Engine::LoadPreCompiledIR() {
                   Status::CodeGenError("Could not load module from IR: ",
                                        buffer_or_error.getError().message()));
 
-  std::unique_ptr<llvm::MemoryBuffer> buffer = std::move(buffer_or_error.get());
+  auto buffer = std::move(buffer_or_error.get());
 
   /// Parse the IR module.
-  llvm::Expected<std::unique_ptr<llvm::Module>> module_or_error =
-      llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
+  auto module_or_error = llvm::getOwningLazyBitcodeModule(std::move(buffer), *context());
   if (!module_or_error) {
     // NOTE: llvm::handleAllErrors() fails linking with RTTI-disabled LLVM builds
     // (ARROW-5148)
@@ -246,7 +289,7 @@ Status Engine::LoadPreCompiledIR() {
     stream << module_or_error.takeError();
     return Status::CodeGenError(stream.str());
   }
-  std::unique_ptr<llvm::Module> ir_module = std::move(module_or_error.get());
+  auto ir_module = std::move(module_or_error.get());
 
   // set dataLayout
   SetDataLayout(ir_module.get());

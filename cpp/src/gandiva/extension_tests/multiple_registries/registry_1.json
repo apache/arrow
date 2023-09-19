@@ -1,0 +1,21 @@
+{
+  "version": "1.0",
+  "functions": [
+    {
+      "name": "say_hello",
+      "aliases": [
+        "hello"
+      ],
+      "param_types": [
+        {
+          "type": "utf8"
+        }
+      ],
+      "return_type": {
+        "type": "int64"
+      },
+      "result_nullable": "internal",
+      "pc_name": "say_hello_utf8"
+    }
+  ]
+}
