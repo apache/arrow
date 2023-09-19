@@ -1532,8 +1532,7 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
     ASSERT_OK(writer_helper.Finish());
 
     // Write after close raises status
-    auto foo = writer_helper.WriteBatch(batch_ints);
-    // ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
+    ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
   }
 
   void TestWriteDifferentSchema() {
