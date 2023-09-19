@@ -61,7 +61,6 @@ install_arrow <- function(nightly = FALSE,
                           verbose = Sys.getenv("ARROW_R_DEV", FALSE),
                           repos = getOption("repos"),
                           ...) {
-  sysname <- tolower(Sys.info()[["sysname"]])
   conda <- isTRUE(grepl("conda", R.Version()$platform))
 
   if (conda) {
@@ -80,8 +79,7 @@ install_arrow <- function(nightly = FALSE,
     # On the M1, we can't use the usual autobrew, which pulls Intel dependencies
     apple_m1 <- grepl("arm-apple|aarch64.*darwin", R.Version()$platform)
     # On Rosetta, we have to build without JEMALLOC, so we also can't autobrew
-    rosetta <- identical(sysname, "darwin") && identical(system("sysctl -n sysctl.proc_translated", intern = TRUE), "1")
-    if (rosetta) {
+    if (on_rosetta()) {
       Sys.setenv(ARROW_JEMALLOC = "OFF")
     }
     if (apple_m1 || rosetta) {
