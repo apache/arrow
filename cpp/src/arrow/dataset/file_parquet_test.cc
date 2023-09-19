@@ -369,60 +369,23 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
   ASSERT_EQ(batches.size(), kNumRowGroups);
 }
 
-class AsyncBufferReader : public ::arrow::io::BufferReader {
- public:
-  explicit AsyncBufferReader(std::shared_ptr<Buffer> buffer,
-                             const ::arrow::io::IOContext& ctx)
-      : ::arrow::io::BufferReader(std::move(buffer)), ctx_(ctx) {}
-  /// EXPERIMENTAL: Read data asynchronously.
-  Future<std::shared_ptr<Buffer>> ReadAsync(const ::arrow::io::IOContext& ctx,
-                                            int64_t position, int64_t nbytes) override {
-    auto self = checked_pointer_cast<AsyncBufferReader>(shared_from_this());
-    return DeferNotOk(ctx.executor()->Submit(
-        [self, position, nbytes]() { return self->ReadAt(position, nbytes); }));
-  }
-
-  const ::arrow::io::IOContext& io_context() const override { return ctx_; }
-
- private:
-  ::arrow::io::IOContext ctx_;
-};
-
 TEST_F(TestParquetFileFormat, SingleThreadExecutor) {
-  ::arrow::io::IOContext default_io_context;
-  auto pool_executor =
-      dynamic_cast<::arrow::internal::ThreadPool*>(default_io_context.executor());
-  if (pool_executor == nullptr) {
-    GTEST_SKIP();
-  }
-  auto origin_capacity = pool_executor->GetCapacity();
-  ASSERT_OK(pool_executor->SetCapacity(/*threads=*/1));
-
-  // Reset capacity for pool_executor
+  // Reset capacity for io executor
   struct PoolResetGuard {
-    PoolResetGuard(::arrow::internal::ThreadPool* pool, int origin_capacity)
-        : pool(pool), origin_capacity(origin_capacity) {}
+    int original_capacity = io::GetIOThreadPoolCapacity();
     ~PoolResetGuard() {
-      Status s = pool->SetCapacity(origin_capacity);
-      if (!s.ok()) {
-        std::cerr << "Failed to reset pool capacity: " << s.ToString() << std::endl;
-      }
+      DCHECK_OK(io::SetIOThreadPoolCapacity(original_capacity));
     }
-
-    ::arrow::internal::ThreadPool* pool;
-    int origin_capacity;
-  };
-  PoolResetGuard guard(pool_executor, origin_capacity);
+  } guard;
+  ASSERT_OK(io::SetIOThreadPoolCapacity(1));
 
   auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
 
   ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
-  auto async_buffer_reader =
-      std::make_shared<AsyncBufferReader>(buffer, default_io_context);
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
   auto source =
-      std::make_shared<FileSource>(std::move(async_buffer_reader), buffer->size());
+      std::make_shared<FileSource>(std::move(buffer_reader), buffer->size());
   auto options = std::make_shared<ScanOptions>();
-  options->io_context = default_io_context;
 
   {
     auto fragment = MakeFragment(*source);
