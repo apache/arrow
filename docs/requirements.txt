@@ -5,9 +5,9 @@
 breathe
 ipython
 numpydoc
+pydata-sphinx-theme
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton
 sphinx==6.2
 pandas
-git+https://github.com/pydata/pydata-sphinx-theme.git@657525c3547c4447263e71a7ce5e55c21da3ba1f

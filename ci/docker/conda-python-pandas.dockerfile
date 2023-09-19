@@ -28,7 +28,6 @@ ARG numpy=latest
 COPY ci/conda_env_sphinx.txt /arrow/ci/
 RUN mamba install -q -y --file arrow/ci/conda_env_sphinx.txt && \
     mamba clean --all
-RUN pip install git+https://github.com/pydata/pydata-sphinx-theme.git@657525c3547c4447263e71a7ce5e55c21da3ba1f
 
 COPY ci/scripts/install_pandas.sh /arrow/ci/scripts/
 RUN mamba uninstall -q -y numpy && \
