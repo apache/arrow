@@ -100,29 +100,10 @@ As part of the install step, the installation directory is added to the [MATLAB 
 
 ## Test
 
-There are two kinds of tests for the MATLAB Interface: MATLAB and C++. 
-
-### MATLAB
-
 To run the MATLAB tests, start MATLAB in the `arrow/matlab` directory and call the [`runtests`](https://mathworks.com/help/matlab/ref/runtests.html) command on the `test` directory with `IncludeSubFolders=true`:
 
 ``` matlab
 >> runtests("test", IncludeSubFolders=true);
-```
-
-### C++
-
-To enable the C++ tests, set the `MATLAB_BUILD_TESTS` flag to `ON` at build time: 
-
-```console
-$ cmake -S . -B build -D MATLAB_BUILD_TESTS=ON
-$ cmake --build build --config Release
-```
-
-After building with the `MATLAB_BUILD_TESTS` flag enabled, the C++ tests can be run using [CTest](https://cmake.org/cmake/help/latest/manual/ctest.1.html):
-
-```console
-$ ctest --test-dir build
 ```
 
 ## Usage
