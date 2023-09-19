@@ -124,6 +124,24 @@ abstract class AbstractFieldWriter extends AbstractBaseWriter implements FieldWr
   }
   </#if>
 
+  <#if minor.class?ends_with("VarBinary")>
+  public void writeTo${minor.class}(byte[] value) {
+    fail("${name}");
+  }
+
+  public void writeTo${minor.class}(byte[] value, int offset, int length) {
+    fail("${name}");
+  }
+
+  public void writeTo${minor.class}(ByteBuffer value) {
+    fail("${name}");
+  }
+
+  public void writeTo${minor.class}(ByteBuffer value, int offset, int length) {
+    fail("${name}");
+  }
+  </#if>
+
   </#list></#list>
 
   public void writeNull() {
