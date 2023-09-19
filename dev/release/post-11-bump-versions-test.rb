@@ -276,6 +276,34 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       next if hunks.empty?
       expected_changes << {hunks: hunks, path: path}
     end
+    if release_type == :major
+      expected_changes << {
+        hunks: [
+          [
+            "-[![Go Reference](https://pkg.go.dev/badge/github.com/apache/arrow/go/v#{@snapshot_major_version}.svg)](https://pkg.go.dev/github.com/apache/arrow/go/v#{@snapshot_major_version})",
+            "+[![Go Reference](https://pkg.go.dev/badge/github.com/apache/arrow/go/v#{@next_major_version}.svg)](https://pkg.go.dev/github.com/apache/arrow/go/v#{@next_major_version})",
+          ],
+        ],
+        path: "go/README.md",
+      }
+      expected_changes << {
+        hunks: [
+          [
+            "-* Installation via `go get -u github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/flight/flightsql`",
+            "+* Installation via `go get -u github.com/apache/arrow/go/v#{@next_major_version}/arrow/flight/flightsql`",
+          ],
+          [
+            "-    _ \"github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/flight/flightsql\"",
+            "+    _ \"github.com/apache/arrow/go/v#{@next_major_version}/arrow/flight/flightsql\"",
+          ],
+          [
+            "-    \"github.com/apache/arrow/go/v#{@snapshot_major_version}/arrow/flight/flightsql\"",
+            "+    \"github.com/apache/arrow/go/v#{@next_major_version}/arrow/flight/flightsql\"",
+          ],
+        ],
+        path: "go/arrow/flight/flightsql/driver/README.md",
+      }
+    end
 
     Dir.glob("java/**/pom.xml") do |path|
       version = "<version>#{@snapshot_version}</version>"
