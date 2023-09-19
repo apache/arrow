@@ -18,12 +18,14 @@
 #include "arrow/dataset/file_parquet.h"
 
 #include <memory>
+#include <thread>
 #include <utility>
 #include <vector>
 
 #include "arrow/compute/api_scalar.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/test_util_internal.h"
+#include "arrow/io/interfaces.h"
 #include "arrow/io/memory.h"
 #include "arrow/io/test_common.h"
 #include "arrow/io/util_internal.h"
@@ -365,6 +367,29 @@ TEST_F(TestParquetFileFormat, MultithreadedScan) {
   ASSERT_OK_AND_ASSIGN(auto batches, collect_fut.result());
 
   ASSERT_EQ(batches.size(), kNumRowGroups);
+}
+
+TEST_F(TestParquetFileFormat, SingleThreadExecutor) {
+  // Reset capacity for io executor
+  struct PoolResetGuard {
+    int original_capacity = io::GetIOThreadPoolCapacity();
+    ~PoolResetGuard() { DCHECK_OK(io::SetIOThreadPoolCapacity(original_capacity)); }
+  } guard;
+  ASSERT_OK(io::SetIOThreadPoolCapacity(1));
+
+  auto reader = GetRecordBatchReader(schema({field("utf8", utf8())}));
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, ParquetFormatHelper::Write(reader.get()));
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto source = std::make_shared<FileSource>(std::move(buffer_reader), buffer->size());
+  auto options = std::make_shared<ScanOptions>();
+
+  {
+    auto fragment = MakeFragment(*source);
+    auto count_rows = fragment->CountRows(literal(true), options);
+    ASSERT_OK_AND_ASSIGN(auto result, count_rows.MoveResult());
+    ASSERT_EQ(expected_rows(), result);
+  }
 }
 
 class TestParquetFileSystemDataset : public WriteFileSystemDatasetMixin,
