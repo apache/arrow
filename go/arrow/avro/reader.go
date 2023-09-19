@@ -27,7 +27,7 @@ import (
 	"github.com/apache/arrow/go/v14/arrow/array"
 	"github.com/apache/arrow/go/v14/arrow/internal/debug"
 	"github.com/apache/arrow/go/v14/arrow/memory"
-	"github.com/hamba/avro/ocf"
+	"github.com/hamba/avro/v2/ocf"
 	"github.com/tidwall/sjson"
 
 	avro "github.com/hamba/avro/v2"
