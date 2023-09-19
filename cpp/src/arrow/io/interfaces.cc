@@ -123,7 +123,8 @@ Result<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadata() {
 // executor
 Future<std::shared_ptr<const KeyValueMetadata>> InputStream::ReadMetadataAsync(
     const IOContext& ctx) {
-  auto self = shared_from_this();
+  std::shared_ptr<InputStream> self =
+      std::dynamic_pointer_cast<InputStream>(shared_from_this());
   return DeferNotOk(internal::SubmitIO(ctx, [self] { return self->ReadMetadata(); }));
 }
 
@@ -165,7 +166,7 @@ Result<std::shared_ptr<Buffer>> RandomAccessFile::ReadAt(int64_t position,
 Future<std::shared_ptr<Buffer>> RandomAccessFile::ReadAsync(const IOContext& ctx,
                                                             int64_t position,
                                                             int64_t nbytes) {
-  auto self = checked_pointer_cast<RandomAccessFile>(shared_from_this());
+  auto self = std::dynamic_pointer_cast<RandomAccessFile>(shared_from_this());
   return DeferNotOk(internal::SubmitIO(
       ctx, [self, position, nbytes] { return self->ReadAt(position, nbytes); }));
 }
