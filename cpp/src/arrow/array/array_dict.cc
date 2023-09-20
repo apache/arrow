@@ -282,9 +282,9 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     *out_type = arrow::dictionary(index_type, value_type_);
 
     // Build unified dictionary array
-    std::shared_ptr<ArrayData> data;
-    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
-                                                     0 /* start_offset */, &data));
+    ARROW_ASSIGN_OR_RAISE(
+        auto data, DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                      0 /* start_offset */));
     *out_dict = MakeArray(data);
     return Status::OK();
   }
@@ -299,9 +299,9 @@ class DictionaryUnifierImpl : public DictionaryUnifier {
     }
 
     // Build unified dictionary array
-    std::shared_ptr<ArrayData> data;
-    RETURN_NOT_OK(DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
-                                                     0 /* start_offset */, &data));
+    ARROW_ASSIGN_OR_RAISE(
+        auto data, DictTraits::GetDictionaryArrayData(pool_, value_type_, memo_table_,
+                                                      0 /* start_offset */));
     *out_dict = MakeArray(data);
     return Status::OK();
   }
