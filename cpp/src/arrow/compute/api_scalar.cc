@@ -295,6 +295,7 @@ struct EnumTraits<compute::SetLookupOptions::NullMatchingBehavior>
       case compute::SetLookupOptions::NullMatchingBehavior::INCONCLUSIVE:
         return "INCONCLUSIVE";
     }
+    return "<INVALID>";
   }
 };
 
