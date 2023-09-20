@@ -23,6 +23,8 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
         opts.NumRows(1, 1) {mustBeFinite, mustBeNonnegative} = 3;  
     end
 
+    % Seed the random number generator to ensure
+    % reproducible results in tests.
     rng(1);
 
     import arrow.type.ID
