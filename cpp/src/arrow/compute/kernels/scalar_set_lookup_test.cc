@@ -275,6 +275,7 @@ TYPED_TEST(TestIsInKernelPrimitive, IsIn) {
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]", "[true, true, true, false, true]",
             /*null_matching_behavior=*/SetLookupOptions::MATCH);
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]",
+            "[false, true, true, false, true]",
             /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, "[null, 1, 2, 3, 2]", "[2, null, 1]", "[null, true, true, false, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -508,6 +509,12 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
             "[true, true, false, null, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", ""])",
@@ -520,6 +527,12 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
+            "[true, true, false, true, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])", R"(["aaa", "", null])",
             "[true, true, false, null, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -534,6 +547,12 @@ TYPED_TEST(TestIsInKernelBinary, Binary) {
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
             R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
+            R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, true, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
+            R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, R"(["aaa", "", "cc", null, ""])",
             R"([null, "aaa", "aaa", "", "", null])", "[true, true, false, null, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -552,6 +571,12 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
             "[true, true, false, null, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb"])",
@@ -564,6 +589,12 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
+            "[true, true, false, true, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])", R"(["aaa", "bbb", null])",
             "[true, true, false, null, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -580,6 +611,14 @@ TEST_F(TestIsInKernel, FixedSizeBinary) {
             R"(["aaa", null, "aaa", "bbb", "bbb", null])",
             "[true, true, false, false, true]",
             /*skip_nulls=*/true);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
+            R"(["aaa", null, "aaa", "bbb", "bbb", null])",
+            "[true, true, false, true, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
+            R"(["aaa", null, "aaa", "bbb", "bbb", null])",
+            "[true, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, R"(["aaa", "bbb", "ccc", null, "bbb"])",
             R"(["aaa", null, "aaa", "bbb", "bbb", null])",
             "[true, true, false, null, true]",
@@ -603,6 +642,12 @@ TEST_F(TestIsInKernel, Decimal) {
               "[true, false, true, false, true]",
               /*skip_nulls=*/true);
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, false, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
+              "[true, false, true, false, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
               "[true, false, true, null, true]",
               /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])", R"(["12.3", "78.9"])",
@@ -615,6 +660,12 @@ TEST_F(TestIsInKernel, Decimal) {
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
               R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
               /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"(["12.3", "78.9", null])", "[true, false, true, false, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
               R"(["12.3", "78.9", null])", "[true, false, true, null, true]",
               /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -631,6 +682,14 @@ TEST_F(TestIsInKernel, Decimal) {
               R"([null, "12.3", "12.3", "78.9", "78.9", null])",
               "[true, false, true, false, true]",
               /*skip_nulls=*/true);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
+              R"([null, "12.3", "12.3", "78.9", "78.9", null])",
+              "[true, false, true, false, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
     CheckIsIn(type, R"(["12.3", "45.6", "78.9", null, "12.3"])",
               R"([null, "12.3", "12.3", "78.9", "78.9", null])",
               "[true, false, true, null, true]",
@@ -661,6 +720,20 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/"[4.1, 42, -1.0]",
                         /*expected_json=*/"[true, true, false, true]",
                         /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 2, null, 0]",
+                        /*value_set_json=*/R"(["A", "B", "C"])",
+                        /*expected_json=*/"[true, true, false, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsInDictionary(/*type=*/float32(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/"[4.1, -1.0, 42, 9.8]",
+                        /*input_index_json=*/"[1, 2, null, 0]",
+                        /*value_set_json=*/"[4.1, 42, -1.0]",
+                        /*expected_json=*/"[true, true, false, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
 
     // With nulls and skip_nulls=false
     CheckIsInDictionary(/*type=*/utf8(),
@@ -684,6 +757,27 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/R"(["C", "B", "A"])",
                         /*expected_json=*/"[false, false, false, true, false]",
                         /*skip_nulls=*/false);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
 
     // With nulls and skip_nulls=true
     CheckIsInDictionary(/*type=*/utf8(),
@@ -707,6 +801,27 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/R"(["C", "B", "A"])",
                         /*expected_json=*/"[false, false, false, true, false]",
                         /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[true, false, false, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A", null])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "B", "A"])",
+                        /*expected_json=*/"[false, false, false, true, false]",
+                        /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
     // With nulls and null_matching_behavior=EMIT_NULL
     CheckIsInDictionary(/*type=*/utf8(),
@@ -776,6 +891,27 @@ TEST_F(TestIsInKernel, DictionaryArray) {
                         /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
                         /*expected_json=*/"[true, false, false, true, true]",
                         /*skip_nulls=*/true);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 2, null, 0]",
+                        /*value_set_json=*/R"(["A", "A", "B", "A", "B", "C"])",
+                        /*expected_json=*/"[true, true, false, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
+                        /*expected_json=*/"[true, false, true, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsInDictionary(/*type=*/utf8(),
+                        /*index_type=*/index_ty,
+                        /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                        /*input_index_json=*/"[1, 3, null, 0, 1]",
+                        /*value_set_json=*/R"(["C", "C", "B", "A", null, null, "B"])",
+                        /*expected_json=*/"[true, false, false, true, true]",
+                        /*null_matching_behavior=*/SetLookupOptions::SKIP);
     CheckIsInDictionary(/*type=*/utf8(),
                         /*index_type=*/index_ty,
                         /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
