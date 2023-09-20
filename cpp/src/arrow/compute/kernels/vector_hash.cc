@@ -285,8 +285,9 @@ class RegularHashKernel : public HashKernel {
   Status FlushFinal(ExecResult* out) override { return action_.FlushFinal(out); }
 
   Status GetDictionary(std::shared_ptr<ArrayData>* out) override {
-    return DictionaryTraits<Type>::GetDictionaryArrayData(pool_, type_, *memo_table_,
-                                                          0 /* start_offset */, out);
+    ARROW_ASSIGN_OR_RAISE(*out, DictionaryTraits<Type>::GetDictionaryArrayData(
+                                    pool_, type_, *memo_table_, 0 /* start_offset */));
+    return Status::OK();
   }
 
   std::shared_ptr<DataType> value_type() const override { return type_; }
