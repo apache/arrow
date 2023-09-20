@@ -24,16 +24,15 @@ gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
 pip install -e $arrow_dir/dev/archery[integration]
 
-#     --run-ipc \
-#     --run-flight \
-
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
     --run-c-data \
+    --run-ipc \
+    --run-flight \
     --with-cpp=1 \
-    --with-csharp=0 \
-    --with-java=0 \
-    --with-js=0 \
+    --with-csharp=1 \
+    --with-java=1 \
+    --with-js=1 \
     --with-go=1 \
     --gold-dirs=$gold_dir/0.14.1 \
     --gold-dirs=$gold_dir/0.17.1 \
