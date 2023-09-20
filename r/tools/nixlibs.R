@@ -235,8 +235,8 @@ get_macos_openssl_dir <- function(){
     } else {
       openssl_root_dir <- "/usr/local"
     }
-    return(paste0(openssl_root_dir, "/include"))
   }
+  return(paste0(openssl_root_dir, "/include"))
 }
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
