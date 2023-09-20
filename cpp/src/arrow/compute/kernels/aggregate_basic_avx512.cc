@@ -71,19 +71,11 @@ Result<std::unique_ptr<KernelState>> MinMaxInitAvx512(KernelContext* ctx,
 }
 
 void AddSumAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx512<SumImplAvx512>, SignedIntTypes(), int64(), func,
-                     SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512<SumImplAvx512>, UnsignedIntTypes(), uint64(), func,
-                     SimdLevel::AVX512);
   AddBasicAggKernels(SumInitAvx512<SumImplAvx512>, FloatingPointTypes(), float64(), func,
                      SimdLevel::AVX512);
 }
 
 void AddSumCheckedAvx512AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumInitAvx512<SumCheckedImplAvx512>, SignedIntTypes(), int64(), func,
-                     SimdLevel::AVX512);
-  AddBasicAggKernels(SumInitAvx512<SumCheckedImplAvx512>, UnsignedIntTypes(), uint64(),
-                     func, SimdLevel::AVX512);
   AddBasicAggKernels(SumInitAvx512<SumCheckedImplAvx512>, FloatingPointTypes(), float64(),
                      func, SimdLevel::AVX512);
 }

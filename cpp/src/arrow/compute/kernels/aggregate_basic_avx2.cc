@@ -83,10 +83,6 @@ void AddSumAvx2AggKernels(ScalarAggregateFunction* func) {
 }
 
 void AddSumCheckedAvx2AggKernels(ScalarAggregateFunction* func) {
-  AddBasicAggKernels(SumCheckedInitAvx2, SignedIntTypes(), int64(), func,
-                     SimdLevel::AVX2);
-  AddBasicAggKernels(SumCheckedInitAvx2, UnsignedIntTypes(), uint64(), func,
-                     SimdLevel::AVX2);
   AddBasicAggKernels(SumCheckedInitAvx2, FloatingPointTypes(), float64(), func,
                      SimdLevel::AVX2);
 }
