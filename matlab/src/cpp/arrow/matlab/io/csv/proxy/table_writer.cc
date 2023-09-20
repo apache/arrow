@@ -74,7 +74,7 @@ namespace arrow::matlab::io::csv::proxy {
         auto table_proxy = std::static_pointer_cast<TableProxy>(proxy);
         auto table = table_proxy->unwrap();
 
-        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto output_stream,
+        MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(const auto output_stream,
                                             arrow::io::FileOutputStream::Open(filename),
                                             context,
                                             error::FAILED_TO_OPEN_FILE_FOR_WRITE);
