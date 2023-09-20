@@ -229,12 +229,13 @@ get_macos_openssl_dir <- function(){
     # try to guess default openssl include dir based on CRAN's build script
     # https://github.com/R-macos/recipes/blob/master/build.sh#L35
     if(identical(Sys.info()["machine"], "arm64")){
-          openssl_root_dir <- "/opt/R/arm64/include"
+          openssl_root_dir <- "/opt/R/arm64"
     } else if (file.exists("/opt/R/x86_64")) {
-      openssl_root_dir <- "/opt/R/x86_64/include"
+      openssl_root_dir <- "/opt/R/x86_64"
     } else {
-      openssl_root_dir <- "/usr/local/include"
+      openssl_root_dir <- "/usr/local"
     }
+    return(paste0(openssl_root_dir, "/include"))
   }
 }
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
