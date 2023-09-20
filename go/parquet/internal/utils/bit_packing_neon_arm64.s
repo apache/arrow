@@ -72,7 +72,8 @@ LBB0_2:
     WORD $0x91020102 // add    x2, x8, #128
     WORD $0xaa0103e0 // mov    x0, x1
     WORD $0x2a1f03e1 // mov    w1, wzr
-    WORD $0x94000000 // bl    memset
+    CALL clib·_memset(SB)
+    // WORD $0x94000000 // bl    memset
 	JMP LBB0_99
 LBB0_4:
     WORD $0x7100805f // cmp    w2, #32
