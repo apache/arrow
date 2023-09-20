@@ -64,7 +64,7 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: "macos-11",  arch: "amd64" }
+          - { runs_on: "macos-11",  arch: "x86_64" }
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
         openssl: ['3.0', '1.1']
 
@@ -73,15 +73,15 @@ jobs:
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
         run: |
-          brew install sccache
+          brew install sccache ninja
           brew install openssl@{{ '${{ matrix.openssl }}' }}
       - name: Build libarrow
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           MACOSX_DEPLOYMENT_TARGET: "10.13"
-          ARROW_S3: true
-          ARROW_GCS: true
+          ARROW_S3: ON
+          ARROW_GCS: ON
           ARROW_DEPENDENCY_SOURCE: BUNDLED
           CMAKE_GENERATOR: Ninja
           LIBARROW_MINIMAL: false
@@ -186,7 +186,7 @@ jobs:
           path: build/arrow-*.zip
 
   r-packages:
-    needs: [source, windows-cpp]
+    needs: [source, windows-cpp, macos-cpp]
     name: {{ '${{ matrix.platform.name }} ${{ matrix.r_version.r }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     strategy:
@@ -218,7 +218,7 @@ jobs:
 
           rig system setup-user-lib
           rig system add-pak
-      {{ macros.github_setup_local_r_repo(false, true)|indent }}
+      {{ macros.github_setup_local_r_repo(false, true, true)|indent }}
       - name: Prepare Dependency Installation
 
         shell: bash
@@ -229,18 +229,12 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
-      - name: Install sccache
-        if: startsWith(matrix.platform, 'macos')
-        run: brew install sccache
       - name: Build Binary
         id: build
         shell: Rscript {0}
         env:
           NOT_CRAN: "true" # actions/setup-r sets this implicitly
           ARROW_R_DEV: "true"
-          FORCE_AUTOBREW: "true" # this is ignored on windows
-          # sccache for macos
-        {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -284,40 +278,6 @@ jobs:
         with:
           name: r-pkg{{ '${{ steps.build.outputs.path }}' }}
           path: arrow_*
-
-  test-macos-binary:
-    runs-on: macos-11
-    needs: [source, macos-cpp]
-    steps:
-      - uses: r-lib/actions/setup-r@v2
-      {{ macros.github_setup_local_r_repo(false, false, true)|indent }}
-      - name: Prepare Dependency Installation
-        shell: bash
-        run: |
-          tar -xzf repo/src/contrib/arrow_*.tar.gz arrow/DESCRIPTION
-      - name: Install dependencies
-        uses: r-lib/actions/setup-r-dependencies@v2
-        with:
-           working-directory: 'arrow'
-           extra-packages: cpp11
-      - run: |
-          brew install openssl@3
-      - name: install with precompiled
-        shell: Rscript {0}
-        env:
-          ARROW_R_DEV: "true"
-          ARROW_DOWNLOADED_BINARIES: "{{ '${{github.workspace}}' }}/repo/libarrow/bin/macos-amd64-openssl-3.0/arrow-{{ '${{ needs.source.outputs.pkg_version  }}' }}.zip"
-        run: |
-          install.packages(
-            "arrow",
-            type = "source",
-            repos = getOption("arrow.dev_repo") 
-          )
-
-          # Test
-          library(arrow)
-          arrow::arrow_info()
-          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
           
           
   test-linux-binary:
@@ -404,6 +364,7 @@ jobs:
           print(arrow_info())
 
   test-source:
+#TODO add macos (m1)source build
     needs: source
     name: Test linux source build
     runs-on: ubuntu-latest
