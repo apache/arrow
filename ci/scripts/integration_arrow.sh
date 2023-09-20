@@ -27,25 +27,6 @@ pip install -e $arrow_dir/dev/archery[integration]
 #     --run-ipc \
 #     --run-flight \
 
-# XXX Can we better integrate this with the rest of the Go build tooling?
-pushd ${arrow_dir}/go/arrow/internal/cdata_integration
-
-case "$(uname)" in
-    Linux)
-        go_lib="arrow_go_integration.so"
-        ;;
-    Darwin)
-        go_lib="arrow_go_integration.so"
-        ;;
-    MINGW*)
-        go_lib="arrow_go_integration.dll"
-        ;;
-esac
-
-go build -tags cdata_integration,assert -buildmode=c-shared -o ${go_lib} .
-
-popd
-
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
     --run-c-data \
