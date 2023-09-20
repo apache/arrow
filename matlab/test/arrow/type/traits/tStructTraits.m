@@ -17,15 +17,15 @@ classdef tStructTraits < hTypeTraits
 
     properties
         TraitsConstructor = @arrow.type.traits.StructTraits 
-        ArrayConstructor = missing
-        ArrayClassName = missing
-        ArrayProxyClassName = missing
+        ArrayConstructor = @arrow.array.StructArray
+        ArrayClassName = "arrow.array.StructArray"
+        ArrayProxyClassName = "arrow.array.proxy.StructArray"
         ArrayStaticConstructor = missing
         TypeConstructor = @arrow.type.StructType
         TypeClassName = "arrow.type.StructType"
         TypeProxyClassName = "arrow.type.proxy.StructType"
-        MatlabConstructor = missing
-        MatlabClassName = missing
+        MatlabConstructor = @table
+        MatlabClassName = "table"
     end
 
 end
