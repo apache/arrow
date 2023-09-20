@@ -1,7 +1,6 @@
 cffi
 cython
 hypothesis
-pickle5; platform_system != "Windows" and python_version < "3.8"
 pytest
 pytest-lazy-fixture
 pytz
