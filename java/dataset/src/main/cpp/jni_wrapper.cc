@@ -29,6 +29,8 @@
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/s3fs.h"
 #include "arrow/engine/substrait/util.h"
+#include "arrow/engine/substrait/serde.h"
+#include "arrow/engine/substrait/relation.h"
 #include "arrow/ipc/api.h"
 #include "arrow/util/iterator.h"
 #include "jni_util.h"
@@ -200,7 +202,6 @@ arrow::Result<std::shared_ptr<arrow::Schema>> SchemaFromColumnNames(
       return arrow::Status::Invalid("Partition column '", ref.ToString(), "' is not in dataset schema");
     }
   }
-
   return schema(std::move(columns))->WithMetadata(input->metadata());
 }
 }  // namespace
@@ -315,6 +316,14 @@ std::shared_ptr<arrow::Table> GetTableByName(const std::vector<std::string>& nam
     JniThrow("Table is referenced, but not provided: " + names[0]);
   }
   return it->second;
+}
+
+std::shared_ptr<arrow::Buffer> LoadArrowBufferFromByteBuffer(JNIEnv* env, jobject byte_buffer) {
+  const auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(byte_buffer));
+  int length = env->GetDirectBufferCapacity(byte_buffer);
+  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
+  std::memcpy(buffer->mutable_data(), buff, length);
+  return buffer;
 }
 
 /*
@@ -455,11 +464,12 @@ JNIEXPORT void JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_closeDataset
 /*
  * Class:     org_apache_arrow_dataset_jni_JniWrapper
  * Method:    createScanner
- * Signature: (J[Ljava/lang/String;JJ)J
+ * Signature: (J[Ljava/lang/String;Ljava/nio/ByteBuffer;Ljava/nio/ByteBuffer;JJ)J
  */
 JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScanner(
-    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns, jlong batch_size,
-    jlong memory_pool_id) {
+    JNIEnv* env, jobject, jlong dataset_id, jobjectArray columns,
+    jobject substrait_projection, jobject substrait_filter,
+    jlong batch_size, jlong memory_pool_id) {
   JNI_METHOD_START
   arrow::MemoryPool* pool = reinterpret_cast<arrow::MemoryPool*>(memory_pool_id);
   if (pool == nullptr) {
@@ -473,6 +483,40 @@ JNIEXPORT jlong JNICALL Java_org_apache_arrow_dataset_jni_JniWrapper_createScann
   if (columns != nullptr) {
     std::vector<std::string> column_vector = ToStringVector(env, columns);
     JniAssertOkOrThrow(scanner_builder->Project(column_vector));
+  }
+  if (substrait_projection != nullptr) {
+    std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
+                                                            substrait_projection);
+    std::vector<arrow::compute::Expression> project_exprs;
+    std::vector<std::string> project_names;
+    arrow::engine::BoundExpressions bounded_expression =
+          JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+    for(arrow::engine::NamedExpression& named_expression :
+                                        bounded_expression.named_expressions) {
+      project_exprs.push_back(std::move(named_expression.expression));
+      project_names.push_back(std::move(named_expression.name));
+    }
+    JniAssertOkOrThrow(scanner_builder->Project(std::move(project_exprs), std::move(project_names)));
+  }
+  if (substrait_filter != nullptr) {
+    std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env,
+                                                                substrait_filter);
+    std::optional<arrow::compute::Expression> filter_expr = std::nullopt;
+    arrow::engine::BoundExpressions bounded_expression =
+          JniGetOrThrow(arrow::engine::DeserializeExpressions(*buffer));
+    for(arrow::engine::NamedExpression& named_expression :
+                                        bounded_expression.named_expressions) {
+      filter_expr = named_expression.expression;
+      if (named_expression.expression.type()->id() == arrow::Type::BOOL) {
+        filter_expr = named_expression.expression;
+      } else {
+        JniThrow("There is no filter expression in the expression provided");
+      }
+    }
+    if (filter_expr == std::nullopt) {
+      JniThrow("The filter expression has not been provided");
+    }
+    JniAssertOkOrThrow(scanner_builder->Filter(*filter_expr));
   }
   JniAssertOkOrThrow(scanner_builder->BatchSize(batch_size));
 
@@ -748,10 +792,7 @@ JNIEXPORT void JNICALL
   arrow::engine::ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
   // mapping arrow::Buffer
-  auto *buff = reinterpret_cast<jbyte*>(env->GetDirectBufferAddress(plan));
-  int length = env->GetDirectBufferCapacity(plan);
-  std::shared_ptr<arrow::Buffer> buffer = JniGetOrThrow(arrow::AllocateBuffer(length));
-  std::memcpy(buffer->mutable_data(), buff, length);
+  std::shared_ptr<arrow::Buffer> buffer = LoadArrowBufferFromByteBuffer(env, plan);
   // execute plan
   std::shared_ptr<arrow::RecordBatchReader> reader_out =
     JniGetOrThrow(arrow::engine::ExecuteSerializedPlan(*buffer, nullptr, nullptr, conversion_options));
