@@ -22,7 +22,7 @@
 namespace gandiva {
 
 void ExportedFuncsRegistry::AddMappings(Engine* engine) {
-  for (auto entry : registered()) {
+  for (const auto& entry : registered()) {
     entry->AddMappings(engine);
   }
 }

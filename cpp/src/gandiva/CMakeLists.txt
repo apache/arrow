@@ -238,6 +238,7 @@ add_gandiva_test(internals-test
                  tree_expr_test.cc
                  encrypt_utils_test.cc
                  expr_decomposer_test.cc
+                 exported_funcs_registry_test.cc
                  expression_registry_test.cc
                  selection_vector_test.cc
                  lru_cache_test.cc

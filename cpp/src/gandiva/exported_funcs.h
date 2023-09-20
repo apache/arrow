@@ -18,6 +18,7 @@
 #pragma once
 
 #include <vector>
+#include "gandiva/visibility.h"
 
 namespace gandiva {
 
@@ -61,6 +62,5 @@ class ExportedHashFunctions : public ExportedFuncsBase {
   void AddMappings(Engine* engine) const override;
 };
 
-void RegisterExportedFuncs();
-
+GANDIVA_EXPORT void RegisterExportedFuncs();
 }  // namespace gandiva

@@ -15,37 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#pragma once
-
-#include <memory>
-#include <vector>
-
-#include <gandiva/engine.h>
-#include <gandiva/visibility.h>
+#include "gandiva/exported_funcs_registry.h"
+#include <gtest/gtest.h>
+#include "gandiva/exported_funcs.h"
 
 namespace gandiva {
-
-class ExportedFuncsBase;
-
-/// Registry for classes that export functions which can be accessed by
-/// LLVM/IR code.
-class GANDIVA_EXPORT ExportedFuncsRegistry {
- public:
-  using list_type = std::vector<std::shared_ptr<ExportedFuncsBase>>;
-
-  // Add functions from all the registered classes to the engine.
-  static void AddMappings(Engine* engine);
-
-  static bool Register(std::shared_ptr<ExportedFuncsBase> entry) {
-    registered().emplace_back(std::move(entry));
-    return true;
-  }
-
-  static list_type& registered();
-};
-
-#define REGISTER_EXPORTED_FUNCS(classname)               \
-  [[maybe_unused]] static bool _registered_##classname = \
-      ExportedFuncsRegistry::Register(std::make_shared<classname>())
-
+TEST(ExportedFuncsRegistry, RegistrationOnlyOnce) {
+  gandiva::RegisterExportedFuncs();
+  auto const& registered_list = ExportedFuncsRegistry::registered();
+  EXPECT_EQ(registered_list.size(), 6);
+}
 }  // namespace gandiva
