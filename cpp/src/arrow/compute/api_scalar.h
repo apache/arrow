@@ -268,7 +268,24 @@ class ARROW_EXPORT ExtractRegexOptions : public FunctionOptions {
 /// Options for IsIn and IndexIn functions
 class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
-  enum NullMatchingBehavior { MATCH, SKIP, EMIT_NULL, INCONCLUSIVE };
+  /// How to handle null values.
+  enum NullMatchingBehavior {
+    /// Match, any null in `value_set` is successfully matched in
+    /// the input.
+    MATCH,
+    /// SKIP, any null in `value_set` is ignored and nulls in the input
+    /// produce null (IndexIn) or false (IsIn) values in the output.
+    SKIP,
+    /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
+    /// input produce null (IndexIn and IsIn) values in the output.
+    EMIT_NULL,
+    /// INCONCLUSIVE, null values are regard as unknown values, which is
+    /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
+    /// values in the output. Besides, if `value_set` contains a null,
+    /// non-null unmatched values in the input also produce null values
+    /// (IndexIn and IsIn) in the output.
+    INCONCLUSIVE
+  };
 
   explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
@@ -281,19 +298,6 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   /// The set of values to look up input values into.
   Datum value_set;
 
-  /// How to match null values.
-  ///
-  /// Match, any null in `value_set` is successfully matched in
-  /// the input.
-  /// SKIP, any null in `value_set` is ignored and nulls in the input
-  /// produce null (IndexIn) or false (IsIn) values in the output.
-  /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
-  /// input produce null (IndexIn and IsIn) values in the output.
-  /// INCONCLUSIVE, null values are regard as unknown values, which is
-  /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
-  /// values in the output. Besides, if `value_set` contains a null,
-  /// non-null unmatched values in the input also produce null values
-  /// (IndexIn and IsIn) in the output.
   NullMatchingBehavior null_matching_behavior;
 
   ARROW_DEPRECATED("Deprecated in 14.0.0. Will be removed after removing of skip_nulls")

@@ -275,8 +275,9 @@ struct IndexInVisitor {
   IndexInVisitor(KernelContext* ctx, const ArraySpan& data, ArraySpan* out)
       : ctx(ctx), data(data), out(out), out_bitmap(out->buffers[0].data) {}
 
-  Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
+  Status Visit(const DataType& type) { DCHECK(false) << "IndexIn " << type; }
+
+  Status Visit(const NullType&) {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
 
     if (data.length != 0) {
@@ -403,8 +404,9 @@ struct IsInVisitor {
         out_boolean_bitmap(out->buffers[1].data),
         out_null_bitmap(out->buffers[0].data) {}
 
-  Status Visit(const DataType& type) {
-    DCHECK_EQ(type.id(), Type::NA);
+  Status Visit(const DataType& type) { DCHECK(false) << "IndexIn " << type; }
+
+  Status Visit(const NullType&) {
     const auto& state = checked_cast<const SetLookupState<NullType>&>(*ctx->state());
 
     if (state.null_matching_behavior == SetLookupOptions::MATCH &&
