@@ -58,9 +58,10 @@ func ArrowGo_FreeError(cError *C.char) {
 // archery integration process and lets other tests proceed.
 // Not all panics may be caught and some will still crash the process, though.
 func handlePanic(err *error) {
-    if e := recover(); e != nil {
-        *err = e.(error)
-    }
+	if e := recover(); e != nil {
+		// Add a prefix while wrapping the panic-error
+		*err = fmt.Errorf("panic: %w", e.(error))
+	}
 }
 
 func newJsonReader(cJsonPath *C.char) (*arrjson.Reader, error) {
@@ -88,7 +89,7 @@ func exportSchemaFromJson(cJsonPath *C.char, out *cdata.CArrowSchema) (err error
 	schema := jsonReader.Schema()
 	defer handlePanic(&err)
 	cdata.ExportArrowSchema(schema, out)
-	return nil
+	return err
 }
 
 func importSchemaAndCompareToJson(cJsonPath *C.char, cSchema *cdata.CArrowSchema) (err error) {
@@ -108,7 +109,7 @@ func importSchemaAndCompareToJson(cJsonPath *C.char, cSchema *cdata.CArrowSchema
 			schema.String(),
 			importedSchema.String());
 	}
-	return nil
+	return err
 }
 
 func exportBatchFromJson(cJsonPath *C.char, num_batch int, out *cdata.CArrowArray) (err error) {
@@ -125,7 +126,7 @@ func exportBatchFromJson(cJsonPath *C.char, num_batch int, out *cdata.CArrowArra
 	}
 	defer handlePanic(&err)
 	cdata.ExportArrowRecordBatch(batch, out, nil)
-	return nil
+	return err
 }
 
 func importBatchAndCompareToJson(cJsonPath *C.char, num_batch int, cArray *cdata.CArrowArray) (err error) {
@@ -151,7 +152,7 @@ func importBatchAndCompareToJson(cJsonPath *C.char, num_batch int, cArray *cdata
 			"XXX",
 			"XXX");
 	}
-	return nil
+	return err
 }
 
 //export ArrowGo_ExportSchemaFromJson
