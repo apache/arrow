@@ -1439,6 +1439,8 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
                   [shift](int row) -> int64_t { return row * 10 + shift; }},
                  schema, num_batches, batch_size);
   };
+  // WIP
+  ASSERT_OK(Status::Invalid("FOO"));
   ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
   ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(r0_schema, 1));
   ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
@@ -1529,7 +1531,7 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
-  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/20, /*batch_size=*/1);
+  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/100000, /*batch_size=*/1);
 }
 
 template <typename BatchesMaker>
