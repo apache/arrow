@@ -40,7 +40,9 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
     public:
 
         NumericArray(const std::shared_ptr<arrow::NumericArray<ArrowType>> numeric_array)
-            : arrow::matlab::array::proxy::Array{std::move(numeric_array)} {}
+            : arrow::matlab::array::proxy::Array{std::move(numeric_array)} {
+                REGISTER_METHOD(NumericArray, toMATLAB);
+            }
 
         static libmexclass::proxy::MakeResult make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {            
             using MatlabBuffer = arrow::matlab::buffer::MatlabBuffer;
@@ -67,7 +69,7 @@ class NumericArray : public arrow::matlab::array::proxy::Array {
         }
 
     protected:
-        void toMATLAB(libmexclass::proxy::method::Context& context) override {
+        void toMATLAB(libmexclass::proxy::method::Context& context) {
            using CType = typename arrow::TypeTraits<ArrowType>::CType;
            using NumericArray = arrow::NumericArray<ArrowType>;
 

@@ -21,7 +21,7 @@ function validElements = parseValidElements(data, opts)
 % precedence over InferNulls.
 
     if isfield(opts, "Valid")
-        validElements = parseValid(numel(data), opts.Valid);
+        validElements = arrow.internal.validate.parseValid(opts, numel(data));
     else
         validElements = parseInferNulls(data, opts.InferNulls);
     end
@@ -30,29 +30,6 @@ function validElements = parseValidElements(data, opts)
         % Check if validElements contains only true values. 
         % If so, return an empty logical array.
         validElements = logical.empty(0, 1);
-    end
-end
-
-function validElements = parseValid(numElements, valid)
-    if islogical(valid)
-        validElements = reshape(valid, [], 1);
-        if ~isscalar(validElements)
-            % Verify the logical vector has the correct number of elements
-            validateattributes(validElements, "logical", {'numel', numElements});
-        elseif validElements == false
-            validElements = false(numElements, 1);
-        else % validElements == true
-            % Return an empty logical to represent all elements are valid. 
-            validElements = logical.empty(0, 1);
-        end
-    else
-        % valid is a list of indices. Verify the indices are numeric, 
-        % integers, and within the range 1 < indices < numElements.
-        validateattributes(valid, "numeric", {'integer', '>', 0, '<=', numElements});
-        % Create a logical vector that contains true values at the indices
-        % specified by opts.Valid.
-        validElements = false([numElements 1]);
-        validElements(valid) = true;
     end
 end
 

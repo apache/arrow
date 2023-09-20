@@ -33,14 +33,28 @@ classdef StructType < arrow.type.Type
     end
 
     methods (Hidden)
-        % TODO: Consider using a mixin approach to add this behavior. For
-        % example, ChunkedArray's toMATLAB method could check if its 
-        % Type inherits from a mixin called "Preallocateable" (or something
-        % more descriptive). If so, we can call preallocateMATLABArray
-        % in the toMATLAB method.
-        function preallocateMATLABArray(~)
-            error("arrow:type:UnsupportedFunction", ...
-                "preallocateMATLABArray is not supported for StructType");
-        end
+        function data = preallocateMATLABArray(obj, numElements)
+            import arrow.tabular.internal.*
+
+            fields = obj.Fields;
+            
+            % Construct the VariableNames and VariableDimensionNames
+            fieldNames = [fields.Name];
+            validVariableNames = makeValidVariableNames(fieldNames);
+            validDimensionNames = makeValidDimensionNames(validVariableNames);
+
+            % Recursively call preallocateMATLABArray to handle
+            % preallocation of nested types
+            variableData = cell(1, numel(fields));
+            for ii = 1:numel(fields)
+                type = fields(ii).Type;
+                variableData{ii} = preallocateMATLABArray(type,  numElements);
+            end
+
+            % Return a table with the appropriate schema and dimensions 
+            data = table(variableData{:}, ...
+                VariableNames=validVariableNames, ...
+                DimensionNames=validDimensionNames);
+         end
     end
 end

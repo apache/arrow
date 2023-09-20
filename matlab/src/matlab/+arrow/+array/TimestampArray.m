@@ -16,7 +16,7 @@
 classdef TimestampArray < arrow.array.Array
 % arrow.array.TimestampArray
     
-    properties(Access=private)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = NaT;
     end
 
