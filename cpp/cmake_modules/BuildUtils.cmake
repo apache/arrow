@@ -99,7 +99,7 @@ function(arrow_create_merged_static_lib output_target)
   if(APPLE)
     set(BUNDLE_COMMAND "libtool" "-no_warning_for_no_symbols" "-static" "-o"
                        ${output_lib_path} ${all_library_paths})
-  elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel)$")
+  elseif(CMAKE_CXX_COMPILER_ID MATCHES "^(Clang|GNU|Intel|IntelLLVM)$")
     set(ar_script_path ${CMAKE_BINARY_DIR}/${ARG_NAME}.ar)
 
     file(WRITE ${ar_script_path}.in "CREATE ${output_lib_path}\n")
