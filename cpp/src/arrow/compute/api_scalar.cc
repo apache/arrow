@@ -310,6 +310,7 @@ using ::arrow::internal::checked_cast;
 namespace internal {
 namespace {
 using ::arrow::internal::DataMember;
+using ::arrow::internal::CoercedDataMember;
 static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
     DataMember("check_overflow", &ArithmeticOptions::check_overflow));
 static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
@@ -367,8 +368,8 @@ static auto kRoundToMultipleOptionsType = GetFunctionOptionsType<RoundToMultiple
     DataMember("round_mode", &RoundToMultipleOptions::round_mode));
 static auto kSetLookupOptionsType = GetFunctionOptionsType<SetLookupOptions>(
     DataMember("value_set", &SetLookupOptions::value_set),
-    DataMember("skip_nulls", &SetLookupOptions::skip_nulls),
-    DataMember("null_matching_behavior", &SetLookupOptions::null_matching_behavior));
+    CoercedDataMember("null_matching_behavior", &SetLookupOptions::null_matching_behavior,
+                      &SetLookupOptions::GetNullMatchingBehavior));
 static auto kSliceOptionsType = GetFunctionOptionsType<SliceOptions>(
     DataMember("start", &SliceOptions::start), DataMember("stop", &SliceOptions::stop),
     DataMember("step", &SliceOptions::step));
