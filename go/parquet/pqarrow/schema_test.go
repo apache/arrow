@@ -35,8 +35,14 @@ import (
 
 func TestGetOriginSchemaBase64(t *testing.T) {
 	uuidType := types.NewUUIDType()
-	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
-	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"}, []string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
+	md := arrow.NewMetadata(
+		[]string{"PARQUET:field_id", "PARQUET:repetition"},
+		[]string{"-1", "required"},
+	)
+	extMd := arrow.NewMetadata(
+		[]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id", "PARQUET:repetition"},
+		[]string{uuidType.Serialize(), uuidType.ExtensionName(), "-1", "required"},
+	)
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
@@ -62,10 +68,11 @@ func TestGetOriginSchemaBase64(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			kv := metadata.NewKeyValueMetadata()
-			kv.Append("ARROW:schema", tt.enc.EncodeToString(arrSerializedSc))
+			require.NoError(t, kv.Append("ARROW:schema", tt.enc.EncodeToString(arrSerializedSc)))
 			arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
 			assert.NoError(t, err)
 			assert.True(t, origArrSc.Equal(arrsc))
+			assert.Equal(t, origArrSc.String(), arrsc.String())
 		})
 	}
 }
@@ -76,7 +83,10 @@ func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	md := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	md := arrow.NewMetadata(
+		[]string{"PARQUET:field_id", "PARQUET:repetition"},
+		[]string{"-1", "required"},
+	)
 	origArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
@@ -87,14 +97,16 @@ func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
 
 	arrSerializedSc := flight.SerializeSchema(origArrSc, memory.DefaultAllocator)
 	kv := metadata.NewKeyValueMetadata()
-	kv.Append("ARROW:schema", base64.StdEncoding.EncodeToString(arrSerializedSc))
+	require.NoError(t, kv.Append("ARROW:schema", base64.StdEncoding.EncodeToString(arrSerializedSc)))
 
-	arrow.UnregisterExtensionType(uuidType.ExtensionName())
+	require.NoError(t, arrow.UnregisterExtensionType(uuidType.ExtensionName()))
 	arrsc, err := pqarrow.FromParquet(pqschema, nil, kv)
 	require.NoError(t, err)
 
-	extMd := arrow.NewMetadata([]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id"},
-		[]string{uuidType.Serialize(), uuidType.ExtensionName(), "-1"})
+	extMd := arrow.NewMetadata(
+		[]string{ipc.ExtensionMetadataKeyName, ipc.ExtensionTypeKeyName, "PARQUET:field_id", "PARQUET:repetition"},
+		[]string{uuidType.Serialize(), uuidType.ExtensionName(), "-1", "required"},
+	)
 	expArrSc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.BinaryTypes.String, Metadata: md},
 		{Name: "f2", Type: arrow.PrimitiveTypes.Int64, Metadata: md},
@@ -102,6 +114,69 @@ func TestGetOriginSchemaUnregisteredExtension(t *testing.T) {
 	}, nil)
 
 	assert.Truef(t, expArrSc.Equal(arrsc), "expected: %s\ngot: %s", expArrSc, arrsc)
+}
+
+func TestRoundTripSchema(t *testing.T) {
+	fields := schema.FieldList{
+		schema.NewBooleanNode("optional_bool", parquet.Repetitions.Optional, -1),
+		schema.NewBooleanNode("required_bool", parquet.Repetitions.Required, -1),
+		schema.NewBooleanNode("repeated_bool", parquet.Repetitions.Repeated, -1),
+		schema.NewFloat64Node("optional_float64", parquet.Repetitions.Optional, -1),
+		schema.NewFloat64Node("required_float64", parquet.Repetitions.Required, -1),
+		schema.NewFloat64Node("repeated_float64", parquet.Repetitions.Repeated, -1),
+		schema.Must(
+			schema.NewPrimitiveNodeLogical("optional_int32", parquet.Repetitions.Optional, schema.NewIntLogicalType(32, true), parquet.Types.Int32, -1, -1),
+		),
+		schema.Must(
+			schema.NewPrimitiveNodeLogical("required_int32", parquet.Repetitions.Required, schema.NewIntLogicalType(32, true), parquet.Types.Int32, -1, -1),
+		),
+		schema.Must(
+			schema.NewPrimitiveNodeLogical("repeated_int32", parquet.Repetitions.Repeated, schema.NewIntLogicalType(32, true), parquet.Types.Int32, -1, -1),
+		),
+		schema.Must(
+			schema.NewPrimitiveNodeLogical("optional_string", parquet.Repetitions.Optional, schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1),
+		),
+		schema.Must(
+			schema.NewPrimitiveNodeLogical("required_string", parquet.Repetitions.Required, schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1),
+		),
+		schema.Must(
+			schema.NewPrimitiveNodeLogical("repeated_string", parquet.Repetitions.Repeated, schema.StringLogicalType{}, parquet.Types.ByteArray, -1, -1),
+		),
+		schema.Must(
+			schema.NewGroupNode("optional_group", parquet.Repetitions.Optional, schema.FieldList{
+				schema.NewBooleanNode("required_bool", parquet.Repetitions.Required, -1),
+				schema.NewFloat64Node("required_float64", parquet.Repetitions.Required, -1),
+			}, -1),
+		),
+		schema.Must(
+			schema.NewGroupNode("required_group", parquet.Repetitions.Required, schema.FieldList{
+				schema.NewBooleanNode("required_bool", parquet.Repetitions.Required, -1),
+				schema.NewFloat64Node("required_float64", parquet.Repetitions.Required, -1),
+			}, -1),
+		),
+		schema.Must(
+			schema.NewGroupNode("repeated_group", parquet.Repetitions.Repeated, schema.FieldList{
+				schema.NewBooleanNode("required_bool", parquet.Repetitions.Required, -1),
+				schema.NewFloat64Node("required_float64", parquet.Repetitions.Required, -1),
+			}, -1),
+		),
+	}
+	root, err := schema.NewGroupNode("root", parquet.Repetitions.Required, fields, -1)
+	require.NoError(t, err)
+	parquetSchema1 := schema.NewSchema(root)
+
+	arrowSchema, err := pqarrow.FromParquet(parquetSchema1, nil, nil)
+	require.NoError(t, err)
+
+	writerProps := parquet.NewWriterProperties(
+		parquet.WithRootName("root"),
+		parquet.WithRootRepetition(parquet.Repetitions.Required),
+	)
+	parquetSchema2, err := pqarrow.ToParquet(arrowSchema, writerProps, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+
+	assert.True(t, parquetSchema1.Equals(parquetSchema2))
+	assert.Equal(t, parquetSchema1.String(), parquetSchema2.String())
 }
 
 func TestToParquetWriterConfig(t *testing.T) {
@@ -367,7 +442,7 @@ func TestListStructBackwardCompatible(t *testing.T) {
 	//       }
 	//     }
 	//
-	// Instaed of the proper 3-level encoding which would be:
+	// Instead of the proper 3-level encoding which would be:
 	//
 	//     repeated group field_id=-1 schema {
 	//       optional group field_id=-1 answers (List) {
@@ -394,7 +469,10 @@ func TestListStructBackwardCompatible(t *testing.T) {
 		}, schema.NewListLogicalType(), -1)),
 	}, -1)))
 
-	meta := arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})
+	meta := arrow.NewMetadata(
+		[]string{"PARQUET:field_id", "PARQUET:repetition"},
+		[]string{"-1", "optional"},
+	)
 	// desired equivalent arrow schema would be list<item: struct<type: utf8, rdata: utf8, class: utf8>>
 	arrowSchema := arrow.NewSchema(
 		[]arrow.Field{

@@ -48,8 +48,16 @@ import (
 )
 
 func makeSimpleTable(values *arrow.Chunked, nullable bool) arrow.Table {
-	sc := arrow.NewSchema([]arrow.Field{{Name: "col", Type: values.DataType(), Nullable: nullable,
-		Metadata: arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{"-1"})}}, nil)
+	repetition := parquet.Repetitions.Required
+	if nullable {
+		repetition = parquet.Repetitions.Optional
+	}
+	metadata := arrow.NewMetadata(
+		[]string{"PARQUET:field_id", "PARQUET:repetition"},
+		[]string{"-1", repetition.String()},
+	)
+
+	sc := arrow.NewSchema([]arrow.Field{{Name: "col", Type: values.DataType(), Nullable: nullable, Metadata: metadata}}, nil)
 	column := arrow.NewColumn(sc.Field(0), values)
 	defer column.Release()
 	return array.NewTable(sc, []arrow.Column{*column}, -1)
@@ -78,7 +86,10 @@ func makeDateTimeTypesTable(mem memory.Allocator, expected bool, addFieldMeta bo
 
 	if addFieldMeta {
 		for idx := range fieldList {
-			fieldList[idx].Metadata = arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{strconv.Itoa(idx + 1)})
+			fieldList[idx].Metadata = arrow.NewMetadata(
+				[]string{"PARQUET:field_id", "PARQUET:repetition"},
+				[]string{strconv.Itoa(idx + 1), "optional"},
+			)
 		}
 	}
 	arrsc := arrow.NewSchema(fieldList, nil)
@@ -1941,6 +1952,7 @@ func (ps *ParquetIOTestSuite) TestArrowUnknownExtensionTypeRoundTrip() {
 		ipc.ExtensionTypeKeyName:     "uuid",
 		ipc.ExtensionMetadataKeyName: "uuid-serialized",
 		"PARQUET:field_id":           "-1",
+		"PARQUET:repetition":         "optional",
 	})
 	ps.Truef(expectedMd.Equal(tbl.Column(0).Field().Metadata), "expected: %v\ngot: %v", expectedMd, tbl.Column(0).Field().Metadata)
 }

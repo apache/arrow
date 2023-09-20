@@ -359,6 +359,25 @@ func fieldToNode(name string, field arrow.Field, props *parquet.WriterProperties
 			return nil, err
 		}
 
+		if fieldRepetitionFromMeta(field.Metadata) == parquet.Repetitions.Repeated {
+			if primitive, ok := child.(*schema.PrimitiveNode); ok {
+				repType = parquet.Repetitions.Repeated
+				logicalType = primitive.LogicalType()
+				typ = primitive.PhysicalType()
+				length = primitive.TypeLength()
+				break
+			}
+			if group, ok := child.(*schema.GroupNode); ok {
+				repType = parquet.Repetitions.Repeated
+				numFields := group.NumFields()
+				fields := make(schema.FieldList, numFields)
+				for i := 0; i < numFields; i += 1 {
+					fields[i] = group.Field(i)
+				}
+				return schema.NewGroupNode(name, repType, fields, -1)
+			}
+		}
+
 		return schema.ListOf(child, repFromNullable(field.Nullable), -1)
 	case arrow.DICTIONARY:
 		// parquet has no dictionary type, dictionary is encoding, not schema level
@@ -427,6 +446,30 @@ func fieldIDFromMeta(m arrow.Metadata) int32 {
 	}
 
 	return int32(id)
+}
+
+const fieldRepetitionKey = "PARQUET:repetition"
+
+var repetitionLookup = map[string]parquet.Repetition{
+	parquet.Repetitions.Optional.String(): parquet.Repetitions.Optional,
+	parquet.Repetitions.Required.String(): parquet.Repetitions.Required,
+	parquet.Repetitions.Repeated.String(): parquet.Repetitions.Repeated,
+}
+
+func fieldRepetitionFromMeta(m arrow.Metadata) parquet.Repetition {
+	if m.Len() == 0 {
+		return parquet.Repetitions.Undefined
+	}
+
+	key := m.FindKey(fieldRepetitionKey)
+	if key < 0 {
+		return parquet.Repetitions.Undefined
+	}
+
+	if repetition, ok := repetitionLookup[m.Values()[key]]; ok {
+		return repetition
+	}
+	return parquet.Repetitions.Undefined
 }
 
 // ToParquet generates a Parquet Schema from an arrow Schema using the given properties to make
@@ -712,13 +755,13 @@ func listToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *s
 			arrowType = &arrow.DictionaryType{IndexType: arrow.PrimitiveTypes.Int32, ValueType: arrowType}
 		}
 
-		itemField := arrow.Field{Name: listNode.Name(), Type: arrowType, Nullable: false, Metadata: createFieldMeta(int(listNode.FieldID()))}
+		itemField := arrow.Field{Name: listNode.Name(), Type: arrowType, Nullable: false, Metadata: createFieldMeta(listNode)}
 		populateLeaf(colIndex, &itemField, currentLevels, ctx, out, &out.Children[0])
 	}
 
 	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.ListOfField(
 		arrow.Field{Name: listNode.Name(), Type: out.Children[0].Field.Type, Nullable: true}),
-		Nullable: n.RepetitionType() == parquet.Repetitions.Optional, Metadata: createFieldMeta(int(n.FieldID()))}
+		Nullable: n.RepetitionType() == parquet.Repetitions.Optional, Metadata: createFieldMeta(n)}
 
 	out.LevelInfo = currentLevels
 	// At this point current levels contains the def level for this list,
@@ -739,7 +782,7 @@ func groupToStructField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *
 	}
 
 	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.StructOf(arrowFields...),
-		Nullable: n.RepetitionType() == parquet.Repetitions.Optional, Metadata: createFieldMeta(int(n.FieldID()))}
+		Nullable: n.RepetitionType() == parquet.Repetitions.Optional, Metadata: createFieldMeta(n)}
 	out.LevelInfo = currentLevels
 	return nil
 }
@@ -809,12 +852,12 @@ func mapToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *sc
 	}
 
 	kvfield.Field = &arrow.Field{Name: n.Name(), Type: arrow.StructOf(*keyField.Field, *valueField.Field),
-		Nullable: false, Metadata: createFieldMeta(int(kvgroup.FieldID()))}
+		Nullable: false, Metadata: createFieldMeta(kvgroup)}
 
 	kvfield.LevelInfo = currentLevels
 	out.Field = &arrow.Field{Name: n.Name(), Type: arrow.MapOf(keyField.Field.Type, valueField.Field.Type),
 		Nullable: n.RepetitionType() == parquet.Repetitions.Optional,
-		Metadata: createFieldMeta(int(n.FieldID()))}
+		Metadata: createFieldMeta(n)}
 	out.LevelInfo = currentLevels
 	// At this point current levels contains the def level for this map,
 	// we need to reset to the prior parent.
@@ -843,7 +886,7 @@ func groupToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *
 		}
 
 		out.Field = &arrow.Field{Name: n.Name(), Type: arrow.ListOf(out.Children[0].Field.Type), Nullable: false,
-			Metadata: createFieldMeta(int(n.FieldID()))}
+			Metadata: createFieldMeta(n)}
 		ctx.LinkParent(&out.Children[0], out)
 		out.LevelInfo = currentLevels
 		out.LevelInfo.RepeatedAncestorDefLevel = repeatedAncestorDef
@@ -854,8 +897,11 @@ func groupToSchemaField(n *schema.GroupNode, currentLevels file.LevelInfo, ctx *
 	return groupToStructField(n, currentLevels, ctx, parent, out)
 }
 
-func createFieldMeta(fieldID int) arrow.Metadata {
-	return arrow.NewMetadata([]string{"PARQUET:field_id"}, []string{strconv.Itoa(fieldID)})
+func createFieldMeta(node schema.Node) arrow.Metadata {
+	return arrow.NewMetadata(
+		[]string{fieldIDKey, fieldRepetitionKey},
+		[]string{strconv.Itoa(int(node.FieldID())), node.RepetitionType().String()},
+	)
 }
 
 func nodeToSchemaField(n schema.Node, currentLevels file.LevelInfo, ctx *schemaTree, parent, out *SchemaField) error {
@@ -893,7 +939,7 @@ func nodeToSchemaField(n schema.Node, currentLevels file.LevelInfo, ctx *schemaT
 		child := arrow.Field{Name: primitive.Name(), Type: arrowType, Nullable: false}
 		populateLeaf(colIndex, &child, currentLevels, ctx, out, &out.Children[0])
 		out.Field = &arrow.Field{Name: primitive.Name(), Type: arrow.ListOf(child.Type), Nullable: false,
-			Metadata: createFieldMeta(int(primitive.FieldID()))}
+			Metadata: createFieldMeta(primitive)}
 		out.LevelInfo = currentLevels
 		out.LevelInfo.RepeatedAncestorDefLevel = repeatedAncestorDefLevel
 		return nil
@@ -902,7 +948,7 @@ func nodeToSchemaField(n schema.Node, currentLevels file.LevelInfo, ctx *schemaT
 	currentLevels.Increment(n)
 	populateLeaf(colIndex, &arrow.Field{Name: n.Name(), Type: arrowType,
 		Nullable: n.RepetitionType() == parquet.Repetitions.Optional,
-		Metadata: createFieldMeta(int(n.FieldID()))},
+		Metadata: createFieldMeta(n)},
 		currentLevels, ctx, parent, out)
 	return nil
 }
