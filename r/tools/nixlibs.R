@@ -159,18 +159,18 @@ select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
                           test_program = test_for_curl_and_openssl) {
   if (identical(os, "darwin") || (identical(os, "linux") && identical(arch, "x86_64"))) {
     # We only host x86 linux binaries and x86 & arm64 macos today
-    tryCatch(
+    binary <- tryCatch(
       # Somehow the test program system2 call errors on the sanitizer builds
       # so globally handle the possibility that this could fail
       {
         errs <- compile_test_program(test_program)
         openssl_version <- determine_binary_from_stderr(errs)
         arch <- ifelse(identical(os, "darwin"), paste0("-", arch, "-"), "-")
-        binary <- paste0(os, arch, openssl_version)
+        ifelse(is.null(openssl_version), NULL, paste0(os, arch, openssl_version))
       },
       error = function(e) {
         cat("*** Unable to find libcurl and openssl\n")
-        binary <- NULL
+        NULL
       }
     )
   } else {

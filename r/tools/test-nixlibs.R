@@ -135,6 +135,12 @@ test_that("select_binary() with test program", {
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
+  expect_output(
+    expect_null(
+      select_binary("darwin", "x86_64", "#error Using OpenSSL version 1.0")
+    ),
+    "OpenSSL 1.0 is not supported on macOS"
+  )
 })
 
 test_that("check_allowlist", {
