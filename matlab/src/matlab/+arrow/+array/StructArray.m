@@ -78,9 +78,13 @@ classdef StructArray < arrow.array.Array
                 arrowArray = obj.field(ii);
                 matlabArray = toMATLAB(arrowArray);
                 if numInvalid ~= 0
-                    % MATLAB tables do not have "null"-values themselves,
-                    % so we represent the Struct Array's null values by
-                    % setting each variable to its type-specifc "null" value.
+                    % MATLAB tables do not support null values themselves. 
+                    % So, to encode the StructArray's null values, we 
+                    % iterate over each  variable in the resulting MATLAB
+                    % table, and for each variable, we set the value of all
+                    % null elements to the "NullSubstitutionValue" that
+                    % corresponds to the variable's type (e.g. NaN for
+                    % double, NaT for datetime, etc.).
                     matlabArray(invalid, :) = repmat(arrowArray.NullSubstitutionValue, [numInvalid 1]);
                 end
                 matlabArrays{ii} = matlabArray;
@@ -96,12 +100,10 @@ classdef StructArray < arrow.array.Array
         end
 
         function nullSubVal = get.NullSubstitutionValue(obj)
-            % MATLAB tables do not support null values themselves. So, to
-            % encode the StructArray's null values, we iterate over each 
-            % variable in the resulting MATLAB table, and for each
-            % variable, we set the value of all null elements to the
-            % "NullSubstitutionValue" that corresponds to the variable's
-            % type (e.g. NaN for double, NaT for datetime, etc.).
+            % Return a cell array containing each field's type-specifc
+            % "null" value. For example, NaN is the type-specific null
+            % value for Float64Arrays and Float64Arrays
+
             numFields = obj.NumFields;
             nullSubVal = cell(1, numFields);
             for ii = 1:obj.NumFields
