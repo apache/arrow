@@ -21,12 +21,9 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
         Proxy
     end
 
-    properties (Dependent)
+    properties(Dependent, SetAccess=private, GetAccess=public)
         Length
         Valid % Validity bitmap
-    end
-
-    properties(Dependent, SetAccess=private, GetAccess=public)
         Type(1, 1) arrow.type.Type
     end
     

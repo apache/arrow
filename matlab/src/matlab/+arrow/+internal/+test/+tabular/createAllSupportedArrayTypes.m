@@ -23,6 +23,10 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
         opts.NumRows(1, 1) {mustBeFinite, mustBeNonnegative} = 3;  
     end
 
+    % Seed the random number generator to ensure
+    % reproducible results in tests.
+    rng(1);
+
     import arrow.type.ID
     import arrow.array.*
 
@@ -59,6 +63,13 @@ function [arrowArrays, matlabData] = createAllSupportedArrayTypes(opts)
             matlabData{ii} = randomDatetimes(opts.NumRows);
             cmd = compose("%s.fromMATLAB(matlabData{ii})", name);
             arrowArrays{ii} = eval(cmd);
+        elseif name == "arrow.array.StructArray"
+            dates = randomDatetimes(opts.NumRows);
+            strings = randomStrings(opts.NumRows);
+            timestampArray = arrow.array(dates);
+            stringArray = arrow.array(strings);
+            arrowArrays{ii} = StructArray.fromArrays(timestampArray, stringArray);
+            matlabData{ii} = table(dates, strings, VariableNames=["Field1", "Field2"]);
         else
             error("arrow:test:SupportedArrayCase", ...
                 "Missing if-branch for array class " + name); 

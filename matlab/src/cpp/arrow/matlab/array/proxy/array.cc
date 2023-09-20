@@ -31,7 +31,6 @@ namespace arrow::matlab::array::proxy {
 
         // Register Proxy methods.
         REGISTER_METHOD(Array, toString);
-        REGISTER_METHOD(Array, toMATLAB);
         REGISTER_METHOD(Array, getLength);
         REGISTER_METHOD(Array, getValid);
         REGISTER_METHOD(Array, getType);

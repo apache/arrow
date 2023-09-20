@@ -16,8 +16,8 @@
 classdef BooleanArray < arrow.array.Array
 % arrow.array.BooleanArray
 
-    properties (Hidden, SetAccess=private)
-        NullSubstitionValue = false;
+    properties (Hidden, GetAccess=public, SetAccess=private)
+        NullSubstitutionValue = false;
     end
 
     methods
@@ -35,7 +35,7 @@ classdef BooleanArray < arrow.array.Array
 
         function matlabArray = toMATLAB(obj)
             matlabArray = obj.Proxy.toMATLAB();
-            matlabArray(~obj.Valid) = obj.NullSubstitionValue;
+            matlabArray(~obj.Valid) = obj.NullSubstitutionValue;
         end
     end
 
