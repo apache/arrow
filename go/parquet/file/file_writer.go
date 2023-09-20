@@ -30,32 +30,35 @@ import (
 
 // Writer is the primary interface for writing a parquet file
 type Writer struct {
-	sink                    utils.WriteCloserTell
-	open                    bool
-	props                   *parquet.WriterProperties
-	rowGroups               int
-	nrows                   int
-	metadata                metadata.FileMetaDataBuilder
-	fileEncryptor           encryption.FileEncryptor
-	rowGroupWriter          *rowGroupWriter
-	initialKeyValueMetadata metadata.KeyValueMetadata
+	sink           utils.WriteCloserTell
+	open           bool
+	props          *parquet.WriterProperties
+	rowGroups      int
+	nrows          int
+	metadata       metadata.FileMetaDataBuilder
+	fileEncryptor  encryption.FileEncryptor
+	rowGroupWriter *rowGroupWriter
 
 	// The Schema of this writer
 	Schema *schema.Schema
-	// The current keyvalue metadata
 }
 
-type WriteOption func(*Writer)
+type writerConfig struct {
+	props            *parquet.WriterProperties
+	keyValueMetadata metadata.KeyValueMetadata
+}
+
+type WriteOption func(*writerConfig)
 
 func WithWriterProps(props *parquet.WriterProperties) WriteOption {
-	return func(w *Writer) {
-		w.props = props
+	return func(c *writerConfig) {
+		c.props = props
 	}
 }
 
 func WithWriteMetadata(meta metadata.KeyValueMetadata) WriteOption {
-	return func(w *Writer) {
-		w.initialKeyValueMetadata = meta
+	return func(c *writerConfig) {
+		c.keyValueMetadata = meta
 	}
 }
 
@@ -64,19 +67,23 @@ func WithWriteMetadata(meta metadata.KeyValueMetadata) WriteOption {
 // If props is nil, then the default Writer Properties will be used. If the key value metadata is not nil,
 // it will be added to the file.
 func NewParquetWriter(w io.Writer, sc *schema.GroupNode, opts ...WriteOption) *Writer {
+	config := &writerConfig{}
+	for _, o := range opts {
+		o(config)
+	}
+	if config.props == nil {
+		config.props = parquet.NewWriterProperties()
+	}
+
 	fileSchema := schema.NewSchema(sc)
 	fw := &Writer{
+		props:  config.props,
 		sink:   &utils.TellWrapper{Writer: w},
 		open:   true,
 		Schema: fileSchema,
 	}
-	for _, o := range opts {
-		o(fw)
-	}
-	if fw.props == nil {
-		fw.props = parquet.NewWriterProperties()
-	}
-	fw.metadata = *metadata.NewFileMetadataBuilder(fw.Schema, fw.props, fw.initialKeyValueMetadata)
+
+	fw.metadata = *metadata.NewFileMetadataBuilder(fw.Schema, fw.props, config.keyValueMetadata)
 	fw.startFile()
 	return fw
 }
