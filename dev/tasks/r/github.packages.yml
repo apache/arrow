@@ -229,6 +229,9 @@ jobs:
         with:
            working-directory: 'arrow'
            extra-packages: cpp11
+      - name: Install openssl
+        if: contains(matrix.platform.runs_on, 'self-hosted')
+        run: brew install openssl@3
       - name: Build Binary
         id: build
         shell: Rscript {0}
