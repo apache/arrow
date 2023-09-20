@@ -32,6 +32,7 @@ namespace arrow::matlab::array::proxy {
             REGISTER_METHOD(StructArray, getNumFields);
             REGISTER_METHOD(StructArray, getFieldByIndex);
             REGISTER_METHOD(StructArray, getFieldByName);
+            REGISTER_METHOD(StructArray, getFieldNames);
         }
 
     libmexclass::proxy::MakeResult StructArray::make(const libmexclass::proxy::FunctionArguments& constructor_arguments) {
@@ -170,5 +171,29 @@ namespace arrow::matlab::array::proxy {
         output[0]["ProxyID"] = factory.createScalar(field_array_proxy_id);
         output[0]["TypeID"] = factory.createScalar(static_cast<int32_t>(type_id));
         context.outputs[0] = output;
+    }
+
+    void StructArray::getFieldNames(libmexclass::proxy::method::Context& context) {
+        namespace mda = ::matlab::data;
+
+        const auto& fields = array->type()->fields();
+        const auto num_fields = fields.size();
+        std::vector<mda::MATLABString> names;
+        names.reserve(num_fields);
+       
+        for (size_t i = 0; i < num_fields; ++i) {
+            auto str_utf8 = fields[i]->name();
+
+            // MATLAB strings are UTF-16 encoded. Must convert UTF-8
+            // encoded field names before returning to MATLAB.
+            MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto str_utf16,
+                                                arrow::util::UTF8StringToUTF16(str_utf8),
+                                                context, error::UNICODE_CONVERSION_ERROR_ID);
+            const mda::MATLABString matlab_string = mda::MATLABString(std::move(str_utf16));
+            names.push_back(matlab_string);
+        }
+
+        mda::ArrayFactory factory;
+        context.outputs[0] =  factory.createArray({1, num_fields}, names.begin(), names.end());
     }
 }

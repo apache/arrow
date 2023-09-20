@@ -19,6 +19,7 @@ classdef StructArray < arrow.array.Array
 
     properties (Dependent, GetAccess=public, SetAccess=private)
         NumFields
+        FieldNames
     end
 
     properties (Hidden, Dependent, GetAccess=public, SetAccess=private)
@@ -36,6 +37,10 @@ classdef StructArray < arrow.array.Array
 
         function numFields = get.NumFields(obj)
             numFields = obj.Proxy.getNumFields();
+        end
+
+        function fieldNames = get.FieldNames(obj)
+            fieldNames = obj.Proxy.getFieldNames();
         end
 
         function F = field(obj, idx)

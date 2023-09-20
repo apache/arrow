@@ -37,6 +37,8 @@ class StructArray : public arrow::matlab::array::proxy::Array {
 
         void getFieldByName(libmexclass::proxy::method::Context& context);
 
+        void getFieldNames(libmexclass::proxy::method::Context& context);
+
 };
 
 }
