@@ -16,7 +16,7 @@
 classdef UInt64Array < arrow.array.NumericArray
 % arrow.array.UInt64Array
 
-    properties (Access=protected)
+    properties (Hidden, GetAccess=public, SetAccess=private)
         NullSubstitutionValue = uint64(0)
     end
 
