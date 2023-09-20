@@ -79,7 +79,7 @@ func TestConcatenate(t *testing.T) {
 		{arrow.ListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.LargeListOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.ListViewOf(arrow.PrimitiveTypes.Int8)},
-		// {arrow.LargeListViewOf(arrow.PrimitiveTypes.Int8)},
+		{arrow.LargeListViewOf(arrow.PrimitiveTypes.Int8)},
 		{arrow.FixedSizeListOf(3, arrow.PrimitiveTypes.Int8)},
 		{arrow.StructOf()},
 		{arrow.MapOf(arrow.PrimitiveTypes.Uint16, arrow.PrimitiveTypes.Int8)},
@@ -208,8 +208,10 @@ func (cts *ConcatTestSuite) generateArr(size int64, nullprob float64) arrow.Arra
 		cts.NoError(err)
 		return arr
 	case arrow.LARGE_LIST_VIEW:
-		// XXX
-		return nil
+		arr := cts.rng.LargeListView(cts.dt.(arrow.VarLenListLikeType), size, 0, 20, nullprob)
+		err := arr.ValidateFull()
+		cts.NoError(err)
+		return arr
 	case arrow.FIXED_SIZE_LIST:
 		const listsize = 3
 		valuesSize := size * listsize
