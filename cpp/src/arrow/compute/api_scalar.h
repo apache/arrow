@@ -270,7 +270,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
  public:
   /// How to handle null values.
   enum NullMatchingBehavior {
-    /// Match, any null in `value_set` is successfully matched in
+    /// MATCH, any null in `value_set` is successfully matched in
     /// the input.
     MATCH,
     /// SKIP, any null in `value_set` is ignored and nulls in the input
@@ -279,7 +279,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
     /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
     /// input produce null (IndexIn and IsIn) values in the output.
     EMIT_NULL,
-    /// INCONCLUSIVE, null values are regard as unknown values, which is
+    /// INCONCLUSIVE, null values are regarded as unknown values, which is
     /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
     /// values in the output. Besides, if `value_set` contains a null,
     /// non-null unmatched values in the input also produce null values
@@ -290,7 +290,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   explicit SetLookupOptions(Datum value_set, NullMatchingBehavior = MATCH);
   SetLookupOptions();
 
-  ARROW_DEPRECATED("Deprecated in 14.0.0. Will be removed after removing of skip_nulls")
+  // DEPRECATED(will be removed after removing of skip_nulls)
   explicit SetLookupOptions(Datum value_set, bool skip_nulls);
 
   static constexpr char const kTypeName[] = "SetLookupOptions";
@@ -300,7 +300,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
 
   NullMatchingBehavior null_matching_behavior;
 
-  ARROW_DEPRECATED("Deprecated in 14.0.0. Will be removed after removing of skip_nulls")
+  // DEPRECATED(will be removed after removing of skip_nulls)
   NullMatchingBehavior GetNullMatchingBehavior() const;
 
   // DEPRECATED(use null_matching_behavior instead)
