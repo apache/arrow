@@ -132,12 +132,10 @@ within method ``Scanner::schema()``:
 
 .. _java-dataset-projection:
 
-Projection
-==========
+Projection (Subset of Columns)
+==============================
 
-User can specify projections in ScanOptions. For ``FileSystemDataset``, only
-column projection is allowed for now, which means, only column names
-in the projection list will be accepted. For example:
+User can specify projections in ScanOptions. For example:
 
 .. code-block:: Java
 
@@ -158,6 +156,27 @@ Or use shortcut construtor:
     ScanOptions options = new ScanOptions(32768);
 
 Then all columns will be emitted during scanning.
+
+Projection (Produce New Columns) and Filters
+============================================
+
+User can specify projections (new columns) or filters in ScanOptions using Substrait. For example:
+
+.. code-block:: Java
+
+   ByteBuffer substraitExpressionFilter = getSubstraitExpressionFilter();
+   ByteBuffer substraitExpressionProject = getSubstraitExpressionProjection();
+   // Use Substrait APIs to create an Expression and serialize to a ByteBuffer
+   ScanOptions options = new ScanOptions.Builder(/*batchSize*/ 32768)
+                .columns(Optional.empty())
+                .substraitExpressionFilter(substraitExpressionFilter)
+                .substraitExpressionProjection(getSubstraitExpressionProjection())
+                .build();
+
+.. seealso::
+
+   :doc:`Executing Projections and Filters Using Extended Expressions <substrait>`
+        Projections and Filters using Substrait.
 
 Read Data from HDFS
 ===================
