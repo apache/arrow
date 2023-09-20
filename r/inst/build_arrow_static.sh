@@ -55,6 +55,13 @@ else
   ARROW_DEFAULT_PARAM="OFF"
 fi
 
+# Disable mimalloc on IntelLLVM because the bundled version (2.0.x) does not support it
+case "$CXX" in
+  *icpx*)
+    ARROW_MIMALLOC="OFF"
+    ;;
+esac
+
 mkdir -p "${BUILD_DIR}"
 pushd "${BUILD_DIR}"
 ${CMAKE} -DARROW_BOOST_USE_SHARED=OFF \
