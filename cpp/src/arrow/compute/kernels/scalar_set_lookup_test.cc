@@ -939,6 +939,10 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
 
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/false);
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::SKIP);
   expected = ChunkedArrayFromJSON(
       boolean(), {"[true, true, true, true, false]", "[true, null, true, false]"});
   CheckIsInChunked(input, value_set, expected,
@@ -952,9 +956,13 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, true, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/false);
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::MATCH);
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, false, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::SKIP);
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, null, false, false]"});
   CheckIsInChunked(input, value_set, expected,
@@ -970,9 +978,13 @@ TEST_F(TestIsInKernel, ChunkedArrayInvoke) {
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, true, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/false);
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::MATCH);
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, false, false, false]"});
   CheckIsInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  CheckIsInChunked(input, value_set, expected,
+                   /*null_matching_behavior=*/SetLookupOptions::SKIP);
   expected = ChunkedArrayFromJSON(
       boolean(), {"[false, true, true, false, false]", "[true, null, false, false]"});
   CheckIsInChunked(input, value_set, expected,
