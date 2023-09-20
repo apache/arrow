@@ -28,6 +28,8 @@ if (test_mode && is.na(VERSION)) {
 }
 
 dev_version <- package_version(VERSION)[1, 4]
+on_macos <- tolower(Sys.info()[["sysname"]]) == "darwin"
+
 
 # Small dev versions are added for R-only changes during CRAN submission.
 if (is.na(dev_version) || dev_version < "100") {
@@ -114,6 +116,10 @@ download_binary <- function(lib) {
 #    * "linux-openssl-1.0" (OpenSSL 1.0)
 #    * "linux-openssl-1.1" (OpenSSL 1.1)
 #    * "linux-openssl-3.0" (OpenSSL 3.0)
+#    * "macos-amd64-openssl-1.1" (OpenSSL 1.1)
+#    * "macos-amd64-openssl-3.0" (OpenSSL 3.0)
+#    * "macos-arm64-openssl-1.1" (OpenSSL 1.1)
+#    * "macos-arm64-openssl-3.0" (OpenSSL 3.0)
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
 identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()) {
@@ -142,7 +148,7 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
     # Try a remote allowlist so that we can add/remove without a release
     suppressWarnings(readLines(allowed)),
     # Fallback to default: allowed only on Ubuntu and CentOS/RHEL
-    error = function(e) c("ubuntu", "centos", "redhat", "rhel")
+    error = function(e) c("ubuntu", "centos", "redhat", "rhel", "darwin")
   )
   # allowlist should contain valid regular expressions (plain strings ok too)
   any(grepl(paste(allowlist, collapse = "|"), os))
@@ -151,25 +157,28 @@ check_allowlist <- function(os, allowed = "https://raw.githubusercontent.com/apa
 select_binary <- function(os = tolower(Sys.info()[["sysname"]]),
                           arch = tolower(Sys.info()[["machine"]]),
                           test_program = test_for_curl_and_openssl) {
-  if (identical(os, "linux") && identical(arch, "x86_64")) {
-    # We only host x86 linux binaries today
+  if (identical(os, "darwin") || (identical(os, "linux") && identical(arch, "x86_64"))) {
+    # We only host x86 linux binaries and x86 & arm64 macos today
     tryCatch(
       # Somehow the test program system2 call errors on the sanitizer builds
       # so globally handle the possibility that this could fail
       {
         errs <- compile_test_program(test_program)
-        determine_binary_from_stderr(errs)
+        openssl_version <- determine_binary_from_stderr(errs)
+        arch <- ifelse(identical(os, "darwin"), paste0("-", arch, "-"), "-")
+        binary <- paste0(os, arch, openssl_version)
       },
       error = function(e) {
         cat("*** Unable to find libcurl and openssl\n")
-        NULL
+        binary <- NULL
       }
     )
   } else {
     # No binary available for arch
     cat(sprintf("*** Building on %s %s\n", os, arch))
-    NULL
+    binary <- NULL
   }
+  return(binary)
 }
 
 # This tests that curl and OpenSSL are present (bc we can include their headers)
@@ -197,27 +206,47 @@ compile_test_program <- function(code) {
   # Note: if we wanted to check for openssl on macOS, we'd have to set the brew
   # path as a -I directory. But since we (currently) only run this code to
   # determine whether we can download a Linux binary, it's not relevant.
+  openssl_dir <- ""
+  if(on_macos) {
+    openssl_root_dir <- get_macos_openssl_dir()
+    openssl_dir <- paste0("-I", openssl_root_dir, "/include")
+  }
   runner <- paste(
     R_CMD_config("CXX17"),
     R_CMD_config("CPPFLAGS"),
     R_CMD_config("CXX17FLAGS"),
     R_CMD_config("CXX17STD"),
     "-E",
-    "-xc++"
+    "-xc++",
+    openssl_dir
   )
   suppressWarnings(system2("echo", sprintf('"%s" | %s -', code, runner), stdout = FALSE, stderr = TRUE))
 }
 
+get_macos_openssl_dir <- function(){
+  openssl_root_dir <- Sys.getenv("OPENSSL_ROOT_DIR", NA)
+  if (is.na(openssl_root_dir)) {
+    # try to guess default openssl include dir based on CRAN's build script
+    # https://github.com/R-macos/recipes/blob/master/build.sh#L35
+    if(identical(Sys.info()["machine"], "arm64")){
+          openssl_root_dir <- "/opt/R/arm64/include"
+    } else if (file.exists("/opt/R/x86_64")) {
+      openssl_root_dir <- "/opt/R/x86_64/include"
+    } else {
+      openssl_root_dir <- "/usr/local/include"
+    }
+  }
+}
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility,# like manylinux2014)
 determine_binary_from_stderr <- function(errs) {
   if (is.null(attr(errs, "status"))) {
     # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
     # openssl is < 3.0
     cat("*** Found libcurl and OpenSSL >= 1.1\n")
-    return("linux-openssl-1.1")
+    return("openssl-1.1")
     # Else, check for dealbreakers:
-  } else if (any(grepl("Using libc++", errs, fixed = TRUE))) {
-    # Our binaries are all built with GNU stdlib so they fail with libc++
+  } else if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
+    # Our linux binaries are all built with GNU stdlib so they fail with libc++
     cat("*** Found libc++\n")
     return(NULL)
   } else if (header_not_found("curl/curl", errs)) {
@@ -231,11 +260,15 @@ determine_binary_from_stderr <- function(errs) {
     return(NULL)
     # Else, determine which other binary will work
   } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
+    if(on_macos) {
+      cat("*** OpenSSL 1.0 is not supported on macOS\n")
+      return(NULL)
+    }
     cat("*** Found libcurl and OpenSSL < 1.1\n")
-    return("linux-openssl-1.0")
+    return("openssl-1.0")
   } else if (any(grepl("Using OpenSSL version 3", errs))) {
     cat("*** Found libcurl and OpenSSL >= 3.0.0\n")
-    return("linux-openssl-3.0")
+    return("openssl-3.0")
   }
   NULL
 }
@@ -248,6 +281,11 @@ header_not_found <- function(header, errs) {
 #### start distro ####
 
 distro <- function() {
+  # This is not part of distro but needed to enable prebuilt binaries on macos
+  if(on_macos) {
+    return(list(id = "darwin", arch = tolower(Sys.info()[["machine"]])))
+  }
+
   # The code in this script is a (potentially stale) copy of the distro package
   if (requireNamespace("distro", quietly = TRUE)) {
     # Use the version from the package, which may be updated from this
@@ -503,7 +541,7 @@ ensure_cmake <- function(cmake_minimum_required = "3.16") {
     # If not found, download it
     cat("**** cmake\n")
     CMAKE_VERSION <- Sys.getenv("CMAKE_VERSION", "3.26.4")
-    if (tolower(Sys.info()[["sysname"]]) %in% "darwin") {
+    if (on_macos) {
       postfix <- "-macos-universal.tar.gz"
     } else if (tolower(Sys.info()[["machine"]]) %in% c("arm64", "aarch64")) {
       postfix <- "-linux-aarch64.tar.gz"
