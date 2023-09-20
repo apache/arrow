@@ -1,5 +1,7 @@
-//go:build !noasm && !appengine
-// +build !noasm,!appengine
+//go:build !noasm && !appengine && (amd64 || arm64)
+// +build !noasm
+// +build !appengine
+// +build amd64 arm64
 
 package utils
 
