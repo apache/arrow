@@ -43,8 +43,8 @@ classdef StructType < arrow.type.Type
             validVariableNames = makeValidVariableNames(fieldNames);
             validDimensionNames = makeValidDimensionNames(validVariableNames);
 
-            % Preallocates each table variable. Uses the child field types
-            % to construct the correct MATLAB type.
+            % Recursively call preallocateMATLABArray to handle
+            % preallocation of nested types
             variableData = cell(1, numel(fields));
             for ii = 1:numel(fields)
                 type = fields(ii).Type;
