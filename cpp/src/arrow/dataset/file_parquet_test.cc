@@ -708,6 +708,10 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
 }
 
 TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDurationColumn) {
+  // GH-37111: Parquet arrow stores writer schema and possible field_id in
+  // key_value_metadata when store_schema enabled. When storing `arrow::duration`, it will
+  // be stored as int64. This test ensures that dataset can parse the writer schema
+  // correctly.
   auto table = TableFromJSON(schema({field("t", duration(TimeUnit::NANO))}),
                              {
                                  R"([{"t": 1}])",
