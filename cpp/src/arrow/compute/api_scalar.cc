@@ -309,8 +309,8 @@ using ::arrow::internal::checked_cast;
 
 namespace internal {
 namespace {
-using ::arrow::internal::DataMember;
 using ::arrow::internal::CoercedDataMember;
+using ::arrow::internal::DataMember;
 static auto kArithmeticOptionsType = GetFunctionOptionsType<ArithmeticOptions>(
     DataMember("check_overflow", &ArithmeticOptions::check_overflow));
 static auto kAssumeTimezoneOptionsType = GetFunctionOptionsType<AssumeTimezoneOptions>(
