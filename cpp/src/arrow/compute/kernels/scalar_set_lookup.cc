@@ -277,7 +277,7 @@ struct IndexInVisitor {
 
   Status Visit(const DataType& type) {
     DCHECK(false) << "IndexIn " << type;
-    Status::NotImplemented("IndexIn has no implementation with value type ", type);
+    return Status::NotImplemented("IndexIn has no implementation with value type ", type);
   }
 
   Status Visit(const NullType&) {
@@ -409,7 +409,7 @@ struct IsInVisitor {
 
   Status Visit(const DataType& type) {
     DCHECK(false) << "IndexIn " << type;
-    Status::NotImplemented("IsIn has no implementation with value type ", type);
+    return Status::NotImplemented("IsIn has no implementation with value type ", type);
   }
 
   Status Visit(const NullType&) {
