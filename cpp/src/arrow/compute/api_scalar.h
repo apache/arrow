@@ -289,7 +289,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
   /// produce null (IndexIn) or false (IsIn) values in the output.
   /// EMIT_NULL, any null in `value_set` is ignored and nulls in the
   /// input produce null (IndexIn and IsIn) values in the output.
-  /// INCONCLUSIVE, null values are regard as unknown values, which is
+  /// INCONCLUSIVE, null values are regarded as unknown values, which is
   /// sql-compatible. nulls in the input produce null (IndexIn and IsIn)
   /// values in the output. Besides, if `value_set` contains a null,
   /// non-null unmatched values in the input also produce null values
