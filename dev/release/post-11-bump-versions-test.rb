@@ -235,7 +235,7 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       ]
     end
 
-    Dir.glob("go/**/{go.mod,*.go,*.go.*}") do |path|
+    Dir.glob("go/**/{go.mod,*.go,*.go.*,README.md}") do |path|
       if path == "go/arrow/doc.go"
         expected_changes << {
           path: path,
@@ -253,19 +253,34 @@ class PostBumpVersionsTest < Test::Unit::TestCase
       hunks = []
       if release_type == :major
         lines = File.readlines(path, chomp: true)
-        target_lines = lines.grep(/#{Regexp.escape(import_path)}/)
+        target_lines = lines.each_with_index.select do |line, i|
+          line.include?(import_path)
+        end
         next if target_lines.empty?
-        hunk = []
-        target_lines.each do |line|
-          hunk << "-#{line}"
-        end
-        target_lines.each do |line|
-          new_line = line.gsub("v#{@snapshot_major_version}") do
-            "v#{@next_major_version}"
+        n_context_lines = 3 # The default of Git's diff.context
+        target_hunks = [[target_lines.first[0]]]
+        previous_i = target_lines.first[1]
+        target_lines[1..-1].each do |line, i|
+          if i - previous_i < n_context_lines
+            target_hunks.last << line
+          else
+            target_hunks << [line]
           end
-          hunk << "+#{new_line}"
+          previous_i = i
         end
-        hunks << hunk
+        target_hunks.each do |lines|
+          hunk = []
+          lines.each do |line,|
+            hunk << "-#{line}"
+          end
+          lines.each do |line|
+            new_line = line.gsub("v#{@snapshot_major_version}") do
+              "v#{@next_major_version}"
+            end
+            hunk << "+#{new_line}"
+          end
+          hunks << hunk
+        end
       end
       if path == "go/parquet/writer_properties.go"
         hunks << [
