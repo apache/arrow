@@ -32,8 +32,10 @@ def guid():
 
 
 # SKIP categories
-SKIP_ARROW = 'arrow'
+SKIP_C_ARRAY = 'c_array'
+SKIP_C_SCHEMA = 'c_schema'
 SKIP_FLIGHT = 'flight'
+SKIP_IPC = 'ipc'
 
 
 class _Printer:
