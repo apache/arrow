@@ -104,11 +104,12 @@ parquet::ArrowReaderProperties MakeArrowReaderProperties(
   return arrow_properties;
 }
 
-template <typename M>
 Result<std::shared_ptr<SchemaManifest>> GetSchemaManifest(
-    const M& metadata, const parquet::ArrowReaderProperties& properties) {
+    const parquet::FileMetaData& metadata,
+    const parquet::ArrowReaderProperties& properties) {
   auto manifest = std::make_shared<SchemaManifest>();
-  const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata = nullptr;
+  const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata =
+      metadata.key_value_metadata();
   RETURN_NOT_OK(SchemaManifest::Make(metadata.schema(), key_value_metadata, properties,
                                      manifest.get()));
   return manifest;
