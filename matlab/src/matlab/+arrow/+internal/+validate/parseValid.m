@@ -36,7 +36,7 @@ function validElements = parseValid(opts, numElements)
         end
     else
         % valid is a list of indices. Verify the indices are numeric, 
-        % integers, and within the range 1 < indices < numElements.
+        % integers, and within the range [1, numElements]
         validateattributes(valid, "numeric", {'integer', '>', 0, '<=', numElements});
         % Create a logical vector that contains true values at the indices
         % specified by opts.Valid.
