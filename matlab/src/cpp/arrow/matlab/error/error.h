@@ -182,6 +182,9 @@ namespace arrow::matlab::error {
     static const char* TABLE_INVALID_NUMERIC_COLUMN_INDEX = "arrow:tabular:table:InvalidNumericColumnIndex";
     static const char* FAILED_TO_OPEN_FILE_FOR_WRITE = "arrow:io:FailedToOpenFileForWrite";
     static const char* FAILED_TO_OPEN_FILE_FOR_READ = "arrow:io:FailedToOpenFileForRead";
+    static const char* CSV_FAILED_TO_WRITE_TABLE = "arrow:io:csv:FailedToWriteTable";
+    static const char* CSV_FAILED_TO_CREATE_TABLE_READER = "arrow:io:csv:FailedToCreateTableReader";
+    static const char* CSV_FAILED_TO_READ_TABLE = "arrow:io:csv:FailedToReadTable";
     static const char* FEATHER_FAILED_TO_WRITE_TABLE = "arrow:io:feather:FailedToWriteTable";
     static const char* TABLE_FROM_RECORD_BATCH = "arrow:table:FromRecordBatch";
     static const char* FEATHER_FAILED_TO_CREATE_READER = "arrow:io:feather:FailedToCreateReader";
