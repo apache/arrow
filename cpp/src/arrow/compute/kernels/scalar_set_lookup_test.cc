@@ -1207,6 +1207,16 @@ TYPED_TEST(TestIndexInKernelPrimitive, SkipNulls) {
                      /*value_set=*/"[1, 3]",
                      /*expected=*/"[null, 0, null, 1, null]",
                      /*skip_nulls=*/true);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 3]",
+                     /*expected=*/"[null, 0, null, 1, null]",
+                     /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 3]",
+                     /*expected=*/"[null, 0, null, 1, null]",
+                     /*null_matching_behavior=*/SetLookupOptions::SKIP);
   // Same with duplicates in value_set
   this->CheckIndexIn(type,
                      /*input=*/"[0, 1, 2, 3, null]",
@@ -1218,6 +1228,16 @@ TYPED_TEST(TestIndexInKernelPrimitive, SkipNulls) {
                      /*value_set=*/"[1, 1, 3, 3]",
                      /*expected=*/"[null, 0, null, 2, null]",
                      /*skip_nulls=*/true);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, 3, 3]",
+                     /*expected=*/"[null, 0, null, 2, null]",
+                     /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, 3, 3]",
+                     /*expected=*/"[null, 0, null, 2, null]",
+                     /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
   // Nulls in value_set
   this->CheckIndexIn(type,
@@ -1230,12 +1250,27 @@ TYPED_TEST(TestIndexInKernelPrimitive, SkipNulls) {
                      /*value_set=*/"[1, 1, null, null, 3, 3]",
                      /*expected=*/"[null, 0, null, 4, null]",
                      /*skip_nulls=*/true);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, null, 3]",
+                     /*expected=*/"[null, 0, null, 2, 1]",
+                     /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, null, null, 3, 3]",
+                     /*expected=*/"[null, 0, null, 4, null]",
+                     /*null_matching_behavior=*/SetLookupOptions::SKIP);
   // Same with duplicates in value_set
   this->CheckIndexIn(type,
                      /*input=*/"[0, 1, 2, 3, null]",
                      /*value_set=*/"[1, 1, null, null, 3, 3]",
                      /*expected=*/"[null, 0, null, 4, 2]",
                      /*skip_nulls=*/false);
+  this->CheckIndexIn(type,
+                     /*input=*/"[0, 1, 2, 3, null]",
+                     /*value_set=*/"[1, 1, null, null, 3, 3]",
+                     /*expected=*/"[null, 0, null, 4, 2]",
+                     /*null_matching_behavior=*/SetLookupOptions::MATCH);
 }
 
 TEST_F(TestIndexInKernel, NullType) {
@@ -1246,6 +1281,10 @@ TEST_F(TestIndexInKernel, NullType) {
 
   CheckIndexIn(null(), "[null, null]", "[null]", "[null, null]", /*skip_nulls=*/true);
   CheckIndexIn(null(), "[null, null]", "[]", "[null, null]", /*skip_nulls=*/true);
+  CheckIndexIn(null(), "[null, null]", "[null]", "[null, null]",
+               /*null_matching_behavior=*/SetLookupOptions::SKIP);
+  CheckIndexIn(null(), "[null, null]", "[]", "[null, null]",
+               /*null_matching_behavior=*/SetLookupOptions::SKIP);
 }
 
 TEST_F(TestIndexInKernel, TimeTimestamp) {
@@ -1530,6 +1569,11 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
                /*value_set=*/R"(["aaa", null, "bbb", "ccc"])",
                /*expected=*/R"([2, null, null, 0, 3, 0])",
                /*skip_nulls=*/true);
+  CheckIndexIn(fixed_size_binary(3),
+               /*input=*/R"(["bbb", null, "ddd", "aaa", "ccc", "aaa"])",
+               /*value_set=*/R"(["aaa", null, "bbb", "ccc"])",
+               /*expected=*/R"([2, null, null, 0, 3, 0])",
+               /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
   CheckIndexIn(fixed_size_binary(3),
                /*input=*/R"(["bbb", null, "ddd", "aaa", "ccc", "aaa"])",
@@ -1540,6 +1584,11 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
                /*value_set=*/R"(["aaa", "bbb", "ccc"])",
                /*expected=*/R"([1, null, null, 0, 2, 0])",
                /*skip_nulls=*/true);
+  CheckIndexIn(fixed_size_binary(3),
+               /*input=*/R"(["bbb", null, "ddd", "aaa", "ccc", "aaa"])",
+               /*value_set=*/R"(["aaa", "bbb", "ccc"])",
+               /*expected=*/R"([1, null, null, 0, 2, 0])",
+               /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
   // Duplicates in value_set
   CheckIndexIn(fixed_size_binary(3),
@@ -1551,6 +1600,11 @@ TEST_F(TestIndexInKernel, FixedSizeBinary) {
                /*value_set=*/R"(["aaa", "aaa", null, null, "bbb", "bbb", "ccc"])",
                /*expected=*/R"([4, null, null, 0, 6, 0])",
                /*skip_nulls=*/true);
+  CheckIndexIn(fixed_size_binary(3),
+               /*input=*/R"(["bbb", null, "ddd", "aaa", "ccc", "aaa"])",
+               /*value_set=*/R"(["aaa", "aaa", null, null, "bbb", "bbb", "ccc"])",
+               /*expected=*/R"([4, null, null, 0, 6, 0])",
+               /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
   // Empty input array
   CheckIndexIn(fixed_size_binary(5), R"([])", R"(["bbbbb", null, "aaaaa", "ccccc"])",
@@ -1577,6 +1631,11 @@ TEST_F(TestIndexInKernel, MonthDayNanoInterval) {
                /*value_set=*/R"([null, [4, 5, 6], [5, -1, 5]])",
                /*expected=*/R"([2, 0, 1, 2, null])",
                /*skip_nulls=*/false);
+  CheckIndexIn(type,
+               /*input=*/R"([[5, -1, 5], null, [4, 5, 6], [5, -1, 5], [1, 2, 3]])",
+               /*value_set=*/R"([null, [4, 5, 6], [5, -1, 5]])",
+               /*expected=*/R"([2, 0, 1, 2, null])",
+               /*null_matching_behavior=*/SetLookupOptions::MATCH);
 
   // Duplicates in value_set
   CheckIndexIn(
@@ -1585,6 +1644,12 @@ TEST_F(TestIndexInKernel, MonthDayNanoInterval) {
       /*value_set=*/R"([null, null, [0, 0, 0], [0, 0, 0], [7, 8, 0], [7, 8, 0]])",
       /*expected=*/R"([4, 0, 2, 4, null])",
       /*skip_nulls=*/false);
+  CheckIndexIn(
+      type,
+      /*input=*/R"([[7, 8, 0], null, [0, 0, 0], [7, 8, 0], [0, 0, 1]])",
+      /*value_set=*/R"([null, null, [0, 0, 0], [0, 0, 0], [7, 8, 0], [7, 8, 0]])",
+      /*expected=*/R"([4, 0, 2, 4, null])",
+      /*null_matching_behavior=*/SetLookupOptions::MATCH);
 }
 
 TEST_F(TestIndexInKernel, Decimal) {
@@ -1599,6 +1664,16 @@ TEST_F(TestIndexInKernel, Decimal) {
                  /*value_set=*/R"([null, "11", "12"])",
                  /*expected=*/R"([2, null, 1, 2, null])",
                  /*skip_nulls=*/true);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, 0, 1, 2, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, null, 1, 2, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
     CheckIndexIn(type,
                  /*input=*/R"(["12", null, "11", "12", "13"])",
@@ -1610,6 +1685,16 @@ TEST_F(TestIndexInKernel, Decimal) {
                  /*value_set=*/R"(["11", "12"])",
                  /*expected=*/R"([1, null, 0, 1, null])",
                  /*skip_nulls=*/true);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"(["11", "12"])",
+                 /*expected=*/R"([1, null, 0, 1, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"(["11", "12"])",
+                 /*expected=*/R"([1, null, 0, 1, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
     // Duplicates in value_set
     CheckIndexIn(type,
@@ -1627,6 +1712,21 @@ TEST_F(TestIndexInKernel, Decimal) {
                  /*value_set=*/R"([null, "11", "12"])",
                  /*expected=*/R"([2, 0, 1, 2, null])",
                  /*skip_nulls=*/false);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
+                 /*expected=*/R"([4, 0, 2, 4, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, null, "11", "11", "12", "12"])",
+                 /*expected=*/R"([4, null, 2, 4, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIndexIn(type,
+                 /*input=*/R"(["12", null, "11", "12", "13"])",
+                 /*value_set=*/R"([null, "11", "12"])",
+                 /*expected=*/R"([2, 0, 1, 2, null])",
+                 /*null_matching_behavior=*/SetLookupOptions::MATCH);
 
     CheckIndexIn(
         ArrayFromJSON(decimal256(3, 1), R"(["12.0", null, "11.0", "12.0", "13.0"])"),
@@ -1650,6 +1750,20 @@ TEST_F(TestIndexInKernel, DictionaryArray) {
                            /*value_set_json=*/"[4.1, 42, -1.0]",
                            /*expected_json=*/"[2, 1, null, 0]",
                            /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 2, null, 0]",
+                           /*value_set_json=*/R"(["A", "B", "C"])",
+                           /*expected_json=*/"[1, 2, null, 0]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexInDictionary(/*type=*/float32(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/"[4.1, -1.0, 42, 9.8]",
+                           /*input_index_json=*/"[1, 2, null, 0]",
+                           /*value_set_json=*/"[4.1, 42, -1.0]",
+                           /*expected_json=*/"[2, 1, null, 0]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
 
     // With nulls and skip_nulls=false
     CheckIndexInDictionary(/*type=*/utf8(),
@@ -1673,6 +1787,27 @@ TEST_F(TestIndexInKernel, DictionaryArray) {
                            /*value_set_json=*/R"(["C", "B", "A"])",
                            /*expected_json=*/"[null, null, null, 2, null]",
                            /*skip_nulls=*/false);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[1, null, 3, 2, 1]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[3, null, 3, 2, 3]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A"])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
 
     // With nulls and skip_nulls=true
     CheckIndexInDictionary(/*type=*/utf8(),
@@ -1696,6 +1831,27 @@ TEST_F(TestIndexInKernel, DictionaryArray) {
                            /*value_set_json=*/R"(["C", "B", "A"])",
                            /*expected_json=*/"[null, null, null, 2, null]",
                            /*skip_nulls=*/true);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[1, null, null, 2, 1]",
+                           /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A", null])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "B", "A"])",
+                           /*expected_json=*/"[null, null, null, 2, null]",
+                           /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
     // With duplicates in value_set
     CheckIndexInDictionary(/*type=*/utf8(),
@@ -1719,6 +1875,27 @@ TEST_F(TestIndexInKernel, DictionaryArray) {
                            /*value_set_json=*/R"(["C", "C", "B", "B", "A", "A", null])",
                            /*expected_json=*/"[null, null, null, 4, null]",
                            /*skip_nulls=*/true);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", "B", "C", "D"])",
+                           /*input_index_json=*/"[1, 2, null, 0]",
+                           /*value_set_json=*/R"(["A", "A", "B", "B", "C", "C"])",
+                           /*expected_json=*/"[2, 4, null, 0]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "C", "B", "B", "A", "A", null])",
+                           /*expected_json=*/"[6, null, 6, 4, 6]",
+                           /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIndexInDictionary(/*type=*/utf8(),
+                           /*index_type=*/index_ty,
+                           /*input_dictionary_json=*/R"(["A", null, "C", "D"])",
+                           /*input_index_json=*/"[1, 3, null, 0, 1]",
+                           /*value_set_json=*/R"(["C", "C", "B", "B", "A", "A", null])",
+                           /*expected_json=*/"[null, null, null, 4, null]",
+                           /*null_matching_behavior=*/SetLookupOptions::SKIP);
   }
 }
 
@@ -1732,21 +1909,33 @@ TEST_F(TestIndexInKernel, ChunkedArrayInvoke) {
 
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/false);
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  CheckIndexInChunked(input, value_set, expected,
+                      /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIndexInChunked(input, value_set, expected,
+                      /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
   // Null in value_set
   value_set = ChunkedArrayFromJSON(utf8(), {R"(["ghi", "def"])", R"([null, "abc"])"});
   expected = ChunkedArrayFromJSON(int32(), {"[3, 1, 0, 3, null]", "[1, 2, 3, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/false);
+  CheckIndexInChunked(input, value_set, expected,
+                      /*null_matching_behavior=*/SetLookupOptions::MATCH);
   expected = ChunkedArrayFromJSON(int32(), {"[3, 1, 0, 3, null]", "[1, null, 3, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  CheckIndexInChunked(input, value_set, expected,
+                      /*null_matching_behavior=*/SetLookupOptions::SKIP);
 
   // Duplicates in value_set
   value_set = ChunkedArrayFromJSON(
       utf8(), {R"(["ghi", "ghi", "def"])", R"(["def", null, null, "abc"])"});
   expected = ChunkedArrayFromJSON(int32(), {"[6, 2, 0, 6, null]", "[2, 4, 6, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/false);
+  CheckIndexInChunked(input, value_set, expected,
+                      /*null_matching_behavior=*/SetLookupOptions::MATCH);
   expected = ChunkedArrayFromJSON(int32(), {"[6, 2, 0, 6, null]", "[2, null, 6, null]"});
   CheckIndexInChunked(input, value_set, expected, /*skip_nulls=*/true);
+  CheckIndexInChunked(input, value_set, expected,
+                      /*null_matching_behavior=*/SetLookupOptions::SKIP);
 }
 
 TEST(TestSetLookup, DispatchBest) {
