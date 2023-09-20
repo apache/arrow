@@ -390,7 +390,7 @@ func exportArray(arr arrow.Array, out *CArrowArray, outSchema *CArrowSchema) {
 		bufs := arr.Data().Buffers()
 		buffers := allocateBufferPtrArr(nbuffers)
 		for i := 0; i < nbuffers; i++ {
-			buf := bufs[i + buf_offset]
+			buf := bufs[i+buf_offset]
 			if buf == nil || buf.Len() == 0 {
 				if i > 0 || !has_validity_bitmap {
 					// apache/arrow#33936: export a dummy buffer to be friendly to

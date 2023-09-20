@@ -107,7 +107,7 @@ func importSchemaAndCompareToJson(cJsonPath *C.char, cSchema *cdata.CArrowSchema
 		return fmt.Errorf(
 			"Schemas are different:\n- Json Schema: %s\n- Imported Schema: %s",
 			schema.String(),
-			importedSchema.String());
+			importedSchema.String())
 	}
 	return err
 }
@@ -148,9 +148,8 @@ func importBatchAndCompareToJson(cJsonPath *C.char, num_batch int, cArray *cdata
 	defer importedBatch.Release()
 	if !array.RecordEqual(batch, importedBatch) {
 		return fmt.Errorf(
-			"Batches are different:\n- Json Batch: %s\n- Imported Batch: %s",
-			"XXX",
-			"XXX");
+			"Batches are different:\n- Json Batch: %v\n- Imported Batch: %v",
+			batch, importedBatch)
 	}
 	return err
 }
