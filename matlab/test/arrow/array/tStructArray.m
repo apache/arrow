@@ -227,7 +227,9 @@ classdef tStructArray < matlab.unittest.TestCase
             % in the StructArray are set to the type-specific null values.
             valid = [1 2 5];
             array = StructArray.fromArrays(tc.Float64Array, tc.StringArray, FieldNames=["X", "Y"], Valid=valid);
-            expectedTable([3 4], :) = repmat({NaN string(missing)}, [2 1]);
+            float64NullValue = tc.Float64Array.NullSubstitutionValue;
+            stringNullValue = tc.StringArray.NullSubstitutionValue;
+            expectedTable([3 4], :) = repmat({float64NullValue stringNullValue}, [2 1]);
             actualTable = toMATLAB(array);
             tc.verifyEqual(actualTable, expectedTable);
         end
@@ -244,7 +246,9 @@ classdef tStructArray < matlab.unittest.TestCase
             % in the StructArray are set to the type-specific null values.
             valid = [1 2 5];
             array = StructArray.fromArrays(tc.Float64Array, tc.StringArray, FieldNames=["X", "Y"], Valid=valid);
-            expectedTable([3 4], :) = repmat({NaN string(missing)}, [2 1]);
+            float64NullValue = tc.Float64Array.NullSubstitutionValue;
+            stringNullValue = tc.StringArray.NullSubstitutionValue;
+            expectedTable([3 4], :) = repmat({float64NullValue stringNullValue}, [2 1]);
             actualTable = toMATLAB(array);
             tc.verifyEqual(actualTable, expectedTable);
         end
@@ -263,7 +267,9 @@ classdef tStructArray < matlab.unittest.TestCase
             array1 = StructArray.fromArrays(tc.Float64Array, tc.StringArray, FieldNames=["X", "Y"]);
             array2 = StructArray.fromArrays(tc.StringArray, tc.Float64Array, FieldNames=["X", "Y"]);
             array3 = StructArray.fromArrays(tc.Float64Array, tc.StringArray, FieldNames=["A", "B"]);
+            % StructArrays have the same FieldNames but the Fields have different types.
             tc.verifyFalse(isequal(array1, array2));
+            % Fields of the StructArrays have the same types but the StructArrays have different FieldNames.
             tc.verifyFalse(isequal(array1, array3));
         end
 
