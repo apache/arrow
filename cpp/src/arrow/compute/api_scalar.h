@@ -283,7 +283,7 @@ class ARROW_EXPORT SetLookupOptions : public FunctionOptions {
 
   /// How to match null values.
   ///
-  /// Match, any null in `value_set` is successfully matched in
+  /// MATCH, any null in `value_set` is successfully matched in
   /// the input.
   /// SKIP, any null in `value_set` is ignored and nulls in the input
   /// produce null (IndexIn) or false (IsIn) values in the output.
