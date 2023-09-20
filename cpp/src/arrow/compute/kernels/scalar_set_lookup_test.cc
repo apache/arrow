@@ -312,12 +312,16 @@ TEST_F(TestIsInKernel, NullType) {
   CheckIsIn(type, "[]", "[]", "[]");
 
   CheckIsIn(type, "[null, null]", "[null]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[null]", "[false, false]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, "[null, null]", "[null]", "[null, null]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, "[null, null]", "[null]", "[null, null]",
             /*null_matching_behavior=*/SetLookupOptions::INCONCLUSIVE);
 
   CheckIsIn(type, "[null, null]", "[]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[]", "[false, false]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, "[null, null]", "[]", "[null, null]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, "[null, null]", "[]", "[null, null]",
@@ -326,6 +330,8 @@ TEST_F(TestIsInKernel, NullType) {
   // Duplicates in right array
   CheckIsIn(type, "[null, null, null]", "[null, null]", "[true, true, true]");
   CheckIsIn(type, "[null, null]", "[null, null]", "[false, false]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[null, null]", "[null, null]", "[false, false]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, "[null, null]", "[null, null]", "[null, null]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, "[null, null]", "[null, null]", "[null, null]",
@@ -341,6 +347,12 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, true, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, false, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, null, false, true, true]",
               /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
@@ -352,6 +364,12 @@ TEST_F(TestIsInKernel, TimeTimestamp) {
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, true, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, false, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, null, false, true, true]",
               /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -381,6 +399,12 @@ TEST_F(TestIsInKernel, TimeDuration) {
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, true, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
+              "[true, false, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
               "[true, null, false, true, true]",
               /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, null]",
@@ -392,6 +416,12 @@ TEST_F(TestIsInKernel, TimeDuration) {
               "[true, true, false, true, true]", /*skip_nulls=*/false);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, false, false, true, true]", /*skip_nulls=*/true);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, true, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::MATCH);
+    CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
+              "[true, false, false, true, true]",
+              /*null_matching_behavior=*/SetLookupOptions::SKIP);
     CheckIsIn(type, "[1, null, 5, 1, 2]", "[2, 1, 1, null, 2]",
               "[true, null, false, true, true]",
               /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -418,6 +448,12 @@ TEST_F(TestIsInKernel, Boolean) {
   CheckIsIn(type, "[true, false, null, true, false]", "[false]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
   CheckIsIn(type, "[true, false, null, true, false]", "[false]",
+            "[false, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false]",
+            "[false, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false]",
             "[false, true, null, false, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
   CheckIsIn(type, "[true, false, null, true, false]", "[false]",
@@ -428,6 +464,12 @@ TEST_F(TestIsInKernel, Boolean) {
             "[false, true, true, false, true]", /*skip_nulls=*/false);
   CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
+            "[false, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
+            "[false, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, "[true, false, null, true, false]", "[false, null]",
             "[false, true, null, false, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
@@ -440,6 +482,12 @@ TEST_F(TestIsInKernel, Boolean) {
             "[false, true, true, false, true]", /*skip_nulls=*/false);
   CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
             "[false, true, false, false, true]", /*skip_nulls=*/true);
+  CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
+            "[false, true, true, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::MATCH);
+  CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
+            "[false, true, false, false, true]",
+            /*null_matching_behavior=*/SetLookupOptions::SKIP);
   CheckIsIn(type, "[true, false, null, true, false]", "[null, false, false, null]",
             "[false, true, null, false, true]",
             /*null_matching_behavior=*/SetLookupOptions::EMIT_NULL);
