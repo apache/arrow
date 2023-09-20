@@ -65,11 +65,15 @@ class ParquetFormatHelper {
  public:
   using FormatType = ParquetFileFormat;
 
-  static Result<std::shared_ptr<Buffer>> Write(RecordBatchReader* reader) {
+  static Result<std::shared_ptr<Buffer>> Write(
+      RecordBatchReader* reader,
+      const std::shared_ptr<ArrowWriterProperties>& arrow_properties =
+          default_arrow_writer_properties()) {
     auto pool = ::arrow::default_memory_pool();
     std::shared_ptr<Buffer> out;
     auto sink = CreateOutputStream(pool);
-    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink));
+    RETURN_NOT_OK(WriteRecordBatchReader(reader, pool, sink, default_writer_properties(),
+                                         arrow_properties));
     return sink->Finish();
   }
   static std::shared_ptr<ParquetFileFormat> MakeFormat() {
@@ -701,6 +705,29 @@ TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingStringC
   ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
 
   CountRowGroupsInFragment(fragment, {0, 3}, equal(field_ref("x"), literal("a")));
+}
+
+TEST_P(TestParquetFileFormatScan, PredicatePushdownRowGroupFragmentsUsingDurationColumn) {
+  // GH-37111: Parquet arrow stores writer schema and possible field_id in
+  // key_value_metadata when store_schema enabled. When storing `arrow::duration`, it will
+  // be stored as int64. This test ensures that dataset can parse the writer schema
+  // correctly.
+  auto table = TableFromJSON(schema({field("t", duration(TimeUnit::NANO))}),
+                             {
+                                 R"([{"t": 1}])",
+                                 R"([{"t": 2}, {"t": 3}])",
+                             });
+  TableBatchReader table_reader(*table);
+  ASSERT_OK_AND_ASSIGN(
+      auto buffer,
+      ParquetFormatHelper::Write(
+          &table_reader, ArrowWriterProperties::Builder().store_schema()->build()));
+  auto source = std::make_shared<FileSource>(buffer);
+  SetSchema({field("t", duration(TimeUnit::NANO))});
+  ASSERT_OK_AND_ASSIGN(auto fragment, format_->MakeFragment(*source));
+
+  auto expr = equal(field_ref("t"), literal(::arrow::DurationScalar(1, TimeUnit::NANO)));
+  CountRowGroupsInFragment(fragment, {0}, expr);
 }
 
 // Tests projection with nested/indexed FieldRefs.
