@@ -255,10 +255,7 @@ def s3fs(request, s3_server):
         allow_move_dir=False,
         allow_append_to_file=False,
     )
-    try:
-        fs.delete_dir(bucket)
-    except OSError:
-        pass
+    fs.delete_dir(bucket)
 
 
 @pytest.fixture
@@ -360,10 +357,7 @@ def py_fsspec_s3fs(request, s3_server):
         allow_move_dir=False,
         allow_append_to_file=True,
     )
-    try:
-        fs.delete_dir(bucket)
-    except OSError:
-        pass
+    fs.delete_dir(bucket)
 
 
 @pytest.fixture(params=[

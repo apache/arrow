@@ -349,7 +349,8 @@ outputs:
         - fastparquet
         - fsspec
         - hypothesis
-        - minio-server
+        # currently disabled due to GH-37692
+        # - minio-server
         - pandas
         - s3fs >=2023
         - scipy
@@ -390,11 +391,6 @@ outputs:
         {% set tests_to_skip = tests_to_skip + " or test_fastparquet_cross_compatibility" %}
         # new fsspec changed behaviour, see https://github.com/apache/arrow/issues/37555
         {% set tests_to_skip = tests_to_skip + " or test_get_file_info_with_selector" %}
-        # problems with minio
-        {% set tests_to_skip = tests_to_skip + " or (test_delete_dir and S3FileSystem)" %}
-        {% set tests_to_skip = tests_to_skip + " or (test_delete_dir_contents and S3FileSystem)" %}
-        {% set tests_to_skip = tests_to_skip + " or (test_get_file_info and S3FileSystem)" %}
-        {% set tests_to_skip = tests_to_skip + " or (test_move_directory and S3FileSystem)" %}
         # gandiva tests are segfaulting on ppc
         {% set tests_to_skip = tests_to_skip + " or test_gandiva" %}                                # [ppc64le]
         # test failures on ppc (both failing with: Float value was truncated converting to int32)
