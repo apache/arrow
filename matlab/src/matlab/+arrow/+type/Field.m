@@ -91,12 +91,6 @@ classdef Field < matlab.mixin.CustomDisplay
         end
     end
 
-    methods (Access = private)
-        function str = toString(obj)
-            str = obj.Proxy.toString();
-        end
-    end
-
     methods (Access=protected)
         function groups = getPropertyGroups(~)
             targets = ["Name", "Type"];
