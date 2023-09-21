@@ -1308,6 +1308,9 @@ macro(build_snappy)
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
       "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    list(APPEND SNAPPY_CMAKE_ARGS "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=${EP_CXX_FLAGS_${CONFIG}} -Wno-error")
+  endif()
 
   find_program(GIT git)
   externalproject_add(snappy_ep
