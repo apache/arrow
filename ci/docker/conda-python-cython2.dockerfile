@@ -15,28 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# cli
-click
+ARG repo
+ARG arch
+ARG python=3.8
+FROM ${repo}:${arch}-conda-python-${python}
 
-# bot, crossbow
-github3.py
-jinja2
-jira
-pygit2
-pygithub
-ruamel.yaml
-setuptools_scm<8.0.0
-toolz
-
-# benchmark
-pandas
-
-# docker
-python-dotenv
-#ruamel.yaml
-
-# release
-gitpython
-#jinja2
-#jira
-semver
+RUN mamba install -q -y "cython<3" && \
+    mamba clean --all

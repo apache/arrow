@@ -21,7 +21,7 @@
 Arrow Columnar Format
 *********************
 
-*Version: 1.3*
+*Version: 1.4*
 
 The "Arrow Columnar Format" includes a language-agnostic in-memory
 data structure specification, metadata serialization, and a protocol
@@ -108,6 +108,10 @@ the different physical layouts defined by Arrow:
 * **Variable-size Binary**: a sequence of values each having a variable
   byte length. Two variants of this layout are supported using 32-bit
   and 64-bit length encoding.
+* **Views of Variable-size Binary**: a sequence of values each having a
+  variable byte length. In contrast to Variable-size Binary, the values
+  of this layout are distributed across potentially multiple buffers
+  instead of densely and sequentially packed in a single buffer.
 * **Fixed-size List**: a nested layout where each value has the same
   number of elements taken from a child data type.
 * **Variable-size List**: a nested layout where each value is a
@@ -349,6 +353,51 @@ will be represented as follows: ::
     | Bytes 0-6      | Bytes 7-63            |
     |----------------|-----------------------|
     | joemark        | unspecified (padding) |
+
+Variable-size Binary View Layout
+--------------------------------
+
+.. versionadded:: Arrow Columnar Format 1.4
+
+Each value in this layout consists of 0 or more bytes. These bytes'
+locations are indicated using a **views** buffer, which may point to one
+of potentially several **data** buffers or may contain the characters
+inline.
+
+The views buffer contains `length` view structures with the following layout:
+
+::
+
+    * Short strings, length <= 12
+      | Bytes 0-3  | Bytes 4-15                            |
+      |------------|---------------------------------------|
+      | length     | data (padded with 0)                  |
+
+    * Long strings, length > 12
+      | Bytes 0-3  | Bytes 4-7  | Bytes 8-11 | Bytes 12-15 |
+      |------------|------------|------------|-------------|
+      | length     | prefix     | buf. index | offset      |
+
+In both the long and short string cases, the first four bytes encode the
+length of the string and can be used to determine how the rest of the view
+should be interpreted.
+
+In the short string case the string's bytes are inlined- stored inside the
+view itself, in the twelve bytes which follow the length.
+
+In the long string case, a buffer index indicates which data buffer
+stores the data bytes and an offset indicates where in that buffer the
+data bytes begin. Buffer index 0 refers to the first data buffer, IE
+the first buffer **after** the validity buffer and the views buffer.
+The half-open range ``[offset, offset + length)`` must be entirely contained
+within the indicated buffer. A copy of the first four bytes of the string is
+stored inline in the prefix, after the length. This prefix enables a
+profitable fast path for string comparisons, which are frequently determined
+within the first four bytes.
+
+All integers (length, buffer index, and offset) are signed.
+
+This layout is adapted from TU Munich's `UmbraDB`_.
 
 .. _variable-size-list-layout:
 
@@ -880,19 +929,20 @@ For the avoidance of ambiguity, we provide listing the order and type
 of memory buffers for each layout.
 
 .. csv-table:: Buffer Layouts
-   :header: "Layout Type", "Buffer 0", "Buffer 1", "Buffer 2"
-   :widths: 30, 20, 20, 20
+   :header: "Layout Type", "Buffer 0", "Buffer 1", "Buffer 2", "Variadic Buffers"
+   :widths: 30, 20, 20, 20, 20
 
-   "Primitive",validity,data,
-   "Variable Binary",validity,offsets,data
-   "List",validity,offsets,
-   "Fixed-size List",validity,,
-   "Struct",validity,,
-   "Sparse Union",type ids,,
-   "Dense Union",type ids,offsets,
-   "Null",,,
-   "Dictionary-encoded",validity,data (indices),
-   "Run-end encoded",,,
+   "Primitive",validity,data,,
+   "Variable Binary",validity,offsets,data,
+   "Variable Binary View",validity,views,,data
+   "List",validity,offsets,,
+   "Fixed-size List",validity,,,
+   "Struct",validity,,,
+   "Sparse Union",type ids,,,
+   "Dense Union",type ids,offsets,,
+   "Null",,,,
+   "Dictionary-encoded",validity,data (indices),,
+   "Run-end encoded",,,,
 
 Logical Types
 =============
@@ -1070,6 +1120,39 @@ The ``size`` field of ``Buffer`` is not required to account for padding
 bytes. Since this metadata can be used to communicate in-memory pointer
 addresses between libraries, it is recommended to set ``size`` to the actual
 memory size rather than the padded size.
+
+Variadic buffers
+^^^^^^^^^^^^^^^^
+
+Some types such as Utf8View are represented using a variable number of buffers.
+For each such Field in the pre-ordered flattened logical schema, there will be
+an entry in ``variadicBufferCounts`` to indicate the number of variadic buffers
+which belong to that Field in the current RecordBatch.
+
+For example, consider the schema ::
+
+    col1: Struct<a: Int32, b: BinaryView, c: Float64>
+    col2: Utf8View
+
+This has two fields with variadic buffers, so ``variadicBufferCounts`` will
+have two entries in each RecordBatch. For a RecordBatch of this schema with
+``variadicBufferCounts = [3, 2]``, the flattened buffers would be::
+
+    buffer 0:  col1    validity
+    buffer 1:  col1.a  validity
+    buffer 2:  col1.a  values
+    buffer 3:  col1.b  validity
+    buffer 4:  col1.b  views
+    buffer 5:  col1.b  data
+    buffer 6:  col1.b  data
+    buffer 7:  col1.b  data
+    buffer 8:  col1.c  validity
+    buffer 9:  col1.c  values
+    buffer 10: col2    validity
+    buffer 11: col2    views
+    buffer 12: col2    data
+    buffer 13: col2    data
+
 
 Byte Order (`Endianness`_)
 ---------------------------
@@ -1346,3 +1429,4 @@ the Arrow spec.
 .. _Endianness: https://en.wikipedia.org/wiki/Endianness
 .. _SIMD: https://software.intel.com/en-us/cpp-compiler-developer-guide-and-reference-introduction-to-the-simd-data-layout-templates
 .. _Parquet: https://parquet.apache.org/docs/
+.. _UmbraDB: https://db.in.tum.de/~freitag/papers/p29-neumann-cidr20.pdf

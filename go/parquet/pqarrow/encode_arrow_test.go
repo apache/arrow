@@ -360,6 +360,51 @@ func simpleRoundTrip(t *testing.T, tbl arrow.Table, rowGroupSize int64) {
 	}
 }
 
+func TestWriteKeyValueMetadata(t *testing.T) {
+	kv := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+
+	sc := arrow.NewSchema([]arrow.Field{
+		{Name: "int32", Type: arrow.PrimitiveTypes.Int32, Nullable: true},
+	}, nil)
+	bldr := array.NewRecordBuilder(memory.DefaultAllocator, sc)
+	defer bldr.Release()
+	for _, b := range bldr.Fields() {
+		b.AppendNull()
+	}
+
+	rec := bldr.NewRecord()
+	defer rec.Release()
+
+	props := parquet.NewWriterProperties(
+		parquet.WithVersion(parquet.V1_0),
+	)
+	var buf bytes.Buffer
+	fw, err := pqarrow.NewFileWriter(sc, &buf, props, pqarrow.DefaultWriterProps())
+	require.NoError(t, err)
+	err = fw.Write(rec)
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		require.NoError(t, fw.AppendKeyValueMetadata(key, value))
+	}
+
+	err = fw.Close()
+	require.NoError(t, err)
+
+	reader, err := file.NewParquetReader(bytes.NewReader(buf.Bytes()))
+	require.NoError(t, err)
+
+	for key, value := range kv {
+		got := reader.MetaData().KeyValueMetadata().FindValue(key)
+		require.NotNil(t, got)
+		assert.Equal(t, value, *got)
+	}
+}
+
 func TestWriteEmptyLists(t *testing.T) {
 	sc := arrow.NewSchema([]arrow.Field{
 		{Name: "f1", Type: arrow.ListOf(arrow.FixedWidthTypes.Date32)},
