@@ -636,11 +636,11 @@ Status StructArray::CanReferenceFieldByName(const std::string& name) const {
 }
 
 Status StructArray::CanReferenceFieldsByNames(
-  const std::vector<std::string>& names) const {
-    for (const auto& name: names) {
-      ARROW_RETURN_NOT_OK(CanReferenceFieldByName(name));
-    }
-   return Status::OK();
+    const std::vector<std::string>& names) const {
+  for (const auto& name : names) {
+    ARROW_RETURN_NOT_OK(CanReferenceFieldByName(name));
+  }
+  return Status::OK();
 }
 
 Result<ArrayVector> StructArray::Flatten(MemoryPool* pool) const {
