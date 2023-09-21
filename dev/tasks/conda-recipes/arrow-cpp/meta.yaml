@@ -244,7 +244,7 @@ outputs:
         - numpy
         - python
         - setuptools
-        - setuptools_scm
+        - setuptools_scm <8.0.0
       run:
         # - {{ pin_subpackage('libarrow', exact=True) }}
         - libarrow ={{ version }}=*_{{ PKG_BUILDNUM }}_{{ build_ext }}
@@ -327,7 +327,7 @@ outputs:
         - numpy
         - python
         - setuptools
-        - setuptools_scm
+        - setuptools_scm <8.0.0
       run:
         - {{ pin_subpackage('pyarrow', exact=True) }}
         - python
