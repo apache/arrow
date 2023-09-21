@@ -955,6 +955,11 @@ set(EP_COMMON_CMAKE_ARGS
     -DCMAKE_OSX_SYSROOT=${CMAKE_OSX_SYSROOT}
     -DCMAKE_VERBOSE_MAKEFILE=${CMAKE_VERBOSE_MAKEFILE})
 
+# if building with a toolchain file, pass that through
+if(CMAKE_TOOLCHAIN_FILE)
+  list(APPEND EP_COMMON_CMAKE_ARGS -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+endif()
+
 # Enable s/ccache if set by parent.
 if(CMAKE_C_COMPILER_LAUNCHER AND CMAKE_CXX_COMPILER_LAUNCHER)
   list(APPEND EP_COMMON_CMAKE_ARGS
@@ -1613,6 +1618,9 @@ macro(build_thrift)
   # Thrift also uses boost. Forward important boost settings if there were ones passed.
   if(DEFINED BOOST_ROOT)
     list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
+  endif()
+  if(DEFINED Boost_INCLUDE_DIR)
+    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_INCLUDE_DIR=${Boost_INCLUDE_DIR}")
   endif()
   if(DEFINED Boost_NAMESPACE)
     list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
