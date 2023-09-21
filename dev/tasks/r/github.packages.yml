@@ -64,14 +64,15 @@ jobs:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: "macos-11",  arch: "x86_64" }
+          - { runs_on: ["self-hosted", "macos-10.13"],  arch: "x86_64" }
           - { runs_on: ["self-hosted", "macOS", "arm64", "devops-managed"], arch: "arm64" }
         openssl: ['3.0', '1.1']
 
     steps:
-      {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_checkout_arrow(checkout_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
+        if: {{ "${{ !contains(matrix.platform.runs_on, 'macos-10.13') }}" }}
         run: |
           brew install sccache ninja
           brew install openssl@{{ '${{ matrix.openssl }}' }}
