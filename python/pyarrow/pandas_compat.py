@@ -33,7 +33,7 @@ import warnings
 import numpy as np
 
 import pyarrow as pa
-from pyarrow.lib import _pandas_api, frombytes  # noqa
+from pyarrow.lib import _pandas_api, frombytes, is_threading_enabled  # noqa
 
 
 _logical_type_map = {}
@@ -608,7 +608,7 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
                 arr.flags.contiguous and
                 issubclass(arr.dtype.type, np.integer))
 
-    if nthreads == 1:
+    if nthreads == 1 or not is_threading_enabled():
         arrays = [convert_column(c, f)
                   for c, f in zip(columns_to_convert, convert_fields)]
     else:
