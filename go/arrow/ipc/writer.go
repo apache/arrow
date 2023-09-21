@@ -577,10 +577,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 
 	case *arrow.BinaryType, *arrow.LargeBinaryType, *arrow.StringType, *arrow.LargeStringType:
 		arr := arr.(array.BinaryLike)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets from %T: %w", arr, err)
-		}
+		voffsets := w.getZeroBasedValueOffsets(arr)
 		data := arr.Data()
 		values := data.Buffers()[2]
 
@@ -687,10 +684,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 		w.depth++
 	case *arrow.MapType, *arrow.ListType, *arrow.LargeListType:
 		arr := arr.(array.ListLike)
-		voffsets, err := w.getZeroBasedValueOffsets(arr)
-		if err != nil {
-			return fmt.Errorf("could not retrieve zero-based value offsets for array %T: %w", arr, err)
-		}
+		voffsets := w.getZeroBasedValueOffsets(arr)
 		p.body = append(p.body, voffsets)
 
 		w.depth--
@@ -716,7 +710,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 			values = array.NewSlice(values, values_offset, values_end)
 			mustRelease = true
 		}
-		err = w.visit(p, values)
+		err := w.visit(p, values)
 
 		if err != nil {
 			return fmt.Errorf("could not visit list element for array %T: %w", arr, err)
@@ -764,7 +758,7 @@ func (w *recordEncoder) visit(p *Payload, arr arrow.Array) error {
 	return nil
 }
 
-func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffer, error) {
+func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) *memory.Buffer {
 	data := arr.Data()
 	voffsets := data.Buffers()[1]
 	offsetTraits := arr.DataType().(arrow.OffsetsDataType).OffsetTypeTraits()
@@ -806,10 +800,10 @@ func (w *recordEncoder) getZeroBasedValueOffsets(arr arrow.Array) (*memory.Buffe
 		voffsets.Retain()
 	}
 	if voffsets == nil || voffsets.Len() == 0 {
-		return nil, nil
+		return nil
 	}
 
-	return voffsets, nil
+	return voffsets
 }
 
 func (w *recordEncoder) rebaseDenseUnionValueOffsets(arr *array.DenseUnion, offsets, lengths []int32) *memory.Buffer {
