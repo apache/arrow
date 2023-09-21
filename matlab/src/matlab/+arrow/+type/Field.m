@@ -98,9 +98,9 @@ classdef Field < matlab.mixin.CustomDisplay
     end
 
     methods (Access=protected)
-        function displayScalarObject(obj)
-            disp(obj.toString());
+        function groups = getPropertyGroups(~)
+            targets = ["Name", "Type"];
+            groups = matlab.mixin.util.PropertyGroup(targets);
         end
     end
-
 end
