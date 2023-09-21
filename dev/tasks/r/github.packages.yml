@@ -69,7 +69,7 @@ jobs:
         openssl: ['3.0', '1.1']
 
     steps:
-      {{ macros.github_checkout_arrow(checkout_v="3")|indent }}
+      {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
         if: {{ "${{ !contains(matrix.platform.runs_on, 'macos-10.13') }}" }}
