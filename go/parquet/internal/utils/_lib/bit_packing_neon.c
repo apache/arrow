@@ -647,7 +647,7 @@ inline static const uint32_t* unpack7_32_neon(const uint32_t* in, uint32_t* out)
   out += 4;
 
   // shift the 2nd 4 outs
-  ind[2] = (in[0] >> 28 | in[1] << 4) >> shifts_2nd[0];
+  ind[0] = (in[0] >> 28 | in[1] << 4) >> shifts_2nd[0];
   ind[1] = in[1] >> shifts_2nd[1];
   ind[2] = in[1] >> shifts_2nd[2];
   ind[3] = in[1] >> shifts_2nd[3];
@@ -842,7 +842,7 @@ inline static const uint32_t* unpack9_32_neon(const uint32_t* in, uint32_t* out)
   out += 4;
 
   // shift the 2nd 4 outs
-  ind[2] = in[1] >> shifts_2nd[0];
+  ind[0] = in[1] >> shifts_2nd[0];
   ind[1] = in[1] >> shifts_2nd[1];
   ind[2] = in[1] >> shifts_2nd[2];
   ind[3] = (in[1] >> 31 | in[2] << 1) >> shifts_2nd[3];
@@ -939,7 +939,7 @@ inline static const uint32_t* unpack10_32_neon(const uint32_t* in, uint32_t* out
   out += 4;
 
   // shift the 2nd 4 outs
-  ind[2] = in[1] >> shifts_2nd[0];
+  ind[0] = in[1] >> shifts_2nd[0];
   ind[1] = in[1] >> shifts_2nd[1];
   ind[2] = (in[1] >> 28 | in[2] << 4) >> shifts_2nd[2];
   ind[3] = in[2] >> shifts_2nd[3];
@@ -1040,7 +1040,7 @@ inline static const uint32_t* unpack11_32_neon(const uint32_t* in, uint32_t* out
   out += 4;
 
   // shift the 2nd 4 outs
-  ind[2] = in[1] >> shifts_2nd[0];
+  ind[0] = in[1] >> shifts_2nd[0];
   ind[1] = (in[1] >> 23 | in[2] << 9) >> shifts_2nd[1];
   ind[2] = in[2] >> shifts_2nd[2];
   ind[3] = in[2] >> shifts_2nd[3];
@@ -1135,7 +1135,7 @@ inline static const uint32_t* unpack12_32_neon(const uint32_t* in, uint32_t* out
   out += 4;
 
   // shift the 2nd 4 outs
-  ind[2] = in[1] >> shifts_2nd[0];
+  ind[0] = in[1] >> shifts_2nd[0];
   ind[1] = (in[1] >> 28 | in[2] << 4) >> shifts_2nd[1];
   ind[2] = in[2] >> shifts_2nd[2];
   ind[3] = in[2] >> shifts_2nd[3];
@@ -1236,7 +1236,7 @@ inline static const uint32_t* unpack13_32_neon(const uint32_t* in, uint32_t* out
   out += 4;
 
   // shift the 2nd 4 outs
-  ind[2] = (in[1] >> 20 | in[2] << 12) >> shifts_2nd[0];
+  ind[0] = (in[1] >> 20 | in[2] << 12) >> shifts_2nd[0];
   ind[1] = in[2] >> shifts_2nd[1];
   ind[2] = in[2] >> shifts_2nd[2];
   ind[3] = (in[2] >> 27 | in[3] << 5) >> shifts_2nd[3];
