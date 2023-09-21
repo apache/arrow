@@ -1914,3 +1914,47 @@ func BenchmarkBinaryDictionaryBuilder(b *testing.B) {
 		assert.NoError(b, builder.AppendString(randString()))
 	}
 }
+
+func TestBinaryDictionaryBuilderWithInitDict(t *testing.T) {
+	mem := memory.NewCheckedAllocator(memory.DefaultAllocator)
+	defer mem.AssertSize(t, 0)
+
+	dictType := &arrow.DictionaryType{IndexType: &arrow.Int32Type{}, ValueType: arrow.BinaryTypes.String}
+	bldr := array.NewDictionaryBuilder(mem, dictType).(*array.BinaryDictionaryBuilder)
+	defer bldr.Release()
+
+	bldr.AppendString("drop-1")
+	bldr.AppendString("keep-2")
+	bldr.AppendString("keep-3")
+
+	arr := bldr.NewArray().(*array.Dictionary)
+	defer arr.Release()
+	indices := arr.Indices().(*array.Int32)
+	dict := arr.Dictionary().(*array.String)
+
+	keepIndices := map[int]struct{}{}
+	for i := 0; i < dict.Len(); i++ {
+		if strings.HasPrefix(dict.Value(i), "keep-") {
+			keepIndices[i] = struct{}{}
+		}
+	}
+
+	bldr2 := array.NewDictionaryBuilderWithDict(mem, dictType, dict).(*array.BinaryDictionaryBuilder)
+	indices2 := bldr2.IndexBuilder().Builder.(*array.Int32Builder)
+	defer bldr2.Release()
+
+	for i := 0; i < arr.Len(); i++ {
+		if _, ok := keepIndices[i]; ok {
+			indices2.Append(indices.Value(i))
+		}
+	}
+
+	arr2 := bldr2.NewArray().(*array.Dictionary)
+	defer arr2.Release()
+	dict2 := arr2.Dictionary().(*array.String)
+
+	assert.Equal(t, 2, arr2.Len())
+	assert.Equal(t, 3, dict2.Len())
+	assert.Equal(t, "keep-2", dict2.Value(arr2.GetValueIndex(0)))
+	assert.Equal(t, "keep-3", dict2.Value(arr2.GetValueIndex(1)))
+}
