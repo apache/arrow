@@ -1519,6 +1519,22 @@ class ReaderWriterMixin : public ExtensionTypesMixin {
     }
   }
 
+  void TestWriteAfterClose() {
+    // Part of GH-35095.
+    std::shared_ptr<RecordBatch> batch_ints;
+    ASSERT_OK(MakeIntRecordBatch(&batch_ints));
+
+    auto schema = batch_ints->schema();
+
+    WriterHelper writer_helper;
+    ASSERT_OK(writer_helper.Init(schema, IpcWriteOptions::Defaults()));
+    ASSERT_OK(writer_helper.WriteBatch(batch_ints));
+    ASSERT_OK(writer_helper.Finish());
+
+    // Write after close raises status
+    ASSERT_RAISES(Invalid, writer_helper.WriteBatch(batch_ints));
+  }
+
   void TestWriteDifferentSchema() {
     // Test writing batches with a different schema than the RecordBatchWriter
     // was initialized with.
@@ -1991,6 +2007,9 @@ TEST_F(TestFileFormatGenerator, DictionaryRoundTrip) { TestDictionaryRoundtrip()
 TEST_F(TestFileFormatGeneratorCoalesced, DictionaryRoundTrip) {
   TestDictionaryRoundtrip();
 }
+TEST_F(TestFileFormat, WriteAfterClose) { TestWriteAfterClose(); }
+
+TEST_F(TestStreamFormat, WriteAfterClose) { TestWriteAfterClose(); }
 
 TEST_F(TestStreamFormat, DifferentSchema) { TestWriteDifferentSchema(); }
 
