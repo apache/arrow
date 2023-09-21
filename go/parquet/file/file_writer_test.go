@@ -30,6 +30,7 @@ import (
 	"github.com/apache/arrow/go/v14/parquet/internal/testutils"
 	"github.com/apache/arrow/go/v14/parquet/schema"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -369,6 +370,34 @@ func TestAllNulls(t *testing.T) {
 	assert.EqualValues(t, 3, valRead)
 	assert.EqualValues(t, 0, read)
 	assert.Equal(t, []int16{0, 0, 0}, defLevels[:])
+}
+
+func TestKeyValueMetadata(t *testing.T) {
+	fields := schema.FieldList{
+		schema.NewInt32Node("unused", parquet.Repetitions.Optional, -1),
+	}
+	sc, _ := schema.NewGroupNode("root", parquet.Repetitions.Required, fields, -1)
+	sink := encoding.NewBufferWriter(0, memory.DefaultAllocator)
+
+	writer := file.NewParquetWriter(sink, sc)
+
+	testKey := "testKey"
+	testValue := "testValue"
+	writer.AppendKeyValueMetadata(testKey, testValue)
+	writer.Close()
+
+	buffer := sink.Finish()
+	defer buffer.Release()
+	props := parquet.NewReaderProperties(memory.DefaultAllocator)
+	props.BufferedStreamEnabled = true
+
+	reader, err := file.NewParquetReader(bytes.NewReader(buffer.Bytes()), file.WithReadProps(props))
+	assert.NoError(t, err)
+
+	metadata := reader.MetaData()
+	got := metadata.KeyValueMetadata().FindValue(testKey)
+	require.NotNil(t, got)
+	assert.Equal(t, testValue, *got)
 }
 
 func createSerializeTestSuite(typ reflect.Type) suite.TestingSuite {

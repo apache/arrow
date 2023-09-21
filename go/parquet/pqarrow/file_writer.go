@@ -272,6 +272,11 @@ func (fw *FileWriter) WriteTable(tbl arrow.Table, chunkSize int64) error {
 	return nil
 }
 
+// AppendKeyValueMetadata appends a key/value pair to the existing key/value metadata
+func (fw *FileWriter) AppendKeyValueMetadata(key string, value string) error {
+	return fw.wr.AppendKeyValueMetadata(key, value)
+}
+
 // Close flushes out the data and closes the file. It can be called multiple times,
 // subsequent calls after the first will have no effect.
 func (fw *FileWriter) Close() error {
