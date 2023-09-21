@@ -1307,14 +1307,16 @@ macro(build_snappy)
 
   set(SNAPPY_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS} -DSNAPPY_BUILD_TESTS=OFF -DSNAPPY_BUILD_BENCHMARKS=OFF
-      "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}" "-DCMAKE_CXX_FLAGS_${UPPERCASE_BUILD_TYPE}=-Wno-error")
+      "-DCMAKE_INSTALL_PREFIX=${SNAPPY_PREFIX}")
 
+  find_program(GIT git)
   externalproject_add(snappy_ep
                       ${EP_COMMON_OPTIONS}
                       BUILD_IN_SOURCE 1
                       INSTALL_DIR ${SNAPPY_PREFIX}
                       URL ${SNAPPY_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
+                      PATCH_COMMAND ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/snappy.diff
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
