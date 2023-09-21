@@ -1851,7 +1851,7 @@ Status Schema::CanReferenceFieldByName(const std::string& name) const {
   if (GetFieldByName(name) == nullptr) {
     return Status::Invalid("Field named '", name,
                            "' not found or not unique in the schema.");
-    }
+  }
   return Status::OK();
 }
 
