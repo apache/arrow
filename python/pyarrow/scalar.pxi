@@ -819,8 +819,8 @@ cdef class MapScalar(ListScalar):
         Iterate over this element's values.
         """
         arr = self.values
-        if array is None:
-            raise StopIteration
+        if arr is None:
+            return
         for k, v in zip(arr.field(self.type.key_field.name), arr.field(self.type.item_field.name)):
             yield (k.as_py(), v.as_py())
 

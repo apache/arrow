@@ -1286,6 +1286,14 @@ tasks:
         PYTHON: "3.10"
       image: conda-python-substrait
 
+  test-conda-python-3.10-cython2:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      env:
+        PYTHON: "3.10"
+      image: conda-python-cython2
+
   test-debian-11-python-3:
     ci: azure
     template: docker-tests/azure.linux.yml

@@ -988,8 +988,10 @@ cdef class _MetadataRecordBatchReader(_Weakrefable, _ReadPandasMixin):
     cdef shared_ptr[CMetadataRecordBatchReader] reader
 
     def __iter__(self):
-        while True:
-            yield self.read_chunk()
+        return self
+
+    def __next__(self):
+        return self.read_chunk()
 
     @property
     def schema(self):
@@ -1699,7 +1701,9 @@ cdef class FlightClient(_Weakrefable):
 
     def close(self):
         """Close the client and disconnect."""
-        check_flight_status(self.client.get().Close())
+        client = self.client.get()
+        if client != NULL:
+            check_flight_status(client.Close())
 
     def __del__(self):
         # Not ideal, but close() wasn't originally present so
