@@ -436,8 +436,10 @@ cdef class MessageReader(_Weakrefable):
         return result
 
     def __iter__(self):
-        while True:
-            yield self.read_next_message()
+        return self
+
+    def __next__(self):
+        return self.read_next_message()
 
     def read_next_message(self):
         """
@@ -656,11 +658,10 @@ cdef class RecordBatchReader(_Weakrefable):
     # cdef block is in lib.pxd
 
     def __iter__(self):
-        while True:
-            try:
-                yield self.read_next_batch()
-            except StopIteration:
-                return
+        return self
+
+    def __next__(self):
+        return self.read_next_batch()
 
     @property
     def schema(self):

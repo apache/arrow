@@ -700,6 +700,10 @@ def test_map(pickle_module):
     for i, j in zip(s, v):
         assert i == j
 
+    # test iteration with missing values
+    for _ in pa.scalar(None, type=ty):
+        pass
+
     assert s.as_py() == v
     assert s[1] == (
         pa.scalar('b', type=pa.string()),
