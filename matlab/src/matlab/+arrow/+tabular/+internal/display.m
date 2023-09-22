@@ -56,4 +56,3 @@ function text = display(names, data)
     data = indent + join(data, indent);
     text = names + newline + dividers + newline + newline + data;
 end
-
