@@ -59,7 +59,7 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     if (dict->length() == 0) {
       return dict_array;
     }
-    const std::shared_ptr<Array>& indice = casted_dict_array.indices();
+    const std::shared_ptr<Array>& indices = casted_dict_array.indices();
     if (indice->length() == 0) {
       ARROW_ASSIGN_OR_RAISE(auto empty_dict,
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
