@@ -137,7 +137,7 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
         raw_changed_indice[i] = current_index - indice_minus_number[current_index];
       }
     }
-    BuilderType indice_builder;
+    BuilderType indices_builder(ctx->memory_pool());
     if (indices->null_count() != 0) {
       ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice, is_valid));
     } else {
