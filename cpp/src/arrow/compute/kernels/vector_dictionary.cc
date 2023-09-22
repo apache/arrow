@@ -93,18 +93,16 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
       return DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict);
     }
-    std::vector<CType> dict_indice;
+    BuilderType dict_indices_builder(ctx->memory_pool());
     bool need_change_indice = false;
     CType len = static_cast<CType>(dict->length());
     for (CType i = 0; i < len; i++) {
       if (dict_used[i]) {
-        dict_indice.push_back(i);
+        ARROW_RETURN_NOT_OK(dict_indices_builder.Append(i));
       } else if (i + 1 < len && dict_used[i + 1]) {
         need_change_indice = true;
       }
     }
-    BuilderType dict_indices_builder;
-    ARROW_RETURN_NOT_OK(dict_indices_builder.AppendValues(dict_indice));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
                           dict_indices_builder.Finish());
     ARROW_ASSIGN_OR_RAISE(
@@ -127,21 +125,15 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
       }
     }
 
-    std::vector<CType> raw_changed_indice(indices->length(), 0);
-    std::vector<bool> is_valid(indices->length(), true);
+    BuilderType indices_builder(ctx->memory_pool());
     for (int64_t i = 0; i < indices->length(); i++) {
       if (indices->IsNull(i)) {
-        is_valid[i] = false;
+        ARROW_RETURN_NOT_OK(indices_builder.AppendNull());
       } else {
         CType current_index = indices_data[i];
-        raw_changed_indice[i] = current_index - indice_minus_number[current_index];
+        ARROW_RETURN_NOT_OK(
+            indices_builder.Append(current_index - indice_minus_number[current_index]));
       }
-    }
-    BuilderType indices_builder(ctx->memory_pool());
-    if (indices->null_count() != 0) {
-      ARROW_RETURN_NOT_OK(indices_builder.AppendValues(raw_changed_indice, is_valid));
-    } else {
-      ARROW_RETURN_NOT_OK(indices_builder.AppendValues(raw_changed_indice));
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
                           indices_builder.Finish());
