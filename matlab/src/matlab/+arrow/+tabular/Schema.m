@@ -97,18 +97,61 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
         end
     end
 
-    methods (Access = private)
-
-        function str = toString(obj)
-            str = obj.Proxy.toString();
-        end
-
-    end
-
     methods (Access=protected)
 
+        function header = getHeader(obj)
+            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            numFields = obj.NumFields;
+            if numFields == 0
+                header = compose("  %s with 0 fields" + newline, name);
+            elseif numFields == 1
+                header = compose("  %s with %d field:" + newline, name, numFields);
+            else
+                header = compose("  %s with %d fields:" + newline, name, numFields);
+            end
+        end
+
         function displayScalarObject(obj)
-            disp(obj.toString());
+            disp(getHeader(obj));
+            numFields = obj.NumFields;
+
+            if numFields > 0
+                strs = strings([3, numFields]);
+                strs(1, :) = [obj.FieldNames];
+                strs(3, :) = arrayfun(@(type) string(class(type)), [obj.Fields.Type]);
+                
+                % Calculate the maximum string length per column
+                maxLength = max(strlength(strs), [], 1);
+    
+                % Create the dividers ("_") between each field name and type
+                strs(2, :) = arrayfun(@(width) string(repmat('_', [1 width])), maxLength);
+    
+                % Pad each string with whitespace before center-aligning.
+                for ii = 1:numFields
+                    strs(:, ii) = pad(strs(:, ii), maxLength(ii));
+                end
+                strs = strjust(strs, "center");
+    
+                % Concatenate the text values in each row to create a 3x1
+                % string vector. 
+                if (size(strs, 2) > 1)
+                    strs = strcat(join(strs, "    "));
+                end
+                
+                % Indent the rows
+                strs = "    " + strs;
+    
+                % Create the header row by joining the first two rows with a
+                % newline character.
+                header = strjoin(strs(1:2), newline);
+    
+                % Concatenate the header with the last row using two newline
+                % characters as the delimiter. This is the final display.
+                display = header + newline + newline + strs(3);
+                
+                disp(display + newline);
+            end
+
         end
 
     end
