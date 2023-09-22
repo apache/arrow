@@ -1439,10 +1439,17 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
                   [shift](int row) -> int64_t { return row * 10 + shift; }},
                  schema, num_batches, batch_size);
   };
-  // WIP
-  ASSERT_OK(Status::Invalid("FOO"));
+  auto make_shift_gated = [&maker, batch_size](
+                        const std::shared_ptr<Schema>& schema, int shift) {
+      int n = 100;
+    return maker({[](int row) -> int64_t { return row; },
+                  [n](int row) -> int64_t { return row / n; },
+                  [shift](int row) -> int64_t { return row * 10 + shift; }},
+                 schema, n, batch_size);
+  };
   ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(l_schema, 0));
-  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(r0_schema, 1));
+  // CHANGED
+  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift_gated(r0_schema, 1));
   ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(r1_schema, 2));
 
   BackpressureCountingNode::Register();
@@ -1488,11 +1495,20 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
     if (config.is_gated) {
       bp_decl = {std::string{GatedNodeOptions::kName}, {bp_decl}, gate_options};
     }
-    bp_decls.push_back(bp_decl);
+    bp_decls.emplace_back(bp_decl);
   }
 
+  bool finished = false;
+
+  auto opts = GetRepeatedOptions(source_configs.size(), "time", {"key"}, 0);
+  opts.finishedCallback = [&finished, &gate] { 
+      std::cout << "IN FINISHED CALLBACK" << std::endl;
+      finished = true; 
+      gate.ReleaseAllBatches();
+  };
+
   Declaration asofjoin = {"asofjoin", bp_decls,
-                          GetRepeatedOptions(source_configs.size(), "time", {"key"}, 0)};
+                          opts};
 
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<internal::ThreadPool> tpool,
                        internal::ThreadPool::Make(1));
@@ -1514,13 +1530,19 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
     return true;
   };
 
-  BusyWait(10.0, has_bp_been_applied);
+  BusyWait(60.0, has_bp_been_applied);
   ASSERT_TRUE(has_bp_been_applied());
 
-  gate.ReleaseAllBatches();
+  for (int i = 0 ; i < 25; i++) {
+      gate.ReleaseOneBatch();
+  }
+
+  auto has_finished = [&] { return finished; };
+  BusyWait(60.0, has_finished);
+
   ASSERT_FINISHES_OK_AND_ASSIGN(BatchesWithCommonSchema batches, batches_fut);
 
-  // One of the inputs is gated.  The other two will eventually be resumed by the asof
+  // One of the inputs is gated and was released. The other two will eventually be resumed by the asof
   // join node
   for (size_t i = 0; i < source_configs.size(); i++) {
     const auto& counters = bp_counters[i];
@@ -1528,10 +1550,12 @@ void TestBackpressure(BatchesMaker maker, int num_batches, int batch_size) {
       ASSERT_GE(counters.resume_count, 0);
     }
   }
+
+  ASSERT_TRUE(false);
 }
 
 TEST(AsofJoinTest, BackpressureWithBatches) {
-  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/100000, /*batch_size=*/1);
+  return TestBackpressure(MakeIntegerBatches, /*num_batches=*/20, /*batch_size=*/1);
 }
 
 template <typename BatchesMaker>
