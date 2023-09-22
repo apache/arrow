@@ -65,9 +65,7 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
       return DictionaryArray::FromArrays(dict_array->type(), indice, empty_dict);
     }
-    const CType* indices_data =
-        reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
-    int64_t offset = indice->data()->offset;
+    const auto* indices_data = indices->data()->GetValues<CType>(1);
 
     // check whether the input is compacted
     std::vector<bool> dict_used(dict->length(), false);
