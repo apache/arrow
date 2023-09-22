@@ -22,6 +22,7 @@
 /// Version 1.1 - Add Decimal256.
 /// Version 1.2 - Add Interval MONTH_DAY_NANO.
 /// Version 1.3 - Add Run-End Encoded.
+/// Version 1.4 - Add BinaryView, Utf8View, and variadicBufferCounts.
 
 namespace org.apache.arrow.flatbuf;
 
@@ -170,6 +171,27 @@ table LargeUtf8 {
 /// extremely large data values.
 table LargeBinary {
 }
+
+/// Logically the same as Utf8, but the internal representation uses a view
+/// struct that contains the string length and either the string's entire data
+/// inline (for small strings) or an inlined prefix, an index of another buffer,
+/// and an offset pointing to a slice in that buffer (for non-small strings).
+///
+/// Since it uses a variable number of data buffers, each Field with this type
+/// must have a corresponding entry in `variadicBufferCounts`.
+table Utf8View {
+}
+
+/// Logically the same as Binary, but the internal representation uses a header
+/// struct that contains the string length and either the string's entire data
+/// inline (for small strings) or an inlined prefix, an index of another buffer,
+/// and an offset pointing to a slice in that buffer (for non-small strings).
+///
+/// Since it uses a variable number of data buffers, each Field with this type
+/// must have a corresponding entry in `variadicBufferCounts`.
+table BinaryView {
+}
+
 
 table FixedSizeBinary {
   /// Number of bytes per value
@@ -427,6 +449,8 @@ union Type {
   LargeUtf8,
   LargeList,
   RunEndEncoded,
+  BinaryView,
+  Utf8View,
 }
 
 /// ----------------------------------------------------------------------

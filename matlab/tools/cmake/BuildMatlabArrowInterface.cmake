@@ -47,6 +47,7 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/timestamp_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/time32_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/time64_array.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/struct_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/chunked_array.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/array/proxy/wrap.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/tabular/proxy/record_batch.cc"
@@ -70,9 +71,9 @@ set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/a
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/type/proxy/wrap.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/feather/proxy/writer.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/feather/proxy/reader.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/csv/proxy/table_writer.cc"
+                                                  "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/io/csv/proxy/table_reader.cc"
                                                   "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/index/validate.cc")
-
-
 
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy")
 set(MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_FACTORY_SOURCES "${CMAKE_SOURCE_DIR}/src/cpp/arrow/matlab/proxy/factory.cc")

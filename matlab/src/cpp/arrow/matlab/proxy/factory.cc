@@ -21,6 +21,7 @@
 #include "arrow/matlab/array/proxy/timestamp_array.h"
 #include "arrow/matlab/array/proxy/time32_array.h"
 #include "arrow/matlab/array/proxy/time64_array.h"
+#include "arrow/matlab/array/proxy/struct_array.h"
 #include "arrow/matlab/array/proxy/chunked_array.h"
 #include "arrow/matlab/tabular/proxy/record_batch.h"
 #include "arrow/matlab/tabular/proxy/table.h"
@@ -37,6 +38,8 @@
 #include "arrow/matlab/type/proxy/field.h"
 #include "arrow/matlab/io/feather/proxy/writer.h"
 #include "arrow/matlab/io/feather/proxy/reader.h"
+#include "arrow/matlab/io/csv/proxy/table_writer.h"
+#include "arrow/matlab/io/csv/proxy/table_reader.h"
 
 #include "factory.h"
 
@@ -55,6 +58,7 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.array.proxy.Int64Array    , arrow::matlab::array::proxy::NumericArray<arrow::Int64Type>);
     REGISTER_PROXY(arrow.array.proxy.BooleanArray  , arrow::matlab::array::proxy::BooleanArray);
     REGISTER_PROXY(arrow.array.proxy.StringArray   , arrow::matlab::array::proxy::StringArray);
+    REGISTER_PROXY(arrow.array.proxy.StructArray   , arrow::matlab::array::proxy::StructArray);
     REGISTER_PROXY(arrow.array.proxy.TimestampArray, arrow::matlab::array::proxy::NumericArray<arrow::TimestampType>);
     REGISTER_PROXY(arrow.array.proxy.Time32Array   , arrow::matlab::array::proxy::NumericArray<arrow::Time32Type>);
     REGISTER_PROXY(arrow.array.proxy.Time64Array   , arrow::matlab::array::proxy::NumericArray<arrow::Time64Type>);
@@ -85,6 +89,8 @@ libmexclass::proxy::MakeResult Factory::make_proxy(const ClassName& class_name, 
     REGISTER_PROXY(arrow.type.proxy.StructType     , arrow::matlab::type::proxy::StructType);
     REGISTER_PROXY(arrow.io.feather.proxy.Writer   , arrow::matlab::io::feather::proxy::Writer);
     REGISTER_PROXY(arrow.io.feather.proxy.Reader   , arrow::matlab::io::feather::proxy::Reader);
+    REGISTER_PROXY(arrow.io.csv.proxy.TableWriter  , arrow::matlab::io::csv::proxy::TableWriter);
+    REGISTER_PROXY(arrow.io.csv.proxy.TableReader  , arrow::matlab::io::csv::proxy::TableReader);
 
     return libmexclass::error::Error{error::UNKNOWN_PROXY_ERROR_ID, "Did not find matching C++ proxy for " + class_name};
 };

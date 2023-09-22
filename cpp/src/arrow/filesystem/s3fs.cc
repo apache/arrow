@@ -1454,14 +1454,7 @@ class ObjectOutputStream final : public io::OutputStream {
 
   // OutputStream interface
 
-  Status Close() override {
-    auto fut = CloseAsync();
-    return fut.status();
-  }
-
-  Future<> CloseAsync() override {
-    if (closed_) return Status::OK();
-
+  Status EnsureReadyToFlushFromClose() {
     if (current_part_) {
       // Upload last part
       RETURN_NOT_OK(CommitCurrentPart());
@@ -1472,36 +1465,56 @@ class ObjectOutputStream final : public io::OutputStream {
       RETURN_NOT_OK(UploadPart("", 0));
     }
 
+    return Status::OK();
+  }
+
+  Status FinishPartUploadAfterFlush() {
+    ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
+
+    // At this point, all part uploads have finished successfully
+    DCHECK_GT(part_number_, 1);
+    DCHECK_EQ(upload_state_->completed_parts.size(),
+              static_cast<size_t>(part_number_ - 1));
+
+    S3Model::CompletedMultipartUpload completed_upload;
+    completed_upload.SetParts(upload_state_->completed_parts);
+    S3Model::CompleteMultipartUploadRequest req;
+    req.SetBucket(ToAwsString(path_.bucket));
+    req.SetKey(ToAwsString(path_.key));
+    req.SetUploadId(upload_id_);
+    req.SetMultipartUpload(std::move(completed_upload));
+
+    auto outcome =
+        client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
+    if (!outcome.IsSuccess()) {
+      return ErrorToStatus(
+          std::forward_as_tuple("When completing multiple part upload for key '",
+                                path_.key, "' in bucket '", path_.bucket, "': "),
+          "CompleteMultipartUpload", outcome.GetError());
+    }
+
+    holder_ = nullptr;
+    closed_ = true;
+    return Status::OK();
+  }
+
+  Status Close() override {
+    if (closed_) return Status::OK();
+
+    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+
+    RETURN_NOT_OK(Flush());
+    return FinishPartUploadAfterFlush();
+  }
+
+  Future<> CloseAsync() override {
+    if (closed_) return Status::OK();
+
+    RETURN_NOT_OK(EnsureReadyToFlushFromClose());
+
+    auto self = std::dynamic_pointer_cast<ObjectOutputStream>(shared_from_this());
     // Wait for in-progress uploads to finish (if async writes are enabled)
-    return FlushAsync().Then([this]() {
-      ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
-
-      // At this point, all part uploads have finished successfully
-      DCHECK_GT(part_number_, 1);
-      DCHECK_EQ(upload_state_->completed_parts.size(),
-                static_cast<size_t>(part_number_ - 1));
-
-      S3Model::CompletedMultipartUpload completed_upload;
-      completed_upload.SetParts(upload_state_->completed_parts);
-      S3Model::CompleteMultipartUploadRequest req;
-      req.SetBucket(ToAwsString(path_.bucket));
-      req.SetKey(ToAwsString(path_.key));
-      req.SetUploadId(upload_id_);
-      req.SetMultipartUpload(std::move(completed_upload));
-
-      auto outcome =
-          client_lock.Move()->CompleteMultipartUploadWithErrorFixup(std::move(req));
-      if (!outcome.IsSuccess()) {
-        return ErrorToStatus(
-            std::forward_as_tuple("When completing multiple part upload for key '",
-                                  path_.key, "' in bucket '", path_.bucket, "': "),
-            "CompleteMultipartUpload", outcome.GetError());
-      }
-
-      holder_ = nullptr;
-      closed_ = true;
-      return Status::OK();
-    });
+    return FlushAsync().Then([self]() { return self->FinishPartUploadAfterFlush(); });
   }
 
   bool closed() const override { return closed_; }
