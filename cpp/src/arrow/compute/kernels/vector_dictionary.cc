@@ -36,7 +36,8 @@ const FunctionDoc dictionary_compact_doc{
     "Compact dictionary array",
     ("Return a compacted version of the dictionary array input,\n"
      "which removes unused values in dictionary.\n"
-     "The function assumes every indice is effective."),
+     "The function assumes every indices has its corresponding value\n"
+     "in dictionary."),
     {"dictionary_array"}};
 
 class DictionaryCompactKernel : public KernelState {
@@ -59,27 +60,25 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     if (dict->length() == 0) {
       return dict_array;
     }
-    const std::shared_ptr<Array>& indice = casted_dict_array.indices();
-    if (indice->length() == 0) {
+    const std::shared_ptr<Array>& indices = casted_dict_array.indices();
+    if (indices->length() == 0) {
       ARROW_ASSIGN_OR_RAISE(auto empty_dict,
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
-      return DictionaryArray::FromArrays(dict_array->type(), indice, empty_dict);
+      return DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict);
     }
-    const CType* indices_data =
-        reinterpret_cast<const CType*>(indice->data()->buffers[1]->data());
-    int64_t offset = indice->data()->offset;
+    const CType* indices_data = indices->data()->GetValues<CType>(1);
 
     // check whether the input is compacted
     std::vector<bool> dict_used(dict->length(), false);
     int64_t dict_used_count = 0;
-    for (int64_t i = 0; i < indice->length(); i++) {
-      if (indice->IsNull(i)) {
+    for (int64_t i = 0; i < indices->length(); i++) {
+      if (indices->IsNull(i)) {
         continue;
       }
 
-      CType cur_indice = indices_data[i + offset];
-      if (!dict_used[cur_indice]) {
-        dict_used[cur_indice] = true;
+      CType current_index = indices_data[i];
+      if (!dict_used[current_index]) {
+        dict_used[current_index] = true;
         dict_used_count++;
 
         if (dict_used_count == dict->length()) {  // input is already compacted
@@ -92,7 +91,7 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     if (dict_used_count == 0) {
       ARROW_ASSIGN_OR_RAISE(auto empty_dict,
                             MakeEmptyArray(dict->type(), ctx->memory_pool()));
-      return DictionaryArray::FromArrays(dict_array->type(), indice, empty_dict);
+      return DictionaryArray::FromArrays(dict_array->type(), indices, empty_dict);
     }
     std::vector<CType> dict_indice;
     bool need_change_indice = false;
@@ -113,9 +112,9 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
         Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
     std::shared_ptr<arrow::Array> compacted_dict = compacted_dict_res.make_array();
 
-    // indice changes
+    // indices changes
     if (!need_change_indice) {
-      return DictionaryArray::FromArrays(dict_array->type(), indice, compacted_dict);
+      return DictionaryArray::FromArrays(dict_array->type(), indices, compacted_dict);
     }
     std::vector<CType> indice_minus_number(dict->length(), 0);
     if (!dict_used[0]) {
@@ -128,18 +127,18 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
       }
     }
 
-    std::vector<CType> raw_changed_indice(indice->length(), 0);
-    std::vector<bool> is_valid(indice->length(), true);
-    for (int64_t i = 0; i < indice->length(); i++) {
-      if (indice->IsNull(i)) {
+    std::vector<CType> raw_changed_indice(indices->length(), 0);
+    std::vector<bool> is_valid(indices->length(), true);
+    for (int64_t i = 0; i < indices->length(); i++) {
+      if (indices->IsNull(i)) {
         is_valid[i] = false;
       } else {
-        CType cur_indice = indices_data[i + offset];
-        raw_changed_indice[i] = cur_indice - indice_minus_number[cur_indice];
+        CType current_index = indices_data[i];
+        raw_changed_indice[i] = current_index - indice_minus_number[current_index];
       }
     }
     BuilderType indice_builder;
-    if (indice->null_count() != 0) {
+    if (indices->null_count() != 0) {
       ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice, is_valid));
     } else {
       ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice));
