@@ -103,10 +103,10 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
         need_change_indice = true;
       }
     }
-    BuilderType dict_indice_builder;
-    ARROW_RETURN_NOT_OK(dict_indice_builder.AppendValues(dict_indice));
+    BuilderType dict_indices_builder;
+    ARROW_RETURN_NOT_OK(dict_indices_builder.AppendValues(dict_indice));
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> compacted_dict_indices,
-                          dict_indice_builder.Finish());
+                          dict_indices_builder.Finish());
     ARROW_ASSIGN_OR_RAISE(
         auto compacted_dict_res,
         Take(dict, compacted_dict_indices, TakeOptions::NoBoundsCheck(), ctx));
@@ -139,12 +139,12 @@ class DictionaryCompactKernelImpl : public DictionaryCompactKernel {
     }
     BuilderType indices_builder(ctx->memory_pool());
     if (indices->null_count() != 0) {
-      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice, is_valid));
+      ARROW_RETURN_NOT_OK(indices_builder.AppendValues(raw_changed_indice, is_valid));
     } else {
-      ARROW_RETURN_NOT_OK(indice_builder.AppendValues(raw_changed_indice));
+      ARROW_RETURN_NOT_OK(indices_builder.AppendValues(raw_changed_indice));
     }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<arrow::Array> changed_indice,
-                          indice_builder.Finish());
+                          indices_builder.Finish());
 
     return DictionaryArray::FromArrays(dict_array->type(), changed_indice,
                                        compacted_dict);
